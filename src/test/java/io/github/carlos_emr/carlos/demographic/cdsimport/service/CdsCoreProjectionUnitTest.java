@@ -128,17 +128,37 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
                         providers,
                         preparation,
                         new CdsDemographicDetailsService(fields, providers),
-                        new CdsDemographicRelationsService(fields, mock(ProfessionalContactDao.class),
-                                mock(DemographicContactDao.class), mock(PharmacyInfoDao.class),
+                        new CdsDemographicRelationsService(
+                                fields,
+                                mock(ProfessionalContactDao.class),
+                                mock(DemographicContactDao.class),
+                                mock(PharmacyInfoDao.class),
                                 mock(DemographicPharmacyDao.class)),
-                        demographicDao, customDao, extensionsDao, admissionsDao);
+                        demographicDao,
+                        customDao,
+                        extensionsDao,
+                        admissionsDao);
         histories =
                 new CdsHistoryPersister(
-                        fields, normalization, configuration, providers, preparation,
-                        notesDao, patientIssuesDao, issuesDao, mock(io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAO.class));
+                        fields,
+                        normalization,
+                        configuration,
+                        providers,
+                        preparation,
+                        notesDao,
+                        patientIssuesDao,
+                        issuesDao,
+                        mock(
+                                io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAO
+                                        .class));
         appointments =
                 new CdsAppointmentPersister(
-                        fields, normalization, configuration, providers, preparation, appointmentsDao,
+                        fields,
+                        normalization,
+                        configuration,
+                        providers,
+                        preparation,
+                        appointmentsDao,
                         demographicDao);
         command =
                 new CdsImportCommand(
@@ -160,21 +180,23 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldProjectOrderedLegalGivenParts_includingDuplicatesAndAllSiblingOrders()
             throws Exception {
-        var source = parseWithNames(
-                otherName("Anne", "GIV", false)
-                        + otherName("Family", "FAMC", true)
-                        + otherName("Anne", "GIV", true)
-                        + otherName("Éloïse", "GIV", false),
-                "<cdsd:OtherNames namePurpose='AL'>"
-                        + otherName("Alias", "GIV", false) + "</cdsd:OtherNames>");
+        var source =
+                parseWithNames(
+                        otherName("Anne", "GIV", false)
+                                + otherName("Family", "FAMC", true)
+                                + otherName("Anne", "GIV", true)
+                                + otherName("Éloïse", "GIV", false),
+                        "<cdsd:OtherNames namePurpose='AL'>"
+                                + otherName("Alias", "GIV", false)
+                                + "</cdsd:OtherNames>");
         demographics.prepare("run", 1, "unit", source, command);
         var dto = captured(CdsDemographicNativeDto.class);
-        assertThat(dto.scalars()).containsEntry(
-                CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR, "Anne Anne Éloïse");
-        assertThat(dto.diagnostics()).extracting(CdsClinicalDiagnosticDto::code)
+        assertThat(dto.scalars())
+                .containsEntry(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR, "Anne Anne Éloïse");
+        assertThat(dto.diagnostics())
+                .extracting(CdsClinicalDiagnosticDto::code)
                 .contains("CDS_MIDDLE_NAMES_JOINED_IN_SOURCE_ORDER");
-        assertThat(sourceMiddlePart(source, 2))
-                .isEqualTo("Family");
+        assertThat(sourceMiddlePart(source, 2)).isEqualTo("Family");
     }
 
     @Test
@@ -189,8 +211,8 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
     void shouldFitExactly100MiddleNameCodePoints_includingInsertedSeparatorsAndUnicode()
             throws Exception {
         String first = "𐐀".repeat(50), second = "É".repeat(49);
-        var source = parseWithNames(
-                otherName(first, "GIV", false) + otherName(second, "GIV", true), "");
+        var source =
+                parseWithNames(otherName(first, "GIV", false) + otherName(second, "GIV", true), "");
         demographics.prepare("run", 1, "unit", source, command);
         assertThat(captured(CdsDemographicNativeDto.class).scalars())
                 .containsEntry(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR, first + " " + second);
@@ -200,39 +222,45 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
     void shouldKeepAllMiddleNamePartsInSource_whenJoinedNativeCapacityIsExceeded()
             throws Exception {
         String first = "A".repeat(50), second = "B".repeat(50);
-        var source = parseWithNames(
-                otherName(first, "GIV", false) + otherName(second, "GIV", true), "");
+        var source =
+                parseWithNames(otherName(first, "GIV", false) + otherName(second, "GIV", true), "");
         demographics.prepare("run", 1, "unit", source, command);
         var dto = captured(CdsDemographicNativeDto.class);
         assertThat(dto.scalars()).doesNotContainKey(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR);
-        assertThat(dto.diagnostics()).extracting(CdsClinicalDiagnosticDto::code)
+        assertThat(dto.diagnostics())
+                .extracting(CdsClinicalDiagnosticDto::code)
                 .contains("CDS_MIDDLE_NAMES_SOURCE_ONLY")
                 .doesNotContain("CDS_MIDDLE_NAMES_JOINED_IN_SOURCE_ORDER");
-        assertThat(sourceMiddlePart(source, 2))
-                .isEqualTo(second);
+        assertThat(sourceMiddlePart(source, 2)).isEqualTo(second);
     }
 
     @Test
     void shouldNotProjectAPartialMiddleName_whenAnyGivenPartIsEmpty() throws Exception {
-        var source = parseWithNames(
-                otherName("Anne", "GIV", false) + otherName(" \t ", "GIV", true), "");
+        var source =
+                parseWithNames(
+                        otherName("Anne", "GIV", false) + otherName(" \t ", "GIV", true), "");
         demographics.prepare("run", 1, "unit", source, command);
         var dto = captured(CdsDemographicNativeDto.class);
         assertThat(dto.scalars()).doesNotContainKey(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR);
-        assertThat(dto.diagnostics()).extracting(CdsClinicalDiagnosticDto::code)
+        assertThat(dto.diagnostics())
+                .extracting(CdsClinicalDiagnosticDto::code)
                 .contains("CDS_MIDDLE_NAMES_SOURCE_ONLY");
     }
 
     @Test
     void shouldLeaveAbsentOrFamilyOnlyMiddleNamesUnset_withoutGuessingFromAliases()
             throws Exception {
-        var source = parseWithNames(otherName("Family", "FAMC", true),
-                "<cdsd:OtherNames namePurpose='AL'>"
-                        + otherName("Alias", "GIV", false) + "</cdsd:OtherNames>");
+        var source =
+                parseWithNames(
+                        otherName("Family", "FAMC", true),
+                        "<cdsd:OtherNames namePurpose='AL'>"
+                                + otherName("Alias", "GIV", false)
+                                + "</cdsd:OtherNames>");
         demographics.prepare("run", 1, "unit", source, command);
         var dto = captured(CdsDemographicNativeDto.class);
         assertThat(dto.scalars()).doesNotContainKey(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR);
-        assertThat(dto.diagnostics()).extracting(CdsClinicalDiagnosticDto::code)
+        assertThat(dto.diagnostics())
+                .extracting(CdsClinicalDiagnosticDto::code)
                 .doesNotContain("CDS_MIDDLE_NAMES_SOURCE_ONLY");
     }
 
@@ -243,29 +271,50 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
         demographics.prepare("run", 1, "unit", source, command);
         var dto = captured(CdsDemographicNativeDto.class);
         assertThat(dto.scalars()).doesNotContainKey(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR);
-        assertThat(sourceMiddlePart(source, 300))
-                .isEqualTo("Name");
-        assertThat(dto.diagnostics()).filteredOn(n -> "CDS_MIDDLE_NAMES_SOURCE_ONLY".equals(n.code()))
+        assertThat(sourceMiddlePart(source, 300)).isEqualTo("Name");
+        assertThat(dto.diagnostics())
+                .filteredOn(n -> "CDS_MIDDLE_NAMES_SOURCE_ONLY".equals(n.code()))
                 .hasSize(1);
     }
 
     @Test
     void shouldRejectSchemaIncompleteMiddleNames_beforeNativePreparation() {
-        for (String missing : List.of("<cdsd:Part>Anne</cdsd:Part>",
-                "<cdsd:PartType>GIV</cdsd:PartType>")) {
-            assertThatThrownBy(() -> parseWithNames(
-                    "<cdsd:OtherName>" + missing + "</cdsd:OtherName>", ""))
-                    .isInstanceOf(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException.class);
+        for (String missing :
+                List.of("<cdsd:Part>Anne</cdsd:Part>", "<cdsd:PartType>GIV</cdsd:PartType>")) {
+            assertThatThrownBy(
+                            () ->
+                                    parseWithNames(
+                                            "<cdsd:OtherName>" + missing + "</cdsd:OtherName>", ""))
+                    .isInstanceOf(
+                            io.github.carlos_emr.carlos.demographic.cdsimport.support
+                                    .CdsInputException.class);
         }
         verifyNoInteractions(preparation);
     }
 
     @Test
     void shouldRejectOversizedPreparedMiddleNames_beforeAnyNativeWrite() {
-        assertThatThrownBy(() -> new CdsDemographicNativeDto(
-                "source", "Import", "Fixture", "1971-03-04", null, null, "F", "AC",
-                java.util.Map.of(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR, "x".repeat(101)),
-                null, null, null, null, null, null, List.of()))
+        assertThatThrownBy(
+                        () ->
+                                new CdsDemographicNativeDto(
+                                        "source",
+                                        "Import",
+                                        "Fixture",
+                                        "1971-03-04",
+                                        null,
+                                        null,
+                                        "F",
+                                        "AC",
+                                        java.util.Map.of(
+                                                CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR,
+                                                "x".repeat(101)),
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        List.of()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("DEMOGRAPHIC_PREPARED_TEXT_INVALID");
     }
@@ -365,9 +414,9 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
             throws Exception {
         String phones =
                 "<PhoneNumber"
-                    + " phoneNumberType='R'><cdsd:phoneNumber>613-555-0101</cdsd:phoneNumber><cdsd:extension>12</cdsd:extension></PhoneNumber><PhoneNumber"
-                    + " phoneNumberType='W'><cdsd:phoneNumber>613-555-0102</cdsd:phoneNumber></PhoneNumber><PhoneNumber"
-                    + " phoneNumberType='C'><cdsd:phoneNumber>1234567890123456789012345</cdsd:phoneNumber></PhoneNumber>";
+                        + " phoneNumberType='R'><cdsd:phoneNumber>613-555-0101</cdsd:phoneNumber><cdsd:extension>12</cdsd:extension></PhoneNumber><PhoneNumber"
+                        + " phoneNumberType='W'><cdsd:phoneNumber>613-555-0102</cdsd:phoneNumber></PhoneNumber><PhoneNumber"
+                        + " phoneNumberType='C'><cdsd:phoneNumber>1234567890123456789012345</cdsd:phoneNumber></PhoneNumber>";
         demographics.prepare("run", 1, "unit", parse("", phones), command);
         var dto = captured(CdsDemographicNativeDto.class);
         assertThat(dto.home().number()).isEqualTo("613-555-0101");
@@ -447,7 +496,7 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
                 parse(
                         "",
                         "<PhoneNumber"
-                            + " phoneNumberType='R'><cdsd:areaCode>613</cdsd:areaCode><cdsd:number>5550142</cdsd:number><cdsd:exchange>555</cdsd:exchange></PhoneNumber>");
+                                + " phoneNumberType='R'><cdsd:areaCode>613</cdsd:areaCode><cdsd:number>5550142</cdsd:number><cdsd:exchange>555</cdsd:exchange></PhoneNumber>");
         demographics.prepare("run", 1, "unit", record, command);
         assertThat(captured(CdsDemographicNativeDto.class).home().number())
                 .isEqualTo("613-555-0142");
@@ -539,7 +588,7 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
                 section(
                         "ClinicalNotes",
                         "<MyClinicalNotesContent>Complete source"
-                            + " note</MyClinicalNotesContent><EventDateTime><cdsd:YearOnly>2020</cdsd:YearOnly></EventDateTime>");
+                                + " note</MyClinicalNotesContent><EventDateTime><cdsd:YearOnly>2020</cdsd:YearOnly></EventDateTime>");
         histories.prepare("run", 1, "unit", record, command);
         var dto = captured(CdsHistoryNativeDto.class);
         assertThat(dto.observationMillis()).isNull();
@@ -554,10 +603,11 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
                 section(
                         "ClinicalNotes",
                         "<MyClinicalNotesContent>Day-only source"
-                            + " note</MyClinicalNotesContent><EventDateTime><cdsd:FullDate>2026-02-03</cdsd:FullDate></EventDateTime>");
+                                + " note</MyClinicalNotesContent><EventDateTime><cdsd:FullDate>2026-02-03</cdsd:FullDate></EventDateTime>");
         histories.prepare("run", 1, "unit", record, command);
         var dto = captured(CdsHistoryNativeDto.class);
-        assertThat(dto.observationMillis()).isEqualTo(java.time.Instant.parse("2026-02-03T05:00:00Z").toEpochMilli());
+        assertThat(dto.observationMillis())
+                .isEqualTo(java.time.Instant.parse("2026-02-03T05:00:00Z").toEpochMilli());
         assertThat(dto.diagnostics())
                 .extracting(CdsClinicalDiagnosticDto::code)
                 .contains("CDS_NOTE_DATE_ONLY_SOURCE_VIEW");
@@ -568,8 +618,16 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
         "FamilyHistory,StartDate", "PastHealth,OnsetOrEventDate", "PastHealth,ProcedureDate",
         "ProblemList,OnsetDate", "RiskFactors,StartDate", "AlertsAndSpecialNeeds,DateActive"
     })
-    void shouldAnchorKnownCppDates_inTheConfiguredClinicalZone(String category, String dateField) throws Exception {
-        var record = section(category, "<" + dateField + "><cdsd:FullDate>2026-02-03</cdsd:FullDate></" + dateField + ">");
+    void shouldAnchorKnownCppDates_inTheConfiguredClinicalZone(String category, String dateField)
+            throws Exception {
+        var record =
+                section(
+                        category,
+                        "<"
+                                + dateField
+                                + "><cdsd:FullDate>2026-02-03</cdsd:FullDate></"
+                                + dateField
+                                + ">");
         histories.prepare("run", 1, "unit", record, command);
         assertThat(captured(CdsHistoryNativeDto.class).observationMillis())
                 .isEqualTo(java.time.Instant.parse("2026-02-03T05:00:00Z").toEpochMilli());
@@ -739,10 +797,17 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
 
         // A retry epoch and another import must observe the current demographic.
         patient.setFirstName("Updated");
-        when(preparation.load("run", 2, "unit", record.sha256(), command, CdsAppointmentNativeDto.class))
+        when(preparation.load(
+                        "run", 2, "unit", record.sha256(), command, CdsAppointmentNativeDto.class))
                 .thenReturn(dto);
         appointments.write("run", 2, "unit", 42, record, command, n -> {});
-        when(preparation.load("other", 2, "unit", record.sha256(), command, CdsAppointmentNativeDto.class))
+        when(preparation.load(
+                        "other",
+                        2,
+                        "unit",
+                        record.sha256(),
+                        command,
+                        CdsAppointmentNativeDto.class))
                 .thenReturn(dto);
         appointments.write("other", 2, "unit", 42, record, command, n -> {});
         verify(demographicDao, times(3)).getDemographicById(42);
@@ -755,8 +820,16 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
         verify(demographicDao, times(3)).getDemographicById(42);
         var all = ArgumentCaptor.forClass(Appointment.class);
         verify(appointmentsDao, times(7)).persist(all.capture());
-        assertThat(all.getAllValues()).extracting(Appointment::getName)
-                .containsExactly("Fixture,Import", "Fixture,Import", "Fixture,Updated", "Fixture,Updated", "", "", "Fixture,Updated");
+        assertThat(all.getAllValues())
+                .extracting(Appointment::getName)
+                .containsExactly(
+                        "Fixture,Import",
+                        "Fixture,Import",
+                        "Fixture,Updated",
+                        "Fixture,Updated",
+                        "",
+                        "",
+                        "Fixture,Updated");
     }
 
     @Test
@@ -796,11 +869,15 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
                             ((Demographic) call.getArgument(0)).setDemographicNo(42);
                             return null;
                         })
-                .when(demographicDao).persistImportedDemographic(any());
-        doAnswer(call -> {
-            ((DemographicExt) call.getArgument(0)).setId(ids.incrementAndGet());
-            return null;
-        }).when(extensionsDao).persist(any());
+                .when(demographicDao)
+                .persistImportedDemographic(any());
+        doAnswer(
+                        call -> {
+                            ((DemographicExt) call.getArgument(0)).setId(ids.incrementAndGet());
+                            return null;
+                        })
+                .when(extensionsDao)
+                .persist(any());
         assertThat(demographics.write("run", 1, "unit", record, command, n -> {}))
                 .hasSize(4)
                 .containsEntry("demographic", "42");
@@ -864,10 +941,10 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
                 section(
                         "ClinicalNotes",
                         "<MyClinicalNotesContent>Source note</MyClinicalNotesContent>"
-                            + "<ParticipatingProviders><Name><cdsd:FirstName>First</cdsd:FirstName><cdsd:LastName>Source</cdsd:LastName></Name>"
-                            + "<DateTimeNoteCreated><cdsd:FullDateTime>1990-03-04T10:20:30.125-05:00</cdsd:FullDateTime></DateTimeNoteCreated></ParticipatingProviders>"
-                            + "<ParticipatingProviders><Name><cdsd:FirstName>Second</cdsd:FirstName><cdsd:LastName>Source</cdsd:LastName></Name>"
-                            + "<DateTimeNoteCreated><cdsd:YearOnly>1989</cdsd:YearOnly></DateTimeNoteCreated></ParticipatingProviders>");
+                                + "<ParticipatingProviders><Name><cdsd:FirstName>First</cdsd:FirstName><cdsd:LastName>Source</cdsd:LastName></Name>"
+                                + "<DateTimeNoteCreated><cdsd:FullDateTime>1990-03-04T10:20:30.125-05:00</cdsd:FullDateTime></DateTimeNoteCreated></ParticipatingProviders>"
+                                + "<ParticipatingProviders><Name><cdsd:FirstName>Second</cdsd:FirstName><cdsd:LastName>Source</cdsd:LastName></Name>"
+                                + "<DateTimeNoteCreated><cdsd:YearOnly>1989</cdsd:YearOnly></DateTimeNoteCreated></ParticipatingProviders>");
         histories.prepare("run", 1, "unit", record, command);
         var dto = captured(CdsHistoryNativeDto.class);
         assertThat(dto.createdMillis()).isNull();
@@ -896,8 +973,8 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
                 section(
                         "ClinicalNotes",
                         "<MyClinicalNotesContent>Source note</MyClinicalNotesContent>"
-                            + "<ParticipatingProviders><Name><cdsd:FirstName>First</cdsd:FirstName><cdsd:LastName>Source</cdsd:LastName></Name>"
-                            + "<DateTimeNoteCreated><cdsd:FullDateTime>1990-03-04T10:20:30.125-05:00</cdsd:FullDateTime></DateTimeNoteCreated></ParticipatingProviders>");
+                                + "<ParticipatingProviders><Name><cdsd:FirstName>First</cdsd:FirstName><cdsd:LastName>Source</cdsd:LastName></Name>"
+                                + "<DateTimeNoteCreated><cdsd:FullDateTime>1990-03-04T10:20:30.125-05:00</cdsd:FullDateTime></DateTimeNoteCreated></ParticipatingProviders>");
         histories.prepare("run", 1, "unit", record, command);
         var dto = captured(CdsHistoryNativeDto.class);
         assertThat(dto.createdMillis()).isNotNull();
@@ -917,7 +994,14 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
             throws Exception {
         var dto =
                 new CdsHistoryNativeDto(
-                        "Complete source note", null, null, 636561630125L, "77", null, null, List.of());
+                        "Complete source note",
+                        null,
+                        null,
+                        636561630125L,
+                        "77",
+                        null,
+                        null,
+                        List.of());
         var record =
                 section(
                         "ClinicalNotes",
@@ -956,8 +1040,10 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
             @SuppressWarnings("unchecked")
             TypedQuery<Issue> query = mock(TypedQuery.class, RETURNS_SELF);
             when(em.createQuery(anyString(), eq(Issue.class))).thenReturn(query);
-            var first = new Issue(); first.setId(1L);
-            var second = new Issue(); second.setId(2L);
+            var first = new Issue();
+            first.setId(1L);
+            var second = new Issue();
+            second.setId(2L);
             when(query.getResultList()).thenReturn(List.of(first, second));
             var dao = new IssueDAOImpl();
             ReflectionTestUtils.setField(dao, "entityManager", em);
@@ -965,7 +1051,9 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
             assertThat(dao.findCandidatesByCode("SocHistory")).containsExactly(first, second);
 
             var reads = inOrder(em, query);
-            reads.verify(em).createQuery("select i from Issue i where i.code=:code order by i.id", Issue.class);
+            reads.verify(em)
+                    .createQuery(
+                            "select i from Issue i where i.code=:code order by i.id", Issue.class);
             reads.verify(query).setParameter("code", "SocHistory");
             reads.verify(query).setMaxResults(2);
             reads.verify(query).getResultList();
@@ -985,8 +1073,11 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
             assertThat(dao.findCandidatesByDemographicAndIssue(42, 71L)).isEmpty();
 
             var reads = inOrder(em, query);
-            reads.verify(em).createQuery("select i from CaseManagementIssue i where"
-                    + " i.demographic_no=:patient and i.issue_id=:issue order by i.id", CaseManagementIssue.class);
+            reads.verify(em)
+                    .createQuery(
+                            "select i from CaseManagementIssue i where"
+                                    + " i.demographic_no=:patient and i.issue_id=:issue order by i.id",
+                            CaseManagementIssue.class);
             reads.verify(query).setParameter("patient", 42);
             reads.verify(query).setParameter("issue", 71L);
             reads.verify(query).setMaxResults(2);
@@ -995,18 +1086,32 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void shouldCreateOnlyTheMissingPatientIssue_andLinkItsExactGeneratedIdentity() throws Exception {
+        void shouldCreateOnlyTheMissingPatientIssue_andLinkItsExactGeneratedIdentity()
+                throws Exception {
             var record = preparedHistory("SocHistory");
-            var catalogue = new Issue(); catalogue.setId(71L);
+            var catalogue = new Issue();
+            catalogue.setId(71L);
             when(issuesDao.findCandidatesByCode("SocHistory")).thenReturn(List.of(catalogue));
-            when(patientIssuesDao.findCandidatesByDemographicAndIssue(42, 71L)).thenReturn(List.of());
-            doAnswer(call -> { ((CaseManagementIssue)call.getArgument(0)).setId(72L); return null; })
-                    .when(patientIssuesDao).saveIssue(any());
-            doAnswer(call -> { ((CaseManagementNote)call.getArgument(0)).setId(73L); return null; })
-                    .when(notesDao).saveNote(any());
+            when(patientIssuesDao.findCandidatesByDemographicAndIssue(42, 71L))
+                    .thenReturn(List.of());
+            doAnswer(
+                            call -> {
+                                ((CaseManagementIssue) call.getArgument(0)).setId(72L);
+                                return null;
+                            })
+                    .when(patientIssuesDao)
+                    .saveIssue(any());
+            doAnswer(
+                            call -> {
+                                ((CaseManagementNote) call.getArgument(0)).setId(73L);
+                                return null;
+                            })
+                    .when(notesDao)
+                    .saveNote(any());
 
             assertThat(histories.write("run", 1, "unit", 42, record, command, n -> {}))
-                    .containsExactlyInAnyOrderEntriesOf(java.util.Map.of("casemgmt_issue", "72", "casemgmt_note", "73"));
+                    .containsExactlyInAnyOrderEntriesOf(
+                            java.util.Map.of("casemgmt_issue", "72", "casemgmt_note", "73"));
 
             var issue = ArgumentCaptor.forClass(CaseManagementIssue.class);
             var note = ArgumentCaptor.forClass(CaseManagementNote.class);
@@ -1018,19 +1123,30 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
             assertThat(issue.getValue().getIssue_id()).isEqualTo(71L);
             assertThat(issue.getValue().getType()).isEqualTo("general");
             assertThat(note.getValue().getIssues()).containsExactly(issue.getValue());
-            assertThat(note.getValue().getObservation_date()).isEqualTo(new java.util.Date(1700000000000L));
+            assertThat(note.getValue().getObservation_date())
+                    .isEqualTo(new java.util.Date(1700000000000L));
         }
 
         @Test
-        void shouldReuseAnExistingPatientIssue_withoutResavingOrChangingItsOperationalDate() throws Exception {
+        void shouldReuseAnExistingPatientIssue_withoutResavingOrChangingItsOperationalDate()
+                throws Exception {
             var record = preparedHistory("SocHistory");
-            var catalogue = new Issue(); catalogue.setId(71L);
-            var existing = new CaseManagementIssue(); existing.setId(72L);
-            var originalDate = new java.util.Date(123456789L); existing.setUpdate_date(originalDate);
+            var catalogue = new Issue();
+            catalogue.setId(71L);
+            var existing = new CaseManagementIssue();
+            existing.setId(72L);
+            var originalDate = new java.util.Date(123456789L);
+            existing.setUpdate_date(originalDate);
             when(issuesDao.findCandidatesByCode("SocHistory")).thenReturn(List.of(catalogue));
-            when(patientIssuesDao.findCandidatesByDemographicAndIssue(42, 71L)).thenReturn(List.of(existing));
-            doAnswer(call -> { ((CaseManagementNote)call.getArgument(0)).setId(73L); return null; })
-                    .when(notesDao).saveNote(any());
+            when(patientIssuesDao.findCandidatesByDemographicAndIssue(42, 71L))
+                    .thenReturn(List.of(existing));
+            doAnswer(
+                            call -> {
+                                ((CaseManagementNote) call.getArgument(0)).setId(73L);
+                                return null;
+                            })
+                    .when(notesDao)
+                    .saveNote(any());
 
             histories.write("run", 1, "unit", 42, record, command, n -> {});
 
@@ -1047,21 +1163,26 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
             when(issuesDao.findCandidatesByCode("SocHistory"))
                     .thenReturn(List.of(new Issue(), new Issue()));
 
-            assertThatThrownBy(() -> histories.write("run", 1, "unit", 42, record, command, n -> {}))
-                    .isInstanceOf(CdsImportException.class).hasMessage("HISTORY_CATEGORY_MAPPING_REQUIRES_REVIEW");
+            assertThatThrownBy(
+                            () -> histories.write("run", 1, "unit", 42, record, command, n -> {}))
+                    .isInstanceOf(CdsImportException.class)
+                    .hasMessage("HISTORY_CATEGORY_MAPPING_REQUIRES_REVIEW");
             verifyNoInteractions(patientIssuesDao, notesDao);
         }
 
         @Test
         void shouldRejectAmbiguousPatientIssue_beforeAnyNativeWrite() throws Exception {
             var record = preparedHistory("SocHistory");
-            var catalogue = new Issue(); catalogue.setId(71L);
+            var catalogue = new Issue();
+            catalogue.setId(71L);
             when(issuesDao.findCandidatesByCode("SocHistory")).thenReturn(List.of(catalogue));
             when(patientIssuesDao.findCandidatesByDemographicAndIssue(42, 71L))
                     .thenReturn(List.of(new CaseManagementIssue(), new CaseManagementIssue()));
 
-            assertThatThrownBy(() -> histories.write("run", 1, "unit", 42, record, command, n -> {}))
-                    .isInstanceOf(CdsImportException.class).hasMessage("HISTORY_NATIVE_ISSUE_AMBIGUOUS");
+            assertThatThrownBy(
+                            () -> histories.write("run", 1, "unit", 42, record, command, n -> {}))
+                    .isInstanceOf(CdsImportException.class)
+                    .hasMessage("HISTORY_NATIVE_ISSUE_AMBIGUOUS");
             verify(patientIssuesDao, never()).saveIssue(any());
             verifyNoInteractions(notesDao);
         }
@@ -1069,20 +1190,26 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
         @Test
         void shouldRefuseMissingPatientIssueIdentity_beforeWritingTheNote() throws Exception {
             var record = preparedHistory("SocHistory");
-            var catalogue = new Issue(); catalogue.setId(71L);
+            var catalogue = new Issue();
+            catalogue.setId(71L);
             when(issuesDao.findCandidatesByCode("SocHistory")).thenReturn(List.of(catalogue));
-            when(patientIssuesDao.findCandidatesByDemographicAndIssue(42, 71L)).thenReturn(List.of());
+            when(patientIssuesDao.findCandidatesByDemographicAndIssue(42, 71L))
+                    .thenReturn(List.of());
 
-            assertThatThrownBy(() -> histories.write("run", 1, "unit", 42, record, command, n -> {}))
-                    .isInstanceOf(CdsImportException.class).hasMessage("HISTORY_NATIVE_ISSUE_ID_MISSING");
+            assertThatThrownBy(
+                            () -> histories.write("run", 1, "unit", 42, record, command, n -> {}))
+                    .isInstanceOf(CdsImportException.class)
+                    .hasMessage("HISTORY_NATIVE_ISSUE_ID_MISSING");
             verifyNoInteractions(notesDao);
         }
 
         @Test
         void shouldRefuseMissingNoteIdentity_afterDaoSave() throws Exception {
             var record = preparedHistory(null);
-            assertThatThrownBy(() -> histories.write("run", 1, "unit", 42, record, command, n -> {}))
-                    .isInstanceOf(CdsImportException.class).hasMessage("HISTORY_NATIVE_NOTE_ID_MISSING");
+            assertThatThrownBy(
+                            () -> histories.write("run", 1, "unit", 42, record, command, n -> {}))
+                    .isInstanceOf(CdsImportException.class)
+                    .hasMessage("HISTORY_NATIVE_NOTE_ID_MISSING");
         }
 
         @Test
@@ -1093,12 +1220,15 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
             var note = new CaseManagementNote();
             var update = new java.util.Date(123456789L);
             var observation = new java.util.Date(1700000000000L);
-            note.setUuid("source-owned-uuid"); note.setUpdate_date(update); note.setObservation_date(observation);
+            note.setUuid("source-owned-uuid");
+            note.setUpdate_date(update);
+            note.setObservation_date(observation);
 
             dao.saveNote(note);
 
             var writes = inOrder(em);
-            writes.verify(em).persist(note); writes.verify(em).flush();
+            writes.verify(em).persist(note);
+            writes.verify(em).flush();
             verifyNoMoreInteractions(em);
             assertThat(note.getUuid()).isEqualTo("source-owned-uuid");
             assertThat(note.getUpdate_date()).isSameAs(update);
@@ -1106,15 +1236,27 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void shouldPropagateExistingNoteDaoFlushFailure_withoutReturningSuccessfulReceipt() throws Exception {
+        void shouldPropagateExistingNoteDaoFlushFailure_withoutReturningSuccessfulReceipt()
+                throws Exception {
             var dao = new CaseManagementNoteDAOImpl();
             EntityManager em = mock(EntityManager.class);
             ReflectionTestUtils.setField(dao, "entityManager", em);
             var failure = new jakarta.persistence.PersistenceException("fixture flush refusal");
             doThrow(failure).when(em).flush();
             var configuration = new CdsImportConfigurationService(new Properties());
-            var writer = new CdsHistoryPersister(fields, new CdsClinicalNormalizationService(fields),
-                    configuration, providers, preparation, dao, patientIssuesDao, issuesDao, mock(io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAO.class));
+            var writer =
+                    new CdsHistoryPersister(
+                            fields,
+                            new CdsClinicalNormalizationService(fields),
+                            configuration,
+                            providers,
+                            preparation,
+                            dao,
+                            patientIssuesDao,
+                            issuesDao,
+                            mock(
+                                    io.github.carlos_emr.carlos.casemgmt.dao
+                                            .CaseManagementNoteExtDAO.class));
             var record = preparedHistory(null);
 
             assertThatThrownBy(() -> writer.write("run", 1, "unit", 42, record, command, n -> {}))
@@ -1125,21 +1267,62 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
 
         @Test
         void shouldRefuseMissingAppointmentIdentity_afterTheExistingDaoFlush() throws Exception {
-            var record = appointment("10:00:00", "30", "<cdsd:FullDate>2026-03-04</cdsd:FullDate>", "");
-            when(preparation.load("run", 1, "unit", record.effectiveSha256(), command, CdsAppointmentNativeDto.class))
-                    .thenReturn(new CdsAppointmentNativeDto("2026-03-04", "10:00", "10:30", null, null, null, null, true, List.of()));
+            var record =
+                    appointment("10:00:00", "30", "<cdsd:FullDate>2026-03-04</cdsd:FullDate>", "");
+            when(preparation.load(
+                            "run",
+                            1,
+                            "unit",
+                            record.effectiveSha256(),
+                            command,
+                            CdsAppointmentNativeDto.class))
+                    .thenReturn(
+                            new CdsAppointmentNativeDto(
+                                    "2026-03-04",
+                                    "10:00",
+                                    "10:30",
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    true,
+                                    List.of()));
 
-            assertThatThrownBy(() -> appointments.write("run", 1, "unit", 42, record, command, n -> {}))
-                    .isInstanceOf(CdsImportException.class).hasMessage("APPOINTMENT_NATIVE_ID_MISSING");
+            assertThatThrownBy(
+                            () ->
+                                    appointments.write(
+                                            "run", 1, "unit", 42, record, command, n -> {}))
+                    .isInstanceOf(CdsImportException.class)
+                    .hasMessage("APPOINTMENT_NATIVE_ID_MISSING");
             var writes = inOrder(appointmentsDao);
-            writes.verify(appointmentsDao).persist(any(Appointment.class)); writes.verify(appointmentsDao).flush();
+            writes.verify(appointmentsDao).persist(any(Appointment.class));
+            writes.verify(appointmentsDao).flush();
         }
 
         private CdsRecordDto preparedHistory(String issue) throws Exception {
-            var record = section("ClinicalNotes", "<MyClinicalNotesContent>Complete source note</MyClinicalNotesContent>");
-            when(preparation.load("run", 1, "unit", record.effectiveSha256(), command, CdsHistoryNativeDto.class))
-                    .thenReturn(new CdsHistoryNativeDto("Complete source note", issue, 1700000000000L, null, "77", null, null, List.of()));
-            Files.delete(record.fieldsFile()); Files.delete(record.valuesFile());
+            var record =
+                    section(
+                            "ClinicalNotes",
+                            "<MyClinicalNotesContent>Complete source note</MyClinicalNotesContent>");
+            when(preparation.load(
+                            "run",
+                            1,
+                            "unit",
+                            record.effectiveSha256(),
+                            command,
+                            CdsHistoryNativeDto.class))
+                    .thenReturn(
+                            new CdsHistoryNativeDto(
+                                    "Complete source note",
+                                    issue,
+                                    1700000000000L,
+                                    null,
+                                    "77",
+                                    null,
+                                    null,
+                                    List.of()));
+            Files.delete(record.fieldsFile());
+            Files.delete(record.valuesFile());
             return record;
         }
     }
@@ -1151,7 +1334,7 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
                 parse(
                         "",
                         "<PreferredSpokenLanguage>eng</PreferredSpokenLanguage><NoteAboutPatient>Literal"
-                            + " &lt;/unotes&gt; &amp; café 🩺</NoteAboutPatient>",
+                                + " &lt;/unotes&gt; &amp; café 🩺</NoteAboutPatient>",
                         "<HealthCard><cdsd:Number>1234567890</cdsd:Number><cdsd:ProvinceCode>CA-ON</cdsd:ProvinceCode><cdsd:Expirydate>2028-01-31</cdsd:Expirydate></HealthCard>",
                         "<PersonStatusDate>2023-04-05</PersonStatusDate>");
         demographics.prepare("run", 1, "unit", source, command);
@@ -1167,30 +1350,37 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"ıta", "ßa", "ſlo", "ZZZ"})
-    void shouldKeepUnrecognizedLanguageCodesInCompleteSource_withoutUnicodeCasePromotion(String language)
-            throws Exception {
-        var source = parse("", "<PreferredSpokenLanguage>" + language + "</PreferredSpokenLanguage>");
+    void shouldKeepUnrecognizedLanguageCodesInCompleteSource_withoutUnicodeCasePromotion(
+            String language) throws Exception {
+        var source =
+                parse("", "<PreferredSpokenLanguage>" + language + "</PreferredSpokenLanguage>");
         Path xml = temporary.resolve("source-" + sequence.get() + ".xml");
-        byte[] originalXml = Files.readAllBytes(xml), originalValues = Files.readAllBytes(source.valuesFile());
+        byte[] originalXml = Files.readAllBytes(xml),
+                originalValues = Files.readAllBytes(source.valuesFile());
         demographics.prepare("run", 1, "unit", source, command);
         var details = captured(CdsDemographicNativeDto.class).details();
         assertThat(details.spokenLanguage()).isNull();
-        assertThat(details.diagnostics()).extracting(CdsClinicalDiagnosticDto::code)
+        assertThat(details.diagnostics())
+                .extracting(CdsClinicalDiagnosticDto::code)
                 .containsExactly("CDS_SPOKEN_LANGUAGE_SOURCE_ONLY");
         assertThat(fields.firstText(source, "PreferredSpokenLanguage", 25)).isEqualTo(language);
         assertThat(Files.readAllBytes(xml)).isEqualTo(originalXml);
         assertThat(Files.readAllBytes(source.valuesFile())).isEqualTo(originalValues);
-        assertThat(Files.readString(xml)).contains("<PreferredSpokenLanguage>" + language + "</PreferredSpokenLanguage>");
+        assertThat(Files.readString(xml))
+                .contains("<PreferredSpokenLanguage>" + language + "</PreferredSpokenLanguage>");
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"eng", "ENG", "eNg"})
-    void shouldKeepAsciiLanguageLookupCaseInsensitive_withoutChangingSource(String language) throws Exception {
-        var source = parse("", "<PreferredSpokenLanguage>" + language + "</PreferredSpokenLanguage>");
+    void shouldKeepAsciiLanguageLookupCaseInsensitive_withoutChangingSource(String language)
+            throws Exception {
+        var source =
+                parse("", "<PreferredSpokenLanguage>" + language + "</PreferredSpokenLanguage>");
         demographics.prepare("run", 1, "unit", source, command);
         var details = captured(CdsDemographicNativeDto.class).details();
         assertThat(details.spokenLanguage()).isEqualTo("English");
-        assertThat(details.diagnostics()).extracting(CdsClinicalDiagnosticDto::code)
+        assertThat(details.diagnostics())
+                .extracting(CdsClinicalDiagnosticDto::code)
                 .containsExactly("CDS_SPOKEN_LANGUAGE_NORMALIZED");
         assertThat(fields.firstText(source, "PreferredSpokenLanguage", 25)).isEqualTo(language);
     }
@@ -1384,39 +1574,67 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
                         "d".repeat(64)));
     }
 
-    @Test void shouldKeepUnrepresentableExactNoteTimingInSourceCategory_withoutInventedInstant() throws Exception {
+    @Test
+    void shouldKeepUnrepresentableExactNoteTimingInSourceCategory_withoutInventedInstant()
+            throws Exception {
         java.util.TimeZone previous = java.util.TimeZone.getDefault();
         try {
             java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("America/Toronto"));
             String lexical = "1500-01-01T00:00:00Z";
-            var record = section("ClinicalNotes", "<MyClinicalNotesContent>Complete source note</MyClinicalNotesContent>"
-                    + "<EventDateTime><cdsd:FullDateTime>" + lexical + "</cdsd:FullDateTime></EventDateTime>");
+            var record =
+                    section(
+                            "ClinicalNotes",
+                            "<MyClinicalNotesContent>Complete source note</MyClinicalNotesContent>"
+                                    + "<EventDateTime><cdsd:FullDateTime>"
+                                    + lexical
+                                    + "</cdsd:FullDateTime></EventDateTime>");
             histories.prepare("run", 1, "unit", record, command);
             var dto = captured(CdsHistoryNativeDto.class);
             assertThat(dto.observationMillis()).isNull();
             assertThat(dto.content()).isEqualTo("Complete source note");
-            assertThat(dto.diagnostics()).extracting(CdsClinicalDiagnosticDto::code).contains("CDS_NOTE_NATIVE_TIMESTAMP_SOURCE_ONLY");
-            assertThat(fields.firstToken(record, "EventDateTime/FullDateTime", 128)).isEqualTo(lexical);
-        } finally { java.util.TimeZone.setDefault(previous); }
+            assertThat(dto.diagnostics())
+                    .extracting(CdsClinicalDiagnosticDto::code)
+                    .contains("CDS_NOTE_NATIVE_TIMESTAMP_SOURCE_ONLY");
+            assertThat(fields.firstToken(record, "EventDateTime/FullDateTime", 128))
+                    .isEqualTo(lexical);
+        } finally {
+            java.util.TimeZone.setDefault(previous);
+        }
     }
 
-    @Test void shouldRetainTypedSourceForCutoverGapAppointment_withoutWrongNativeCalendarDay() throws Exception {
+    @Test
+    void shouldRetainTypedSourceForCutoverGapAppointment_withoutWrongNativeCalendarDay()
+            throws Exception {
         java.util.TimeZone previous = java.util.TimeZone.getDefault();
         try {
             java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("America/Toronto"));
-            var record = appointment("10:00:00", "30", "<cdsd:FullDate>1582-10-10</cdsd:FullDate>", "<AppointmentNotes>Complete notes</AppointmentNotes>");
+            var record =
+                    appointment(
+                            "10:00:00",
+                            "30",
+                            "<cdsd:FullDate>1582-10-10</cdsd:FullDate>",
+                            "<AppointmentNotes>Complete notes</AppointmentNotes>");
             appointments.prepare("run", 1, "unit", record, command);
             var dto = captured(CdsAppointmentNativeDto.class);
             assertThat(dto.representable()).isFalse();
-            assertThat(dto.diagnostics()).extracting(CdsClinicalDiagnosticDto::code).contains("CDS_APPOINTMENT_NATIVE_CALENDAR_SOURCE_ONLY");
-            assertThat(fields.firstToken(record, "AppointmentDate/FullDate", 64)).isEqualTo("1582-10-10");
-        } finally { java.util.TimeZone.setDefault(previous); }
+            assertThat(dto.diagnostics())
+                    .extracting(CdsClinicalDiagnosticDto::code)
+                    .contains("CDS_APPOINTMENT_NATIVE_CALENDAR_SOURCE_ONLY");
+            assertThat(fields.firstToken(record, "AppointmentDate/FullDate", 64))
+                    .isEqualTo("1582-10-10");
+        } finally {
+            java.util.TimeZone.setDefault(previous);
+        }
     }
 
-    @Test void shouldRequirePreflightReviewForUnrepresentableDemographicDates_beforePreparingAnyWrite() throws Exception {
+    @Test
+    void shouldRequirePreflightReviewForUnrepresentableDemographicDates_beforePreparingAnyWrite()
+            throws Exception {
         var record = parse("", "", "", "<PersonStatusDate>1582-10-10</PersonStatusDate>");
-        var error = catchThrowableOfType(() -> demographics.validate(record, command),
-                io.github.carlos_emr.carlos.commn.model.CdsClinicalException.class);
+        var error =
+                catchThrowableOfType(
+                        () -> demographics.validate(record, command),
+                        io.github.carlos_emr.carlos.commn.model.CdsClinicalException.class);
         assertThat(error.code()).isEqualTo("CDS_NATIVE_DATE_REQUIRES_REVIEW");
         assertThat(error.field()).isEqualTo("PersonStatusDate");
         verifyNoInteractions(preparation);
@@ -1471,35 +1689,43 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
 
     private String sourceMiddlePart(CdsRecordDto source, int occurrence) throws Exception {
         var value = new java.util.concurrent.atomic.AtomicReference<String>();
-        fields.forEachField(source, field -> {
-            if (!field.path().equals("Names[1]/LegalName[1]/OtherName[" + occurrence + "]/Part[1]"))
-                return;
-            try {
-                value.set(fields.readLogicalText(source, field, 50));
-            } catch (java.io.IOException failure) {
-                throw new java.io.UncheckedIOException(failure);
-            }
-        });
+        fields.forEachField(
+                source,
+                field -> {
+                    if (!field.path()
+                            .equals("Names[1]/LegalName[1]/OtherName[" + occurrence + "]/Part[1]"))
+                        return;
+                    try {
+                        value.set(fields.readLogicalText(source, field, 50));
+                    } catch (java.io.IOException failure) {
+                        throw new java.io.UncheckedIOException(failure);
+                    }
+                });
         return value.get();
     }
 
     private static String otherName(String part, String type, boolean typeFirst) {
         String value = "<cdsd:Part>" + part + "</cdsd:Part>";
         String kind = "<cdsd:PartType>" + type + "</cdsd:PartType>";
-        return "<cdsd:OtherName>" + (typeFirst ? kind + value : value + kind)
-                + "</cdsd:OtherName>";
+        return "<cdsd:OtherName>" + (typeFirst ? kind + value : value + kind) + "</cdsd:OtherName>";
     }
 
     private CdsRecordDto parse(
-            String extra, String demographicExtra, String healthCard, String statusDate,
-            String legalOtherNames, String aliases)
+            String extra,
+            String demographicExtra,
+            String healthCard,
+            String statusDate,
+            String legalOtherNames,
+            String aliases)
             throws Exception {
         int number = sequence.incrementAndGet();
         Path source = temporary.resolve("source-" + number + ".xml");
         String demographic =
                 "<Demographics><Names><cdsd:LegalName"
-                    + " namePurpose='L'><cdsd:FirstName><cdsd:Part>Import</cdsd:Part><cdsd:PartType>GIV</cdsd:PartType></cdsd:FirstName><cdsd:LastName><cdsd:Part>Fixture</cdsd:Part><cdsd:PartType>FAMC</cdsd:PartType></cdsd:LastName>"
-                        + legalOtherNames + "</cdsd:LegalName>" + aliases
+                        + " namePurpose='L'><cdsd:FirstName><cdsd:Part>Import</cdsd:Part><cdsd:PartType>GIV</cdsd:PartType></cdsd:FirstName><cdsd:LastName><cdsd:Part>Fixture</cdsd:Part><cdsd:PartType>FAMC</cdsd:PartType></cdsd:LastName>"
+                        + legalOtherNames
+                        + "</cdsd:LegalName>"
+                        + aliases
                         + "</Names><DateOfBirth>1971-03-04</DateOfBirth>"
                         + healthCard
                         + "<Gender>F</Gender><UniqueVendorIdSequence>owned</UniqueVendorIdSequence>"

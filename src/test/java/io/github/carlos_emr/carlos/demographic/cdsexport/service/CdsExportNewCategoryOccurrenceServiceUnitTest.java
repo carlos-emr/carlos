@@ -27,65 +27,212 @@ import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.util.*;
 import org.junit.jupiter.api.*;
 
-@Tag("unit") @Tag("cds-export")
+@Tag("unit")
+@Tag("cds-export")
 class CdsExportNewCategoryOccurrenceServiceUnitTest {
-    private static final String RUN = "11111111-1111-4111-8111-111111111111", HASH = "a".repeat(64), UNIT = "b".repeat(64), ADDRESS = RUN + ":" + UNIT;
+    private static final String RUN = "11111111-1111-4111-8111-111111111111",
+            HASH = "a".repeat(64),
+            UNIT = "b".repeat(64),
+            ADDRESS = RUN + ":" + UNIT;
     private final Map<String, CdsExportCapturedTextRowDto> units = new LinkedHashMap<>();
-    private final Map<String, List<CdsExportRetainedIndexDto.Reference>> references = new LinkedHashMap<>();
-    private final Map<String, List<CdsExportRetainedReceiptVerificationDto.CheckedReference>> checked = new LinkedHashMap<>();
-    private final Set<String> applied = new HashSet<>(), unchanged = new HashSet<>(), review = new HashSet<>();
-    @BeforeEach void setup() { add(UNIT, "demographic", "27", CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW); }
-    private void add(String unit, String table, String id, CdsExportRetainedReceiptVerificationDto.Reason reason) {
-        String address = RUN + ":" + unit, key = CdsImportKeys.hash(RUN, unit); var expected = new CdsExportRetainedIndexDto.Reference(table, id, HASH);
-        units.put(key, new CdsExportCapturedTextRowDto("cds_import_unit", key, Map.of("run_id", RUN, "unit_key", unit, "category", "NewCategory", "state", "COMMITTED")));
-        applied.add(address); references.put(address, List.of(expected));
-        String current = reason == CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW ? HASH : reason == CdsExportRetainedReceiptVerificationDto.Reason.CHANGED_ROW ? "c".repeat(64) : null;
-        checked.put(address, List.of(new CdsExportRetainedReceiptVerificationDto.CheckedReference(expected, current, reason)));
-        unchanged.remove(address); review.remove(address); (reason == CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW ? unchanged : review).add(address);
+    private final Map<String, List<CdsExportRetainedIndexDto.Reference>> references =
+            new LinkedHashMap<>();
+    private final Map<String, List<CdsExportRetainedReceiptVerificationDto.CheckedReference>>
+            checked = new LinkedHashMap<>();
+    private final Set<String> applied = new HashSet<>(),
+            unchanged = new HashSet<>(),
+            review = new HashSet<>();
+
+    @BeforeEach
+    void setup() {
+        add(
+                UNIT,
+                "demographic",
+                "27",
+                CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW);
     }
-    private CdsExportRetainedIndexDto index(String hash) { return new CdsExportRetainedIndexDto(hash, units.size(), 100, Map.of("cds_import_unit", units), applied, references, Map.of()); }
+
+    private void add(
+            String unit,
+            String table,
+            String id,
+            CdsExportRetainedReceiptVerificationDto.Reason reason) {
+        String address = RUN + ":" + unit, key = CdsImportKeys.hash(RUN, unit);
+        var expected = new CdsExportRetainedIndexDto.Reference(table, id, HASH);
+        units.put(
+                key,
+                new CdsExportCapturedTextRowDto(
+                        "cds_import_unit",
+                        key,
+                        Map.of(
+                                "run_id",
+                                RUN,
+                                "unit_key",
+                                unit,
+                                "category",
+                                "NewCategory",
+                                "state",
+                                "COMMITTED")));
+        applied.add(address);
+        references.put(address, List.of(expected));
+        String current =
+                reason == CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW
+                        ? HASH
+                        : reason == CdsExportRetainedReceiptVerificationDto.Reason.CHANGED_ROW
+                                ? "c".repeat(64)
+                                : null;
+        checked.put(
+                address,
+                List.of(
+                        new CdsExportRetainedReceiptVerificationDto.CheckedReference(
+                                expected, current, reason)));
+        unchanged.remove(address);
+        review.remove(address);
+        (reason == CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW
+                        ? unchanged
+                        : review)
+                .add(address);
+    }
+
+    private CdsExportRetainedIndexDto index(String hash) {
+        return new CdsExportRetainedIndexDto(
+                hash,
+                units.size(),
+                100,
+                Map.of("cds_import_unit", units),
+                applied,
+                references,
+                Map.of());
+    }
+
     private List<String> parents(int maximum, Runnable checkpoint) throws Exception {
-        return CdsExportNewCategoryOccurrenceService.parents(27, index(HASH), new CdsExportRetainedReceiptVerificationDto(HASH, checked, unchanged, review), maximum, checkpoint);
+        return CdsExportNewCategoryOccurrenceService.parents(
+                27,
+                index(HASH),
+                new CdsExportRetainedReceiptVerificationDto(HASH, checked, unchanged, review),
+                maximum,
+                checkpoint);
     }
-    @Test void shouldBindTheExactCurrentPatientAssociation_withoutASeparateNativeClinicalProjection() throws Exception { assertThat(parents(10, () -> {})).containsExactly(ADDRESS); }
-    @Test void shouldKeepSourceOnlySupplementalValues_whenUnrelatedDemographicFieldsChanged() throws Exception {
-        add(UNIT, "demographic", "27", CdsExportRetainedReceiptVerificationDto.Reason.CHANGED_ROW); assertThat(parents(10, () -> {})).containsExactly(ADDRESS);
+
+    @Test
+    void shouldBindTheExactCurrentPatientAssociation_withoutASeparateNativeClinicalProjection()
+            throws Exception {
+        assertThat(parents(10, () -> {})).containsExactly(ADDRESS);
     }
-    @Test void shouldRefuseAForeignPatientAssociation_insteadOfReattachingItsSourceFields() {
-        add(UNIT, "demographic", "28", CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW); assertThatThrownBy(() -> parents(10, () -> {})).hasMessage("CDS_EXPORT_NEW_CATEGORY_OCCURRENCE_INVALID");
+
+    @Test
+    void shouldKeepSourceOnlySupplementalValues_whenUnrelatedDemographicFieldsChanged()
+            throws Exception {
+        add(UNIT, "demographic", "27", CdsExportRetainedReceiptVerificationDto.Reason.CHANGED_ROW);
+        assertThat(parents(10, () -> {})).containsExactly(ADDRESS);
     }
-    @Test void shouldRefuseAnUnexpectedNativeTarget_insteadOfTreatingItAsUnprojectedData() {
-        add(UNIT, "drugs", "27", CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW); assertThatThrownBy(() -> parents(10, () -> {})).hasMessage("CDS_EXPORT_NEW_CATEGORY_OCCURRENCE_INVALID");
+
+    @Test
+    void shouldRefuseAForeignPatientAssociation_insteadOfReattachingItsSourceFields() {
+        add(
+                UNIT,
+                "demographic",
+                "28",
+                CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW);
+        assertThatThrownBy(() -> parents(10, () -> {}))
+                .hasMessage("CDS_EXPORT_NEW_CATEGORY_OCCURRENCE_INVALID");
     }
-    @Test void shouldRefuseAMissingCurrentPatient_withoutSilentlyRetainingItsHistoricalXml() {
-        add(UNIT, "demographic", "27", CdsExportRetainedReceiptVerificationDto.Reason.ROW_NOT_IN_CAPTURE); assertThatThrownBy(() -> parents(10, () -> {})).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+
+    @Test
+    void shouldRefuseAnUnexpectedNativeTarget_insteadOfTreatingItAsUnprojectedData() {
+        add(UNIT, "drugs", "27", CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW);
+        assertThatThrownBy(() -> parents(10, () -> {}))
+                .hasMessage("CDS_EXPORT_NEW_CATEGORY_OCCURRENCE_INVALID");
     }
-    @Test void shouldRefuseUnavailableNativeEvidence_insteadOfClaimingUnchangedOwnership() {
-        add(UNIT, "demographic", "27", CdsExportRetainedReceiptVerificationDto.Reason.RECEIPT_METADATA_UNAVAILABLE); assertThatThrownBy(() -> parents(10, () -> {})).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+
+    @Test
+    void shouldRefuseAMissingCurrentPatient_withoutSilentlyRetainingItsHistoricalXml() {
+        add(
+                UNIT,
+                "demographic",
+                "27",
+                CdsExportRetainedReceiptVerificationDto.Reason.ROW_NOT_IN_CAPTURE);
+        assertThatThrownBy(() -> parents(10, () -> {})).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }
-    @Test void shouldRefuseChangedGenerationEvidence_evenWhenThePatientNumberMatches() {
-        var result = new CdsExportRetainedReceiptVerificationDto("d".repeat(64), checked, unchanged, review);
-        assertThatThrownBy(() -> CdsExportNewCategoryOccurrenceService.parents(27, index(HASH), result, 10, () -> {})).hasMessage("CDS_EXPORT_NEW_CATEGORY_OCCURRENCE_INVALID");
+
+    @Test
+    void shouldRefuseUnavailableNativeEvidence_insteadOfClaimingUnchangedOwnership() {
+        add(
+                UNIT,
+                "demographic",
+                "27",
+                CdsExportRetainedReceiptVerificationDto.Reason.RECEIPT_METADATA_UNAVAILABLE);
+        assertThatThrownBy(() -> parents(10, () -> {})).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }
-    @Test void shouldRefuseAnIncompleteUnitProofSet_beforeReturningAnyParent() {
+
+    @Test
+    void shouldRefuseChangedGenerationEvidence_evenWhenThePatientNumberMatches() {
+        var result =
+                new CdsExportRetainedReceiptVerificationDto(
+                        "d".repeat(64), checked, unchanged, review);
+        assertThatThrownBy(
+                        () ->
+                                CdsExportNewCategoryOccurrenceService.parents(
+                                        27, index(HASH), result, 10, () -> {}))
+                .hasMessage("CDS_EXPORT_NEW_CATEGORY_OCCURRENCE_INVALID");
+    }
+
+    @Test
+    void shouldRefuseAnIncompleteUnitProofSet_beforeReturningAnyParent() {
         var proof = new CdsExportRetainedReceiptVerificationDto(HASH, Map.of(), Set.of(), Set.of());
-        assertThatThrownBy(() -> CdsExportNewCategoryOccurrenceService.parents(27, index(HASH), proof, 10, () -> {})).hasMessage("CDS_EXPORT_NEW_CATEGORY_OCCURRENCE_INVALID");
+        assertThatThrownBy(
+                        () ->
+                                CdsExportNewCategoryOccurrenceService.parents(
+                                        27, index(HASH), proof, 10, () -> {}))
+                .hasMessage("CDS_EXPORT_NEW_CATEGORY_OCCURRENCE_INVALID");
     }
-    @Test void shouldKeepDistinctOriginalOccurrences_inStableSourceOrder() throws Exception {
-        add("c".repeat(64), "demographic", "27", CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW);
+
+    @Test
+    void shouldKeepDistinctOriginalOccurrences_inStableSourceOrder() throws Exception {
+        add(
+                "c".repeat(64),
+                "demographic",
+                "27",
+                CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW);
         assertThat(parents(10, () -> {})).containsExactly(ADDRESS, RUN + ":" + "c".repeat(64));
     }
-    @Test void shouldRefuseBoundsWithoutACompleteParentSet() {
-        add("c".repeat(64), "demographic", "27", CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW);
+
+    @Test
+    void shouldRefuseBoundsWithoutACompleteParentSet() {
+        add(
+                "c".repeat(64),
+                "demographic",
+                "27",
+                CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW);
         assertThatThrownBy(() -> parents(1, () -> {})).hasMessage("CDS_EXPORT_RESOURCE_LIMIT");
     }
-    @Test void shouldRefuseDuplicateMetadataForOneOriginalParent() {
-        units.put("d".repeat(64), units.values().iterator().next()); assertThatThrownBy(() -> parents(10, () -> {})).hasMessage("CDS_EXPORT_NEW_CATEGORY_OCCURRENCE_INVALID");
+
+    @Test
+    void shouldRefuseDuplicateMetadataForOneOriginalParent() {
+        units.put("d".repeat(64), units.values().iterator().next());
+        assertThatThrownBy(() -> parents(10, () -> {}))
+                .hasMessage("CDS_EXPORT_NEW_CATEGORY_OCCURRENCE_INVALID");
     }
-    @Test void shouldExcludeUnappliedMetadata_withoutInventingAnOccurrence() throws Exception {
-        applied.clear(); checked.clear(); unchanged.clear(); review.clear(); assertThat(parents(10, () -> {})).isEmpty();
+
+    @Test
+    void shouldExcludeUnappliedMetadata_withoutInventingAnOccurrence() throws Exception {
+        applied.clear();
+        checked.clear();
+        unchanged.clear();
+        review.clear();
+        assertThat(parents(10, () -> {})).isEmpty();
     }
-    @Test void shouldPropagateCancellation_beforeAParentClaim() {
-        assertThatThrownBy(() -> parents(10, () -> { throw new java.util.concurrent.CancellationException("CANCELLED"); })).hasMessage("CANCELLED");
+
+    @Test
+    void shouldPropagateCancellation_beforeAParentClaim() {
+        assertThatThrownBy(
+                        () ->
+                                parents(
+                                        10,
+                                        () -> {
+                                            throw new java.util.concurrent.CancellationException(
+                                                    "CANCELLED");
+                                        }))
+                .hasMessage("CANCELLED");
     }
 }

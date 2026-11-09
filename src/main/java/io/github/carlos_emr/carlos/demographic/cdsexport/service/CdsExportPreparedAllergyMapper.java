@@ -28,9 +28,22 @@ import java.io.IOException;
 /** Historical prepared representation only. Current row/alias/field reconciliation must authorize its selection separately. */
 public final class CdsExportPreparedAllergyMapper {
     public CdsExportAllergyDto map(CdsAllergyDto source) throws IOException {
-        java.util.Objects.requireNonNull(source); var dates = new CdsExportPreparedTemporalMapper();
-        return new CdsExportAllergyDto(source.description(), source.property(), source.codeSystem(), source.code(),
-                source.reactionType(), dates.map(source.start(), false), source.lifeStage(), source.severity(), source.reaction(),
-                dates.map(source.recorded(), true), source.notes(), source.archived(), source.ageOfOnset(), source.onsetOfReaction());
+        java.util.Objects.requireNonNull(source);
+        var dates = new CdsExportPreparedTemporalMapper();
+        return new CdsExportAllergyDto(
+                source.description(),
+                source.property(),
+                source.codeSystem(),
+                source.code(),
+                source.reactionType(),
+                dates.map(source.start(), false),
+                source.lifeStage(),
+                source.severity(),
+                source.reaction(),
+                dates.map(source.recorded(), true),
+                source.notes(),
+                source.archived(),
+                source.ageOfOnset(),
+                source.onsetOfReaction());
     }
 }

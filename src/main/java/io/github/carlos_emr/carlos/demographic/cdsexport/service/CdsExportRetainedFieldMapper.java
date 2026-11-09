@@ -31,27 +31,73 @@ import java.util.Set;
 
 /** Decodes captured field metadata without current-row lookups, normalizing originals or conflating field/native units. */
 public final class CdsExportRetainedFieldMapper {
-    public CdsExportRetainedFieldDto map(int patient, Set<CdsCategory> selected, CdsExportCapturedTextRowDto row) throws IOException {
+    public CdsExportRetainedFieldDto map(
+            int patient, Set<CdsCategory> selected, CdsExportCapturedTextRowDto row)
+            throws IOException {
         try {
-            if (patient < 1 || !"cds_import_field".equals(row.table()) || !row.fields().keySet().equals(
-                    Set.copyOf(CdsExportPatientTableReadSupport.Plan.IMPORT_FIELDS.columns()))) invalid();
+            if (patient < 1
+                    || !"cds_import_field".equals(row.table())
+                    || !row.fields()
+                            .keySet()
+                            .equals(
+                                    Set.copyOf(
+                                            CdsExportPatientTableReadSupport.Plan.IMPORT_FIELDS
+                                                    .columns()))) invalid();
             var fields = row.fields();
-            if (!Integer.toString(patient).equals(fields.get("demographic_no")) || !row.recordKey().equals(fields.get("id"))) invalid();
-            var category = CdsCategory.fromWireName(fields.get("category")); if (!selected.contains(category)) invalid();
-            long ordinal = integer(fields.get("occurrence")), offset = integer(fields.get("payload_offset")), bytes = integer(fields.get("payload_length"));
-            if (!row.recordKey().equals(CdsImportKeys.hash(fields.get("unit_key"), fields.get("source_namespace"),
-                    fields.get("source_path"), Long.toString(ordinal)))) invalid();
+            if (!Integer.toString(patient).equals(fields.get("demographic_no"))
+                    || !row.recordKey().equals(fields.get("id"))) invalid();
+            var category = CdsCategory.fromWireName(fields.get("category"));
+            if (!selected.contains(category)) invalid();
+            long ordinal = integer(fields.get("occurrence")),
+                    offset = integer(fields.get("payload_offset")),
+                    bytes = integer(fields.get("payload_length"));
+            if (!row.recordKey()
+                    .equals(
+                            CdsImportKeys.hash(
+                                    fields.get("unit_key"),
+                                    fields.get("source_namespace"),
+                                    fields.get("source_path"),
+                                    Long.toString(ordinal)))) invalid();
             CdsExportRetainedFieldDto.Payload payload = null;
-            if (fields.get("payload_location") != null) payload = new CdsExportRetainedFieldDto.Payload(fields.get("payload_location"), fields.get("payload_digest"), offset, bytes);
+            if (fields.get("payload_location") != null)
+                payload =
+                        new CdsExportRetainedFieldDto.Payload(
+                                fields.get("payload_location"),
+                                fields.get("payload_digest"),
+                                offset,
+                                bytes);
             else if (fields.get("payload_digest") != null || offset != 0 || bytes != 0) invalid();
-            return new CdsExportRetainedFieldDto(row.recordKey(), fields.get("run_id"), fields.get("patient_key"), fields.get("unit_key"), category,
-                    fields.get("source_path"), ordinal, fields.get("source_namespace"), fields.get("value_type"), fields.get("date_precision"),
-                    fields.get("original_value"), fields.get("normalized_value"), payload);
-        } catch (IllegalArgumentException | NullPointerException invalid) { throw new IOException("CDS_EXPORT_RETAINED_FIELD_REQUIRES_REVIEW"); }
+            return new CdsExportRetainedFieldDto(
+                    row.recordKey(),
+                    fields.get("run_id"),
+                    fields.get("patient_key"),
+                    fields.get("unit_key"),
+                    category,
+                    fields.get("source_path"),
+                    ordinal,
+                    fields.get("source_namespace"),
+                    fields.get("value_type"),
+                    fields.get("date_precision"),
+                    fields.get("original_value"),
+                    fields.get("normalized_value"),
+                    payload);
+        } catch (IllegalArgumentException | NullPointerException invalid) {
+            throw new IOException("CDS_EXPORT_RETAINED_FIELD_REQUIRES_REVIEW");
+        }
     }
+
     private static long integer(String value) throws IOException {
-        try { long number = Long.parseLong(value); if (number < 0 || !Long.toString(number).equals(value)) invalid(); return number; }
-        catch (NumberFormatException failure) { invalid(); return 0; }
+        try {
+            long number = Long.parseLong(value);
+            if (number < 0 || !Long.toString(number).equals(value)) invalid();
+            return number;
+        } catch (NumberFormatException failure) {
+            invalid();
+            return 0;
+        }
     }
-    private static void invalid() throws IOException { throw new IOException("CDS_EXPORT_RETAINED_FIELD_REQUIRES_REVIEW"); }
+
+    private static void invalid() throws IOException {
+        throw new IOException("CDS_EXPORT_RETAINED_FIELD_REQUIRES_REVIEW");
+    }
 }

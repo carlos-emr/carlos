@@ -32,28 +32,44 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 /** GET page composition never performs export source work. */
-@Component("viewCdsExport2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+@Component("viewCdsExport2Action")
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class ViewCdsExport2Action extends ActionSupport {
     private final transient SecurityInfoManager securityInfoManager;
     private final transient CdsExportWebService web;
     private final transient CdsExportViewModelAssembler assembler;
-    public ViewCdsExport2Action(CdsExportWebService web, CdsExportViewModelAssembler assembler, SecurityInfoManager securityInfoManager) {
-        this.web = web; this.assembler = assembler; this.securityInfoManager = securityInfoManager;
+
+    public ViewCdsExport2Action(
+            CdsExportWebService web,
+            CdsExportViewModelAssembler assembler,
+            SecurityInfoManager securityInfoManager) {
+        this.web = web;
+        this.assembler = assembler;
+        this.securityInfoManager = securityInfoManager;
     }
-    @Override public String execute() throws Exception {
-        var request = ServletActionContext.getRequest(); var response = ServletActionContext.getResponse();
+
+    @Override
+    public String execute() throws Exception {
+        var request = ServletActionContext.getRequest();
+        var response = ServletActionContext.getResponse();
         if (!Set.of("GET", "HEAD").contains(request.getMethod())) {
-            response.setHeader("Allow", "GET, HEAD"); response.sendError(405); return NONE;
+            response.setHeader("Allow", "GET, HEAD");
+            response.sendError(405);
+            return NONE;
         }
         var session = request.getSession(false);
         var viewer = session == null ? null : LoggedInInfo.getLoggedInInfoFromSession(session);
         if (!securityInfoManager.hasPrivilege(viewer, "_demographic", "r", (String) null)
                 || !(securityInfoManager.hasPrivilege(viewer, "_admin", "w", (String) null)
-                || securityInfoManager.hasPrivilege(viewer, "_cds_export", "w", (String) null))) {
+                        || securityInfoManager.hasPrivilege(
+                                viewer, "_cds_export", "w", (String) null))) {
             throw new SecurityException("CDS_EXPORT_ACCESS_DENIED");
         }
-        var actor = web.authorize(request); web.parameters(request, Set.of("runId"), true);
-        response.setHeader("Cache-Control", "no-store"); response.setHeader("X-Content-Type-Options", "nosniff");
-        request.setAttribute("model", assembler.assemble(actor)); return SUCCESS;
+        var actor = web.authorize(request);
+        web.parameters(request, Set.of("runId"), true);
+        response.setHeader("Cache-Control", "no-store");
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        request.setAttribute("model", assembler.assemble(actor));
+        return SUCCESS;
     }
 }

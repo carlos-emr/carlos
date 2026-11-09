@@ -30,113 +30,272 @@ import java.util.regex.Pattern;
 
 /** Reconciled standard allergy fields plus every untouched retained extension, in one authenticated source occurrence. */
 public final class CdsExportAllergyRetainedAssembler {
-    private static final Pattern MARKER = Pattern.compile("ResidualInfo\\[1\\]/DataElement\\[([1-9][0-9]{0,17})\\]/Name\\[1\\]");
-    private static final Set<String> KNOWN = Set.of(CdsNativeExtensionContract.ALLERGY_ARCHIVED,
-            CdsNativeExtensionContract.ALLERGY_AGE_OF_ONSET, CdsNativeExtensionContract.ALLERGY_ONSET_OF_REACTION);
-    public CdsExportRetainedSectionWriter.Prepared prepare(int patient, CdsExportAllergyFieldReconciler.Result decision,
-            CdsExportRetainedIndexDto index, CdsExportRetainedReceiptVerificationDto checked,
-            List<CdsExportRetainedFieldDto> allFields, CdsExportRetainedSectionWriter.Values values, Runnable checkpoint) throws IOException {
-        Objects.requireNonNull(values); Objects.requireNonNull(checkpoint); values.requireActive();
-        if (!decision.mapping().nativeRowRepresentable()) review("CDS_EXPORT_ALLERGY_MAPPING_REQUIRES_REVIEW");
-        if (!decision.sourceManifestSha256().equals(index.sourceManifestSha256()) || !index.sourceManifestSha256().equals(checked.sourceManifestSha256())
+    private static final Pattern MARKER =
+            Pattern.compile("ResidualInfo\\[1\\]/DataElement\\[([1-9][0-9]{0,17})\\]/Name\\[1\\]");
+    private static final Set<String> KNOWN =
+            Set.of(
+                    CdsNativeExtensionContract.ALLERGY_ARCHIVED,
+                    CdsNativeExtensionContract.ALLERGY_AGE_OF_ONSET,
+                    CdsNativeExtensionContract.ALLERGY_ONSET_OF_REACTION);
+
+    public CdsExportRetainedSectionWriter.Prepared prepare(
+            int patient,
+            CdsExportAllergyFieldReconciler.Result decision,
+            CdsExportRetainedIndexDto index,
+            CdsExportRetainedReceiptVerificationDto checked,
+            List<CdsExportRetainedFieldDto> allFields,
+            CdsExportRetainedSectionWriter.Values values,
+            Runnable checkpoint)
+            throws IOException {
+        Objects.requireNonNull(values);
+        Objects.requireNonNull(checkpoint);
+        values.requireActive();
+        if (!decision.mapping().nativeRowRepresentable())
+            review("CDS_EXPORT_ALLERGY_MAPPING_REQUIRES_REVIEW");
+        if (!decision.sourceManifestSha256().equals(index.sourceManifestSha256())
+                || !index.sourceManifestSha256().equals(checked.sourceManifestSha256())
                 || !index.appliedUnits().contains(decision.unitAddress())) scope();
         CdsExportAllergyXmlWriter.validate(decision.mapping().value());
-        var fields = new CdsExportRetainedOccurrenceFields().fieldsFor(patient, CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS, decision.unitAddress(),
-                index, checked, allFields, checkpoint);
-        String root = root(fields.getFirst()); var relative = new LinkedHashMap<String, CdsExportRetainedFieldDto>();
+        var fields =
+                new CdsExportRetainedOccurrenceFields()
+                        .fieldsFor(
+                                patient,
+                                CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS,
+                                decision.unitAddress(),
+                                index,
+                                checked,
+                                allFields,
+                                checkpoint);
+        String root = root(fields.getFirst());
+        var relative = new LinkedHashMap<String, CdsExportRetainedFieldDto>();
         for (var field : fields) {
             if (!root.equals(root(field))) scope();
-            String path=field.sourcePath().length()==root.length()?"":field.sourcePath().substring(root.length()+1);
-            if (relative.putIfAbsent(path, field)!=null) scope();
+            String path =
+                    field.sourcePath().length() == root.length()
+                            ? ""
+                            : field.sourcePath().substring(root.length() + 1);
+            if (relative.putIfAbsent(path, field) != null) scope();
         }
-        var historical = new CdsExportPreparedAllergyMapper().map(new CdsExportRetainedPreparationReader().allergy(index, decision.unitAddress()).value());
-        var current = decision.mapping().value(); var changes = new ArrayList<CdsExportRetainedSectionWriter.Change>();
+        var historical =
+                new CdsExportPreparedAllergyMapper()
+                        .map(
+                                new CdsExportRetainedPreparationReader()
+                                        .allergy(index, decision.unitAddress())
+                                        .value());
+        var current = decision.mapping().value();
+        var changes = new ArrayList<CdsExportRetainedSectionWriter.Change>();
         for (var part : parts(current).entrySet()) {
-            String path=part.getKey()+"[1]"; var prior=ids(relative, path);
-            if (!prior.isEmpty() || part.getValue()!=null) changes.add(new CdsExportRetainedSectionWriter.Change(path, prior, part.getValue()));
+            String path = part.getKey() + "[1]";
+            var prior = ids(relative, path);
+            if (!prior.isEmpty() || part.getValue() != null)
+                changes.add(
+                        new CdsExportRetainedSectionWriter.Change(path, prior, part.getValue()));
         }
-        var existing = new HashMap<String, String>(); long maximum=0;
+        var existing = new HashMap<String, String>();
+        long maximum = 0;
         for (var entry : relative.entrySet()) {
-            checkpoint.run(); var match=MARKER.matcher(entry.getKey()); if (!match.matches())continue;
-            maximum=Math.max(maximum, Long.parseLong(match.group(1))); String name=token(values, entry.getValue(), checkpoint);
-            if (name==null || !KNOWN.contains(name))continue;
-            String path=entry.getKey().substring(0, entry.getKey().lastIndexOf('/'));
-            if (existing.putIfAbsent(name, path)!=null) review("CDS_EXPORT_ALLERGY_EXTENSION_DUPLICATE");
-            var type=relative.get(path+"/DataType[1]"); var content=relative.get(path+"/Content[1]");
-            if (type==null || content==null || !markerType(name).equals(token(values, type, checkpoint))) review("CDS_EXPORT_ALLERGY_EXTENSION_TYPE_REQUIRES_REVIEW");
-            String prior=token(values, content, checkpoint);
+            checkpoint.run();
+            var match = MARKER.matcher(entry.getKey());
+            if (!match.matches()) continue;
+            maximum = Math.max(maximum, Long.parseLong(match.group(1)));
+            String name = token(values, entry.getValue(), checkpoint);
+            if (name == null || !KNOWN.contains(name)) continue;
+            String path = entry.getKey().substring(0, entry.getKey().lastIndexOf('/'));
+            if (existing.putIfAbsent(name, path) != null)
+                review("CDS_EXPORT_ALLERGY_EXTENSION_DUPLICATE");
+            var type = relative.get(path + "/DataType[1]");
+            var content = relative.get(path + "/Content[1]");
+            if (type == null
+                    || content == null
+                    || !markerType(name).equals(token(values, type, checkpoint)))
+                review("CDS_EXPORT_ALLERGY_EXTENSION_TYPE_REQUIRES_REVIEW");
+            String prior = token(values, content, checkpoint);
             if (name.equals(CdsNativeExtensionContract.ALLERGY_ARCHIVED)) {
-                prior=switch (prior==null?"":prior){case "true", "1"-> "true"; case "false", "0"-> "false"; default-> null; };
+                prior =
+                        switch (prior == null ? "" : prior) {
+                            case "true", "1" -> "true";
+                            case "false", "0" -> "false";
+                            default -> null;
+                        };
             }
-            if (prior==null || !Objects.equals(prior, markerValue(historical, name))) review("CDS_EXPORT_ALLERGY_EXTENSION_PROJECTION_CONFLICT");
+            if (prior == null || !Objects.equals(prior, markerValue(historical, name)))
+                review("CDS_EXPORT_ALLERGY_EXTENSION_PROJECTION_CONFLICT");
         }
-        var additions=new LinkedHashMap<String, String>();
+        var additions = new LinkedHashMap<String, String>();
         for (String name : KNOWN.stream().sorted().toList()) {
-            String value=markerValue(current, name), old=markerValue(historical, name), path=existing.get(name);
-            if (path!=null) {
-                if (value==null) changes.add(new CdsExportRetainedSectionWriter.Change(path, ids(relative, path), null));
+            String value = markerValue(current, name),
+                    old = markerValue(historical, name),
+                    path = existing.get(name);
+            if (path != null) {
+                if (value == null)
+                    changes.add(
+                            new CdsExportRetainedSectionWriter.Change(
+                                    path, ids(relative, path), null));
                 else if (!value.equals(old)) {
-                    var content=relative.get(path+"/Content[1]");
-                    changes.add(new CdsExportRetainedSectionWriter.Change(path+"/Content[1]", Set.of(content.id()), xml-> xml.text(value)));
+                    var content = relative.get(path + "/Content[1]");
+                    changes.add(
+                            new CdsExportRetainedSectionWriter.Change(
+                                    path + "/Content[1]",
+                                    Set.of(content.id()),
+                                    xml -> xml.text(value)));
                 }
-            } else if (value!=null)additions.put(name, value);
+            } else if (value != null) additions.put(name, value);
         }
         if (!additions.isEmpty()) {
-            boolean residual=relative.keySet().stream().anyMatch(path-> path.equals("ResidualInfo[1]")||path.startsWith("ResidualInfo[1]/"));
+            boolean residual =
+                    relative.keySet().stream()
+                            .anyMatch(
+                                    path ->
+                                            path.equals("ResidualInfo[1]")
+                                                    || path.startsWith("ResidualInfo[1]/"));
             if (!residual || relative.containsKey("ResidualInfo[1]")) {
-                changes.add(new CdsExportRetainedSectionWriter.Change("ResidualInfo[1]", ids(relative, "ResidualInfo[1]"), xml-> {
-                    for (var marker:additions.entrySet()) { xml.start("cds_dt", "DataElement"); marker(xml, marker.getKey(), marker.getValue()); xml.end(); }
-                }));
-            } else for (var marker:additions.entrySet()) {
-                String path="ResidualInfo[1]/DataElement["+(++maximum)+"]";
-                changes.add(new CdsExportRetainedSectionWriter.Change(path, Set.of(), xml-> marker(xml, marker.getKey(), marker.getValue())));
-            }
+                changes.add(
+                        new CdsExportRetainedSectionWriter.Change(
+                                "ResidualInfo[1]",
+                                ids(relative, "ResidualInfo[1]"),
+                                xml -> {
+                                    for (var marker : additions.entrySet()) {
+                                        xml.start("cds_dt", "DataElement");
+                                        marker(xml, marker.getKey(), marker.getValue());
+                                        xml.end();
+                                    }
+                                }));
+            } else
+                for (var marker : additions.entrySet()) {
+                    String path = "ResidualInfo[1]/DataElement[" + (++maximum) + "]";
+                    changes.add(
+                            new CdsExportRetainedSectionWriter.Change(
+                                    path,
+                                    Set.of(),
+                                    xml -> marker(xml, marker.getKey(), marker.getValue())));
+                }
         }
-        values.requireActive(); checkpoint.run();
-        return new CdsExportRetainedSectionWriter().prepareChanges(fields, values, changes, checkpoint);
+        values.requireActive();
+        checkpoint.run();
+        return new CdsExportRetainedSectionWriter()
+                .prepareChanges(fields, values, changes, checkpoint);
     }
+
     private static Map<String, CdsExportXmlComposer.Content> parts(CdsExportAllergyDto value) {
-        var result=new LinkedHashMap<String, CdsExportXmlComposer.Content>();
-        text(result, "OffendingAgentDescription", value.description()); text(result, "PropertyOfOffendingAgent", value.property());
-        result.put("Code", value.codeValue()==null?null:xml-> {xml.element("cds_dt", "CodeType", value.codeType()); xml.element("cds_dt", "CodeValue", value.codeValue()); });
-        text(result, "ReactionType", value.reactionType()); date(result, "StartDate", value.start()); text(result, "LifeStage", value.lifeStage());
-        text(result, "Severity", value.severity()); text(result, "Reaction", value.reaction()); date(result, "RecordedDate", value.recorded()); text(result, "Notes", value.notes());
+        var result = new LinkedHashMap<String, CdsExportXmlComposer.Content>();
+        text(result, "OffendingAgentDescription", value.description());
+        text(result, "PropertyOfOffendingAgent", value.property());
+        result.put(
+                "Code",
+                value.codeValue() == null
+                        ? null
+                        : xml -> {
+                            xml.element("cds_dt", "CodeType", value.codeType());
+                            xml.element("cds_dt", "CodeValue", value.codeValue());
+                        });
+        text(result, "ReactionType", value.reactionType());
+        date(result, "StartDate", value.start());
+        text(result, "LifeStage", value.lifeStage());
+        text(result, "Severity", value.severity());
+        text(result, "Reaction", value.reaction());
+        date(result, "RecordedDate", value.recorded());
+        text(result, "Notes", value.notes());
         return result;
     }
-    private static void text(Map<String, CdsExportXmlComposer.Content> parts, String name, String value) { parts.put(name, value==null?null:xml-> xml.text(value)); }
-    private static void date(Map<String, CdsExportXmlComposer.Content> parts, String name, CdsExportDateDto value) {
-        parts.put(name, value.precision()==CdsExportDateDto.Precision.ABSENT?null:xml-> CdsExportAllergyXmlWriter.dateContent(xml, value, name.equals("RecordedDate")));
+
+    private static void text(
+            Map<String, CdsExportXmlComposer.Content> parts, String name, String value) {
+        parts.put(name, value == null ? null : xml -> xml.text(value));
     }
-    private static void marker(CdsExportXmlComposer.ContentWriter xml, String name, String value)throws IOException {
+
+    private static void date(
+            Map<String, CdsExportXmlComposer.Content> parts, String name, CdsExportDateDto value) {
+        parts.put(
+                name,
+                value.precision() == CdsExportDateDto.Precision.ABSENT
+                        ? null
+                        : xml ->
+                                CdsExportAllergyXmlWriter.dateContent(
+                                        xml, value, name.equals("RecordedDate")));
+    }
+
+    private static void marker(CdsExportXmlComposer.ContentWriter xml, String name, String value)
+            throws IOException {
         CdsExportAllergyXmlWriter.residualFields(xml, name, markerType(name), value);
     }
-    private static String markerType(String name) { return name.equals(CdsNativeExtensionContract.ALLERGY_ARCHIVED)?CdsNativeExtensionContract.BOOLEAN_TYPE:CdsNativeExtensionContract.STRING_TYPE; }
+
+    private static String markerType(String name) {
+        return name.equals(CdsNativeExtensionContract.ALLERGY_ARCHIVED)
+                ? CdsNativeExtensionContract.BOOLEAN_TYPE
+                : CdsNativeExtensionContract.STRING_TYPE;
+    }
+
     private static String markerValue(CdsExportAllergyDto value, String name) {
-        if (name.equals(CdsNativeExtensionContract.ALLERGY_ARCHIVED))return Boolean.toString(value.archived());
-        if (name.equals(CdsNativeExtensionContract.ALLERGY_AGE_OF_ONSET))return value.ageOfOnset();
-        return value.onsetOfReaction()==null?null:CdsNativeExtensionContract.ALLERGY_ONSET_VALUES.get(value.onsetOfReaction());
+        if (name.equals(CdsNativeExtensionContract.ALLERGY_ARCHIVED))
+            return Boolean.toString(value.archived());
+        if (name.equals(CdsNativeExtensionContract.ALLERGY_AGE_OF_ONSET)) return value.ageOfOnset();
+        return value.onsetOfReaction() == null
+                ? null
+                : CdsNativeExtensionContract.ALLERGY_ONSET_VALUES.get(value.onsetOfReaction());
     }
+
     private static Set<String> ids(Map<String, CdsExportRetainedFieldDto> fields, String root) {
-        var ids=new HashSet<String>(); fields.forEach((path, field)-> {if (path.equals(root)||path.startsWith(root+"/"))ids.add(field.id()); }); return ids;
+        var ids = new HashSet<String>();
+        fields.forEach(
+                (path, field) -> {
+                    if (path.equals(root) || path.startsWith(root + "/")) ids.add(field.id());
+                });
+        return ids;
     }
-    private static String root(CdsExportRetainedFieldDto field)throws IOException {
-        try {return CdsExportRetainedOccurrencePath.root(field, CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS); }
-        catch (IOException invalid){scope(); return null; }
+
+    private static String root(CdsExportRetainedFieldDto field) throws IOException {
+        try {
+            return CdsExportRetainedOccurrencePath.root(
+                    field, CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS);
+        } catch (IOException invalid) {
+            scope();
+            return null;
+        }
     }
+
     /** Bounded comparison only; oversized unknown names remain intact in the retained subtree. */
-    private static String token(CdsExportRetainedSectionWriter.Values values, CdsExportRetainedFieldDto field, Runnable checkpoint)throws IOException {
-        var result=new StringBuilder(); boolean pending=false, overflow=false; char[] block=new char[4096];
-        try (Reader input=values.text(field)) {
-            int count; while ((count=input.read(block))!=-1) {
-                checkpoint.run(); if (count==0)throw new IOException("CDS_EXPORT_RETAINED_SOURCE_STALLED");
-                for (int i=0; i<count; i++) {
-                    char character=block[i]; if (character==' '||character=='\t'||character=='\r'||character=='\n'){if (!result.isEmpty())pending=true; continue; }
-                    if (overflow)continue; if (pending){result.append(' '); pending=false; }result.append(character); if (result.length()>128)overflow=true;
+    private static String token(
+            CdsExportRetainedSectionWriter.Values values,
+            CdsExportRetainedFieldDto field,
+            Runnable checkpoint)
+            throws IOException {
+        var result = new StringBuilder();
+        boolean pending = false, overflow = false;
+        char[] block = new char[4096];
+        try (Reader input = values.text(field)) {
+            int count;
+            while ((count = input.read(block)) != -1) {
+                checkpoint.run();
+                if (count == 0) throw new IOException("CDS_EXPORT_RETAINED_SOURCE_STALLED");
+                for (int i = 0; i < count; i++) {
+                    char character = block[i];
+                    if (character == ' '
+                            || character == '\t'
+                            || character == '\r'
+                            || character == '\n') {
+                        if (!result.isEmpty()) pending = true;
+                        continue;
+                    }
+                    if (overflow) continue;
+                    if (pending) {
+                        result.append(' ');
+                        pending = false;
+                    }
+                    result.append(character);
+                    if (result.length() > 128) overflow = true;
                 }
             }
-        } finally {Arrays.fill(block, '\0'); }
-        return overflow?null:result.toString();
+        } finally {
+            Arrays.fill(block, '\0');
+        }
+        return overflow ? null : result.toString();
     }
-    private static void scope()throws IOException {throw new IOException("CDS_EXPORT_ALLERGY_RETAINED_ASSEMBLY_SCOPE_INVALID"); }
-    private static void review(String code)throws IOException {throw new IOException(code); }
+
+    private static void scope() throws IOException {
+        throw new IOException("CDS_EXPORT_ALLERGY_RETAINED_ASSEMBLY_SCOPE_INVALID");
+    }
+
+    private static void review(String code) throws IOException {
+        throw new IOException(code);
+    }
 }

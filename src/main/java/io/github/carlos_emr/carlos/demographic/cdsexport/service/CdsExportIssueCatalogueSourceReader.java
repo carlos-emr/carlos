@@ -30,7 +30,21 @@ import org.springframework.stereotype.Service;
 /** Complete patient issue context from its owning DAO, under the active chart's patient-domain read boundary. */
 @Service
 public class CdsExportIssueCatalogueSourceReader extends CdsExportPatientTableSourceReader {
-    public CdsExportIssueCatalogueSourceReader(IssueDAO source) { super(source, CdsExportPatientTableReadSupport.Plan.ISSUE_CATALOGUE, CdsExportNoteSourceReader.CATEGORIES); }
-    @Override public Set<String> requiredTables() { return Set.of("casemgmt_issue", "casemgmt_issue_notes", "casemgmt_note"); }
-    @Override public void authorizeReadScope(int patient, CdsExportRunControl control) { control.authorizeCaseManagement(patient); control.checkpoint(); }
+    public CdsExportIssueCatalogueSourceReader(IssueDAO source) {
+        super(
+                source,
+                CdsExportPatientTableReadSupport.Plan.ISSUE_CATALOGUE,
+                CdsExportNoteSourceReader.CATEGORIES);
+    }
+
+    @Override
+    public Set<String> requiredTables() {
+        return Set.of("casemgmt_issue", "casemgmt_issue_notes", "casemgmt_note");
+    }
+
+    @Override
+    public void authorizeReadScope(int patient, CdsExportRunControl control) {
+        control.authorizeCaseManagement(patient);
+        control.checkpoint();
+    }
 }

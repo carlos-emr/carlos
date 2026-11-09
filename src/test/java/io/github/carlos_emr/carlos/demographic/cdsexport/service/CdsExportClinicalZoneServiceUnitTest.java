@@ -32,19 +32,183 @@ import java.util.*;
 import org.junit.jupiter.api.*;
 
 class CdsExportClinicalZoneServiceUnitTest {
-    private static final String HASH="a".repeat(64); private static final Set<String> TABLES=Set.of("clinical_timezone");
-    private final CdsExportLeaseDto lease=mock(CdsExportLeaseDto.class); private final CdsExportCohortService.Patient patient=mock(CdsExportCohortService.Patient.class); private final CdsExportRunControl control=mock(CdsExportRunControl.class);
-    private final CdsExportNativeCaptureService captures=mock(CdsExportNativeCaptureService.class); private final CdsExportCapturedTextRowsReader rows=mock(CdsExportCapturedTextRowsReader.class);
-    private CdsExportClinicalZoneService service; private CdsExportNativeCaptureDto generation; private CdsExportPatientCaptureDto source; private List<CdsExportCapturedTextRowDto> data; private boolean complete, eofFailure, foreignGeneration;
-    @BeforeEach void setup()throws Exception{generation=mock(CdsExportNativeCaptureDto.class); when(generation.tables()).thenReturn(Map.of("clinical_timezone", new CdsExportCapturedTableDto(Set.of("sha256", "tzdbVersion", "zoneId"), 1, HASH))); when(generation.values()).thenReturn(file("1", "SOURCE_VALUES")); when(generation.index()).thenReturn(file("2", "SOURCE_INDEX")); source=new CdsExportPatientCaptureDto(generation, file("3", "SOURCE_MANIFEST")); var zone=CdsExportClinicalZone.capture("America/Toronto"); data=List.of(new CdsExportCapturedTextRowDto("clinical_timezone", "configuration", Map.of("zoneId", zone.zoneId(), "tzdbVersion", zone.tzdbVersion(), "sha256", zone.sha256()))); when(rows.forEach(eq(lease), eq(patient), eq(TABLES), eq("clinical_timezone"), eq(source.manifest()), anyLong(), anyLong(), anyInt(), eq(control), any())).thenAnswer(call-> {for (var row:data)((CdsExportCapturedTextRowsReader.Rows)call.getArgument(9)).accept(row); complete=true; if (eofFailure)throw new IOException("ZONE_FINAL_EOF_FAILED"); return foreignGeneration?mock(CdsExportNativeCaptureDto.class):generation; }); service=new CdsExportClinicalZoneService(captures, rows); }
-    @Test void returnsOnlyTheAuthenticatedGenerationAndChecksCurrentAuthorityAfterEof()throws Exception{var result=read(); assertThat(result.sourceManifestSha256()).isEqualTo(HASH); assertThat(result.zone()).isEqualTo(ZoneId.of("America/Toronto")); verify(captures, times(2)).authorizeSources(lease, patient, TABLES, control); }
-    @Test void manifestOnlyReaderStillRequiresTheSameCompleteZoneTable()throws Exception{assertThat(service.read(lease, patient, TABLES, source.manifest(), 1000, 1L<<20, control).zone()).isEqualTo(ZoneId.of("America/Toronto")); }
-    @Test void oldCapturesCannotFallBackToASettingOrTheJvmZone(){assertThatThrownBy(()-> service.read(lease, patient, Set.of("appointment"), source, 1000, 1L<<20, control)).hasMessage("CDS_EXPORT_CLINICAL_ZONE_CAPTURE_INVALID"); verifyNoInteractions(rows); }
-    @Test void missingAndDuplicateRowsNeverProduceAZone(){data=List.of(); assertThatThrownBy(this::read).hasMessage("CDS_EXPORT_CLINICAL_ZONE_CAPTURE_INVALID"); try {setup(); }catch (Exception failure){throw new AssertionError(failure); }data=List.of(data.getFirst(), data.getFirst()); assertThatThrownBy(this::read).hasMessage("CDS_EXPORT_CLINICAL_ZONE_CAPTURE_INVALID"); }
-    @Test void alteredGenerationAndLateSourceFailureCannotReturnABinding(){foreignGeneration=true; assertThatThrownBy(this::read).hasMessage("CDS_EXPORT_CLINICAL_ZONE_CAPTURE_INVALID"); foreignGeneration=false; eofFailure=true; assertThatThrownBy(this::read).hasMessage("ZONE_FINAL_EOF_FAILED"); }
-    @Test void finalAuthorityRevocationCannotBecomeACompletedZoneRead(){doAnswer(call-> {if (complete)throw new SecurityException("ZONE_AUTHORITY_REVOKED"); return null; }).when(captures).authorizeSources(lease, patient, TABLES, control); assertThatThrownBy(this::read).hasMessage("ZONE_AUTHORITY_REVOKED"); }
-    @Test void nullMetadataAndWrongIdentityCannotBecomeAUsableDefault(){var values=new HashMap<>(data.getFirst().fields()); values.put("zoneId", null); data=List.of(new CdsExportCapturedTextRowDto("clinical_timezone", "configuration", values)); assertThatThrownBy(this::read).hasMessage("CDS_EXPORT_CLINICAL_ZONE_INVALID"); data=List.of(new CdsExportCapturedTextRowDto("clinical_timezone", "not-configuration", values)); assertThatThrownBy(this::read).hasMessage("CDS_EXPORT_CLINICAL_ZONE_CAPTURE_INVALID"); }
-    @Test void finalCancellationKeepsItsOriginalMeaning(){var calls=new java.util.concurrent.atomic.AtomicInteger(); doAnswer(call-> {if (calls.incrementAndGet()==2)throw new java.util.concurrent.CancellationException("ZONE_FINAL_CANCEL"); return null; }).when(control).checkpoint(); assertThatThrownBy(this::read).isInstanceOf(java.util.concurrent.CancellationException.class).hasMessage("ZONE_FINAL_CANCEL"); }
-    private CdsExportClinicalZoneService.Bound read()throws Exception{return service.read(lease, patient, TABLES, source, 1000, 1L<<20, control); }
-    private static CdsExportStagedFileDto file(String name, String purpose){return new CdsExportStagedFileDto(name.repeat(64), purpose, HASH, 1); }
+    private static final String HASH = "a".repeat(64);
+    private static final Set<String> TABLES = Set.of("clinical_timezone");
+    private final CdsExportLeaseDto lease = mock(CdsExportLeaseDto.class);
+    private final CdsExportCohortService.Patient patient =
+            mock(CdsExportCohortService.Patient.class);
+    private final CdsExportRunControl control = mock(CdsExportRunControl.class);
+    private final CdsExportNativeCaptureService captures =
+            mock(CdsExportNativeCaptureService.class);
+    private final CdsExportCapturedTextRowsReader rows =
+            mock(CdsExportCapturedTextRowsReader.class);
+    private CdsExportClinicalZoneService service;
+    private CdsExportNativeCaptureDto generation;
+    private CdsExportPatientCaptureDto source;
+    private List<CdsExportCapturedTextRowDto> data;
+    private boolean complete, eofFailure, foreignGeneration;
+
+    @BeforeEach
+    void setup() throws Exception {
+        generation = mock(CdsExportNativeCaptureDto.class);
+        when(generation.tables())
+                .thenReturn(
+                        Map.of(
+                                "clinical_timezone",
+                                new CdsExportCapturedTableDto(
+                                        Set.of("sha256", "tzdbVersion", "zoneId"), 1, HASH)));
+        when(generation.values()).thenReturn(file("1", "SOURCE_VALUES"));
+        when(generation.index()).thenReturn(file("2", "SOURCE_INDEX"));
+        source = new CdsExportPatientCaptureDto(generation, file("3", "SOURCE_MANIFEST"));
+        var zone = CdsExportClinicalZone.capture("America/Toronto");
+        data =
+                List.of(
+                        new CdsExportCapturedTextRowDto(
+                                "clinical_timezone",
+                                "configuration",
+                                Map.of(
+                                        "zoneId",
+                                        zone.zoneId(),
+                                        "tzdbVersion",
+                                        zone.tzdbVersion(),
+                                        "sha256",
+                                        zone.sha256())));
+        when(rows.forEach(
+                        eq(lease),
+                        eq(patient),
+                        eq(TABLES),
+                        eq("clinical_timezone"),
+                        eq(source.manifest()),
+                        anyLong(),
+                        anyLong(),
+                        anyInt(),
+                        eq(control),
+                        any()))
+                .thenAnswer(
+                        call -> {
+                            for (var row : data)
+                                ((CdsExportCapturedTextRowsReader.Rows) call.getArgument(9))
+                                        .accept(row);
+                            complete = true;
+                            if (eofFailure) throw new IOException("ZONE_FINAL_EOF_FAILED");
+                            return foreignGeneration
+                                    ? mock(CdsExportNativeCaptureDto.class)
+                                    : generation;
+                        });
+        service = new CdsExportClinicalZoneService(captures, rows);
+    }
+
+    @Test
+    void returnsOnlyTheAuthenticatedGenerationAndChecksCurrentAuthorityAfterEof() throws Exception {
+        var result = read();
+        assertThat(result.sourceManifestSha256()).isEqualTo(HASH);
+        assertThat(result.zone()).isEqualTo(ZoneId.of("America/Toronto"));
+        verify(captures, times(2)).authorizeSources(lease, patient, TABLES, control);
+    }
+
+    @Test
+    void manifestOnlyReaderStillRequiresTheSameCompleteZoneTable() throws Exception {
+        assertThat(
+                        service.read(
+                                        lease,
+                                        patient,
+                                        TABLES,
+                                        source.manifest(),
+                                        1000,
+                                        1L << 20,
+                                        control)
+                                .zone())
+                .isEqualTo(ZoneId.of("America/Toronto"));
+    }
+
+    @Test
+    void oldCapturesCannotFallBackToASettingOrTheJvmZone() {
+        assertThatThrownBy(
+                        () ->
+                                service.read(
+                                        lease,
+                                        patient,
+                                        Set.of("appointment"),
+                                        source,
+                                        1000,
+                                        1L << 20,
+                                        control))
+                .hasMessage("CDS_EXPORT_CLINICAL_ZONE_CAPTURE_INVALID");
+        verifyNoInteractions(rows);
+    }
+
+    @Test
+    void missingAndDuplicateRowsNeverProduceAZone() {
+        data = List.of();
+        assertThatThrownBy(this::read).hasMessage("CDS_EXPORT_CLINICAL_ZONE_CAPTURE_INVALID");
+        try {
+            setup();
+        } catch (Exception failure) {
+            throw new AssertionError(failure);
+        }
+        data = List.of(data.getFirst(), data.getFirst());
+        assertThatThrownBy(this::read).hasMessage("CDS_EXPORT_CLINICAL_ZONE_CAPTURE_INVALID");
+    }
+
+    @Test
+    void alteredGenerationAndLateSourceFailureCannotReturnABinding() {
+        foreignGeneration = true;
+        assertThatThrownBy(this::read).hasMessage("CDS_EXPORT_CLINICAL_ZONE_CAPTURE_INVALID");
+        foreignGeneration = false;
+        eofFailure = true;
+        assertThatThrownBy(this::read).hasMessage("ZONE_FINAL_EOF_FAILED");
+    }
+
+    @Test
+    void finalAuthorityRevocationCannotBecomeACompletedZoneRead() {
+        doAnswer(
+                        call -> {
+                            if (complete) throw new SecurityException("ZONE_AUTHORITY_REVOKED");
+                            return null;
+                        })
+                .when(captures)
+                .authorizeSources(lease, patient, TABLES, control);
+        assertThatThrownBy(this::read).hasMessage("ZONE_AUTHORITY_REVOKED");
+    }
+
+    @Test
+    void nullMetadataAndWrongIdentityCannotBecomeAUsableDefault() {
+        var values = new HashMap<>(data.getFirst().fields());
+        values.put("zoneId", null);
+        data =
+                List.of(
+                        new CdsExportCapturedTextRowDto(
+                                "clinical_timezone", "configuration", values));
+        assertThatThrownBy(this::read).hasMessage("CDS_EXPORT_CLINICAL_ZONE_INVALID");
+        data =
+                List.of(
+                        new CdsExportCapturedTextRowDto(
+                                "clinical_timezone", "not-configuration", values));
+        assertThatThrownBy(this::read).hasMessage("CDS_EXPORT_CLINICAL_ZONE_CAPTURE_INVALID");
+    }
+
+    @Test
+    void finalCancellationKeepsItsOriginalMeaning() {
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        doAnswer(
+                        call -> {
+                            if (calls.incrementAndGet() == 2)
+                                throw new java.util.concurrent.CancellationException(
+                                        "ZONE_FINAL_CANCEL");
+                            return null;
+                        })
+                .when(control)
+                .checkpoint();
+        assertThatThrownBy(this::read)
+                .isInstanceOf(java.util.concurrent.CancellationException.class)
+                .hasMessage("ZONE_FINAL_CANCEL");
+    }
+
+    private CdsExportClinicalZoneService.Bound read() throws Exception {
+        return service.read(lease, patient, TABLES, source, 1000, 1L << 20, control);
+    }
+
+    private static CdsExportStagedFileDto file(String name, String purpose) {
+        return new CdsExportStagedFileDto(name.repeat(64), purpose, HASH, 1);
+    }
 }

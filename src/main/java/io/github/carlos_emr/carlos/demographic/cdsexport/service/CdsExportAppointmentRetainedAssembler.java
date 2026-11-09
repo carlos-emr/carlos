@@ -28,30 +28,85 @@ import java.util.*;
 
 /** Every retained appointment field is kept or replaced under its verified original occurrence. */
 public final class CdsExportAppointmentRetainedAssembler {
-    public CdsExportRetainedSectionWriter.Prepared prepare(int patient, CdsExportAppointmentFieldReconciler.Result decision,
-            CdsExportRetainedIndexDto index, CdsExportRetainedReceiptVerificationDto checked, List<CdsExportRetainedFieldDto> supplied,
-            CdsExportRetainedSectionWriter.Values values, Runnable checkpoint)throws IOException {
-        values.requireActive(); if (!decision.mapping().nativeRowRepresentable())throw new IOException("CDS_EXPORT_APPOINTMENT_MAPPING_REQUIRES_REVIEW");
-        if (!index.sourceManifestSha256().equals(decision.sourceManifestSha256())||!index.sourceManifestSha256().equals(checked.sourceManifestSha256())||!index.appliedUnits().contains(decision.unitAddress()))scope();
+    public CdsExportRetainedSectionWriter.Prepared prepare(
+            int patient,
+            CdsExportAppointmentFieldReconciler.Result decision,
+            CdsExportRetainedIndexDto index,
+            CdsExportRetainedReceiptVerificationDto checked,
+            List<CdsExportRetainedFieldDto> supplied,
+            CdsExportRetainedSectionWriter.Values values,
+            Runnable checkpoint)
+            throws IOException {
+        values.requireActive();
+        if (!decision.mapping().nativeRowRepresentable())
+            throw new IOException("CDS_EXPORT_APPOINTMENT_MAPPING_REQUIRES_REVIEW");
+        if (!index.sourceManifestSha256().equals(decision.sourceManifestSha256())
+                || !index.sourceManifestSha256().equals(checked.sourceManifestSha256())
+                || !index.appliedUnits().contains(decision.unitAddress())) scope();
         CdsExportAppointmentXmlWriter.validate(decision.mapping().value());
-        var fields=new CdsExportRetainedOccurrenceFields().fieldsFor(patient, CdsCategory.APPOINTMENTS, decision.unitAddress(), index, checked, supplied, checkpoint);
-        String root=null; var relative=new LinkedHashMap<String, CdsExportRetainedFieldDto>();
-        for (var field:fields) {
-            String actual=CdsExportRetainedOccurrencePath.root(field, CdsCategory.APPOINTMENTS); if (root==null)root=actual; else if (!root.equals(actual))scope();
-            String path=field.sourcePath().length()==root.length()?"":field.sourcePath().substring(root.length()+1); if (relative.putIfAbsent(path, field)!=null)scope();
+        var fields =
+                new CdsExportRetainedOccurrenceFields()
+                        .fieldsFor(
+                                patient,
+                                CdsCategory.APPOINTMENTS,
+                                decision.unitAddress(),
+                                index,
+                                checked,
+                                supplied,
+                                checkpoint);
+        String root = null;
+        var relative = new LinkedHashMap<String, CdsExportRetainedFieldDto>();
+        for (var field : fields) {
+            String actual = CdsExportRetainedOccurrencePath.root(field, CdsCategory.APPOINTMENTS);
+            if (root == null) root = actual;
+            else if (!root.equals(actual)) scope();
+            String path =
+                    field.sourcePath().length() == root.length()
+                            ? ""
+                            : field.sourcePath().substring(root.length() + 1);
+            if (relative.putIfAbsent(path, field) != null) scope();
         }
-        var value=decision.mapping().value(); var parts=new LinkedHashMap<String, CdsExportXmlComposer.Content>();
-        text(parts, "AppointmentTime", value.timing().wireTime()); text(parts, "Duration", Integer.toString(value.timing().durationMinutes())); text(parts, "AppointmentStatus", value.status());
-        parts.put("AppointmentDate", xml-> xml.element("cds_dt", "FullDate", value.timing().date().lexical()));
-        parts.put("Provider", value.provider()==null?null:xml-> new CdsExportPublicProviderXmlWriter().write(value.provider(), xml, false)); text(parts, "AppointmentPurpose", value.purpose()); text(parts, "AppointmentNotes", value.notes());
-        var changes=new ArrayList<CdsExportRetainedSectionWriter.Change>();
-        for (var part:parts.entrySet()) {
-            checkpoint.run(); String path=part.getKey()+"[1]"; var prior=new HashSet<String>();
-            for (var field:relative.entrySet())if (field.getKey().equals(path)||field.getKey().startsWith(path+"/"))prior.add(field.getValue().id());
-            if (!prior.isEmpty()||part.getValue()!=null)changes.add(new CdsExportRetainedSectionWriter.Change(path, prior, part.getValue()));
+        var value = decision.mapping().value();
+        var parts = new LinkedHashMap<String, CdsExportXmlComposer.Content>();
+        text(parts, "AppointmentTime", value.timing().wireTime());
+        text(parts, "Duration", Integer.toString(value.timing().durationMinutes()));
+        text(parts, "AppointmentStatus", value.status());
+        parts.put(
+                "AppointmentDate",
+                xml -> xml.element("cds_dt", "FullDate", value.timing().date().lexical()));
+        parts.put(
+                "Provider",
+                value.provider() == null
+                        ? null
+                        : xml ->
+                                new CdsExportPublicProviderXmlWriter()
+                                        .write(value.provider(), xml, false));
+        text(parts, "AppointmentPurpose", value.purpose());
+        text(parts, "AppointmentNotes", value.notes());
+        var changes = new ArrayList<CdsExportRetainedSectionWriter.Change>();
+        for (var part : parts.entrySet()) {
+            checkpoint.run();
+            String path = part.getKey() + "[1]";
+            var prior = new HashSet<String>();
+            for (var field : relative.entrySet())
+                if (field.getKey().equals(path) || field.getKey().startsWith(path + "/"))
+                    prior.add(field.getValue().id());
+            if (!prior.isEmpty() || part.getValue() != null)
+                changes.add(
+                        new CdsExportRetainedSectionWriter.Change(path, prior, part.getValue()));
         }
-        values.requireActive(); checkpoint.run(); return new CdsExportRetainedSectionWriter().prepareChanges(fields, values, changes, checkpoint);
+        values.requireActive();
+        checkpoint.run();
+        return new CdsExportRetainedSectionWriter()
+                .prepareChanges(fields, values, changes, checkpoint);
     }
-    private static void text(Map<String, CdsExportXmlComposer.Content> parts, String name, String value){parts.put(name, value==null?null:xml-> xml.text(value)); }
-    private static void scope()throws IOException{throw new IOException("CDS_EXPORT_APPOINTMENT_RETAINED_ASSEMBLY_SCOPE_INVALID"); }
+
+    private static void text(
+            Map<String, CdsExportXmlComposer.Content> parts, String name, String value) {
+        parts.put(name, value == null ? null : xml -> xml.text(value));
+    }
+
+    private static void scope() throws IOException {
+        throw new IOException("CDS_EXPORT_APPOINTMENT_RETAINED_ASSEMBLY_SCOPE_INVALID");
+    }
 }

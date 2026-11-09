@@ -27,30 +27,59 @@ import java.util.List;
 import java.util.Set;
 
 /** Immutable disclosure intent; provider discovery and current authorization belong to the worker. */
-public record CdsExportCommand(String submissionKey, String providerNo, Integer facilityId,
-        CdsLogicalProfile profile, Selection selection, List<String> physicianNos, List<Integer> patientNos,
-        Set<CdsCategory> categories, String recipientId, String auditPlanId) {
-    public enum Selection { PHYSICIAN_ROSTER, SELECTED_PATIENTS }
+public record CdsExportCommand(
+        String submissionKey,
+        String providerNo,
+        Integer facilityId,
+        CdsLogicalProfile profile,
+        Selection selection,
+        List<String> physicianNos,
+        List<Integer> patientNos,
+        Set<CdsCategory> categories,
+        String recipientId,
+        String auditPlanId) {
+    public enum Selection {
+        PHYSICIAN_ROSTER,
+        SELECTED_PATIENTS
+    }
+
     public CdsExportCommand {
-        if (submissionKey == null || !submissionKey.matches("[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}")
-                || providerNo == null || !providerNo.matches("[A-Za-z0-9_-]{1,16}")
-                || facilityId != null && facilityId < 1 || profile == null || selection == null
-                || recipientId == null || !recipientId.matches("[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
-                || auditPlanId == null || !auditPlanId.matches("[A-Za-z0-9][A-Za-z0-9_-]{0,63}")) {
+        if (submissionKey == null
+                || !submissionKey.matches("[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}")
+                || providerNo == null
+                || !providerNo.matches("[A-Za-z0-9_-]{1,16}")
+                || facilityId != null && facilityId < 1
+                || profile == null
+                || selection == null
+                || recipientId == null
+                || !recipientId.matches("[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
+                || auditPlanId == null
+                || !auditPlanId.matches("[A-Za-z0-9][A-Za-z0-9_-]{0,63}")) {
             throw new IllegalArgumentException("CDS_EXPORT_REQUEST_INVALID");
         }
-        physicianNos = List.copyOf(physicianNos); patientNos = List.copyOf(patientNos); categories = Set.copyOf(categories);
-        if (!categories.contains(CdsCategory.DEMOGRAPHICS) || physicianNos.size() > 100
-                || patientNos.size() > 10_000 || Set.copyOf(physicianNos).size() != physicianNos.size()
+        physicianNos = List.copyOf(physicianNos);
+        patientNos = List.copyOf(patientNos);
+        categories = Set.copyOf(categories);
+        if (!categories.contains(CdsCategory.DEMOGRAPHICS)
+                || physicianNos.size() > 100
+                || patientNos.size() > 10_000
+                || Set.copyOf(physicianNos).size() != physicianNos.size()
                 || Set.copyOf(patientNos).size() != patientNos.size()
                 || physicianNos.stream().anyMatch(value -> !value.matches("[A-Za-z0-9_-]{1,16}"))
                 || patientNos.stream().anyMatch(value -> value < 1)
-                || selection == Selection.PHYSICIAN_ROSTER && (physicianNos.isEmpty() || !patientNos.isEmpty())
-                || selection == Selection.SELECTED_PATIENTS && (patientNos.isEmpty() || !physicianNos.isEmpty())) {
+                || selection == Selection.PHYSICIAN_ROSTER
+                        && (physicianNos.isEmpty() || !patientNos.isEmpty())
+                || selection == Selection.SELECTED_PATIENTS
+                        && (patientNos.isEmpty() || !physicianNos.isEmpty())) {
             throw new IllegalArgumentException("CDS_EXPORT_SELECTION_INVALID");
         }
-        physicianNos = physicianNos.stream().sorted().toList(); patientNos = patientNos.stream().sorted().toList();
+        physicianNos = physicianNos.stream().sorted().toList();
+        patientNos = patientNos.stream().sorted().toList();
         categories = java.util.Collections.unmodifiableSet(java.util.EnumSet.copyOf(categories));
     }
-    @Override public String toString() { return "CdsExportCommand[protected]"; }
+
+    @Override
+    public String toString() {
+        return "CdsExportCommand[protected]";
+    }
 }

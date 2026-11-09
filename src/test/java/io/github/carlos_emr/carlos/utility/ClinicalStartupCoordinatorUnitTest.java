@@ -35,15 +35,20 @@ import static org.assertj.core.api.Assertions.*;
 
 @Tag("unit")
 class ClinicalStartupCoordinatorUnitTest {
-    @Test void shouldInitializeDeferredWorkOnDemand_whenAnotherNodeReleasesMaintenance() throws Exception {
+    @Test
+    void shouldInitializeDeferredWorkOnDemand_whenAnotherNodeReleasesMaintenance()
+            throws Exception {
         AtomicBoolean blocked = new AtomicBoolean(true);
         AtomicInteger work = new AtomicInteger();
         QueuedExecutor executor = new QueuedExecutor();
-        var coordinator = new ClinicalStartupCoordinator(blocked::get, work::incrementAndGet, executor, () -> 0);
+        var coordinator =
+                new ClinicalStartupCoordinator(
+                        blocked::get, work::incrementAndGet, executor, () -> 0);
         coordinator.start();
         assertThat(work).hasValue(0);
         assertThat(coordinator.state()).isEqualTo(ClinicalStartupCoordinator.State.PENDING);
-        // No timer or another node's local event is needed: the next ordinary request triggers work.
+        // No timer or another node's local event is needed: the next ordinary request triggers
+        // work.
         blocked.set(false);
         assertThat(coordinator.isReady()).isFalse();
         assertThat(coordinator.isReady()).isFalse();
@@ -54,22 +59,38 @@ class ClinicalStartupCoordinatorUnitTest {
         coordinator.close();
     }
 
-    @Test void shouldKeepNormalStartupFailFast_whenInitializationFails() {
-        var coordinator = new ClinicalStartupCoordinator(() -> false,
-                () -> { throw new IllegalStateException("broken bootstrap"); }, new QueuedExecutor(), () -> 0);
+    @Test
+    void shouldKeepNormalStartupFailFast_whenInitializationFails() {
+        var coordinator =
+                new ClinicalStartupCoordinator(
+                        () -> false,
+                        () -> {
+                            throw new IllegalStateException("broken bootstrap");
+                        },
+                        new QueuedExecutor(),
+                        () -> 0);
         assertThatThrownBy(coordinator::start).isInstanceOf(IllegalStateException.class);
         assertThat(coordinator.state()).isEqualTo(ClinicalStartupCoordinator.State.FAILED);
         coordinator.close();
     }
 
-    @Test void shouldKeepInitializationPending_whenMaintenanceClosesDuringStartup() throws Exception {
+    @Test
+    void shouldKeepInitializationPending_whenMaintenanceClosesDuringStartup() throws Exception {
         AtomicBoolean blocked = new AtomicBoolean(false);
         AtomicInteger work = new AtomicInteger();
         AtomicLong clock = new AtomicLong();
         QueuedExecutor executor = new QueuedExecutor();
-        var coordinator = new ClinicalStartupCoordinator(blocked::get, () -> {
-            if (work.incrementAndGet() == 1) { blocked.set(true); throw new IllegalStateException("admission closed"); }
-        }, executor, clock::get);
+        var coordinator =
+                new ClinicalStartupCoordinator(
+                        blocked::get,
+                        () -> {
+                            if (work.incrementAndGet() == 1) {
+                                blocked.set(true);
+                                throw new IllegalStateException("admission closed");
+                            }
+                        },
+                        executor,
+                        clock::get);
         coordinator.start();
         assertThat(coordinator.state()).isEqualTo(ClinicalStartupCoordinator.State.PENDING);
         blocked.set(false);
@@ -83,66 +104,139 @@ class ClinicalStartupCoordinatorUnitTest {
         coordinator.close();
     }
 
-    @Test void shouldRetryAfterCooldown_whenAsyncInitializationFails() throws Exception {
+    @Test
+    void shouldRetryAfterCooldown_whenAsyncInitializationFails() throws Exception {
         AtomicBoolean blocked = new AtomicBoolean(true);
         AtomicInteger work = new AtomicInteger();
         AtomicLong clock = new AtomicLong();
         QueuedExecutor executor = new QueuedExecutor();
-        var coordinator = new ClinicalStartupCoordinator(blocked::get, () -> {
-            if (work.incrementAndGet() == 1) throw new IllegalStateException("failed real cache hydration");
-        }, executor, clock::get);
-        coordinator.start(); blocked.set(false); coordinator.isReady(); executor.next();
+        var coordinator =
+                new ClinicalStartupCoordinator(
+                        blocked::get,
+                        () -> {
+                            if (work.incrementAndGet() == 1)
+                                throw new IllegalStateException("failed real cache hydration");
+                        },
+                        executor,
+                        clock::get);
+        coordinator.start();
+        blocked.set(false);
+        coordinator.isReady();
+        executor.next();
         assertThat(coordinator.state()).isEqualTo(ClinicalStartupCoordinator.State.FAILED);
-        assertThat(coordinator.isReady()).isFalse(); assertThat(executor.tasks).isEmpty();
-        clock.set(TimeUnit.SECONDS.toNanos(31)); coordinator.isReady(); executor.next();
-        assertThat(coordinator.isReady()).isTrue(); coordinator.close();
+        assertThat(coordinator.isReady()).isFalse();
+        assertThat(executor.tasks).isEmpty();
+        clock.set(TimeUnit.SECONDS.toNanos(31));
+        coordinator.isReady();
+        executor.next();
+        assertThat(coordinator.isReady()).isTrue();
+        coordinator.close();
     }
 
-    @Test void shouldKeepFailureVisible_whenMaintenanceMetadataIsUnavailable() {
+    @Test
+    void shouldKeepFailureVisible_whenMaintenanceMetadataIsUnavailable() {
         AtomicInteger reads = new AtomicInteger();
-        var coordinator = new ClinicalStartupCoordinator(() -> {
-            if (reads.incrementAndGet() > 1) throw new IllegalStateException("metadata unavailable");
-            return false;
-        }, () -> { throw new IllegalArgumentException("bootstrap failed"); }, new QueuedExecutor(), () -> 0);
+        var coordinator =
+                new ClinicalStartupCoordinator(
+                        () -> {
+                            if (reads.incrementAndGet() > 1)
+                                throw new IllegalStateException("metadata unavailable");
+                            return false;
+                        },
+                        () -> {
+                            throw new IllegalArgumentException("bootstrap failed");
+                        },
+                        new QueuedExecutor(),
+                        () -> 0);
         assertThatThrownBy(coordinator::start).isInstanceOf(IllegalStateException.class);
         assertThat(coordinator.state()).isEqualTo(ClinicalStartupCoordinator.State.FAILED);
         coordinator.close();
     }
 
-    @Test void shouldCancelQueuedInitialization_whenContextIsDestroyed() throws Exception {
+    @Test
+    void shouldCancelQueuedInitialization_whenContextIsDestroyed() throws Exception {
         AtomicBoolean blocked = new AtomicBoolean(true);
-        AtomicInteger work = new AtomicInteger(); QueuedExecutor executor = new QueuedExecutor();
-        var coordinator = new ClinicalStartupCoordinator(blocked::get, work::incrementAndGet, executor, () -> 0);
-        coordinator.start(); blocked.set(false); coordinator.isReady(); coordinator.close();
-        assertThat(executor.isShutdown()).isTrue(); assertThat(executor.tasks).isEmpty();
-        assertThat(coordinator.isReady()).isFalse(); assertThat(work).hasValue(0);
+        AtomicInteger work = new AtomicInteger();
+        QueuedExecutor executor = new QueuedExecutor();
+        var coordinator =
+                new ClinicalStartupCoordinator(
+                        blocked::get, work::incrementAndGet, executor, () -> 0);
+        coordinator.start();
+        blocked.set(false);
+        coordinator.isReady();
+        coordinator.close();
+        assertThat(executor.isShutdown()).isTrue();
+        assertThat(executor.tasks).isEmpty();
+        assertThat(coordinator.isReady()).isFalse();
+        assertThat(work).hasValue(0);
     }
 
-    @Test void shouldKeepInitializationPending_whenMaintenanceClosesAfterWork() throws Exception {
+    @Test
+    void shouldKeepInitializationPending_whenMaintenanceClosesAfterWork() throws Exception {
         AtomicBoolean blocked = new AtomicBoolean(false);
-        var coordinator = new ClinicalStartupCoordinator(blocked::get, () -> blocked.set(true),
-                new QueuedExecutor(), () -> 0);
+        var coordinator =
+                new ClinicalStartupCoordinator(
+                        blocked::get, () -> blocked.set(true), new QueuedExecutor(), () -> 0);
         coordinator.start();
         assertThat(coordinator.state()).isEqualTo(ClinicalStartupCoordinator.State.PENDING);
         coordinator.close();
     }
 
-    @Test void shouldKeepClinicalAccessClosed_whenInitializerTerminatesFatally() {
-        var coordinator = new ClinicalStartupCoordinator(() -> false,
-                () -> { throw new AssertionError("fatal initialization"); }, new QueuedExecutor(), () -> 0);
+    @Test
+    void shouldKeepClinicalAccessClosed_whenInitializerTerminatesFatally() {
+        var coordinator =
+                new ClinicalStartupCoordinator(
+                        () -> false,
+                        () -> {
+                            throw new AssertionError("fatal initialization");
+                        },
+                        new QueuedExecutor(),
+                        () -> 0);
         assertThatThrownBy(coordinator::start).isInstanceOf(AssertionError.class);
         assertThat(coordinator.state()).isEqualTo(ClinicalStartupCoordinator.State.FAILED);
         coordinator.close();
     }
 
     static final class QueuedExecutor extends AbstractExecutorService {
-        final Queue<Runnable> tasks = new ArrayDeque<>(); private boolean shutdown;
-        void next() { tasks.remove().run(); }
-        @Override public void execute(Runnable task) { if (shutdown) throw new IllegalStateException(); tasks.add(task); }
-        @Override public void shutdown() { shutdown = true; }
-        @Override public List<Runnable> shutdownNow() { shutdown = true; var prior = List.copyOf(tasks); tasks.clear(); return prior; }
-        @Override public boolean isShutdown() { return shutdown; }
-        @Override public boolean isTerminated() { return shutdown && tasks.isEmpty(); }
-        @Override public boolean awaitTermination(long timeout, TimeUnit unit) { return isTerminated(); }
+        final Queue<Runnable> tasks = new ArrayDeque<>();
+        private boolean shutdown;
+
+        void next() {
+            tasks.remove().run();
+        }
+
+        @Override
+        public void execute(Runnable task) {
+            if (shutdown) throw new IllegalStateException();
+            tasks.add(task);
+        }
+
+        @Override
+        public void shutdown() {
+            shutdown = true;
+        }
+
+        @Override
+        public List<Runnable> shutdownNow() {
+            shutdown = true;
+            var prior = List.copyOf(tasks);
+            tasks.clear();
+            return prior;
+        }
+
+        @Override
+        public boolean isShutdown() {
+            return shutdown;
+        }
+
+        @Override
+        public boolean isTerminated() {
+            return shutdown && tasks.isEmpty();
+        }
+
+        @Override
+        public boolean awaitTermination(long timeout, TimeUnit unit) {
+            return isTerminated();
+        }
     }
 }

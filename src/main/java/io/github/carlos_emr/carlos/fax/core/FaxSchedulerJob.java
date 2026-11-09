@@ -110,21 +110,43 @@ public class FaxSchedulerJob {
      * @param faxStatusUpdater FaxStatusUpdater outbound status polling service
      * @param faxConfigDao FaxConfigDao DAO for checking active fax configurations
      */
-    public FaxSchedulerJob(FaxImporter faxImporter, FaxSender faxSender, FaxStatusUpdater faxStatusUpdater,
+    public FaxSchedulerJob(
+            FaxImporter faxImporter,
+            FaxSender faxSender,
+            FaxStatusUpdater faxStatusUpdater,
             FaxConfigDao faxConfigDao) {
-        this(faxImporter, faxSender, faxStatusUpdater, faxConfigDao, () -> false,
+        this(
+                faxImporter,
+                faxSender,
+                faxStatusUpdater,
+                faxConfigDao,
+                () -> false,
                 name -> new Timer(name, true));
     }
 
     @Autowired
-    public FaxSchedulerJob(FaxImporter faxImporter, FaxSender faxSender, FaxStatusUpdater faxStatusUpdater,
-            FaxConfigDao faxConfigDao, CdsImportMaintenanceService maintenance) {
-        this(faxImporter, faxSender, faxStatusUpdater, faxConfigDao, maintenance::isClinicalAccessBlocked,
+    public FaxSchedulerJob(
+            FaxImporter faxImporter,
+            FaxSender faxSender,
+            FaxStatusUpdater faxStatusUpdater,
+            FaxConfigDao faxConfigDao,
+            CdsImportMaintenanceService maintenance) {
+        this(
+                faxImporter,
+                faxSender,
+                faxStatusUpdater,
+                faxConfigDao,
+                maintenance::isClinicalAccessBlocked,
                 name -> new Timer(name, true));
     }
 
-    FaxSchedulerJob(FaxImporter faxImporter, FaxSender faxSender, FaxStatusUpdater faxStatusUpdater,
-            FaxConfigDao faxConfigDao, BooleanSupplier clinicalAccessBlocked, Function<String, Timer> timers) {
+    FaxSchedulerJob(
+            FaxImporter faxImporter,
+            FaxSender faxSender,
+            FaxStatusUpdater faxStatusUpdater,
+            FaxConfigDao faxConfigDao,
+            BooleanSupplier clinicalAccessBlocked,
+            Function<String, Timer> timers) {
         this.faxImporter = faxImporter;
         this.faxSender = faxSender;
         this.faxStatusUpdater = faxStatusUpdater;
@@ -167,8 +189,12 @@ public class FaxSchedulerJob {
             recordStartupFailure(failure);
             if (retry) {
                 boolean deferred = isAdmissionRefusal(failure);
-                try { deferred |= clinicalAccessBlocked.getAsBoolean(); }
-                catch (RuntimeException unavailable) { failure.addSuppressed(unavailable); deferred = true; }
+                try {
+                    deferred |= clinicalAccessBlocked.getAsBoolean();
+                } catch (RuntimeException unavailable) {
+                    failure.addSuppressed(unavailable);
+                    deferred = true;
+                }
                 if (deferred) throw new IllegalStateException("FAX_STARTUP_DEFERRED", failure);
             }
             return;
@@ -176,7 +202,8 @@ public class FaxSchedulerJob {
         if (active) {
             startTask();
         } else {
-            logger.info("No active fax accounts configured - scheduler will start when a fax account is activated");
+            logger.info(
+                    "No active fax accounts configured - scheduler will start when a fax account is activated");
         }
         initialConfigurationChecked = true;
         lastError.set("");
@@ -194,17 +221,24 @@ public class FaxSchedulerJob {
 
     private void recordStartupFailure(Exception e) {
         // A failed read must never become the successful "no active accounts" state.
-        lastError.set("Failed to check fax configurations at startup: "
-                + e.getClass().getSimpleName() + (e.getMessage() == null ? "" : (": " + e.getMessage())));
-        logger.error("Initial fax configuration lookup failed; scheduler remains stopped. "
-                + "Clinical startup can retry deferred initialization; account activation can start it after configuration is corrected.", e);
+        lastError.set(
+                "Failed to check fax configurations at startup: "
+                        + e.getClass().getSimpleName()
+                        + (e.getMessage() == null ? "" : (": " + e.getMessage())));
+        logger.error(
+                "Initial fax configuration lookup failed; scheduler remains stopped. "
+                        + "Clinical startup can retry deferred initialization; account activation can start it after configuration is corrected.",
+                e);
     }
 
     private static boolean isAdmissionRefusal(Throwable failure) {
         for (int depth = 0; failure != null && depth < 16; depth++, failure = failure.getCause()) {
-            if (failure instanceof SQLException sql && "45000".equals(sql.getSQLState())
-                    && ("CDS maintenance is entering or active; clinical work requires retry after reopening".equals(sql.getMessage())
-                    || "CDS maintenance or an incomplete chart hold blocks clinical access".equals(sql.getMessage()))) return true;
+            if (failure instanceof SQLException sql
+                    && "45000".equals(sql.getSQLState())
+                    && ("CDS maintenance is entering or active; clinical work requires retry after reopening"
+                                    .equals(sql.getMessage())
+                            || "CDS maintenance or an incomplete chart hold blocks clinical access"
+                                    .equals(sql.getMessage()))) return true;
         }
         return false;
     }
@@ -232,7 +266,9 @@ public class FaxSchedulerJob {
             // undersized heap, excessively large fax documents).
             cancelTask();
             lastError.set("OUT OF MEMORY - manual intervention required");
-            logger.error("CRITICAL: Fax scheduler stopped due to out of memory - DO NOT RESTART AUTOMATICALLY", e);
+            logger.error(
+                    "CRITICAL: Fax scheduler stopped due to out of memory - DO NOT RESTART AUTOMATICALLY",
+                    e);
             running.set(false);
             // Do NOT schedule automatic restart for OOM
         } catch (Error e) {
@@ -240,20 +276,26 @@ public class FaxSchedulerJob {
             // Treat as non-recoverable like OOM - do not attempt automatic restart
             cancelTask();
             lastError.set(e.getClass().getSimpleName() + " - manual intervention required");
-            logger.error("CRITICAL: Fax scheduler stopped due to JVM error - DO NOT RESTART AUTOMATICALLY", e);
+            logger.error(
+                    "CRITICAL: Fax scheduler stopped due to JVM error - DO NOT RESTART AUTOMATICALLY",
+                    e);
             running.set(false);
         } catch (RuntimeException e) {
             // Programming errors - restart might help if transient
             cancelTask();
             lastError.set(e.getClass().getSimpleName() + ": " + e.getMessage());
-            logger.error("URGENT: Fax scheduler stopped due to runtime exception - attempting automatic restart", e);
+            logger.error(
+                    "URGENT: Fax scheduler stopped due to runtime exception - attempting automatic restart",
+                    e);
             running.set(false);
             scheduleAutomaticRestart();
         } catch (Exception e) {
             // Checked exceptions (shouldn't happen in this flow, but catch anyway)
             cancelTask();
             lastError.set(e.getClass().getSimpleName() + ": " + e.getMessage());
-            logger.error("URGENT: Fax scheduler stopped due to unexpected checked exception - attempting automatic restart", e);
+            logger.error(
+                    "URGENT: Fax scheduler stopped due to unexpected checked exception - attempting automatic restart",
+                    e);
             running.set(false);
             scheduleAutomaticRestart();
         }
@@ -283,27 +325,41 @@ public class FaxSchedulerJob {
             autoRestartTask.cancel();
         }
 
-        autoRestartTask = new TimerTask() {
-            @Override
-            public void run() {
-                try {
-                    logger.error("URGENT: attempting automatic fax scheduler restart (attempt {})", attempt);
-                    restartTask();
-                } catch (Exception ex) {
-                    logger.error("URGENT: automatic fax scheduler restart attempt {} failed - will retry in {} ms",
-                            attempt, FAILURE_RESTART_DELAY_MS, ex);
-                    try {
-                        scheduleAutomaticRestart();
-                    } catch (Exception schedulingEx) {
-                        logger.error("CRITICAL: Failed to schedule automatic restart (attempt {}) - fax scheduler requires manual restart",
-                                attempt, schedulingEx);
-                        lastError.set("Auto-restart scheduling failed at attempt " + attempt + " - manual restart required");
+        autoRestartTask =
+                new TimerTask() {
+                    @Override
+                    public void run() {
+                        try {
+                            logger.error(
+                                    "URGENT: attempting automatic fax scheduler restart (attempt {})",
+                                    attempt);
+                            restartTask();
+                        } catch (Exception ex) {
+                            logger.error(
+                                    "URGENT: automatic fax scheduler restart attempt {} failed - will retry in {} ms",
+                                    attempt,
+                                    FAILURE_RESTART_DELAY_MS,
+                                    ex);
+                            try {
+                                scheduleAutomaticRestart();
+                            } catch (Exception schedulingEx) {
+                                logger.error(
+                                        "CRITICAL: Failed to schedule automatic restart (attempt {}) - fax scheduler requires manual restart",
+                                        attempt,
+                                        schedulingEx);
+                                lastError.set(
+                                        "Auto-restart scheduling failed at attempt "
+                                                + attempt
+                                                + " - manual restart required");
+                            }
+                        }
                     }
-                }
-            }
-        };
+                };
 
-        logger.error("Fax scheduler auto-restart scheduled: attempt {} in {} ms", attempt, FAILURE_RESTART_DELAY_MS);
+        logger.error(
+                "Fax scheduler auto-restart scheduled: attempt {} in {} ms",
+                attempt,
+                FAILURE_RESTART_DELAY_MS);
         timer.schedule(autoRestartTask, FAILURE_RESTART_DELAY_MS);
     }
 
@@ -339,20 +395,27 @@ public class FaxSchedulerJob {
         try {
             period = Long.parseLong(faxPollInterval);
         } catch (NumberFormatException e) {
-            logger.warn("FaxSchedulerJob period is missing or invalid in properties file: {}={} - using default: {} ms",
-                    FAX_POLL_INTERVAL_KEY, faxPollInterval, DEFAULT_PERIOD_MS);
+            logger.warn(
+                    "FaxSchedulerJob period is missing or invalid in properties file: {}={} - using default: {} ms",
+                    FAX_POLL_INTERVAL_KEY,
+                    faxPollInterval,
+                    DEFAULT_PERIOD_MS);
         }
         if (period <= 0) {
-            logger.error("FaxSchedulerJob period must be positive, got {}. Using default: {} ms", period, DEFAULT_PERIOD_MS);
+            logger.error(
+                    "FaxSchedulerJob period must be positive, got {}. Using default: {} ms",
+                    period,
+                    DEFAULT_PERIOD_MS);
             period = DEFAULT_PERIOD_MS;
         }
 
-        timerTask = new TimerTask() {
-            @Override
-            public void run() {
-                runCycle();
-            }
-        };
+        timerTask =
+                new TimerTask() {
+                    @Override
+                    public void run() {
+                        runCycle();
+                    }
+                };
 
         if (timer == null) {
             timer = timers.apply("FaxSchedulerJob Timer");

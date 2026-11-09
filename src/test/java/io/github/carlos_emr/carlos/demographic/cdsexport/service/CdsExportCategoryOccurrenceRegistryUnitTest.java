@@ -27,32 +27,77 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import java.util.*;
 import org.junit.jupiter.api.*;
 
-@Tag("unit") @Tag("cds-export")
+@Tag("unit")
+@Tag("cds-export")
 class CdsExportCategoryOccurrenceRegistryUnitTest {
     private static CdsExportCategoryOccurrenceAssembler assembler(CdsCategory category) {
-        var value = mock(CdsExportCategoryOccurrenceAssembler.class); when(value.category()).thenReturn(category); return value;
+        var value = mock(CdsExportCategoryOccurrenceAssembler.class);
+        when(value.category()).thenReturn(category);
+        return value;
     }
-    @Test void shouldDispatchEveryRegisteredCategory_withoutAnOrderDependentFallback() {
-        var laboratory = assembler(CdsCategory.LABORATORY_RESULTS); var appointments = assembler(CdsCategory.APPOINTMENTS); var additional = assembler(CdsCategory.NEW_CATEGORY);
-        var registry = new CdsExportCategoryOccurrenceRegistry(List.of(additional, appointments, laboratory));
-        assertThat(registry.find(CdsCategory.LABORATORY_RESULTS)).isSameAs(laboratory); assertThat(registry.find(CdsCategory.APPOINTMENTS)).isSameAs(appointments); assertThat(registry.find(CdsCategory.NEW_CATEGORY)).isSameAs(additional);
+
+    @Test
+    void shouldDispatchEveryRegisteredCategory_withoutAnOrderDependentFallback() {
+        var laboratory = assembler(CdsCategory.LABORATORY_RESULTS);
+        var appointments = assembler(CdsCategory.APPOINTMENTS);
+        var additional = assembler(CdsCategory.NEW_CATEGORY);
+        var registry =
+                new CdsExportCategoryOccurrenceRegistry(
+                        List.of(additional, appointments, laboratory));
+        assertThat(registry.find(CdsCategory.LABORATORY_RESULTS)).isSameAs(laboratory);
+        assertThat(registry.find(CdsCategory.APPOINTMENTS)).isSameAs(appointments);
+        assertThat(registry.find(CdsCategory.NEW_CATEGORY)).isSameAs(additional);
         assertThat(registry.find(CdsCategory.REPORTS)).isNull();
     }
-    @Test void shouldRefuseTwoAssemblersForOneCategory_insteadOfSelectingTheFirst() {
-        assertThatThrownBy(() -> new CdsExportCategoryOccurrenceRegistry(List.of(assembler(CdsCategory.LABORATORY_RESULTS), assembler(CdsCategory.LABORATORY_RESULTS)))).hasMessage("CDS_EXPORT_CATEGORY_ASSEMBLER_AMBIGUOUS");
+
+    @Test
+    void shouldRefuseTwoAssemblersForOneCategory_insteadOfSelectingTheFirst() {
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportCategoryOccurrenceRegistry(
+                                        List.of(
+                                                assembler(CdsCategory.LABORATORY_RESULTS),
+                                                assembler(CdsCategory.LABORATORY_RESULTS))))
+                .hasMessage("CDS_EXPORT_CATEGORY_ASSEMBLER_AMBIGUOUS");
     }
-    @Test void shouldRefuseShadowingTheCoordinatedDemographicHistoryAndCoreNativeAssemblers() {
-        var reserved = new HashSet<>(CdsExportNoteSourceReader.CATEGORIES); reserved.addAll(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS, CdsCategory.MEDICATIONS_AND_TREATMENTS));
-        for (var category : reserved) assertThatThrownBy(() -> new CdsExportCategoryOccurrenceRegistry(List.of(assembler(category)))).hasMessage("CDS_EXPORT_CATEGORY_ASSEMBLER_AMBIGUOUS");
+
+    @Test
+    void shouldRefuseShadowingTheCoordinatedDemographicHistoryAndCoreNativeAssemblers() {
+        var reserved = new HashSet<>(CdsExportNoteSourceReader.CATEGORIES);
+        reserved.addAll(
+                Set.of(
+                        CdsCategory.DEMOGRAPHICS,
+                        CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS,
+                        CdsCategory.MEDICATIONS_AND_TREATMENTS));
+        for (var category : reserved)
+            assertThatThrownBy(
+                            () ->
+                                    new CdsExportCategoryOccurrenceRegistry(
+                                            List.of(assembler(category))))
+                    .hasMessage("CDS_EXPORT_CATEGORY_ASSEMBLER_AMBIGUOUS");
     }
-    @Test void shouldRejectAnUnclassifiedAssembler_atStartup() {
-        assertThatThrownBy(() -> new CdsExportCategoryOccurrenceRegistry(List.of(assembler(null)))).hasMessage("CDS_EXPORT_CATEGORY_ASSEMBLER_AMBIGUOUS");
+
+    @Test
+    void shouldRejectAnUnclassifiedAssembler_atStartup() {
+        assertThatThrownBy(() -> new CdsExportCategoryOccurrenceRegistry(List.of(assembler(null))))
+                .hasMessage("CDS_EXPORT_CATEGORY_ASSEMBLER_AMBIGUOUS");
     }
-    @Test void shouldFreezeDiscovery_beforeTheCallingCollectionCanChange() {
-        var selected = assembler(CdsCategory.IMMUNIZATIONS); var values = new ArrayList<CdsExportCategoryOccurrenceAssembler>(); values.add(selected); var registry = new CdsExportCategoryOccurrenceRegistry(values); values.clear();
+
+    @Test
+    void shouldFreezeDiscovery_beforeTheCallingCollectionCanChange() {
+        var selected = assembler(CdsCategory.IMMUNIZATIONS);
+        var values = new ArrayList<CdsExportCategoryOccurrenceAssembler>();
+        values.add(selected);
+        var registry = new CdsExportCategoryOccurrenceRegistry(values);
+        values.clear();
         assertThat(registry.find(CdsCategory.IMMUNIZATIONS)).isSameAs(selected);
     }
-    @Test void shouldLeaveAnAbsentCategoryUnavailable_withoutInventingAnExportImplementation() {
-        assertThat(new CdsExportCategoryOccurrenceRegistry(List.of()).find(CdsCategory.CARE_ELEMENTS)).isNull();
+
+    @Test
+    void shouldLeaveAnAbsentCategoryUnavailable_withoutInventingAnExportImplementation() {
+        assertThat(
+                        new CdsExportCategoryOccurrenceRegistry(List.of())
+                                .find(CdsCategory.CARE_ELEMENTS))
+                .isNull();
     }
 }

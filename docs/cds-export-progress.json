@@ -360,7 +360,26 @@
       "cliGateMainComplexityBefore": 59,
       "cliGateMainComplexityAfter": 16,
       "currentHeadHostedValidation": "PENDING_AFTER_SCANNING_FIXES",
-      "allowlistedStylesheetLogSanitized": true
+      "allowlistedStylesheetLogSanitized": true,
+      "semgrepCloudErrorOption": "--no-suppress-errors",
+      "partialSarifExecutionRefused": true,
+      "partialEvidenceGuardTestsPassed": 6,
+      "formattingFollowUp": {
+        "javaFormatter": "google-java-format 1.37.0 AOSP, four spaces",
+        "javaFiles": 610,
+        "java25ParsedTreesIdentical": true,
+        "importsModifiersStringLiteralsAndJavadocPreserved": true,
+        "pythonFormatter": "Ruff 0.14.9",
+        "pythonFiles": 6,
+        "pythonParsedTreesIdentical": true,
+        "reviewedSourceHashesUpdatedAfterAstVerification": 39,
+        "schemaPinsMappingsChoicesAndFixturesUnchanged": true,
+        "crosswalkSha256": "83f0e3e500076d04e1a24122848809942446ee9f21fb3a46f6f8cae16f3f4767",
+        "allFormattedFilesCustomRuleFindings": 0,
+        "allFormattedFilesCustomRuleErrors": 0,
+        "criticalCodeFactorFindingRemovedAt": "f1854bb849fcdfb018b4bb413eb7a53d8e8828a9",
+        "hostedFormattingValidation": "PENDING_CURRENT_HEAD"
+      }
     }
   },
   "verifiedClinicalCheckpoint": {

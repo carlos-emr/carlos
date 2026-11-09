@@ -30,17 +30,31 @@ import java.util.List;
 
 /** Exact civil DATETIME(0) source with explicit native year/month markers; never a creation/import/modification clock. */
 public final class CdsExportNativePreventionDateMapper {
-    public CdsExportDateDto map(String anchor, List<String> markers)throws IOException{
-        if (markers==null||markers.size()>1)review();
-        String marker=markers.isEmpty()?null:markers.getFirst();
-        if (anchor==null){if (marker!=null&&!marker.isEmpty())review(); return new CdsExportDateDto(CdsExportDateDto.Precision.ABSENT, null); }
-        if (!anchor.matches("[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}"))review();
+    public CdsExportDateDto map(String anchor, List<String> markers) throws IOException {
+        if (markers == null || markers.size() > 1) review();
+        String marker = markers.isEmpty() ? null : markers.getFirst();
+        if (anchor == null) {
+            if (marker != null && !marker.isEmpty()) review();
+            return new CdsExportDateDto(CdsExportDateDto.Precision.ABSENT, null);
+        }
+        if (!anchor.matches("[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}")) review();
         try {
-            var parsed=LocalDateTime.parse(anchor, DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss").withResolverStyle(ResolverStyle.STRICT));
-            if (parsed.getYear()<1)review();
-            if (marker==null||marker.isEmpty())return new CdsExportDateDto(CdsExportDateDto.Precision.DATE_TIME, anchor.replace(' ', 'T'));
+            var parsed =
+                    LocalDateTime.parse(
+                            anchor,
+                            DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss")
+                                    .withResolverStyle(ResolverStyle.STRICT));
+            if (parsed.getYear() < 1) review();
+            if (marker == null || marker.isEmpty())
+                return new CdsExportDateDto(
+                        CdsExportDateDto.Precision.DATE_TIME, anchor.replace(' ', 'T'));
             return new CdsExportNativeDateMapper().map(anchor.substring(0, 10), markers);
-        }catch (DateTimeException failed){throw new IOException("CDS_EXPORT_PREVENTION_DATE_REQUIRES_REVIEW"); }
+        } catch (DateTimeException failed) {
+            throw new IOException("CDS_EXPORT_PREVENTION_DATE_REQUIRES_REVIEW");
+        }
     }
-    private static void review()throws IOException{throw new IOException("CDS_EXPORT_PREVENTION_DATE_REQUIRES_REVIEW"); }
+
+    private static void review() throws IOException {
+        throw new IOException("CDS_EXPORT_PREVENTION_DATE_REQUIRES_REVIEW");
+    }
 }

@@ -34,52 +34,102 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 /** Authorized metadata observation remains available when export admission is disabled. */
-@Component("cdsExportStatus2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+@Component("cdsExportStatus2Action")
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class CdsExportStatus2Action extends ActionSupport {
     private final transient SecurityInfoManager securityInfoManager;
     private final transient CdsExportWebService web;
     private final transient CdsExportService exports;
     private String runId, submissionKey, after;
     private int limit = 25;
-    public CdsExportStatus2Action(CdsExportWebService web, CdsExportService exports, SecurityInfoManager securityInfoManager) {
-        this.web = web; this.exports = exports; this.securityInfoManager = securityInfoManager;
+
+    public CdsExportStatus2Action(
+            CdsExportWebService web,
+            CdsExportService exports,
+            SecurityInfoManager securityInfoManager) {
+        this.web = web;
+        this.exports = exports;
+        this.securityInfoManager = securityInfoManager;
     }
-    @Override public String execute() throws Exception {
-        var request = ServletActionContext.getRequest(); var response = ServletActionContext.getResponse();
+
+    @Override
+    public String execute() throws Exception {
+        var request = ServletActionContext.getRequest();
+        var response = ServletActionContext.getResponse();
         if (!"GET".equals(request.getMethod())) {
-            response.setHeader("Allow", "GET"); response.sendError(405); return NONE;
+            response.setHeader("Allow", "GET");
+            response.sendError(405);
+            return NONE;
         }
         try {
-        var session = request.getSession(false);
-        var viewer = session == null ? null : LoggedInInfo.getLoggedInInfoFromSession(session);
-        if (!securityInfoManager.hasPrivilege(viewer, "_demographic", "r", (String) null)
-                || !(securityInfoManager.hasPrivilege(viewer, "_admin", "w", (String) null)
-                || securityInfoManager.hasPrivilege(viewer, "_cds_export", "w", (String) null))) {
-            throw new SecurityException("CDS_EXPORT_ACCESS_DENIED");
-        }
+            var session = request.getSession(false);
+            var viewer = session == null ? null : LoggedInInfo.getLoggedInInfoFromSession(session);
+            if (!securityInfoManager.hasPrivilege(viewer, "_demographic", "r", (String) null)
+                    || !(securityInfoManager.hasPrivilege(viewer, "_admin", "w", (String) null)
+                            || securityInfoManager.hasPrivilege(
+                                    viewer, "_cds_export", "w", (String) null))) {
+                throw new SecurityException("CDS_EXPORT_ACCESS_DENIED");
+            }
             var actor = web.authorize(request);
-            web.parameters(request, Set.of("runId", "submissionKey", "after", "limit", "autoRefresh"), false);
+            web.parameters(
+                    request,
+                    Set.of("runId", "submissionKey", "after", "limit", "autoRefresh"),
+                    false);
             String background = request.getParameter("autoRefresh");
             if (background != null && !Set.of("true", "false").contains(background)) {
                 throw new IllegalArgumentException("CDS_EXPORT_PARAMETERS_INVALID");
             }
             if (runId != null || submissionKey != null) {
-                if (runId != null && submissionKey != null || after != null || request.getParameterMap().containsKey("limit")) {
+                if (runId != null && submissionKey != null
+                        || after != null
+                        || request.getParameterMap().containsKey("limit")) {
                     throw new IllegalArgumentException("CDS_EXPORT_PARAMETERS_INVALID");
                 }
-                var job = runId != null ? exports.observe(actor, runId) : exports.submission(actor, submissionKey);
+                var job =
+                        runId != null
+                                ? exports.observe(actor, runId)
+                                : exports.submission(actor, submissionKey);
                 web.json(response, 200, Map.of("ok", true, "job", web.job(job)));
             } else {
-                if (limit < 1 || limit > 100) throw new IllegalArgumentException("CDS_EXPORT_PARAMETERS_INVALID");
+                if (limit < 1 || limit > 100)
+                    throw new IllegalArgumentException("CDS_EXPORT_PARAMETERS_INVALID");
                 var jobs = exports.history(actor, after, limit);
-                web.json(response, 200, Map.of("ok", true, "jobs", jobs.stream().map(web::job).toList(),
-                        "nextAfter", jobs.isEmpty() ? "" : jobs.getLast().id(), "mayHaveMore", jobs.size() == limit));
+                web.json(
+                        response,
+                        200,
+                        Map.of(
+                                "ok",
+                                true,
+                                "jobs",
+                                jobs.stream().map(web::job).toList(),
+                                "nextAfter",
+                                jobs.isEmpty() ? "" : jobs.getLast().id(),
+                                "mayHaveMore",
+                                jobs.size() == limit));
             }
-        } catch (Exception failure) { web.failure(response, failure); }
+        } catch (Exception failure) {
+            web.failure(response, failure);
+        }
         return NONE;
     }
-    @StrutsParameter public void setRunId(String value) { runId = value; }
-    @StrutsParameter public void setSubmissionKey(String value) { submissionKey = value; }
-    @StrutsParameter public void setAfter(String value) { after = value; }
-    @StrutsParameter public void setLimit(int value) { limit = value; }
+
+    @StrutsParameter
+    public void setRunId(String value) {
+        runId = value;
+    }
+
+    @StrutsParameter
+    public void setSubmissionKey(String value) {
+        submissionKey = value;
+    }
+
+    @StrutsParameter
+    public void setAfter(String value) {
+        after = value;
+    }
+
+    @StrutsParameter
+    public void setLimit(int value) {
+        limit = value;
+    }
 }

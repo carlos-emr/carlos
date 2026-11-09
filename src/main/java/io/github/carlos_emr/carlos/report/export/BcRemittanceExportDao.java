@@ -37,8 +37,10 @@ public final class BcRemittanceExportDao {
      * @throws NumberFormatException if a Teleplan amount is invalid
      * @throws ArithmeticException if a Teleplan amount contains fractional cents
      */
-    public void writeBilled(OutputStream output, String payee, String s21) throws SQLException, IOException {
-        String sql = """
+    public void writeBilled(OutputStream output, String payee, String s21)
+            throws SQLException, IOException {
+        String sql =
+                """
                 SELECT p.first_name, p.last_name, t.t_s00type, bm.service_date, t.t_payment,
                        t.t_datacenter, b.demographic_name, b.demographic_no, t.t_paidamt,
                        t.t_exp1, t.t_dataseq, bm.billing_code
@@ -49,15 +51,36 @@ public final class BcRemittanceExportDao {
                  WHERE t.s21_id = ? AND t.t_practitionerno <> '' AND t.t_payeeno = ?
                  ORDER BY p.first_name, bm.service_date, b.demographic_name
                 """;
-        try (var csv = new TabularExport(output, "Account", "Type", "ServDate", "Payment Date", "Data Centre", "Patient",
-                "Paid (CAD)", "Explanation", "Sequence", "Item"); var statement = connection.prepareStatement(sql)) {
+        try (var csv =
+                        new TabularExport(
+                                output,
+                                "Account",
+                                "Type",
+                                "ServDate",
+                                "Payment Date",
+                                "Data Centre",
+                                "Patient",
+                                "Paid (CAD)",
+                                "Explanation",
+                                "Sequence",
+                                "Item");
+                var statement = connection.prepareStatement(sql)) {
             statement.setString(1, s21);
             statement.setString(2, payee);
             try (var rs = statement.executeQuery()) {
-                while (rs.next()) csv.row(BcBillingCsv.initial(rs.getString(1)) + BcBillingCsv.initial(rs.getString(2)),
-                        rs.getString(3), BcBillingCsv.date(rs.getString(4)), BcBillingCsv.date(rs.getString(5)),
-                        rs.getString(6), text(rs.getString(7)) + "(" + text(rs.getString(8)) + ")",
-                        TeleplanAmount.decode(rs.getString(9)), rs.getString(10), rs.getString(11), rs.getString(12));
+                while (rs.next())
+                    csv.row(
+                            BcBillingCsv.initial(rs.getString(1))
+                                    + BcBillingCsv.initial(rs.getString(2)),
+                            rs.getString(3),
+                            BcBillingCsv.date(rs.getString(4)),
+                            BcBillingCsv.date(rs.getString(5)),
+                            rs.getString(6),
+                            text(rs.getString(7)) + "(" + text(rs.getString(8)) + ")",
+                            TeleplanAmount.decode(rs.getString(9)),
+                            rs.getString(10),
+                            rs.getString(11),
+                            rs.getString(12));
             }
         }
     }
@@ -75,13 +98,35 @@ public final class BcRemittanceExportDao {
      * @throws ArithmeticException if a Teleplan amount contains fractional cents
      */
     public void writeSummary(OutputStream output, String s21) throws SQLException, IOException {
-        String[] headers = {"Record Type", "Payment Date", "Payee No", "Payee Name", "Billed (CAD)", "Paid (CAD)",
-                "Cheque (CAD)", "Practitioner No", "Practitioner Name", "Adjustment Code", "Adjustment Description",
-                "Calculation Method", "Regular Percent", "One-time Percent", "Gross (CAD)", "Regular (CAD)", "One-time (CAD)",
-                "Balance Forward (CAD)", "Adjustment Made (CAD)", "Adjustment Outstanding (CAD)", "Line Code", "Message"};
+        String[] headers = {
+            "Record Type",
+            "Payment Date",
+            "Payee No",
+            "Payee Name",
+            "Billed (CAD)",
+            "Paid (CAD)",
+            "Cheque (CAD)",
+            "Practitioner No",
+            "Practitioner Name",
+            "Adjustment Code",
+            "Adjustment Description",
+            "Calculation Method",
+            "Regular Percent",
+            "One-time Percent",
+            "Gross (CAD)",
+            "Regular (CAD)",
+            "One-time (CAD)",
+            "Balance Forward (CAD)",
+            "Adjustment Made (CAD)",
+            "Adjustment Outstanding (CAD)",
+            "Line Code",
+            "Message"
+        };
         try (var csv = new TabularExport(output, headers)) {
             String payee;
-            try (var st = connection.prepareStatement("""
+            try (var st =
+                    connection.prepareStatement(
+                            """
                     SELECT t_payment, t_payeeno, t_payeename, t_amtbilled, t_amtpaid, t_cheque
                       FROM teleplanS21 WHERE status <> 'D' AND s21_id = ? ORDER BY t_payment DESC
                     """)) {
@@ -89,13 +134,19 @@ public final class BcRemittanceExportDao {
                 try (var rs = st.executeQuery()) {
                     if (!rs.next()) throw new SQLException("Remittance not available");
                     var row = row("Remittance");
-                    row[1] = BcBillingCsv.date(rs.getString(1)); row[2] = rs.getString(2); row[3] = rs.getString(3);
+                    row[1] = BcBillingCsv.date(rs.getString(1));
+                    row[2] = rs.getString(2);
+                    row[3] = rs.getString(3);
                     payee = rs.getString(2);
-                    row[4] = TeleplanAmount.decode(rs.getString(4)); row[5] = TeleplanAmount.decode(rs.getString(5)); row[6] = TeleplanAmount.decode(rs.getString(6));
+                    row[4] = TeleplanAmount.decode(rs.getString(4));
+                    row[5] = TeleplanAmount.decode(rs.getString(5));
+                    row[6] = TeleplanAmount.decode(rs.getString(6));
                     csv.row(row);
                 }
             }
-            try (var st = connection.prepareStatement("""
+            try (var st =
+                    connection.prepareStatement(
+                            """
                     SELECT t_payment, t_payeeno, t_practitionerno, t_practitionername, t_amtbilled, t_amtpaid
                       FROM teleplanS22 WHERE s21_id = ? AND t_payeeno = ? AND t_s22type <> 'D' ORDER BY s22_id
                     """)) {
@@ -103,13 +154,20 @@ public final class BcRemittanceExportDao {
                 st.setString(2, payee);
                 try (var rs = st.executeQuery()) {
                     while (rs.next()) {
-                        var row = row("Practitioner"); row[1] = BcBillingCsv.date(rs.getString(1)); row[2] = rs.getString(2);
-                        row[7] = rs.getString(3); row[8] = rs.getString(4); row[4] = TeleplanAmount.decode(rs.getString(5)); row[5] = TeleplanAmount.decode(rs.getString(6));
+                        var row = row("Practitioner");
+                        row[1] = BcBillingCsv.date(rs.getString(1));
+                        row[2] = rs.getString(2);
+                        row[7] = rs.getString(3);
+                        row[8] = rs.getString(4);
+                        row[4] = TeleplanAmount.decode(rs.getString(5));
+                        row[5] = TeleplanAmount.decode(rs.getString(6));
                         csv.row(row);
                     }
                 }
             }
-            try (var st = connection.prepareStatement("""
+            try (var st =
+                    connection.prepareStatement(
+                            """
                     SELECT a.t_aji, a.t_ajc, c.adj_desc, a.t_calcmethod, a.t_rpercent, a.t_opercent,
                            a.t_gamount, a.t_ramount, a.t_oamount, a.t_balancefwd, a.t_adjmade, a.t_adjoutstanding
                       FROM teleplanS23 a LEFT JOIN teleplan_adj_codes c ON a.t_ajc = c.adj_code
@@ -118,20 +176,27 @@ public final class BcRemittanceExportDao {
                 st.setString(1, s21);
                 try (var rs = st.executeQuery()) {
                     while (rs.next()) {
-                        var row = row("Adjustment"); row[7] = rs.getString(1);
+                        var row = row("Adjustment");
+                        row[7] = rs.getString(1);
                         for (int i = 2; i <= 6; i++) row[i + 7] = rs.getString(i);
-                        for (int i = 7; i <= 12; i++) row[i + 7] = TeleplanAmount.decode(rs.getString(i));
+                        for (int i = 7; i <= 12; i++)
+                            row[i + 7] = TeleplanAmount.decode(rs.getString(i));
                         csv.row(row);
                     }
                 }
             }
-            try (var st = connection.prepareStatement("""
+            try (var st =
+                    connection.prepareStatement(
+                            """
                     SELECT t_practitionerno, t_linecode, t_message FROM teleplanS25 WHERE s21_id = ? ORDER BY s25_id
                     """)) {
                 st.setString(1, s21);
                 try (var rs = st.executeQuery()) {
                     while (rs.next()) {
-                        var row = row("Message"); row[7] = rs.getString(1); row[20] = rs.getString(2); row[21] = rs.getString(3);
+                        var row = row("Message");
+                        row[7] = rs.getString(1);
+                        row[20] = rs.getString(2);
+                        row[21] = rs.getString(3);
                         csv.row(row);
                     }
                 }

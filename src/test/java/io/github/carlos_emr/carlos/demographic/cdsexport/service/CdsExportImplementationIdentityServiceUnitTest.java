@@ -29,39 +29,134 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
 
-@Tag("unit") @Tag("cds-export")
+@Tag("unit")
+@Tag("cds-export")
 class CdsExportImplementationIdentityServiceUnitTest {
     @TempDir Path root;
     private static final String BASE = "io/github/carlos_emr/carlos/";
     private static final String ANCHOR = BASE + "demographic/cdsexport/CdsExport.class";
-    private static final List<String> RESOURCES = List.of("cds-import/schema/EMR_Data_Migration_Schema.xsd", "cds-import/schema/EMR_Data_Migration_Schema_DT.xsd", "spoken_languages_codes.properties", "oscar/prevention/PreventionItems.xml", BASE + "lab/ca/all/parsers/message_config.xml", "carlos-build.properties");
+    private static final List<String> RESOURCES =
+            List.of(
+                    "cds-import/schema/EMR_Data_Migration_Schema.xsd",
+                    "cds-import/schema/EMR_Data_Migration_Schema_DT.xsd",
+                    "spoken_languages_codes.properties",
+                    "oscar/prevention/PreventionItems.xml",
+                    BASE + "lab/ca/all/parsers/message_config.xml",
+                    "carlos-build.properties");
+
     private void fixture() throws Exception {
-        write(ANCHOR, "APPLICATION"); write(BASE + "commn/dao/AdditionalSource.class", "SOURCE"); write("cds-export/source-schema/demographic.json", "{}"); write("db/migration/common/V1.0.1__fixture.sql", "SELECT 1;");
+        write(ANCHOR, "APPLICATION");
+        write(BASE + "commn/dao/AdditionalSource.class", "SOURCE");
+        write("cds-export/source-schema/demographic.json", "{}");
+        write("db/migration/common/V1.0.1__fixture.sql", "SELECT 1;");
         for (String name : RESOURCES) write(name, "RESOURCE " + name);
     }
-    private void write(String name, String text) throws Exception { Path path = root.resolve(name); Files.createDirectories(path.getParent()); Files.writeString(path, text); }
-    private URLClassLoader loader() throws Exception { return new URLClassLoader(new URL[] {root.toUri().toURL()}, null); }
-    @Test void shouldHashTheActualApplicationAndContracts_deterministicallyWithinOneArtifact() throws Exception {
-        fixture(); try (var loader = loader()) { var service = new CdsExportImplementationIdentityService(loader, () -> "a".repeat(64)); String first = service.current(); assertThat(first).matches("[0-9a-f]{64}"); assertThat(service.current()).isEqualTo(first); assertThat(new CdsExportImplementationIdentityService(loader, () -> "a".repeat(64)).current()).isEqualTo(first); }
+
+    private void write(String name, String text) throws Exception {
+        Path path = root.resolve(name);
+        Files.createDirectories(path.getParent());
+        Files.writeString(path, text);
     }
-    @Test void shouldChangeIdentity_whenAnOwningSourceClassChangesInAReplacementArtifact() throws Exception {
-        fixture(); String first; try (var loader = loader()) { first = new CdsExportImplementationIdentityService(loader, () -> "a".repeat(64)).current(); }
-        write(BASE + "commn/dao/AdditionalSource.class", "CHANGED SOURCE"); try (var loader = loader()) { assertThat(new CdsExportImplementationIdentityService(loader, () -> "a".repeat(64)).current()).isNotEqualTo(first); }
+
+    private URLClassLoader loader() throws Exception {
+        return new URLClassLoader(new URL[] {root.toUri().toURL()}, null);
     }
-    @Test void shouldRefuseAShadowedApplicationClass_fromAnotherArtifact() throws Exception {
-        fixture(); Path other = root.resolveSibling(root.getFileName()+"-other"); Files.createDirectories(other.resolve(BASE+"commn/dao")); Files.writeString(other.resolve(BASE+"commn/dao/AdditionalSource.class"), "SHADOW");
-        try (var loader = new URLClassLoader(new URL[] {other.toUri().toURL(), root.toUri().toURL()}, null)) { assertThatThrownBy(() -> new CdsExportImplementationIdentityService(loader, () -> "a".repeat(64)).current()).hasMessage("CDS_EXPORT_IMPLEMENTATION_IDENTITY_UNAVAILABLE"); }
-        Files.delete(other.resolve(BASE+"commn/dao/AdditionalSource.class"));
+
+    @Test
+    void shouldHashTheActualApplicationAndContracts_deterministicallyWithinOneArtifact()
+            throws Exception {
+        fixture();
+        try (var loader = loader()) {
+            var service = new CdsExportImplementationIdentityService(loader, () -> "a".repeat(64));
+            String first = service.current();
+            assertThat(first).matches("[0-9a-f]{64}");
+            assertThat(service.current()).isEqualTo(first);
+            assertThat(
+                            new CdsExportImplementationIdentityService(loader, () -> "a".repeat(64))
+                                    .current())
+                    .isEqualTo(first);
+        }
     }
-    @Test void shouldRetryAfterAMissingRequiredResource_withoutPoisoningItsCache() throws Exception {
-        fixture(); var resource = root.resolve(RESOURCES.getFirst()); Files.delete(resource);
-        try (var loader = loader()) { var service = new CdsExportImplementationIdentityService(loader, () -> "a".repeat(64)); assertThatThrownBy(service::current).hasMessage("CDS_EXPORT_IMPLEMENTATION_IDENTITY_UNAVAILABLE"); write(RESOURCES.getFirst(), "RECOVERED"); assertThat(service.current()).matches("[0-9a-f]{64}"); }
+
+    @Test
+    void shouldChangeIdentity_whenAnOwningSourceClassChangesInAReplacementArtifact()
+            throws Exception {
+        fixture();
+        String first;
+        try (var loader = loader()) {
+            first =
+                    new CdsExportImplementationIdentityService(loader, () -> "a".repeat(64))
+                            .current();
+        }
+        write(BASE + "commn/dao/AdditionalSource.class", "CHANGED SOURCE");
+        try (var loader = loader()) {
+            assertThat(
+                            new CdsExportImplementationIdentityService(loader, () -> "a".repeat(64))
+                                    .current())
+                    .isNotEqualTo(first);
+        }
     }
-    @Test void shouldRejectSemanticRuntimeDrift_afterSuccessfulCalculation() throws Exception {
-        fixture(); var runtime = new AtomicReference<>("a".repeat(64)); try (var loader = loader()) { var service = new CdsExportImplementationIdentityService(loader, runtime::get); service.current(); runtime.set("b".repeat(64)); assertThatThrownBy(service::current).hasMessage("CDS_EXPORT_IMPLEMENTATION_IDENTITY_UNAVAILABLE"); }
+
+    @Test
+    void shouldRefuseAShadowedApplicationClass_fromAnotherArtifact() throws Exception {
+        fixture();
+        Path other = root.resolveSibling(root.getFileName() + "-other");
+        Files.createDirectories(other.resolve(BASE + "commn/dao"));
+        Files.writeString(other.resolve(BASE + "commn/dao/AdditionalSource.class"), "SHADOW");
+        try (var loader =
+                new URLClassLoader(new URL[] {other.toUri().toURL(), root.toUri().toURL()}, null)) {
+            assertThatThrownBy(
+                            () ->
+                                    new CdsExportImplementationIdentityService(
+                                                    loader, () -> "a".repeat(64))
+                                            .current())
+                    .hasMessage("CDS_EXPORT_IMPLEMENTATION_IDENTITY_UNAVAILABLE");
+        }
+        Files.delete(other.resolve(BASE + "commn/dao/AdditionalSource.class"));
     }
-    @Test void shouldExcludeOperatorPolicyAndPrivateKeys_fromTheImplementationDigest() throws Exception {
-        fixture(); String first; try (var loader = loader()) { first = new CdsExportImplementationIdentityService(loader, () -> "a".repeat(64)).current(); }
-        write("policy/private.key", "OWNED SYNTHETIC KEY"); try (var loader = loader()) { assertThat(new CdsExportImplementationIdentityService(loader, () -> "a".repeat(64)).current()).isEqualTo(first); }
+
+    @Test
+    void shouldRetryAfterAMissingRequiredResource_withoutPoisoningItsCache() throws Exception {
+        fixture();
+        var resource = root.resolve(RESOURCES.getFirst());
+        Files.delete(resource);
+        try (var loader = loader()) {
+            var service = new CdsExportImplementationIdentityService(loader, () -> "a".repeat(64));
+            assertThatThrownBy(service::current)
+                    .hasMessage("CDS_EXPORT_IMPLEMENTATION_IDENTITY_UNAVAILABLE");
+            write(RESOURCES.getFirst(), "RECOVERED");
+            assertThat(service.current()).matches("[0-9a-f]{64}");
+        }
+    }
+
+    @Test
+    void shouldRejectSemanticRuntimeDrift_afterSuccessfulCalculation() throws Exception {
+        fixture();
+        var runtime = new AtomicReference<>("a".repeat(64));
+        try (var loader = loader()) {
+            var service = new CdsExportImplementationIdentityService(loader, runtime::get);
+            service.current();
+            runtime.set("b".repeat(64));
+            assertThatThrownBy(service::current)
+                    .hasMessage("CDS_EXPORT_IMPLEMENTATION_IDENTITY_UNAVAILABLE");
+        }
+    }
+
+    @Test
+    void shouldExcludeOperatorPolicyAndPrivateKeys_fromTheImplementationDigest() throws Exception {
+        fixture();
+        String first;
+        try (var loader = loader()) {
+            first =
+                    new CdsExportImplementationIdentityService(loader, () -> "a".repeat(64))
+                            .current();
+        }
+        write("policy/private.key", "OWNED SYNTHETIC KEY");
+        try (var loader = loader()) {
+            assertThat(
+                            new CdsExportImplementationIdentityService(loader, () -> "a".repeat(64))
+                                    .current())
+                    .isEqualTo(first);
+        }
     }
 }

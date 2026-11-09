@@ -30,71 +30,196 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** Internal argv emitted by the installed Python adapter; no command parser may discover a patient or open a file. */
-@Tag("unit") @Tag("cds-export")
+@Tag("unit")
+@Tag("cds-export")
 class CdsExportCliArgumentsUnitTest {
     private static final String RUN = "22222222-2222-4222-8222-222222222222";
     private static final String NONCE = "33333333-3333-4333-8333-333333333333";
-    @Test void shouldFixTheExplicitRosterIntent_andUseTheVerifiedSubmissionNonce() {
-        var args = CdsExportCliArguments.parse(fresh()); var command = args.command(List.of(), NONCE);
+
+    @Test
+    void shouldFixTheExplicitRosterIntent_andUseTheVerifiedSubmissionNonce() {
+        var args = CdsExportCliArguments.parse(fresh());
+        var command = args.command(List.of(), NONCE);
         assertThat(command.selection()).isEqualTo(CdsExportCommand.Selection.PHYSICIAN_ROSTER);
-        assertThat(command.physicianNos()).containsExactly("100", "200"); assertThat(command.categories()).hasSize(16);
-        assertThat(command.submissionKey()).isEqualTo(NONCE); assertThat(args.toString()).doesNotContain("recipient");
+        assertThat(command.physicianNos()).containsExactly("100", "200");
+        assertThat(command.categories()).hasSize(16);
+        assertThat(command.submissionKey()).isEqualTo(NONCE);
+        assertThat(args.toString()).doesNotContain("recipient");
     }
-    @Test void shouldUseOnlyProtectedCapturedIds_forAnExplicitSelection() {
-        var values = new ArrayList<>(List.of(fresh())); int index = values.indexOf("--physicians");
-        values.set(index, "--patients-file"); values.set(index + 1, "/var/lib/carlos-emr/selections/selected.json");
+
+    @Test
+    void shouldUseOnlyProtectedCapturedIds_forAnExplicitSelection() {
+        var values = new ArrayList<>(List.of(fresh()));
+        int index = values.indexOf("--physicians");
+        values.set(index, "--patients-file");
+        values.set(index + 1, "/var/lib/carlos-emr/selections/selected.json");
         values.addAll(List.of("--submission-key", "operator-submission"));
-        var args = CdsExportCliArguments.parse(values.toArray(String[]::new)); var command = args.command(List.of(28, 27), NONCE);
-        assertThat(command.patientNos()).containsExactly(27, 28); assertThat(command.submissionKey()).isEqualTo("operator-submission");
+        var args = CdsExportCliArguments.parse(values.toArray(String[]::new));
+        var command = args.command(List.of(28, 27), NONCE);
+        assertThat(command.patientNos()).containsExactly(27, 28);
+        assertThat(command.submissionKey()).isEqualTo("operator-submission");
         assertThat(command.selection()).isEqualTo(CdsExportCommand.Selection.SELECTED_PATIENTS);
     }
-    @Test void shouldRefuseUnknownDuplicateConflictingAndMissingOptions() {
-        for (List<String> suffix : List.of(List.of("--provider", "200"), List.of("--unknown", "x"),
-                List.of("--detach", "--detach"), List.of("--patients-file", "/safe/selection.json"), List.of("--run", RUN))) {
-            var values = new ArrayList<>(List.of(fresh())); values.addAll(suffix);
-            assertThatThrownBy(() -> CdsExportCliArguments.parse(values.toArray(String[]::new))).isInstanceOf(IllegalArgumentException.class);
+
+    @Test
+    void shouldRefuseUnknownDuplicateConflictingAndMissingOptions() {
+        for (List<String> suffix :
+                List.of(
+                        List.of("--provider", "200"),
+                        List.of("--unknown", "x"),
+                        List.of("--detach", "--detach"),
+                        List.of("--patients-file", "/safe/selection.json"),
+                        List.of("--run", RUN))) {
+            var values = new ArrayList<>(List.of(fresh()));
+            values.addAll(suffix);
+            assertThatThrownBy(() -> CdsExportCliArguments.parse(values.toArray(String[]::new)))
+                    .isInstanceOf(IllegalArgumentException.class);
         }
-        assertThatThrownBy(() -> CdsExportCliArguments.parse(new String[]{"--operation", "export", "--provider"}))
+        assertThatThrownBy(
+                        () ->
+                                CdsExportCliArguments.parse(
+                                        new String[] {"--operation", "export", "--provider"}))
                 .isInstanceOf(IllegalArgumentException.class);
     }
-    @Test void shouldRejectCategoryDuplicatesOrOmittedDemographics_withoutFallingBackToAll() {
-        for (String categories : new String[]{"ClinicalNotes", "Demographics,Demographics", "unknown"}) {
-            var values = new ArrayList<>(List.of(fresh())); values.addAll(List.of("--categories", categories));
-            assertThatThrownBy(() -> CdsExportCliArguments.parse(values.toArray(String[]::new))).isInstanceOf(IllegalArgumentException.class);
+
+    @Test
+    void shouldRejectCategoryDuplicatesOrOmittedDemographics_withoutFallingBackToAll() {
+        for (String categories :
+                new String[] {"ClinicalNotes", "Demographics,Demographics", "unknown"}) {
+            var values = new ArrayList<>(List.of(fresh()));
+            values.addAll(List.of("--categories", categories));
+            assertThatThrownBy(() -> CdsExportCliArguments.parse(values.toArray(String[]::new)))
+                    .isInstanceOf(IllegalArgumentException.class);
         }
     }
-    @Test void shouldKeepEveryExistingRunOperationOnItsOriginalIntent() {
-        for (String operation : new String[]{"status", "resume", "cancel", "report"}) {
+
+    @Test
+    void shouldKeepEveryExistingRunOperationOnItsOriginalIntent() {
+        for (String operation : new String[] {"status", "resume", "cancel", "report"}) {
             String[] base = {"--operation", operation, "--provider", "100", "--run", RUN};
             assertThat(CdsExportCliArguments.parse(base).runId()).isEqualTo(RUN);
-            for (List<String> replacement : List.of(List.of("--facility", "3"), List.of("--profile", "omd-5.2"),
-                    List.of("--categories", "all"), List.of("--recipient", "another"))) {
-                var values = new ArrayList<>(List.of(base)); values.addAll(replacement);
-                assertThatThrownBy(() -> CdsExportCliArguments.parse(values.toArray(String[]::new))).isInstanceOf(IllegalArgumentException.class);
+            for (List<String> replacement :
+                    List.of(
+                            List.of("--facility", "3"),
+                            List.of("--profile", "omd-5.2"),
+                            List.of("--categories", "all"),
+                            List.of("--recipient", "another"))) {
+                var values = new ArrayList<>(List.of(base));
+                values.addAll(replacement);
+                assertThatThrownBy(() -> CdsExportCliArguments.parse(values.toArray(String[]::new)))
+                        .isInstanceOf(IllegalArgumentException.class);
             }
         }
     }
-    @Test void shouldRecoverSubmissionStatus_withoutAnInventedRunIdOrReplacementOptions() {
-        var args = CdsExportCliArguments.parse(new String[]{"--operation", "status", "--provider", "100", "--submission-key", "original-key"});
-        assertThat(args.submissionKey()).isEqualTo("original-key"); assertThat(args.runId()).isNull();
-        assertThatThrownBy(() -> CdsExportCliArguments.parse(new String[]{"--operation", "status", "--provider", "100", "--submission-key", "key", "--run", RUN}))
+
+    @Test
+    void shouldRecoverSubmissionStatus_withoutAnInventedRunIdOrReplacementOptions() {
+        var args =
+                CdsExportCliArguments.parse(
+                        new String[] {
+                            "--operation",
+                            "status",
+                            "--provider",
+                            "100",
+                            "--submission-key",
+                            "original-key"
+                        });
+        assertThat(args.submissionKey()).isEqualTo("original-key");
+        assertThat(args.runId()).isNull();
+        assertThatThrownBy(
+                        () ->
+                                CdsExportCliArguments.parse(
+                                        new String[] {
+                                            "--operation",
+                                            "status",
+                                            "--provider",
+                                            "100",
+                                            "--submission-key",
+                                            "key",
+                                            "--run",
+                                            RUN
+                                        }))
                 .isInstanceOf(IllegalArgumentException.class);
     }
-    @Test void shouldRequireAnOpaqueArtifactAndAbsoluteNewDestination_forDownload() {
-        var args = CdsExportCliArguments.parse(new String[]{"--operation", "download", "--provider", "100", "--run", RUN,
-                "--artifact", "opaque-artifact", "--output", "/safe/export.cms"});
+
+    @Test
+    void shouldRequireAnOpaqueArtifactAndAbsoluteNewDestination_forDownload() {
+        var args =
+                CdsExportCliArguments.parse(
+                        new String[] {
+                            "--operation",
+                            "download",
+                            "--provider",
+                            "100",
+                            "--run",
+                            RUN,
+                            "--artifact",
+                            "opaque-artifact",
+                            "--output",
+                            "/safe/export.cms"
+                        });
         assertThat(args.artifactId()).isEqualTo("opaque-artifact");
-        assertThatThrownBy(() -> CdsExportCliArguments.parse(new String[]{"--operation", "download", "--provider", "100", "--run", RUN}))
+        assertThatThrownBy(
+                        () ->
+                                CdsExportCliArguments.parse(
+                                        new String[] {
+                                            "--operation",
+                                            "download",
+                                            "--provider",
+                                            "100",
+                                            "--run",
+                                            RUN
+                                        }))
                 .isInstanceOf(IllegalArgumentException.class);
     }
-    @Test void shouldAllowDetachOnlyForNewSubmissionOrExplicitResume() {
-        var values = new ArrayList<>(List.of(fresh())); values.add("--detach");
+
+    @Test
+    void shouldAllowDetachOnlyForNewSubmissionOrExplicitResume() {
+        var values = new ArrayList<>(List.of(fresh()));
+        values.add("--detach");
         assertThat(CdsExportCliArguments.parse(values.toArray(String[]::new)).detach()).isTrue();
-        assertThat(CdsExportCliArguments.parse(new String[]{"--operation", "resume", "--provider", "100", "--run", RUN, "--detach"}).detach()).isTrue();
-        assertThatThrownBy(() -> CdsExportCliArguments.parse(new String[]{"--operation", "status", "--provider", "100", "--run", RUN, "--detach"}))
+        assertThat(
+                        CdsExportCliArguments.parse(
+                                        new String[] {
+                                            "--operation",
+                                            "resume",
+                                            "--provider",
+                                            "100",
+                                            "--run",
+                                            RUN,
+                                            "--detach"
+                                        })
+                                .detach())
+                .isTrue();
+        assertThatThrownBy(
+                        () ->
+                                CdsExportCliArguments.parse(
+                                        new String[] {
+                                            "--operation",
+                                            "status",
+                                            "--provider",
+                                            "100",
+                                            "--run",
+                                            RUN,
+                                            "--detach"
+                                        }))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
     private static String[] fresh() {
-        return new String[]{"--operation", "export", "--provider", "100", "--profile", "omd-5.2", "--physicians", "200,100", "--recipient", "recipient", "--audit-plan", "audit"};
+        return new String[] {
+            "--operation",
+            "export",
+            "--provider",
+            "100",
+            "--profile",
+            "omd-5.2",
+            "--physicians",
+            "200,100",
+            "--recipient",
+            "recipient",
+            "--audit-plan",
+            "audit"
+        };
     }
 }

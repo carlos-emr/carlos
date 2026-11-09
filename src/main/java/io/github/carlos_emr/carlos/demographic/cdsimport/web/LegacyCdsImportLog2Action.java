@@ -31,25 +31,41 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 /** Old temporary basename links expire explicitly; they never become unrestricted durable-file lookups. */
-@Component("legacyCdsImportLog2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+@Component("legacyCdsImportLog2Action")
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class LegacyCdsImportLog2Action extends ActionSupport {
     private final transient SecurityInfoManager securityInfoManager;
     private final transient CdsWebService web;
+
     public LegacyCdsImportLog2Action(CdsWebService web, SecurityInfoManager securityInfoManager) {
-        this.securityInfoManager = securityInfoManager; this.web = web; }
-    @Override public String execute() throws Exception {
-        var request = ServletActionContext.getRequest(); var response = ServletActionContext.getResponse();
+        this.securityInfoManager = securityInfoManager;
+        this.web = web;
+    }
+
+    @Override
+    public String execute() throws Exception {
+        var request = ServletActionContext.getRequest();
+        var response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", (String) null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", (String) null)
-                && !securityInfoManager.hasPrivilege(loggedInInfo, "_cds_import", "w", (String) null)) {
+                && !securityInfoManager.hasPrivilege(
+                        loggedInInfo, "_cds_import", "w", (String) null)) {
             throw new SecurityException("missing required sec object (_cds_import)");
         }
         web.authorize(request);
-        web.json(response, 410, Map.of("ok", false, "code", "IMPORT_LEGACY_LOG_LINK_EXPIRED",
-                "message", "This temporary import-log link has expired. Open the durable run and download its protected reports."));
+        web.json(
+                response,
+                410,
+                Map.of(
+                        "ok",
+                        false,
+                        "code",
+                        "IMPORT_LEGACY_LOG_LINK_EXPIRED",
+                        "message",
+                        "This temporary import-log link has expired. Open the durable run and download its protected reports."));
         return NONE;
     }
 }

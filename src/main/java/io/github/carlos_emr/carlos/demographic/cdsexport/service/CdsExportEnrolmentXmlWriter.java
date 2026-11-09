@@ -27,23 +27,41 @@ import java.util.List;
 
 /** Schema-ordered enrolment body under Demographics, with the guide's stronger conditional dates. */
 public final class CdsExportEnrolmentXmlWriter {
-    public void write(List<CdsExportEnrolmentEventDto> supplied, CdsExportXmlComposer.ContentWriter xml) throws IOException {
-        java.util.Objects.requireNonNull(xml).content(guarded -> {
-            if (supplied == null || supplied.size() > 65_536) throw new IOException("CDS_EXPORT_ENROLMENT_HISTORY_RESOURCE_LIMIT");
-            var events = List.copyOf(supplied); if (events.isEmpty()) return;
-            guarded.start("cds", "Enrolment");
-            for (var event : events) {
-                guarded.start("cds", "EnrolmentHistory"); writeHistoryContent(event, guarded); guarded.end();
-            }
-            guarded.end();
-        });
+    public void write(
+            List<CdsExportEnrolmentEventDto> supplied, CdsExportXmlComposer.ContentWriter xml)
+            throws IOException {
+        java.util.Objects.requireNonNull(xml)
+                .content(
+                        guarded -> {
+                            if (supplied == null || supplied.size() > 65_536)
+                                throw new IOException(
+                                        "CDS_EXPORT_ENROLMENT_HISTORY_RESOURCE_LIMIT");
+                            var events = List.copyOf(supplied);
+                            if (events.isEmpty()) return;
+                            guarded.start("cds", "Enrolment");
+                            for (var event : events) {
+                                guarded.start("cds", "EnrolmentHistory");
+                                writeHistoryContent(event, guarded);
+                                guarded.end();
+                            }
+                            guarded.end();
+                        });
     }
+
     /** Content under one existing/generated history wrapper, shared by retained and native assembly. */
-    void writeHistoryContent(CdsExportEnrolmentEventDto event, CdsExportXmlComposer.ContentWriter xml)throws IOException {
+    void writeHistoryContent(
+            CdsExportEnrolmentEventDto event, CdsExportXmlComposer.ContentWriter xml)
+            throws IOException {
         xml.element("cds", "EnrollmentStatus", event.status());
         xml.element("cds", "EnrollmentDate", event.start().toString());
-        if (event.end()!=null)xml.element("cds", "EnrollmentTerminationDate", event.end().toString());
-        if (event.terminationReason()!=null)xml.element("cds", "TerminationReason", event.terminationReason());
-        if (event.physician()!=null){xml.start("cds", "EnrolledToPhysician"); new CdsExportPublicProviderXmlWriter().write(event.physician(), xml, false); xml.end(); }
+        if (event.end() != null)
+            xml.element("cds", "EnrollmentTerminationDate", event.end().toString());
+        if (event.terminationReason() != null)
+            xml.element("cds", "TerminationReason", event.terminationReason());
+        if (event.physician() != null) {
+            xml.start("cds", "EnrolledToPhysician");
+            new CdsExportPublicProviderXmlWriter().write(event.physician(), xml, false);
+            xml.end();
+        }
     }
 }

@@ -30,25 +30,30 @@ import org.apache.commons.dbcp2.DriverConnectionFactory;
 
 /** Per-factory network policy for controlled CDS connections; ordinary default-off pools are unchanged. */
 public final class CdsJdbcConnectionTimeouts {
-    public static final int DEFAULT_CONNECT_MILLIS=5000;
-    public static final int DEFAULT_SOCKET_MILLIS=60000;
-    public static final int MAX_CONNECT_MILLIS=30000;
-    public static final int MAX_SOCKET_MILLIS=300000;
+    public static final int DEFAULT_CONNECT_MILLIS = 5000;
+    public static final int DEFAULT_SOCKET_MILLIS = 60000;
+    public static final int MAX_CONNECT_MILLIS = 30000;
+    public static final int MAX_SOCKET_MILLIS = 300000;
 
-    private CdsJdbcConnectionTimeouts() { }
+    private CdsJdbcConnectionTimeouts() {}
 
     /** A private advisory owner must survive its run budget plus a bounded network-unwind interval. */
-    public static void retainOwnerForDuration(java.sql.Connection connection, long maximumMillis) throws SQLException {
+    public static void retainOwnerForDuration(java.sql.Connection connection, long maximumMillis)
+            throws SQLException {
         if (maximumMillis < 1) throw invalid();
         long seconds = (maximumMillis - 1) / 1000 + 1 + MAX_SOCKET_MILLIS / 1000;
-        if (seconds > 31536000) throw invalid(); // MariaDB's maximum supported session idle interval.
+        if (seconds > 31536000)
+            throw invalid(); // MariaDB's maximum supported session idle interval.
         try (var change = connection.prepareStatement("SET SESSION wait_timeout=?")) {
-            change.setQueryTimeout(3); change.setLong(1, seconds); change.execute();
+            change.setQueryTimeout(3);
+            change.setLong(1, seconds);
+            change.execute();
         }
         try (var query = connection.prepareStatement("SELECT @@SESSION.wait_timeout")) {
             query.setQueryTimeout(3);
             try (var rows = query.executeQuery()) {
-                if (!rows.next() || rows.getLong(1) < seconds || rows.wasNull() || rows.next()) throw invalid();
+                if (!rows.next() || rows.getLong(1) < seconds || rows.wasNull() || rows.next())
+                    throw invalid();
             }
         }
     }
@@ -56,37 +61,58 @@ public final class CdsJdbcConnectionTimeouts {
     /** Clone the resolved driver, URL and credential properties; never mutate shared pool configuration. */
     public static ConnectionFactory bounded(ConnectionFactory factory) throws SQLException {
         if (!(factory instanceof DriverConnectionFactory configured)) throw invalid();
-        Properties copy=(Properties) configured.getProperties().clone();
+        Properties copy = (Properties) configured.getProperties().clone();
         try {
             // Resolve the actual shipped driver's query/property/per-host merge semantics.
             // Missing values alone receive bounded defaults.
-            var parsed=ConnectionUrlParser.parseConnectionString(configured.getConnectionString());
-            if (ConnectionUrl.Type.fromValue(parsed.getScheme(), parsed.getHosts().size())!=ConnectionUrl.Type.SINGLE_CONNECTION) {
+            var parsed =
+                    ConnectionUrlParser.parseConnectionString(configured.getConnectionString());
+            if (ConnectionUrl.Type.fromValue(parsed.getScheme(), parsed.getHosts().size())
+                    != ConnectionUrl.Type.SINGLE_CONNECTION) {
                 throw singleHostRequired();
             }
-            var resolved=ConnectionUrl.getConnectionUrlInstance(configured.getConnectionString(), copy);
-            if (resolved.getType()!=ConnectionUrl.Type.SINGLE_CONNECTION) throw singleHostRequired();
-            Properties effective=resolved.getMainHost().exposeAsProperties();
-            copy.setProperty("connectTimeout", bounded(effective, "connectTimeout", DEFAULT_CONNECT_MILLIS, MAX_CONNECT_MILLIS));
-            copy.setProperty("socketTimeout", bounded(effective, "socketTimeout", DEFAULT_SOCKET_MILLIS, MAX_SOCKET_MILLIS));
-            return new DriverConnectionFactory(configured.getDriver(), configured.getConnectionString(), copy);
+            var resolved =
+                    ConnectionUrl.getConnectionUrlInstance(configured.getConnectionString(), copy);
+            if (resolved.getType() != ConnectionUrl.Type.SINGLE_CONNECTION)
+                throw singleHostRequired();
+            Properties effective = resolved.getMainHost().exposeAsProperties();
+            copy.setProperty(
+                    "connectTimeout",
+                    bounded(
+                            effective,
+                            "connectTimeout",
+                            DEFAULT_CONNECT_MILLIS,
+                            MAX_CONNECT_MILLIS));
+            copy.setProperty(
+                    "socketTimeout",
+                    bounded(effective, "socketTimeout", DEFAULT_SOCKET_MILLIS, MAX_SOCKET_MILLIS));
+            return new DriverConnectionFactory(
+                    configured.getDriver(), configured.getConnectionString(), copy);
         } catch (RuntimeException malformed) {
             // URL/property contents and credentials must not enter ordinary framework logs.
             throw invalid();
         }
     }
 
-    private static String bounded(Properties effective, String key, int fallback, int maximum) throws SQLException {
-        String configured=effective.getProperty(key);
-        if (configured==null) return Integer.toString(fallback);
+    private static String bounded(Properties effective, String key, int fallback, int maximum)
+            throws SQLException {
+        String configured = effective.getProperty(key);
+        if (configured == null) return Integer.toString(fallback);
         final int value;
-        try { value=Integer.parseInt(configured); }
-        catch (NumberFormatException malformed) { throw invalid(); }
-        if (value<1 || value>maximum) throw invalid();
+        try {
+            value = Integer.parseInt(configured);
+        } catch (NumberFormatException malformed) {
+            throw invalid();
+        }
+        if (value < 1 || value > maximum) throw invalid();
         return Integer.toString(value);
     }
 
-    private static SQLException singleHostRequired() { return new SQLException("CDS_JDBC_SINGLE_HOST_REQUIRED", "08001"); }
+    private static SQLException singleHostRequired() {
+        return new SQLException("CDS_JDBC_SINGLE_HOST_REQUIRED", "08001");
+    }
 
-    private static SQLException invalid() { return new SQLException("CDS_JDBC_TIMEOUT_CONFIGURATION_INVALID", "08001"); }
+    private static SQLException invalid() {
+        return new SQLException("CDS_JDBC_TIMEOUT_CONFIGURATION_INVALID", "08001");
+    }
 }

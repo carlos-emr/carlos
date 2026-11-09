@@ -27,28 +27,46 @@ import java.util.Objects;
 
 /** Pinned wire order and namespaces; supplementary native fields require separate complete reconciliation. */
 public final class CdsExportAppointmentXmlWriter {
-    public void write(CdsExportAppointmentDto appointment, CdsExportXmlComposer.ContentWriter xml) throws IOException {
+    public void write(CdsExportAppointmentDto appointment, CdsExportXmlComposer.ContentWriter xml)
+            throws IOException {
         java.util.Objects.requireNonNull(xml).content(guarded -> writeValue(appointment, guarded));
     }
-    private void writeValue(CdsExportAppointmentDto appointment, CdsExportXmlComposer.ContentWriter xml) throws IOException {
-        validate(appointment); Objects.requireNonNull(xml);
+
+    private void writeValue(
+            CdsExportAppointmentDto appointment, CdsExportXmlComposer.ContentWriter xml)
+            throws IOException {
+        validate(appointment);
+        Objects.requireNonNull(xml);
         xml.element("cds", "AppointmentTime", appointment.timing().wireTime());
         xml.element("cds", "Duration", Integer.toString(appointment.timing().durationMinutes()));
         optional(xml, "AppointmentStatus", appointment.status());
-        xml.start("cds", "AppointmentDate"); xml.element("cds_dt", "FullDate", appointment.timing().date().lexical()); xml.end();
+        xml.start("cds", "AppointmentDate");
+        xml.element("cds_dt", "FullDate", appointment.timing().date().lexical());
+        xml.end();
         if (appointment.provider() != null) {
-            xml.start("cds", "Provider"); new CdsExportPublicProviderXmlWriter().write(appointment.provider(), xml, false); xml.end();
+            xml.start("cds", "Provider");
+            new CdsExportPublicProviderXmlWriter().write(appointment.provider(), xml, false);
+            xml.end();
         }
-        optional(xml, "AppointmentPurpose", appointment.purpose()); optional(xml, "AppointmentNotes", appointment.notes());
+        optional(xml, "AppointmentPurpose", appointment.purpose());
+        optional(xml, "AppointmentNotes", appointment.notes());
     }
-    static void validate(CdsExportAppointmentDto appointment)throws IOException {
+
+    static void validate(CdsExportAppointmentDto appointment) throws IOException {
         Objects.requireNonNull(appointment);
-        if (appointment.timing().offset()==null)throw new IOException("CDS_EXPORT_APPOINTMENT_TIMING_REQUIRES_REVIEW");
-        if (appointment.status()!=null&&!CdsExportNativeFieldAssessments.legal(appointment.status(), 250)
-                ||appointment.purpose()!=null&&!CdsExportNativeFieldAssessments.legal(appointment.purpose(), 250)
-                ||appointment.notes()!=null&&!CdsExportNativeFieldAssessments.legal(appointment.notes(), 32000))throw new IOException("CDS_EXPORT_APPOINTMENT_VALUES_REQUIRES_REVIEW");
+        if (appointment.timing().offset() == null)
+            throw new IOException("CDS_EXPORT_APPOINTMENT_TIMING_REQUIRES_REVIEW");
+        if (appointment.status() != null
+                        && !CdsExportNativeFieldAssessments.legal(appointment.status(), 250)
+                || appointment.purpose() != null
+                        && !CdsExportNativeFieldAssessments.legal(appointment.purpose(), 250)
+                || appointment.notes() != null
+                        && !CdsExportNativeFieldAssessments.legal(appointment.notes(), 32000))
+            throw new IOException("CDS_EXPORT_APPOINTMENT_VALUES_REQUIRES_REVIEW");
     }
-    private static void optional(CdsExportXmlComposer.ContentWriter xml, String name, String value) throws IOException {
+
+    private static void optional(CdsExportXmlComposer.ContentWriter xml, String name, String value)
+            throws IOException {
         if (value != null) xml.element("cds", name, value);
     }
 }

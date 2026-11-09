@@ -30,31 +30,56 @@ import java.util.Locale;
  * not assert a clinical mapping. Optional IEEE witnesses are separate from the unchanged
  * SQL-display receipt and contain only a codec-bound hash, never a dose or its raw bits.
  */
-public record CdsNativeRowState(String table, String id, List<CdsNativeRowDigest.Column> columns, List<Cell> cells) {
-    public record Cell(boolean sqlNull, long bytes, String sha256, CdsExactNumeric.Witness exactNumeric) {
-        public Cell(boolean sqlNull, long bytes, String sha256) { this(sqlNull, bytes, sha256, null); }
+public record CdsNativeRowState(
+        String table, String id, List<CdsNativeRowDigest.Column> columns, List<Cell> cells) {
+    public record Cell(
+            boolean sqlNull, long bytes, String sha256, CdsExactNumeric.Witness exactNumeric) {
+        public Cell(boolean sqlNull, long bytes, String sha256) {
+            this(sqlNull, bytes, sha256, null);
+        }
+
         public Cell {
-            if (bytes < 0 || sqlNull && (bytes != 0 || sha256 != null || exactNumeric != null)
-                    || !sqlNull && (sha256 == null || !sha256.matches("[0-9a-fA-F]{64}"))) invalid();
+            if (bytes < 0
+                    || sqlNull && (bytes != 0 || sha256 != null || exactNumeric != null)
+                    || !sqlNull && (sha256 == null || !sha256.matches("[0-9a-fA-F]{64}")))
+                invalid();
             if (sha256 != null) sha256 = sha256.toLowerCase(Locale.ROOT);
         }
-        @Override public String toString() { return "CdsNativeRowState.Cell[protected]"; }
+
+        @Override
+        public String toString() {
+            return "CdsNativeRowState.Cell[protected]";
+        }
     }
+
     public CdsNativeRowState {
-        if (table == null || !table.matches("[A-Za-z0-9_]{1,64}") || id == null || !id.matches("[A-Za-z0-9_-]{1,64}")) invalid();
-        columns = List.copyOf(columns); cells = List.copyOf(cells);
+        if (table == null
+                || !table.matches("[A-Za-z0-9_]{1,64}")
+                || id == null
+                || !id.matches("[A-Za-z0-9_-]{1,64}")) invalid();
+        columns = List.copyOf(columns);
+        cells = List.copyOf(cells);
         if (columns.isEmpty() || columns.size() > 512 || columns.size() != cells.size()) invalid();
         CdsNativeRowDigest.hasher(columns);
         for (int i = 0; i < columns.size(); i++) {
             var witness = cells.get(i).exactNumeric();
-            if (witness != null && witness.codec() != CdsExactNumeric.codec(columns.get(i).type())) invalid();
+            if (witness != null && witness.codec() != CdsExactNumeric.codec(columns.get(i).type()))
+                invalid();
         }
     }
+
     public String digest() {
         var hash = CdsNativeRowDigest.hasher(columns);
         for (var cell : cells) hash.append(cell.sqlNull(), cell.bytes(), cell.sha256());
         return hash.finish();
     }
-    private static void invalid() { throw new IllegalArgumentException("CDS_NATIVE_ROW_STATE_INVALID"); }
-    @Override public String toString() { return "CdsNativeRowState[protected]"; }
+
+    private static void invalid() {
+        throw new IllegalArgumentException("CDS_NATIVE_ROW_STATE_INVALID");
+    }
+
+    @Override
+    public String toString() {
+        return "CdsNativeRowState[protected]";
+    }
 }

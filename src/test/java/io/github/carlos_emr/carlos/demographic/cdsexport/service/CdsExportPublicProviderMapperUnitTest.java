@@ -28,41 +28,85 @@ import java.util.*;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-@Tag("unit") @Tag("cds-export")
+@Tag("unit")
+@Tag("cds-export")
 class CdsExportPublicProviderMapperUnitTest {
-    @Test void shouldKeepPublicNameOhipAndExplicitCpsoDistinct_withoutNumericCoercion() throws Exception {
-        var row = provider("CPSO", "000123"); var mapper = new CdsExportPublicProviderMapper();
+    @Test
+    void shouldKeepPublicNameOhipAndExplicitCpsoDistinct_withoutNumericCoercion() throws Exception {
+        var row = provider("CPSO", "000123");
+        var mapper = new CdsExportPublicProviderMapper();
         var primary = mapper.map(row, CdsExportPublicProviderMapper.Target.PRIMARY_PHYSICIAN);
-        assertThat(primary.representable()).isTrue(); assertThat(primary.fields()).hasSize(6);
-        assertThat(primary.value().firstName()).isEqualTo("Zoë😀"); assertThat(primary.value().ohipNumber()).isEqualTo("001234");
+        assertThat(primary.representable()).isTrue();
+        assertThat(primary.fields()).hasSize(6);
+        assertThat(primary.value().firstName()).isEqualTo("Zoë😀");
+        assertThat(primary.value().ohipNumber()).isEqualTo("001234");
         assertThat(primary.value().cpsoNumber()).isEqualTo("000123");
         var appointment = mapper.map(row, CdsExportPublicProviderMapper.Target.APPOINTMENT);
-        assertThat(appointment.representable()).isTrue(); assertThat(appointment.value().cpsoNumber()).isNull();
-        assertThat(appointment.fields().get(key("practitionerNo")).outcome()).isEqualTo(Outcome.OPERATIONAL);
+        assertThat(appointment.representable()).isTrue();
+        assertThat(appointment.value().cpsoNumber()).isNull();
+        assertThat(appointment.fields().get(key("practitionerNo")).outcome())
+                .isEqualTo(Outcome.OPERATIONAL);
     }
-    @Test void shouldNeverRelabelAnotherOrMissingRegistrationAuthorityAsCpso() throws Exception {
+
+    @Test
+    void shouldNeverRelabelAnotherOrMissingRegistrationAuthorityAsCpso() throws Exception {
         for (String authority : Arrays.asList(null, "", "MSP", "cpso")) {
-            var mapped = new CdsExportPublicProviderMapper().map(provider(authority, "000123"), CdsExportPublicProviderMapper.Target.PRIMARY_PHYSICIAN);
-            assertThat(mapped.value().cpsoNumber()).isNull(); assertThat(mapped.value().ohipNumber()).isEqualTo("001234");
+            var mapped =
+                    new CdsExportPublicProviderMapper()
+                            .map(
+                                    provider(authority, "000123"),
+                                    CdsExportPublicProviderMapper.Target.PRIMARY_PHYSICIAN);
+            assertThat(mapped.value().cpsoNumber()).isNull();
+            assertThat(mapped.value().ohipNumber()).isEqualTo("001234");
         }
     }
-    @Test void shouldBlockTheExactInvalidIdentifierField_withoutTrimmingTruncatingOrChangingNames() throws Exception {
+
+    @Test
+    void shouldBlockTheExactInvalidIdentifierField_withoutTrimmingTruncatingOrChangingNames()
+            throws Exception {
         for (String identifier : List.of(" 01234", "0123456", "01\t234")) {
-            var fields = new LinkedHashMap<>(provider("CPSO", "000123").fields()); fields.put("practitionerNo", identifier);
-            var mapped = new CdsExportPublicProviderMapper().map(new CdsExportCapturedTextRowDto("provider", CdsExportPublicProviderSourceReader.key("0é27"), fields),
-                    CdsExportPublicProviderMapper.Target.PRIMARY_PHYSICIAN);
-            assertThat(mapped.representable()).isFalse(); assertThat(mapped.fields().get(key("practitionerNo")).outcome()).isEqualTo(Outcome.REQUIRES_REVIEW);
+            var fields = new LinkedHashMap<>(provider("CPSO", "000123").fields());
+            fields.put("practitionerNo", identifier);
+            var mapped =
+                    new CdsExportPublicProviderMapper()
+                            .map(
+                                    new CdsExportCapturedTextRowDto(
+                                            "provider",
+                                            CdsExportPublicProviderSourceReader.key("0é27"),
+                                            fields),
+                                    CdsExportPublicProviderMapper.Target.PRIMARY_PHYSICIAN);
+            assertThat(mapped.representable()).isFalse();
+            assertThat(mapped.fields().get(key("practitionerNo")).outcome())
+                    .isEqualTo(Outcome.REQUIRES_REVIEW);
         }
     }
-    @Test void shouldRefuseAChangedIdentityKey_insteadOfUsingTheDisplayName() {
+
+    @Test
+    void shouldRefuseAChangedIdentityKey_insteadOfUsingTheDisplayName() {
         var row = provider("CPSO", "000123");
-        var forged = new CdsExportCapturedTextRowDto("provider", CdsExportPublicProviderSourceReader.key("OTHER"), row.fields());
-        assertThatThrownBy(() -> new CdsExportPublicProviderMapper().map(forged, CdsExportPublicProviderMapper.Target.PRIMARY_PHYSICIAN))
+        var forged =
+                new CdsExportCapturedTextRowDto(
+                        "provider", CdsExportPublicProviderSourceReader.key("OTHER"), row.fields());
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportPublicProviderMapper()
+                                        .map(
+                                                forged,
+                                                CdsExportPublicProviderMapper.Target
+                                                        .PRIMARY_PHYSICIAN))
                 .hasMessage("CDS_EXPORT_PUBLIC_PROVIDER_CAPTURE_SCOPE_INVALID");
     }
+
     static CdsExportCapturedTextRowDto provider(String authority, String number) {
-        var fields = new LinkedHashMap<>(CdsExportAppointmentMapperUnitTest.provider().fields()); fields.put("practitionerNoType", authority); fields.put("practitionerNo", number);
-        return new CdsExportCapturedTextRowDto("provider", CdsExportPublicProviderSourceReader.key("0é27"), fields);
+        var fields = new LinkedHashMap<>(CdsExportAppointmentMapperUnitTest.provider().fields());
+        fields.put("practitionerNoType", authority);
+        fields.put("practitionerNo", number);
+        return new CdsExportCapturedTextRowDto(
+                "provider", CdsExportPublicProviderSourceReader.key("0é27"), fields);
     }
-    private static CdsExportNativeFieldKeyDto key(String column) { return new CdsExportNativeFieldKeyDto("provider", CdsExportPublicProviderSourceReader.key("0é27"), column); }
+
+    private static CdsExportNativeFieldKeyDto key(String column) {
+        return new CdsExportNativeFieldKeyDto(
+                "provider", CdsExportPublicProviderSourceReader.key("0é27"), column);
+    }
 }

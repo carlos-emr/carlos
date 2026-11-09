@@ -24,7 +24,12 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.dto;
 /** Exact logical archive path and authenticated immutable captured bytes. No plaintext physical path. */
 public record CdsExportPackageMemberDto(String relativePath, CdsExportStagedFileDto file) {
     public CdsExportPackageMemberDto {
-        java.util.Objects.requireNonNull(relativePath); java.util.Objects.requireNonNull(file);
+        java.util.Objects.requireNonNull(relativePath);
+        java.util.Objects.requireNonNull(file);
     }
-    @Override public String toString() { return "CdsExportPackageMemberDto[protected]"; }
+
+    @Override
+    public String toString() {
+        return "CdsExportPackageMemberDto[protected]";
+    }
 }

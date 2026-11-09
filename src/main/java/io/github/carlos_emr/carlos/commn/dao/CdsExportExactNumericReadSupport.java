@@ -34,44 +34,87 @@ import org.hibernate.Session;
 
 /** Owning prescription DAO's exact dose witnesses, bounded by its already captured patient page. */
 final class CdsExportExactNumericReadSupport {
-    private CdsExportExactNumericReadSupport() { }
-    static List<CdsExportRawRowDto> drugs(EntityManager em, int patient, List<CdsExportRawRowDto> page) {
+    private CdsExportExactNumericReadSupport() {}
+
+    static List<CdsExportRawRowDto> drugs(
+            EntityManager em, int patient, List<CdsExportRawRowDto> page) {
         int timeout = CdsExportPatientTableReadSupport.queryTimeoutMillis();
         if (patient < 1 || page.size() > 32) invalid();
         if (page.isEmpty()) return page;
-        return em.unwrap(Session.class).doReturningWork(connection -> {
-            var expected = new HashSet<Long>(); for (var row : page) if (!expected.add(row.id())) invalid();
-            String sql = "SELECT drugid,takemin,takemax FROM drugs WHERE demographic_no=? AND drugid IN ("
-                    + String.join(",", java.util.Collections.nCopies(page.size(), "?")) + ") ORDER BY drugid";
-            var actual = new TreeMap<Long, java.util.Map<String, CdsExactNumeric>>();
-            try (var query = CdsBinaryReads.prepare(connection, sql)) {
-                query.setInt(1, patient); int parameter = 2; for (var row : page) query.setLong(parameter++, row.id());
-                query.setMaxRows(33); query.setQueryTimeout((timeout + 999) / 1000);
-                try (var rows = query.executeQuery()) {
-                    var metadata = rows.getMetaData();
-                    if (metadata.getColumnCount() != 3 || CdsExactNumeric.codec(metadata.getColumnTypeName(2)) != CdsExactNumeric.Codec.IEEE754_BINARY32_V1
-                            || CdsExactNumeric.codec(metadata.getColumnTypeName(3)) != CdsExactNumeric.Codec.IEEE754_BINARY32_V1) invalid();
-                    while (rows.next()) {
-                        long id = rows.getLong(1); var values = new TreeMap<String, CdsExactNumeric>();
-                        values.put("takemin", CdsExactNumeric.readBinary(rows, 2, CdsExactNumeric.Codec.IEEE754_BINARY32_V1));
-                        values.put("takemax", CdsExactNumeric.readBinary(rows, 3, CdsExactNumeric.Codec.IEEE754_BINARY32_V1));
-                        if (!expected.contains(id) || actual.putIfAbsent(id, values) != null) invalid();
-                    }
-                }
-            }
-            if (!actual.keySet().equals(expected)) invalid();
-            var result = new ArrayList<CdsExportRawRowDto>();
-            for (var row : page) {
-                var cells = new TreeMap<>(row.cells());
-                for (var entry : actual.get(row.id()).entrySet()) {
-                    var cell = cells.get(entry.getKey()); var value = entry.getValue();
-                    if (cell == null || cell.sqlNull() != (value == null)) invalid();
-                    if (value != null) cells.put(entry.getKey(), new CdsExportRawCellDto(false, cell.bytes(), cell.sha256(), cell.inlineBytes(), value));
-                }
-                result.add(new CdsExportRawRowDto(row.id(), cells));
-            }
-            return List.copyOf(result);
-        });
+        return em.unwrap(Session.class)
+                .doReturningWork(
+                        connection -> {
+                            var expected = new HashSet<Long>();
+                            for (var row : page) if (!expected.add(row.id())) invalid();
+                            String sql =
+                                    "SELECT drugid,takemin,takemax FROM drugs WHERE demographic_no=? AND drugid IN ("
+                                            + String.join(
+                                                    ",",
+                                                    java.util.Collections.nCopies(page.size(), "?"))
+                                            + ") ORDER BY drugid";
+                            var actual =
+                                    new TreeMap<Long, java.util.Map<String, CdsExactNumeric>>();
+                            try (var query = CdsBinaryReads.prepare(connection, sql)) {
+                                query.setInt(1, patient);
+                                int parameter = 2;
+                                for (var row : page) query.setLong(parameter++, row.id());
+                                query.setMaxRows(33);
+                                query.setQueryTimeout((timeout + 999) / 1000);
+                                try (var rows = query.executeQuery()) {
+                                    var metadata = rows.getMetaData();
+                                    if (metadata.getColumnCount() != 3
+                                            || CdsExactNumeric.codec(metadata.getColumnTypeName(2))
+                                                    != CdsExactNumeric.Codec.IEEE754_BINARY32_V1
+                                            || CdsExactNumeric.codec(metadata.getColumnTypeName(3))
+                                                    != CdsExactNumeric.Codec.IEEE754_BINARY32_V1)
+                                        invalid();
+                                    while (rows.next()) {
+                                        long id = rows.getLong(1);
+                                        var values = new TreeMap<String, CdsExactNumeric>();
+                                        values.put(
+                                                "takemin",
+                                                CdsExactNumeric.readBinary(
+                                                        rows,
+                                                        2,
+                                                        CdsExactNumeric.Codec.IEEE754_BINARY32_V1));
+                                        values.put(
+                                                "takemax",
+                                                CdsExactNumeric.readBinary(
+                                                        rows,
+                                                        3,
+                                                        CdsExactNumeric.Codec.IEEE754_BINARY32_V1));
+                                        if (!expected.contains(id)
+                                                || actual.putIfAbsent(id, values) != null)
+                                            invalid();
+                                    }
+                                }
+                            }
+                            if (!actual.keySet().equals(expected)) invalid();
+                            var result = new ArrayList<CdsExportRawRowDto>();
+                            for (var row : page) {
+                                var cells = new TreeMap<>(row.cells());
+                                for (var entry : actual.get(row.id()).entrySet()) {
+                                    var cell = cells.get(entry.getKey());
+                                    var value = entry.getValue();
+                                    if (cell == null || cell.sqlNull() != (value == null))
+                                        invalid();
+                                    if (value != null)
+                                        cells.put(
+                                                entry.getKey(),
+                                                new CdsExportRawCellDto(
+                                                        false,
+                                                        cell.bytes(),
+                                                        cell.sha256(),
+                                                        cell.inlineBytes(),
+                                                        value));
+                                }
+                                result.add(new CdsExportRawRowDto(row.id(), cells));
+                            }
+                            return List.copyOf(result);
+                        });
     }
-    private static void invalid() { throw new IllegalStateException("CDS_EXPORT_EXACT_NUMERIC_SOURCE_INVALID"); }
+
+    private static void invalid() {
+        throw new IllegalStateException("CDS_EXPORT_EXACT_NUMERIC_SOURCE_INVALID");
+    }
 }

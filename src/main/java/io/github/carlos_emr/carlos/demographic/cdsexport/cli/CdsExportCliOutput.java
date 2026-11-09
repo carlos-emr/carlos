@@ -34,37 +34,97 @@ import java.util.UUID;
 
 /** Exclusive private recipient-ciphertext delivery; a failed write never installs a partial destination. */
 public final class CdsExportCliOutput {
-    @FunctionalInterface public interface Writer { void write(OutputStream output) throws IOException; }
-    @FunctionalInterface interface DirectoryPolicy { Path verify(Path directory) throws IOException; }
+    @FunctionalInterface
+    public interface Writer {
+        void write(OutputStream output) throws IOException;
+    }
+
+    @FunctionalInterface
+    interface DirectoryPolicy {
+        Path verify(Path directory) throws IOException;
+    }
+
     private final DirectoryPolicy directories;
-    public CdsExportCliOutput() { this(CdsExportProtectedFiles::dataDirectory); }
-    CdsExportCliOutput(DirectoryPolicy directories) { this.directories = Objects.requireNonNull(directories); }
-    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+
+    public CdsExportCliOutput() {
+        this(CdsExportProtectedFiles::dataDirectory);
+    }
+
+    CdsExportCliOutput(DirectoryPolicy directories) {
+        this.directories = Objects.requireNonNull(directories);
+    }
+
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that
+    // failure.
     @SuppressWarnings("java:S1143")
     public void writeNew(Path destination, Writer writer) throws IOException {
-        Objects.requireNonNull(destination); Objects.requireNonNull(writer);
-        if (!destination.isAbsolute() || !destination.normalize().equals(destination) || destination.getParent() == null
-                || destination.getFileName() == null || destination.toString().codePoints().anyMatch(Character::isISOControl)) throw new IOException("CDS_EXPORT_OUTPUT_PATH_INVALID");
+        Objects.requireNonNull(destination);
+        Objects.requireNonNull(writer);
+        if (!destination.isAbsolute()
+                || !destination.normalize().equals(destination)
+                || destination.getParent() == null
+                || destination.getFileName() == null
+                || destination.toString().codePoints().anyMatch(Character::isISOControl))
+            throw new IOException("CDS_EXPORT_OUTPUT_PATH_INVALID");
         Path parent = directories.verify(destination.getParent());
-        if (!parent.equals(destination.getParent()) || Files.exists(destination, LinkOption.NOFOLLOW_LINKS)) throw new IOException("CDS_EXPORT_OUTPUT_EXISTS");
-        Object identity = Files.readAttributes(parent, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS).fileKey();
-        Path pending = parent.resolve(".cds-export-" + UUID.randomUUID() + ".pending"); boolean created = false; Throwable primary = null;
+        if (!parent.equals(destination.getParent())
+                || Files.exists(destination, LinkOption.NOFOLLOW_LINKS))
+            throw new IOException("CDS_EXPORT_OUTPUT_EXISTS");
+        Object identity =
+                Files.readAttributes(
+                                parent,
+                                java.nio.file.attribute.BasicFileAttributes.class,
+                                LinkOption.NOFOLLOW_LINKS)
+                        .fileKey();
+        Path pending = parent.resolve(".cds-export-" + UUID.randomUUID() + ".pending");
+        boolean created = false;
+        Throwable primary = null;
         try {
-            try (var channel = FileChannel.open(pending, Set.of(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS),
-                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")))) {
-                created = true; writer.write(Channels.newOutputStream(channel)); channel.force(true);
+            try (var channel =
+                    FileChannel.open(
+                            pending,
+                            Set.of(
+                                    StandardOpenOption.CREATE_NEW,
+                                    StandardOpenOption.WRITE,
+                                    LinkOption.NOFOLLOW_LINKS),
+                            PosixFilePermissions.asFileAttribute(
+                                    PosixFilePermissions.fromString("rw-------")))) {
+                created = true;
+                writer.write(Channels.newOutputStream(channel));
+                channel.force(true);
             }
             directories.verify(parent);
-            if (identity == null || !identity.equals(Files.readAttributes(parent, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS).fileKey())) throw new IOException("CDS_EXPORT_OUTPUT_DIRECTORY_CHANGED");
-            // An exclusive link is atomic and cannot replace an existing destination; ATOMIC_MOVE can replace on Unix.
+            if (identity == null
+                    || !identity.equals(
+                            Files.readAttributes(
+                                            parent,
+                                            java.nio.file.attribute.BasicFileAttributes.class,
+                                            LinkOption.NOFOLLOW_LINKS)
+                                    .fileKey()))
+                throw new IOException("CDS_EXPORT_OUTPUT_DIRECTORY_CHANGED");
+            // An exclusive link is atomic and cannot replace an existing destination; ATOMIC_MOVE
+            // can replace on Unix.
             Files.createLink(destination, pending);
-            try (var directory = FileChannel.open(parent, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) { directory.force(true); }
-        } catch (IOException | RuntimeException | Error failed) { primary = failed; throw failed; }
-        finally {
-            if (created) try {
-                Files.delete(pending);
-                try (var directory = FileChannel.open(parent, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) { directory.force(true); }
-            } catch (IOException | RuntimeException cleanup) { if (primary != null) primary.addSuppressed(cleanup); else throw cleanup; }
+            try (var directory =
+                    FileChannel.open(parent, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+                directory.force(true);
+            }
+        } catch (IOException | RuntimeException | Error failed) {
+            primary = failed;
+            throw failed;
+        } finally {
+            if (created)
+                try {
+                    Files.delete(pending);
+                    try (var directory =
+                            FileChannel.open(
+                                    parent, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+                        directory.force(true);
+                    }
+                } catch (IOException | RuntimeException cleanup) {
+                    if (primary != null) primary.addSuppressed(cleanup);
+                    else throw cleanup;
+                }
         }
     }
 }

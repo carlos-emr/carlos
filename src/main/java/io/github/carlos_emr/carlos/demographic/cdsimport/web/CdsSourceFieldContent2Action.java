@@ -33,35 +33,72 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 /** Original logical value download uses exact patient/category/opaque field ownership and bounded streaming. */
-@Component("cdsSourceFieldContent2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+@Component("cdsSourceFieldContent2Action")
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class CdsSourceFieldContent2Action extends ActionSupport {
     private final transient SecurityInfoManager securityInfoManager;
     private final transient CdsClinicalSourceService source;
-    private int demographicNo; private String category, fieldId;
+    private int demographicNo;
+    private String category, fieldId;
     private final transient CdsWebService web;
-    public CdsSourceFieldContent2Action(CdsWebService web, CdsClinicalSourceService source, SecurityInfoManager securityInfoManager){
+
+    public CdsSourceFieldContent2Action(
+            CdsWebService web,
+            CdsClinicalSourceService source,
+            SecurityInfoManager securityInfoManager) {
         this.web = web;
-        this.securityInfoManager = securityInfoManager; this.source=source; }
-    @Override public String execute() throws Exception {
-        var request=ServletActionContext.getRequest(); var response=ServletActionContext.getResponse();
-        if (!("GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod()))){response.setHeader("Allow", "GET, HEAD"); response.sendError(405); return NONE; }
-        LoggedInInfo loggedInInfo = request.getSession(false) == null ? null
-                : LoggedInInfo.getLoggedInInfoFromSession(request.getSession(false));
+        this.securityInfoManager = securityInfoManager;
+        this.source = source;
+    }
+
+    @Override
+    public String execute() throws Exception {
+        var request = ServletActionContext.getRequest();
+        var response = ServletActionContext.getResponse();
+        if (!("GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod()))) {
+            response.setHeader("Allow", "GET, HEAD");
+            response.sendError(405);
+            return NONE;
+        }
+        LoggedInInfo loggedInInfo =
+                request.getSession(false) == null
+                        ? null
+                        : LoggedInInfo.getLoggedInInfoFromSession(request.getSession(false));
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", (String) null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
         try {
-            var actor=web.authenticated(request); web.readOnlyParameters(request, Set.of("demographicNo", "category", "fieldId"));
-            var field=source.original(actor, demographicNo, category, fieldId);
-            response.setHeader("Cache-Control", "no-store"); response.setHeader("X-Content-Type-Options", "nosniff");
-            response.setHeader("Content-Security-Policy", "sandbox"); response.setContentType("application/octet-stream");
-            response.setHeader("Content-Disposition", "attachment; filename=\"cds-source-field-"+field.id()+".bin\"");
+            var actor = web.authenticated(request);
+            web.readOnlyParameters(request, Set.of("demographicNo", "category", "fieldId"));
+            var field = source.original(actor, demographicNo, category, fieldId);
+            response.setHeader("Cache-Control", "no-store");
+            response.setHeader("X-Content-Type-Options", "nosniff");
+            response.setHeader("Content-Security-Policy", "sandbox");
+            response.setContentType("application/octet-stream");
+            response.setHeader(
+                    "Content-Disposition",
+                    "attachment; filename=\"cds-source-field-" + field.id() + ".bin\"");
             response.setContentLengthLong(source.contentLength(field));
-            if (!"HEAD".equals(request.getMethod()))source.writeOriginal(field, response.getOutputStream());
-        }catch (Exception failure){web.failure(response, failure); }
+            if (!"HEAD".equals(request.getMethod()))
+                source.writeOriginal(field, response.getOutputStream());
+        } catch (Exception failure) {
+            web.failure(response, failure);
+        }
         return NONE;
     }
-    @StrutsParameter public void setDemographicNo(int value){demographicNo=value; }
-    @StrutsParameter public void setCategory(String value){category=value; }
-    @StrutsParameter public void setFieldId(String value){fieldId=value; }
+
+    @StrutsParameter
+    public void setDemographicNo(int value) {
+        demographicNo = value;
+    }
+
+    @StrutsParameter
+    public void setCategory(String value) {
+        category = value;
+    }
+
+    @StrutsParameter
+    public void setFieldId(String value) {
+        fieldId = value;
+    }
 }

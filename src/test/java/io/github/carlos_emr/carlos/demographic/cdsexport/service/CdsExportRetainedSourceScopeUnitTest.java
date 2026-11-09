@@ -38,83 +38,166 @@ import java.util.TreeMap;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-@Tag("unit") @Tag("cds-export")
+@Tag("unit")
+@Tag("cds-export")
 class CdsExportRetainedSourceScopeUnitTest {
-    @Test void shouldBindTheSelectedReadDomainsAndQueryScope_withoutChangingTheSingleton() throws Exception {
-        var dao = mock(CdsImportFieldDao.class); var original = new CdsExportRetainedFieldSourceReader(dao);
-        var selected = Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS);
+    @Test
+    void shouldBindTheSelectedReadDomainsAndQueryScope_withoutChangingTheSingleton()
+            throws Exception {
+        var dao = mock(CdsImportFieldDao.class);
+        var original = new CdsExportRetainedFieldSourceReader(dao);
+        var selected =
+                Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS);
         var reader = original.forRequest(command(selected));
         var wire = Set.of("Demographics", "AllergiesAndAdverseReactions");
         when(dao.countCdsExportRetainedRows(27, wire)).thenReturn(0L);
         when(dao.findCdsExportRetainedRowsAfter(27, wire, null, 32)).thenReturn(List.of());
-        assertThat(reader.count(27)).isZero(); assertThat(reader.categories()).isEqualTo(selected);
-        assertThat(reader.requiresSensitiveLaboratoryRead()).isFalse(); capture(reader, 0);
+        assertThat(reader.count(27)).isZero();
+        assertThat(reader.categories()).isEqualTo(selected);
+        assertThat(reader.requiresSensitiveLaboratoryRead()).isFalse();
+        capture(reader, 0);
         verify(dao).findCdsExportRetainedRowsAfter(27, wire, null, 32);
         assertThat(original.categories()).containsExactly(CdsCategory.DEMOGRAPHICS);
     }
-    @Test void shouldRequireSensitiveLabAuthority_forUnclassifiedRetainedLaboratoryEvidence() {
-        var reader = new CdsExportRetainedFieldSourceReader(mock(CdsImportFieldDao.class))
-                .forRequest(command(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.LABORATORY_RESULTS)));
+
+    @Test
+    void shouldRequireSensitiveLabAuthority_forUnclassifiedRetainedLaboratoryEvidence() {
+        var reader =
+                new CdsExportRetainedFieldSourceReader(mock(CdsImportFieldDao.class))
+                        .forRequest(
+                                command(
+                                        Set.of(
+                                                CdsCategory.DEMOGRAPHICS,
+                                                CdsCategory.LABORATORY_RESULTS)));
         assertThat(reader.requiresSensitiveLaboratoryRead()).isTrue();
-        var patients = new CdsExportRetainedPatientSourceReader(mock(CdsImportPatientDao.class))
-                .forRequest(command(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.LABORATORY_RESULTS)));
+        var patients =
+                new CdsExportRetainedPatientSourceReader(mock(CdsImportPatientDao.class))
+                        .forRequest(
+                                command(
+                                        Set.of(
+                                                CdsCategory.DEMOGRAPHICS,
+                                                CdsCategory.LABORATORY_RESULTS)));
         assertThat(patients.categories()).containsExactly(CdsCategory.DEMOGRAPHICS);
         assertThat(patients.requiresSensitiveLaboratoryRead()).isFalse();
     }
-    @Test void fileEvidenceUsesTheSelectedClinicalDomainsAndFreshSensitiveLaboratoryAuthority() throws Exception {
-        var dao=mock(io.github.carlos_emr.carlos.commn.dao.CdsImportFileDao.class);
-        var singleton=new CdsExportRetainedFileSourceReader(dao);
-        var selected=Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.LABORATORY_RESULTS);
-        var reader=singleton.forRequest(command(selected)); var wire=Set.of("Demographics", "LaboratoryResults");
+
+    @Test
+    void fileEvidenceUsesTheSelectedClinicalDomainsAndFreshSensitiveLaboratoryAuthority()
+            throws Exception {
+        var dao = mock(io.github.carlos_emr.carlos.commn.dao.CdsImportFileDao.class);
+        var singleton = new CdsExportRetainedFileSourceReader(dao);
+        var selected = Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.LABORATORY_RESULTS);
+        var reader = singleton.forRequest(command(selected));
+        var wire = Set.of("Demographics", "LaboratoryResults");
         when(dao.countCdsExportRetainedRows(27, wire)).thenReturn(0L);
         when(dao.findCdsExportRetainedRowsAfter(27, wire, null, 32)).thenReturn(List.of());
-        assertThat(reader.count(27)).isZero(); assertThat(reader.categories()).isEqualTo(selected);
-        assertThat(reader.requiresSensitiveLaboratoryRead()).isTrue(); capture(reader, 0);
+        assertThat(reader.count(27)).isZero();
+        assertThat(reader.categories()).isEqualTo(selected);
+        assertThat(reader.requiresSensitiveLaboratoryRead()).isTrue();
+        capture(reader, 0);
         verify(dao).findCdsExportRetainedRowsAfter(27, wire, null, 32);
         assertThat(singleton.categories()).containsExactly(CdsCategory.DEMOGRAPHICS);
     }
-    @Test void fileReferenceEvidenceNeverFallsBackToTheWholeImportRun() throws Exception {
-        var dao=mock(io.github.carlos_emr.carlos.commn.dao.CdsImportFileReferenceDao.class);
-        var selected=Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS);
-        var reader=new CdsExportRetainedFileReferenceSourceReader(dao).forRequest(command(selected));
-        var wire=Set.of("Demographics", "AllergiesAndAdverseReactions");
+
+    @Test
+    void fileReferenceEvidenceNeverFallsBackToTheWholeImportRun() throws Exception {
+        var dao = mock(io.github.carlos_emr.carlos.commn.dao.CdsImportFileReferenceDao.class);
+        var selected =
+                Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS);
+        var reader =
+                new CdsExportRetainedFileReferenceSourceReader(dao).forRequest(command(selected));
+        var wire = Set.of("Demographics", "AllergiesAndAdverseReactions");
         when(dao.findCdsExportRetainedRowsAfter(27, wire, null, 32)).thenReturn(List.of());
-        capture(reader, 0); verify(dao).findCdsExportRetainedRowsAfter(27, wire, null, 32);
-        assertThat(reader.table()).isEqualTo("cds_import_file_reference"); assertThat(reader.categories()).isEqualTo(selected);
+        capture(reader, 0);
+        verify(dao).findCdsExportRetainedRowsAfter(27, wire, null, 32);
+        assertThat(reader.table()).isEqualTo("cds_import_file_reference");
+        assertThat(reader.categories()).isEqualTo(selected);
         assertThat(reader.requiresSensitiveLaboratoryRead()).isFalse();
     }
-    @Test void shouldKeepAllLeadingZeroesInDigestKeys_andRefuseUnorderedOrNumericSubstitutions() throws Exception {
-        var dao = mock(CdsImportFieldDao.class); var reader = new CdsExportRetainedFieldSourceReader(dao);
+
+    @Test
+    void shouldKeepAllLeadingZeroesInDigestKeys_andRefuseUnorderedOrNumericSubstitutions()
+            throws Exception {
+        var dao = mock(CdsImportFieldDao.class);
+        var reader = new CdsExportRetainedFieldSourceReader(dao);
         var cells = new TreeMap<String, CdsExportRawCellDto>();
-        reader.columns().forEach(column -> cells.put(column, new CdsExportRawCellDto(true, 0, CdsExportRawCellDto.EMPTY_SHA256, null)));
+        reader.columns()
+                .forEach(
+                        column ->
+                                cells.put(
+                                        column,
+                                        new CdsExportRawCellDto(
+                                                true, 0, CdsExportRawCellDto.EMPTY_SHA256, null)));
         var row = new CdsExportRawKeyRowDto("0".repeat(63) + "1", cells);
-        when(dao.findCdsExportRetainedRowsAfter(27, Set.of("Demographics"), null, 32)).thenReturn(List.of(row));
-        String index = capture(reader, 1); assertThat(index).contains(row.id());
-        when(dao.findCdsExportRetainedRowsAfter(27, Set.of("Demographics"), null, 32)).thenReturn(List.of(row, row));
+        when(dao.findCdsExportRetainedRowsAfter(27, Set.of("Demographics"), null, 32))
+                .thenReturn(List.of(row));
+        String index = capture(reader, 1);
+        assertThat(index).contains(row.id());
+        when(dao.findCdsExportRetainedRowsAfter(27, Set.of("Demographics"), null, 32))
+                .thenReturn(List.of(row, row));
         assertThatThrownBy(() -> capture(reader, 2)).hasMessage("CDS_EXPORT_RETAINED_PAGE_INVALID");
         when(dao.findCdsExportRetainedRowsAfter(27, Set.of("Demographics"), null, 32))
                 .thenReturn(List.of(new CdsExportRawKeyRowDto("1", cells)));
         assertThatThrownBy(() -> capture(reader, 1)).hasMessage("CDS_EXPORT_RETAINED_PAGE_INVALID");
     }
-    @Test void shouldPreserveTheExactParentRunUuid_andRequireOnlyItsDemographicMetadataDomain() throws Exception {
+
+    @Test
+    void shouldPreserveTheExactParentRunUuid_andRequireOnlyItsDemographicMetadataDomain()
+            throws Exception {
         var dao = mock(io.github.carlos_emr.carlos.commn.dao.CdsImportRunDao.class);
-        var reader = new CdsExportRetainedRunSourceReader(dao).forRequest(command(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.LABORATORY_RESULTS)));
+        var reader =
+                new CdsExportRetainedRunSourceReader(dao)
+                        .forRequest(
+                                command(
+                                        Set.of(
+                                                CdsCategory.DEMOGRAPHICS,
+                                                CdsCategory.LABORATORY_RESULTS)));
         String run = "00000000-0000-4000-8000-000000000001";
         var cells = new TreeMap<String, CdsExportRawCellDto>();
-        reader.columns().forEach(column -> cells.put(column, new CdsExportRawCellDto(true, 0, CdsExportRawCellDto.EMPTY_SHA256, null)));
-        when(dao.findCdsExportRetainedRowsAfter(27, Set.of("Demographics"), null, 32)).thenReturn(List.of(new CdsExportRawKeyRowDto(run, cells)));
-        assertThat(capture(reader, 1)).contains(run); assertThat(reader.categories()).containsExactly(CdsCategory.DEMOGRAPHICS);
+        reader.columns()
+                .forEach(
+                        column ->
+                                cells.put(
+                                        column,
+                                        new CdsExportRawCellDto(
+                                                true, 0, CdsExportRawCellDto.EMPTY_SHA256, null)));
+        when(dao.findCdsExportRetainedRowsAfter(27, Set.of("Demographics"), null, 32))
+                .thenReturn(List.of(new CdsExportRawKeyRowDto(run, cells)));
+        assertThat(capture(reader, 1)).contains(run);
+        assertThat(reader.categories()).containsExactly(CdsCategory.DEMOGRAPHICS);
         assertThat(reader.requiresSensitiveLaboratoryRead()).isFalse();
     }
+
     private static String capture(CdsExportNativeSourceReader reader, long count) throws Exception {
-        var values = new ByteArrayOutputStream(); var index = new ByteArrayOutputStream();
-        new CdsExportNativeCaptureComposer().compose(values, index, Set.of(reader.table()), 1000, 10000, () -> {}, writer -> {
-            writer.beginTable(reader.table(), reader.columns(), count); reader.capture(27, writer); writer.endTable();
-        });
+        var values = new ByteArrayOutputStream();
+        var index = new ByteArrayOutputStream();
+        new CdsExportNativeCaptureComposer()
+                .compose(
+                        values,
+                        index,
+                        Set.of(reader.table()),
+                        1000,
+                        10000,
+                        () -> {},
+                        writer -> {
+                            writer.beginTable(reader.table(), reader.columns(), count);
+                            reader.capture(27, writer);
+                            writer.endTable();
+                        });
         return index.toString(java.nio.charset.StandardCharsets.UTF_8);
     }
+
     private static CdsExportCommand command(Set<CdsCategory> categories) {
-        return new CdsExportCommand("scope", "999998", null, CdsLogicalProfile.ONTARIO_MD_5_2, CdsExportCommand.Selection.SELECTED_PATIENTS,
-                List.of(), List.of(27), categories, "receiver", "audit");
+        return new CdsExportCommand(
+                "scope",
+                "999998",
+                null,
+                CdsLogicalProfile.ONTARIO_MD_5_2,
+                CdsExportCommand.Selection.SELECTED_PATIENTS,
+                List.of(),
+                List.of(27),
+                categories,
+                "receiver",
+                "audit");
     }
 }

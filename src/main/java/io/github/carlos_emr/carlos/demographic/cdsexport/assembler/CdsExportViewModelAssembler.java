@@ -35,18 +35,43 @@ import org.springframework.stereotype.Service;
 public class CdsExportViewModelAssembler {
     private final CdsExportConfigurationService configuration;
     private final CdsExportService exports;
-    public CdsExportViewModelAssembler(CdsExportConfigurationService configuration, CdsExportService exports) {
-        this.configuration = configuration; this.exports = exports;
+
+    public CdsExportViewModelAssembler(
+            CdsExportConfigurationService configuration, CdsExportService exports) {
+        this.configuration = configuration;
+        this.exports = exports;
     }
+
     public CdsExportViewModel assemble(LoggedInInfo viewer) {
-        var profiles = exports.qualifiedProfiles().stream().sorted(Comparator.comparing(Enum::name))
-                .map(profile -> new CdsExportViewModel.Option(profile.identifier(), profile.identifier().equals("omd-5.2")
-                        ? "OntarioMD 5.2" : "PCON 2024-02")).toList();
-        var categories = Arrays.stream(CdsCategory.values()).map(category -> new CdsExportViewModel.Option(
-                category.wireName(), category.wireName().replaceAll("([a-z])([A-Z])", "$1 $2"))).toList();
-        return new CdsExportViewModel(configuration.enabled() && !profiles.isEmpty(), exports.dispatcherRunning(),
+        var profiles =
+                exports.qualifiedProfiles().stream()
+                        .sorted(Comparator.comparing(Enum::name))
+                        .map(
+                                profile ->
+                                        new CdsExportViewModel.Option(
+                                                profile.identifier(),
+                                                profile.identifier().equals("omd-5.2")
+                                                        ? "OntarioMD 5.2"
+                                                        : "PCON 2024-02"))
+                        .toList();
+        var categories =
+                Arrays.stream(CdsCategory.values())
+                        .map(
+                                category ->
+                                        new CdsExportViewModel.Option(
+                                                category.wireName(),
+                                                category.wireName()
+                                                        .replaceAll("([a-z])([A-Z])", "$1 $2")))
+                        .toList();
+        return new CdsExportViewModel(
+                configuration.enabled() && !profiles.isEmpty(),
+                exports.dispatcherRunning(),
                 "web-" + viewer.getLoggedInSecurity().getId(),
-                viewer.getLoggedInProviderNo(), viewer.getCurrentFacility() == null ? "" : viewer.getCurrentFacility().getId().toString(),
-                profiles, categories);
+                viewer.getLoggedInProviderNo(),
+                viewer.getCurrentFacility() == null
+                        ? ""
+                        : viewer.getCurrentFacility().getId().toString(),
+                profiles,
+                categories);
     }
 }

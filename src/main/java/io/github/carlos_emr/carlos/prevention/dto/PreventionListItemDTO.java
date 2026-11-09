@@ -59,16 +59,38 @@ public class PreventionListItemDTO implements Serializable {
     private Date lastUpdateDate;
 
     /** Default constructor for serialization/framework binding. */
-    public PreventionListItemDTO() {
-    }
+    public PreventionListItemDTO() {}
 
     /** Preserves the existing constructor for callers projecting native rows. */
-    public PreventionListItemDTO(Integer id, Integer demographicNo, String preventionType,
-                                 Date preventionDate, Date creationDate, String providerNo,
-                                 String creatorProviderNo, char deleted, char refused, char never,
-                                 Date nextDate, Date lastUpdateDate, String preventionDateFormat) {
-        this(id, demographicNo, preventionType, preventionDate, creationDate, providerNo,
-                creatorProviderNo, deleted, refused, never, nextDate, lastUpdateDate, preventionDateFormat, false);
+    public PreventionListItemDTO(
+            Integer id,
+            Integer demographicNo,
+            String preventionType,
+            Date preventionDate,
+            Date creationDate,
+            String providerNo,
+            String creatorProviderNo,
+            char deleted,
+            char refused,
+            char never,
+            Date nextDate,
+            Date lastUpdateDate,
+            String preventionDateFormat) {
+        this(
+                id,
+                demographicNo,
+                preventionType,
+                preventionDate,
+                creationDate,
+                providerNo,
+                creatorProviderNo,
+                deleted,
+                refused,
+                never,
+                nextDate,
+                lastUpdateDate,
+                preventionDateFormat,
+                false);
     }
 
     /**
@@ -89,10 +111,21 @@ public class PreventionListItemDTO implements Serializable {
      * @param preventionDateFormat String the latest native partial_date tag, or null for a full date
      * @param cdsImported boolean whether this row has the importer's explicit precision marker
      */
-    public PreventionListItemDTO(Integer id, Integer demographicNo, String preventionType,
-                                 Date preventionDate, Date creationDate, String providerNo,
-                                 String creatorProviderNo, char deleted, char refused, char never,
-                                 Date nextDate, Date lastUpdateDate, String preventionDateFormat, boolean cdsImported) {
+    public PreventionListItemDTO(
+            Integer id,
+            Integer demographicNo,
+            String preventionType,
+            Date preventionDate,
+            Date creationDate,
+            String providerNo,
+            String creatorProviderNo,
+            char deleted,
+            char refused,
+            char never,
+            Date nextDate,
+            Date lastUpdateDate,
+            String preventionDateFormat,
+            boolean cdsImported) {
         this.id = id;
         this.demographicNo = demographicNo;
         this.preventionType = preventionType;
@@ -126,14 +159,20 @@ public class PreventionListItemDTO implements Serializable {
         int refusedRaw = p.getRefusedRawValue();
         char refused = (refusedRaw >= 0 && refusedRaw <= 3) ? (char) ('0' + refusedRaw) : '0';
         return new PreventionListItemDTO(
-                p.getId(), p.getDemographicId(), p.getPreventionType(),
-                p.getPreventionDate(), p.getCreationDate(), p.getProviderNo(),
+                p.getId(),
+                p.getDemographicId(),
+                p.getPreventionType(),
+                p.getPreventionDate(),
+                p.getCreationDate(),
+                p.getProviderNo(),
                 p.getCreatorProviderNo(),
                 p.isDeleted() ? '1' : '0',
                 refused,
                 p.isNever() ? '1' : '0',
-                p.getNextDate(), p.getLastUpdateDate(), preventionDateFormat, p.isCdsImported()
-        );
+                p.getNextDate(),
+                p.getLastUpdateDate(),
+                preventionDateFormat,
+                p.isCdsImported());
     }
 
     /**
@@ -145,30 +184,105 @@ public class PreventionListItemDTO implements Serializable {
         return deleted == '0' && refused == '0' && never == '0';
     }
 
-    public Integer getId() { return id; }
-    public void setId(Integer id) { this.id = id; }
-    public Integer getDemographicNo() { return demographicNo; }
-    public void setDemographicNo(Integer demographicNo) { this.demographicNo = demographicNo; }
-    public String getPreventionType() { return preventionType; }
-    public void setPreventionType(String preventionType) { this.preventionType = preventionType; }
+    public Integer getId() {
+        return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
+    }
+
+    public Integer getDemographicNo() {
+        return demographicNo;
+    }
+
+    public void setDemographicNo(Integer demographicNo) {
+        this.demographicNo = demographicNo;
+    }
+
+    public String getPreventionType() {
+        return preventionType;
+    }
+
+    public void setPreventionType(String preventionType) {
+        this.preventionType = preventionType;
+    }
+
     /** Imported uncertainty is refused; native rows retain their established Date-only representation. */
-    public Date getPreventionDate() { if (cdsImported) getPreventionDateInfo().requireExact(); return preventionDate; }
-    public PreventionDateDTO getPreventionDateInfo() { return PreventionDateDTO.from(preventionDate, preventionDateFormat); }
-    public void setPreventionDate(Date preventionDate) { this.preventionDate = preventionDate; }
-    public Date getCreationDate() { return creationDate; }
-    public void setCreationDate(Date creationDate) { this.creationDate = creationDate; }
-    public String getProviderNo() { return providerNo; }
-    public void setProviderNo(String providerNo) { this.providerNo = providerNo; }
-    public String getCreatorProviderNo() { return creatorProviderNo; }
-    public void setCreatorProviderNo(String creatorProviderNo) { this.creatorProviderNo = creatorProviderNo; }
-    public char getDeleted() { return deleted; }
-    public void setDeleted(char deleted) { this.deleted = deleted; }
-    public char getRefused() { return refused; }
-    public void setRefused(char refused) { this.refused = refused; }
-    public char getNever() { return never; }
-    public void setNever(char never) { this.never = never; }
-    public Date getNextDate() { return nextDate; }
-    public void setNextDate(Date nextDate) { this.nextDate = nextDate; }
-    public Date getLastUpdateDate() { return lastUpdateDate; }
-    public void setLastUpdateDate(Date lastUpdateDate) { this.lastUpdateDate = lastUpdateDate; }
+    public Date getPreventionDate() {
+        if (cdsImported) getPreventionDateInfo().requireExact();
+        return preventionDate;
+    }
+
+    public PreventionDateDTO getPreventionDateInfo() {
+        return PreventionDateDTO.from(preventionDate, preventionDateFormat);
+    }
+
+    public void setPreventionDate(Date preventionDate) {
+        this.preventionDate = preventionDate;
+    }
+
+    public Date getCreationDate() {
+        return creationDate;
+    }
+
+    public void setCreationDate(Date creationDate) {
+        this.creationDate = creationDate;
+    }
+
+    public String getProviderNo() {
+        return providerNo;
+    }
+
+    public void setProviderNo(String providerNo) {
+        this.providerNo = providerNo;
+    }
+
+    public String getCreatorProviderNo() {
+        return creatorProviderNo;
+    }
+
+    public void setCreatorProviderNo(String creatorProviderNo) {
+        this.creatorProviderNo = creatorProviderNo;
+    }
+
+    public char getDeleted() {
+        return deleted;
+    }
+
+    public void setDeleted(char deleted) {
+        this.deleted = deleted;
+    }
+
+    public char getRefused() {
+        return refused;
+    }
+
+    public void setRefused(char refused) {
+        this.refused = refused;
+    }
+
+    public char getNever() {
+        return never;
+    }
+
+    public void setNever(char never) {
+        this.never = never;
+    }
+
+    public Date getNextDate() {
+        return nextDate;
+    }
+
+    public void setNextDate(Date nextDate) {
+        this.nextDate = nextDate;
+    }
+
+    public Date getLastUpdateDate() {
+        return lastUpdateDate;
+    }
+
+    public void setLastUpdateDate(Date lastUpdateDate) {
+        this.lastUpdateDate = lastUpdateDate;
+    }
 }

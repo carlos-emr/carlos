@@ -32,21 +32,44 @@ import java.time.DateTimeException;
 
 /** No guessed overnight date, rounded minutes, invented offset or ambiguous daylight-saving interpretation. */
 public final class CdsExportAppointmentTimingMapper {
-    public CdsExportAppointmentTimingDto map(String date, String start, String end, ZoneId clinicalZone) throws IOException {
-        if (clinicalZone == null) throw new IllegalArgumentException("CDS_EXPORT_CLINICAL_ZONE_REQUIRED");
+    public CdsExportAppointmentTimingDto map(
+            String date, String start, String end, ZoneId clinicalZone) throws IOException {
+        if (clinicalZone == null)
+            throw new IllegalArgumentException("CDS_EXPORT_CLINICAL_ZONE_REQUIRED");
         try {
-            if (date == null || !date.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}") || start == null || end == null
+            if (date == null
+                    || !date.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")
+                    || start == null
+                    || end == null
                     || !start.matches("(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]")
                     || !end.matches("(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]")) review();
-            var day = LocalDate.parse(date); var from = LocalTime.parse(start); var to = LocalTime.parse(end);
+            var day = LocalDate.parse(date);
+            var from = LocalTime.parse(start);
+            var to = LocalTime.parse(end);
             long seconds = Duration.between(from, to).getSeconds();
-            if (day.getYear() < 1 || day.getYear() > 9999 || seconds < 60 || seconds % 60 != 0) review();
+            if (day.getYear() < 1 || day.getYear() > 9999 || seconds < 60 || seconds % 60 != 0)
+                review();
             var rules = clinicalZone.getRules();
-            var before = rules.getValidOffsets(day.atTime(from)); var after = rules.getValidOffsets(day.atTime(to));
-            if (before.size() != 1 || after.size() != 1 || !before.getFirst().equals(after.getFirst())) review();
-            var offset=before.getFirst(); if (offset.getTotalSeconds()%60!=0||Math.abs(offset.getTotalSeconds())>14*3600)review();
-            return new CdsExportAppointmentTimingDto(new CdsExportDateDto(CdsExportDateDto.Precision.DATE, date), start, Math.toIntExact(seconds / 60), offset);
-        } catch (DateTimeException | ArithmeticException invalid) { review(); return null; }
+            var before = rules.getValidOffsets(day.atTime(from));
+            var after = rules.getValidOffsets(day.atTime(to));
+            if (before.size() != 1
+                    || after.size() != 1
+                    || !before.getFirst().equals(after.getFirst())) review();
+            var offset = before.getFirst();
+            if (offset.getTotalSeconds() % 60 != 0
+                    || Math.abs(offset.getTotalSeconds()) > 14 * 3600) review();
+            return new CdsExportAppointmentTimingDto(
+                    new CdsExportDateDto(CdsExportDateDto.Precision.DATE, date),
+                    start,
+                    Math.toIntExact(seconds / 60),
+                    offset);
+        } catch (DateTimeException | ArithmeticException invalid) {
+            review();
+            return null;
+        }
     }
-    private static void review() throws IOException { throw new IOException("CDS_EXPORT_APPOINTMENT_TIMING_REQUIRES_REVIEW"); }
+
+    private static void review() throws IOException {
+        throw new IOException("CDS_EXPORT_APPOINTMENT_TIMING_REQUIRES_REVIEW");
+    }
 }

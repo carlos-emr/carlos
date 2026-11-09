@@ -40,71 +40,165 @@ public class CdsExportDeliveryService {
     private final CdsExportLedgerService ledger;
     private final CdsExportDisclosureScopeService scopes;
     private final CdsExportDisclosurePolicyService disclosure;
-    public CdsExportDeliveryService(CdsExportStagingFactory stores, CdsExportLedgerService ledger,
-            CdsExportDisclosureScopeService scopes, CdsExportDisclosurePolicyService disclosure) {
-        this.stores = Objects.requireNonNull(stores); this.ledger = Objects.requireNonNull(ledger);
-        this.scopes = Objects.requireNonNull(scopes); this.disclosure = Objects.requireNonNull(disclosure);
+
+    public CdsExportDeliveryService(
+            CdsExportStagingFactory stores,
+            CdsExportLedgerService ledger,
+            CdsExportDisclosureScopeService scopes,
+            CdsExportDisclosurePolicyService disclosure) {
+        this.stores = Objects.requireNonNull(stores);
+        this.ledger = Objects.requireNonNull(ledger);
+        this.scopes = Objects.requireNonNull(scopes);
+        this.disclosure = Objects.requireNonNull(disclosure);
     }
-    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that
+    // failure.
     @SuppressWarnings("java:S1143")
-    public Encrypted encrypt(CdsExportLeaseDto lease, CdsExportClinicalPackageService.Prepared prepared,
-            long maximumCiphertextBytes, CdsExportRunControl control) throws IOException {
-        Objects.requireNonNull(control); Objects.requireNonNull(prepared);
-        if (maximumCiphertextBytes < 1 || maximumCiphertextBytes > (128L << 30)) throw new IllegalArgumentException("CDS_EXPORT_DELIVERY_LIMIT_INVALID");
+    public Encrypted encrypt(
+            CdsExportLeaseDto lease,
+            CdsExportClinicalPackageService.Prepared prepared,
+            long maximumCiphertextBytes,
+            CdsExportRunControl control)
+            throws IOException {
+        Objects.requireNonNull(control);
+        Objects.requireNonNull(prepared);
+        if (maximumCiphertextBytes < 1 || maximumCiphertextBytes > (128L << 30))
+            throw new IllegalArgumentException("CDS_EXPORT_DELIVERY_LIMIT_INVALID");
         if (!lease.runId().equals(prepared.runId()) || lease.epoch() != prepared.epoch()) invalid();
         var policy = disclosure.resolveAccepted(lease.document(), Instant.now());
         var metadata = prepared.metadata();
-        if (metadata.profile() != lease.document().command().profile() || !metadata.categories().equals(lease.document().command().categories())
-                || !metadata.physicianGroup().equals(policy.physicianGroup()) || !metadata.groupContactInformation().equals(policy.groupContactInformation())
-                || !metadata.auditAccessDescription().equals(policy.auditAccessDescription())) invalid();
-        var first = scopes.verify(lease, prepared, control); requireScope(first, prepared);
+        if (metadata.profile() != lease.document().command().profile()
+                || !metadata.categories().equals(lease.document().command().categories())
+                || !metadata.physicianGroup().equals(policy.physicianGroup())
+                || !metadata.groupContactInformation().equals(policy.groupContactInformation())
+                || !metadata.auditAccessDescription().equals(policy.auditAccessDescription()))
+            invalid();
+        var first = scopes.verify(lease, prepared, control);
+        requireScope(first, prepared);
         ledger.phase(lease, CdsExportState.ENCRYPTING);
-        var store = stores.openExisting(lease.runId(), lease.epoch(), lease.document().storage(), control::checkpoint);
-        CdsExportStagedFileDto ciphertext = null; Throwable primary = null; boolean complete = false;
+        var store =
+                stores.openExisting(
+                        lease.runId(),
+                        lease.epoch(),
+                        lease.document().storage(),
+                        control::checkpoint);
+        CdsExportStagedFileDto ciphertext = null;
+        Throwable primary = null;
+        boolean complete = false;
         var proof = new CdsExportDeliveryDto[1];
         try {
-            ciphertext = store.stage("DELIVERY_CMS", output -> {
-                try (var input = store.open(prepared.archive().archive())) {
-                    proof[0] = new CdsExportDeliveryComposer().compose(input, output, policy.certificate(), policy.recipientFingerprint(),
-                            prepared.archive().archive().plaintextBytes(), prepared.archive().archive().plaintextSha256(), Instant.now(),
-                            maximumCiphertextBytes, control::checkpoint);
-                }
-            });
+            ciphertext =
+                    store.stage(
+                            "DELIVERY_CMS",
+                            output -> {
+                                try (var input = store.open(prepared.archive().archive())) {
+                                    proof[0] =
+                                            new CdsExportDeliveryComposer()
+                                                    .compose(
+                                                            input,
+                                                            output,
+                                                            policy.certificate(),
+                                                            policy.recipientFingerprint(),
+                                                            prepared.archive()
+                                                                    .archive()
+                                                                    .plaintextBytes(),
+                                                            prepared.archive()
+                                                                    .archive()
+                                                                    .plaintextSha256(),
+                                                            Instant.now(),
+                                                            maximumCiphertextBytes,
+                                                            control::checkpoint);
+                                }
+                            });
             if (!CdsExportDeliveryComposer.PROFILE.equals(proof[0].encryptionProfile())
-                    || !lease.document().recipientFingerprint().equals(proof[0].recipientFingerprint())
+                    || !lease.document()
+                            .recipientFingerprint()
+                            .equals(proof[0].recipientFingerprint())
                     || !prepared.archive().archive().plaintextSha256().equals(proof[0].zipSha256())
                     || prepared.archive().archive().plaintextBytes() != proof[0].zipBytes()
-                    || !ciphertext.plaintextSha256().equals(proof[0].ciphertextSha256()) || ciphertext.plaintextBytes() != proof[0].ciphertextBytes()) invalid();
-            try (var input = store.open(ciphertext)) { input.transferTo(java.io.OutputStream.nullOutputStream()); }
-            var last = scopes.verify(lease, prepared, control); requireScope(last, prepared);
+                    || !ciphertext.plaintextSha256().equals(proof[0].ciphertextSha256())
+                    || ciphertext.plaintextBytes() != proof[0].ciphertextBytes()) invalid();
+            try (var input = store.open(ciphertext)) {
+                input.transferTo(java.io.OutputStream.nullOutputStream());
+            }
+            var last = scopes.verify(lease, prepared, control);
+            requireScope(last, prepared);
             var finalPolicy = disclosure.resolveAccepted(lease.document(), Instant.now());
-            if (!finalPolicy.recipientFingerprint().equals(proof[0].recipientFingerprint())) invalid(); control.checkpoint();
-            var result = new Encrypted(prepared, ciphertext, proof[0], last); complete = true; return result;
-        } catch (IOException | RuntimeException | Error failure) { primary = failure; throw failure; }
-        finally {
-            if (!complete && ciphertext != null) try { store.discardUnpublished(ciphertext); }
-            catch (IOException | RuntimeException cleanup) { if (primary != null) primary.addSuppressed(cleanup); else throw cleanup; }
+            if (!finalPolicy.recipientFingerprint().equals(proof[0].recipientFingerprint()))
+                invalid();
+            control.checkpoint();
+            var result = new Encrypted(prepared, ciphertext, proof[0], last);
+            complete = true;
+            return result;
+        } catch (IOException | RuntimeException | Error failure) {
+            primary = failure;
+            throw failure;
+        } finally {
+            if (!complete && ciphertext != null)
+                try {
+                    store.discardUnpublished(ciphertext);
+                } catch (IOException | RuntimeException cleanup) {
+                    if (primary != null) primary.addSuppressed(cleanup);
+                    else throw cleanup;
+                }
         }
     }
-    private static void requireScope(CdsExportDisclosureScopeService.Verified scope, CdsExportClinicalPackageService.Prepared prepared) throws IOException {
-        if (scope == null || !scope.runId().equals(prepared.runId()) || scope.epoch() != prepared.epoch() || scope.patients() != prepared.patients()
-                || !scope.cohortSha256().equals(prepared.cohortSha256()) || !scope.authorizationSha256().equals(prepared.authorization().plaintextSha256())) invalid();
+
+    private static void requireScope(
+            CdsExportDisclosureScopeService.Verified scope,
+            CdsExportClinicalPackageService.Prepared prepared)
+            throws IOException {
+        if (scope == null
+                || !scope.runId().equals(prepared.runId())
+                || scope.epoch() != prepared.epoch()
+                || scope.patients() != prepared.patients()
+                || !scope.cohortSha256().equals(prepared.cohortSha256())
+                || !scope.authorizationSha256().equals(prepared.authorization().plaintextSha256()))
+            invalid();
     }
+
     /** Ciphertext byte evidence only; it conveys neither publication nor persistent disclosure permission. */
     public static final class Encrypted {
         private final CdsExportClinicalPackageService.Prepared prepared;
         private final CdsExportStagedFileDto ciphertext;
         private final CdsExportDeliveryDto proof;
         private final CdsExportDisclosureScopeService.Verified scope;
-        private Encrypted(CdsExportClinicalPackageService.Prepared prepared, CdsExportStagedFileDto ciphertext,
-                CdsExportDeliveryDto proof, CdsExportDisclosureScopeService.Verified scope) {
-            this.prepared = prepared; this.ciphertext = ciphertext; this.proof = proof; this.scope = scope;
+
+        private Encrypted(
+                CdsExportClinicalPackageService.Prepared prepared,
+                CdsExportStagedFileDto ciphertext,
+                CdsExportDeliveryDto proof,
+                CdsExportDisclosureScopeService.Verified scope) {
+            this.prepared = prepared;
+            this.ciphertext = ciphertext;
+            this.proof = proof;
+            this.scope = scope;
         }
-        public CdsExportClinicalPackageService.Prepared prepared() { return prepared; }
-        public CdsExportStagedFileDto ciphertext() { return ciphertext; }
-        public CdsExportDeliveryDto proof() { return proof; }
-        public CdsExportDisclosureScopeService.Verified scope() { return scope; }
-        @Override public String toString() { return "CdsExportEncryptedDelivery[protected]"; }
+
+        public CdsExportClinicalPackageService.Prepared prepared() {
+            return prepared;
+        }
+
+        public CdsExportStagedFileDto ciphertext() {
+            return ciphertext;
+        }
+
+        public CdsExportDeliveryDto proof() {
+            return proof;
+        }
+
+        public CdsExportDisclosureScopeService.Verified scope() {
+            return scope;
+        }
+
+        @Override
+        public String toString() {
+            return "CdsExportEncryptedDelivery[protected]";
+        }
     }
-    private static void invalid() throws IOException { throw new IOException("CDS_EXPORT_DELIVERY_BINDING_INVALID"); }
+
+    private static void invalid() throws IOException {
+        throw new IOException("CDS_EXPORT_DELIVERY_BINDING_INVALID");
+    }
 }

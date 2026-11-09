@@ -28,11 +28,20 @@ import java.util.regex.Pattern;
 
 /** Structural source occurrence only. Patient ownership, field receipts and generation must already be verified by the caller. */
 final class CdsExportRetainedOccurrencePath {
-    private static final Pattern ROOT=Pattern.compile("^/OmdCds\\[1\\]/PatientRecord\\[[1-9][0-9]{0,17}\\]/([A-Za-z]+)\\[[1-9][0-9]{0,17}\\](?=/|$)");
-    private CdsExportRetainedOccurrencePath(){}
-    static String root(CdsExportRetainedFieldDto field, CdsCategory category)throws IOException{
-        if (field==null||category==null||field.category()!=category)invalid(); var match=ROOT.matcher(field.sourcePath());
-        if (!match.find()||!match.group(1).equals(category.wireName()))invalid(); return match.group();
+    private static final Pattern ROOT =
+            Pattern.compile(
+                    "^/OmdCds\\[1\\]/PatientRecord\\[[1-9][0-9]{0,17}\\]/([A-Za-z]+)\\[[1-9][0-9]{0,17}\\](?=/|$)");
+
+    private CdsExportRetainedOccurrencePath() {}
+
+    static String root(CdsExportRetainedFieldDto field, CdsCategory category) throws IOException {
+        if (field == null || category == null || field.category() != category) invalid();
+        var match = ROOT.matcher(field.sourcePath());
+        if (!match.find() || !match.group(1).equals(category.wireName())) invalid();
+        return match.group();
     }
-    private static void invalid()throws IOException{throw new IOException("CDS_EXPORT_RETAINED_OCCURRENCE_PATH_INVALID"); }
+
+    private static void invalid() throws IOException {
+        throw new IOException("CDS_EXPORT_RETAINED_OCCURRENCE_PATH_INVALID");
+    }
 }

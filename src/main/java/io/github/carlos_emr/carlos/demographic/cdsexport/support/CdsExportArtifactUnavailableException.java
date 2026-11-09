@@ -25,10 +25,22 @@ import java.io.IOException;
 
 /** A protected request was authorized, but its independently verified report/package is not available. */
 public final class CdsExportArtifactUnavailableException extends IOException {
-    public enum Kind { REPORT, PACKAGE }
-    private final Kind kind;
-    public CdsExportArtifactUnavailableException(Kind kind) {
-        super("CDS_EXPORT_VERIFIED_" + java.util.Objects.requireNonNull(kind).name() + "_UNAVAILABLE"); this.kind = kind;
+    public enum Kind {
+        REPORT,
+        PACKAGE
     }
-    public Kind kind() { return kind; }
+
+    private final Kind kind;
+
+    public CdsExportArtifactUnavailableException(Kind kind) {
+        super(
+                "CDS_EXPORT_VERIFIED_"
+                        + java.util.Objects.requireNonNull(kind).name()
+                        + "_UNAVAILABLE");
+        this.kind = kind;
+    }
+
+    public Kind kind() {
+        return kind;
+    }
 }

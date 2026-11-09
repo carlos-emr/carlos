@@ -72,7 +72,13 @@ class ExtractBeanHtmlUnitTest extends CarlosUnitTestBase {
         createAndRegisterMock(BillingDao.class);
         billingmasterDao = createAndRegisterMock(BillingmasterDAO.class);
         var service = createAndRegisterMock(BcBillingService.class);
-        doAnswer(call -> { ((ExtractBean) call.getArgument(0)).buildExtract(); return null; }).when(service).generateExtract(any());
+        doAnswer(
+                        call -> {
+                            ((ExtractBean) call.getArgument(0)).buildExtract();
+                            return null;
+                        })
+                .when(service)
+                .generateExtract(any());
     }
 
     @Test
@@ -83,35 +89,41 @@ class ExtractBeanHtmlUnitTest extends CarlosUnitTestBase {
         when(claim.billingCode()).thenReturn("<u>01</u>");
         when(claim.serviceDate()).thenReturn("20260612");
         when(claim.dxCode1()).thenReturn("<i>");
-        when(billingmasterDao.findBcExtractBills(anyString(), anyString(), any())).thenReturn(List.of(bill));
+        when(billingmasterDao.findBcExtractBills(anyString(), anyString(), any()))
+                .thenReturn(List.of(bill));
         when(billingmasterDao.findBcExtractClaims(1001)).thenReturn(List.of(claim, claim));
-            ExtractBean bean = new ExtractBean();
-            bean.seteFlag("0");
-            bean.setProviderNo("<img src=x>");
-            bean.dbQuery();
+        ExtractBean bean = new ExtractBean();
+        bean.seteFlag("0");
+        bean.setProviderNo("<img src=x>");
+        bean.dbQuery();
 
-            String html = bean.getHtmlCode();
-            assertThat(html)
-                    .contains("Billing Invoice for Billing No." + SafeEncode.forHtmlContent("<img src=x>"))
-                    .contains(SafeEncode.forHtmlContent(SCRIPT_NAME))
-                    .contains(SafeEncode.forHtmlContent("<b>98</b>"))
-                    .contains(SafeEncode.forHtmlContent("<u>01</u>"))
-                    .contains("reprocessBill?billingmaster_no=0000042")
-                    .doesNotContain("<script>")
-                    .doesNotContain("<img")
-                    .doesNotContain("<b>")
-                    .doesNotContain("<u>")
-                    .doesNotContain("<i>");
-            // Second claim on the same invoice uses the continuation row: blank patient columns.
-            assertThat(html).contains("<tr><td class='bodytext'></td><td class='bodytext'></td>");
-            assertThat(html).endsWith("</table></body></html>");
+        String html = bean.getHtmlCode();
+        assertThat(html)
+                .contains(
+                        "Billing Invoice for Billing No."
+                                + SafeEncode.forHtmlContent("<img src=x>"))
+                .contains(SafeEncode.forHtmlContent(SCRIPT_NAME))
+                .contains(SafeEncode.forHtmlContent("<b>98</b>"))
+                .contains(SafeEncode.forHtmlContent("<u>01</u>"))
+                .contains("reprocessBill?billingmaster_no=0000042")
+                .doesNotContain("<script>")
+                .doesNotContain("<img")
+                .doesNotContain("<b>")
+                .doesNotContain("<u>")
+                .doesNotContain("<i>");
+        // Second claim on the same invoice uses the continuation row: blank patient columns.
+        assertThat(html).contains("<tr><td class='bodytext'></td><td class='bodytext'></td>");
+        assertThat(html).endsWith("</table></body></html>");
     }
 
     private ExtractClaimRow claimWithAmount(String amount) {
-        ExtractClaimRow claim = mock(ExtractClaimRow.class, call -> {
-            if (call.getMethod().getReturnType() == String.class) return "0";
-            return org.mockito.Answers.RETURNS_DEFAULTS.answer(call);
-        });
+        ExtractClaimRow claim =
+                mock(
+                        ExtractClaimRow.class,
+                        call -> {
+                            if (call.getMethod().getReturnType() == String.class) return "0";
+                            return org.mockito.Answers.RETURNS_DEFAULTS.answer(call);
+                        });
         when(claim.billingmasterNo()).thenReturn(42);
         when(claim.billAmount()).thenReturn(amount);
         return claim;
@@ -150,5 +162,4 @@ class ExtractBeanHtmlUnitTest extends CarlosUnitTestBase {
         bean.dbQuery();
         verify(billingmasterDao, never()).findBcExtractClaims(anyInt());
     }
-
 }

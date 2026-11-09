@@ -51,31 +51,56 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("encounter")
 @Tag("security")
 class EctDisplayRx2ActionTitleUnitTest extends CarlosUnitTestBase {
-    @Test void shouldRenderYearPrecisionInTheActualCppPreferencePath_withoutInventingAnEndDate() {
+    @Test
+    void shouldRenderYearPrecisionInTheActualCppPreferencePath_withoutInventingAnEndDate() {
         var security = createAndRegisterMock(SecurityInfoManager.class);
         when(security.hasPrivilege(any(), eq("_rx"), eq("r"), isNull())).thenReturn(true);
         var dates = mock(PartialDateDao.class);
-        when(dates.getFormat(PartialDate.DRUGS,7,PartialDate.DRUGS_STARTDATE)).thenReturn(PartialDate.YEARONLY);
+        when(dates.getFormat(PartialDate.DRUGS, 7, PartialDate.DRUGS_STARTDATE))
+                .thenReturn(PartialDate.YEARONLY);
         var medication = mock(RxPrescriptionData.Prescription.class);
-        when(medication.getDrugId()).thenReturn(7);when(medication.getCdsCurrentness()).thenReturn("CURRENT");
-        when(medication.getStartDateUnknown()).thenReturn(true);when(medication.getRxDate()).thenReturn(Date.valueOf("2024-01-01"));
-        when(medication.getCustomName()).thenReturn("Imported medication");when(medication.isCurrent()).thenReturn(true);
+        when(medication.getDrugId()).thenReturn(7);
+        when(medication.getCdsCurrentness()).thenReturn("CURRENT");
+        when(medication.getStartDateUnknown()).thenReturn(true);
+        when(medication.getRxDate()).thenReturn(Date.valueOf("2024-01-01"));
+        when(medication.getCustomName()).thenReturn("Imported medication");
+        when(medication.isCurrent()).thenReturn(true);
         when(medication.getFullOutLine()).thenReturn("Imported medication half a tablet nightly");
-        var request = new MockHttpServletRequest();request.setContextPath("/carlos");
-        var actor = new LoggedInInfo();var provider = new Provider();provider.setProviderNo("999998");actor.setLoggedInProvider(provider);
-        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(),actor);
-        var bean = new EctSessionBean();bean.setDemographicNo("11");bean.providerNo="999998";
-        try(var servlet=mockStatic(org.apache.struts2.ServletActionContext.class);
-                var prescriptions=mockConstruction(RxPrescriptionData.class,(mock,context) ->
-                when(mock.getUniquePrescriptionsByPatient(11)).thenReturn(new RxPrescriptionData.Prescription[]{medication}));
-                var preferences=mockConstruction(CppPreferencesUIBean.class,(mock,context) -> {
-                    when(mock.getEnable()).thenReturn("on");when(mock.getMedicationStartDate()).thenReturn("on");when(mock.getMedicationEndDate()).thenReturn("on");
-                })) {
+        var request = new MockHttpServletRequest();
+        request.setContextPath("/carlos");
+        var actor = new LoggedInInfo();
+        var provider = new Provider();
+        provider.setProviderNo("999998");
+        actor.setLoggedInProvider(provider);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), actor);
+        var bean = new EctSessionBean();
+        bean.setDemographicNo("11");
+        bean.providerNo = "999998";
+        try (var servlet = mockStatic(org.apache.struts2.ServletActionContext.class);
+                var prescriptions =
+                        mockConstruction(
+                                RxPrescriptionData.class,
+                                (mock, context) ->
+                                        when(mock.getUniquePrescriptionsByPatient(11))
+                                                .thenReturn(
+                                                        new RxPrescriptionData.Prescription[] {
+                                                            medication
+                                                        }));
+                var preferences =
+                        mockConstruction(
+                                CppPreferencesUIBean.class,
+                                (mock, context) -> {
+                                    when(mock.getEnable()).thenReturn("on");
+                                    when(mock.getMedicationStartDate()).thenReturn("on");
+                                    when(mock.getMedicationEndDate()).thenReturn("on");
+                                })) {
             servlet.when(org.apache.struts2.ServletActionContext::getRequest).thenReturn(request);
-            var action=spy(new EctDisplayRx2Action(new CdsTemporalReadService(dates)));
+            var action = spy(new EctDisplayRx2Action(new CdsTemporalReadService(dates)));
             doReturn("Medications").when(action).getText(anyString());
-            var display=new NavBarDisplayDAO();assertThat(action.getInfo(bean,request,display)).isTrue();
-            assertThat(display.getItem(0).getTitle()).contains("Start Date:2024","End Date:Unknown")
+            var display = new NavBarDisplayDAO();
+            assertThat(action.getInfo(bean, request, display)).isTrue();
+            assertThat(display.getItem(0).getTitle())
+                    .contains("Start Date:2024", "End Date:Unknown")
                     .doesNotContain("2024-01-01");
         }
     }
@@ -83,15 +108,20 @@ class EctDisplayRx2ActionTitleUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should keep the colour span and show a quoted drug name as stored")
     void shouldWrapStoredName_inColourSpan() {
-        assertThat(EctDisplayRx2Action.titleSpan("class=\"currentDrug\"", "CHILDREN'S \"JUNIOR\" SYRUP"))
+        assertThat(
+                        EctDisplayRx2Action.titleSpan(
+                                "class=\"currentDrug\"", "CHILDREN'S \"JUNIOR\" SYRUP"))
                 .isEqualTo("<span class=\"currentDrug\">CHILDREN'S \"JUNIOR\" SYRUP</span>");
     }
 
     @Test
     @DisplayName("should render markup in a stored drug name as text")
     void shouldEncodeMarkup_inStoredName() {
-        assertThat(EctDisplayRx2Action.titleSpan("class=\"currentDrug\"", "<img src=x onerror=alert(1)> & co"))
-                .isEqualTo("<span class=\"currentDrug\">&lt;img src=x onerror=alert(1)&gt; &amp; co</span>");
+        assertThat(
+                        EctDisplayRx2Action.titleSpan(
+                                "class=\"currentDrug\"", "<img src=x onerror=alert(1)> & co"))
+                .isEqualTo(
+                        "<span class=\"currentDrug\">&lt;img src=x onerror=alert(1)&gt; &amp; co</span>");
     }
 
     @Test

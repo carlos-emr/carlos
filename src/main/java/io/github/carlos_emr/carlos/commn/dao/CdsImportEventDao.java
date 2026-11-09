@@ -29,18 +29,44 @@ import org.springframework.stereotype.Repository;
 /** Data access for one protected CDS import table; orchestration belongs in services. */
 @Repository
 public class CdsImportEventDao extends AbstractDaoImpl<CdsImportEvent> {
-    public CdsImportEventDao() { super(CdsImportEvent.class); }
-    public CdsImportEvent lock(Long id) { return entityManager.find(CdsImportEvent.class, id, LockModeType.PESSIMISTIC_WRITE); }
-    public CdsImportEvent get(Long id) { return entityManager.find(CdsImportEvent.class, id); }
-    public void flushAndClear() { entityManager.flush(); entityManager.clear(); }
+    public CdsImportEventDao() {
+        super(CdsImportEvent.class);
+    }
+
+    public CdsImportEvent lock(Long id) {
+        return entityManager.find(CdsImportEvent.class, id, LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    public CdsImportEvent get(Long id) {
+        return entityManager.find(CdsImportEvent.class, id);
+    }
+
+    public void flushAndClear() {
+        entityManager.flush();
+        entityManager.clear();
+    }
+
     /** Run-row locking serializes these control events; latest cancellation supersedes an older resume. */
     public long pendingResumeEvent(String runId) {
-        var rows=entityManager.createQuery("select e.id from CdsImportEvent e where e.runId=:run and e.eventType='RESUME_REQUESTED' and e.id=(select max(last.id) from CdsImportEvent last where last.runId=:run and last.eventType='RESUME_REQUESTED') and not exists(select c.id from CdsImportEvent c where c.runId=:run and c.eventType='CANCEL_REQUESTED' and c.id>e.id) and not exists(select a.id from CdsImportEvent a where a.runId=:run and a.eventType='RESUME_INTENT_APPLIED' and a.id>e.id)", Long.class)
-                .setParameter("run", runId).setMaxResults(1).getResultList();
-        return rows.isEmpty()?0:rows.getFirst();
+        var rows =
+                entityManager
+                        .createQuery(
+                                "select e.id from CdsImportEvent e where e.runId=:run and e.eventType='RESUME_REQUESTED' and e.id=(select max(last.id) from CdsImportEvent last where last.runId=:run and last.eventType='RESUME_REQUESTED') and not exists(select c.id from CdsImportEvent c where c.runId=:run and c.eventType='CANCEL_REQUESTED' and c.id>e.id) and not exists(select a.id from CdsImportEvent a where a.runId=:run and a.eventType='RESUME_INTENT_APPLIED' and a.id>e.id)",
+                                Long.class)
+                        .setParameter("run", runId)
+                        .setMaxResults(1)
+                        .getResultList();
+        return rows.isEmpty() ? 0 : rows.getFirst();
     }
+
     public List<CdsImportEvent> page(String runId, long afterId, int limit) {
-        return entityManager.createQuery("select e from CdsImportEvent e where e.runId=:run and e.id>:after order by e.id", CdsImportEvent.class)
-                .setParameter("run", runId).setParameter("after", afterId).setMaxResults(limit).getResultList();
+        return entityManager
+                .createQuery(
+                        "select e from CdsImportEvent e where e.runId=:run and e.id>:after order by e.id",
+                        CdsImportEvent.class)
+                .setParameter("run", runId)
+                .setParameter("after", afterId)
+                .setMaxResults(limit)
+                .getResultList();
     }
 }

@@ -52,48 +52,131 @@ public class CdsExportClinicalJobService {
     private final CdsExportClinicalPackageService packages;
     private final CdsExportDeliveryService delivery;
     private final ObjectProvider<CdsExportPublicationService> publication;
-    public CdsExportClinicalJobService(CdsExportImplementationIdentityService identity, CdsExportActivePlanService plans,
-            CdsExportConfigurationService configuration, CdsExportAccessService access, CdsExportDisclosurePolicyService disclosure,
-            CdsExportStagingFactory stores, CdsExportSelectionService selections, CdsExportCohortService cohorts,
-            CdsExportLedgerService ledger, CdsExportClinicalPackageService packages, CdsExportDeliveryService delivery,
+
+    public CdsExportClinicalJobService(
+            CdsExportImplementationIdentityService identity,
+            CdsExportActivePlanService plans,
+            CdsExportConfigurationService configuration,
+            CdsExportAccessService access,
+            CdsExportDisclosurePolicyService disclosure,
+            CdsExportStagingFactory stores,
+            CdsExportSelectionService selections,
+            CdsExportCohortService cohorts,
+            CdsExportLedgerService ledger,
+            CdsExportClinicalPackageService packages,
+            CdsExportDeliveryService delivery,
             ObjectProvider<CdsExportPublicationService> publication) {
-        this.identity = identity; this.plans = plans; this.configuration = configuration; this.access = access; this.disclosure = disclosure;
-        this.stores = stores; this.selections = selections; this.cohorts = cohorts; this.ledger = ledger; this.packages = packages;
-        this.delivery = delivery; this.publication = publication;
+        this.identity = identity;
+        this.plans = plans;
+        this.configuration = configuration;
+        this.access = access;
+        this.disclosure = disclosure;
+        this.stores = stores;
+        this.selections = selections;
+        this.cohorts = cohorts;
+        this.ledger = ledger;
+        this.packages = packages;
+        this.delivery = delivery;
+        this.publication = publication;
     }
-    public String compatibilityDigest() throws IOException { return digest(identity.current(), plans.compatibilityZoneSha256()); }
-    public CdsExportJobDocumentDto bind(CdsExportActorDto actor, CdsExportCommand command) throws IOException {
-        outside(); configuration.requireEnabled(); access.requireScope(actor, command); var plan = plans.resolve();
-        var policy = disclosure.resolve(command, Instant.now()); var storage = stores.bind();
-        return new CdsExportJobDocumentDto(2, actor, command, digest(identity.current(), plan.zoneSha256()), policy.senderNamespace(),
-                policy.recipientFingerprint(), policy.auditPlanDigest(), storage);
+
+    public String compatibilityDigest() throws IOException {
+        return digest(identity.current(), plans.compatibilityZoneSha256());
     }
+
+    public CdsExportJobDocumentDto bind(CdsExportActorDto actor, CdsExportCommand command)
+            throws IOException {
+        outside();
+        configuration.requireEnabled();
+        access.requireScope(actor, command);
+        var plan = plans.resolve();
+        var policy = disclosure.resolve(command, Instant.now());
+        var storage = stores.bind();
+        return new CdsExportJobDocumentDto(
+                2,
+                actor,
+                command,
+                digest(identity.current(), plan.zoneSha256()),
+                policy.senderNamespace(),
+                policy.recipientFingerprint(),
+                policy.auditPlanDigest(),
+                storage);
+    }
+
     /** Caller owns the durable worker lease; this method neither fabricates a lease nor treats a returned package as success. */
-    public CdsExportJobDto execute(CdsExportLeaseDto lease, CdsExportRunControl control) throws IOException {
-        outside(); Objects.requireNonNull(control); Objects.requireNonNull(lease); configuration.requireEnabled(); var plan = plans.resolve();
-        if (lease.document().protocol() != 2 || lease.document().storage() == null) throw new CdsExportReviewException(CdsExportReviewException.Reason.RUNTIME_CHANGED);
-        compatible(lease, plan); access.requireScope(lease.document().actor(), lease.document().command()); disclosure.resolveAccepted(lease.document(), Instant.now()); control.checkpoint();
-        Runnable io = () -> { if (TransactionSynchronizationManager.isActualTransactionActive()) control.captureCheckpoint(); else control.checkpoint(); };
+    public CdsExportJobDto execute(CdsExportLeaseDto lease, CdsExportRunControl control)
+            throws IOException {
+        outside();
+        Objects.requireNonNull(control);
+        Objects.requireNonNull(lease);
+        configuration.requireEnabled();
+        var plan = plans.resolve();
+        if (lease.document().protocol() != 2 || lease.document().storage() == null)
+            throw new CdsExportReviewException(CdsExportReviewException.Reason.RUNTIME_CHANGED);
+        compatible(lease, plan);
+        access.requireScope(lease.document().actor(), lease.document().command());
+        disclosure.resolveAccepted(lease.document(), Instant.now());
+        control.checkpoint();
+        Runnable io =
+                () -> {
+                    if (TransactionSynchronizationManager.isActualTransactionActive())
+                        control.captureCheckpoint();
+                    else control.checkpoint();
+                };
         var store = stores.create(lease, io);
-        var selection = selections.capture(lease.document().command(), store, plan.archive().patients(), control::captureCheckpoint);
-        if (selection.patients() == 0) throw new CdsExportReviewException(CdsExportReviewException.Reason.NO_PATIENTS_SELECTED);
-        var cohort = cohorts.prepare(lease, selection, control); ledger.sealSelection(lease, cohort);
-        var prepared = packages.compose(lease, plan.applicationVersion(), plan.clinicalZone(), plan.source(), plan.xml(), plan.archive(), control);
+        var selection =
+                selections.capture(
+                        lease.document().command(),
+                        store,
+                        plan.archive().patients(),
+                        control::captureCheckpoint);
+        if (selection.patients() == 0)
+            throw new CdsExportReviewException(
+                    CdsExportReviewException.Reason.NO_PATIENTS_SELECTED);
+        var cohort = cohorts.prepare(lease, selection, control);
+        ledger.sealSelection(lease, cohort);
+        var prepared =
+                packages.compose(
+                        lease,
+                        plan.applicationVersion(),
+                        plan.clinicalZone(),
+                        plan.source(),
+                        plan.xml(),
+                        plan.archive(),
+                        control);
         ledger.retainPrepared(lease, prepared);
         var encrypted = delivery.encrypt(lease, prepared, plan.ciphertextBytes(), control);
-        compatible(lease, plan); access.requireScope(lease.document().actor(), lease.document().command()); control.checkpoint();
-        var published = publication.getObject().publish(lease, encrypted, plan.retentionSeconds(), control);
-        if (published == null || !lease.runId().equals(published.id()) || published.epoch() != lease.epoch() || !published.complete()) throw new IllegalStateException("CDS_EXPORT_PUBLICATION_INCOMPLETE");
+        compatible(lease, plan);
+        access.requireScope(lease.document().actor(), lease.document().command());
+        control.checkpoint();
+        var published =
+                publication.getObject().publish(lease, encrypted, plan.retentionSeconds(), control);
+        if (published == null
+                || !lease.runId().equals(published.id())
+                || published.epoch() != lease.epoch()
+                || !published.complete())
+            throw new IllegalStateException("CDS_EXPORT_PUBLICATION_INCOMPLETE");
         return published;
     }
+
     private static void outside() {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new IllegalStateException("CDS_EXPORT_AMBIENT_TRANSACTION_REFUSED");
+        if (TransactionSynchronizationManager.isActualTransactionActive())
+            throw new IllegalStateException("CDS_EXPORT_AMBIENT_TRANSACTION_REFUSED");
     }
+
     private void compatible(CdsExportLeaseDto lease, CdsExportActivePlanService.Plan plan) {
-        if (!lease.document().compatibilityDigest().equals(digest(identity.current(), plan.zoneSha256()))) throw new CdsExportReviewException(CdsExportReviewException.Reason.RUNTIME_CHANGED);
+        if (!lease.document()
+                .compatibilityDigest()
+                .equals(digest(identity.current(), plan.zoneSha256())))
+            throw new CdsExportReviewException(CdsExportReviewException.Reason.RUNTIME_CHANGED);
     }
+
     private static String digest(String implementation, String zone) {
-        if (implementation == null || !implementation.matches("[0-9a-f]{64}") || zone == null || !zone.matches("[0-9a-f]{64}")) throw new IllegalStateException("CDS_EXPORT_IMPLEMENTATION_IDENTITY_UNAVAILABLE");
+        if (implementation == null
+                || !implementation.matches("[0-9a-f]{64}")
+                || zone == null
+                || !zone.matches("[0-9a-f]{64}"))
+            throw new IllegalStateException("CDS_EXPORT_IMPLEMENTATION_IDENTITY_UNAVAILABLE");
         return CdsImportKeys.hash("CARLOS_CDS_EXPORT_JOB_1", implementation, zone);
     }
 }

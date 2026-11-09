@@ -43,55 +43,139 @@ import org.junit.jupiter.api.Test;
 class CdsExportDeliveryComposerUnitTest {
     private static CdsExportRecipientFixture recipient;
     private final CdsExportDeliveryComposer composer = new CdsExportDeliveryComposer();
-    @BeforeAll static void recipient() throws Exception { recipient = new CdsExportRecipientFixture(); }
 
-    @Test void shouldEncryptAndAuthenticateTheExactZip_toThePinnedRecipient() throws Exception {
-        byte[] zip = "SYNTHETIC PRIVATE ZIP café 😀".repeat(100000).getBytes(StandardCharsets.UTF_8);
+    @BeforeAll
+    static void recipient() throws Exception {
+        recipient = new CdsExportRecipientFixture();
+    }
+
+    @Test
+    void shouldEncryptAndAuthenticateTheExactZip_toThePinnedRecipient() throws Exception {
+        byte[] zip =
+                "SYNTHETIC PRIVATE ZIP café 😀".repeat(100000).getBytes(StandardCharsets.UTF_8);
         var output = new ByteArrayOutputStream();
-        var result = composer.compose(new ByteArrayInputStream(zip), output, recipient.certificate, recipient.fingerprint,
-                zip.length, hash(zip), CdsExportRecipientFixture.NOW, zip.length + 100000, () -> {});
+        var result =
+                composer.compose(
+                        new ByteArrayInputStream(zip),
+                        output,
+                        recipient.certificate,
+                        recipient.fingerprint,
+                        zip.length,
+                        hash(zip),
+                        CdsExportRecipientFixture.NOW,
+                        zip.length + 100000,
+                        () -> {});
         byte[] cipher = output.toByteArray();
-        assertThat(result.zipSha256()).isEqualTo(hash(zip)); assertThat(result.ciphertextSha256()).isEqualTo(hash(cipher));
+        assertThat(result.zipSha256()).isEqualTo(hash(zip));
+        assertThat(result.ciphertextSha256()).isEqualTo(hash(cipher));
         assertThat(result.ciphertextBytes()).isEqualTo(cipher.length);
         var parsed = new CMSAuthEnvelopedData(cipher);
         assertThat(parsed.getEncryptionAlgOID()).isEqualTo(CMSAlgorithm.AES256_GCM.getId());
         assertThat(parsed.getRecipientInfos().getRecipients()).hasSize(1);
         var info = parsed.getRecipientInfos().getRecipients().iterator().next();
-        assertThat(info.getContent(new JceKeyTransAuthEnvelopedRecipient(recipient.keys.getPrivate())
-                .setProvider(new BouncyCastleProvider()))).isEqualTo(zip);
-        assertThat(new String(cipher, StandardCharsets.ISO_8859_1)).doesNotContain("SYNTHETIC PRIVATE ZIP");
+        assertThat(
+                        info.getContent(
+                                new JceKeyTransAuthEnvelopedRecipient(recipient.keys.getPrivate())
+                                        .setProvider(new BouncyCastleProvider())))
+                .isEqualTo(zip);
+        assertThat(new String(cipher, StandardCharsets.ISO_8859_1))
+                .doesNotContain("SYNTHETIC PRIVATE ZIP");
     }
-    @Test void shouldRejectChangedZipBytes_insteadOfReturningDeliveryEvidence() throws Exception {
+
+    @Test
+    void shouldRejectChangedZipBytes_insteadOfReturningDeliveryEvidence() throws Exception {
         byte[] bytes = "fixture".getBytes(StandardCharsets.UTF_8);
-        assertThatThrownBy(() -> composer.compose(new ByteArrayInputStream(bytes), new ByteArrayOutputStream(),
-                recipient.certificate, recipient.fingerprint, bytes.length, "a".repeat(64), CdsExportRecipientFixture.NOW,
-                100000, () -> {})).hasMessage("CDS_EXPORT_DELIVERY_ZIP_CHANGED");
+        assertThatThrownBy(
+                        () ->
+                                composer.compose(
+                                        new ByteArrayInputStream(bytes),
+                                        new ByteArrayOutputStream(),
+                                        recipient.certificate,
+                                        recipient.fingerprint,
+                                        bytes.length,
+                                        "a".repeat(64),
+                                        CdsExportRecipientFixture.NOW,
+                                        100000,
+                                        () -> {}))
+                .hasMessage("CDS_EXPORT_DELIVERY_ZIP_CHANGED");
     }
-    @Test void shouldRejectWrongPinOrExpiredCertificate_beforeWritingAnyCiphertext() throws Exception {
-        var output = new ByteArrayOutputStream(); byte[] bytes = {1};
-        assertThatThrownBy(() -> composer.compose(new ByteArrayInputStream(bytes), output, recipient.certificate,
-                "a".repeat(64), 1, hash(bytes), CdsExportRecipientFixture.NOW, 100000, () -> {}))
+
+    @Test
+    void shouldRejectWrongPinOrExpiredCertificate_beforeWritingAnyCiphertext() throws Exception {
+        var output = new ByteArrayOutputStream();
+        byte[] bytes = {1};
+        assertThatThrownBy(
+                        () ->
+                                composer.compose(
+                                        new ByteArrayInputStream(bytes),
+                                        output,
+                                        recipient.certificate,
+                                        "a".repeat(64),
+                                        1,
+                                        hash(bytes),
+                                        CdsExportRecipientFixture.NOW,
+                                        100000,
+                                        () -> {}))
                 .hasMessage("CDS_EXPORT_RECIPIENT_CERTIFICATE_INVALID");
-        assertThatThrownBy(() -> composer.compose(new ByteArrayInputStream(bytes), output, recipient.certificate,
-                recipient.fingerprint, 1, hash(bytes), CdsExportRecipientFixture.NOW.plusSeconds(86401), 100000, () -> {}))
+        assertThatThrownBy(
+                        () ->
+                                composer.compose(
+                                        new ByteArrayInputStream(bytes),
+                                        output,
+                                        recipient.certificate,
+                                        recipient.fingerprint,
+                                        1,
+                                        hash(bytes),
+                                        CdsExportRecipientFixture.NOW.plusSeconds(86401),
+                                        100000,
+                                        () -> {}))
                 .hasMessage("CDS_EXPORT_RECIPIENT_CERTIFICATE_INVALID");
         assertThat(output.size()).isZero();
     }
-    @Test void shouldPropagateOutputFailure_withoutFallingBackToPlaintext() throws Exception {
+
+    @Test
+    void shouldPropagateOutputFailure_withoutFallingBackToPlaintext() throws Exception {
         byte[] bytes = {1};
-        OutputStream failed = new OutputStream() {
-            @Override public void write(int value) throws IOException { throw new IOException("SYNTHETIC_DISK_FAILURE"); }
-        };
-        assertThatThrownBy(() -> composer.compose(new ByteArrayInputStream(bytes), failed, recipient.certificate,
-                recipient.fingerprint, 1, hash(bytes), CdsExportRecipientFixture.NOW, 100000, () -> {}))
+        OutputStream failed =
+                new OutputStream() {
+                    @Override
+                    public void write(int value) throws IOException {
+                        throw new IOException("SYNTHETIC_DISK_FAILURE");
+                    }
+                };
+        assertThatThrownBy(
+                        () ->
+                                composer.compose(
+                                        new ByteArrayInputStream(bytes),
+                                        failed,
+                                        recipient.certificate,
+                                        recipient.fingerprint,
+                                        1,
+                                        hash(bytes),
+                                        CdsExportRecipientFixture.NOW,
+                                        100000,
+                                        () -> {}))
                 .hasMessage("SYNTHETIC_DISK_FAILURE");
     }
-    @Test void shouldRefuseCiphertextResourceLimits_beforePublishingAnArtifact() throws Exception {
+
+    @Test
+    void shouldRefuseCiphertextResourceLimits_beforePublishingAnArtifact() throws Exception {
         byte[] bytes = {1};
-        assertThatThrownBy(() -> composer.compose(new ByteArrayInputStream(bytes), new ByteArrayOutputStream(),
-                recipient.certificate, recipient.fingerprint, 1, hash(bytes), CdsExportRecipientFixture.NOW, 10, () -> {}))
+        assertThatThrownBy(
+                        () ->
+                                composer.compose(
+                                        new ByteArrayInputStream(bytes),
+                                        new ByteArrayOutputStream(),
+                                        recipient.certificate,
+                                        recipient.fingerprint,
+                                        1,
+                                        hash(bytes),
+                                        CdsExportRecipientFixture.NOW,
+                                        10,
+                                        () -> {}))
                 .hasMessage("CDS_EXPORT_DELIVERY_BYTE_LIMIT");
     }
+
     static String hash(byte[] bytes) throws Exception {
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
     }

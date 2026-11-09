@@ -59,84 +59,159 @@ public final class CdsExportDeliveryComposer {
     public static final String PROFILE = "cms-aes256gcm-rsa-oaep-sha256-v1";
     private static final BouncyCastleProvider PROVIDER = new BouncyCastleProvider();
 
-    public CdsExportDeliveryDto compose(InputStream validatedZip, OutputStream privateCiphertext,
-            X509Certificate recipient, String pinnedFingerprint, long expectedZipBytes, String expectedZipSha256,
-            Instant now, long maxCiphertextBytes, Runnable checkpoint) throws IOException {
-        Objects.requireNonNull(validatedZip); Objects.requireNonNull(privateCiphertext);
-        Objects.requireNonNull(checkpoint); Objects.requireNonNull(now);
-        if (expectedZipBytes < 1 || maxCiphertextBytes < 1 || expectedZipSha256 == null
-                || !expectedZipSha256.matches("[0-9a-f]{64}")) throw new IllegalArgumentException("CDS_EXPORT_DELIVERY_INPUT_INVALID");
+    public CdsExportDeliveryDto compose(
+            InputStream validatedZip,
+            OutputStream privateCiphertext,
+            X509Certificate recipient,
+            String pinnedFingerprint,
+            long expectedZipBytes,
+            String expectedZipSha256,
+            Instant now,
+            long maxCiphertextBytes,
+            Runnable checkpoint)
+            throws IOException {
+        Objects.requireNonNull(validatedZip);
+        Objects.requireNonNull(privateCiphertext);
+        Objects.requireNonNull(checkpoint);
+        Objects.requireNonNull(now);
+        if (expectedZipBytes < 1
+                || maxCiphertextBytes < 1
+                || expectedZipSha256 == null
+                || !expectedZipSha256.matches("[0-9a-f]{64}"))
+            throw new IllegalArgumentException("CDS_EXPORT_DELIVERY_INPUT_INVALID");
         validateRecipient(recipient, pinnedFingerprint, now);
-        CountingOutput counted = new CountingOutput(privateCiphertext, maxCiphertextBytes, checkpoint);
-        MessageDigest plainDigest = sha256(); long plainBytes = 0;
+        CountingOutput counted =
+                new CountingOutput(privateCiphertext, maxCiphertextBytes, checkpoint);
+        MessageDigest plainDigest = sha256();
+        long plainBytes = 0;
         try {
-            var wrapper = new JceAsymmetricKeyWrapper(new OAEPParameterSpec("SHA-256", "MGF1",
-                    MGF1ParameterSpec.SHA256, PSource.PSpecified.DEFAULT), recipient.getPublicKey()).setProvider(PROVIDER);
-            var generator = new CMSAuthEnvelopedDataStreamGenerator(); generator.setBufferSize(65_536);
-            generator.addRecipientInfoGenerator(new JceKeyTransRecipientInfoGenerator(recipient, wrapper));
-            var cipher = new JceCMSContentEncryptorBuilder(CMSAlgorithm.AES256_GCM).setProvider(PROVIDER)
-                    .setSecureRandom(new SecureRandom()).build();
-            if (!(cipher instanceof OutputAEADEncryptor authenticated)) throw new IOException("CDS_EXPORT_DELIVERY_AEAD_UNAVAILABLE");
+            var wrapper =
+                    new JceAsymmetricKeyWrapper(
+                                    new OAEPParameterSpec(
+                                            "SHA-256",
+                                            "MGF1",
+                                            MGF1ParameterSpec.SHA256,
+                                            PSource.PSpecified.DEFAULT),
+                                    recipient.getPublicKey())
+                            .setProvider(PROVIDER);
+            var generator = new CMSAuthEnvelopedDataStreamGenerator();
+            generator.setBufferSize(65_536);
+            generator.addRecipientInfoGenerator(
+                    new JceKeyTransRecipientInfoGenerator(recipient, wrapper));
+            var cipher =
+                    new JceCMSContentEncryptorBuilder(CMSAlgorithm.AES256_GCM)
+                            .setProvider(PROVIDER)
+                            .setSecureRandom(new SecureRandom())
+                            .build();
+            if (!(cipher instanceof OutputAEADEncryptor authenticated))
+                throw new IOException("CDS_EXPORT_DELIVERY_AEAD_UNAVAILABLE");
             try (OutputStream encrypted = generator.open(counted, authenticated)) {
-                byte[] buffer = new byte[65_536]; int n;
+                byte[] buffer = new byte[65_536];
+                int n;
                 try {
                     while ((n = validatedZip.read(buffer)) != -1) {
                         checkpoint.run();
-                        if (Thread.currentThread().isInterrupted()) throw new IOException("CDS_EXPORT_CANCELLED");
+                        if (Thread.currentThread().isInterrupted())
+                            throw new IOException("CDS_EXPORT_CANCELLED");
                         if (n == 0) continue;
-                        if (n > expectedZipBytes - plainBytes) throw new IOException("CDS_EXPORT_DELIVERY_ZIP_CHANGED");
-                        plainDigest.update(buffer, 0, n); plainBytes += n; encrypted.write(buffer, 0, n);
+                        if (n > expectedZipBytes - plainBytes)
+                            throw new IOException("CDS_EXPORT_DELIVERY_ZIP_CHANGED");
+                        plainDigest.update(buffer, 0, n);
+                        plainBytes += n;
+                        encrypted.write(buffer, 0, n);
                     }
-                } finally { java.util.Arrays.fill(buffer, (byte) 0); }
-                if (plainBytes != expectedZipBytes || !HexFormat.of().formatHex(plainDigest.digest()).equals(expectedZipSha256)) {
+                } finally {
+                    java.util.Arrays.fill(buffer, (byte) 0);
+                }
+                if (plainBytes != expectedZipBytes
+                        || !HexFormat.of()
+                                .formatHex(plainDigest.digest())
+                                .equals(expectedZipSha256)) {
                     throw new IOException("CDS_EXPORT_DELIVERY_ZIP_CHANGED");
                 }
             }
-            counted.flush(); checkpoint.run();
-            return new CdsExportDeliveryDto(PROFILE, pinnedFingerprint, expectedZipSha256, plainBytes,
-                    HexFormat.of().formatHex(counted.digest.digest()), counted.bytes);
+            counted.flush();
+            checkpoint.run();
+            return new CdsExportDeliveryDto(
+                    PROFILE,
+                    pinnedFingerprint,
+                    expectedZipSha256,
+                    plainBytes,
+                    HexFormat.of().formatHex(counted.digest.digest()),
+                    counted.bytes);
         } catch (CMSException | GeneralSecurityException failure) {
             throw new IOException("CDS_EXPORT_DELIVERY_ENCRYPTION_FAILED");
         }
     }
 
     /** This checks a registered pin and current certificate constraints, not an unrequested public CA lookup. */
-    public static void validateRecipient(X509Certificate certificate, String pinnedFingerprint, Instant now) throws IOException {
-        if (certificate == null || pinnedFingerprint == null || !pinnedFingerprint.matches("[0-9a-f]{64}")) {
+    public static void validateRecipient(
+            X509Certificate certificate, String pinnedFingerprint, Instant now) throws IOException {
+        if (certificate == null
+                || pinnedFingerprint == null
+                || !pinnedFingerprint.matches("[0-9a-f]{64}")) {
             throw new IOException("CDS_EXPORT_RECIPIENT_CERTIFICATE_REQUIRED");
         }
         try {
             certificate.checkValidity(Date.from(now));
-            if (!HexFormat.of().formatHex(sha256().digest(certificate.getEncoded())).equals(pinnedFingerprint)
-                    || !(certificate.getPublicKey() instanceof RSAPublicKey rsa) || rsa.getModulus().bitLength() < 2048
-                    || certificate.getBasicConstraints() >= 0) throw new IOException("CDS_EXPORT_RECIPIENT_CERTIFICATE_INVALID");
+            if (!HexFormat.of()
+                            .formatHex(sha256().digest(certificate.getEncoded()))
+                            .equals(pinnedFingerprint)
+                    || !(certificate.getPublicKey() instanceof RSAPublicKey rsa)
+                    || rsa.getModulus().bitLength() < 2048
+                    || certificate.getBasicConstraints() >= 0)
+                throw new IOException("CDS_EXPORT_RECIPIENT_CERTIFICATE_INVALID");
             boolean[] usage = certificate.getKeyUsage();
-            if (usage != null && (usage.length <= 2 || !usage[2])) throw new IOException("CDS_EXPORT_RECIPIENT_KEY_USAGE_INVALID");
+            if (usage != null && (usage.length <= 2 || !usage[2]))
+                throw new IOException("CDS_EXPORT_RECIPIENT_KEY_USAGE_INVALID");
         } catch (GeneralSecurityException | IllegalArgumentException failure) {
             throw new IOException("CDS_EXPORT_RECIPIENT_CERTIFICATE_INVALID");
         }
     }
+
     private static MessageDigest sha256() {
-        try { return MessageDigest.getInstance("SHA-256"); }
-        catch (NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException(impossible);
+        }
     }
+
     private static final class CountingOutput extends FilterOutputStream {
-        // Per-operation incremental digest, owned by this stream/row accumulator; never shared singleton state.
+        // Per-operation incremental digest, owned by this stream/row accumulator; never shared
+        // singleton state.
         @SuppressWarnings("java:S9428")
         final MessageDigest digest = sha256();
+
         final long maximum;
         final Runnable checkpoint;
         long bytes;
+
         CountingOutput(OutputStream output, long maximum, Runnable checkpoint) {
-            super(output); this.maximum = maximum; this.checkpoint = checkpoint;
+            super(output);
+            this.maximum = maximum;
+            this.checkpoint = checkpoint;
         }
-        @Override public void write(int value) throws IOException { write(new byte[]{(byte) value}, 0, 1); }
-        @Override public void write(byte[] value, int offset, int length) throws IOException {
+
+        @Override
+        public void write(int value) throws IOException {
+            write(new byte[] {(byte) value}, 0, 1);
+        }
+
+        @Override
+        public void write(byte[] value, int offset, int length) throws IOException {
             checkpoint.run();
-            if (Thread.currentThread().isInterrupted()) throw new IOException("CDS_EXPORT_CANCELLED");
+            if (Thread.currentThread().isInterrupted())
+                throw new IOException("CDS_EXPORT_CANCELLED");
             if (length > maximum - bytes) throw new IOException("CDS_EXPORT_DELIVERY_BYTE_LIMIT");
-            out.write(value, offset, length); digest.update(value, offset, length); bytes += length;
+            out.write(value, offset, length);
+            digest.update(value, offset, length);
+            bytes += length;
         }
-        @Override public void close() throws IOException { flush(); }
+
+        @Override
+        public void close() throws IOException {
+            flush();
+        }
     }
 }

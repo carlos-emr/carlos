@@ -24,11 +24,34 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.support;
 /** Finite public review reasons; protected clinical detail belongs in encrypted diagnostics, never exception text. */
 public final class CdsExportReviewException extends RuntimeException {
     public enum Reason {
-        UNMAPPED_DATA, PREVENTION_PROGRAM_SCOPE, MERGED_PATIENT_SCOPE, SOURCE_CHANGED, AMBIGUOUS_SOURCE, INCOMPLETE_RENDER, MISSING_ATTACHMENT,
-        AUDIT_ACCESS_UNAVAILABLE, RECIPIENT_UNAVAILABLE, RESOURCE_LIMIT, CLINICAL_VALIDATION_FAILED, RUNTIME_CHANGED, NO_PATIENTS_SELECTED, CLINICAL_SOURCE_UNREVIEWED;
-        public String code() { return "CDS_EXPORT_" + name(); }
+        UNMAPPED_DATA,
+        PREVENTION_PROGRAM_SCOPE,
+        MERGED_PATIENT_SCOPE,
+        SOURCE_CHANGED,
+        AMBIGUOUS_SOURCE,
+        INCOMPLETE_RENDER,
+        MISSING_ATTACHMENT,
+        AUDIT_ACCESS_UNAVAILABLE,
+        RECIPIENT_UNAVAILABLE,
+        RESOURCE_LIMIT,
+        CLINICAL_VALIDATION_FAILED,
+        RUNTIME_CHANGED,
+        NO_PATIENTS_SELECTED,
+        CLINICAL_SOURCE_UNREVIEWED;
+
+        public String code() {
+            return "CDS_EXPORT_" + name();
+        }
     }
+
     private final Reason reason;
-    public CdsExportReviewException(Reason reason) { super(java.util.Objects.requireNonNull(reason).code()); this.reason = reason; }
-    public Reason reason() { return reason; }
+
+    public CdsExportReviewException(Reason reason) {
+        super(java.util.Objects.requireNonNull(reason).code());
+        this.reason = reason;
+    }
+
+    public Reason reason() {
+        return reason;
+    }
 }

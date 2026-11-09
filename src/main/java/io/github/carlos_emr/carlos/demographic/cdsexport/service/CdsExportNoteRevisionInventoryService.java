@@ -32,34 +32,112 @@ import org.springframework.stereotype.Service;
 public class CdsExportNoteRevisionInventoryService {
     private final CdsExportNativeCaptureService captures;
     private final CdsExportNativeRowReceiptReader receipts;
-    public CdsExportNoteRevisionInventoryService(CdsExportNativeCaptureService captures, CdsExportNativeRowReceiptReader receipts) {
-        this.captures = Objects.requireNonNull(captures); this.receipts = Objects.requireNonNull(receipts);
+
+    public CdsExportNoteRevisionInventoryService(
+            CdsExportNativeCaptureService captures, CdsExportNativeRowReceiptReader receipts) {
+        this.captures = Objects.requireNonNull(captures);
+        this.receipts = Objects.requireNonNull(receipts);
     }
+
     /** Neither an omitted revision nor an unsupported UUID may silently choose a current clinical note. */
-    public CdsExportNoteRevisionPlanner.Result inventory(CdsExportLeaseDto lease, CdsExportCohortService.Patient patient,
-            Set<String> requiredTables, CdsExportPatientCaptureDto source, long maximumFields, long maximumBytes,
-            long maximumInventoryBytes, CdsExportRunControl control) throws IOException {
-        Objects.requireNonNull(source); Objects.requireNonNull(control); patient.require(lease); control.checkpoint();
-        if (maximumInventoryBytes < 1 || maximumInventoryBytes > 268_435_456L || !source.capture().tables().keySet().equals(requiredTables)
+    public CdsExportNoteRevisionPlanner.Result inventory(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> requiredTables,
+            CdsExportPatientCaptureDto source,
+            long maximumFields,
+            long maximumBytes,
+            long maximumInventoryBytes,
+            CdsExportRunControl control)
+            throws IOException {
+        Objects.requireNonNull(source);
+        Objects.requireNonNull(control);
+        patient.require(lease);
+        control.checkpoint();
+        if (maximumInventoryBytes < 1
+                || maximumInventoryBytes > 268_435_456L
+                || !source.capture().tables().keySet().equals(requiredTables)
                 || !requiredTables.contains("casemgmt_note")) invalid();
         var scope = source.capture().tables().get("casemgmt_note");
         if (scope.rows() > 8192) limit();
-        var witnesses = new HashMap<Long, CdsExportNativeRowReceiptDto>(); var metadata = new ArrayList<CdsExportNoteRevisionDto>(); long[] memory = {0};
-        var scanned = receipts.scan(lease, patient, requiredTables, source, maximumFields, maximumBytes, control, row -> {
-            if (!row.table().equals("casemgmt_note")) return; control.checkpoint();
-            long id; try { id = Long.parseLong(row.id()); } catch (NumberFormatException malformed) { invalid(); return; }
-            if (id < 1 || !Long.toString(id).equals(row.id()) || row.state() == null || row.partial() || row.digest() == null || witnesses.size() >= 8192 || witnesses.putIfAbsent(id, row) != null) invalid();
-            memory[0] = Math.addExact(memory[0], 4096L + row.state().columns().size() * 512L); if (memory[0] > maximumInventoryBytes) limit();
-        });
-        if (!scanned.sourceManifestSha256().equals(source.manifest().plaintextSha256()) || witnesses.size() != scope.rows()
-                || !Objects.equals(scanned.rows().get("casemgmt_note"), scope.rows()) || scanned.unavailableTables().contains("casemgmt_note")) invalid();
-        var actual = new CdsExportNoteRevisionReader(captures).forEach(lease, patient, requiredTables, source, maximumFields, maximumBytes, control, row -> {
-            if (metadata.size() >= 8192) limit(); metadata.add(row); memory[0] = Math.addExact(memory[0], 2048L); if (memory[0] > maximumInventoryBytes) limit();
-        });
+        var witnesses = new HashMap<Long, CdsExportNativeRowReceiptDto>();
+        var metadata = new ArrayList<CdsExportNoteRevisionDto>();
+        long[] memory = {0};
+        var scanned =
+                receipts.scan(
+                        lease,
+                        patient,
+                        requiredTables,
+                        source,
+                        maximumFields,
+                        maximumBytes,
+                        control,
+                        row -> {
+                            if (!row.table().equals("casemgmt_note")) return;
+                            control.checkpoint();
+                            long id;
+                            try {
+                                id = Long.parseLong(row.id());
+                            } catch (NumberFormatException malformed) {
+                                invalid();
+                                return;
+                            }
+                            if (id < 1
+                                    || !Long.toString(id).equals(row.id())
+                                    || row.state() == null
+                                    || row.partial()
+                                    || row.digest() == null
+                                    || witnesses.size() >= 8192
+                                    || witnesses.putIfAbsent(id, row) != null) invalid();
+                            memory[0] =
+                                    Math.addExact(
+                                            memory[0], 4096L + row.state().columns().size() * 512L);
+                            if (memory[0] > maximumInventoryBytes) limit();
+                        });
+        if (!scanned.sourceManifestSha256().equals(source.manifest().plaintextSha256())
+                || witnesses.size() != scope.rows()
+                || !Objects.equals(scanned.rows().get("casemgmt_note"), scope.rows())
+                || scanned.unavailableTables().contains("casemgmt_note")) invalid();
+        var actual =
+                new CdsExportNoteRevisionReader(captures)
+                        .forEach(
+                                lease,
+                                patient,
+                                requiredTables,
+                                source,
+                                maximumFields,
+                                maximumBytes,
+                                control,
+                                row -> {
+                                    if (metadata.size() >= 8192) limit();
+                                    metadata.add(row);
+                                    memory[0] = Math.addExact(memory[0], 2048L);
+                                    if (memory[0] > maximumInventoryBytes) limit();
+                                });
         if (!actual.equals(source.capture())) invalid();
-        var result = new CdsExportNoteRevisionPlanner().plan(patient.patient(), source.manifest().plaintextSha256(), scope.noteAccess(), metadata, witnesses, control::checkpoint);
-        captures.authorizeCapturedSources(lease, patient, requiredTables, actual, control); patient.require(lease); control.checkpoint(); return result;
+        var result =
+                new CdsExportNoteRevisionPlanner()
+                        .plan(
+                                patient.patient(),
+                                source.manifest().plaintextSha256(),
+                                scope.noteAccess(),
+                                metadata,
+                                witnesses,
+                                control::checkpoint);
+        captures.authorizeCapturedSources(lease, patient, requiredTables, actual, control);
+        patient.require(lease);
+        control.checkpoint();
+        return result;
     }
-    private static void invalid() throws IOException { throw new IOException("CDS_EXPORT_NOTE_REVISION_INVENTORY_INVALID"); }
-    private static void limit() { throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException(io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException.Reason.RESOURCE_LIMIT); }
+
+    private static void invalid() throws IOException {
+        throw new IOException("CDS_EXPORT_NOTE_REVISION_INVENTORY_INVALID");
+    }
+
+    private static void limit() {
+        throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                .CdsExportReviewException(
+                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException
+                        .Reason.RESOURCE_LIMIT);
+    }
 }

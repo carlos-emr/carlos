@@ -44,23 +44,46 @@ import java.util.UUID;
 
 /** Verifies immutable root-issued exact-argv proof in a fixed process domain. Environment usernames never grant authority. */
 public final class CdsProcessDelegationVerifier {
-    private static final Set<String> FIELDS = Set.of("protocol", "operator", "operatorUid", "provider", "operation",
-            "argvSha256", "nonce", "issuedEpochSeconds", "expiresEpochSeconds");
-    private CdsProcessDelegationVerifier() { }
+    private static final Set<String> FIELDS =
+            Set.of(
+                    "protocol",
+                    "operator",
+                    "operatorUid",
+                    "provider",
+                    "operation",
+                    "argvSha256",
+                    "nonce",
+                    "issuedEpochSeconds",
+                    "expiresEpochSeconds");
+
+    private CdsProcessDelegationVerifier() {}
 
     public record Delegation(String operator, long operatorUid, String nonce) {
-        @Override public String toString() { return "Delegation[protected]"; }
+        @Override
+        public String toString() {
+            return "Delegation[protected]";
+        }
     }
 
-    public static Delegation verify(Map<String, String> environment, CdsProcessScope scope,
-            String provider, String operation, String[] exactArguments, Instant now) throws IOException {
+    public static Delegation verify(
+            Map<String, String> environment,
+            CdsProcessScope scope,
+            String provider,
+            String operation,
+            String[] exactArguments,
+            Instant now)
+            throws IOException {
         Path root = java.util.Objects.requireNonNull(scope).ticketDirectory();
         String selected = environment.get("CARLOS_CDS_DELEGATION_TICKET");
         if (selected == null) throw denied();
         Path ticket;
-        try { ticket = Path.of(selected); }
-        catch (RuntimeException invalid) { throw denied(); }
-        if (!ticket.isAbsolute() || !root.equals(ticket.getParent())
+        try {
+            ticket = Path.of(selected);
+        } catch (RuntimeException invalid) {
+            throw denied();
+        }
+        if (!ticket.isAbsolute()
+                || !root.equals(ticket.getParent())
                 || !ticket.getFileName().toString().matches("[0-9a-f-]{36}\\.json")) throw denied();
         UnixSystem process = new UnixSystem();
         if (process.getUid() == 0 || !"carlos".equals(process.getUsername())) throw denied();
@@ -72,39 +95,76 @@ public final class CdsProcessDelegationVerifier {
             if (uid != 0 || (mode & 0022) != 0) throw denied();
             if (cursor.equals(ticket) || cursor.equals(root)) {
                 int gid = (int) Files.getAttribute(cursor, "unix:gid", LinkOption.NOFOLLOW_LINKS);
-                if (gid != group || (mode & 07777) != (cursor.equals(ticket) ? 0640 : 0750)) throw denied();
+                if (gid != group || (mode & 07777) != (cursor.equals(ticket) ? 0640 : 0750))
+                    throw denied();
             }
         }
-        return verifyDocument(CdsProcessConfiguration.readBounded(ticket, 65536), ticket.getFileName().toString(),
-                provider, operation, exactArguments, now);
+        return verifyDocument(
+                CdsProcessConfiguration.readBounded(ticket, 65536),
+                ticket.getFileName().toString(),
+                provider,
+                operation,
+                exactArguments,
+                now);
     }
 
-    public static Delegation verifyDocument(byte[] bytes, String filename, String provider, String operation,
-            String[] exactArguments, Instant now) throws IOException {
+    public static Delegation verifyDocument(
+            byte[] bytes,
+            String filename,
+            String provider,
+            String operation,
+            String[] exactArguments,
+            Instant now)
+            throws IOException {
         if (bytes.length > 65536) throw denied();
-        var factory = com.fasterxml.jackson.core.JsonFactory.builder()
-                .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-                .streamReadConstraints(StreamReadConstraints.builder().maxNestingDepth(8).maxStringLength(4096)
-                        .maxNumberLength(20).build()).build();
-        JsonNode json = JsonMapper.builder(factory).enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build()
-                .readTree(bytes);
+        var factory =
+                com.fasterxml.jackson.core.JsonFactory.builder()
+                        .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+                        .streamReadConstraints(
+                                StreamReadConstraints.builder()
+                                        .maxNestingDepth(8)
+                                        .maxStringLength(4096)
+                                        .maxNumberLength(20)
+                                        .build())
+                        .build();
+        JsonNode json =
+                JsonMapper.builder(factory)
+                        .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                        .build()
+                        .readTree(bytes);
         if (json == null || !json.isObject()) throw denied();
-        Set<String> fields = new HashSet<>(); json.fieldNames().forEachRemaining(fields::add);
-        if (!fields.equals(FIELDS) || !json.path("protocol").isIntegralNumber()
-                || !json.path("protocol").canConvertToInt() || json.path("protocol").intValue() != 1) throw denied();
+        Set<String> fields = new HashSet<>();
+        json.fieldNames().forEachRemaining(fields::add);
+        if (!fields.equals(FIELDS)
+                || !json.path("protocol").isIntegralNumber()
+                || !json.path("protocol").canConvertToInt()
+                || json.path("protocol").intValue() != 1) throw denied();
         String operator = text(json, "operator"), nonce = text(json, "nonce");
         if (!operator.matches("[A-Za-z_][A-Za-z0-9_.-]{0,63}\\$?")) throw denied();
-        try { if (!UUID.fromString(nonce).toString().equals(nonce)) throw denied(); }
-        catch (IllegalArgumentException failure) { throw denied(); }
+        try {
+            if (!UUID.fromString(nonce).toString().equals(nonce)) throw denied();
+        } catch (IllegalArgumentException failure) {
+            throw denied();
+        }
         if (!filename.equals(nonce + ".json")
                 || !provider.equals(text(json, "provider"))
                 || !operation.equals(text(json, "operation"))) throw denied();
-        long uid = integer(json, "operatorUid"), issued = integer(json, "issuedEpochSeconds"), expires = integer(json, "expiresEpochSeconds");
+        long uid = integer(json, "operatorUid"),
+                issued = integer(json, "issuedEpochSeconds"),
+                expires = integer(json, "expiresEpochSeconds");
         long seconds = now.getEpochSecond();
-        if (uid < 0 || uid > 4294967295L || issued < 1 || expires <= issued || expires - issued > 300
-                || issued > seconds + 30 || issued < seconds - 330 || expires <= seconds) throw denied();
+        if (uid < 0
+                || uid > 4294967295L
+                || issued < 1
+                || expires <= issued
+                || expires - issued > 300
+                || issued > seconds + 30
+                || issued < seconds - 330
+                || expires <= seconds) throw denied();
         String claimed = text(json, "argvSha256");
-        if (!claimed.matches("[0-9a-f]{64}") || !MessageDigest.isEqual(HexFormat.of().parseHex(claimed), digest(exactArguments))) throw denied();
+        if (!claimed.matches("[0-9a-f]{64}")
+                || !MessageDigest.isEqual(HexFormat.of().parseHex(claimed), digest(exactArguments)))
+            throw denied();
         return new Delegation(operator, uid, nonce);
     }
 
@@ -113,17 +173,28 @@ public final class CdsProcessDelegationVerifier {
             MessageDigest sha = MessageDigest.getInstance("SHA-256");
             for (String argument : arguments) {
                 byte[] bytes = argument.getBytes(StandardCharsets.UTF_8);
-                sha.update(ByteBuffer.allocate(4).putInt(bytes.length).array()); sha.update(bytes);
+                sha.update(ByteBuffer.allocate(4).putInt(bytes.length).array());
+                sha.update(bytes);
             }
             return sha.digest();
-        } catch (NoSuchAlgorithmException impossible) { throw new IllegalStateException("SHA-256 unavailable"); }
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 unavailable");
+        }
     }
 
     private static String text(JsonNode json, String name) throws IOException {
-        JsonNode value = json.path(name); if (!value.isTextual()) throw denied(); return value.textValue();
+        JsonNode value = json.path(name);
+        if (!value.isTextual()) throw denied();
+        return value.textValue();
     }
+
     private static long integer(JsonNode json, String name) throws IOException {
-        JsonNode value = json.path(name); if (!value.isIntegralNumber() || !value.canConvertToLong()) throw denied(); return value.longValue();
+        JsonNode value = json.path(name);
+        if (!value.isIntegralNumber() || !value.canConvertToLong()) throw denied();
+        return value.longValue();
     }
-    private static IOException denied() { return new IOException("CDS_DELEGATION_DENIED"); }
+
+    private static IOException denied() {
+        return new IOException("CDS_DELEGATION_DENIED");
+    }
 }

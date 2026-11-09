@@ -53,7 +53,8 @@ import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class ContextStartupListenerUnitTest {
-    @Test void shouldRetryFaxInitialization_onlyAfterTheGuardedClinicalStartupPhases() {
+    @Test
+    void shouldRetryFaxInitialization_onlyAfterTheGuardedClinicalStartupPhases() {
         var maintenance = mock(CdsImportMaintenanceService.class);
         var coordinator = mock(ClinicalStartupCoordinator.class);
         var fax = mock(FaxSchedulerJob.class);
@@ -66,7 +67,8 @@ class ContextStartupListenerUnitTest {
         try (var spring = mockStatic(SpringUtils.class);
                 var jobs = mockStatic(OscarJobUtils.class);
                 var hrm = mockConstruction(HRMFixMissingReportHelper.class)) {
-            spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactionManager);
+            spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class))
+                    .thenReturn(transactionManager);
             spring.when(() -> SpringUtils.getBean(FaxSchedulerJob.class)).thenReturn(fax);
             ReflectionTestUtils.invokeMethod(listener, "initializeClinicalProcesses");
             verify(fax).retryDeferredInitialization();
@@ -75,7 +77,8 @@ class ContextStartupListenerUnitTest {
         }
     }
 
-    @Test void shouldNotStartFax_whenMaintenanceReentersAtTheFinalStartupBoundary() {
+    @Test
+    void shouldNotStartFax_whenMaintenanceReentersAtTheFinalStartupBoundary() {
         var maintenance = mock(CdsImportMaintenanceService.class);
         when(maintenance.isClinicalAccessBlocked()).thenReturn(false, false, false, false, true);
         var transactionManager = mock(PlatformTransactionManager.class);
@@ -83,22 +86,33 @@ class ContextStartupListenerUnitTest {
         doNothing().when(listener).initializeDefaultData(transactionManager);
         doNothing().when(listener).loadCaches();
         ReflectionTestUtils.setField(listener, "maintenance", maintenance);
-        ReflectionTestUtils.setField(listener, "clinicalStartup", mock(ClinicalStartupCoordinator.class));
+        ReflectionTestUtils.setField(
+                listener, "clinicalStartup", mock(ClinicalStartupCoordinator.class));
         try (var spring = mockStatic(SpringUtils.class);
                 var jobs = mockStatic(OscarJobUtils.class);
                 var hrm = mockConstruction(HRMFixMissingReportHelper.class)) {
-            spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactionManager);
-            assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(listener, "initializeClinicalProcesses"))
-                    .isInstanceOf(IllegalStateException.class).hasMessage("Clinical startup deferred");
+            spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class))
+                    .thenReturn(transactionManager);
+            assertThatThrownBy(
+                            () ->
+                                    ReflectionTestUtils.invokeMethod(
+                                            listener, "initializeClinicalProcesses"))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Clinical startup deferred");
             spring.verify(() -> SpringUtils.getBean(FaxSchedulerJob.class), never());
             jobs.verify(OscarJobUtils::initializeJobExecutionFramework);
             verify(hrm.constructed().getFirst()).fixIt();
         }
     }
-    @Test void shouldBootRecoveryContextWithoutClinicalQueries_whenMaintenanceIsRetained() {
+
+    @Test
+    void shouldBootRecoveryContextWithoutClinicalQueries_whenMaintenanceIsRetained() {
         var maintenance = mock(CdsImportMaintenanceService.class);
         var imports = mock(CdsImportService.class);
-        var exports = mock(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportService.class);
+        var exports =
+                mock(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportService
+                                .class);
         when(maintenance.isClinicalAccessBlocked()).thenReturn(true);
         var context = new MockServletContext();
         var listener = new ContextStartupListener();
@@ -106,92 +120,170 @@ class ContextStartupListenerUnitTest {
         // must not install the clinical CID resolver into unrelated SOAP peer fixtures.
         try (var spring = mockStatic(SpringUtils.class);
                 var resolvers = mockStatic(ResourceResolver.class)) {
-            spring.when(() -> SpringUtils.getBean(CdsImportMaintenanceService.class)).thenReturn(maintenance);
+            spring.when(() -> SpringUtils.getBean(CdsImportMaintenanceService.class))
+                    .thenReturn(maintenance);
             spring.when(() -> SpringUtils.getBean(CdsImportService.class)).thenReturn(imports);
-            spring.when(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportService.class)).thenReturn(exports);
+            spring.when(
+                            () ->
+                                    SpringUtils.getBean(
+                                            io.github.carlos_emr.carlos.demographic.cdsexport
+                                                    .service.CdsExportService.class))
+                    .thenReturn(exports);
             listener.contextInitialized(new ServletContextEvent(context));
-            resolvers.verify(() -> ResourceResolver.register(any(CidPrefixResourceResolver.class), eq(true)));
-            var coordinator = (ClinicalStartupCoordinator) context.getAttribute(ClinicalStartupCoordinator.ATTRIBUTE);
+            resolvers.verify(
+                    () ->
+                            ResourceResolver.register(
+                                    any(CidPrefixResourceResolver.class), eq(true)));
+            var coordinator =
+                    (ClinicalStartupCoordinator)
+                            context.getAttribute(ClinicalStartupCoordinator.ATTRIBUTE);
             assertThat(coordinator.state()).isEqualTo(ClinicalStartupCoordinator.State.PENDING);
-            // Applies even to an empty database without default program/site: no fabricated rows or IDs.
+            // Applies even to an empty database without default program/site: no fabricated rows or
+            // IDs.
             spring.verify(() -> SpringUtils.getBean(CdsImportMaintenanceService.class));
             spring.verify(() -> SpringUtils.getBean(CdsImportService.class));
             verify(imports).start();
-            spring.verify(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportService.class));
+            spring.verify(
+                    () ->
+                            SpringUtils.getBean(
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                            .CdsExportService.class));
             verify(exports).start();
             spring.verifyNoMoreInteractions();
             listener.contextDestroyed(new ServletContextEvent(context));
             assertThat(coordinator.state()).isEqualTo(ClinicalStartupCoordinator.State.CLOSED);
-        } finally { MiscUtils.setShutdownSignaled(false); }
+        } finally {
+            MiscUtils.setShutdownSignaled(false);
+        }
     }
 
-    @Test void shouldNotStartImportDispatcher_whenClinicalStartupFails() {
-        var maintenance=mock(CdsImportMaintenanceService.class);
-        var transactions=mock(PlatformTransactionManager.class);
-        var listener=spy(new ContextStartupListener());
-        doThrow(new IllegalStateException("synthetic startup failure")).when(listener).initializeDefaultData(transactions);
-        var context=new MockServletContext();
-        var event=new ServletContextEvent(context);
-        try(var spring=mockStatic(SpringUtils.class);
-                var resolvers=mockStatic(ResourceResolver.class)) {
-            spring.when(()->SpringUtils.getBean(CdsImportMaintenanceService.class)).thenReturn(maintenance);
-            spring.when(()->SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactions);
-            assertThatThrownBy(()->listener.contextInitialized(event))
-                    .isInstanceOf(RuntimeException.class).hasRootCauseMessage("synthetic startup failure");
-            resolvers.verify(() -> ResourceResolver.register(any(CidPrefixResourceResolver.class), eq(true)));
-            spring.verify(()->SpringUtils.getBean(CdsImportService.class),never());
-            spring.verify(()->SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportService.class),never());
+    @Test
+    void shouldNotStartImportDispatcher_whenClinicalStartupFails() {
+        var maintenance = mock(CdsImportMaintenanceService.class);
+        var transactions = mock(PlatformTransactionManager.class);
+        var listener = spy(new ContextStartupListener());
+        doThrow(new IllegalStateException("synthetic startup failure"))
+                .when(listener)
+                .initializeDefaultData(transactions);
+        var context = new MockServletContext();
+        var event = new ServletContextEvent(context);
+        try (var spring = mockStatic(SpringUtils.class);
+                var resolvers = mockStatic(ResourceResolver.class)) {
+            spring.when(() -> SpringUtils.getBean(CdsImportMaintenanceService.class))
+                    .thenReturn(maintenance);
+            spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class))
+                    .thenReturn(transactions);
+            assertThatThrownBy(() -> listener.contextInitialized(event))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasRootCauseMessage("synthetic startup failure");
+            resolvers.verify(
+                    () ->
+                            ResourceResolver.register(
+                                    any(CidPrefixResourceResolver.class), eq(true)));
+            spring.verify(() -> SpringUtils.getBean(CdsImportService.class), never());
+            spring.verify(
+                    () ->
+                            SpringUtils.getBean(
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                            .CdsExportService.class),
+                    never());
             listener.contextDestroyed(new ServletContextEvent(context));
-        } finally {MiscUtils.setShutdownSignaled(false);}
+        } finally {
+            MiscUtils.setShutdownSignaled(false);
+        }
     }
 
-    @Test void shouldRollbackAllDefaultCreation_whenSiteCreationFails() {
+    @Test
+    void shouldRollbackAllDefaultCreation_whenSiteCreationFails() {
         var programDao = mock(ProgramDao.class);
         var providerDao = mock(ProgramProviderDAO.class);
         var roleDao = mock(SecroleDao.class);
         var facilityDao = mock(FacilityDao.class);
         var siteDao = mock(SiteDao.class);
         var providerSiteDao = mock(ProviderSiteDao.class);
-        var program = new Program(); program.setId(10);
-        var facility = new Facility(); facility.setId(1);
-        var role = new Secrole(); role.setId(1L);
+        var program = new Program();
+        program.setId(10);
+        var facility = new Facility();
+        facility.setId(1);
+        var role = new Secrole();
+        role.setId(1L);
         when(programDao.getProgramByName("OSCAR")).thenReturn(null, program);
         when(facilityDao.findAll(null)).thenReturn(List.of(facility));
         when(roleDao.getRoleByName("doctor")).thenReturn(role);
         when(siteDao.getAllSites()).thenReturn(List.of());
-        doAnswer(call -> { assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue(); return null; })
-                .when(programDao).saveProgram(any());
-        doAnswer(call -> { assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue(); return null; })
-                .when(providerDao).saveProgramProvider(any());
-        doAnswer(call -> {
-            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
-            throw new IllegalStateException("new hold before site write");
-        }).when(siteDao).persist(any());
+        doAnswer(
+                        call -> {
+                            assertThat(
+                                            TransactionSynchronizationManager
+                                                    .isActualTransactionActive())
+                                    .isTrue();
+                            return null;
+                        })
+                .when(programDao)
+                .saveProgram(any());
+        doAnswer(
+                        call -> {
+                            assertThat(
+                                            TransactionSynchronizationManager
+                                                    .isActualTransactionActive())
+                                    .isTrue();
+                            return null;
+                        })
+                .when(providerDao)
+                .saveProgramProvider(any());
+        doAnswer(
+                        call -> {
+                            assertThat(
+                                            TransactionSynchronizationManager
+                                                    .isActualTransactionActive())
+                                    .isTrue();
+                            throw new IllegalStateException("new hold before site write");
+                        })
+                .when(siteDao)
+                .persist(any());
         var transactionManager = new RecordingTransactionManager();
         var listener = new ContextStartupListener();
         try (var spring = mockStatic(SpringUtils.class)) {
             spring.when(() -> SpringUtils.getBean(ProgramDao.class)).thenReturn(programDao);
-            spring.when(() -> SpringUtils.getBean(ProgramProviderDAO.class)).thenReturn(providerDao);
+            spring.when(() -> SpringUtils.getBean(ProgramProviderDAO.class))
+                    .thenReturn(providerDao);
             spring.when(() -> SpringUtils.getBean(SecroleDao.class)).thenReturn(roleDao);
             spring.when(() -> SpringUtils.getBean(FacilityDao.class)).thenReturn(facilityDao);
             spring.when(() -> SpringUtils.getBean(SiteDao.class)).thenReturn(siteDao);
-            spring.when(() -> SpringUtils.getBean(ProviderSiteDao.class)).thenReturn(providerSiteDao);
+            spring.when(() -> SpringUtils.getBean(ProviderSiteDao.class))
+                    .thenReturn(providerSiteDao);
             assertThatThrownBy(() -> listener.initializeDefaultData(transactionManager))
                     .isInstanceOf(IllegalStateException.class);
         }
-        verify(programDao).saveProgram(any()); verify(providerDao).saveProgramProvider(any());
+        verify(programDao).saveProgram(any());
+        verify(providerDao).saveProgramProvider(any());
         assertThat(transactionManager.rollbacks).isEqualTo(1);
         assertThat(transactionManager.commits).isZero();
         assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
     }
 
     static final class RecordingTransactionManager extends AbstractPlatformTransactionManager {
-        int commits; int rollbacks;
-        @Override protected Object doGetTransaction() { return new Object(); }
-        @Override protected void doBegin(Object transaction, TransactionDefinition definition) {
+        int commits;
+        int rollbacks;
+
+        @Override
+        protected Object doGetTransaction() {
+            return new Object();
+        }
+
+        @Override
+        protected void doBegin(Object transaction, TransactionDefinition definition) {
             // This fixture records completion only; there is no physical transaction to begin.
         }
-        @Override protected void doCommit(DefaultTransactionStatus status) { commits++; }
-        @Override protected void doRollback(DefaultTransactionStatus status) { rollbacks++; }
+
+        @Override
+        protected void doCommit(DefaultTransactionStatus status) {
+            commits++;
+        }
+
+        @Override
+        protected void doRollback(DefaultTransactionStatus status) {
+            rollbacks++;
+        }
     }
 }

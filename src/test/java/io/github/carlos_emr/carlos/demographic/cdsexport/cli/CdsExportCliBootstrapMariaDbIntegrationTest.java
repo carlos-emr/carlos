@@ -50,89 +50,232 @@ import org.springframework.core.env.PropertiesPropertySource;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /** Full CLI graph including the installed engine, actual privilege reader and physical transactions; no fake grant. */
-@Tag("integration") @Tag("cds-export")
+@Tag("integration")
+@Tag("cds-export")
 @EnabledIfSystemProperty(named = "cds.export.test.properties", matches = ".+")
 class CdsExportCliBootstrapMariaDbIntegrationTest {
-    @Test void shouldObserveAndCancelOwnedMetadata_andSeeLiveRevocationThroughTheRealPrivilegeGraph() throws Exception {
+    @Test
+    void shouldObserveAndCancelOwnedMetadata_andSeeLiveRevocationThroughTheRealPrivilegeGraph()
+            throws Exception {
         Properties jdbc = new Properties();
-        try (InputStream input = Files.newInputStream(Path.of(System.getProperty("cds.export.test.properties")))) { jdbc.load(input); }
+        try (InputStream input =
+                Files.newInputStream(Path.of(System.getProperty("cds.export.test.properties")))) {
+            jdbc.load(input);
+        }
         String url = jdbc.getProperty("jdbcUrl", "");
         assertThat(url).matches("jdbc:mysql://[^/]+/cds_export_test(?:\\?.*)?");
         assertThat(jdbc.getProperty("ownedDisposableDatabase")).isEqualTo("true");
-        Properties settings = new Properties(); int slash = url.indexOf('/', "jdbc:mysql://".length());
-        settings.setProperty("db_driver", "com.mysql.cj.jdbc.Driver"); settings.setProperty("db_uri", url.substring(0, slash + 1));
-        settings.setProperty("db_name", url.substring(slash + 1)); settings.setProperty("db_username", jdbc.getProperty("jdbcUser"));
-        settings.setProperty("db_password", jdbc.getProperty("jdbcPassword")); settings.setProperty("billregion", "ON");
-        settings.setProperty("cds.export.enabled", "false"); settings.setProperty("cds.export.worker.enabled", "false");
-        settings.setProperty("cds.import.worker.enabled", "false"); settings.setProperty("cds.export.operator.bootstrap-fixture.providers", "989876");
+        Properties settings = new Properties();
+        int slash = url.indexOf('/', "jdbc:mysql://".length());
+        settings.setProperty("db_driver", "com.mysql.cj.jdbc.Driver");
+        settings.setProperty("db_uri", url.substring(0, slash + 1));
+        settings.setProperty("db_name", url.substring(slash + 1));
+        settings.setProperty("db_username", jdbc.getProperty("jdbcUser"));
+        settings.setProperty("db_password", jdbc.getProperty("jdbcPassword"));
+        settings.setProperty("billregion", "ON");
+        settings.setProperty("cds.export.enabled", "false");
+        settings.setProperty("cds.export.worker.enabled", "false");
+        settings.setProperty("cds.import.worker.enabled", "false");
+        settings.setProperty("cds.export.operator.bootstrap-fixture.providers", "989876");
         // Metadata recovery must survive invalid active settings with a registered engine.
         settings.setProperty("cds.export.maxPatients", "invalid");
         try (var context = new AnnotationConfigApplicationContext()) {
             context.getEnvironment().setActiveProfiles("cds-export-cli");
-            context.getEnvironment().getPropertySources().addFirst(new PropertiesPropertySource("owned-cli-fixture", settings));
-            context.registerBean("cdsExportProperties", Properties.class, () -> settings); context.register(CdsExportCliSpringConfiguration.class);
+            context.getEnvironment()
+                    .getPropertySources()
+                    .addFirst(new PropertiesPropertySource("owned-cli-fixture", settings));
+            context.registerBean("cdsExportProperties", Properties.class, () -> settings);
+            context.register(CdsExportCliSpringConfiguration.class);
             context.refresh();
-            assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportEngineRegistry.class)
-                    .qualifiedProfiles()).containsExactly(CdsLogicalProfile.ONTARIO_MD_5_2);
-            assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDisclosurePolicyService.class)).isNotNull();
-            assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicOccurrenceService.class)).isNotNull();
-            assertThat(context.getBean(io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDao.class)).isNotNull();
-            assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteSourceReader.class)).isNotNull();
-            assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteExtensionSourceReader.class)).isNotNull();
-            assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteIssueLinkSourceReader.class)).isNotNull();
-            assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteRevisionInventoryService.class)).isNotNull();
-            assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportCaseIssueSourceReader.class)).isNotNull();
-            assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportIssueCatalogueSourceReader.class)).isNotNull();
-            assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteScopeProjectionService.class)).isNotNull();
-            assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportLaboratorySourceReader.class)).isNotNull();
-            assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportLaboratoryMessageSourceReader.class)).isNotNull();
-            assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportLaboratoryInfoSourceReader.class)).isNotNull();
-            assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportLaboratoryRoutingSourceReader.class)).isNotNull();
+            assertThat(
+                            context.getBean(
+                                            io.github.carlos_emr.carlos.demographic.cdsexport
+                                                    .service.CdsExportEngineRegistry.class)
+                                    .qualifiedProfiles())
+                    .containsExactly(CdsLogicalProfile.ONTARIO_MD_5_2);
+            assertThat(
+                            context.getBean(
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                            .CdsExportDisclosurePolicyService.class))
+                    .isNotNull();
+            assertThat(
+                            context.getBean(
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                            .CdsExportDemographicOccurrenceService.class))
+                    .isNotNull();
+            assertThat(
+                            context.getBean(
+                                    io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDao
+                                            .class))
+                    .isNotNull();
+            assertThat(
+                            context.getBean(
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                            .CdsExportNoteSourceReader.class))
+                    .isNotNull();
+            assertThat(
+                            context.getBean(
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                            .CdsExportNoteExtensionSourceReader.class))
+                    .isNotNull();
+            assertThat(
+                            context.getBean(
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                            .CdsExportNoteIssueLinkSourceReader.class))
+                    .isNotNull();
+            assertThat(
+                            context.getBean(
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                            .CdsExportNoteRevisionInventoryService.class))
+                    .isNotNull();
+            assertThat(
+                            context.getBean(
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                            .CdsExportCaseIssueSourceReader.class))
+                    .isNotNull();
+            assertThat(
+                            context.getBean(
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                            .CdsExportIssueCatalogueSourceReader.class))
+                    .isNotNull();
+            assertThat(
+                            context.getBean(
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                            .CdsExportNoteScopeProjectionService.class))
+                    .isNotNull();
+            assertThat(
+                            context.getBean(
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                            .CdsExportLaboratorySourceReader.class))
+                    .isNotNull();
+            assertThat(
+                            context.getBean(
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                            .CdsExportLaboratoryMessageSourceReader.class))
+                    .isNotNull();
+            assertThat(
+                            context.getBean(
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                            .CdsExportLaboratoryInfoSourceReader.class))
+                    .isNotNull();
+            assertThat(
+                            context.getBean(
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                            .CdsExportLaboratoryRoutingSourceReader.class))
+                    .isNotNull();
             var sql = new JdbcTemplate(context.getBean(DataSource.class));
-            assertThat(sql.queryForObject("SELECT DATABASE()", String.class)).isEqualTo("cds_export_test");
-            var sourceRead = new org.springframework.transaction.support.TransactionTemplate(
-                    context.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+            assertThat(sql.queryForObject("SELECT DATABASE()", String.class))
+                    .isEqualTo("cds_export_test");
+            var sourceRead =
+                    new org.springframework.transaction.support.TransactionTemplate(
+                            context.getBean(
+                                    org.springframework.transaction.PlatformTransactionManager
+                                            .class));
             sourceRead.setReadOnly(true);
-            sourceRead.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
-            try (var held = context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSourceSnapshotService.class).acquire(() -> {})) {
-            sourceRead.execute(status -> {
-                var catalogue = context.getBean(io.github.carlos_emr.carlos.commn.dao.CdsExportSourceCatalogueDao.class);
-                assertThat(catalogue.readSourceSchema().table()).isEqualTo("clinical_source_catalogue");
-                catalogue.requireUnclassifiedSourcesEmpty(27, () -> {});
-                var reader = context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicSourceReader.class);
-                try {
-                    assertThat(new io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSourceSchemaValidator()
-                            .verify(reader.schema(), reader.columns())).matches("[0-9a-f]{64}");
-                } catch (java.io.IOException failed) { throw new java.io.UncheckedIOException(failed); }
-                return null;
-            });
+            sourceRead.setIsolationLevel(
+                    org.springframework.transaction.TransactionDefinition
+                            .ISOLATION_REPEATABLE_READ);
+            try (var held =
+                    context.getBean(
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                            .CdsExportSourceSnapshotService.class)
+                            .acquire(() -> {})) {
+                sourceRead.execute(
+                        status -> {
+                            var catalogue =
+                                    context.getBean(
+                                            io.github.carlos_emr.carlos.commn.dao
+                                                    .CdsExportSourceCatalogueDao.class);
+                            assertThat(catalogue.readSourceSchema().table())
+                                    .isEqualTo("clinical_source_catalogue");
+                            catalogue.requireUnclassifiedSourcesEmpty(27, () -> {});
+                            var reader =
+                                    context.getBean(
+                                            io.github.carlos_emr.carlos.demographic.cdsexport
+                                                    .service.CdsExportDemographicSourceReader
+                                                    .class);
+                            try {
+                                assertThat(
+                                                new io.github.carlos_emr.carlos.demographic
+                                                                .cdsexport.service
+                                                                .CdsExportSourceSchemaValidator()
+                                                        .verify(reader.schema(), reader.columns()))
+                                        .matches("[0-9a-f]{64}");
+                            } catch (java.io.IOException failed) {
+                                throw new java.io.UncheckedIOException(failed);
+                            }
+                            return null;
+                        });
             }
-            assertThat(sql.queryForObject("select count(*) from provider where provider_no='989876'", Long.class)).isZero();
+            assertThat(
+                            sql.queryForObject(
+                                    "select count(*) from provider where provider_no='989876'",
+                                    Long.class))
+                    .isZero();
             String run = null;
             try (var spring = mockStatic(SpringUtils.class)) {
-                // The privilege reader still resolves this existing core DAO through the published Spring bridge.
-                // Its query results and permission decisions are real; no mocked grant can hide a missing registration.
-                spring.when(() -> SpringUtils.getBean(SecObjPrivilegeDao.class)).thenReturn(context.getBean(SecObjPrivilegeDao.class));
-                sql.update("insert into provider(provider_no,first_name,last_name,provider_type,specialty,sex,status,lastUpdateDate) values('989876','Synthetic','CLI bootstrap','doctor','','U','1',CURRENT_TIMESTAMP)");
-                sql.update("insert into secObjPrivilege(roleUserGroup,objectName,privilege,priority) values('989876','_demographic','|r|',10),('989876','_cds_export','|w|',10)");
-                var command = new CdsExportCommand(UUID.randomUUID().toString(), "989876", null, CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportCommand.Selection.SELECTED_PATIENTS, List.of(), List.of(27), EnumSet.allOf(CdsCategory.class), "fixture", "fixture");
-                var document = new CdsExportJobDocumentDto(1, new CdsExportActorDto("bootstrap-fixture", "989876", null, null), command,
-                        "a".repeat(64), "fixture", "b".repeat(64), "c".repeat(64));
-                var ledger = context.getBean(CdsExportLedgerService.class); var facade = context.getBean(CdsExportService.class);
-                run = ledger.accept(document).id(); final String id = run;
-                assertThat(facade.observeDelegated("bootstrap-fixture", "989876", id).state()).isEqualTo(CdsExportState.ACCEPTED);
-                assertThat(facade.submissionDelegated("bootstrap-fixture", "989876", command.submissionKey()).id()).isEqualTo(id);
+                // The privilege reader still resolves this existing core DAO through the published
+                // Spring bridge.
+                // Its query results and permission decisions are real; no mocked grant can hide a
+                // missing registration.
+                spring.when(() -> SpringUtils.getBean(SecObjPrivilegeDao.class))
+                        .thenReturn(context.getBean(SecObjPrivilegeDao.class));
+                sql.update(
+                        "insert into provider(provider_no,first_name,last_name,provider_type,specialty,sex,status,lastUpdateDate) values('989876','Synthetic','CLI bootstrap','doctor','','U','1',CURRENT_TIMESTAMP)");
+                sql.update(
+                        "insert into secObjPrivilege(roleUserGroup,objectName,privilege,priority) values('989876','_demographic','|r|',10),('989876','_cds_export','|w|',10)");
+                var command =
+                        new CdsExportCommand(
+                                UUID.randomUUID().toString(),
+                                "989876",
+                                null,
+                                CdsLogicalProfile.ONTARIO_MD_5_2,
+                                CdsExportCommand.Selection.SELECTED_PATIENTS,
+                                List.of(),
+                                List.of(27),
+                                EnumSet.allOf(CdsCategory.class),
+                                "fixture",
+                                "fixture");
+                var document =
+                        new CdsExportJobDocumentDto(
+                                1,
+                                new CdsExportActorDto("bootstrap-fixture", "989876", null, null),
+                                command,
+                                "a".repeat(64),
+                                "fixture",
+                                "b".repeat(64),
+                                "c".repeat(64));
+                var ledger = context.getBean(CdsExportLedgerService.class);
+                var facade = context.getBean(CdsExportService.class);
+                run = ledger.accept(document).id();
+                final String id = run;
+                assertThat(facade.observeDelegated("bootstrap-fixture", "989876", id).state())
+                        .isEqualTo(CdsExportState.ACCEPTED);
+                assertThat(
+                                facade.submissionDelegated(
+                                                "bootstrap-fixture",
+                                                "989876",
+                                                command.submissionKey())
+                                        .id())
+                        .isEqualTo(id);
                 assertThat(facade.dispatcherRunning()).isFalse();
-                sql.update("delete from secObjPrivilege where roleUserGroup='989876' and objectName='_cds_export'");
-                assertThatThrownBy(() -> facade.observeDelegated("bootstrap-fixture", "989876", id)).isInstanceOf(SecurityException.class);
+                sql.update(
+                        "delete from secObjPrivilege where roleUserGroup='989876' and objectName='_cds_export'");
+                assertThatThrownBy(() -> facade.observeDelegated("bootstrap-fixture", "989876", id))
+                        .isInstanceOf(SecurityException.class);
                 assertThat(ledger.status(id).state()).isEqualTo(CdsExportState.ACCEPTED);
-                sql.update("insert into secObjPrivilege(roleUserGroup,objectName,privilege,priority) values('989876','_cds_export','|w|',10)");
-                assertThat(facade.cancelDelegated("bootstrap-fixture", "989876", id).state()).isEqualTo(CdsExportState.CANCELLED);
+                sql.update(
+                        "insert into secObjPrivilege(roleUserGroup,objectName,privilege,priority) values('989876','_cds_export','|w|',10)");
+                assertThat(facade.cancelDelegated("bootstrap-fixture", "989876", id).state())
+                        .isEqualTo(CdsExportState.CANCELLED);
                 assertThat(ledger.status(id).artifactAvailable()).isFalse();
             } finally {
-                if (run != null) { sql.update("delete from cds_export_event where run_id=?", run); sql.update("delete from cds_export_run where id=?", run); }
-                sql.update("delete from secObjPrivilege where roleUserGroup='989876'"); sql.update("delete from provider where provider_no='989876'");
+                if (run != null) {
+                    sql.update("delete from cds_export_event where run_id=?", run);
+                    sql.update("delete from cds_export_run where id=?", run);
+                }
+                sql.update("delete from secObjPrivilege where roleUserGroup='989876'");
+                sql.update("delete from provider where provider_no='989876'");
             }
         }
     }

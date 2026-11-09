@@ -32,31 +32,60 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 /** POST-only, CSRF-protected retrieval of a fixed recipient-encrypted artifact. */
-@Component("cdsExportDownload2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+@Component("cdsExportDownload2Action")
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class CdsExportDownload2Action extends ActionSupport {
     private final transient CdsExportWebService web;
     private final transient CdsExportService exports;
     private final transient CdsExportArtifactService artifacts;
     private String runId, artifact;
-    public CdsExportDownload2Action(CdsExportWebService web, CdsExportService exports, CdsExportArtifactService artifacts) {
-        this.web = web; this.exports = exports; this.artifacts = artifacts;
+
+    public CdsExportDownload2Action(
+            CdsExportWebService web, CdsExportService exports, CdsExportArtifactService artifacts) {
+        this.web = web;
+        this.exports = exports;
+        this.artifacts = artifacts;
     }
-    @Override public String execute() throws Exception {
-        var request = ServletActionContext.getRequest(); var response = ServletActionContext.getResponse();
-        if (!"POST".equals(request.getMethod())) { response.setHeader("Allow", "POST"); response.sendError(405); return NONE; }
+
+    @Override
+    public String execute() throws Exception {
+        var request = ServletActionContext.getRequest();
+        var response = ServletActionContext.getResponse();
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(405);
+            return NONE;
+        }
         try {
-            var viewer = web.authorize(request); web.parameters(request, Set.of("runId", "artifact"), false);
+            var viewer = web.authorize(request);
+            web.parameters(request, Set.of("runId", "artifact"), false);
             var actor = exports.downloadActor(viewer, runId);
             try (var download = artifacts.open(actor, runId, artifact)) {
-                response.setStatus(200); response.setContentType("application/pkcs7-mime");
-                response.setHeader("Content-Disposition", "attachment; filename=\"cds-export.p7m\"");
-                response.setHeader("Cache-Control", "no-store"); response.setHeader("X-Content-Type-Options", "nosniff");
-                response.setHeader(CdsExportWebService.API_HEADER, "1"); response.setContentLengthLong(download.bytes());
-                download.writeTo(response.getOutputStream()); response.flushBuffer(); download.complete();
+                response.setStatus(200);
+                response.setContentType("application/pkcs7-mime");
+                response.setHeader(
+                        "Content-Disposition", "attachment; filename=\"cds-export.p7m\"");
+                response.setHeader("Cache-Control", "no-store");
+                response.setHeader("X-Content-Type-Options", "nosniff");
+                response.setHeader(CdsExportWebService.API_HEADER, "1");
+                response.setContentLengthLong(download.bytes());
+                download.writeTo(response.getOutputStream());
+                response.flushBuffer();
+                download.complete();
             }
-        } catch (Exception failed) { web.failure(response, failed); }
+        } catch (Exception failed) {
+            web.failure(response, failed);
+        }
         return NONE;
     }
-    @StrutsParameter public void setRunId(String value) { runId = value; }
-    @StrutsParameter public void setArtifact(String value) { artifact = value; }
+
+    @StrutsParameter
+    public void setRunId(String value) {
+        runId = value;
+    }
+
+    @StrutsParameter
+    public void setArtifact(String value) {
+        artifact = value;
+    }
 }

@@ -38,20 +38,43 @@ import org.springframework.stereotype.Service;
 public final class CdsExportClinicalEngine implements CdsExportEngine {
     private static final Set<CdsLogicalProfile> PROFILES = Set.of(CdsLogicalProfile.ONTARIO_MD_5_2);
     private final CdsExportClinicalJobService jobs;
-    public CdsExportClinicalEngine(CdsExportClinicalJobService jobs) { this.jobs = Objects.requireNonNull(jobs); }
-    @Override public String compatibilityDigest() {
-        try { return jobs.compatibilityDigest(); }
-        catch (IOException failed) { throw new UncheckedIOException("CDS_EXPORT_ENGINE_IDENTITY_UNAVAILABLE", failed); }
+
+    public CdsExportClinicalEngine(CdsExportClinicalJobService jobs) {
+        this.jobs = Objects.requireNonNull(jobs);
     }
+
+    @Override
+    public String compatibilityDigest() {
+        try {
+            return jobs.compatibilityDigest();
+        } catch (IOException failed) {
+            throw new UncheckedIOException("CDS_EXPORT_ENGINE_IDENTITY_UNAVAILABLE", failed);
+        }
+    }
+
     /** Code-owned capability inventory; probing it never starts Spring or parses active-work settings. */
-    public static Set<CdsLogicalProfile> installedProfiles() { return PROFILES; }
-    @Override public Set<CdsLogicalProfile> qualifiedProfiles() { return PROFILES; }
-    @Override public CdsExportJobDocumentDto bind(CdsExportActorDto actor, CdsExportCommand command) throws IOException {
-        requireProfile(command); return jobs.bind(actor, command);
+    public static Set<CdsLogicalProfile> installedProfiles() {
+        return PROFILES;
     }
-    @Override public void execute(CdsExportLeaseDto lease, CdsExportRunControl control) throws IOException {
-        requireProfile(Objects.requireNonNull(lease).document().command()); jobs.execute(lease, control);
+
+    @Override
+    public Set<CdsLogicalProfile> qualifiedProfiles() {
+        return PROFILES;
     }
+
+    @Override
+    public CdsExportJobDocumentDto bind(CdsExportActorDto actor, CdsExportCommand command)
+            throws IOException {
+        requireProfile(command);
+        return jobs.bind(actor, command);
+    }
+
+    @Override
+    public void execute(CdsExportLeaseDto lease, CdsExportRunControl control) throws IOException {
+        requireProfile(Objects.requireNonNull(lease).document().command());
+        jobs.execute(lease, control);
+    }
+
     private static void requireProfile(CdsExportCommand command) {
         if (Objects.requireNonNull(command).profile() != CdsLogicalProfile.ONTARIO_MD_5_2) {
             throw new IllegalStateException("CDS_EXPORT_PROFILE_NOT_QUALIFIED");

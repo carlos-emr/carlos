@@ -31,26 +31,60 @@ import org.springframework.stereotype.Service;
 /** Trusted server setting only. Each call returns exact bounded bytes; source capture owns authorization, snapshot binding and cleanup. */
 @Service
 public class CdsExportPreventionConfigurationLoader {
-    static final int MAX_XML=1_048_576;
+    static final int MAX_XML = 1_048_576;
     private final String location;
-    public CdsExportPreventionConfigurationLoader(@Value("${PREVENTION_ITEMS:classpath:oscar/prevention/PreventionItems.xml}")String location){this.location=Objects.requireNonNull(location); }
-    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value="PATH_TRAVERSAL_IN", justification="PREVENTION_ITEMS is trusted server configuration; no request path is accepted, and configured files are canonicalized and opened without following a leaf symlink")
-    byte[] load()throws IOException{
+
+    public CdsExportPreventionConfigurationLoader(
+            @Value("${PREVENTION_ITEMS:classpath:oscar/prevention/PreventionItems.xml}")
+                    String location) {
+        this.location = Objects.requireNonNull(location);
+    }
+
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
+            value = "PATH_TRAVERSAL_IN",
+            justification =
+                    "PREVENTION_ITEMS is trusted server configuration; no request path is accepted, and configured files are canonicalized and opened without following a leaf symlink")
+    byte[] load() throws IOException {
         try {
             byte[] xml;
-            if (location.startsWith("classpath:")){
-                String resource=location.substring(10); if (resource.isEmpty()||resource.startsWith("/")||resource.contains(".."))invalid();
-                try (var input=getClass().getClassLoader().getResourceAsStream(resource)){if (input==null)invalid(); xml=input.readNBytes(MAX_XML+1); }
-            }else {
-                var configured=Path.of(location); if (Files.isSymbolicLink(configured))invalid();
-                var path=io.github.carlos_emr.carlos.utility.PathValidationUtils.resolveTrustedPath(configured.toFile()).toPath();
-                var before=Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS); if (!before.isRegularFile()||before.size()>MAX_XML)invalid();
-                try (var input=Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)){xml=input.readNBytes(MAX_XML+1); }
-                var after=Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-                if (!after.isRegularFile()||before.size()!=after.size()||!before.lastModifiedTime().equals(after.lastModifiedTime())||!Objects.equals(before.fileKey(), after.fileKey()))invalid();
+            if (location.startsWith("classpath:")) {
+                String resource = location.substring(10);
+                if (resource.isEmpty() || resource.startsWith("/") || resource.contains(".."))
+                    invalid();
+                try (var input = getClass().getClassLoader().getResourceAsStream(resource)) {
+                    if (input == null) invalid();
+                    xml = input.readNBytes(MAX_XML + 1);
+                }
+            } else {
+                var configured = Path.of(location);
+                if (Files.isSymbolicLink(configured)) invalid();
+                var path =
+                        io.github.carlos_emr.carlos.utility.PathValidationUtils.resolveTrustedPath(
+                                        configured.toFile())
+                                .toPath();
+                var before =
+                        Files.readAttributes(
+                                path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+                if (!before.isRegularFile() || before.size() > MAX_XML) invalid();
+                try (var input = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) {
+                    xml = input.readNBytes(MAX_XML + 1);
+                }
+                var after =
+                        Files.readAttributes(
+                                path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+                if (!after.isRegularFile()
+                        || before.size() != after.size()
+                        || !before.lastModifiedTime().equals(after.lastModifiedTime())
+                        || !Objects.equals(before.fileKey(), after.fileKey())) invalid();
             }
-            if (xml.length<1||xml.length>MAX_XML)invalid(); return xml;
-        }catch (IOException|RuntimeException failed){throw new IOException("CDS_EXPORT_PREVENTION_CONFIG_UNAVAILABLE"); }
+            if (xml.length < 1 || xml.length > MAX_XML) invalid();
+            return xml;
+        } catch (IOException | RuntimeException failed) {
+            throw new IOException("CDS_EXPORT_PREVENTION_CONFIG_UNAVAILABLE");
+        }
     }
-    private static void invalid()throws IOException{throw new IOException("CDS_EXPORT_PREVENTION_CONFIG_INVALID"); }
+
+    private static void invalid() throws IOException {
+        throw new IOException("CDS_EXPORT_PREVENTION_CONFIG_INVALID");
+    }
 }

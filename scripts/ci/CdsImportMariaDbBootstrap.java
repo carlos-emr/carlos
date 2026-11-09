@@ -30,48 +30,93 @@ import org.flywaydb.core.Flyway;
 public final class CdsImportMariaDbBootstrap {
     public static void main(String[] args) throws Exception {
         if (args.length != 3 || !(args[2].equals("on") || args[2].equals("bc"))) {
-            throw new IllegalArgumentException("Usage: protected-jdbc-properties migration-root on|bc");
+            throw new IllegalArgumentException(
+                    "Usage: protected-jdbc-properties migration-root on|bc");
         }
         Properties jdbc = new Properties();
-        try (InputStream input = Files.newInputStream(Path.of(args[0]))) { jdbc.load(input); }
+        try (InputStream input = Files.newInputStream(Path.of(args[0]))) {
+            jdbc.load(input);
+        }
         String configuredUrl = jdbc.getProperty("jdbcUrl", "");
         // Exercise the same MySQL Connector/J shipped in the WAR against the MariaDB server.
-        String url = configuredUrl.startsWith("jdbc:mariadb:")
-                ? "jdbc:mysql:" + configuredUrl.substring("jdbc:mariadb:".length()) : configuredUrl;
-        if (!url.matches("jdbc:mysql://[^/]+/(?:carlos_cds_test|cds_full_test|cds_ledger_test|cds_export_test)(?:\\?.*)?")) {
-            throw new IllegalArgumentException("Only explicitly named disposable CDS test databases are supported");
+        String url =
+                configuredUrl.startsWith("jdbc:mariadb:")
+                        ? "jdbc:mysql:" + configuredUrl.substring("jdbc:mariadb:".length())
+                        : configuredUrl;
+        if (!url.matches(
+                "jdbc:mysql://[^/]+/(?:carlos_cds_test|cds_full_test|cds_ledger_test|cds_export_test)(?:\\?.*)?")) {
+            throw new IllegalArgumentException(
+                    "Only explicitly named disposable CDS test databases are supported");
         }
-        try (var connection = DriverManager.getConnection(url, jdbc.getProperty("jdbcUser"), jdbc.getProperty("jdbcPassword"));
+        try (var connection =
+                        DriverManager.getConnection(
+                                url,
+                                jdbc.getProperty("jdbcUser"),
+                                jdbc.getProperty("jdbcPassword"));
                 var statement = connection.createStatement();
-                var rows = statement.executeQuery("SELECT VERSION(),@@innodb_page_size,@@innodb_snapshot_isolation,@@collation_server")) {
+                var rows =
+                        statement.executeQuery(
+                                "SELECT VERSION(),@@innodb_page_size,@@innodb_snapshot_isolation,@@collation_server")) {
             rows.next();
-            if (!rows.getString(1).contains("MariaDB") || rows.getInt(2)!=32768 || !rows.getBoolean(3)
+            if (!rows.getString(1).contains("MariaDB")
+                    || rows.getInt(2) != 32768
+                    || !rows.getBoolean(3)
                     || !rows.getString(4).equals("utf8mb4_general_ci")) {
-                throw new IllegalStateException("MariaDB requires repository 32K/general_ci configuration and snapshot isolation");
+                throw new IllegalStateException(
+                        "MariaDB requires repository 32K/general_ci configuration and snapshot isolation");
             }
         }
-        var flyway = Flyway.configure()
-                .dataSource(url, jdbc.getProperty("jdbcUser"), jdbc.getProperty("jdbcPassword"))
-                .locations("filesystem:" + Path.of(args[1], "common"), "filesystem:" + Path.of(args[1], args[2]))
-                .baselineOnMigrate(false).validateOnMigrate(true).load();
+        var flyway =
+                Flyway.configure()
+                        .dataSource(
+                                url, jdbc.getProperty("jdbcUser"), jdbc.getProperty("jdbcPassword"))
+                        .locations(
+                                "filesystem:" + Path.of(args[1], "common"),
+                                "filesystem:" + Path.of(args[1], args[2]))
+                        .baselineOnMigrate(false)
+                        .validateOnMigrate(true)
+                        .load();
         var migrated = flyway.migrate();
         flyway.validate();
-        if (flyway.info().pending().length != 0) throw new IllegalStateException("Pending migrations remain");
-        try (var connection = DriverManager.getConnection(url, jdbc.getProperty("jdbcUser"), jdbc.getProperty("jdbcPassword"));
+        if (flyway.info().pending().length != 0)
+            throw new IllegalStateException("Pending migrations remain");
+        try (var connection =
+                        DriverManager.getConnection(
+                                url,
+                                jdbc.getProperty("jdbcUser"),
+                                jdbc.getProperty("jdbcPassword"));
                 var statement = connection.createStatement()) {
             long tables;
-            try (var rows = statement.executeQuery("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_TYPE='BASE TABLE'")) {
-                rows.next(); tables = rows.getLong(1);
+            try (var rows =
+                    statement.executeQuery(
+                            "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_TYPE='BASE TABLE'")) {
+                rows.next();
+                tables = rows.getLong(1);
             }
-            if (tables < 300) throw new IllegalStateException("The full baseline was not installed");
-            try (var rows = statement.executeQuery("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('drugs','preventions','allergies','cds_import_admission','cds_import_patient','cds_import_checkpoint') AND ENGINE='InnoDB'")) {
-                rows.next(); if (rows.getInt(1) != 6) throw new IllegalStateException("Clinical/admission tables must be InnoDB");
+            if (tables < 300)
+                throw new IllegalStateException("The full baseline was not installed");
+            try (var rows =
+                    statement.executeQuery(
+                            "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('drugs','preventions','allergies','cds_import_admission','cds_import_patient','cds_import_checkpoint') AND ENGINE='InnoDB'")) {
+                rows.next();
+                if (rows.getInt(1) != 6)
+                    throw new IllegalStateException("Clinical/admission tables must be InnoDB");
             }
-            try (var rows = statement.executeQuery("SELECT COUNT(*) FROM cds_import_admission WHERE id IN ('global','clinical-maintenance')")) {
-                rows.next(); if (rows.getInt(1) != 2) throw new IllegalStateException("Admission seeds are missing");
+            try (var rows =
+                    statement.executeQuery(
+                            "SELECT COUNT(*) FROM cds_import_admission WHERE id IN ('global','clinical-maintenance')")) {
+                rows.next();
+                if (rows.getInt(1) != 2)
+                    throw new IllegalStateException("Admission seeds are missing");
             }
-            System.out.println("Full " + args[2].toUpperCase(java.util.Locale.ROOT) + " Flyway chain validated: "
-                    + tables + " tables; " + migrated.migrationsExecuted + " migrations applied in this invocation.");
+            System.out.println(
+                    "Full "
+                            + args[2].toUpperCase(java.util.Locale.ROOT)
+                            + " Flyway chain validated: "
+                            + tables
+                            + " tables; "
+                            + migrated.migrationsExecuted
+                            + " migrations applied in this invocation.");
         }
     }
 }

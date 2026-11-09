@@ -35,39 +35,52 @@ import org.springframework.stereotype.Service;
 /** Direction-specific qualification; an absent engine is visibly unavailable, never a partial export fallback. */
 @Service
 public class CdsExportEngineRegistry {
-    private record Qualified(CdsExportEngine engine, String digest, Set<CdsLogicalProfile> profiles) { }
+    private record Qualified(
+            CdsExportEngine engine, String digest, Set<CdsLogicalProfile> profiles) {}
+
     private final Map<CdsLogicalProfile, Qualified> engines;
-    @Autowired public CdsExportEngineRegistry(ObjectProvider<CdsExportEngine> installed) {
+
+    @Autowired
+    public CdsExportEngineRegistry(ObjectProvider<CdsExportEngine> installed) {
         this(installed.orderedStream().toList());
     }
+
     public CdsExportEngineRegistry(List<CdsExportEngine> installed) {
         var selected = new EnumMap<CdsLogicalProfile, Qualified>(CdsLogicalProfile.class);
         for (var engine : List.copyOf(installed)) {
             String digest = Objects.requireNonNull(engine).compatibilityDigest();
-            if (digest == null || !digest.matches("[0-9a-f]{64}")) throw new IllegalStateException("CDS_EXPORT_ENGINE_IDENTITY_INVALID");
+            if (digest == null || !digest.matches("[0-9a-f]{64}"))
+                throw new IllegalStateException("CDS_EXPORT_ENGINE_IDENTITY_INVALID");
             var profiles = Set.copyOf(engine.qualifiedProfiles());
             for (var profile : profiles) {
-                if (selected.putIfAbsent(profile, new Qualified(engine, digest, profiles)) != null) {
+                if (selected.putIfAbsent(profile, new Qualified(engine, digest, profiles))
+                        != null) {
                     throw new IllegalStateException("CDS_EXPORT_ENGINE_AMBIGUOUS");
                 }
             }
         }
         engines = Map.copyOf(selected);
     }
+
     public Set<CdsLogicalProfile> qualifiedProfiles() {
-        for (var profile : engines.keySet()) find(profile); return engines.keySet();
+        for (var profile : engines.keySet()) find(profile);
+        return engines.keySet();
     }
+
     /** A null result means this node cannot execute that profile; another compatible durable worker may still exist. */
     public CdsExportEngine find(CdsLogicalProfile profile) {
-        var selected = engines.get(Objects.requireNonNull(profile)); if (selected == null) return null;
+        var selected = engines.get(Objects.requireNonNull(profile));
+        if (selected == null) return null;
         if (!selected.digest().equals(selected.engine().compatibilityDigest())
                 || !selected.profiles().equals(Set.copyOf(selected.engine().qualifiedProfiles()))) {
             throw new IllegalStateException("CDS_EXPORT_ENGINE_IDENTITY_CHANGED");
         }
         return selected.engine();
     }
+
     public CdsExportEngine require(CdsLogicalProfile profile) {
         var selected = find(profile);
-        if (selected == null) throw new IllegalStateException("CDS_EXPORT_PROFILE_NOT_QUALIFIED"); return selected;
+        if (selected == null) throw new IllegalStateException("CDS_EXPORT_PROFILE_NOT_QUALIFIED");
+        return selected;
     }
 }

@@ -30,21 +30,53 @@ import org.springframework.stereotype.Repository;
 /** Attempt metadata only. Callers lock the owning run before locking its attempt. */
 @Repository
 public class CdsExportAttemptDao extends AbstractDaoImpl<CdsExportAttempt> {
-    public CdsExportAttemptDao() { super(CdsExportAttempt.class); }
+    public CdsExportAttemptDao() {
+        super(CdsExportAttempt.class);
+    }
+
     public CdsExportAttempt find(String runId, long epoch) {
-        return entityManager.createQuery("select a from CdsExportAttempt a where a.runId=:run and a.epoch=:epoch", CdsExportAttempt.class)
-                .setParameter("run", runId).setParameter("epoch", epoch).setMaxResults(1).getResultList().stream().findFirst().orElse(null);
+        return entityManager
+                .createQuery(
+                        "select a from CdsExportAttempt a where a.runId=:run and a.epoch=:epoch",
+                        CdsExportAttempt.class)
+                .setParameter("run", runId)
+                .setParameter("epoch", epoch)
+                .setMaxResults(1)
+                .getResultList()
+                .stream()
+                .findFirst()
+                .orElse(null);
     }
+
     public CdsExportAttempt lock(String runId, long epoch) {
-        var found = find(runId, epoch); if (found != null) entityManager.refresh(found, LockModeType.PESSIMISTIC_WRITE); return found;
+        var found = find(runId, epoch);
+        if (found != null) entityManager.refresh(found, LockModeType.PESSIMISTIC_WRITE);
+        return found;
     }
+
     public List<String> expiredRunIds(Instant now, int limit) {
-        return entityManager.createQuery("select distinct a.runId from CdsExportAttempt a where a.state<>'PURGED' and a.expiresAt<=:now and (a.downloadUntil is null or a.downloadUntil<=:now) and (a.cleanupUntil is null or a.cleanupUntil<=:now) order by a.runId", String.class)
-                .setParameter("now", now).setMaxResults(limit).getResultList();
+        return entityManager
+                .createQuery(
+                        "select distinct a.runId from CdsExportAttempt a where a.state<>'PURGED' and a.expiresAt<=:now and (a.downloadUntil is null or a.downloadUntil<=:now) and (a.cleanupUntil is null or a.cleanupUntil<=:now) order by a.runId",
+                        String.class)
+                .setParameter("now", now)
+                .setMaxResults(limit)
+                .getResultList();
     }
+
     public List<Long> epochs(String runId, long after, Instant now, int limit) {
-        return entityManager.createQuery("select a.epoch from CdsExportAttempt a where a.runId=:run and a.epoch>:after and a.state<>'PURGED' and a.expiresAt<=:now order by a.epoch", Long.class)
-                .setParameter("run", runId).setParameter("after", after).setParameter("now", now).setMaxResults(limit).getResultList();
+        return entityManager
+                .createQuery(
+                        "select a.epoch from CdsExportAttempt a where a.runId=:run and a.epoch>:after and a.state<>'PURGED' and a.expiresAt<=:now order by a.epoch",
+                        Long.class)
+                .setParameter("run", runId)
+                .setParameter("after", after)
+                .setParameter("now", now)
+                .setMaxResults(limit)
+                .getResultList();
     }
-    public void flush() { entityManager.flush(); }
+
+    public void flush() {
+        entityManager.flush();
+    }
 }

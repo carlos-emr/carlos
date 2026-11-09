@@ -32,30 +32,52 @@ import org.springframework.stereotype.Service;
 public class CdsExportPartialDateSourceReader extends CdsExportPatientTableSourceReader {
     private final PartialDateDao source;
     private final Set<CdsCategory> domains;
+
     @org.springframework.beans.factory.annotation.Autowired
     public CdsExportPartialDateSourceReader(PartialDateDao source) {
         this(source, Set.of(CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS));
     }
+
     private CdsExportPartialDateSourceReader(PartialDateDao source, Set<CdsCategory> domains) {
         super(source, CdsExportPatientTableReadSupport.Plan.partialDates(domains), domains);
-        this.source = source; this.domains = Set.copyOf(domains);
+        this.source = source;
+        this.domains = Set.copyOf(domains);
     }
-    @Override public CdsExportNativeSourceReader forRequest(io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand command) {
+
+    @Override
+    public CdsExportNativeSourceReader forRequest(
+            io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand command) {
         var selected = java.util.EnumSet.noneOf(CdsCategory.class);
-        for (var category : Set.of(CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS, CdsCategory.MEDICATIONS_AND_TREATMENTS)) {
+        for (var category :
+                Set.of(
+                        CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS,
+                        CdsCategory.MEDICATIONS_AND_TREATMENTS)) {
             if (command.categories().contains(category)) selected.add(category);
         }
         if (selected.isEmpty()) throw new IllegalStateException("CDS_EXPORT_CAPTURE_SCOPE_INVALID");
         return new CdsExportPartialDateSourceReader(source, selected);
     }
-    @Override public Set<CdsCategory> supportedCategories() {
-        return Set.of(CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS, CdsCategory.MEDICATIONS_AND_TREATMENTS);
+
+    @Override
+    public Set<CdsCategory> supportedCategories() {
+        return Set.of(
+                CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS,
+                CdsCategory.MEDICATIONS_AND_TREATMENTS);
     }
-    @Override public long count(int patient) { return source.countCdsExportScopedRows(patient, domains); }
-    @Override protected java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> page(int patient, Long after, int limit) {
+
+    @Override
+    public long count(int patient) {
+        return source.countCdsExportScopedRows(patient, domains);
+    }
+
+    @Override
+    protected java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> page(
+            int patient, Long after, int limit) {
         return source.findCdsExportScopedRowsAfter(patient, domains, after, limit);
     }
-    @Override protected byte[] chunk(int patient, long row, String column, long offset, int length) {
+
+    @Override
+    protected byte[] chunk(int patient, long row, String column, long offset, int length) {
         return source.readCdsExportScopedChunk(patient, domains, row, column, offset, length);
     }
 }

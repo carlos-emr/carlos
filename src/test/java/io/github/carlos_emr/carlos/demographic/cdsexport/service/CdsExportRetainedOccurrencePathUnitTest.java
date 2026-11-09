@@ -28,12 +28,67 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class CdsExportRetainedOccurrencePathUnitTest {
-    @Test void originalSecondAndLaterPatientOrdinalsRemainValidInsideTheirVerifiedOwnerScope()throws Exception{
-        for (var category:List.of(CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS, CdsCategory.MEDICATIONS_AND_TREATMENTS, CdsCategory.IMMUNIZATIONS))for (int ordinal:List.of(1, 2, 999)){
-            String root="/OmdCds[1]/PatientRecord["+ordinal+"]/"+category.wireName()+"[3]"; assertThat(CdsExportRetainedOccurrencePath.root(field(root+"/Value[1]", category), category)).isEqualTo(root);
-        }
+    @Test
+    void originalSecondAndLaterPatientOrdinalsRemainValidInsideTheirVerifiedOwnerScope()
+            throws Exception {
+        for (var category :
+                List.of(
+                        CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS,
+                        CdsCategory.MEDICATIONS_AND_TREATMENTS,
+                        CdsCategory.IMMUNIZATIONS))
+            for (int ordinal : List.of(1, 2, 999)) {
+                String root =
+                        "/OmdCds[1]/PatientRecord[" + ordinal + "]/" + category.wireName() + "[3]";
+                assertThat(
+                                CdsExportRetainedOccurrencePath.root(
+                                        field(root + "/Value[1]", category), category))
+                        .isEqualTo(root);
+            }
     }
-    @Test void aFieldCannotBorrowAnotherCategorysOccurrenceRoot(){assertThatThrownBy(()-> CdsExportRetainedOccurrencePath.root(field("/OmdCds[1]/PatientRecord[2]/AllergiesAndAdverseReactions[1]/Value[1]", CdsCategory.IMMUNIZATIONS), CdsCategory.IMMUNIZATIONS)).hasMessage("CDS_EXPORT_RETAINED_OCCURRENCE_PATH_INVALID"); }
-    @Test void malformedRootOrdinalsAndAmbiguousPrefixesRemainInvalid(){for (String root:List.of("/OmdCds[2]/PatientRecord[1]/Immunizations[1]", "/OmdCds[1]/PatientRecord[0]/Immunizations[1]", "/OmdCds[1]/PatientRecord[01]/Immunizations[1]", "/OmdCds[1]/PatientRecord[1]/Immunizations[0]", "/OmdCds[1]/PatientRecord[1]/Immunizations[1]Extra"))assertThatThrownBy(()-> CdsExportRetainedOccurrencePath.root(field(root+"/Value[1]", CdsCategory.IMMUNIZATIONS), CdsCategory.IMMUNIZATIONS)).hasMessage("CDS_EXPORT_RETAINED_OCCURRENCE_PATH_INVALID"); }
-    private static CdsExportRetainedFieldDto field(String path, CdsCategory category){return new CdsExportRetainedFieldDto("a".repeat(64), "11111111-1111-4111-8111-111111111111", "b".repeat(64), "c".repeat(64), category, path, 1, "cds", "{http://www.w3.org/2001/XMLSchema}string", null, "Exact", "Exact", null); }
+
+    @Test
+    void aFieldCannotBorrowAnotherCategorysOccurrenceRoot() {
+        assertThatThrownBy(
+                        () ->
+                                CdsExportRetainedOccurrencePath.root(
+                                        field(
+                                                "/OmdCds[1]/PatientRecord[2]/AllergiesAndAdverseReactions[1]/Value[1]",
+                                                CdsCategory.IMMUNIZATIONS),
+                                        CdsCategory.IMMUNIZATIONS))
+                .hasMessage("CDS_EXPORT_RETAINED_OCCURRENCE_PATH_INVALID");
+    }
+
+    @Test
+    void malformedRootOrdinalsAndAmbiguousPrefixesRemainInvalid() {
+        for (String root :
+                List.of(
+                        "/OmdCds[2]/PatientRecord[1]/Immunizations[1]",
+                        "/OmdCds[1]/PatientRecord[0]/Immunizations[1]",
+                        "/OmdCds[1]/PatientRecord[01]/Immunizations[1]",
+                        "/OmdCds[1]/PatientRecord[1]/Immunizations[0]",
+                        "/OmdCds[1]/PatientRecord[1]/Immunizations[1]Extra"))
+            assertThatThrownBy(
+                            () ->
+                                    CdsExportRetainedOccurrencePath.root(
+                                            field(root + "/Value[1]", CdsCategory.IMMUNIZATIONS),
+                                            CdsCategory.IMMUNIZATIONS))
+                    .hasMessage("CDS_EXPORT_RETAINED_OCCURRENCE_PATH_INVALID");
+    }
+
+    private static CdsExportRetainedFieldDto field(String path, CdsCategory category) {
+        return new CdsExportRetainedFieldDto(
+                "a".repeat(64),
+                "11111111-1111-4111-8111-111111111111",
+                "b".repeat(64),
+                "c".repeat(64),
+                category,
+                path,
+                1,
+                "cds",
+                "{http://www.w3.org/2001/XMLSchema}string",
+                null,
+                "Exact",
+                "Exact",
+                null);
+    }
 }

@@ -64,18 +64,23 @@ public class WebappShutdownResourcesUnitTest {
         URL testClassesUrl = testClassesUrl();
         URL mainClassesUrl = mainClassesUrl();
 
-        try (ChildFirstTestClassLoader webappClassLoader = new ChildFirstTestClassLoader(
-                testClassesUrl, mainClassesUrl, getClass().getClassLoader())) {
-            Class<?> helperClass = webappClassLoader.loadClass(
-                    WebappShutdownResourcesUnitTest.class.getName() + "$DriverRegistrationHelper");
+        try (ChildFirstTestClassLoader webappClassLoader =
+                new ChildFirstTestClassLoader(
+                        testClassesUrl, mainClassesUrl, getClass().getClassLoader())) {
+            Class<?> helperClass =
+                    webappClassLoader.loadClass(
+                            WebappShutdownResourcesUnitTest.class.getName()
+                                    + "$DriverRegistrationHelper");
             Method registerDriver = helperClass.getMethod("registerDriver");
             Method deregisterDriver = helperClass.getMethod("deregisterDriver", Driver.class);
-            Method deregisterWebappDrivers = helperClass.getMethod("deregisterWebappDrivers", ClassLoader.class);
+            Method deregisterWebappDrivers =
+                    helperClass.getMethod("deregisterWebappDrivers", ClassLoader.class);
             Method isDriverRegistered = helperClass.getMethod("isDriverRegistered", Driver.class);
             Driver driver = (Driver) registerDriver.invoke(null);
 
             try {
-                int deregistered = (Integer) deregisterWebappDrivers.invoke(null, webappClassLoader);
+                int deregistered =
+                        (Integer) deregisterWebappDrivers.invoke(null, webappClassLoader);
 
                 assertThat(deregistered).isEqualTo(1);
                 assertThat((Boolean) isDriverRegistered.invoke(null, driver)).isFalse();
@@ -83,7 +88,8 @@ public class WebappShutdownResourcesUnitTest {
                 if ((Boolean) isDriverRegistered.invoke(null, driver)) {
                     deregisterDriver.invoke(null, driver);
                 }
-                java.util.List<Driver> currentDrivers = Collections.list(DriverManager.getDrivers());
+                java.util.List<Driver> currentDrivers =
+                        Collections.list(DriverManager.getDrivers());
                 try {
                     assertThat(currentDrivers).containsAll(existingDrivers);
                 } finally {
@@ -103,20 +109,26 @@ public class WebappShutdownResourcesUnitTest {
         URL testClassesUrl = testClassesUrl();
         URL mainClassesUrl = mainClassesUrl();
 
-        try (URLClassLoader reportedWebappLoader = new URLClassLoader(new URL[0], getClass().getClassLoader());
-             ChildFirstTestClassLoader childClassLoader = new ChildFirstTestClassLoader(
-                     testClassesUrl, mainClassesUrl, reportedWebappLoader)) {
+        try (URLClassLoader reportedWebappLoader =
+                        new URLClassLoader(new URL[0], getClass().getClassLoader());
+                ChildFirstTestClassLoader childClassLoader =
+                        new ChildFirstTestClassLoader(
+                                testClassesUrl, mainClassesUrl, reportedWebappLoader)) {
             assertThat(childClassLoader.getParent()).isSameAs(reportedWebappLoader);
-            Class<?> helperClass = childClassLoader.loadClass(
-                    WebappShutdownResourcesUnitTest.class.getName() + "$DriverRegistrationHelper");
+            Class<?> helperClass =
+                    childClassLoader.loadClass(
+                            WebappShutdownResourcesUnitTest.class.getName()
+                                    + "$DriverRegistrationHelper");
             Method registerDriver = helperClass.getMethod("registerDriver");
             Method deregisterDriver = helperClass.getMethod("deregisterDriver", Driver.class);
-            Method deregisterWebappDrivers = helperClass.getMethod("deregisterWebappDrivers", ClassLoader.class);
+            Method deregisterWebappDrivers =
+                    helperClass.getMethod("deregisterWebappDrivers", ClassLoader.class);
             Method isDriverRegistered = helperClass.getMethod("isDriverRegistered", Driver.class);
             Driver driver = (Driver) registerDriver.invoke(null);
 
             try {
-                int deregistered = (Integer) deregisterWebappDrivers.invoke(null, reportedWebappLoader);
+                int deregistered =
+                        (Integer) deregisterWebappDrivers.invoke(null, reportedWebappLoader);
 
                 assertThat(deregistered).isEqualTo(1);
                 assertThat((Boolean) isDriverRegistered.invoke(null, driver)).isFalse();
@@ -124,7 +136,8 @@ public class WebappShutdownResourcesUnitTest {
                 if ((Boolean) isDriverRegistered.invoke(null, driver)) {
                     deregisterDriver.invoke(null, driver);
                 }
-                java.util.List<Driver> currentDrivers = Collections.list(DriverManager.getDrivers());
+                java.util.List<Driver> currentDrivers =
+                        Collections.list(DriverManager.getDrivers());
                 try {
                     assertThat(currentDrivers).containsAll(existingDrivers);
                 } finally {
@@ -144,26 +157,38 @@ public class WebappShutdownResourcesUnitTest {
         URL testClassesUrl = testClassesUrl();
         URL mainClassesUrl = mainClassesUrl();
 
-        try (ChildFirstTestClassLoader sharedParentClassLoader = new ChildFirstTestClassLoader(
-                     testClassesUrl, mainClassesUrl, getClass().getClassLoader());
-             ChildFirstTestClassLoader webappClassLoader = new ChildFirstTestClassLoader(
-                     testClassesUrl, mainClassesUrl, sharedParentClassLoader)) {
-            Class<?> parentHelperClass = sharedParentClassLoader.loadClass(
-                    WebappShutdownResourcesUnitTest.class.getName() + "$DriverRegistrationHelper");
-            Class<?> webappHelperClass = webappClassLoader.loadClass(
-                    WebappShutdownResourcesUnitTest.class.getName() + "$DriverRegistrationHelper");
+        try (ChildFirstTestClassLoader sharedParentClassLoader =
+                        new ChildFirstTestClassLoader(
+                                testClassesUrl, mainClassesUrl, getClass().getClassLoader());
+                ChildFirstTestClassLoader webappClassLoader =
+                        new ChildFirstTestClassLoader(
+                                testClassesUrl, mainClassesUrl, sharedParentClassLoader)) {
+            Class<?> parentHelperClass =
+                    sharedParentClassLoader.loadClass(
+                            WebappShutdownResourcesUnitTest.class.getName()
+                                    + "$DriverRegistrationHelper");
+            Class<?> webappHelperClass =
+                    webappClassLoader.loadClass(
+                            WebappShutdownResourcesUnitTest.class.getName()
+                                    + "$DriverRegistrationHelper");
             Method registerParentDriver = parentHelperClass.getMethod("registerDriver");
-            Method deregisterParentDriver = parentHelperClass.getMethod("deregisterDriver", Driver.class);
-            Method isParentDriverRegistered = parentHelperClass.getMethod("isDriverRegistered", Driver.class);
+            Method deregisterParentDriver =
+                    parentHelperClass.getMethod("deregisterDriver", Driver.class);
+            Method isParentDriverRegistered =
+                    parentHelperClass.getMethod("isDriverRegistered", Driver.class);
             Method registerWebappDriver = webappHelperClass.getMethod("registerDriver");
-            Method deregisterWebappDriver = webappHelperClass.getMethod("deregisterDriver", Driver.class);
-            Method deregisterWebappDrivers = webappHelperClass.getMethod("deregisterWebappDrivers", ClassLoader.class);
-            Method isWebappDriverRegistered = webappHelperClass.getMethod("isDriverRegistered", Driver.class);
+            Method deregisterWebappDriver =
+                    webappHelperClass.getMethod("deregisterDriver", Driver.class);
+            Method deregisterWebappDrivers =
+                    webappHelperClass.getMethod("deregisterWebappDrivers", ClassLoader.class);
+            Method isWebappDriverRegistered =
+                    webappHelperClass.getMethod("isDriverRegistered", Driver.class);
             Driver parentDriver = (Driver) registerParentDriver.invoke(null);
             Driver webappDriver = (Driver) registerWebappDriver.invoke(null);
 
             try {
-                int deregistered = (Integer) deregisterWebappDrivers.invoke(null, webappClassLoader);
+                int deregistered =
+                        (Integer) deregisterWebappDrivers.invoke(null, webappClassLoader);
 
                 assertThat(deregistered).isEqualTo(1);
                 assertThat((Boolean) isParentDriverRegistered.invoke(null, parentDriver)).isTrue();
@@ -175,7 +200,8 @@ public class WebappShutdownResourcesUnitTest {
                 if ((Boolean) isParentDriverRegistered.invoke(null, parentDriver)) {
                     deregisterParentDriver.invoke(null, parentDriver);
                 }
-                java.util.List<Driver> currentDrivers = Collections.list(DriverManager.getDrivers());
+                java.util.List<Driver> currentDrivers =
+                        Collections.list(DriverManager.getDrivers());
                 try {
                     assertThat(currentDrivers).containsAll(existingDrivers);
                 } finally {
@@ -191,22 +217,34 @@ public class WebappShutdownResourcesUnitTest {
 
     @Test
     void shouldRunAllShutdownSteps_whenEarlierStepThrows() {
-        ClassLoader unrelatedClassLoader = new ClassLoader(null) {
-        };
+        ClassLoader unrelatedClassLoader = new ClassLoader(null) {};
 
         try (MockedStatic<DbConnectionFilter> dbConnections = mockStatic(DbConnectionFilter.class);
-             MockedStatic<OscarTrackingBasicDataSource> tracking = mockStatic(OscarTrackingBasicDataSource.class);
-             MockedStatic<LogAction> logAction = mockStatic(LogAction.class);
-             MockedStatic<DroolsShutdownResources> droolsShutdown = mockStatic(DroolsShutdownResources.class);
-             MockedStatic<QueueCache> queueCache = mockStatic(QueueCache.class)) {
-            dbConnections.when(DbConnectionFilter::releaseAllThreadDbResources)
+                MockedStatic<OscarTrackingBasicDataSource> tracking =
+                        mockStatic(OscarTrackingBasicDataSource.class);
+                MockedStatic<LogAction> logAction = mockStatic(LogAction.class);
+                MockedStatic<DroolsShutdownResources> droolsShutdown =
+                        mockStatic(DroolsShutdownResources.class);
+                MockedStatic<QueueCache> queueCache = mockStatic(QueueCache.class)) {
+            dbConnections
+                    .when(DbConnectionFilter::releaseAllThreadDbResources)
                     .thenThrow(new AssertionError("db cleanup failed"));
 
-            WebappShutdownResources.ShutdownReport report = WebappShutdownResources.releaseForContext(unrelatedClassLoader);
+            WebappShutdownResources.ShutdownReport report =
+                    WebappShutdownResources.releaseForContext(unrelatedClassLoader);
 
             assertThat(report.results()).hasSize(8);
-            assertThat(report.results().stream().filter(result -> result.step()
-                    == WebappShutdownResources.ShutdownStep.DB_THREAD_RESOURCES).findFirst().orElseThrow().successful()).isFalse();
+            assertThat(
+                            report.results().stream()
+                                    .filter(
+                                            result ->
+                                                    result.step()
+                                                            == WebappShutdownResources.ShutdownStep
+                                                                    .DB_THREAD_RESOURCES)
+                                    .findFirst()
+                                    .orElseThrow()
+                                    .successful())
+                    .isFalse();
             assertThat(report.failureCount()).isEqualTo(1);
             tracking.verify(OscarTrackingBasicDataSource::clearTrackingState);
             logAction.verify(LogAction::shutdownExecutorService);
@@ -219,17 +257,44 @@ public class WebappShutdownResourcesUnitTest {
     void shouldStopDatabaseProducers_beforeClosingTrackedConnections() {
         java.util.List<String> calls = new java.util.ArrayList<>();
         try (MockedStatic<DbConnectionFilter> db = mockStatic(DbConnectionFilter.class);
-             MockedStatic<OscarTrackingBasicDataSource> tracking = mockStatic(OscarTrackingBasicDataSource.class);
-             MockedStatic<LogAction> audit = mockStatic(LogAction.class);
-             MockedStatic<DroolsShutdownResources> drools = mockStatic(DroolsShutdownResources.class);
-             MockedStatic<QueueCache> queues = mockStatic(QueueCache.class)) {
-            audit.when(LogAction::shutdownExecutorService).thenAnswer(call -> { calls.add("audit"); return null; });
-            drools.when(DroolsShutdownResources::shutdownExecutors).thenAnswer(call -> { calls.add("drools"); return 0; });
-            queues.when(QueueCache::shutdownSharedTimer).thenAnswer(call -> { calls.add("queue"); return null; });
-            db.when(DbConnectionFilter::releaseAllThreadDbResources).thenAnswer(call -> { calls.add("db"); return null; });
-            tracking.when(OscarTrackingBasicDataSource::clearTrackingState).thenAnswer(call -> { calls.add("tracking"); return null; });
+                MockedStatic<OscarTrackingBasicDataSource> tracking =
+                        mockStatic(OscarTrackingBasicDataSource.class);
+                MockedStatic<LogAction> audit = mockStatic(LogAction.class);
+                MockedStatic<DroolsShutdownResources> drools =
+                        mockStatic(DroolsShutdownResources.class);
+                MockedStatic<QueueCache> queues = mockStatic(QueueCache.class)) {
+            audit.when(LogAction::shutdownExecutorService)
+                    .thenAnswer(
+                            call -> {
+                                calls.add("audit");
+                                return null;
+                            });
+            drools.when(DroolsShutdownResources::shutdownExecutors)
+                    .thenAnswer(
+                            call -> {
+                                calls.add("drools");
+                                return 0;
+                            });
+            queues.when(QueueCache::shutdownSharedTimer)
+                    .thenAnswer(
+                            call -> {
+                                calls.add("queue");
+                                return null;
+                            });
+            db.when(DbConnectionFilter::releaseAllThreadDbResources)
+                    .thenAnswer(
+                            call -> {
+                                calls.add("db");
+                                return null;
+                            });
+            tracking.when(OscarTrackingBasicDataSource::clearTrackingState)
+                    .thenAnswer(
+                            call -> {
+                                calls.add("tracking");
+                                return null;
+                            });
 
-            WebappShutdownResources.releaseForContext(new ClassLoader(null) { });
+            WebappShutdownResources.releaseForContext(new ClassLoader(null) {});
 
             assertThat(calls).containsExactly("audit", "drools", "queue", "db", "tracking");
         }
@@ -239,35 +304,43 @@ public class WebappShutdownResourcesUnitTest {
     void shouldReleaseOwnedSchedulerLoader_withoutStoppingSharedScheduler() throws Exception {
         Thread scheduler = commonDelayScheduler();
         ClassLoader original = scheduler.getContextClassLoader();
-        ClassLoader webapp = new ClassLoader(original) { };
-        ClassLoader child = new ClassLoader(webapp) { };
+        ClassLoader webapp = new ClassLoader(original) {};
+        ClassLoader child = new ClassLoader(webapp) {};
         try {
             scheduler.setContextClassLoader(child);
-            assertThat(WebappShutdownResources.releaseJdkDelaySchedulerClassLoader(webapp)).isEqualTo(1);
-            assertThat(scheduler.getContextClassLoader()).isSameAs(ClassLoader.getPlatformClassLoader());
+            assertThat(WebappShutdownResources.releaseJdkDelaySchedulerClassLoader(webapp))
+                    .isEqualTo(1);
+            assertThat(scheduler.getContextClassLoader())
+                    .isSameAs(ClassLoader.getPlatformClassLoader());
             assertThat(scheduler.isAlive()).isTrue();
-            assertThat(ForkJoinPool.commonPool().schedule(() -> "still running", 1, TimeUnit.MILLISECONDS)
-                    .get(5, TimeUnit.SECONDS)).isEqualTo("still running");
-            assertThat(WebappShutdownResources.releaseJdkDelaySchedulerClassLoader(webapp)).isZero();
+            assertThat(
+                            ForkJoinPool.commonPool()
+                                    .schedule(() -> "still running", 1, TimeUnit.MILLISECONDS)
+                                    .get(5, TimeUnit.SECONDS))
+                    .isEqualTo("still running");
+            assertThat(WebappShutdownResources.releaseJdkDelaySchedulerClassLoader(webapp))
+                    .isZero();
         } finally {
             scheduler.setContextClassLoader(original);
         }
     }
 
     @Test
-    void shouldPreserveOtherApplicationsAndOrdinaryThreads_whenReleasingSchedulerLoader() throws Exception {
+    void shouldPreserveOtherApplicationsAndOrdinaryThreads_whenReleasingSchedulerLoader()
+            throws Exception {
         Thread scheduler = commonDelayScheduler();
         Thread ordinary = Thread.currentThread();
         ClassLoader originalSchedulerLoader = scheduler.getContextClassLoader();
         ClassLoader originalThreadLoader = ordinary.getContextClassLoader();
         String originalName = ordinary.getName();
-        ClassLoader webapp = new ClassLoader(null) { };
-        ClassLoader otherWebapp = new ClassLoader(null) { };
+        ClassLoader webapp = new ClassLoader(null) {};
+        ClassLoader otherWebapp = new ClassLoader(null) {};
         try {
             scheduler.setContextClassLoader(otherWebapp);
             ordinary.setName("ForkJoinPool.commonPool-delayScheduler");
             ordinary.setContextClassLoader(webapp);
-            assertThat(WebappShutdownResources.releaseJdkDelaySchedulerClassLoader(webapp)).isZero();
+            assertThat(WebappShutdownResources.releaseJdkDelaySchedulerClassLoader(webapp))
+                    .isZero();
             assertThat(scheduler.getContextClassLoader()).isSameAs(otherWebapp);
             assertThat(ordinary.getContextClassLoader()).isSameAs(webapp);
         } finally {
@@ -278,12 +351,18 @@ public class WebappShutdownResourcesUnitTest {
     }
 
     private static Thread commonDelayScheduler() throws Exception {
-        ForkJoinPool.commonPool().schedule(() -> { }, 1, TimeUnit.MILLISECONDS).get(5, TimeUnit.SECONDS);
+        ForkJoinPool.commonPool()
+                .schedule(() -> {}, 1, TimeUnit.MILLISECONDS)
+                .get(5, TimeUnit.SECONDS);
         Class<?> schedulerClass = Class.forName("java.util.concurrent.DelayScheduler", false, null);
         return Thread.getAllStackTraces().keySet().stream()
-                .filter(thread -> thread.getClass() == schedulerClass
-                        && "ForkJoinPool.commonPool-delayScheduler".equals(thread.getName()))
-                .findFirst().orElseThrow();
+                .filter(
+                        thread ->
+                                thread.getClass() == schedulerClass
+                                        && "ForkJoinPool.commonPool-delayScheduler"
+                                                .equals(thread.getName()))
+                .findFirst()
+                .orElseThrow();
     }
 
     /**
@@ -292,7 +371,8 @@ public class WebappShutdownResourcesUnitTest {
      * @throws Exception when the test class location cannot be converted to a URL
      */
     private static URL testClassesUrl() throws Exception {
-        return WebappShutdownResourcesUnitTest.class.getProtectionDomain()
+        return WebappShutdownResourcesUnitTest.class
+                .getProtectionDomain()
                 .getCodeSource()
                 .getLocation()
                 .toURI()
@@ -305,7 +385,8 @@ public class WebappShutdownResourcesUnitTest {
      * @throws Exception when the main class location cannot be converted to a URL
      */
     private static URL mainClassesUrl() throws Exception {
-        return WebappShutdownResources.class.getProtectionDomain()
+        return WebappShutdownResources.class
+                .getProtectionDomain()
                 .getCodeSource()
                 .getLocation()
                 .toURI()
@@ -314,8 +395,7 @@ public class WebappShutdownResourcesUnitTest {
 
     public static final class DriverRegistrationHelper {
 
-        private DriverRegistrationHelper() {
-        }
+        private DriverRegistrationHelper() {}
 
         public static Driver registerDriver() throws SQLException {
             Driver driver = new TestDriver();
@@ -380,8 +460,9 @@ public class WebappShutdownResourcesUnitTest {
         private static final String WEBAPP_SHUTDOWN_RESOURCES_CLASS =
                 WebappShutdownResources.class.getName();
 
-        private ChildFirstTestClassLoader(URL testClassesUrl, URL mainClassesUrl, ClassLoader parent) {
-            super(new URL[]{testClassesUrl, mainClassesUrl}, parent);
+        private ChildFirstTestClassLoader(
+                URL testClassesUrl, URL mainClassesUrl, ClassLoader parent) {
+            super(new URL[] {testClassesUrl, mainClassesUrl}, parent);
         }
 
         @Override

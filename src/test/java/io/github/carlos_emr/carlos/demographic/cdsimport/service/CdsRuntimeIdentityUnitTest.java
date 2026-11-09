@@ -25,12 +25,9 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportExcept
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsCalendarZone;
 
-
-
 import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 
 import static org.assertj.core.api.Assertions.*;
-
 
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -94,21 +91,35 @@ class CdsRuntimeIdentityUnitTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings={"com/google/common/base/Ascii.class","com/google/common/base/CharMatcher.class"})
+    @ValueSource(
+            strings = {
+                "com/google/common/base/Ascii.class",
+                "com/google/common/base/CharMatcher.class"
+            })
     @ResourceLock("java.util.TimeZone")
     @ResourceLock("java.util.Locale")
-    void shouldRefuseRuntimeIdentity_whenAnActualAsciiNormalizationDependencyIsUnavailable(String hiddenResource) {
-        ClassLoader deployed=CdsRuntimeIdentity.class.getClassLoader();
+    void shouldRefuseRuntimeIdentity_whenAnActualAsciiNormalizationDependencyIsUnavailable(
+            String hiddenResource) {
+        ClassLoader deployed = CdsRuntimeIdentity.class.getClassLoader();
         assertThat(deployed.getResource(hiddenResource)).isNotNull();
-        var hiddenRequests=new AtomicInteger();
-        ClassLoader unavailable=new ClassLoader(deployed) {
-            @Override public java.net.URL getResource(String name) {
-                if (hiddenResource.equals(name)) {hiddenRequests.incrementAndGet();return null;}
-                return super.getResource(name);
-            }
-        };
-        assertThatThrownBy(()->CdsRuntimeIdentity.addTo(CdsImportKeys.digest(),unavailable,new byte[65536]))
-                .isInstanceOf(CdsImportException.class).hasMessage("IMPORT_RULESET_RUNTIME_UNAVAILABLE");
+        var hiddenRequests = new AtomicInteger();
+        ClassLoader unavailable =
+                new ClassLoader(deployed) {
+                    @Override
+                    public java.net.URL getResource(String name) {
+                        if (hiddenResource.equals(name)) {
+                            hiddenRequests.incrementAndGet();
+                            return null;
+                        }
+                        return super.getResource(name);
+                    }
+                };
+        assertThatThrownBy(
+                        () ->
+                                CdsRuntimeIdentity.addTo(
+                                        CdsImportKeys.digest(), unavailable, new byte[65536]))
+                .isInstanceOf(CdsImportException.class)
+                .hasMessage("IMPORT_RULESET_RUNTIME_UNAVAILABLE");
         assertThat(hiddenRequests).hasValue(1);
     }
 

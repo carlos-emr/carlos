@@ -35,28 +35,52 @@ import java.nio.charset.StandardCharsets;
 
 /** Strict bounded internal JSON-lines transport. Caller owns the authenticated underlying stream. */
 final class CdsExportJsonLines {
-    private static final ObjectMapper JSON = new ObjectMapper().enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+    private static final ObjectMapper JSON =
+            new ObjectMapper()
+                    .enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+                    .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     private final InputStream input;
     private final int maximum;
     private final Runnable checkpoint;
+
     CdsExportJsonLines(InputStream input, int maximum, Runnable checkpoint) {
-        if (maximum < 1 || maximum > 1_048_576) throw new IllegalArgumentException("CDS_EXPORT_JSON_LINE_LIMIT_INVALID");
-        this.input = new BufferedInputStream(input, 65_536); this.maximum = maximum; this.checkpoint = checkpoint;
+        if (maximum < 1 || maximum > 1_048_576)
+            throw new IllegalArgumentException("CDS_EXPORT_JSON_LINE_LIMIT_INVALID");
+        this.input = new BufferedInputStream(input, 65_536);
+        this.maximum = maximum;
+        this.checkpoint = checkpoint;
     }
+
     com.fasterxml.jackson.databind.JsonNode required() throws IOException {
-        var node = next(); if (node == null) invalid(); return node;
+        var node = next();
+        if (node == null) invalid();
+        return node;
     }
+
     JsonNode next() throws IOException {
-        checkpoint.run(); var bytes = new ByteArrayOutputStream(); int value = input.read();
+        checkpoint.run();
+        var bytes = new ByteArrayOutputStream();
+        int value = input.read();
         if (value == -1) return null;
         while (value != '\n') {
             if (value == -1 || value == '\r' || bytes.size() == maximum) invalid();
-            bytes.write(value); value = input.read(); if ((bytes.size() & 8191) == 0) checkpoint.run();
+            bytes.write(value);
+            value = input.read();
+            if ((bytes.size() & 8191) == 0) checkpoint.run();
         }
-        String line = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
-                .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes.toByteArray())).toString();
-        var node = JSON.readTree(line); if (node == null || !node.isObject()) invalid(); return node;
+        String line =
+                StandardCharsets.UTF_8
+                        .newDecoder()
+                        .onMalformedInput(CodingErrorAction.REPORT)
+                        .onUnmappableCharacter(CodingErrorAction.REPORT)
+                        .decode(ByteBuffer.wrap(bytes.toByteArray()))
+                        .toString();
+        var node = JSON.readTree(line);
+        if (node == null || !node.isObject()) invalid();
+        return node;
     }
-    private static void invalid() throws IOException { throw new IOException("CDS_EXPORT_JSON_LINES_INVALID"); }
+
+    private static void invalid() throws IOException {
+        throw new IOException("CDS_EXPORT_JSON_LINES_INVALID");
+    }
 }

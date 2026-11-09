@@ -32,45 +32,142 @@ import org.springframework.stereotype.Service;
 /** Same-generation native phone projection; retained source associations and other demographic domains need their own reconciliation. */
 @Service
 public class CdsExportDemographicPhoneProjectionService {
-    public record Result(String sourceManifestSha256, long propertyRows, CdsExportDemographicMappingDto demographic) {
+    public record Result(
+            String sourceManifestSha256,
+            long propertyRows,
+            CdsExportDemographicMappingDto demographic) {
         public Result {
-            if (sourceManifestSha256 == null || !sourceManifestSha256.matches("[0-9a-f]{64}") || propertyRows < 0 || propertyRows > 8192
-                    || demographic == null || demographic.relatedFields().keySet().stream().filter(field -> field.table().equals("demographicExt")).count() != propertyRows * 8L)
-                throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_PHONE_PROJECTION_INVALID");
+            if (sourceManifestSha256 == null
+                    || !sourceManifestSha256.matches("[0-9a-f]{64}")
+                    || propertyRows < 0
+                    || propertyRows > 8192
+                    || demographic == null
+                    || demographic.relatedFields().keySet().stream()
+                                    .filter(field -> field.table().equals("demographicExt"))
+                                    .count()
+                            != propertyRows * 8L)
+                throw new IllegalArgumentException(
+                        "CDS_EXPORT_DEMOGRAPHIC_PHONE_PROJECTION_INVALID");
         }
-        @Override public String toString() { return "CdsExportDemographicPhoneProjectionService.Result[protected]"; }
+
+        @Override
+        public String toString() {
+            return "CdsExportDemographicPhoneProjectionService.Result[protected]";
+        }
     }
+
     private final CdsExportNativeCaptureService captures;
     private final CdsExportDemographicProjectionService demographic;
     private final CdsExportDemographicCaptureReader current;
     private final CdsExportCapturedTextRowsReader rows;
-    @Autowired public CdsExportDemographicPhoneProjectionService(CdsExportNativeCaptureService captures, CdsExportDemographicProjectionService demographic) {
-        this(captures, demographic, new CdsExportDemographicCaptureReader(captures), new CdsExportCapturedTextRowsReader(captures));
+
+    @Autowired
+    public CdsExportDemographicPhoneProjectionService(
+            CdsExportNativeCaptureService captures,
+            CdsExportDemographicProjectionService demographic) {
+        this(
+                captures,
+                demographic,
+                new CdsExportDemographicCaptureReader(captures),
+                new CdsExportCapturedTextRowsReader(captures));
     }
-    CdsExportDemographicPhoneProjectionService(CdsExportNativeCaptureService captures, CdsExportDemographicProjectionService demographic,
-            CdsExportDemographicCaptureReader current, CdsExportCapturedTextRowsReader rows) {
-        this.captures = Objects.requireNonNull(captures); this.demographic = Objects.requireNonNull(demographic);
-        this.current = Objects.requireNonNull(current); this.rows = Objects.requireNonNull(rows);
+
+    CdsExportDemographicPhoneProjectionService(
+            CdsExportNativeCaptureService captures,
+            CdsExportDemographicProjectionService demographic,
+            CdsExportDemographicCaptureReader current,
+            CdsExportCapturedTextRowsReader rows) {
+        this.captures = Objects.requireNonNull(captures);
+        this.demographic = Objects.requireNonNull(demographic);
+        this.current = Objects.requireNonNull(current);
+        this.rows = Objects.requireNonNull(rows);
     }
-    public Result project(CdsExportLeaseDto lease, CdsExportCohortService.Patient patient, Set<String> requiredTables,
-            CdsExportPatientCaptureDto source, CdsExportClinicalOccurrenceService.Bounds bounds, CdsExportRunControl control) throws IOException {
-        patient.require(lease); control.checkpoint(); var tables = Set.copyOf(requiredTables);
-        if (!tables.equals(source.capture().tables().keySet()) || !tables.containsAll(Set.of("demographic", "provider", "demographicExt"))) scope();
+
+    public Result project(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> requiredTables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control)
+            throws IOException {
+        patient.require(lease);
+        control.checkpoint();
+        var tables = Set.copyOf(requiredTables);
+        if (!tables.equals(source.capture().tables().keySet())
+                || !tables.containsAll(Set.of("demographic", "provider", "demographicExt")))
+            scope();
         if (source.capture().tables().get("demographicExt").rows() > bounds.nativeRows()) limit();
-        var base = demographic.project(lease, patient, tables, source.manifest(), bounds.fields(), bounds.bytes(), control);
-        var raw = current.read(lease, patient, tables, source.manifest(), bounds.fields(), bounds.bytes(), control);
-        var properties = new ArrayList<CdsExportCapturedTextRowDto>(); long[] bytes = {0};
-        var actual = rows.forEach(lease, patient, tables, "demographicExt", source.manifest(), bounds.fields(), bounds.bytes(),
-                1_048_576, control, row -> {
-                    control.checkpoint(); if (properties.size() >= bounds.nativeRows()) limit(); bytes[0] = Math.addExact(bytes[0], 2048L);
-                    for (String value : row.fields().values()) if (value != null) bytes[0] = Math.addExact(bytes[0], 32L + value.getBytes(StandardCharsets.UTF_8).length);
-                    if (bytes[0] > bounds.indexBytes()) limit(); properties.add(row);
-                });
-        if (!actual.equals(source.capture()) || properties.size() != source.capture().tables().get("demographicExt").rows()) scope();
-        var value = new CdsExportDemographicPhonesMapper().map(base, raw, properties, bounds.nativeRows(), bounds.indexBytes(), control::checkpoint);
+        var base =
+                demographic.project(
+                        lease,
+                        patient,
+                        tables,
+                        source.manifest(),
+                        bounds.fields(),
+                        bounds.bytes(),
+                        control);
+        var raw =
+                current.read(
+                        lease,
+                        patient,
+                        tables,
+                        source.manifest(),
+                        bounds.fields(),
+                        bounds.bytes(),
+                        control);
+        var properties = new ArrayList<CdsExportCapturedTextRowDto>();
+        long[] bytes = {0};
+        var actual =
+                rows.forEach(
+                        lease,
+                        patient,
+                        tables,
+                        "demographicExt",
+                        source.manifest(),
+                        bounds.fields(),
+                        bounds.bytes(),
+                        1_048_576,
+                        control,
+                        row -> {
+                            control.checkpoint();
+                            if (properties.size() >= bounds.nativeRows()) limit();
+                            bytes[0] = Math.addExact(bytes[0], 2048L);
+                            for (String value : row.fields().values())
+                                if (value != null)
+                                    bytes[0] =
+                                            Math.addExact(
+                                                    bytes[0],
+                                                    32L
+                                                            + value.getBytes(StandardCharsets.UTF_8)
+                                                                    .length);
+                            if (bytes[0] > bounds.indexBytes()) limit();
+                            properties.add(row);
+                        });
+        if (!actual.equals(source.capture())
+                || properties.size() != source.capture().tables().get("demographicExt").rows())
+            scope();
+        var value =
+                new CdsExportDemographicPhonesMapper()
+                        .map(
+                                base,
+                                raw,
+                                properties,
+                                bounds.nativeRows(),
+                                bounds.indexBytes(),
+                                control::checkpoint);
         var result = new Result(source.manifest().plaintextSha256(), properties.size(), value);
-        captures.authorizeSources(lease, patient, tables, control); patient.require(lease); control.checkpoint(); return result;
+        captures.authorizeSources(lease, patient, tables, control);
+        patient.require(lease);
+        control.checkpoint();
+        return result;
     }
-    private static void scope() throws IOException { throw new IOException("CDS_EXPORT_DEMOGRAPHIC_PHONE_PROJECTION_SCOPE_INVALID"); }
-    private static void limit() throws IOException { throw new IOException("CDS_EXPORT_DEMOGRAPHIC_PHONE_RESOURCE_LIMIT"); }
+
+    private static void scope() throws IOException {
+        throw new IOException("CDS_EXPORT_DEMOGRAPHIC_PHONE_PROJECTION_SCOPE_INVALID");
+    }
+
+    private static void limit() throws IOException {
+        throw new IOException("CDS_EXPORT_DEMOGRAPHIC_PHONE_RESOURCE_LIMIT");
+    }
 }

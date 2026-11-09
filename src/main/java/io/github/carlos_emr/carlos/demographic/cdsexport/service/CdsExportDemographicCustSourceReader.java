@@ -30,21 +30,47 @@ import org.springframework.stereotype.Service;
 public class CdsExportDemographicCustSourceReader extends CdsExportPatientTableSourceReader {
     private final DemographicCustDao source;
     private final boolean alerts;
+
     @org.springframework.beans.factory.annotation.Autowired
-    public CdsExportDemographicCustSourceReader(DemographicCustDao source) { this(source, true); }
+    public CdsExportDemographicCustSourceReader(DemographicCustDao source) {
+        this(source, true);
+    }
+
     private CdsExportDemographicCustSourceReader(DemographicCustDao source, boolean alerts) {
-        super(source, alerts ? CdsExportPatientTableReadSupport.Plan.DEMOGRAPHIC_CUST
+        super(
+                source,
+                alerts
+                        ? CdsExportPatientTableReadSupport.Plan.DEMOGRAPHIC_CUST
                         : CdsExportPatientTableReadSupport.Plan.DEMOGRAPHIC_CUST_DEMOGRAPHICS,
-                alerts ? java.util.Set.of(io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.DEMOGRAPHICS,
-                        io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.ALERTS_AND_SPECIAL_NEEDS)
-                        : java.util.Set.of(io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.DEMOGRAPHICS));
-        this.source = source; this.alerts = alerts;
+                alerts
+                        ? java.util.Set.of(
+                                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory
+                                        .DEMOGRAPHICS,
+                                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory
+                                        .ALERTS_AND_SPECIAL_NEEDS)
+                        : java.util.Set.of(
+                                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory
+                                        .DEMOGRAPHICS));
+        this.source = source;
+        this.alerts = alerts;
     }
-    @Override public CdsExportNativeSourceReader forRequest(io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand command) {
-        return new CdsExportDemographicCustSourceReader(source,
-                command.categories().contains(io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.ALERTS_AND_SPECIAL_NEEDS));
+
+    @Override
+    public CdsExportNativeSourceReader forRequest(
+            io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand command) {
+        return new CdsExportDemographicCustSourceReader(
+                source,
+                command.categories()
+                        .contains(
+                                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory
+                                        .ALERTS_AND_SPECIAL_NEEDS));
     }
-    @Override protected java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> page(int patient, Long after, int limit) {
-        return alerts ? source.findCdsExportRowsAfter(patient, after, limit) : source.findCdsExportDemographicRowsAfter(patient, after, limit);
+
+    @Override
+    protected java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> page(
+            int patient, Long after, int limit) {
+        return alerts
+                ? source.findCdsExportRowsAfter(patient, after, limit)
+                : source.findCdsExportDemographicRowsAfter(patient, after, limit);
     }
 }

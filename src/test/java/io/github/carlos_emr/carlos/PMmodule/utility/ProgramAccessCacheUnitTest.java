@@ -50,7 +50,8 @@ class ProgramAccessCacheUnitTest {
     private Map<String, Map> originalMaps;
     private MockedStatic<SpringUtils> spring;
 
-    @BeforeEach void bindIsolatedCache() {
+    @BeforeEach
+    void bindIsolatedCache() {
         spring = mockStatic(SpringUtils.class);
         spring.when(() -> SpringUtils.getBean(ProgramAccessDAO.class)).thenReturn(dao);
         originalDao = ProgramAccessCache.programAccessDAO;
@@ -60,24 +61,31 @@ class ProgramAccessCacheUnitTest {
         ProgramAccessCache.accessMaps = new ConcurrentHashMap<>();
     }
 
-    @AfterEach void restoreCache() {
+    @AfterEach
+    void restoreCache() {
         ProgramAccessCache.programAccessDAO = originalDao;
         ProgramAccessCache.accessMaps = originalMaps;
         spring.close();
     }
 
-    @Test void shouldPublishEveryRealMap_whenManyRequestsMissConcurrently() throws Exception {
+    @Test
+    void shouldPublishEveryRealMap_whenManyRequestsMissConcurrently() throws Exception {
         CountDownLatch start = new CountDownLatch(1);
-        when(dao.getAccessListByProgramId(anyLong())).thenAnswer(call -> {
-            assertThat(start.await(5, TimeUnit.SECONDS)).isTrue();
-            return List.of(access("program-" + call.getArgument(0)));
-        });
+        when(dao.getAccessListByProgramId(anyLong()))
+                .thenAnswer(
+                        call -> {
+                            assertThat(start.await(5, TimeUnit.SECONDS)).isTrue();
+                            return List.of(access("program-" + call.getArgument(0)));
+                        });
         try (var pool = Executors.newFixedThreadPool(8)) {
             List<Future<?>> results = new ArrayList<>();
             for (long id = 1; id <= 64; id++) {
                 final long program = id;
-                results.add(pool.submit(() -> assertThat(ProgramAccessCache.getAccessMap(program))
-                        .containsKey("program-" + program)));
+                results.add(
+                        pool.submit(
+                                () ->
+                                        assertThat(ProgramAccessCache.getAccessMap(program))
+                                                .containsKey("program-" + program)));
             }
             start.countDown();
             for (var result : results) result.get(10, TimeUnit.SECONDS);
@@ -85,25 +93,33 @@ class ProgramAccessCacheUnitTest {
         assertThat(ProgramAccessCache.accessMaps).hasSize(64);
     }
 
-    @Test void shouldKeepAMissUnpublishedAndRetryRealData_whenTheDatabaseReadFails() {
-        when(dao.getAccessListByProgramId(1L)).thenThrow(new IllegalStateException("maintenance"))
+    @Test
+    void shouldKeepAMissUnpublishedAndRetryRealData_whenTheDatabaseReadFails() {
+        when(dao.getAccessListByProgramId(1L))
+                .thenThrow(new IllegalStateException("maintenance"))
                 .thenReturn(List.of(access("real")));
-        assertThatThrownBy(() -> ProgramAccessCache.getAccessMap(1L)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> ProgramAccessCache.getAccessMap(1L))
+                .isInstanceOf(IllegalStateException.class);
         assertThat(ProgramAccessCache.accessMaps).isEmpty();
         assertThat(ProgramAccessCache.getAccessMap(1L)).containsKey("real");
     }
 
-    @Test void shouldPreserveAPriorMap_whenItsRefreshFails() {
-        when(dao.getAccessListByProgramId(1L)).thenReturn(List.of(access("prior")))
+    @Test
+    void shouldPreserveAPriorMap_whenItsRefreshFails() {
+        when(dao.getAccessListByProgramId(1L))
+                .thenReturn(List.of(access("prior")))
                 .thenThrow(new IllegalStateException("maintenance"));
         var prior = ProgramAccessCache.getAccessMap(1L);
-        assertThatThrownBy(() -> ProgramAccessCache.setAccessMap(1L)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> ProgramAccessCache.setAccessMap(1L))
+                .isInstanceOf(IllegalStateException.class);
         assertThat(ProgramAccessCache.getAccessMap(1L)).isSameAs(prior).containsKey("prior");
     }
 
     private static ProgramAccess access(String name) {
-        var type = new AccessType(); type.setName(name);
-        var access = new ProgramAccess(); access.setAccessType(type);
+        var type = new AccessType();
+        type.setName(name);
+        var access = new ProgramAccess();
+        access.setAccessType(type);
         return access;
     }
 }

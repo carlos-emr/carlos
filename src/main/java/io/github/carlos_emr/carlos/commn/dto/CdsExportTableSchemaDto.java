@@ -24,7 +24,18 @@ package io.github.carlos_emr.carlos.commn.dto;
 import java.util.List;
 
 /** Metadata-only source contract read through the owning patient snapshot and its metadata pins. */
-public record CdsExportTableSchemaDto(String table, String engine, List<Column> columns, List<String> primaryKeyColumns) {
-    public record Column(String name, String type, String nullable, String charset, String collation, String expression) { }
-    public CdsExportTableSchemaDto { columns = List.copyOf(columns); primaryKeyColumns = List.copyOf(primaryKeyColumns); }
+public record CdsExportTableSchemaDto(
+        String table, String engine, List<Column> columns, List<String> primaryKeyColumns) {
+    public record Column(
+            String name,
+            String type,
+            String nullable,
+            String charset,
+            String collation,
+            String expression) {}
+
+    public CdsExportTableSchemaDto {
+        columns = List.copyOf(columns);
+        primaryKeyColumns = List.copyOf(primaryKeyColumns);
+    }
 }

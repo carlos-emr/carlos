@@ -33,21 +33,58 @@ import java.time.temporal.ChronoUnit;
  * instants cannot be projected into a historical native civil clock using today's JVM zone.
  */
 final class CdsExportImmunizationDateProjection {
-    enum Kind{ABSENT, CALENDAR_MIDNIGHT_CANDIDATE, LOCAL_CLOCK, HISTORIC_ZONE_REQUIRED}
-    record Expected(Kind kind, String nativeAnchor, String originalHint, String precisionHint, String partialFormat){
-        @Override public String toString(){return "CdsExportImmunizationDateProjection.Expected[protected]"; }
+    enum Kind {
+        ABSENT,
+        CALENDAR_MIDNIGHT_CANDIDATE,
+        LOCAL_CLOCK,
+        HISTORIC_ZONE_REQUIRED
     }
-    private CdsExportImmunizationDateProjection(){}
-    static Expected expected(CdsTemporalDto source)throws IOException{
-        new CdsExportPreparedTemporalMapper().map(source, true);
-        Kind kind; String anchor;
-        switch (source.precision()){
-            case UNKNOWN-> {kind=Kind.ABSENT; anchor=null; }
-            case YEAR, MONTH, FULL_DATE-> {kind=Kind.CALENDAR_MIDNIGHT_CANDIDATE; anchor=source.earliest()+" 00:00:00"; }
-            case LOCAL_DATE_TIME-> {kind=Kind.LOCAL_CLOCK; anchor=source.localDateTime().truncatedTo(ChronoUnit.SECONDS).format(DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss")); }
-            case OFFSET_DATE_TIME-> {kind=Kind.HISTORIC_ZONE_REQUIRED; anchor=null; }
-            default-> throw new IOException("CDS_EXPORT_IMMUNIZATION_DATE_PROJECTION_UNSUPPORTED");
+
+    record Expected(
+            Kind kind,
+            String nativeAnchor,
+            String originalHint,
+            String precisionHint,
+            String partialFormat) {
+        @Override
+        public String toString() {
+            return "CdsExportImmunizationDateProjection.Expected[protected]";
         }
-        return new Expected(kind, anchor, source.original(), source.precision().name(), source.legacyPartialFormat());
+    }
+
+    private CdsExportImmunizationDateProjection() {}
+
+    static Expected expected(CdsTemporalDto source) throws IOException {
+        new CdsExportPreparedTemporalMapper().map(source, true);
+        Kind kind;
+        String anchor;
+        switch (source.precision()) {
+            case UNKNOWN -> {
+                kind = Kind.ABSENT;
+                anchor = null;
+            }
+            case YEAR, MONTH, FULL_DATE -> {
+                kind = Kind.CALENDAR_MIDNIGHT_CANDIDATE;
+                anchor = source.earliest() + " 00:00:00";
+            }
+            case LOCAL_DATE_TIME -> {
+                kind = Kind.LOCAL_CLOCK;
+                anchor =
+                        source.localDateTime()
+                                .truncatedTo(ChronoUnit.SECONDS)
+                                .format(DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss"));
+            }
+            case OFFSET_DATE_TIME -> {
+                kind = Kind.HISTORIC_ZONE_REQUIRED;
+                anchor = null;
+            }
+            default -> throw new IOException("CDS_EXPORT_IMMUNIZATION_DATE_PROJECTION_UNSUPPORTED");
+        }
+        return new Expected(
+                kind,
+                anchor,
+                source.original(),
+                source.precision().name(),
+                source.legacyPartialFormat());
     }
 }

@@ -29,10 +29,82 @@ import java.util.*;
 import org.junit.jupiter.api.Test;
 
 class CdsExportClinicalZoneUnitTest {
-    @Test void explicitRegionAndRulesVersionSurviveRecovery()throws Exception{var frozen=CdsExportClinicalZone.capture("America/Toronto"); assertThat(frozen.zoneId()).isEqualTo("America/Toronto"); assertThat(frozen.tzdbVersion()).isNotBlank(); assertThat(CdsExportClinicalZone.restore(frozen.zoneId(), frozen.tzdbVersion(), frozen.sha256())).isEqualTo(ZoneId.of("America/Toronto")); }
-    @Test void absentAndInvalidSettingsNeverBecomeTheJvmDefault(){for (String value:Arrays.asList(null, ""))assertThatThrownBy(()-> CdsExportClinicalZone.capture(value)).hasMessage("CDS_EXPORT_CLINICAL_ZONE_REQUIRED"); for (String value:List.of(" America/Toronto", "America/Toronto ", "Invalid/Unknown", "x".repeat(256)))assertThatThrownBy(()-> CdsExportClinicalZone.capture(value)).hasMessage("CDS_EXPORT_CLINICAL_ZONE_INVALID"); }
-    @Test void explicitFixedOffsetHasNoMutableRegionRulesDependency()throws Exception{var value=CdsExportClinicalZone.capture("+00:00"); assertThat(value.zoneId()).isEqualTo("Z"); assertThat(value.tzdbVersion()).isEqualTo("fixed.0"); assertThat(CdsExportClinicalZone.restore(value.zoneId(), value.tzdbVersion(), value.sha256())).isEqualTo(ZoneOffset.UTC); var prefixed=CdsExportClinicalZone.capture("UTC+05:30"); assertThat(prefixed.tzdbVersion()).isEqualTo("fixed.19800"); assertThat(CdsExportClinicalZone.restore(prefixed.zoneId(), prefixed.tzdbVersion(), prefixed.sha256())).isEqualTo(ZoneId.of("UTC+05:30")); }
-    @Test void aChangedCapturedZoneCannotBorrowAnotherSnapshotDigest()throws Exception{var frozen=CdsExportClinicalZone.capture("America/Toronto"); assertThatThrownBy(()-> CdsExportClinicalZone.restore("America/Vancouver", frozen.tzdbVersion(), frozen.sha256())).hasMessage("CDS_EXPORT_CLINICAL_ZONE_INVALID"); }
-    @Test void aGenuineOldVersionDigestCannotSilentlyAdoptCurrentTimezoneRules()throws Exception{String zone="America/Toronto", version="fixture-historic-1900"; String digest=HexFormat.of().formatHex(CdsImportKeys.digest().digest(("CDS_CLINICAL_ZONE_V1\0"+zone+"\0"+version).getBytes(StandardCharsets.US_ASCII))); assertThatThrownBy(()-> CdsExportClinicalZone.restore(zone, version, digest)).hasMessage("CDS_EXPORT_CLINICAL_ZONE_VERSION_REQUIRES_REVIEW"); }
-    @Test void trustedConfigurationHasAnExplicitContractAndNoPretendSqlPrimaryKey()throws Exception{var reader=new CdsExportClinicalZoneSourceReader("America/Toronto"); assertThat(reader.count(27)).isEqualTo(1); assertThat(new CdsExportClinicalZoneSourceReader(" America/Toronto ").count(27)).isEqualTo(1); assertThat(reader.schema().engine()).isEqualTo("TRUSTED_CONFIGURATION"); assertThat(reader.schema().primaryKeyColumns()).isEmpty(); assertThat(reader.receiptColumns()).isEmpty(); assertThat(new CdsExportSourceSchemaValidator().verify(reader.schema(), reader.columns())).matches("[0-9a-f]{64}"); assertThatThrownBy(()-> new CdsExportClinicalZoneSourceReader("").count(27)).isInstanceOf(java.io.UncheckedIOException.class).hasMessageContaining("CDS_EXPORT_CLINICAL_ZONE_REQUIRED"); }
+    @Test
+    void explicitRegionAndRulesVersionSurviveRecovery() throws Exception {
+        var frozen = CdsExportClinicalZone.capture("America/Toronto");
+        assertThat(frozen.zoneId()).isEqualTo("America/Toronto");
+        assertThat(frozen.tzdbVersion()).isNotBlank();
+        assertThat(
+                        CdsExportClinicalZone.restore(
+                                frozen.zoneId(), frozen.tzdbVersion(), frozen.sha256()))
+                .isEqualTo(ZoneId.of("America/Toronto"));
+    }
+
+    @Test
+    void absentAndInvalidSettingsNeverBecomeTheJvmDefault() {
+        for (String value : Arrays.asList(null, ""))
+            assertThatThrownBy(() -> CdsExportClinicalZone.capture(value))
+                    .hasMessage("CDS_EXPORT_CLINICAL_ZONE_REQUIRED");
+        for (String value :
+                List.of(" America/Toronto", "America/Toronto ", "Invalid/Unknown", "x".repeat(256)))
+            assertThatThrownBy(() -> CdsExportClinicalZone.capture(value))
+                    .hasMessage("CDS_EXPORT_CLINICAL_ZONE_INVALID");
+    }
+
+    @Test
+    void explicitFixedOffsetHasNoMutableRegionRulesDependency() throws Exception {
+        var value = CdsExportClinicalZone.capture("+00:00");
+        assertThat(value.zoneId()).isEqualTo("Z");
+        assertThat(value.tzdbVersion()).isEqualTo("fixed.0");
+        assertThat(
+                        CdsExportClinicalZone.restore(
+                                value.zoneId(), value.tzdbVersion(), value.sha256()))
+                .isEqualTo(ZoneOffset.UTC);
+        var prefixed = CdsExportClinicalZone.capture("UTC+05:30");
+        assertThat(prefixed.tzdbVersion()).isEqualTo("fixed.19800");
+        assertThat(
+                        CdsExportClinicalZone.restore(
+                                prefixed.zoneId(), prefixed.tzdbVersion(), prefixed.sha256()))
+                .isEqualTo(ZoneId.of("UTC+05:30"));
+    }
+
+    @Test
+    void aChangedCapturedZoneCannotBorrowAnotherSnapshotDigest() throws Exception {
+        var frozen = CdsExportClinicalZone.capture("America/Toronto");
+        assertThatThrownBy(
+                        () ->
+                                CdsExportClinicalZone.restore(
+                                        "America/Vancouver", frozen.tzdbVersion(), frozen.sha256()))
+                .hasMessage("CDS_EXPORT_CLINICAL_ZONE_INVALID");
+    }
+
+    @Test
+    void aGenuineOldVersionDigestCannotSilentlyAdoptCurrentTimezoneRules() throws Exception {
+        String zone = "America/Toronto", version = "fixture-historic-1900";
+        String digest =
+                HexFormat.of()
+                        .formatHex(
+                                CdsImportKeys.digest()
+                                        .digest(
+                                                ("CDS_CLINICAL_ZONE_V1\0" + zone + "\0" + version)
+                                                        .getBytes(StandardCharsets.US_ASCII)));
+        assertThatThrownBy(() -> CdsExportClinicalZone.restore(zone, version, digest))
+                .hasMessage("CDS_EXPORT_CLINICAL_ZONE_VERSION_REQUIRES_REVIEW");
+    }
+
+    @Test
+    void trustedConfigurationHasAnExplicitContractAndNoPretendSqlPrimaryKey() throws Exception {
+        var reader = new CdsExportClinicalZoneSourceReader("America/Toronto");
+        assertThat(reader.count(27)).isEqualTo(1);
+        assertThat(new CdsExportClinicalZoneSourceReader(" America/Toronto ").count(27))
+                .isEqualTo(1);
+        assertThat(reader.schema().engine()).isEqualTo("TRUSTED_CONFIGURATION");
+        assertThat(reader.schema().primaryKeyColumns()).isEmpty();
+        assertThat(reader.receiptColumns()).isEmpty();
+        assertThat(new CdsExportSourceSchemaValidator().verify(reader.schema(), reader.columns()))
+                .matches("[0-9a-f]{64}");
+        assertThatThrownBy(() -> new CdsExportClinicalZoneSourceReader("").count(27))
+                .isInstanceOf(java.io.UncheckedIOException.class)
+                .hasMessageContaining("CDS_EXPORT_CLINICAL_ZONE_REQUIRED");
+    }
 }

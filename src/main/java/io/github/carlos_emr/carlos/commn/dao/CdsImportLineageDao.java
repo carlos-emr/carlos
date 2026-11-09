@@ -28,12 +28,30 @@ import org.springframework.stereotype.Repository;
 /** Data access for one protected CDS import table; orchestration belongs in services. */
 @Repository
 public class CdsImportLineageDao extends AbstractDaoImpl<CdsImportLineage> {
-    public CdsImportLineageDao() { super(CdsImportLineage.class); }
-    public CdsImportLineage lock(String id) { return entityManager.find(CdsImportLineage.class, id, LockModeType.PESSIMISTIC_WRITE); }
-    public CdsImportLineage get(String id) { return entityManager.find(CdsImportLineage.class, id); }
-    public void flushAndClear() { entityManager.flush(); entityManager.clear(); }
+    public CdsImportLineageDao() {
+        super(CdsImportLineage.class);
+    }
+
+    public CdsImportLineage lock(String id) {
+        return entityManager.find(CdsImportLineage.class, id, LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    public CdsImportLineage get(String id) {
+        return entityManager.find(CdsImportLineage.class, id);
+    }
+
+    public void flushAndClear() {
+        entityManager.flush();
+        entityManager.clear();
+    }
+
     public long boundTargets(java.util.Collection<String> lineageKeys) {
         if (lineageKeys.isEmpty()) return 0;
-        return entityManager.createQuery("select count(c) from CdsImportLineage c where c.id in :keys and c.targetDemographicNo is not null", Long.class).setParameter("keys", lineageKeys).getSingleResult();
+        return entityManager
+                .createQuery(
+                        "select count(c) from CdsImportLineage c where c.id in :keys and c.targetDemographicNo is not null",
+                        Long.class)
+                .setParameter("keys", lineageKeys)
+                .getSingleResult();
     }
 }

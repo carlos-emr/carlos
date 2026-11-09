@@ -32,18 +32,55 @@ import org.springframework.stereotype.Service;
 public class CdsExportPreventionScopeSourceReader extends CdsExportPatientTableSourceReader {
     private final CdsExportPreventionAccessService access;
     private final PreventionDao source;
-    public CdsExportPreventionScopeSourceReader(PreventionDao source, CdsExportPreventionAccessService access){
-        super(source, CdsExportPatientTableReadSupport.Plan.PREVENTION_SCOPE, Set.of(CdsCategory.IMMUNIZATIONS)); this.access=java.util.Objects.requireNonNull(access); this.source=java.util.Objects.requireNonNull(source);
+
+    public CdsExportPreventionScopeSourceReader(
+            PreventionDao source, CdsExportPreventionAccessService access) {
+        super(
+                source,
+                CdsExportPatientTableReadSupport.Plan.PREVENTION_SCOPE,
+                Set.of(CdsCategory.IMMUNIZATIONS));
+        this.access = java.util.Objects.requireNonNull(access);
+        this.source = java.util.Objects.requireNonNull(source);
     }
-    @Override public long count(int patient){requireSnapshotScope(patient); return super.count(patient); }
-    @Override public void capture(int patient, CdsExportNativeCaptureComposer.Writer output)throws java.io.IOException{requireSnapshotScope(patient); super.capture(patient, output); }
-    private void requireSnapshotScope(int patient){
-        if (source.hasCdsExportUnresolvedProgramScope(patient))throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException(
-            io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException.Reason.PREVENTION_PROGRAM_SCOPE);
+
+    @Override
+    public long count(int patient) {
+        requireSnapshotScope(patient);
+        return super.count(patient);
     }
-    @Override public String table(){return "preventions_scope"; }
-    @Override public void authorizeReadScope(int patient, CdsExportRunControl control){access.requireUnrestricted(patient); control.checkpoint(); }
-    @Override public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> receiptColumns(){
-        return super.receiptColumns().stream().filter(column-> columns().contains(column.name())).toList();
+
+    @Override
+    public void capture(int patient, CdsExportNativeCaptureComposer.Writer output)
+            throws java.io.IOException {
+        requireSnapshotScope(patient);
+        super.capture(patient, output);
+    }
+
+    private void requireSnapshotScope(int patient) {
+        if (source.hasCdsExportUnresolvedProgramScope(patient))
+            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                    .CdsExportReviewException(
+                    io.github.carlos_emr.carlos.demographic.cdsexport.support
+                            .CdsExportReviewException.Reason.PREVENTION_PROGRAM_SCOPE);
+    }
+
+    @Override
+    public String table() {
+        return "preventions_scope";
+    }
+
+    @Override
+    public void authorizeReadScope(int patient, CdsExportRunControl control) {
+        access.requireUnrestricted(patient);
+        control.checkpoint();
+    }
+
+    @Override
+    public java.util.List<
+                    io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column>
+            receiptColumns() {
+        return super.receiptColumns().stream()
+                .filter(column -> columns().contains(column.name()))
+                .toList();
     }
 }

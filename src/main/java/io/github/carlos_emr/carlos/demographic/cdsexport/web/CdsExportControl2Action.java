@@ -34,42 +34,71 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 /** POST-only controls bind to an observed revision under the ledger row lock. */
-@Component("cdsExportControl2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+@Component("cdsExportControl2Action")
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class CdsExportControl2Action extends ActionSupport {
     private final transient SecurityInfoManager securityInfoManager;
     private final transient CdsExportWebService web;
     private final transient CdsExportService exports;
     private String runId, operation;
     private long expectedRevision = -1;
-    public CdsExportControl2Action(CdsExportWebService web, CdsExportService exports, SecurityInfoManager securityInfoManager) {
-        this.web = web; this.exports = exports; this.securityInfoManager = securityInfoManager;
+
+    public CdsExportControl2Action(
+            CdsExportWebService web,
+            CdsExportService exports,
+            SecurityInfoManager securityInfoManager) {
+        this.web = web;
+        this.exports = exports;
+        this.securityInfoManager = securityInfoManager;
     }
-    @Override public String execute() throws Exception {
-        var request = ServletActionContext.getRequest(); var response = ServletActionContext.getResponse();
+
+    @Override
+    public String execute() throws Exception {
+        var request = ServletActionContext.getRequest();
+        var response = ServletActionContext.getResponse();
         if (!"POST".equals(request.getMethod())) {
-            response.setHeader("Allow", "POST"); response.sendError(405); return NONE;
+            response.setHeader("Allow", "POST");
+            response.sendError(405);
+            return NONE;
         }
         try {
-        var session = request.getSession(false);
-        var viewer = session == null ? null : LoggedInInfo.getLoggedInInfoFromSession(session);
-        if (!securityInfoManager.hasPrivilege(viewer, "_demographic", "r", (String) null)
-                || !(securityInfoManager.hasPrivilege(viewer, "_admin", "w", (String) null)
-                || securityInfoManager.hasPrivilege(viewer, "_cds_export", "w", (String) null))) {
-            throw new SecurityException("CDS_EXPORT_ACCESS_DENIED");
-        }
+            var session = request.getSession(false);
+            var viewer = session == null ? null : LoggedInInfo.getLoggedInInfoFromSession(session);
+            if (!securityInfoManager.hasPrivilege(viewer, "_demographic", "r", (String) null)
+                    || !(securityInfoManager.hasPrivilege(viewer, "_admin", "w", (String) null)
+                            || securityInfoManager.hasPrivilege(
+                                    viewer, "_cds_export", "w", (String) null))) {
+                throw new SecurityException("CDS_EXPORT_ACCESS_DENIED");
+            }
             var actor = web.authorize(request);
             web.parameters(request, Set.of("runId", "operation", "expectedRevision"), false);
-            if (expectedRevision < 0) throw new IllegalArgumentException("CDS_EXPORT_REVISION_REQUIRED");
-            var job = switch (operation == null ? "" : operation) {
-                case "cancel" -> exports.cancel(actor, runId, expectedRevision);
-                case "resume" -> exports.resume(actor, runId, expectedRevision);
-                default -> throw new IllegalArgumentException("CDS_EXPORT_CONTROL_INVALID");
-            };
+            if (expectedRevision < 0)
+                throw new IllegalArgumentException("CDS_EXPORT_REVISION_REQUIRED");
+            var job =
+                    switch (operation == null ? "" : operation) {
+                        case "cancel" -> exports.cancel(actor, runId, expectedRevision);
+                        case "resume" -> exports.resume(actor, runId, expectedRevision);
+                        default -> throw new IllegalArgumentException("CDS_EXPORT_CONTROL_INVALID");
+                    };
             web.json(response, 200, Map.of("ok", true, "job", web.job(job)));
-        } catch (Exception failure) { web.failure(response, failure); }
+        } catch (Exception failure) {
+            web.failure(response, failure);
+        }
         return NONE;
     }
-    @StrutsParameter public void setRunId(String value) { runId = value; }
-    @StrutsParameter public void setOperation(String value) { operation = value; }
-    @StrutsParameter public void setExpectedRevision(long value) { expectedRevision = value; }
+
+    @StrutsParameter
+    public void setRunId(String value) {
+        runId = value;
+    }
+
+    @StrutsParameter
+    public void setOperation(String value) {
+        operation = value;
+    }
+
+    @StrutsParameter
+    public void setExpectedRevision(long value) {
+        expectedRevision = value;
+    }
 }

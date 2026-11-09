@@ -70,7 +70,7 @@ jobs:
           # Keep findings non-blocking, as before; execution errors and absent
           # evidence must not silently become a successful security scan.
           set +e
-          semgrep ci --strict --timeout 30 --sarif --output semgrep.sarif
+          semgrep ci --no-suppress-errors --timeout 30 --sarif --output semgrep.sarif
           status=$?
           set -e
           if [ "$status" -gt 1 ]; then
@@ -81,6 +81,9 @@ jobs:
             echo "::error::Semgrep CI produced no SARIF evidence."
             exit 1
           fi
+
+      - name: Verify Semgrep execution-evidence guard
+        run: python3 -m unittest discover -s scripts/ci -p test_check_semgrep_complete.py -v
 
       # Runs every rule in .semgrep/, not just the JSP one. The CRLF and path
       # traversal rules are sanitizer-aware replacements for built-ins that
@@ -122,6 +125,14 @@ jobs:
       - name: Filter suppressed CARLOS Semgrep SARIF results
         if: always() && steps.run_semgrep_carlos.outcome != 'skipped' && hashFiles('semgrep-carlos.sarif') != ''
         run: python3 scripts/filter_suppressed_sarif.py semgrep-carlos.sarif
+
+      - name: Refuse partial Semgrep Cloud execution
+        if: always() && steps.run_semgrep.outcome != 'skipped' && hashFiles('semgrep.sarif') != ''
+        run: python3 scripts/ci/check-semgrep-complete.py semgrep.sarif
+
+      - name: Refuse partial CARLOS rule execution
+        if: always() && steps.run_semgrep_carlos.outcome != 'skipped' && hashFiles('semgrep-carlos.sarif') != ''
+        run: python3 scripts/ci/check-semgrep-complete.py semgrep-carlos.sarif
 
       # Diagnostics only: retain the existing scanner, filtering and upload outcomes.
       # Never log finding messages, metavariables, source snippets or the full SARIF.

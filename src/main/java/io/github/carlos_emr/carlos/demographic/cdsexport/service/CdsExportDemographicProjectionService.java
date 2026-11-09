@@ -38,35 +38,102 @@ public class CdsExportDemographicProjectionService {
     private final CdsExportNativeCaptureService captures;
     private final CdsExportDemographicCaptureReader demographic;
     private final CdsExportCapturedTextRowsReader rows;
+
     public CdsExportDemographicProjectionService(CdsExportNativeCaptureService captures) {
-        this.captures = java.util.Objects.requireNonNull(captures); demographic = new CdsExportDemographicCaptureReader(captures);
+        this.captures = java.util.Objects.requireNonNull(captures);
+        demographic = new CdsExportDemographicCaptureReader(captures);
         rows = new CdsExportCapturedTextRowsReader(captures);
     }
+
     /** Base and note inputs share the exact protected manifest; this does not complete other demographic sources. */
-    public CdsExportDemographicNoteProjectionDto projectWithPatientNote(CdsExportLeaseDto lease, CdsExportCohortService.Patient patient,
-            Set<String> requiredTables, CdsExportStagedFileDto manifest, long maximumFields, long maximumBytes, CdsExportRunControl control) throws IOException {
-        var base = project(lease, patient, requiredTables, manifest, maximumFields, maximumBytes, control);
-        var note = new CdsExportPatientNoteProjectionReader(captures).read(lease, patient, requiredTables, manifest, maximumFields, maximumBytes, control);
-        if (!note.sourceManifestSha256().equals(manifest.plaintextSha256())) throw new IOException("CDS_EXPORT_DEMOGRAPHIC_NOTE_GENERATION_MISMATCH");
-        captures.authorizeSources(lease, patient, requiredTables, control); patient.require(lease); control.checkpoint();
-        return new CdsExportDemographicNoteProjectionDto(manifest.plaintextSha256(), base, note.rows(), note.value());
+    public CdsExportDemographicNoteProjectionDto projectWithPatientNote(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> requiredTables,
+            CdsExportStagedFileDto manifest,
+            long maximumFields,
+            long maximumBytes,
+            CdsExportRunControl control)
+            throws IOException {
+        var base =
+                project(
+                        lease,
+                        patient,
+                        requiredTables,
+                        manifest,
+                        maximumFields,
+                        maximumBytes,
+                        control);
+        var note =
+                new CdsExportPatientNoteProjectionReader(captures)
+                        .read(
+                                lease,
+                                patient,
+                                requiredTables,
+                                manifest,
+                                maximumFields,
+                                maximumBytes,
+                                control);
+        if (!note.sourceManifestSha256().equals(manifest.plaintextSha256()))
+            throw new IOException("CDS_EXPORT_DEMOGRAPHIC_NOTE_GENERATION_MISMATCH");
+        captures.authorizeSources(lease, patient, requiredTables, control);
+        patient.require(lease);
+        control.checkpoint();
+        return new CdsExportDemographicNoteProjectionDto(
+                manifest.plaintextSha256(), base, note.rows(), note.value());
     }
-    public CdsExportDemographicMappingDto project(CdsExportLeaseDto lease, CdsExportCohortService.Patient patient,
-            Set<String> requiredTables, CdsExportStagedFileDto manifest, long maximumFields, long maximumBytes, CdsExportRunControl control) throws IOException {
-        if (!requiredTables.containsAll(Set.of("demographic", "provider"))) throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_PROVIDER_INPUTS_REQUIRED");
-        var base = demographic.read(lease, patient, requiredTables, manifest, maximumFields, maximumBytes, control);
-        String id = base.fields().get("provider_no"); var match = new CdsExportCapturedTextRowDto[1];
-        rows.forEach(lease, patient, requiredTables, "provider", manifest, maximumFields, maximumBytes, 65_536, control, row -> {
-            control.checkpoint();
-            if (!row.fields().keySet().equals(CdsExportProviderRowDto.COLUMNS) || row.fields().get("provider_no") == null
-                    || !CdsExportPublicProviderSourceReader.key(row.fields().get("provider_no")).equals(row.recordKey())) {
-                throw new IOException("CDS_EXPORT_PUBLIC_PROVIDER_CAPTURE_SCOPE_INVALID");
-            }
-            if (id != null && !id.isEmpty() && id.equals(row.fields().get("provider_no"))) {
-                if (match[0] != null) throw new IOException("CDS_EXPORT_DEMOGRAPHIC_PROVIDER_SCOPE_INVALID"); match[0] = row;
-            }
-        });
+
+    public CdsExportDemographicMappingDto project(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> requiredTables,
+            CdsExportStagedFileDto manifest,
+            long maximumFields,
+            long maximumBytes,
+            CdsExportRunControl control)
+            throws IOException {
+        if (!requiredTables.containsAll(Set.of("demographic", "provider")))
+            throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_PROVIDER_INPUTS_REQUIRED");
+        var base =
+                demographic.read(
+                        lease,
+                        patient,
+                        requiredTables,
+                        manifest,
+                        maximumFields,
+                        maximumBytes,
+                        control);
+        String id = base.fields().get("provider_no");
+        var match = new CdsExportCapturedTextRowDto[1];
+        rows.forEach(
+                lease,
+                patient,
+                requiredTables,
+                "provider",
+                manifest,
+                maximumFields,
+                maximumBytes,
+                65_536,
+                control,
+                row -> {
+                    control.checkpoint();
+                    if (!row.fields().keySet().equals(CdsExportProviderRowDto.COLUMNS)
+                            || row.fields().get("provider_no") == null
+                            || !CdsExportPublicProviderSourceReader.key(
+                                            row.fields().get("provider_no"))
+                                    .equals(row.recordKey())) {
+                        throw new IOException("CDS_EXPORT_PUBLIC_PROVIDER_CAPTURE_SCOPE_INVALID");
+                    }
+                    if (id != null && !id.isEmpty() && id.equals(row.fields().get("provider_no"))) {
+                        if (match[0] != null)
+                            throw new IOException("CDS_EXPORT_DEMOGRAPHIC_PROVIDER_SCOPE_INVALID");
+                        match[0] = row;
+                    }
+                });
         var result = new CdsExportDemographicMapper().map(base, match[0]);
-        captures.authorizeSources(lease, patient, requiredTables, control); patient.require(lease); control.checkpoint(); return result;
+        captures.authorizeSources(lease, patient, requiredTables, control);
+        patient.require(lease);
+        control.checkpoint();
+        return result;
     }
 }

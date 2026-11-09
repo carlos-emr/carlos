@@ -51,13 +51,16 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
     void shouldExcludeInvalidPatients_whenBuildingBulkTicklers() {
         assertThat(EctViewConsultationRequestsUtil.isTicklerDemographic(null)).isFalse();
         for (String value : List.of("", " ", "0", "-1", "unknown", "1&demo=2")) {
-            assertThat(EctViewConsultationRequestsUtil.isTicklerDemographic(value)).as(value).isFalse();
+            assertThat(EctViewConsultationRequestsUtil.isTicklerDemographic(value))
+                    .as(value)
+                    .isFalse();
         }
         assertThat(EctViewConsultationRequestsUtil.isTicklerDemographic("42")).isTrue();
     }
 
     @Test
-    @DisplayName("should send the patient and suggested message under the names the Add Tickler form reads")
+    @DisplayName(
+            "should send the patient and suggested message under the names the Add Tickler form reads")
     void shouldBuildOverdueTicklerPath_withParametersTheFormReads() {
         String path = EctViewConsultationRequestsUtil.overdueTicklerPath("/carlos", "42");
 
@@ -68,7 +71,8 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         assertThat(parameters)
                 .containsOnlyKeys("demographic_no", "ticklerMessage")
                 .containsEntry("demographic_no", "42")
-                .containsEntry("ticklerMessage", EctViewConsultationRequestsUtil.OVERDUE_TICKLER_MESSAGE);
+                .containsEntry(
+                        "ticklerMessage", EctViewConsultationRequestsUtil.OVERDUE_TICKLER_MESSAGE);
     }
 
     @Test
@@ -77,16 +81,22 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         String path = EctViewConsultationRequestsUtil.overdueTicklerPath("", "7");
 
         // Quotes, spaces and the ampersand-free sentence must decode to exactly what was suggested.
-        assertThat(queryParameters(path)).containsEntry("ticklerMessage",
-                "Patient has Consultation Letter with a status of 'Nothing Done' for over one week");
+        assertThat(queryParameters(path))
+                .containsEntry(
+                        "ticklerMessage",
+                        "Patient has Consultation Letter with a status of 'Nothing Done' for over one week");
         assertThat(path).doesNotContain(" ").doesNotContain("'");
     }
 
     @Test
-    @DisplayName("should refuse to build a tickler path for a patient that cannot receive a tickler")
+    @DisplayName(
+            "should refuse to build a tickler path for a patient that cannot receive a tickler")
     void shouldRejectOverdueTicklerPath_forInvalidPatient() {
         for (String value : new String[] {null, "", "0", "-3", "abc", "1&demographic_no=2"}) {
-            assertThatThrownBy(() -> EctViewConsultationRequestsUtil.overdueTicklerPath("/carlos", value))
+            assertThatThrownBy(
+                            () ->
+                                    EctViewConsultationRequestsUtil.overdueTicklerPath(
+                                            "/carlos", value))
                     .as(String.valueOf(value))
                     .isInstanceOf(IllegalArgumentException.class);
         }
@@ -96,12 +106,12 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         Map<String, String> parameters = new LinkedHashMap<>();
         for (String pair : path.substring(path.indexOf('?') + 1).split("&")) {
             int equals = pair.indexOf('=');
-            parameters.put(URLDecoder.decode(pair.substring(0, equals), StandardCharsets.UTF_8),
+            parameters.put(
+                    URLDecoder.decode(pair.substring(0, equals), StandardCharsets.UTF_8),
                     URLDecoder.decode(pair.substring(equals + 1), StandardCharsets.UTF_8));
         }
         return parameters;
     }
-
 
     private ConsultationRequestDao requests;
     private ConsultationRequestExtDao extensions;
@@ -125,28 +135,61 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
     }
 
     private ConsultationListFilterDto filter() {
-        return new ConsultationListFilterDto("team", true, null, null, "6", "1", "0", 0, 50, 8, "101");
+        return new ConsultationListFilterDto(
+                "team", true, null, null, "6", "1", "0", 0, 50, 8, "101");
     }
 
-    private ConsultationListRow row(Integer id, Integer demographic, Integer service, String mrp, Integer specialist) {
-        return new ConsultationListRow(id, "1", demographic, "alias", "201", service, service, null, specialist, " Smith ", null,
-                mrp, "Lovelace", "Ada", null, "site", "team", null,
-                java.sql.Date.valueOf("2097-03-14"), null, null, null);
+    private ConsultationListRow row(
+            Integer id, Integer demographic, Integer service, String mrp, Integer specialist) {
+        return new ConsultationListRow(
+                id,
+                "1",
+                demographic,
+                "alias",
+                "201",
+                service,
+                service,
+                null,
+                specialist,
+                " Smith ",
+                null,
+                mrp,
+                "Lovelace",
+                "Ada",
+                null,
+                "site",
+                "team",
+                null,
+                java.sql.Date.valueOf("2097-03-14"),
+                null,
+                null,
+                null);
     }
 
     @Test
     void shouldBatchLookups_forManyRowsWithRepeatedPatientAndProvider() {
-        when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(1, 42, 0, "101", null), row(2, 42, 0, "101", 8)));
-        when(demographics.getDemographicFormattedNames(info, Set.of(42))).thenReturn(Map.of(42, "Doe, Jane"));
-        ProviderSummaryDTO ordering = new ProviderSummaryDTO("201", "Order", "Pat", null, null, null);
-        when(providers.getProviderSummariesByIds(Set.of("201"))).thenReturn(Map.of("201", ordering));
+        when(requests.getConsultationListRows(filter()))
+                .thenReturn(List.of(row(1, 42, 0, "101", null), row(2, 42, 0, "101", 8)));
+        when(demographics.getDemographicFormattedNames(info, Set.of(42)))
+                .thenReturn(Map.of(42, "Doe, Jane"));
+        ProviderSummaryDTO ordering =
+                new ProviderSummaryDTO("201", "Order", "Pat", null, null, null);
+        when(providers.getProviderSummariesByIds(Set.of("201")))
+                .thenReturn(Map.of("201", ordering));
         ConsultationRequestExt service = new ConsultationRequestExt();
-        service.setRequestId(1); service.setKey("ereferral_service"); service.setValue("Cardiology");
+        service.setRequestId(1);
+        service.setKey("ereferral_service");
+        service.setValue("Cardiology");
         ConsultationRequestExt specialist = new ConsultationRequestExt();
-        specialist.setRequestId(1); specialist.setKey("ereferral_doctor"); specialist.setValue("Referral doctor");
+        specialist.setRequestId(1);
+        specialist.setKey("ereferral_doctor");
+        specialist.setValue("Referral doctor");
         ConsultationRequestExt ref = new ConsultationRequestExt();
-        ref.setRequestId(1); ref.setKey("ereferral_ref"); ref.setValue(null);
-        when(extensions.getConsultationRequestExts(List.of(1, 2))).thenReturn(List.of(service, specialist, ref));
+        ref.setRequestId(1);
+        ref.setKey("ereferral_ref");
+        ref.setValue(null);
+        when(extensions.getConsultationRequestExts(List.of(1, 2)))
+                .thenReturn(List.of(service, specialist, ref));
 
         assertThat(util.estConsultationVecByTeam(info, filter())).isTrue();
         assertThat(util.ids).containsExactly("1", "2");
@@ -171,7 +214,8 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldKeepOrphanedRows_whenRelatedRecordsAreMissing() {
-        when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(7, null, null, null, null), row(8, 42, null, null, null)));
+        when(requests.getConsultationListRows(filter()))
+                .thenReturn(List.of(row(7, null, null, null, null), row(8, 42, null, null, null)));
         assertThat(util.estConsultationVecByTeam(info, filter())).isTrue();
         assertThat(util.ids).containsExactly("7", "8");
         assertThat(util.demographicNo).containsExactly("", "42");
@@ -184,7 +228,8 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldKeepPatientChartFallbacks_whenServiceAndMrpAreMissing() {
-        when(requests.getConsultationListRows(42)).thenReturn(List.of(row(7, 42, null, null, null)));
+        when(requests.getConsultationListRows(42))
+                .thenReturn(List.of(row(7, 42, null, null, null)));
         assertThat(util.estConsultationVecByDemographic(info, "42")).isTrue();
         assertThat(util.ids).containsExactly("7");
         assertThat(util.service).containsExactly("unknown");
@@ -194,8 +239,10 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldPublishNoRows_whenPatientReadIsDenied() {
-        when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(7, 42, null, null, null)));
-        when(demographics.getDemographicFormattedNames(info, Set.of(42))).thenThrow(new SecurityException("denied"));
+        when(requests.getConsultationListRows(filter()))
+                .thenReturn(List.of(row(7, 42, null, null, null)));
+        when(demographics.getDemographicFormattedNames(info, Set.of(42)))
+                .thenThrow(new SecurityException("denied"));
         assertThat(util.estConsultationVecByTeam(info, filter())).isFalse();
         assertThat(util.ids).isEmpty();
         assertThat(util.patient).isEmpty();
@@ -212,18 +259,25 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldPreserveFilters_forPositionalOverload() {
         util.estConsultationVecByTeam(info, "team", true, null, null, "2", "1", "1", 10, 20);
-        verify(requests).getConsultationListRows(new ConsultationListFilterDto("team", true, null, null,
-                "2", "1", "1", 10, 20, null, null));
+        verify(requests)
+                .getConsultationListRows(
+                        new ConsultationListFilterDto(
+                                "team", true, null, null, "2", "1", "1", 10, 20, null, null));
     }
+
     @Test
     void shouldPreserveFirstAndLastExtensionSelection_forChartAndTeamLists() {
         var row = row(7, 42, 0, null, null);
         when(requests.getConsultationListRows(filter())).thenReturn(List.of(row));
         when(requests.getConsultationListRows(42)).thenReturn(List.of(row));
         var first = new ConsultationRequestExt();
-        first.setRequestId(7); first.setKey("ereferral_service"); first.setValue("First service");
+        first.setRequestId(7);
+        first.setKey("ereferral_service");
+        first.setValue("First service");
         var last = new ConsultationRequestExt();
-        last.setRequestId(7); last.setKey("ereferral_service"); last.setValue("Last service");
+        last.setRequestId(7);
+        last.setKey("ereferral_service");
+        last.setValue("Last service");
         when(extensions.getConsultationRequestExts(List.of(7))).thenReturn(List.of(first, last));
         assertThat(util.estConsultationVecByTeam(info, filter())).isTrue();
         assertThat(util.service).containsExactly("Last service");
@@ -233,23 +287,28 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldRetainNullDescription_whenServiceRecordExists() {
-        when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(7, 42, 5, null, null)));
+        when(requests.getConsultationListRows(filter()))
+                .thenReturn(List.of(row(7, 42, 5, null, null)));
         assertThat(util.estConsultationVecByTeam(info, filter())).isTrue();
         assertThat(util.service).containsExactly((String) null);
     }
 
     @ParameterizedTest(name = "[{index}] last={0}, first={1} -> \"{2}\"")
-    @CsvSource(value = {
-            "Smith     | Jane     | Smith, Jane",
-            "Smith     | NULL     | Smith",
-            "NULL      | Jane     | Jane",
-            "NULL      | NULL     | ''",
-            "'  '      | '  '     | ''",
-            "' Smith ' | ' Jane ' | Smith, Jane"
-    }, delimiter = '|', nullValues = "NULL")
+    @CsvSource(
+            value = {
+                "Smith     | Jane     | Smith, Jane",
+                "Smith     | NULL     | Smith",
+                "NULL      | Jane     | Jane",
+                "NULL      | NULL     | ''",
+                "'  '      | '  '     | ''",
+                "' Smith ' | ' Jane ' | Smith, Jane"
+            },
+            delimiter = '|',
+            nullValues = "NULL")
     @DisplayName("should omit missing specialist name parts")
-    void shouldOmitMissingParts_whenFormattingSpecialistName(String last, String first, String expected) {
-        assertThat(
-                EctViewConsultationRequestsUtil.formatSpecialistName(last, first)).isEqualTo(expected);
+    void shouldOmitMissingParts_whenFormattingSpecialistName(
+            String last, String first, String expected) {
+        assertThat(EctViewConsultationRequestsUtil.formatSpecialistName(last, first))
+                .isEqualTo(expected);
     }
 }

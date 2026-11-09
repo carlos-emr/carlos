@@ -31,32 +31,59 @@ import java.util.Locale;
 /** Bounded path/collision accounting, using component order so a file and its descendants are adjacent. */
 public final class CdsExportPackagePaths {
     private List<String> previous;
+
     public byte[] accept(String relative) throws IOException {
         List<String> key = canonicalParts(relative);
         if (previous != null) {
-            int common = 0; while (common < Math.min(previous.size(), key.size())
+            int common = 0;
+            while (common < Math.min(previous.size(), key.size())
                     && previous.get(common).equals(key.get(common))) common++;
-            if (common == previous.size() || common == key.size()
+            if (common == previous.size()
+                    || common == key.size()
                     || previous.get(common).compareTo(key.get(common)) >= 0) {
                 throw new IOException("CDS_EXPORT_PACKAGE_PATH_COLLISION_OR_ORDER");
             }
         }
-        previous = key; return relative.getBytes(StandardCharsets.UTF_8);
+        previous = key;
+        return relative.getBytes(StandardCharsets.UTF_8);
     }
+
     /** Same component collation for encrypted external sorting and final collision/order checks. */
     static List<String> canonicalParts(String relative) throws IOException {
-        if (relative == null || relative.isEmpty() || relative.length() > 8192 || relative.startsWith("/")
-                || relative.endsWith("/") || relative.indexOf('\\') >= 0
-                || relative.codePoints().anyMatch(c -> Character.isISOControl(c) || c >= 0xd800 && c <= 0xdfff
-                        || c == 0xfffe || c == 0xffff || "<>:\"|?*".indexOf(c) >= 0)) {
+        if (relative == null
+                || relative.isEmpty()
+                || relative.length() > 8192
+                || relative.startsWith("/")
+                || relative.endsWith("/")
+                || relative.indexOf('\\') >= 0
+                || relative.codePoints()
+                        .anyMatch(
+                                c ->
+                                        Character.isISOControl(c)
+                                                || c >= 0xd800 && c <= 0xdfff
+                                                || c == 0xfffe
+                                                || c == 0xffff
+                                                || "<>:\"|?*".indexOf(c) >= 0)) {
             throw new IOException("CDS_EXPORT_PACKAGE_PATH_INVALID");
         }
         List<String> parts = Arrays.asList(relative.split("/", -1));
-        if (parts.size() > 128 || parts.stream().anyMatch(p -> p.isEmpty() || p.equals(".") || p.equals("..")
-                || p.endsWith(".") || !p.equals(p.strip()) || p.matches("(?i)(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\\..*)?"))) {
+        if (parts.size() > 128
+                || parts.stream()
+                        .anyMatch(
+                                p ->
+                                        p.isEmpty()
+                                                || p.equals(".")
+                                                || p.equals("..")
+                                                || p.endsWith(".")
+                                                || !p.equals(p.strip())
+                                                || p.matches(
+                                                        "(?i)(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\\..*)?"))) {
             throw new IOException("CDS_EXPORT_PACKAGE_PATH_INVALID");
         }
-        if (relative.getBytes(StandardCharsets.UTF_8).length > 65535) throw new IOException("CDS_EXPORT_PACKAGE_PATH_INVALID");
-        return parts.stream().map(p -> Normalizer.normalize(p, Normalizer.Form.NFC).toLowerCase(Locale.ROOT)).toList();
+        if (relative.getBytes(StandardCharsets.UTF_8).length > 65535)
+            throw new IOException("CDS_EXPORT_PACKAGE_PATH_INVALID");
+        return parts.stream()
+                .map(p -> Normalizer.normalize(p, Normalizer.Form.NFC).toLowerCase(Locale.ROOT))
+                .toList();
     }
 }

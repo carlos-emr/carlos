@@ -45,86 +45,218 @@ final class CdsExportDocumentInputStream extends InputStream {
     private PosixFileAttributes fileIdentity;
     private long delivered;
     private boolean closed, failed, verified;
-    CdsExportDocumentInputStream(Path root, String filename, long maximumBytes, Runnable checkpoint) throws IOException {
-        this.checkpoint = Objects.requireNonNull(checkpoint); checkpoint.run();
+
+    CdsExportDocumentInputStream(Path root, String filename, long maximumBytes, Runnable checkpoint)
+            throws IOException {
+        this.checkpoint = Objects.requireNonNull(checkpoint);
+        checkpoint.run();
         try {
-            if (root == null || !root.isAbsolute() || !root.equals(root.normalize()) || maximumBytes < 1 || filename == null
-                    || filename.isEmpty() || filename.length() > 1024 || filename.contains("\\") || filename.contains(":")
+            if (root == null
+                    || !root.isAbsolute()
+                    || !root.equals(root.normalize())
+                    || maximumBytes < 1
+                    || filename == null
+                    || filename.isEmpty()
+                    || filename.length() > 1024
+                    || filename.contains("\\")
+                    || filename.contains(":")
                     || filename.codePoints().anyMatch(Character::isISOControl)) invalid();
             Path relative = Path.of(filename);
-            if (relative.isAbsolute() || !relative.equals(relative.normalize()) || !relative.toString().equals(filename)
-                    || relative.getNameCount() > 16 || relative.startsWith("..")) invalid();
-            for (Path part : relative) if (part.toString().equals(".") || part.toString().equals("..") || part.toString().length() > 255) invalid();
+            if (relative.isAbsolute()
+                    || !relative.equals(relative.normalize())
+                    || !relative.toString().equals(filename)
+                    || relative.getNameCount() > 16
+                    || relative.startsWith("..")) invalid();
+            for (Path part : relative)
+                if (part.toString().equals(".")
+                        || part.toString().equals("..")
+                        || part.toString().length() > 255) invalid();
             for (Path cursor = root; cursor != null; cursor = cursor.getParent()) {
-                var view = Files.getFileAttributeView(cursor, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
-                var attributes = view.readAttributes(); trusted(attributes, true); views.add(view); identities.add(attributes);
+                var view =
+                        Files.getFileAttributeView(
+                                cursor, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+                var attributes = view.readAttributes();
+                trusted(attributes, true);
+                views.add(view);
+                identities.add(attributes);
             }
-            var stream = Files.newDirectoryStream(root); directories.add(stream);
+            var stream = Files.newDirectoryStream(root);
+            directories.add(stream);
             if (!(stream instanceof SecureDirectoryStream<Path> secured)) invalid();
-            @SuppressWarnings("unchecked") var current = (SecureDirectoryStream<Path>) stream;
+            @SuppressWarnings("unchecked")
+            var current = (SecureDirectoryStream<Path>) stream;
             for (int i = 0; i < relative.getNameCount() - 1; i++) {
-                Path part = relative.getName(i); var view = current.getFileAttributeView(part, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
-                var attributes = view.readAttributes(); trusted(attributes, true); views.add(view); identities.add(attributes);
-                var next = current.newDirectoryStream(part, LinkOption.NOFOLLOW_LINKS); directories.add(next); current = next;
+                Path part = relative.getName(i);
+                var view =
+                        current.getFileAttributeView(
+                                part, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+                var attributes = view.readAttributes();
+                trusted(attributes, true);
+                views.add(view);
+                identities.add(attributes);
+                var next = current.newDirectoryStream(part, LinkOption.NOFOLLOW_LINKS);
+                directories.add(next);
+                current = next;
             }
-            Path name = relative.getFileName(); fileView = current.getFileAttributeView(name, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
-            fileIdentity = fileView.readAttributes(); trusted(fileIdentity, false);
-            if (fileIdentity.size() < 0 || fileIdentity.size() > maximumBytes || fileIdentity.fileKey() == null) invalid();
-            channel = current.newByteChannel(name, Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS));
-            if (channel.size() != fileIdentity.size()) invalid(); stable();
+            Path name = relative.getFileName();
+            fileView =
+                    current.getFileAttributeView(
+                            name, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+            fileIdentity = fileView.readAttributes();
+            trusted(fileIdentity, false);
+            if (fileIdentity.size() < 0
+                    || fileIdentity.size() > maximumBytes
+                    || fileIdentity.fileKey() == null) invalid();
+            channel =
+                    current.newByteChannel(
+                            name, Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS));
+            if (channel.size() != fileIdentity.size()) invalid();
+            stable();
         } catch (IOException | RuntimeException failure) {
-            failed = true; try { closeHandles(); } catch (IOException ignored) { }
+            failed = true;
+            try {
+                closeHandles();
+            } catch (IOException ignored) {
+            }
             throw new IOException("CDS_EXPORT_DOCUMENT_SOURCE_UNAVAILABLE");
         } catch (Error failure) {
-            failed = true; try { closeHandles(); } catch (IOException cleanup) { failure.addSuppressed(cleanup); } throw failure;
+            failed = true;
+            try {
+                closeHandles();
+            } catch (IOException cleanup) {
+                failure.addSuppressed(cleanup);
+            }
+            throw failure;
         }
     }
-    private static void trusted(PosixFileAttributes attributes, boolean directory) throws IOException {
+
+    private static void trusted(PosixFileAttributes attributes, boolean directory)
+            throws IOException {
         String account = new UnixSystem().getUsername();
-        if (attributes.isSymbolicLink() || (directory ? !attributes.isDirectory() : !attributes.isRegularFile())
-                || !("root".equals(attributes.owner().getName()) || account.equals(attributes.owner().getName()))
-                || attributes.permissions().contains(PosixFilePermission.GROUP_WRITE) || attributes.permissions().contains(PosixFilePermission.OTHERS_WRITE)) invalid();
+        if (attributes.isSymbolicLink()
+                || (directory ? !attributes.isDirectory() : !attributes.isRegularFile())
+                || !("root".equals(attributes.owner().getName())
+                        || account.equals(attributes.owner().getName()))
+                || attributes.permissions().contains(PosixFilePermission.GROUP_WRITE)
+                || attributes.permissions().contains(PosixFilePermission.OTHERS_WRITE)) invalid();
     }
+
     private void stable() throws IOException {
         for (int i = 0; i < views.size(); i++) {
-            var actual = views.get(i).readAttributes(); trusted(actual, true);
+            var actual = views.get(i).readAttributes();
+            trusted(actual, true);
             if (!Objects.equals(actual.fileKey(), identities.get(i).fileKey())) invalid();
         }
-        var actual = fileView.readAttributes(); trusted(actual, false);
-        if (!Objects.equals(actual.fileKey(), fileIdentity.fileKey()) || actual.size() != fileIdentity.size()
-                || !actual.lastModifiedTime().equals(fileIdentity.lastModifiedTime()) || channel.size() != fileIdentity.size()) invalid();
+        var actual = fileView.readAttributes();
+        trusted(actual, false);
+        if (!Objects.equals(actual.fileKey(), fileIdentity.fileKey())
+                || actual.size() != fileIdentity.size()
+                || !actual.lastModifiedTime().equals(fileIdentity.lastModifiedTime())
+                || channel.size() != fileIdentity.size()) invalid();
     }
-    @Override public int read() throws IOException { byte[] one = new byte[1]; int count = read(one, 0, 1); return count == -1 ? -1 : one[0] & 255; }
-    @Override public int read(byte[] bytes, int offset, int length) throws IOException {
+
+    @Override
+    public int read() throws IOException {
+        byte[] one = new byte[1];
+        int count = read(one, 0, 1);
+        return count == -1 ? -1 : one[0] & 255;
+    }
+
+    @Override
+    public int read(byte[] bytes, int offset, int length) throws IOException {
         try {
-            Objects.checkFromIndexSize(offset, length, bytes.length); requireActive(); checkpoint.run(); if (length == 0) return 0;
+            Objects.checkFromIndexSize(offset, length, bytes.length);
+            requireActive();
+            checkpoint.run();
+            if (length == 0) return 0;
             if (delivered == fileIdentity.size()) {
-                if (!verified) { if (channel.read(ByteBuffer.allocate(1)) != -1) invalid(); stable(); checkpoint.run(); verified = true; }
+                if (!verified) {
+                    if (channel.read(ByteBuffer.allocate(1)) != -1) invalid();
+                    stable();
+                    checkpoint.run();
+                    verified = true;
+                }
                 return -1;
             }
-            int count = channel.read(ByteBuffer.wrap(bytes, offset, (int) Math.min(Math.min(length, 65536), fileIdentity.size() - delivered)));
-            if (count < 1) invalid(); delivered += count; return count;
-        } catch (IOException failure) { failed = true; throw new IOException("CDS_EXPORT_DOCUMENT_SOURCE_CHANGED_OR_UNSAFE"); }
-        catch (RuntimeException | Error failure) { failed = true; throw failure; }
+            int count =
+                    channel.read(
+                            ByteBuffer.wrap(
+                                    bytes,
+                                    offset,
+                                    (int)
+                                            Math.min(
+                                                    Math.min(length, 65536),
+                                                    fileIdentity.size() - delivered)));
+            if (count < 1) invalid();
+            delivered += count;
+            return count;
+        } catch (IOException failure) {
+            failed = true;
+            throw new IOException("CDS_EXPORT_DOCUMENT_SOURCE_CHANGED_OR_UNSAFE");
+        } catch (RuntimeException | Error failure) {
+            failed = true;
+            throw failure;
+        }
     }
-    private void requireActive() throws IOException { if (closed || failed || Thread.currentThread() != owner) invalid(); }
-    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+
+    private void requireActive() throws IOException {
+        if (closed || failed || Thread.currentThread() != owner) invalid();
+    }
+
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that
+    // failure.
     @SuppressWarnings("java:S1143")
-    @Override public void close() throws IOException {
-        if (closed) return; Throwable primary = null;
+    @Override
+    public void close() throws IOException {
+        if (closed) return;
+        Throwable primary = null;
         try {
             if (!failed) {
-                requireActive(); if (!verified) { byte[] buffer = new byte[65536]; try { while (read(buffer) != -1) { } } finally { Arrays.fill(buffer, (byte) 0); } }
-                stable(); checkpoint.run();
+                requireActive();
+                if (!verified) {
+                    byte[] buffer = new byte[65536];
+                    try {
+                        while (read(buffer) != -1) {}
+                    } finally {
+                        Arrays.fill(buffer, (byte) 0);
+                    }
+                }
+                stable();
+                checkpoint.run();
             }
-        } catch (IOException | RuntimeException | Error failure) { primary = failure; throw failure; }
-        finally { closed = true; try { closeHandles(); } catch (IOException cleanup) { if (primary != null) primary.addSuppressed(cleanup); else throw cleanup; } }
+        } catch (IOException | RuntimeException | Error failure) {
+            primary = failure;
+            throw failure;
+        } finally {
+            closed = true;
+            try {
+                closeHandles();
+            } catch (IOException cleanup) {
+                if (primary != null) primary.addSuppressed(cleanup);
+                else throw cleanup;
+            }
+        }
     }
+
     private void closeHandles() throws IOException {
         IOException failure = null;
-        if (channel != null) try { channel.close(); } catch (IOException problem) { failure = problem; }
-        for (var directory : directories.reversed()) try { directory.close(); } catch (IOException problem) { if (failure == null) failure = problem; else failure.addSuppressed(problem); }
+        if (channel != null)
+            try {
+                channel.close();
+            } catch (IOException problem) {
+                failure = problem;
+            }
+        for (var directory : directories.reversed())
+            try {
+                directory.close();
+            } catch (IOException problem) {
+                if (failure == null) failure = problem;
+                else failure.addSuppressed(problem);
+            }
         if (failure != null) throw failure;
     }
-    private static void invalid() throws IOException { throw new IOException("CDS_EXPORT_DOCUMENT_SOURCE_CHANGED_OR_UNSAFE"); }
+
+    private static void invalid() throws IOException {
+        throw new IOException("CDS_EXPORT_DOCUMENT_SOURCE_CHANGED_OR_UNSAFE");
+    }
 }

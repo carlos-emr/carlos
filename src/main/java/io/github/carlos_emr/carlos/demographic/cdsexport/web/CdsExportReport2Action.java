@@ -32,22 +32,42 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 /** Authorized metadata diagnostics for every saved outcome, including failed and review-required jobs. */
-@Component("cdsExportReport2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+@Component("cdsExportReport2Action")
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class CdsExportReport2Action extends ActionSupport {
     private final transient CdsExportWebService web;
     private final transient CdsExportService exports;
     private String runId;
-    public CdsExportReport2Action(CdsExportWebService web, CdsExportService exports) { this.web = web; this.exports = exports; }
-    @Override public String execute() throws Exception {
-        var request = ServletActionContext.getRequest(); var response = ServletActionContext.getResponse();
-        if (!"POST".equals(request.getMethod())) { response.setHeader("Allow", "POST"); response.sendError(405); return NONE; }
+
+    public CdsExportReport2Action(CdsExportWebService web, CdsExportService exports) {
+        this.web = web;
+        this.exports = exports;
+    }
+
+    @Override
+    public String execute() throws Exception {
+        var request = ServletActionContext.getRequest();
+        var response = ServletActionContext.getResponse();
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(405);
+            return NONE;
+        }
         try {
-            var viewer = web.authorize(request); web.parameters(request, Set.of("runId"), false);
+            var viewer = web.authorize(request);
+            web.parameters(request, Set.of("runId"), false);
             var report = exports.report(viewer, runId);
-            response.setHeader("Content-Disposition", "attachment; filename=\"cds-export-diagnostic.json\"");
+            response.setHeader(
+                    "Content-Disposition", "attachment; filename=\"cds-export-diagnostic.json\"");
             web.json(response, 200, Map.of("ok", true, "report", report));
-        } catch (Exception failed) { web.failure(response, failed); }
+        } catch (Exception failed) {
+            web.failure(response, failed);
+        }
         return NONE;
     }
-    @StrutsParameter public void setRunId(String value) { runId = value; }
+
+    @StrutsParameter
+    public void setRunId(String value) {
+        runId = value;
+    }
 }

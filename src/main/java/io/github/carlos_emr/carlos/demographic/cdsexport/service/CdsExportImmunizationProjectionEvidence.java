@@ -35,37 +35,99 @@ import java.util.*;
  * preparation fields mean no extension was written; they do not mean a SQL-NULL child row.
  */
 final class CdsExportImmunizationProjectionEvidence {
-    private CdsExportImmunizationProjectionEvidence(){}
-    static Map<String, String> expectedExtensions(CdsImmunizationDto value)throws IOException{
-        Objects.requireNonNull(value); new CdsExportPreparedTemporalMapper().map(value.date(), true);
-        var result=new LinkedHashMap<String, String>();
-        result.put("manufacture", value.manufacturer()); result.put("lot", value.lot()); result.put("route", value.route()); result.put("location", value.site()); result.put("dose", value.dose());
-        result.put("comments", value.notes()); result.put("instructions", value.instructions()); result.put("cdsDateOriginal", value.date().original()); result.put("cdsDatePrecision", value.date().precision().name());
-        result.put("cdsCode", value.code()); result.put("cdsCodeSystem", value.codeSystem()); result.put("cdsType", value.type()); result.put("cdsName", value.name());
+    private CdsExportImmunizationProjectionEvidence() {}
+
+    static Map<String, String> expectedExtensions(CdsImmunizationDto value) throws IOException {
+        Objects.requireNonNull(value);
+        new CdsExportPreparedTemporalMapper().map(value.date(), true);
+        var result = new LinkedHashMap<String, String>();
+        result.put("manufacture", value.manufacturer());
+        result.put("lot", value.lot());
+        result.put("route", value.route());
+        result.put("location", value.site());
+        result.put("dose", value.dose());
+        result.put("comments", value.notes());
+        result.put("instructions", value.instructions());
+        result.put("cdsDateOriginal", value.date().original());
+        result.put("cdsDatePrecision", value.date().precision().name());
+        result.put("cdsCode", value.code());
+        result.put("cdsCodeSystem", value.codeSystem());
+        result.put("cdsType", value.type());
+        result.put("cdsName", value.name());
         return Collections.unmodifiableMap(result);
     }
-    static boolean matches(CdsNativeRowState state, String column, String expected)throws IOException{
-        int at=-1; for (int i=0; i<state.columns().size(); i++)if (state.columns().get(i).name().equals(column))at=i;
-        if (at<0)scope(); var cell=state.cells().get(at);
-        if (CdsExactNumeric.codec(state.columns().get(at).type())!=null||cell.exactNumeric()!=null)scope();
-        if (expected==null)return cell.sqlNull(); byte[] bytes=expected.getBytes(StandardCharsets.UTF_8);
-        return !cell.sqlNull()&&cell.bytes()==bytes.length&&cell.sha256().equals(HexFormat.of().formatHex(io.github.carlos_emr.carlos.utility.CdsImportKeys.digest().digest(bytes)));
+
+    static boolean matches(CdsNativeRowState state, String column, String expected)
+            throws IOException {
+        int at = -1;
+        for (int i = 0; i < state.columns().size(); i++)
+            if (state.columns().get(i).name().equals(column)) at = i;
+        if (at < 0) scope();
+        var cell = state.cells().get(at);
+        if (CdsExactNumeric.codec(state.columns().get(at).type()) != null
+                || cell.exactNumeric() != null) scope();
+        if (expected == null) return cell.sqlNull();
+        byte[] bytes = expected.getBytes(StandardCharsets.UTF_8);
+        return !cell.sqlNull()
+                && cell.bytes() == bytes.length
+                && cell.sha256()
+                        .equals(
+                                HexFormat.of()
+                                        .formatHex(
+                                                io.github.carlos_emr.carlos.utility.CdsImportKeys
+                                                        .digest()
+                                                        .digest(bytes)));
     }
+
     /** Receipt identity stays physical partial_date; source-field identity keeps its explicit prevention alias. */
-    static void verifyCurrent(CdsExportCapturedTextRowDto row, CdsExportNativeRowReceiptDto receipt)throws IOException{
-        if (row==null||receipt==null||receipt.state()==null||!row.exactNumbers().isEmpty())scope();
-        var columns=switch (row.table()){
-            case "preventions"-> CdsExportPatientTableReadSupport.Plan.PREVENTIONS_FULL.columns();
-            case "preventionsExt"-> CdsExportPatientTableReadSupport.Plan.PREVENTIONS_EXT.columns();
-            case "prevention_precision"-> CdsExportPatientTableReadSupport.Plan.PREVENTION_PRECISION.columns();
-            default-> throw new IOException("CDS_EXPORT_IMMUNIZATION_PROJECTION_EVIDENCE_INVALID");
-        };
-        String physical=row.table().equals("prevention_precision")?"partial_date":row.table(), id=row.fields().get("id");
-        try {int number=Integer.parseInt(id); if (!Integer.toString(number).equals(id)||!CdsExportPatientTableSourceReader.key(number).equals(row.recordKey()))scope(); }catch (NumberFormatException invalid){scope(); }
-        if (!row.fields().keySet().equals(Set.copyOf(columns))||!receipt.table().equals(physical)||!receipt.id().equals(id)||!receipt.recordKey().equals(row.recordKey())||receipt.partial()
-                ||!receipt.state().table().equals(physical)||!receipt.state().id().equals(id)||!receipt.state().digest().equals(receipt.digest())
-                ||!row.fields().keySet().equals(Set.copyOf(receipt.state().columns().stream().map(CdsNativeRowDigest.Column::name).toList())))scope();
-        for (var column:receipt.state().columns())if (!matches(receipt.state(), column.name(), row.fields().get(column.name())))scope();
+    static void verifyCurrent(CdsExportCapturedTextRowDto row, CdsExportNativeRowReceiptDto receipt)
+            throws IOException {
+        if (row == null
+                || receipt == null
+                || receipt.state() == null
+                || !row.exactNumbers().isEmpty()) scope();
+        var columns =
+                switch (row.table()) {
+                    case "preventions" ->
+                            CdsExportPatientTableReadSupport.Plan.PREVENTIONS_FULL.columns();
+                    case "preventionsExt" ->
+                            CdsExportPatientTableReadSupport.Plan.PREVENTIONS_EXT.columns();
+                    case "prevention_precision" ->
+                            CdsExportPatientTableReadSupport.Plan.PREVENTION_PRECISION.columns();
+                    default ->
+                            throw new IOException(
+                                    "CDS_EXPORT_IMMUNIZATION_PROJECTION_EVIDENCE_INVALID");
+                };
+        String physical = row.table().equals("prevention_precision") ? "partial_date" : row.table(),
+                id = row.fields().get("id");
+        try {
+            int number = Integer.parseInt(id);
+            if (!Integer.toString(number).equals(id)
+                    || !CdsExportPatientTableSourceReader.key(number).equals(row.recordKey()))
+                scope();
+        } catch (NumberFormatException invalid) {
+            scope();
+        }
+        if (!row.fields().keySet().equals(Set.copyOf(columns))
+                || !receipt.table().equals(physical)
+                || !receipt.id().equals(id)
+                || !receipt.recordKey().equals(row.recordKey())
+                || receipt.partial()
+                || !receipt.state().table().equals(physical)
+                || !receipt.state().id().equals(id)
+                || !receipt.state().digest().equals(receipt.digest())
+                || !row.fields()
+                        .keySet()
+                        .equals(
+                                Set.copyOf(
+                                        receipt.state().columns().stream()
+                                                .map(CdsNativeRowDigest.Column::name)
+                                                .toList()))) scope();
+        for (var column : receipt.state().columns())
+            if (!matches(receipt.state(), column.name(), row.fields().get(column.name()))) scope();
     }
-    private static void scope()throws IOException{throw new IOException("CDS_EXPORT_IMMUNIZATION_PROJECTION_EVIDENCE_INVALID"); }
+
+    private static void scope() throws IOException {
+        throw new IOException("CDS_EXPORT_IMMUNIZATION_PROJECTION_EVIDENCE_INVALID");
+    }
 }

@@ -27,27 +27,67 @@ import java.util.List;
 import java.util.Set;
 
 /** Exact external personal-contact wire values; source association/history and retained reconciliation are separate evidence. */
-public record CdsExportPersonalContactDto(String sourceRecordKey, String firstName, String lastName, List<Purpose> purposes,
-        List<CdsExportDemographicMappingDto.Phone> phones, String email, String note) {
-    public static final Set<String> PURPOSE_CODES = Set.of("EC", "NK", "AS", "CG", "PA", "IN", "GT", "SDM");
+public record CdsExportPersonalContactDto(
+        String sourceRecordKey,
+        String firstName,
+        String lastName,
+        List<Purpose> purposes,
+        List<CdsExportDemographicMappingDto.Phone> phones,
+        String email,
+        String note) {
+    public static final Set<String> PURPOSE_CODES =
+            Set.of("EC", "NK", "AS", "CG", "PA", "IN", "GT", "SDM");
+
     public record Purpose(boolean coded, String value) {
         public Purpose {
-            if (value == null || value.isEmpty() || !text(value, 50) || coded && !PURPOSE_CODES.contains(value))
+            if (value == null
+                    || value.isEmpty()
+                    || !text(value, 50)
+                    || coded && !PURPOSE_CODES.contains(value))
                 throw new IllegalArgumentException("CDS_EXPORT_CONTACT_PURPOSE_INVALID");
         }
-        @Override public String toString() { return "ContactPurpose[protected]"; }
+
+        @Override
+        public String toString() {
+            return "ContactPurpose[protected]";
+        }
     }
+
     public CdsExportPersonalContactDto {
-        purposes = List.copyOf(purposes); phones = List.copyOf(phones);
-        if (sourceRecordKey == null || !sourceRecordKey.matches("[0-9]{20}") || firstName == null && lastName == null
-                || firstName != null && !text(firstName, 50) || lastName != null && !text(lastName, 50)
-                || purposes.size() > 8192 || phones.size() > 3 || phones.stream().map(CdsExportDemographicMappingDto.Phone::type).distinct().count() != phones.size()
-                || email != null && (email.codePointCount(0, email.length()) > 50 || !CdsExportEmailLexical.matches(email))
-                || note != null && !text(note, 200)) throw new IllegalArgumentException("CDS_EXPORT_CONTACT_VALUES_INVALID");
+        purposes = List.copyOf(purposes);
+        phones = List.copyOf(phones);
+        if (sourceRecordKey == null
+                || !sourceRecordKey.matches("[0-9]{20}")
+                || firstName == null && lastName == null
+                || firstName != null && !text(firstName, 50)
+                || lastName != null && !text(lastName, 50)
+                || purposes.size() > 8192
+                || phones.size() > 3
+                || phones.stream()
+                                .map(CdsExportDemographicMappingDto.Phone::type)
+                                .distinct()
+                                .count()
+                        != phones.size()
+                || email != null
+                        && (email.codePointCount(0, email.length()) > 50
+                                || !CdsExportEmailLexical.matches(email))
+                || note != null && !text(note, 200))
+            throw new IllegalArgumentException("CDS_EXPORT_CONTACT_VALUES_INVALID");
     }
+
     private static boolean text(String value, int maximum) {
-        return value.codePointCount(0, value.length()) <= maximum && value.codePoints().noneMatch(code -> code < 0x20 && code != '\t' && code != '\r' && code != '\n'
-                || code >= 0xd800 && code <= 0xdfff || code == 0xfffe || code == 0xffff);
+        return value.codePointCount(0, value.length()) <= maximum
+                && value.codePoints()
+                        .noneMatch(
+                                code ->
+                                        code < 0x20 && code != '\t' && code != '\r' && code != '\n'
+                                                || code >= 0xd800 && code <= 0xdfff
+                                                || code == 0xfffe
+                                                || code == 0xffff);
     }
-    @Override public String toString() { return "CdsExportPersonalContactDto[protected]"; }
+
+    @Override
+    public String toString() {
+        return "CdsExportPersonalContactDto[protected]";
+    }
 }

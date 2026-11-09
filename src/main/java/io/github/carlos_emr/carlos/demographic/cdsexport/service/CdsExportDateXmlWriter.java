@@ -26,22 +26,36 @@ import java.io.IOException;
 
 /** One pinned date-choice encoding; each standard destination explicitly permits or forbids clock precision. */
 final class CdsExportDateXmlWriter {
-    private CdsExportDateXmlWriter() { }
-    static void write(CdsExportXmlComposer.ContentWriter xml, String name, CdsExportDateDto date, boolean permitsClock) throws IOException {
+    private CdsExportDateXmlWriter() {}
+
+    static void write(
+            CdsExportXmlComposer.ContentWriter xml,
+            String name,
+            CdsExportDateDto date,
+            boolean permitsClock)
+            throws IOException {
         if (date.precision() == CdsExportDateDto.Precision.ABSENT) return;
-        xml.start("cds", name); content(xml, date, permitsClock); xml.end();
+        xml.start("cds", name);
+        content(xml, date, permitsClock);
+        xml.end();
     }
-    static void content(CdsExportXmlComposer.ContentWriter xml, CdsExportDateDto date, boolean permitsClock) throws IOException {
-        String child = switch (date.precision()) {
-            case YEAR -> "YearOnly";
-            case YEAR_MONTH -> "YearMonth";
-            case DATE -> "FullDate";
-            case DATE_TIME -> {
-                if (!permitsClock) throw new IOException("CDS_EXPORT_DATE_CLOCK_NOT_ALLOWED");
-                yield "FullDateTime";
-            }
-            case ABSENT -> throw new IllegalStateException("CDS_EXPORT_NATIVE_DATE_INVALID");
-        };
+
+    static void content(
+            CdsExportXmlComposer.ContentWriter xml, CdsExportDateDto date, boolean permitsClock)
+            throws IOException {
+        String child =
+                switch (date.precision()) {
+                    case YEAR -> "YearOnly";
+                    case YEAR_MONTH -> "YearMonth";
+                    case DATE -> "FullDate";
+                    case DATE_TIME -> {
+                        if (!permitsClock)
+                            throw new IOException("CDS_EXPORT_DATE_CLOCK_NOT_ALLOWED");
+                        yield "FullDateTime";
+                    }
+                    case ABSENT ->
+                            throw new IllegalStateException("CDS_EXPORT_NATIVE_DATE_INVALID");
+                };
         xml.element("cds_dt", child, date.lexical());
     }
 }

@@ -34,35 +34,80 @@ import java.util.Set;
  */
 public interface CdsExportNativeSourceReader {
     /** Categories this registered reader can serve before its immutable request projection is made. */
-    default Set<CdsCategory> supportedCategories() { return categories(); }
+    default Set<CdsCategory> supportedCategories() {
+        return categories();
+    }
+
     /** Immutable request-specific projection. Unselected category payloads must not enter source capture. */
-    default CdsExportNativeSourceReader forRequest(io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand command) { return this; }
+    default CdsExportNativeSourceReader forRequest(
+            io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand command) {
+        return this;
+    }
+
     /**
      * Immutable patient scope prepared after category authorization and before the source
      * transaction. A dependency-scoped reader must compare its prepared identities with the
      * actual source snapshot before reading payloads. Never retain this scope on a singleton.
      */
-    default CdsExportNativeSourceReader forCapture(int patient, io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl control) throws IOException { return this; }
-    /** Exact note dependencies carried in the authenticated manifest, never saved permission grants. */
-    default java.util.List<io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto> noteAccess() { return java.util.List.of(); }
-    /** Additional live fact-scope checks, after ordinary category/patient rights and outside the captured source transaction. */
-    default void authorizeReadScope(int patient, io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl control) { }
-    /** Explicit evidence dependencies; selection cannot omit a configuration/parent/lookup required by this reader. */
-    default Set<String> requiredTables(){return Set.of(); }
-    String table();
-    Set<String> columns();
-    Set<CdsCategory> categories();
-    /** True when this projection can contain retained sensitive laboratory content without per-row classification. */
-    default boolean requiresSensitiveLaboratoryRead() { return false; }
-    /** No inference from SQL type strings: only actual ordered driver metadata can reproduce a historical receipt. */
-    default java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> receiptColumns() { return java.util.List.of(); }
-    CdsExportTableSchemaDto schema();
-    long count(int patient);
-    /** Bounded pre-capture discovery uses the same cancellation/ownership control as value streaming. */
-    default long count(int patient, Runnable checkpoint){return count(patient); }
-    /** Bounded source/file work can observe cancellation before a row is emitted. */
-    default void capture(int patient, CdsExportNativeCaptureComposer.Writer output, Runnable checkpoint)throws IOException {
-        java.util.Objects.requireNonNull(checkpoint).run(); capture(patient, output); checkpoint.run();
+    default CdsExportNativeSourceReader forCapture(
+            int patient,
+            io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl control)
+            throws IOException {
+        return this;
     }
+
+    /** Exact note dependencies carried in the authenticated manifest, never saved permission grants. */
+    default java.util.List<
+                    io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto>
+            noteAccess() {
+        return java.util.List.of();
+    }
+
+    /** Additional live fact-scope checks, after ordinary category/patient rights and outside the captured source transaction. */
+    default void authorizeReadScope(
+            int patient,
+            io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl control) {}
+
+    /** Explicit evidence dependencies; selection cannot omit a configuration/parent/lookup required by this reader. */
+    default Set<String> requiredTables() {
+        return Set.of();
+    }
+
+    String table();
+
+    Set<String> columns();
+
+    Set<CdsCategory> categories();
+
+    /** True when this projection can contain retained sensitive laboratory content without per-row classification. */
+    default boolean requiresSensitiveLaboratoryRead() {
+        return false;
+    }
+
+    /** No inference from SQL type strings: only actual ordered driver metadata can reproduce a historical receipt. */
+    default java.util.List<
+                    io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column>
+            receiptColumns() {
+        return java.util.List.of();
+    }
+
+    CdsExportTableSchemaDto schema();
+
+    long count(int patient);
+
+    /** Bounded pre-capture discovery uses the same cancellation/ownership control as value streaming. */
+    default long count(int patient, Runnable checkpoint) {
+        return count(patient);
+    }
+
+    /** Bounded source/file work can observe cancellation before a row is emitted. */
+    default void capture(
+            int patient, CdsExportNativeCaptureComposer.Writer output, Runnable checkpoint)
+            throws IOException {
+        java.util.Objects.requireNonNull(checkpoint).run();
+        capture(patient, output);
+        checkpoint.run();
+    }
+
     void capture(int patient, CdsExportNativeCaptureComposer.Writer output) throws IOException;
 }

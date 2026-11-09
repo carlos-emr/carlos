@@ -33,11 +33,63 @@ import org.springframework.stereotype.Service;
 @Service
 public class CdsExportClinicalZoneSourceReader implements CdsExportNativeSourceReader {
     private final String configured;
-    public CdsExportClinicalZoneSourceReader(@Value("${cds.import.clinicalZone:}")String configured){this.configured=configured==null?"":configured.trim(); }
-    @Override public String table(){return "clinical_timezone"; }
-    @Override public Set<String> columns(){return Set.of("sha256", "tzdbVersion", "zoneId"); }
-    @Override public Set<CdsCategory> categories(){return Set.of(CdsCategory.APPOINTMENTS); }
-    @Override public CdsExportTableSchemaDto schema(){try (var input=getClass().getResourceAsStream("/cds-export/source-schema/clinical_timezone.json")){if (input==null)throw new IOException("CDS_EXPORT_SOURCE_SCHEMA_CONTRACT_MISSING"); return new ObjectMapper().readValue(input, CdsExportTableSchemaDto.class); }catch (IOException failed){throw new UncheckedIOException(failed); }}
-    @Override public long count(int patient){if (patient<1)throw new IllegalArgumentException("CDS_EXPORT_CLINICAL_ZONE_SCOPE_INVALID"); try {CdsExportClinicalZone.capture(configured); return 1; }catch (IOException failed){throw new UncheckedIOException(failed); }}
-    @Override public void capture(int patient, CdsExportNativeCaptureComposer.Writer output)throws IOException{if (patient<1)throw new IllegalArgumentException("CDS_EXPORT_CLINICAL_ZONE_SCOPE_INVALID"); var frozen=CdsExportClinicalZone.capture(configured); output.row("configuration", row-> {row.text("sha256", frozen.sha256()); row.text("tzdbVersion", frozen.tzdbVersion()); row.text("zoneId", frozen.zoneId()); }); }
+
+    public CdsExportClinicalZoneSourceReader(
+            @Value("${cds.import.clinicalZone:}") String configured) {
+        this.configured = configured == null ? "" : configured.trim();
+    }
+
+    @Override
+    public String table() {
+        return "clinical_timezone";
+    }
+
+    @Override
+    public Set<String> columns() {
+        return Set.of("sha256", "tzdbVersion", "zoneId");
+    }
+
+    @Override
+    public Set<CdsCategory> categories() {
+        return Set.of(CdsCategory.APPOINTMENTS);
+    }
+
+    @Override
+    public CdsExportTableSchemaDto schema() {
+        try (var input =
+                getClass()
+                        .getResourceAsStream("/cds-export/source-schema/clinical_timezone.json")) {
+            if (input == null) throw new IOException("CDS_EXPORT_SOURCE_SCHEMA_CONTRACT_MISSING");
+            return new ObjectMapper().readValue(input, CdsExportTableSchemaDto.class);
+        } catch (IOException failed) {
+            throw new UncheckedIOException(failed);
+        }
+    }
+
+    @Override
+    public long count(int patient) {
+        if (patient < 1)
+            throw new IllegalArgumentException("CDS_EXPORT_CLINICAL_ZONE_SCOPE_INVALID");
+        try {
+            CdsExportClinicalZone.capture(configured);
+            return 1;
+        } catch (IOException failed) {
+            throw new UncheckedIOException(failed);
+        }
+    }
+
+    @Override
+    public void capture(int patient, CdsExportNativeCaptureComposer.Writer output)
+            throws IOException {
+        if (patient < 1)
+            throw new IllegalArgumentException("CDS_EXPORT_CLINICAL_ZONE_SCOPE_INVALID");
+        var frozen = CdsExportClinicalZone.capture(configured);
+        output.row(
+                "configuration",
+                row -> {
+                    row.text("sha256", frozen.sha256());
+                    row.text("tzdbVersion", frozen.tzdbVersion());
+                    row.text("zoneId", frozen.zoneId());
+                });
+    }
 }

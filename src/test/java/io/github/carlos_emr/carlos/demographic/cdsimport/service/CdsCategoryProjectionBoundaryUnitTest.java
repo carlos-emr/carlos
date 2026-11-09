@@ -41,55 +41,96 @@ import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class CdsCategoryProjectionBoundaryUnitTest {
-    @Test void shouldAuthorizeRx_beforeProtectedRepresentationQuery() {
+    @Test
+    void shouldAuthorizeRx_beforeProtectedRepresentationQuery() {
         LoggedInInfo info = new LoggedInInfo();
         CdsLegacyProjectionDao records = mock(CdsLegacyProjectionDao.class);
         SecurityInfoManager security = mock(SecurityInfoManager.class);
         RxManager rx = mock(RxManager.class);
-        RxWebService service = new RxWebService() { @Override protected LoggedInInfo getLoggedInInfo() { return info; } };
+        RxWebService service =
+                new RxWebService() {
+                    @Override
+                    protected LoggedInInfo getLoggedInInfo() {
+                        return info;
+                    }
+                };
         ReflectionTestUtils.setField(service, "securityInfoManager", security);
-        ReflectionTestUtils.setField(service, "legacyProjection", new CdsLegacyProjectionService(records));
+        ReflectionTestUtils.setField(
+                service, "legacyProjection", new CdsLegacyProjectionService(records));
         ReflectionTestUtils.setField(service, "rxManager", rx);
         assertThrows(AccessDeniedException.class, () -> service.getAllDrugs(42));
         verifyNoInteractions(records, rx);
     }
-    @Test void shouldRefuseAuthorizedRxProjection_beforeReturningNativeSubset() {
+
+    @Test
+    void shouldRefuseAuthorizedRxProjection_beforeReturningNativeSubset() {
         LoggedInInfo info = new LoggedInInfo();
         CdsLegacyProjectionDao records = mock(CdsLegacyProjectionDao.class);
         when(records.hasSourceFields(42, Set.of("MedicationsAndTreatments"))).thenReturn(true);
         SecurityInfoManager security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(info, "_rx", "r", 42)).thenReturn(true);
         RxManager rx = mock(RxManager.class);
-        RxWebService service = new RxWebService() { @Override protected LoggedInInfo getLoggedInInfo() { return info; } };
+        RxWebService service =
+                new RxWebService() {
+                    @Override
+                    protected LoggedInInfo getLoggedInInfo() {
+                        return info;
+                    }
+                };
         ReflectionTestUtils.setField(service, "securityInfoManager", security);
-        ReflectionTestUtils.setField(service, "legacyProjection", new CdsLegacyProjectionService(records));
+        ReflectionTestUtils.setField(
+                service, "legacyProjection", new CdsLegacyProjectionService(records));
         ReflectionTestUtils.setField(service, "rxManager", rx);
         var failure = assertThrows(WebApplicationException.class, () -> service.getAllDrugs(42));
-        assertEquals(409, failure.getResponse().getStatus()); verifyNoInteractions(rx);
+        assertEquals(409, failure.getResponse().getStatus());
+        verifyNoInteractions(rx);
     }
-    @Test void shouldAuthorizeAllergy_beforeProtectedRepresentationQuery() {
+
+    @Test
+    void shouldAuthorizeAllergy_beforeProtectedRepresentationQuery() {
         CdsLegacyProjectionDao records = mock(CdsLegacyProjectionDao.class);
         AllergyManager manager = mock(AllergyManager.class);
         SecurityInfoManager security = mock(SecurityInfoManager.class);
-        AllergyService service = new AllergyService() { @Override protected LoggedInInfo getLoggedInInfo() { return null; } };
+        AllergyService service =
+                new AllergyService() {
+                    @Override
+                    protected LoggedInInfo getLoggedInInfo() {
+                        return null;
+                    }
+                };
         ReflectionTestUtils.setField(service, "allergyManager", manager);
-        ReflectionTestUtils.setField(service, "legacyProjection", new CdsLegacyProjectionService(records));
+        ReflectionTestUtils.setField(
+                service, "legacyProjection", new CdsLegacyProjectionService(records));
         ReflectionTestUtils.setField(service, "securityInfoManager", security);
-        assertThrows(AccessDeniedException.class, () -> service.getCurrentAllergiesWithPrecision(42));
+        assertThrows(
+                AccessDeniedException.class, () -> service.getCurrentAllergiesWithPrecision(42));
         verifyNoInteractions(records, manager);
     }
-    @Test void shouldNotHideOmittedImportedFields_withExactAllergyDatesInOldProjection() {
+
+    @Test
+    void shouldNotHideOmittedImportedFields_withExactAllergyDatesInOldProjection() {
         CdsLegacyProjectionDao records = mock(CdsLegacyProjectionDao.class);
         when(records.hasSourceFields(42, Set.of("AllergiesAndAdverseReactions"))).thenReturn(true);
         AllergyManager manager = mock(AllergyManager.class);
         when(manager.getActiveAllergies(null, 42)).thenReturn(List.of(new Allergy()));
         SecurityInfoManager security = mock(SecurityInfoManager.class);
-        when(security.hasPrivilege(null, "_allergy", SecurityInfoManager.READ, 42)).thenReturn(true);
-        AllergyService service = new AllergyService() { @Override protected LoggedInInfo getLoggedInInfo() { return null; } };
+        when(security.hasPrivilege(null, "_allergy", SecurityInfoManager.READ, 42))
+                .thenReturn(true);
+        AllergyService service =
+                new AllergyService() {
+                    @Override
+                    protected LoggedInInfo getLoggedInInfo() {
+                        return null;
+                    }
+                };
         ReflectionTestUtils.setField(service, "allergyManager", manager);
-        ReflectionTestUtils.setField(service, "legacyProjection", new CdsLegacyProjectionService(records));
+        ReflectionTestUtils.setField(
+                service, "legacyProjection", new CdsLegacyProjectionService(records));
         ReflectionTestUtils.setField(service, "securityInfoManager", security);
-        var failure = assertThrows(WebApplicationException.class, () -> service.getCurrentAllergiesWithPrecision(42));
+        var failure =
+                assertThrows(
+                        WebApplicationException.class,
+                        () -> service.getCurrentAllergiesWithPrecision(42));
         assertEquals(409, failure.getResponse().getStatus());
     }
 }

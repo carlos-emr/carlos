@@ -35,38 +35,79 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /** Crosses the real ZIP16 entry boundary without retaining a patient/member list. */
-@Tag("integration") @Tag("cds-export")
+@Tag("integration")
+@Tag("cds-export")
 class CdsExportZip64IntegrationTest {
     @TempDir Path root;
-    @Test void shouldRoundTripMoreThan65535Entries_throughIndependentJavaZipInput() throws Exception {
+
+    @Test
+    void shouldRoundTripMoreThan65535Entries_throughIndependentJavaZipInput() throws Exception {
         Files.setPosixFilePermissions(root, PosixFilePermissions.fromString("rwx------"));
-        var store = new CdsExportStagingService(root, UUID.randomUUID().toString(), 1,
-                new SecretKeySpec(new byte[32], "AES"), 32L << 20, 0, () -> {});
-        var empty = store.stage("TEST_INPUT", out -> {}); final int count = 65537;
-        CdsExportPackageMembers members = () -> new CdsExportPackageMembers.Cursor() {
-            private int index;
-            @Override public CdsExportPackageMemberDto next() {
-                return index == count ? null : new CdsExportPackageMemberDto("files/f" + String.format(java.util.Locale.ROOT, "%05d", index++), empty);
-            }
-            @Override public void close() { }
-        };
-        var proof = new CdsExportPackageComposer().compose(store, members, 16L << 20, 100_000, () -> {});
-        assertThat(proof.entries()).isEqualTo(count); assertThat(proof.expandedBytes()).isZero();
+        var store =
+                new CdsExportStagingService(
+                        root,
+                        UUID.randomUUID().toString(),
+                        1,
+                        new SecretKeySpec(new byte[32], "AES"),
+                        32L << 20,
+                        0,
+                        () -> {});
+        var empty = store.stage("TEST_INPUT", out -> {});
+        final int count = 65537;
+        CdsExportPackageMembers members =
+                () ->
+                        new CdsExportPackageMembers.Cursor() {
+                            private int index;
+
+                            @Override
+                            public CdsExportPackageMemberDto next() {
+                                return index == count
+                                        ? null
+                                        : new CdsExportPackageMemberDto(
+                                                "files/f"
+                                                        + String.format(
+                                                                java.util.Locale.ROOT,
+                                                                "%05d",
+                                                                index++),
+                                                empty);
+                            }
+
+                            @Override
+                            public void close() {}
+                        };
+        var proof =
+                new CdsExportPackageComposer()
+                        .compose(store, members, 16L << 20, 100_000, () -> {});
+        assertThat(proof.entries()).isEqualTo(count);
+        assertThat(proof.expandedBytes()).isZero();
         int actual = 0;
-        try (var input = store.open(proof.archive()); var zip = new ZipInputStream(input, StandardCharsets.UTF_8)) {
+        try (var input = store.open(proof.archive());
+                var zip = new ZipInputStream(input, StandardCharsets.UTF_8)) {
             java.util.zip.ZipEntry entry;
             while ((entry = zip.getNextEntry()) != null) {
-                assertThat(entry.getName()).isEqualTo("files/f" + String.format(java.util.Locale.ROOT, "%05d", actual++));
-                assertThat(zip.read()).isEqualTo(-1); zip.closeEntry();
+                assertThat(entry.getName())
+                        .isEqualTo(
+                                "files/f" + String.format(java.util.Locale.ROOT, "%05d", actual++));
+                assertThat(zip.read()).isEqualTo(-1);
+                zip.closeEntry();
             }
         }
         assertThat(actual).isEqualTo(count);
-        // Verify a second independent library's central-directory/ZIP64 interpretation, not only local headers.
+        // Verify a second independent library's central-directory/ZIP64 interpretation, not only
+        // local headers.
         Path synthetic = root.resolve("synthetic.zip");
-        try (var input = store.open(proof.archive()); var output = Files.newOutputStream(synthetic)) { input.transferTo(output); }
+        try (var input = store.open(proof.archive());
+                var output = Files.newOutputStream(synthetic)) {
+            input.transferTo(output);
+        }
         try (var zip = new java.util.zip.ZipFile(synthetic.toFile(), StandardCharsets.UTF_8)) {
-            assertThat(zip.size()).isEqualTo(count); assertThat(zip.getEntry("files/f65536")).isNotNull();
-        } finally { Files.delete(synthetic); }
-        try (var files = Files.list(root)) { assertThat(files).hasSize(2); }
+            assertThat(zip.size()).isEqualTo(count);
+            assertThat(zip.getEntry("files/f65536")).isNotNull();
+        } finally {
+            Files.delete(synthetic);
+        }
+        try (var files = Files.list(root)) {
+            assertThat(files).hasSize(2);
+        }
     }
 }

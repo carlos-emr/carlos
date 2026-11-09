@@ -46,21 +46,37 @@ public final class CdsExportNativeDateMapper {
         if (format == null || format.isEmpty()) precision = Precision.DATE;
         else if (format.equals("YYYY")) precision = Precision.YEAR;
         else if (format.equals("YYYY-MM")) precision = Precision.YEAR_MONTH;
-        else { review(); return null; }
+        else {
+            review();
+            return null;
+        }
         if (anchor == null) {
             if (precision != Precision.DATE) review();
             return new CdsExportDateDto(Precision.ABSENT, null);
         }
         if (!anchor.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) review();
         try {
-            int year = Integer.parseInt(anchor.substring(0, 4)); if (year < 1) review();
+            int year = Integer.parseInt(anchor.substring(0, 4));
+            if (year < 1) review();
             return switch (precision) {
                 case YEAR -> new CdsExportDateDto(Precision.YEAR, anchor.substring(0, 4));
-                case YEAR_MONTH -> new CdsExportDateDto(Precision.YEAR_MONTH, YearMonth.of(year, Integer.parseInt(anchor.substring(5, 7))).toString());
-                case DATE -> new CdsExportDateDto(Precision.DATE, LocalDate.parse(anchor).toString());
-                case ABSENT, DATE_TIME -> throw new IllegalStateException("CDS_EXPORT_NATIVE_DATE_INVALID");
+                case YEAR_MONTH ->
+                        new CdsExportDateDto(
+                                Precision.YEAR_MONTH,
+                                YearMonth.of(year, Integer.parseInt(anchor.substring(5, 7)))
+                                        .toString());
+                case DATE ->
+                        new CdsExportDateDto(Precision.DATE, LocalDate.parse(anchor).toString());
+                case ABSENT, DATE_TIME ->
+                        throw new IllegalStateException("CDS_EXPORT_NATIVE_DATE_INVALID");
             };
-        } catch (DateTimeException | NumberFormatException invalid) { review(); return null; }
+        } catch (DateTimeException | NumberFormatException invalid) {
+            review();
+            return null;
+        }
     }
-    private static void review() throws IOException { throw new IOException("CDS_EXPORT_NATIVE_DATE_PRECISION_REQUIRES_REVIEW"); }
+
+    private static void review() throws IOException {
+        throw new IOException("CDS_EXPORT_NATIVE_DATE_PRECISION_REQUIRES_REVIEW");
+    }
 }

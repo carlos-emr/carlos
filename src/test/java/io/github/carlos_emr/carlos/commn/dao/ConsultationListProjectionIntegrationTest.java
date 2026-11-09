@@ -60,8 +60,10 @@ class ConsultationListProjectionIntegrationTest extends CarlosTestBase {
         return request;
     }
 
-    private ConsultationListFilterDto filter(String team, String sort, String desc, int offset, int limit) {
-        return new ConsultationListFilterDto(team, true, null, null, sort, desc, null, offset, limit, null, null);
+    private ConsultationListFilterDto filter(
+            String team, String sort, String desc, int offset, int limit) {
+        return new ConsultationListFilterDto(
+                team, true, null, null, sort, desc, null, offset, limit, null, null);
     }
 
     private <T> T oneStatement(Supplier<T> read) {
@@ -71,7 +73,11 @@ class ConsultationListProjectionIntegrationTest extends CarlosTestBase {
     private <T> T statements(int expected, Supplier<T> read) {
         entityManager.flush();
         entityManager.clear();
-        Statistics stats = entityManager.getEntityManagerFactory().unwrap(SessionFactory.class).getStatistics();
+        Statistics stats =
+                entityManager
+                        .getEntityManagerFactory()
+                        .unwrap(SessionFactory.class)
+                        .getStatistics();
         boolean enabled = stats.isStatisticsEnabled();
         stats.setStatisticsEnabled(true);
         stats.clear();
@@ -88,14 +94,22 @@ class ConsultationListProjectionIntegrationTest extends CarlosTestBase {
     @Test
     void shouldProjectOrphansInOneStatement_forManyConsultations() {
         for (int i = 0; i < 25; i++) request(60001, "projection", "1", 10 + i % 10);
-        List<ConsultationListRow> rows = oneStatement(() -> requests.getConsultationListRows(filter("projection", null, null, 0, 50)));
-        assertThat(rows).hasSize(25).allSatisfy(row -> {
-            assertThat(row.demographicId()).isEqualTo(60001);
-            assertThat(row.mrpNo()).isNull();
-            assertThat(row.specialistId()).isNull();
-            assertThat(row.serviceDescription()).isNull();
-        });
-        // The production DAO also checks merged IDs once, independently of the number of consult rows.
+        List<ConsultationListRow> rows =
+                oneStatement(
+                        () ->
+                                requests.getConsultationListRows(
+                                        filter("projection", null, null, 0, 50)));
+        assertThat(rows)
+                .hasSize(25)
+                .allSatisfy(
+                        row -> {
+                            assertThat(row.demographicId()).isEqualTo(60001);
+                            assertThat(row.mrpNo()).isNull();
+                            assertThat(row.specialistId()).isNull();
+                            assertThat(row.serviceDescription()).isNull();
+                        });
+        // The production DAO also checks merged IDs once, independently of the number of consult
+        // rows.
         assertThat(statements(2, () -> requests.getConsultationListRows(60001))).hasSize(25);
     }
 
@@ -107,8 +121,11 @@ class ConsultationListProjectionIntegrationTest extends CarlosTestBase {
         request(60001, "sort", "4", 12);
         for (String desc : new String[] {null, "1"}) {
             ConsultationListFilterDto filter = filter("sort", sort, desc, 1, 2);
-            List<Integer> expected = requests.getConsults(filter).stream().map(ConsultationRequest::getId).toList();
-            assertThat(requests.getConsultationListRows(filter)).extracting(ConsultationListRow::id).containsExactlyElementsOf(expected);
+            List<Integer> expected =
+                    requests.getConsults(filter).stream().map(ConsultationRequest::getId).toList();
+            assertThat(requests.getConsultationListRows(filter))
+                    .extracting(ConsultationListRow::id)
+                    .containsExactlyElementsOf(expected);
         }
     }
 
@@ -117,15 +134,42 @@ class ConsultationListProjectionIntegrationTest extends CarlosTestBase {
         ConsultationRequest active = request(60001, "filter", "1", 11);
         request(60001, "filter", "4", 11);
         request(60001, "other", "1", 11);
-        ConsultationListFilterDto filter = new ConsultationListFilterDto("filter", false,
-                java.sql.Date.valueOf("2097-03-11"), java.sql.Date.valueOf("2097-03-11"), null, null, null,
-                0, 50, null, null);
-        assertThat(requests.getConsultationListRows(filter)).extracting(ConsultationListRow::id).containsExactly(active.getId());
-        ConsultationListFilterDto denied = new ConsultationListFilterDto("filter", true, null, null, null, null,
-                null, 0, 50, null, null, Set.of(), null);
+        ConsultationListFilterDto filter =
+                new ConsultationListFilterDto(
+                        "filter",
+                        false,
+                        java.sql.Date.valueOf("2097-03-11"),
+                        java.sql.Date.valueOf("2097-03-11"),
+                        null,
+                        null,
+                        null,
+                        0,
+                        50,
+                        null,
+                        null);
+        assertThat(requests.getConsultationListRows(filter))
+                .extracting(ConsultationListRow::id)
+                .containsExactly(active.getId());
+        ConsultationListFilterDto denied =
+                new ConsultationListFilterDto(
+                        "filter", true, null, null, null, null, null, 0, 50, null, null, Set.of(),
+                        null);
         assertThat(requests.getConsultationListRows(denied)).isEmpty();
-        ConsultationListFilterDto wrongSite = new ConsultationListFilterDto("filter", true, null, null, null, null,
-                null, 0, 50, null, null, null, Set.of("other-site"));
+        ConsultationListFilterDto wrongSite =
+                new ConsultationListFilterDto(
+                        "filter",
+                        true,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        0,
+                        50,
+                        null,
+                        null,
+                        null,
+                        Set.of("other-site"));
         assertThat(requests.getConsultationListRows(wrongSite)).isEmpty();
     }
 
@@ -139,19 +183,25 @@ class ConsultationListProjectionIntegrationTest extends CarlosTestBase {
         request(deletedId, "merged", "1", 12);
         for (int id : List.of(childId, deletedId)) {
             DemographicMerged merge = new DemographicMerged();
-            merge.setDemographicNo(id); merge.setMergedTo(parentId); merge.setDeleted(id == deletedId ? 1 : 0);
+            merge.setDemographicNo(id);
+            merge.setMergedTo(parentId);
+            merge.setDeleted(id == deletedId ? 1 : 0);
             entityManager.persist(merge);
         }
-        entityManager.flush(); entityManager.clear();
+        entityManager.flush();
+        entityManager.clear();
         assertThat(requests).isInstanceOf(ConsultationRequestMergedDemographicDaoImpl.class);
         assertThat(statements(3, () -> requests.getConsultationListRows(parentId)))
-                .extracting(ConsultationListRow::id).containsExactly(parent.getId(), child.getId());
+                .extracting(ConsultationListRow::id)
+                .containsExactly(parent.getId(), child.getId());
         assertThat(requests.getConsultationListRows(60004)).isEmpty();
     }
 
     private int patient() {
         Demographic patient = new Demographic();
-        patient.setSex("M"); patient.setFirstName("Synthetic"); patient.setLastName("Projection");
+        patient.setSex("M");
+        patient.setFirstName("Synthetic");
+        patient.setLastName("Projection");
         entityManager.persist(patient);
         return patient.getDemographicNo();
     }
@@ -163,12 +213,16 @@ class ConsultationListProjectionIntegrationTest extends CarlosTestBase {
         requests.merge(request);
         for (String value : List.of("First", "Second")) {
             ConsultationRequestExt ext = new ConsultationRequestExt();
-            ext.setRequestId(request.getId()); ext.setKey("ereferral_service"); ext.setValue(value);
+            ext.setRequestId(request.getId());
+            ext.setKey("ereferral_service");
+            ext.setValue(value);
             extensions.persist(ext);
         }
-        entityManager.flush(); entityManager.clear();
+        entityManager.flush();
+        entityManager.clear();
         assertThat(requests.getConsultationListRows(filter("duplicate", null, null, 0, 50)))
-                .extracting(ConsultationListRow::id).containsExactly(request.getId());
+                .extracting(ConsultationListRow::id)
+                .containsExactly(request.getId());
     }
 
     @Test
@@ -185,24 +239,32 @@ class ConsultationListProjectionIntegrationTest extends CarlosTestBase {
         List<SpecialistListRow> rows = oneStatement(specialists::findListRows);
         assertThat(rows).hasSize(19);
         assertThat(rows).extracting(SpecialistListRow::lastName).isSorted();
-        assertThat(rows).allSatisfy(row -> {
-            assertThat(row.phoneNumber()).isEqualTo("5550000");
-            assertThat(row.professionalLetters()).isEqualTo("MD");
-        });
-        assertThat(rows).extracting(SpecialistListRow::id)
-                .containsExactlyElementsOf(specialists.findAll().stream().map(ProfessionalSpecialist::getId).toList());
+        assertThat(rows)
+                .allSatisfy(
+                        row -> {
+                            assertThat(row.phoneNumber()).isEqualTo("5550000");
+                            assertThat(row.professionalLetters()).isEqualTo("MD");
+                        });
+        assertThat(rows)
+                .extracting(SpecialistListRow::id)
+                .containsExactlyElementsOf(
+                        specialists.findAll().stream().map(ProfessionalSpecialist::getId).toList());
     }
 
     @Test
     void shouldLoadExtensionsForRequestedPage_withEmptyAndUnknownIds() {
         for (int id : List.of(7, 8, 9)) {
             ConsultationRequestExt ext = new ConsultationRequestExt();
-            ext.setRequestId(id); ext.setKey("ereferral_service"); ext.setValue("Service " + id);
+            ext.setRequestId(id);
+            ext.setKey("ereferral_service");
+            ext.setValue("Service " + id);
             extensions.persist(ext);
         }
-        entityManager.flush(); entityManager.clear();
+        entityManager.flush();
+        entityManager.clear();
         assertThat(extensions.getConsultationRequestExts(List.of(7, 8)))
-                .extracting(ConsultationRequestExt::getRequestId).containsExactlyInAnyOrder(7, 8);
+                .extracting(ConsultationRequestExt::getRequestId)
+                .containsExactlyInAnyOrder(7, 8);
         assertThat(extensions.getConsultationRequestExts(List.of())).isEmpty();
         assertThat(extensions.getConsultationRequestExts(List.of(99))).isEmpty();
     }
@@ -211,17 +273,25 @@ class ConsultationListProjectionIntegrationTest extends CarlosTestBase {
     void shouldJoinFaxHistoryInOneStatement_withExistingOrderAndMissingJobsSkipped() {
         for (int i = 0; i < 10; i++) {
             FaxJob job = new FaxJob();
-            job.setDestination("5550000"); job.setRecipient("Synthetic specialist"); job.setStatus(FaxJob.STATUS.SENT);
+            job.setDestination("5550000");
+            job.setRecipient("Synthetic specialist");
+            job.setStatus(FaxJob.STATUS.SENT);
             entityManager.persist(job);
             FaxClientLog log = new FaxClientLog();
-            log.setRequestId(42); log.setFaxId(job.getId()); log.setStartTime(new Date(1000L * i));
+            log.setRequestId(42);
+            log.setFaxId(job.getId());
+            log.setStartTime(new Date(1000L * i));
             faxLogs.persist(log);
         }
         FaxClientLog orphan = new FaxClientLog();
-        orphan.setRequestId(42); orphan.setFaxId(999999); faxLogs.persist(orphan);
+        orphan.setRequestId(42);
+        orphan.setFaxId(999999);
+        faxLogs.persist(orphan);
         List<ConsultationFaxRow> rows = oneStatement(() -> faxLogs.findConsultationFaxRows(42));
         assertThat(rows).hasSize(10);
-        assertThat(rows).extracting(ConsultationFaxRow::sent).isSortedAccordingTo(Comparator.reverseOrder());
+        assertThat(rows)
+                .extracting(ConsultationFaxRow::sent)
+                .isSortedAccordingTo(Comparator.reverseOrder());
         assertThat(rows).allSatisfy(row -> assertThat(row.status()).isEqualTo(FaxJob.STATUS.SENT));
         assertThat(faxLogs.findConsultationFaxRows(99)).isEmpty();
     }

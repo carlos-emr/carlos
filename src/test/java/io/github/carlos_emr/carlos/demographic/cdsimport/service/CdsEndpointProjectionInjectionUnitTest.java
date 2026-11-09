@@ -43,45 +43,74 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 @Tag("unit")
 class CdsEndpointProjectionInjectionUnitTest {
-    private static final List<Class<?>> ENDPOINTS=List.of(AllergyService.class,LabService.class,MeasurementService.class,
-            RxWebService.class,AllergyWs.class,MeasurementWs.class);
-    @Test void shouldWireRequiredGuardsThroughActualSpringBeanLifecycle_whilePreservingPublicNoargEndpoints() throws Exception {
-        var guard=mock(CdsLegacyProjectionService.class);
-        try(var context=new GenericApplicationContext()) {
+    private static final List<Class<?>> ENDPOINTS =
+            List.of(
+                    AllergyService.class,
+                    LabService.class,
+                    MeasurementService.class,
+                    RxWebService.class,
+                    AllergyWs.class,
+                    MeasurementWs.class);
+
+    @Test
+    void
+            shouldWireRequiredGuardsThroughActualSpringBeanLifecycle_whilePreservingPublicNoargEndpoints()
+                    throws Exception {
+        var guard = mock(CdsLegacyProjectionService.class);
+        try (var context = new GenericApplicationContext()) {
             AnnotationConfigUtils.registerAnnotationConfigProcessors(context);
-            context.registerBean("cdsLegacyProjectionService",CdsLegacyProjectionService.class,()->guard);
-            context.registerBean("context",jakarta.xml.ws.WebServiceContext.class,()->mock(jakarta.xml.ws.WebServiceContext.class));
-            var registered=new HashSet<Class<?>>();
-            for(Class<?> endpoint:ENDPOINTS) {
+            context.registerBean(
+                    "cdsLegacyProjectionService", CdsLegacyProjectionService.class, () -> guard);
+            context.registerBean(
+                    "context",
+                    jakarta.xml.ws.WebServiceContext.class,
+                    () -> mock(jakarta.xml.ws.WebServiceContext.class));
+            var registered = new HashSet<Class<?>>();
+            for (Class<?> endpoint : ENDPOINTS) {
                 assertThat(endpoint.getConstructor().newInstance()).isInstanceOf(endpoint);
-                for(var field:endpoint.getDeclaredFields()) if(field.isAnnotationPresent(Autowired.class)&&registered.add(field.getType())) {
-                    registerMock(context,field.getType());
-                }
-                var definition=BeanDefinitionBuilder.genericBeanDefinition(endpoint).getBeanDefinition();
+                for (var field : endpoint.getDeclaredFields())
+                    if (field.isAnnotationPresent(Autowired.class)
+                            && registered.add(field.getType())) {
+                        registerMock(context, field.getType());
+                    }
+                var definition =
+                        BeanDefinitionBuilder.genericBeanDefinition(endpoint).getBeanDefinition();
                 definition.setAutowireMode(AbstractBeanDefinition.AUTOWIRE_BY_NAME);
-                context.registerBeanDefinition(endpoint.getSimpleName(),definition);
+                context.registerBeanDefinition(endpoint.getSimpleName(), definition);
             }
             context.refresh();
-            for(Class<?> endpoint:ENDPOINTS) {
-                Object bean=context.getBean(endpoint.getSimpleName());
-                String field=endpoint==AllergyService.class||endpoint==RxWebService.class?"legacyProjection":"projections";
-                assertThat(ReflectionTestUtils.getField(bean,field)).isSameAs(guard);
+            for (Class<?> endpoint : ENDPOINTS) {
+                Object bean = context.getBean(endpoint.getSimpleName());
+                String field =
+                        endpoint == AllergyService.class || endpoint == RxWebService.class
+                                ? "legacyProjection"
+                                : "projections";
+                assertThat(ReflectionTestUtils.getField(bean, field)).isSameAs(guard);
             }
         }
     }
-    @Test void shouldExcludeInfrastructureSetters_fromActualSoapOperationModels() {
-        for(Class<?> endpoint:List.of(AllergyWs.class,MeasurementWs.class)) {
-            var bus=new org.apache.cxf.bus.extension.ExtensionManagerBus();
+
+    @Test
+    void shouldExcludeInfrastructureSetters_fromActualSoapOperationModels() {
+        for (Class<?> endpoint : List.of(AllergyWs.class, MeasurementWs.class)) {
+            var bus = new org.apache.cxf.bus.extension.ExtensionManagerBus();
             try {
-                var factory=new JaxWsServiceFactoryBean();factory.setBus(bus);factory.setServiceClass(endpoint);
-                var service=factory.create();
-                var operations=service.getServiceInfos().getFirst().getInterface().getOperations().stream()
-                        .map(operation->operation.getName().getLocalPart()).toList();
+                var factory = new JaxWsServiceFactoryBean();
+                factory.setBus(bus);
+                factory.setServiceClass(endpoint);
+                var service = factory.create();
+                var operations =
+                        service.getServiceInfos().getFirst().getInterface().getOperations().stream()
+                                .map(operation -> operation.getName().getLocalPart())
+                                .toList();
                 assertThat(operations).isNotEmpty().doesNotContain("setCdsLegacyProjectionService");
-            } finally { bus.shutdown(true); }
+            } finally {
+                bus.shutdown(true);
+            }
         }
     }
-    private static <T> void registerMock(GenericApplicationContext context,Class<T> type) {
-        context.registerBean("fixture"+type.getSimpleName(),type,()->mock(type));
+
+    private static <T> void registerMock(GenericApplicationContext context, Class<T> type) {
+        context.registerBean("fixture" + type.getSimpleName(), type, () -> mock(type));
     }
 }

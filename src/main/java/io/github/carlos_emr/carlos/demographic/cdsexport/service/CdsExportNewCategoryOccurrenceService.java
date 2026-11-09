@@ -38,78 +38,258 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
     private final CdsExportRetainedReceiptVerificationService verification;
     private final CdsExportNativeCaptureService captures;
     private final CdsExportCapturedTextRowsReader rows;
-    public CdsExportNewCategoryOccurrenceService(CdsExportRetainedValuesService values, CdsExportRetainedReceiptVerificationService verification, CdsExportNativeCaptureService captures) {
-        this.values = Objects.requireNonNull(values); this.verification = Objects.requireNonNull(verification); this.captures = Objects.requireNonNull(captures); rows = new CdsExportCapturedTextRowsReader(captures);
+
+    public CdsExportNewCategoryOccurrenceService(
+            CdsExportRetainedValuesService values,
+            CdsExportRetainedReceiptVerificationService verification,
+            CdsExportNativeCaptureService captures) {
+        this.values = Objects.requireNonNull(values);
+        this.verification = Objects.requireNonNull(verification);
+        this.captures = Objects.requireNonNull(captures);
+        rows = new CdsExportCapturedTextRowsReader(captures);
     }
-    @Override public CdsCategory category() { return CdsCategory.NEW_CATEGORY; }
-    @Override public CdsExportClinicalOccurrenceService.Result append(CdsExportLeaseDto lease, CdsExportCohortService.Patient patient, String patientKey,
-            Set<String> requiredTables, CdsExportPatientCaptureDto source, CdsExportStagedFileDto payloadManifest,
-            CdsExportClinicalOccurrenceService.Bounds bounds, CdsExportRunControl control, CdsExportXmlComposer.SectionEmitter xml,
-            CdsExportClinicalOccurrenceService.Receipts output) throws IOException {
+
+    @Override
+    public CdsCategory category() {
+        return CdsCategory.NEW_CATEGORY;
+    }
+
+    @Override
+    public CdsExportClinicalOccurrenceService.Result append(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            String patientKey,
+            Set<String> requiredTables,
+            CdsExportPatientCaptureDto source,
+            CdsExportStagedFileDto payloadManifest,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control,
+            CdsExportXmlComposer.SectionEmitter xml,
+            CdsExportClinicalOccurrenceService.Receipts output)
+            throws IOException {
         var result = new CdsExportClinicalOccurrenceService.Result[1];
-        xml.source(emitter -> result[0] = assemble(lease, patient, patientKey, requiredTables, source, payloadManifest, bounds, control, emitter, output));
+        xml.source(
+                emitter ->
+                        result[0] =
+                                assemble(
+                                        lease,
+                                        patient,
+                                        patientKey,
+                                        requiredTables,
+                                        source,
+                                        payloadManifest,
+                                        bounds,
+                                        control,
+                                        emitter,
+                                        output));
         return Objects.requireNonNull(result[0]);
     }
-    private CdsExportClinicalOccurrenceService.Result assemble(CdsExportLeaseDto lease, CdsExportCohortService.Patient patient, String patientKey,
-            Set<String> requiredTables, CdsExportPatientCaptureDto source, CdsExportStagedFileDto payloadManifest,
-            CdsExportClinicalOccurrenceService.Bounds bounds, CdsExportRunControl control, CdsExportXmlComposer.SectionEmitter xml,
-            CdsExportClinicalOccurrenceService.Receipts output) throws IOException {
-        Objects.requireNonNull(output); patient.require(lease); control.authorizeCategory(patient.patient(), category(), false); var tables = Set.copyOf(requiredTables);
-        if (patientKey == null || !patientKey.matches("[0-9a-f]{64}") || !lease.document().command().categories().contains(category())
-                || !tables.equals(source.capture().tables().keySet()) || !tables.contains("demographic")) invalid();
-        new CdsExportMergeScopeValidator(captures).requireUnmerged(lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
+
+    private CdsExportClinicalOccurrenceService.Result assemble(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            String patientKey,
+            Set<String> requiredTables,
+            CdsExportPatientCaptureDto source,
+            CdsExportStagedFileDto payloadManifest,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control,
+            CdsExportXmlComposer.SectionEmitter xml,
+            CdsExportClinicalOccurrenceService.Receipts output)
+            throws IOException {
+        Objects.requireNonNull(output);
+        patient.require(lease);
+        control.authorizeCategory(patient.patient(), category(), false);
+        var tables = Set.copyOf(requiredTables);
+        if (patientKey == null
+                || !patientKey.matches("[0-9a-f]{64}")
+                || !lease.document().command().categories().contains(category())
+                || !tables.equals(source.capture().tables().keySet())
+                || !tables.contains("demographic")) invalid();
+        new CdsExportMergeScopeValidator(captures)
+                .requireUnmerged(
+                        lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
         long[] demographic = {0};
-        var read = rows.forEach(lease, patient, tables, "demographic", source.manifest(), bounds.fields(), bounds.bytes(), 1 << 20, control, row -> {
-            if (!row.fields().keySet().equals(demographicColumns())
-                    || !Integer.toString(patient.patient()).equals(row.fields().get("demographic_no"))
-                    || !String.format(Locale.ROOT, "%010d", patient.patient()).equals(row.recordKey())) invalid(); demographic[0]++;
-        });
-        if (!read.equals(source.capture()) || demographic[0] != 1 || source.capture().tables().get("demographic").rows() != 1) invalid();
+        var read =
+                rows.forEach(
+                        lease,
+                        patient,
+                        tables,
+                        "demographic",
+                        source.manifest(),
+                        bounds.fields(),
+                        bounds.bytes(),
+                        1 << 20,
+                        control,
+                        row -> {
+                            if (!row.fields().keySet().equals(demographicColumns())
+                                    || !Integer.toString(patient.patient())
+                                            .equals(row.fields().get("demographic_no"))
+                                    || !String.format(Locale.ROOT, "%010d", patient.patient())
+                                            .equals(row.recordKey())) invalid();
+                            demographic[0]++;
+                        });
+        if (!read.equals(source.capture())
+                || demographic[0] != 1
+                || source.capture().tables().get("demographic").rows() != 1) invalid();
         long[] counts = {0, 0};
-        values.withValues(lease, patient, tables, source.manifest(), payloadManifest, bounds.fields(), bounds.bytes(), bounds.indexRows(), bounds.indexBytes(), control,
+        values.withValues(
+                lease,
+                patient,
+                tables,
+                source.manifest(),
+                payloadManifest,
+                bounds.fields(),
+                bounds.bytes(),
+                bounds.indexRows(),
+                bounds.indexBytes(),
+                control,
                 (index, retained, streams) -> {
-            if (!index.sourceManifestSha256().equals(source.manifest().plaintextSha256())) invalid();
-            var checked = verification.verify(lease, patient, tables, source, index, bounds.fields(), bounds.bytes(), 1_000_000, control);
-            var consumed = new HashSet<String>();
-            for (String address : parents(patient.patient(), index, checked, bounds.nativeRows(), control::checkpoint)) {
-                control.authorizeCategory(patient.patient(), category(), false); streams.requireActive();
-                var fields = new CdsExportRetainedOccurrenceFields().fieldsFor(patient.patient(), category(), address, index, checked, retained, control::checkpoint);
-                var content = new CdsExportRetainedSectionWriter().prepareChanges(fields, streams, List.of(), control::checkpoint);
-                var all = new HashSet<>(content.retainedFields()); all.addAll(content.replacedFields());
-                if (!content.replacedFields().isEmpty() || all.size() != fields.size()) invalid();
-                for (String field : all) if (!consumed.add(field)) invalid();
-                var identity = new CdsExportIdentityDto(patientKey, category(), CdsImportKeys.hash("carlos-retained-occurrence-v1", address));
-                xml.emit(new CdsExportXmlComposer.Section(identity, content.content()));
-                output.accept(new CdsExportClinicalOccurrenceService.Receipt(identity, index.sourceManifestSha256(), "cds_import_unit", address.substring(37), address, Map.of(), content.retainedFields(), content.replacedFields()));
-                control.authorizeCategory(patient.patient(), category(), false); counts[0]++; counts[1] = Math.addExact(counts[1], all.size());
-            }
-            var expected = new HashSet<String>(); for (var field : retained) if (field.category() == category()) expected.add(field.id());
-            if (!expected.equals(consumed)) invalid(); streams.requireActive(); captures.authorizeSources(lease, patient, tables, control);
-            patient.require(lease); control.authorizeCategory(patient.patient(), category(), false); control.checkpoint();
-        });
-        return new CdsExportClinicalOccurrenceService.Result(source.manifest().plaintextSha256(), category(), counts[0], counts[0], 0, counts[1]);
+                    if (!index.sourceManifestSha256().equals(source.manifest().plaintextSha256()))
+                        invalid();
+                    var checked =
+                            verification.verify(
+                                    lease,
+                                    patient,
+                                    tables,
+                                    source,
+                                    index,
+                                    bounds.fields(),
+                                    bounds.bytes(),
+                                    1_000_000,
+                                    control);
+                    var consumed = new HashSet<String>();
+                    for (String address :
+                            parents(
+                                    patient.patient(),
+                                    index,
+                                    checked,
+                                    bounds.nativeRows(),
+                                    control::checkpoint)) {
+                        control.authorizeCategory(patient.patient(), category(), false);
+                        streams.requireActive();
+                        var fields =
+                                new CdsExportRetainedOccurrenceFields()
+                                        .fieldsFor(
+                                                patient.patient(),
+                                                category(),
+                                                address,
+                                                index,
+                                                checked,
+                                                retained,
+                                                control::checkpoint);
+                        var content =
+                                new CdsExportRetainedSectionWriter()
+                                        .prepareChanges(
+                                                fields, streams, List.of(), control::checkpoint);
+                        var all = new HashSet<>(content.retainedFields());
+                        all.addAll(content.replacedFields());
+                        if (!content.replacedFields().isEmpty() || all.size() != fields.size())
+                            invalid();
+                        for (String field : all) if (!consumed.add(field)) invalid();
+                        var identity =
+                                new CdsExportIdentityDto(
+                                        patientKey,
+                                        category(),
+                                        CdsImportKeys.hash(
+                                                "carlos-retained-occurrence-v1", address));
+                        xml.emit(new CdsExportXmlComposer.Section(identity, content.content()));
+                        output.accept(
+                                new CdsExportClinicalOccurrenceService.Receipt(
+                                        identity,
+                                        index.sourceManifestSha256(),
+                                        "cds_import_unit",
+                                        address.substring(37),
+                                        address,
+                                        Map.of(),
+                                        content.retainedFields(),
+                                        content.replacedFields()));
+                        control.authorizeCategory(patient.patient(), category(), false);
+                        counts[0]++;
+                        counts[1] = Math.addExact(counts[1], all.size());
+                    }
+                    var expected = new HashSet<String>();
+                    for (var field : retained)
+                        if (field.category() == category()) expected.add(field.id());
+                    if (!expected.equals(consumed)) invalid();
+                    streams.requireActive();
+                    captures.authorizeSources(lease, patient, tables, control);
+                    patient.require(lease);
+                    control.authorizeCategory(patient.patient(), category(), false);
+                    control.checkpoint();
+                });
+        return new CdsExportClinicalOccurrenceService.Result(
+                source.manifest().plaintextSha256(),
+                category(),
+                counts[0],
+                counts[0],
+                0,
+                counts[1]);
     }
+
     /** NewCategory has no separate native clinical projection: its demographic receipt proves association, not field precedence. */
-    static List<String> parents(int patient, CdsExportRetainedIndexDto index, CdsExportRetainedReceiptVerificationDto checked, int maximum, Runnable checkpoint) throws IOException {
+    static List<String> parents(
+            int patient,
+            CdsExportRetainedIndexDto index,
+            CdsExportRetainedReceiptVerificationDto checked,
+            int maximum,
+            Runnable checkpoint)
+            throws IOException {
         checkpoint.run();
-        if (patient < 1 || maximum < 1 || maximum > 8192 || !index.sourceManifestSha256().equals(checked.sourceManifestSha256())
+        if (patient < 1
+                || maximum < 1
+                || maximum > 8192
+                || !index.sourceManifestSha256().equals(checked.sourceManifestSha256())
                 || !index.appliedUnits().equals(checked.units().keySet())) invalid();
-        var selected = new ArrayList<String>(); var seen = new HashSet<String>();
+        var selected = new ArrayList<String>();
+        var seen = new HashSet<String>();
         for (var unit : index.tables().getOrDefault("cds_import_unit", Map.of()).values()) {
-            checkpoint.run(); if (!CdsCategory.NEW_CATEGORY.wireName().equals(unit.fields().get("category"))) continue;
+            checkpoint.run();
+            if (!CdsCategory.NEW_CATEGORY.wireName().equals(unit.fields().get("category")))
+                continue;
             String address = unit.fields().get("run_id") + ":" + unit.fields().get("unit_key");
             if (!index.appliedUnits().contains(address)) continue;
-            var refs = index.references().get(address); var proof = checked.units().get(address);
-            if (!address.matches("[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}:[0-9a-f]{64}") || !seen.add(address)
-                    || refs == null || refs.size() != 1 || !"demographic".equals(refs.getFirst().table()) || !Integer.toString(patient).equals(refs.getFirst().id())
-                    || proof == null || !refs.equals(proof.stream().map(CdsExportRetainedReceiptVerificationDto.CheckedReference::expected).toList())) invalid();
-            if (proof.stream().anyMatch(ref -> ref.reason() != CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW
-                    && ref.reason() != CdsExportRetainedReceiptVerificationDto.Reason.CHANGED_ROW))
+            var refs = index.references().get(address);
+            var proof = checked.units().get(address);
+            if (!address.matches("[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}:[0-9a-f]{64}")
+                    || !seen.add(address)
+                    || refs == null
+                    || refs.size() != 1
+                    || !"demographic".equals(refs.getFirst().table())
+                    || !Integer.toString(patient).equals(refs.getFirst().id())
+                    || proof == null
+                    || !refs.equals(
+                            proof.stream()
+                                    .map(
+                                            CdsExportRetainedReceiptVerificationDto.CheckedReference
+                                                    ::expected)
+                                    .toList())) invalid();
+            if (proof.stream()
+                    .anyMatch(
+                            ref ->
+                                    ref.reason()
+                                                    != CdsExportRetainedReceiptVerificationDto
+                                                            .Reason.UNCHANGED_ROW
+                                            && ref.reason()
+                                                    != CdsExportRetainedReceiptVerificationDto
+                                                            .Reason.CHANGED_ROW))
                 throw new CdsExportReviewException(CdsExportReviewException.Reason.UNMAPPED_DATA);
-            if (selected.size() >= maximum) throw new CdsExportReviewException(CdsExportReviewException.Reason.RESOURCE_LIMIT); selected.add(address);
+            if (selected.size() >= maximum)
+                throw new CdsExportReviewException(CdsExportReviewException.Reason.RESOURCE_LIMIT);
+            selected.add(address);
         }
-        selected.sort(String::compareTo); checkpoint.run(); return List.copyOf(selected);
+        selected.sort(String::compareTo);
+        checkpoint.run();
+        return List.copyOf(selected);
     }
-    private static Set<String> demographicColumns() { var columns = new HashSet<>(CdsExportDemographicRowDto.COLUMNS); columns.add("demographic_no"); return Set.copyOf(columns); }
-    private static void invalid() throws IOException { throw new IOException("CDS_EXPORT_NEW_CATEGORY_OCCURRENCE_INVALID"); }
+
+    private static Set<String> demographicColumns() {
+        var columns = new HashSet<>(CdsExportDemographicRowDto.COLUMNS);
+        columns.add("demographic_no");
+        return Set.copyOf(columns);
+    }
+
+    private static void invalid() throws IOException {
+        throw new IOException("CDS_EXPORT_NEW_CATEGORY_OCCURRENCE_INVALID");
+    }
 }

@@ -25,14 +25,27 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowComparis
 import java.util.Set;
 
 /** Evidence about selected fields only. Omitted fields and the original whole-row receipt remain unverified. */
-public record CdsExportPartialRowComparisonDto(Set<String> comparedColumns, Set<String> omittedColumns, CdsNativeRowComparison fields) {
+public record CdsExportPartialRowComparisonDto(
+        Set<String> comparedColumns, Set<String> omittedColumns, CdsNativeRowComparison fields) {
     public CdsExportPartialRowComparisonDto {
-        comparedColumns = Set.copyOf(comparedColumns); omittedColumns = Set.copyOf(omittedColumns);
-        if (comparedColumns.isEmpty() || omittedColumns.isEmpty() || fields == null || !java.util.Collections.disjoint(comparedColumns, omittedColumns)
-                || !comparedColumns.containsAll(fields.changedColumns()) || !comparedColumns.containsAll(fields.unqualifiedColumns())) {
+        comparedColumns = Set.copyOf(comparedColumns);
+        omittedColumns = Set.copyOf(omittedColumns);
+        if (comparedColumns.isEmpty()
+                || omittedColumns.isEmpty()
+                || fields == null
+                || !java.util.Collections.disjoint(comparedColumns, omittedColumns)
+                || !comparedColumns.containsAll(fields.changedColumns())
+                || !comparedColumns.containsAll(fields.unqualifiedColumns())) {
             throw new IllegalArgumentException("CDS_EXPORT_PARTIAL_ROW_COMPARISON_INVALID");
         }
     }
-    public boolean unchangedSelectedFields() { return fields.unchangedProjection(); }
-    @Override public String toString() { return "CdsExportPartialRowComparisonDto[protected]"; }
+
+    public boolean unchangedSelectedFields() {
+        return fields.unchangedProjection();
+    }
+
+    @Override
+    public String toString() {
+        return "CdsExportPartialRowComparisonDto[protected]";
+    }
 }

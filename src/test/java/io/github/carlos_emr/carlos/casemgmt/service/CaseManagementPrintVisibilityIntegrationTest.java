@@ -101,7 +101,10 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
     private static final long PROGRAM = 991001L;
     private static final String VISIBLE = "FAKE visible shared-program note café 中文";
     private static final String HIDDEN = "FAKE reporter-role hidden note café 中文";
-    @PersistenceContext(unitName = "entityManagerFactory") private EntityManager entityManager;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
+
     @TempDir Path documents;
     private CaseManagementManager manager;
     private LoggedInInfo login;
@@ -122,17 +125,26 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
         CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documents.toString());
         bindRealAuthorizationCaches();
         manager = SpringUtils.getBean(CaseManagementManager.class);
-        for (String provider : List.of(READER, WRITER)) entityManager.createNativeQuery(
-                "MERGE INTO provider(provider_no,first_name,last_name,provider_type,sex,specialty,status) KEY(provider_no)"
-                        + " VALUES (?1,'FAKE','PdfVisibility','doctor','U','GP','1')")
-                .setParameter(1, provider).executeUpdate();
-        entityManager.createNativeQuery("MERGE INTO program(id,name,type) KEY(id)"
-                        + " VALUES (?1,'FAKE-PDF-VISIBILITY','community')")
-                .setParameter(1, PROGRAM).executeUpdate();
-        entityManager.createNativeQuery("UPDATE program SET programStatus='active',userDefined=1,holdingTank=0,allowBatchAdmission=0,"
-                        + "allowBatchDischarge=0,hic=0,transgender=0,firstNation=0,alcohol=0,physicalHealth=0,"
-                        + "mentalHealth=0,housing=0,enableEncounterTime=0,enableEncounterTransportationTime=0 WHERE id=?1")
-                .setParameter(1, PROGRAM).executeUpdate();
+        for (String provider : List.of(READER, WRITER))
+            entityManager
+                    .createNativeQuery(
+                            "MERGE INTO provider(provider_no,first_name,last_name,provider_type,sex,specialty,status) KEY(provider_no)"
+                                    + " VALUES (?1,'FAKE','PdfVisibility','doctor','U','GP','1')")
+                    .setParameter(1, provider)
+                    .executeUpdate();
+        entityManager
+                .createNativeQuery(
+                        "MERGE INTO program(id,name,type) KEY(id)"
+                                + " VALUES (?1,'FAKE-PDF-VISIBILITY','community')")
+                .setParameter(1, PROGRAM)
+                .executeUpdate();
+        entityManager
+                .createNativeQuery(
+                        "UPDATE program SET programStatus='active',userDefined=1,holdingTank=0,allowBatchAdmission=0,"
+                                + "allowBatchDischarge=0,hic=0,transgender=0,firstNation=0,alcohol=0,physicalHealth=0,"
+                                + "mentalHealth=0,housing=0,enableEncounterTime=0,enableEncounterTransportationTime=0 WHERE id=?1")
+                .setParameter(1, PROGRAM)
+                .executeUpdate();
         Secrole readerRole = role("FAKE-PDF-READER");
         Secrole hiddenRole = role("FAKE-PDF-REPORTER");
         ProgramProvider membership = new ProgramProvider();
@@ -141,7 +153,8 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
         membership.setRoleId(readerRole.getId());
         // Use the real DAO writer so its provider/program cache is invalidated
         // between independently rolled-back parameterized invocations.
-        ((ProgramProviderDAO) SpringUtils.getBean("programProviderDAO")).saveProgramProvider(membership);
+        ((ProgramProviderDAO) SpringUtils.getBean("programProviderDAO"))
+                .saveProgramProvider(membership);
         entityManager.flush();
         entityManager.clear();
         Demographic demographic = new Demographic();
@@ -164,9 +177,12 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
         RoleCache.reload();
         ProgramAccessCache.setAccessMap(PROGRAM);
         List<CaseManagementNote> notes = manager.getNotes(Integer.toString(patient));
-        assertThat(notes).extracting(CaseManagementNote::getId).contains(visible.getId(), hidden.getId());
+        assertThat(notes)
+                .extracting(CaseManagementNote::getId)
+                .contains(visible.getId(), hidden.getId());
         assertThat(manager.filterNotes(login, READER, notes, Long.toString(PROGRAM)))
-                .extracting(CaseManagementNote::getId).containsExactly(visible.getId());
+                .extracting(CaseManagementNote::getId)
+                .containsExactly(visible.getId());
     }
 
     @AfterEach
@@ -175,10 +191,14 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
             restore("FILTER_ON_FACILITY", facilitySetting);
             restore("DOCUMENT_DIR", documentSetting);
         } finally {
-            if (roleSnapshotSaved) { roleSnapshots().set(originalRoleSnapshot); roleSnapshotSaved=false; }
+            if (roleSnapshotSaved) {
+                roleSnapshots().set(originalRoleSnapshot);
+                roleSnapshotSaved = false;
+            }
             for (CacheField original : originalCacheFields.reversed()) {
                 ReflectionTestUtils.setField(original.owner(), original.name(), original.value());
-                assertThat(ReflectionTestUtils.getField(original.owner(), original.name())).isSameAs(original.value());
+                assertThat(ReflectionTestUtils.getField(original.owner(), original.name()))
+                        .isSameAs(original.value());
             }
             originalCacheFields.clear();
         }
@@ -192,109 +212,164 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
      */
     private void bindRealAuthorizationCaches() {
         originalRoleSnapshot = roleSnapshots().getAndSet(null);
-        roleSnapshotSaved=true;
-        bindCacheField(ProgramAccessCache.class, "programAccessDAO", applicationContext.getBean("programAccessDAO", ProgramAccessDAO.class));
+        roleSnapshotSaved = true;
+        bindCacheField(
+                ProgramAccessCache.class,
+                "programAccessDAO",
+                applicationContext.getBean("programAccessDAO", ProgramAccessDAO.class));
         bindCacheField(ProgramAccessCache.class, "accessMaps", new HashMap<>());
     }
 
     @SuppressWarnings("unchecked")
     private static java.util.concurrent.atomic.AtomicReference<Object> roleSnapshots() {
-        return (java.util.concurrent.atomic.AtomicReference<Object>) ReflectionTestUtils.getField(RoleCache.class, "snapshot");
+        return (java.util.concurrent.atomic.AtomicReference<Object>)
+                ReflectionTestUtils.getField(RoleCache.class, "snapshot");
     }
 
     private void bindCacheField(Class<?> owner, String name, Object replacement) {
-        originalCacheFields.add(new CacheField(owner, name, ReflectionTestUtils.getField(owner, name)));
+        originalCacheFields.add(
+                new CacheField(owner, name, ReflectionTestUtils.getField(owner, name)));
         ReflectionTestUtils.setField(owner, name, replacement);
     }
 
-    private record CacheField(Class<?> owner, String name, Object value) { }
+    private record CacheField(Class<?> owner, String name, Object value) {}
 
     @ParameterizedTest
     @ValueSource(strings = {"all", "date-range", "cpp", "other-meds"})
-    void shouldOmitChartHiddenBodiesFromActualPdf_whenPrintingBulkScopes(String mode) throws Exception {
+    void shouldOmitChartHiddenBodiesFromActualPdf_whenPrintingBulkScopes(String mode)
+            throws Exception {
         boolean cpp = "cpp".equals(mode);
         boolean otherMeds = "other-meds".equals(mode);
         if (cpp || otherMeds) linkToCpp(otherMeds ? "OMeds" : "MedHistory");
         MockHttpServletRequest request = request(Long.toString(PROGRAM));
         if (otherMeds) request.setParameter("printRx", "true");
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        print(request, bytes, !cpp && !otherMeds,
-                cpp || otherMeds ? new String[0] : new String[]{visible.getId().toString(), hidden.getId().toString()},
-                cpp, "date-range".equals(mode));
+        print(
+                request,
+                bytes,
+                !cpp && !otherMeds,
+                cpp || otherMeds
+                        ? new String[0]
+                        : new String[] {visible.getId().toString(), hidden.getId().toString()},
+                cpp,
+                "date-range".equals(mode));
         assertThat(pdfText(bytes)).contains(VISIBLE).doesNotContain(HIDDEN);
     }
 
     @Test
     void shouldRefuseBeforeAnyOutput_whenAnExplicitSelectionContainsAHiddenNote() {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        assertThatThrownBy(() -> print(request(Long.toString(PROGRAM)), bytes, false,
-                new String[]{visible.getId().toString(), hidden.getId().toString()}, false, false))
+        assertThatThrownBy(
+                        () ->
+                                print(
+                                        request(Long.toString(PROGRAM)),
+                                        bytes,
+                                        false,
+                                        new String[] {
+                                            visible.getId().toString(), hidden.getId().toString()
+                                        },
+                                        false,
+                                        false))
                 .isInstanceOf(CaseManagementPrint.NoteAccessDeniedException.class);
         assertThat(bytes.size()).isZero();
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"programId", "case_program_id"})
-    void shouldRefuseFreshNoProgramEntry_beforeItCanPrintReporterRoleHiddenNotes(String alias) throws Exception {
+    void shouldRefuseFreshNoProgramEntry_beforeItCanPrintReporterRoleHiddenNotes(String alias)
+            throws Exception {
         MockHttpServletRequest request = request(null);
         // The integration context has the production DAOs but does not declare
         // the web application's ectProgramManager alias. Use the same concrete
         // manager with those real DAOs, without changing any global bean wiring.
-        EctProgramManager realPrograms = new EctProgramManagerImpl(
-                applicationContext.getBean(DemographicDao.class),
-                applicationContext.getBean("programProviderDAO", ProgramProviderDAO.class),
-                applicationContext.getBean(ProviderDefaultProgramDao.class),
-                applicationContext.getBean(ProgramDao.class));
-        EctProgram programs = new EctProgram(request.getSession()) {
-            @Override public EctProgramManager getEctProgramManager() { return realPrograms; }
-        };
+        EctProgramManager realPrograms =
+                new EctProgramManagerImpl(
+                        applicationContext.getBean(DemographicDao.class),
+                        applicationContext.getBean("programProviderDAO", ProgramProviderDAO.class),
+                        applicationContext.getBean(ProviderDefaultProgramDao.class),
+                        applicationContext.getBean(ProgramDao.class));
+        EctProgram programs =
+                new EctProgram(request.getSession()) {
+                    @Override
+                    public EctProgramManager getEctProgramManager() {
+                        return realPrograms;
+                    }
+                };
         assertThat(programs.getEctProgramManager().getProgramBeans(READER, null))
-                .extracting(bean -> bean.getValue()).contains(Long.toString(PROGRAM));
+                .extracting(bean -> bean.getValue())
+                .contains(Long.toString(PROGRAM));
         request.setParameter(alias, "0");
         Object exactDraft = new Object();
         request.getSession().setAttribute("caseManagementEntryForm" + patient, exactDraft);
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-        Throwable refusal = catchThrowable(() -> ChartProgramContext.initialize(request, programs, READER));
+        Throwable refusal =
+                catchThrowable(() -> ChartProgramContext.initialize(request, programs, READER));
         if (refusal == null) {
             // A vulnerable initializer issues a genuine signed zero context. Exercise
             // the real H2 policy, renderer and merger so this regression also exposes
             // the clinical body that such a token would otherwise make printable.
             print(request, bytes, true, new String[0], false, false);
-            assertThat(pdfText(bytes)).as("a fresh zero-program selection must not expose a hidden reporter role")
+            assertThat(pdfText(bytes))
+                    .as("a fresh zero-program selection must not expose a hidden reporter role")
                     .doesNotContain(HIDDEN);
         }
 
         assertThat(refusal).isInstanceOf(SecurityException.class);
         assertThat(bytes.size()).isZero();
         assertThat(ChartProgramContext.token(request)).isNull();
-        assertThat(request.getSession().getAttribute("caseManagementEntryForm" + patient)).isSameAs(exactDraft);
+        assertThat(request.getSession().getAttribute("caseManagementEntryForm" + patient))
+                .isSameAs(exactDraft);
     }
 
     @Test
-    void shouldRetainReadableSharedProgramNote_whenItsStoredProgramDiffersFromTheChart() throws Exception {
+    void shouldRetainReadableSharedProgramNote_whenItsStoredProgramDiffersFromTheChart()
+            throws Exception {
         assertThat(visible.getProgram_no()).isNotEqualTo(Long.toString(PROGRAM));
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        print(request(Long.toString(PROGRAM)), bytes, false, new String[]{visible.getId().toString()}, false, false);
+        print(
+                request(Long.toString(PROGRAM)),
+                bytes,
+                false,
+                new String[] {visible.getId().toString()},
+                false,
+                false);
         assertThat(pdfText(bytes)).contains(VISIBLE).doesNotContain(HIDDEN);
     }
 
     @ParameterizedTest
     @NullSource
     @ValueSource(strings = {"0"})
-    void shouldPreserveIssuedLegacyPrintVisibility_whenASignedContextCapturesNullOrZero(String program) throws Exception {
+    void shouldPreserveIssuedLegacyPrintVisibility_whenASignedContextCapturesNullOrZero(
+            String program) throws Exception {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         MockHttpServletRequest request = request(program);
         if (program == null) ChartProgramContext.remember(request, null);
         assertThat(ChartProgramContext.token(request)).isNotBlank();
-        print(request, bytes, false,
-                new String[]{visible.getId().toString(), hidden.getId().toString()}, false, false);
+        print(
+                request,
+                bytes,
+                false,
+                new String[] {visible.getId().toString(), hidden.getId().toString()},
+                false,
+                false);
         assertThat(pdfText(bytes)).contains(VISIBLE, HIDDEN);
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"all", "selected", "cpp", "other-meds", "rest-all", "rest-selected", "web-all", "web-selected"})
-    void shouldApplyTheAuthenticatedDefault_whenAConfiguredCallerOmitsChartContext(String mode) throws Exception {
+    @ValueSource(
+            strings = {
+                "all",
+                "selected",
+                "cpp",
+                "other-meds",
+                "rest-all",
+                "rest-selected",
+                "web-all",
+                "web-selected"
+            })
+    void shouldApplyTheAuthenticatedDefault_whenAConfiguredCallerOmitsChartContext(String mode)
+            throws Exception {
         boolean cpp = "cpp".equals(mode);
         boolean otherMeds = "other-meds".equals(mode);
         if (cpp || otherMeds) linkToCpp(otherMeds ? "OMeds" : "MedHistory");
@@ -310,32 +385,66 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
         boolean selected = mode.endsWith("selected");
         if (mode.startsWith("rest-")) {
             RecordUxService rest = restWithReadGrants();
-            var stream = rest.print(patient, "{\"printType\":\"" + (selected ? "selected" : "all")
-                    + "\",\"selectedList\":[\"" + visible.getId() + "\",\"" + hidden.getId() + "\"]}", request);
+            var stream =
+                    rest.print(
+                            patient,
+                            "{\"printType\":\""
+                                    + (selected ? "selected" : "all")
+                                    + "\",\"selectedList\":[\""
+                                    + visible.getId()
+                                    + "\",\""
+                                    + hidden.getId()
+                                    + "\"]}",
+                            request);
             try (var clinic = mockConstruction(ClinicData.class)) {
-                if (selected) assertThatThrownBy(() -> stream.write(bytes)).isInstanceOf(ForbiddenException.class)
-                        .satisfies(failure -> assertThat(((ForbiddenException) failure).getResponse().getStatus()).isEqualTo(403));
+                if (selected)
+                    assertThatThrownBy(() -> stream.write(bytes))
+                            .isInstanceOf(ForbiddenException.class)
+                            .satisfies(
+                                    failure ->
+                                            assertThat(
+                                                            ((ForbiddenException) failure)
+                                                                    .getResponse()
+                                                                    .getStatus())
+                                                    .isEqualTo(403));
                 else stream.write(bytes);
             }
         } else if (mode.startsWith("web-")) {
-            request.setParameter("notes2print", selected ? visible.getId() + "," + hidden.getId() : "ALL_NOTES");
+            request.setParameter(
+                    "notes2print", selected ? visible.getId() + "," + hidden.getId() : "ALL_NOTES");
             request.setParameter("printCPP", "false");
             request.setParameter("printRx", "false");
             MockHttpServletResponse response = new MockHttpServletResponse();
             ActionContext previous = ActionContext.getContext();
             try {
-                ActionContext.of(new HashMap<>()).withServletRequest(request).withServletResponse(response).bind();
+                ActionContext.of(new HashMap<>())
+                        .withServletRequest(request)
+                        .withServletResponse(response)
+                        .bind();
                 // The integration context omits these unrelated editor-constructor dependencies.
                 try (var beans = mockStatic(SpringUtils.class, CALLS_REAL_METHODS)) {
-                    beans.when(() -> SpringUtils.getBean(ClientImageManager.class)).thenReturn(mock(ClientImageManager.class));
-                    beans.when(() -> SpringUtils.getBean(ProviderManager.class)).thenReturn(mock(ProviderManager.class));
+                    beans.when(() -> SpringUtils.getBean(ClientImageManager.class))
+                            .thenReturn(mock(ClientImageManager.class));
+                    beans.when(() -> SpringUtils.getBean(ProviderManager.class))
+                            .thenReturn(mock(ProviderManager.class));
                     // This ordinary-note fixture has no CDS source representation.
-                    beans.when(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class))
-                            .thenReturn(new io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService(
-                                    mock(io.github.carlos_emr.carlos.commn.dao.CdsLegacyProjectionDao.class)));
+                    beans.when(
+                                    () ->
+                                            SpringUtils.getBean(
+                                                    io.github.carlos_emr.carlos.demographic
+                                                            .cdsimport.service
+                                                            .CdsLegacyProjectionService.class))
+                            .thenReturn(
+                                    new io.github.carlos_emr.carlos.demographic.cdsimport.service
+                                            .CdsLegacyProjectionService(
+                                            mock(
+                                                    io.github.carlos_emr.carlos.commn.dao
+                                                            .CdsLegacyProjectionDao.class)));
                     CaseManagementEntry2Action action = new CaseManagementEntry2Action();
                     ReflectionTestUtils.setField(action, "securityInfoManager", readGrants());
-                    try (var clinic = mockConstruction(ClinicData.class)) { action.print(); }
+                    try (var clinic = mockConstruction(ClinicData.class)) {
+                        action.print();
+                    }
                 }
             } finally {
                 if (previous == null) ActionContext.clear();
@@ -348,8 +457,18 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
             }
             bytes.write(response.getContentAsByteArray());
         } else if (selected) {
-            assertThatThrownBy(() -> print(request, bytes, false,
-                    new String[]{visible.getId().toString(), hidden.getId().toString()}, false, false))
+            assertThatThrownBy(
+                            () ->
+                                    print(
+                                            request,
+                                            bytes,
+                                            false,
+                                            new String[] {
+                                                visible.getId().toString(),
+                                                hidden.getId().toString()
+                                            },
+                                            false,
+                                            false))
                     .isInstanceOf(CaseManagementPrint.NoteAccessDeniedException.class);
         } else {
             print(request, bytes, !cpp && !otherMeds, new String[0], cpp, false);
@@ -361,41 +480,68 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldRespectTheCurrentFacility_whenAnUncapturedConfiguredReaderPrintsNotes() throws Exception {
+    void shouldRespectTheCurrentFacility_whenAnUncapturedConfiguredReaderPrintsNotes()
+            throws Exception {
         Facility current = new Facility();
         current.setId(10);
         login.setCurrentFacility(current);
-        for (long id : new long[]{PROGRAM + 1, PROGRAM + 2}) entityManager.createNativeQuery(
-                "MERGE INTO program(id,name,type,facilityId) KEY(id) VALUES (?1,'FAKE-PDF-FACILITY','community',?2)")
-                .setParameter(1, id).setParameter(2, id == PROGRAM + 1 ? 10 : 20).executeUpdate();
-        entityManager.createNativeQuery("UPDATE program SET programStatus='active',userDefined=1,holdingTank=0,allowBatchAdmission=0,"
-                + "allowBatchDischarge=0,hic=0,transgender=0,firstNation=0,alcohol=0,physicalHealth=0,"
-                + "mentalHealth=0,housing=0,enableEncounterTime=0,enableEncounterTransportationTime=0 WHERE id IN (?1,?2)")
-                .setParameter(1, PROGRAM + 1).setParameter(2, PROGRAM + 2).executeUpdate();
-        CaseManagementNote outside = note(Long.parseLong(visible.getReporter_caisi_role()),
-                "FAKE same-role other-facility body", PROGRAM + 2);
+        for (long id : new long[] {PROGRAM + 1, PROGRAM + 2})
+            entityManager
+                    .createNativeQuery(
+                            "MERGE INTO program(id,name,type,facilityId) KEY(id) VALUES (?1,'FAKE-PDF-FACILITY','community',?2)")
+                    .setParameter(1, id)
+                    .setParameter(2, id == PROGRAM + 1 ? 10 : 20)
+                    .executeUpdate();
+        entityManager
+                .createNativeQuery(
+                        "UPDATE program SET programStatus='active',userDefined=1,holdingTank=0,allowBatchAdmission=0,"
+                                + "allowBatchDischarge=0,hic=0,transgender=0,firstNation=0,alcohol=0,physicalHealth=0,"
+                                + "mentalHealth=0,housing=0,enableEncounterTime=0,enableEncounterTransportationTime=0 WHERE id IN (?1,?2)")
+                .setParameter(1, PROGRAM + 1)
+                .setParameter(2, PROGRAM + 2)
+                .executeUpdate();
+        CaseManagementNote outside =
+                note(
+                        Long.parseLong(visible.getReporter_caisi_role()),
+                        "FAKE same-role other-facility body",
+                        PROGRAM + 2);
         entityManager.flush();
         // Both notes pass reporter-role access; the real facility rule removes only outside.
-        assertThat(manager.filterNotes(login, READER, List.of(visible, outside), Long.toString(PROGRAM)))
-                .extracting(CaseManagementNote::getId).containsExactly(visible.getId(), outside.getId());
+        assertThat(
+                        manager.filterNotes(
+                                login, READER, List.of(visible, outside), Long.toString(PROGRAM)))
+                .extracting(CaseManagementNote::getId)
+                .containsExactly(visible.getId(), outside.getId());
         CarlosProperties.getInstance().setProperty("FILTER_ON_FACILITY", "true");
-        assertThat(manager.filterNotes(login, READER, List.of(visible, outside), Long.toString(PROGRAM)))
-                .extracting(CaseManagementNote::getId).containsExactly(visible.getId());
+        assertThat(
+                        manager.filterNotes(
+                                login, READER, List.of(visible, outside), Long.toString(PROGRAM)))
+                .extracting(CaseManagementNote::getId)
+                .containsExactly(visible.getId());
         MockHttpServletRequest request = request(null);
         bindRealDefaultPrograms(request);
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         print(request, bytes, true, new String[0], false, false);
         assertThat(pdfText(bytes)).contains(VISIBLE).doesNotContain(HIDDEN, outside.getNote());
         ByteArrayOutputStream selected = new ByteArrayOutputStream();
-        assertThatThrownBy(() -> print(request, selected, false,
-                new String[]{outside.getId().toString()}, false, false))
+        assertThatThrownBy(
+                        () ->
+                                print(
+                                        request,
+                                        selected,
+                                        false,
+                                        new String[] {outside.getId().toString()},
+                                        false,
+                                        false))
                 .isInstanceOf(CaseManagementPrint.NoteAccessDeniedException.class);
         assertThat(selected.size()).isZero();
     }
 
     @Test
-    void shouldRetainGenuinelyProgramlessPrintAccess_whenTheReaderHasNoAvailablePrograms() throws Exception {
-        ProgramProviderDAO memberships = applicationContext.getBean("programProviderDAO", ProgramProviderDAO.class);
+    void shouldRetainGenuinelyProgramlessPrintAccess_whenTheReaderHasNoAvailablePrograms()
+            throws Exception {
+        ProgramProviderDAO memberships =
+                applicationContext.getBean("programProviderDAO", ProgramProviderDAO.class);
         for (ProgramProvider membership : memberships.getProgramProvidersByProvider(READER)) {
             memberships.deleteProgramProvider(membership.getId());
         }
@@ -403,27 +549,45 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
         MockHttpServletRequest request = request(null);
         bindRealDefaultPrograms(request, "0");
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        print(request, bytes, false, new String[]{visible.getId().toString(), hidden.getId().toString()}, false, false);
+        print(
+                request,
+                bytes,
+                false,
+                new String[] {visible.getId().toString(), hidden.getId().toString()},
+                false,
+                false);
         assertThat(pdfText(bytes)).contains(VISIBLE, HIDDEN);
         assertThat(ChartProgramContext.token(request)).isNull();
         assertThat(ChartProgramContext.resolve(request)).isNull();
     }
 
     private RecordUxService restWithReadGrants() {
-        RecordUxService rest = new RecordUxService() {
-            @Override protected LoggedInInfo getLoggedInInfo() { return login; }
-        };
+        RecordUxService rest =
+                new RecordUxService() {
+                    @Override
+                    protected LoggedInInfo getLoggedInInfo() {
+                        return login;
+                    }
+                };
         ReflectionTestUtils.setField(rest, "securityInfoManager", readGrants());
         return rest;
     }
 
     private SecurityInfoManager readGrants() {
         SecurityInfoManager security = mock(SecurityInfoManager.class);
-        when(security.hasPrivilege(org.mockito.ArgumentMatchers.eq(login), anyString(),
-                org.mockito.ArgumentMatchers.eq("r"), org.mockito.ArgumentMatchers.eq(patient))).thenReturn(true);
+        when(security.hasPrivilege(
+                        org.mockito.ArgumentMatchers.eq(login),
+                        anyString(),
+                        org.mockito.ArgumentMatchers.eq("r"),
+                        org.mockito.ArgumentMatchers.eq(patient)))
+                .thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(login, patient)).thenReturn(true);
-        when(security.hasPrivilege(org.mockito.ArgumentMatchers.eq(login), anyString(),
-                org.mockito.ArgumentMatchers.eq("r"), org.mockito.ArgumentMatchers.eq(Integer.toString(patient)))).thenReturn(true);
+        when(security.hasPrivilege(
+                        org.mockito.ArgumentMatchers.eq(login),
+                        anyString(),
+                        org.mockito.ArgumentMatchers.eq("r"),
+                        org.mockito.ArgumentMatchers.eq(Integer.toString(patient))))
+                .thenReturn(true);
         return security;
     }
 
@@ -432,18 +596,22 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
     }
 
     private void bindRealDefaultPrograms(MockHttpServletRequest request, String expected) {
-        EctProgramManager actual = new EctProgramManagerImpl(
-                applicationContext.getBean(DemographicDao.class),
-                applicationContext.getBean("programProviderDAO", ProgramProviderDAO.class),
-                applicationContext.getBean(ProviderDefaultProgramDao.class), applicationContext.getBean(ProgramDao.class));
+        EctProgramManager actual =
+                new EctProgramManagerImpl(
+                        applicationContext.getBean(DemographicDao.class),
+                        applicationContext.getBean("programProviderDAO", ProgramProviderDAO.class),
+                        applicationContext.getBean(ProviderDefaultProgramDao.class),
+                        applicationContext.getBean(ProgramDao.class));
         StaticWebApplicationContext web = new StaticWebApplicationContext();
         web.getBeanFactory().registerSingleton("ectProgramManager", actual);
-        request.getServletContext().setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, web);
+        request.getServletContext()
+                .setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, web);
         assertThat(new EctProgram(request.getSession()).getProgram(READER)).isEqualTo(expected);
     }
 
     @Test
-    void shouldRetainTheCapturedPolicy_whenALaterRestRequestContainsAConflictingPatientAlias() throws Exception {
+    void shouldRetainTheCapturedPolicy_whenALaterRestRequestContainsAConflictingPatientAlias()
+            throws Exception {
         MockHttpServletRequest captured = request(Long.toString(PROGRAM));
         MockHttpServletRequest later = new MockHttpServletRequest();
         later.setSession(captured.getSession());
@@ -457,18 +625,47 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
         assertThat(pdfText(bulk)).contains(VISIBLE).doesNotContain(HIDDEN);
         assertThat(later.getParameter("demographic_no")).isEqualTo(Integer.toString(patient + 1));
         ByteArrayOutputStream selected = new ByteArrayOutputStream();
-        assertThatThrownBy(() -> print(later, selected, false,
-                new String[]{visible.getId().toString(), hidden.getId().toString()}, false, false))
+        assertThatThrownBy(
+                        () ->
+                                print(
+                                        later,
+                                        selected,
+                                        false,
+                                        new String[] {
+                                            visible.getId().toString(), hidden.getId().toString()
+                                        },
+                                        false,
+                                        false))
                 .isInstanceOf(CaseManagementPrint.NoteAccessDeniedException.class);
         assertThat(selected.size()).isZero();
     }
 
-    private void print(MockHttpServletRequest request, ByteArrayOutputStream bytes, boolean all,
-                       String[] ids, boolean cpp, boolean dates) throws Exception {
+    private void print(
+            MockHttpServletRequest request,
+            ByteArrayOutputStream bytes,
+            boolean all,
+            String[] ids,
+            boolean cpp,
+            boolean dates)
+            throws Exception {
         try (var clinic = mockConstruction(ClinicData.class)) {
             Calendar day = new GregorianCalendar(2026, Calendar.OCTOBER, 25);
-            new CaseManagementPrint().doPrint(login, patient, all, ids, cpp,
-                    Boolean.parseBoolean(request.getParameter("printRx")), false, false, false, dates, day, day, request, bytes);
+            new CaseManagementPrint()
+                    .doPrint(
+                            login,
+                            patient,
+                            all,
+                            ids,
+                            cpp,
+                            Boolean.parseBoolean(request.getParameter("printRx")),
+                            false,
+                            false,
+                            false,
+                            dates,
+                            day,
+                            day,
+                            request,
+                            bytes);
         }
     }
 
@@ -481,7 +678,8 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
     }
 
     private String pdfText(ByteArrayOutputStream bytes) throws Exception {
-        assertThat(new String(bytes.toByteArray(), 0, 5, StandardCharsets.US_ASCII)).isEqualTo("%PDF-");
+        assertThat(new String(bytes.toByteArray(), 0, 5, StandardCharsets.US_ASCII))
+                .isEqualTo("%PDF-");
         try (var pdf = Loader.loadPDF(bytes.toByteArray())) {
             assertThat(pdf.getNumberOfPages()).isPositive();
             return new PDFTextStripper().getText(pdf);
@@ -508,7 +706,8 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
         note.setSigned(true);
         note.setLocked(false);
         note.setArchived(false);
-        note.setObservation_date(new GregorianCalendar(2026, Calendar.OCTOBER, 25, 12, 0, 0).getTime());
+        note.setObservation_date(
+                new GregorianCalendar(2026, Calendar.OCTOBER, 25, 12, 0, 0).getTime());
         note.setUpdate_date(new Date());
         note.setUuid(UUID.randomUUID().toString());
         note.setHistory(text);
@@ -525,18 +724,36 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
         issue.setType("system");
         entityManager.persist(issue);
         entityManager.flush();
-        entityManager.createNativeQuery("INSERT INTO casemgmt_issue"
-                        + "(demographic_no,issue_id,acute,certain,major,resolved,program_id,type,update_date)"
-                        + " VALUES (?1,?2,0,1,0,0,?3,'',CURRENT_TIMESTAMP)")
-                .setParameter(1, patient).setParameter(2, issue.getId()).setParameter(3, PROGRAM).executeUpdate();
-        Number caseIssue = (Number) entityManager.createNativeQuery("SELECT id FROM casemgmt_issue"
-                        + " WHERE demographic_no=?1 AND issue_id=?2")
-                .setParameter(1, patient).setParameter(2, issue.getId()).getSingleResult();
-        for (CaseManagementNote note : List.of(visible, hidden)) entityManager.createNativeQuery(
-                "INSERT INTO casemgmt_issue_notes(id,note_id) VALUES (?1,?2)")
-                .setParameter(1, caseIssue).setParameter(2, note.getId()).executeUpdate();
-        assertThat(manager.getNotes(Integer.toString(patient), new String[]{issue.getId().toString()}))
-                .extracting(CaseManagementNote::getId).contains(visible.getId(), hidden.getId());
+        entityManager
+                .createNativeQuery(
+                        "INSERT INTO casemgmt_issue"
+                                + "(demographic_no,issue_id,acute,certain,major,resolved,program_id,type,update_date)"
+                                + " VALUES (?1,?2,0,1,0,0,?3,'',CURRENT_TIMESTAMP)")
+                .setParameter(1, patient)
+                .setParameter(2, issue.getId())
+                .setParameter(3, PROGRAM)
+                .executeUpdate();
+        Number caseIssue =
+                (Number)
+                        entityManager
+                                .createNativeQuery(
+                                        "SELECT id FROM casemgmt_issue"
+                                                + " WHERE demographic_no=?1 AND issue_id=?2")
+                                .setParameter(1, patient)
+                                .setParameter(2, issue.getId())
+                                .getSingleResult();
+        for (CaseManagementNote note : List.of(visible, hidden))
+            entityManager
+                    .createNativeQuery(
+                            "INSERT INTO casemgmt_issue_notes(id,note_id) VALUES (?1,?2)")
+                    .setParameter(1, caseIssue)
+                    .setParameter(2, note.getId())
+                    .executeUpdate();
+        assertThat(
+                        manager.getNotes(
+                                Integer.toString(patient), new String[] {issue.getId().toString()}))
+                .extracting(CaseManagementNote::getId)
+                .contains(visible.getId(), hidden.getId());
     }
 
     private void restore(String key, String value) {

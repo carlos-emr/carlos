@@ -26,14 +26,25 @@ import java.util.Map;
 import java.util.TreeMap;
 
 /** Bounded immutable candidates from the same authenticated source generation; names are never lookup keys. */
-public record CdsExportAppointmentLookupsDto(String sourceManifestSha256,
-        Map<String, CdsExportCapturedTextRowDto> providers, Map<String, List<CdsExportCapturedTextRowDto>> statuses) {
+public record CdsExportAppointmentLookupsDto(
+        String sourceManifestSha256,
+        Map<String, CdsExportCapturedTextRowDto> providers,
+        Map<String, List<CdsExportCapturedTextRowDto>> statuses) {
     public CdsExportAppointmentLookupsDto {
-        if (sourceManifestSha256 == null || !sourceManifestSha256.matches("[0-9a-f]{64}") || providers == null || statuses == null) {
+        if (sourceManifestSha256 == null
+                || !sourceManifestSha256.matches("[0-9a-f]{64}")
+                || providers == null
+                || statuses == null) {
             throw new IllegalArgumentException("CDS_EXPORT_APPOINTMENT_LOOKUPS_INVALID");
         }
-        providers = Map.copyOf(providers); var copied = new TreeMap<String, List<CdsExportCapturedTextRowDto>>();
-        statuses.forEach((code, rows) -> copied.put(code, List.copyOf(rows))); statuses = Map.copyOf(copied);
+        providers = Map.copyOf(providers);
+        var copied = new TreeMap<String, List<CdsExportCapturedTextRowDto>>();
+        statuses.forEach((code, rows) -> copied.put(code, List.copyOf(rows)));
+        statuses = Map.copyOf(copied);
     }
-    @Override public String toString() { return "CdsExportAppointmentLookupsDto[protected]"; }
+
+    @Override
+    public String toString() {
+        return "CdsExportAppointmentLookupsDto[protected]";
+    }
 }

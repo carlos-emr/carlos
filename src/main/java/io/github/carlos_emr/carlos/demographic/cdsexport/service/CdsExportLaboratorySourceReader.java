@@ -39,41 +39,119 @@ import org.springframework.stereotype.Service;
 @Service
 public class CdsExportLaboratorySourceReader implements CdsExportNativeSourceReader {
     private final CdsLaboratoryResultDao source;
-    public CdsExportLaboratorySourceReader(CdsLaboratoryResultDao source) { this.source = Objects.requireNonNull(source); }
-    @Override public String table() { return "cds_laboratory_result"; }
-    @Override public Set<String> columns() { return Set.copyOf(CdsExportPatientTableReadSupport.Plan.LABORATORY_RESULTS.columns()); }
-    @Override public Set<CdsCategory> categories() { return Set.of(CdsCategory.LABORATORY_RESULTS); }
-    @Override public boolean requiresSensitiveLaboratoryRead() { return true; }
-    @Override public Set<String> requiredTables() { return Set.of(table(), "hl7TextMessage", "hl7TextInfo", "patientLabRouting"); }
-    @Override public List<CdsNativeRowDigest.Column> receiptColumns() { return source.readCdsExportReceiptColumns(); }
-    @Override public CdsExportTableSchemaDto schema() { return source.readCdsExportSourceSchema(); }
-    @Override public long count(int patient) { return source.countCdsExportRows(patient); }
-    @Override public void capture(int patient, CdsExportNativeCaptureComposer.Writer output) throws IOException { capture(patient, output, () -> { }); }
-    @Override public void capture(int patient, CdsExportNativeCaptureComposer.Writer output, Runnable checkpoint) throws IOException {
-        String after = null; Objects.requireNonNull(checkpoint).run();
+
+    public CdsExportLaboratorySourceReader(CdsLaboratoryResultDao source) {
+        this.source = Objects.requireNonNull(source);
+    }
+
+    @Override
+    public String table() {
+        return "cds_laboratory_result";
+    }
+
+    @Override
+    public Set<String> columns() {
+        return Set.copyOf(CdsExportPatientTableReadSupport.Plan.LABORATORY_RESULTS.columns());
+    }
+
+    @Override
+    public Set<CdsCategory> categories() {
+        return Set.of(CdsCategory.LABORATORY_RESULTS);
+    }
+
+    @Override
+    public boolean requiresSensitiveLaboratoryRead() {
+        return true;
+    }
+
+    @Override
+    public Set<String> requiredTables() {
+        return Set.of(table(), "hl7TextMessage", "hl7TextInfo", "patientLabRouting");
+    }
+
+    @Override
+    public List<CdsNativeRowDigest.Column> receiptColumns() {
+        return source.readCdsExportReceiptColumns();
+    }
+
+    @Override
+    public CdsExportTableSchemaDto schema() {
+        return source.readCdsExportSourceSchema();
+    }
+
+    @Override
+    public long count(int patient) {
+        return source.countCdsExportRows(patient);
+    }
+
+    @Override
+    public void capture(int patient, CdsExportNativeCaptureComposer.Writer output)
+            throws IOException {
+        capture(patient, output, () -> {});
+    }
+
+    @Override
+    public void capture(
+            int patient, CdsExportNativeCaptureComposer.Writer output, Runnable checkpoint)
+            throws IOException {
+        String after = null;
+        Objects.requireNonNull(checkpoint).run();
         while (true) {
-            checkpoint.run(); var page = source.findCdsExportRowsAfter(patient, after, 32);
+            checkpoint.run();
+            var page = source.findCdsExportRowsAfter(patient, after, 32);
             if (page.size() > 32) invalid();
             for (var row : page) {
                 checkpoint.run();
-                if (row.id() == null || !row.id().matches("[0-9a-f]{64}") || after != null && row.id().compareTo(after) <= 0
+                if (row.id() == null
+                        || !row.id().matches("[0-9a-f]{64}")
+                        || after != null && row.id().compareTo(after) <= 0
                         || !row.cells().keySet().equals(columns())) invalid();
-                output.row(row.id(), writer -> {
-                    for (var field : row.cells().entrySet()) {
-                        checkpoint.run();
-                        if (field.getValue().sqlNull()) writer.text(field.getKey(), (String) null);
-                        else try (var input = new CdsExportRawValueInputStream(field.getValue(), (offset, length) -> {
-                                    checkpoint.run(); return source.readCdsExportValueChunk(patient, row.id(), field.getKey(), offset, length);
-                                });
-                                var text = new InputStreamReader(input, StandardCharsets.UTF_8.newDecoder()
-                                        .onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT))) {
-                            writer.text(field.getKey(), text);
-                        }
-                    }
-                }); after = row.id();
+                output.row(
+                        row.id(),
+                        writer -> {
+                            for (var field : row.cells().entrySet()) {
+                                checkpoint.run();
+                                if (field.getValue().sqlNull())
+                                    writer.text(field.getKey(), (String) null);
+                                else
+                                    try (var input =
+                                                    new CdsExportRawValueInputStream(
+                                                            field.getValue(),
+                                                            (offset, length) -> {
+                                                                checkpoint.run();
+                                                                return source
+                                                                        .readCdsExportValueChunk(
+                                                                                patient,
+                                                                                row.id(),
+                                                                                field.getKey(),
+                                                                                offset,
+                                                                                length);
+                                                            });
+                                            var text =
+                                                    new InputStreamReader(
+                                                            input,
+                                                            StandardCharsets.UTF_8
+                                                                    .newDecoder()
+                                                                    .onMalformedInput(
+                                                                            CodingErrorAction
+                                                                                    .REPORT)
+                                                                    .onUnmappableCharacter(
+                                                                            CodingErrorAction
+                                                                                    .REPORT))) {
+                                        writer.text(field.getKey(), text);
+                                    }
+                            }
+                        });
+                after = row.id();
             }
-            if (page.size() < 32) { checkpoint.run(); return; }
+            if (page.size() < 32) {
+                checkpoint.run();
+                return;
+            }
         }
     }
-    private static void invalid() throws IOException { throw new IOException("CDS_EXPORT_LABORATORY_PAGE_INVALID"); }
+
+    private static void invalid() throws IOException {
+        throw new IOException("CDS_EXPORT_LABORATORY_PAGE_INVALID");
+    }
 }

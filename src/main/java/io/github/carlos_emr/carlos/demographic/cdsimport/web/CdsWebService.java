@@ -50,7 +50,9 @@ public class CdsWebService {
     private static final ObjectMapper JSON = new ObjectMapper();
     private final CdsImportAccessService access;
 
-    public CdsWebService(CdsImportAccessService access) { this.access = access; }
+    public CdsWebService(CdsImportAccessService access) {
+        this.access = access;
+    }
 
     public LoggedInInfo authorize(HttpServletRequest request) {
         LoggedInInfo actor = authenticated(request);
@@ -59,14 +61,20 @@ public class CdsWebService {
     }
 
     public LoggedInInfo authenticated(HttpServletRequest request) {
-        if (request.getSession(false) == null) throw new CdsUploadException("AUTHENTICATION_REQUIRED", 401);
+        if (request.getSession(false) == null)
+            throw new CdsUploadException("AUTHENTICATION_REQUIRED", 401);
         LoggedInInfo actor = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (actor == null || actor.getLoggedInSecurity() == null || actor.getLoggedInSecurity().getId() == null
-                || actor.getLoggedInProviderNo() == null) throw new CdsUploadException("AUTHENTICATION_REQUIRED", 401);
+        if (actor == null
+                || actor.getLoggedInSecurity() == null
+                || actor.getLoggedInSecurity().getId() == null
+                || actor.getLoggedInProviderNo() == null)
+            throw new CdsUploadException("AUTHENTICATION_REQUIRED", 401);
         return actor;
     }
 
-    public String operator(LoggedInInfo actor) { return "web-" + actor.getLoggedInSecurity().getId(); }
+    public String operator(LoggedInInfo actor) {
+        return "web-" + actor.getLoggedInSecurity().getId();
+    }
 
     public void parameters(HttpServletRequest request, Set<String> accepted) {
         requireApiVersion(request, false);
@@ -85,30 +93,41 @@ public class CdsWebService {
     private void requireApiVersion(HttpServletRequest request, boolean versionlessReadOnly) {
         String[] versions = request.getParameterValues(API_VERSION_PARAMETER);
         if (versionlessReadOnly && versions == null) return;
-        if (versions == null || versions.length != 1 || !Integer.toString(API_VERSION).equals(versions[0])) {
+        if (versions == null
+                || versions.length != 1
+                || !Integer.toString(API_VERSION).equals(versions[0])) {
             throw new CdsUploadException("IMPORT_CLIENT_REFRESH_REQUIRED", 409);
         }
     }
 
     private void acceptedParameters(HttpServletRequest request, Set<String> accepted) {
-        request.getParameterMap().forEach((key, values) -> {
-            if (!(accepted.contains(key) || "CSRF-TOKEN".equals(key) || API_VERSION_PARAMETER.equals(key))
-                    || values == null || values.length != 1) {
-                throw new CdsUploadException("IMPORT_PARAMETERS_INVALID", 400);
-            }
-        });
+        request.getParameterMap()
+                .forEach(
+                        (key, values) -> {
+                            if (!(accepted.contains(key)
+                                            || "CSRF-TOKEN".equals(key)
+                                            || API_VERSION_PARAMETER.equals(key))
+                                    || values == null
+                                    || values.length != 1) {
+                                throw new CdsUploadException("IMPORT_PARAMETERS_INVALID", 400);
+                            }
+                        });
     }
 
     public void json(HttpServletResponse response, int status, Object data) throws IOException {
-        if (!(data instanceof Map<?, ?> fields)) throw new IllegalArgumentException("IMPORT_JSON_ENVELOPE_INVALID");
+        if (!(data instanceof Map<?, ?> fields))
+            throw new IllegalArgumentException("IMPORT_JSON_ENVELOPE_INVALID");
         Map<String, Object> envelope = new LinkedHashMap<>();
         for (var entry : fields.entrySet()) {
-            if (!(entry.getKey() instanceof String key)) throw new IllegalArgumentException("IMPORT_JSON_ENVELOPE_INVALID");
+            if (!(entry.getKey() instanceof String key))
+                throw new IllegalArgumentException("IMPORT_JSON_ENVELOPE_INVALID");
             envelope.put(key, entry.getValue());
         }
         envelope.put(API_VERSION_PARAMETER, API_VERSION);
-        response.setStatus(status); response.setCharacterEncoding("UTF-8");
-        response.setContentType("application/json"); response.setHeader("Cache-Control", "no-store");
+        response.setStatus(status);
+        response.setCharacterEncoding("UTF-8");
+        response.setContentType("application/json");
+        response.setHeader("Cache-Control", "no-store");
         response.setHeader("X-Content-Type-Options", "nosniff");
         response.setHeader(API_VERSION_HEADER, Integer.toString(API_VERSION));
         JSON.writeValue(response.getOutputStream(), envelope);
@@ -122,61 +141,102 @@ public class CdsWebService {
         response.resetBuffer();
         response.setContentLengthLong(-1);
         response.setHeader("Content-Disposition", null);
-        int status = 503; String code = "IMPORT_REQUEST_UNAVAILABLE";
-        if (failure instanceof CdsUploadException upload) { status = upload.status(); code = upload.code(); }
-        else if (failure instanceof SecurityException) { status = 403; code = "IMPORT_ACCESS_DENIED"; }
-        else if (failure instanceof IllegalArgumentException) { status = 400; code = "IMPORT_PARAMETERS_INVALID"; }
-        else if (failure instanceof CdsImportException problem) {
+        int status = 503;
+        String code = "IMPORT_REQUEST_UNAVAILABLE";
+        if (failure instanceof CdsUploadException upload) {
+            status = upload.status();
+            code = upload.code();
+        } else if (failure instanceof SecurityException) {
+            status = 403;
+            code = "IMPORT_ACCESS_DENIED";
+        } else if (failure instanceof IllegalArgumentException) {
+            status = 400;
+            code = "IMPORT_PARAMETERS_INVALID";
+        } else if (failure instanceof CdsImportException problem) {
             status = 409;
             String candidate = problem.getCode();
             if (candidate != null && candidate.matches("[A-Z][A-Z0-9_]{0,79}")) code = candidate;
         }
-        json(response, status, Map.of("ok", false, "code", code,
-                "message", "The request did not complete. Check the durable upload/run status before retrying. No success is implied."));
+        json(
+                response,
+                status,
+                Map.of(
+                        "ok",
+                        false,
+                        "code",
+                        code,
+                        "message",
+                        "The request did not complete. Check the durable upload/run status before retrying. No success is implied."));
     }
 
     public Map<String, Object> job(CdsImportJobDto row) {
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("id", row.id()); result.put("state", row.state()); result.put("sourceNamespace", row.sourceNamespace());
-        result.put("profile", row.profile()); result.put("expectedPatients", row.expectedPatients());
-        result.put("expectedUnits", row.expectedUnits()); result.put("ownerEpoch", row.ownerEpoch());
-        result.put("cancelRequested", row.cancelRequested()); result.put("createdAt", String.valueOf(row.createdAt()));
-        result.put("updatedAt", String.valueOf(row.updatedAt())); result.put("manifestDigest", row.manifestDigest());
-        result.put("sourceDigest", row.sourceDigest()); result.put("optionsDigest", row.optionsDigest());
-        result.put("rulesetDigest", row.rulesetDigest()); result.put("reportGeneration", row.reportGeneration());
+        result.put("id", row.id());
+        result.put("state", row.state());
+        result.put("sourceNamespace", row.sourceNamespace());
+        result.put("profile", row.profile());
+        result.put("expectedPatients", row.expectedPatients());
+        result.put("expectedUnits", row.expectedUnits());
+        result.put("ownerEpoch", row.ownerEpoch());
+        result.put("cancelRequested", row.cancelRequested());
+        result.put("createdAt", String.valueOf(row.createdAt()));
+        result.put("updatedAt", String.valueOf(row.updatedAt()));
+        result.put("manifestDigest", row.manifestDigest());
+        result.put("sourceDigest", row.sourceDigest());
+        result.put("optionsDigest", row.optionsDigest());
+        result.put("rulesetDigest", row.rulesetDigest());
+        result.put("reportGeneration", row.reportGeneration());
         result.put("reportsAvailable", row.reportGeneration() > 0);
         return result;
     }
 
     public Map<String, Object> patient(CdsImportPatientDto row) {
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("patientKey", row.patientKey()); result.put("sourcePatientId", row.sourcePatientId());
-        result.put("copyKey", row.copyKey()); result.put("targetDemographicNo", row.targetDemographicNo());
-        result.put("state", row.state()); result.put("held", row.held()); result.put("expectedUnits", row.expectedUnits());
+        result.put("patientKey", row.patientKey());
+        result.put("sourcePatientId", row.sourcePatientId());
+        result.put("copyKey", row.copyKey());
+        result.put("targetDemographicNo", row.targetDemographicNo());
+        result.put("state", row.state());
+        result.put("held", row.held());
+        result.put("expectedUnits", row.expectedUnits());
         return result;
     }
 
     public Map<String, Object> diagnostic(CdsImportDiagnosticDto row) {
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("id", row.id()); result.put("patientKey", row.patientKey()); result.put("unitKey", row.unitKey());
-        result.put("severity", row.severity()); result.put("code", row.code()); result.put("stage", row.stage());
-        result.put("sourceXPath", row.sourcePath()); result.put("summary", row.safeSummary());
-        result.put("blocking", row.blocking()); result.put("resolved", row.resolved());
+        result.put("id", row.id());
+        result.put("patientKey", row.patientKey());
+        result.put("unitKey", row.unitKey());
+        result.put("severity", row.severity());
+        result.put("code", row.code());
+        result.put("stage", row.stage());
+        result.put("sourceXPath", row.sourcePath());
+        result.put("summary", row.safeSummary());
+        result.put("blocking", row.blocking());
+        result.put("resolved", row.resolved());
         String detail = row.protectedDetailLocation();
-        result.put("hasEvidence", detail != null && detail.replace('\\', '/')
-                .matches(".*/diagnostics/failure-[0-9]+-[0-9a-f-]{36}\\.json"));
+        result.put(
+                "hasEvidence",
+                detail != null
+                        && detail.replace('\\', '/')
+                                .matches(".*/diagnostics/failure-[0-9]+-[0-9a-f-]{36}\\.json"));
         result.put("createdAt", String.valueOf(row.createdAt()));
         return result;
     }
 
     private boolean sensitiveSummaryKey(String key) {
         String lower = key.toLowerCase(java.util.Locale.ROOT);
-        return lower.contains("location") || lower.contains("directory") || lower.contains("password")
-                || lower.contains("secret") || lower.contains("path");
+        return lower.contains("location")
+                || lower.contains("directory")
+                || lower.contains("password")
+                || lower.contains("secret")
+                || lower.contains("path");
     }
 
     /** Bounded scalar/count projection also removes Java-time serializer dependence from JSON. */
-    public Object summary(Object value) { return summary(value, 0); }
+    public Object summary(Object value) {
+        return summary(value, 0);
+    }
 
     private Object summary(Object value, int depth) {
         if (depth > 6) throw new CdsUploadException("IMPORT_SUMMARY_INVALID", 503);
@@ -190,7 +250,8 @@ public class CdsWebService {
             if (map.size() > 200) throw new CdsUploadException("IMPORT_SUMMARY_INVALID", 503);
             Map<String, Object> result = new LinkedHashMap<>();
             for (var entry : map.entrySet()) {
-                if (!(entry.getKey() instanceof String key) || key.length() > 128
+                if (!(entry.getKey() instanceof String key)
+                        || key.length() > 128
                         || sensitiveSummaryKey(key)) {
                     throw new CdsUploadException("IMPORT_SUMMARY_INVALID", 503);
                 }
@@ -199,7 +260,8 @@ public class CdsWebService {
             return java.util.Collections.unmodifiableMap(result);
         }
         if (value instanceof Collection<?> collection) {
-            if (collection.size() > 200) throw new CdsUploadException("IMPORT_SUMMARY_INVALID", 503);
+            if (collection.size() > 200)
+                throw new CdsUploadException("IMPORT_SUMMARY_INVALID", 503);
             List<Object> result = new java.util.ArrayList<>(collection.size());
             for (Object item : collection) result.add(summary(item, depth + 1));
             return java.util.Collections.unmodifiableList(result);

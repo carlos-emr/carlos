@@ -37,81 +37,152 @@ import java.util.Objects;
  * A caller must bind offsets and hashes to a completely verified owned index first.
  */
 final class CdsExportAuthenticatedRangeInputStream extends InputStream {
-    @FunctionalInterface interface Checkpoint { void run() throws IOException; }
+    @FunctionalInterface
+    interface Checkpoint {
+        void run() throws IOException;
+    }
+
     private final InputStream source;
-    // Per-operation incremental digest, owned by this stream/row accumulator; never shared singleton state.
+
+    // Per-operation incremental digest, owned by this stream/row accumulator; never shared
+    // singleton state.
     @SuppressWarnings("java:S9428")
     private final MessageDigest digest;
+
     private final byte[] expected;
     private final Checkpoint checkpoint;
     private final Runnable authorize;
     private long remaining;
     private boolean finished, failed, closed;
 
-    CdsExportAuthenticatedRangeInputStream(InputStream source, long offset, long bytes, String sha256,
-            Checkpoint checkpoint, Runnable authorize) throws IOException {
-        this.source = Objects.requireNonNull(source); this.checkpoint = Objects.requireNonNull(checkpoint);
+    CdsExportAuthenticatedRangeInputStream(
+            InputStream source,
+            long offset,
+            long bytes,
+            String sha256,
+            Checkpoint checkpoint,
+            Runnable authorize)
+            throws IOException {
+        this.source = Objects.requireNonNull(source);
+        this.checkpoint = Objects.requireNonNull(checkpoint);
         this.authorize = Objects.requireNonNull(authorize);
-        if (offset < 0 || bytes < 0 || bytes > Long.MAX_VALUE - offset || sha256 == null || !sha256.matches("[0-9a-f]{64}"))
+        if (offset < 0
+                || bytes < 0
+                || bytes > Long.MAX_VALUE - offset
+                || sha256 == null
+                || !sha256.matches("[0-9a-f]{64}"))
             throw new IllegalArgumentException("CDS_EXPORT_VALUE_RANGE_INVALID");
-        this.remaining = bytes; expected = HexFormat.of().parseHex(sha256);
-        try { digest = MessageDigest.getInstance("SHA-256"); }
-        catch (NoSuchAlgorithmException unavailable) { throw new IllegalStateException("CDS_EXPORT_SHA256_UNAVAILABLE"); }
-        try { drain(offset); }
-        catch (IOException | RuntimeException | Error failure) {
-            try { source.close(); } catch (IOException | RuntimeException cleanup) { failure.addSuppressed(cleanup); } throw failure;
+        this.remaining = bytes;
+        expected = HexFormat.of().parseHex(sha256);
+        try {
+            digest = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException unavailable) {
+            throw new IllegalStateException("CDS_EXPORT_SHA256_UNAVAILABLE");
+        }
+        try {
+            drain(offset);
+        } catch (IOException | RuntimeException | Error failure) {
+            try {
+                source.close();
+            } catch (IOException | RuntimeException cleanup) {
+                failure.addSuppressed(cleanup);
+            }
+            throw failure;
         }
     }
-    @Override public int read() throws IOException {
-        byte[] one = new byte[1]; int count = read(one, 0, 1); return count == -1 ? -1 : one[0] & 255;
+
+    @Override
+    public int read() throws IOException {
+        byte[] one = new byte[1];
+        int count = read(one, 0, 1);
+        return count == -1 ? -1 : one[0] & 255;
     }
-    @Override public int read(byte[] bytes, int offset, int length) throws IOException {
+
+    @Override
+    public int read(byte[] bytes, int offset, int length) throws IOException {
         try {
             Objects.checkFromIndexSize(offset, length, bytes.length);
             if (closed || failed) throw new IOException("CDS_EXPORT_VALUE_RANGE_CLOSED_OR_FAILED");
-            checkpoint.run(); if (length == 0) return 0;
-            if (remaining == 0) { finish(); return -1; }
+            checkpoint.run();
+            if (length == 0) return 0;
+            if (remaining == 0) {
+                finish();
+                return -1;
+            }
             int count = source.read(bytes, offset, (int) Math.min(length, remaining));
             if (count <= 0) throw new IOException("CDS_EXPORT_VALUE_RANGE_TRUNCATED");
-            digest.update(bytes, offset, count); remaining -= count; return count;
-        } catch (IOException | RuntimeException | Error failure) { failed = true; throw failure; }
+            digest.update(bytes, offset, count);
+            remaining -= count;
+            return count;
+        } catch (IOException | RuntimeException | Error failure) {
+            failed = true;
+            throw failure;
+        }
     }
+
     private void finish() throws IOException {
         if (finished) return;
-        if (!MessageDigest.isEqual(digest.digest(), expected)) throw new IOException("CDS_EXPORT_VALUE_RANGE_DIGEST_MISMATCH");
+        if (!MessageDigest.isEqual(digest.digest(), expected))
+            throw new IOException("CDS_EXPORT_VALUE_RANGE_DIGEST_MISMATCH");
         byte[] buffer = new byte[65_536];
         try {
             int count;
-            do { checkpoint.run(); count = source.read(buffer); if (count == 0) throw new IOException("CDS_EXPORT_VALUE_RANGE_STALLED"); }
-            while (count != -1);
-            authorize.run(); checkpoint.run(); finished = true;
-        } finally { Arrays.fill(buffer, (byte) 0); }
+            do {
+                checkpoint.run();
+                count = source.read(buffer);
+                if (count == 0) throw new IOException("CDS_EXPORT_VALUE_RANGE_STALLED");
+            } while (count != -1);
+            authorize.run();
+            checkpoint.run();
+            finished = true;
+        } finally {
+            Arrays.fill(buffer, (byte) 0);
+        }
     }
+
     private void drain(long bytes) throws IOException {
         byte[] buffer = new byte[65_536];
         try {
             while (bytes > 0) {
-                checkpoint.run(); int count = source.read(buffer, 0, (int) Math.min(buffer.length, bytes));
-                if (count <= 0) throw new IOException("CDS_EXPORT_VALUE_RANGE_TRUNCATED"); bytes -= count;
+                checkpoint.run();
+                int count = source.read(buffer, 0, (int) Math.min(buffer.length, bytes));
+                if (count <= 0) throw new IOException("CDS_EXPORT_VALUE_RANGE_TRUNCATED");
+                bytes -= count;
             }
-        } finally { Arrays.fill(buffer, (byte) 0); }
+        } finally {
+            Arrays.fill(buffer, (byte) 0);
+        }
     }
-    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that
+    // failure.
     @SuppressWarnings("java:S1143")
-    @Override public void close() throws IOException {
+    @Override
+    public void close() throws IOException {
         if (closed) return;
         Throwable primary = null;
         try {
             if (!failed) {
                 byte[] buffer = new byte[65_536];
-                try { while (read(buffer) != -1) { /* Finish the range and authenticated enclosing EOF. */ } }
-                finally { Arrays.fill(buffer, (byte) 0); }
+                try {
+                    while (read(buffer) != -1) {
+                        /* Finish the range and authenticated enclosing EOF. */
+                    }
+                } finally {
+                    Arrays.fill(buffer, (byte) 0);
+                }
             }
-        } catch (IOException | RuntimeException | Error failure) { primary = failure; throw failure; }
-        finally {
+        } catch (IOException | RuntimeException | Error failure) {
+            primary = failure;
+            throw failure;
+        } finally {
             closed = true;
-            try { source.close(); }
-            catch (IOException | RuntimeException cleanup) { if (primary != null) primary.addSuppressed(cleanup); else throw cleanup; }
+            try {
+                source.close();
+            } catch (IOException | RuntimeException cleanup) {
+                if (primary != null) primary.addSuppressed(cleanup);
+                else throw cleanup;
+            }
         }
     }
 }

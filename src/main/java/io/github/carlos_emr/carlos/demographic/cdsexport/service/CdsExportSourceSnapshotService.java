@@ -31,11 +31,28 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Service
 public class CdsExportSourceSnapshotService {
     private final OscarTrackingBasicDataSource source;
-    public CdsExportSourceSnapshotService(OscarTrackingBasicDataSource source) { this.source = source; }
+
+    public CdsExportSourceSnapshotService(OscarTrackingBasicDataSource source) {
+        this.source = source;
+    }
+
     public CdsExportSourceReadLock acquire(Runnable checkpoint) throws SQLException {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new IllegalStateException("CDS_EXPORT_AMBIENT_TRANSACTION_REFUSED");
-        checkpoint.run(); var lease = CdsExportSourceReadLock.acquireUnpooled(source.openUnpooledCdsMaintenanceConnection());
-        try { checkpoint.run(); return lease; }
-        catch (RuntimeException | Error failed) { try { lease.close(); } catch (SQLException cleanup) { failed.addSuppressed(cleanup); } throw failed; }
+        if (TransactionSynchronizationManager.isActualTransactionActive())
+            throw new IllegalStateException("CDS_EXPORT_AMBIENT_TRANSACTION_REFUSED");
+        checkpoint.run();
+        var lease =
+                CdsExportSourceReadLock.acquireUnpooled(
+                        source.openUnpooledCdsMaintenanceConnection());
+        try {
+            checkpoint.run();
+            return lease;
+        } catch (RuntimeException | Error failed) {
+            try {
+                lease.close();
+            } catch (SQLException cleanup) {
+                failed.addSuppressed(cleanup);
+            }
+            throw failed;
+        }
     }
 }

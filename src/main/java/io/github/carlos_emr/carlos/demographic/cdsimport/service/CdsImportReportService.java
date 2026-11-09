@@ -36,23 +36,41 @@ public class CdsImportReportService {
     private final CdsImportLedgerService ledger;
     private final TransactionTemplate transaction;
 
-    public CdsImportReportService(CdsImportLedgerService ledger, PlatformTransactionManager manager) {
-        this.ledger=ledger; transaction=CdsImportLedgerService.template(manager);
+    public CdsImportReportService(
+            CdsImportLedgerService ledger, PlatformTransactionManager manager) {
+        this.ledger = ledger;
+        transaction = CdsImportLedgerService.template(manager);
     }
 
-    public CdsImportJobDto select(String runId, long epoch, long expectedGeneration, String manifestDigest,
-            String reportSetLocation, String reportSetDigest) {
+    public CdsImportJobDto select(
+            String runId,
+            long epoch,
+            long expectedGeneration,
+            String manifestDigest,
+            String reportSetLocation,
+            String reportSetDigest) {
         CdsImportLedgerService.requireNoTransaction();
         CdsImportKeys.digestValue(manifestDigest, "source manifest digest");
         CdsImportKeys.required(reportSetLocation, "report set location", 1024);
         CdsImportKeys.digestValue(reportSetDigest, "report set digest");
-        return transaction.execute(status -> {
-            CdsImportRun run=ledger.lockOperational(runId, epoch);
-            String expectedManifest=run.getManifestDigest()==null?run.getSourceDigest():run.getManifestDigest();
-            if (!manifestDigest.equals(expectedManifest) || run.getReportGeneration()!=expectedGeneration
-                    || expectedGeneration==Long.MAX_VALUE) throw new CdsImportException("REPORT_GENERATION_CONFLICT");
-            run.setReportState("DELIVERED"); run.setReportGeneration(expectedGeneration+1); run.setReportLocation(reportSetLocation); run.setReportDigest(reportSetDigest);
-            ledger.touch(run); ledger.event(run, null, "REPORT_SELECTED"); return CdsImportLedgerService.dto(run);
-        });
+        return transaction.execute(
+                status -> {
+                    CdsImportRun run = ledger.lockOperational(runId, epoch);
+                    String expectedManifest =
+                            run.getManifestDigest() == null
+                                    ? run.getSourceDigest()
+                                    : run.getManifestDigest();
+                    if (!manifestDigest.equals(expectedManifest)
+                            || run.getReportGeneration() != expectedGeneration
+                            || expectedGeneration == Long.MAX_VALUE)
+                        throw new CdsImportException("REPORT_GENERATION_CONFLICT");
+                    run.setReportState("DELIVERED");
+                    run.setReportGeneration(expectedGeneration + 1);
+                    run.setReportLocation(reportSetLocation);
+                    run.setReportDigest(reportSetDigest);
+                    ledger.touch(run);
+                    ledger.event(run, null, "REPORT_SELECTED");
+                    return CdsImportLedgerService.dto(run);
+                });
     }
 }

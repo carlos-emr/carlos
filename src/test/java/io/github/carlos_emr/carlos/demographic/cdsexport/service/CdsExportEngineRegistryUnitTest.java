@@ -35,40 +35,79 @@ import java.util.Set;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-@Tag("unit") @Tag("cds-export")
+@Tag("unit")
+@Tag("cds-export")
 class CdsExportEngineRegistryUnitTest {
     static class Fixture implements CdsExportEngine {
-        String digest = "a".repeat(64); Set<CdsLogicalProfile> profiles = Set.of(CdsLogicalProfile.ONTARIO_MD_5_2);
-        @Override public String compatibilityDigest() { return digest; }
-        @Override public Set<CdsLogicalProfile> qualifiedProfiles() { return profiles; }
-        @Override public CdsExportJobDocumentDto bind(CdsExportActorDto actor, CdsExportCommand command) { throw new AssertionError("Capability lookup must not bind a request"); }
-        @Override public void execute(CdsExportLeaseDto lease, CdsExportRunControl control) { throw new AssertionError("Capability lookup must not execute clinical work"); }
+        String digest = "a".repeat(64);
+        Set<CdsLogicalProfile> profiles = Set.of(CdsLogicalProfile.ONTARIO_MD_5_2);
+
+        @Override
+        public String compatibilityDigest() {
+            return digest;
+        }
+
+        @Override
+        public Set<CdsLogicalProfile> qualifiedProfiles() {
+            return profiles;
+        }
+
+        @Override
+        public CdsExportJobDocumentDto bind(CdsExportActorDto actor, CdsExportCommand command) {
+            throw new AssertionError("Capability lookup must not bind a request");
+        }
+
+        @Override
+        public void execute(CdsExportLeaseDto lease, CdsExportRunControl control) {
+            throw new AssertionError("Capability lookup must not execute clinical work");
+        }
     }
-    @Test void shouldAdvertiseNoClinicalSupport_withoutAnInstalledQualifiedEngine() {
-        var registry = new CdsExportEngineRegistry(List.of()); assertThat(registry.qualifiedProfiles()).isEmpty();
+
+    @Test
+    void shouldAdvertiseNoClinicalSupport_withoutAnInstalledQualifiedEngine() {
+        var registry = new CdsExportEngineRegistry(List.of());
+        assertThat(registry.qualifiedProfiles()).isEmpty();
         assertThat(registry.find(CdsLogicalProfile.ONTARIO_MD_5_2)).isNull();
-        assertThatThrownBy(() -> registry.require(CdsLogicalProfile.ONTARIO_MD_5_2)).hasMessage("CDS_EXPORT_PROFILE_NOT_QUALIFIED");
+        assertThatThrownBy(() -> registry.require(CdsLogicalProfile.ONTARIO_MD_5_2))
+                .hasMessage("CDS_EXPORT_PROFILE_NOT_QUALIFIED");
     }
-    @Test void shouldKeepDirectionAndProfileQualificationExplicit_withoutRunningClinicalWork() {
-        var engine = new Fixture(); var registry = new CdsExportEngineRegistry(List.of(engine));
+
+    @Test
+    void shouldKeepDirectionAndProfileQualificationExplicit_withoutRunningClinicalWork() {
+        var engine = new Fixture();
+        var registry = new CdsExportEngineRegistry(List.of(engine));
         assertThat(registry.qualifiedProfiles()).containsExactly(CdsLogicalProfile.ONTARIO_MD_5_2);
         assertThat(registry.require(CdsLogicalProfile.ONTARIO_MD_5_2)).isSameAs(engine);
         assertThat(registry.find(CdsLogicalProfile.PCON_2024_02)).isNull();
     }
-    @Test void shouldRejectAmbiguousEngines_insteadOfDependingOnBeanDiscoveryOrder() {
+
+    @Test
+    void shouldRejectAmbiguousEngines_insteadOfDependingOnBeanDiscoveryOrder() {
         assertThatThrownBy(() -> new CdsExportEngineRegistry(List.of(new Fixture(), new Fixture())))
                 .hasMessage("CDS_EXPORT_ENGINE_AMBIGUOUS");
     }
-    @Test void shouldRefuseMissingOrChangedRuntimeIdentity_beforeAdvertisingOrExecutingSupport() {
-        var invalid = new Fixture(); invalid.digest = "not-a-qualification";
-        assertThatThrownBy(() -> new CdsExportEngineRegistry(List.of(invalid))).hasMessage("CDS_EXPORT_ENGINE_IDENTITY_INVALID");
-        var changed = new Fixture(); var registry = new CdsExportEngineRegistry(List.of(changed)); changed.digest = "b".repeat(64);
-        assertThatThrownBy(registry::qualifiedProfiles).hasMessage("CDS_EXPORT_ENGINE_IDENTITY_CHANGED");
-        assertThatThrownBy(() -> registry.require(CdsLogicalProfile.ONTARIO_MD_5_2)).hasMessage("CDS_EXPORT_ENGINE_IDENTITY_CHANGED");
+
+    @Test
+    void shouldRefuseMissingOrChangedRuntimeIdentity_beforeAdvertisingOrExecutingSupport() {
+        var invalid = new Fixture();
+        invalid.digest = "not-a-qualification";
+        assertThatThrownBy(() -> new CdsExportEngineRegistry(List.of(invalid)))
+                .hasMessage("CDS_EXPORT_ENGINE_IDENTITY_INVALID");
+        var changed = new Fixture();
+        var registry = new CdsExportEngineRegistry(List.of(changed));
+        changed.digest = "b".repeat(64);
+        assertThatThrownBy(registry::qualifiedProfiles)
+                .hasMessage("CDS_EXPORT_ENGINE_IDENTITY_CHANGED");
+        assertThatThrownBy(() -> registry.require(CdsLogicalProfile.ONTARIO_MD_5_2))
+                .hasMessage("CDS_EXPORT_ENGINE_IDENTITY_CHANGED");
     }
-    @Test void shouldRefuseProfileSetDrift_evenWhenTheProviderLeavesItsOldDigestUnchanged() {
-        var changed = new Fixture(); var registry = new CdsExportEngineRegistry(List.of(changed));
+
+    @Test
+    void shouldRefuseProfileSetDrift_evenWhenTheProviderLeavesItsOldDigestUnchanged() {
+        var changed = new Fixture();
+        var registry = new CdsExportEngineRegistry(List.of(changed));
         changed.profiles = Set.of(CdsLogicalProfile.ONTARIO_MD_5_2, CdsLogicalProfile.PCON_2024_02);
-        assertThatThrownBy(registry::qualifiedProfiles).hasMessage("CDS_EXPORT_ENGINE_IDENTITY_CHANGED");
+        assertThatThrownBy(registry::qualifiedProfiles)
+                .hasMessage("CDS_EXPORT_ENGINE_IDENTITY_CHANGED");
     }
 }

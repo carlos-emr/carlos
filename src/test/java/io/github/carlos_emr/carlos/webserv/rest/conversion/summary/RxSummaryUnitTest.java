@@ -40,49 +40,80 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 
 @Tag("unit")
 class RxSummaryUnitTest {
-    @Test void shouldRefuseCurrentImportedNullEndDate_andNeverReturnAPartialStartAnchor() {
-        var manager=mock(PrescriptionManager.class);
-        var projection=mock(CdsLegacyProjectionService.class);
-        var drug=new Drug();drug.setId(7);drug.setCdsCurrentness("CURRENT");
-        drug.setRxDate(Date.valueOf("2024-01-01"));drug.setStartDateUnknown(true);drug.setEndDate(null);
-        var user=new LoggedInInfo();when(manager.getUniqueDrugsByPatient(user,11)).thenReturn(List.of(drug));
-        var summary=new RxSummary(manager,projection);
-        assertThatThrownBy(() -> summary.getSummary(user,11,"meds")).isInstanceOfSatisfying(WebApplicationException.class,failure -> {
-            assertThat(failure.getResponse().getStatus()).isEqualTo(409);
-            assertThat(failure.getResponse().getEntity().toString())
-                    .contains(CdsMedicationCompatibilityException.CODE,"/demographic/cdsSourceFields?demographicNo=11&category=MedicationsAndTreatments")
-                    .doesNotContain("2024-01-01");
-            assertThat(failure.getResponse().getHeaderString("Cache-Control")).isEqualTo("no-store");
-        });
+    @Test
+    void shouldRefuseCurrentImportedNullEndDate_andNeverReturnAPartialStartAnchor() {
+        var manager = mock(PrescriptionManager.class);
+        var projection = mock(CdsLegacyProjectionService.class);
+        var drug = new Drug();
+        drug.setId(7);
+        drug.setCdsCurrentness("CURRENT");
+        drug.setRxDate(Date.valueOf("2024-01-01"));
+        drug.setStartDateUnknown(true);
+        drug.setEndDate(null);
+        var user = new LoggedInInfo();
+        when(manager.getUniqueDrugsByPatient(user, 11)).thenReturn(List.of(drug));
+        var summary = new RxSummary(manager, projection);
+        assertThatThrownBy(() -> summary.getSummary(user, 11, "meds"))
+                .isInstanceOfSatisfying(
+                        WebApplicationException.class,
+                        failure -> {
+                            assertThat(failure.getResponse().getStatus()).isEqualTo(409);
+                            assertThat(failure.getResponse().getEntity().toString())
+                                    .contains(
+                                            CdsMedicationCompatibilityException.CODE,
+                                            "/demographic/cdsSourceFields?demographicNo=11&category=MedicationsAndTreatments")
+                                    .doesNotContain("2024-01-01");
+                            assertThat(failure.getResponse().getHeaderString("Cache-Control"))
+                                    .isEqualTo("no-store");
+                        });
     }
 
-    @Test void shouldRefuseSourceOnlyOrUnknownMedicationRecords_beforeTheUniqueListCanOmitThem() {
-        var manager=mock(PrescriptionManager.class);var projection=mock(CdsLegacyProjectionService.class);
-        doThrow(new CdsLegacyProjectionException()).when(projection).requireSupported(11,Set.of("MedicationsAndTreatments"));
-        var summary=new RxSummary(manager,projection);
-        assertThatThrownBy(() -> summary.getSummary(new LoggedInInfo(),11,"meds"))
-                .isInstanceOfSatisfying(WebApplicationException.class,failure -> assertThat(failure.getResponse().getStatus()).isEqualTo(409));
+    @Test
+    void shouldRefuseSourceOnlyOrUnknownMedicationRecords_beforeTheUniqueListCanOmitThem() {
+        var manager = mock(PrescriptionManager.class);
+        var projection = mock(CdsLegacyProjectionService.class);
+        doThrow(new CdsLegacyProjectionException())
+                .when(projection)
+                .requireSupported(11, Set.of("MedicationsAndTreatments"));
+        var summary = new RxSummary(manager, projection);
+        assertThatThrownBy(() -> summary.getSummary(new LoggedInInfo(), 11, "meds"))
+                .isInstanceOfSatisfying(
+                        WebApplicationException.class,
+                        failure -> assertThat(failure.getResponse().getStatus()).isEqualTo(409));
         verifyNoInteractions(manager);
     }
 
-    @Test void shouldPreserveTheNativeDateApiAndSummary_whenNoImportedMedicationExists() {
-        var manager=mock(PrescriptionManager.class);var projection=mock(CdsLegacyProjectionService.class);
-        var drug=new Drug();drug.setId(8);drug.setRxDate(Date.valueOf("2024-01-01"));
-        drug.setEndDate(Date.valueOf("2099-12-31"));drug.setSpecial("Native medication 1 tablet daily");
-        var user=new LoggedInInfo();when(manager.getUniqueDrugsByPatient(user,11)).thenReturn(List.of(drug));
-        var summary=new RxSummary(manager,projection);
-        var result=summary.getSummary(user,11,"meds");
+    @Test
+    void shouldPreserveTheNativeDateApiAndSummary_whenNoImportedMedicationExists() {
+        var manager = mock(PrescriptionManager.class);
+        var projection = mock(CdsLegacyProjectionService.class);
+        var drug = new Drug();
+        drug.setId(8);
+        drug.setRxDate(Date.valueOf("2024-01-01"));
+        drug.setEndDate(Date.valueOf("2099-12-31"));
+        drug.setSpecial("Native medication 1 tablet daily");
+        var user = new LoggedInInfo();
+        when(manager.getUniqueDrugsByPatient(user, 11)).thenReturn(List.of(drug));
+        var summary = new RxSummary(manager, projection);
+        var result = summary.getSummary(user, 11, "meds");
         assertThat(result.getSummaryItem()).hasSize(1);
         assertThat(result.getSummaryItem().getFirst().getDate()).isEqualTo(drug.getRxDate());
-        verify(projection).requireSupported(11,Set.of("MedicationsAndTreatments"));
+        verify(projection).requireSupported(11, Set.of("MedicationsAndTreatments"));
     }
 
-    @Test void shouldWireTheRequiredCapabilityGuard_inTheActualSpringSummaryBean() {
-        try(var context=new AnnotationConfigApplicationContext()) {
-            context.registerBean(PrescriptionManager.class,() -> mock(PrescriptionManager.class));
-            context.registerBean(CdsLegacyProjectionService.class,() -> mock(CdsLegacyProjectionService.class));
-            context.registerBean(RxSummary.class);context.refresh();
-            assertThat(context.getBean(RxSummary.class).getSummary(new LoggedInInfo(),11,"meds").getSummaryItem()).isEmpty();
+    @Test
+    void shouldWireTheRequiredCapabilityGuard_inTheActualSpringSummaryBean() {
+        try (var context = new AnnotationConfigApplicationContext()) {
+            context.registerBean(PrescriptionManager.class, () -> mock(PrescriptionManager.class));
+            context.registerBean(
+                    CdsLegacyProjectionService.class, () -> mock(CdsLegacyProjectionService.class));
+            context.registerBean(RxSummary.class);
+            context.refresh();
+            assertThat(
+                            context.getBean(RxSummary.class)
+                                    .getSummary(new LoggedInInfo(), 11, "meds")
+                                    .getSummaryItem())
+                    .isEmpty();
         }
     }
 }

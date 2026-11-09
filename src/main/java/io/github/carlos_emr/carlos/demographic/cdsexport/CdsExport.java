@@ -26,16 +26,30 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.cli.CdsExportSpringRunt
 
 /** WAR-runtime entry point used by the installed CDS export command adapter. */
 public final class CdsExport {
-    private CdsExport() { }
+    private CdsExport() {}
+
     public static void main(String[] arguments) {
-        try { System.exit(CdsExportCli.run(arguments, System.getenv(), System.out, System.err, CdsExportSpringRuntime::new)); }
-        catch (VirtualMachineError failed) {
-            try { System.err.println("CDS_EXPORT_FATAL: JVM stopped; reconcile the durable job"); }
-            finally { Runtime.getRuntime().halt(4); }
+        try {
+            System.exit(
+                    CdsExportCli.run(
+                            arguments,
+                            System.getenv(),
+                            System.out,
+                            System.err,
+                            CdsExportSpringRuntime::new));
+        } catch (VirtualMachineError failed) {
+            try {
+                System.err.println("CDS_EXPORT_FATAL: JVM stopped; reconcile the durable job");
+            } finally {
+                Runtime.getRuntime().halt(4);
+            }
         } catch (LinkageError failed) {
-            System.err.println("CDS_EXPORT_RUNTIME: installed runtime is incompatible"); System.exit(2);
+            System.err.println("CDS_EXPORT_RUNTIME: installed runtime is incompatible");
+            System.exit(2);
         } catch (Error failed) {
-            System.err.println("CDS_EXPORT_FATAL: execution invariant failed; reconcile the durable job"); System.exit(4);
+            System.err.println(
+                    "CDS_EXPORT_FATAL: execution invariant failed; reconcile the durable job");
+            System.exit(4);
         }
     }
 }

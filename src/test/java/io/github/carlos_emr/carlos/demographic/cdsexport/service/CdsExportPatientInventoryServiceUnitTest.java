@@ -34,67 +34,136 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-@Tag("unit") @Tag("cds-export")
+@Tag("unit")
+@Tag("cds-export")
 class CdsExportPatientInventoryServiceUnitTest {
     @TempDir Path root;
+
     private CdsExportPatientPipelineFixture fixture(CdsCategory... selected) throws Exception {
-        var categories = EnumSet.of(CdsCategory.DEMOGRAPHICS); categories.addAll(List.of(selected));
+        var categories = EnumSet.of(CdsCategory.DEMOGRAPHICS);
+        categories.addAll(List.of(selected));
         return new CdsExportPatientPipelineFixture(root, categories);
     }
-    private CdsExportPatientInventoryService.Inventory capture(CdsExportPatientPipelineFixture fixture) throws IOException {
-        return fixture.inventories.capture(fixture.lease, fixture.patient, "c".repeat(64), fixture.tables, fixture.source, fixture.bounds, fixture.control);
+
+    private CdsExportPatientInventoryService.Inventory capture(
+            CdsExportPatientPipelineFixture fixture) throws IOException {
+        return fixture.inventories.capture(
+                fixture.lease,
+                fixture.patient,
+                "c".repeat(64),
+                fixture.tables,
+                fixture.source,
+                fixture.bounds,
+                fixture.control);
     }
-    @Test void shouldCaptureExpectedNativeOccurrences_withoutInvokingMappersOrSerialization() throws Exception {
+
+    @Test
+    void shouldCaptureExpectedNativeOccurrences_withoutInvokingMappersOrSerialization()
+            throws Exception {
         var f = fixture(CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS);
-        f.nativeRows.add(new CdsExportNativeRowReceiptDto("allergies", "11", "11", CdsExportPatientPipelineFixture.HASH));
-        f.nativeRows.add(new CdsExportNativeRowReceiptDto("allergies", "12", "12", CdsExportPatientPipelineFixture.HASH));
+        f.nativeRows.add(
+                new CdsExportNativeRowReceiptDto(
+                        "allergies", "11", "11", CdsExportPatientPipelineFixture.HASH));
+        f.nativeRows.add(
+                new CdsExportNativeRowReceiptDto(
+                        "allergies", "12", "12", CdsExportPatientPipelineFixture.HASH));
         var result = capture(f);
-        assertThat(result.identities()).hasSize(3).contains(new CdsExportIdentityDto("c".repeat(64), CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS,
-                CdsImportKeys.hash("carlos-native-occurrence-v1", "allergies", "11")));
-        verifyNoInteractions(f.demographics, f.clinical); assertThat(result.toString()).isEqualTo("CdsExportPatientInventory[protected]");
-        assertThatThrownBy(() -> result.identities().clear()).isInstanceOf(UnsupportedOperationException.class);
+        assertThat(result.identities())
+                .hasSize(3)
+                .contains(
+                        new CdsExportIdentityDto(
+                                "c".repeat(64),
+                                CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS,
+                                CdsImportKeys.hash(
+                                        "carlos-native-occurrence-v1", "allergies", "11")));
+        verifyNoInteractions(f.demographics, f.clinical);
+        assertThat(result.toString()).isEqualTo("CdsExportPatientInventory[protected]");
+        assertThatThrownBy(() -> result.identities().clear())
+                .isInstanceOf(UnsupportedOperationException.class);
     }
-    @Test void shouldKeepDistinctRetainedOccurrences_withEqualClinicalValues() throws Exception {
-        var f = fixture(CdsCategory.NEW_CATEGORY); f.unit(CdsCategory.NEW_CATEGORY, "d".repeat(64), List.of());
+
+    @Test
+    void shouldKeepDistinctRetainedOccurrences_withEqualClinicalValues() throws Exception {
+        var f = fixture(CdsCategory.NEW_CATEGORY);
+        f.unit(CdsCategory.NEW_CATEGORY, "d".repeat(64), List.of());
         f.unit(CdsCategory.NEW_CATEGORY, "e".repeat(64), List.of());
         assertThat(capture(f).identities()).hasSize(3);
     }
-    @Test void shouldExcludeUnappliedRetainedUnits_withoutCreatingGhostOccurrences() throws Exception {
-        var f = fixture(CdsCategory.REPORTS); f.unit(CdsCategory.REPORTS, "d".repeat(64), List.of()); f.applied.clear();
+
+    @Test
+    void shouldExcludeUnappliedRetainedUnits_withoutCreatingGhostOccurrences() throws Exception {
+        var f = fixture(CdsCategory.REPORTS);
+        f.unit(CdsCategory.REPORTS, "d".repeat(64), List.of());
+        f.applied.clear();
         assertThat(capture(f).identities()).hasSize(1);
     }
-    @Test void shouldRefuseAnUnclassifiedNativeNote_insteadOfOmittingIt() throws Exception {
+
+    @Test
+    void shouldRefuseAnUnclassifiedNativeNote_insteadOfOmittingIt() throws Exception {
         var f = fixture(CdsCategory.CLINICAL_NOTES);
-        f.nativeRows.add(new CdsExportNativeRowReceiptDto("casemgmt_note", "11", "11", CdsExportPatientPipelineFixture.HASH));
+        f.nativeRows.add(
+                new CdsExportNativeRowReceiptDto(
+                        "casemgmt_note", "11", "11", CdsExportPatientPipelineFixture.HASH));
         assertThatThrownBy(() -> capture(f)).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }
-    @Test void shouldClassifyHistoricalNotes_fromTheirAppliedSourceUnit() throws Exception {
+
+    @Test
+    void shouldClassifyHistoricalNotes_fromTheirAppliedSourceUnit() throws Exception {
         var f = fixture(CdsCategory.CLINICAL_NOTES);
-        f.nativeRows.add(new CdsExportNativeRowReceiptDto("casemgmt_note", "11", "11", CdsExportPatientPipelineFixture.HASH));
-        f.unit(CdsCategory.CLINICAL_NOTES, "d".repeat(64), List.of(new CdsExportRetainedIndexDto.Reference("casemgmt_note", "11", CdsExportPatientPipelineFixture.HASH)));
+        f.nativeRows.add(
+                new CdsExportNativeRowReceiptDto(
+                        "casemgmt_note", "11", "11", CdsExportPatientPipelineFixture.HASH));
+        f.unit(
+                CdsCategory.CLINICAL_NOTES,
+                "d".repeat(64),
+                List.of(
+                        new CdsExportRetainedIndexDto.Reference(
+                                "casemgmt_note", "11", CdsExportPatientPipelineFixture.HASH)));
         assertThat(capture(f).identities()).hasSize(2);
     }
-    @Test void shouldRefuseANoteAssignedToCompetingSourceUnits() throws Exception {
+
+    @Test
+    void shouldRefuseANoteAssignedToCompetingSourceUnits() throws Exception {
         var f = fixture(CdsCategory.CLINICAL_NOTES);
-        f.nativeRows.add(new CdsExportNativeRowReceiptDto("casemgmt_note", "11", "11", CdsExportPatientPipelineFixture.HASH));
-        var refs = List.of(new CdsExportRetainedIndexDto.Reference("casemgmt_note", "11", CdsExportPatientPipelineFixture.HASH));
-        f.unit(CdsCategory.CLINICAL_NOTES, "d".repeat(64), refs); f.unit(CdsCategory.CLINICAL_NOTES, "e".repeat(64), refs);
+        f.nativeRows.add(
+                new CdsExportNativeRowReceiptDto(
+                        "casemgmt_note", "11", "11", CdsExportPatientPipelineFixture.HASH));
+        var refs =
+                List.of(
+                        new CdsExportRetainedIndexDto.Reference(
+                                "casemgmt_note", "11", CdsExportPatientPipelineFixture.HASH));
+        f.unit(CdsCategory.CLINICAL_NOTES, "d".repeat(64), refs);
+        f.unit(CdsCategory.CLINICAL_NOTES, "e".repeat(64), refs);
         assertThatThrownBy(() -> capture(f)).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }
-    @Test void shouldRefuseAnUnexpectedCategory_insteadOfLeakingItIntoTheInventory() throws Exception {
-        var f = fixture(); f.nativeRows.add(new CdsExportNativeRowReceiptDto("allergies", "11", "11", CdsExportPatientPipelineFixture.HASH));
+
+    @Test
+    void shouldRefuseAnUnexpectedCategory_insteadOfLeakingItIntoTheInventory() throws Exception {
+        var f = fixture();
+        f.nativeRows.add(
+                new CdsExportNativeRowReceiptDto(
+                        "allergies", "11", "11", CdsExportPatientPipelineFixture.HASH));
         assertThatThrownBy(() -> capture(f)).hasMessage("CDS_EXPORT_PATIENT_INVENTORY_INVALID");
     }
-    @Test void shouldRefuseDuplicateNativeIdentities_evenWhenWitnessesMatch() throws Exception {
-        var f = fixture(); f.nativeRows.add(f.nativeRows.getFirst());
+
+    @Test
+    void shouldRefuseDuplicateNativeIdentities_evenWhenWitnessesMatch() throws Exception {
+        var f = fixture();
+        f.nativeRows.add(f.nativeRows.getFirst());
         assertThatThrownBy(() -> capture(f)).hasMessage("CDS_EXPORT_PATIENT_INVENTORY_INVALID");
     }
-    @Test void shouldRequireTheCurrentDemographic() throws Exception {
-        var f = fixture(); f.nativeRows.clear();
+
+    @Test
+    void shouldRequireTheCurrentDemographic() throws Exception {
+        var f = fixture();
+        f.nativeRows.clear();
         assertThatThrownBy(() -> capture(f)).hasMessage("CDS_EXPORT_PATIENT_INVENTORY_INVALID");
     }
-    @Test void shouldNotReturnInventory_afterFinalAuthorityRevocation() throws Exception {
-        var f = fixture(); doThrow(new SecurityException("REVOKED")).when(f.control).authorizePatient(27);
+
+    @Test
+    void shouldNotReturnInventory_afterFinalAuthorityRevocation() throws Exception {
+        var f = fixture();
+        doThrow(new SecurityException("REVOKED")).when(f.control).authorizePatient(27);
         assertThatThrownBy(() -> capture(f)).hasMessage("REVOKED");
     }
 }

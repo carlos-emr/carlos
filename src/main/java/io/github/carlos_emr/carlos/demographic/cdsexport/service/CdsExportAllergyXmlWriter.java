@@ -29,66 +29,141 @@ import java.util.Objects;
 
 /** Schema-ordered allergy writer. Additional source fields still require full reconciliation/coverage. */
 public final class CdsExportAllergyXmlWriter {
-    public void write(CdsExportAllergyDto allergy, CdsExportXmlComposer.ContentWriter xml) throws IOException {
+    public void write(CdsExportAllergyDto allergy, CdsExportXmlComposer.ContentWriter xml)
+            throws IOException {
         java.util.Objects.requireNonNull(xml).content(guarded -> writeValue(allergy, guarded));
     }
-    private void writeValue(CdsExportAllergyDto allergy, CdsExportXmlComposer.ContentWriter xml) throws IOException {
-        Objects.requireNonNull(allergy); Objects.requireNonNull(xml);
+
+    private void writeValue(CdsExportAllergyDto allergy, CdsExportXmlComposer.ContentWriter xml)
+            throws IOException {
+        Objects.requireNonNull(allergy);
+        Objects.requireNonNull(xml);
         validate(allergy);
         xml.start("cds", "ResidualInfo");
-        residual(xml, CdsNativeExtensionContract.ALLERGY_ARCHIVED, CdsNativeExtensionContract.BOOLEAN_TYPE, Boolean.toString(allergy.archived()));
+        residual(
+                xml,
+                CdsNativeExtensionContract.ALLERGY_ARCHIVED,
+                CdsNativeExtensionContract.BOOLEAN_TYPE,
+                Boolean.toString(allergy.archived()));
         if (allergy.ageOfOnset() != null) {
             String age = allergy.ageOfOnset();
-            if (age.isEmpty() || age.codePointCount(0, age.length()) > 4 || !age.equals(age.strip())
-                    || age.contains("  ") || age.codePoints().anyMatch(code -> code < 0x20)) {
+            if (age.isEmpty()
+                    || age.codePointCount(0, age.length()) > 4
+                    || !age.equals(age.strip())
+                    || age.contains("  ")
+                    || age.codePoints().anyMatch(code -> code < 0x20)) {
                 throw new IOException("CDS_EXPORT_ALLERGY_AGE_REQUIRES_REVIEW");
             }
-            residual(xml, CdsNativeExtensionContract.ALLERGY_AGE_OF_ONSET, CdsNativeExtensionContract.STRING_TYPE, age);
+            residual(
+                    xml,
+                    CdsNativeExtensionContract.ALLERGY_AGE_OF_ONSET,
+                    CdsNativeExtensionContract.STRING_TYPE,
+                    age);
         }
         if (allergy.onsetOfReaction() != null) {
-            String onset = CdsNativeExtensionContract.ALLERGY_ONSET_VALUES.get(allergy.onsetOfReaction());
+            String onset =
+                    CdsNativeExtensionContract.ALLERGY_ONSET_VALUES.get(allergy.onsetOfReaction());
             if (onset == null) throw new IOException("CDS_EXPORT_ALLERGY_ONSET_REQUIRES_REVIEW");
-            residual(xml, CdsNativeExtensionContract.ALLERGY_ONSET_OF_REACTION, CdsNativeExtensionContract.STRING_TYPE, onset);
+            residual(
+                    xml,
+                    CdsNativeExtensionContract.ALLERGY_ONSET_OF_REACTION,
+                    CdsNativeExtensionContract.STRING_TYPE,
+                    onset);
         }
         xml.end();
-        optional(xml, "OffendingAgentDescription", allergy.description()); optional(xml, "PropertyOfOffendingAgent", allergy.property());
+        optional(xml, "OffendingAgentDescription", allergy.description());
+        optional(xml, "PropertyOfOffendingAgent", allergy.property());
         if (allergy.codeValue() != null) {
-            xml.start("cds", "Code"); xml.element("cds_dt", "CodeType", allergy.codeType());
-            xml.element("cds_dt", "CodeValue", allergy.codeValue()); xml.end();
+            xml.start("cds", "Code");
+            xml.element("cds_dt", "CodeType", allergy.codeType());
+            xml.element("cds_dt", "CodeValue", allergy.codeValue());
+            xml.end();
         }
-        optional(xml, "ReactionType", allergy.reactionType()); date(xml, "StartDate", allergy.start());
-        optional(xml, "LifeStage", allergy.lifeStage()); optional(xml, "Severity", allergy.severity());
-        optional(xml, "Reaction", allergy.reaction()); date(xml, "RecordedDate", allergy.recorded());
+        optional(xml, "ReactionType", allergy.reactionType());
+        date(xml, "StartDate", allergy.start());
+        optional(xml, "LifeStage", allergy.lifeStage());
+        optional(xml, "Severity", allergy.severity());
+        optional(xml, "Reaction", allergy.reaction());
+        date(xml, "RecordedDate", allergy.recorded());
         optional(xml, "Notes", allergy.notes());
     }
+
     /** Same capacity/lexical gate for direct and retained assembly. */
-    static void validate(CdsExportAllergyDto allergy)throws IOException {
+    static void validate(CdsExportAllergyDto allergy) throws IOException {
         Objects.requireNonNull(allergy);
-        if ((allergy.description() == null || allergy.description().isBlank()) && allergy.codeValue() == null) {
+        if ((allergy.description() == null || allergy.description().isBlank())
+                && allergy.codeValue() == null) {
             throw new IOException("CDS_EXPORT_ALLERGY_AGENT_REQUIRES_REVIEW");
         }
-        String[] values={allergy.description(), allergy.property(), allergy.codeType(), allergy.codeValue(), allergy.reactionType(), allergy.lifeStage(), allergy.severity(), allergy.reaction(), allergy.notes()};
-        int[] limits={120, 2, 3, 20, 2, 1, 2, 120, 32000};
-        for (int i=0; i<values.length; i++)if (values[i]!=null&&!CdsExportNativeFieldAssessments.legal(values[i], limits[i]))throw new IOException("CDS_EXPORT_ALLERGY_VALUES_REQUIRES_REVIEW");
-        String code=allergy.codeValue();
-        if (code!=null&&(code.isEmpty()||code.startsWith(" ")||code.endsWith(" ")||code.contains("  ")||code.indexOf('\t')>=0||code.indexOf('\r')>=0||code.indexOf('\n')>=0))throw new IOException("CDS_EXPORT_ALLERGY_VALUES_REQUIRES_REVIEW");
-        String age=allergy.ageOfOnset();
-        if (age!=null&&(age.isEmpty()||!CdsExportNativeFieldAssessments.legal(age, 4)||!age.equals(age.strip())||age.contains("  ")||age.codePoints().anyMatch(value-> value<0x20)))throw new IOException("CDS_EXPORT_ALLERGY_AGE_REQUIRES_REVIEW");
-        if (allergy.onsetOfReaction()!=null&&!CdsNativeExtensionContract.ALLERGY_ONSET_VALUES.containsKey(allergy.onsetOfReaction()))throw new IOException("CDS_EXPORT_ALLERGY_ONSET_REQUIRES_REVIEW");
+        String[] values = {
+            allergy.description(),
+            allergy.property(),
+            allergy.codeType(),
+            allergy.codeValue(),
+            allergy.reactionType(),
+            allergy.lifeStage(),
+            allergy.severity(),
+            allergy.reaction(),
+            allergy.notes()
+        };
+        int[] limits = {120, 2, 3, 20, 2, 1, 2, 120, 32000};
+        for (int i = 0; i < values.length; i++)
+            if (values[i] != null && !CdsExportNativeFieldAssessments.legal(values[i], limits[i]))
+                throw new IOException("CDS_EXPORT_ALLERGY_VALUES_REQUIRES_REVIEW");
+        String code = allergy.codeValue();
+        if (code != null
+                && (code.isEmpty()
+                        || code.startsWith(" ")
+                        || code.endsWith(" ")
+                        || code.contains("  ")
+                        || code.indexOf('\t') >= 0
+                        || code.indexOf('\r') >= 0
+                        || code.indexOf('\n') >= 0))
+            throw new IOException("CDS_EXPORT_ALLERGY_VALUES_REQUIRES_REVIEW");
+        String age = allergy.ageOfOnset();
+        if (age != null
+                && (age.isEmpty()
+                        || !CdsExportNativeFieldAssessments.legal(age, 4)
+                        || !age.equals(age.strip())
+                        || age.contains("  ")
+                        || age.codePoints().anyMatch(value -> value < 0x20)))
+            throw new IOException("CDS_EXPORT_ALLERGY_AGE_REQUIRES_REVIEW");
+        if (allergy.onsetOfReaction() != null
+                && !CdsNativeExtensionContract.ALLERGY_ONSET_VALUES.containsKey(
+                        allergy.onsetOfReaction()))
+            throw new IOException("CDS_EXPORT_ALLERGY_ONSET_REQUIRES_REVIEW");
     }
-    private static void residual(CdsExportXmlComposer.ContentWriter xml, String name, String type, String value) throws IOException {
-        xml.start("cds_dt", "DataElement"); residualFields(xml, name, type, value); xml.end();
+
+    private static void residual(
+            CdsExportXmlComposer.ContentWriter xml, String name, String type, String value)
+            throws IOException {
+        xml.start("cds_dt", "DataElement");
+        residualFields(xml, name, type, value);
+        xml.end();
     }
-    static void residualFields(CdsExportXmlComposer.ContentWriter xml, String name, String type, String value) throws IOException {
-        xml.element("cds_dt", "Name", name); xml.element("cds_dt", "DataType", type); xml.element("cds_dt", "Content", value);
+
+    static void residualFields(
+            CdsExportXmlComposer.ContentWriter xml, String name, String type, String value)
+            throws IOException {
+        xml.element("cds_dt", "Name", name);
+        xml.element("cds_dt", "DataType", type);
+        xml.element("cds_dt", "Content", value);
     }
-    private static void optional(CdsExportXmlComposer.ContentWriter xml, String name, String value) throws IOException {
+
+    private static void optional(CdsExportXmlComposer.ContentWriter xml, String name, String value)
+            throws IOException {
         if (value != null) xml.element("cds", name, value);
     }
-    private static void date(CdsExportXmlComposer.ContentWriter xml, String name, CdsExportDateDto date) throws IOException {
+
+    private static void date(
+            CdsExportXmlComposer.ContentWriter xml, String name, CdsExportDateDto date)
+            throws IOException {
         CdsExportDateXmlWriter.write(xml, name, date, name.equals("RecordedDate"));
     }
-    static void dateContent(CdsExportXmlComposer.ContentWriter xml, CdsExportDateDto date, boolean permitsClock) throws IOException {
+
+    static void dateContent(
+            CdsExportXmlComposer.ContentWriter xml, CdsExportDateDto date, boolean permitsClock)
+            throws IOException {
         CdsExportDateXmlWriter.content(xml, date, permitsClock);
     }
 }

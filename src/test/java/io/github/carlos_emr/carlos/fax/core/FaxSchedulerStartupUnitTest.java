@@ -60,21 +60,34 @@ class FaxSchedulerStartupUnitTest extends CarlosUnitTestBase {
     private final AtomicInteger timers = new AtomicInteger();
     private FaxSchedulerJob job;
 
-    @BeforeEach void setup() {
-        job = new FaxSchedulerJob(importer, sender, status, configurations, blocked::get,
-                name -> { timers.incrementAndGet(); return timer; });
-        var account = new FaxConfig(); account.setActive(true);
+    @BeforeEach
+    void setup() {
+        job =
+                new FaxSchedulerJob(
+                        importer,
+                        sender,
+                        status,
+                        configurations,
+                        blocked::get,
+                        name -> {
+                            timers.incrementAndGet();
+                            return timer;
+                        });
+        var account = new FaxConfig();
+        account.setActive(true);
         doReturn(List.of(account)).when(configurations).findAll(null, null);
     }
 
-    @AfterEach void cleanup() {
+    @AfterEach
+    void cleanup() {
         job.shutdown();
         verify(importer, never()).poll();
         verify(sender, never()).send();
         verify(status, never()).updateStatus();
     }
 
-    @Test void shouldDeferTheBlockedInitialRead_thenScheduleExistingActiveAccountsExactlyOnce() {
+    @Test
+    void shouldDeferTheBlockedInitialRead_thenScheduleExistingActiveAccountsExactlyOnce() {
         job.initialize();
         assertThat(job.isRunning()).isFalse();
         verifyNoInteractions(configurations, timer);
@@ -89,7 +102,8 @@ class FaxSchedulerStartupUnitTest extends CarlosUnitTestBase {
         assertThat(job.getLastError()).isEmpty();
     }
 
-    @Test void shouldStartNormallyWhenTheGuardIsDisabledOrOpen_withoutAnyDeferredStartup() {
+    @Test
+    void shouldStartNormallyWhenTheGuardIsDisabledOrOpen_withoutAnyDeferredStartup() {
         blocked.set(false);
         job.initialize();
         job.retryDeferredInitialization();
@@ -98,106 +112,191 @@ class FaxSchedulerStartupUnitTest extends CarlosUnitTestBase {
         assertThat(timers).hasValue(1);
     }
 
-    @Test void shouldPreserveNormalStartup_withActualDisabledMaintenanceService() throws Exception {
+    @Test
+    void shouldPreserveNormalStartup_withActualDisabledMaintenanceService() throws Exception {
         var pool = mock(OscarTrackingBasicDataSource.class);
-        var maintenance = new CdsImportMaintenanceService(pool,
-                new CdsImportConfigurationService(new Properties()));
-        job = new FaxSchedulerJob(importer, sender, status, configurations,
-                maintenance::isClinicalAccessBlocked, name -> { timers.incrementAndGet(); return timer; });
-        job.initialize(); job.retryDeferredInitialization();
-        assertThat(job.isRunning()).isTrue(); assertThat(timers).hasValue(1);
+        var maintenance =
+                new CdsImportMaintenanceService(
+                        pool, new CdsImportConfigurationService(new Properties()));
+        job =
+                new FaxSchedulerJob(
+                        importer,
+                        sender,
+                        status,
+                        configurations,
+                        maintenance::isClinicalAccessBlocked,
+                        name -> {
+                            timers.incrementAndGet();
+                            return timer;
+                        });
+        job.initialize();
+        job.retryDeferredInitialization();
+        assertThat(job.isRunning()).isTrue();
+        assertThat(timers).hasValue(1);
         verify(pool, never()).getConnection();
         verify(configurations).findAll(null, null);
     }
 
-    @Test void shouldNotDuplicateTimers_whenReleaseCallbacksRace() throws Exception {
-        job.initialize(); blocked.set(false);
+    @Test
+    void shouldNotDuplicateTimers_whenReleaseCallbacksRace() throws Exception {
+        job.initialize();
+        blocked.set(false);
         var start = new CountDownLatch(1);
         try (var pool = Executors.newFixedThreadPool(2)) {
-            var first = pool.submit(() -> { start.await(); job.retryDeferredInitialization(); return null; });
-            var second = pool.submit(() -> { start.await(); job.retryDeferredInitialization(); return null; });
-            start.countDown(); first.get(5, TimeUnit.SECONDS); second.get(5, TimeUnit.SECONDS);
+            var first =
+                    pool.submit(
+                            () -> {
+                                start.await();
+                                job.retryDeferredInitialization();
+                                return null;
+                            });
+            var second =
+                    pool.submit(
+                            () -> {
+                                start.await();
+                                job.retryDeferredInitialization();
+                                return null;
+                            });
+            start.countDown();
+            first.get(5, TimeUnit.SECONDS);
+            second.get(5, TimeUnit.SECONDS);
         }
         assertThat(timers).hasValue(1);
         verify(configurations).findAll(null, null);
     }
 
-    @Test void shouldKeepARealInactiveResultIdle_andPreserveExplicitAdminActivation() {
-        blocked.set(false); when(configurations.findAll(null, null)).thenReturn(List.of());
-        job.initialize(); job.retryDeferredInitialization();
+    @Test
+    void shouldKeepARealInactiveResultIdle_andPreserveExplicitAdminActivation() {
+        blocked.set(false);
+        when(configurations.findAll(null, null)).thenReturn(List.of());
+        job.initialize();
+        job.retryDeferredInitialization();
         verify(configurations).findAll(null, null);
         assertThat(timers).hasValue(0);
         job.startIfNotRunning();
         assertThat(timers).hasValue(1);
     }
 
-    @Test void shouldRetainAndPropagateAReadAdmissionRace_evenWhenTheGateAlreadyReopened() {
-        job.initialize(); blocked.set(false);
-        when(configurations.findAll(null, null)).thenThrow(new IllegalStateException(new SQLException(
-                "CDS maintenance or an incomplete chart hold blocks clinical access", "45000")));
+    @Test
+    void shouldRetainAndPropagateAReadAdmissionRace_evenWhenTheGateAlreadyReopened() {
+        job.initialize();
+        blocked.set(false);
+        when(configurations.findAll(null, null))
+                .thenThrow(
+                        new IllegalStateException(
+                                new SQLException(
+                                        "CDS maintenance or an incomplete chart hold blocks clinical access",
+                                        "45000")));
         assertThatThrownBy(job::retryDeferredInitialization).hasMessage("FAX_STARTUP_DEFERRED");
-        assertThat(job.isRunning()).isFalse(); assertThat(timers).hasValue(0);
-        var account = new FaxConfig(); account.setActive(true);
+        assertThat(job.isRunning()).isFalse();
+        assertThat(timers).hasValue(0);
+        var account = new FaxConfig();
+        account.setActive(true);
         doReturn(List.of(account)).when(configurations).findAll(null, null);
         job.retryDeferredInitialization();
-        assertThat(job.isRunning()).isTrue(); assertThat(timers).hasValue(1);
+        assertThat(job.isRunning()).isTrue();
+        assertThat(timers).hasValue(1);
     }
 
-    @Test void shouldReportGenuineLookupErrorsAsOptionalFailures_withoutInventingAnInactiveResult() {
+    @Test
+    void shouldReportGenuineLookupErrorsAsOptionalFailures_withoutInventingAnInactiveResult() {
         blocked.set(false);
         when(configurations.findAll(null, null)).thenThrow(new IllegalStateException("db down"));
         assertThatCode(job::initialize).doesNotThrowAnyException();
         assertThatCode(job::retryDeferredInitialization).doesNotThrowAnyException();
         assertThat(job.getLastError()).contains("db down");
-        assertThat(job.isRunning()).isFalse(); assertThat(timers).hasValue(0);
+        assertThat(job.isRunning()).isFalse();
+        assertThat(timers).hasValue(0);
     }
 
-    @Test void shouldNeverRestartAfterContextShutdown_evenFromLateRecoveryOrActivation() {
-        job.initialize(); job.shutdown(); blocked.set(false);
-        job.retryDeferredInitialization(); job.initialize(); job.startIfNotRunning(); job.restartTask(); job.runCycle();
-        assertThat(job.isRunning()).isFalse(); assertThat(timers).hasValue(0);
+    @Test
+    void shouldNeverRestartAfterContextShutdown_evenFromLateRecoveryOrActivation() {
+        job.initialize();
+        job.shutdown();
+        blocked.set(false);
+        job.retryDeferredInitialization();
+        job.initialize();
+        job.startIfNotRunning();
+        job.restartTask();
+        job.runCycle();
+        assertThat(job.isRunning()).isFalse();
+        assertThat(timers).hasValue(0);
         verifyNoInteractions(configurations, timer);
     }
 
-    @Test void shouldNotRestartAFatalStoppedScheduler_fromTheDeferredStartupHook() {
+    @Test
+    void shouldNotRestartAFatalStoppedScheduler_fromTheDeferredStartupHook() {
         var failedImporter = mock(FaxImporter.class);
         doThrow(new OutOfMemoryError("synthetic test failure")).when(failedImporter).poll();
-        var stopped = new FaxSchedulerJob(failedImporter, sender, status, configurations, () -> false,
-                name -> {timers.incrementAndGet();return timer;});
+        var stopped =
+                new FaxSchedulerJob(
+                        failedImporter,
+                        sender,
+                        status,
+                        configurations,
+                        () -> false,
+                        name -> {
+                            timers.incrementAndGet();
+                            return timer;
+                        });
         try {
-            stopped.initialize(); stopped.runCycle(); stopped.retryDeferredInitialization();
-            assertThat(stopped.isRunning()).isFalse(); assertThat(timers).hasValue(1);
+            stopped.initialize();
+            stopped.runCycle();
+            stopped.retryDeferredInitialization();
+            assertThat(stopped.isRunning()).isFalse();
+            assertThat(timers).hasValue(1);
             assertThat(stopped.getLastError()).contains("OUT OF MEMORY");
-        } finally {stopped.shutdown();}
+        } finally {
+            stopped.shutdown();
+        }
     }
 
-    @Test void shouldPreserveAManualStop_untilExplicitAdminActivation() {
-        blocked.set(false); job.initialize(); job.cancelTask(); job.retryDeferredInitialization();
-        assertThat(job.isRunning()).isFalse(); assertThat(timers).hasValue(1);
-        job.startIfNotRunning(); assertThat(job.isRunning()).isTrue(); assertThat(timers).hasValue(2);
-    }
-
-    @Test void shouldFenceTimerCreation_againstShutdownRacingInitialRead() throws Exception {
+    @Test
+    void shouldPreserveAManualStop_untilExplicitAdminActivation() {
         blocked.set(false);
-        var entered = new CountDownLatch(1); var release = new CountDownLatch(1);
-        when(configurations.findAll(null, null)).thenAnswer(call -> {
-            entered.countDown(); assertThat(release.await(5, TimeUnit.SECONDS)).isTrue();
-            var account = new FaxConfig(); account.setActive(true); return List.of(account);
-        });
+        job.initialize();
+        job.cancelTask();
+        job.retryDeferredInitialization();
+        assertThat(job.isRunning()).isFalse();
+        assertThat(timers).hasValue(1);
+        job.startIfNotRunning();
+        assertThat(job.isRunning()).isTrue();
+        assertThat(timers).hasValue(2);
+    }
+
+    @Test
+    void shouldFenceTimerCreation_againstShutdownRacingInitialRead() throws Exception {
+        blocked.set(false);
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        when(configurations.findAll(null, null))
+                .thenAnswer(
+                        call -> {
+                            entered.countDown();
+                            assertThat(release.await(5, TimeUnit.SECONDS)).isTrue();
+                            var account = new FaxConfig();
+                            account.setActive(true);
+                            return List.of(account);
+                        });
         try (var pool = Executors.newFixedThreadPool(2)) {
             var initializing = pool.submit(job::initialize);
             assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
-            var stopping = pool.submit(job::shutdown); release.countDown();
-            initializing.get(5, TimeUnit.SECONDS); stopping.get(5, TimeUnit.SECONDS);
+            var stopping = pool.submit(job::shutdown);
+            release.countDown();
+            initializing.get(5, TimeUnit.SECONDS);
+            stopping.get(5, TimeUnit.SECONDS);
         }
         job.retryDeferredInitialization();
         var task = ArgumentCaptor.forClass(TimerTask.class);
         verify(timer).schedule(task.capture(), eq(3000L), anyLong());
-        verify(timer).cancel(); assertThat(timers).hasValue(1); assertThat(job.isRunning()).isFalse();
+        verify(timer).cancel();
+        assertThat(timers).hasValue(1);
+        assertThat(job.isRunning()).isFalse();
         task.getValue().run();
     }
 
-    @Test void shouldUseTheActualSpringConstructorAndTerminalDestroyLifecycle_underRetainedMaintenance() {
+    @Test
+    void shouldUseTheActualSpringConstructorAndTerminalDestroyLifecycle_underRetainedMaintenance() {
         var maintenance = mock(CdsImportMaintenanceService.class);
         when(maintenance.isClinicalAccessBlocked()).thenReturn(true);
         FaxSchedulerJob nativeBean;
@@ -208,11 +307,15 @@ class FaxSchedulerStartupUnitTest extends CarlosUnitTestBase {
             context.registerBean(FaxConfigDao.class, () -> configurations);
             context.registerBean(CdsImportMaintenanceService.class, () -> maintenance);
             context.registerBean(FaxSchedulerJob.class);
-            context.refresh(); nativeBean = context.getBean(FaxSchedulerJob.class);
-            assertThat(nativeBean.isRunning()).isFalse(); verifyNoInteractions(configurations);
+            context.refresh();
+            nativeBean = context.getBean(FaxSchedulerJob.class);
+            assertThat(nativeBean.isRunning()).isFalse();
+            verifyNoInteractions(configurations);
         }
         when(maintenance.isClinicalAccessBlocked()).thenReturn(false);
-        nativeBean.retryDeferredInitialization(); nativeBean.startIfNotRunning();
-        verifyNoInteractions(configurations); assertThat(nativeBean.isRunning()).isFalse();
+        nativeBean.retryDeferredInitialization();
+        nativeBean.startIfNotRunning();
+        verifyNoInteractions(configurations);
+        assertThat(nativeBean.isRunning()).isFalse();
     }
 }

@@ -31,54 +31,95 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunCont
 import java.util.*;
 import org.junit.jupiter.api.*;
 
-@Tag("unit") @Tag("cds-export")
+@Tag("unit")
+@Tag("cds-export")
 class CdsExportNoteSourceReaderUnitTest {
     private final CaseManagementNoteDAO notes = mock(CaseManagementNoteDAO.class);
     private final CdsExportNoteAccessDao scopes = mock(CdsExportNoteAccessDao.class);
-    private final CdsExportNoteScopeProjectionService projection = mock(CdsExportNoteScopeProjectionService.class);
+    private final CdsExportNoteScopeProjectionService projection =
+            mock(CdsExportNoteScopeProjectionService.class);
     private final CdsExportRunControl control = mock(CdsExportRunControl.class);
     private final CdsExportNoteAccessDto scope = new CdsExportNoteAccessDto(91, 27, "17", "1");
     private CdsExportNoteSourceReader reader;
-    @BeforeEach void setup() {
+
+    @BeforeEach
+    void setup() {
         reader = new CdsExportNoteSourceReader(notes, scopes, projection);
-        when(projection.read(27, 8192)).thenReturn(List.of(scope)); when(scopes.readScopes(27, 8192)).thenReturn(List.of(scope)); when(notes.countCdsExportRows(27)).thenReturn(1L);
+        when(projection.read(27, 8192)).thenReturn(List.of(scope));
+        when(scopes.readScopes(27, 8192)).thenReturn(List.of(scope));
+        when(notes.countCdsExportRows(27)).thenReturn(1L);
     }
-    @Test void shouldRefuseUnpreparedPayloadReads_beforeCallingTheOwningDao() {
-        assertThatThrownBy(() -> reader.count(27)).hasMessage("CDS_EXPORT_NOTE_CAPTURE_NOT_PREPARED");
-        assertThatThrownBy(() -> reader.capture(27, null)).hasMessage("CDS_EXPORT_NOTE_CAPTURE_NOT_PREPARED"); verifyNoInteractions(notes, scopes, projection);
+
+    @Test
+    void shouldRefuseUnpreparedPayloadReads_beforeCallingTheOwningDao() {
+        assertThatThrownBy(() -> reader.count(27))
+                .hasMessage("CDS_EXPORT_NOTE_CAPTURE_NOT_PREPARED");
+        assertThatThrownBy(() -> reader.capture(27, null))
+                .hasMessage("CDS_EXPORT_NOTE_CAPTURE_NOT_PREPARED");
+        verifyNoInteractions(notes, scopes, projection);
     }
-    @Test void shouldBindOneImmutablePatientScope_andRequireItsLiveNoteCapability() throws Exception {
-        var planned = reader.forCapture(27, control); planned.authorizeReadScope(27, control);
-        verify(control).authorizeNote(CdsCategory.CLINICAL_NOTES, scope); assertThat(planned.noteAccess()).containsExactly(scope);
-        assertThat(planned.count(27)).isEqualTo(1); verify(notes).countCdsExportRows(27);
-        assertThatThrownBy(() -> planned.noteAccess().clear()).isInstanceOf(UnsupportedOperationException.class);
-    }
-    @Test void shouldRefuseAChangedProgramOrAddedNote_beforeReadingAnyPayload() throws Exception {
+
+    @Test
+    void shouldBindOneImmutablePatientScope_andRequireItsLiveNoteCapability() throws Exception {
         var planned = reader.forCapture(27, control);
-        when(scopes.readScopes(27, 8192)).thenReturn(List.of(new CdsExportNoteAccessDto(91, 27, "18", "1")));
-        assertThatThrownBy(() -> planned.capture(27, null)).hasMessage("CDS_EXPORT_SOURCE_CHANGED");
-        when(scopes.readScopes(27, 8192)).thenReturn(List.of(scope, new CdsExportNoteAccessDto(92, 27, "17", "1")));
-        assertThatThrownBy(() -> planned.count(27)).hasMessage("CDS_EXPORT_SOURCE_CHANGED"); verifyNoInteractions(notes);
+        planned.authorizeReadScope(27, control);
+        verify(control).authorizeNote(CdsCategory.CLINICAL_NOTES, scope);
+        assertThat(planned.noteAccess()).containsExactly(scope);
+        assertThat(planned.count(27)).isEqualTo(1);
+        verify(notes).countCdsExportRows(27);
+        assertThatThrownBy(() -> planned.noteAccess().clear())
+                .isInstanceOf(UnsupportedOperationException.class);
     }
-    @Test void shouldRefuseACountMismatch_andNeverSilentlyDropAnUnexpectedPhysicalRow() throws Exception {
-        var planned = reader.forCapture(27, control); when(notes.countCdsExportRows(27)).thenReturn(2L);
+
+    @Test
+    void shouldRefuseAChangedProgramOrAddedNote_beforeReadingAnyPayload() throws Exception {
+        var planned = reader.forCapture(27, control);
+        when(scopes.readScopes(27, 8192))
+                .thenReturn(List.of(new CdsExportNoteAccessDto(91, 27, "18", "1")));
+        assertThatThrownBy(() -> planned.capture(27, null)).hasMessage("CDS_EXPORT_SOURCE_CHANGED");
+        when(scopes.readScopes(27, 8192))
+                .thenReturn(List.of(scope, new CdsExportNoteAccessDto(92, 27, "17", "1")));
+        assertThatThrownBy(() -> planned.count(27)).hasMessage("CDS_EXPORT_SOURCE_CHANGED");
+        verifyNoInteractions(notes);
+    }
+
+    @Test
+    void shouldRefuseACountMismatch_andNeverSilentlyDropAnUnexpectedPhysicalRow() throws Exception {
+        var planned = reader.forCapture(27, control);
+        when(notes.countCdsExportRows(27)).thenReturn(2L);
         assertThatThrownBy(() -> planned.count(27)).hasMessage("CDS_EXPORT_SOURCE_CHANGED");
         verify(notes, never()).findCdsExportRowsAfter(anyInt(), nullable(Long.class), anyInt());
     }
-    @Test void shouldRefuseCrossPatientReuse_beforeAnyAdditionalDiscoveryOrPayloadRead() throws Exception {
-        var planned = reader.forCapture(27, control); clearInvocations(notes, scopes, projection);
-        assertThatThrownBy(() -> planned.count(28)).hasMessage("CDS_EXPORT_NOTE_CAPTURE_NOT_PREPARED");
-        assertThatThrownBy(() -> planned.authorizeReadScope(28, control)).isInstanceOf(SecurityException.class); verifyNoInteractions(notes, scopes, projection);
+
+    @Test
+    void shouldRefuseCrossPatientReuse_beforeAnyAdditionalDiscoveryOrPayloadRead()
+            throws Exception {
+        var planned = reader.forCapture(27, control);
+        clearInvocations(notes, scopes, projection);
+        assertThatThrownBy(() -> planned.count(28))
+                .hasMessage("CDS_EXPORT_NOTE_CAPTURE_NOT_PREPARED");
+        assertThatThrownBy(() -> planned.authorizeReadScope(28, control))
+                .isInstanceOf(SecurityException.class);
+        verifyNoInteractions(notes, scopes, projection);
     }
-    @Test void shouldRefuseUnorderedDuplicateOrForeignPatientScopes_beforeSealingACapturePlan() {
-        for (var invalid : List.of(List.of(scope, scope), List.of(new CdsExportNoteAccessDto(91, 28, "17", "1")),
-                List.of(new CdsExportNoteAccessDto(92, 27, "17", "1"), scope))) {
+
+    @Test
+    void shouldRefuseUnorderedDuplicateOrForeignPatientScopes_beforeSealingACapturePlan() {
+        for (var invalid :
+                List.of(
+                        List.of(scope, scope),
+                        List.of(new CdsExportNoteAccessDto(91, 28, "17", "1")),
+                        List.of(new CdsExportNoteAccessDto(92, 27, "17", "1"), scope))) {
             when(projection.read(27, 8192)).thenReturn(invalid);
-            assertThatThrownBy(() -> reader.forCapture(27, control)).hasMessage("CDS_EXPORT_NOTE_CAPTURE_SCOPE_INVALID");
+            assertThatThrownBy(() -> reader.forCapture(27, control))
+                    .hasMessage("CDS_EXPORT_NOTE_CAPTURE_SCOPE_INVALID");
         }
         verifyNoInteractions(notes, scopes);
     }
-    @Test void shouldLeaveRestoredGenerationsToTheirSealedScopes_insteadOfReadingTodaysNoteUniverse() {
-        reader.authorizeReadScope(27, control); verifyNoInteractions(notes, scopes, projection, control);
+
+    @Test
+    void shouldLeaveRestoredGenerationsToTheirSealedScopes_insteadOfReadingTodaysNoteUniverse() {
+        reader.authorizeReadScope(27, control);
+        verifyNoInteractions(notes, scopes, projection, control);
     }
 }

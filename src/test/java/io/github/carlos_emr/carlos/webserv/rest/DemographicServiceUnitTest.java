@@ -105,10 +105,10 @@ import static org.mockito.Mockito.*;
 @Tag("demographic")
 class DemographicServiceUnitTest extends CarlosUnitTestBase {
 
-    @Mock
-    private SecurityInfoManager securityInfoManager;
+    @Mock private SecurityInfoManager securityInfoManager;
 
     private DemographicService service;
+
     /** Swapped to null in UNAUTHORIZED tests. */
     private LoggedInInfo loggedInInfo;
 
@@ -119,12 +119,13 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
     }
 
     private DemographicService serviceWithProjections(CdsLegacyProjectionService projections) {
-        var result = new DemographicService(projections) {
-            @Override
-            protected LoggedInInfo getLoggedInInfo() {
-                return loggedInInfo;
-            }
-        };
+        var result =
+                new DemographicService(projections) {
+                    @Override
+                    protected LoggedInInfo getLoggedInInfo() {
+                        return loggedInInfo;
+                    }
+                };
         injectDependency(result, "securityInfoManager", securityInfoManager);
         return result;
     }
@@ -146,12 +147,14 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
 
     /** Asserts the object-level privilege string requested (no demographicNo). */
     private void verifyObjectPrivilegeRequested(String privilege) {
-        verify(securityInfoManager).hasPrivilege(any(), eq("_demographic"), eq(privilege), isNull());
+        verify(securityInfoManager)
+                .hasPrivilege(any(), eq("_demographic"), eq(privilege), isNull());
     }
 
     /** Asserts the record-level privilege string and demographicNo requested. */
     private void verifyRecordPrivilegeRequested(String privilege, Integer demographicNo) {
-        verify(securityInfoManager).hasPrivilege(any(), eq("_demographic"), eq(privilege), eq(demographicNo));
+        verify(securityInfoManager)
+                .hasPrivilege(any(), eq("_demographic"), eq(privilege), eq(demographicNo));
     }
 
     @FunctionalInterface
@@ -167,13 +170,16 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should throw 401 when not authenticated for GET /demographics")
         void shouldThrowUnauthorized_whenNotAuthenticated_forGetAllDemographics() {
             loggedInInfo = null;
-            assertThrowsWithStatus(() -> service.getAllDemographics(null, null), Response.Status.UNAUTHORIZED);
+            assertThrowsWithStatus(
+                    () -> service.getAllDemographics(null, null), Response.Status.UNAUTHORIZED);
         }
 
         @Test
-        @DisplayName("should request object-level 'r' and throw 403 when denied for GET /demographics")
+        @DisplayName(
+                "should request object-level 'r' and throw 403 when denied for GET /demographics")
         void shouldThrowForbidden_whenReadPrivilegeDenied_forGetAllDemographics() {
-            assertThrowsWithStatus(() -> service.getAllDemographics(null, null), Response.Status.FORBIDDEN);
+            assertThrowsWithStatus(
+                    () -> service.getAllDemographics(null, null), Response.Status.FORBIDDEN);
             verifyObjectPrivilegeRequested("r");
         }
 
@@ -181,13 +187,18 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should throw 401 when not authenticated for GET /demographics/{id}")
         void shouldThrowUnauthorized_whenNotAuthenticated_forGetDemographicData() {
             loggedInInfo = null;
-            assertThrowsWithStatus(() -> service.getDemographicData(42, Collections.emptyList()), Response.Status.UNAUTHORIZED);
+            assertThrowsWithStatus(
+                    () -> service.getDemographicData(42, Collections.emptyList()),
+                    Response.Status.UNAUTHORIZED);
         }
 
         @Test
-        @DisplayName("should request record-level 'r' for the demographicNo and throw 403 when denied for GET /demographics/{id}")
+        @DisplayName(
+                "should request record-level 'r' for the demographicNo and throw 403 when denied for GET /demographics/{id}")
         void shouldThrowForbidden_whenReadPrivilegeDenied_forGetDemographicData() {
-            assertThrowsWithStatus(() -> service.getDemographicData(42, Collections.emptyList()), Response.Status.FORBIDDEN);
+            assertThrowsWithStatus(
+                    () -> service.getDemographicData(42, Collections.emptyList()),
+                    Response.Status.FORBIDDEN);
             verifyRecordPrivilegeRequested("r", 42);
         }
     }
@@ -195,8 +206,13 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
     @Nested
     @DisplayName("Imported optional clinical projections")
     class ImportedCategoryProjection {
-        private final Set<String> cppSourceCategories = Set.of("PersonalHistory", "FamilyHistory", "PastHealth",
-                "RiskFactors", "AlertsAndSpecialNeeds");
+        private final Set<String> cppSourceCategories =
+                Set.of(
+                        "PersonalHistory",
+                        "FamilyHistory",
+                        "PastHealth",
+                        "RiskFactors",
+                        "AlertsAndSpecialNeeds");
         private CdsLegacyProjectionDao records;
         private DemographicManager demographics;
         private MeasurementManager measurements;
@@ -231,30 +247,38 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         }
 
         private void authorizeRecord() {
-            when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42)).thenReturn(true);
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42))
+                    .thenReturn(true);
             var patient = new Demographic(42, "Test", "Patient");
-            patient.setYearOfBirth("1970"); patient.setMonthOfBirth("01"); patient.setDateOfBirth("01");
+            patient.setYearOfBirth("1970");
+            patient.setMonthOfBirth("01");
+            patient.setDateOfBirth("01");
             when(demographics.getDemographic(loggedInInfo, 42)).thenReturn(patient);
         }
 
         private void authorizeCategories(String... includes) {
             for (String include : includes) {
-                String securityObject = switch (include) {
-                    case "allergies" -> "_allergy";
-                    case "measurements" -> "_measurement";
-                    case "medications" -> "_rx";
-                    case "notes" -> "_casemgmt.notes";
-                    default -> throw new IllegalArgumentException("Not a clinical include");
-                };
-                when(securityInfoManager.hasPrivilege(loggedInInfo, securityObject, "r", "42")).thenReturn(true);
+                String securityObject =
+                        switch (include) {
+                            case "allergies" -> "_allergy";
+                            case "measurements" -> "_measurement";
+                            case "medications" -> "_rx";
+                            case "notes" -> "_casemgmt.notes";
+                            default -> throw new IllegalArgumentException("Not a clinical include");
+                        };
+                when(securityInfoManager.hasPrivilege(loggedInInfo, securityObject, "r", "42"))
+                        .thenReturn(true);
             }
-            when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 42)).thenReturn(true);
+            when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 42))
+                    .thenReturn(true);
         }
 
-        private void assertConflictBeforeClinicalRead(List<String> includes, Set<String> expectedCategories) {
+        private void assertConflictBeforeClinicalRead(
+                List<String> includes, Set<String> expectedCategories) {
             authorizeCategories(includes.toArray(String[]::new));
             when(records.hasSourceFields(42, expectedCategories)).thenReturn(true);
-            assertThrowsWithStatus(() -> service.getDemographicData(42, includes), Response.Status.CONFLICT);
+            assertThrowsWithStatus(
+                    () -> service.getDemographicData(42, includes), Response.Status.CONFLICT);
             verify(records).hasSourceFields(42, expectedCategories);
             verifyNoInteractions(measurements, allergies, notes, medications);
             verify(demographics, never()).getDemographicExts(any(), any());
@@ -264,32 +288,42 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         @Test
         void shouldNotConsultImportProvenance_whenSessionIsAbsent() {
             loggedInInfo = null;
-            assertThrowsWithStatus(() -> service.getDemographicData(42, List.of("measurements")), Response.Status.UNAUTHORIZED);
+            assertThrowsWithStatus(
+                    () -> service.getDemographicData(42, List.of("measurements")),
+                    Response.Status.UNAUTHORIZED);
             verifyNoInteractions(records, demographics, measurements);
         }
 
         @Test
         void shouldNotConsultImportProvenance_whenPatientReadIsDenied() {
-            assertThrowsWithStatus(() -> service.getDemographicData(42, List.of("measurements")), Response.Status.FORBIDDEN);
+            assertThrowsWithStatus(
+                    () -> service.getDemographicData(42, List.of("measurements")),
+                    Response.Status.FORBIDDEN);
             verifyRecordPrivilegeRequested("r", 42);
             verifyNoInteractions(records, demographics, measurements);
         }
 
         @Test
         void shouldRetainNotFound_whenPatientIsMissingBeforeImportProvenance() {
-            when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42)).thenReturn(true);
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42))
+                    .thenReturn(true);
             authorizeCategories("measurements");
-            assertThrowsWithStatus(() -> service.getDemographicData(42, List.of("measurements")), Response.Status.NOT_FOUND);
+            assertThrowsWithStatus(
+                    () -> service.getDemographicData(42, List.of("measurements")),
+                    Response.Status.NOT_FOUND);
             verifyNoInteractions(records, measurements);
         }
 
         @Test
         void shouldDenyAllergyPermission_beforeConsultingImportProvenance() {
-            when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42)).thenReturn(true);
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42))
+                    .thenReturn(true);
             assertThatThrownBy(() -> service.getDemographicData(42, List.of("allergies")))
-                    .isInstanceOf(SecurityException.class).hasMessageContaining("_allergy");
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("_allergy");
             verify(securityInfoManager).hasPrivilege(loggedInInfo, "_allergy", "r", "42");
-            verifyNoInteractions(records, demographics, allergies, measurements, notes, medications);
+            verifyNoInteractions(
+                    records, demographics, allergies, measurements, notes, medications);
         }
 
         @Test
@@ -301,13 +335,15 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         @Test
         void shouldNotLeakImportedAllergies_throughDemographicIncludeRoute() {
             authorizeRecord();
-            assertConflictBeforeClinicalRead(List.of("allergies"), Set.of("AllergiesAndAdverseReactions"));
+            assertConflictBeforeClinicalRead(
+                    List.of("allergies"), Set.of("AllergiesAndAdverseReactions"));
         }
 
         @Test
         void shouldNotPresentImportedMedications_asApparentlyCompleteNativeSummary() {
             authorizeRecord();
-            assertConflictBeforeClinicalRead(List.of("medications"), Set.of("MedicationsAndTreatments"));
+            assertConflictBeforeClinicalRead(
+                    List.of("medications"), Set.of("MedicationsAndTreatments"));
         }
 
         @Test
@@ -316,10 +352,16 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
             authorizeCategories("notes");
             for (String importedCategory : cppSourceCategories) {
                 when(records.hasSourceFields(42, cppSourceCategories))
-                        .thenAnswer(call -> call.<Set<String>>getArgument(1).contains(importedCategory));
-                assertThrowsWithStatus(() -> service.getDemographicData(42, List.of("notes")), Response.Status.CONFLICT);
+                        .thenAnswer(
+                                call ->
+                                        call.<Set<String>>getArgument(1)
+                                                .contains(importedCategory));
+                assertThrowsWithStatus(
+                        () -> service.getDemographicData(42, List.of("notes")),
+                        Response.Status.CONFLICT);
             }
-            verify(records, times(cppSourceCategories.size())).hasSourceFields(42, cppSourceCategories);
+            verify(records, times(cppSourceCategories.size()))
+                    .hasSourceFields(42, cppSourceCategories);
             verifyNoInteractions(notes, measurements, allergies, medications);
             verify(demographics, never()).getDemographicExts(any(), any());
         }
@@ -328,9 +370,13 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         void shouldNotBlockCppHistories_forUnrequestedImportedCategory() throws Exception {
             authorizeRecord();
             authorizeCategories("notes");
-            Set<String> otherImportedCategories = Set.of("CareElements", "ClinicalNotes", "ProblemList");
+            Set<String> otherImportedCategories =
+                    Set.of("CareElements", "ClinicalNotes", "ProblemList");
             when(records.hasSourceFields(eq(42), any()))
-                    .thenAnswer(call -> !Collections.disjoint(call.getArgument(1), otherImportedCategories));
+                    .thenAnswer(
+                            call ->
+                                    !Collections.disjoint(
+                                            call.getArgument(1), otherImportedCategories));
             var result = service.getDemographicData(42, List.of("notes"));
             assertThat(result.getDemographicNo()).isEqualTo(42);
             verify(records).hasSourceFields(42, cppSourceCategories);
@@ -348,12 +394,19 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
             source.setStartDate(java.sql.Date.valueOf("2020-01-01"));
             source.setStartDateFormat("YYYY");
             var partialDates = mock(io.github.carlos_emr.carlos.commn.dao.PartialDateDao.class);
-            registerMock(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService.class,
-                    new io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService(partialDates));
+            registerMock(
+                    io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService
+                            .class,
+                    new io.github.carlos_emr.carlos.demographic.cdsimport.service
+                            .CdsTemporalReadService(partialDates));
             when(allergies.getActiveAllergies(loggedInInfo, 42)).thenReturn(List.of(source));
             var result = service.getDemographicData(42, List.of("allergies"));
-            assertThat(result.getAllergies()).singleElement()
-                    .satisfies(row -> assertThat(row.getStartDate()).isEqualTo(java.sql.Date.valueOf("2020-01-01")));
+            assertThat(result.getAllergies())
+                    .singleElement()
+                    .satisfies(
+                            row ->
+                                    assertThat(row.getStartDate())
+                                            .isEqualTo(java.sql.Date.valueOf("2020-01-01")));
             verify(records).hasSourceFields(42, Set.of("AllergiesAndAdverseReactions"));
             verifyNoInteractions(partialDates);
         }
@@ -364,22 +417,36 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
             authorizeCategories("allergies", "measurements", "notes", "medications");
             var observed = new Date(946684800000L);
             var measurement = new Measurement();
-            measurement.setDemographicId(42); measurement.setType("wt");
-            measurement.setDataField("72.4"); measurement.setDateObserved(observed);
+            measurement.setDemographicId(42);
+            measurement.setType("wt");
+            measurement.setDataField("72.4");
+            measurement.setDateObserved(observed);
             when(measurements.getMeasurementByType(eq(loggedInInfo), eq(42), any()))
-                    .thenAnswer(call -> List.of("wt").equals(call.getArgument(2)) ? List.of(measurement) : List.of());
-            when(medications.getCurrentSingleLineMedications(loggedInInfo, 42)).thenReturn(List.of("Existing medication"));
-            var result = service.getDemographicData(42, List.of("allergies", "measurements", "notes", "medications"));
+                    .thenAnswer(
+                            call ->
+                                    List.of("wt").equals(call.getArgument(2))
+                                            ? List.of(measurement)
+                                            : List.of());
+            when(medications.getCurrentSingleLineMedications(loggedInInfo, 42))
+                    .thenReturn(List.of("Existing medication"));
+            var result =
+                    service.getDemographicData(
+                            42, List.of("allergies", "measurements", "notes", "medications"));
             assertThat(result.getMeasurements()).hasSize(1);
             assertThat(result.getMeasurements().getFirst().getDateObserved()).isEqualTo(observed);
             assertThat(result.getMeasurements().getFirst().getDataField()).isEqualTo("72.4");
             assertThat(result.getMedicationSummary()).containsExactly("Existing medication");
             var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            var wire = mapper.readTree(mapper.writeValueAsBytes(result.getMeasurements().getFirst()));
+            var wire =
+                    mapper.readTree(mapper.writeValueAsBytes(result.getMeasurements().getFirst()));
             assertThat(wire.path("dateObserved").isIntegralNumber()).isTrue();
             assertThat(wire.path("dateObserved").longValue()).isEqualTo(observed.getTime());
             Set<String> requested = new java.util.HashSet<>(cppSourceCategories);
-            requested.addAll(Set.of("AllergiesAndAdverseReactions", "CareElements", "MedicationsAndTreatments"));
+            requested.addAll(
+                    Set.of(
+                            "AllergiesAndAdverseReactions",
+                            "CareElements",
+                            "MedicationsAndTreatments"));
             var order = inOrder(securityInfoManager, demographics, records);
             order.verify(securityInfoManager).hasPrivilege(loggedInInfo, "_demographic", "r", 42);
             for (String object : List.of("_allergy", "_measurement", "_casemgmt.notes", "_rx"))
@@ -392,37 +459,48 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
 
         private void configureUnqueriedProvenance(boolean imported) {
             // A real disclosure service would distinguish these patients if it were reached.
-            records = mock(CdsLegacyProjectionDao.class, invocation ->
-                    "hasSourceFields".equals(invocation.getMethod().getName())
-                            ? imported : RETURNS_DEFAULTS.answer(invocation));
+            records =
+                    mock(
+                            CdsLegacyProjectionDao.class,
+                            invocation ->
+                                    "hasSourceFields".equals(invocation.getMethod().getName())
+                                            ? imported
+                                            : RETURNS_DEFAULTS.answer(invocation));
             bindProjectionServices();
         }
 
         private void assertClinicalAuthorizationDenied(List<String> includes) {
             assertThatThrownBy(() -> service.getDemographicData(42, includes))
                     .isInstanceOf(SecurityException.class)
-                    .satisfies(failure -> {
-                        try (Response response = new SecurityExceptionMapper().toResponse((SecurityException) failure)) {
-                            assertThat(response.getStatus()).isEqualTo(403);
-                            assertThat(response.hasEntity()).isFalse();
-                        }
-                    });
-            verifyNoInteractions(records, demographics, measurements, allergies, notes, medications);
+                    .satisfies(
+                            failure -> {
+                                try (Response response =
+                                        new SecurityExceptionMapper()
+                                                .toResponse((SecurityException) failure)) {
+                                    assertThat(response.getStatus()).isEqualTo(403);
+                                    assertThat(response.hasEntity()).isFalse();
+                                }
+                            });
+            verifyNoInteractions(
+                    records, demographics, measurements, allergies, notes, medications);
         }
 
         @Test
         void shouldDenyMeasurementPermissionIndistinguishably_forNativeAndImportedPatients() {
-            when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42)).thenReturn(true);
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42))
+                    .thenReturn(true);
             for (boolean imported : List.of(false, true)) {
                 configureUnqueriedProvenance(imported);
                 assertClinicalAuthorizationDenied(List.of("measurements"));
             }
-            verify(securityInfoManager, times(2)).hasPrivilege(loggedInInfo, "_measurement", "r", "42");
+            verify(securityInfoManager, times(2))
+                    .hasPrivilege(loggedInInfo, "_measurement", "r", "42");
         }
 
         @Test
         void shouldDenyMedicationPermissionIndistinguishably_forNativeAndImportedPatients() {
-            when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42)).thenReturn(true);
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42))
+                    .thenReturn(true);
             for (boolean imported : List.of(false, true)) {
                 configureUnqueriedProvenance(imported);
                 assertClinicalAuthorizationDenied(List.of("medications"));
@@ -432,18 +510,22 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
 
         @Test
         void shouldDenyCppPermissionIndistinguishably_forNativeAndImportedPatients() {
-            when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42)).thenReturn(true);
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42))
+                    .thenReturn(true);
             for (boolean imported : List.of(false, true)) {
                 configureUnqueriedProvenance(imported);
                 assertClinicalAuthorizationDenied(List.of("notes"));
             }
-            verify(securityInfoManager, times(2)).hasPrivilege(loggedInInfo, "_casemgmt.notes", "r", "42");
+            verify(securityInfoManager, times(2))
+                    .hasPrivilege(loggedInInfo, "_casemgmt.notes", "r", "42");
         }
 
         @Test
         void shouldApplyPatientRecordRestriction_beforeNativeAndImportedCategoryReads() {
-            when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42)).thenReturn(true);
-            when(securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", "42")).thenReturn(true);
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42))
+                    .thenReturn(true);
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", "42"))
+                    .thenReturn(true);
             for (boolean imported : List.of(false, true)) {
                 configureUnqueriedProvenance(imported);
                 assertClinicalAuthorizationDenied(List.of("measurements"));
@@ -453,31 +535,42 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
 
         @Test
         void shouldAuthorizeEveryRequestedCategory_beforeAnyCombinedProvenanceRead() {
-            when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42)).thenReturn(true);
-            when(securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", "42")).thenReturn(true);
-            when(securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", "42")).thenReturn(true);
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42))
+                    .thenReturn(true);
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", "42"))
+                    .thenReturn(true);
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", "42"))
+                    .thenReturn(true);
             for (boolean imported : List.of(false, true)) {
                 configureUnqueriedProvenance(imported);
-                assertClinicalAuthorizationDenied(List.of("allergies", "measurements", "medications"));
+                assertClinicalAuthorizationDenied(
+                        List.of("allergies", "measurements", "medications"));
             }
             verify(securityInfoManager, times(2)).hasPrivilege(loggedInInfo, "_rx", "r", "42");
             verify(securityInfoManager, never()).isAllowedAccessToPatientRecord(any(), any());
         }
 
         @Test
-        void shouldNotIntroduceBlanketImportBlock_forEmptyUnknownAndContactIncludes() throws Exception {
+        void shouldNotIntroduceBlanketImportBlock_forEmptyUnknownAndContactIncludes()
+                throws Exception {
             authorizeRecord();
-            for (List<String> includes : List.of(List.<String>of(), List.of("unrecognized"), List.of("contacts"))) {
-                assertThat(service.getDemographicData(42, includes).getDemographicNo()).isEqualTo(42);
+            for (List<String> includes :
+                    List.of(List.<String>of(), List.of("unrecognized"), List.of("contacts"))) {
+                assertThat(service.getDemographicData(42, includes).getDemographicNo())
+                        .isEqualTo(42);
             }
             verifyNoInteractions(records, measurements, allergies, notes, medications);
         }
 
         @Test
-        void shouldRetainExistingScopeAndConsentPath_forBasicContactRepresentation() throws Exception {
+        void shouldRetainExistingScopeAndConsentPath_forBasicContactRepresentation()
+                throws Exception {
             authorizeRecord();
-            assertThat(service.getBasicDemographicData(42, List.of("contacts", "measurements", "medications"))
-                    .getDemographicNo()).isEqualTo(42);
+            assertThat(
+                            service.getBasicDemographicData(
+                                            42, List.of("contacts", "measurements", "medications"))
+                                    .getDemographicNo())
+                    .isEqualTo(42);
             verify(demographics).getDemographicContacts(loggedInInfo, 42);
             verifyNoInteractions(records, measurements, allergies, notes, medications);
         }
@@ -497,22 +590,28 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should throw 401 when not authenticated for PUT /demographics")
         void shouldThrowUnauthorized_whenNotAuthenticated_forUpdate() {
             loggedInInfo = null;
-            assertThrowsWithStatus(() -> service.updateDemographicData(validPayload()), Response.Status.UNAUTHORIZED);
+            assertThrowsWithStatus(
+                    () -> service.updateDemographicData(validPayload()),
+                    Response.Status.UNAUTHORIZED);
         }
 
         @Test
-        @DisplayName("should request record-level 'u' for the demographicNo and throw 403 when denied for PUT /demographics")
+        @DisplayName(
+                "should request record-level 'u' for the demographicNo and throw 403 when denied for PUT /demographics")
         void shouldThrowForbidden_whenUpdatePrivilegeDenied_forUpdate() {
-            assertThrowsWithStatus(() -> service.updateDemographicData(validPayload()), Response.Status.FORBIDDEN);
+            assertThrowsWithStatus(
+                    () -> service.updateDemographicData(validPayload()), Response.Status.FORBIDDEN);
             verifyRecordPrivilegeRequested("u", 42);
         }
 
         @Test
-        @DisplayName("should throw 401 before 400 when not authenticated and body is null for PUT /demographics")
+        @DisplayName(
+                "should throw 401 before 400 when not authenticated and body is null for PUT /demographics")
         void shouldThrowUnauthorized_whenNotAuthenticated_andBodyIsNull_forUpdate() {
             // auth must fire before the null-body check, even in the missing-demographicNo branch
             loggedInInfo = null;
-            assertThrowsWithStatus(() -> service.updateDemographicData(null), Response.Status.UNAUTHORIZED);
+            assertThrowsWithStatus(
+                    () -> service.updateDemographicData(null), Response.Status.UNAUTHORIZED);
         }
     }
 
@@ -524,13 +623,18 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should throw 401 when not authenticated for POST /demographics")
         void shouldThrowUnauthorized_whenNotAuthenticated_forCreate() {
             loggedInInfo = null;
-            assertThrowsWithStatus(() -> service.createDemographicData(new DemographicTo1()), Response.Status.UNAUTHORIZED);
+            assertThrowsWithStatus(
+                    () -> service.createDemographicData(new DemographicTo1()),
+                    Response.Status.UNAUTHORIZED);
         }
 
         @Test
-        @DisplayName("should request object-level 'w' and throw 403 when denied for POST /demographics")
+        @DisplayName(
+                "should request object-level 'w' and throw 403 when denied for POST /demographics")
         void shouldThrowForbidden_whenWritePrivilegeDenied_forCreate() {
-            assertThrowsWithStatus(() -> service.createDemographicData(new DemographicTo1()), Response.Status.FORBIDDEN);
+            assertThrowsWithStatus(
+                    () -> service.createDemographicData(new DemographicTo1()),
+                    Response.Status.FORBIDDEN);
             verifyObjectPrivilegeRequested("w");
         }
 
@@ -538,13 +642,16 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should throw 401 when not authenticated for DELETE /demographics/{id}")
         void shouldThrowUnauthorized_whenNotAuthenticated_forDelete() {
             loggedInInfo = null;
-            assertThrowsWithStatus(() -> service.deleteDemographicData(42), Response.Status.UNAUTHORIZED);
+            assertThrowsWithStatus(
+                    () -> service.deleteDemographicData(42), Response.Status.UNAUTHORIZED);
         }
 
         @Test
-        @DisplayName("should request record-level 'w' for the demographicNo and throw 403 when denied for DELETE /demographics/{id}")
+        @DisplayName(
+                "should request record-level 'w' for the demographicNo and throw 403 when denied for DELETE /demographics/{id}")
         void shouldThrowForbidden_whenWritePrivilegeDenied_forDelete() {
-            assertThrowsWithStatus(() -> service.deleteDemographicData(42), Response.Status.FORBIDDEN);
+            assertThrowsWithStatus(
+                    () -> service.deleteDemographicData(42), Response.Status.FORBIDDEN);
             verifyRecordPrivilegeRequested("w", 42);
         }
     }

@@ -32,15 +32,71 @@ import org.springframework.stereotype.Service;
 @Service
 public class CdsExportPreventionConfigurationSourceReader implements CdsExportNativeSourceReader {
     private final CdsExportPreventionSnapshotService snapshots;
-    public CdsExportPreventionConfigurationSourceReader(CdsExportPreventionSnapshotService snapshots){this.snapshots=java.util.Objects.requireNonNull(snapshots); }
-    @Override public String table(){return "prevention_configuration"; }
-    @Override public Set<String> columns(){return Set.of("sha256", "xml"); }
-    @Override public Set<CdsCategory> categories(){return Set.of(CdsCategory.IMMUNIZATIONS); }
-    @Override public Set<String> requiredTables(){return Set.of("CVCImmunization", "CVCMapping", "preventions_scope"); }
-    @Override public CdsExportTableSchemaDto schema(){try (var input=getClass().getResourceAsStream("/cds-export/source-schema/prevention_configuration.json")){if (input==null)throw new IOException("CDS_EXPORT_SOURCE_SCHEMA_CONTRACT_MISSING"); return new ObjectMapper().readValue(input, CdsExportTableSchemaDto.class); }catch (IOException failed){throw new UncheckedIOException(failed); }}
-    @Override public long count(int patient){return count(patient, ()-> {}); }
-    @Override public long count(int patient, Runnable checkpoint){try {snapshots.prepare(patient, checkpoint); return 1; }catch (IOException failed){throw new UncheckedIOException(failed); }}
-    @Override public void capture(int patient, CdsExportNativeCaptureComposer.Writer output)throws IOException{
-        var state=snapshots.current(patient); output.row("configuration", writer-> {writer.text("sha256", state.configurationSha256()); try (var xml=state.xml()){writer.binary("xml", xml); }});
+
+    public CdsExportPreventionConfigurationSourceReader(
+            CdsExportPreventionSnapshotService snapshots) {
+        this.snapshots = java.util.Objects.requireNonNull(snapshots);
+    }
+
+    @Override
+    public String table() {
+        return "prevention_configuration";
+    }
+
+    @Override
+    public Set<String> columns() {
+        return Set.of("sha256", "xml");
+    }
+
+    @Override
+    public Set<CdsCategory> categories() {
+        return Set.of(CdsCategory.IMMUNIZATIONS);
+    }
+
+    @Override
+    public Set<String> requiredTables() {
+        return Set.of("CVCImmunization", "CVCMapping", "preventions_scope");
+    }
+
+    @Override
+    public CdsExportTableSchemaDto schema() {
+        try (var input =
+                getClass()
+                        .getResourceAsStream(
+                                "/cds-export/source-schema/prevention_configuration.json")) {
+            if (input == null) throw new IOException("CDS_EXPORT_SOURCE_SCHEMA_CONTRACT_MISSING");
+            return new ObjectMapper().readValue(input, CdsExportTableSchemaDto.class);
+        } catch (IOException failed) {
+            throw new UncheckedIOException(failed);
+        }
+    }
+
+    @Override
+    public long count(int patient) {
+        return count(patient, () -> {});
+    }
+
+    @Override
+    public long count(int patient, Runnable checkpoint) {
+        try {
+            snapshots.prepare(patient, checkpoint);
+            return 1;
+        } catch (IOException failed) {
+            throw new UncheckedIOException(failed);
+        }
+    }
+
+    @Override
+    public void capture(int patient, CdsExportNativeCaptureComposer.Writer output)
+            throws IOException {
+        var state = snapshots.current(patient);
+        output.row(
+                "configuration",
+                writer -> {
+                    writer.text("sha256", state.configurationSha256());
+                    try (var xml = state.xml()) {
+                        writer.binary("xml", xml);
+                    }
+                });
     }
 }

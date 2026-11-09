@@ -30,16 +30,30 @@ import java.util.Properties;
 
 /** Import compatibility facade for the shared production loader; import heap/protocol behavior is unchanged. */
 public record CdsCliConfiguration(Path path, Properties properties, int heapMiB) {
-    public CdsCliConfiguration { Properties snapshot = new Properties(); snapshot.putAll(properties); properties = snapshot; }
+    public CdsCliConfiguration {
+        Properties snapshot = new Properties();
+        snapshot.putAll(properties);
+        properties = snapshot;
+    }
+
     public static CdsCliConfiguration load(Map<String, String> environment) throws IOException {
         return imported(CdsProcessConfiguration.load(environment, CdsProcessScope.IMPORT));
     }
+
     static CdsCliConfiguration parse(Path path, byte[] bytes) throws IOException {
         return imported(CdsProcessConfiguration.parse(path, bytes, CdsProcessScope.IMPORT));
     }
-    static byte[] readBounded(Path path, int limit) throws IOException { return CdsProcessConfiguration.readBounded(path, limit); }
+
+    static byte[] readBounded(Path path, int limit) throws IOException {
+        return CdsProcessConfiguration.readBounded(path, limit);
+    }
+
     private static CdsCliConfiguration imported(CdsProcessConfiguration shared) {
         return new CdsCliConfiguration(shared.path(), shared.properties(), shared.heapMiB());
     }
-    @Override public String toString() { return "CdsCliConfiguration[protected]"; }
+
+    @Override
+    public String toString() {
+        return "CdsCliConfiguration[protected]";
+    }
 }

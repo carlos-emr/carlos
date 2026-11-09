@@ -24,18 +24,54 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.viewmodel;
 import java.util.List;
 
 /** One immutable presentation model for the asynchronous demographic export JSP. */
-public record CdsExportViewModel(boolean enabled, boolean dispatcherRunning, String operatorKey, String providerNo, String facilityId,
-        List<Option> profiles, List<Option> categories) {
-    public CdsExportViewModel { profiles = List.copyOf(profiles); categories = List.copyOf(categories); }
-    public boolean isEnabled() { return enabled; }
-    public boolean isDispatcherRunning() { return dispatcherRunning; }
-    public String getOperatorKey() { return operatorKey; }
-    public String getProviderNo() { return providerNo; }
-    public String getFacilityId() { return facilityId; }
-    public List<Option> getProfiles() { return profiles; }
-    public List<Option> getCategories() { return categories; }
+public record CdsExportViewModel(
+        boolean enabled,
+        boolean dispatcherRunning,
+        String operatorKey,
+        String providerNo,
+        String facilityId,
+        List<Option> profiles,
+        List<Option> categories) {
+    public CdsExportViewModel {
+        profiles = List.copyOf(profiles);
+        categories = List.copyOf(categories);
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public boolean isDispatcherRunning() {
+        return dispatcherRunning;
+    }
+
+    public String getOperatorKey() {
+        return operatorKey;
+    }
+
+    public String getProviderNo() {
+        return providerNo;
+    }
+
+    public String getFacilityId() {
+        return facilityId;
+    }
+
+    public List<Option> getProfiles() {
+        return profiles;
+    }
+
+    public List<Option> getCategories() {
+        return categories;
+    }
+
     public record Option(String value, String label) {
-        public String getValue() { return value; }
-        public String getLabel() { return label; }
+        public String getValue() {
+            return value;
+        }
+
+        public String getLabel() {
+            return label;
+        }
     }
 }

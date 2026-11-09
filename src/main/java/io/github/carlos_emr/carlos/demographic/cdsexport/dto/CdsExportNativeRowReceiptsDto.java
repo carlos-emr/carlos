@@ -25,19 +25,46 @@ import java.util.Map;
 import java.util.Set;
 
 /** Completed authenticated scan counts. Partial projections are separate from available whole-row receipts and unavailable metadata. */
-public record CdsExportNativeRowReceiptsDto(String sourceManifestSha256, Map<String, Long> rows,
-        long available, long unavailable, long partialRows, Set<String> unavailableTables) {
-    public CdsExportNativeRowReceiptsDto(String sourceManifestSha256, Map<String, Long> rows,
-            long available, long unavailable, Set<String> unavailableTables) { this(sourceManifestSha256, rows, available, unavailable, 0, unavailableTables); }
+public record CdsExportNativeRowReceiptsDto(
+        String sourceManifestSha256,
+        Map<String, Long> rows,
+        long available,
+        long unavailable,
+        long partialRows,
+        Set<String> unavailableTables) {
+    public CdsExportNativeRowReceiptsDto(
+            String sourceManifestSha256,
+            Map<String, Long> rows,
+            long available,
+            long unavailable,
+            Set<String> unavailableTables) {
+        this(sourceManifestSha256, rows, available, unavailable, 0, unavailableTables);
+    }
+
     public CdsExportNativeRowReceiptsDto {
-        if (sourceManifestSha256 == null || !sourceManifestSha256.matches("[0-9a-f]{64}") || available < 0 || unavailable < 0 || partialRows < 0) {
+        if (sourceManifestSha256 == null
+                || !sourceManifestSha256.matches("[0-9a-f]{64}")
+                || available < 0
+                || unavailable < 0
+                || partialRows < 0) {
             throw new IllegalArgumentException("CDS_EXPORT_NATIVE_ROW_RECEIPTS_INVALID");
         }
-        rows = Map.copyOf(rows); unavailableTables = Set.copyOf(unavailableTables); long total = 0;
-        for (long count : rows.values()) { if (count < 0) throw new IllegalArgumentException("CDS_EXPORT_NATIVE_ROW_RECEIPTS_INVALID"); total = Math.addExact(total, count); }
-        if (Math.addExact(Math.addExact(available, unavailable), partialRows) != total || !rows.keySet().containsAll(unavailableTables)) {
+        rows = Map.copyOf(rows);
+        unavailableTables = Set.copyOf(unavailableTables);
+        long total = 0;
+        for (long count : rows.values()) {
+            if (count < 0)
+                throw new IllegalArgumentException("CDS_EXPORT_NATIVE_ROW_RECEIPTS_INVALID");
+            total = Math.addExact(total, count);
+        }
+        if (Math.addExact(Math.addExact(available, unavailable), partialRows) != total
+                || !rows.keySet().containsAll(unavailableTables)) {
             throw new IllegalArgumentException("CDS_EXPORT_NATIVE_ROW_RECEIPTS_INVALID");
         }
     }
-    @Override public String toString() { return "CdsExportNativeRowReceiptsDto[protected]"; }
+
+    @Override
+    public String toString() {
+        return "CdsExportNativeRowReceiptsDto[protected]";
+    }
 }

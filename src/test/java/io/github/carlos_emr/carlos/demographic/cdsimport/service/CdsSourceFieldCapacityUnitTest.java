@@ -32,26 +32,58 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @Tag("unit")
 class CdsSourceFieldCapacityUnitTest {
-    @Test void shouldAcceptExactNativeColumnCapacities_inUnicodeCodePoints() {
-        CdsRecordDto record=record("x".repeat(2047));
-        assertDoesNotThrow(()->CdsSourceFieldCapacityValidator.validate(record, field("", "😀".repeat(250), "😀".repeat(4608))));
-        assertDoesNotThrow(()->CdsSourceFieldCapacityValidator.validate(record("x".repeat(2048)), field("", "cds", "")));
+    @Test
+    void shouldAcceptExactNativeColumnCapacities_inUnicodeCodePoints() {
+        CdsRecordDto record = record("x".repeat(2047));
+        assertDoesNotThrow(
+                () ->
+                        CdsSourceFieldCapacityValidator.validate(
+                                record, field("", "😀".repeat(250), "😀".repeat(4608))));
+        assertDoesNotThrow(
+                () ->
+                        CdsSourceFieldCapacityValidator.validate(
+                                record("x".repeat(2048)), field("", "cds", "")));
     }
 
-    @Test void shouldRefuseOversizedPathNamespaceOrType_beforeAnyClinicalTransaction() {
-        assertCode("SOURCE_FIELD_PATH_CAPACITY_EXCEEDED",record("x".repeat(2048)),field("child", "cds", "type"));
-        assertCode("SOURCE_FIELD_NAMESPACE_CAPACITY_EXCEEDED",record("/root"),field("leaf", "x".repeat(251), "type"));
-        assertCode("SOURCE_FIELD_TYPE_CAPACITY_EXCEEDED",record("/root"),field("leaf", "cds", "x".repeat(4609)));
+    @Test
+    void shouldRefuseOversizedPathNamespaceOrType_beforeAnyClinicalTransaction() {
+        assertCode(
+                "SOURCE_FIELD_PATH_CAPACITY_EXCEEDED",
+                record("x".repeat(2048)),
+                field("child", "cds", "type"));
+        assertCode(
+                "SOURCE_FIELD_NAMESPACE_CAPACITY_EXCEEDED",
+                record("/root"),
+                field("leaf", "x".repeat(251), "type"));
+        assertCode(
+                "SOURCE_FIELD_TYPE_CAPACITY_EXCEEDED",
+                record("/root"),
+                field("leaf", "cds", "x".repeat(4609)));
     }
 
     private static void assertCode(String code, CdsRecordDto record, CdsFieldDto field) {
-        CdsInputException failure=assertThrows(CdsInputException.class,()->CdsSourceFieldCapacityValidator.validate(record,field));
-        assertEquals(code,failure.code()); assertTrue(failure.sourceXPath().startsWith(record.sourceXPath()));
+        CdsInputException failure =
+                assertThrows(
+                        CdsInputException.class,
+                        () -> CdsSourceFieldCapacityValidator.validate(record, field));
+        assertEquals(code, failure.code());
+        assertTrue(failure.sourceXPath().startsWith(record.sourceXPath()));
     }
+
     private static CdsRecordDto record(String path) {
-        return new CdsRecordDto("Demographics",1,path,Path.of("fields.jsonl"),0,0,Path.of("values.bin"),"a".repeat(64),0);
+        return new CdsRecordDto(
+                "Demographics",
+                1,
+                path,
+                Path.of("fields.jsonl"),
+                0,
+                0,
+                Path.of("values.bin"),
+                "a".repeat(64),
+                0);
     }
-    private static CdsFieldDto field(String path,String namespace,String type) {
-        return new CdsFieldDto(path,namespace,"TEXT",0,0,"a".repeat(64),type,"preserve");
+
+    private static CdsFieldDto field(String path, String namespace, String type) {
+        return new CdsFieldDto(path, namespace, "TEXT", 0, 0, "a".repeat(64), type, "preserve");
     }
 }

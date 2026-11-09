@@ -67,11 +67,9 @@ import static org.assertj.core.api.Assertions.*;
 @Transactional
 public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
-    @Autowired
-    private ProviderDao providerDao;
+    @Autowired private ProviderDao providerDao;
 
-    @Autowired
-    private HibernateTemplate hibernateTemplate;
+    @Autowired private HibernateTemplate hibernateTemplate;
 
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
@@ -82,7 +80,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
         persistProvider("T001", "John", "Smith", "1", "doctor");
         persistProvider("T002", "John", "Doe", "1", "doctor");
         persistProvider("T003", "Jane", "Smith", "1", "nurse");
-        persistProvider("T004", "Bob", "Johnson", "0", "doctor");  // Inactive
+        persistProvider("T004", "Bob", "Johnson", "0", "doctor"); // Inactive
 
         hibernateTemplate.flush();
     }
@@ -97,8 +95,12 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
      * @param providerType String the provider type (e.g., "doctor", "nurse")
      * @return Provider the persisted entity
      */
-    private Provider persistProvider(String providerNo, String firstName,
-                                     String lastName, String status, String providerType) {
+    private Provider persistProvider(
+            String providerNo,
+            String firstName,
+            String lastName,
+            String status,
+            String providerType) {
         Provider provider = new Provider();
         provider.setProviderNo(providerNo);
         provider.setFirstName(firstName);
@@ -232,9 +234,9 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then - Only T001 should match (exact match)
             assertThat(results)
-                .hasSize(1)
-                .extracting(Provider::getProviderNo)
-                .containsExactly("T001");
+                    .hasSize(1)
+                    .extracting(Provider::getProviderNo)
+                    .containsExactly("T001");
         }
 
         @Test
@@ -242,7 +244,8 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should return empty when first name doesn't match")
         void shouldReturnEmpty_whenFirstNameDoesntMatch() {
             // When
-            List<Provider> results = providerDao.getProviderFromFirstLastName("Nonexistent", "Smith");
+            List<Provider> results =
+                    providerDao.getProviderFromFirstLastName("Nonexistent", "Smith");
 
             // Then
             assertThat(results).isEmpty();
@@ -253,7 +256,8 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should return empty when last name doesn't match")
         void shouldReturnEmpty_whenLastNameDoesntMatch() {
             // When
-            List<Provider> results = providerDao.getProviderFromFirstLastName("John", "Nonexistent");
+            List<Provider> results =
+                    providerDao.getProviderFromFirstLastName("John", "Nonexistent");
 
             // Then
             assertThat(results).isEmpty();
@@ -273,9 +277,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             List<Provider> results = providerDao.getProviderLikeFirstLastName("Jo%", "Sm%");
 
             // Then - T001 should match (John Smith)
-            assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T001");
+            assertThat(results).extracting(Provider::getProviderNo).contains("T001");
         }
 
         @Test
@@ -286,9 +288,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             List<Provider> results = providerDao.getProviderLikeFirstLastName("John", "%");
 
             // Then - Should find T001 and T002
-            assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T001", "T002");
+            assertThat(results).extracting(Provider::getProviderNo).contains("T001", "T002");
         }
     }
 
@@ -304,7 +304,8 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             // Given - T004 (Bob Johnson) is inactive
 
             // When
-            List<Provider> results = providerDao.getActiveProviderLikeFirstLastName("Bob", "Johnson");
+            List<Provider> results =
+                    providerDao.getActiveProviderLikeFirstLastName("Bob", "Johnson");
 
             // Then - Should not find T004 because inactive
             assertThat(results).isEmpty();
@@ -319,9 +320,9 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then - Should find active Johns (T001, T002)
             assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T001", "T002")
-                .doesNotContain("T004");
+                    .extracting(Provider::getProviderNo)
+                    .contains("T001", "T002")
+                    .doesNotContain("T004");
         }
     }
 
@@ -339,9 +340,9 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(results)
-                .isNotEmpty()
-                .extracting(Provider::getProviderNo)
-                .contains("T001", "T002", "T003", "T004");
+                    .isNotEmpty()
+                    .extracting(Provider::getProviderNo)
+                    .contains("T001", "T002", "T003", "T004");
         }
 
         @Test
@@ -353,9 +354,9 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then - T004 (inactive) should be excluded
             assertThat(activeProviders)
-                .extracting(Provider::getProviderNo)
-                .contains("T001", "T002", "T003")
-                .doesNotContain("T004");
+                    .extracting(Provider::getProviderNo)
+                    .contains("T001", "T002", "T003")
+                    .doesNotContain("T004");
         }
 
         @Test
@@ -367,8 +368,8 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(doctors)
-                .extracting(Provider::getProviderType)
-                .allMatch(type -> type.equals("doctor"));
+                    .extracting(Provider::getProviderType)
+                    .allMatch(type -> type.equals("doctor"));
         }
 
         @Test
@@ -385,14 +386,13 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             List<Provider> results = providerDao.getBillableProviders();
 
             // Then - Should contain the billable provider and only active providers with OHIP
+            assertThat(results).extracting(Provider::getProviderNo).contains("T005");
             assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T005");
-            assertThat(results)
-                .allSatisfy(p -> {
-                    assertThat(p.getStatus()).isEqualTo("1");
-                    assertThat(p.getOhipNo()).isNotEmpty();
-                });
+                    .allSatisfy(
+                            p -> {
+                                assertThat(p.getStatus()).isEqualTo("1");
+                                assertThat(p.getOhipNo()).isNotEmpty();
+                            });
         }
 
         @Test
@@ -410,9 +410,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(results).isNotEmpty();
-            assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T006");
+            assertThat(results).extracting(Provider::getProviderNo).contains("T006");
         }
 
         @Test
@@ -437,11 +435,9 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             // Then - T001 (John Smith) and T002 (John Doe) match; T004 (Bob Johnson) matches
             // via LastName LIKE 'John%' which matches "Johnson"
             assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T001", "T002", "T004");
-            assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .doesNotContain("T003");
+                    .extracting(Provider::getProviderNo)
+                    .contains("T001", "T002", "T004");
+            assertThat(results).extracting(Provider::getProviderNo).doesNotContain("T003");
         }
 
         @Test
@@ -454,14 +450,10 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then - active filter excludes inactive provider T004
             assertThat(activeOnly).isNotEmpty();
-            assertThat(activeOnly)
-                .extracting(Provider::getProviderNo)
-                .doesNotContain("T004");
+            assertThat(activeOnly).extracting(Provider::getProviderNo).doesNotContain("T004");
 
             // Inactive filter includes only inactive provider T004
-            assertThat(inactiveOnly)
-                .extracting(Provider::getProviderNo)
-                .contains("T004");
+            assertThat(inactiveOnly).extracting(Provider::getProviderNo).contains("T004");
         }
     }
 
@@ -480,7 +472,8 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should return team providers with non-empty OHIP numbers")
         void shouldReturnTeamProviders_withNonEmptyOhip() {
-            // Given — set up two providers on same team with OHIP, one without, one on different team
+            // Given — set up two providers on same team with OHIP, one without, one on different
+            // team
             Provider withOhip1 = persistProvider("TM001", "Team", "One", "1", "doctor");
             withOhip1.setTeam("TeamA");
             withOhip1.setOhipNo("OH001");
@@ -507,9 +500,9 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then — same-team + OHIP providers returned; different team excluded
             assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("TM001", "TM002")
-                .doesNotContain("TM003", "TM004");
+                    .extracting(Provider::getProviderNo)
+                    .contains("TM001", "TM002")
+                    .doesNotContain("TM003", "TM004");
         }
 
         @Test
@@ -527,9 +520,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             List<Provider> results = providerDao.getCurrentTeamProviders("TM010");
 
             // Then — the requesting provider should be found
-            assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("TM010");
+            assertThat(results).extracting(Provider::getProviderNo).contains("TM010");
         }
     }
 
@@ -558,7 +549,8 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // When — PR #89 fixed IN (?0) with String[] by switching to named param binding;
             // the method now returns the correct result instead of throwing ClassCastException.
-            Provider result = providerDao.getProviderByPractitionerNo(new String[]{"MSP"}, "PRAC12345");
+            Provider result =
+                    providerDao.getProviderByPractitionerNo(new String[] {"MSP"}, "PRAC12345");
 
             // Then
             assertThat(result).isNotNull();
@@ -570,9 +562,11 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should throw IllegalArgumentException when types array is null")
         void shouldThrowIllegalArgumentException_whenTypesArrayIsNull() {
             // When/Then — null types array triggers the guard clause
-            assertThatThrownBy(() ->
-                providerDao.getProviderByPractitionerNo((String[]) null, "PRAC12345")
-            ).isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(
+                            () ->
+                                    providerDao.getProviderByPractitionerNo(
+                                            (String[]) null, "PRAC12345"))
+                    .isInstanceOf(IllegalArgumentException.class);
         }
     }
 
@@ -593,7 +587,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
         void shouldReturnActiveProviders_forSpecificProgram() {
             // Given — create Program first (FK constraint from program_provider)
             io.github.carlos_emr.carlos.PMmodule.model.Program program =
-                new io.github.carlos_emr.carlos.PMmodule.model.Program();
+                    new io.github.carlos_emr.carlos.PMmodule.model.Program();
             program.setName("Test Program");
             program.setType("community");
             program.setProgramStatus("active");
@@ -612,12 +606,11 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             hibernateTemplate.flush();
 
             // When — query by programId (triggers ProgramProvider subquery)
-            List<Provider> results = providerDao.getActiveProviders(null, String.valueOf(programId));
+            List<Provider> results =
+                    providerDao.getActiveProviders(null, String.valueOf(programId));
 
             // Then
-            assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("PP001");
+            assertThat(results).extracting(Provider::getProviderNo).contains("PP001");
         }
 
         @Test
@@ -629,9 +622,9 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then — should include active providers from @BeforeEach (T001, T002, T003)
             assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T001", "T002", "T003")
-                .doesNotContain("T004"); // T004 is inactive
+                    .extracting(Provider::getProviderNo)
+                    .contains("T001", "T002", "T003")
+                    .doesNotContain("T004"); // T004 is inactive
         }
 
         @Test
@@ -647,7 +640,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             Integer facilityId = facility.getId();
 
             io.github.carlos_emr.carlos.PMmodule.model.Program program =
-                new io.github.carlos_emr.carlos.PMmodule.model.Program();
+                    new io.github.carlos_emr.carlos.PMmodule.model.Program();
             program.setName("Facility Program");
             program.setType("community");
             program.setProgramStatus("active");
@@ -665,12 +658,11 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             hibernateTemplate.flush();
 
             // When - query by facilityId (triggers Program subquery branch)
-            List<Provider> results = providerDao.getActiveProviders(String.valueOf(facilityId), (String) null);
+            List<Provider> results =
+                    providerDao.getActiveProviders(String.valueOf(facilityId), (String) null);
 
             // Then
-            assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("FP001");
+            assertThat(results).extracting(Provider::getProviderNo).contains("FP001");
         }
 
         @Test
@@ -682,9 +674,9 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T001", "T002", "T003")
-                .doesNotContain("T004");
+                    .extracting(Provider::getProviderNo)
+                    .contains("T001", "T002", "T003")
+                    .doesNotContain("T004");
         }
 
         @Test
@@ -738,25 +730,28 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("read")
-        @DisplayName("should throw IllegalArgumentException when provider number is null for getProviderNameLastFirst")
+        @DisplayName(
+                "should throw IllegalArgumentException when provider number is null for getProviderNameLastFirst")
         void shouldThrowIllegalArgumentException_whenProviderNoIsNullForLastFirst() {
             // When/Then
             assertThatThrownBy(() -> providerDao.getProviderNameLastFirst(null))
-                .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(IllegalArgumentException.class);
         }
 
         @Test
         @Tag("read")
-        @DisplayName("should throw IllegalArgumentException when provider number is empty for getProviderNameLastFirst")
+        @DisplayName(
+                "should throw IllegalArgumentException when provider number is empty for getProviderNameLastFirst")
         void shouldThrowIllegalArgumentException_whenProviderNoIsEmptyForLastFirst() {
             // When/Then
             assertThatThrownBy(() -> providerDao.getProviderNameLastFirst(""))
-                .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(IllegalArgumentException.class);
         }
 
         @Test
         @Tag("read")
-        @DisplayName("should return empty string when provider not found for getProviderNameLastFirst")
+        @DisplayName(
+                "should return empty string when provider not found for getProviderNameLastFirst")
         void shouldReturnEmptyString_whenProviderNotFoundForLastFirst() {
             // When
             String name = providerDao.getProviderNameLastFirst("ZZZZZZ");
@@ -806,8 +801,8 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then - system provider included
             assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("-1", "T001", "T002", "T003");
+                    .extracting(Provider::getProviderNo)
+                    .contains("-1", "T001", "T002", "T003");
         }
 
         @Test
@@ -823,9 +818,9 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then - system provider excluded (ProviderNo NOT LIKE '-%')
             assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .doesNotContain("-1")
-                .contains("T001", "T002", "T003");
+                    .extracting(Provider::getProviderNo)
+                    .doesNotContain("-1")
+                    .contains("T001", "T002", "T003");
         }
     }
 
@@ -883,8 +878,8 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T001", "T002", "T004");
+                    .extracting(Provider::getProviderNo)
+                    .contains("T001", "T002", "T004");
         }
 
         @Test
@@ -912,9 +907,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             List<Provider> results = providerDao.getProvidersByTypeWithNonEmptyOhipNo("doctor");
 
             // Then - only T001 has OHIP among doctors
-            assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T001");
+            assertThat(results).extracting(Provider::getProviderNo).contains("T001");
         }
 
         @Test
@@ -1013,9 +1006,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             List<Provider> results = providerDao.getBillableProvidersOnTeam(p);
 
             // Then - T001 and T002 are on Alpha team with OHIP and active
-            assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T001", "T002");
+            assertThat(results).extracting(Provider::getProviderNo).contains("T001", "T002");
         }
     }
 
@@ -1112,9 +1103,8 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should throw IllegalArgumentException when practitioner number is empty")
         void shouldThrowIllegalArgumentException_whenPractitionerNoIsEmpty() {
             // When/Then - empty practitionerNo triggers guard clause in array version
-            assertThatThrownBy(() ->
-                providerDao.getProviderByPractitionerNo("MSP", "")
-            ).isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> providerDao.getProviderByPractitionerNo("MSP", ""))
+                    .isInstanceOf(IllegalArgumentException.class);
         }
     }
 
@@ -1150,9 +1140,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(results).isNotNull();
-            assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T001");
+            assertThat(results).extracting(Provider::getProviderNo).contains("T001");
         }
 
         @Test
@@ -1164,9 +1152,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(results).isNotNull();
-            assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T001", "T002");
+            assertThat(results).extracting(Provider::getProviderNo).contains("T001", "T002");
         }
 
         @Test
@@ -1186,7 +1172,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
         void shouldThrowIllegalArgumentException_whenOhipNoIsNull() {
             // When/Then
             assertThatThrownBy(() -> providerDao.getBillableProvidersByOHIPNo(null))
-                .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(IllegalArgumentException.class);
         }
 
         @Test
@@ -1195,7 +1181,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
         void shouldThrowIllegalArgumentException_whenOhipNoIsEmpty() {
             // When/Then
             assertThatThrownBy(() -> providerDao.getBillableProvidersByOHIPNo(""))
-                .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(IllegalArgumentException.class);
         }
 
         @Test
@@ -1206,9 +1192,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             List<Provider> results = providerDao.getProvidersWithNonEmptyOhip();
 
             // Then
-            assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T001", "T002");
+            assertThat(results).extracting(Provider::getProviderNo).contains("T001", "T002");
         }
 
         @Test
@@ -1220,9 +1204,9 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then - only active doctors with non-empty OHIP
             assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T001", "T002")
-                .doesNotContain("T003", "T004"); // T003=nurse, T004=inactive
+                    .extracting(Provider::getProviderNo)
+                    .contains("T001", "T002")
+                    .doesNotContain("T003", "T004"); // T003=nurse, T004=inactive
         }
 
         @Test
@@ -1233,9 +1217,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             List<Provider> results = providerDao.getProvidersWithNonEmptyCredentials();
 
             // Then - all active providers with non-empty OHIP regardless of type
-            assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T001", "T002");
+            assertThat(results).extracting(Provider::getProviderNo).contains("T001", "T002");
         }
 
         @Test
@@ -1253,8 +1235,8 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then - includes providers with OHIP, RMA, BillingNo, or HsoNo that are active
             assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T001", "T002", "T003");
+                    .extracting(Provider::getProviderNo)
+                    .contains("T001", "T002", "T003");
         }
     }
 
@@ -1271,9 +1253,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             List<Provider> results = providerDao.searchProviderByNamesString("Smith", 0, 10);
 
             // Then - T001 and T003 have last name Smith
-            assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T001", "T003");
+            assertThat(results).extracting(Provider::getProviderNo).contains("T001", "T003");
         }
 
         @Test
@@ -1285,9 +1265,9 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then - Only John Smith (T001) matches
             assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T001")
-                .doesNotContain("T003"); // Jane Smith - first name doesn't match "Jo"
+                    .extracting(Provider::getProviderNo)
+                    .contains("T001")
+                    .doesNotContain("T003"); // Jane Smith - first name doesn't match "Jo"
         }
 
         @Test
@@ -1333,9 +1313,9 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then - should find active Smiths
             assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T001", "T003")
-                .doesNotContain("T004"); // inactive
+                    .extracting(Provider::getProviderNo)
+                    .contains("T001", "T003")
+                    .doesNotContain("T004"); // inactive
         }
 
         @Test
@@ -1346,9 +1326,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             List<Provider> results = providerDao.search("Johnson", false, 0, 10);
 
             // Then - T004 is inactive Johnson
-            assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T004");
+            assertThat(results).extracting(Provider::getProviderNo).contains("T004");
         }
 
         @Test
@@ -1360,9 +1338,9 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then - all active providers
             assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T001", "T002", "T003")
-                .doesNotContain("T004");
+                    .extracting(Provider::getProviderNo)
+                    .contains("T001", "T002", "T003")
+                    .doesNotContain("T004");
         }
 
         @Test
@@ -1374,9 +1352,9 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T001", "T002", "T003")
-                .doesNotContain("T004");
+                    .extracting(Provider::getProviderNo)
+                    .contains("T001", "T002", "T003")
+                    .doesNotContain("T004");
         }
 
         @Test
@@ -1418,8 +1396,8 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then - extract provider numbers from the Object[]
             assertThat(results)
-                .extracting(row -> (String) row[0])
-                .contains("T001", "T002", "T003", "T004");
+                    .extracting(row -> (String) row[0])
+                    .contains("T001", "T002", "T003", "T004");
         }
     }
 
@@ -1443,7 +1421,8 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             // When - search for records updated after Jan 1, 2026
             Calendar searchDate = Calendar.getInstance();
             searchDate.set(2026, Calendar.JANUARY, 1);
-            List<String> results = providerDao.getRecordsAddedAndUpdatedSinceTime(searchDate.getTime());
+            List<String> results =
+                    providerDao.getRecordsAddedAndUpdatedSinceTime(searchDate.getTime());
 
             // Then
             assertThat(results).contains("T001");
@@ -1477,9 +1456,9 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(results)
-                .hasSize(2)
-                .extracting(Provider::getProviderNo)
-                .containsExactlyInAnyOrder("T001", "T003");
+                    .hasSize(2)
+                    .extracting(Provider::getProviderNo)
+                    .containsExactlyInAnyOrder("T001", "T003");
         }
 
         @Test
@@ -1498,8 +1477,8 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should return provider name map keyed by provider number")
         void shouldReturnProviderNameMap_keyedByProviderNo() {
             // When
-            Map<String, String> nameMap = providerDao.getProviderNamesByIdsAsMap(
-                Arrays.asList("T001", "T002", "T003"));
+            Map<String, String> nameMap =
+                    providerDao.getProviderNamesByIdsAsMap(Arrays.asList("T001", "T002", "T003"));
 
             // Then
             assertThat(nameMap).hasSize(3);
@@ -1513,8 +1492,8 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should return empty map when no IDs match")
         void shouldReturnEmptyMap_whenNoIdsMatch() {
             // When
-            Map<String, String> nameMap = providerDao.getProviderNamesByIdsAsMap(
-                Arrays.asList("ZZZ"));
+            Map<String, String> nameMap =
+                    providerDao.getProviderNamesByIdsAsMap(Arrays.asList("ZZZ"));
 
             // Then
             assertThat(nameMap).isEmpty();
@@ -1544,9 +1523,9 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(results)
-                .hasSize(1)
-                .extracting(Provider::getProviderNo)
-                .containsExactly("T001");
+                    .hasSize(1)
+                    .extracting(Provider::getProviderNo)
+                    .containsExactly("T001");
         }
 
         @Test
@@ -1820,9 +1799,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             List<Provider> results = providerDao.getActiveProviders();
 
             // Then
-            assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .doesNotContain("-1");
+            assertThat(results).extracting(Provider::getProviderNo).doesNotContain("-1");
         }
     }
 
@@ -1837,13 +1814,14 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
         void shouldFindActiveProviders_withMatchingSecurityRole() {
             // Given - create SecUserRole entries linking providers to roles
             // SecUserRole is mapped via Secuserrole.hbm.xml with auto-increment id
-            org.hibernate.Session session = hibernateTemplate.getSessionFactory().getCurrentSession();
+            org.hibernate.Session session =
+                    hibernateTemplate.getSessionFactory().getCurrentSession();
             session.createNativeQuery(
-                "INSERT INTO secUserRole (provider_no, role_name, orgcd) VALUES ('T001', 'doctor', 'D')")
-                .executeUpdate();
+                            "INSERT INTO secUserRole (provider_no, role_name, orgcd) VALUES ('T001', 'doctor', 'D')")
+                    .executeUpdate();
             session.createNativeQuery(
-                "INSERT INTO secUserRole (provider_no, role_name, orgcd) VALUES ('T002', 'admin', 'A')")
-                .executeUpdate();
+                            "INSERT INTO secUserRole (provider_no, role_name, orgcd) VALUES ('T002', 'admin', 'A')")
+                    .executeUpdate();
             session.flush();
 
             // When
@@ -1851,9 +1829,9 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T001")
-                .doesNotContain("T002"); // T002 has role "admin", not "doctor"
+                    .extracting(Provider::getProviderNo)
+                    .contains("T001")
+                    .doesNotContain("T002"); // T002 has role "admin", not "doctor"
         }
 
         @Test
@@ -1933,18 +1911,21 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
-        @DisplayName("should match first names case-insensitively, ordered by last name, within the limit")
+        @DisplayName(
+                "should match first names case-insensitively, ordered by last name, within the limit")
         void shouldMatchFirstNameCaseInsensitively_withinLimit() {
             persistFaxNumber("T001", "416-555-0101");
             persistFaxNumber("T002", "416-555-0102");
             hibernateTemplate.flush();
 
             List<Object[]> all = providerDao.searchFaxRecipients("JOHN", 10);
-            assertThat(all).extracting(row -> ((Provider) row[0]).getProviderNo())
+            assertThat(all)
+                    .extracting(row -> ((Provider) row[0]).getProviderNo())
                     .containsExactly("T002", "T001");
 
             List<Object[]> limited = providerDao.searchFaxRecipients("JOHN", 1);
-            assertThat(limited).extracting(row -> ((Provider) row[0]).getProviderNo())
+            assertThat(limited)
+                    .extracting(row -> ((Provider) row[0]).getProviderNo())
                     .containsExactly("T002");
         }
 
@@ -2004,7 +1985,8 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             List<Object[]> rows = providerDao.searchFaxRecipients("john", 2);
 
-            assertThat(rows).extracting(row -> ((Provider) row[0]).getProviderNo())
+            assertThat(rows)
+                    .extracting(row -> ((Provider) row[0]).getProviderNo())
                     .containsExactly("T002", "T001");
         }
 
@@ -2023,63 +2005,110 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
     @Nested
     @DisplayName("CDS exact source-provider candidates")
     class CdsSourceProviderCandidates {
-        @Test void shouldMatchInactiveHistoricalProvider_withExactLeadingZeros() {
+        @Test
+        void shouldMatchInactiveHistoricalProvider_withExactLeadingZeros() {
             Provider historical = providerDao.getProvider("T004");
-            historical.setOhipNo("009901"); entityManager.flush();
+            historical.setOhipNo("009901");
+            entityManager.flush();
             assertThat(providerDao.findCdsProviderNosByOhip("009901")).containsExactly("T004");
             assertThat(providerDao.findCdsProviderNosByOhip("9901")).isEmpty();
             assertThat(providerDao.findCdsProviderNosByOhip("009901 ")).isEmpty();
         }
-        @Test void shouldRequireCpsoIssuer_ratherThanAnyPractitionerNumber() {
+
+        @Test
+        void shouldRequireCpsoIssuer_ratherThanAnyPractitionerNumber() {
             Provider ontario = providerDao.getProvider("T001");
-            ontario.setPractitionerNoType("CPSO"); ontario.setPractitionerNo("001234");
+            ontario.setPractitionerNoType("CPSO");
+            ontario.setPractitionerNo("001234");
             Provider elsewhere = providerDao.getProvider("T002");
-            elsewhere.setPractitionerNoType("CPSBC"); elsewhere.setPractitionerNo("001234");
+            elsewhere.setPractitionerNoType("CPSBC");
+            elsewhere.setPractitionerNo("001234");
             entityManager.flush();
-            entityManager.createNativeQuery("update provider set practitionerNoType=:issuer,practitionerNo=:number where provider_no=:id")
-                    .setParameter("issuer", "cpso").setParameter("number", "001234").setParameter("id", "T003").executeUpdate();
-            entityManager.createNativeQuery("update provider set practitionerNoType=:issuer,practitionerNo=:number where provider_no=:id")
-                    .setParameter("issuer", "CPSO ").setParameter("number", "001234").setParameter("id", "T004").executeUpdate();
+            entityManager
+                    .createNativeQuery(
+                            "update provider set practitionerNoType=:issuer,practitionerNo=:number where provider_no=:id")
+                    .setParameter("issuer", "cpso")
+                    .setParameter("number", "001234")
+                    .setParameter("id", "T003")
+                    .executeUpdate();
+            entityManager
+                    .createNativeQuery(
+                            "update provider set practitionerNoType=:issuer,practitionerNo=:number where provider_no=:id")
+                    .setParameter("issuer", "CPSO ")
+                    .setParameter("number", "001234")
+                    .setParameter("id", "T004")
+                    .executeUpdate();
             entityManager.clear();
             assertThat(providerDao.findCdsProviderNosByCpso("001234")).containsExactly("T001");
         }
-        @Test void shouldUseBinaryExactNames_withoutWildcardOrCaseFoldMatching() {
-            assertThat(providerDao.findCdsProviderNosByExactName("John", "Smith")).containsExactly("T001");
+
+        @Test
+        void shouldUseBinaryExactNames_withoutWildcardOrCaseFoldMatching() {
+            assertThat(providerDao.findCdsProviderNosByExactName("John", "Smith"))
+                    .containsExactly("T001");
             assertThat(providerDao.findCdsProviderNosByExactName("john", "Smith")).isEmpty();
             assertThat(providerDao.findCdsProviderNosByExactName("John%", "Smith")).isEmpty();
         }
-        @Test void shouldReturnOnlyTwoIdentifiers_whenDirectoryHasManyDuplicates() {
-            for (String id : List.of("T001", "T002", "T003")) providerDao.getProvider(id).setOhipNo("009902");
+
+        @Test
+        void shouldReturnOnlyTwoIdentifiers_whenDirectoryHasManyDuplicates() {
+            for (String id : List.of("T001", "T002", "T003"))
+                providerDao.getProvider(id).setOhipNo("009902");
             entityManager.flush();
-            assertThat(providerDao.findCdsProviderNosByOhip("009902")).containsExactly("T001", "T002");
+            assertThat(providerDao.findCdsProviderNosByOhip("009902"))
+                    .containsExactly("T001", "T002");
         }
-        @Test void shouldKeepUnicodeNormalizationDistinct_andBoundExactNameCandidates() {
+
+        @Test
+        void shouldKeepUnicodeNormalizationDistinct_andBoundExactNameCandidates() {
             String[] firstNames = {"Élodie", "E\u0301lodie", "élodie", "Élodie "};
             for (int i = 0; i < firstNames.length; i++) {
-                entityManager.createNativeQuery("update provider set first_name=:first,last_name=:last where provider_no=:id")
-                        .setParameter("first", firstNames[i]).setParameter("last", "Müller")
-                        .setParameter("id", "T00" + (i + 1)).executeUpdate();
+                entityManager
+                        .createNativeQuery(
+                                "update provider set first_name=:first,last_name=:last where provider_no=:id")
+                        .setParameter("first", firstNames[i])
+                        .setParameter("last", "Müller")
+                        .setParameter("id", "T00" + (i + 1))
+                        .executeUpdate();
             }
             entityManager.clear();
-            assertThat(providerDao.findCdsProviderNosByExactName("Élodie", "Müller")).containsExactly("T001");
-            assertThat(providerDao.findCdsProviderNosByExactName("E\u0301lodie", "Müller")).containsExactly("T002");
-            assertThat(providerDao.findCdsProviderNosByExactName("Élodie ", "Müller")).containsExactly("T004");
-            entityManager.createNativeQuery("update provider set first_name=:first where provider_no in ('T002','T003')")
-                    .setParameter("first", "Élodie").executeUpdate();
-            assertThat(providerDao.findCdsProviderNosByExactName("Élodie", "Müller")).containsExactly("T001", "T002");
+            assertThat(providerDao.findCdsProviderNosByExactName("Élodie", "Müller"))
+                    .containsExactly("T001");
+            assertThat(providerDao.findCdsProviderNosByExactName("E\u0301lodie", "Müller"))
+                    .containsExactly("T002");
+            assertThat(providerDao.findCdsProviderNosByExactName("Élodie ", "Müller"))
+                    .containsExactly("T004");
+            entityManager
+                    .createNativeQuery(
+                            "update provider set first_name=:first where provider_no in ('T002','T003')")
+                    .setParameter("first", "Élodie")
+                    .executeUpdate();
+            assertThat(providerDao.findCdsProviderNosByExactName("Élodie", "Müller"))
+                    .containsExactly("T001", "T002");
         }
-        @Test void shouldCompareUnicodeNamesExactly_withoutTrimmingOrAccentFolding() {
+
+        @Test
+        void shouldCompareUnicodeNamesExactly_withoutTrimmingOrAccentFolding() {
             Provider source = providerDao.getProvider("T001");
-            source.setFirstName("Élodie"); source.setLastName("Müller"); entityManager.flush();
-            assertThat(providerDao.findCdsProviderNosByExactName("Élodie", "Müller")).containsExactly("T001");
+            source.setFirstName("Élodie");
+            source.setLastName("Müller");
+            entityManager.flush();
+            assertThat(providerDao.findCdsProviderNosByExactName("Élodie", "Müller"))
+                    .containsExactly("T001");
             assertThat(providerDao.findCdsProviderNosByExactName("élodie", "Müller")).isEmpty();
             assertThat(providerDao.findCdsProviderNosByExactName("Elodie", "Müller")).isEmpty();
             assertThat(providerDao.findCdsProviderNosByExactName("Élodie ", "Müller")).isEmpty();
-            // Provider's legacy getter trims on ORM flush; native storage can still contain old whitespace.
-            entityManager.createNativeQuery("update provider set first_name=:first where provider_no=:id")
-                    .setParameter("first", "Élodie ").setParameter("id", "T001").executeUpdate();
+            // Provider's legacy getter trims on ORM flush; native storage can still contain old
+            // whitespace.
+            entityManager
+                    .createNativeQuery(
+                            "update provider set first_name=:first where provider_no=:id")
+                    .setParameter("first", "Élodie ")
+                    .setParameter("id", "T001")
+                    .executeUpdate();
             entityManager.clear();
-            assertThat(providerDao.findCdsProviderNosByExactName("Élodie ", "Müller")).containsExactly("T001");
+            assertThat(providerDao.findCdsProviderNosByExactName("Élodie ", "Müller"))
+                    .containsExactly("T001");
             assertThat(providerDao.findCdsProviderNosByExactName("Élodie", "Müller")).isEmpty();
         }
     }

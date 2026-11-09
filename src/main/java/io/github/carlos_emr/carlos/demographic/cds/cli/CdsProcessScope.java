@@ -29,9 +29,17 @@ public enum CdsProcessScope {
     EXPORT("cds.export.cliHeapMiB", "/run/carlos-cds-export-delegations");
     private final String heapProperty;
     private final Path ticketDirectory;
+
     CdsProcessScope(String heapProperty, String ticketDirectory) {
-        this.heapProperty = heapProperty; this.ticketDirectory = Path.of(ticketDirectory);
+        this.heapProperty = heapProperty;
+        this.ticketDirectory = Path.of(ticketDirectory);
     }
-    public String heapProperty() { return heapProperty; }
-    public Path ticketDirectory() { return ticketDirectory; }
+
+    public String heapProperty() {
+        return heapProperty;
+    }
+
+    public Path ticketDirectory() {
+        return ticketDirectory;
+    }
 }

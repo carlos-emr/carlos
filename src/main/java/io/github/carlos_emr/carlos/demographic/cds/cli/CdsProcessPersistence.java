@@ -35,14 +35,18 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 /** Shared one-shot persistence factories; no servlet/feed/fax scheduler or implicit migration is started. */
 public final class CdsProcessPersistence {
-    private CdsProcessPersistence() { }
+    private CdsProcessPersistence() {}
+
     public static OscarTrackingBasicDataSource dataSource(Properties properties) {
         OscarTrackingBasicDataSource source = new OscarTrackingBasicDataSource();
         source.setBoundedCdsConnections(true);
         source.setDriverClassName(required(properties, "db_driver"));
         String metadata = properties.getProperty("db_default_use_information_schema");
-        if (metadata != null && !metadata.isBlank()) source.setDefaultUseInformationSchema(
-                org.springframework.core.convert.support.DefaultConversionService.getSharedInstance().convert(metadata, Boolean.class));
+        if (metadata != null && !metadata.isBlank())
+            source.setDefaultUseInformationSchema(
+                    org.springframework.core.convert.support.DefaultConversionService
+                            .getSharedInstance()
+                            .convert(metadata, Boolean.class));
         source.setUrl(required(properties, "db_uri") + required(properties, "db_name"));
         source.setUsername(required(properties, "db_username"));
         source.setPassword(required(properties, "db_password"));
@@ -53,54 +57,85 @@ public final class CdsProcessPersistence {
         source.addConnectionProperty("useLocalSessionState", "true");
         // This pool serves only one-shot data transfers. Establish an additive strict baseline once
         // per physical connection; guarded units still verify and restore sessions.
-        var initialization=new java.util.ArrayList<String>();
-        if (source.getConnectionInitSqls()!=null) initialization.addAll(source.getConnectionInitSqls());
-        initialization.add("SET SESSION sql_mode=IF(FIND_IN_SET('STRICT_ALL_TABLES',@@SESSION.sql_mode)>0,"
-                + "@@SESSION.sql_mode,CONCAT_WS(',',NULLIF(@@SESSION.sql_mode,''),'STRICT_ALL_TABLES'))");
+        var initialization = new java.util.ArrayList<String>();
+        if (source.getConnectionInitSqls() != null)
+            initialization.addAll(source.getConnectionInitSqls());
+        initialization.add(
+                "SET SESSION sql_mode=IF(FIND_IN_SET('STRICT_ALL_TABLES',@@SESSION.sql_mode)>0,"
+                        + "@@SESSION.sql_mode,CONCAT_WS(',',NULLIF(@@SESSION.sql_mode,''),'STRICT_ALL_TABLES'))");
         source.setConnectionInitSqls(initialization);
         // CLI has one foreground worker and a bounded progress reader, never the
         // web server's full pool or abandoned-transaction recovery heuristics.
-        source.setMaxTotal(4); source.setMaxIdle(2); source.setMinIdle(0);
+        source.setMaxTotal(4);
+        source.setMaxIdle(2);
+        source.setMinIdle(0);
         source.setMaxWait(Duration.ofSeconds(30));
-        source.setValidationQuery("SELECT 1"); source.setValidationQueryTimeout(Duration.ofSeconds(10));
-        source.setTestOnBorrow(true); source.setPoolPreparedStatements(false);
+        source.setValidationQuery("SELECT 1");
+        source.setValidationQueryTimeout(Duration.ofSeconds(10));
+        source.setTestOnBorrow(true);
+        source.setPoolPreparedStatements(false);
         return source;
     }
-    public static FlywaySchemaValidator schemaGate(OscarTrackingBasicDataSource source, Properties properties) {
+
+    public static FlywaySchemaValidator schemaGate(
+            OscarTrackingBasicDataSource source, Properties properties) {
         // Validation only: this command never applies an implicit migration.
-        return new FlywaySchemaValidator(source, "validate", properties.getProperty("carlos.flyway.locations", ""),
+        return new FlywaySchemaValidator(
+                source,
+                "validate",
+                properties.getProperty("carlos.flyway.locations", ""),
                 properties.getProperty("billregion", "ON"));
     }
-    public static CdsJdbcAdmissionInitializer admissionInitializer(OscarTrackingBasicDataSource source) {
+
+    public static CdsJdbcAdmissionInitializer admissionInitializer(
+            OscarTrackingBasicDataSource source) {
         // This dedicated runtime always understands the guard, including status
         // queries after admission is disabled. It never starts ordinary writers.
         return new CdsJdbcAdmissionInitializer(source, true, "validate");
     }
-    public static LocalContainerEntityManagerFactoryBean entityManagerFactory(OscarTrackingBasicDataSource source, Properties properties) {
-        LocalContainerEntityManagerFactoryBean factory = new LocalContainerEntityManagerFactoryBean();
-        factory.setDataSource(source); factory.setPersistenceUnitName("entityManagerFactory");
+
+    public static LocalContainerEntityManagerFactoryBean entityManagerFactory(
+            OscarTrackingBasicDataSource source, Properties properties) {
+        LocalContainerEntityManagerFactoryBean factory =
+                new LocalContainerEntityManagerFactoryBean();
+        factory.setDataSource(source);
+        factory.setPersistenceUnitName("entityManagerFactory");
         // Use the same association-complete model packages as spring_jpa.xml.
-        factory.setPackagesToScan("io.github.carlos_emr.carlos.commn.model", "io.github.carlos_emr.carlos.model",
-                "io.github.carlos_emr.carlos.PMmodule.model", "io.github.carlos_emr.carlos.casemgmt.model",
-                "io.github.carlos_emr.carlos.entities", "io.github.carlos_emr.carlos.billing",
-                "io.github.carlos_emr.carlos.billings", "io.github.carlos_emr.carlos.hospitalReportManager.model",
-                "io.github.carlos_emr.carlos.form.model", "io.github.carlos_emr.carlos.decisionSupport.model");
+        factory.setPackagesToScan(
+                "io.github.carlos_emr.carlos.commn.model",
+                "io.github.carlos_emr.carlos.model",
+                "io.github.carlos_emr.carlos.PMmodule.model",
+                "io.github.carlos_emr.carlos.casemgmt.model",
+                "io.github.carlos_emr.carlos.entities",
+                "io.github.carlos_emr.carlos.billing",
+                "io.github.carlos_emr.carlos.billings",
+                "io.github.carlos_emr.carlos.hospitalReportManager.model",
+                "io.github.carlos_emr.carlos.form.model",
+                "io.github.carlos_emr.carlos.decisionSupport.model");
         factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
         Properties jpa = new Properties();
-        jpa.setProperty("hibernate.dialect", properties.getProperty("hibernate.dialect", "org.hibernate.dialect.MariaDBDialect"));
-        jpa.setProperty("hibernate.show_sql", "false"); jpa.setProperty("hibernate.generate_statistics", "false");
+        jpa.setProperty(
+                "hibernate.dialect",
+                properties.getProperty(
+                        "hibernate.dialect", "org.hibernate.dialect.MariaDBDialect"));
+        jpa.setProperty("hibernate.show_sql", "false");
+        jpa.setProperty("hibernate.generate_statistics", "false");
         jpa.setProperty("hibernate.cache.use_second_level_cache", "false");
         jpa.setProperty("hibernate.cache.use_query_cache", "false");
         jpa.setProperty("hibernate.hbm2ddl.auto", "none");
         jpa.setProperty("hibernate.max_fetch_depth", "3");
-        factory.setJpaProperties(jpa); return factory;
+        factory.setJpaProperties(jpa);
+        return factory;
     }
+
     public static PlatformTransactionManager transactionManager(EntityManagerFactory factory) {
         return new JpaTransactionManager(factory);
     }
+
     private static String required(Properties properties, String key) {
         String value = properties.getProperty(key);
-        if (value == null || value.isBlank()) throw new IllegalStateException("CDS_DATABASE_CONFIGURATION_REQUIRED");
+        if (value == null || value.isBlank())
+            throw new IllegalStateException("CDS_DATABASE_CONFIGURATION_REQUIRED");
         return value;
     }
 }

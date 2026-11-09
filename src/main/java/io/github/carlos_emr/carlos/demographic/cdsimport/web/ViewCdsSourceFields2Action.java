@@ -33,32 +33,75 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 /** Clinical category source values require patient read authorization independently of import operator access. */
-@Component("viewCdsSourceFields2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+@Component("viewCdsSourceFields2Action")
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class ViewCdsSourceFields2Action extends ActionSupport {
     private final transient SecurityInfoManager securityInfoManager;
     private final transient CdsSourceFieldsViewModelAssembler assembler;
-    private int demographicNo; private String category, after="", reviewAfter="";
+    private int demographicNo;
+    private String category, after = "", reviewAfter = "";
     private final transient CdsWebService web;
-    public ViewCdsSourceFields2Action(CdsWebService web, CdsSourceFieldsViewModelAssembler assembler, SecurityInfoManager securityInfoManager){
+
+    public ViewCdsSourceFields2Action(
+            CdsWebService web,
+            CdsSourceFieldsViewModelAssembler assembler,
+            SecurityInfoManager securityInfoManager) {
         this.web = web;
-        this.securityInfoManager = securityInfoManager; this.assembler=assembler; }
-    @Override public String execute() throws Exception {
-        var request=ServletActionContext.getRequest(); var response=ServletActionContext.getResponse();
-        if (!("GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod()))){response.setHeader("Allow", "GET, HEAD"); response.sendError(405); return NONE; }
-        LoggedInInfo loggedInInfo = request.getSession(false) == null ? null
-                : LoggedInInfo.getLoggedInInfoFromSession(request.getSession(false));
+        this.securityInfoManager = securityInfoManager;
+        this.assembler = assembler;
+    }
+
+    @Override
+    public String execute() throws Exception {
+        var request = ServletActionContext.getRequest();
+        var response = ServletActionContext.getResponse();
+        if (!("GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod()))) {
+            response.setHeader("Allow", "GET, HEAD");
+            response.sendError(405);
+            return NONE;
+        }
+        LoggedInInfo loggedInInfo =
+                request.getSession(false) == null
+                        ? null
+                        : LoggedInInfo.getLoggedInInfoFromSession(request.getSession(false));
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", (String) null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
         try {
-            var actor=web.authenticated(request); web.readOnlyParameters(request, Set.of("demographicNo", "category", "after", "reviewAfter"));
-            request.setAttribute("model", assembler.assemble(actor, demographicNo, category, after, reviewAfter));
-            response.setHeader("Cache-Control", "no-store"); response.setHeader("X-Content-Type-Options", "nosniff"); return SUCCESS;
-        } catch (SecurityException failure) { throw failure;
-        } catch (Exception failure){web.failure(response, failure); return NONE; }
+            var actor = web.authenticated(request);
+            web.readOnlyParameters(
+                    request, Set.of("demographicNo", "category", "after", "reviewAfter"));
+            request.setAttribute(
+                    "model",
+                    assembler.assemble(actor, demographicNo, category, after, reviewAfter));
+            response.setHeader("Cache-Control", "no-store");
+            response.setHeader("X-Content-Type-Options", "nosniff");
+            return SUCCESS;
+        } catch (SecurityException failure) {
+            throw failure;
+        } catch (Exception failure) {
+            web.failure(response, failure);
+            return NONE;
+        }
     }
-    @StrutsParameter public void setDemographicNo(int value){demographicNo=value; }
-    @StrutsParameter public void setCategory(String value){category=value; }
-    @StrutsParameter public void setAfter(String value){after=value; }
-    @StrutsParameter public void setReviewAfter(String value){reviewAfter=value; }
+
+    @StrutsParameter
+    public void setDemographicNo(int value) {
+        demographicNo = value;
+    }
+
+    @StrutsParameter
+    public void setCategory(String value) {
+        category = value;
+    }
+
+    @StrutsParameter
+    public void setAfter(String value) {
+        after = value;
+    }
+
+    @StrutsParameter
+    public void setReviewAfter(String value) {
+        reviewAfter = value;
+    }
 }

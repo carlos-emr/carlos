@@ -30,17 +30,73 @@ import java.util.*;
 /** Reuses the bounded streaming reader with a typed, immutable snapshot selection adapter. */
 abstract class CdsExportSelectedPreventionSourceReader extends CdsExportPatientTableSourceReader {
     private final CdsExportPreventionAccessService access;
-    CdsExportSelectedPreventionSourceReader(CdsExportPreventionDataReadDao source, CdsExportPatientTableReadSupport.Plan plan, CdsExportPreventionSnapshotService snapshots, CdsExportPreventionAccessService access){
-        super(new Selected(source, plan, snapshots), plan, Set.of(CdsCategory.IMMUNIZATIONS)); this.access=Objects.requireNonNull(access);
+
+    CdsExportSelectedPreventionSourceReader(
+            CdsExportPreventionDataReadDao source,
+            CdsExportPatientTableReadSupport.Plan plan,
+            CdsExportPreventionSnapshotService snapshots,
+            CdsExportPreventionAccessService access) {
+        super(new Selected(source, plan, snapshots), plan, Set.of(CdsCategory.IMMUNIZATIONS));
+        this.access = Objects.requireNonNull(access);
     }
-    @Override public void authorizeReadScope(int patient, CdsExportRunControl control){access.requireUnrestricted(patient); control.checkpoint(); }
-    @Override public Set<String> requiredTables(){return Set.of("prevention_configuration", "preventions_scope", "CVCImmunization", "CVCMapping", "preventions", "preventionsExt", "prevention_precision"); }
-    private record Selected(CdsExportPreventionDataReadDao source, CdsExportPatientTableReadSupport.Plan plan, CdsExportPreventionSnapshotService snapshots)implements CdsExportPatientTableReadDao{
-        @Override public CdsExportTableSchemaDto readCdsExportSourceSchema(){return source.readCdsExportSourceSchema(); }
-        @Override public List<CdsNativeRowDigest.Column> readCdsExportReceiptColumns(){return source.readCdsExportReceiptColumns(); }
-        private Set<Integer> ids(int patient){return snapshots.current(patient).clinicalIds(); }
-        @Override public long countCdsExportRows(int patient){var selected=ids(patient); long actual=source.countCdsExportPreventionRows(patient, selected); if (plan==CdsExportPatientTableReadSupport.Plan.PREVENTIONS_FULL&&actual!=selected.size())throw new IllegalStateException("CDS_EXPORT_PREVENTION_SELECTION_CHANGED"); return actual; }
-        @Override public List<CdsExportRawRowDto> findCdsExportRowsAfter(int patient, Long after, int limit){return source.findCdsExportPreventionRowsAfter(patient, ids(patient), after, limit); }
-        @Override public byte[] readCdsExportValueChunk(int patient, long row, String column, long offset, int length){return source.readCdsExportPreventionChunk(patient, ids(patient), row, column, offset, length); }
+
+    @Override
+    public void authorizeReadScope(int patient, CdsExportRunControl control) {
+        access.requireUnrestricted(patient);
+        control.checkpoint();
+    }
+
+    @Override
+    public Set<String> requiredTables() {
+        return Set.of(
+                "prevention_configuration",
+                "preventions_scope",
+                "CVCImmunization",
+                "CVCMapping",
+                "preventions",
+                "preventionsExt",
+                "prevention_precision");
+    }
+
+    private record Selected(
+            CdsExportPreventionDataReadDao source,
+            CdsExportPatientTableReadSupport.Plan plan,
+            CdsExportPreventionSnapshotService snapshots)
+            implements CdsExportPatientTableReadDao {
+        @Override
+        public CdsExportTableSchemaDto readCdsExportSourceSchema() {
+            return source.readCdsExportSourceSchema();
+        }
+
+        @Override
+        public List<CdsNativeRowDigest.Column> readCdsExportReceiptColumns() {
+            return source.readCdsExportReceiptColumns();
+        }
+
+        private Set<Integer> ids(int patient) {
+            return snapshots.current(patient).clinicalIds();
+        }
+
+        @Override
+        public long countCdsExportRows(int patient) {
+            var selected = ids(patient);
+            long actual = source.countCdsExportPreventionRows(patient, selected);
+            if (plan == CdsExportPatientTableReadSupport.Plan.PREVENTIONS_FULL
+                    && actual != selected.size())
+                throw new IllegalStateException("CDS_EXPORT_PREVENTION_SELECTION_CHANGED");
+            return actual;
+        }
+
+        @Override
+        public List<CdsExportRawRowDto> findCdsExportRowsAfter(int patient, Long after, int limit) {
+            return source.findCdsExportPreventionRowsAfter(patient, ids(patient), after, limit);
+        }
+
+        @Override
+        public byte[] readCdsExportValueChunk(
+                int patient, long row, String column, long offset, int length) {
+            return source.readCdsExportPreventionChunk(
+                    patient, ids(patient), row, column, offset, length);
+        }
     }
 }

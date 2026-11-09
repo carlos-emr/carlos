@@ -43,46 +43,120 @@ class CdsExportRetainedTableSourceReader implements CdsExportNativeSourceReader 
     private final CdsExportPatientTableReadSupport.Plan plan;
     private final Set<CdsCategory> selected;
     private final Set<String> categories;
-    CdsExportRetainedTableSourceReader(CdsExportRetainedTableReadDao source, CdsExportPatientTableReadSupport.Plan plan) {
+
+    CdsExportRetainedTableSourceReader(
+            CdsExportRetainedTableReadDao source, CdsExportPatientTableReadSupport.Plan plan) {
         this(source, plan, Set.of(CdsCategory.DEMOGRAPHICS));
     }
-    private CdsExportRetainedTableSourceReader(CdsExportRetainedTableReadDao source, CdsExportPatientTableReadSupport.Plan plan,
+
+    private CdsExportRetainedTableSourceReader(
+            CdsExportRetainedTableReadDao source,
+            CdsExportPatientTableReadSupport.Plan plan,
             Set<CdsCategory> selected) {
-        this.source = java.util.Objects.requireNonNull(source); this.plan = java.util.Objects.requireNonNull(plan);
-        this.selected = Set.copyOf(selected); categories = selected.stream().map(CdsCategory::wireName).collect(Collectors.toUnmodifiableSet());
+        this.source = java.util.Objects.requireNonNull(source);
+        this.plan = java.util.Objects.requireNonNull(plan);
+        this.selected = Set.copyOf(selected);
+        categories =
+                selected.stream()
+                        .map(CdsCategory::wireName)
+                        .collect(Collectors.toUnmodifiableSet());
     }
-    @Override public CdsExportNativeSourceReader forRequest(CdsExportCommand command) {
-        return new CdsExportRetainedTableSourceReader(source, plan, plan == CdsExportPatientTableReadSupport.Plan.IMPORT_PATIENTS || plan == CdsExportPatientTableReadSupport.Plan.IMPORT_RUNS
-                ? Set.of(CdsCategory.DEMOGRAPHICS) : command.categories());
+
+    @Override
+    public CdsExportNativeSourceReader forRequest(CdsExportCommand command) {
+        return new CdsExportRetainedTableSourceReader(
+                source,
+                plan,
+                plan == CdsExportPatientTableReadSupport.Plan.IMPORT_PATIENTS
+                                || plan == CdsExportPatientTableReadSupport.Plan.IMPORT_RUNS
+                        ? Set.of(CdsCategory.DEMOGRAPHICS)
+                        : command.categories());
     }
-    @Override public String table() { return plan.table(); }
-    @Override public Set<String> columns() { return Set.copyOf(plan.columns()); }
-    @Override public Set<CdsCategory> categories() { return selected; }
-    @Override public boolean requiresSensitiveLaboratoryRead() { return selected.contains(CdsCategory.LABORATORY_RESULTS); }
-    @Override public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> receiptColumns() {
+
+    @Override
+    public String table() {
+        return plan.table();
+    }
+
+    @Override
+    public Set<String> columns() {
+        return Set.copyOf(plan.columns());
+    }
+
+    @Override
+    public Set<CdsCategory> categories() {
+        return selected;
+    }
+
+    @Override
+    public boolean requiresSensitiveLaboratoryRead() {
+        return selected.contains(CdsCategory.LABORATORY_RESULTS);
+    }
+
+    @Override
+    public java.util.List<
+                    io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column>
+            receiptColumns() {
         return source.readCdsExportReceiptColumns();
     }
-    @Override public CdsExportTableSchemaDto schema() { return source.readCdsExportRetainedSchema(); }
-    @Override public long count(int patient) { return source.countCdsExportRetainedRows(patient, categories); }
-    @Override public void capture(int patient, CdsExportNativeCaptureComposer.Writer output) throws IOException {
+
+    @Override
+    public CdsExportTableSchemaDto schema() {
+        return source.readCdsExportRetainedSchema();
+    }
+
+    @Override
+    public long count(int patient) {
+        return source.countCdsExportRetainedRows(patient, categories);
+    }
+
+    @Override
+    public void capture(int patient, CdsExportNativeCaptureComposer.Writer output)
+            throws IOException {
         String after = null;
         while (true) {
             var page = source.findCdsExportRetainedRowsAfter(patient, categories, after, 32);
             if (page.size() > 32) throw new IOException("CDS_EXPORT_RETAINED_PAGE_INVALID");
             for (var row : page) {
-                if (!plan.validRetainedKey(row.id()) || after != null && row.id().compareTo(after) <= 0
-                        || !row.cells().keySet().equals(columns())) throw new IOException("CDS_EXPORT_RETAINED_PAGE_INVALID");
-                output.row(row.id(), writer -> {
-                    for (var field : row.cells().entrySet()) {
-                        if (field.getValue().sqlNull()) writer.text(field.getKey(), (String) null);
-                        else try (var input = new CdsExportRawValueInputStream(field.getValue(), (offset, length) ->
-                                source.readCdsExportRetainedChunk(patient, categories, row.id(), field.getKey(), offset, length));
-                                var text = new InputStreamReader(input, StandardCharsets.UTF_8.newDecoder()
-                                        .onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT))) {
-                            writer.text(field.getKey(), text);
-                        }
-                    }
-                }); after = row.id();
+                if (!plan.validRetainedKey(row.id())
+                        || after != null && row.id().compareTo(after) <= 0
+                        || !row.cells().keySet().equals(columns()))
+                    throw new IOException("CDS_EXPORT_RETAINED_PAGE_INVALID");
+                output.row(
+                        row.id(),
+                        writer -> {
+                            for (var field : row.cells().entrySet()) {
+                                if (field.getValue().sqlNull())
+                                    writer.text(field.getKey(), (String) null);
+                                else
+                                    try (var input =
+                                                    new CdsExportRawValueInputStream(
+                                                            field.getValue(),
+                                                            (offset, length) ->
+                                                                    source
+                                                                            .readCdsExportRetainedChunk(
+                                                                                    patient,
+                                                                                    categories,
+                                                                                    row.id(),
+                                                                                    field.getKey(),
+                                                                                    offset,
+                                                                                    length));
+                                            var text =
+                                                    new InputStreamReader(
+                                                            input,
+                                                            StandardCharsets.UTF_8
+                                                                    .newDecoder()
+                                                                    .onMalformedInput(
+                                                                            CodingErrorAction
+                                                                                    .REPORT)
+                                                                    .onUnmappableCharacter(
+                                                                            CodingErrorAction
+                                                                                    .REPORT))) {
+                                        writer.text(field.getKey(), text);
+                                    }
+                            }
+                        });
+                after = row.id();
             }
             if (page.size() < 32) return;
         }

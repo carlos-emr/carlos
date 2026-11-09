@@ -32,11 +32,39 @@ import org.springframework.stereotype.Service;
 @Service
 public class CdsExportHospitalReportScopeSourceReader implements CdsExportNativeSourceReader {
     private final HRMDocumentToDemographicDao source;
-    public CdsExportHospitalReportScopeSourceReader(HRMDocumentToDemographicDao source) { this.source = Objects.requireNonNull(source); }
-    @Override public String table() { return "HRMDocumentToDemographic"; }
-    @Override public Set<String> columns() { return Set.of("demographicNo", "hrmDocumentId", "id", "timeAssigned"); }
-    @Override public Set<CdsCategory> categories() { return Set.of(CdsCategory.REPORTS); }
-    @Override public CdsExportTableSchemaDto schema() { return source.readCdsExportSourceSchema(); }
-    @Override public long count(int patient) { source.requireCdsExportAbsent(patient); return 0; }
-    @Override public void capture(int patient, CdsExportNativeCaptureComposer.Writer output) { source.requireCdsExportAbsent(patient); }
+
+    public CdsExportHospitalReportScopeSourceReader(HRMDocumentToDemographicDao source) {
+        this.source = Objects.requireNonNull(source);
+    }
+
+    @Override
+    public String table() {
+        return "HRMDocumentToDemographic";
+    }
+
+    @Override
+    public Set<String> columns() {
+        return Set.of("demographicNo", "hrmDocumentId", "id", "timeAssigned");
+    }
+
+    @Override
+    public Set<CdsCategory> categories() {
+        return Set.of(CdsCategory.REPORTS);
+    }
+
+    @Override
+    public CdsExportTableSchemaDto schema() {
+        return source.readCdsExportSourceSchema();
+    }
+
+    @Override
+    public long count(int patient) {
+        source.requireCdsExportAbsent(patient);
+        return 0;
+    }
+
+    @Override
+    public void capture(int patient, CdsExportNativeCaptureComposer.Writer output) {
+        source.requireCdsExportAbsent(patient);
+    }
 }

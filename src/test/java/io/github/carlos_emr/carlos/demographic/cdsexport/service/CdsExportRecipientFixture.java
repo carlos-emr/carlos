@@ -44,16 +44,37 @@ final class CdsExportRecipientFixture {
     final KeyPair keys;
     final X509Certificate certificate;
     final String fingerprint;
-    CdsExportRecipientFixture() throws Exception { this(NOW); }
+
+    CdsExportRecipientFixture() throws Exception {
+        this(NOW);
+    }
+
     CdsExportRecipientFixture(Instant now) throws Exception {
-        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA"); generator.initialize(2048); keys = generator.generateKeyPair();
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        keys = generator.generateKeyPair();
         X500Name name = new X500Name("CN=SYNTHETIC CDS TEST RECIPIENT, O=example.invalid");
-        var builder = new JcaX509v3CertificateBuilder(name, BigInteger.valueOf(27),
-                Date.from(now.minusSeconds(86400)), Date.from(now.plusSeconds(86400)), name, keys.getPublic());
+        var builder =
+                new JcaX509v3CertificateBuilder(
+                        name,
+                        BigInteger.valueOf(27),
+                        Date.from(now.minusSeconds(86400)),
+                        Date.from(now.plusSeconds(86400)),
+                        name,
+                        keys.getPublic());
         builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(false));
         builder.addExtension(Extension.keyUsage, true, new KeyUsage(KeyUsage.keyEncipherment));
-        certificate = new JcaX509CertificateConverter().setProvider(new BouncyCastleProvider())
-                .getCertificate(builder.build(new JcaContentSignerBuilder("SHA256withRSA").build(keys.getPrivate())));
-        fingerprint = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(certificate.getEncoded()));
+        certificate =
+                new JcaX509CertificateConverter()
+                        .setProvider(new BouncyCastleProvider())
+                        .getCertificate(
+                                builder.build(
+                                        new JcaContentSignerBuilder("SHA256withRSA")
+                                                .build(keys.getPrivate())));
+        fingerprint =
+                HexFormat.of()
+                        .formatHex(
+                                MessageDigest.getInstance("SHA-256")
+                                        .digest(certificate.getEncoded()));
     }
 }

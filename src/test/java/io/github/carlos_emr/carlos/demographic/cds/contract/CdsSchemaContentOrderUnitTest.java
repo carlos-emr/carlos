@@ -28,27 +28,83 @@ import org.junit.jupiter.api.Test;
 
 @Tag("unit")
 class CdsSchemaContentOrderUnitTest {
-    @Test void shouldPreserveTheSelectedTelephoneBranch_insteadOfFlatteningTheSharedExtensionName() throws Exception {
-        var type = CdsWireSchema.schemaModel().type("cds_dt", "phoneNumber"); var order = new CdsSchemaContentOrder();
-        var structured = order.order(type, List.of(child("extension"), child("exchange"), child("number"), child("areaCode")));
-        assertThat(structured).extracting(value -> value.name().local()).containsExactly("areaCode", "number", "extension", "exchange");
+    @Test
+    void shouldPreserveTheSelectedTelephoneBranch_insteadOfFlatteningTheSharedExtensionName()
+            throws Exception {
+        var type = CdsWireSchema.schemaModel().type("cds_dt", "phoneNumber");
+        var order = new CdsSchemaContentOrder();
+        var structured =
+                order.order(
+                        type,
+                        List.of(
+                                child("extension"),
+                                child("exchange"),
+                                child("number"),
+                                child("areaCode")));
+        assertThat(structured)
+                .extracting(value -> value.name().local())
+                .containsExactly("areaCode", "number", "extension", "exchange");
         assertThat(order.order(type, List.of(child("extension"), child("phoneNumber"))))
-                .extracting(value -> value.name().local()).containsExactly("phoneNumber", "extension");
+                .extracting(value -> value.name().local())
+                .containsExactly("phoneNumber", "extension");
     }
-    @Test void shouldRequireACompleteSingleChoice_andRefuseMissingDuplicateOrSkippedOccurrences() {
-        var type = CdsWireSchema.schemaModel().type("cds_dt", "phoneNumber"); var order = new CdsSchemaContentOrder();
-        for (var invalid : List.of(List.of(child("extension")), List.of(child("phoneNumber"), child("areaCode"), child("number")),
-                List.of(child("phoneNumber"), child("phoneNumber")), List.of(new CdsSchemaContentOrder.Occurrence(new CdsSchemaModel.ExpandedName("cds_dt", "phoneNumber"), 2)))) {
-            assertThatThrownBy(() -> order.order(type, invalid)).isInstanceOf(java.io.IOException.class);
+
+    @Test
+    void shouldRequireACompleteSingleChoice_andRefuseMissingDuplicateOrSkippedOccurrences() {
+        var type = CdsWireSchema.schemaModel().type("cds_dt", "phoneNumber");
+        var order = new CdsSchemaContentOrder();
+        for (var invalid :
+                List.of(
+                        List.of(child("extension")),
+                        List.of(child("phoneNumber"), child("areaCode"), child("number")),
+                        List.of(child("phoneNumber"), child("phoneNumber")),
+                        List.of(
+                                new CdsSchemaContentOrder.Occurrence(
+                                        new CdsSchemaModel.ExpandedName("cds_dt", "phoneNumber"),
+                                        2)))) {
+            assertThatThrownBy(() -> order.order(type, invalid))
+                    .isInstanceOf(java.io.IOException.class);
         }
     }
-    @Test void shouldPutPrimaryPhysicianBeforeEmail_usingTheActualDemographicSequence() throws Exception {
-        var root = CdsWireSchema.schemaModel().element("cds", "OmdCds"); var demographic = root.child("cds", "PatientRecord").child("cds", "Demographics");
-        var names = List.of("SIN", "Email", "PrimaryPhysician", "Gender", "Names", "DateOfBirth", "UniqueVendorIdSequence", "PersonStatusCode");
-        var supplied = names.stream().map(name -> new CdsSchemaContentOrder.Occurrence(new CdsSchemaModel.ExpandedName("cds", name), 1)).toList();
-        assertThat(new CdsSchemaContentOrder().order(demographic, supplied)).extracting(value -> value.name().local())
-                .containsExactly("Names", "DateOfBirth", "Gender", "UniqueVendorIdSequence", "PrimaryPhysician", "Email", "PersonStatusCode", "SIN");
-        assertThatThrownBy(() -> demographic.content().children().clear()).isInstanceOf(UnsupportedOperationException.class);
+
+    @Test
+    void shouldPutPrimaryPhysicianBeforeEmail_usingTheActualDemographicSequence() throws Exception {
+        var root = CdsWireSchema.schemaModel().element("cds", "OmdCds");
+        var demographic = root.child("cds", "PatientRecord").child("cds", "Demographics");
+        var names =
+                List.of(
+                        "SIN",
+                        "Email",
+                        "PrimaryPhysician",
+                        "Gender",
+                        "Names",
+                        "DateOfBirth",
+                        "UniqueVendorIdSequence",
+                        "PersonStatusCode");
+        var supplied =
+                names.stream()
+                        .map(
+                                name ->
+                                        new CdsSchemaContentOrder.Occurrence(
+                                                new CdsSchemaModel.ExpandedName("cds", name), 1))
+                        .toList();
+        assertThat(new CdsSchemaContentOrder().order(demographic, supplied))
+                .extracting(value -> value.name().local())
+                .containsExactly(
+                        "Names",
+                        "DateOfBirth",
+                        "Gender",
+                        "UniqueVendorIdSequence",
+                        "PrimaryPhysician",
+                        "Email",
+                        "PersonStatusCode",
+                        "SIN");
+        assertThatThrownBy(() -> demographic.content().children().clear())
+                .isInstanceOf(UnsupportedOperationException.class);
     }
-    private static CdsSchemaContentOrder.Occurrence child(String name) { return new CdsSchemaContentOrder.Occurrence(new CdsSchemaModel.ExpandedName("cds_dt", name), 1); }
+
+    private static CdsSchemaContentOrder.Occurrence child(String name) {
+        return new CdsSchemaContentOrder.Occurrence(
+                new CdsSchemaModel.ExpandedName("cds_dt", name), 1);
+    }
 }

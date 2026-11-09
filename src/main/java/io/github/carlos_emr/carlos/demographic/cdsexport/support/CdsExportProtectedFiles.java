@@ -30,15 +30,22 @@ import java.nio.file.Path;
 
 /** POSIX source-policy/key and owned-data boundaries; no request-supplied path receives authority. */
 public final class CdsExportProtectedFiles {
-    private CdsExportProtectedFiles() { }
+    private CdsExportProtectedFiles() {}
+
     public static Path absolute(String configured) throws IOException {
         try {
             Path selected = Path.of(configured);
-            if (configured.isEmpty() || !selected.isAbsolute() || !selected.equals(selected.normalize())
-                    || configured.length() > 8192 || configured.codePoints().anyMatch(Character::isISOControl)) invalid();
+            if (configured.isEmpty()
+                    || !selected.isAbsolute()
+                    || !selected.equals(selected.normalize())
+                    || configured.length() > 8192
+                    || configured.codePoints().anyMatch(Character::isISOControl)) invalid();
             return selected;
-        } catch (RuntimeException invalid) { throw new IOException("CDS_EXPORT_STORAGE_CONFIGURATION_INVALID"); }
+        } catch (RuntimeException invalid) {
+            throw new IOException("CDS_EXPORT_STORAGE_CONFIGURATION_INVALID");
+        }
     }
+
     /** Root-owned, private regular file; service-owned read-only secret mounts retain the same production boundary. */
     public static byte[] readRootFile(Path path, int maximumBytes) throws IOException {
         try {
@@ -47,31 +54,49 @@ public final class CdsExportProtectedFiles {
             if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) invalid();
             for (Path cursor = path; cursor != null; cursor = cursor.getParent()) {
                 if (Files.isSymbolicLink(cursor)) invalid();
-                long uid = number(cursor, "unix:uid"); int mode = (int) number(cursor, "unix:mode");
-                if (!(uid == 0 || uid == identity.getUid() && Files.getFileStore(cursor).isReadOnly()) || (mode & 0022) != 0) invalid();
+                long uid = number(cursor, "unix:uid");
+                int mode = (int) number(cursor, "unix:mode");
+                if (!(uid == 0
+                                || uid == identity.getUid()
+                                        && Files.getFileStore(cursor).isReadOnly())
+                        || (mode & 0022) != 0) invalid();
                 if (cursor.equals(path)) {
-                    if ((mode & 07137) != 0 || (mode & 0040) != 0 && number(cursor, "unix:gid") != identity.getGid()) invalid();
+                    if ((mode & 07137) != 0
+                            || (mode & 0040) != 0
+                                    && number(cursor, "unix:gid") != identity.getGid()) invalid();
                 } else if (!Files.isDirectory(cursor, LinkOption.NOFOLLOW_LINKS)) invalid();
             }
             return CdsProcessConfiguration.readBounded(path, maximumBytes);
-        } catch (IOException | RuntimeException invalid) { throw new IOException("CDS_EXPORT_PROTECTED_FILE_INVALID"); }
+        } catch (IOException | RuntimeException invalid) {
+            throw new IOException("CDS_EXPORT_PROTECTED_FILE_INVALID");
+        }
     }
+
     /** A private service-owned directory, with no symlink or writable third-party ancestor. Does not create a root. */
     public static Path dataDirectory(Path path) throws IOException {
         try {
             path = absolute(path.toString());
             long process = new UnixSystem().getUid();
             for (Path cursor = path; cursor != null; cursor = cursor.getParent()) {
-                if (Files.isSymbolicLink(cursor) || !Files.isDirectory(cursor, LinkOption.NOFOLLOW_LINKS)) invalid();
-                long uid = number(cursor, "unix:uid"); int mode = (int) number(cursor, "unix:mode");
+                if (Files.isSymbolicLink(cursor)
+                        || !Files.isDirectory(cursor, LinkOption.NOFOLLOW_LINKS)) invalid();
+                long uid = number(cursor, "unix:uid");
+                int mode = (int) number(cursor, "unix:mode");
                 if (!(uid == 0 || uid == process) || (mode & 0022) != 0) invalid();
                 if (cursor.equals(path) && (uid != process || (mode & 07777) != 0700)) invalid();
             }
             return path;
-        } catch (IOException | RuntimeException invalid) { throw new IOException("CDS_EXPORT_PRIVATE_DIRECTORY_INVALID"); }
+        } catch (IOException | RuntimeException invalid) {
+            throw new IOException("CDS_EXPORT_PRIVATE_DIRECTORY_INVALID");
+        }
     }
+
     private static long number(Path path, String attribute) throws IOException {
-        return ((Number) Files.getAttribute(path, attribute, LinkOption.NOFOLLOW_LINKS)).longValue();
+        return ((Number) Files.getAttribute(path, attribute, LinkOption.NOFOLLOW_LINKS))
+                .longValue();
     }
-    private static void invalid() throws IOException { throw new IOException("CDS_EXPORT_STORAGE_CONFIGURATION_INVALID"); }
+
+    private static void invalid() throws IOException {
+        throw new IOException("CDS_EXPORT_STORAGE_CONFIGURATION_INVALID");
+    }
 }

@@ -25,50 +25,100 @@ import java.util.List;
 import java.util.Map;
 
 /** Same-generation native enrolment evidence; other demographic associations and retained reconciliation remain separate gates. */
-public record CdsExportDemographicEnrolmentProjectionDto(String sourceManifestSha256,
-        CdsExportDemographicMappingDto demographic, long sourceRows, long noteRows, CdsExportPatientNoteMappingDto note, List<CdsExportEnrolmentEventDto> events,
+public record CdsExportDemographicEnrolmentProjectionDto(
+        String sourceManifestSha256,
+        CdsExportDemographicMappingDto demographic,
+        long sourceRows,
+        long noteRows,
+        CdsExportPatientNoteMappingDto note,
+        List<CdsExportEnrolmentEventDto> events,
         Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> enrolmentFields) {
     public CdsExportDemographicEnrolmentProjectionDto {
-        if (sourceManifestSha256 == null || !sourceManifestSha256.matches("[0-9a-f]{64}") || demographic == null
-                || sourceRows < 1 || sourceRows > 65_536 || events == null || events.size() > sourceRows
-                || noteRows < 0 || noteRows > 1 || (noteRows == 0) != (note == null)
+        if (sourceManifestSha256 == null
+                || !sourceManifestSha256.matches("[0-9a-f]{64}")
+                || demographic == null
+                || sourceRows < 1
+                || sourceRows > 65_536
+                || events == null
+                || events.size() > sourceRows
+                || noteRows < 0
+                || noteRows > 1
+                || (noteRows == 0) != (note == null)
                 || note != null && note.patient() != demographic.patient())
-            throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_ENROLMENT_PROJECTION_INVALID");
-        events = List.copyOf(events); enrolmentFields = Map.copyOf(enrolmentFields);
-        var columns = java.util.Set.of("roster_status", "roster_date", "roster_termination_date", "roster_termination_reason", "roster_enrolled_to");
+            throw new IllegalArgumentException(
+                    "CDS_EXPORT_DEMOGRAPHIC_ENROLMENT_PROJECTION_INVALID");
+        events = List.copyOf(events);
+        enrolmentFields = Map.copyOf(enrolmentFields);
+        var columns =
+                java.util.Set.of(
+                        "roster_status",
+                        "roster_date",
+                        "roster_termination_date",
+                        "roster_termination_reason",
+                        "roster_enrolled_to");
         String key = String.format(java.util.Locale.ROOT, "%010d", demographic.patient());
         for (String column : columns) {
-            var field = enrolmentFields.get(new CdsExportNativeFieldKeyDto("demographic", key, column));
+            var field =
+                    enrolmentFields.get(new CdsExportNativeFieldKeyDto("demographic", key, column));
             var base = demographic.fields().get(column);
-            if (field == null || !field.presence().name().equals(base.presence().name())
-                    || !field.outcome().name().equals(base.outcome().name()) || !field.destination().equals(base.destination())
+            if (field == null
+                    || !field.presence().name().equals(base.presence().name())
+                    || !field.outcome().name().equals(base.outcome().name())
+                    || !field.destination().equals(base.destination())
                     || !field.rule().equals(base.rule()))
-                throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_ENROLMENT_PROJECTION_INVALID");
+                throw new IllegalArgumentException(
+                        "CDS_EXPORT_DEMOGRAPHIC_ENROLMENT_PROJECTION_INVALID");
         }
         var rows = new java.util.HashMap<String, java.util.Set<String>>();
         long mappedStates = 0;
         for (var entry : enrolmentFields.entrySet()) {
             var field = entry.getKey();
-            if (!java.util.Set.of("demographic", "demographicArchive", "provider").contains(field.table())
+            if (!java.util.Set.of("demographic", "demographicArchive", "provider")
+                            .contains(field.table())
                     || field.table().equals("demographic") && !field.recordKey().equals(key)
                     || !field.table().equals("provider") && !columns.contains(field.column()))
-                throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_ENROLMENT_PROJECTION_INVALID");
-            rows.computeIfAbsent(field.table() + "/" + field.recordKey(), ignored -> new java.util.HashSet<>()).add(field.column());
-            if (field.column().equals("roster_status") && entry.getValue().outcome() == CdsExportFieldAssessmentDto.Outcome.MAPPED) mappedStates++;
+                throw new IllegalArgumentException(
+                        "CDS_EXPORT_DEMOGRAPHIC_ENROLMENT_PROJECTION_INVALID");
+            rows.computeIfAbsent(
+                            field.table() + "/" + field.recordKey(),
+                            ignored -> new java.util.HashSet<>())
+                    .add(field.column());
+            if (field.column().equals("roster_status")
+                    && entry.getValue().outcome() == CdsExportFieldAssessmentDto.Outcome.MAPPED)
+                mappedStates++;
         }
         long nativeRows = 0;
         for (var row : rows.entrySet()) {
             boolean provider = row.getKey().startsWith("provider/");
-            var expected = provider ? io.github.carlos_emr.carlos.commn.dto.CdsExportProviderRowDto.COLUMNS : columns;
-            if (!row.getValue().equals(expected)) throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_ENROLMENT_PROJECTION_INVALID");
+            var expected =
+                    provider
+                            ? io.github.carlos_emr.carlos.commn.dto.CdsExportProviderRowDto.COLUMNS
+                            : columns;
+            if (!row.getValue().equals(expected))
+                throw new IllegalArgumentException(
+                        "CDS_EXPORT_DEMOGRAPHIC_ENROLMENT_PROJECTION_INVALID");
             if (!provider) nativeRows++;
         }
-        if (nativeRows != sourceRows || events.isEmpty() != (mappedStates == 0) || events.size() > mappedStates)
-            throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_ENROLMENT_PROJECTION_INVALID");
+        if (nativeRows != sourceRows
+                || events.isEmpty() != (mappedStates == 0)
+                || events.size() > mappedStates)
+            throw new IllegalArgumentException(
+                    "CDS_EXPORT_DEMOGRAPHIC_ENROLMENT_PROJECTION_INVALID");
     }
+
     public boolean representable() {
-        return demographic.baseRowRepresentable() && (note == null || note.representable()) && enrolmentFields.values().stream()
-                .noneMatch(field -> field.outcome() == CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+        return demographic.baseRowRepresentable()
+                && (note == null || note.representable())
+                && enrolmentFields.values().stream()
+                        .noneMatch(
+                                field ->
+                                        field.outcome()
+                                                == CdsExportFieldAssessmentDto.Outcome
+                                                        .REQUIRES_REVIEW);
     }
-    @Override public String toString() { return "CdsExportDemographicEnrolmentProjectionDto[protected]"; }
+
+    @Override
+    public String toString() {
+        return "CdsExportDemographicEnrolmentProjectionDto[protected]";
+    }
 }

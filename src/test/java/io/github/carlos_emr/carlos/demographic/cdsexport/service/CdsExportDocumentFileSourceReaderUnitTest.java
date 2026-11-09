@@ -31,27 +31,76 @@ import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-@Tag("unit") @Tag("cds-export")
+@Tag("unit")
+@Tag("cds-export")
 class CdsExportDocumentFileSourceReaderUnitTest {
     private final DocumentDao documents = mock(DocumentDao.class);
-    @ParameterizedTest @ValueSource(strings = {"invalid", "-1", "0", "1099511627777", " 1"})
-    void shouldKeepMetadataAndAnEmptyDocumentDomainAvailable_whenCaptureBoundsAreInvalid(String bound) throws Exception {
-        var reader = new CdsExportDocumentFileSourceReader(documents, "", bound); when(documents.findCdsExportRowsAfter(27, null, 32)).thenReturn(List.of());
-        assertThat(reader.count(27)).isZero(); var values = new ByteArrayOutputStream(); var index = new ByteArrayOutputStream();
-        var result = new CdsExportNativeCaptureComposer().compose(values, index, Set.of(reader.table()), 10, 1024, () -> {}, out -> { out.beginTable(reader.table(), reader.columns(), 0); reader.capture(27, out); out.endTable(); });
-        assertThat(result.fields()).isZero(); assertThat(result.valueBytes()).isZero();
-    }
-    @ParameterizedTest @ValueSource(strings = {"invalid", "-1", "0", "1099511627777", " 1"})
-    void shouldRefuseInvalidBounds_beforeOpeningAnyPresentNativeFile(String bound) {
-        var row = mock(CdsExportRawRowDto.class); when(row.id()).thenReturn(7L); when(documents.findCdsExportRowsAfter(27, null, 32)).thenReturn(List.of(row));
+
+    @ParameterizedTest
+    @ValueSource(strings = {"invalid", "-1", "0", "1099511627777", " 1"})
+    void shouldKeepMetadataAndAnEmptyDocumentDomainAvailable_whenCaptureBoundsAreInvalid(
+            String bound) throws Exception {
         var reader = new CdsExportDocumentFileSourceReader(documents, "", bound);
-        assertThatThrownBy(() -> reader.capture(27, mock(CdsExportNativeCaptureComposer.Writer.class))).hasMessage("CDS_EXPORT_DOCUMENT_BOUND_INVALID"); verify(row, never()).cells();
+        when(documents.findCdsExportRowsAfter(27, null, 32)).thenReturn(List.of());
+        assertThat(reader.count(27)).isZero();
+        var values = new ByteArrayOutputStream();
+        var index = new ByteArrayOutputStream();
+        var result =
+                new CdsExportNativeCaptureComposer()
+                        .compose(
+                                values,
+                                index,
+                                Set.of(reader.table()),
+                                10,
+                                1024,
+                                () -> {},
+                                out -> {
+                                    out.beginTable(reader.table(), reader.columns(), 0);
+                                    reader.capture(27, out);
+                                    out.endTable();
+                                });
+        assertThat(result.fields()).isZero();
+        assertThat(result.valueBytes()).isZero();
     }
-    @Test void shouldDeclareTheCompleteDocumentAndFileDependencyRecipe() throws Exception {
-        var reader = new CdsExportDocumentFileSourceReader(documents, "", "1024"); assertThat(reader.requiredTables()).containsExactlyInAnyOrder("document", "ctl_document", "native_document_files");
-        assertThatCode(() -> new CdsExportSourceSchemaValidator().verify(reader.schema(), reader.columns())).doesNotThrowAnyException();
+
+    @ParameterizedTest
+    @ValueSource(strings = {"invalid", "-1", "0", "1099511627777", " 1"})
+    void shouldRefuseInvalidBounds_beforeOpeningAnyPresentNativeFile(String bound) {
+        var row = mock(CdsExportRawRowDto.class);
+        when(row.id()).thenReturn(7L);
+        when(documents.findCdsExportRowsAfter(27, null, 32)).thenReturn(List.of(row));
+        var reader = new CdsExportDocumentFileSourceReader(documents, "", bound);
+        assertThatThrownBy(
+                        () -> reader.capture(27, mock(CdsExportNativeCaptureComposer.Writer.class)))
+                .hasMessage("CDS_EXPORT_DOCUMENT_BOUND_INVALID");
+        verify(row, never()).cells();
     }
-    @Test void shouldPropagateCancellation_beforeAnySourceQuery() {
-        var reader = new CdsExportDocumentFileSourceReader(documents, "", "1024"); assertThatThrownBy(() -> reader.capture(27, mock(CdsExportNativeCaptureComposer.Writer.class), () -> { throw new java.util.concurrent.CancellationException("CANCELLED"); })).hasMessage("CANCELLED"); verifyNoInteractions(documents);
+
+    @Test
+    void shouldDeclareTheCompleteDocumentAndFileDependencyRecipe() throws Exception {
+        var reader = new CdsExportDocumentFileSourceReader(documents, "", "1024");
+        assertThat(reader.requiredTables())
+                .containsExactlyInAnyOrder("document", "ctl_document", "native_document_files");
+        assertThatCode(
+                        () ->
+                                new CdsExportSourceSchemaValidator()
+                                        .verify(reader.schema(), reader.columns()))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void shouldPropagateCancellation_beforeAnySourceQuery() {
+        var reader = new CdsExportDocumentFileSourceReader(documents, "", "1024");
+        assertThatThrownBy(
+                        () ->
+                                reader.capture(
+                                        27,
+                                        mock(CdsExportNativeCaptureComposer.Writer.class),
+                                        () -> {
+                                            throw new java.util.concurrent.CancellationException(
+                                                    "CANCELLED");
+                                        }))
+                .hasMessage("CANCELLED");
+        verifyNoInteractions(documents);
     }
 }

@@ -51,13 +51,12 @@ import static org.assertj.core.api.Assertions.*;
 @Transactional
 public class MeasurementTypeDaoIntegrationTest extends CarlosTestBase {
 
-    @Autowired
-    private MeasurementTypeDao measurementTypeDao;
+    @Autowired private MeasurementTypeDao measurementTypeDao;
 
-    @Autowired
-    private ValidationsDao validationsDao;
+    @Autowired private ValidationsDao validationsDao;
 
-    private MeasurementType createType(String type, String typeDisplayName, String measuringInstruction) {
+    private MeasurementType createType(
+            String type, String typeDisplayName, String measuringInstruction) {
         MeasurementType mt = new MeasurementType();
         mt.setType(type);
         mt.setTypeDisplayName(typeDisplayName);
@@ -69,24 +68,43 @@ public class MeasurementTypeDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     void shouldRequireDedicatedUnconstrainedTextValidation_forImportedSourceOnlyValues() {
-        for (MeasurementType existing : measurementTypeDao.findByType("CDS_CARE_VALUE")) measurementTypeDao.remove(existing.getId());
+        for (MeasurementType existing : measurementTypeDao.findByType("CDS_CARE_VALUE"))
+            measurementTypeDao.remove(existing.getId());
         measurementTypeDao.flush();
         var rule = new io.github.carlos_emr.carlos.commn.model.Validations();
-        rule.setName("CDS source text (no numeric inference)"); rule.setMaxLength(null);
-        validationsDao.persist(rule); validationsDao.flush();
-        MeasurementType type = createType("CDS_CARE_VALUE", "Source care value", "Uninterpreted source care value");
-        type.setValidation(rule.getId().toString()); measurementTypeDao.merge(type); measurementTypeDao.flush();
-        assertThat(measurementTypeDao.hasCdsImportType("CDS_CARE_VALUE", "Uninterpreted source care value")).isTrue();
+        rule.setName("CDS source text (no numeric inference)");
+        rule.setMaxLength(null);
+        validationsDao.persist(rule);
+        validationsDao.flush();
+        MeasurementType type =
+                createType(
+                        "CDS_CARE_VALUE", "Source care value", "Uninterpreted source care value");
+        type.setValidation(rule.getId().toString());
+        measurementTypeDao.merge(type);
+        measurementTypeDao.flush();
+        assertThat(
+                        measurementTypeDao.hasCdsImportType(
+                                "CDS_CARE_VALUE", "Uninterpreted source care value"))
+                .isTrue();
         assertThat(measurementTypeDao.hasCdsImportType("CDS_CARE_VALUE", null)).isTrue();
-        assertThat(measurementTypeDao.hasCdsImportType("CDS_CARE_VALUE", "Different clinical interpretation")).isFalse();
-        rule.setNumeric(Boolean.TRUE); validationsDao.merge(rule); validationsDao.flush();
-        assertThat(measurementTypeDao.hasCdsImportType("CDS_CARE_VALUE", "Uninterpreted source care value")).isFalse();
+        assertThat(
+                        measurementTypeDao.hasCdsImportType(
+                                "CDS_CARE_VALUE", "Different clinical interpretation"))
+                .isFalse();
+        rule.setNumeric(Boolean.TRUE);
+        validationsDao.merge(rule);
+        validationsDao.flush();
+        assertThat(
+                        measurementTypeDao.hasCdsImportType(
+                                "CDS_CARE_VALUE", "Uninterpreted source care value"))
+                .isFalse();
         assertThat(measurementTypeDao.hasCdsImportType("CDS_CARE_VALUE", null)).isFalse();
     }
 
     @Test
     void shouldRequireCompatibleNativeUnit_forFiniteCareMeasurements() {
-        String unique = "T" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String unique =
+                "T" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         createType(unique, "Synthetic measurement", "in kg");
         assertThat(measurementTypeDao.hasCdsImportType(unique, "in kg")).isTrue();
         assertThat(measurementTypeDao.hasCdsImportType(unique, null)).isTrue();
@@ -158,7 +176,8 @@ public class MeasurementTypeDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should find by type and measuring instruction")
         void shouldFindMeasurementTypes_byTypeAndInstruction() {
-            List<MeasurementType> results = measurementTypeDao.findByTypeAndMeasuringInstruction("WT", "Sitting");
+            List<MeasurementType> results =
+                    measurementTypeDao.findByTypeAndMeasuringInstruction("WT", "Sitting");
             assertThat(results).hasSize(1);
             assertThat(results.get(0).getTypeDisplayName()).isEqualTo("Weight (Alt)");
         }
@@ -167,8 +186,9 @@ public class MeasurementTypeDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should find by measuring instruction and type display name")
         void shouldFindMeasurementTypes_byInstructionAndDisplayName() {
-            List<MeasurementType> results = measurementTypeDao.findByMeasuringInstructionAndTypeDisplayName(
-                    "Standing, no shoes", "Weight");
+            List<MeasurementType> results =
+                    measurementTypeDao.findByMeasuringInstructionAndTypeDisplayName(
+                            "Standing, no shoes", "Weight");
             assertThat(results).hasSize(1);
         }
 

@@ -34,17 +34,67 @@ import org.springframework.stereotype.Service;
 public class CdsExportSourceCatalogueReader implements CdsExportNativeSourceReader {
     private final CdsExportSourceCatalogueDao source;
     private final Set<CdsCategory> selected;
+
     @org.springframework.beans.factory.annotation.Autowired
-    public CdsExportSourceCatalogueReader(CdsExportSourceCatalogueDao source) { this(source, Set.copyOf(EnumSet.allOf(CdsCategory.class))); }
-    private CdsExportSourceCatalogueReader(CdsExportSourceCatalogueDao source, Set<CdsCategory> selected) { this.source = Objects.requireNonNull(source); this.selected = Set.copyOf(selected); }
-    @Override public CdsExportNativeSourceReader forRequest(CdsExportCommand command) { return new CdsExportSourceCatalogueReader(source, command.categories()); }
-    @Override public String table() { return "clinical_source_catalogue"; }
-    @Override public Set<String> columns() { return Set.of("catalogueSha256"); }
-    @Override public Set<CdsCategory> categories() { return selected; }
-    @Override public Set<String> requiredTables() { return CdsExportSourceCatalogue.current().required(selected); }
-    @Override public CdsExportTableSchemaDto schema() { return source.readSourceSchema(); }
-    @Override public long count(int patient) { return count(patient, () -> {}); }
-    @Override public long count(int patient, Runnable checkpoint) { source.requireUnclassifiedSourcesEmpty(patient, checkpoint); return 0; }
-    @Override public void capture(int patient, CdsExportNativeCaptureComposer.Writer output) { source.requireUnclassifiedSourcesEmpty(patient, () -> {}); }
-    @Override public void capture(int patient, CdsExportNativeCaptureComposer.Writer output, Runnable checkpoint) { source.requireUnclassifiedSourcesEmpty(patient, checkpoint); }
+    public CdsExportSourceCatalogueReader(CdsExportSourceCatalogueDao source) {
+        this(source, Set.copyOf(EnumSet.allOf(CdsCategory.class)));
+    }
+
+    private CdsExportSourceCatalogueReader(
+            CdsExportSourceCatalogueDao source, Set<CdsCategory> selected) {
+        this.source = Objects.requireNonNull(source);
+        this.selected = Set.copyOf(selected);
+    }
+
+    @Override
+    public CdsExportNativeSourceReader forRequest(CdsExportCommand command) {
+        return new CdsExportSourceCatalogueReader(source, command.categories());
+    }
+
+    @Override
+    public String table() {
+        return "clinical_source_catalogue";
+    }
+
+    @Override
+    public Set<String> columns() {
+        return Set.of("catalogueSha256");
+    }
+
+    @Override
+    public Set<CdsCategory> categories() {
+        return selected;
+    }
+
+    @Override
+    public Set<String> requiredTables() {
+        return CdsExportSourceCatalogue.current().required(selected);
+    }
+
+    @Override
+    public CdsExportTableSchemaDto schema() {
+        return source.readSourceSchema();
+    }
+
+    @Override
+    public long count(int patient) {
+        return count(patient, () -> {});
+    }
+
+    @Override
+    public long count(int patient, Runnable checkpoint) {
+        source.requireUnclassifiedSourcesEmpty(patient, checkpoint);
+        return 0;
+    }
+
+    @Override
+    public void capture(int patient, CdsExportNativeCaptureComposer.Writer output) {
+        source.requireUnclassifiedSourcesEmpty(patient, () -> {});
+    }
+
+    @Override
+    public void capture(
+            int patient, CdsExportNativeCaptureComposer.Writer output, Runnable checkpoint) {
+        source.requireUnclassifiedSourcesEmpty(patient, checkpoint);
+    }
 }

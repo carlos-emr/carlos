@@ -36,56 +36,104 @@ import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class CdsJdbcAdmissionGuardUnitTest {
-    @Test void shouldKeepServerBinaryStatementsGuarded_withoutExposingTheDriverConnection() throws Exception {
-        Connection raw = mock(Connection.class); var driver = mock(com.mysql.cj.jdbc.JdbcConnection.class);
+    @Test
+    void shouldKeepServerBinaryStatementsGuarded_withoutExposingTheDriverConnection()
+            throws Exception {
+        Connection raw = mock(Connection.class);
+        var driver = mock(com.mysql.cj.jdbc.JdbcConnection.class);
         var binary = mock(com.mysql.cj.jdbc.ServerPreparedStatement.class);
         when(raw.unwrap(com.mysql.cj.jdbc.JdbcConnection.class)).thenReturn(driver);
-        String sql = "SELECT takemin FROM drugs WHERE drugid=?"; when(driver.serverPrepareStatement(sql)).thenReturn(binary);
-        var guarded = CdsJdbcAdmissionGuard.wrap(raw, mock(CdsJdbcAdmissionState.class), () -> false);
+        String sql = "SELECT takemin FROM drugs WHERE drugid=?";
+        when(driver.serverPrepareStatement(sql)).thenReturn(binary);
+        var guarded =
+                CdsJdbcAdmissionGuard.wrap(raw, mock(CdsJdbcAdmissionState.class), () -> false);
         try (var statement = CdsJdbcAdmissionGuard.prepareBinaryRead(guarded, sql)) {
-            assertThat(statement.getConnection()).isSameAs(guarded); statement.setLong(1, 27); statement.setQueryTimeout(5);
-            assertThatThrownBy(() -> statement.unwrap(com.mysql.cj.jdbc.ServerPreparedStatement.class)).isInstanceOf(SQLException.class);
-            var statementConnection = statement.getConnection();
-            assertThatThrownBy(() -> statementConnection.unwrap(com.mysql.cj.jdbc.JdbcConnection.class)).isInstanceOf(SQLException.class);
-        }
-        verify(binary).setLong(1, 27); verify(binary).setQueryTimeout(5); verify(binary).close();
-        assertThatThrownBy(() -> CdsJdbcAdmissionGuard.prepareBinaryRead(guarded, "UPDATE drugs SET takemin=1 WHERE drugid=27")).isInstanceOf(SQLException.class);
-    }
-
-    @Test void shouldApplyThePhysicalMaintenanceGate_beforeExecutingAServerBinaryRead() throws Exception {
-        Connection raw = mock(Connection.class); var driver = mock(com.mysql.cj.jdbc.JdbcConnection.class);
-        var binary = mock(com.mysql.cj.jdbc.ServerPreparedStatement.class);
-        var check = mock(java.sql.PreparedStatement.class); var rows = mock(java.sql.ResultSet.class);
-        var state = mock(CdsJdbcAdmissionState.class); when(state.lockName()).thenReturn("cds-binary-fixture");
-        when(raw.unwrap(com.mysql.cj.jdbc.JdbcConnection.class)).thenReturn(driver);
-        String sql = "SELECT takemin FROM drugs WHERE drugid=?"; when(driver.serverPrepareStatement(sql)).thenReturn(binary);
-        when(raw.prepareStatement("SELECT IS_USED_LOCK(?)")).thenReturn(check); when(check.executeQuery()).thenReturn(rows);
-        when(rows.next()).thenReturn(true); when(rows.getLong(1)).thenReturn(55L); when(rows.wasNull()).thenReturn(false);
-        try (var statement = CdsJdbcAdmissionGuard.prepareBinaryRead(CdsJdbcAdmissionGuard.wrap(raw, state, () -> false), sql)) {
+            assertThat(statement.getConnection()).isSameAs(guarded);
             statement.setLong(1, 27);
-            assertThatThrownBy(statement::executeQuery).isInstanceOf(SQLException.class).hasMessageContaining("CDS maintenance");
+            statement.setQueryTimeout(5);
+            assertThatThrownBy(
+                            () -> statement.unwrap(com.mysql.cj.jdbc.ServerPreparedStatement.class))
+                    .isInstanceOf(SQLException.class);
+            var statementConnection = statement.getConnection();
+            assertThatThrownBy(
+                            () ->
+                                    statementConnection.unwrap(
+                                            com.mysql.cj.jdbc.JdbcConnection.class))
+                    .isInstanceOf(SQLException.class);
         }
-        verify(binary, never()).executeQuery(); verify(check).setString(1, "cds-binary-fixture");
+        verify(binary).setLong(1, 27);
+        verify(binary).setQueryTimeout(5);
+        verify(binary).close();
+        assertThatThrownBy(
+                        () ->
+                                CdsJdbcAdmissionGuard.prepareBinaryRead(
+                                        guarded, "UPDATE drugs SET takemin=1 WHERE drugid=27"))
+                .isInstanceOf(SQLException.class);
+    }
+
+    @Test
+    void shouldApplyThePhysicalMaintenanceGate_beforeExecutingAServerBinaryRead() throws Exception {
+        Connection raw = mock(Connection.class);
+        var driver = mock(com.mysql.cj.jdbc.JdbcConnection.class);
+        var binary = mock(com.mysql.cj.jdbc.ServerPreparedStatement.class);
+        var check = mock(java.sql.PreparedStatement.class);
+        var rows = mock(java.sql.ResultSet.class);
+        var state = mock(CdsJdbcAdmissionState.class);
+        when(state.lockName()).thenReturn("cds-binary-fixture");
+        when(raw.unwrap(com.mysql.cj.jdbc.JdbcConnection.class)).thenReturn(driver);
+        String sql = "SELECT takemin FROM drugs WHERE drugid=?";
+        when(driver.serverPrepareStatement(sql)).thenReturn(binary);
+        when(raw.prepareStatement("SELECT IS_USED_LOCK(?)")).thenReturn(check);
+        when(check.executeQuery()).thenReturn(rows);
+        when(rows.next()).thenReturn(true);
+        when(rows.getLong(1)).thenReturn(55L);
+        when(rows.wasNull()).thenReturn(false);
+        try (var statement =
+                CdsJdbcAdmissionGuard.prepareBinaryRead(
+                        CdsJdbcAdmissionGuard.wrap(raw, state, () -> false), sql)) {
+            statement.setLong(1, 27);
+            assertThatThrownBy(statement::executeQuery)
+                    .isInstanceOf(SQLException.class)
+                    .hasMessageContaining("CDS maintenance");
+        }
+        verify(binary, never()).executeQuery();
+        verify(check).setString(1, "cds-binary-fixture");
     }
 
     @ParameterizedTest
-    @ValueSource(strings={"SELECT VERſION()","SELECT weeK('2026-10-29') FROM cds_import_run"})
-    void shouldRefuseUnicodeLookalikeFunctions_afterTheSqlParserAcceptsTheirOriginalSpelling(String sql) throws Exception {
-        var parsed=CCJSqlParserUtil.parseStatements(sql).getStatements();
+    @ValueSource(strings = {"SELECT VERſION()", "SELECT weeK('2026-10-29') FROM cds_import_run"})
+    void shouldRefuseUnicodeLookalikeFunctions_afterTheSqlParserAcceptsTheirOriginalSpelling(
+            String sql) throws Exception {
+        var parsed = CCJSqlParserUtil.parseStatements(sql).getStatements();
         assertThat(parsed).hasSize(1);
-        var expression=((net.sf.jsqlparser.statement.select.Select)parsed.getFirst())
-                .getPlainSelect().getSelectItems().getFirst().getExpression();
+        var expression =
+                ((net.sf.jsqlparser.statement.select.Select) parsed.getFirst())
+                        .getPlainSelect()
+                        .getSelectItems()
+                        .getFirst()
+                        .getExpression();
         assertThat(expression).isInstanceOf(net.sf.jsqlparser.expression.Function.class);
-        assertThat(((net.sf.jsqlparser.expression.Function)expression).getName()).containsAnyOf("ſ","K");
-        assertThatThrownBy(()->CdsJdbcAdmissionGuard.clinical(sql)).isInstanceOf(SQLException.class);
+        assertThat(((net.sf.jsqlparser.expression.Function) expression).getName())
+                .containsAnyOf("ſ", "K");
+        assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical(sql))
+                .isInstanceOf(SQLException.class);
     }
 
     @ParameterizedTest
-    @ValueSource(strings={"SELECT * FROM cds_import_checKpoint","SELECT * FROM `cds_import_checKpoint`"})
-    void shouldKeepUnicodeLookalikeTablesClinical_afterTheSqlParserAcceptsTheirOriginalSpelling(String sql) throws Exception {
-        var parsed=CCJSqlParserUtil.parseStatements(sql).getStatements();
+    @ValueSource(
+            strings = {
+                "SELECT * FROM cds_import_checKpoint",
+                "SELECT * FROM `cds_import_checKpoint`"
+            })
+    void shouldKeepUnicodeLookalikeTablesClinical_afterTheSqlParserAcceptsTheirOriginalSpelling(
+            String sql) throws Exception {
+        var parsed = CCJSqlParserUtil.parseStatements(sql).getStatements();
         assertThat(parsed).hasSize(1);
-        assertThat(((net.sf.jsqlparser.statement.select.Select)parsed.getFirst()).getPlainSelect().getFromItem().toString())
+        assertThat(
+                        ((net.sf.jsqlparser.statement.select.Select) parsed.getFirst())
+                                .getPlainSelect()
+                                .getFromItem()
+                                .toString())
                 .contains("cds_import_checKpoint");
         assertThat(CdsJdbcAdmissionGuard.clinical(sql)).isTrue();
     }
@@ -96,34 +144,54 @@ class CdsJdbcAdmissionGuardUnitTest {
         assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical("select ( from demographic"))
                 .isInstanceOf(SQLException.class);
         long deadline = System.nanoTime() + java.time.Duration.ofSeconds(3).toNanos();
-        while (Thread.getAllStackTraces().keySet().stream().anyMatch(thread -> thread.isAlive()
-                && thread.getName().equals("cds-admission-sql-parser")) && System.nanoTime() < deadline) Thread.sleep(10);
-        assertThat(Thread.getAllStackTraces().keySet()).noneMatch(thread -> thread.isAlive()
-                && thread.getName().equals("cds-admission-sql-parser"));
+        while (Thread.getAllStackTraces().keySet().stream()
+                        .anyMatch(
+                                thread ->
+                                        thread.isAlive()
+                                                && thread.getName()
+                                                        .equals("cds-admission-sql-parser"))
+                && System.nanoTime() < deadline) Thread.sleep(10);
+        assertThat(Thread.getAllStackTraces().keySet())
+                .noneMatch(
+                        thread ->
+                                thread.isAlive()
+                                        && thread.getName().equals("cds-admission-sql-parser"));
     }
 
     @Test
-    void shouldPreserveAsciiBuiltinAndTableCaseRecognition_withoutPromotingUnknownAsciiNames() throws Exception {
-        for(String sql:new String[]{"select version()","SELECT VERSION()","select connection_id()",
-                "SELECT WeEk('2026-10-29') FROM CDS_IMPORT_CHECKPOINT",
-                "select upper(source_namespace) from cDs_ImPoRt_RuN"})
-            assertThat(CdsJdbcAdmissionGuard.clinical(sql)).as(sql).isFalse();
-        assertThat(CdsJdbcAdmissionGuard.clinical("select * from cds_import_checkpoint_extra")).isTrue();
-        assertThatThrownBy(()->CdsJdbcAdmissionGuard.clinical("select unknown_ascii_function() from cds_import_run"))
+    void shouldPreserveAsciiBuiltinAndTableCaseRecognition_withoutPromotingUnknownAsciiNames()
+            throws Exception {
+        for (String sql :
+                new String[] {
+                    "select version()",
+                    "SELECT VERSION()",
+                    "select connection_id()",
+                    "SELECT WeEk('2026-10-29') FROM CDS_IMPORT_CHECKPOINT",
+                    "select upper(source_namespace) from cDs_ImPoRt_RuN"
+                }) assertThat(CdsJdbcAdmissionGuard.clinical(sql)).as(sql).isFalse();
+        assertThat(CdsJdbcAdmissionGuard.clinical("select * from cds_import_checkpoint_extra"))
+                .isTrue();
+        assertThatThrownBy(
+                        () ->
+                                CdsJdbcAdmissionGuard.clinical(
+                                        "select unknown_ascii_function() from cds_import_run"))
                 .isInstanceOf(SQLException.class);
     }
 
     @Test
-    void shouldPreserveUnicodeSqlValuesAndIdentifiers_withoutChangingTheExecutedStatement() throws Exception {
-        String sql="select upper(source_namespace) from cds_import_run where source_namespace='ı K café 漢字 🩺'";
+    void shouldPreserveUnicodeSqlValuesAndIdentifiers_withoutChangingTheExecutedStatement()
+            throws Exception {
+        String sql =
+                "select upper(source_namespace) from cds_import_run where source_namespace='ı K café 漢字 🩺'";
         assertThat(CCJSqlParserUtil.parseStatements(sql).getStatements()).hasSize(1);
         assertThat(CdsJdbcAdmissionGuard.clinical(sql)).isFalse();
-        String clinical="select * from `患者` where `名字`='Éloïse'";
+        String clinical = "select * from `患者` where `名字`='Éloïse'";
         assertThat(CCJSqlParserUtil.parseStatements(clinical).getStatements()).hasSize(1);
         assertThat(CdsJdbcAdmissionGuard.clinical(clinical)).isTrue();
-        Connection connection=mock(Connection.class);Statement statement=mock(Statement.class);
+        Connection connection = mock(Connection.class);
+        Statement statement = mock(Statement.class);
         when(connection.createStatement()).thenReturn(statement);
-        CdsJdbcAdmissionGuard.wrap(connection,null,()->false).createStatement().execute(sql);
+        CdsJdbcAdmissionGuard.wrap(connection, null, () -> false).createStatement().execute(sql);
         verify(statement).execute(sql);
     }
 
@@ -131,175 +199,304 @@ class CdsJdbcAdmissionGuardUnitTest {
     void shouldPreserveDescribeMetadataReads_whenAsciiWhitespaceVaries() throws Exception {
         for (String keyword : new String[] {"DESCRIBE", "desc"}) {
             for (String whitespace : new String[] {" ", "\t", "\n", "\r\n", " \t\r\n "}) {
-                assertThat(CdsJdbcAdmissionGuard.clinical(keyword + whitespace + "demographic")).isFalse();
+                assertThat(CdsJdbcAdmissionGuard.clinical(keyword + whitespace + "demographic"))
+                        .isFalse();
             }
         }
     }
 
     @Test
     void shouldPreserveDescribeRefusals_whenCommentsOrStatementBoundariesChange() throws Exception {
-        for (String sql : new String[] {
-                "DESC demographic\n-- trailing comment", "DESCRIBE demographic /* first\nsecond */"}) {
+        for (String sql :
+                new String[] {
+                    "DESC demographic\n-- trailing comment",
+                    "DESCRIBE demographic /* first\nsecond */"
+                }) {
             assertThat(CCJSqlParserUtil.parseStatements(sql).getStatements()).hasSize(1);
-            assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical(sql)).isInstanceOf(SQLException.class);
+            assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical(sql))
+                    .isInstanceOf(SQLException.class);
         }
-        for (String sql : new String[] {"DESC demographic; COMMIT", "DESCRIBE demographic; SELECT 1"}) {
-            assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical(sql)).isInstanceOf(SQLException.class);
+        for (String sql :
+                new String[] {"DESC demographic; COMMIT", "DESCRIBE demographic; SELECT 1"}) {
+            assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical(sql))
+                    .isInstanceOf(SQLException.class);
         }
     }
 
     @Test
     void shouldBoundDescribeRefusalWork_whenLongWhitespacePrecedesAMultilineComment() {
         String sql = "DESC" + " ".repeat(128 * 1024) + " demographic /* first\nsecond */";
-        assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
-            assertThat(CCJSqlParserUtil.parseStatements(sql).getStatements()).hasSize(1);
-            assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical(sql)).isInstanceOf(SQLException.class);
-        });
+        assertTimeoutPreemptively(
+                Duration.ofSeconds(5),
+                () -> {
+                    assertThat(CCJSqlParserUtil.parseStatements(sql).getStatements()).hasSize(1);
+                    assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical(sql))
+                            .isInstanceOf(SQLException.class);
+                });
     }
 
     @Test
     void shouldNormalizeSuffixesInLinearTime_whenLongRunsDoNotTerminateTheStatement() {
         String semicolons = "select id from cds_import_admission" + ";".repeat(200000) + " commit";
-        String wrongLock = "select id from cds_import_admission" + " ".repeat(200000) + "LOCK IN SHARE MODX";
-        assertTimeoutPreemptively(Duration.ofSeconds(3), () -> {
-            assertThat(CdsJdbcAdmissionGuard.stripTerminalSemicolons(semicolons)).isEqualTo(semicolons);
-            assertThat(CdsJdbcAdmissionGuard.normalizeSharedLock(semicolons)).isEqualTo(semicolons);
-            assertThat(CdsJdbcAdmissionGuard.normalizeSharedLock(wrongLock)).isEqualTo(wrongLock);
-        });
+        String wrongLock =
+                "select id from cds_import_admission" + " ".repeat(200000) + "LOCK IN SHARE MODX";
+        assertTimeoutPreemptively(
+                Duration.ofSeconds(3),
+                () -> {
+                    assertThat(CdsJdbcAdmissionGuard.stripTerminalSemicolons(semicolons))
+                            .isEqualTo(semicolons);
+                    assertThat(CdsJdbcAdmissionGuard.normalizeSharedLock(semicolons))
+                            .isEqualTo(semicolons);
+                    assertThat(CdsJdbcAdmissionGuard.normalizeSharedLock(wrongLock))
+                            .isEqualTo(wrongLock);
+                });
     }
 
     @Test
     void shouldRetainExactSuffixSemantics_whenWhitespaceAndCaseVary() throws Exception {
-        assertThat(CdsJdbcAdmissionGuard.stripTerminalSemicolons("\u2003select 1;;;\u2003")).isEqualTo("select 1");
-        assertThat(CdsJdbcAdmissionGuard.stripTerminalSemicolons("select 1;; ;")).isEqualTo("select 1;; ");
-        assertThat(CdsJdbcAdmissionGuard.normalizeSharedLock("select id from cds_import_admission \tLoCk\tIn\fShArE\rMoDe \n"))
+        assertThat(CdsJdbcAdmissionGuard.stripTerminalSemicolons("\u2003select 1;;;\u2003"))
+                .isEqualTo("select 1");
+        assertThat(CdsJdbcAdmissionGuard.stripTerminalSemicolons("select 1;; ;"))
+                .isEqualTo("select 1;; ");
+        assertThat(
+                        CdsJdbcAdmissionGuard.normalizeSharedLock(
+                                "select id from cds_import_admission \tLoCk\tIn\fShArE\rMoDe \n"))
                 .isEqualTo("select id from cds_import_admission FOR SHARE");
-        for (String suffix : new String[] {"LOCK IN SHARE MODEX", "LOCK IN SHARE MOD", "LOCK IN SHARE MODE NOWAIT",
-                "LOCK\u2003IN SHARE MODE", "LOC\u212a IN SHARE MODE", "LOCK INSHARE MODE"}) {
+        for (String suffix :
+                new String[] {
+                    "LOCK IN SHARE MODEX",
+                    "LOCK IN SHARE MOD",
+                    "LOCK IN SHARE MODE NOWAIT",
+                    "LOCK\u2003IN SHARE MODE",
+                    "LOC\u212a IN SHARE MODE",
+                    "LOCK INSHARE MODE"
+                }) {
             String sql = "select id from cds_import_admission " + suffix;
             assertThat(CdsJdbcAdmissionGuard.normalizeSharedLock(sql)).isEqualTo(sql);
         }
         String prefix = "select id from cds_import_admission";
-        assertThat(CdsJdbcAdmissionGuard.clinical(prefix + " ".repeat(200000) + "lock in share mode;;;")).isFalse();
-        assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical(prefix + ";".repeat(10000) + "commit"))
+        assertThat(
+                        CdsJdbcAdmissionGuard.clinical(
+                                prefix + " ".repeat(200000) + "lock in share mode;;;"))
+                .isFalse();
+        assertThatThrownBy(
+                        () -> CdsJdbcAdmissionGuard.clinical(prefix + ";".repeat(10000) + "commit"))
                 .isInstanceOf(SQLException.class);
     }
 
     @Test
-    void shouldExecuteTheOriginalSharedLockSql_whenClassificationNormalizesItsSuffix() throws Exception {
+    void shouldExecuteTheOriginalSharedLockSql_whenClassificationNormalizesItsSuffix()
+            throws Exception {
         Connection connection = mock(Connection.class);
         Statement statement = mock(Statement.class);
         when(connection.createStatement()).thenReturn(statement);
         String original = "select id from cds_import_admission \tLoCk\tIn ShArE MoDe;;;";
-        CdsJdbcAdmissionGuard.wrap(connection, null, () -> false).createStatement().execute(original);
+        CdsJdbcAdmissionGuard.wrap(connection, null, () -> false)
+                .createStatement()
+                .execute(original);
         verify(statement).execute(original);
     }
 
     @Test
     void shouldReadAdministrativeProgramPreferences_whenMaintenanceIsActive() throws Exception {
-        assertThat(CdsJdbcAdmissionGuard.clinical("select p.program_id from provider_default_program p "
-                + "where p.provider_no=? order by p.id")).isFalse();
-        assertThat(CdsJdbcAdmissionGuard.clinical("select p.id,p.name from program p join provider_default_program d "
-                + "on p.id=d.program_id where d.provider_no=?")).isFalse();
+        assertThat(
+                        CdsJdbcAdmissionGuard.clinical(
+                                "select p.program_id from provider_default_program p "
+                                        + "where p.provider_no=? order by p.id"))
+                .isFalse();
+        assertThat(
+                        CdsJdbcAdmissionGuard.clinical(
+                                "select p.id,p.name from program p join provider_default_program d "
+                                        + "on p.id=d.program_id where d.provider_no=?"))
+                .isFalse();
     }
 
     @Test
-    void shouldGuardPreferenceWritesAndClinicalProgramGraphs_whenPreferenceReadsAreAllowed() throws Exception {
-        for (String sql : new String[] {
-                "update provider_default_program set program_id=? where provider_no=?",
-                "insert into provider_default_program (provider_no,program_id) values (?,?)",
-                "delete from provider_default_program where provider_no=?",
-                "select d.program_id from provider_default_program d join admission a on a.program_id=d.program_id",
-                "select d.program_id from provider_default_program d join program_queue q on q.program_id=d.program_id",
-                "select d.program_id,(select count(*) from admission a where a.program_id=d.program_id) from provider_default_program d",
-                "select * from provider_default_program d join demographic p on p.provider_no=d.provider_no"}) {
+    void shouldGuardPreferenceWritesAndClinicalProgramGraphs_whenPreferenceReadsAreAllowed()
+            throws Exception {
+        for (String sql :
+                new String[] {
+                    "update provider_default_program set program_id=? where provider_no=?",
+                    "insert into provider_default_program (provider_no,program_id) values (?,?)",
+                    "delete from provider_default_program where provider_no=?",
+                    "select d.program_id from provider_default_program d join admission a on a.program_id=d.program_id",
+                    "select d.program_id from provider_default_program d join program_queue q on q.program_id=d.program_id",
+                    "select d.program_id,(select count(*) from admission a where a.program_id=d.program_id) from provider_default_program d",
+                    "select * from provider_default_program d join demographic p on p.provider_no=d.provider_no"
+                }) {
             assertThat(CdsJdbcAdmissionGuard.clinical(sql)).as(sql).isTrue();
         }
     }
 
     @Test
     void shouldGuardClinicalWrites_acrossNativeAndOrmSqlShapes() throws Exception {
-        assertThat(CdsJdbcAdmissionGuard.clinical("update demographic set last_name=? where demographic_no=?")).isTrue();
-        assertThat(CdsJdbcAdmissionGuard.clinical("insert into drugs (demographic_no) values (?)")).isTrue();
-        assertThat(CdsJdbcAdmissionGuard.clinical("select p.* from preventions p where p.demographic_no=?")).isTrue();
+        assertThat(
+                        CdsJdbcAdmissionGuard.clinical(
+                                "update demographic set last_name=? where demographic_no=?"))
+                .isTrue();
+        assertThat(CdsJdbcAdmissionGuard.clinical("insert into drugs (demographic_no) values (?)"))
+                .isTrue();
+        assertThat(
+                        CdsJdbcAdmissionGuard.clinical(
+                                "select p.* from preventions p where p.demographic_no=?"))
+                .isTrue();
     }
 
     @Test
     void shouldKeepAdministrativeExemptionsNarrow_whenQueriesJoinClinicalTables() throws Exception {
-        assertThat(CdsJdbcAdmissionGuard.clinical("select * from cds_import_run where id=?")).isFalse();
-        assertThat(CdsJdbcAdmissionGuard.clinical("update cds_import_run set state=? where id=?")).isFalse();
-        for (String table : new String[]{"cds_import_review","cds_import_preparation","cds_import_identity"}) {
-            assertThat(CdsJdbcAdmissionGuard.clinical("select * from "+table+" where id=?")).isFalse();
+        assertThat(CdsJdbcAdmissionGuard.clinical("select * from cds_import_run where id=?"))
+                .isFalse();
+        assertThat(CdsJdbcAdmissionGuard.clinical("update cds_import_run set state=? where id=?"))
+                .isFalse();
+        for (String table :
+                new String[] {
+                    "cds_import_review", "cds_import_preparation", "cds_import_identity"
+                }) {
+            assertThat(CdsJdbcAdmissionGuard.clinical("select * from " + table + " where id=?"))
+                    .isFalse();
         }
-        assertThat(CdsJdbcAdmissionGuard.clinical("select * from cds_import_run r join demographic d on d.demographic_no=r.expected_patients")).isTrue();
-        assertThat(CdsJdbcAdmissionGuard.clinical("update security set password=(select last_name from demographic limit 1)")).isTrue();
-        assertThat(CdsJdbcAdmissionGuard.clinical("insert into cds_import_unreviewed_table values (?)")).isTrue();
+        assertThat(
+                        CdsJdbcAdmissionGuard.clinical(
+                                "select * from cds_import_run r join demographic d on d.demographic_no=r.expected_patients"))
+                .isTrue();
+        assertThat(
+                        CdsJdbcAdmissionGuard.clinical(
+                                "update security set password=(select last_name from demographic limit 1)"))
+                .isTrue();
+        assertThat(
+                        CdsJdbcAdmissionGuard.clinical(
+                                "insert into cds_import_unreviewed_table values (?)"))
+                .isTrue();
     }
 
     @Test
-    void shouldAllowExactExportControlMetadata_withoutExemptingClinicalSourceQueries() throws Exception {
-        for (String table : new String[]{"cds_export_run", "cds_export_event", "cds_export_attempt"}) {
-            assertThat(CdsJdbcAdmissionGuard.clinical("select * from " + table + " where id=?")).isFalse();
-            assertThat(CdsJdbcAdmissionGuard.clinical("update " + table + " set id=? where id=?")).isFalse();
-            assertThat(CdsJdbcAdmissionGuard.clinical("select r.id from " + table
-                    + " r join demographic d on d.demographic_no=r.id")).isTrue();
+    void shouldAllowExactExportControlMetadata_withoutExemptingClinicalSourceQueries()
+            throws Exception {
+        for (String table :
+                new String[] {"cds_export_run", "cds_export_event", "cds_export_attempt"}) {
+            assertThat(CdsJdbcAdmissionGuard.clinical("select * from " + table + " where id=?"))
+                    .isFalse();
+            assertThat(CdsJdbcAdmissionGuard.clinical("update " + table + " set id=? where id=?"))
+                    .isFalse();
+            assertThat(
+                            CdsJdbcAdmissionGuard.clinical(
+                                    "select r.id from "
+                                            + table
+                                            + " r join demographic d on d.demographic_no=r.id"))
+                    .isTrue();
         }
         assertThat(CdsJdbcAdmissionGuard.clinical("select * from cds_export_run_extra")).isTrue();
         assertThat(CdsJdbcAdmissionGuard.clinical("select * from cds_export_unreviewed")).isTrue();
     }
 
     @Test
-    void shouldAllowOnlyTheExactDatabaseLeaseClock_withoutAdmittingSubqueriesOrMultipleStatements() throws Exception {
-        assertThat(CdsJdbcAdmissionGuard.clinical("SELECT UNIX_TIMESTAMP(CURRENT_TIMESTAMP(6))")).isFalse();
-        assertThat(CdsJdbcAdmissionGuard.clinical("SELECT UNIX_TIMESTAMP(CURRENT_TIMESTAMP(6)) FROM demographic")).isTrue();
-        assertThat(CdsJdbcAdmissionGuard.clinical("SELECT UNIX_TIMESTAMP(CURRENT_TIMESTAMP(6)) UNION SELECT demographic_no FROM demographic")).isTrue();
-        assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical("SELECT UNIX_TIMESTAMP(CURRENT_TIMESTAMP(6)); COMMIT"))
+    void shouldAllowOnlyTheExactDatabaseLeaseClock_withoutAdmittingSubqueriesOrMultipleStatements()
+            throws Exception {
+        assertThat(CdsJdbcAdmissionGuard.clinical("SELECT UNIX_TIMESTAMP(CURRENT_TIMESTAMP(6))"))
+                .isFalse();
+        assertThat(
+                        CdsJdbcAdmissionGuard.clinical(
+                                "SELECT UNIX_TIMESTAMP(CURRENT_TIMESTAMP(6)) FROM demographic"))
+                .isTrue();
+        assertThat(
+                        CdsJdbcAdmissionGuard.clinical(
+                                "SELECT UNIX_TIMESTAMP(CURRENT_TIMESTAMP(6)) UNION SELECT demographic_no FROM demographic"))
+                .isTrue();
+        assertThatThrownBy(
+                        () ->
+                                CdsJdbcAdmissionGuard.clinical(
+                                        "SELECT UNIX_TIMESTAMP(CURRENT_TIMESTAMP(6)); COMMIT"))
                 .isInstanceOf(SQLException.class);
     }
 
     @Test
-    void shouldClassifyMariaDbSharedLocks_withoutChangingClinicalOrStatementBoundaries() throws Exception {
-        assertThat(CdsJdbcAdmissionGuard.clinical("select c.id from cds_import_admission c where c.id=? lock in share mode")).isFalse();
-        assertThat(CdsJdbcAdmissionGuard.clinical("select d.demographic_no from demographic d where d.demographic_no=? LOCK IN SHARE MODE;")).isTrue();
-        assertThat(CdsJdbcAdmissionGuard.clinical("select r.id from cds_import_run r join demographic d on d.demographic_no=r.expected_patients lock in share mode")).isTrue();
-        assertThatThrownBy(()->CdsJdbcAdmissionGuard.clinical("select 1; select id from cds_import_admission lock in share mode"))
+    void shouldClassifyMariaDbSharedLocks_withoutChangingClinicalOrStatementBoundaries()
+            throws Exception {
+        assertThat(
+                        CdsJdbcAdmissionGuard.clinical(
+                                "select c.id from cds_import_admission c where c.id=? lock in share mode"))
+                .isFalse();
+        assertThat(
+                        CdsJdbcAdmissionGuard.clinical(
+                                "select d.demographic_no from demographic d where d.demographic_no=? LOCK IN SHARE MODE;"))
+                .isTrue();
+        assertThat(
+                        CdsJdbcAdmissionGuard.clinical(
+                                "select r.id from cds_import_run r join demographic d on d.demographic_no=r.expected_patients lock in share mode"))
+                .isTrue();
+        assertThatThrownBy(
+                        () ->
+                                CdsJdbcAdmissionGuard.clinical(
+                                        "select 1; select id from cds_import_admission lock in share mode"))
                 .isInstanceOf(SQLException.class);
-        assertThatThrownBy(()->CdsJdbcAdmissionGuard.clinical("select id from cds_import_admission lock in share mode; commit"))
+        assertThatThrownBy(
+                        () ->
+                                CdsJdbcAdmissionGuard.clinical(
+                                        "select id from cds_import_admission lock in share mode; commit"))
                 .isInstanceOf(SQLException.class);
     }
 
     @Test
-    void shouldAdmitExactProviderBinaryCasts_withoutExemptingNestedClinicalOrRoutineSql() throws Exception {
-        for (String sql : new String[] {
-                "select provider_no from provider where ohip_no=? and CAST(ohip_no AS BINARY)=CAST(? AS BINARY) order by provider_no limit ?",
-                "select provider_no from provider where practitionerNoType='CPSO' and practitionerNo=? and CAST(practitionerNoType AS BINARY)=CAST('CPSO' AS BINARY) and CAST(practitionerNo AS BINARY)=CAST(? AS BINARY) order by provider_no limit ?",
-                "select provider_no from provider where first_name=CONVERT(? USING latin1) and last_name=CONVERT(? USING latin1) and CAST(CONVERT(first_name USING utf8mb4) AS BINARY)=CAST(CONVERT(? USING utf8mb4) AS BINARY) and CAST(CONVERT(last_name USING utf8mb4) AS BINARY)=CAST(CONVERT(? USING utf8mb4) AS BINARY) order by provider_no limit ?"}) {
+    void shouldAdmitExactProviderBinaryCasts_withoutExemptingNestedClinicalOrRoutineSql()
+            throws Exception {
+        for (String sql :
+                new String[] {
+                    "select provider_no from provider where ohip_no=? and CAST(ohip_no AS BINARY)=CAST(? AS BINARY) order by provider_no limit ?",
+                    "select provider_no from provider where practitionerNoType='CPSO' and practitionerNo=? and CAST(practitionerNoType AS BINARY)=CAST('CPSO' AS BINARY) and CAST(practitionerNo AS BINARY)=CAST(? AS BINARY) order by provider_no limit ?",
+                    "select provider_no from provider where first_name=CONVERT(? USING latin1) and last_name=CONVERT(? USING latin1) and CAST(CONVERT(first_name USING utf8mb4) AS BINARY)=CAST(CONVERT(? USING utf8mb4) AS BINARY) and CAST(CONVERT(last_name USING utf8mb4) AS BINARY)=CAST(CONVERT(? USING utf8mb4) AS BINARY) order by provider_no limit ?"
+                }) {
             assertThat(CdsJdbcAdmissionGuard.clinical(sql)).isFalse();
         }
-        assertThat(CdsJdbcAdmissionGuard.clinical("select CAST((select last_name from demographic limit 1) AS BINARY) from provider")).isTrue();
-        for (String sql : new String[] {
-                "select CAST(rewrite_chart() AS BINARY) from provider",
-                "select CAST(clinic.rewrite_chart() AS BINARY) from provider",
-                "select provider_no from provider where CAST(first_name AS BINARY)=CAST(? AS BINARY); commit"}) {
-            assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical(sql)).isInstanceOf(SQLException.class);
+        assertThat(
+                        CdsJdbcAdmissionGuard.clinical(
+                                "select CAST((select last_name from demographic limit 1) AS BINARY) from provider"))
+                .isTrue();
+        for (String sql :
+                new String[] {
+                    "select CAST(rewrite_chart() AS BINARY) from provider",
+                    "select CAST(clinic.rewrite_chart() AS BINARY) from provider",
+                    "select provider_no from provider where CAST(first_name AS BINARY)=CAST(? AS BINARY); commit"
+                }) {
+            assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical(sql))
+                    .isInstanceOf(SQLException.class);
         }
     }
 
     @Test
     void shouldRefuseImplicitCommitAndRoutineEscapes_whenGuardIsInstalled() {
-        for (String sql : new String[]{"truncate table demographic", "set autocommit=1", "call rewrite_chart()",
-                "select rewrite_chart() from security", "update demographic set last_name='x'; commit",
-                "show variables; update demographic set last_name='x'", "select 1; commit"}) {
-            assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical(sql), sql).isInstanceOf(SQLException.class);
+        for (String sql :
+                new String[] {
+                    "truncate table demographic",
+                    "set autocommit=1",
+                    "call rewrite_chart()",
+                    "select rewrite_chart() from security",
+                    "update demographic set last_name='x'; commit",
+                    "show variables; update demographic set last_name='x'",
+                    "select 1; commit"
+                }) {
+            assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical(sql), sql)
+                    .isInstanceOf(SQLException.class);
         }
     }
 
     @Test
     void shouldPreserveAuthenticationAndMetadataReads_duringMaintenance() throws Exception {
-        assertThat(CdsJdbcAdmissionGuard.clinical("select provider_no from security where user_name=?")).isFalse();
-        assertThat(CdsJdbcAdmissionGuard.clinical("select * from ResourceStorage where active=true")).isFalse();
-        assertThat(CdsJdbcAdmissionGuard.clinical("select * from information_schema.tables where table_schema=database()")).isFalse();
-        assertThat(CdsJdbcAdmissionGuard.clinical("select INFO from information_schema.PROCESSLIST")).isTrue();
+        assertThat(
+                        CdsJdbcAdmissionGuard.clinical(
+                                "select provider_no from security where user_name=?"))
+                .isFalse();
+        assertThat(
+                        CdsJdbcAdmissionGuard.clinical(
+                                "select * from ResourceStorage where active=true"))
+                .isFalse();
+        assertThat(
+                        CdsJdbcAdmissionGuard.clinical(
+                                "select * from information_schema.tables where table_schema=database()"))
+                .isFalse();
+        assertThat(
+                        CdsJdbcAdmissionGuard.clinical(
+                                "select INFO from information_schema.PROCESSLIST"))
+                .isTrue();
         assertThat(CdsJdbcAdmissionGuard.clinical("show full processlist")).isTrue();
     }
 }

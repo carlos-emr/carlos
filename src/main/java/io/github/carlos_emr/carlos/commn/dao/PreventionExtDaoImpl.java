@@ -22,13 +22,12 @@
  * Toronto, Ontario, Canada
  * <p>
  * Modifications made by Magenta Health in 2024.
- 
+ *
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
-
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.HashMap;
@@ -40,7 +39,8 @@ import io.github.carlos_emr.carlos.commn.model.PreventionExt;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public class PreventionExtDaoImpl extends AbstractDaoImpl<PreventionExt> implements PreventionExtDao {
+public class PreventionExtDaoImpl extends AbstractDaoImpl<PreventionExt>
+        implements PreventionExtDao {
 
     public PreventionExtDaoImpl() {
         super(PreventionExt.class);
@@ -48,7 +48,8 @@ public class PreventionExtDaoImpl extends AbstractDaoImpl<PreventionExt> impleme
 
     @Override
     public List<PreventionExt> findByPreventionId(Integer preventionId) {
-        Query query = entityManager.createQuery("select x from PreventionExt x where preventionId=?1");
+        Query query =
+                entityManager.createQuery("select x from PreventionExt x where preventionId=?1");
         query.setParameter(1, preventionId);
 
         @SuppressWarnings("unchecked")
@@ -59,7 +60,9 @@ public class PreventionExtDaoImpl extends AbstractDaoImpl<PreventionExt> impleme
 
     @Override
     public List<PreventionExt> findByKeyAndValue(String key, String value) {
-        Query query = entityManager.createQuery("select x from PreventionExt x where keyval=?1 and val=?2");
+        Query query =
+                entityManager.createQuery(
+                        "select x from PreventionExt x where keyval=?1 and val=?2");
         query.setParameter(1, key);
         query.setParameter(2, value);
 
@@ -71,7 +74,9 @@ public class PreventionExtDaoImpl extends AbstractDaoImpl<PreventionExt> impleme
 
     @Override
     public List<PreventionExt> findByPreventionIdAndKey(Integer preventionId, String key) {
-        Query query = entityManager.createQuery("select x from PreventionExt x where preventionId=?1 and keyval=?2");
+        Query query =
+                entityManager.createQuery(
+                        "select x from PreventionExt x where preventionId=?1 and keyval=?2");
         query.setParameter(1, preventionId);
         query.setParameter(2, key);
 
@@ -95,18 +100,79 @@ public class PreventionExtDaoImpl extends AbstractDaoImpl<PreventionExt> impleme
 
     /** Explicit patient-owned immunization selection; no unselected prevention payload is read. */
     @Override
-    @org.springframework.transaction.annotation.Transactional(readOnly=true, propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportSourceSchema(){return CdsExportPatientTableReadSupport.schema(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTIONS_EXT); }
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto
+            readCdsExportSourceSchema() {
+        return CdsExportPatientTableReadSupport.schema(
+                entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTIONS_EXT);
+    }
+
     @Override
-    @org.springframework.transaction.annotation.Transactional(readOnly=true, propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns(){return CdsExportNativeMetadataReadSupport.read(entityManager, CdsExportNativeMetadataReadSupport.Table.PREVENTIONS_EXT); }
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<
+                    io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column>
+            readCdsExportReceiptColumns() {
+        return CdsExportNativeMetadataReadSupport.read(
+                entityManager, CdsExportNativeMetadataReadSupport.Table.PREVENTIONS_EXT);
+    }
+
     @Override
-    @org.springframework.transaction.annotation.Transactional(readOnly=true, propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public long countCdsExportPreventionRows(int patient, java.util.Set<Integer> selected){if (CdsExportPatientTableReadSupport.unresolvedPreventionProgram(entityManager, patient))throw new IllegalStateException("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE"); return CdsExportPatientTableReadSupport.preventionCount(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTIONS_EXT, patient, selected); }
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportPreventionRows(int patient, java.util.Set<Integer> selected) {
+        if (CdsExportPatientTableReadSupport.unresolvedPreventionProgram(entityManager, patient))
+            throw new IllegalStateException("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
+        return CdsExportPatientTableReadSupport.preventionCount(
+                entityManager,
+                CdsExportPatientTableReadSupport.Plan.PREVENTIONS_EXT,
+                patient,
+                selected);
+    }
+
     @Override
-    @org.springframework.transaction.annotation.Transactional(readOnly=true, propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportPreventionRowsAfter(int patient, java.util.Set<Integer> selected, Long after, int limit){if (CdsExportPatientTableReadSupport.unresolvedPreventionProgram(entityManager, patient))throw new IllegalStateException("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE"); return CdsExportPatientTableReadSupport.preventionPage(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTIONS_EXT, patient, selected, after, limit); }
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto>
+            findCdsExportPreventionRowsAfter(
+                    int patient, java.util.Set<Integer> selected, Long after, int limit) {
+        if (CdsExportPatientTableReadSupport.unresolvedPreventionProgram(entityManager, patient))
+            throw new IllegalStateException("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
+        return CdsExportPatientTableReadSupport.preventionPage(
+                entityManager,
+                CdsExportPatientTableReadSupport.Plan.PREVENTIONS_EXT,
+                patient,
+                selected,
+                after,
+                limit);
+    }
+
     @Override
-    @org.springframework.transaction.annotation.Transactional(readOnly=true, propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public byte[] readCdsExportPreventionChunk(int patient, java.util.Set<Integer> selected, long row, String column, long offset, int length){if (CdsExportPatientTableReadSupport.unresolvedPreventionProgram(entityManager, patient))throw new IllegalStateException("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE"); return CdsExportPatientTableReadSupport.preventionChunk(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTIONS_EXT, patient, selected, row, column, offset, length); }
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportPreventionChunk(
+            int patient,
+            java.util.Set<Integer> selected,
+            long row,
+            String column,
+            long offset,
+            int length) {
+        if (CdsExportPatientTableReadSupport.unresolvedPreventionProgram(entityManager, patient))
+            throw new IllegalStateException("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
+        return CdsExportPatientTableReadSupport.preventionChunk(
+                entityManager,
+                CdsExportPatientTableReadSupport.Plan.PREVENTIONS_EXT,
+                patient,
+                selected,
+                row,
+                column,
+                offset,
+                length);
+    }
 }

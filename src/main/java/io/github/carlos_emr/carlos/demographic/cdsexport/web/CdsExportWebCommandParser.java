@@ -32,30 +32,62 @@ import org.springframework.stereotype.Service;
 /** Strict bounded form decoding; duplicate/empty/unknown selections are rejected without shrinking intent. */
 @Service
 public class CdsExportWebCommandParser {
-    public CdsExportCommand parse(String key, String provider, String facility, String profile, String selection,
-            String physicians, String patients, String categories, String recipient, String audit) {
+    public CdsExportCommand parse(
+            String key,
+            String provider,
+            String facility,
+            String profile,
+            String selection,
+            String physicians,
+            String patients,
+            String categories,
+            String recipient,
+            String audit) {
         var selected = CdsExportCommand.Selection.valueOf(required(selection));
-        List<String> roster = tokens(physicians, 100); List<String> ids = tokens(patients, 10_000);
-        List<Integer> patientsSelected = ids.stream().map(CdsExportWebCommandParser::positive).toList();
+        List<String> roster = tokens(physicians, 100);
+        List<String> ids = tokens(patients, 10_000);
+        List<Integer> patientsSelected =
+                ids.stream().map(CdsExportWebCommandParser::positive).toList();
         var domainNames = tokens(categories, CdsCategory.values().length);
-        Set<CdsCategory> domains = domainNames.stream().map(CdsCategory::fromWireName).collect(java.util.stream.Collectors.toUnmodifiableSet());
-        return new CdsExportCommand(key, provider, facility == null || facility.isEmpty() ? null : positive(facility),
-                CdsLogicalProfile.fromIdentifier(profile), selected, roster, patientsSelected, domains, recipient, audit);
+        Set<CdsCategory> domains =
+                domainNames.stream()
+                        .map(CdsCategory::fromWireName)
+                        .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        return new CdsExportCommand(
+                key,
+                provider,
+                facility == null || facility.isEmpty() ? null : positive(facility),
+                CdsLogicalProfile.fromIdentifier(profile),
+                selected,
+                roster,
+                patientsSelected,
+                domains,
+                recipient,
+                audit);
     }
+
     private static List<String> tokens(String text, int max) {
         if (text == null || text.isEmpty()) return List.of();
-        if (text.length() > 120_000) throw new IllegalArgumentException("CDS_EXPORT_SELECTION_INVALID");
+        if (text.length() > 120_000)
+            throw new IllegalArgumentException("CDS_EXPORT_SELECTION_INVALID");
         var list = Arrays.stream(text.split(",", -1)).map(String::strip).toList();
-        if (list.size() > max || list.stream().anyMatch(String::isEmpty) || Set.copyOf(list).size() != list.size()) {
+        if (list.size() > max
+                || list.stream().anyMatch(String::isEmpty)
+                || Set.copyOf(list).size() != list.size()) {
             throw new IllegalArgumentException("CDS_EXPORT_SELECTION_INVALID");
         }
         return list;
     }
+
     private static String required(String value) {
-        if (value == null || value.isEmpty()) throw new IllegalArgumentException("CDS_EXPORT_SELECTION_INVALID"); return value;
+        if (value == null || value.isEmpty())
+            throw new IllegalArgumentException("CDS_EXPORT_SELECTION_INVALID");
+        return value;
     }
+
     private static int positive(String value) {
-        if (!value.matches("[1-9][0-9]{0,9}")) throw new IllegalArgumentException("CDS_EXPORT_SELECTION_INVALID");
+        if (!value.matches("[1-9][0-9]{0,9}"))
+            throw new IllegalArgumentException("CDS_EXPORT_SELECTION_INVALID");
         return Integer.parseInt(value);
     }
 }

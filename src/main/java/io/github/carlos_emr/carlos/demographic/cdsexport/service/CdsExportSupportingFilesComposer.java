@@ -46,11 +46,16 @@ public final class CdsExportSupportingFilesComposer {
     private static final ObjectMapper JSON = new ObjectMapper();
     private final CdsExportPathComposer paths = new CdsExportPathComposer();
 
-    public record Totals(long physicians, long patientFiles) { }
+    public record Totals(long physicians, long patientFiles) {}
 
-    public Totals compose(OutputStream readMeOutput, OutputStream eventLogOutput,
-            CdsExportPackageMetadataDto metadata, Iterator<CdsExportPhysicianSummaryDto> physicians,
-            Iterator<CdsExportPatientSummaryDto> patients, Runnable checkpoint) throws IOException {
+    public Totals compose(
+            OutputStream readMeOutput,
+            OutputStream eventLogOutput,
+            CdsExportPackageMetadataDto metadata,
+            Iterator<CdsExportPhysicianSummaryDto> physicians,
+            Iterator<CdsExportPatientSummaryDto> patients,
+            Runnable checkpoint)
+            throws IOException {
         Objects.requireNonNull(checkpoint, "checkpoint");
         validateMetadata(metadata);
         BufferedWriter readMe = writer(readMeOutput);
@@ -59,19 +64,32 @@ public final class CdsExportSupportingFilesComposer {
         line(readMe, "Group contact information", metadata.groupContactInformation());
         line(readMe, "EMR vendor and offering", "CARLOS EMR");
         line(readMe, "Offering version", metadata.applicationVersion());
-        line(readMe, "Export timestamp", DateTimeFormatter.ISO_OFFSET_DATE_TIME
-                .format(metadata.exportTime().atZone(metadata.clinicalZone())));
+        line(
+                readMe,
+                "Export timestamp",
+                DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(
+                        metadata.exportTime().atZone(metadata.clinicalZone())));
         line(readMe, "Logical profile", metadata.profile().identifier());
         line(readMe, "Export container root", metadata.exportRoot());
-        line(readMe, "Requested category scope", metadata.categories().size() == CdsCategory.values().length
-                ? "ALL_CDS_CATEGORIES" : "SELECTED_CDS_CATEGORIES");
-        line(readMe, "Selected categories", java.util.Arrays.stream(CdsCategory.values())
-                .filter(metadata.categories()::contains).map(CdsCategory::wireName)
-                .collect(java.util.stream.Collectors.joining(", ")));
+        line(
+                readMe,
+                "Requested category scope",
+                metadata.categories().size() == CdsCategory.values().length
+                        ? "ALL_CDS_CATEGORIES"
+                        : "SELECTED_CDS_CATEGORIES");
+        line(
+                readMe,
+                "Selected categories",
+                java.util.Arrays.stream(CdsCategory.values())
+                        .filter(metadata.categories()::contains)
+                        .map(CdsCategory::wireName)
+                        .collect(java.util.stream.Collectors.joining(", ")));
         line(readMe, "Audit information access after migration", metadata.auditAccessDescription());
         readMe.write("Patient file paths below are complete within the named export container.\n");
-        readMe.write("NOT_SELECTED in ExportEventLog is outside the requested scope; zero is a known selected-category count.\n");
-        readMe.write("ReportsText and ReportsBinary count representations; Reports counts source report occurrences.\n");
+        readMe.write(
+                "NOT_SELECTED in ExportEventLog is outside the requested scope; zero is a known selected-category count.\n");
+        readMe.write(
+                "ReportsText and ReportsBinary count representations; Reports counts source report occurrences.\n");
 
         eventLog.write("PatientID");
         for (CdsCategory category : CdsCategory.values()) eventLog.write("," + category.wireName());
@@ -82,8 +100,11 @@ public final class CdsExportSupportingFilesComposer {
         long physicianCount = 0, totalPatients = 0;
         while (physicians.hasNext()) {
             probe(checkpoint);
-            CdsExportPhysicianSummaryDto physician = Objects.requireNonNull(physicians.next(), "physician");
-            String folder = paths.physicianFolder(physician.firstName(), physician.lastName(), physician.billingNumber());
+            CdsExportPhysicianSummaryDto physician =
+                    Objects.requireNonNull(physicians.next(), "physician");
+            String folder =
+                    paths.physicianFolder(
+                            physician.firstName(), physician.lastName(), physician.billingNumber());
             if (previousPhysician != null && previousPhysician.compareTo(folder) >= 0) {
                 throw new IllegalArgumentException("CDS_EXPORT_PHYSICIAN_ORDER_INVALID");
             }
@@ -96,7 +117,8 @@ public final class CdsExportSupportingFilesComposer {
                 var path = paths.compose(patient.patient());
                 int groupOrder = path.physicianFolder().compareTo(folder);
                 if (groupOrder > 0) break;
-                if (groupOrder < 0) throw new IllegalArgumentException("CDS_EXPORT_PATIENT_PHYSICIAN_MISMATCH");
+                if (groupOrder < 0)
+                    throw new IllegalArgumentException("CDS_EXPORT_PATIENT_PHYSICIAN_MISMATCH");
                 String relative = path.physicianFolder() + "/" + path.patientXmlFile();
                 if (previousPatientPath != null && previousPatientPath.compareTo(relative) >= 0) {
                     throw new IllegalArgumentException("CDS_EXPORT_PATIENT_FILE_ORDER_INVALID");
@@ -115,7 +137,8 @@ public final class CdsExportSupportingFilesComposer {
             }
             physicianCount = Math.incrementExact(physicianCount);
         }
-        if (patient != null) throw new IllegalArgumentException("CDS_EXPORT_PATIENT_PHYSICIAN_MISMATCH");
+        if (patient != null)
+            throw new IllegalArgumentException("CDS_EXPORT_PATIENT_PHYSICIAN_MISMATCH");
         if (totalPatients == 0) throw new IllegalArgumentException("CDS_EXPORT_NO_PATIENT_FILES");
         probe(checkpoint);
         readMe.flush();
@@ -138,7 +161,8 @@ public final class CdsExportSupportingFilesComposer {
         }
     }
 
-    private static void validatePatient(CdsExportPatientSummaryDto patient, CdsExportPackageMetadataDto metadata) {
+    private static void validatePatient(
+            CdsExportPatientSummaryDto patient, CdsExportPackageMetadataDto metadata) {
         if (!patient.occurrences().keySet().equals(metadata.categories())
                 || !Long.valueOf(1).equals(patient.occurrences().get(CdsCategory.DEMOGRAPHICS))) {
             throw new IllegalArgumentException("CDS_EXPORT_CATEGORY_COUNTS_INCOMPLETE");
@@ -148,14 +172,18 @@ public final class CdsExportSupportingFilesComposer {
             if (patient.textReports() != null || patient.binaryReports() != null) {
                 throw new IllegalArgumentException("CDS_EXPORT_REPORT_COUNTS_INVALID");
             }
-        } else if (patient.textReports() == null || patient.binaryReports() == null
-                || patient.textReports() < 0 || patient.binaryReports() < 0
-                || patient.textReports() > reports || patient.binaryReports() > reports) {
+        } else if (patient.textReports() == null
+                || patient.binaryReports() == null
+                || patient.textReports() < 0
+                || patient.binaryReports() < 0
+                || patient.textReports() > reports
+                || patient.binaryReports() > reports) {
             throw new IllegalArgumentException("CDS_EXPORT_REPORT_COUNTS_INVALID");
         }
     }
 
-    private static void event(BufferedWriter output, CdsExportPatientSummaryDto patient) throws IOException {
+    private static void event(BufferedWriter output, CdsExportPatientSummaryDto patient)
+            throws IOException {
         csv(output, patient.patient().senderPatientId());
         for (CdsCategory category : CdsCategory.values()) {
             output.write(",");
@@ -163,34 +191,52 @@ public final class CdsExportSupportingFilesComposer {
             csv(output, count == null ? "NOT_SELECTED" : Long.toString(count));
         }
         output.write(",");
-        csv(output, patient.textReports() == null ? "NOT_SELECTED" : patient.textReports().toString());
+        csv(
+                output,
+                patient.textReports() == null ? "NOT_SELECTED" : patient.textReports().toString());
         output.write(",");
-        csv(output, patient.binaryReports() == null ? "NOT_SELECTED" : patient.binaryReports().toString());
+        csv(
+                output,
+                patient.binaryReports() == null
+                        ? "NOT_SELECTED"
+                        : patient.binaryReports().toString());
         output.write("\n");
     }
 
     private static void csv(BufferedWriter output, String value) throws IOException {
-        output.write('"'); output.write(value.replace("\"", "\"\"")); output.write('"');
+        output.write('"');
+        output.write(value.replace("\"", "\"\""));
+        output.write('"');
     }
 
     private static void line(BufferedWriter output, String label, String value) throws IOException {
-        output.write(label); output.write(": "); output.write(JSON.writeValueAsString(value)); output.write("\n");
+        output.write(label);
+        output.write(": ");
+        output.write(JSON.writeValueAsString(value));
+        output.write("\n");
     }
 
     private static BufferedWriter writer(OutputStream output) {
-        return new BufferedWriter(new OutputStreamWriter(Objects.requireNonNull(output),
-                StandardCharsets.UTF_8.newEncoder().onMalformedInput(CodingErrorAction.REPORT)
-                        .onUnmappableCharacter(CodingErrorAction.REPORT)), 65536);
+        return new BufferedWriter(
+                new OutputStreamWriter(
+                        Objects.requireNonNull(output),
+                        StandardCharsets.UTF_8
+                                .newEncoder()
+                                .onMalformedInput(CodingErrorAction.REPORT)
+                                .onUnmappableCharacter(CodingErrorAction.REPORT)),
+                65536);
     }
 
-    private static CdsExportPatientSummaryDto next(Iterator<CdsExportPatientSummaryDto> input, Runnable checkpoint) {
+    private static CdsExportPatientSummaryDto next(
+            Iterator<CdsExportPatientSummaryDto> input, Runnable checkpoint) {
         probe(checkpoint);
         return input.hasNext() ? Objects.requireNonNull(input.next(), "patient") : null;
     }
 
     private static void probe(Runnable checkpoint) {
         checkpoint.run();
-        if (Thread.currentThread().isInterrupted()) throw new IllegalStateException("CDS_EXPORT_INTERRUPTED");
+        if (Thread.currentThread().isInterrupted())
+            throw new IllegalStateException("CDS_EXPORT_INTERRUPTED");
     }
 
     private static void required(String value, int maximum) {

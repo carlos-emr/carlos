@@ -26,27 +26,51 @@ import java.io.IOException;
 
 /** Typed personal contacts in their schema position. Other native relation types, history and source conflicts refuse output. */
 public final class CdsExportPersonalContactXmlWriter {
-    public void write(CdsExportPersonalContactMapper.Result mapping, CdsExportXmlComposer.ContentWriter xml) throws IOException {
-        java.util.Objects.requireNonNull(xml).content(guarded -> {
-            if (mapping == null || !mapping.nativeRepresentable()) throw new IOException("CDS_EXPORT_CONTACT_MAPPING_REQUIRES_REVIEW");
-            for (var contact : mapping.contacts()) {
-                guarded.start("cds", "Contact");
-                content(contact, guarded); guarded.end();
-            }
-        });
+    public void write(
+            CdsExportPersonalContactMapper.Result mapping, CdsExportXmlComposer.ContentWriter xml)
+            throws IOException {
+        java.util.Objects.requireNonNull(xml)
+                .content(
+                        guarded -> {
+                            if (mapping == null || !mapping.nativeRepresentable())
+                                throw new IOException("CDS_EXPORT_CONTACT_MAPPING_REQUIRES_REVIEW");
+                            for (var contact : mapping.contacts()) {
+                                guarded.start("cds", "Contact");
+                                content(contact, guarded);
+                                guarded.end();
+                            }
+                        });
     }
+
     /** Interior of one typed native contact; the caller owns its schema-positioned Contact boundary. */
-    static void content(CdsExportPersonalContactDto contact, CdsExportXmlComposer.ContentWriter xml)throws IOException {
-        for (var purpose:contact.purposes()) {
-            xml.start("cds", "ContactPurpose"); xml.element("cds_dt", purpose.coded()?"PurposeAsEnum":"PurposeAsPlainText", purpose.value()); xml.end();
+    static void content(CdsExportPersonalContactDto contact, CdsExportXmlComposer.ContentWriter xml)
+            throws IOException {
+        for (var purpose : contact.purposes()) {
+            xml.start("cds", "ContactPurpose");
+            xml.element(
+                    "cds_dt",
+                    purpose.coded() ? "PurposeAsEnum" : "PurposeAsPlainText",
+                    purpose.value());
+            xml.end();
         }
-        xml.start("cds", "Name"); optional(xml, "cds_dt", "FirstName", contact.firstName()); optional(xml, "cds_dt", "LastName", contact.lastName()); xml.end();
-        for (var phone:contact.phones()) {
-            xml.start("cds", "PhoneNumber"); xml.attribute("", "phoneNumberType", phone.type()); xml.element("cds_dt", "phoneNumber", phone.number()); optional(xml, "cds_dt", "extension", phone.extension()); xml.end();
+        xml.start("cds", "Name");
+        optional(xml, "cds_dt", "FirstName", contact.firstName());
+        optional(xml, "cds_dt", "LastName", contact.lastName());
+        xml.end();
+        for (var phone : contact.phones()) {
+            xml.start("cds", "PhoneNumber");
+            xml.attribute("", "phoneNumberType", phone.type());
+            xml.element("cds_dt", "phoneNumber", phone.number());
+            optional(xml, "cds_dt", "extension", phone.extension());
+            xml.end();
         }
-        optional(xml, "cds", "EmailAddress", contact.email()); optional(xml, "cds", "Note", contact.note());
+        optional(xml, "cds", "EmailAddress", contact.email());
+        optional(xml, "cds", "Note", contact.note());
     }
-    private static void optional(CdsExportXmlComposer.ContentWriter xml, String namespace, String element, String value) throws IOException {
+
+    private static void optional(
+            CdsExportXmlComposer.ContentWriter xml, String namespace, String element, String value)
+            throws IOException {
         if (value != null) xml.element(namespace, element, value);
     }
 }

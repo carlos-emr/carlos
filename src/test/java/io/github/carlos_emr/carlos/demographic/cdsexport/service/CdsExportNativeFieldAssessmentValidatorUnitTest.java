@@ -29,61 +29,189 @@ import java.io.IOException;
 import org.junit.jupiter.api.Test;
 
 class CdsExportNativeFieldAssessmentValidatorUnitTest {
-    private final CdsExportNativeFieldAssessmentValidator validator=new CdsExportNativeFieldAssessmentValidator();
-    @Test void validatesExactIdentitiesAndSeparatelyCountsNullEmptyValueAndOutcomes()throws Exception {
-        var row=row(); var result=validator.validate(List.of(row), assessments(row), 100, ()-> {});
-        assertThat(result).isEqualTo(new CdsExportNativeFieldAssessmentValidator.Result(3, 1, 1, 1, 2, 1, 0, 0)); assertThat(result.representable()).isTrue();
+    private final CdsExportNativeFieldAssessmentValidator validator =
+            new CdsExportNativeFieldAssessmentValidator();
+
+    @Test
+    void validatesExactIdentitiesAndSeparatelyCountsNullEmptyValueAndOutcomes() throws Exception {
+        var row = row();
+        var result = validator.validate(List.of(row), assessments(row), 100, () -> {});
+        assertThat(result)
+                .isEqualTo(
+                        new CdsExportNativeFieldAssessmentValidator.Result(3, 1, 1, 1, 2, 1, 0, 0));
+        assertThat(result.representable()).isTrue();
     }
-    @Test void equalSizeCannotHideAMissingFieldBehindAnInventedColumn() {
-        var row=row(); var fields=assessments(row); fields.put(key("invented"), fields.remove(key("value"))); refused(List.of(row), fields);
+
+    @Test
+    void equalSizeCannotHideAMissingFieldBehindAnInventedColumn() {
+        var row = row();
+        var fields = assessments(row);
+        fields.put(key("invented"), fields.remove(key("value")));
+        refused(List.of(row), fields);
     }
-    @Test void equalValuesCannotSubstituteAnotherRowOrTable() {
-        for (var key:List.of(new CdsExportNativeFieldKeyDto("other", "1", "value"), new CdsExportNativeFieldKeyDto("preventions", "2", "value"))) {
-            var row=row(); var fields=assessments(row); fields.put(key, fields.remove(key("value"))); refused(List.of(row), fields);
+
+    @Test
+    void equalValuesCannotSubstituteAnotherRowOrTable() {
+        for (var key :
+                List.of(
+                        new CdsExportNativeFieldKeyDto("other", "1", "value"),
+                        new CdsExportNativeFieldKeyDto("preventions", "2", "value"))) {
+            var row = row();
+            var fields = assessments(row);
+            fields.put(key, fields.remove(key("value")));
+            refused(List.of(row), fields);
         }
     }
-    @Test void missingAndExtraAssessmentsAreBothScopeFailures() {
-        var row=row(); var fields=assessments(row); fields.remove(key("value")); refused(List.of(row), fields);
-        fields=assessments(row); fields.put(key("extra"), fields.get(key("value"))); refused(List.of(row), fields);
+
+    @Test
+    void missingAndExtraAssessmentsAreBothScopeFailures() {
+        var row = row();
+        var fields = assessments(row);
+        fields.remove(key("value"));
+        refused(List.of(row), fields);
+        fields = assessments(row);
+        fields.put(key("extra"), fields.get(key("value")));
+        refused(List.of(row), fields);
     }
-    @Test void duplicateRowsCannotBorrowOneSetOfFieldDecisions() {
-        var row=row(); refused(List.of(row, row), assessments(row));
+
+    @Test
+    void duplicateRowsCannotBorrowOneSetOfFieldDecisions() {
+        var row = row();
+        refused(List.of(row, row), assessments(row));
     }
-    @Test void nullEmptyAndValueCannotBeRelabeled() {
-        var row=row(); for (var column:List.of("null_value", "empty_value", "value"))for (var presence:Presence.values()) {
-            var fields=assessments(row); var old=fields.get(key(column)); if (presence==old.presence())continue;
-            fields.put(key(column), new CdsExportFieldAssessmentDto(presence, old.outcome(), old.destination(), old.rule())); refused(List.of(row), fields);
+
+    @Test
+    void nullEmptyAndValueCannotBeRelabeled() {
+        var row = row();
+        for (var column : List.of("null_value", "empty_value", "value"))
+            for (var presence : Presence.values()) {
+                var fields = assessments(row);
+                var old = fields.get(key(column));
+                if (presence == old.presence()) continue;
+                fields.put(
+                        key(column),
+                        new CdsExportFieldAssessmentDto(
+                                presence, old.outcome(), old.destination(), old.rule()));
+                refused(List.of(row), fields);
+            }
+    }
+
+    @Test
+    void populatedValuesCannotBeMarkedAbsentOrMappedWithoutADestination() {
+        var row = row();
+        for (var outcome : List.of(Outcome.ABSENT, Outcome.MAPPED)) {
+            var fields = assessments(row);
+            fields.put(
+                    key("value"),
+                    new CdsExportFieldAssessmentDto(Presence.VALUE, outcome, "", "CLAIM"));
+            refused(List.of(row), fields);
         }
     }
-    @Test void populatedValuesCannotBeMarkedAbsentOrMappedWithoutADestination() {
-        var row=row(); for (var outcome:List.of(Outcome.ABSENT, Outcome.MAPPED)) {
-            var fields=assessments(row); fields.put(key("value"), new CdsExportFieldAssessmentDto(Presence.VALUE, outcome, "", "CLAIM")); refused(List.of(row), fields);
-        }
+
+    @Test
+    void aReviewFieldRemainsBlockedAndCannotReturnRepresentable() throws Exception {
+        var row = row();
+        var fields = assessments(row);
+        fields.put(
+                key("value"),
+                new CdsExportFieldAssessmentDto(
+                        Presence.VALUE, Outcome.REQUIRES_REVIEW, "", "UNMAPPED_NATIVE_VALUE"));
+        assertThat(validator.validate(List.of(row), fields, 100, () -> {}).blocked()).isEqualTo(1);
+        assertThatThrownBy(
+                        () -> validator.requireRepresentable(List.of(row), fields, 100, () -> {}))
+                .hasMessage("CDS_EXPORT_FIELD_ASSESSMENT_REQUIRES_REVIEW");
     }
-    @Test void aReviewFieldRemainsBlockedAndCannotReturnRepresentable()throws Exception {
-        var row=row(); var fields=assessments(row); fields.put(key("value"), new CdsExportFieldAssessmentDto(Presence.VALUE, Outcome.REQUIRES_REVIEW, "", "UNMAPPED_NATIVE_VALUE"));
-        assertThat(validator.validate(List.of(row), fields, 100, ()-> {}).blocked()).isEqualTo(1);
-        assertThatThrownBy(()-> validator.requireRepresentable(List.of(row), fields, 100, ()-> {})).hasMessage("CDS_EXPORT_FIELD_ASSESSMENT_REQUIRES_REVIEW");
+
+    @Test
+    void operationalValuesRequireAnExplicitBoundedRule() throws Exception {
+        var row = row();
+        var fields = assessments(row);
+        fields.put(
+                key("value"),
+                new CdsExportFieldAssessmentDto(
+                        Presence.VALUE, Outcome.OPERATIONAL, "", "CAPTURED_NATIVE_IDENTITY"));
+        assertThat(validator.validate(List.of(row), fields, 100, () -> {}).operational())
+                .isEqualTo(1);
+        fields.put(
+                key("value"),
+                new CdsExportFieldAssessmentDto(Presence.VALUE, Outcome.OPERATIONAL, "", " "));
+        refused(List.of(row), fields);
     }
-    @Test void operationalValuesRequireAnExplicitBoundedRule()throws Exception {
-        var row=row(); var fields=assessments(row); fields.put(key("value"), new CdsExportFieldAssessmentDto(Presence.VALUE, Outcome.OPERATIONAL, "", "CAPTURED_NATIVE_IDENTITY"));
-        assertThat(validator.validate(List.of(row), fields, 100, ()-> {}).operational()).isEqualTo(1);
-        fields.put(key("value"), new CdsExportFieldAssessmentDto(Presence.VALUE, Outcome.OPERATIONAL, "", " ")); refused(List.of(row), fields);
+
+    @Test
+    void boundsAndFinalCancellationNeverReturnACompleteReceipt() {
+        var row = row();
+        assertThatThrownBy(() -> validator.validate(List.of(row), assessments(row), 2, () -> {}))
+                .hasMessage("CDS_EXPORT_FIELD_ASSESSMENT_RESOURCE_LIMIT");
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        assertThatThrownBy(
+                        () ->
+                                validator.validate(
+                                        List.of(row),
+                                        assessments(row),
+                                        100,
+                                        () -> {
+                                            if (calls.incrementAndGet() == 5)
+                                                throw new java.util.concurrent
+                                                        .CancellationException("FINAL_CANCEL");
+                                        }))
+                .isInstanceOf(java.util.concurrent.CancellationException.class)
+                .hasMessage("FINAL_CANCEL");
     }
-    @Test void boundsAndFinalCancellationNeverReturnACompleteReceipt() {
-        var row=row(); assertThatThrownBy(()-> validator.validate(List.of(row), assessments(row), 2, ()-> {})).hasMessage("CDS_EXPORT_FIELD_ASSESSMENT_RESOURCE_LIMIT");
-        var calls=new java.util.concurrent.atomic.AtomicInteger(); assertThatThrownBy(()-> validator.validate(List.of(row), assessments(row), 100, ()-> {if (calls.incrementAndGet()==5)throw new java.util.concurrent.CancellationException("FINAL_CANCEL"); })).isInstanceOf(java.util.concurrent.CancellationException.class).hasMessage("FINAL_CANCEL");
+
+    @Test
+    void emptyInputCannotBorrowUnrelatedDecisionsOrClaimWholeChartCoverage() throws Exception {
+        assertThat(validator.validate(List.of(), Map.of(), 100, () -> {}).fields()).isZero();
+        refused(List.of(), assessments(row()));
     }
-    @Test void emptyInputCannotBorrowUnrelatedDecisionsOrClaimWholeChartCoverage()throws Exception {
-        assertThat(validator.validate(List.of(), Map.of(), 100, ()-> {}).fields()).isZero(); refused(List.of(), assessments(row()));
+
+    @Test
+    void forgedSummaryCountsCannotBeLabeledComplete() {
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportNativeFieldAssessmentValidator.Result(
+                                        3, 1, 1, 0, 2, 1, 0, 0))
+                .hasMessage("CDS_EXPORT_FIELD_ASSESSMENT_COUNTS_INVALID");
     }
-    @Test void forgedSummaryCountsCannotBeLabeledComplete() {
-        assertThatThrownBy(()-> new CdsExportNativeFieldAssessmentValidator.Result(3, 1, 1, 0, 2, 1, 0, 0)).hasMessage("CDS_EXPORT_FIELD_ASSESSMENT_COUNTS_INVALID");
+
+    private void refused(
+            List<CdsExportCapturedTextRowDto> rows,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields) {
+        assertThatThrownBy(() -> validator.validate(rows, fields, 100, () -> {}))
+                .hasMessage("CDS_EXPORT_FIELD_ASSESSMENT_SCOPE_INVALID");
     }
-    private void refused(List<CdsExportCapturedTextRowDto> rows, Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields) {
-        assertThatThrownBy(()-> validator.validate(rows, fields, 100, ()-> {})).hasMessage("CDS_EXPORT_FIELD_ASSESSMENT_SCOPE_INVALID");
+
+    private static CdsExportCapturedTextRowDto row() {
+        var fields = new TreeMap<String, String>();
+        fields.put("null_value", null);
+        fields.put("empty_value", "");
+        fields.put("value", "café 😀\r\n");
+        return new CdsExportCapturedTextRowDto("preventions", "1", fields);
     }
-    private static CdsExportCapturedTextRowDto row(){var fields=new TreeMap<String, String>(); fields.put("null_value", null); fields.put("empty_value", ""); fields.put("value", "café 😀\r\n"); return new CdsExportCapturedTextRowDto("preventions", "1", fields); }
-    private static CdsExportNativeFieldKeyDto key(String column){return new CdsExportNativeFieldKeyDto("preventions", "1", column); }
-    private static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assessments(CdsExportCapturedTextRowDto row){var fields=new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>(); row.fields().forEach((column, text)-> fields.put(key(column), new CdsExportFieldAssessmentDto(text==null?Presence.SQL_NULL:text.isEmpty()?Presence.EMPTY:Presence.VALUE, text==null||text.isEmpty()?Outcome.ABSENT:Outcome.MAPPED, text==null||text.isEmpty()?"":"Notes", "EXACT_NATIVE_TEXT"))); return fields; }
+
+    private static CdsExportNativeFieldKeyDto key(String column) {
+        return new CdsExportNativeFieldKeyDto("preventions", "1", column);
+    }
+
+    private static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assessments(
+            CdsExportCapturedTextRowDto row) {
+        var fields = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
+        row.fields()
+                .forEach(
+                        (column, text) ->
+                                fields.put(
+                                        key(column),
+                                        new CdsExportFieldAssessmentDto(
+                                                text == null
+                                                        ? Presence.SQL_NULL
+                                                        : text.isEmpty()
+                                                                ? Presence.EMPTY
+                                                                : Presence.VALUE,
+                                                text == null || text.isEmpty()
+                                                        ? Outcome.ABSENT
+                                                        : Outcome.MAPPED,
+                                                text == null || text.isEmpty() ? "" : "Notes",
+                                                "EXACT_NATIVE_TEXT")));
+        return fields;
+    }
 }

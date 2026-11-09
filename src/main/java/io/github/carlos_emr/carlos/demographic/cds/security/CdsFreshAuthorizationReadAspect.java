@@ -40,31 +40,51 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * Active transactions/synchronizations retain their existing Spring suspension semantics.
  * Restore the view holder without clearing/detaching another operation's managed entities.
  */
-@Aspect @Component @Order(Ordered.HIGHEST_PRECEDENCE + 100)
+@Aspect
+@Component
+@Order(Ordered.HIGHEST_PRECEDENCE + 100)
 public class CdsFreshAuthorizationReadAspect {
     private final EntityManagerFactory factory;
-    public CdsFreshAuthorizationReadAspect(@Qualifier("entityManagerFactory") EntityManagerFactory factory) { this.factory = factory; }
-    @Around("execution(public * io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportAccessService.*(..))"
-            + " || execution(public * io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccessService.*(..))")
-    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+
+    public CdsFreshAuthorizationReadAspect(
+            @Qualifier("entityManagerFactory") EntityManagerFactory factory) {
+        this.factory = factory;
+    }
+
+    @Around(
+            "execution(public * io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportAccessService.*(..))"
+                    + " || execution(public * io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccessService.*(..))")
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that
+    // failure.
     @SuppressWarnings("java:S1143")
     public Object freshViewRead(ProceedingJoinPoint operation) throws Throwable {
-        if (TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isSynchronizationActive()
-                || !TransactionSynchronizationManager.hasResource(factory)) return operation.proceed();
-        Object view = TransactionSynchronizationManager.unbindResource(factory); Throwable primary = null;
-        try { return operation.proceed(); }
-        catch (Throwable failure) { primary = failure; throw failure; }
-        finally {
+        if (TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isSynchronizationActive()
+                || !TransactionSynchronizationManager.hasResource(factory))
+            return operation.proceed();
+        Object view = TransactionSynchronizationManager.unbindResource(factory);
+        Throwable primary = null;
+        try {
+            return operation.proceed();
+        } catch (Throwable failure) {
+            primary = failure;
+            throw failure;
+        } finally {
             Object unretired = TransactionSynchronizationManager.unbindResourceIfPossible(factory);
             try {
                 if (unretired != null) {
                     // This boundary is read-only. Never retain a leaked authorization context or
                     // silently let it replace the request's unrelated view context.
-                    if (unretired instanceof EntityManagerHolder holder) EntityManagerFactoryUtils.closeEntityManager(holder.getEntityManager());
-                    var failure = new IllegalStateException("CDS_AUTHORIZATION_CONTEXT_NOT_RETIRED");
-                    if (primary != null) primary.addSuppressed(failure); else throw failure;
+                    if (unretired instanceof EntityManagerHolder holder)
+                        EntityManagerFactoryUtils.closeEntityManager(holder.getEntityManager());
+                    var failure =
+                            new IllegalStateException("CDS_AUTHORIZATION_CONTEXT_NOT_RETIRED");
+                    if (primary != null) primary.addSuppressed(failure);
+                    else throw failure;
                 }
-            } finally { TransactionSynchronizationManager.bindResource(factory, view); }
+            } finally {
+                TransactionSynchronizationManager.bindResource(factory, view);
+            }
         }
     }
 }

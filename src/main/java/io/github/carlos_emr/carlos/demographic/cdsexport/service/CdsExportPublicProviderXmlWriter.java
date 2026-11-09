@@ -26,14 +26,31 @@ import java.io.IOException;
 
 /** Shared body namespaces; callers own the category-specific outer element. */
 public final class CdsExportPublicProviderXmlWriter {
-    public void write(CdsExportPublicProviderDto provider, CdsExportXmlComposer.ContentWriter xml, boolean includeCpso) throws IOException {
-        java.util.Objects.requireNonNull(xml).content(guarded -> writeValue(provider, guarded, includeCpso));
+    public void write(
+            CdsExportPublicProviderDto provider,
+            CdsExportXmlComposer.ContentWriter xml,
+            boolean includeCpso)
+            throws IOException {
+        java.util.Objects.requireNonNull(xml)
+                .content(guarded -> writeValue(provider, guarded, includeCpso));
     }
-    private void writeValue(CdsExportPublicProviderDto provider, CdsExportXmlComposer.ContentWriter xml, boolean includeCpso) throws IOException {
-        java.util.Objects.requireNonNull(provider); java.util.Objects.requireNonNull(xml);
-        if (!includeCpso && provider.cpsoNumber() != null) throw new IOException("CDS_EXPORT_PROVIDER_REGISTRATION_NOT_REPRESENTABLE");
-        xml.start("cds", "Name"); xml.element("cds_dt", "FirstName", provider.firstName()); xml.element("cds_dt", "LastName", provider.lastName()); xml.end();
-        if (provider.ohipNumber() != null) xml.element("cds", "OHIPPhysicianId", provider.ohipNumber());
-        if (includeCpso && provider.cpsoNumber() != null) xml.element("cds", "PrimaryPhysicianCPSO", provider.cpsoNumber());
+
+    private void writeValue(
+            CdsExportPublicProviderDto provider,
+            CdsExportXmlComposer.ContentWriter xml,
+            boolean includeCpso)
+            throws IOException {
+        java.util.Objects.requireNonNull(provider);
+        java.util.Objects.requireNonNull(xml);
+        if (!includeCpso && provider.cpsoNumber() != null)
+            throw new IOException("CDS_EXPORT_PROVIDER_REGISTRATION_NOT_REPRESENTABLE");
+        xml.start("cds", "Name");
+        xml.element("cds_dt", "FirstName", provider.firstName());
+        xml.element("cds_dt", "LastName", provider.lastName());
+        xml.end();
+        if (provider.ohipNumber() != null)
+            xml.element("cds", "OHIPPhysicianId", provider.ohipNumber());
+        if (includeCpso && provider.cpsoNumber() != null)
+            xml.element("cds", "PrimaryPhysicianCPSO", provider.cpsoNumber());
     }
 }

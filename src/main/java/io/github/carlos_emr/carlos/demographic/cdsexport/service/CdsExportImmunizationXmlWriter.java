@@ -27,33 +27,68 @@ import java.io.IOException;
 
 /** Schema-ordered standard vaccine event. Native screening entries and program restrictions require classification before this writer. */
 public final class CdsExportImmunizationXmlWriter {
-    public void write(CdsExportImmunizationDto value, CdsExportXmlComposer.ContentWriter xml) throws IOException {
+    public void write(CdsExportImmunizationDto value, CdsExportXmlComposer.ContentWriter xml)
+            throws IOException {
         java.util.Objects.requireNonNull(xml).content(guarded -> writeValue(value, guarded));
     }
-    private void writeValue(CdsExportImmunizationDto value, CdsExportXmlComposer.ContentWriter xml) throws IOException {
+
+    private void writeValue(CdsExportImmunizationDto value, CdsExportXmlComposer.ContentWriter xml)
+            throws IOException {
         validate(value);
         xml.element("cds", "ImmunizationName", value.name());
-        optional(xml, "ImmunizationType", value.type()); optional(xml, "Manufacturer", value.manufacturer()); optional(xml, "LotNumber", value.lot());
-        optional(xml, "Route", value.route()); optional(xml, "Site", value.site()); optional(xml, "Dose", value.dose());
+        optional(xml, "ImmunizationType", value.type());
+        optional(xml, "Manufacturer", value.manufacturer());
+        optional(xml, "LotNumber", value.lot());
+        optional(xml, "Route", value.route());
+        optional(xml, "Site", value.site());
+        optional(xml, "Dose", value.dose());
         if (value.code() != null) {
-            xml.start("cds", "ImmunizationCode"); xml.element("cds_dt", "CodingSystem", value.codeSystem());
-            xml.element("cds_dt", "value", value.code()); xml.end();
+            xml.start("cds", "ImmunizationCode");
+            xml.element("cds_dt", "CodingSystem", value.codeSystem());
+            xml.element("cds_dt", "value", value.code());
+            xml.end();
         }
         if (value.date().precision() != CdsExportDateDto.Precision.ABSENT) {
-            xml.start("cds", "Date"); CdsExportDateXmlWriter.content(xml, value.date(), true); xml.end();
+            xml.start("cds", "Date");
+            CdsExportDateXmlWriter.content(xml, value.date(), true);
+            xml.end();
         }
-        xml.start("cds", "RefusedFlag"); xml.element("cds_dt", "ynIndicatorsimple", value.refused()?"Y":"N"); xml.end();
-        optional(xml, "Instructions", value.instructions()); optional(xml, "Notes", value.notes());
+        xml.start("cds", "RefusedFlag");
+        xml.element("cds_dt", "ynIndicatorsimple", value.refused() ? "Y" : "N");
+        xml.end();
+        optional(xml, "Instructions", value.instructions());
+        optional(xml, "Notes", value.notes());
     }
-    static void validate(CdsExportImmunizationDto value)throws IOException {
+
+    static void validate(CdsExportImmunizationDto value) throws IOException {
         java.util.Objects.requireNonNull(value);
         if (value.name() == null || value.name().isBlank()) invalid();
-        text(value.name(), 120); text(value.type(), 20); text(value.manufacturer(), 120); text(value.lot(), 120);
-        text(value.route(), 120); text(value.site(), 120); text(value.dose(), 120); text(value.instructions(), 250); text(value.notes(), 32000);
-        if (value.type()!=null&&!CdsExportImmunizationVocabulary.TYPES.contains(value.type()))invalid();
-        if (value.code() != null && (!"DIN".equals(value.codeSystem()) || !value.code().matches("[0-9]{8}"))) invalid();
+        text(value.name(), 120);
+        text(value.type(), 20);
+        text(value.manufacturer(), 120);
+        text(value.lot(), 120);
+        text(value.route(), 120);
+        text(value.site(), 120);
+        text(value.dose(), 120);
+        text(value.instructions(), 250);
+        text(value.notes(), 32000);
+        if (value.type() != null && !CdsExportImmunizationVocabulary.TYPES.contains(value.type()))
+            invalid();
+        if (value.code() != null
+                && (!"DIN".equals(value.codeSystem()) || !value.code().matches("[0-9]{8}")))
+            invalid();
     }
-    private static void text(String value, int maximum) throws IOException { if (value != null && !CdsExportNativeFieldAssessments.legal(value, maximum)) invalid(); }
-    private static void optional(CdsExportXmlComposer.ContentWriter xml, String name, String value) throws IOException { if (value != null) xml.element("cds", name, value); }
-    private static void invalid() throws IOException { throw new IOException("CDS_EXPORT_IMMUNIZATION_VALUES_REQUIRES_REVIEW"); }
+
+    private static void text(String value, int maximum) throws IOException {
+        if (value != null && !CdsExportNativeFieldAssessments.legal(value, maximum)) invalid();
+    }
+
+    private static void optional(CdsExportXmlComposer.ContentWriter xml, String name, String value)
+            throws IOException {
+        if (value != null) xml.element("cds", name, value);
+    }
+
+    private static void invalid() throws IOException {
+        throw new IOException("CDS_EXPORT_IMMUNIZATION_VALUES_REQUIRES_REVIEW");
+    }
 }

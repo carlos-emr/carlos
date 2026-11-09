@@ -24,10 +24,25 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.dto;
 import java.util.Objects;
 
 /** An explicit source-field decision; presence is preserved separately from clinical interpretation. */
-public record CdsExportFieldAssessmentDto(Presence presence, Outcome outcome, String destination, String rule) {
-    public enum Presence { SQL_NULL, EMPTY, VALUE }
-    public enum Outcome { ABSENT, MAPPED, OPERATIONAL, REQUIRES_REVIEW }
+public record CdsExportFieldAssessmentDto(
+        Presence presence, Outcome outcome, String destination, String rule) {
+    public enum Presence {
+        SQL_NULL,
+        EMPTY,
+        VALUE
+    }
+
+    public enum Outcome {
+        ABSENT,
+        MAPPED,
+        OPERATIONAL,
+        REQUIRES_REVIEW
+    }
+
     public CdsExportFieldAssessmentDto {
-        Objects.requireNonNull(presence); Objects.requireNonNull(outcome); Objects.requireNonNull(destination); Objects.requireNonNull(rule);
+        Objects.requireNonNull(presence);
+        Objects.requireNonNull(outcome);
+        Objects.requireNonNull(destination);
+        Objects.requireNonNull(rule);
     }
 }

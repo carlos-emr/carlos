@@ -29,15 +29,41 @@ import java.util.Objects;
 
 /** Shared effective calendar handling for imported dates and later native edits. */
 final class CdsExportRetainedCalendarMapper {
-    enum Rule { UNCHANGED_SOURCE, PREPARED_EFFECTIVE, EQUIVALENT_NATIVE_CALENDAR, CURRENT_NATIVE, EDITED_SOURCE_OFFSET_REQUIRES_REVIEW }
-    record Decision(String lexical, Rule rule){@Override public String toString(){return "CdsExportRetainedCalendarMapper.Decision[protected]"; }}
-    Decision map(String source, LocalDate prepared, LocalDate current, boolean unchanged, String path)throws IOException {
-        Objects.requireNonNull(source); Objects.requireNonNull(prepared); Objects.requireNonNull(current);
-        var original=CdsTemporal.parse(null, null, source, null, path);
-        if (current.equals(prepared)){
-            int days=Math.toIntExact(ChronoUnit.DAYS.between(original.earliest(), prepared)); var effective=new CdsExportPreparedTemporalMapper().map(CdsTemporal.shift(original, days, path), false);
-            return new Decision(effective.lexical(), days!=0?Rule.PREPARED_EFFECTIVE:unchanged?Rule.UNCHANGED_SOURCE:Rule.EQUIVALENT_NATIVE_CALENDAR);
+    enum Rule {
+        UNCHANGED_SOURCE,
+        PREPARED_EFFECTIVE,
+        EQUIVALENT_NATIVE_CALENDAR,
+        CURRENT_NATIVE,
+        EDITED_SOURCE_OFFSET_REQUIRES_REVIEW
+    }
+
+    record Decision(String lexical, Rule rule) {
+        @Override
+        public String toString() {
+            return "CdsExportRetainedCalendarMapper.Decision[protected]";
         }
-        return source.length()!=10?new Decision(null, Rule.EDITED_SOURCE_OFFSET_REQUIRES_REVIEW):new Decision(current.toString(), Rule.CURRENT_NATIVE);
+    }
+
+    Decision map(
+            String source, LocalDate prepared, LocalDate current, boolean unchanged, String path)
+            throws IOException {
+        Objects.requireNonNull(source);
+        Objects.requireNonNull(prepared);
+        Objects.requireNonNull(current);
+        var original = CdsTemporal.parse(null, null, source, null, path);
+        if (current.equals(prepared)) {
+            int days = Math.toIntExact(ChronoUnit.DAYS.between(original.earliest(), prepared));
+            var effective =
+                    new CdsExportPreparedTemporalMapper()
+                            .map(CdsTemporal.shift(original, days, path), false);
+            return new Decision(
+                    effective.lexical(),
+                    days != 0
+                            ? Rule.PREPARED_EFFECTIVE
+                            : unchanged ? Rule.UNCHANGED_SOURCE : Rule.EQUIVALENT_NATIVE_CALENDAR);
+        }
+        return source.length() != 10
+                ? new Decision(null, Rule.EDITED_SOURCE_OFFSET_REQUIRES_REVIEW)
+                : new Decision(current.toString(), Rule.CURRENT_NATIVE);
     }
 }

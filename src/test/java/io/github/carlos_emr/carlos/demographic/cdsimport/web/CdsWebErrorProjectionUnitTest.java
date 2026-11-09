@@ -36,42 +36,71 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 @Tag("unit")
 class CdsWebErrorProjectionUnitTest {
-    private final CdsWebService web = new CdsWebService(org.mockito.Mockito.mock(CdsImportAccessService.class));
-    @Test void shouldRecognizeTypedSubclasses_withoutSerializingProtectedCauses() throws Exception {
-        var response=new MockHttpServletResponse();
-        web.failure(response,new CdsImportException("OWNER_FENCED",false,new IllegalStateException("/private/source.xml")) { });
+    private final CdsWebService web =
+            new CdsWebService(org.mockito.Mockito.mock(CdsImportAccessService.class));
+
+    @Test
+    void shouldRecognizeTypedSubclasses_withoutSerializingProtectedCauses() throws Exception {
+        var response = new MockHttpServletResponse();
+        web.failure(
+                response,
+                new CdsImportException(
+                        "OWNER_FENCED",
+                        false,
+                        new IllegalStateException("/private/source.xml")) {});
         assertThat(response.getStatus()).isEqualTo(409);
-        assertThat(response.getContentAsString()).contains("OWNER_FENCED").doesNotContain("/private","IllegalStateException");
-    }
-    @Test void shouldRejectForeignSameNamedException_insteadOfTrustingItsSimpleClassName() throws Exception {
-        var response=new MockHttpServletResponse();web.failure(response,new Foreign.CdsImportException("SECRET_SOURCE_VALUE"));
-        assertThat(response.getStatus()).isEqualTo(503);
-        assertThat(response.getContentAsString()).contains("IMPORT_REQUEST_UNAVAILABLE").doesNotContain("SECRET_SOURCE_VALUE");
-    }
-    @Test void shouldKeepUnclassifiedWrapperDetailsPrivate_whenProjectingFailure() throws Exception {
-        var response=new MockHttpServletResponse();web.failure(response,new RuntimeException("/private/path",new CdsImportException("OWNER_FENCED")));
-        assertThat(response.getStatus()).isEqualTo(503);
-        assertThat(response.getContentAsString()).doesNotContain("/private","OWNER_FENCED");
+        assertThat(response.getContentAsString())
+                .contains("OWNER_FENCED")
+                .doesNotContain("/private", "IllegalStateException");
     }
 
-    @Test void shouldReplaceAnUncommittedDownload_withACompleteJsonError() throws Exception {
+    @Test
+    void shouldRejectForeignSameNamedException_insteadOfTrustingItsSimpleClassName()
+            throws Exception {
+        var response = new MockHttpServletResponse();
+        web.failure(response, new Foreign.CdsImportException("SECRET_SOURCE_VALUE"));
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getContentAsString())
+                .contains("IMPORT_REQUEST_UNAVAILABLE")
+                .doesNotContain("SECRET_SOURCE_VALUE");
+    }
+
+    @Test
+    void shouldKeepUnclassifiedWrapperDetailsPrivate_whenProjectingFailure() throws Exception {
+        var response = new MockHttpServletResponse();
+        web.failure(
+                response,
+                new RuntimeException("/private/path", new CdsImportException("OWNER_FENCED")));
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getContentAsString()).doesNotContain("/private", "OWNER_FENCED");
+    }
+
+    @Test
+    void shouldReplaceAnUncommittedDownload_withACompleteJsonError() throws Exception {
         var body = new ByteArrayOutputStream();
         var coyote = new org.apache.coyote.Response();
         var coyoteRequest = new org.apache.coyote.Request();
-        var request = new org.apache.catalina.connector.Request(
-                new org.apache.catalina.connector.Connector(), coyoteRequest);
+        var request =
+                new org.apache.catalina.connector.Request(
+                        new org.apache.catalina.connector.Connector(), coyoteRequest);
         coyoteRequest.setNote(1, request);
         coyote.setRequest(coyoteRequest);
-        coyote.setOutputBuffer(new org.apache.coyote.OutputBuffer() {
-            @Override public int doWrite(ByteBuffer bytes) {
-                int length = bytes.remaining();
-                byte[] chunk = new byte[length];
-                bytes.get(chunk);
-                body.writeBytes(chunk);
-                return length;
-            }
-            @Override public long getBytesWritten() { return body.size(); }
-        });
+        coyote.setOutputBuffer(
+                new org.apache.coyote.OutputBuffer() {
+                    @Override
+                    public int doWrite(ByteBuffer bytes) {
+                        int length = bytes.remaining();
+                        byte[] chunk = new byte[length];
+                        bytes.get(chunk);
+                        body.writeBytes(chunk);
+                        return length;
+                    }
+
+                    @Override
+                    public long getBytesWritten() {
+                        return body.size();
+                    }
+                });
         var response = new org.apache.catalina.connector.Response(coyote);
         response.setContentType("application/octet-stream");
         response.setContentLengthLong(4096);
@@ -92,30 +121,42 @@ class CdsWebErrorProjectionUnitTest {
         var error = new com.fasterxml.jackson.databind.ObjectMapper().readTree(body.toByteArray());
         assertThat(error.path("ok").asBoolean()).isFalse();
         assertThat(error.path("code").asText()).isEqualTo("IMPORT_REQUEST_UNAVAILABLE");
-        assertThat(body.toString(StandardCharsets.UTF_8)).doesNotContain("partial source", "/private");
+        assertThat(body.toString(StandardCharsets.UTF_8))
+                .doesNotContain("partial source", "/private");
     }
 
-    @Test void shouldPropagateFailureAfterCommit_insteadOfCompletingATruncatedDownload() {
+    @Test
+    void shouldPropagateFailureAfterCommit_insteadOfCompletingATruncatedDownload() {
         var response = new MockHttpServletResponse();
         response.setCommitted(true);
         var failure = new IOException("/private/source.bin");
 
         assertThatThrownBy(() -> web.failure(response, failure))
-                .isInstanceOf(IOException.class).hasCause(failure);
+                .isInstanceOf(IOException.class)
+                .hasCause(failure);
         assertThat(response.getContentAsByteArray()).isEmpty();
     }
-    @Test void shouldRefuseEverySensitiveSummaryKeyCase_withLinearSubstringChecks() {
-        for(String key:new String[]{"reportLocation","DIRECTORY","sourcePassword","aSeCrEtValue","sourceXPath"}) {
-            assertThatThrownBy(()->web.summary(Map.of("outer",Map.of(key,"private"))))
+
+    @Test
+    void shouldRefuseEverySensitiveSummaryKeyCase_withLinearSubstringChecks() {
+        for (String key :
+                new String[] {
+                    "reportLocation", "DIRECTORY", "sourcePassword", "aSeCrEtValue", "sourceXPath"
+                }) {
+            assertThatThrownBy(() -> web.summary(Map.of("outer", Map.of(key, "private"))))
                     .hasMessage("IMPORT_SUMMARY_INVALID");
         }
-        assertThat(web.summary(Map.of("lastCheckpoint","2026-01-01","pendingUnits",2)))
-                .isEqualTo(Map.of("lastCheckpoint","2026-01-01","pendingUnits",2));
+        assertThat(web.summary(Map.of("lastCheckpoint", "2026-01-01", "pendingUnits", 2)))
+                .isEqualTo(Map.of("lastCheckpoint", "2026-01-01", "pendingUnits", 2));
     }
+
     private static final class Foreign {
         private static final class CdsImportException extends RuntimeException {
-            private static final long serialVersionUID=1L;
-            private CdsImportException(String code) { super(code); }
+            private static final long serialVersionUID = 1L;
+
+            private CdsImportException(String code) {
+                super(code);
+            }
         }
     }
 }

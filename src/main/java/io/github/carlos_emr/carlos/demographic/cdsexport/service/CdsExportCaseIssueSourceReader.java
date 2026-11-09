@@ -31,7 +31,22 @@ import org.springframework.beans.factory.annotation.Qualifier;
 /** Complete patient issue context from its owning DAO, under the active chart's patient-domain read boundary. */
 @Service
 public class CdsExportCaseIssueSourceReader extends CdsExportPatientTableSourceReader {
-    public CdsExportCaseIssueSourceReader(@Qualifier("caseManagementIssueDAO") CaseManagementIssueDAO source) { super(source, CdsExportPatientTableReadSupport.Plan.CASE_ISSUES, CdsExportNoteSourceReader.CATEGORIES); }
-    @Override public Set<String> requiredTables() { return Set.of("casemgmt_issue_notes", "casemgmt_note", "issue"); }
-    @Override public void authorizeReadScope(int patient, CdsExportRunControl control) { control.authorizeCaseManagement(patient); control.checkpoint(); }
+    public CdsExportCaseIssueSourceReader(
+            @Qualifier("caseManagementIssueDAO") CaseManagementIssueDAO source) {
+        super(
+                source,
+                CdsExportPatientTableReadSupport.Plan.CASE_ISSUES,
+                CdsExportNoteSourceReader.CATEGORIES);
+    }
+
+    @Override
+    public Set<String> requiredTables() {
+        return Set.of("casemgmt_issue_notes", "casemgmt_note", "issue");
+    }
+
+    @Override
+    public void authorizeReadScope(int patient, CdsExportRunControl control) {
+        control.authorizeCaseManagement(patient);
+        control.checkpoint();
+    }
 }

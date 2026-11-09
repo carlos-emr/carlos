@@ -37,22 +37,54 @@ import org.springframework.stereotype.Service;
 @Service
 public class CdsExportDemographicSourceReader implements CdsExportNativeSourceReader {
     private final DemographicDao demographics;
-    public CdsExportDemographicSourceReader(DemographicDao demographics) { this.demographics = demographics; }
-    @Override public String table() { return "demographic"; }
-    @Override public Set<String> columns() {
-        var names = new HashSet<>(CdsExportDemographicRowDto.COLUMNS); names.add("demographic_no"); return Set.copyOf(names);
+
+    public CdsExportDemographicSourceReader(DemographicDao demographics) {
+        this.demographics = demographics;
     }
-    @Override public Set<CdsCategory> categories() { return Set.of(CdsCategory.DEMOGRAPHICS); }
-    @Override public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> receiptColumns() {
+
+    @Override
+    public String table() {
+        return "demographic";
+    }
+
+    @Override
+    public Set<String> columns() {
+        var names = new HashSet<>(CdsExportDemographicRowDto.COLUMNS);
+        names.add("demographic_no");
+        return Set.copyOf(names);
+    }
+
+    @Override
+    public Set<CdsCategory> categories() {
+        return Set.of(CdsCategory.DEMOGRAPHICS);
+    }
+
+    @Override
+    public java.util.List<
+                    io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column>
+            receiptColumns() {
         return demographics.readCdsExportReceiptColumns();
     }
-    @Override public CdsExportTableSchemaDto schema() { return demographics.readCdsExportDemographicSchema(); }
-    @Override public long count(int patient) { return demographics.findCdsExportSelectedPatients(List.of(patient)).size(); }
-    @Override public void capture(int patient, CdsExportNativeCaptureComposer.Writer output) throws IOException {
+
+    @Override
+    public CdsExportTableSchemaDto schema() {
+        return demographics.readCdsExportDemographicSchema();
+    }
+
+    @Override
+    public long count(int patient) {
+        return demographics.findCdsExportSelectedPatients(List.of(patient)).size();
+    }
+
+    @Override
+    public void capture(int patient, CdsExportNativeCaptureComposer.Writer output)
+            throws IOException {
         var row = demographics.findCdsExportRawDemographic(patient);
         if (row == null) throw new IOException("CDS_EXPORT_SELECTED_PATIENT_MISSING");
-        if (row.demographicNo() != patient) throw new IOException("CDS_EXPORT_CAPTURE_SCOPE_MISMATCH");
-        var fields = new LinkedHashMap<>(row.fields()); fields.put("demographic_no", Integer.toString(patient));
+        if (row.demographicNo() != patient)
+            throw new IOException("CDS_EXPORT_CAPTURE_SCOPE_MISMATCH");
+        var fields = new LinkedHashMap<>(row.fields());
+        fields.put("demographic_no", Integer.toString(patient));
         output.row(String.format(Locale.ROOT, "%010d", patient), fields);
     }
 }

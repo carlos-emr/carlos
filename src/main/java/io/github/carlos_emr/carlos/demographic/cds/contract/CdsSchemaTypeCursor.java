@@ -39,16 +39,23 @@ public final class CdsSchemaTypeCursor {
     private final Map<String, String> pendingPrefixes = new HashMap<>();
     private final Deque<Frame> stack = new ArrayDeque<>();
 
-    public CdsSchemaTypeCursor(CdsSchemaModel model) { this.model = model; }
-    public void prefix(String prefix, String uri) { pendingPrefixes.put(prefix, uri); }
+    public CdsSchemaTypeCursor(CdsSchemaModel model) {
+        this.model = model;
+    }
+
+    public void prefix(String prefix, String uri) {
+        pendingPrefixes.put(prefix, uri);
+    }
 
     public void start(String namespace, String local, Attributes attributes) {
         namespaces.pushContext();
         pendingPrefixes.forEach(namespaces::declarePrefix);
         pendingPrefixes.clear();
         CdsSchemaModel.Type parent = stack.isEmpty() ? null : stack.peek().type();
-        boolean any = parent != null && XMLConstants.W3C_XML_SCHEMA_NS_URI.equals(parent.getTypeNamespace())
-                && "anyType".equals(parent.getTypeName());
+        boolean any =
+                parent != null
+                        && XMLConstants.W3C_XML_SCHEMA_NS_URI.equals(parent.getTypeNamespace())
+                        && "anyType".equals(parent.getTypeName());
         CdsSchemaModel.Type type = null;
         if (stack.isEmpty() || any) type = model.element(namespace, local);
         else if (parent != null) type = parent.child(namespace, local);
@@ -68,13 +75,24 @@ public final class CdsSchemaTypeCursor {
         stack.push(new Frame(type));
     }
 
-    public CdsSchemaModel.Type elementType() { return stack.peek().type(); }
+    public CdsSchemaModel.Type elementType() {
+        return stack.peek().type();
+    }
+
     public CdsSchemaModel.Type attributeType(String namespace, String local) {
         CdsSchemaModel.Type type = stack.peek().type();
         CdsSchemaModel.Type attribute = type == null ? null : type.attribute(namespace, local);
         return attribute == null ? model.attribute(namespace, local) : attribute;
     }
-    public void end() { stack.pop(); namespaces.popContext(); }
-    public static boolean identity(CdsSchemaModel.Type type) { return type != null && type.identity(); }
-    private record Frame(CdsSchemaModel.Type type) { }
+
+    public void end() {
+        stack.pop();
+        namespaces.popContext();
+    }
+
+    public static boolean identity(CdsSchemaModel.Type type) {
+        return type != null && type.identity();
+    }
+
+    private record Frame(CdsSchemaModel.Type type) {}
 }

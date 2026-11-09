@@ -39,40 +39,64 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 class CdsDocumentWsUnitTest extends CarlosSoapTestBase {
     @Mock private DocumentManager documents;
-    @Override protected Object getServiceBean() {
+
+    @Override
+    protected Object getServiceBean() {
         var security = mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
-        when(security.hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), eq("r"), nullable(String.class))).thenReturn(true);
+        when(security.hasPrivilege(
+                        any(LoggedInInfo.class), eq("_edoc"), eq("r"), nullable(String.class)))
+                .thenReturn(true);
         registerMock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class, security);
-        var service=new DocumentWs(); injectDependency(service, "documentManager", documents); return service;
+        var service = new DocumentWs();
+        injectDependency(service, "documentManager", documents);
+        return service;
     }
-    @Override protected Class<?> getServiceInterface() { return DocumentWs.class; }
+
+    @Override
+    protected Class<?> getServiceInterface() {
+        return DocumentWs.class;
+    }
 
     @Test
-    void shouldFaultBeforeBinaryFileLoading_whenImportedReportUsesTheSingleDocumentEndpoint() throws Exception {
-        Document imported=spy(new Document(123)); imported.setCdsContentPrecision("UNKNOWN");
+    void shouldFaultBeforeBinaryFileLoading_whenImportedReportUsesTheSingleDocumentEndpoint()
+            throws Exception {
+        Document imported = spy(new Document(123));
+        imported.setCdsContentPrecision("UNKNOWN");
         when(documents.getDocument(any(LoggedInInfo.class), eq(123))).thenReturn(imported);
-        assertThatThrownBy(()-> createClient(DocumentWs.class).getDocument(123))
+        assertThatThrownBy(() -> createClient(DocumentWs.class).getDocument(123))
                 .hasMessageContaining("legacy export cannot represent");
         verify(imported, never()).getDocumentFileContentsAsBytes();
     }
 
     @Test
-    void shouldFaultBeforeLoadingAnySelectedBinary_whenAnIncrementalPageContainsAnImportedReport() throws Exception {
-        Document ordinary=spy(new Document(1)); Document imported=spy(new Document(2)); imported.setCdsContentPrecision("YEAR");
-        when(documents.getDocumentsUpdateAfterDate(any(LoggedInInfo.class), any(Date.class), eq(10)))
+    void shouldFaultBeforeLoadingAnySelectedBinary_whenAnIncrementalPageContainsAnImportedReport()
+            throws Exception {
+        Document ordinary = spy(new Document(1));
+        Document imported = spy(new Document(2));
+        imported.setCdsContentPrecision("YEAR");
+        when(documents.getDocumentsUpdateAfterDate(
+                        any(LoggedInInfo.class), any(Date.class), eq(10)))
                 .thenReturn(List.of(ordinary, imported));
-        assertThatThrownBy(()-> createClient(DocumentWs.class).getDocumentsUpdateAfterDate(new Date(), 10))
+        assertThatThrownBy(
+                        () ->
+                                createClient(DocumentWs.class)
+                                        .getDocumentsUpdateAfterDate(new Date(), 10))
                 .hasMessageContaining("legacy export cannot represent");
-        verify(ordinary, never()).getDocumentFileContentsAsBytes(); verify(imported, never()).getDocumentFileContentsAsBytes();
+        verify(ordinary, never()).getDocumentFileContentsAsBytes();
+        verify(imported, never()).getDocumentFileContentsAsBytes();
     }
 
     @Test
-    void shouldReturnAnOrdinaryNativeDocument_whenTheSourcePrecisionMarkerIsAbsent() throws Exception {
-        Document ordinary=spy(new Document(123)); ordinary.setContentdatetime(new Date(123000));
-        doReturn(new byte[]{1, 2, 3}).when(ordinary).getDocumentFileContentsAsBytes();
+    void shouldReturnAnOrdinaryNativeDocument_whenTheSourcePrecisionMarkerIsAbsent()
+            throws Exception {
+        Document ordinary = spy(new Document(123));
+        ordinary.setContentdatetime(new Date(123000));
+        doReturn(new byte[] {1, 2, 3}).when(ordinary).getDocumentFileContentsAsBytes();
         when(documents.getDocument(any(LoggedInInfo.class), eq(123))).thenReturn(ordinary);
-        DocumentTransfer transfer=createClient(DocumentWs.class).getDocument(123);
-        assertThat(transfer.getDocumentNo()).isEqualTo(123); assertThat(transfer.getFileContents()).containsExactly(1, 2, 3);
-        assertThat(transfer.getCdsContentPrecision()).isNull(); assertThat(transfer.getContentdatetime()).isEqualTo(new Date(123000));
+        DocumentTransfer transfer = createClient(DocumentWs.class).getDocument(123);
+        assertThat(transfer.getDocumentNo()).isEqualTo(123);
+        assertThat(transfer.getFileContents()).containsExactly(1, 2, 3);
+        assertThat(transfer.getCdsContentPrecision()).isNull();
+        assertThat(transfer.getContentdatetime()).isEqualTo(new Date(123000));
     }
 }

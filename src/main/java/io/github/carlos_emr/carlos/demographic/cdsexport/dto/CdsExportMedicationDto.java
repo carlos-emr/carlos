@@ -25,26 +25,75 @@ import java.util.Map;
 import java.util.Objects;
 
 /** Exact standard medication values. Native display strings are never split into clinical components. */
-public record CdsExportMedicationDto(CdsExportDateDto written, CdsExportDateDto start,
-        String strengthAmount, String strengthUnit, CdsExportPublicProviderDto prescriber, Map<Field, String> fields) {
+public record CdsExportMedicationDto(
+        CdsExportDateDto written,
+        CdsExportDateDto start,
+        String strengthAmount,
+        String strengthUnit,
+        CdsExportPublicProviderDto prescriber,
+        Map<Field, String> fields) {
     public enum Field {
-        DrugIdentificationNumber(20), DrugName(120), NumberOfRefills(100), Dosage(120), DosageUnitOfMeasure(50),
-        Form(120), Route(120), Frequency(120), Duration(1000), RefillDuration(1000), Quantity(1000), RefillQuantity(1000),
-        LongTermMedication(1), PastMedications(1), Notes(32000), PrescriptionInstructions(32000), PatientCompliance(1),
-        TreatmentType(50), PrescriptionStatus(10), NonAuthoritativeIndicator(1), PrescriptionIdentifier(50),
-        PriorPrescriptionReferenceIdentifier(20), DispenseInterval(10), DrugDescription(2000), SubstitutionNotAllowed(1),
-        ProblemCode(10), ProtocolIdentifier(20);
+        DrugIdentificationNumber(20),
+        DrugName(120),
+        NumberOfRefills(100),
+        Dosage(120),
+        DosageUnitOfMeasure(50),
+        Form(120),
+        Route(120),
+        Frequency(120),
+        Duration(1000),
+        RefillDuration(1000),
+        Quantity(1000),
+        RefillQuantity(1000),
+        LongTermMedication(1),
+        PastMedications(1),
+        Notes(32000),
+        PrescriptionInstructions(32000),
+        PatientCompliance(1),
+        TreatmentType(50),
+        PrescriptionStatus(10),
+        NonAuthoritativeIndicator(1),
+        PrescriptionIdentifier(50),
+        PriorPrescriptionReferenceIdentifier(20),
+        DispenseInterval(10),
+        DrugDescription(2000),
+        SubstitutionNotAllowed(1),
+        ProblemCode(10),
+        ProtocolIdentifier(20);
         private final int maximum;
-        Field(int maximum) { this.maximum = maximum; }
-        public int maximum() { return maximum; }
-        public boolean indicator() { return this == LongTermMedication || this == PastMedications || this == PatientCompliance; }
-        public boolean directIndicator() { return this == NonAuthoritativeIndicator || this == SubstitutionNotAllowed; }
+
+        Field(int maximum) {
+            this.maximum = maximum;
+        }
+
+        public int maximum() {
+            return maximum;
+        }
+
+        public boolean indicator() {
+            return this == LongTermMedication
+                    || this == PastMedications
+                    || this == PatientCompliance;
+        }
+
+        public boolean directIndicator() {
+            return this == NonAuthoritativeIndicator || this == SubstitutionNotAllowed;
+        }
     }
+
     public CdsExportMedicationDto {
-        Objects.requireNonNull(written); Objects.requireNonNull(start); fields = Map.copyOf(fields);
-        if ((strengthAmount == null) != (strengthUnit == null) || fields.get(Field.DrugName) == null && fields.get(Field.DrugIdentificationNumber) == null) {
+        Objects.requireNonNull(written);
+        Objects.requireNonNull(start);
+        fields = Map.copyOf(fields);
+        if ((strengthAmount == null) != (strengthUnit == null)
+                || fields.get(Field.DrugName) == null
+                        && fields.get(Field.DrugIdentificationNumber) == null) {
             throw new IllegalArgumentException("CDS_EXPORT_MEDICATION_VALUES_REQUIRES_REVIEW");
         }
     }
-    @Override public String toString() { return "CdsExportMedicationDto[protected]"; }
+
+    @Override
+    public String toString() {
+        return "CdsExportMedicationDto[protected]";
+    }
 }

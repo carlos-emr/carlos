@@ -33,37 +33,56 @@ import org.w3c.dom.Element;
 
 @Tag("unit")
 class CdsHealthCardAuthorityUnitTest {
-    @Test void shouldPreserveEveryPinnedWireAuthority_andKeepUnknownSentinelsOutOfIdentityMatching() throws Exception {
+    @Test
+    void shouldPreserveEveryPinnedWireAuthority_andKeepUnknownSentinelsOutOfIdentityMatching()
+            throws Exception {
         var factory = DocumentBuilderFactory.newDefaultNSInstance();
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, ""); factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+        factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
         var actual = new HashSet<String>();
-        try (var input = getClass().getResourceAsStream("/cds-import/schema/EMR_Data_Migration_Schema_DT.xsd")) {
+        try (var input =
+                getClass()
+                        .getResourceAsStream(
+                                "/cds-import/schema/EMR_Data_Migration_Schema_DT.xsd")) {
             var document = factory.newDocumentBuilder().parse(input);
-            var types = document.getElementsByTagNameNS(XMLConstants.W3C_XML_SCHEMA_NS_URI, "simpleType");
+            var types =
+                    document.getElementsByTagNameNS(
+                            XMLConstants.W3C_XML_SCHEMA_NS_URI, "simpleType");
             for (int i = 0; i < types.getLength(); i++) {
-                var type = (Element) types.item(i); if (!type.getAttribute("name").equals("healthCardProvinceCode")) continue;
-                var values = type.getElementsByTagNameNS(XMLConstants.W3C_XML_SCHEMA_NS_URI, "enumeration");
-                for (int j = 0; j < values.getLength(); j++) actual.add(((Element) values.item(j)).getAttribute("value"));
+                var type = (Element) types.item(i);
+                if (!type.getAttribute("name").equals("healthCardProvinceCode")) continue;
+                var values =
+                        type.getElementsByTagNameNS(
+                                XMLConstants.W3C_XML_SCHEMA_NS_URI, "enumeration");
+                for (int j = 0; j < values.getLength(); j++)
+                    actual.add(((Element) values.item(j)).getAttribute("value"));
             }
         }
         assertThat(actual).hasSize(71);
         var expected = new HashSet<>(CdsHealthCardAuthority.PINNED_US);
-        CdsHealthCardAuthority.CANADIAN.forEach(code -> expected.add("CA-" + code)); expected.addAll(Set.of("-50", "-70", "-90"));
+        CdsHealthCardAuthority.CANADIAN.forEach(code -> expected.add("CA-" + code));
+        expected.addAll(Set.of("-50", "-70", "-90"));
         assertThat(actual).isEqualTo(expected);
         for (String code : actual) assertThat(CdsHealthCardAuthority.wire(code)).isEqualTo(code);
-        for (String sentinel : Set.of("-50", "-70", "-90")) assertThat(CdsHealthCardAuthority.known(sentinel)).isNull();
+        for (String sentinel : Set.of("-50", "-70", "-90"))
+            assertThat(CdsHealthCardAuthority.known(sentinel)).isNull();
     }
-    @Test void shouldNormalizeOnlyExactCanadianAliases_withTheSameIdentityAndWireMeaning() {
+
+    @Test
+    void shouldNormalizeOnlyExactCanadianAliases_withTheSameIdentityAndWireMeaning() {
         for (String code : CdsHealthCardAuthority.CANADIAN) {
             assertThat(CdsHealthCardAuthority.known(code)).isEqualTo(code);
             assertThat(CdsHealthCardAuthority.known("CA-" + code)).isEqualTo(code);
             assertThat(CdsHealthCardAuthority.wire(code)).isEqualTo("CA-" + code);
         }
     }
-    @Test void shouldRefuseUnknownOrAmbiguousCodes_withoutTrimmingOrGuessingTheJurisdiction() {
-        for (String code : new String[]{null, "", "NY", "CA-XX", "US-XX", "on", "ON ", " CA-ON"}) {
-            assertThat(CdsHealthCardAuthority.wire(code)).isNull(); assertThat(CdsHealthCardAuthority.known(code)).isNull();
+
+    @Test
+    void shouldRefuseUnknownOrAmbiguousCodes_withoutTrimmingOrGuessingTheJurisdiction() {
+        for (String code : new String[] {null, "", "NY", "CA-XX", "US-XX", "on", "ON ", " CA-ON"}) {
+            assertThat(CdsHealthCardAuthority.wire(code)).isNull();
+            assertThat(CdsHealthCardAuthority.known(code)).isNull();
             assertThat(CdsHealthCardAuthority.normalize(code)).isEqualTo(code);
         }
     }

@@ -50,24 +50,35 @@ class CdsSchemaTypeCursorUnitTest {
 
     @Test
     void shouldUseJdkImplementations_forCdsParsingAndValidation() throws Exception {
-        assertEquals("java.xml", CdsXmlParser.xmlReader(CdsInputLimitsDto.defaults()).getClass().getModule().getName());
-        assertEquals("java.xml", CdsSchemaValidator.newValidator().getClass().getModule().getName());
+        assertEquals(
+                "java.xml",
+                CdsXmlParser.xmlReader(CdsInputLimitsDto.defaults())
+                        .getClass()
+                        .getModule()
+                        .getName());
+        assertEquals(
+                "java.xml", CdsSchemaValidator.newValidator().getClass().getModule().getName());
     }
 
     @Test
     void shouldReachConfiguredCdsBoundaries_beforeJdkDefaultsRejectInput() throws Exception {
         var limits = CdsInputLimitsDto.defaults();
-        for (String xml : new String[] {
-                "<e>".repeat(limits.maxXmlDepth()) + "</e>".repeat(limits.maxXmlDepth()),
-                "<" + "n".repeat(limits.maxXmlNameCharacters()) + "/>",
-                "<e xmlns:p='urn:" + "n".repeat(limits.maxNamespaceUriCharacters() - 4) + "'/>"}) {
+        for (String xml :
+                new String[] {
+                    "<e>".repeat(limits.maxXmlDepth()) + "</e>".repeat(limits.maxXmlDepth()),
+                    "<" + "n".repeat(limits.maxXmlNameCharacters()) + "/>",
+                    "<e xmlns:p='urn:" + "n".repeat(limits.maxNamespaceUriCharacters() - 4) + "'/>"
+                }) {
             var reader = CdsXmlParser.xmlReader(limits);
             AtomicInteger starts = new AtomicInteger();
-            reader.setContentHandler(new DefaultHandler() {
-                @Override public void startElement(String uri, String local, String name, Attributes attributes) {
-                    starts.incrementAndGet();
-                }
-            });
+            reader.setContentHandler(
+                    new DefaultHandler() {
+                        @Override
+                        public void startElement(
+                                String uri, String local, String name, Attributes attributes) {
+                            starts.incrementAndGet();
+                        }
+                    });
             reader.parse(new InputSource(new StringReader(xml)));
             assertTrue(starts.get() > 0);
         }
@@ -77,16 +88,25 @@ class CdsSchemaTypeCursorUnitTest {
     void shouldAdmitPolicyAllowedAttributesAndEscapes_beyondJdkDefaultCeilings() throws Exception {
         var limits = CdsInputLimitsDto.defaults();
         StringBuilder attributes = new StringBuilder();
-        for (int i = 0; i < CdsXmlParser.MAX_ELEMENT_ATTRIBUTES; i++) attributes.append(" a").append(i).append("='v'");
-        for (int i = 1; i < limits.maxNamespaceAliases(); i++) attributes.append(" xmlns:p").append(i).append("='urn:p").append(i).append("'");
-        // JDK 25 defaults: 200 attributes (xmlns included) and 100,000 predefined references per document.
-        String[] documents = {"<e" + attributes + "/>", "<e>" + "&amp;&lt;".repeat(150_000) + "</e>"};
+        for (int i = 0; i < CdsXmlParser.MAX_ELEMENT_ATTRIBUTES; i++)
+            attributes.append(" a").append(i).append("='v'");
+        for (int i = 1; i < limits.maxNamespaceAliases(); i++)
+            attributes.append(" xmlns:p").append(i).append("='urn:p").append(i).append("'");
+        // JDK 25 defaults: 200 attributes (xmlns included) and 100,000 predefined references per
+        // document.
+        String[] documents = {
+            "<e" + attributes + "/>", "<e>" + "&amp;&lt;".repeat(150_000) + "</e>"
+        };
         for (String xml : documents) {
             var reader = CdsXmlParser.xmlReader(limits);
             AtomicInteger characters = new AtomicInteger();
-            reader.setContentHandler(new DefaultHandler() {
-                @Override public void characters(char[] text, int offset, int length) { characters.addAndGet(length); }
-            });
+            reader.setContentHandler(
+                    new DefaultHandler() {
+                        @Override
+                        public void characters(char[] text, int offset, int length) {
+                            characters.addAndGet(length);
+                        }
+                    });
             reader.parse(new InputSource(new StringReader(xml)));
             if (xml.startsWith("<e>")) assertEquals(300_000, characters.get());
         }
@@ -97,11 +117,19 @@ class CdsSchemaTypeCursorUnitTest {
         String fixture = resource("/demographic/cds-import-summary.xml");
         String note = "<MyClinicalNotesContent>";
         assertTrue(fixture.contains(note));
-        String xml = fixture.replace(note, note + "a &amp; b &lt; c &gt; d &quot;e&apos; ".repeat(40_000));
+        String xml =
+                fixture.replace(
+                        note, note + "a &amp; b &lt; c &gt; d &quot;e&apos; ".repeat(40_000));
         Path run = Files.createTempDirectory(temp, "escaped-");
         Path source = run.resolve("source.xml");
         Files.writeString(source, xml);
-        new CdsXmlParser().parse(source, run.resolve("spool"), CdsInputLimitsDto.defaults(), () -> false, record -> {});
+        new CdsXmlParser()
+                .parse(
+                        source,
+                        run.resolve("spool"),
+                        CdsInputLimitsDto.defaults(),
+                        () -> false,
+                        record -> {});
         assertTrue(Files.exists(run.resolve("spool/parse.seal")));
     }
 
@@ -110,11 +138,18 @@ class CdsSchemaTypeCursorUnitTest {
         var limits = CdsInputLimitsDto.defaults();
         String fixture = resource("/demographic/cds-import-summary.xml");
         String[] values = {
-                "<cdsd:Content><" + "n".repeat(limits.maxXmlNameCharacters() + 1) + "/></cdsd:Content>",
-                "<cdsd:Content xmlns:p='urn:" + "n".repeat(limits.maxNamespaceUriCharacters() - 3) + "'/>",
-                "<cdsd:Content>" + "<e>".repeat(limits.maxXmlDepth())
-                        + "</e>".repeat(limits.maxXmlDepth()) + "</cdsd:Content>"};
-        String[] codes = {"CDS_XML_NAME_RESOURCE_LIMIT", "CDS_XML_NAMESPACE_RESOURCE_LIMIT", "CDS_XML_DEPTH_LIMIT"};
+            "<cdsd:Content><" + "n".repeat(limits.maxXmlNameCharacters() + 1) + "/></cdsd:Content>",
+            "<cdsd:Content xmlns:p='urn:"
+                    + "n".repeat(limits.maxNamespaceUriCharacters() - 3)
+                    + "'/>",
+            "<cdsd:Content>"
+                    + "<e>".repeat(limits.maxXmlDepth())
+                    + "</e>".repeat(limits.maxXmlDepth())
+                    + "</cdsd:Content>"
+        };
+        String[] codes = {
+            "CDS_XML_NAME_RESOURCE_LIMIT", "CDS_XML_NAMESPACE_RESOURCE_LIMIT", "CDS_XML_DEPTH_LIMIT"
+        };
         for (int i = 0; i < values.length; i++) {
             String xml = beforeNotes(fixture, residual(values[i]));
             CdsInputException failure = assertThrows(CdsInputException.class, () -> parse(xml));
@@ -124,30 +159,49 @@ class CdsSchemaTypeCursorUnitTest {
 
     @Test
     void shouldRejectUnsupportedMetadataConstructs_insteadOfGuessingStreamingSafety() {
-        for (String content : new String[] {
-                "<xs:simpleType><xs:list itemType='xs:string'/></xs:simpleType>",
-                "<xs:simpleType><xs:union memberTypes='xs:string xs:integer'/></xs:simpleType>",
-                "<xs:complexType><xs:sequence><xs:any processContents='lax'/></xs:sequence></xs:complexType>",
-                "<xs:complexType><xs:complexContent><xs:extension base='xs:anyType'/></xs:complexContent></xs:complexType>"}) {
-            String schema = "<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema' targetNamespace='cds'>"
-                    + "<xs:element name='OmdCds'>" + content + "</xs:element></xs:schema>";
+        for (String content :
+                new String[] {
+                    "<xs:simpleType><xs:list itemType='xs:string'/></xs:simpleType>",
+                    "<xs:simpleType><xs:union memberTypes='xs:string xs:integer'/></xs:simpleType>",
+                    "<xs:complexType><xs:sequence><xs:any processContents='lax'/></xs:sequence></xs:complexType>",
+                    "<xs:complexType><xs:complexContent><xs:extension base='xs:anyType'/></xs:complexContent></xs:complexType>"
+                }) {
+            String schema =
+                    "<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema' targetNamespace='cds'>"
+                            + "<xs:element name='OmdCds'>"
+                            + content
+                            + "</xs:element></xs:schema>";
             byte[] main = schema.getBytes(StandardCharsets.UTF_8);
             byte[] datatypes = emptyDatatypes();
-            IllegalStateException failure = assertThrows(IllegalStateException.class,
-                    () -> CdsSchemaModel.read(main, datatypes));
+            IllegalStateException failure =
+                    assertThrows(
+                            IllegalStateException.class,
+                            () -> CdsSchemaModel.read(main, datatypes));
             assertEquals("CDS_PINNED_SCHEMA_METADATA_UNAVAILABLE", failure.getMessage());
-            assertEquals("CDS_PINNED_SCHEMA_METADATA_UNSUPPORTED", failure.getCause().getMessage(), content);
+            assertEquals(
+                    "CDS_PINNED_SCHEMA_METADATA_UNSUPPORTED",
+                    failure.getCause().getMessage(),
+                    content);
         }
     }
 
     @Test
     void shouldRefuseDtds_whenReadingSchemaMetadata() throws Exception {
-        Path marker = Files.writeString(temp.resolve("synthetic-marker.txt"), "synthetic metadata marker");
-        String schema = "<!DOCTYPE xs:schema [<!ENTITY marker SYSTEM '" + marker.toUri() + "'>]>"
-                + "<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema' targetNamespace='cds'>"
-                + "<xs:annotation><xs:documentation>&marker;</xs:documentation></xs:annotation></xs:schema>";
-        IllegalStateException failure = assertThrows(IllegalStateException.class,
-                () -> CdsSchemaModel.read(schema.getBytes(StandardCharsets.UTF_8), emptyDatatypes()));
+        Path marker =
+                Files.writeString(
+                        temp.resolve("synthetic-marker.txt"), "synthetic metadata marker");
+        String schema =
+                "<!DOCTYPE xs:schema [<!ENTITY marker SYSTEM '"
+                        + marker.toUri()
+                        + "'>]>"
+                        + "<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema' targetNamespace='cds'>"
+                        + "<xs:annotation><xs:documentation>&marker;</xs:documentation></xs:annotation></xs:schema>";
+        IllegalStateException failure =
+                assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                CdsSchemaModel.read(
+                                        schema.getBytes(StandardCharsets.UTF_8), emptyDatatypes()));
         assertInstanceOf(org.xml.sax.SAXParseException.class, failure.getCause());
     }
 
@@ -158,69 +212,96 @@ class CdsSchemaTypeCursorUnitTest {
 
     @Test
     void shouldMatchPsviTypesInEveryFixtureContext_andAllDeclaredAttributes() throws Exception {
-        for (String name : new String[] {"/demographic/cds-import-summary.xml", "/demographic/cds-import-all-categories.xml",
-                "/cds-spec/choices-01.xml", "/cds-spec/choices-02.xml", "/cds-spec/choices-03.xml", "/cds-spec/choices-04.xml"}) {
+        for (String name :
+                new String[] {
+                    "/demographic/cds-import-summary.xml",
+                    "/demographic/cds-import-all-categories.xml",
+                    "/cds-spec/choices-01.xml",
+                    "/cds-spec/choices-02.xml",
+                    "/cds-spec/choices-03.xml",
+                    "/cds-spec/choices-04.xml"
+                }) {
             assertMetadata(resource(name));
         }
     }
 
     @Test
     void shouldMatchDynamicTypes_whenPrefixesAreReboundInSiblingScopes() throws Exception {
-        String first = residual("<cdsd:Content xmlns:t='http://www.w3.org/2001/XMLSchema'"
-                + " xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:type='t:NCName'>token</cdsd:Content>");
-        String second = residual("<cdsd:Content xmlns:t='cds_dt'"
-                + " xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:type='t:codeDescription'>next</cdsd:Content>");
-        assertMetadata(beforeNotes(resource("/demographic/cds-import-summary.xml"), first + second));
+        String first =
+                residual(
+                        "<cdsd:Content xmlns:t='http://www.w3.org/2001/XMLSchema'"
+                                + " xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:type='t:NCName'>token</cdsd:Content>");
+        String second =
+                residual(
+                        "<cdsd:Content xmlns:t='cds_dt'"
+                                + " xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:type='t:codeDescription'>next</cdsd:Content>");
+        assertMetadata(
+                beforeNotes(resource("/demographic/cds-import-summary.xml"), first + second));
     }
 
     @Test
-    void shouldKeepIdentityValidationEnabled_forDuplicateIdsAndUnresolvedReferences() throws Exception {
+    void shouldKeepIdentityValidationEnabled_forDuplicateIdsAndUnresolvedReferences()
+            throws Exception {
         String fixture = resource("/demographic/cds-import-summary.xml");
         String id = residual(typed("ID", "example"));
         String reference = residual(typed("IDREF", "example"));
         parse(beforeNotes(fixture, id + reference));
         for (String invalid : new String[] {id + id, reference}) {
-            CdsInputException failure = assertThrows(CdsInputException.class,
-                    () -> parse(beforeNotes(fixture, invalid)),
-                    invalid.equals(reference) ? "unresolved IDREF" : "duplicate ID");
+            CdsInputException failure =
+                    assertThrows(
+                            CdsInputException.class,
+                            () -> parse(beforeNotes(fixture, invalid)),
+                            invalid.equals(reference) ? "unresolved IDREF" : "duplicate ID");
             assertEquals("CDS_XML_SCHEMA_INVALID", failure.code());
         }
     }
 
     @Test
-    void shouldPreserveImplicitSchemaInstanceAttributeTypes_duringInvalidInputMetadataMatch() throws Exception {
-        String value = "<Reports><Format>Binary</Format><Content><cdsd:Media"
-                + " xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xmlns:xs='http://www.w3.org/2001/XMLSchema'"
-                + " xsi:type='xs:base64Binary' xsi:nil='false' xsi:schemaLocation='cds example.xsd'"
-                + " xsi:noNamespaceSchemaLocation='unused.xsd'>QUJD</cdsd:Media></Content>"
-                + "<Class>Medical Records Report</Class></Reports>";
-        String xml = resource("/demographic/cds-import-summary.xml").replace("</PatientRecord>", value + "</PatientRecord>");
+    void shouldPreserveImplicitSchemaInstanceAttributeTypes_duringInvalidInputMetadataMatch()
+            throws Exception {
+        String value =
+                "<Reports><Format>Binary</Format><Content><cdsd:Media"
+                        + " xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xmlns:xs='http://www.w3.org/2001/XMLSchema'"
+                        + " xsi:type='xs:base64Binary' xsi:nil='false' xsi:schemaLocation='cds example.xsd'"
+                        + " xsi:noNamespaceSchemaLocation='unused.xsd'>QUJD</cdsd:Media></Content>"
+                        + "<Class>Medical Records Report</Class></Reports>";
+        String xml =
+                resource("/demographic/cds-import-summary.xml")
+                        .replace("</PatientRecord>", value + "</PatientRecord>");
         // The pinned element is not nillable. Metadata must still match during
         // invalid-input processing, while normal import continues to reject it.
         assertMetadata(xml, false);
-        assertEquals("CDS_XML_SCHEMA_INVALID", assertThrows(CdsInputException.class, () -> parse(xml)).code());
+        assertEquals(
+                "CDS_XML_SCHEMA_INVALID",
+                assertThrows(CdsInputException.class, () -> parse(xml)).code());
     }
 
     @Test
     void shouldMatchPsviTypes_whenMisplacedGlobalReportsHaveNoTypeOverride() throws Exception {
-        String reports = "<Reports><Format>Binary</Format><Content><cdsd:Media>QUJD</cdsd:Media></Content>"
-                + "<Class>Medical Records Report</Class></Reports>"
-                + "<Reports><Format>Text</Format><Content><cdsd:TextContent>misplaced text</cdsd:TextContent></Content>"
-                + "<Class>Medical Records Report</Class></Reports>";
-        String xml = resource("/demographic/cds-import-summary.xml")
-                .replace("<ClinicalNotes>", "<ClinicalNotes>" + reports);
+        String reports =
+                "<Reports><Format>Binary</Format><Content><cdsd:Media>QUJD</cdsd:Media></Content>"
+                        + "<Class>Medical Records Report</Class></Reports>"
+                        + "<Reports><Format>Text</Format><Content><cdsd:TextContent>misplaced text</cdsd:TextContent></Content>"
+                        + "<Class>Medical Records Report</Class></Reports>";
+        String xml =
+                resource("/demographic/cds-import-summary.xml")
+                        .replace("<ClinicalNotes>", "<ClinicalNotes>" + reports);
         assertMetadata(xml, false);
-        assertEquals("CDS_XML_SCHEMA_INVALID", assertThrows(CdsInputException.class, () -> parse(xml)).code());
+        assertEquals(
+                "CDS_XML_SCHEMA_INVALID",
+                assertThrows(CdsInputException.class, () -> parse(xml)).code());
     }
 
     @Test
-    void shouldBoundAggregateIdentityCharacters_evenWhenEveryValueAndTokenCountFits() throws Exception {
+    void shouldBoundAggregateIdentityCharacters_evenWhenEveryValueAndTokenCountFits()
+            throws Exception {
         StringBuilder records = new StringBuilder();
         String large = "x".repeat(60_000);
         assertTrue(large.length() + 2 < CdsInputLimitsDto.defaults().maxBoundedScalarCharacters());
         assertTrue(18 < CdsInputLimitsDto.defaults().maxSchemaIdentityValues());
         for (int i = 0; i < 18; i++) records.append(residual(typed("ID", large + i)));
-        String fixture = beforeNotes(resource("/demographic/cds-import-summary.xml"), records.toString());
+        String fixture =
+                beforeNotes(resource("/demographic/cds-import-summary.xml"), records.toString());
         CdsInputException bounded = assertThrows(CdsInputException.class, () -> parse(fixture));
         assertEquals("CDS_XML_IDENTITY_RESOURCE_LIMIT", bounded.code());
     }
@@ -229,20 +310,34 @@ class CdsSchemaTypeCursorUnitTest {
     void shouldValidateIntrinsicStringDerivedTypes_insteadOfUsingATextWitness() throws Exception {
         String fixture = resource("/demographic/cds-import-summary.xml");
         parse(beforeNotes(fixture, residual(typed("NCName", "valid_name"))));
-        CdsInputException invalid = assertThrows(CdsInputException.class,
-                () -> parse(beforeNotes(fixture, residual(typed("NCName", "invalid name")))));
+        CdsInputException invalid =
+                assertThrows(
+                        CdsInputException.class,
+                        () ->
+                                parse(
+                                        beforeNotes(
+                                                fixture,
+                                                residual(typed("NCName", "invalid name")))));
         assertEquals("CDS_XML_SCHEMA_INVALID", invalid.code());
     }
 
     @Test
     void shouldRejectMalformedBuiltInOverrides_withoutUncheckedTypeFailures() throws Exception {
         for (String type : new String[] {"anyType", "anySimpleType", "integer", "base64Binary"}) {
-            String clinical = "<ClinicalNotes xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance'"
-                    + " xmlns:xs='http://www.w3.org/2001/XMLSchema' xsi:type='xs:" + type + "'>"
-                    + (type.equals("integer") ? "123" : type.equals("base64Binary") ? "QUJD" : "<unexpected>value</unexpected>")
-                    + "</ClinicalNotes>";
+            String clinical =
+                    "<ClinicalNotes xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance'"
+                            + " xmlns:xs='http://www.w3.org/2001/XMLSchema' xsi:type='xs:"
+                            + type
+                            + "'>"
+                            + (type.equals("integer")
+                                    ? "123"
+                                    : type.equals("base64Binary")
+                                            ? "QUJD"
+                                            : "<unexpected>value</unexpected>")
+                            + "</ClinicalNotes>";
             String fixture = resource("/demographic/cds-import-summary.xml");
-            int begin = fixture.indexOf("<ClinicalNotes>"), end = fixture.indexOf("</ClinicalNotes>") + "</ClinicalNotes>".length();
+            int begin = fixture.indexOf("<ClinicalNotes>"),
+                    end = fixture.indexOf("</ClinicalNotes>") + "</ClinicalNotes>".length();
             String invalid = fixture.substring(0, begin) + clinical + fixture.substring(end);
             CdsInputException failure = assertThrows(CdsInputException.class, () -> parse(invalid));
             assertEquals("CDS_XML_SCHEMA_INVALID", failure.code());
@@ -254,7 +349,13 @@ class CdsSchemaTypeCursorUnitTest {
         Path source = run.resolve("source.xml");
         Files.writeString(source, xml);
         try {
-            new CdsXmlParser().parse(source, run.resolve("spool"), CdsInputLimitsDto.defaults(), () -> false, record -> {});
+            new CdsXmlParser()
+                    .parse(
+                            source,
+                            run.resolve("spool"),
+                            CdsInputLimitsDto.defaults(),
+                            () -> false,
+                            record -> {});
         } catch (CdsInputException failure) {
             assertFalse(Files.exists(run.resolve("spool/parse.seal")));
             assertEquals(xml, Files.readString(source));
@@ -264,7 +365,8 @@ class CdsSchemaTypeCursorUnitTest {
 
     private static String residual(String value) {
         return "<MedicationsAndTreatments><ResidualInfo><cdsd:DataElement><cdsd:Name>type fixture</cdsd:Name>"
-                + "<cdsd:DataType>string</cdsd:DataType>" + value
+                + "<cdsd:DataType>string</cdsd:DataType>"
+                + value
                 + "</cdsd:DataElement></ResidualInfo><DrugName>type fixture</DrugName></MedicationsAndTreatments>";
     }
 
@@ -280,7 +382,11 @@ class CdsSchemaTypeCursorUnitTest {
 
     private static String typed(String type, String value) {
         return "<cdsd:Content xmlns:xs='http://www.w3.org/2001/XMLSchema'"
-                + " xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:type='xs:" + type + "'>" + value + "</cdsd:Content>";
+                + " xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:type='xs:"
+                + type
+                + "'>"
+                + value
+                + "</cdsd:Content>";
     }
 
     private static String resource(String name) throws Exception {
@@ -292,7 +398,8 @@ class CdsSchemaTypeCursorUnitTest {
         }
     }
 
-    private static void assertType(org.w3c.dom.TypeInfo actual, CdsSchemaModel.Type metadata, String context) {
+    private static void assertType(
+            org.w3c.dom.TypeInfo actual, CdsSchemaModel.Type metadata, String context) {
         assertNotNull(actual, context);
         assertNotNull(metadata, context);
         assertEquals(actual.getTypeNamespace(), metadata.getTypeNamespace(), context);
@@ -310,39 +417,88 @@ class CdsSchemaTypeCursorUnitTest {
         CdsSchemaTypeCursor cursor = CdsSchemaValidator.newTypeCursor();
         AtomicInteger elements = new AtomicInteger();
         AtomicInteger errors = new AtomicInteger();
-        validator.setErrorHandler(new DefaultHandler() {
-            @Override public void error(org.xml.sax.SAXParseException failure) { errors.incrementAndGet(); }
-            @Override public void fatalError(org.xml.sax.SAXParseException failure) throws SAXException { throw failure; }
-        });
-        validator.setContentHandler(new DefaultHandler() {
-            @Override public void startElement(String uri, String local, String qualified, Attributes attributes) {
-                assertType(reference.getElementTypeInfo(), cursor.elementType(), uri + ":" + local);
-                for (int i = 0; i < attributes.getLength(); i++) {
-                    assertType(reference.getAttributeTypeInfo(i), cursor.attributeType(attributes.getURI(i), attributes.getLocalName(i)),
-                            qualified + "/@" + attributes.getQName(i));
-                }
-                elements.incrementAndGet();
-            }
-        });
+        validator.setErrorHandler(
+                new DefaultHandler() {
+                    @Override
+                    public void error(org.xml.sax.SAXParseException failure) {
+                        errors.incrementAndGet();
+                    }
+
+                    @Override
+                    public void fatalError(org.xml.sax.SAXParseException failure)
+                            throws SAXException {
+                        throw failure;
+                    }
+                });
+        validator.setContentHandler(
+                new DefaultHandler() {
+                    @Override
+                    public void startElement(
+                            String uri, String local, String qualified, Attributes attributes) {
+                        assertType(
+                                reference.getElementTypeInfo(),
+                                cursor.elementType(),
+                                uri + ":" + local);
+                        for (int i = 0; i < attributes.getLength(); i++) {
+                            assertType(
+                                    reference.getAttributeTypeInfo(i),
+                                    cursor.attributeType(
+                                            attributes.getURI(i), attributes.getLocalName(i)),
+                                    qualified + "/@" + attributes.getQName(i));
+                        }
+                        elements.incrementAndGet();
+                    }
+                });
         var reader = CdsXmlParser.xmlReader(CdsInputLimitsDto.defaults());
-        reader.setContentHandler(new DefaultHandler() {
-            @Override public void setDocumentLocator(Locator locator) { validator.setDocumentLocator(locator); }
-            @Override public void startDocument() throws SAXException { validator.startDocument(); }
-            @Override public void endDocument() throws SAXException { validator.endDocument(); }
-            @Override public void startPrefixMapping(String prefix, String uri) throws SAXException {
-                cursor.prefix(prefix, uri); validator.startPrefixMapping(prefix, uri);
-            }
-            @Override public void endPrefixMapping(String prefix) throws SAXException { validator.endPrefixMapping(prefix); }
-            @Override public void startElement(String uri, String local, String qualified, Attributes attributes) throws SAXException {
-                cursor.start(uri, local, attributes); validator.startElement(uri, local, qualified, attributes);
-            }
-            @Override public void endElement(String uri, String local, String qualified) throws SAXException {
-                validator.endElement(uri, local, qualified); cursor.end();
-            }
-            @Override public void characters(char[] text, int offset, int length) throws SAXException {
-                validator.characters(text, offset, length);
-            }
-        });
+        reader.setContentHandler(
+                new DefaultHandler() {
+                    @Override
+                    public void setDocumentLocator(Locator locator) {
+                        validator.setDocumentLocator(locator);
+                    }
+
+                    @Override
+                    public void startDocument() throws SAXException {
+                        validator.startDocument();
+                    }
+
+                    @Override
+                    public void endDocument() throws SAXException {
+                        validator.endDocument();
+                    }
+
+                    @Override
+                    public void startPrefixMapping(String prefix, String uri) throws SAXException {
+                        cursor.prefix(prefix, uri);
+                        validator.startPrefixMapping(prefix, uri);
+                    }
+
+                    @Override
+                    public void endPrefixMapping(String prefix) throws SAXException {
+                        validator.endPrefixMapping(prefix);
+                    }
+
+                    @Override
+                    public void startElement(
+                            String uri, String local, String qualified, Attributes attributes)
+                            throws SAXException {
+                        cursor.start(uri, local, attributes);
+                        validator.startElement(uri, local, qualified, attributes);
+                    }
+
+                    @Override
+                    public void endElement(String uri, String local, String qualified)
+                            throws SAXException {
+                        validator.endElement(uri, local, qualified);
+                        cursor.end();
+                    }
+
+                    @Override
+                    public void characters(char[] text, int offset, int length)
+                            throws SAXException {
+                        validator.characters(text, offset, length);
+                    }
+                });
         reader.parse(new InputSource(new StringReader(xml)));
         assertTrue(elements.get() > 20);
         assertEquals(valid, errors.get() == 0);

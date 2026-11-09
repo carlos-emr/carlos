@@ -22,15 +22,13 @@
  * Toronto, Ontario, Canada
  * <p>
  * Modifications made by Magenta Health in 2024.
- 
+ *
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
-
 package io.github.carlos_emr.carlos.commn.dao;
-
 
 import java.util.Date;
 import jakarta.persistence.NoResultException;
@@ -46,55 +44,121 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 @Repository
 public class PartialDateDaoImpl extends AbstractDaoImpl<PartialDate> implements PartialDateDao {
     @Override
-    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns() {
-        return CdsExportNativeMetadataReadSupport.read(entityManager, CdsExportNativeMetadataReadSupport.Table.PARTIAL_DATE);
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<
+                    io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column>
+            readCdsExportReceiptColumns() {
+        return CdsExportNativeMetadataReadSupport.read(
+                entityManager, CdsExportNativeMetadataReadSupport.Table.PARTIAL_DATE);
     }
 
-
     @Override
-    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportSourceSchema() {
-        return CdsExportPatientTableReadSupport.schema(entityManager, CdsExportPatientTableReadSupport.Plan.PARTIAL_DATE_ALLERGIES);
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto
+            readCdsExportSourceSchema() {
+        return CdsExportPatientTableReadSupport.schema(
+                entityManager, CdsExportPatientTableReadSupport.Plan.PARTIAL_DATE_ALLERGIES);
     }
 
     /** Current finite source binding: partial dates belonging to this patient's allergy rows. */
     @Override
-    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
     public long countCdsExportRows(int patient) {
-        return CdsExportPatientTableReadSupport.count(entityManager, CdsExportPatientTableReadSupport.Plan.PARTIAL_DATE_ALLERGIES, patient);
+        return CdsExportPatientTableReadSupport.count(
+                entityManager,
+                CdsExportPatientTableReadSupport.Plan.PARTIAL_DATE_ALLERGIES,
+                patient);
     }
 
     @Override
-    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportRowsAfter(int patient, Long afterId, int limit) {
-        return CdsExportPatientTableReadSupport.page(entityManager, CdsExportPatientTableReadSupport.Plan.PARTIAL_DATE_ALLERGIES, patient, afterId, limit);
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto>
+            findCdsExportRowsAfter(int patient, Long afterId, int limit) {
+        return CdsExportPatientTableReadSupport.page(
+                entityManager,
+                CdsExportPatientTableReadSupport.Plan.PARTIAL_DATE_ALLERGIES,
+                patient,
+                afterId,
+                limit);
     }
 
     @Override
-    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public byte[] readCdsExportValueChunk(int patient, long rowId, String column, long offset, int length) {
-        return CdsExportPatientTableReadSupport.chunk(entityManager, CdsExportPatientTableReadSupport.Plan.PARTIAL_DATE_ALLERGIES, patient, rowId, column, offset, length);
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportValueChunk(
+            int patient, long rowId, String column, long offset, int length) {
+        return CdsExportPatientTableReadSupport.chunk(
+                entityManager,
+                CdsExportPatientTableReadSupport.Plan.PARTIAL_DATE_ALLERGIES,
+                patient,
+                rowId,
+                column,
+                offset,
+                length);
     }
 
     @Override
-    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public long countCdsExportScopedRows(int patient, java.util.Set<io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory> categories) {
-        return CdsExportPatientTableReadSupport.count(entityManager, CdsExportPatientTableReadSupport.Plan.partialDates(categories), patient);
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportScopedRows(
+            int patient,
+            java.util.Set<io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory>
+                    categories) {
+        return CdsExportPatientTableReadSupport.count(
+                entityManager,
+                CdsExportPatientTableReadSupport.Plan.partialDates(categories),
+                patient);
     }
 
     @Override
-    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportScopedRowsAfter(
-            int patient, java.util.Set<io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory> categories, Long afterId, int limit) {
-        return CdsExportPatientTableReadSupport.page(entityManager, CdsExportPatientTableReadSupport.Plan.partialDates(categories), patient, afterId, limit);
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto>
+            findCdsExportScopedRowsAfter(
+                    int patient,
+                    java.util.Set<io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory>
+                            categories,
+                    Long afterId,
+                    int limit) {
+        return CdsExportPatientTableReadSupport.page(
+                entityManager,
+                CdsExportPatientTableReadSupport.Plan.partialDates(categories),
+                patient,
+                afterId,
+                limit);
     }
 
     @Override
-    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public byte[] readCdsExportScopedChunk(int patient, java.util.Set<io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory> categories,
-            long rowId, String column, long offset, int length) {
-        return CdsExportPatientTableReadSupport.chunk(entityManager, CdsExportPatientTableReadSupport.Plan.partialDates(categories), patient, rowId, column, offset, length);
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportScopedChunk(
+            int patient,
+            java.util.Set<io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory>
+                    categories,
+            long rowId,
+            String column,
+            long offset,
+            int length) {
+        return CdsExportPatientTableReadSupport.chunk(
+                entityManager,
+                CdsExportPatientTableReadSupport.Plan.partialDates(categories),
+                patient,
+                rowId,
+                column,
+                offset,
+                length);
     }
 
     public PartialDateDaoImpl() {
@@ -104,7 +168,8 @@ public class PartialDateDaoImpl extends AbstractDaoImpl<PartialDate> implements 
     @Override
     public PartialDate getPartialDate(Integer tableName, Integer tableId, Integer fieldName) {
 
-        String sqlCommand = "select x from PartialDate x where x.tableName=?1 and x.tableId=?2 and x.fieldName=?3 order by x.id desc";
+        String sqlCommand =
+                "select x from PartialDate x where x.tableName=?1 and x.tableId=?2 and x.fieldName=?3 order by x.id desc";
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, tableName);
         query.setParameter(2, tableId);
@@ -123,13 +188,15 @@ public class PartialDateDaoImpl extends AbstractDaoImpl<PartialDate> implements 
     }
 
     @Override
-    public String getDatePartial(Date fieldDate, Integer tableName, Integer tableId, Integer fieldName) {
+    public String getDatePartial(
+            Date fieldDate, Integer tableName, Integer tableId, Integer fieldName) {
         String dateString = UtilDateUtilities.DateToString(fieldDate, "yyyy-MM-dd");
         return getDatePartial(dateString, tableName, tableId, fieldName);
     }
 
     @Override
-    public String getDatePartial(String fieldDate, Integer tableName, Integer tableId, Integer fieldName) {
+    public String getDatePartial(
+            String fieldDate, Integer tableName, Integer tableId, Integer fieldName) {
         return getDatePartial(fieldDate, getFormat(tableName, tableId, fieldName));
     }
 
@@ -152,18 +219,21 @@ public class PartialDateDaoImpl extends AbstractDaoImpl<PartialDate> implements 
     }
 
     @Override
-    public void setPartialDate(String fieldDate, Integer tableName, Integer tableId, Integer fieldName) {
+    public void setPartialDate(
+            String fieldDate, Integer tableName, Integer tableId, Integer fieldName) {
         String format = getFormat(fieldDate);
         setPartialDate(tableName, tableId, fieldName, format);
     }
 
     @Override
-    public void setPartialDate(Integer tableName, Integer tableId, Integer fieldName, String format) {
+    public void setPartialDate(
+            Integer tableName, Integer tableId, Integer fieldName, String format) {
         if (tableName == null || fieldName == null || tableId == null || tableId.equals(0)) return;
 
         PartialDate partialDate = getPartialDate(tableName, tableId, fieldName);
         if (partialDate == null) {
-            if (StringUtils.filled(format)) partialDate = new PartialDate(tableName, tableId, fieldName, format);
+            if (StringUtils.filled(format))
+                partialDate = new PartialDate(tableName, tableId, fieldName, format);
         } else partialDate.setFormat(format);
 
         if (partialDate != null) persist(partialDate);
@@ -186,9 +256,12 @@ public class PartialDateDaoImpl extends AbstractDaoImpl<PartialDate> implements 
         if (dateValue.length() == 4 && NumberUtils.isDigits(dateValue)) return PartialDate.YEARONLY;
 
         String[] dateParts = dateValue.split("-");
-        if (dateParts.length == 2 && NumberUtils.isDigits(dateParts[0]) && NumberUtils.isDigits(dateParts[1])) {
-            if (dateParts[0].length() == 4 && dateParts[1].length() >= 1 && dateParts[1].length() <= 2)
-                return PartialDate.YEARMONTH;
+        if (dateParts.length == 2
+                && NumberUtils.isDigits(dateParts[0])
+                && NumberUtils.isDigits(dateParts[1])) {
+            if (dateParts[0].length() == 4
+                    && dateParts[1].length() >= 1
+                    && dateParts[1].length() <= 2) return PartialDate.YEARMONTH;
         }
         return null;
     }
@@ -210,12 +283,58 @@ public class PartialDateDaoImpl extends AbstractDaoImpl<PartialDate> implements 
 
     /** Explicit patient-owned immunization selection; no unselected prevention payload is read. */
     @Override
-    @org.springframework.transaction.annotation.Transactional(readOnly=true, propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public long countCdsExportPreventionRows(int patient, java.util.Set<Integer> selected){if (CdsExportPatientTableReadSupport.unresolvedPreventionProgram(entityManager, patient))throw new IllegalStateException("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE"); return CdsExportPatientTableReadSupport.preventionCount(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTION_PRECISION, patient, selected); }
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportPreventionRows(int patient, java.util.Set<Integer> selected) {
+        if (CdsExportPatientTableReadSupport.unresolvedPreventionProgram(entityManager, patient))
+            throw new IllegalStateException("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
+        return CdsExportPatientTableReadSupport.preventionCount(
+                entityManager,
+                CdsExportPatientTableReadSupport.Plan.PREVENTION_PRECISION,
+                patient,
+                selected);
+    }
+
     @Override
-    @org.springframework.transaction.annotation.Transactional(readOnly=true, propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportPreventionRowsAfter(int patient, java.util.Set<Integer> selected, Long after, int limit){if (CdsExportPatientTableReadSupport.unresolvedPreventionProgram(entityManager, patient))throw new IllegalStateException("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE"); return CdsExportPatientTableReadSupport.preventionPage(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTION_PRECISION, patient, selected, after, limit); }
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto>
+            findCdsExportPreventionRowsAfter(
+                    int patient, java.util.Set<Integer> selected, Long after, int limit) {
+        if (CdsExportPatientTableReadSupport.unresolvedPreventionProgram(entityManager, patient))
+            throw new IllegalStateException("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
+        return CdsExportPatientTableReadSupport.preventionPage(
+                entityManager,
+                CdsExportPatientTableReadSupport.Plan.PREVENTION_PRECISION,
+                patient,
+                selected,
+                after,
+                limit);
+    }
+
     @Override
-    @org.springframework.transaction.annotation.Transactional(readOnly=true, propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public byte[] readCdsExportPreventionChunk(int patient, java.util.Set<Integer> selected, long row, String column, long offset, int length){if (CdsExportPatientTableReadSupport.unresolvedPreventionProgram(entityManager, patient))throw new IllegalStateException("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE"); return CdsExportPatientTableReadSupport.preventionChunk(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTION_PRECISION, patient, selected, row, column, offset, length); }
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportPreventionChunk(
+            int patient,
+            java.util.Set<Integer> selected,
+            long row,
+            String column,
+            long offset,
+            int length) {
+        if (CdsExportPatientTableReadSupport.unresolvedPreventionProgram(entityManager, patient))
+            throw new IllegalStateException("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
+        return CdsExportPatientTableReadSupport.preventionChunk(
+                entityManager,
+                CdsExportPatientTableReadSupport.Plan.PREVENTION_PRECISION,
+                patient,
+                selected,
+                row,
+                column,
+                offset,
+                length);
+    }
 }

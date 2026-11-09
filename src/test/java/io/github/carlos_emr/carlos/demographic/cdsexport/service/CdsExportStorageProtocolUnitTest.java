@@ -41,32 +41,79 @@ import org.junit.jupiter.api.Test;
 
 /** The golden bytes came from the actual pre-storage seven-component compiled record, not this new writer. */
 class CdsExportStorageProtocolUnitTest {
-    @Test void shouldRetainExactVersionOneSerializationAndReadability_afterAddingStorageBindings() throws Exception {
-        String original = Files.readString(Path.of("src/test/resources/cds-export/legacy-job-document-v1.json"), StandardCharsets.UTF_8).stripTrailing();
-        assertThat(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(original.getBytes(StandardCharsets.UTF_8))))
+    @Test
+    void shouldRetainExactVersionOneSerializationAndReadability_afterAddingStorageBindings()
+            throws Exception {
+        String original =
+                Files.readString(
+                                Path.of(
+                                        "src/test/resources/cds-export/legacy-job-document-v1.json"),
+                                StandardCharsets.UTF_8)
+                        .stripTrailing();
+        assertThat(
+                        HexFormat.of()
+                                .formatHex(
+                                        MessageDigest.getInstance("SHA-256")
+                                                .digest(original.getBytes(StandardCharsets.UTF_8))))
                 .isEqualTo("9a74689d24bfe4b4a4d3808afefa4fb5463af80bb7ef86e204d39e9091ad3105");
-        var json = new ObjectMapper(); var legacy = document(1, null);
+        var json = new ObjectMapper();
+        var legacy = document(1, null);
         assertThat(json.writeValueAsString(legacy)).isEqualTo(original);
         assertThat(json.readValue(original, CdsExportJobDocumentDto.class)).isEqualTo(legacy);
         assertThat(json.readTree(original).has("storage")).isFalse();
     }
-    @Test void shouldBindOnlyOpaqueStorageIdentityAndFingerprint_withoutPrivateKeyMaterialOrPaths() throws Exception {
+
+    @Test
+    void shouldBindOnlyOpaqueStorageIdentityAndFingerprint_withoutPrivateKeyMaterialOrPaths()
+            throws Exception {
         var binding = new CdsExportStorageBindingDto("primary", "active", "d".repeat(64));
-        var document = document(2, binding); var json = new ObjectMapper(); String text = json.writeValueAsString(document);
+        var document = document(2, binding);
+        var json = new ObjectMapper();
+        String text = json.writeValueAsString(document);
         assertThat(json.readValue(text, CdsExportJobDocumentDto.class)).isEqualTo(document);
         assertThat(json.readTree(text).path("storage").properties()).hasSize(3);
         assertThat(text).doesNotContain("/", "encoded", "AES", "password");
         assertThat(binding.toString()).doesNotContain("primary", "active", "d".repeat(64));
     }
-    @Test void shouldRejectInvalidStorageIdentifiersAndFingerprints() {
-        assertThatThrownBy(() -> new CdsExportStorageBindingDto("../primary", "active", "d".repeat(64))).hasMessage("CDS_EXPORT_STORAGE_BINDING_INVALID");
-        assertThatThrownBy(() -> new CdsExportStorageBindingDto("primary", "active/key", "d".repeat(64))).hasMessage("CDS_EXPORT_STORAGE_BINDING_INVALID");
-        assertThatThrownBy(() -> new CdsExportStorageBindingDto("primary", "active", "D".repeat(64))).hasMessage("CDS_EXPORT_STORAGE_BINDING_INVALID");
+
+    @Test
+    void shouldRejectInvalidStorageIdentifiersAndFingerprints() {
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportStorageBindingDto(
+                                        "../primary", "active", "d".repeat(64)))
+                .hasMessage("CDS_EXPORT_STORAGE_BINDING_INVALID");
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportStorageBindingDto(
+                                        "primary", "active/key", "d".repeat(64)))
+                .hasMessage("CDS_EXPORT_STORAGE_BINDING_INVALID");
+        assertThatThrownBy(
+                        () -> new CdsExportStorageBindingDto("primary", "active", "D".repeat(64)))
+                .hasMessage("CDS_EXPORT_STORAGE_BINDING_INVALID");
     }
+
     private CdsExportJobDocumentDto document(int protocol, CdsExportStorageBindingDto storage) {
-        var command = new CdsExportCommand("fixture", "999998", null, CdsLogicalProfile.ONTARIO_MD_5_2,
-                CdsExportCommand.Selection.SELECTED_PATIENTS, List.of(), List.of(27), Set.of(CdsCategory.DEMOGRAPHICS), "recipient", "audit");
-        return new CdsExportJobDocumentDto(protocol, new CdsExportActorDto("fixture", "999998", null, null), command,
-                "a".repeat(64), "fixture", "b".repeat(64), "c".repeat(64), storage);
+        var command =
+                new CdsExportCommand(
+                        "fixture",
+                        "999998",
+                        null,
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        CdsExportCommand.Selection.SELECTED_PATIENTS,
+                        List.of(),
+                        List.of(27),
+                        Set.of(CdsCategory.DEMOGRAPHICS),
+                        "recipient",
+                        "audit");
+        return new CdsExportJobDocumentDto(
+                protocol,
+                new CdsExportActorDto("fixture", "999998", null, null),
+                command,
+                "a".repeat(64),
+                "fixture",
+                "b".repeat(64),
+                "c".repeat(64),
+                storage);
     }
 }

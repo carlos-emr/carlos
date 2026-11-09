@@ -35,39 +35,77 @@ import org.junit.jupiter.api.Test;
 class CdsExportNativeDateMapperUnitTest {
     private final CdsExportNativeDateMapper mapper = new CdsExportNativeDateMapper();
 
-    @Test void shouldPreserveExplicitYearPrecision_withoutEmittingAnInventedJanuaryFirst() throws Exception {
+    @Test
+    void shouldPreserveExplicitYearPrecision_withoutEmittingAnInventedJanuaryFirst()
+            throws Exception {
         var result = mapper.map("1965-01-01", List.of("YYYY"));
-        assertThat(result.precision()).isEqualTo(CdsExportDateDto.Precision.YEAR); assertThat(result.lexical()).isEqualTo("1965");
+        assertThat(result.precision()).isEqualTo(CdsExportDateDto.Precision.YEAR);
+        assertThat(result.lexical()).isEqualTo("1965");
         assertThat(mapper.map("1965-00-00", List.of("YYYY")).lexical()).isEqualTo("1965");
         assertThat(mapper.map("2019-12-31", List.of("YYYY")).lexical()).isEqualTo("2019");
     }
-    @Test void shouldPreserveExplicitMonthPrecision_withoutEmittingAStorageAnchorDay() throws Exception {
+
+    @Test
+    void shouldPreserveExplicitMonthPrecision_withoutEmittingAStorageAnchorDay() throws Exception {
         var result = mapper.map("2024-02-01", List.of("YYYY-MM"));
-        assertThat(result.precision()).isEqualTo(CdsExportDateDto.Precision.YEAR_MONTH); assertThat(result.lexical()).isEqualTo("2024-02");
+        assertThat(result.precision()).isEqualTo(CdsExportDateDto.Precision.YEAR_MONTH);
+        assertThat(result.lexical()).isEqualTo("2024-02");
         assertThat(mapper.map("2024-02-00", List.of("YYYY-MM")).lexical()).isEqualTo("2024-02");
     }
-    @Test void shouldKeepAnExactCalendarDate_whenTheNativePartialMarkerIsAbsentOrCleared() throws Exception {
-        for (List<String> metadata : Arrays.asList(List.<String>of(), Arrays.asList((String) null), List.of(""))) {
+
+    @Test
+    void shouldKeepAnExactCalendarDate_whenTheNativePartialMarkerIsAbsentOrCleared()
+            throws Exception {
+        for (List<String> metadata :
+                Arrays.asList(List.<String>of(), Arrays.asList((String) null), List.of(""))) {
             var result = mapper.map("2000-02-29", metadata);
-            assertThat(result.precision()).isEqualTo(CdsExportDateDto.Precision.DATE); assertThat(result.lexical()).isEqualTo("2000-02-29");
+            assertThat(result.precision()).isEqualTo(CdsExportDateDto.Precision.DATE);
+            assertThat(result.lexical()).isEqualTo("2000-02-29");
         }
     }
-    @Test void shouldKeepAnUnknownOptionalDateAbsent_withoutTurningItIntoAnImportTimeOrDefaultDate() throws Exception {
+
+    @Test
+    void shouldKeepAnUnknownOptionalDateAbsent_withoutTurningItIntoAnImportTimeOrDefaultDate()
+            throws Exception {
         var result = mapper.map(null, List.of());
-        assertThat(result.precision()).isEqualTo(CdsExportDateDto.Precision.ABSENT); assertThat(result.lexical()).isNull();
-        assertThat(mapper.map(null, Arrays.asList((String) null)).precision()).isEqualTo(CdsExportDateDto.Precision.ABSENT);
-        assertThatThrownBy(() -> mapper.map(null, List.of("YYYY"))).hasMessage("CDS_EXPORT_NATIVE_DATE_PRECISION_REQUIRES_REVIEW");
+        assertThat(result.precision()).isEqualTo(CdsExportDateDto.Precision.ABSENT);
+        assertThat(result.lexical()).isNull();
+        assertThat(mapper.map(null, Arrays.asList((String) null)).precision())
+                .isEqualTo(CdsExportDateDto.Precision.ABSENT);
+        assertThatThrownBy(() -> mapper.map(null, List.of("YYYY")))
+                .hasMessage("CDS_EXPORT_NATIVE_DATE_PRECISION_REQUIRES_REVIEW");
     }
-    @Test void shouldRequireReviewForDuplicateOrUnknownPrecision_insteadOfSilentlyChoosingAnArbitraryMarker() {
-        for (List<String> metadata : List.of(List.of("YYYY", "YYYY"), List.of("YYYY", "YYYY-MM"), List.of("unknown"), List.of("yyyy"))) {
-            assertThatThrownBy(() -> mapper.map("1965-01-01", metadata)).hasMessage("CDS_EXPORT_NATIVE_DATE_PRECISION_REQUIRES_REVIEW");
+
+    @Test
+    void
+            shouldRequireReviewForDuplicateOrUnknownPrecision_insteadOfSilentlyChoosingAnArbitraryMarker() {
+        for (List<String> metadata :
+                List.of(
+                        List.of("YYYY", "YYYY"),
+                        List.of("YYYY", "YYYY-MM"),
+                        List.of("unknown"),
+                        List.of("yyyy"))) {
+            assertThatThrownBy(() -> mapper.map("1965-01-01", metadata))
+                    .hasMessage("CDS_EXPORT_NATIVE_DATE_PRECISION_REQUIRES_REVIEW");
         }
     }
-    @Test void shouldRejectInvalidActualPrecision_withoutTrimmingCoercingOrFixingTheCalendar() {
-        for (String anchor : List.of("", " 2000-02-29", "1900-02-29", "2000-00-00", "0000-01-01", "2000-02-29T00:00:00")) {
-            assertThatThrownBy(() -> mapper.map(anchor, List.of())).hasMessage("CDS_EXPORT_NATIVE_DATE_PRECISION_REQUIRES_REVIEW");
+
+    @Test
+    void shouldRejectInvalidActualPrecision_withoutTrimmingCoercingOrFixingTheCalendar() {
+        for (String anchor :
+                List.of(
+                        "",
+                        " 2000-02-29",
+                        "1900-02-29",
+                        "2000-00-00",
+                        "0000-01-01",
+                        "2000-02-29T00:00:00")) {
+            assertThatThrownBy(() -> mapper.map(anchor, List.of()))
+                    .hasMessage("CDS_EXPORT_NATIVE_DATE_PRECISION_REQUIRES_REVIEW");
         }
-        assertThatThrownBy(() -> mapper.map("0000-01-01", List.of("YYYY"))).hasMessage("CDS_EXPORT_NATIVE_DATE_PRECISION_REQUIRES_REVIEW");
-        assertThatThrownBy(() -> mapper.map("1965-00-01", List.of("YYYY-MM"))).hasMessage("CDS_EXPORT_NATIVE_DATE_PRECISION_REQUIRES_REVIEW");
+        assertThatThrownBy(() -> mapper.map("0000-01-01", List.of("YYYY")))
+                .hasMessage("CDS_EXPORT_NATIVE_DATE_PRECISION_REQUIRES_REVIEW");
+        assertThatThrownBy(() -> mapper.map("1965-00-01", List.of("YYYY-MM")))
+                .hasMessage("CDS_EXPORT_NATIVE_DATE_PRECISION_REQUIRES_REVIEW");
     }
 }

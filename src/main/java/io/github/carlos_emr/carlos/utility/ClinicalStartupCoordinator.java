@@ -35,8 +35,20 @@ import java.util.function.LongSupplier;
  */
 public final class ClinicalStartupCoordinator implements AutoCloseable {
     public static final String ATTRIBUTE = ClinicalStartupCoordinator.class.getName();
-    public enum State { PENDING, RUNNING, READY, FAILED, CLOSED }
-    @FunctionalInterface public interface Initialization { void run() throws Exception; }
+
+    public enum State {
+        PENDING,
+        RUNNING,
+        READY,
+        FAILED,
+        CLOSED
+    }
+
+    @FunctionalInterface
+    public interface Initialization {
+        void run() throws Exception;
+    }
+
     private static final long RETRY_NANOS = TimeUnit.SECONDS.toNanos(30);
     private final BooleanSupplier blocked;
     private final Initialization initialization;
@@ -46,17 +58,29 @@ public final class ClinicalStartupCoordinator implements AutoCloseable {
     private long retryAt;
 
     public ClinicalStartupCoordinator(BooleanSupplier blocked, Initialization initialization) {
-        this(blocked, initialization, Executors.newSingleThreadExecutor(task -> {
-            Thread thread = new Thread(task, "carlos-clinical-startup");
-            thread.setDaemon(true);
-            thread.setUncaughtExceptionHandler((failedThread, failure) -> MiscUtils.getLogger().error(
-                    "Clinical startup worker terminated ({}); clinical access remains unavailable", failure.getClass().getName()));
-            return thread;
-        }), System::nanoTime);
+        this(
+                blocked,
+                initialization,
+                Executors.newSingleThreadExecutor(
+                        task -> {
+                            Thread thread = new Thread(task, "carlos-clinical-startup");
+                            thread.setDaemon(true);
+                            thread.setUncaughtExceptionHandler(
+                                    (failedThread, failure) ->
+                                            MiscUtils.getLogger()
+                                                    .error(
+                                                            "Clinical startup worker terminated ({}); clinical access remains unavailable",
+                                                            failure.getClass().getName()));
+                            return thread;
+                        }),
+                System::nanoTime);
     }
 
-    ClinicalStartupCoordinator(BooleanSupplier blocked, Initialization initialization,
-            ExecutorService executor, LongSupplier clock) {
+    ClinicalStartupCoordinator(
+            BooleanSupplier blocked,
+            Initialization initialization,
+            ExecutorService executor,
+            LongSupplier clock) {
         this.blocked = Objects.requireNonNull(blocked);
         this.initialization = Objects.requireNonNull(initialization);
         this.executor = Objects.requireNonNull(executor);
@@ -66,72 +90,121 @@ public final class ClinicalStartupCoordinator implements AutoCloseable {
     /** Normal startup remains fail-fast; an actual closed database gate explicitly defers work. */
     public void start() throws Exception {
         if (blocked.getAsBoolean()) {
-            MiscUtils.getLogger().info("Clinical startup deferred while CDS maintenance or chart holds remain active");
+            MiscUtils.getLogger()
+                    .info(
+                            "Clinical startup deferred while CDS maintenance or chart holds remain active");
             return;
         }
-        synchronized (this) { if (state == State.CLOSED) return; state = State.RUNNING; }
+        synchronized (this) {
+            if (state == State.CLOSED) return;
+            state = State.RUNNING;
+        }
         initialize(true);
     }
 
     /** Nonblocking HTTP admission check. Only one initialization may execute on this node. */
     public synchronized boolean isReady() {
         if (state == State.READY) return true;
-        if (state == State.CLOSED || state == State.RUNNING || clock.getAsLong() < retryAt) return false;
+        if (state == State.CLOSED || state == State.RUNNING || clock.getAsLong() < retryAt)
+            return false;
         state = State.RUNNING;
         try {
-            executor.execute(() -> {
-                try { initialize(false); }
-                catch (Exception impossible) { throw new IllegalStateException(impossible); }
-            });
+            executor.execute(
+                    () -> {
+                        try {
+                            initialize(false);
+                        } catch (Exception impossible) {
+                            throw new IllegalStateException(impossible);
+                        }
+                    });
         } catch (RuntimeException rejected) {
             state = State.FAILED;
             retryAt = clock.getAsLong() + RETRY_NANOS;
-            MiscUtils.getLogger().error("Clinical startup scheduling failed; clinical access remains unavailable");
+            MiscUtils.getLogger()
+                    .error(
+                            "Clinical startup scheduling failed; clinical access remains unavailable");
         }
         return false;
     }
 
     private void initialize(boolean failFast) throws Exception {
         try {
-            if (blocked.getAsBoolean()) { deferred(); return; }
+            if (blocked.getAsBoolean()) {
+                deferred();
+                return;
+            }
             initialization.run();
-            if (blocked.getAsBoolean()) { deferred(); return; }
-            synchronized (this) { if (state != State.CLOSED) state = State.READY; }
+            if (blocked.getAsBoolean()) {
+                deferred();
+                return;
+            }
+            synchronized (this) {
+                if (state != State.CLOSED) state = State.READY;
+            }
             MiscUtils.getLogger().info("Clinical startup initialization completed");
         } catch (Exception failure) {
-            // Only a successful read of the actual durable gate can classify failure as maintenance.
+            // Only a successful read of the actual durable gate can classify failure as
+            // maintenance.
             boolean maintenance = false;
-            try { maintenance = blocked.getAsBoolean(); }
-            catch (RuntimeException unavailable) { failure.addSuppressed(unavailable); }
-            if (maintenance) { deferred(); return; }
-            synchronized (this) {
-                if (state != State.CLOSED) { state = State.FAILED; retryAt = clock.getAsLong() + RETRY_NANOS; }
+            try {
+                maintenance = blocked.getAsBoolean();
+            } catch (RuntimeException unavailable) {
+                failure.addSuppressed(unavailable);
             }
-            MiscUtils.getLogger().error("Clinical startup failed ({}); clinical access remains unavailable",
-                    failure.getClass().getName());
+            if (maintenance) {
+                deferred();
+                return;
+            }
+            synchronized (this) {
+                if (state != State.CLOSED) {
+                    state = State.FAILED;
+                    retryAt = clock.getAsLong() + RETRY_NANOS;
+                }
+            }
+            MiscUtils.getLogger()
+                    .error(
+                            "Clinical startup failed ({}); clinical access remains unavailable",
+                            failure.getClass().getName());
             if (failFast) throw failure;
         } catch (Error fatal) {
             synchronized (this) {
-                if (state != State.CLOSED) { state = State.FAILED; retryAt = clock.getAsLong() + RETRY_NANOS; }
+                if (state != State.CLOSED) {
+                    state = State.FAILED;
+                    retryAt = clock.getAsLong() + RETRY_NANOS;
+                }
             }
-            MiscUtils.getLogger().error("Clinical startup terminated ({}); clinical access remains unavailable",
-                    fatal.getClass().getName());
+            MiscUtils.getLogger()
+                    .error(
+                            "Clinical startup terminated ({}); clinical access remains unavailable",
+                            fatal.getClass().getName());
             throw fatal;
         }
     }
 
     private synchronized void deferred() {
-        if (state != State.CLOSED) { state = State.PENDING; retryAt = clock.getAsLong() + RETRY_NANOS; }
+        if (state != State.CLOSED) {
+            state = State.PENDING;
+            retryAt = clock.getAsLong() + RETRY_NANOS;
+        }
     }
-    public synchronized State state() { return state; }
 
-    @Override public void close() {
-        synchronized (this) { state = State.CLOSED; }
+    public synchronized State state() {
+        return state;
+    }
+
+    @Override
+    public void close() {
+        synchronized (this) {
+            state = State.CLOSED;
+        }
         executor.shutdownNow();
         try {
             if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
-                MiscUtils.getLogger().warn("Clinical startup task has not yet stopped after context shutdown");
+                MiscUtils.getLogger()
+                        .warn("Clinical startup task has not yet stopped after context shutdown");
             }
-        } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 }

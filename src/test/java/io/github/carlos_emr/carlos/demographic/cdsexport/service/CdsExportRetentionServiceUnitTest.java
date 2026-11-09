@@ -29,43 +29,93 @@ import java.io.IOException;
 import java.util.*;
 import org.junit.jupiter.api.*;
 
-@Tag("unit") @Tag("cds-export")
+@Tag("unit")
+@Tag("cds-export")
 class CdsExportRetentionServiceUnitTest {
     private final CdsExportLedgerService ledger = mock(CdsExportLedgerService.class);
     private final CdsExportStagingFactory stores = mock(CdsExportStagingFactory.class);
-    private final CdsExportConfigurationService configuration = mock(CdsExportConfigurationService.class);
+    private final CdsExportConfigurationService configuration =
+            mock(CdsExportConfigurationService.class);
     private final CdsExportJobDocumentDto document = mock(CdsExportJobDocumentDto.class);
     private final String run = UUID.randomUUID().toString();
     private CdsExportLedgerService.Cleanup claim;
     private CdsExportRetentionService service;
-    @BeforeEach void expiredAttempt() {
-        when(document.protocol()).thenReturn(2); when(document.storage()).thenReturn(new CdsExportStorageBindingDto("primary", "primary", "a".repeat(64)));
+
+    @BeforeEach
+    void expiredAttempt() {
+        when(document.protocol()).thenReturn(2);
+        when(document.storage())
+                .thenReturn(new CdsExportStorageBindingDto("primary", "primary", "a".repeat(64)));
         claim = new CdsExportLedgerService.Cleanup(run, 1, UUID.randomUUID().toString(), document);
-        when(ledger.expiredArtifacts(16)).thenReturn(List.of(run)); when(ledger.artifactEpochs(run, 0, 64)).thenReturn(List.of(1L)); when(ledger.beginCleanup(run, 1)).thenReturn(claim);
+        when(ledger.expiredArtifacts(16)).thenReturn(List.of(run));
+        when(ledger.artifactEpochs(run, 0, 64)).thenReturn(List.of(1L));
+        when(ledger.beginCleanup(run, 1)).thenReturn(claim);
         service = new CdsExportRetentionService(ledger, stores, configuration);
     }
-    @AfterEach void close() { service.close(); }
-    @Test void shouldRemoveOnlyTheExclusivelyClaimedAttempt_andAcknowledgeAfterDeletion() throws Exception {
+
+    @AfterEach
+    void close() {
+        service.close();
+    }
+
+    @Test
+    void shouldRemoveOnlyTheExclusivelyClaimedAttempt_andAcknowledgeAfterDeletion()
+            throws Exception {
         var storage = document.storage();
-        doAnswer(call -> { ((Runnable) call.getArgument(3)).run(); return null; }).when(stores).purgeAttempt(eq(run), eq(1L), eq(storage), any());
-        service.sweep(); var order = inOrder(ledger, stores); order.verify(ledger).beginCleanup(run, 1);
-        order.verify(stores).purgeAttempt(eq(run), eq(1L), eq(storage), any()); order.verify(ledger, atLeastOnce()).cleanupCheckpoint(claim); order.verify(ledger).finishCleanup(claim, true);
+        doAnswer(
+                        call -> {
+                            ((Runnable) call.getArgument(3)).run();
+                            return null;
+                        })
+                .when(stores)
+                .purgeAttempt(eq(run), eq(1L), eq(storage), any());
+        service.sweep();
+        var order = inOrder(ledger, stores);
+        order.verify(ledger).beginCleanup(run, 1);
+        order.verify(stores).purgeAttempt(eq(run), eq(1L), eq(storage), any());
+        order.verify(ledger, atLeastOnce()).cleanupCheckpoint(claim);
+        order.verify(ledger).finishCleanup(claim, true);
     }
-    @Test void shouldPreserveFailureEvidence_afterAnErasureFailure() throws Exception {
-        doThrow(new IOException("OWNED_ERASURE_FAILED")).when(stores).purgeAttempt(any(), anyLong(), any(), any());
-        service.sweep(); verify(ledger).finishCleanup(claim, false); verify(ledger, never()).finishCleanup(claim, true);
+
+    @Test
+    void shouldPreserveFailureEvidence_afterAnErasureFailure() throws Exception {
+        doThrow(new IOException("OWNED_ERASURE_FAILED"))
+                .when(stores)
+                .purgeAttempt(any(), anyLong(), any(), any());
+        service.sweep();
+        verify(ledger).finishCleanup(claim, false);
+        verify(ledger, never()).finishCleanup(claim, true);
     }
-    @Test void shouldSkipAnAttemptWhoseDownloadOrWorkerStillOwnsIt() {
-        when(ledger.beginCleanup(run, 1)).thenReturn(null); service.sweep(); verifyNoInteractions(stores); verify(ledger, never()).finishCleanup(any(), anyBoolean());
+
+    @Test
+    void shouldSkipAnAttemptWhoseDownloadOrWorkerStillOwnsIt() {
+        when(ledger.beginCleanup(run, 1)).thenReturn(null);
+        service.sweep();
+        verifyNoInteractions(stores);
+        verify(ledger, never()).finishCleanup(any(), anyBoolean());
     }
-    @Test void shouldNotTraverseAnyStorage_forALegacyMetadataOnlyAttempt() throws Exception {
-        when(document.protocol()).thenReturn(1); service.sweep(); verifyNoInteractions(stores); verify(ledger).finishCleanup(claim, true);
+
+    @Test
+    void shouldNotTraverseAnyStorage_forALegacyMetadataOnlyAttempt() throws Exception {
+        when(document.protocol()).thenReturn(1);
+        service.sweep();
+        verifyNoInteractions(stores);
+        verify(ledger).finishCleanup(claim, true);
     }
-    @Test void shouldPropagateAnUnknownRetirementAcknowledgement_insteadOfReportingSuccess() {
-        doThrow(new IllegalStateException("UNKNOWN_ACKNOWLEDGEMENT")).when(ledger).finishCleanup(claim, true);
+
+    @Test
+    void shouldPropagateAnUnknownRetirementAcknowledgement_insteadOfReportingSuccess() {
+        doThrow(new IllegalStateException("UNKNOWN_ACKNOWLEDGEMENT"))
+                .when(ledger)
+                .finishCleanup(claim, true);
         assertThatThrownBy(service::sweep).hasMessage("UNKNOWN_ACKNOWLEDGEMENT");
     }
-    @Test void shouldNotStartABackgroundRetentionWorker_inTheDedicatedCliContext() {
-        when(configuration.workerEnabled()).thenReturn(false); clearInvocations(ledger); service.start(null); verifyNoInteractions(ledger);
+
+    @Test
+    void shouldNotStartABackgroundRetentionWorker_inTheDedicatedCliContext() {
+        when(configuration.workerEnabled()).thenReturn(false);
+        clearInvocations(ledger);
+        service.start(null);
+        verifyNoInteractions(ledger);
     }
 }

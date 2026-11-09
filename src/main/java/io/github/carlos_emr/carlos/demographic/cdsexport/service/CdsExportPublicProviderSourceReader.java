@@ -39,59 +39,137 @@ import org.springframework.stereotype.Service;
 @Service
 public class CdsExportPublicProviderSourceReader implements CdsExportNativeSourceReader {
     private static final Set<CdsCategory> SUPPORTED = supported();
+
     private static Set<CdsCategory> supported() {
         var categories = java.util.EnumSet.copyOf(CdsExportNoteSourceReader.CATEGORIES);
-        categories.addAll(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS, CdsCategory.APPOINTMENTS, CdsCategory.MEDICATIONS_AND_TREATMENTS));
+        categories.addAll(
+                Set.of(
+                        CdsCategory.DEMOGRAPHICS,
+                        CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS,
+                        CdsCategory.APPOINTMENTS,
+                        CdsCategory.MEDICATIONS_AND_TREATMENTS));
         return Set.copyOf(categories);
     }
+
     private final ProviderDao source;
     private final Set<CdsCategory> selected;
     private final Set<String> wireNames;
+
     @org.springframework.beans.factory.annotation.Autowired
-    public CdsExportPublicProviderSourceReader(ProviderDao source) { this(source, Set.of(CdsCategory.DEMOGRAPHICS)); }
+    public CdsExportPublicProviderSourceReader(ProviderDao source) {
+        this(source, Set.of(CdsCategory.DEMOGRAPHICS));
+    }
+
     private CdsExportPublicProviderSourceReader(ProviderDao source, Set<CdsCategory> selected) {
-        this.source = java.util.Objects.requireNonNull(source); this.selected = Set.copyOf(selected);
-        if (selected.isEmpty() || !SUPPORTED.containsAll(selected)
-                || !java.util.Collections.disjoint(selected, CdsExportNoteSourceReader.CATEGORIES) && !selected.containsAll(CdsExportNoteSourceReader.CATEGORIES))
+        this.source = java.util.Objects.requireNonNull(source);
+        this.selected = Set.copyOf(selected);
+        if (selected.isEmpty()
+                || !SUPPORTED.containsAll(selected)
+                || !java.util.Collections.disjoint(selected, CdsExportNoteSourceReader.CATEGORIES)
+                        && !selected.containsAll(CdsExportNoteSourceReader.CATEGORIES))
             throw new IllegalArgumentException("CDS_EXPORT_PUBLIC_PROVIDER_SCOPE_INVALID");
-        wireNames = selected.stream().map(CdsCategory::wireName).collect(Collectors.toUnmodifiableSet());
+        wireNames =
+                selected.stream()
+                        .map(CdsCategory::wireName)
+                        .collect(Collectors.toUnmodifiableSet());
     }
-    @Override public CdsExportNativeSourceReader forRequest(CdsExportCommand command) {
-        return new CdsExportPublicProviderSourceReader(source, command.categories().stream().filter(SUPPORTED::contains).collect(Collectors.toUnmodifiableSet()));
+
+    @Override
+    public CdsExportNativeSourceReader forRequest(CdsExportCommand command) {
+        return new CdsExportPublicProviderSourceReader(
+                source,
+                command.categories().stream()
+                        .filter(SUPPORTED::contains)
+                        .collect(Collectors.toUnmodifiableSet()));
     }
-    @Override public Set<String> requiredTables() { return java.util.Collections.disjoint(selected, CdsExportNoteSourceReader.CATEGORIES) ? Set.of() : Set.of("casemgmt_note"); }
-    @Override public String table() { return "provider"; }
-    @Override public Set<String> columns() { return CdsExportProviderRowDto.COLUMNS; }
-    @Override public Set<CdsCategory> categories() { return selected; }
-    @Override public CdsExportTableSchemaDto schema() { return source.readCdsExportPublicProviderSchema(); }
-    @Override public long count(int patient) { return source.countCdsExportPublicProviders(patient, wireNames); }
-    @Override public void capture(int patient, CdsExportNativeCaptureComposer.Writer output) throws IOException {
+
+    @Override
+    public Set<String> requiredTables() {
+        return java.util.Collections.disjoint(selected, CdsExportNoteSourceReader.CATEGORIES)
+                ? Set.of()
+                : Set.of("casemgmt_note");
+    }
+
+    @Override
+    public String table() {
+        return "provider";
+    }
+
+    @Override
+    public Set<String> columns() {
+        return CdsExportProviderRowDto.COLUMNS;
+    }
+
+    @Override
+    public Set<CdsCategory> categories() {
+        return selected;
+    }
+
+    @Override
+    public CdsExportTableSchemaDto schema() {
+        return source.readCdsExportPublicProviderSchema();
+    }
+
+    @Override
+    public long count(int patient) {
+        return source.countCdsExportPublicProviders(patient, wireNames);
+    }
+
+    @Override
+    public void capture(int patient, CdsExportNativeCaptureComposer.Writer output)
+            throws IOException {
         String after = null;
         while (true) {
             var page = source.findCdsExportPublicProvidersAfter(patient, wireNames, after, 32);
             if (page.size() > 32) throw new IOException("CDS_EXPORT_PUBLIC_PROVIDER_PAGE_INVALID");
             for (var row : page) {
                 String key = key(row.id());
-                if (after != null && after.compareTo(key) >= 0) throw new IOException("CDS_EXPORT_PUBLIC_PROVIDER_PAGE_INVALID");
+                if (after != null && after.compareTo(key) >= 0)
+                    throw new IOException("CDS_EXPORT_PUBLIC_PROVIDER_PAGE_INVALID");
                 var identity = row.cells().get("provider_no");
-                if (identity.sqlNull() || !java.util.Arrays.equals(identity.inlineBytes(), row.id().getBytes(StandardCharsets.UTF_8))) {
+                if (identity.sqlNull()
+                        || !java.util.Arrays.equals(
+                                identity.inlineBytes(),
+                                row.id().getBytes(StandardCharsets.UTF_8))) {
                     throw new IOException("CDS_EXPORT_PUBLIC_PROVIDER_PAGE_INVALID");
                 }
-                output.row(key, writer -> {
-                    for (var field : row.cells().entrySet()) {
-                        if (field.getValue().sqlNull()) writer.text(field.getKey(), (String) null);
-                        else try (var input = new CdsExportRawValueInputStream(field.getValue(), (offset, length) -> {
-                                    throw new IOException("CDS_EXPORT_PUBLIC_PROVIDER_BOUND_INVALID");
-                                }); var text = new InputStreamReader(input, StandardCharsets.UTF_8.newDecoder()
-                                        .onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT))) {
-                            writer.text(field.getKey(), text);
-                        }
-                    }
-                }); after = key;
+                output.row(
+                        key,
+                        writer -> {
+                            for (var field : row.cells().entrySet()) {
+                                if (field.getValue().sqlNull())
+                                    writer.text(field.getKey(), (String) null);
+                                else
+                                    try (var input =
+                                                    new CdsExportRawValueInputStream(
+                                                            field.getValue(),
+                                                            (offset, length) -> {
+                                                                throw new IOException(
+                                                                        "CDS_EXPORT_PUBLIC_PROVIDER_BOUND_INVALID");
+                                                            });
+                                            var text =
+                                                    new InputStreamReader(
+                                                            input,
+                                                            StandardCharsets.UTF_8
+                                                                    .newDecoder()
+                                                                    .onMalformedInput(
+                                                                            CodingErrorAction
+                                                                                    .REPORT)
+                                                                    .onUnmappableCharacter(
+                                                                            CodingErrorAction
+                                                                                    .REPORT))) {
+                                        writer.text(field.getKey(), text);
+                                    }
+                            }
+                        });
+                after = key;
             }
             if (page.size() < 32) return;
         }
     }
+
     /** UTF-8 binary order, reversible and safe for the capture record-key protocol. */
-    public static String key(String id) { return "p" + HexFormat.of().formatHex(id.getBytes(StandardCharsets.UTF_8)); }
+    public static String key(String id) {
+        return "p" + HexFormat.of().formatHex(id.getBytes(StandardCharsets.UTF_8));
+    }
 }

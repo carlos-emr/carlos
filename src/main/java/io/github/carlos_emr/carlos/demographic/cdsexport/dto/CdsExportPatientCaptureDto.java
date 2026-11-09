@@ -24,11 +24,19 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.dto;
 import java.util.Objects;
 
 /** Three fully closed encrypted members; no publication or clinical coverage claim is implied. */
-public record CdsExportPatientCaptureDto(CdsExportNativeCaptureDto capture, CdsExportStagedFileDto manifest) {
+public record CdsExportPatientCaptureDto(
+        CdsExportNativeCaptureDto capture, CdsExportStagedFileDto manifest) {
     public CdsExportPatientCaptureDto {
-        Objects.requireNonNull(capture); Objects.requireNonNull(manifest);
-        if (!manifest.purpose().equals("SOURCE_MANIFEST") || manifest.memberId().equals(capture.values().memberId())
-                || manifest.memberId().equals(capture.index().memberId())) throw new IllegalArgumentException("CDS_EXPORT_CAPTURE_MANIFEST_INVALID");
+        Objects.requireNonNull(capture);
+        Objects.requireNonNull(manifest);
+        if (!manifest.purpose().equals("SOURCE_MANIFEST")
+                || manifest.memberId().equals(capture.values().memberId())
+                || manifest.memberId().equals(capture.index().memberId()))
+            throw new IllegalArgumentException("CDS_EXPORT_CAPTURE_MANIFEST_INVALID");
     }
-    @Override public String toString() { return "CdsExportPatientCaptureDto[protected]"; }
+
+    @Override
+    public String toString() {
+        return "CdsExportPatientCaptureDto[protected]";
+    }
 }

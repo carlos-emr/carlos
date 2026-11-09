@@ -40,67 +40,117 @@ import static org.mockito.Mockito.*;
 class CdsDocumentPrecisionUnitTest {
     @Test
     void shouldValidateAndRetainImmutableSourcePrecision_whenItsPublicSetterIsUsed() {
-        Document document=new Document();
-        assertThatThrownBy(()-> document.setCdsContentPrecision("unknown"))
+        Document document = new Document();
+        assertThatThrownBy(() -> document.setCdsContentPrecision("unknown"))
                 .hasMessage("CDS_CONTENT_PRECISION_INVALID");
         document.setCdsContentPrecision("UNKNOWN");
-        assertThatThrownBy(()-> document.setCdsContentPrecision(null)).hasMessage("CDS_CONTENT_PRECISION_IMMUTABLE");
-        assertThatThrownBy(()-> document.setCdsContentPrecision("FULL_DATE")).hasMessage("CDS_CONTENT_PRECISION_IMMUTABLE");
-        org.springframework.test.util.ReflectionTestUtils.invokeMethod(document, "rememberCdsContentPrecision");
+        assertThatThrownBy(() -> document.setCdsContentPrecision(null))
+                .hasMessage("CDS_CONTENT_PRECISION_IMMUTABLE");
+        assertThatThrownBy(() -> document.setCdsContentPrecision("FULL_DATE"))
+                .hasMessage("CDS_CONTENT_PRECISION_IMMUTABLE");
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                document, "rememberCdsContentPrecision");
         // A merge can copy an omitted raw field before any dirty update callback runs.
-        org.springframework.test.util.ReflectionTestUtils.setField(document, "cdsContentPrecision", null);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                document, "cdsContentPrecision", null);
         assertThat(document.getCdsContentPrecision()).isEqualTo("UNKNOWN");
-        Document metadata=new Document(); metadata.setContentdatetime(new Date());
+        Document metadata = new Document();
+        metadata.setContentdatetime(new Date());
         metadata.preserveImportedContentFrom(document);
         assertThat(metadata.getCdsContentPrecision()).isEqualTo("UNKNOWN");
         assertThat(metadata.getContentdatetime()).isNull();
     }
 
     @Test
-    void shouldExposeAnUnknownClockWithExplicitSourcePrecision_whenRestAndListDtosAreBuilt() throws Exception {
-        Document document=new Document(123); document.setCdsContentPrecision("MONTH"); document.setContentdatetime(null);
-        DocumentTo1 transfer=new DocumentConverter().getAsTransferObject(null, document);
-        assertThat(transfer.getContentDateTime()).isNull(); assertThat(transfer.getCdsContentPrecision()).isEqualTo("MONTH");
-        assertThat(new DocumentConverter().getAsDomainObject(null, transfer).getCdsContentPrecision()).isEqualTo("MONTH");
-        assertThat(DocumentListItemDTO.fromEntity(document).getCdsContentPrecision()).isEqualTo("MONTH");
-        var json=new ObjectMapper();
-        assertThat(json.readTree(json.writeValueAsString(transfer)).path("cdsContentPrecision").asText()).isEqualTo("MONTH");
-        assertThat(json.readValue("{\"cdsContentPrecision\":\"YEAR\"}", DocumentTo1.class).getCdsContentPrecision()).isNull();
+    void shouldExposeAnUnknownClockWithExplicitSourcePrecision_whenRestAndListDtosAreBuilt()
+            throws Exception {
+        Document document = new Document(123);
+        document.setCdsContentPrecision("MONTH");
+        document.setContentdatetime(null);
+        DocumentTo1 transfer = new DocumentConverter().getAsTransferObject(null, document);
+        assertThat(transfer.getContentDateTime()).isNull();
+        assertThat(transfer.getCdsContentPrecision()).isEqualTo("MONTH");
+        assertThat(
+                        new DocumentConverter()
+                                .getAsDomainObject(null, transfer)
+                                .getCdsContentPrecision())
+                .isEqualTo("MONTH");
+        assertThat(DocumentListItemDTO.fromEntity(document).getCdsContentPrecision())
+                .isEqualTo("MONTH");
+        var json = new ObjectMapper();
+        assertThat(
+                        json.readTree(json.writeValueAsString(transfer))
+                                .path("cdsContentPrecision")
+                                .asText())
+                .isEqualTo("MONTH");
+        assertThat(
+                        json.readValue("{\"cdsContentPrecision\":\"YEAR\"}", DocumentTo1.class)
+                                .getCdsContentPrecision())
+                .isNull();
     }
 
     @Test
     void shouldCarrySourcePrecisionThroughEdocConversion_withoutInventingAContentTime() {
-        EDoc value=new EDoc(); value.setCdsContentPrecision("FULL_DATE"); value.setContentDateTime(null);
-        Document document=value.getDocument();
-        assertThat(document.getCdsContentPrecision()).isEqualTo("FULL_DATE"); assertThat(document.getContentdatetime()).isNull();
+        EDoc value = new EDoc();
+        value.setCdsContentPrecision("FULL_DATE");
+        value.setContentDateTime(null);
+        Document document = value.getDocument();
+        assertThat(document.getCdsContentPrecision()).isEqualTo("FULL_DATE");
+        assertThat(document.getContentdatetime()).isNull();
         assertThat(value.getContentDateTimeDisplay()).contains("Date without a time");
         assertThat(value.getContentDateTimeDisplay("yyyy-MM-dd")).doesNotContain("1970", "2026");
     }
 
     @Test
     void shouldPreserveTheImportedSourceTimestamp_whenLegacyMetadataCarriesAnUploadTimeDefault() {
-        Document original=new Document(123); original.setCdsContentPrecision("UNKNOWN");
-        Document metadata=new Document(123); metadata.setContentdatetime(new Date());
+        Document original = new Document(123);
+        original.setCdsContentPrecision("UNKNOWN");
+        Document metadata = new Document(123);
+        metadata.setContentdatetime(new Date());
         metadata.preserveImportedContentFrom(original);
-        assertThat(metadata.getContentdatetime()).isNull(); assertThat(metadata.getCdsContentPrecision()).isEqualTo("UNKNOWN");
-        Document ordinary=new Document(456); Date explicit=new Date(123456); ordinary.setContentdatetime(explicit);
-        ordinary.preserveImportedContentFrom(new Document(456)); assertThat(ordinary.getContentdatetime()).isEqualTo(explicit);
+        assertThat(metadata.getContentdatetime()).isNull();
+        assertThat(metadata.getCdsContentPrecision()).isEqualTo("UNKNOWN");
+        Document ordinary = new Document(456);
+        Date explicit = new Date(123456);
+        ordinary.setContentdatetime(explicit);
+        ordinary.preserveImportedContentFrom(new Document(456));
+        assertThat(ordinary.getContentdatetime()).isEqualTo(explicit);
     }
 
     @Test
     void shouldRetainUnknownTimeDuringEdocMetadataSave_whenAnExistingFileNameIsPresent() {
-        Document original=new Document(123); original.setCdsContentPrecision("UNKNOWN");
-        EDoc metadata=new EDoc(); metadata.setDocId("123"); metadata.setFileName("existing.txt");
+        Document original = new Document(123);
+        original.setCdsContentPrecision("UNKNOWN");
+        EDoc metadata = new EDoc();
+        metadata.setDocId("123");
+        metadata.setFileName("existing.txt");
         metadata.setContentDateTime(new Date());
-        DocumentDao dao=mock(DocumentDao.class); when(dao.find((Object)Integer.valueOf(123))).thenReturn(original);
-        Object previous=org.springframework.test.util.ReflectionTestUtils.getField(EDocUtil.class, "documentDao");
-        try (var spring = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.utility.SpringUtils.class)) {
-            spring.when(() -> io.github.carlos_emr.carlos.utility.SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao.class))
-                    .thenReturn(mock(io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao.class));
-            org.springframework.test.util.ReflectionTestUtils.setField(EDocUtil.class, "documentDao", dao);
+        DocumentDao dao = mock(DocumentDao.class);
+        when(dao.find((Object) Integer.valueOf(123))).thenReturn(original);
+        Object previous =
+                org.springframework.test.util.ReflectionTestUtils.getField(
+                        EDocUtil.class, "documentDao");
+        try (var spring =
+                org.mockito.Mockito.mockStatic(
+                        io.github.carlos_emr.carlos.utility.SpringUtils.class)) {
+            spring.when(
+                            () ->
+                                    io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
+                                            io.github.carlos_emr.carlos.commn.dao
+                                                    .OutboundEmailArchiveDao.class))
+                    .thenReturn(
+                            mock(
+                                    io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao
+                                            .class));
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    EDocUtil.class, "documentDao", dao);
             EDocUtil.editDocumentSQL(metadata, false);
-        } finally {org.springframework.test.util.ReflectionTestUtils.setField(EDocUtil.class, "documentDao", previous); }
-        assertThat(original.getContentdatetime()).isNull(); assertThat(original.getCdsContentPrecision()).isEqualTo("UNKNOWN");
+        } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    EDocUtil.class, "documentDao", previous);
+        }
+        assertThat(original.getContentdatetime()).isNull();
+        assertThat(original.getCdsContentPrecision()).isEqualTo("UNKNOWN");
         verify(dao).merge(original);
     }
 }

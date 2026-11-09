@@ -33,28 +33,122 @@ import org.springframework.stereotype.Service;
 @Service
 public class CdsExportClinicalZoneService {
     public record Bound(String sourceManifestSha256, ZoneId zone, String tzdbVersion) {
-        public Bound{if (sourceManifestSha256==null||!sourceManifestSha256.matches("[0-9a-f]{64}")||zone==null||tzdbVersion==null||tzdbVersion.isEmpty())throw new IllegalArgumentException("CDS_EXPORT_CLINICAL_ZONE_BINDING_INVALID"); }
-        @Override public String toString(){return "CdsExportClinicalZoneService.Bound[protected]"; }
+        public Bound {
+            if (sourceManifestSha256 == null
+                    || !sourceManifestSha256.matches("[0-9a-f]{64}")
+                    || zone == null
+                    || tzdbVersion == null
+                    || tzdbVersion.isEmpty())
+                throw new IllegalArgumentException("CDS_EXPORT_CLINICAL_ZONE_BINDING_INVALID");
+        }
+
+        @Override
+        public String toString() {
+            return "CdsExportClinicalZoneService.Bound[protected]";
+        }
     }
-    private final CdsExportNativeCaptureService captures; private final CdsExportCapturedTextRowsReader rows;
-    @Autowired public CdsExportClinicalZoneService(CdsExportNativeCaptureService captures){this(captures, new CdsExportCapturedTextRowsReader(captures)); }
-    CdsExportClinicalZoneService(CdsExportNativeCaptureService captures, CdsExportCapturedTextRowsReader rows){this.captures=Objects.requireNonNull(captures); this.rows=Objects.requireNonNull(rows); }
-    public Bound read(CdsExportLeaseDto lease, CdsExportCohortService.Patient patient, Set<String> tables, CdsExportPatientCaptureDto source, long maximumFields, long maximumBytes, CdsExportRunControl control)throws IOException {
-        return read(lease, patient, tables, source.manifest(), source.capture(), maximumFields, maximumBytes, control);
+
+    private final CdsExportNativeCaptureService captures;
+    private final CdsExportCapturedTextRowsReader rows;
+
+    @Autowired
+    public CdsExportClinicalZoneService(CdsExportNativeCaptureService captures) {
+        this(captures, new CdsExportCapturedTextRowsReader(captures));
     }
-    public Bound read(CdsExportLeaseDto lease, CdsExportCohortService.Patient patient, Set<String> tables, CdsExportStagedFileDto manifest, long maximumFields, long maximumBytes, CdsExportRunControl control)throws IOException {
+
+    CdsExportClinicalZoneService(
+            CdsExportNativeCaptureService captures, CdsExportCapturedTextRowsReader rows) {
+        this.captures = Objects.requireNonNull(captures);
+        this.rows = Objects.requireNonNull(rows);
+    }
+
+    public Bound read(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            long maximumFields,
+            long maximumBytes,
+            CdsExportRunControl control)
+            throws IOException {
+        return read(
+                lease,
+                patient,
+                tables,
+                source.manifest(),
+                source.capture(),
+                maximumFields,
+                maximumBytes,
+                control);
+    }
+
+    public Bound read(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportStagedFileDto manifest,
+            long maximumFields,
+            long maximumBytes,
+            CdsExportRunControl control)
+            throws IOException {
         return read(lease, patient, tables, manifest, null, maximumFields, maximumBytes, control);
     }
-    private Bound read(CdsExportLeaseDto lease, CdsExportCohortService.Patient patient, Set<String> tables, CdsExportStagedFileDto manifest, CdsExportNativeCaptureDto expected, long maximumFields, long maximumBytes, CdsExportRunControl control)throws IOException {
-        patient.require(lease); control.checkpoint(); if (!tables.contains("clinical_timezone")||manifest==null||!"SOURCE_MANIFEST".equals(manifest.purpose()))invalid();
-        var columns=Set.of("sha256", "tzdbVersion", "zoneId"); captures.authorizeSources(lease, patient, tables, control); var found=new CdsExportCapturedTextRowDto[1];
-        var actual=rows.forEach(lease, patient, tables, "clinical_timezone", manifest, maximumFields, maximumBytes, 4096, control, row-> {
-            if (found[0]!=null||!row.table().equals("clinical_timezone")||!row.recordKey().equals("configuration")||!row.exactNumbers().isEmpty()||!row.fields().keySet().equals(columns))invalid(); found[0]=row;
-        });
-        if (!tables.equals(actual.tables().keySet())||expected!=null&&!actual.equals(expected)||found[0]==null)invalid();
-        var table=actual.tables().get("clinical_timezone"); if (table.rows()!=1||!table.columns().equals(columns)||!table.receiptColumns().isEmpty())invalid();
-        var values=found[0].fields(); var zone=CdsExportClinicalZone.restore(values.get("zoneId"), values.get("tzdbVersion"), values.get("sha256"));
-        captures.authorizeSources(lease, patient, tables, control); patient.require(lease); control.checkpoint(); return new Bound(manifest.plaintextSha256(), zone, values.get("tzdbVersion"));
+
+    private Bound read(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportStagedFileDto manifest,
+            CdsExportNativeCaptureDto expected,
+            long maximumFields,
+            long maximumBytes,
+            CdsExportRunControl control)
+            throws IOException {
+        patient.require(lease);
+        control.checkpoint();
+        if (!tables.contains("clinical_timezone")
+                || manifest == null
+                || !"SOURCE_MANIFEST".equals(manifest.purpose())) invalid();
+        var columns = Set.of("sha256", "tzdbVersion", "zoneId");
+        captures.authorizeSources(lease, patient, tables, control);
+        var found = new CdsExportCapturedTextRowDto[1];
+        var actual =
+                rows.forEach(
+                        lease,
+                        patient,
+                        tables,
+                        "clinical_timezone",
+                        manifest,
+                        maximumFields,
+                        maximumBytes,
+                        4096,
+                        control,
+                        row -> {
+                            if (found[0] != null
+                                    || !row.table().equals("clinical_timezone")
+                                    || !row.recordKey().equals("configuration")
+                                    || !row.exactNumbers().isEmpty()
+                                    || !row.fields().keySet().equals(columns)) invalid();
+                            found[0] = row;
+                        });
+        if (!tables.equals(actual.tables().keySet())
+                || expected != null && !actual.equals(expected)
+                || found[0] == null) invalid();
+        var table = actual.tables().get("clinical_timezone");
+        if (table.rows() != 1
+                || !table.columns().equals(columns)
+                || !table.receiptColumns().isEmpty()) invalid();
+        var values = found[0].fields();
+        var zone =
+                CdsExportClinicalZone.restore(
+                        values.get("zoneId"), values.get("tzdbVersion"), values.get("sha256"));
+        captures.authorizeSources(lease, patient, tables, control);
+        patient.require(lease);
+        control.checkpoint();
+        return new Bound(manifest.plaintextSha256(), zone, values.get("tzdbVersion"));
     }
-    private static void invalid()throws IOException{throw new IOException("CDS_EXPORT_CLINICAL_ZONE_CAPTURE_INVALID"); }
+
+    private static void invalid() throws IOException {
+        throw new IOException("CDS_EXPORT_CLINICAL_ZONE_CAPTURE_INVALID");
+    }
 }

@@ -32,44 +32,110 @@ import org.springframework.stereotype.Service;
 /** Bounded external personal-contact projection from one authenticated capture. Imported source reconciliation is a separate mandatory assembly gate. */
 @Service
 public class CdsExportPersonalContactProjectionService {
-    public record Result(String sourceManifestSha256, CdsExportPersonalContactMapper.Result mapping) {
+    public record Result(
+            String sourceManifestSha256, CdsExportPersonalContactMapper.Result mapping) {
         public Result {
-            if (sourceManifestSha256 == null || !sourceManifestSha256.matches("[0-9a-f]{64}") || mapping == null)
+            if (sourceManifestSha256 == null
+                    || !sourceManifestSha256.matches("[0-9a-f]{64}")
+                    || mapping == null)
                 throw new IllegalArgumentException("CDS_EXPORT_CONTACT_PROJECTION_INVALID");
         }
-        @Override public String toString() { return "CdsExportPersonalContactProjectionService.Result[protected]"; }
+
+        @Override
+        public String toString() {
+            return "CdsExportPersonalContactProjectionService.Result[protected]";
+        }
     }
+
     private final CdsExportNativeCaptureService captures;
     private final CdsExportCapturedTextRowsReader rows;
-    @Autowired public CdsExportPersonalContactProjectionService(CdsExportNativeCaptureService captures) { this(captures, new CdsExportCapturedTextRowsReader(captures)); }
-    CdsExportPersonalContactProjectionService(CdsExportNativeCaptureService captures, CdsExportCapturedTextRowsReader rows) {
-        this.captures = Objects.requireNonNull(captures); this.rows = Objects.requireNonNull(rows);
+
+    @Autowired
+    public CdsExportPersonalContactProjectionService(CdsExportNativeCaptureService captures) {
+        this(captures, new CdsExportCapturedTextRowsReader(captures));
     }
-    public Result project(CdsExportLeaseDto lease, CdsExportCohortService.Patient patient, Set<String> requiredTables,
-            CdsExportPatientCaptureDto source, CdsExportClinicalOccurrenceService.Bounds bounds, CdsExportRunControl control) throws IOException {
-        patient.require(lease); control.checkpoint(); var tables = Set.copyOf(requiredTables);
-        if (!tables.equals(source.capture().tables().keySet()) || !tables.containsAll(Set.of("DemographicContact", "Contact"))) scope();
+
+    CdsExportPersonalContactProjectionService(
+            CdsExportNativeCaptureService captures, CdsExportCapturedTextRowsReader rows) {
+        this.captures = Objects.requireNonNull(captures);
+        this.rows = Objects.requireNonNull(rows);
+    }
+
+    public Result project(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> requiredTables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control)
+            throws IOException {
+        patient.require(lease);
+        control.checkpoint();
+        var tables = Set.copyOf(requiredTables);
+        if (!tables.equals(source.capture().tables().keySet())
+                || !tables.containsAll(Set.of("DemographicContact", "Contact"))) scope();
         long expected = 0;
         for (String table : List.of("DemographicContact", "Contact")) {
             long count = source.capture().tables().get(table).rows();
-            if (count > bounds.nativeRows() - expected) limit(); expected += count;
+            if (count > bounds.nativeRows() - expected) limit();
+            expected += count;
         }
-        var sources = new HashMap<String, List<CdsExportCapturedTextRowDto>>(); long[] resource = {0, 0};
+        var sources = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
+        long[] resource = {0, 0};
         for (String table : List.of("DemographicContact", "Contact")) {
-            var values = new ArrayList<CdsExportCapturedTextRowDto>(); sources.put(table, values);
-            var actual = rows.forEach(lease, patient, tables, table, source.manifest(), bounds.fields(), bounds.bytes(), 1_048_576, control, row -> {
-                control.checkpoint(); if (++resource[0] > bounds.nativeRows()) limit(); resource[1] = Math.addExact(resource[1], 2048L);
-                for (String value : row.fields().values()) if (value != null) resource[1] = Math.addExact(resource[1], value.getBytes(StandardCharsets.UTF_8).length + 32L);
-                if (resource[1] > bounds.indexBytes()) limit(); values.add(row);
-            });
-            if (!actual.equals(source.capture()) || values.size() != source.capture().tables().get(table).rows()) scope();
+            var values = new ArrayList<CdsExportCapturedTextRowDto>();
+            sources.put(table, values);
+            var actual =
+                    rows.forEach(
+                            lease,
+                            patient,
+                            tables,
+                            table,
+                            source.manifest(),
+                            bounds.fields(),
+                            bounds.bytes(),
+                            1_048_576,
+                            control,
+                            row -> {
+                                control.checkpoint();
+                                if (++resource[0] > bounds.nativeRows()) limit();
+                                resource[1] = Math.addExact(resource[1], 2048L);
+                                for (String value : row.fields().values())
+                                    if (value != null)
+                                        resource[1] =
+                                                Math.addExact(
+                                                        resource[1],
+                                                        value.getBytes(StandardCharsets.UTF_8)
+                                                                        .length
+                                                                + 32L);
+                                if (resource[1] > bounds.indexBytes()) limit();
+                                values.add(row);
+                            });
+            if (!actual.equals(source.capture())
+                    || values.size() != source.capture().tables().get(table).rows()) scope();
         }
         if (resource[0] != expected) scope();
-        var mapped = new CdsExportPersonalContactMapper().map(patient.patient(), sources.get("DemographicContact"), sources.get("Contact"),
-                bounds.nativeRows(), bounds.indexBytes(), control::checkpoint);
+        var mapped =
+                new CdsExportPersonalContactMapper()
+                        .map(
+                                patient.patient(),
+                                sources.get("DemographicContact"),
+                                sources.get("Contact"),
+                                bounds.nativeRows(),
+                                bounds.indexBytes(),
+                                control::checkpoint);
         var result = new Result(source.manifest().plaintextSha256(), mapped);
-        captures.authorizeSources(lease, patient, tables, control); patient.require(lease); control.checkpoint(); return result;
+        captures.authorizeSources(lease, patient, tables, control);
+        patient.require(lease);
+        control.checkpoint();
+        return result;
     }
-    private static void scope() throws IOException { throw new IOException("CDS_EXPORT_CONTACT_PROJECTION_SCOPE_INVALID"); }
-    private static void limit() throws IOException { throw new IOException("CDS_EXPORT_CONTACT_RESOURCE_LIMIT"); }
+
+    private static void scope() throws IOException {
+        throw new IOException("CDS_EXPORT_CONTACT_PROJECTION_SCOPE_INVALID");
+    }
+
+    private static void limit() throws IOException {
+        throw new IOException("CDS_EXPORT_CONTACT_RESOURCE_LIMIT");
+    }
 }

@@ -27,10 +27,58 @@ import java.util.*;
 import org.junit.jupiter.api.Test;
 
 class CdsExportNativePreventionDateMapperUnitTest {
-    private final CdsExportNativePreventionDateMapper mapper=new CdsExportNativePreventionDateMapper();
-    @Test void localClockAndMidnightStayExactWithoutInventingAnOffset()throws Exception{for (String clock:List.of("2024-02-29 12:34:56", "2024-02-29 00:00:00")){var value=mapper.map(clock, List.of()); assertThat(value.precision()).isEqualTo(CdsExportDateDto.Precision.DATE_TIME); assertThat(value.lexical()).isEqualTo(clock.replace(' ', 'T')); }}
-    @Test void nativePartialMarkersSuppressAnchorClockAndMissingCalendarParts()throws Exception{assertThat(mapper.map("2024-02-29 12:34:56", List.of("YYYY")).lexical()).isEqualTo("2024"); assertThat(mapper.map("2024-02-29 12:34:56", List.of("YYYY-MM")).lexical()).isEqualTo("2024-02"); }
-    @Test void unknownDateDoesNotAcceptAPopulatedPrecisionMarker()throws Exception{assertThat(mapper.map(null, List.of()).precision()).isEqualTo(CdsExportDateDto.Precision.ABSENT); assertThatThrownBy(()-> mapper.map(null, List.of("YYYY"))).hasMessage("CDS_EXPORT_PREVENTION_DATE_REQUIRES_REVIEW"); }
-    @Test void clearedMarkersHaveNativeFullClockConvention()throws Exception{assertThat(mapper.map("2024-02-29 00:00:00", Arrays.asList((String)null)).precision()).isEqualTo(CdsExportDateDto.Precision.DATE_TIME); assertThat(mapper.map("2024-02-29 00:00:00", List.of("")).precision()).isEqualTo(CdsExportDateDto.Precision.DATE_TIME); }
-    @Test void invalidCalendarClockFractionOffsetOrPrecisionCannotBeSilentlyNormalized(){for (String date:List.of("2023-02-29 12:34:56", "0000-01-01 00:00:00", "2024-02-29 24:00:00", "2024-02-29 12:34:60", "2024-02-29 12:34:56.000", "2024-02-29T12:34:56Z", "2024-02-29", ""))assertThatThrownBy(()-> mapper.map(date, List.of())).hasMessage("CDS_EXPORT_PREVENTION_DATE_REQUIRES_REVIEW"); assertThatThrownBy(()-> mapper.map("2024-02-29 12:34:56", List.of("YYYY-MM-DD"))).isInstanceOf(java.io.IOException.class); assertThatThrownBy(()-> mapper.map("2024-02-29 12:34:56", List.of("YYYY", "YYYY"))).isInstanceOf(java.io.IOException.class); }
+    private final CdsExportNativePreventionDateMapper mapper =
+            new CdsExportNativePreventionDateMapper();
+
+    @Test
+    void localClockAndMidnightStayExactWithoutInventingAnOffset() throws Exception {
+        for (String clock : List.of("2024-02-29 12:34:56", "2024-02-29 00:00:00")) {
+            var value = mapper.map(clock, List.of());
+            assertThat(value.precision()).isEqualTo(CdsExportDateDto.Precision.DATE_TIME);
+            assertThat(value.lexical()).isEqualTo(clock.replace(' ', 'T'));
+        }
+    }
+
+    @Test
+    void nativePartialMarkersSuppressAnchorClockAndMissingCalendarParts() throws Exception {
+        assertThat(mapper.map("2024-02-29 12:34:56", List.of("YYYY")).lexical()).isEqualTo("2024");
+        assertThat(mapper.map("2024-02-29 12:34:56", List.of("YYYY-MM")).lexical())
+                .isEqualTo("2024-02");
+    }
+
+    @Test
+    void unknownDateDoesNotAcceptAPopulatedPrecisionMarker() throws Exception {
+        assertThat(mapper.map(null, List.of()).precision())
+                .isEqualTo(CdsExportDateDto.Precision.ABSENT);
+        assertThatThrownBy(() -> mapper.map(null, List.of("YYYY")))
+                .hasMessage("CDS_EXPORT_PREVENTION_DATE_REQUIRES_REVIEW");
+    }
+
+    @Test
+    void clearedMarkersHaveNativeFullClockConvention() throws Exception {
+        assertThat(mapper.map("2024-02-29 00:00:00", Arrays.asList((String) null)).precision())
+                .isEqualTo(CdsExportDateDto.Precision.DATE_TIME);
+        assertThat(mapper.map("2024-02-29 00:00:00", List.of("")).precision())
+                .isEqualTo(CdsExportDateDto.Precision.DATE_TIME);
+    }
+
+    @Test
+    void invalidCalendarClockFractionOffsetOrPrecisionCannotBeSilentlyNormalized() {
+        for (String date :
+                List.of(
+                        "2023-02-29 12:34:56",
+                        "0000-01-01 00:00:00",
+                        "2024-02-29 24:00:00",
+                        "2024-02-29 12:34:60",
+                        "2024-02-29 12:34:56.000",
+                        "2024-02-29T12:34:56Z",
+                        "2024-02-29",
+                        ""))
+            assertThatThrownBy(() -> mapper.map(date, List.of()))
+                    .hasMessage("CDS_EXPORT_PREVENTION_DATE_REQUIRES_REVIEW");
+        assertThatThrownBy(() -> mapper.map("2024-02-29 12:34:56", List.of("YYYY-MM-DD")))
+                .isInstanceOf(java.io.IOException.class);
+        assertThatThrownBy(() -> mapper.map("2024-02-29 12:34:56", List.of("YYYY", "YYYY")))
+                .isInstanceOf(java.io.IOException.class);
+    }
 }

@@ -64,23 +64,53 @@ public final class CdsSchemaModel {
         }
     }
 
-    public Type type(String namespace, String local) { return types.get(new Name(namespace, local)); }
-    public Type element(String namespace, String local) { return elements.get(new Name(namespace, local)); }
-    public Type attribute(String namespace, String local) { return attributes.get(new Name(namespace, local)); }
+    public Type type(String namespace, String local) {
+        return types.get(new Name(namespace, local));
+    }
 
-    public enum ParticleKind { ELEMENT, SEQUENCE, ALL, CHOICE }
+    public Type element(String namespace, String local) {
+        return elements.get(new Name(namespace, local));
+    }
+
+    public Type attribute(String namespace, String local) {
+        return attributes.get(new Name(namespace, local));
+    }
+
+    public enum ParticleKind {
+        ELEMENT,
+        SEQUENCE,
+        ALL,
+        CHOICE
+    }
+
     /** Fixed grammar metadata only; instance values and validator implementation objects never enter it. */
-    public record Particle(ParticleKind kind, String namespace, String local, long minimum, long maximum, List<Particle> children) {
+    public record Particle(
+            ParticleKind kind,
+            String namespace,
+            String local,
+            long minimum,
+            long maximum,
+            List<Particle> children) {
         public Particle {
-            java.util.Objects.requireNonNull(kind); children = List.copyOf(children);
-            if (namespace == null || local == null || minimum < 0 || maximum < minimum
+            java.util.Objects.requireNonNull(kind);
+            children = List.copyOf(children);
+            if (namespace == null
+                    || local == null
+                    || minimum < 0
+                    || maximum < minimum
                     || kind == ParticleKind.ELEMENT && (local.isEmpty() || !children.isEmpty())
-                    || kind != ParticleKind.ELEMENT && (!namespace.isEmpty() || !local.isEmpty())) throw new IllegalArgumentException("CDS_SCHEMA_PARTICLE_INVALID");
+                    || kind != ParticleKind.ELEMENT && (!namespace.isEmpty() || !local.isEmpty()))
+                throw new IllegalArgumentException("CDS_SCHEMA_PARTICLE_INVALID");
         }
     }
+
     public record ExpandedName(String namespace, String local) {
-        public ExpandedName { if (namespace == null || local == null || local.isEmpty()) throw new IllegalArgumentException("CDS_SCHEMA_NAME_INVALID"); }
+        public ExpandedName {
+            if (namespace == null || local == null || local.isEmpty())
+                throw new IllegalArgumentException("CDS_SCHEMA_NAME_INVALID");
+        }
     }
+
     /** Only classification and descriptor data; no validator implementation objects escape. */
     public static final class Type {
         private final Name name;
@@ -99,26 +129,70 @@ public final class CdsSchemaModel {
             this.name = name;
             this.simple = simple;
         }
-        public String getTypeName() { return name.local(); }
-        public String getTypeNamespace() { return name.namespace(); }
-        public boolean simple() { return simple; }
-        public boolean atomic() { return atomic; }
-        public String builtIn() { return builtIn; }
-        public String whitespace() { return whitespace; }
-        public boolean lengthFacet() { return lengthFacet; }
-        public boolean otherFacet() { return otherFacet; }
-        public boolean identity() { return identity; }
-        public Type child(String namespace, String local) { return children.get(new Name(namespace, local)); }
-        public Type attribute(String namespace, String local) { return attributes.get(new Name(namespace, local)); }
-        public Particle content() { return content; }
-        public List<ExpandedName> childNames() {
-            return children.keySet().stream().map(name -> new ExpandedName(name.namespace(), name.local())).toList();
+
+        public String getTypeName() {
+            return name.local();
         }
-        public boolean plainString() { return Set.of("string", "normalizedString", "token").contains(builtIn); }
+
+        public String getTypeNamespace() {
+            return name.namespace();
+        }
+
+        public boolean simple() {
+            return simple;
+        }
+
+        public boolean atomic() {
+            return atomic;
+        }
+
+        public String builtIn() {
+            return builtIn;
+        }
+
+        public String whitespace() {
+            return whitespace;
+        }
+
+        public boolean lengthFacet() {
+            return lengthFacet;
+        }
+
+        public boolean otherFacet() {
+            return otherFacet;
+        }
+
+        public boolean identity() {
+            return identity;
+        }
+
+        public Type child(String namespace, String local) {
+            return children.get(new Name(namespace, local));
+        }
+
+        public Type attribute(String namespace, String local) {
+            return attributes.get(new Name(namespace, local));
+        }
+
+        public Particle content() {
+            return content;
+        }
+
+        public List<ExpandedName> childNames() {
+            return children.keySet().stream()
+                    .map(name -> new ExpandedName(name.namespace(), name.local()))
+                    .toList();
+        }
+
+        public boolean plainString() {
+            return Set.of("string", "normalizedString", "token").contains(builtIn);
+        }
     }
 
     private record Name(String namespace, String local) {
-        Name { namespace = namespace == null ? "" : namespace; }
+        Name {
+            namespace = namespace == null ? "" : namespace;
+        }
     }
 
     private static final class Builder {
@@ -126,28 +200,49 @@ public final class CdsSchemaModel {
         private final Map<Name, Element> elements = new HashMap<>();
         private final Map<Name, Type> attributes = new HashMap<>();
         private final Map<Element, Type> declaredTypes = new IdentityHashMap<>();
-        private final Set<Element> completed = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
-        private final Set<Element> building = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        private final Set<Element> completed =
+                java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        private final Set<Element> building =
+                java.util.Collections.newSetFromMap(new IdentityHashMap<>());
         private final List<Element> declarations = new ArrayList<>();
 
         private Builder() {
             Type any = new Type(new Name(XSD, "anyType"), false);
             types.put(any.name, any);
-            String names = "anySimpleType string boolean decimal float double duration dateTime time date "
-                    + "gYearMonth gYear gMonthDay gDay gMonth hexBinary base64Binary anyURI QName NOTATION "
-                    + "normalizedString token language NMTOKEN NMTOKENS Name NCName ID IDREF IDREFS ENTITY ENTITIES "
-                    + "integer nonPositiveInteger negativeInteger long int short byte nonNegativeInteger "
-                    + "unsignedLong unsignedInt unsignedShort unsignedByte positiveInteger";
+            String names =
+                    "anySimpleType string boolean decimal float double duration dateTime time date "
+                            + "gYearMonth gYear gMonthDay gDay gMonth hexBinary base64Binary anyURI QName NOTATION "
+                            + "normalizedString token language NMTOKEN NMTOKENS Name NCName ID IDREF IDREFS ENTITY ENTITIES "
+                            + "integer nonPositiveInteger negativeInteger long int short byte nonNegativeInteger "
+                            + "unsignedLong unsignedInt unsignedShort unsignedByte positiveInteger";
             Set<String> lists = Set.of("NMTOKENS", "IDREFS", "ENTITIES");
-            Set<String> bounded = Set.of("language", "NMTOKEN", "Name", "NCName", "integer",
-                    "nonPositiveInteger", "negativeInteger", "long", "int", "short", "byte",
-                    "nonNegativeInteger", "unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte", "positiveInteger");
+            Set<String> bounded =
+                    Set.of(
+                            "language",
+                            "NMTOKEN",
+                            "Name",
+                            "NCName",
+                            "integer",
+                            "nonPositiveInteger",
+                            "negativeInteger",
+                            "long",
+                            "int",
+                            "short",
+                            "byte",
+                            "nonNegativeInteger",
+                            "unsignedLong",
+                            "unsignedInt",
+                            "unsignedShort",
+                            "unsignedByte",
+                            "positiveInteger");
             for (String name : names.split(" ")) {
                 Type type = new Type(new Name(XSD, name), true);
                 type.atomic = !lists.contains(name) && !name.equals("anySimpleType");
                 type.builtIn = name;
-                type.whitespace = name.equals("string") || name.equals("anySimpleType") ? "preserve"
-                        : name.equals("normalizedString") ? "replace" : "collapse";
+                type.whitespace =
+                        name.equals("string") || name.equals("anySimpleType")
+                                ? "preserve"
+                                : name.equals("normalizedString") ? "replace" : "collapse";
                 type.otherFacet = bounded.contains(name);
                 type.lengthFacet = lists.contains(name);
                 type.identity = Set.of("ID", "IDREF", "IDREFS").contains(name);
@@ -156,7 +251,8 @@ public final class CdsSchemaModel {
             String xsi = XMLConstants.W3C_XML_SCHEMA_INSTANCE_NS_URI;
             attributes.put(new Name(xsi, "type"), required(new Name(XSD, "QName")));
             attributes.put(new Name(xsi, "nil"), required(new Name(XSD, "boolean")));
-            attributes.put(new Name(xsi, "noNamespaceSchemaLocation"), required(new Name(XSD, "anyURI")));
+            attributes.put(
+                    new Name(xsi, "noNamespaceSchemaLocation"), required(new Name(XSD, "anyURI")));
             Type locations = new Type(new Name(xsi, "#AnonType_schemaLocation"), true);
             locations.whitespace = "collapse";
             attributes.put(new Name(xsi, "schemaLocation"), locations);
@@ -171,22 +267,30 @@ public final class CdsSchemaModel {
             factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
             factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
             factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
-            Element schema = factory.newDocumentBuilder().parse(new ByteArrayInputStream(bytes)).getDocumentElement();
-            if (!XSD.equals(schema.getNamespaceURI()) || !"schema".equals(schema.getLocalName())) throw unsupported();
+            Element schema =
+                    factory.newDocumentBuilder()
+                            .parse(new ByteArrayInputStream(bytes))
+                            .getDocumentElement();
+            if (!XSD.equals(schema.getNamespaceURI()) || !"schema".equals(schema.getLocalName()))
+                throw unsupported();
             for (Element element : children(schema)) {
                 switch (element.getLocalName()) {
                     case "simpleType", "complexType" -> {
                         Name name = new Name(namespace(element), element.getAttribute("name"));
                         Type type = new Type(name, element.getLocalName().equals("simpleType"));
-                        if (name.local().isEmpty() || types.putIfAbsent(name, type) != null) throw unsupported();
+                        if (name.local().isEmpty() || types.putIfAbsent(name, type) != null)
+                            throw unsupported();
                         declaredTypes.put(element, type);
                         declarations.add(element);
                     }
                     case "element" -> {
                         Name name = new Name(namespace(element), element.getAttribute("name"));
-                        if (name.local().isEmpty() || elements.putIfAbsent(name, element) != null) throw unsupported();
+                        if (name.local().isEmpty() || elements.putIfAbsent(name, element) != null)
+                            throw unsupported();
                     }
-                    case "annotation", "import" -> { /* Resolved only from the two verified local schemas. */ }
+                    case "annotation", "import" -> {
+                        /* Resolved only from the two verified local schemas. */
+                    }
                     default -> throw unsupported();
                 }
             }
@@ -204,16 +308,28 @@ public final class CdsSchemaModel {
                 if (global == null) throw unsupported();
                 return declaration(global);
             }
-            if (element.hasAttribute("type")) return required(qname(element, element.getAttribute("type")));
+            if (element.hasAttribute("type"))
+                return required(qname(element, element.getAttribute("type")));
             for (Element child : children(element)) {
-                if (Set.of("simpleType", "complexType").contains(child.getLocalName())) return type(child);
+                if (Set.of("simpleType", "complexType").contains(child.getLocalName()))
+                    return type(child);
             }
-            return required(new Name(XSD, element.getLocalName().equals("attribute") ? "anySimpleType" : "anyType"));
+            return required(
+                    new Name(
+                            XSD,
+                            element.getLocalName().equals("attribute")
+                                    ? "anySimpleType"
+                                    : "anyType"));
         }
 
         private Type type(Element declaration) {
-            Type type = declaredTypes.computeIfAbsent(declaration,
-                    node -> new Type(new Name(namespace(node), anonymousName(node)), node.getLocalName().equals("simpleType")));
+            Type type =
+                    declaredTypes.computeIfAbsent(
+                            declaration,
+                            node ->
+                                    new Type(
+                                            new Name(namespace(node), anonymousName(node)),
+                                            node.getLocalName().equals("simpleType")));
             if (completed.contains(declaration)) return type;
             if (!building.add(declaration)) {
                 if (type.simple) throw unsupported();
@@ -227,8 +343,12 @@ public final class CdsSchemaModel {
         }
 
         private void readSimpleType(Element declaration, Type type) {
-            List<Element> content = children(declaration).stream().filter(e -> !e.getLocalName().equals("annotation")).toList();
-            if (content.size() != 1 || !content.getFirst().getLocalName().equals("restriction")) throw unsupported();
+            List<Element> content =
+                    children(declaration).stream()
+                            .filter(e -> !e.getLocalName().equals("annotation"))
+                            .toList();
+            if (content.size() != 1 || !content.getFirst().getLocalName().equals("restriction"))
+                throw unsupported();
             Element restriction = content.getFirst();
             Type base = baseType(restriction);
             if (!base.simple) throw unsupported();
@@ -251,15 +371,25 @@ public final class CdsSchemaModel {
 
         private static void readFacet(Element facet, Type type) {
             switch (facet.getLocalName()) {
-                case "annotation" -> { /* Documentation has no streaming classification. */ }
+                case "annotation" -> {
+                    /* Documentation has no streaming classification. */
+                }
                 case "whiteSpace" -> {
                     String value = facet.getAttribute("value");
-                    if (!Set.of("preserve", "replace", "collapse").contains(value)) throw unsupported();
+                    if (!Set.of("preserve", "replace", "collapse").contains(value))
+                        throw unsupported();
                     type.whitespace = value;
                 }
                 case "length", "minLength", "maxLength" -> type.lengthFacet = true;
-                case "pattern", "enumeration", "minInclusive", "maxInclusive", "minExclusive", "maxExclusive",
-                        "totalDigits", "fractionDigits" -> type.otherFacet = true;
+                case "pattern",
+                        "enumeration",
+                        "minInclusive",
+                        "maxInclusive",
+                        "minExclusive",
+                        "maxExclusive",
+                        "totalDigits",
+                        "fractionDigits" ->
+                        type.otherFacet = true;
                 default -> throw unsupported();
             }
         }
@@ -270,28 +400,52 @@ public final class CdsSchemaModel {
             collect(declaration, elements, attributes);
             type.children = Map.copyOf(elements);
             type.attributes = Map.copyOf(attributes);
-            var groups = children(declaration).stream().filter(child -> Set.of("sequence", "all", "choice").contains(child.getLocalName())).toList();
+            var groups =
+                    children(declaration).stream()
+                            .filter(
+                                    child ->
+                                            Set.of("sequence", "all", "choice")
+                                                    .contains(child.getLocalName()))
+                            .toList();
             if (groups.size() > 1) throw unsupported();
-            type.content = groups.isEmpty() ? new Particle(ParticleKind.ALL, "", "", 1, 1, List.of()) : particle(groups.getFirst());
+            type.content =
+                    groups.isEmpty()
+                            ? new Particle(ParticleKind.ALL, "", "", 1, 1, List.of())
+                            : particle(groups.getFirst());
         }
+
         private Particle particle(Element element) {
-            String local = element.getLocalName(); var kind = switch (local) {
-                case "sequence" -> ParticleKind.SEQUENCE; case "all" -> ParticleKind.ALL;
-                case "choice" -> ParticleKind.CHOICE; case "element" -> ParticleKind.ELEMENT; default -> throw unsupported();
-            };
+            String local = element.getLocalName();
+            var kind =
+                    switch (local) {
+                        case "sequence" -> ParticleKind.SEQUENCE;
+                        case "all" -> ParticleKind.ALL;
+                        case "choice" -> ParticleKind.CHOICE;
+                        case "element" -> ParticleKind.ELEMENT;
+                        default -> throw unsupported();
+                    };
             long minimum = occurs(element, "minOccurs"), maximum = occurs(element, "maxOccurs");
             if (kind == ParticleKind.ELEMENT) {
-                Name name = declarationName(element); return new Particle(kind, name.namespace(), name.local(), minimum, maximum, List.of());
+                Name name = declarationName(element);
+                return new Particle(
+                        kind, name.namespace(), name.local(), minimum, maximum, List.of());
             }
             var members = new ArrayList<Particle>();
-            for (Element child : children(element)) if (!child.getLocalName().equals("annotation")) members.add(particle(child));
+            for (Element child : children(element))
+                if (!child.getLocalName().equals("annotation")) members.add(particle(child));
             return new Particle(kind, "", "", minimum, maximum, members);
         }
+
         private static long occurs(Element element, String attribute) {
-            String value = element.getAttribute(attribute); if (value.isEmpty()) return 1;
+            String value = element.getAttribute(attribute);
+            if (value.isEmpty()) return 1;
             if (attribute.equals("maxOccurs") && value.equals("unbounded")) return Long.MAX_VALUE;
             if (!value.matches("0|[1-9][0-9]{0,18}")) throw unsupported();
-            try { return Long.parseLong(value); } catch (NumberFormatException invalid) { throw unsupported(); }
+            try {
+                return Long.parseLong(value);
+            } catch (NumberFormatException invalid) {
+                throw unsupported();
+            }
         }
 
         private void collect(Element parent, Map<Name, Type> elements, Map<Name, Type> attributes) {
@@ -299,15 +453,19 @@ public final class CdsSchemaModel {
                 switch (child.getLocalName()) {
                     case "sequence", "choice", "all" -> collect(child, elements, attributes);
                     case "element", "attribute" -> collectDeclaration(child, elements, attributes);
-                    case "annotation" -> { /* Documentation does not declare fields. */ }
+                    case "annotation" -> {
+                        /* Documentation does not declare fields. */
+                    }
                     default -> throw unsupported();
                 }
             }
         }
 
-        private void collectDeclaration(Element child, Map<Name, Type> elements, Map<Name, Type> attributes) {
+        private void collectDeclaration(
+                Element child, Map<Name, Type> elements, Map<Name, Type> attributes) {
             Name name = declarationName(child);
-            Map<Name, Type> destination = child.getLocalName().equals("attribute") ? attributes : elements;
+            Map<Name, Type> destination =
+                    child.getLocalName().equals("attribute") ? attributes : elements;
             Type declared = declaration(child);
             Type prior = destination.putIfAbsent(name, declared);
             if (name.local().isEmpty() || prior != null && prior != declared) throw unsupported();
@@ -317,15 +475,20 @@ public final class CdsSchemaModel {
             if (child.hasAttribute("ref")) return qname(child, child.getAttribute("ref"));
             Element schema = child.getOwnerDocument().getDocumentElement();
             boolean attribute = child.getLocalName().equals("attribute");
-            String form = child.hasAttribute("form") ? child.getAttribute("form")
-                    : schema.getAttribute(attribute ? "attributeFormDefault" : "elementFormDefault");
+            String form =
+                    child.hasAttribute("form")
+                            ? child.getAttribute("form")
+                            : schema.getAttribute(
+                                    attribute ? "attributeFormDefault" : "elementFormDefault");
             String namespace = form.equals("qualified") ? namespace(child) : "";
             return new Name(namespace, child.getAttribute("name"));
         }
 
         private static String anonymousName(Element type) {
             StringBuilder name = new StringBuilder("#AnonType_");
-            for (Node node = type.getParentNode(); node instanceof Element element; node = node.getParentNode()) {
+            for (Node node = type.getParentNode();
+                    node instanceof Element element;
+                    node = node.getParentNode()) {
                 name.append(element.getAttribute("name"));
             }
             return name.toString();

@@ -30,35 +30,169 @@ import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-@Tag("unit") @Tag("cds-export")
+@Tag("unit")
+@Tag("cds-export")
 class CdsExportReportOccurrenceServiceUnitTest {
     private Map<String, String> document;
     private Map<String, String> link;
     private CdsReportNativeDto prepared;
     private CdsReportNativeDto.Variant variant;
-    @BeforeEach void setup() {
-        document = new HashMap<>(Map.of("document_no", "7", "doctype", "CDS", "status", "A", "docfilename", "original.txt", "docClass", "Consultant Report", "contenttype", "text/plain;charset=UTF-8", "cds_content_precision", "UNKNOWN", "docdesc", "Imported report", "abnormal", "0", "public1", "0")); document.put("restrictToProgram", "0");
-        link = new HashMap<>(Map.of("document_no", "7", "module", "demographic", "module_id", "27", "status", "A"));
-        variant = new CdsReportNativeDto.Variant("embedded", "txt", "text/plain;charset=UTF-8", "a".repeat(64), 12, false, List.of());
-        prepared = new CdsReportNativeDto(Map.of("Class", "Consultant Report", "Format", "Text"), List.of(variant), CdsTemporalDto.unknown(), CdsTemporalDto.unknown(), CdsTemporalDto.unknown());
+
+    @BeforeEach
+    void setup() {
+        document =
+                new HashMap<>(
+                        Map.of(
+                                "document_no",
+                                "7",
+                                "doctype",
+                                "CDS",
+                                "status",
+                                "A",
+                                "docfilename",
+                                "original.txt",
+                                "docClass",
+                                "Consultant Report",
+                                "contenttype",
+                                "text/plain;charset=UTF-8",
+                                "cds_content_precision",
+                                "UNKNOWN",
+                                "docdesc",
+                                "Imported report",
+                                "abnormal",
+                                "0",
+                                "public1",
+                                "0"));
+        document.put("restrictToProgram", "0");
+        link =
+                new HashMap<>(
+                        Map.of(
+                                "document_no",
+                                "7",
+                                "module",
+                                "demographic",
+                                "module_id",
+                                "27",
+                                "status",
+                                "A"));
+        variant =
+                new CdsReportNativeDto.Variant(
+                        "embedded",
+                        "txt",
+                        "text/plain;charset=UTF-8",
+                        "a".repeat(64),
+                        12,
+                        false,
+                        List.of());
+        prepared =
+                new CdsReportNativeDto(
+                        Map.of("Class", "Consultant Report", "Format", "Text"),
+                        List.of(variant),
+                        CdsTemporalDto.unknown(),
+                        CdsTemporalDto.unknown(),
+                        CdsTemporalDto.unknown());
     }
-    private void bind() throws IOException { CdsExportReportOccurrenceService.bind(new CdsExportCapturedTextRowDto("document", CdsExportPatientTableSourceReader.key(7), document), new CdsExportCapturedTextRowDto("ctl_document", CdsExportPatientTableSourceReader.key(7), link), prepared, variant, "original.txt", 27); }
-    @Test void shouldBindOriginalPreparedMetadata_withoutInventingSourceTiming() { assertThatCode(this::bind).doesNotThrowAnyException(); }
-    @ParameterizedTest @ValueSource(strings = {"docClass", "doctype", "status", "docfilename", "contenttype", "cds_content_precision", "docdesc", "docSubClass", "sourceFacility", "source"})
-    void shouldRefuseAnyChangedMetadataBeforeReturningOriginalSource(String column) { document.put(column, "Changed"); assertThatThrownBy(this::bind).isInstanceOf(IOException.class); }
-    @ParameterizedTest @ValueSource(strings = {"docxml", "report_media", "responsible", "reviewer", "reviewdatetime", "appointment_no", "public1", "abnormal", "restrictToProgram"})
-    void shouldRequireReviewForUnrepresentedClinicalOrAccessContext(String column) { document.put(column, "1"); assertThatThrownBy(this::bind).hasMessage("CDS_EXPORT_UNMAPPED_DATA"); }
-    @ParameterizedTest @ValueSource(strings = {"document_no", "module", "module_id", "status"})
-    void shouldRefuseChangedPatientAssociation(String column) { link.put(column, "Changed"); assertThatThrownBy(this::bind).isInstanceOf(IOException.class); }
-    @Test void shouldKeepEntryProviderLocal_withoutTurningItIntoSourceAuthor() { document.put("doccreator", "999998"); assertThatCode(this::bind).doesNotThrowAnyException(); }
-    @Test void shouldKeepUnprojectedLongSourceAuthors_inTheirOriginalFields() {
-        var metadata = new HashMap<>(prepared.values()); metadata.put("NativeSourceAuthor", "X".repeat(120)); prepared = new CdsReportNativeDto(metadata, List.of(variant), prepared.event(), prepared.received(), prepared.sent()); assertThatCode(this::bind).doesNotThrowAnyException();
+
+    private void bind() throws IOException {
+        CdsExportReportOccurrenceService.bind(
+                new CdsExportCapturedTextRowDto(
+                        "document", CdsExportPatientTableSourceReader.key(7), document),
+                new CdsExportCapturedTextRowDto(
+                        "ctl_document", CdsExportPatientTableSourceReader.key(7), link),
+                prepared,
+                variant,
+                "original.txt",
+                27);
     }
-    @Test void shouldRefuseAClinicalMediaReviewFlag_evenWhenTheProjectionIsUnchanged() {
-        variant = new CdsReportNativeDto.Variant(variant.name(), variant.extension(), variant.mime(), variant.digest(), variant.length(), true, List.of()); document.put("docdesc", "Imported report (source media review required)"); assertThatThrownBy(this::bind).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+
+    @Test
+    void shouldBindOriginalPreparedMetadata_withoutInventingSourceTiming() {
+        assertThatCode(this::bind).doesNotThrowAnyException();
     }
-    @Test void shouldRequireAnExplicitAttachmentSink_insteadOfSilentlyOmittingAFile() {
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "docClass",
+                "doctype",
+                "status",
+                "docfilename",
+                "contenttype",
+                "cds_content_precision",
+                "docdesc",
+                "docSubClass",
+                "sourceFacility",
+                "source"
+            })
+    void shouldRefuseAnyChangedMetadataBeforeReturningOriginalSource(String column) {
+        document.put(column, "Changed");
+        assertThatThrownBy(this::bind).isInstanceOf(IOException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "docxml",
+                "report_media",
+                "responsible",
+                "reviewer",
+                "reviewdatetime",
+                "appointment_no",
+                "public1",
+                "abnormal",
+                "restrictToProgram"
+            })
+    void shouldRequireReviewForUnrepresentedClinicalOrAccessContext(String column) {
+        document.put(column, "1");
+        assertThatThrownBy(this::bind).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"document_no", "module", "module_id", "status"})
+    void shouldRefuseChangedPatientAssociation(String column) {
+        link.put(column, "Changed");
+        assertThatThrownBy(this::bind).isInstanceOf(IOException.class);
+    }
+
+    @Test
+    void shouldKeepEntryProviderLocal_withoutTurningItIntoSourceAuthor() {
+        document.put("doccreator", "999998");
+        assertThatCode(this::bind).doesNotThrowAnyException();
+    }
+
+    @Test
+    void shouldKeepUnprojectedLongSourceAuthors_inTheirOriginalFields() {
+        var metadata = new HashMap<>(prepared.values());
+        metadata.put("NativeSourceAuthor", "X".repeat(120));
+        prepared =
+                new CdsReportNativeDto(
+                        metadata,
+                        List.of(variant),
+                        prepared.event(),
+                        prepared.received(),
+                        prepared.sent());
+        assertThatCode(this::bind).doesNotThrowAnyException();
+    }
+
+    @Test
+    void shouldRefuseAClinicalMediaReviewFlag_evenWhenTheProjectionIsUnchanged() {
+        variant =
+                new CdsReportNativeDto.Variant(
+                        variant.name(),
+                        variant.extension(),
+                        variant.mime(),
+                        variant.digest(),
+                        variant.length(),
+                        true,
+                        List.of());
+        document.put("docdesc", "Imported report (source media review required)");
+        assertThatThrownBy(this::bind).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+    }
+
+    @Test
+    void shouldRequireAnExplicitAttachmentSink_insteadOfSilentlyOmittingAFile() {
         CdsExportClinicalOccurrenceService.Receipts sink = receipt -> {};
-        assertThatThrownBy(() -> sink.attachment(null, null)).hasMessage("CDS_EXPORT_REPORT_ATTACHMENT_SINK_REQUIRED");
+        assertThatThrownBy(() -> sink.attachment(null, null))
+                .hasMessage("CDS_EXPORT_REPORT_ATTACHMENT_SINK_REQUIRED");
     }
 }
