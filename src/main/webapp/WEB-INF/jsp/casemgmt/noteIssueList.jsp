@@ -230,7 +230,7 @@
     <span id="encType${noteIndex}">
         <c:choose>
             <c:when test="${empty ajaxsave or preserveEditor}">
-                <select id="${encSelect}" class="encTypeCombo" name="caseNote.encounter_type">
+                <select id="${encSelect}" class="encTypeCombo" name="caseNote.encounter_type" onchange="noteIssuesChanged = true;">
                     <option value="" ${empty caseManagementEntryForm.caseNote.encounter_type ? 'selected' : ''}></option>
                     <option value="face to face encounter with client" ${caseManagementEntryForm.caseNote.encounter_type == 'face to face encounter with client' ? 'selected' : ''}><fmt:message key="encounter.faceToFaceEnc.title"/></option>
                     <option value="telephone encounter with client" ${caseManagementEntryForm.caseNote.encounter_type == 'telephone encounter with client' ? 'selected' : ''}><fmt:message key="encounter.telephoneEnc.title"/></option>

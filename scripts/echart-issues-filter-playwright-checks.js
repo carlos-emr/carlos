@@ -471,12 +471,14 @@ async function workflow(s) {
         h.assert(await reopenedChoice.isChecked() === resolved, 'Reopening did not retain the saved issue selection');
       }
     });
-    await s.step('a failed full-chart refresh after saving a dirty note retains editable controls and retries without another revision', async () => {
+    await s.step('an encounter-type-only edit survives a failed full-chart refresh and retries without another revision', async () => {
       const chart = await s.chart();
       const oldId = notes.b;
       const uuid = sql.value(`SELECT uuid FROM casemgmt_note WHERE note_id=${oldId} AND demographic_no=${patient}`);
-      const text = `${await noteField(chart).inputValue()}\n${marker} full chart retry`;
-      await noteField(chart).fill(text);
+      const text = await noteField(chart).inputValue();
+      const encounterType = await chart.locator('select.encTypeCombo').inputValue() === 'telephone encounter with client'
+        ? 'email encounter with client' : 'telephone encounter with client';
+      await chart.locator('select.encTypeCombo').selectOption(encounterType);
       const controls = await chart.locator('#observationDate, select.encTypeCombo, #noteIssues input[type="checkbox"]')
         .evaluateAll(fields => fields.map(field => [field.name, field.value, field.checked]));
       const failChart = route => chartSaveRequest('edit')(route.request())
@@ -499,6 +501,8 @@ async function workflow(s) {
         h.assert(await chart.locator('#issueAutocomplete').isEnabled(), 'The failed refresh lost issue assignment');
         notes.b = sql.value(`SELECT MAX(note_id) FROM casemgmt_note WHERE demographic_no=${patient} AND uuid=${q(uuid)}`);
         h.assert(notes.b !== oldId, 'Dirty chart navigation did not save the note revision');
+        h.assert(sql.value(`SELECT encounter_type FROM casemgmt_note WHERE note_id=${notes.b} AND demographic_no=${patient}`) === encounterType,
+          'The encounter-type-only edit was not stored');
         h.assert(await noteField(chart).getAttribute('id') === `caseNote_note${notes.b}`, 'The editor retained a stale revision identity');
       } finally {
         await chart.unroute('**/CaseManagementEntry*', failChart);

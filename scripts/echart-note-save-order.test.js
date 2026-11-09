@@ -328,10 +328,13 @@ for (const failure of ['503', 'unacknowledged 200', 'different patient', 'setup'
   });
 }
 
-test('full-chart navigation waits for acknowledgement of a dirty note save', () => {
+test('full-chart navigation waits for acknowledgement of an encounter-type-only edit', () => {
   const h = switchHarness();
   h.context.caseNote = 'editor1';
-  h.context.noteIssuesChanged = true;
+  h.context.origCaseNote = h.editor.value;
+  const markup = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/casemgmt/noteIssueList.jsp'), 'utf8');
+  const select = markup.match(/<select[^>]+class="encTypeCombo"[^>]+>/)[0];
+  vm.runInContext(select.match(/onchange="([^"]+)"/)[1], h.context);
   let loads = 0;
   vm.runInContext(source.slice(source.indexOf('    var fullChart ='), source.indexOf('    var socHistoryLabel;')), h.context);
   h.context.loadFullChart = () => loads++;
