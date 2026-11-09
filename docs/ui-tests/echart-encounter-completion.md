@@ -144,3 +144,13 @@ updates the textarea and form to the saved revision ID, and resets the dirty bas
 A failed chart request restores autosave; retrying the chart does not create another
 revision. The installed editor workflow now injects HTTP 503 after the real compact
 save and checks text, controls, saved identity and duplicate-free retry.
+
+The final full-chart regression changes encounter type through the visible SelectBox
+combo and invokes the production refresh entry point: the current layout no longer
+renders the historical Quick/Full Chart link. On the upgraded Ontario package this
+passes the real compact save, injected HTTP 503, editable-control and text preservation,
+new revision identity, unchanged prior encounter type, and duplicate-free chart retry.
+The strict residue audit passes. Only the single deliberately injected HTTP response
+and its matching browser console diagnostic are consumed; other failures remain strict.
+The Ubuntu 26.04 package upgrade (snapshot28 to snapshot29, carlos-ctl 1.3.2) also passes
+all deployment health checks and preserves the encounter-table snapshot exactly.

@@ -476,9 +476,12 @@ async function workflow(s) {
       const oldId = notes.b;
       const uuid = sql.value(`SELECT uuid FROM casemgmt_note WHERE note_id=${oldId} AND demographic_no=${patient}`);
       const text = await noteField(chart).inputValue();
-      const encounterType = await chart.locator('select.encTypeCombo').inputValue() === 'telephone encounter with client'
+      const priorType = await chart.locator('select.encTypeCombo').inputValue();
+      const encounterType = priorType === 'telephone encounter with client'
         ? 'email encounter with client' : 'telephone encounter with client';
-      await chart.locator('select.encTypeCombo').selectOption(encounterType);
+      // SelectBox exposes a text/dropdown control and hides the backing select.
+      await chart.locator('input.encTypeCombo[id$="_combo"]').click({timeout: TIMEOUT});
+      await chart.locator(`div[id$="_options"] li[data-value="${encounterType}"]`).click({timeout: TIMEOUT});
       const controls = await chart.locator('#observationDate, select.encTypeCombo, #noteIssues input[type="checkbox"]')
         .evaluateAll(fields => fields.map(field => [field.name, field.value, field.checked]));
       let failedUrl;
@@ -492,7 +495,9 @@ async function workflow(s) {
         const dialogs = await h.withExpectedDialogs(chart, async () => {
           await Promise.all([
             chart.waitForResponse(response => chartSaveRequest('edit')(response.request()) && response.status() === 503, {timeout: TIMEOUT}),
-            chart.locator('#quickChart').click({timeout: TIMEOUT}),
+            // The current layout omits the old Quick/Full Chart toolbar link.
+            // Execute its production entry point against the real save response.
+            chart.evaluate(() => viewFullChart(true)),
           ]);
         });
         h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Dirty chart navigation did not confirm saving once');
@@ -507,6 +512,8 @@ async function workflow(s) {
         h.assert(notes.b !== oldId, 'Dirty chart navigation did not save the note revision');
         h.assert(sql.value(`SELECT encounter_type FROM casemgmt_note WHERE note_id=${notes.b} AND demographic_no=${patient}`) === encounterType,
           'The encounter-type-only edit was not stored');
+        h.assert(sql.value(`SELECT encounter_type FROM casemgmt_note WHERE note_id=${oldId} AND demographic_no=${patient}`) === priorType,
+          'The encounter type edit rewrote the prior revision');
         h.assert(await noteField(chart).getAttribute('id') === `caseNote_note${notes.b}`, 'The editor retained a stale revision identity');
       } finally {
         await chart.unroute('**/CaseManagementEntry*', failChart);
@@ -514,7 +521,7 @@ async function workflow(s) {
       const dialogs = await h.withExpectedDialogs(chart, async () => {
         await Promise.all([
           chart.waitForResponse(response => chartSaveRequest('edit')(response.request()) && response.status() === 200, {timeout: TIMEOUT}),
-          chart.locator('#quickChart').click({timeout: TIMEOUT}),
+          chart.evaluate(() => viewFullChart(true)),
         ]);
       });
       h.assert(dialogs.length === 0, 'Retrying the chart tried to save the acknowledged note again');
