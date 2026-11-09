@@ -52,7 +52,7 @@ function checkFields() {
 
 // Field-specific guidance shared by the picker and save-time validation.
 function ticklerFormatMessage(format) {
-    var form = document.getElementById && document.getElementById('ticklerAddForm');
+    var form = document.getElementById?.('ticklerAddForm');
     if (form) return form.getAttribute(format === 'Y-m-d' ? 'data-date-error' : 'data-time-error');
     return format === 'Y-m-d'
         ? 'Invalid service date. Use yyyy-MM-dd (for example 2030-12-31).'
@@ -61,6 +61,13 @@ function ticklerFormatMessage(format) {
 
 // Flatpickr's default parser accepts partial matches and rolls impossible dates/times forward.
 // Only exact, real dates and times may reach its formatter or the save request.
+function parseTicklerTime(value) {
+    var match = /^(0?[1-9]|1[0-2]):([0-5]\d) (AM|PM)$/i.exec(value);
+    if (match) return [+match[1] % 12 + (match[3].toUpperCase() === 'PM' ? 12 : 0), +match[2]];
+    match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
+    return match ? [+match[1], +match[2]] : undefined;
+}
+
 function parseTicklerValue(value, format) {
     var match;
     var date = new Date(2000, 0, 1);
@@ -72,14 +79,9 @@ function parseTicklerValue(value, format) {
         if (date.getFullYear() !== +match[1] || date.getMonth() !== +match[2] - 1
                 || date.getDate() !== +match[3]) return undefined;
     } else if (format === 'h:i K') {
-        match = /^(0?[1-9]|1[0-2]):([0-5]\d) (AM|PM)$/i.exec(value);
-        if (match) {
-            date.setHours(+match[1] % 12 + (match[3].toUpperCase() === 'PM' ? 12 : 0), +match[2], 0, 0);
-        } else {
-            match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
-            if (!match) return undefined;
-            date.setHours(+match[1], +match[2], 0, 0);
-        }
+        var time = parseTicklerTime(value);
+        if (!time) return undefined;
+        date.setHours(time[0], time[1], 0, 0);
     } else {
         return undefined;
     }

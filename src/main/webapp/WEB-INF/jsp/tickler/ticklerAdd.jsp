@@ -831,7 +831,7 @@
                 </tr>
 
                 <tr>
-                    <td class="tickler-label"><fmt:message key="tickler.ticklerAdd.assignTaskTo"/>:</td>
+                    <td class="tickler-label"><label for="task_assigned_to"><fmt:message key="tickler.ticklerAdd.assignTaskTo"/></label>:</td>
                     <td>
                         <% if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) { // multisite start ==========================================
                             SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
@@ -946,7 +946,7 @@
                         } else {
                         %>
 
-                        <select name="task_assigned_to" class="form-select" required>
+                        <select name="task_assigned_to" id="task_assigned_to" class="form-select" required>
                             <option value="" <%=taskTo.isEmpty() ? "selected" : ""%>><fmt:message key="tickler.recipient.required"/></option>
                             <% String proFirst = "";
                                 String proLast = "";
