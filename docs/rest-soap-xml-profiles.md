@@ -42,3 +42,5 @@ published contract before removing profile support. The default contract has
 no migration or database requirement.
 
 Optional Date properties in SOAP transfer objects accept absent, empty and whitespace-only values as null. Malformed values produce a fault, and real date-time instants retain fractional seconds. All 45 current Date properties keep their published xs:dateTime schema type under both JAXB providers. This does not alter JSON date representation or unrelated REST XML date recovery.
+
+The published literal profile rejects XML 1.0 control characters, isolated surrogates and U+FFFE/U+FFFF instead of emitting malformed XML or omitting a value. The empty NUL sentinel remains supported. Explicit numeric profiles retain all unsigned UTF-16 code units, including values that cannot be written literally. Real SOAP reader/writer tests verify a published-output fault and successful numeric round trips; this does not change either JSON mapper.

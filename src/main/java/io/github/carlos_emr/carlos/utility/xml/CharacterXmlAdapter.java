@@ -35,7 +35,9 @@ public final class CharacterXmlAdapter extends XmlCompatibilityAdapter<String, C
         }
         if (value.isEmpty()) return '\0';
         if (value.length() != 1) throw new XmlCompatibilityValueException("Expected one XML character");
-        return value.charAt(0);
+        char character = value.charAt(0);
+        requireXmlCharacter(character);
+        return character;
     }
 
     @Override
@@ -45,6 +47,15 @@ public final class CharacterXmlAdapter extends XmlCompatibilityAdapter<String, C
         if (XmlWireProfile.current().numericCharacters()) {
             return Integer.toString(value);
         }
-        return value == '\0' ? "" : value.toString();
+        if (value == '\0') return "";
+        requireXmlCharacter(value);
+        return value.toString();
+    }
+
+    private static void requireXmlCharacter(char value) {
+        if (value != '\t' && value != '\n' && value != '\r'
+                && (value < 0x20 || value >= 0xD800 && value <= 0xDFFF || value >= 0xFFFE)) {
+            throw new XmlCompatibilityValueException("Character cannot be represented by the published XML profile");
+        }
     }
 }

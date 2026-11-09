@@ -30,6 +30,10 @@ class XmlWireProfileSoapIntegrationTest {
             return new io.github.carlos_emr.carlos.webserv.transfer_objects.DrugTransfer[]{drug, drug};
         }
         @WebMethod
+        public ScheduleTemplateCodeTransfer illegalCode() {
+            var result = new ScheduleTemplateCodeTransfer(); result.setCode((char) 1); return result;
+        }
+        @WebMethod
         public ScheduleTemplateCodeTransfer echo(ScheduleTemplateCodeTransfer arg0) {
             return arg0;
         }
@@ -145,5 +149,18 @@ class XmlWireProfileSoapIntegrationTest {
         // SOAP client faults may use HTTP 400 or the SOAP 1.1 default 500. The fault is the contract.
         assertThat(response.status).isBetween(400, 599);
         assertThat(response.body).contains("Fault", "Client").doesNotContain("unknown-client-name");
+    }
+    @Test
+    void shouldFaultUnrepresentablePublishedOutput_andRetainExplicitNumericCodeUnits() throws Exception {
+        String operation = "<p:illegalCode xmlns:p=\"urn:test:xmlprofiles\"/>";
+        Result published = invoke(null, operation);
+        assertThat(published.status).isGreaterThanOrEqualTo(400);
+        assertThat(published.body).contains("Fault");
+        Result numeric = invoke("glassfish-numeric-characters", operation);
+        assertThat(numeric.status).isEqualTo(200);
+        assertThat(numeric.body).contains("<code>1</code>");
+        Result surrogate = call("glassfish-numeric-characters", "55296");
+        assertThat(surrogate.status).isEqualTo(200);
+        assertThat(surrogate.body).contains("<code>55296</code>");
     }
 }
