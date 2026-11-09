@@ -19,7 +19,9 @@ must be committed before they can become passing evidence.
 | Scope | Pinned commit |
 | --- | --- |
 | Older workspace main | `27b660c00fa7c6f53317ed0ffeeccb0aebaf50cf` |
-| Main used in the review | `e53e6cb555125a942bbb28e52097972a24c88ad1` |
+| Earlier tooling-plan main baseline (`baselines.currentMain`) | `e53e6cb555125a942bbb28e52097972a24c88ad1` |
+| Main used in the subsequent #5830 review (beta7) | `d40d2939afd` |
+| Release used in #5830 | `9004536dc83` |
 | Release/main merge base | `b4c0dfc94e677514e6f64dd271358f0295270739` |
 | Implementation base, including the facility chooser fix | `37a48abf47fa3f4561885e58baa3358e2aa746af` |
 
@@ -31,10 +33,17 @@ workstreams and a rationale. Unowned production paths block scope acceptance;
 `--inventory-only` generates review material without claiming coverage. Test-only
 packaging paths remain in the inventory with `production: false`.
 
-The six main-only migrations are individually listed with content hashes. They
-require a disposition object containing the exact `sha256` and a nonempty
-`reason`. They are not automatically backported or treated as verified exclusions. Published
-migrations and the branch version/SCM metadata are preserved.
+Main-only migration inventory depends on the selected main and release refs.
+The committed plan has no `mainOnlyMigrationDispositions`: the earlier tooling
+baseline yields zero main-only migrations, while the beta7 comparison exposes
+one: `database/mysql/migration/common/V1.0.59.33__audit_imported_billing_filenames.sql`.
+`release-scope-audit.py` reads `baselines.currentMain` from its `--plan` JSON;
+changing a local Git branch does not update that pin. To inventory another main,
+use a separate plan copy with the intended baseline SHA and retain the resulting
+paths and content hashes. Each discovered main-only migration requires a disposition
+containing its exact `sha256` and a nonempty `reason`. Inventory is not a
+disposition, a backport or a verified exclusion. Preserve published migrations
+and the branch version/SCM metadata.
 
 ## Implemented regressions and gates
 
@@ -217,8 +226,10 @@ Required `external` contracts are listed in the matrix with their precise
 reason, including installed restarts/ciphertext, client compatibility, EBS
 vendor/CXF-cache acceptance, CDS large/crash qualification, .deb install/upgrade,
 backup recovery, image overwrite policy, interruption recovery and load/privacy
-budgets. Scope ownership and the six main-only migration dispositions also
-remain blocking. The installed expected-failure pins the outcome ledger lists
+budgets. Scope ownership and dispositions for any main-only migrations
+discovered against the qualification refs remain required; the plan currently
+contains no migration dispositions. The installed expected-failure pins the
+outcome ledger lists
 under `browserExpectedFailures` are not passing workflows; each needs a fresh
 retake and disposition. Its `retiredBrowserExpectations` are pins whose source
 fix has landed; each still needs a fresh installed PASS.
@@ -275,7 +286,7 @@ The full case/acceptance text and required checks are in the JSON matrix.
 | T39 | Patient merge and refusal contracts |
 | T40 | Production JSP and executed JavaScript |
 
-The required `fixture-ci-browser` check reconciles all 15 direct browser fixture
+The required `fixture-ci-browser` check reconciles all 17 direct browser fixture
 commands in `script-regressions.yml` with a source-hashed contract. It requires
 qualified Python/Node/npm, checkout-local locked Playwright, `CARLOS_FIXTURE_CHROMIUM`
 pointing to the locked executable, and `PLAYWRIGHT_BROWSERS_PATH` pointing to its
@@ -288,8 +299,11 @@ under that root, outside the checkout or under `target/`. Both the configured
 Chromium executable and Playwright's selected default headless executable are
 hashed before the run and checked for changes afterward.
 Real provider observations require the locked Chromium
-version and disconnected browsers; direct assertion floors total 2,522 across the
-15 fixtures. The navigation fixture additionally requires all six exact Node
+version and disconnected browsers; the committed
+[fixture contract](release-2026.08-ci-browser-fixtures.json) defines 17 fixtures
+whose `minimumAssertions` sum to 4,344. Recompute these totals from the contract
+when updating the workflow. The navigation fixture additionally requires all
+six exact Node
 engine cases with no skips, TODOs or cancellations. The observer delegates original
 assertions and browser calls, preserving arguments, results and failures. Missing
 commands, changed fixture sources, zero-assertion success and incomplete browser

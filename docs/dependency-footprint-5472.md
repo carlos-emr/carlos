@@ -89,8 +89,9 @@ does not supply it; the existing WAR packaging check also requires the API and i
   Disease registry results retain their existing DataTables search and sorting, with
   DataTables as their sole enhancer and all matching rows on one page.
 
-These changes are proposed for review; #5472 requires sign-off on output differences before
-merging. A byte-identical XLS or chart image is not claimed.
+These changes landed in #5518 on `release/2026.08`. Issue #5472 remains the
+tracking record for output-difference sign-off and outstanding acceptance; merge
+status alone does not establish that those gates passed. A byte-identical XLS or chart image is not claimed.
 
 ## Browser transport
 

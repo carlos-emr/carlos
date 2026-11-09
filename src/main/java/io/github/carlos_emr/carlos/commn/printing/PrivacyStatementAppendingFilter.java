@@ -66,8 +66,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * <ul>
  *
  * 	<li>The statement is outputted for HTML requests that result in generation of HTML content. This is done by checking the response type being created.</li>
- * 	<li>The statement is outputted only once per requests. This is ensure through setting a temporary session attribute
- * if session is available, or request attribute otherwise.</li>
+ * 	<li>The statement is outputted only once per request, using a request attribute
+ * to guard against repeated decoration. No session attribute is used.</li>
  * 	<li>The statement is not outputted for AJAX-based requests, detected with
  * {@link io.github.carlos_emr.carlos.utility.RequestNegotiation#isAjax}. That reads
  * {@code X-Requested-With} as a list, because CSRFGuard's client script appends its own marker

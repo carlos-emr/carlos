@@ -130,7 +130,7 @@ class SearchEndYearStatement2ActionUnitTest extends CarlosUnitTestBase {
                 .todateParam("0.00")
                 .build();
         PatientEndYearStatementService.Result result = new PatientEndYearStatementService.Result(
-                summary, List.of());
+                summary, List.of(), List.of());
         when(mockService.aggregateInvoices(any(Demographic.class), any(), any())).thenReturn(result);
 
         SearchEndYearStatement2Action action =
