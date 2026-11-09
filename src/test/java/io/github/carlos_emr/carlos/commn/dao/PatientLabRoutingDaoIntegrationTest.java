@@ -54,9 +54,23 @@ public class PatientLabRoutingDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private PatientLabRoutingDao patientLabRoutingDao;
+    @jakarta.persistence.PersistenceContext(unitName = "entityManagerFactory")
+    private jakarta.persistence.EntityManager em;
 
     private static final int DEMO_1 = 50001;
     private static final int DEMO_2 = 50002;
+
+    @Test
+    void shouldRefreshPatientMatchAndKeepSourceNamespace_whenReadingForUpdate() {
+        PatientLabRouting hl7 = createRouting(DEMO_1, 615001, "HL7");
+        createRouting(DEMO_2, 615001, "CML");
+        em.flush();
+        em.createNativeQuery("update patientLabRouting set demographic_no=?1 where id=?2")
+                .setParameter(1, DEMO_2).setParameter(2, hl7.getId()).executeUpdate();
+        assertThat(hl7.getDemographicNo()).isEqualTo(DEMO_1);
+        assertThat(patientLabRoutingDao.findForUpdate(615001, "HL7")).singleElement()
+                .satisfies(row -> assertThat(row.getDemographicNo()).isEqualTo(DEMO_2));
+    }
 
     private PatientLabRouting createRouting(int demographicNo, int labNo, String labType) {
         PatientLabRouting routing = new PatientLabRouting();

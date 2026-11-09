@@ -66,6 +66,7 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         request.setParameter("type", "WT");
         response = new MockHttpServletResponse();
         when(security.hasPrivilege(login, "_measurement", "r", "101")).thenReturn(true);
+        when(security.hasPrivilege(login, "_lab", "r", "101")).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(login, 101)).thenReturn(true);
     }
 
@@ -78,6 +79,24 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
                 return graph;
             }
         };
+    }
+
+    @Test
+    void shouldRefuseRawSourceGraph_whenLabReadPrivilegeIsMissing() throws Exception {
+        request.setParameter("method", "actualLab");
+        when(security.hasPrivilege(login, "_lab", "r", "101")).thenReturn(false);
+        DemographicNameAgeString nameLookup = mock(DemographicNameAgeString.class);
+        when(nameLookup.getNameAgeString(login, 101)).thenReturn("Synthetic patient");
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var names = mockStatic(DemographicNameAgeString.class);
+             var images = mockStatic(BrowserChartRenderer.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            names.when(DemographicNameAgeString::getInstance).thenReturn(nameLookup);
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> action().execute()).isInstanceOf(SecurityException.class);
+            images.verifyNoInteractions();
+            assertThat(response.getContentAsByteArray()).isEmpty();
+        }
     }
 
     @Test

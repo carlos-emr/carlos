@@ -119,6 +119,10 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         int height = 600;
 
         String method = request.getParameter("method");
+        if ("actualLab".equals(method)) {
+            PatientReadAccess.requirePatient(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                    demographicNo, "_lab", SecurityInfoManager.READ);
+        }
 
         log.debug("Creating graph for demo {} type1: {} type2: {}", LogSafe.sanitizeObject(demographicNo), LogSafe.sanitize(typeIdName), LogSafe.sanitize(typeIdName2));
         // Assemble and render before sending image headers. Invalid stored values must produce

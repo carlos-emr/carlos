@@ -76,6 +76,11 @@ used for retained browser/database evidence.
   removal, patient routing, provider reconciliation and audit all roll back the
   transaction. These fault tests use real H2 transaction advice and instrumented
   DAO writes; they do not substitute for physical clinical-row/native qualification.
+- An additional 20-case persisted-row/access/DAO run passes without skips. Real
+  H2 clinical rows prove successful complete-chain unlink, extension retention,
+  stale retry refusal and rollback after an actual late audit INSERT. The new
+  patient-routing locking read refreshes a cached match and keeps lab namespaces
+  separate. This is still distinct from the physical MariaDB/native workflow tier.
 - Numeric syntax now uses a bounded linear character parser (no regex), and
   browser admission uses a private monitor, addressing the subsequent security
   scan findings without suppressing them.
