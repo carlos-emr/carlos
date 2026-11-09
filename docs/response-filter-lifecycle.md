@@ -15,7 +15,7 @@ reads those mappings, including their dispatchers; it does not invent a new orde
 | Layer | Capture and completion owner | Dispatch contract |
 | --- | --- | --- |
 | ResponseSanitizationFilter | Owns writer capture and streams opened with an error status; inspects status/body after the downstream chain returns; replays or replaces the body | REQUEST and ERROR; deliberately surrounds every downstream failure |
-| JavaMelody MonitoringFilter | Adapts writer output to its monitoring stream; 2.9.0 drains its writer at forward completion | REQUEST and ASYNC; its successful stream can still sit behind CARLOS captures |
+| JavaMelody MonitoringFilter | In 2.9.0, forwards writer calls to the downstream writer and counts them; stream calls use its counting stream; drains its writer at forward completion | REQUEST and ASYNC; JSP/writer output reaches the sanitizer writer capture |
 | CsrfGuardScriptInjectionFilter | Captures HTML writer output, injects one CSRF script, replays on unwind | FORWARD; already-injected pages are replayed unchanged |
 | LogoutBroadcastFilter | Shields completion, defers entity length and adds heartbeat/logout script once for authenticated HTML writer responses | REQUEST and FORWARD; the request marker prevents nested injection |
 | PrivacyStatementAppendingFilter | Shields writer flush/close, appends the print notice, then flushes its delegate | REQUEST; binary and AJAX bypass decoration |

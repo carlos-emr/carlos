@@ -5,9 +5,12 @@ starts. The Java property is **`encryption.util.secret.key`** in
 `carlos.properties`; an environment variable named `ENCRYPTION_KEY` does not
 configure it.
 
-If the effective configuration has a nonblank, valid Base64 AES key, startup
-uses it, including when that configuration comes from a classpath resource.
-The decoded key must contain 16, 24 or 32 bytes.
+The effective configuration must contain a nonblank, valid Base64 AES key
+whose decoded value contains 16, 24 or 32 bytes. A valid key alone is not enough:
+startup also requires a durable external properties file containing
+`AbandonOldChart=true`. Classpath-only configuration is refused even with a
+valid key, because it cannot preserve the modern-chart setting across rollback.
+See [modern chart cutover and rollback](modern-chart-cutover.md).
 
 If the key is missing or blank, CARLOS generates and persists one only when
 the loaded configuration is an external, writable properties file. It refuses
@@ -25,11 +28,14 @@ key would make encrypted data unreadable after restart.
    listener loads home-directory properties after the explicit override, so a
    stale home file can replace the override's settings and key.
 2. Set `-Dcarlos_override_properties=/absolute/path/to/carlos.properties` in
-   Tomcat's `CATALINA_OPTS`. The Tomcat service account must be able to read it;
-   first startup with a blank key also needs permission to update the file.
+   Tomcat's `CATALINA_OPTS`. The Tomcat service account must be able to read it.
+   Set `AbandonOldChart=true` in that file before startup, or allow CARLOS to
+   append it with write permission. Retain that setting and the same external
+   file when rolling back: modern saves no longer update historical `eChart` rows.
 3. Either allow CARLOS to generate and append a key at first startup, or
    provision `encryption.util.secret.key` before startup when configuration is
-   read-only. For a **new, empty deployment only**, `openssl rand -base64 32`
+   read-only; read-only files must also already contain `AbandonOldChart=true`.
+   For a **new, empty deployment only**, `openssl rand -base64 32`
    generates a suitable value. Store it securely in the properties file, without
    placing it in build logs, source control or a shared demo image.
 4. Back up the properties file and key securely alongside the database and
@@ -91,8 +97,10 @@ or decrypted credentials while troubleshooting.
   `debian/assets/bin/carlos-emr-tomcat` selects it with
   `-Dcarlos_override_properties`. The installer and CLI manage this external
   configuration. Loading demonstration data does not change that path.
-- Ad-hoc WAR and CI smoke deployments must supply an external file or a valid,
-  preconfigured key; bundling properties with a blank key is insufficient.
+- Ad-hoc WAR and CI smoke deployments must supply a durable external file.
+  With read-only configuration, provision both the valid key and
+  `AbandonOldChart=true` before startup. With writable configuration, CARLOS
+  can persist missing values. Bundled classpath properties alone are insufficient.
 
 See also [2026.08 release notes](release-notes-2026.08.md) and
 [Debian installation](install-deb.md).

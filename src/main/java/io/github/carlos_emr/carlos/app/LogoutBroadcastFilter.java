@@ -732,9 +732,11 @@ public class LogoutBroadcastFilter implements Filter {
      * content after the filter chain has written its output.
      *
      * <p>Tracks whether {@code getWriter()} or {@code getOutputStream()} was called
-     * so the filter knows which output method to use for appending. Content-Length is deferred
-     * while wrapped because an injected script changes the final byte count; if no script is
-     * appended, {@link #applyDeferredContentLength()} restores the downstream value.
+     * so the filter knows which output method to use for appending. Streams and known non-HTML
+     * writers publish Content-Length as soon as the channel and length are available. Only
+     * HTML or unknown-type writer lengths wait for the append decision, because an injected
+     * script changes the byte count; if no script is appended,
+     * {@link #applyDeferredContentLength()} restores the downstream value.
      */
     private static class DelegatingServletResponse extends HttpServletResponseWrapper {
 
@@ -1057,7 +1059,9 @@ public class LogoutBroadcastFilter implements Filter {
         }
 
         /**
-         * Caches string Content-Length header values until the final append decision is known.
+         * Parses string Content-Length values using the shared defer/publish rules.
+         * Streams and known non-HTML writers publish immediately once the channel exists;
+         * HTML or unknown-type writers defer the value until the append decision.
          *
          * @param value raw Content-Length header value from downstream code
          */

@@ -23,8 +23,16 @@ https://github.com/carlos-emr/carlos
 
 # MariaDB JDBC connector
 
-CARLOS and packaged DrugRef use MariaDB Connector/J 3.5.11. New configuration
-uses `org.mariadb.jdbc.Driver` and `jdbc:mariadb://host:port/database`. Existing
+CARLOS and packaged DrugRef use MariaDB Connector/J 3.5.11. The WAR and
+devcontainer defaults use `org.mariadb.jdbc.Driver` and
+`jdbc:mariadb://host:port/database`. Packaged CLI installs differ: the pinned
+`carlos-ctl` 1.3.1 `init-config` still writes `db_driver=com.mysql.cj.jdbc.Driver`
+and a `jdbc:mysql:` `db_uri`, and its schema launcher supplies a MySQL-style
+`FLYWAY_URL`. This applies to newly provisioned packaged installs as well as
+upgrades; their legacy-looking configuration does not mean MySQL Connector/J
+is bundled. They require the compatibility adapter shipped in the WAR and
+extracted by the Debian Flyway launcher.
+
 `com.mysql.cj.jdbc.Driver`, `com.mysql.jdbc.Driver`, and `jdbc:mysql:` configuration
 is adapted when the applications open their pools or dedicated connections.
 An empty legacy hostname continues to mean `localhost`.

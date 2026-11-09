@@ -733,10 +733,21 @@ overrides, including `DRUGREF_REF`, so DrugRef is built from the repository pin.
 > # Optional, behind an egress proxy that only tunnels HTTPS:
 > #   BUILD_PROXY=http://127.0.0.1:3128 BUILD_CA_BUNDLE=/path/ca.pem APT_FORCE_HTTPS=true
 > scripts/deb-docker-validation.sh up
-> scripts/deb-docker-validation.sh suite --tier smoke      # any run-playwright-suite.js arguments
+> scripts/deb-docker-validation.sh suite --tier smoke      # strict qualification; --skip/--dry-run refused
 > scripts/deb-docker-validation.sh audit                   # scripts/deb-server-log-audit.sh
 > scripts/deb-docker-validation.sh down
 > ```
+>
+> `suite` always adds `--strict-release --residue-audit`. Missing prerequisites,
+> SKIP, known-fail and unexpected-pass results fail qualification; `--skip` and
+> `--dry-run` are refused. It runs through the installed-error fault adapter,
+> which performs two extra restarts and a temporary `web.xml` change, then
+> restores the descriptor. The wrapper compares `NRestarts` before/after except
+> for managed profiles, whose configuration changes require restarts. Use only
+> the disposable installation. For a diagnostic run with ordinary skip handling,
+> enter it with `scripts/deb-docker-validation.sh shell`, source
+> `/root/suite-env.sh`, and invoke `node scripts/run-playwright-suite.js` directly.
+> Diagnostic results do not qualify a release.
 >
 > It uses host networking (the front door must be on `:443`), so validate one
 > province at a time. Logs, the install transcript and JUnit reports land in
@@ -973,11 +984,13 @@ lxc exec carlos-test -- carlos-ctl restart
 
 ### Checks that need their own fixture
 
-A check that cannot run for want of a fixture reports **SKIP** (exit 2, #3313)
-with the reason on its own output, and the suite runner repeats the check's
-`fixtures` note from `scripts/playwright-suite.json` in its summary table, so a
-missing fixture never reads as a broken application. Issue #4412 found four
-checks that failed on a fresh install instead; they now behave as follows.
+In direct diagnostic mode, a check that cannot run for want of a fixture reports
+**SKIP** (exit 2, #3313) with the reason on its own output. The runner repeats
+the check's `fixtures` note from `scripts/playwright-suite.json` in its summary.
+The strict wrapper `suite` command turns that SKIP into FAIL; it cannot qualify
+an unexercised path. The table describes individual-check classifications, not
+strict qualification outcomes. Issue #4412 found four checks that failed on a
+fresh install instead; they now behave as follows.
 
 | Check | What it needs | On a fresh install with the section 6 environment |
 |---|---|---|
@@ -1015,7 +1028,10 @@ browser/server errors and cleanup failures still report FAIL. Supply an owned UI
 fax account to exercise that handoff. `demographic-cds-import` and
 `audit-log-demographic-import` report SKIP when the import feature or approved
 source/profile is unavailable; see [CDS import configuration](../cds-import-configuration.md)
-to configure an approved synthetic source. These skips leave those paths unvalidated.
+to configure an approved synthetic source. These are the direct runner
+classifications and leave those paths unvalidated. The Docker wrapper
+`suite` command always enables strict qualification and converts every such SKIP to FAIL. Stage the prerequisites
+before qualification; use the direct runner for diagnostics.
 
 The wrapper already exports `EXCLUSIVE=1` and `CARLOS_DISPOSABLE_VM=true` for its
 single-session disposable install. Outside the wrapper, `session-heartbeat-timeout`

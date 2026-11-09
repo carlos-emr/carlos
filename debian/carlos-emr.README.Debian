@@ -995,10 +995,6 @@ and in backup.env, to your own obligations.
 11. Troubleshooting
 -------------------
 
-MariaDB reports "Table 'mysql.db' doesn't exist"
-  See "Missing MariaDB system tables" in section 6 for first-initialization
-  recovery, retained-data refusal checks, and matching-backup guidance.
-
   sudo carlos-ctl check                start here; it names the failure
   sudo carlos-ctl logs -n 200          application server log
   sudo carlos-ctl logs -f              follow it live
@@ -1008,6 +1004,10 @@ MariaDB reports "Table 'mysql.db' doesn't exist"
                                        it does not log to the application log)
   sudo journalctl -u mariadb -n 100    the database
   sudo tail -f /var/log/carlos-emr/modsec/modsec_audit.log
+
+MariaDB reports "Table 'mysql.db' doesn't exist"
+  See "Missing MariaDB system tables" in section 6 for first-initialization
+  recovery, retained-data refusal checks, and matching-backup guidance.
 
 Which log holds what
   The application, its container and the WAF write to three different places,
@@ -1174,9 +1174,9 @@ nginx will not start: port 80 or 443 is already in use
   and a note names it; nothing is uninstalled, and the note gives the command
   that brings it back once it has been moved to other ports. What was stopped,
   or declined, is in the install output, /var/log/apt/term.log and the
-  journal (journalctl -t carlos-emr). To keep every configure hands-off:
-
-      echo 'carlos-emr carlos-emr/stop-port-conflicts boolean false' | sudo debconf-set-selections
+  journal (journalctl -t carlos-emr). Non-interactive runs already decline by
+  default unless explicitly preseeded true. Interactive runs ask again on every
+  configure that finds a conflict; preseeding false does not suppress the question.
 
   Named but left running: containers and the container engines (stopping one
   stops every container), programs started by hand (an nginx started outside
