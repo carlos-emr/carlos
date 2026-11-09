@@ -177,6 +177,88 @@ async function login(page) {
   return page;
 }
 
+// Page-realm fixture operations: serialized by Playwright, with explicit arguments only.
+async function saveSyntheticAnnotationMarks(args) {
+        const input = document.querySelector('input[name="CSRF-TOKEN"]');
+        const response = await fetch(
+          `${args.base}/documentManager/SaveAnnotatedDocument?docId=${args.docId}`,
+          {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest',
+              'CSRF-TOKEN': input ? input.value : '',
+            },
+            body: JSON.stringify({
+              sourceDigest: window.CARLOS_ANNOTATE.sourceDigest,
+              annotations: [
+                { type: 'highlight', page: 1, x: 0.1, y: 0.2, w: 0.5, h: 0.03, color: 'yellow' },
+                { type: 'date', page: 1, x: 0.6, y: 0.05, w: 0.25, h: 0.03, text: '2026-01-01', fontSize: 11 },
+              ],
+            }),
+          },
+        );
+        let body = null;
+        try {
+          body = JSON.parse(await response.text());
+        } catch (e) {
+          body = null;
+        }
+        return { status: response.status, body };
+      }
+
+function findAnnotationNoteHitMisses() {
+      const note = document.querySelector('svg.overlay text.mark');
+      const id = note.getAttribute('data-id');
+      const r = note.getBoundingClientRect();
+      const misses = [];
+      for (let i = 1; i < 10; i += 1) {
+        for (let j = 1; j < 4; j += 1) {
+          const x = r.left + (r.width * i) / 10;
+          const y = r.top + (r.height * j) / 4;
+          const owner = document.elementFromPoint(x, y)?.closest('[data-id]');
+          if (!owner || owner.getAttribute('data-id') !== id) { misses.push([Math.round(x), Math.round(y)]); }
+        }
+      }
+      return misses;
+    }
+
+function installNarrowAnnotationFallback() {
+      const sheet = [...document.styleSheets].find(s => (s.href || '').includes('documentAnnotate.css'));
+      if (!sheet) { return false; }
+      sheet.insertRule('.page svg text { font-family: CarlosAnnotation, "Liberation Sans" !important; }', sheet.cssRules.length);
+      return !document.fonts.check('11px CarlosAnnotation');
+    }
+
+function useNarrowAnnotationFontAndResetScroll() {
+      const sheet = [...document.styleSheets].find(s => (s.href || '').includes('documentAnnotate.css'));
+      sheet.insertRule('.page svg text { font-family: CarlosAnnotation, "Liberation Sans" !important; }', sheet.cssRules.length);
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+
+function failNextAnnotationSaveSerialization() {
+      const original = JSON.stringify;
+      JSON.stringify = function (value, ...rest) {
+        if (value && typeof value === 'object' && 'sourceDigest' in value) {
+          JSON.stringify = original;
+          throw new Error('synthetic save-body failure');
+        }
+        return original.call(this, value, ...rest);
+      };
+    }
+
+function observeRemovedAnnotationNotes() {
+      window.__removedNotes = 0;
+      new MutationObserver(records => {
+        for (const record of records) {
+          for (const node of record.removedNodes) {
+            if (node.matches && node.matches('text.mark')) { window.__removedNotes += 1; }
+          }
+        }
+      }).observe(document.querySelector('svg.overlay'), { childList: true });
+    }
+
 async function main({cancellation,fixture}={}) {
   const cleanupReleases=[];
   const browser = await chromium.launch({
@@ -344,7 +426,8 @@ async function main({cancellation,fixture}={}) {
     const overlay = page.locator('svg.overlay').first();
     const box = await overlay.boundingBox();
     cancellation?.throwIfCancelled();
-    const verifyHighlightingAndSave = async () => {
+
+    if (box && box.width > 40 && box.height > 40) {
       await page.mouse.move(box.x + 30, box.y + 40);
     cancellation?.throwIfCancelled();
       await page.mouse.down();
@@ -365,35 +448,7 @@ async function main({cancellation,fixture}={}) {
       // ---- a real save, which is the whole point of the design ----
       // Posting the model directly rather than clicking Save keeps the assertion on
       // the server contract: what comes back must name a NEW document.
-      const saved = await page.evaluate(async (args) => {
-        const input = document.querySelector('input[name="CSRF-TOKEN"]');
-        const response = await fetch(
-          `${args.base}/documentManager/SaveAnnotatedDocument?docId=${args.docId}`,
-          {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Requested-With': 'XMLHttpRequest',
-              'CSRF-TOKEN': input ? input.value : '',
-            },
-            body: JSON.stringify({
-              sourceDigest: window.CARLOS_ANNOTATE.sourceDigest,
-              annotations: [
-                { type: 'highlight', page: 1, x: 0.1, y: 0.2, w: 0.5, h: 0.03, color: 'yellow' },
-                { type: 'date', page: 1, x: 0.6, y: 0.05, w: 0.25, h: 0.03, text: '2026-01-01', fontSize: 11 },
-              ],
-            }),
-          },
-        );
-        let body = null;
-        try {
-          body = JSON.parse(await response.text());
-        } catch (e) {
-          body = null;
-        }
-        return { status: response.status, body };
-      }, { base: baseUrl, docId });
+      const saved = await page.evaluate(saveSyntheticAnnotationMarks, { base: baseUrl, docId });
     cancellation?.throwIfCancelled();
 
       check('save returns 200', saved.status === 200, `status ${saved.status}`);
@@ -451,8 +506,7 @@ async function main({cancellation,fixture}={}) {
     cancellation?.throwIfCancelled();
       check('the visible status region is announceable as role=status',
         visibleStatusRole >= 1, `${visibleStatusRole} visible elements with role=status`);
-    };
-    if (box && box.width > 40 && box.height > 40) { await verifyHighlightingAndSave(); } else {
+    } else {
       findings.push('FAIL  overlay had no usable geometry to draw on');
     }
 
@@ -498,7 +552,8 @@ async function main({cancellation,fixture}={}) {
     check('a stale source fingerprint refuses filing with an explicit conflict',
       stale.status === 409 && stale.body.error.includes('source document changed'));
 
-    const verifyPageSwitchAndStaleResponses = async () => {
+
+    if (pageCount > 1) {
       if (!coldDocumentNo) { throw new Error('The last-page regression requires the newly filed document'); }
       const activePageRequests = new Set();
       let peakPageRequests = 0;
@@ -574,8 +629,7 @@ async function main({cancellation,fixture}={}) {
     cancellation?.throwIfCancelled();
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     cancellation?.throwIfCancelled();
-    };
-    if (pageCount > 1) { await verifyPageSwitchAndStaleResponses(); }
+    }
 
     // A successful save must not suppress warnings for subsequent unsaved edits.
     await mark('draw');
@@ -677,21 +731,7 @@ async function main({cancellation,fixture}={}) {
     cancellation?.throwIfCancelled();
 
     // SVG text hit-tests on glyph outlines, so the gaps between letters need the note's hit box.
-    const noteMisses = await page.evaluate(() => {
-      const note = document.querySelector('svg.overlay text.mark');
-      const id = note.getAttribute('data-id');
-      const r = note.getBoundingClientRect();
-      const misses = [];
-      for (let i = 1; i < 10; i += 1) {
-        for (let j = 1; j < 4; j += 1) {
-          const x = r.left + (r.width * i) / 10;
-          const y = r.top + (r.height * j) / 4;
-          const owner = document.elementFromPoint(x, y)?.closest('[data-id]');
-          if (!owner || owner.getAttribute('data-id') !== id) { misses.push([Math.round(x), Math.round(y)]); }
-        }
-      }
-      return misses;
-    });
+    const noteMisses = await page.evaluate(findAnnotationNoteHitMisses);
     cancellation?.throwIfCancelled();
     check('every point of a note text box grabs the note', noteMisses.length === 0, JSON.stringify(noteMisses));
 
@@ -1247,12 +1287,7 @@ async function main({cancellation,fixture}={}) {
     cancellation?.throwIfCancelled();
     await openViewer('domcontentloaded');
     cancellation?.throwIfCancelled();
-    const narrowFallback = await page.evaluate(() => {
-      const sheet = [...document.styleSheets].find(s => (s.href || '').includes('documentAnnotate.css'));
-      if (!sheet) { return false; }
-      sheet.insertRule('.page svg text { font-family: CarlosAnnotation, "Liberation Sans" !important; }', sheet.cssRules.length);
-      return !document.fonts.check('11px CarlosAnnotation');
-    });
+    const narrowFallback = await page.evaluate(installNarrowAnnotationFallback);
     cancellation?.throwIfCancelled();
     check('the annotation font is still loading while the note is placed', narrowFallback);
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
@@ -1354,11 +1389,7 @@ async function main({cancellation,fixture}={}) {
     cancellation?.throwIfCancelled();
     await openViewer('domcontentloaded');
     cancellation?.throwIfCancelled();
-    await page.evaluate(() => {
-      const sheet = [...document.styleSheets].find(s => (s.href || '').includes('documentAnnotate.css'));
-      sheet.insertRule('.page svg text { font-family: CarlosAnnotation, "Liberation Sans" !important; }', sheet.cssRules.length);
-      window.scrollTo({ top: 0, behavior: 'instant' });
-    });
+    await page.evaluate(useNarrowAnnotationFontAndResetScroll);
     cancellation?.throwIfCancelled();
     const lateBox = await page.locator('svg.overlay').first().boundingBox();
     cancellation?.throwIfCancelled();
@@ -1422,16 +1453,7 @@ async function main({cancellation,fixture}={}) {
     // A save that fails before fetch() starts has sent nothing, so Save must stay usable. Building
     // the request body is the last step before the request leaves: fail it once, for the save
     // payload only, and prove no request went out, the error is shown and a retry files.
-    await page.evaluate(() => {
-      const original = JSON.stringify;
-      JSON.stringify = function (value, ...rest) {
-        if (value && typeof value === 'object' && 'sourceDigest' in value) {
-          JSON.stringify = original;
-          throw new Error('synthetic save-body failure');
-        }
-        return original.call(this, value, ...rest);
-      };
-    });
+    await page.evaluate(failNextAnnotationSaveSerialization);
     cancellation?.throwIfCancelled();
     let preSendPosts = 0;
     const countPreSend = request => { if (request.url().includes('/SaveAnnotatedDocument')) { preSendPosts += 1; } };
@@ -1548,11 +1570,7 @@ async function main({cancellation,fixture}={}) {
     cancellation?.throwIfCancelled();
     await openViewer('domcontentloaded');
     cancellation?.throwIfCancelled();
-    await page.evaluate(() => {
-      const sheet = [...document.styleSheets].find(s => (s.href || '').includes('documentAnnotate.css'));
-      sheet.insertRule('.page svg text { font-family: CarlosAnnotation, "Liberation Sans" !important; }', sheet.cssRules.length);
-      window.scrollTo({ top: 0, behavior: 'instant' });
-    });
+    await page.evaluate(useNarrowAnnotationFontAndResetScroll);
     cancellation?.throwIfCancelled();
     const countedBox = await page.locator('svg.overlay').first().boundingBox();
     cancellation?.throwIfCancelled();
@@ -1561,16 +1579,7 @@ async function main({cancellation,fixture}={}) {
     page.once('dialog', dialog => dialog.accept('Synthetic note counted through the font arrival'));
     await page.mouse.click(countedBox.x + countedBox.width - 10, countedBox.y + 200);
     cancellation?.throwIfCancelled();
-    await page.evaluate(() => {
-      window.__removedNotes = 0;
-      new MutationObserver(records => {
-        for (const record of records) {
-          for (const node of record.removedNodes) {
-            if (node.matches && node.matches('text.mark')) { window.__removedNotes += 1; }
-          }
-        }
-      }).observe(document.querySelector('svg.overlay'), { childList: true });
-    });
+    await page.evaluate(observeRemovedAnnotationNotes);
     cancellation?.throwIfCancelled();
     releaseCountedFont();
     await page.waitForFunction(() => document.fonts.check('11px CarlosAnnotation'));
