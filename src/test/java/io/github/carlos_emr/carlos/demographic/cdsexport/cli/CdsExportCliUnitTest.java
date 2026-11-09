@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.cdsexport.cli;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import io.github.carlos_emr.carlos.demographic.cds.cli.CdsProcessConfiguration;
@@ -40,6 +41,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Semaphore;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -47,6 +51,48 @@ import org.junit.jupiter.api.Test;
 
 @Tag("unit") @Tag("cds-export")
 class CdsExportCliUnitTest {
+    @Test void progressCloseWaitsForInterruptedWorkToRetire() throws Exception {
+        var started = new CountDownLatch(1);
+        var finished = new CountDownLatch(1);
+        try (var progress = new CdsExportCli.ProgressExecutor()) {
+            progress.execute(() -> {
+                started.countDown();
+                try { new CountDownLatch(1).await(); }
+                catch (InterruptedException stop) { Thread.currentThread().interrupt(); }
+                finally { finished.countDown(); }
+            });
+            assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
+        }
+        assertThat(finished.getCount()).isZero();
+    }
+    @Test void progressClosePreservesTheCallersInterruptFlag() {
+        try {
+            try (var progress = new CdsExportCli.ProgressExecutor()) {
+                Thread.currentThread().interrupt();
+            }
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+        } finally { Thread.interrupted(); }
+    }
+    @Test void progressCloseRefusesWorkThatDoesNotRetireWithinItsBound() throws Exception {
+        var started = new CountDownLatch(1);
+        var release = new Semaphore(0);
+        try (var progress = new CdsExportCli.ProgressExecutor(TimeUnit.MILLISECONDS.toNanos(25))) {
+            progress.execute(() -> {
+                started.countDown();
+                release.acquireUninterruptibly();
+            });
+            try {
+                assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
+                assertThatThrownBy(progress::close).isInstanceOf(IllegalStateException.class)
+                        .hasMessage("CDS_EXPORT_PROGRESS_CLEANUP_INCOMPLETE");
+            } finally {
+                release.release();
+                progress.shutdownNow();
+                progress.awaitTermination(5, TimeUnit.SECONDS);
+            }
+            assertThat(progress.isTerminated()).isTrue();
+        }
+    }
     private static final String RUN = "22222222-2222-4222-8222-222222222222", NONCE = "33333333-3333-4333-8333-333333333333";
     private ByteArrayOutputStream output, error;
     private PrintStream out, err;

@@ -36,7 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /** Safe process protocol only; durable application state, not progress or adapter exit alone, establishes export completion. */
@@ -135,14 +135,46 @@ public final class CdsExportCli {
         }
         return outcome;
     }
+    /** Progress must retire before its owning Spring runtime closes, including interrupted waits. */
+    static final class ProgressExecutor extends ScheduledThreadPoolExecutor {
+        private final long closeWaitNanos;
+        ProgressExecutor() { this(TimeUnit.SECONDS.toNanos(30)); }
+        ProgressExecutor(long closeWaitNanos) {
+            super(1, task -> {
+                Thread thread = new Thread(task, "cds-export-progress");
+                thread.setDaemon(true);
+                return thread;
+            });
+            if (closeWaitNanos < 1 || closeWaitNanos > TimeUnit.SECONDS.toNanos(30))
+                throw new IllegalArgumentException("CDS_EXPORT_PROGRESS_CLOSE_BOUND_INVALID");
+            this.closeWaitNanos = closeWaitNanos;
+        }
+        @Override public void close() {
+            boolean interrupted = Thread.interrupted();
+            long deadline = System.nanoTime() + closeWaitNanos;
+            try {
+                shutdownNow();
+                while (!isTerminated()) {
+                    long remaining = deadline - System.nanoTime();
+                    if (remaining <= 0) throw new IllegalStateException("CDS_EXPORT_PROGRESS_CLEANUP_INCOMPLETE");
+                    try {
+                        if (!awaitTermination(remaining, TimeUnit.NANOSECONDS))
+                            throw new IllegalStateException("CDS_EXPORT_PROGRESS_CLEANUP_INCOMPLETE");
+                    } catch (InterruptedException stop) {
+                        interrupted = true;
+                        shutdownNow();
+                    }
+                }
+            } finally {
+                if (interrupted) Thread.currentThread().interrupt();
+            }
+        }
+    }
     private static CdsExportJobDto foreground(CdsExportCliRuntime runtime, String run, PrintStream out, PrintStream err) throws Exception {
         Thread owner = Thread.currentThread();
         Thread hook = new Thread(() -> { runtime.interruptWait(); owner.interrupt(); }, "cds-export-wait-stop");
-        var progress = Executors.newSingleThreadScheduledExecutor(task -> {
-            Thread thread = new Thread(task, "cds-export-progress"); thread.setDaemon(true); return thread;
-        });
-        try {
-            Runtime.getRuntime().addShutdownHook(hook);
+        Runtime.getRuntime().addShutdownHook(hook);
+        try (var progress = new ProgressExecutor()) {
             progress.scheduleWithFixedDelay(() -> {
                 try { line(out, summary(runtime.status(run), "PROGRESS")); }
                 catch (Exception unavailable) { err.println("CDS_EXPORT_PROGRESS: current authorized status is temporarily unavailable"); }
@@ -154,7 +186,6 @@ public final class CdsExportCli {
                 Thread.sleep(1000);
             }
         } finally {
-            progress.shutdownNow();
             try { Runtime.getRuntime().removeShutdownHook(hook); } catch (IllegalStateException shuttingDown) { /* JVM owns the hook now. */ }
         }
     }

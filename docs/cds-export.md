@@ -72,6 +72,18 @@ was `3a9f54e906a9c778d354252056d572a17359f996b42b7ac1a74ae024d6300c1b`.
 The retained [workflow evidence](https://github.com/carlos-emr/carlos/actions/runs/42540856434)
 is a passing checkpoint; later changes still require their own final-head checks.
 
+At `a42feca0`, the complete installed CLI/browser proof passed again with WAR
+`7cce2bc8e3f37d73e32ee05528be21f8c810dd4380abbece2c53d4347250195c`.
+All 3,906 coordinated checks across 305 required suites passed with zero skips,
+and all five installed resource profiles passed, including scaling and 20 GiB.
+The full Java run had zero errors and one static migration-guard failure: its
+matcher did not recognize `WHERE EXISTS (...) AND NOT EXISTS (...)`. The actual
+migration's four native authorization/reapply cases passed. The candidate fixes
+the generic matcher and keeps the approved SQL unchanged. Its progress-executor
+retirement and prescription-preview load binding have additional focused checks;
+final-head workflow results remain the release authority.
+
+
 
 All 305 reviewed coordinated suites passed at `b59628c7`, with no failures, errors
 or required skips, including the four real MariaDB permission-seed cases and the

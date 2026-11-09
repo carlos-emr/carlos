@@ -70,6 +70,8 @@ jobs:
           python3 -m py_compile scripts/ci/run-cds-export-installed-ci.py scripts/ci/setup-cds-export-installed-tomcat.py scripts/ci/run-cds-export-installed-oracle.py scripts/ci/collect-cds-export-installed-diagnostics.py
           node --check scripts/ci/run-cds-export-installed-browser.js
           python3 scripts/ci/test_cds_war_manifest.py
+      - name: Verify prescription preview load binding in the actual browser
+        run: node scripts/ci/check-rx-preview-load-binding.js target/cds-browser-tools/node_modules/playwright
       - name: Start Java25 build container
         uses: ./.github/actions/dev-container
         with:
