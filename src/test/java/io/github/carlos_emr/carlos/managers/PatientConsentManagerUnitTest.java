@@ -94,6 +94,30 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRefuseAnEditedConsentQuery_whenTheConsentTypeIsAbsent() {
+        Date editedAfter = new Date(0);
+        assertThatThrownBy(() -> manager.getConsentsByTypeAndEditDate(loggedInInfo, null, editedAfter))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("consent type");
+        verifyNoInteractions(mockConsentDao, mockConsentTypeDao);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldPreserveTheEditedConsentQuery_whenTheSpecifiedTypeIsInactive() {
+        ConsentType type = createActiveConsentType(7, "FAKE historical consent");
+        type.setActive(false);
+        Date editedAfter = new Date(0);
+        List<Consent> consents = List.of(new Consent());
+        when(mockConsentDao.findLastEditedByConsentTypeId(7, editedAfter)).thenReturn(consents);
+
+        assertThat(manager.getConsentsByTypeAndEditDate(loggedInInfo, type, editedAfter)).isSameAs(consents);
+
+        verify(mockConsentDao).findLastEditedByConsentTypeId(7, editedAfter);
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(loggedInInfo,
+                "PatientConsentManager.getConsentsByTypeAndEditDate", " Demographic: " + type));
+    }
+
+    @Test
     void shouldIdentifyThePatientInTheAudit_whenConsentListIsRead() {
         when(mockConsentDao.findByDemographic(101)).thenReturn(List.of());
         assertThat(manager.getAllConsentsByDemographic(loggedInInfo, 101)).isEmpty();

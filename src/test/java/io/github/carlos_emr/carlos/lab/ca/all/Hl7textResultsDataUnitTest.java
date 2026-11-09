@@ -249,10 +249,11 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldRefuseAnUnresolvedIncomingVersion_beforeChangingClinicalMeasurements() {
+        LocalDateTime received = LocalDateTime.parse("2026-03-10T14:00:00");
         try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
             versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("1111,9999");
             org.assertj.core.api.Assertions.assertThatThrownBy(() -> fileResult("4.3", ".*",
-                    "2026-03-10 07:00:00", LocalDateTime.parse("2026-03-10T14:00:00")))
+                    "2026-03-10 07:00:00", received))
                     .isInstanceOf(IllegalStateException.class).hasMessageContaining("absent");
         }
         org.mockito.Mockito.verifyNoInteractions(measurementDao,

@@ -78,6 +78,19 @@ class CaseManagementNoteHistoryAccessUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldAuditTheAuthorizedNoteId_withoutReadingTheRequestParameterAgain() {
+        MockHttpServletRequest changingRequest = spy(request);
+        when(changingRequest.getParameter("noteId")).thenReturn("501", null);
+        action.request = changingRequest;
+
+        assertThat(action.notehistory()).isEqualTo("showHistory");
+
+        verify(changingRequest, times(1)).getParameter("noteId");
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(user,
+                "read", "CME note", "501", "101", null));
+    }
+
+    @Test
     void shouldWithholdClinicalHistory_whenAuditPersistenceFails() {
         RuntimeException failure = new IllegalStateException("audit unavailable");
         logActionMock.when(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(user,

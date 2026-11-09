@@ -1552,7 +1552,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 21,
+      "minimumCases": 27,
       "runtimeConstraints": {
         "python": "3.14"
       }

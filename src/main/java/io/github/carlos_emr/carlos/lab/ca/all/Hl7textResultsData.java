@@ -281,8 +281,10 @@ public class Hl7textResultsData {
                     // The match, not the whole result, is the value filed: the filter both selects and extracts.
                     String value = originalResultMatch(trimmed, folded, matcher);
                     if (value == null) {
-                        logger.warn("Result filter split a Unicode case mapping; not filed as a measurement (lab {}, OBX {}-{})",
-                                LogSafe.sanitize(lab_no), i, j);
+                        if (logger.isWarnEnabled()) {
+                            logger.warn("Result filter split a Unicode case mapping; not filed as a measurement (lab {}, OBX {}-{})",
+                                    LogSafe.sanitize(lab_no), i, j);
+                        }
                         continue;
                     }
                     // measurements.dataField holds 255 characters. The packaged install (MariaDB sql_mode="", and
@@ -444,7 +446,8 @@ public class Hl7textResultsData {
         if (original.length() == folded.length()) return original.substring(match.start(), match.end());
         int foldedOffset = 0;
         int start = -1;
-        for (int offset = 0; offset <= original.length();) {
+        int offset = 0;
+        while (offset <= original.length()) {
             if (foldedOffset == match.start()) start = offset;
             if (foldedOffset == match.end()) return start < 0 ? null : original.substring(start, offset);
             if (offset == original.length() || foldedOffset > match.end()) break;
@@ -541,19 +544,21 @@ public class Hl7textResultsData {
                     Hl7TextMessage version = labNo == Integer.parseInt(lab_no)
                             ? hl7Msg : hl7TxtMsgDao.find(labNo);
                     if (version == null) throw new IllegalStateException("A CML version has no stored source message");
-                    if (!"CML".equals(version.getType())) continue;
-                    MessageHandler parser = Factory.getHandler(version);
-                    if (parser == null) throw new IllegalStateException("A stored CML version cannot be parsed");
-                    // Derive completeness from the source so corrections stored before the
-                    // C-status counter fix do not remain permanently below an original F.
-                    completedCounts.put(labNo, parser.getOBXFinalResultCount());
-                    observationDates.put(labNo, dateA);
-                    for (int obr = 0; obr < parser.getOBRCount(); obr++) {
-                        for (int obx = 0; obx < parser.getOBXCount(obr); obx++) {
-                            if ("C".equalsIgnoreCase(parser.getOBXResultStatus(obr, obx))) correctedVersions.add(labNo);
+                    if ("CML".equals(version.getType())) {
+                        MessageHandler parser = Factory.getHandler(version);
+                        if (parser == null) throw new IllegalStateException("A stored CML version cannot be parsed");
+                        // Derive completeness from the source so corrections stored before the
+                        // C-status counter fix do not remain permanently below an original F.
+                        completedCounts.put(labNo, parser.getOBXFinalResultCount());
+                        observationDates.put(labNo, dateA);
+                        for (int obr = 0; obr < parser.getOBRCount(); obr++) {
+                            for (int obx = 0; obx < parser.getOBXCount(obr); obx++) {
+                                String status = parser.getOBXResultStatus(obr, obx);
+                                if ("C".equals(status) || "c".equals(status)) correctedVersions.add(labNo);
+                            }
                         }
+                        cmlVersions.add(a);
                     }
-                    cmlVersions.add(a);
                 } else {
                     if (ret.equals("")) ret = "" + labNo;
                     else ret = ret + "," + labNo;

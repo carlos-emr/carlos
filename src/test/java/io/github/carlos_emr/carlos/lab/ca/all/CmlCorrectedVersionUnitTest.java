@@ -117,6 +117,7 @@ class CmlCorrectedVersionUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> Hl7textResultsData.getMatchingLabs("12"))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining(missing ? "no stored source" : "cannot be parsed");
+            parsers.verify(() -> Factory.getHandler(previous), times(missing ? 0 : 1));
         }
     }
 

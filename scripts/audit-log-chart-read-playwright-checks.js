@@ -13,8 +13,8 @@
  * writes exactly one read/demographic row and opening the E-Chart exactly one read/eChart row, each
  * carrying the provider, the client address and demographic_no = the patient; reading a note's
  * revision history writes a read/CME note row that names the patient (demographic_no) and the note
- * (contentId); printing the whole chart as a PDF is audited (an action naming print, naming the
- * patient in demographic_no); and no row of the read path carries the note text. The check runs
+ * (contentId); printing the whole chart as a PDF writes exactly one print/echart row naming the
+ * patient in contentId and demographic_no; and no row of the read path carries the note text. The check runs
  * every step and reports every violated expectation in its LAST step, so the steps that pass prove
  * what works before the defect is named.
  *
@@ -118,10 +118,13 @@ async function workflow(s) {
     h.assert(bytes.subarray(-1024).toString('latin1').includes('%%EOF'), 'The chart print PDF is truncated (no %%EOF trailer)');
     await probe.settle(3000);
     const printed = probe.since(before).filter(r => /print|export|reprint/i.test(r.action));
-    expect(printed.length >= 1, 'Printing the whole chart as a PDF (E-Chart Print icon, CaseManagementEntry method=print) wrote no audit row');
+    expect(printed.length === 1, `Printing the whole chart as a PDF wrote ${printed.length} audit rows, expected 1`);
+    const problems = incomplete(printed, { provider, patient });
+    expect(!problems.length, `The chart print audit row is incomplete: ${problems.join(', ')}`);
     for (const r of printed) {
-      expect(r.demographic === String(patient), `The chart print row ${label(r)} carries no demographic_no`);
-      expect(Boolean(r.ip), `The chart print row ${label(r)} carries no client address`);
+      expect(r.action === 'print' && r.content === 'echart', 'Chart print wrote another audit action/content');
+      expect(r.contentId === String(patient), 'Chart print audit names another patient contentId');
+      expect(r.data === null, 'Chart print audit carries unexpected free-text data');
     }
   });
 

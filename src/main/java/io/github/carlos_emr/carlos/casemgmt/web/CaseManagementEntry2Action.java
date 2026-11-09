@@ -3293,7 +3293,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 return null;
             }
         }
-        return new AuthorizedNoteHistory(demono, selectedNote, history, linkedGroupNote);
+        return new AuthorizedNoteHistory(demono, noteId, selectedNote, history, linkedGroupNote);
     }
 
     /** Shared patient, record and domain boundary for individual-note and issue histories. */
@@ -3315,13 +3315,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 || caseManagementMgr.isClientReferredInProgramDomain(provider, patient) ? patient : null;
     }
 
-    private record AuthorizedNoteHistory(String patient, CaseManagementNote selectedNote,
+    private record AuthorizedNoteHistory(String patient, long noteId, CaseManagementNote selectedNote,
                                          List<CaseManagementNote> history, boolean linkedGroupNote) { }
 
     private String prepareNoteHistoryView(AuthorizedNoteHistory access) {
         LogAction.addLogStrict(LoggedInInfo.getLoggedInInfoFromSession(request),
                 LogConst.READ, LogConst.CON_CME_NOTE,
-                parseExistingNoteId(request.getParameter("noteId")).toString(), access.patient(), null);
+                Long.toString(access.noteId()), access.patient(), null);
         request.setAttribute("demoName", getDemoName(access.patient()));
         request.setAttribute("history", access.history());
         request.setAttribute("showStoredNoteHistory", !access.linkedGroupNote());
@@ -3735,7 +3735,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         CaseManagementPrint cmp = new CaseManagementPrint();
         try {
-            cmp.doPrint(loggedInInfo, demographicNo, printAllNotes, noteIds, printCPP, printRx, printLabs, printPreventions, printAllergies, (pType != null && "dates".equals(pType)) ? true : false, cStartDate, cEndDate, request,
+            cmp.doPrint(loggedInInfo, demographicNo, printAllNotes, noteIds, printCPP, printRx, printLabs, printPreventions, printAllergies, "dates".equals(pType), cStartDate, cEndDate, request,
                     auditedChartPrintOutput(loggedInInfo, patient, response.getOutputStream()));
         } catch (CaseManagementPrint.NoteAccessDeniedException deniedNote) {
             sendPrintError(HttpServletResponse.SC_FORBIDDEN, "Selected note access denied");

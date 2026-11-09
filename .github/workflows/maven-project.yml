@@ -268,6 +268,22 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      - name: Require the successful Java run's coverage counters
+        run: |
+          test -s target/site/jacoco/jacoco.xml
+          test -s target/jacoco.exec
+
+      - name: Preserve Java coverage counters
+        # JaCoCo contains source/probe counters, not configuration or clinical output.
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: java-coverage-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            target/site/jacoco/jacoco.xml
+            target/jacoco.exec
+          if-no-files-found: error
+          retention-days: 14
+
   mariadb-dao-tests:
     name: MariaDB DAO integration tests
     runs-on: ubuntu-24.04

@@ -11102,7 +11102,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owned synthetic patient and one note saved through the chart, read back through the rev link and the Note Search history URL; cleanup deletes the note rows and the audit rows scoped to the patient or the note id and asserts them gone.",
-      "notes": "The current packaged history-row assertion passes (finding 141 retired after a native installed retake). The check still treats findings 206 (notehistory has no audit row), 207 (full-chart print has no audit row) and 208 (manager rows omit demographic_no) as fatal in its final independent audit assertions. None is waived by retiring the fixed history-row pin."
+      "notes": "The current packaged history-row assertion passes (finding 141 retired after a native installed retake). Findings 206–208 now have production repairs and passing ON/BC installed CI retakes. Revision reads, exactly one patient/provider-identified chart-print event with no free-text data, and structured patient IDs remain mandatory assertions. No expected-failure pin or waiver is introduced."
     },
     {
       "name": "audit-log-chart-note-history",

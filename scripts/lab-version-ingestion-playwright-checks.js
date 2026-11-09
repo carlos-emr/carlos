@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 'use strict';
-// #5726: ingest genuine original/correction/older messages; never seed a chain.
+// #5726: ingest every version natively; only the owned legacy completeness counter is simulated.
 const fs=require('node:fs');
 const h=require('./lib/playwright-harness'),ui=require('./lib/playwright-ui');
 const {runWorkflow}=require('./lib/workflow-session');
@@ -14,6 +14,7 @@ const VERSIONS={
   original:{key:'ORIGINAL',time:'20260310080000',date:'2026-03-10 08:00:00',value:'5.1',flag:'N',status:'F'},
   corrected:{key:'CORRECTION',time:'20260310120000',date:'2026-03-10 12:00:00',value:'12.7',flag:'H',status:'C'},
   older:{key:'OLDER',time:'20260310070000',date:'2026-03-10 07:00:00',value:'4.3',flag:'N',status:'F'},
+  lateFinal:{key:'LATE_FINAL',time:'20260310120000',date:'2026-03-10 12:00:00',value:'8.6',flag:'N',status:'F'},
 };
 
 /** CML ORU^R01: explicit OBR-7/22/25 and OBX-5/8/11/14, one accession. */
@@ -65,9 +66,10 @@ async function workflow(s) {
       const {accession,filePath,fileName}=source,known=new Map();
       const sourceRows=()=>sql.rows(`SELECT lab_no,obr_date,report_status,final_result_count FROM hl7TextInfo WHERE accessionNum=${q(accession)} ORDER BY lab_no`);
       function capture(version) {
-        const rows=sourceRows().filter(row=>row[1]===version.date);h.assert(rows.length===1,'Version metadata did not retain its exact observation time');
+        const rows=sourceRows().filter(row=>row[1]===version.date&&!known.has(row[0]));h.assert(rows.length===1,'Version metadata did not retain one new source at its exact observation time');
         const [id,date,status,finals]=rows[0];h.assert(/^[1-9]\d*$/.test(id),'Invalid ingested version ID');
         record(status===version.status,version.key+': stored report status differs');
+        record(finals==='1',version.key+': completed observation was not counted');
         const raw=Buffer.from(sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${id}`),'base64').toString('latin1');
         h.assert(raw.includes(`|${version.value}|mmol/L|3-8|${version.flag}|||${version.status}|`),version.key+': raw observation value/flag/status changed');
         h.assert(sql.value(`SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='HL7' AND lab_no=${id} AND demographic_no=${patient}`)==='1'
@@ -103,14 +105,14 @@ async function workflow(s) {
         // Inbox may navigate the day sheet and reportWindow may reuse its named
         // window. Never close the schedule merely because a helper returned it.
         for(const page of new Set([opened.report,opened.inbox]))if(page!==s.schedule&&!page.isClosed()){
-          await page.waitForLoadState('load');await page.close();
+          await page.waitForLoadState('networkidle',{timeout:30000});await page.close();
         }
         if(s.schedule.isClosed())s.schedule=await s.context.newPage();
-        await s.schedule.waitForLoadState('load');
-        await s.schedule.waitForFunction(()=>!window.jQuery||window.jQuery.active===0);
+        await s.schedule.waitForLoadState('networkidle',{timeout:30000});
         h.relabelStrictPage(s.schedule,'ingested-versions-schedule');
-        if(s.schedule.url()!==s.scheduleUrl)await s.schedule.goto(s.scheduleUrl,{waitUntil:'load'});
-        await s.schedule.locator('#inboxLink').waitFor({state:'attached'});
+        if(s.schedule.url()!==s.scheduleUrl)await s.schedule.goto(s.scheduleUrl,{waitUntil:'networkidle'});
+        await s.schedule.locator('#inboxLink').waitFor({state:'visible'});
+        await s.schedule.waitForFunction(()=>typeof window.jQuery==='function'&&window.jQuery.active===0);
       }
       let opened=await inboxReport(original);await inspect(opened.report,original,'Original before review');
       await s.step('native acknowledgment reviews the original before any correction is ingested',async()=>{
@@ -163,7 +165,7 @@ async function workflow(s) {
         checkControl();h.assertStrictPage(s.recorder);console.log('  Observed '+label+': selected correction, every historical native source, chart current selection and independent control checked');
       }
       let corrected;
-      for(const version of [VERSIONS.corrected,VERSIONS.older]) {
+      for(const version of [VERSIONS.corrected,VERSIONS.older,VERSIONS.lateFinal]) {
         fs.writeFileSync(filePath,Buffer.from(versionMessage(accession,marker,version),'latin1'));
         h.assert(await uploadThroughPopup(s,filePath,fileName)==='Uploaded successfully',version.key+': changed message was not ingested');
         const id=capture(version);if(version===VERSIONS.corrected)corrected=id;
@@ -174,7 +176,16 @@ async function workflow(s) {
         record(JSON.stringify(active)===JSON.stringify([[patient,VERSIONS.corrected.value,VERSIONS.corrected.date,corrected]]),version.key+': active derived measurements do not retain only the corrected value/source');
         console.log('  Observed '+version.key+' source metadata: '+JSON.stringify({versions:sourceRows(),activeMeasurements:active}));
         await verifySurfaces(corrected,version.key+' ingestion');
+        if(version===VERSIONS.corrected){
+          // Existing pre-fix corrections have this persisted counter even though their
+          // immutable C source is complete. Do not manufacture a version chain.
+          sql.execute(`UPDATE hl7TextInfo SET final_result_count=0 WHERE lab_no=${corrected} AND accessionNum=${q(accession)} AND report_status='C' AND final_result_count=1`);
+          h.assert(sql.value(`SELECT final_result_count FROM hl7TextInfo WHERE lab_no=${corrected}`)==='0','Owned legacy completeness fixture was not established');
+          await verifySurfaces(corrected,'historical zero-count correction metadata');
+          record(sql.value(`SELECT final_result_count FROM hl7TextInfo WHERE lab_no=${corrected}`)==='0','A read rewrote historical completeness metadata');
+        }
       }
+      h.assert(known.size===4,'Native version matrix omitted an original, correction, older delivery or same-time late final');
       const beforeReplay=labState(accession),clinicalBeforeReplay=readPatientState(sql,patient);
       fs.writeFileSync(filePath,Buffer.from(versionMessage(accession,marker,VERSIONS.corrected),'latin1'));
       h.assert(await uploadThroughPopup(s,filePath,fileName)==='Already uploaded','Repeated correction was not recognized byte-for-byte');
@@ -182,8 +193,8 @@ async function workflow(s) {
       for(const [id,version] of known)h.assert(Buffer.from(sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${id}`),'base64').toString('latin1')===version.raw,'A historical raw source changed');
       const derived=sql.rows(`SELECT m.id,m.demographicNo,e.val FROM measurements m JOIN measurementsExt e ON e.measurement_id=m.id WHERE e.keyval='lab_no' AND e.val IN (${[...known.keys()].map(q).join(',')})`);
       h.assert(derived.every(([,owner,sourceId])=>owner===patient&&known.has(sourceId)),'Derived measurements refer to the wrong patient/source');checkControl();
-      h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE filename LIKE ${q('%'+fileName+'%')}`)==='3','Correction replay changed checksum identities');
-      h.assert(fs.readdirSync(process.env.LAB_UPLOAD_DOCUMENT_STORE).filter(name=>name.startsWith('LabUpload.'+fileName+'.')).length===3,'Correction replay changed archived-upload count');
+      h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE filename LIKE ${q('%'+fileName+'%')}`)==='4','Correction replay changed checksum identities');
+      h.assert(fs.readdirSync(process.env.LAB_UPLOAD_DOCUMENT_STORE).filter(name=>name.startsWith('LabUpload.'+fileName+'.')).length===4,'Correction replay changed archived-upload count');
       console.log('  Observed exact correction replay: no new version, route, clinical or measurement effect; original raw history preserved');
     }});
     checkControl();

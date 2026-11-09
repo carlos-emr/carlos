@@ -378,9 +378,12 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
 
     /**
      * Get all consents by the type indicated that were edited after the date given.
+     * @throws IllegalArgumentException when no consent type was supplied
      */
     public List<Consent> getConsentsByTypeAndEditDate(LoggedInInfo loggedinInfo, ConsentType consentType, Date editedAfter) {
-
+        if (consentType == null) {
+            throw new IllegalArgumentException("A consent type is required to query edited consents");
+        }
         List<Consent> consentList = consentDao.findLastEditedByConsentTypeId(consentType.getId(), editedAfter);
 
         LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.getConsentsByTypeAndEditDate",
