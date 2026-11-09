@@ -419,6 +419,53 @@ async function workflow(s) {
       await waitForListed(reopened, [notes.a, notes.b], 'The chart did not display the latest note revisions');
       h.assert(await reopened.locator(`#edit${notes.b}`).count() === 1, 'The edit control does not address the latest saved note id');
     });
+    await s.step('checkbox-only unresolved and resolved edits survive switching and reopening without changing note text or historical associations', async () => {
+      for (const resolved of [false, true]) {
+        let chart = await s.chart();
+        const oldId = notes.b;
+        const link = caseIssue(issueId, notes.a);
+        h.assert(link !== null, 'The owned patient issue disappeared');
+        if (resolved) {
+          // Seed a resolved choice independently of the resolution workflow.
+          await leaveChart(chart);
+          sql.execute(`UPDATE casemgmt_issue SET resolved=1 WHERE id=${link.id} AND demographic_no=${patient}`);
+          chart = await s.chart();
+        }
+        await chart.locator(`#edit${oldId}`).click({timeout: TIMEOUT});
+        await noteField(chart).waitFor({state: 'visible', timeout: TIMEOUT});
+        await chart.waitForFunction(() => issueUpdatesPending === 0, null, {timeout: TIMEOUT});
+        const originalText = await noteField(chart).inputValue();
+        const list = resolved ? '#noteIssues-resolved' : '#noteIssues-unresolved';
+        if (!(await chart.locator(list).isVisible())) {
+          await chart.locator('[aria-controls~="noteIssues-unresolved"]').click({timeout: TIMEOUT});
+        }
+        const checkbox = chart.locator(`${list} input[type="checkbox"][data-issue-id="${link.id}"]`);
+        await checkbox.waitFor({state: 'visible', timeout: TIMEOUT});
+        h.assert(await checkbox.isChecked() === !resolved, 'The reopened association differs from the stored revision');
+        await checkbox.setChecked(resolved);
+        const uuid = sql.value(`SELECT uuid FROM casemgmt_note WHERE note_id=${oldId} AND demographic_no=${patient}`);
+        const [response] = await Promise.all([
+          chart.waitForResponse(candidate => chartSaveRequest('ajaxsave')(candidate.request()), {timeout: TIMEOUT}),
+          chart.locator('#newNoteImg').click({timeout: TIMEOUT}),
+        ]);
+        h.assert(response.status() === 200, `Checkbox-only switch answered HTTP ${response.status()}`);
+        await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}
+          AND uuid=${q(uuid)} AND note_id>${oldId}`, '1', 'Checkbox-only switching did not save one new revision');
+        notes.b = sql.value(`SELECT MAX(note_id) FROM casemgmt_note WHERE demographic_no=${patient} AND uuid=${q(uuid)}`);
+        h.assert((caseIssue(issueId, notes.b) !== null) === resolved, 'The latest revision lost the checkbox-only change');
+        h.assert((caseIssue(issueId, oldId) !== null) === !resolved, 'The checkbox edit rewrote an immutable prior association');
+        await chart.locator(`#edit${notes.b}`).click({timeout: TIMEOUT});
+        await noteField(chart).waitFor({state: 'visible', timeout: TIMEOUT});
+        await chart.waitForFunction(() => issueUpdatesPending === 0, null, {timeout: TIMEOUT});
+        h.assert(await noteField(chart).inputValue() === originalText, 'The checkbox-only edit changed the clinical text');
+        if (!(await chart.locator(list).isVisible())) {
+          await chart.locator('[aria-controls~="noteIssues-unresolved"]').click({timeout: TIMEOUT});
+        }
+        const reopenedChoice = chart.locator(`${list} input[type="checkbox"][data-issue-id="${link.id}"]`);
+        await reopenedChoice.waitFor({state: 'visible', timeout: TIMEOUT});
+        h.assert(await reopenedChoice.isChecked() === resolved, 'Reopening did not retain the saved issue selection');
+      }
+    });
     return;
   }
 
@@ -455,13 +502,13 @@ async function workflow(s) {
       reachable.checklistRows = await chart.locator('#noteIssues-unresolved a[onclick^="return displayIssue"]').count();
       h.assert(reachable.checklistRows === 1, `The note editor's unresolved checklist holds ${reachable.checklistRows} issues, expected the one assigned`);
       reachable.shown = await chart.locator('#noteIssues-unresolved').isVisible();
-      // A visible control in the editor that names issues is the only way a clinician could open it: find them
-      // (tagged so the click below can address one) and, when the checklist is closed, press the first.
+      // Find the accessible control for this exact checklist. Assignment and issue
+      // description links have different destinations and are not toggle controls.
       reachable.togglers = await chart.evaluate(() => {
         const editor = document.querySelector('#noteIssues').closest('div[id^="nc"]') || document.body;
-        const found = [...editor.querySelectorAll('a, button, input[type="button"], input[type="image"], input[type="submit"], img[onclick]')]
-          .filter(el => !el.closest('#noteIssues') && el.getClientRects().length > 0
-            && /issue/i.test(`${el.textContent} ${el.title} ${el.alt} ${el.value}`));
+        const found = [...editor.querySelectorAll('[aria-controls]')]
+          .filter(el => el.getClientRects().length > 0
+            && el.getAttribute('aria-controls').split(/\s+/).includes('noteIssues-unresolved'));
         found.forEach((el, index) => el.setAttribute('data-pw-issue-toggler', String(index)));
         return found.map(el => el.outerHTML.slice(0, 120));
       });
@@ -471,11 +518,12 @@ async function workflow(s) {
       }
     });
 
-    await s.step('(control, not a clinician path) with the checklist revealed by a script, choosing Resolved sets resolved=1 and the Resolved Issues module lists the issue', async () => {
+    await s.step('(control) choosing Resolved sets resolved=1 and the Resolved Issues module lists the issue', async () => {
       const chart = await s.chart();
       const link = caseIssue(issueId, notes.a);
-      // A script reveals what no control reveals; this proves the server side, it does not reach the code a clinician uses.
-      await chart.evaluate(() => { document.getElementById('noteIssues-unresolved').style.display = 'block'; });
+      // Retain the old-build control for this finding, but use the clinician's
+      // toggle on builds where it works; never replace that successful path.
+      if (!reachable.shown) await chart.evaluate(() => { document.getElementById('noteIssues-unresolved').style.display = 'block'; });
       await chart.locator('#noteIssues-unresolved a[onclick^="return displayIssue"]').click({ timeout: TIMEOUT });
       const radio = chart.locator('#noteIssues-unresolved input[type="radio"][name$=".issue.resolved"][value="true"]');
       await radio.waitFor({ state: 'visible', timeout: TIMEOUT });

@@ -2624,7 +2624,9 @@ function updateCPPNote() {
     var showIssue = false;
     var expandedIssues = new Array();
     function toggleIssueChecklist(button) {
-        showIssue = !showIssue;
+        // A fragment replacement creates a closed checklist and a fresh button.
+        // The previous editor's global state must not swallow its first click.
+        showIssue = button ? button.getAttribute('aria-expanded') !== 'true' : !showIssue;
         ['noteIssues-resolved', 'noteIssues-unresolved'].forEach(function (id) {
             if ($(id)) $(id).style.display = showIssue ? 'block' : 'none';
         });

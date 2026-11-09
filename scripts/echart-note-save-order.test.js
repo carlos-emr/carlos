@@ -353,8 +353,11 @@ for (const [index, kind] of ['resolved', 'unresolved'].entries()) {
     assert.equal(inputs.length, 2);
     const handler = inputs[index].match(/onchange="([^"]+)"/);
     assert.ok(handler, 'AJAX-rendered checkboxes must retain their change handler');
-    vm.runInContext(handler[1], h.context);
+    h.form.elements.issueChange = {value: 'false'};
+    h.context.changedCheckbox = {form: h.form};
+    vm.runInContext('(function () {' + handler[1] + '}).call(changedCheckbox)', h.context);
     assert.equal(h.context.noteIssuesChanged, true);
+    assert.equal(h.form.elements.issueChange.value, 'true', 'the server must not classify a checklist-only edit as unchanged');
     h.context.changeToView('editor1');
     assert.equal(h.updates.length, 1, 'an issue-only change must save before the UI is removed');
     h.updates[0].onFailure({status: 503});
@@ -382,4 +385,22 @@ test('the first chart load succeeds before a note form or editor exists', () => 
   h.updates[0].onComplete();
   assert.deepEqual(replacements, ['initial chart']);
   assert.equal(h.context.noteSwitchSavePending, false);
+});
+
+test('a fresh checklist button opens its AJAX-replaced controls even when the previous editor was expanded', () => {
+  const fields = {'noteIssues-resolved': {style: {display: 'none'}}, 'noteIssues-unresolved': {style: {display: 'none'}}};
+  const context = {$: id => fields[id]};
+  vm.createContext(context);
+  vm.runInContext(source.slice(source.indexOf('    var showIssue ='), source.indexOf('    function showIssues(')), context);
+  const button = () => ({expanded: 'false', getAttribute() {return this.expanded;}, setAttribute(key, value) {this.expanded = value;}});
+  context.toggleIssueChecklist(button());
+  assert.equal(context.showIssue, true);
+  for (const field of Object.values(fields)) field.style.display = 'none';
+  const replacement = button();
+  context.toggleIssueChecklist(replacement);
+  assert.equal(fields['noteIssues-unresolved'].style.display, 'block');
+  assert.equal(fields['noteIssues-resolved'].style.display, 'block');
+  assert.equal(replacement.expanded, 'true');
+  context.toggleIssueChecklist(replacement);
+  assert.equal(fields['noteIssues-unresolved'].style.display, 'none');
 });
