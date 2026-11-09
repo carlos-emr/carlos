@@ -52,7 +52,11 @@ class CdmReportContextsUnitTest {
 
     @Test
     void shouldRefuseContext_fromAnotherSession() {
-        String token = issue(new MockHttpServletRequest());
+        var original = new MockHttpServletRequest();
+        definitions((org.springframework.mock.web.MockHttpSession) original.getSession());
+        String token = issue(original);
+        original.setParameter(CdmReportContexts.PARAMETER, token);
+        assertThat(CdmReportContexts.bind(original)).isTrue();
         var other = new MockHttpServletRequest();
         other.setParameter(CdmReportContexts.PARAMETER, token);
         assertThat(CdmReportContexts.bind(other)).isFalse();
@@ -61,10 +65,14 @@ class CdmReportContextsUnitTest {
     @Test
     void shouldRefuseOldestForm_whenCapacityIsExceeded() {
         var request = new MockHttpServletRequest();
+        definitions((org.springframework.mock.web.MockHttpSession) request.getSession());
         String oldest = issue(request);
-        for (int i = 0; i < 64; i++) issue(request);
+        String newest = oldest;
+        for (int i = 0; i < 64; i++) newest = issue(request);
         request.setParameter(CdmReportContexts.PARAMETER, oldest);
         assertThat(CdmReportContexts.bind(request)).isFalse();
+        request.setParameter(CdmReportContexts.PARAMETER, newest);
+        assertThat(CdmReportContexts.bind(request)).isTrue();
     }
     @Test
     void shouldRefuseExpiredForm_withoutExpiringANewerForm() {
