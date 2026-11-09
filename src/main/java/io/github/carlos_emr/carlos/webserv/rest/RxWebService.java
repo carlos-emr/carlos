@@ -124,11 +124,12 @@ public class RxWebService extends AbstractServiceImpl {
 
     /** Query opt-in keeps legacy XML and JSON response shapes unchanged. Clients echo the
      * returned rowVersion on edits; omitting it retains the legacy write contract. */
-    @Context
-    protected HttpServletRequest versionRequest;
-
     private boolean includeRowVersion() {
-        return versionRequest != null && "true".equals(versionRequest.getParameter("includeRowVersion"));
+        // Resolve each request from CXF's current message. A singleton service's injected
+        // servlet-request field is not a reliable source of per-request query parameters.
+        var message = org.apache.cxf.phase.PhaseInterceptorChain.getCurrentMessage();
+        return message != null && "true".equals(new org.apache.cxf.jaxrs.impl.UriInfoImpl(message)
+                .getQueryParameters().getFirst("includeRowVersion"));
     }
 
     private DrugTo1 transferDrug(LoggedInInfo info, Drug drug) {

@@ -154,6 +154,28 @@ class RxWebServiceEndpointTest extends CarlosRestTestBase {
     class GetAllDrugs {
 
         @Test
+        void shouldIncludeVersions_whenRequestedInTheCurrentCxfRequest() {
+            Drug drug = new Drug(); drug.setId(1); drug.setRowVersion(23L);
+            when(mockRxManager.getDrugs(any(LoggedInInfo.class), eq(1), eq(io.github.carlos_emr.carlos.webserv.rest.to.model.RxStatus.ALL))).thenReturn(List.of(drug));
+            when(mockDrugConverter.getAllAsTransferObjects(any(LoggedInInfo.class), any()))
+                    .thenAnswer(invocation -> List.of(aspirinTransfer()));
+            try (Response response = request().path("/rx/drugs/all/1").get()) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                assertThat(responseJson(response).at("/drug/0/rowVersion").isMissingNode()).isTrue();
+            }
+            try (Response response = request().path("/rx/drugs/all/1").query("includeRowVersion", "true").get()) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                var token = responseJson(response).at("/drug/0/rowVersion");
+                assertThat(token.isIntegralNumber()).isTrue();
+                assertThat(token.longValue()).isEqualTo(23L);
+            }
+            try (Response response = request().path("/rx/drugs/all/1").query("includeRowVersion", "false").get()) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                assertThat(responseJson(response).at("/drug/0/rowVersion").isMissingNode()).isTrue();
+            }
+        }
+
+        @Test
         @DisplayName("should return 200 with drug list")
         void shouldReturn200_whenDrugsExist() throws Exception {
             Drug drug = new Drug();
