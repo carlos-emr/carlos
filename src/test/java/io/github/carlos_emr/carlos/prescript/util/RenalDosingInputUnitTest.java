@@ -16,9 +16,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("Renal dosing observation validation")
 class RenalDosingInputUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
-    @CsvSource({"100,umol/L,100", "100,µmol/L,100", "100,μmol/L,100", "1,mg/dL,88.4"})
+    @CsvSource({"100,umol/L,100", "100,µmol/L,100", "100,μmol/L,100", "1,mg/dL,88.4", "100,in umol/L,100", "1,in mg/dL,88.4"})
     void shouldNormalizeCreatinine_whenUnitsAreExplicit(String value, String units, double expected) {
         assertThat(RenalDosingInput.creatinineMicromoles(value, units)).isEqualTo(expected);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"80,in kg,80", "80,kg,80", "100,lb,45.359237", "100,in lbs,45.359237"})
+    void shouldNormalizeWeight_whenUnitsAreExplicit(String value, String units, double expected) {
+        assertThat(RenalDosingInput.weightKilograms(value, units))
+                .isCloseTo(expected, org.assertj.core.data.Offset.offset(0.000000001));
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"unknown", "g", "null"})
+    void shouldRefuseWeight_whenUnitsAreMissingOrUnsupported(String units) {
+        assertThat(RenalDosingInput.weightKilograms("80", units)).isNaN();
     }
 
     @ParameterizedTest

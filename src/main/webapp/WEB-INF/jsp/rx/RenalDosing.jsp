@@ -91,7 +91,8 @@
     Date wtDate = null;
     boolean invalidInput = age < 0;
     if (measurementHash != null && measurementHash.get("value") != null) {
-        weight = RenalDosingInput.positiveNumber((String) measurementHash.get("value"));
+        weight = RenalDosingInput.weightKilograms((String) measurementHash.get("value"),
+                (String) measurementHash.get("measuringInstruction"));
         wtDate = (Date) measurementHash.get("dateObserved_date");
         invalidInput |= !Double.isFinite(weight);
     }

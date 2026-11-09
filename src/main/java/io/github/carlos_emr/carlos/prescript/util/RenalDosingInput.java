@@ -37,8 +37,19 @@ public final class RenalDosingInput {
         String normalized = units.trim().toLowerCase(java.util.Locale.ROOT)
                 .replace('µ', 'u').replace('μ', 'u').replace(" ", "");
         return switch (normalized) {
-            case "umol/l", "micromol/l", "micromoles/l" -> value;
-            case "mg/dl" -> Double.isFinite(value * 88.4) ? value * 88.4 : Double.NaN;
+            case "umol/l", "inumol/l", "micromol/l", "micromoles/l" -> value;
+            case "mg/dl", "inmg/dl" -> Double.isFinite(value * 88.4) ? value * 88.4 : Double.NaN;
+            default -> Double.NaN;
+        };
+    }
+
+    /** Normalizes explicitly recorded weight units without guessing from the magnitude. */
+    public static double weightKilograms(String observation, String units) {
+        double value = positiveNumber(observation);
+        if (!Double.isFinite(value) || units == null) return Double.NaN;
+        return switch (units.trim().toLowerCase(java.util.Locale.ROOT).replace(" ", "")) {
+            case "kg", "inkg", "kilograms" -> value;
+            case "lb", "lbs", "inlb", "inlbs" -> value * 0.45359237;
             default -> Double.NaN;
         };
     }
