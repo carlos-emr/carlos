@@ -1124,7 +1124,7 @@ public final class PathValidationUtils {
             String fileCanonical = file.getCanonicalPath();
 
             if (!fileCanonical.equals(baseCanonical) && !fileCanonical.startsWith(baseCanonical + File.separator)) {
-                logger.error("Path is outside the allowed directory");
+                logger.error("Path is outside allowed directory");
                 throw new SecurityException("Invalid file path");
             }
         } catch (IOException e) {
