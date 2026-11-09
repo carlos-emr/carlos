@@ -28,7 +28,7 @@ class DxReferenceUnitTest extends CarlosUnitTestBase {
                 new BillingDiagnosisService.DiagnosisDto("20261102", "new", "Newer"),
                 new BillingDiagnosisService.DiagnosisDto(null, "null", null),
                 new BillingDiagnosisService.DiagnosisDto("invalid", "invalid", null)));
-        List<DxReference.DxCode> diagnoses = new DxReference().getLatestDxCodes("42");
+        List<DxReference.DxCode> diagnoses = new DxReference(service).getLatestDxCodes("42");
         assertThat(diagnoses).extracting(DxReference.DxCode::getDx).containsExactly("null", "invalid", "new", "old");
         assertThat(diagnoses.get(2).getDate()).isEqualTo(UtilDateUtilities.StringToDate("20261102", "yyyyMMdd"));
         assertThat(diagnoses.get(2).getDesc()).isEqualTo("Newer");
@@ -40,7 +40,7 @@ class DxReferenceUnitTest extends CarlosUnitTestBase {
         BillingDiagnosisService service = mock(BillingDiagnosisService.class);
         registerMock(BillingDiagnosisService.class, service);
         when(service.findRecentDiagnoses("42")).thenThrow(new DataAccessResourceFailureException("synthetic failure"));
-        assertThat(new DxReference().getLatestDxCodes("42")).isEmpty();
+        assertThat(new DxReference(service).getLatestDxCodes("42")).isEmpty();
     }
 
     @Test
@@ -49,7 +49,7 @@ class DxReferenceUnitTest extends CarlosUnitTestBase {
         registerMock(BillingDiagnosisService.class, service);
         when(service.findRecentDiagnoses("42"))
                 .thenThrow(new CannotCreateTransactionException("synthetic connection failure"));
-        assertThat(new DxReference().getLatestDxCodes("42")).isEmpty();
+        assertThat(new DxReference(service).getLatestDxCodes("42")).isEmpty();
     }
 
     @Test
@@ -58,7 +58,7 @@ class DxReferenceUnitTest extends CarlosUnitTestBase {
         registerMock(BillingDiagnosisService.class, service);
         when(service.findRecentDiagnoses("42"))
                 .thenThrow(new TransactionSystemException("synthetic completion failure"));
-        assertThat(new DxReference().getLatestDxCodes("42")).isEmpty();
+        assertThat(new DxReference(service).getLatestDxCodes("42")).isEmpty();
     }
 
     @Test
@@ -68,7 +68,7 @@ class DxReferenceUnitTest extends CarlosUnitTestBase {
         when(service.findRecentDiagnoses("42")).thenThrow(new DataAccessResourceFailureException(
                 "synthetic patient payload", new IllegalStateException("synthetic query payload")));
         try (LogCapture logs = LogCapture.forLogger(DxReference.class)) {
-            assertThat(new DxReference().getLatestDxCodes("42")).isEmpty();
+            assertThat(new DxReference(service).getLatestDxCodes("42")).isEmpty();
             assertThat(logs.messages()).anySatisfy(message -> assertThat(message)
                     .contains("DataAccessResourceFailureException", "cause=IllegalStateException"));
             assertThat(logs.messages()).allSatisfy(message -> assertThat(message)

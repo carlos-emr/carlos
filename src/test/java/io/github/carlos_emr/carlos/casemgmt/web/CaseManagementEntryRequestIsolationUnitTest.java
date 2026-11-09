@@ -131,7 +131,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
             assertThat(note.getEncounter_type()).isEqualTo(patient.equals("101") ? "telephone" : "office");
             Map<String, String> billing = billingParameters(edited.request());
             assertThat(billing).containsEntry("demographic_no", patient)
-                    .containsEntry("demographic_name", patient.equals("101") ? "Adams,Alice" : "Brown,Bob")
+                    .doesNotContainKey("demographic_name")
                     .containsEntry("appointment_no", patient.equals("101") ? "9001" : "9002")
                     .containsEntry("appointment_date", patient.equals("101") ? "2026-10-15" : "2025-02-20");
             assertThat(session.getAttribute("billing_url")).isNull();
@@ -141,7 +141,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
             assertThat(opened.get(i).request().getAttribute("billing_url")).isEqualTo(originalUrls.get(i));
             assertThat(billingParameters(opened.get(i).request()))
                     .containsEntry("demographic_no", i == 1 ? "202" : "101")
-                    .containsEntry("demographic_name", i == 1 ? "Brown,Bob" : "Adams,Alice")
+                    .doesNotContainKey("demographic_name")
                     .containsEntry("appointment_no", i == 1 ? "9002" : "9001");
         }
         assertThat(forms).containsKeys("caseManagementEntryForm101", "caseManagementEntryForm202");
@@ -173,7 +173,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         assertThat(note.getDemographic_no()).isEqualTo("303");
         assertThat(note.getEncounter_type()).isEmpty();
         assertThat(billingParameters(edited.request())).containsEntry("demographic_no", "303")
-                .containsEntry("demographic_name", "Clark,Carol").containsEntry("appointment_no", "0");
+                .doesNotContainKey("demographic_name").containsEntry("appointment_no", "0");
         assertThat(EncounterPatientContext.findEncounter(request("303"), "303")).isNull();
         assertThat(EncounterPatientContext.findEncounter(request("202"), "202").patientFirstName).isEqualTo("Bob");
     }
@@ -197,7 +197,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         EditedNote edited = edit("101", true, null, requestedAppointment);
         String after = java.time.LocalDate.now().toString();
         Map<String, String> billing = billingParameters(edited.request());
-        assertThat(billing).containsEntry("demographic_no", "101").containsEntry("demographic_name", "Adams,Alice")
+        assertThat(billing).containsEntry("demographic_no", "101").doesNotContainKey("demographic_name")
                 .containsEntry("appointment_no", expectedAppointment);
         if (expectedDate.equals("TODAY")) {
             assertThat(billing.get("appointment_date")).isIn(before, after);
@@ -239,14 +239,14 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
                 else verify(action).submitChangeDiagnosis();
                 verify(action, never()).edit();
                 assertThat(billingParameters(request)).containsEntry("demographic_no", patient)
-                        .containsEntry("demographic_name", patient.equals("101") ? "Adams,Alice" : "Brown,Bob")
+                        .doesNotContainKey("demographic_name")
                         .containsEntry("appointment_no", patient.equals("101") ? "9001" : "9002");
                 assertThat(session.getAttribute("billing_url")).isNull();
                 completedRequests.add(request);
             }
         }
         assertThat(billingParameters(completedRequests.get(0))).containsEntry("demographic_no", "101")
-                .containsEntry("demographic_name", "Adams,Alice").containsEntry("appointment_no", "9001");
+                .doesNotContainKey("demographic_name").containsEntry("appointment_no", "9001");
         if (method.equals("save")) {
             verify(manager).hasAccessRight("note-read-only", "access", "999998", "101", "7");
             verify(manager).hasAccessRight("note-read-only", "access", "999998", "202", "7");

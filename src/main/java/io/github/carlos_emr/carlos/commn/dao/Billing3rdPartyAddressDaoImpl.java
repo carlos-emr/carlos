@@ -31,7 +31,6 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +42,6 @@ import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.billing.CA.ON.model.Billing3rdPartyAddress;
 import io.github.carlos_emr.carlos.commn.NativeSql;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -131,18 +129,13 @@ public class Billing3rdPartyAddressDaoImpl extends AbstractDaoImpl<Billing3rdPar
         if (intLimit1 < 0) intLimit1 = 0;
         if (intLimit2 < 1) intLimit2 = 20;
 
-        String sql = "select * from billing_on_3rdPartyAddress where " + where + " order by " + orderBy + " limit "
+        String sql = "select * from billing_on_3rdPartyAddress where " + where + " order by " + orderBy + ("id".equals(orderBy) ? "" : ", id") + " limit "
                 + intLimit1 + "," + intLimit2;
 
-        try {
-            Query q = entityManager.createNativeQuery(sql, modelClass);
-            for (Entry<String, Object> o : params.entrySet()) {
-                q.setParameter(o.getKey(), o.getValue());
-            }
-            return q.getResultList();
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("error", e);
-            return new ArrayList<Billing3rdPartyAddress>();
+        Query q = entityManager.createNativeQuery(sql, modelClass);
+        for (Entry<String, Object> parameter : params.entrySet()) {
+            q.setParameter(parameter.getKey(), parameter.getValue());
         }
+        return q.getResultList();
     }
 }

@@ -21,7 +21,7 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.bc.service;
 
-import io.github.carlos_emr.carlos.billings.MSP.ExtractBean;
+import io.github.carlos_emr.carlos.billings.ca.bc.MSP.ExtractBean;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -64,7 +64,7 @@ public class BcBillingService {
                 || !TransactionSynchronizationManager.isSynchronizationActive()) {
             throw new IllegalStateException("A transaction is required to generate a BC billing extract");
         }
-        extract.buildExtract();
+        extract.dbQuery();
     }
 
     /**

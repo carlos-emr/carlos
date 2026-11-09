@@ -62,7 +62,7 @@ public class ViewBillingOnHistorySpecialist2Action extends ActionSupport {
 
         BillingOnHistorySpecialistViewModel model = billingONHistorySpecAssembler.assemble(
                 request.getParameter("demographic_no"),
-                request.getParameter("demo_name"),
+                io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.name(request),
                 request.getParameter("day"),
                 request.getParameter("serviceCode"));
         request.setAttribute("historySpecModel", model);

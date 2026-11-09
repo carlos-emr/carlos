@@ -56,7 +56,6 @@
     <input type="hidden" name="service_date" id="service_date" value="${carlos:forHtmlAttribute(editApptModel.serviceDate)}"/>
     <input type="hidden" name="appointment_date" id="appointment_date" value="${carlos:forHtmlAttribute(editApptModel.appointmentDate)}"/>
     <input type="hidden" name="billing_date" id="billing_date" value="${carlos:forHtmlAttribute(editApptModel.billingDate)}"/>
-    <input type="hidden" name="demographic_name" id="demographic_name" value="${carlos:forHtmlAttribute(editApptModel.demoName)}"/>
     <input type="hidden" name="appointment_no" id="appointment_no" value="${carlos:forHtmlAttribute(editApptModel.appointmentNo)}"/>
     <input type="hidden" name="clinic_no" id="clinic_no" value="${carlos:forHtmlAttribute(editApptModel.clinicNo)}"/>
     <input type="hidden" name="demographic_no" id="demographic_no" value="${carlos:forHtmlAttribute(editApptModel.demographicNo)}"/>

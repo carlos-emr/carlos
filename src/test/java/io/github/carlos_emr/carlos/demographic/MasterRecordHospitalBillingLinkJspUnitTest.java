@@ -122,7 +122,7 @@ class MasterRecordHospitalBillingLinkJspUnitTest {
         // empty bill, and billForm picks the service-code grid.
         assertThat(params)
                 .contains("<c:param name=\"demographic_no\" value='<%= String.valueOf(demographic.getDemographicNo()) %>'/>")
-                .contains("<c:param name=\"demographic_name\"")
+                .doesNotContain("<c:param name=\"demographic_name\"")
                 .contains("<c:param name=\"billForm\" value='<%= oscarProps.getProperty(\"hospital_view\", "
                         + "oscarProps.getProperty(\"default_view\")) %>'/>")
                 .contains("<c:param name=\"appointment_no\" value=\"0\"/>")

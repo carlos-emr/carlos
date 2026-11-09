@@ -140,7 +140,7 @@ public class BillingShortcutPg1ViewModelAssembler {
         String visitType = "02";
 
         String apptNo = nullToEmpty(request.getParameter("appointment_no"));
-        String demoName = nullToEmpty(request.getParameter("demographic_name"));
+        String demoName = nullToEmpty(io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.name(request));
         String demoNo = nullToEmpty(request.getParameter("demographic_no"));
         String apptProviderNo = nullToEmpty(request.getParameter("apptProvider_no"));
         String apptDate = nullToEmpty(request.getParameter("appointment_date"));
@@ -442,7 +442,7 @@ public class BillingShortcutPg1ViewModelAssembler {
                 "serviceUnit2", "serviceUnit3", "serviceUnit4", "dxCode",
                 "referralCode", "referralDocName", "rulePerc", "xml_billtype",
                 "xml_visittype", "xml_location", "xml_vdate", "appointment_no",
-                "demographic_no", "demographic_name", "apptProvider_no",
+                "demographic_no", "apptProvider_no",
                 "providerview", "appointment_date", "status", "start_time",
                 "asstProvider_no", "assgProvider_no"}) {
             String v = request.getParameter(name);

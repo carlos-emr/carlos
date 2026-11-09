@@ -233,7 +233,7 @@
                                                     </option>
                                                 </c:forEach>
                                             </select>
-                                            <a href="#" onClick="popupPage(${ctr.index}, '${carlos:forJavaScript(waitingListBean.patientName)}', '${carlos:forJavaScript(waitingListBean.demographicNo)}', '${carlos:forJavaScript(today)}', 400, 780, '<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= request.getContextPath() %>/waitinglist/SetupDisplayWaitingList'); return false;">
+                                            <a href="#" onClick="popupPage(${ctr.index}, '${carlos:forJavaScript(waitingListBean.demographicNo)}', '${carlos:forJavaScript(today)}', 400, 780, '<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= request.getContextPath() %>/waitinglist/SetupDisplayWaitingList'); return false;">
                                                 <fmt:message key='oscarwaitinglist.displayWaitingList.makeAppointment'/>
                                             </a>
                                         </td>
@@ -312,7 +312,7 @@
             //alert("setParameters(): onListSinceSelected = " + document.forms[0].onListSinceSelected.value);
         }
 
-        function popupPage(ctr, patientName, demographicNo, startDate, vheight, vwidth, varpage) {
+        function popupPage(ctr, demographicNo, startDate, vheight, vwidth, varpage) {
             var nbPatients = parseInt('${carlos:forJavaScript(nbPatients)}');
             if (nbPatients > 1) {
                 var selected = document.forms[0].selectedProvider[ctr].options[document.forms[0].selectedProvider[ctr].selectedIndex].value;
@@ -322,8 +322,7 @@
             var page = varpage
                 + '&provider_no=' + encodeURIComponent(selected)
                 + '&startDate=' + encodeURIComponent(startDate)
-                + '&demographic_no=' + encodeURIComponent(demographicNo)
-                + '&demographic_name=' + encodeURIComponent(patientName);
+                + '&demographic_no=' + encodeURIComponent(demographicNo);
             var windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
             var popup = window.open(page, "<fmt:message key='provider.appointmentProviderAdminDay.apptProvider'/>", windowprops);
             if (popup != null) {

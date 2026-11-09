@@ -74,7 +74,22 @@ class ExtractBeanHtmlUnitTest extends CarlosUnitTestBase {
         // ExtractBean resolves these in field initializers; the HTML builders never touch them.
         createAndRegisterMock(LogTeleplanTxDao.class);
         billingDao = createAndRegisterMock(BillingDao.class);
-        createAndRegisterMock(BillingmasterDAO.class);
+        var masters = createAndRegisterMock(BillingmasterDAO.class);
+        when(masters.hasBcExtractInvoices()).thenReturn(true);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "broken", "1f"})
+    void shouldRejectInvalidUnits_withAnActionableError(String units) {
+        assertThatThrownBy(() -> new ExtractBean().roundUp(units))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("A valid Teleplan billing unit is required");
+    }
+
+    @Test
+    void shouldRoundPaddedUnits_usingTheLegacyRoundingRule() {
+        assertThat(new ExtractBean().roundUp(" 1.1 ")).isEqualTo("2");
     }
 
     @Test
@@ -85,7 +100,7 @@ class ExtractBeanHtmlUnitTest extends CarlosUnitTestBase {
         try (MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class)) {
             configuration.when(CarlosProperties::getInstance).thenReturn(properties);
             ExtractBean bean = spy(new ExtractBean());
-            bean.seteFlag("1");
+            bean.seteFlag("0");
             bean.setVSFlag(1);
             bean.setProviderNo("91234");
 
@@ -95,6 +110,7 @@ class ExtractBeanHtmlUnitTest extends CarlosUnitTestBase {
             String html = bean.getHtmlCode();
             assertThat(html).contains("Billing Invoice for Billing No.91234");
             bean.setHtmlFilename("H191234_001.htm");
+            bean.seteFlag("1");
             bean.writeHtml(html);
             verify(bean, times(1)).writeHtml(html);
             assertThat(Files.readString(outputDirectory.resolve("H191234_001.htm")))

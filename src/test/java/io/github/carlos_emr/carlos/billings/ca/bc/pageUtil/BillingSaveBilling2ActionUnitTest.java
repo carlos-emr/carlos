@@ -106,6 +106,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
 
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.BillingServiceDao.class);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(AppointmentArchiveDao.class, appointmentArchiveDao);
         registerMock(OscarAppointmentDao.class, appointmentDao);
@@ -918,6 +919,23 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> new BillingSaveBilling2Action().execute())
                     .isInstanceOf(SecurityException.class)
                     .hasMessage("missing required sec object (_billing)");
+            verifyNoInteractions(billingmasterDAO, appointmentDao, appointmentArchiveDao);
+        }
+    }
+
+    @Test
+    void shouldRefuseFinalSave_whenMandatoryRulesCannotBeRead() throws Exception {
+        request.setMethod("POST");
+        request.getSession().setAttribute("user", "100");
+        stageBill(populatedBillingSessionBean("123"));
+        LoggedInInfo info=mock(LoggedInInfo.class);
+        var rules=createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.BillingServiceDao.class);
+        when(rules.findTimeRules()).thenThrow(new jakarta.persistence.PersistenceException("synthetic sensitive failure"));
+        when(securityInfoManager.hasPrivilege(info, "_billing", "w", null)).thenReturn(true);
+        try (MockedStatic<LoggedInInfo> login=mockStatic(LoggedInInfo.class)) {
+            login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
+            assertThat(new BillingSaveBilling2Action().execute()).isEqualTo("none");
+            assertThat(response.getStatus()).isEqualTo(503);
             verifyNoInteractions(billingmasterDAO, appointmentDao, appointmentArchiveDao);
         }
     }

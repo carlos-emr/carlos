@@ -3,7 +3,7 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { assertApplicationNotFound } = require('./billing-bc-province-guard-playwright-checks');
+const { assertApplicationNotFound, assertReadRefusal } = require('./billing-bc-province-guard-playwright-checks');
 
 const route = '/billing/CA/BC/reprocessBill';
 const marker = { 'x-permitted-cross-domain-policies': 'none' };
@@ -28,5 +28,12 @@ for (const method of ['GET', 'HEAD']) {
   test(`${method}: rejects a marked server error`, () => {
     assert.throws(() => assertApplicationNotFound(response(500, marker), method, route),
       /must return 404, got 500/);
+  });
+
+  test(`${method}: requires both the application marker and Allow POST on a method refusal`, () => {
+    assert.doesNotThrow(() => assertReadRefusal(response(405, { ...marker, allow: 'POST' }), method, route));
+    assert.throws(() => assertReadRefusal(response(405, marker), method, route));
+    assert.throws(() => assertReadRefusal(response(405, { allow: 'POST' }), method, route));
+    assert.throws(() => assertApplicationNotFound(response(405, { ...marker, allow: 'POST' }), 'POST', route));
   });
 }

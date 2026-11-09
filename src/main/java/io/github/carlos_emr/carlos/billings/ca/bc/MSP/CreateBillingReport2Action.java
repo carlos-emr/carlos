@@ -69,26 +69,44 @@ public class CreateBillingReport2Action extends ActionSupport {
     /**
      * Performs Report Generation Logic based on the supplied parameters form the submitted form
      */
+    @Override
     public String execute() throws IOException {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
+        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(login, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
-
-        if ("csv".equals(getDocFormat())) {
-            return exportCsv();
-        }
+        if ("csv".equals(getDocFormat())) return exportCsv();
         if (!"pdf".equals(getDocFormat()) || !BcBillingCsv.supports(getRepType())) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
+        try {
+            io.github.carlos_emr.carlos.report.ReportPdfResponse.write(response,
+                    "attachment; filename=\"" + getRepType() + ".pdf\"", this::renderPdf);
+        } catch (io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO.MissingBcPaymentProviderException invalid) {
+            if (!response.isCommitted()) {
+                response.reset();
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Select a provider with a practitioner number.");
+            }
+        } catch (Exception failure) {
+            MiscUtils.getLogger().error("BC PDF generation failed ({})", failure.getClass().getName());
+            if (!response.isCommitted()) {
+                response.reset();
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            } else {
+                throw new IOException("BC PDF transfer failed");
+            }
+        }
+        return NONE;
+    }
 
+    protected void renderPdf(OutputStream outputStream) throws IOException {
         request.getSession().getServletContext().getServletContextName();
         if (!System.getProperties().containsKey("jasper.reports.compile.class.path")) {
             String classpath = (String) ServletActionContext.getServletContext().getAttribute("org.apache.catalina.jsp_classpath");
             if (classpath == null)
                 classpath = (String) request.getSession().getServletContext().getAttribute("com.ibm.websphere.servlet.application.classpath");
-            System.setProperty("jasper.reports.compile.class.path", classpath);
+            if (classpath != null) System.setProperty("jasper.reports.compile.class.path", classpath);
         }
         if (!System.getProperties().containsKey("java.awt.headless")) {
             System.setProperty("java.awt.headless", "true");
@@ -114,19 +132,20 @@ public class CreateBillingReport2Action extends ActionSupport {
         reportParams.put("startDate", startDate);
         reportParams.put("endDate", endDate);
         reportParams.put("insurers", insurers);
-        ServletOutputStream outputStream = this.getServletOstream(response);
-        MSPReconcile msp = new MSPReconcile();
+        MSPReconcile msp = new MSPReconcile(true);
         BillSearch billSearch = null;
 
         //open corresponding Jasper Report Definition
         InputStream reportInstream = osc.getDocumentStream(REPORTS_PATH + repDef);
         try {
             //COnfigure Reponse Header
-            cfgHeader(response, repType, docFmt);
+            // Attachment headers are set only after the complete document has been staged.
             //select appropriate report retrieval method
             if (repType.equals(MSPReconcile.REP_ACCOUNT_REC) || repType.equals(MSPReconcile.REP_INVOICE) || repType.equals(MSPReconcile.REP_WO)) {
 
                 billSearch = msp.getBillsByType(account, payee, provider, startDate, endDate, !showWCB, !showMSP, !showPriv, !showICBC, repType);
+                reportParams.put("reportWarning", msp.getSkippedC12Count() == 0 ? "" :
+                        "Warning: " + msp.getSkippedC12Count() + " C12 explanation records skipped (invalid claim identifiers)");
                 String billCnt = String.valueOf(msp.getDistinctFieldCount(billSearch.list, "billing_no"));
                 String demNoCnt = String.valueOf(msp.getDistinctFieldCount(billSearch.list, "demoNo"));
                 if (repType.equals(MSPReconcile.REP_ACCOUNT_REC)) {
@@ -202,11 +221,11 @@ public class CreateBillingReport2Action extends ActionSupport {
                         osc.fillDocumentStream(reportParams, outputStream, docFmt, reportInstream, connection);
                     }
                 } catch (SQLException e) {
-                    MiscUtils.getLogger().error("Error", e);
+                    throw new IllegalStateException("Remittance summary could not be generated");
                 }
 
             } else if (repType.equals(MSPReconcile.REP_PAYREF) || repType.equals(MSPReconcile.REP_PAYREF_SUM)) {
-                billSearch = msp.getPayments(account, payee, provider, startDate, endDate, !showWCB, !showMSP, !showPriv, !showICBC);
+                billSearch = msp.getPayments(account, payee, provider, startDate, endDate, !showWCB, !showMSP, !showPriv, !showICBC, repType);
                 Provider payeeProv = msp.getProvider(payee, 1);
                 Provider acctProv = msp.getProvider(account, 0);
                 Provider provProv = msp.getProvider(provider, 0);
@@ -215,13 +234,16 @@ public class CreateBillingReport2Action extends ActionSupport {
                 for (Iterator iter = billSearch.list.iterator(); iter.hasNext(); ) {
 
                     MSPBill item = (MSPBill) iter.next();
-                    double dblValue = Double.parseDouble(item.getAmount());
-                    if (dblValue < 0) {
-                        sumRefunded.addIncValue(item.getPaymentMethod(), dblValue);
+                    java.math.BigDecimal amount = PayRefSummary.knownAmount(item.getAmount());
+                    if (amount != null) {
+                        if (amount.signum() < 0) sumRefunded.addIncValue(item.getPaymentMethod(), amount);
+                        sumPayed.addIncValue(item.getPaymentMethod(), amount);
                     }
-                    sumPayed.addIncValue(item.getPaymentMethod(), dblValue);
-                    sumPayed.addAdjustmentAmount(item.getAdjustmentCodeAmt());
+                    if (PayRefSummary.knownAmount(item.getAdjustmentCodeAmt()) != null) {
+                        sumPayed.addAdjustmentAmount(item.getAdjustmentCodeAmt());
+                    }
                 }
+                reportParams.put("unparsedAmountCount", billSearch.list.stream().map(MSPBill.class::cast).mapToInt(MSPBill::getUnparsedAmounts).sum());
                 reportParams.put("sumPayed", sumPayed);
                 reportParams.put("sumRefunded", sumRefunded);
 
@@ -248,7 +270,6 @@ public class CreateBillingReport2Action extends ActionSupport {
             IOUtils.closeQuietly(reportInstream);
         }
 
-        return NONE;
     }
 
     private String exportCsv() throws IOException {
@@ -320,7 +341,7 @@ public class CreateBillingReport2Action extends ActionSupport {
                 : msp.getBillsByType(getSelAccount(), getSelPayee(), getSelProv(), getXml_vdate(), getXml_appointment_date(),
                         !Boolean.parseBoolean(getShowWCB()), !Boolean.parseBoolean(getShowMSP()),
                         !Boolean.parseBoolean(getShowPRIV()), !Boolean.parseBoolean(getShowICBC()), getRepType());
-        BcBillingCsv.write(output, getRepType(), search.list.stream().map(MSPBill.class::cast).toList());
+        BcBillingCsv.write(output, getRepType(), search.list.stream().map(MSPBill.class::cast).toList(), msp.getSkippedC12Count());
     }
 
     /**

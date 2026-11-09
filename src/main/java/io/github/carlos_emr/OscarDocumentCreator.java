@@ -201,7 +201,7 @@ public class OscarDocumentCreator {
             }
 
         } catch (JRException ex) {
-            MiscUtils.getLogger().error("Error", ex);
+            throw new IllegalStateException("Report generation failed", ex);
         }
     }
 
@@ -217,7 +217,7 @@ public class OscarDocumentCreator {
             jasperReport = JasperCompileManager.compileReport(
                     xmlDesign);
         } catch (JRException ex) {
-            MiscUtils.getLogger().error("Error", ex);
+            throw new IllegalStateException("Report generation failed", ex);
         }
         return jasperReport;
     }
@@ -228,7 +228,7 @@ public class OscarDocumentCreator {
             jasperReport = JasperCompileManager.compileReport(
                     new ByteArrayInputStream(xmlDesign));
         } catch (JRException ex) {
-            MiscUtils.getLogger().error("Error", ex);
+            throw new IllegalStateException("Report generation failed", ex);
         }
         return jasperReport;
     }

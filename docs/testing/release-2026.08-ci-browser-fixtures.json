@@ -18,7 +18,7 @@
         "scripts/dependency-tables-playwright-checks.js"
       ],
       "source": "scripts/dependency-tables-playwright-checks.js",
-      "sourceSha256": "6646485045208abc3e61a1d335649b3d4b96573c055899bf769b2a50a18b70e8",
+      "sourceSha256": "f7cdc0f56a266c4452ac6a06cc75356c122d51d4dd547c8749b6356779c96cf8",
       "minimumAssertions": 47
     },
     {

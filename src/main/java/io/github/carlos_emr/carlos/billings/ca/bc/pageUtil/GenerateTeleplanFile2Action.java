@@ -104,8 +104,7 @@ public class GenerateTeleplanFile2Action extends ActionSupport {
         String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
         String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");
 
-        String batchCount = "0";
-        String providerNo = request.getParameter("user");
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
         String provider = request.getParameter("providers");
         String providerBillingNo = request.getParameter("providers");
         if (provider != null && provider.equals("all")) {
@@ -124,8 +123,8 @@ public class GenerateTeleplanFile2Action extends ActionSupport {
         //This needs to be replaced for sim
         boolean testRun = false;
         //To prevent multiple submissions being generated at the same time
-        synchronized (this) {
-            try {
+        try {
+            SpringUtils.getBean(io.github.carlos_emr.carlos.billings.ca.bc.service.TeleplanExportCoordinator.class).generate(() -> {
 
                 BillingmasterDAO billingmasterDAO = (BillingmasterDAO) SpringUtils.getBean(BillingmasterDAO.class);
                 DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
@@ -135,7 +134,7 @@ public class GenerateTeleplanFile2Action extends ActionSupport {
                 TeleplanSubmission submission = teleplanWr.getSubmission(LoggedInInfo.getLoggedInInfoFromSession(request), testRun, pdArr, dataCenterId);
 
                 BillActivityDAO bActDao = new BillActivityDAO();
-                batchCount = bActDao.getNextMonthlySequence("");
+                String batchCount = bActDao.getNextMonthlySequence("");
 
                 // -commit the record to Bill Activity
                 //Create Filename
@@ -154,10 +153,14 @@ public class GenerateTeleplanFile2Action extends ActionSupport {
                 //submission.commit(filename,home_dir);
                 submission.commit(filename, home_dir, bActDao.getMonthCode(), batchCount, providerNo);
 
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
-                request.setAttribute("error", e.getMessage());
-            }
+                return null;
+            });
+        } catch (Exception failure) {
+            var error = io.github.carlos_emr.carlos.billings.ca.bc.service.TeleplanExportErrors.describe(failure);
+            MiscUtils.getLogger().error("BC Teleplan generation failed: " + error.message(),
+                    io.github.carlos_emr.carlos.billings.ca.bc.service.TeleplanExportErrors.diagnostic(failure));
+            response.setStatus(error.status());
+            request.setAttribute("error", error.message());
         }
         return SUCCESS;
     }

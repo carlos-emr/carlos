@@ -488,15 +488,15 @@ public class SaveAssoc2Action
     public ServiceCodeAssociation getSvcAssoc() {
         ServiceCodeAssociation svc = new ServiceCodeAssociation();
         svc.setServiceCode(this.xml_other1);
-        if (!this.getXml_diagnostic_detail1().trim().equals("")) {
-            svc.addDXCode(this.getXml_diagnostic_detail1().trim());
+        if (!org.apache.commons.lang3.StringUtils.trimToEmpty(this.getXml_diagnostic_detail1()).equals("")) {
+            svc.addDXCode(org.apache.commons.lang3.StringUtils.trimToEmpty(this.getXml_diagnostic_detail1()));
         }
-        if (!this.getXml_diagnostic_detail2().trim().equals("")) {
-            svc.addDXCode(this.getXml_diagnostic_detail2().trim());
+        if (!org.apache.commons.lang3.StringUtils.trimToEmpty(this.getXml_diagnostic_detail2()).equals("")) {
+            svc.addDXCode(org.apache.commons.lang3.StringUtils.trimToEmpty(this.getXml_diagnostic_detail2()));
         }
 
-        if (!this.getXml_diagnostic_detail3().trim().equals("")) {
-            svc.addDXCode(this.getXml_diagnostic_detail3().trim());
+        if (!org.apache.commons.lang3.StringUtils.trimToEmpty(this.getXml_diagnostic_detail3()).equals("")) {
+            svc.addDXCode(org.apache.commons.lang3.StringUtils.trimToEmpty(this.getXml_diagnostic_detail3()));
         }
 
         return svc;

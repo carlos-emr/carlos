@@ -68,7 +68,7 @@ class ScheduleFlipViewPatientCarryJspRegressionTest {
 
         assertThat(body).contains("/schedule/FlipView?originalpage=")
                 .contains("curDemoNo.isEmpty() ? \"\" : \"&demographic_no=\"")
-                .contains("\"&demographic_name=\" + SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoName))")
+                .doesNotContain("demographic_name=")
                 // Building the URL is not enough: the provider change must go there.
                 .contains("self.location.href = destination;");
     }
@@ -126,6 +126,6 @@ class ScheduleFlipViewPatientCarryJspRegressionTest {
         // Last and next month, at the top and at the bottom of the page.
         assertThat(monthLinks).hasSize(4).allSatisfy(link -> assertThat(link)
                 .contains("<% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context=\"uriComponent\"/>")
-                .contains("&amp;demographic_name=<carlos:encode value='<%= curDemoName %>' context=\"uriComponent\"/><% } %>"));
+                .contains("<% } %>").doesNotContain("demographic_name="));
     }
 }

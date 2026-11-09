@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
 import org.springframework.stereotype.Repository;
 
 import io.github.carlos_emr.carlos.entities.Billingmaster;
-import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
+import io.github.carlos_emr.carlos.billing.CA.BC.model.BcBillingConstants;
 
 @Repository
 public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
@@ -93,23 +93,8 @@ public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
     }
 
     public Double getTotalPaidFromHistory(Integer bmn, boolean ignoreIA) {
-        String historyQry = "SELECT SUM(CAST(bh.amountReceived AS double)) FROM BillingHistory bh where bh.billingMasterNo = :bmn";
-        if (ignoreIA) {
-            historyQry += " and bh.paymentTypeId <> " + MSPReconcile.PAYTYPE_IA;
-        }
-        Query query = entityManager.createQuery(historyQry);
-        query.setParameter("bmn", bmn);
-        List<?> result = query.getResultList();
-        if (result.isEmpty()) {
-            return 0.0;
-        }
-
-        Object d = result.get(0);
-        if (d == null) {
-            return 0.0;
-        }
-
-        return ((Number) d).doubleValue();
+        PaymentTotals totals = getPaymentTotalsByBillingMasterNos(List.of(bmn)).getOrDefault(bmn, PaymentTotals.ZERO);
+        return ignoreIA ? totals.excludingAdjustments() : totals.includingAdjustments();
     }
 
     /**
@@ -121,17 +106,8 @@ public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
      */
     public Map<Integer, Double> getTotalPaidFromHistoryByBillingMasterNos(Collection<Integer> billingMasterNos) {
         Map<Integer, Double> totals = new HashMap<>();
-        if (billingMasterNos.isEmpty()) {
-            return totals;
-        }
-        List<Object[]> rows = entityManager.createQuery(
-                "SELECT bh.billingMasterNo, SUM(CAST(bh.amountReceived AS double)) FROM BillingHistory bh "
-                        + "WHERE bh.billingMasterNo IN :billingMasterNos GROUP BY bh.billingMasterNo", Object[].class)
-                .setParameter("billingMasterNos", billingMasterNos)
-                .getResultList();
-        for (Object[] row : rows) {
-            totals.put((Integer) row[0], row[1] == null ? 0.0 : ((Number) row[1]).doubleValue());
-        }
+        getPaymentTotalsByBillingMasterNos(billingMasterNos)
+                .forEach((id, value) -> totals.put(id, value.includingAdjustments()));
         return totals;
     }
 
@@ -143,23 +119,49 @@ public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
      * @return both totals by billing line ID; bills without history are absent
      */
     public Map<Integer, PaymentTotals> getPaymentTotalsByBillingMasterNos(Collection<Integer> billingMasterNos) {
+        Map<Integer, ExactPayments> exact = new HashMap<>();
+        List<Integer> ids = new java.util.ArrayList<>(new java.util.LinkedHashSet<>(billingMasterNos));
+        for (int offset = 0; offset < ids.size(); offset += 500) {
+            List<Object[]> rows = entityManager.createQuery(
+                    "SELECT bh.billingMasterNo, bh.amountReceived, bh.paymentTypeId FROM BillingHistory bh WHERE bh.billingMasterNo IN :ids",
+                    Object[].class)
+                    .setParameter("ids", ids.subList(offset, Math.min(offset + 500, ids.size())))
+                    .getResultList();
+            for (Object[] row : rows) {
+                ExactPayments payments = exact.computeIfAbsent((Integer) row[0], ignored -> new ExactPayments());
+                // Match SQL <> semantics: a null payment type is excluded from the non-adjustment sum.
+                boolean includeWithoutAdjustments = row[2] != null
+                        && !BcBillingConstants.PAYTYPE_IA.equals(row[2].toString());
+                payments.add((String) row[1], includeWithoutAdjustments);
+            }
+        }
         Map<Integer, PaymentTotals> totals = new HashMap<>();
-        if (billingMasterNos.isEmpty()) {
-            return totals;
-        }
-        List<Object[]> rows = entityManager.createQuery(
-                "SELECT bh.billingMasterNo, SUM(CAST(bh.amountReceived AS double)), "
-                        + "SUM(CASE WHEN bh.paymentTypeId <> :adjustmentType THEN CAST(bh.amountReceived AS double) ELSE 0 END) "
-                        + "FROM BillingHistory bh WHERE bh.billingMasterNo IN :billingMasterNos GROUP BY bh.billingMasterNo",
-                Object[].class)
-                .setParameter("adjustmentType", Integer.valueOf(MSPReconcile.PAYTYPE_IA))
-                .setParameter("billingMasterNos", billingMasterNos)
-                .getResultList();
-        for (Object[] row : rows) {
-            totals.put((Integer) row[0], new PaymentTotals(
-                    row[1] == null ? 0.0 : ((Number) row[1]).doubleValue(),
-                    row[2] == null ? 0.0 : ((Number) row[2]).doubleValue()));
-        }
+        exact.forEach((id, value) -> totals.put(id, value.totals()));
         return totals;
+    }
+
+    private static final class ExactPayments {
+        private java.math.BigDecimal including = java.math.BigDecimal.ZERO;
+        private java.math.BigDecimal excluding = java.math.BigDecimal.ZERO;
+        private boolean unknownIncluding;
+        private boolean unknownExcluding;
+
+        private void add(String source, boolean includeWithoutAdjustments) {
+            try {
+                java.math.BigDecimal amount = source == null || source.isBlank()
+                        ? java.math.BigDecimal.ZERO : io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.knownDecimal(source);
+                if (amount == null) throw new NumberFormatException("Unparsed billing amount");
+                including = including.add(amount);
+                if (includeWithoutAdjustments) excluding = excluding.add(amount);
+            } catch (NumberFormatException invalid) {
+                unknownIncluding = true;
+                if (includeWithoutAdjustments) unknownExcluding = true;
+            }
+        }
+
+        private PaymentTotals totals() {
+            return new PaymentTotals(unknownIncluding ? Double.NaN : including.doubleValue(),
+                    unknownExcluding ? Double.NaN : excluding.doubleValue());
+        }
     }
 }

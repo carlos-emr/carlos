@@ -67,6 +67,20 @@ class BillingOnClaimPersisterIntegrationTest extends CarlosTestBase {
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
+    @org.junit.jupiter.api.BeforeEach
+    void authorizeFixturePatient() {
+        var manager = applicationContext.getBean(io.github.carlos_emr.carlos.managers.DemographicManager.class);
+        var patient = new io.github.carlos_emr.carlos.commn.model.Demographic();
+        patient.setLastName("Fixture"); patient.setFirstName("Patient");
+        org.mockito.Mockito.when(manager.getDemographic(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.eq(700001))).thenReturn(patient);
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearFixtureAuthorization() {
+        org.mockito.Mockito.reset(applicationContext.getBean(io.github.carlos_emr.carlos.managers.DemographicManager.class));
+    }
+
     @Test
     void shouldRollbackExtPaymentAndItemPaymentRows_whenAmountValidationFails() {
         // Run setup/assertions in their own transactions so the integration
@@ -183,7 +197,7 @@ class BillingOnClaimPersisterIntegrationTest extends CarlosTestBase {
         request.getSession().setAttribute("user", "999998");
         Map<String, String> inputs = Map.ofEntries(
                 Map.entry("xml_billtype", "PAT"), Map.entry("demographic_no", "700001"),
-                Map.entry("demographic_name", "Fixture,Patient"), Map.entry("demographic_dob", "1980-01-01"),
+                Map.entry("demographic_name", "Conflicting,RequestLabel"), Map.entry("demographic_dob", "1980-01-01"),
                 Map.entry("hin", "1234567890"), Map.entry("ver", "ZZ"), Map.entry("hc_type", "ON"),
                 Map.entry("xml_provider", "999998|123456"), Map.entry("xml_location", "0001|Clinic"),
                 Map.entry("xml_visittype", "00|Clinic"), Map.entry("service_date", "2026-05-01"),
@@ -209,6 +223,7 @@ class BillingOnClaimPersisterIntegrationTest extends CarlosTestBase {
         entityManager.flush();
         entityManager.clear();
         assertThat(entityManager.find(BillingONCHeader1.class, id).getPayee()).isEqualTo("P");
+        assertThat(entityManager.find(BillingONCHeader1.class, id).getDemographicName()).isEqualTo("Fixture, Patient");
         assertThat(entityManager.createQuery("SELECT p.paymentTypeId FROM BillingONPayment p WHERE p.billingNo=:id", Integer.class)
                 .setParameter("id", id).getSingleResult()).isEqualTo(123);
         assertThat(entityManager.createQuery("SELECT e.value FROM BillingONExt e WHERE e.billingNo=:id AND e.keyVal='payMethod'", String.class)
@@ -233,7 +248,7 @@ class BillingOnClaimPersisterIntegrationTest extends CarlosTestBase {
         request.getSession().setAttribute("user", "999998");
         Map<String, String> inputs = Map.ofEntries(
                 Map.entry("xml_billtype", "PAT"), Map.entry("demographic_no", "700001"),
-                Map.entry("demographic_name", "Fixture,Patient"), Map.entry("demographic_dob", "1980-01-01"),
+                Map.entry("demographic_name", "Conflicting,RequestLabel"), Map.entry("demographic_dob", "1980-01-01"),
                 Map.entry("hin", "1234567890"), Map.entry("ver", "ZZ"), Map.entry("hc_type", "ON"),
                 Map.entry("xml_provider", "999998|123456"), Map.entry("xml_location", "0001|Clinic"),
                 Map.entry("xml_visittype", "00|Clinic"), Map.entry("service_date", "2026-05-01"),

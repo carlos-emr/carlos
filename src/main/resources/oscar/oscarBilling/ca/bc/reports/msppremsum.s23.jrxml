@@ -36,23 +36,23 @@ order by s23_id]]>
 		<expression><![CDATA["test"]]></expression>
 		<initialValueExpression><![CDATA["test"]]></initialValueExpression>
 	</variable>
-	<variable name="grossTotal" class="java.lang.Double" calculation="Sum">
-		<expression><![CDATA[new Double(MSPReconcile.convCurValue($F{t_gamount}))]]></expression>
+	<variable name="grossTotal" class="java.math.BigDecimal" calculation="Sum">
+		<expression><![CDATA[new java.math.BigDecimal(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_gamount}))]]></expression>
 	</variable>
-	<variable name="regTotal" class="java.lang.Double" calculation="Sum">
-		<expression><![CDATA[new Double(MSPReconcile.convCurValue($F{t_ramount}))]]></expression>
+	<variable name="regTotal" class="java.math.BigDecimal" calculation="Sum">
+		<expression><![CDATA[new java.math.BigDecimal(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_ramount}))]]></expression>
 	</variable>
-	<variable name="oneTotal" class="java.lang.Double" calculation="Sum">
-		<expression><![CDATA[new Double(MSPReconcile.convCurValue($F{t_oamount}))]]></expression>
+	<variable name="oneTotal" class="java.math.BigDecimal" calculation="Sum">
+		<expression><![CDATA[new java.math.BigDecimal(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_oamount}))]]></expression>
 	</variable>
-	<variable name="blncTotal" class="java.lang.Double" calculation="Sum">
-		<expression><![CDATA[new Double(MSPReconcile.convCurValue($F{t_balancefwd}))]]></expression>
+	<variable name="blncTotal" class="java.math.BigDecimal" calculation="Sum">
+		<expression><![CDATA[new java.math.BigDecimal(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_balancefwd}))]]></expression>
 	</variable>
-	<variable name="adjTotal" class="java.lang.Double" calculation="Sum">
-		<expression><![CDATA[new Double(MSPReconcile.convCurValue($F{t_adjmade}))]]></expression>
+	<variable name="adjTotal" class="java.math.BigDecimal" calculation="Sum">
+		<expression><![CDATA[new java.math.BigDecimal(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_adjmade}))]]></expression>
 	</variable>
-	<variable name="adjOutTotal" class="java.lang.Double" calculation="Sum">
-		<expression><![CDATA[new Double(MSPReconcile.convCurValue($F{t_adjoutstanding}))]]></expression>
+	<variable name="adjOutTotal" class="java.math.BigDecimal" calculation="Sum">
+		<expression><![CDATA[new java.math.BigDecimal(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_adjoutstanding}))]]></expression>
 	</variable>
 	<background splitType="Stretch">
 		</background>
@@ -209,7 +209,7 @@ order by s23_id]]>
 					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 				</box>
-				<expression><![CDATA[new Double($F{t_rpercent})]]></expression>
+				<expression><![CDATA[Double.valueOf($F{t_rpercent})]]></expression>
 			</element>
 			<element kind="textField" mode="Transparent" x="160" y="0" width="51" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Center" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="#,##0.00 %">
 				<paragraph lineSpacing="Single" />
@@ -219,7 +219,7 @@ order by s23_id]]>
 					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 				</box>
-				<expression><![CDATA[new Double($F{t_opercent})]]></expression>
+				<expression><![CDATA[Double.valueOf($F{t_opercent})]]></expression>
 			</element>
 			<element kind="textField" mode="Transparent" x="211" y="0" width="55" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Right" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
 				<paragraph lineSpacing="Single" />
@@ -229,7 +229,7 @@ order by s23_id]]>
 					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 				</box>
-				<expression><![CDATA["$"+MSPReconcile.convCurValue($F{t_gamount})]]></expression>
+				<expression><![CDATA["$"+io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_gamount})]]></expression>
 			</element>
 			<element kind="textField" mode="Transparent" x="271" y="0" width="40" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Right" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
 				<paragraph lineSpacing="Single" />
@@ -239,7 +239,7 @@ order by s23_id]]>
 					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 				</box>
-				<expression><![CDATA["$"+MSPReconcile.convCurValue($F{t_ramount})]]></expression>
+				<expression><![CDATA["$"+io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_ramount})]]></expression>
 			</element>
 			<element kind="textField" mode="Transparent" x="314" y="0" width="49" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Right" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
 				<paragraph lineSpacing="Single" />
@@ -249,7 +249,7 @@ order by s23_id]]>
 					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 				</box>
-				<expression><![CDATA["$"+MSPReconcile.convCurValue($F{t_oamount})]]></expression>
+				<expression><![CDATA["$"+io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_oamount})]]></expression>
 			</element>
 			<element kind="textField" mode="Transparent" x="363" y="0" width="54" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Right" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
 				<paragraph lineSpacing="Single" />
@@ -259,7 +259,7 @@ order by s23_id]]>
 					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 				</box>
-				<expression><![CDATA["$"+MSPReconcile.convCurValue($F{t_balancefwd})]]></expression>
+				<expression><![CDATA["$"+io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_balancefwd})]]></expression>
 			</element>
 			<element kind="textField" mode="Transparent" x="417" y="0" width="55" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Right" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
 				<paragraph lineSpacing="Single" />
@@ -269,7 +269,7 @@ order by s23_id]]>
 					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 				</box>
-				<expression><![CDATA["$"+MSPReconcile.convCurValue($F{t_adjmade})]]></expression>
+				<expression><![CDATA["$"+io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_adjmade})]]></expression>
 			</element>
 			<element kind="textField" mode="Transparent" x="473" y="0" width="62" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Right" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
 				<paragraph lineSpacing="Single" />
@@ -279,7 +279,7 @@ order by s23_id]]>
 					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 				</box>
-				<expression><![CDATA["$"+MSPReconcile.convCurValue($F{t_adjoutstanding})]]></expression>
+				<expression><![CDATA["$"+io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_adjoutstanding})]]></expression>
 			</element>
 			<element kind="textField" mode="Transparent" x="63" y="0" width="19" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-1" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
 				<paragraph lineSpacing="Single" />

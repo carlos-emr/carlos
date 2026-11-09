@@ -58,6 +58,7 @@ class WcbSbHtmlUnitTest extends CarlosUnitTestBase {
         w.setWcbNo(wcbNo);
         w.setIcd9(icd9);
         w.setFeeItem("19950");
+        w.setBillAmount("12.34");
         return w;
     }
 

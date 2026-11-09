@@ -106,6 +106,10 @@ class BillingShortcutPg1ViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         mockitoCloseable = MockitoAnnotations.openMocks(this);
+        var patientManager = mock(io.github.carlos_emr.carlos.managers.DemographicManager.class);
+        when(patientManager.getDemographic(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenAnswer(call -> demographicDao.getDemographic(String.valueOf((Integer) call.getArgument(1))));
+        registerMock(io.github.carlos_emr.carlos.managers.DemographicManager.class, patientManager);
         previousIsNewOnBilling = CarlosProperties.getInstance().getProperty("isNewONbilling", "");
         CarlosProperties.getInstance().setProperty("isNewONbilling", "false");
 
@@ -137,6 +141,18 @@ class BillingShortcutPg1ViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     void tearDown() throws Exception {
         CarlosProperties.getInstance().setProperty("isNewONbilling", previousIsNewOnBilling);
         if (mockitoCloseable != null) mockitoCloseable.close();
+    }
+
+    @Test
+    void shouldResolvePatientLabel_fromTheManagerDespiteAConflictingRequestName() {
+        Demographic patient = new Demographic();
+        patient.setLastName("Fixture");
+        patient.setFirstName("Patient");
+        when(demographicDao.getDemographic("1")).thenReturn(patient);
+        request.setParameter("demographic_no", "1");
+        request.setParameter("demographic_name", "Wrong,Patient");
+        BillingShortcutPg1ViewModel model = assembler.assemble(request, loggedInInfo);
+        assertThat(model.getDemoName()).isEqualTo("Fixture, Patient");
     }
 
     @Test
@@ -377,35 +393,11 @@ class BillingShortcutPg1ViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldOmitDemographicNumber_whenNewOnBillingPairShapeRegresses() {
-        String previous = CarlosProperties.getInstance().getProperty("isNewONbilling", "");
-        CarlosProperties.getInstance().setProperty("isNewONbilling", "true");
-        try {
-            String maliciousDemoNo = "1\r\nforged-demo";
-            request.setParameter("demographic_no", maliciousDemoNo);
-            BillingClaimItemDto goodItem = newClaimItem("A001A", "401");
-            when(billingReviewImpl.getBillingHist(eq(maliciousDemoNo), eq(5), eq(0), any()))
-                    .thenReturn(List.of("not-a-header", goodItem));
-
-            try (LogCapture capture = LogCapture.forLogger(BillingShortcutPg1ViewModelAssembler.class)) {
-                BillingShortcutPg1ViewModel m = assembler.assemble(request, loggedInInfo);
-
-                assertThat(m.isHistoryPartial()).isTrue();
-                assertThat(m.getHistoryPartialRowCount()).isEqualTo(1);
-                String logged = capture.messages().stream()
-                        .filter(message -> message.contains("data-shape regression"))
-                        .findFirst()
-                        .orElseThrow();
-                assertThat(logged).doesNotContain("\r").doesNotContain("\n");
-                assertThat(logged).doesNotContain("1\r\nforged-demo", "1\\r\\nforged-demo", "forged-demo");
-            }
-        } finally {
-            if (previous == null) {
-                CarlosProperties.getInstance().remove("isNewONbilling");
-            } else {
-                CarlosProperties.getInstance().setProperty("isNewONbilling", previous);
-            }
-        }
+    void shouldRefuseMalformedPatientIdentifier_withoutReflectingItsText() {
+        request.setParameter("demographic_no", "1\r\nforged-demo");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> assembler.assemble(request, loggedInInfo))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("A valid patient identifier is required");
     }
 
     @Test

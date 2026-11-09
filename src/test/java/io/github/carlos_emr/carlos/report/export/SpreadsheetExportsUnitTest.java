@@ -50,7 +50,7 @@ class SpreadsheetExportsUnitTest {
                 assertThat(records).hasSize(type.equals("REP_PAYREF_SUM") ? 10 : 2);
                 assertThat(records).allSatisfy(r -> assertThat(r.size()).isEqualTo(records.getFirst().size()));
                 if (!type.equals("REP_PAYREF_SUM")) {
-                    assertThat(records.get(1)).contains("-1234.50");
+                    assertThat(records.get(1)).contains(type.equals("REP_ACCOUNT_REC") ? "12.50" : "-1234.50");
                     assertThat(records.get(1).toList()).anySatisfy(v -> assertThat(v).startsWith("\t=HYPERLINK"));
                 }
                 if (type.equals("REP_REJ")) {
@@ -72,6 +72,15 @@ class SpreadsheetExportsUnitTest {
         assertThat(row.get(0)).isEqualTo("\t" + value);
         assertThat(row.get(1)).isEqualTo("-12.50");
         assertThat(row.get(2)).isEqualTo("Élodie,\"quote\"\r\nline");
+    }
+
+    @Test
+    void shouldPreserveOutOfRangeAmounts_withoutExpandingExponentScales() {
+        for (String source : List.of("1e999999999", "1e-999999999")) {
+            assertThat(BcBillingCsv.money(source)).isEqualTo(source);
+        }
+        assertThat(BcBillingCsv.money("1e3")).isEqualTo("1000.00");
+        assertThat(BcBillingCsv.money(" 1.00 ")).isEqualTo(" 1.00 ");
     }
 
     @Test
@@ -130,8 +139,8 @@ class SpreadsheetExportsUnitTest {
             var output = new ByteArrayOutputStream();
             BcBillingCsv.write(output, "REP_ACCOUNT_REC", List.of(b), reportDate);
             var row = CSVFormat.DEFAULT.parse(new StringReader(output.toString(StandardCharsets.UTF_8))).getRecords().get(1);
-            assertThat(row.get(entry.getValue())).as("age %s", entry.getKey()).isEqualTo("-1234.50");
-            assertThat(row.toList().subList(4, 8)).filteredOn(v -> !v.isEmpty()).containsExactly("-1234.50");
+            assertThat(row.get(entry.getValue())).as("age %s", entry.getKey()).isEqualTo("12.50");
+            assertThat(row.toList().subList(4, 8)).filteredOn(v -> !v.isEmpty()).containsExactly("12.50");
         }
     }
 
@@ -149,8 +158,8 @@ class SpreadsheetExportsUnitTest {
                 "91 Days+", "61 - 90 Days", "31 - 60 Days", "0 - 30 Days", "Status", "Unknown age");
         assertThat(rows.get(1).get(2)).isEqualTo(serviceDate == null || serviceDate.isBlank() || "00000000".equals(serviceDate) ? "" : serviceDate);
         assertThat(rows.get(1).toList().subList(4, 8)).containsOnly("");
-        assertThat(rows.get(1).get(9)).isEqualTo("-1234.50");
-        assertThat(rows.get(2).get(6)).isEqualTo("-1234.50");
+        assertThat(rows.get(1).get(9)).isEqualTo("12.50");
+        assertThat(rows.get(2).get(6)).isEqualTo("12.50");
         assertThat(rows.get(2).get(9)).isEmpty();
     }
 
@@ -164,8 +173,8 @@ class SpreadsheetExportsUnitTest {
         BcBillingCsv.write(output, type, List.of(malformed, bill()));
         var rows = CSVFormat.DEFAULT.parse(new StringReader(output.toString(StandardCharsets.UTF_8))).getRecords();
         assertThat(rows).hasSize(3);
-        assertThat(rows.get(1)).contains("20260230", "\t=bad amount");
-        assertThat(rows.get(2)).contains("01-Oct-26", "-1234.50");
+        assertThat(rows.get(1)).contains("20260230", type.equals("REP_ACCOUNT_REC") ? "not a decimal" : "\t=bad amount");
+        assertThat(rows.get(2)).contains("01-Oct-26", type.equals("REP_ACCOUNT_REC") ? "12.50" : "-1234.50");
         if (type.equals("REP_INVOICE")) assertThat(rows.get(1)).contains("not a decimal");
         if (type.equals("REP_REJ")) assertThat(rows.get(1)).contains("not a date");
         if (type.equals("REP_PAYREF")) assertThat(rows.get(1)).contains("20261301", "bad adjustment");
@@ -183,7 +192,7 @@ class SpreadsheetExportsUnitTest {
         var rows = CSVFormat.DEFAULT.parse(new StringReader(output.toString(StandardCharsets.UTF_8))).getRecords();
         assertThat(rows.get(1).toList()).containsExactly("Cash", "7.50", "-5.00");
         assertThat(rows.get(6).toList()).containsExactly("Electronic", "2.25", "0.00");
-        assertThat(rows.get(9).toList()).containsExactly("Total", "9.75", "-5.00");
+        assertThat(rows.get(9).toList()).containsExactly("Total (known amounts only)", "9.75", "-5.00");
     }
 
     @ParameterizedTest
@@ -212,4 +221,23 @@ class SpreadsheetExportsUnitTest {
         var rows = CSVFormat.DEFAULT.parse(new StringReader(output.toString(StandardCharsets.UTF_8))).getRecords();
         assertThat(rows.get(1).get(7)).isEqualTo(amount);
     }
+    @Test
+    void shouldPreserveMalformedBilledSource_inTheArDiagnosticWithoutInventingABalance() throws Exception {
+        MSPBill b=bill(); b.setAmount("bad-source"); b.setAmtOwing("");
+        var output=new ByteArrayOutputStream();
+        BcBillingCsv.write(output,"REP_ACCOUNT_REC",List.of(b));
+        var row=CSVFormat.DEFAULT.parse(new StringReader(output.toString(StandardCharsets.UTF_8))).getRecords().get(1);
+        assertThat(row.get(8)).contains("Unparsed billed amount: bad-source");
+        assertThat(row.toList().subList(4,8)).containsOnly("");
+    }
+
+    @Test
+    void shouldKeepInvoiceWarningRowsAligned_whenMalformedC12FoliosAreSkipped() throws Exception {
+        var output=new ByteArrayOutputStream(); BcBillingCsv.write(output,"REP_INVOICE",List.of(bill()),2);
+        var rows=CSVFormat.DEFAULT.parse(new StringReader(output.toString(StandardCharsets.UTF_8))).getRecords();
+        assertThat(rows).hasSize(3);
+        assertThat(rows.get(2).size()).isEqualTo(rows.getFirst().size());
+        assertThat(rows.get(2).get(0)).contains("2 C12 explanation records skipped");
+    }
+
 }

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd">
+    <import resource="test-context-full.xml"/>
+    <bean class="io.github.carlos_emr.carlos.billings.ca.bc.service.BcBillingService" autowire="constructor"/>
+    <bean class="io.github.carlos_emr.carlos.billings.ca.bc.service.TeleplanExportCoordinator" autowire="constructor"/>
+    <bean class="io.github.carlos_emr.carlos.billings.ca.bc.service.LegacyBcTeleplanExportService" autowire="constructor"/>
+</beans>

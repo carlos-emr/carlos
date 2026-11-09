@@ -48,6 +48,18 @@ public class BillHistory {
     private Date archiveDate;
     private String billingtype = "";
     private String seqNum = "";
+    private String amountText;
+
+    /** Preserves the source snapshot, including malformed legacy values. */
+    public void setAmountText(String value) {
+        amountText = value == null ? "" : value;
+        var parsed = io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.knownDecimal(amountText);
+        amount = parsed == null ? Double.NaN : parsed.doubleValue();
+    }
+
+    public String getAmountText() { return amountText == null ? String.valueOf(amount) : amountText; }
+    public boolean hasKnownAmount() { return Double.isFinite(amount); }
+
     private double amount;
     private double amountReceived;
     private String paymentTypeId;
@@ -109,6 +121,7 @@ public class BillHistory {
 
     public void setAmount(double amount) {
         this.amount = UtilMisc.toCurrencyDouble(amount);
+        this.amountText = null;
     }
 
     public void setAmountReceived(double amountReceived) {

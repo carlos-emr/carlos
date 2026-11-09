@@ -50,8 +50,13 @@ public class MariaDbDaoTestContextInitializer
             throw new IllegalArgumentException("MariaDB test province bc requires CARLOS_TEST_MARIADB_SCHEMA=flyway");
         }
         String database = "carlos_test_5399_dao_" + UUID.randomUUID().toString().replace("-", "");
+        String zeroDates = System.getenv().getOrDefault("CARLOS_TEST_MARIADB_ZERO_DATES", "CONVERT_TO_NULL");
+        if (!List.of("DEFAULT", "CONVERT_TO_NULL", "EXCEPTION", "ROUND").contains(zeroDates)) {
+            throw new IllegalArgumentException("Unsupported MariaDB test zero-date policy");
+        }
         String jdbcUrl = server + database + "?connectionCollation=utf8mb4_general_ci"
-                + "&zeroDateTimeBehavior=CONVERT_TO_NULL&jdbcCompliantTruncation=false&useInformationSchema=false";
+                + ("DEFAULT".equals(zeroDates) ? "" : "&zeroDateTimeBehavior=" + zeroDates)
+                + "&jdbcCompliantTruncation=false&useInformationSchema=false";
         Properties credentials = new Properties();
         credentials.setProperty("user", System.getenv().getOrDefault("CARLOS_TEST_MARIADB_USER", "root"));
         credentials.setProperty("password", System.getenv().getOrDefault("CARLOS_TEST_MARIADB_PASSWORD", ""));

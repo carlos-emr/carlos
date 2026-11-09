@@ -11,7 +11,7 @@
  * BC_BILLING_CODE_MANAGEMENT=yes, which no default configuration sets) ▸ Billing Code search ▸ the code's Edit
  * (ViewBillingEditCode) ▸ the fee row's edit, Price, save (POST billingEditCode?method=ajaxCodeUpdate); back in the
  * associations ▸ the owned association's Edit (editServiceCodeAssocAction) ▸ another diagnosis ▸ Save (POST
- * saveAssocAction) ▸ Remove (POST deleteServiceCodeAssoc).
+ * associateCodesAction) ▸ Remove (POST deleteServiceCodeAssoc).
  * Asserted: the list shows the owned association; picking the owned fee code in the bill form's fee-code search fills
  * in its associated diagnosis; the MSP list's search finds the owned code and its Edit saves a new fee (stored, and the
  * row returns to view); the association's Edit shows its service code and diagnosis; saving another diagnosis
@@ -185,11 +185,23 @@ async function workflow(s) {
     await showList();
     await Promise.all([frame.waitForNavigation({ waitUntil: 'domcontentloaded' }),
       ownedRow().getByRole('link', { name: 'Edit', exact: true }).click()]);
-    await frame.locator('form[action$="/billing/CA/BC/saveAssocAction"]').waitFor({ timeout: TIMEOUT });
+    await frame.locator('#bcCodeAssociationForm').waitFor({ timeout: TIMEOUT });
     const service = frame.locator('input[name="xml_other1"]');
     const shown = { service: await service.inputValue(), dx: await frame.locator('input[name="xml_diagnostic_detail1"]').inputValue() };
     h.assert(shown.service === codes.fee && shown.dx === codes.dx[0],
       `The editor shows service code "${shown.service}" and diagnosis "${shown.dx}", not ${codes.fee} and ${codes.dx[0]}`);
+  });
+
+  await s.step('the retained all-service-codes picker fills the association editor and closes', async () => {
+    await frame.locator('#xml_other1').evaluate(input => { input.value = ''; });
+    h.assert(await frame.locator('#xml_other1').inputValue() === '', 'The picker target was not cleared');
+    const picker = await s.popup(admin, frame.getByRole('link', { name: 'All service codes', exact: true }), 'bc-all-service-codes');
+    await picker.waitForLoadState('domcontentloaded');
+    await h.assertNotErrorPage(picker, 'all-service-codes picker');
+    const selected = picker.getByRole('link', { name: codes.fee, exact: true });
+    h.assert(await selected.count() === 1, 'The retained picker does not list the owned service code');
+    await Promise.all([picker.waitForEvent('close', { timeout: TIMEOUT }), selected.click({ noWaitAfter: true })]);
+    h.assert(await frame.locator('#xml_other1').inputValue() === codes.fee, 'The retained picker did not fill its named opener');
   });
 
   await s.step(STEP.save, async () => {
@@ -226,7 +238,7 @@ async function workflow(s) {
     await showList();
     await Promise.all([frame.waitForNavigation({ waitUntil: 'domcontentloaded' }),
       frame.locator('a', { hasText: 'Create New Association' }).click()]);
-    const editor = frame.locator('form[action$="/billing/CA/BC/saveAssocAction"]');
+    const editor = frame.locator('#bcCodeAssociationForm');
     const service = frame.locator('input[name="xml_other1"]');
     if (!await editor.count() || await service.evaluate(e => e.readOnly)) {
       failures.push('Create New Association does not open an editor whose service code can be typed (#4439 D14); the duplicate check (D13) cannot be reached');

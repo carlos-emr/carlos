@@ -72,6 +72,10 @@ class BillingBCSetup2ActionUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
+        var patients = createAndRegisterMock(io.github.carlos_emr.carlos.managers.DemographicManager.class);
+        var patient = new io.github.carlos_emr.carlos.commn.model.Demographic();
+        patient.setLastName("FAKE-Canonical"); patient.setFirstName("Patient");
+        when(patients.getDemographic(any(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(patient);
         SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
@@ -95,6 +99,15 @@ class BillingBCSetup2ActionUnitTest extends CarlosUnitTestBase {
         guidelinesMock.close();
         loggedInInfoMock.close();
         servletActionContextMock.close();
+    }
+
+    @Test
+    void shouldRejectZeroPatient_beforeResolvingPatientOrStagingBill() throws Exception {
+        request.setParameter("demographic_no", "0");
+        request.setParameter("appointment_no", "1");
+        assertThat(new BillingBCSetup2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(request.getAttribute(BcBillStaging.BEAN_ATTRIBUTE)).isNull();
     }
 
     @Test

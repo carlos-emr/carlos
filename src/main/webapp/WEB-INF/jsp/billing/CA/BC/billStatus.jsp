@@ -79,6 +79,7 @@
     BigDecimal total = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
     BigDecimal paidTotal = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
     BigDecimal owedTotal = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
+    boolean incompleteTotals = false;
     MSPReconcile msp = new MSPReconcile();
 
     GregorianCalendar now = new GregorianCalendar();
@@ -100,9 +101,15 @@
     boolean showICBC = request.getParameter("showICBC") == null ? defaultShow : !defaultShow;  //request.getParameter("showPRIV");
 
     String readonly = request.getParameter("filterPatient");
-    String firstName = request.getParameter("firstName");
-    String lastName = request.getParameter("lastName");
     String demographicNo = request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "";
+    io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.Names patientNames = null;
+    if ("true".equals(readonly) && !demographicNo.isBlank()) {
+        try {
+            patientNames = io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.names(request, demographicNo);
+        } catch (IllegalArgumentException unavailablePatient) {
+            // Keep an empty filter label; never substitute a caller-supplied patient name.
+        }
+    }
 
     boolean adminAccess = false;
 %>
@@ -113,7 +120,6 @@
 </security:oscarSec>
 
 
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <!DOCTYPE HTML>
@@ -133,7 +139,7 @@
 
     <script>
         function checkChecked() {
-            if (document.querySelectorAll('input[name^="billCheck"]:checked').length > 0) {
+            if (document.querySelectorAll('input[name^="billCheck"]:enabled:checked').length > 0) {
                 document.getElementById('resubmitButton').disabled = false;
                 document.getElementById('settleButton').disabled = false;
             } else {
@@ -219,7 +225,7 @@
         document.addEventListener('click', function (e) {
             if (e.target && e.target.id === 'checkAll') {
                 var isChecked = e.target.checked;
-                document.querySelectorAll("input[name^='billCheck']").forEach(function (el) {
+                document.querySelectorAll("input[name^='billCheck']:enabled").forEach(function (el) {
                     el.checked = isChecked;
                 });
             }
@@ -270,8 +276,8 @@
             <div class="col-lg-12">
                 <i>Results for Demographic</i>
                 :
-                <carlos:encode value='<%= StringUtils.noNull(request.getParameter("lastName")) %>' context="html"/>      ,
-                <carlos:encode value='<%= StringUtils.noNull(request.getParameter("firstName")) %>' context="html"/>      (
+                <carlos:encode value='<%= patientNames == null ? "" : patientNames.last() %>' context="html"/>      ,
+                <carlos:encode value='<%= patientNames == null ? "" : patientNames.first() %>' context="html"/>      (
                 <carlos:encode value='<%= StringUtils.noNull(request.getParameter("demographicNo")) %>' context="html"/>      )
             </div>
         </div>
@@ -280,8 +286,6 @@
 
         <form name="serviceform" method="get" action="<%= request.getContextPath() %>/billing/CA/BC/reprocessBill" class="d-flex flex-wrap align-items-center gap-2">
             <input type="hidden" name="filterPatient" value="<carlos:encode value='<%= readonly %>' context="htmlAttribute"/>"/>
-            <input type="hidden" name="lastName" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("lastName")) %>' context="htmlAttribute"/>"/>
-            <input type="hidden" name="firstName" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("firstName")) %>' context="htmlAttribute"/>"/>
             <div class="row">
                 <div class="col-lg-12">
                     <div class="mb-3">
@@ -554,20 +558,30 @@
                     BigDecimal valueToAdd = new BigDecimal("0.00");
                     try {
                         valueToAdd = new BigDecimal(b.amount).setScale(2, BigDecimal.ROUND_HALF_UP);
-                    } catch (Exception badValueException) {
-                        MiscUtils.getLogger().error(" Error calculating value for " + b.billMasterNo);
+                    } catch (NumberFormatException | NullPointerException badValueException) {
                         incorrectVal = true;
                     }
                     total = total.add(valueToAdd);
-                    double pAmount = msp.getAmountPaid(b.billMasterNo, b.billingtype, historyTotals);
                     BigDecimal valueToPaidAdd = new BigDecimal("0.00");
                     try {
-                        valueToPaidAdd = new BigDecimal(pAmount).setScale(2, BigDecimal.ROUND_HALF_UP);
-                    } catch (Exception badValueException) {
-                        MiscUtils.getLogger().error(" Error calculating paid value for " + b.billMasterNo);
+                        double pAmount = msp.getAmountPaid(b.billMasterNo, b.billingtype, historyTotals);
+                        valueToPaidAdd = BigDecimal.valueOf(pAmount).setScale(2, BigDecimal.ROUND_HALF_UP);
+                    } catch (NumberFormatException badValueException) {
                         paidinCorrectval = true;
                     }
                     paidTotal = paidTotal.add(valueToPaidAdd);
+                    BigDecimal amtOwed = null;
+                    try {
+                        if (!incorrectVal) {
+                            amtOwed = BigDecimal.valueOf(msp.getAmountOwing(b.billMasterNo, b.amount, b.billingtype, historyTotals))
+                                    .setScale(2, BigDecimal.ROUND_HALF_UP);
+                            owedTotal = owedTotal.add(amtOwed);
+                        }
+                    } catch (NumberFormatException badValueException) {
+                        // An unreadable amount remains unknown; query failures still propagate.
+                    }
+                    boolean unknownBalance = incorrectVal || paidinCorrectval || amtOwed == null;
+                    incompleteTotals |= unknownBalance;
 
             %>
 
@@ -575,6 +589,7 @@
                 <td>
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="billCheck_<%=b.getBilling_no()%>" name="billCheck"
+                               <%= unknownBalance ? "disabled title=\"Correct unknown amounts before selecting this bill\"" : "" %>
                                value="<%=b.getBilling_no() + "_" + b.getBillMasterNo()%>">
                     </div>
                 </td>
@@ -613,17 +628,11 @@
                 </td>
                 <td <%=isBadVal(incorrectVal)%> ><%=b.quantity%>
                 </td>
-                <td <%=isBadVal(incorrectVal)%> ><%=nf.format(Double.parseDouble(b.amount))%>
+                <td <%=isBadVal(incorrectVal)%> ><%=incorrectVal ? "Unknown" : nf.format(valueToAdd)%>
                 </td>
-                <td><%=nf.format(pAmount)%>
+                <td <%=isBadVal(paidinCorrectval)%> ><%=paidinCorrectval ? "Unknown" : nf.format(valueToPaidAdd)%>
                 </td>
-                <%
-                    double dblAmtOwed = msp.getAmountOwing(b.billMasterNo, b.amount, b.billingtype, historyTotals);
-                    BigDecimal amtOwed = new BigDecimal(dblAmtOwed).setScale(2, BigDecimal.ROUND_HALF_UP);
-                    owedTotal = owedTotal.add(amtOwed);
-
-                %>
-                <td><%=nf.format(amtOwed)%>
+                <td <%=isBadVal(amtOwed == null)%> ><%=amtOwed == null ? "Unknown" : nf.format(amtOwed)%>
                 </td>
                 <td><%=s(b.dx1)%>
                 </td>
@@ -664,7 +673,7 @@
                 <td><%=bSearch.list.size()%>
                 </td>
                 <td></td>
-                <td>Total:</td>
+                <td><%= incompleteTotals ? "Total (known amounts only):" : "Total:" %></td>
                 <td><%=nf.format(total.doubleValue())%>
                 </td>
                 <td><%=nf.format(paidTotal.doubleValue())%>

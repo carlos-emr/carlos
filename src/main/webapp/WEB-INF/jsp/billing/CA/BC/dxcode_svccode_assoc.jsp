@@ -86,7 +86,7 @@
         </ul>
     </div>
 <% } %></h2>
-    <form action="${pageContext.request.contextPath}/billing/CA/BC/saveAssocAction" method="post">
+    <form id="bcCodeAssociationForm" name="bcCodeAssociationForm" action="${pageContext.request.contextPath}/billing/CA/BC/associateCodesAction" method="post">
         <input type="hidden" name="mode" id="mode" value="<carlos:encode value='<%= mode %>' context="htmlAttribute"/>"/>
         <table width="75%" border="1" align="center" cellpadding="3"
                cellspacing="3" bgcolor="EEEEFF">
@@ -106,7 +106,8 @@
                     boolean state = mode.equals("edit") ? true : false;
                 %> <%-- Read-only only while editing: the save replaces that service code's diagnoses. --%>
                 <input type="text" name="xml_other1" id="xml_other1" size="40" value="<carlos:encode value='<%= serviceCode %>' context="htmlAttribute"/>" <%= state ? "readonly" : "" %>/> <a href="javascript:OtherScriptAttach()">
-                    <img src="<%= request.getContextPath() %>/images/search_code.jpg" border="0" alt="<fmt:message key='global.btnSearch'/>"> </a> </span></td>
+                    <img src="<%= request.getContextPath() %>/images/search_code.jpg" border="0" alt="<fmt:message key='global.btnSearch'/>"> </a>
+                <a href="#" onclick="window.open('${pageContext.request.contextPath}/billing/CA/BC/support/BillingCodes?form=bcCodeAssociationForm&amp;field=xml_other1','bcAllCodes','width=820,height=660,scrollbars=yes,resizable=yes'); return false;">All service codes</a> </span></td>
             </tr>
             <tr bgcolor="CCCCFF">
                 <td><strong><fmt:message key="oscar.billing.CA.BC.billingBC.dxcode_svccode_assoc.step2"/></strong></td>
