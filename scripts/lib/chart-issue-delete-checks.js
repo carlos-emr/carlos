@@ -127,7 +127,6 @@ async function checkIssueDeleteAuthorization(s, { fixture, patient, program, app
           demographicNo: patient, chartContext: token, 'CSRF-TOKEN': csrf },
         headers: { 'CSRF-TOKEN': csrf }, failOnStatusCode: false, maxRedirects: 0,
       });
-      let deletionIndex;
       try {
         h.assert(editor.status() === 200, `Restricted note editor returned HTTP ${editor.status()}`);
         const body = await editor.text();
@@ -135,14 +134,12 @@ async function checkIssueDeleteAuthorization(s, { fixture, patient, program, app
           .map(match => match[0]).filter(tag => tag.includes(`data-issue-id="${issueId}"`));
         h.assert(body.includes(`id="summary${noteId}"`) && ownedInputs.length === 1,
           'The authorized read did not bind the owned note and linked issue');
-        const field = /\bname="issueCheckList\[(\d+)\]\.checked"/.exec(ownedInputs[0]);
-        h.assert(field, 'The owned issue has no explicit editor index');
-        deletionIndex = field[1];
       } finally { await editor.dispose(); }
       const baseline = readPatientState(sql, patient);
       const locks = JSON.stringify(sql.rows(`SELECT * FROM casemgmt_note_lock WHERE demographic_no=${patient} ORDER BY id`));
       const refused = await context.request.post(endpoint, {
-        form: { method: 'issueDelete', deleteId: deletionIndex, demographicNo: patient, chartContext: token,
+        // Delete names the patient issue itself, never its row position (#6090).
+        form: { method: 'issueDelete', caseIssueId: issueId, demographicNo: patient, chartContext: token,
           observation_date: '14-Oct-2026 10:00', 'CSRF-TOKEN': csrf },
         headers: { 'CSRF-TOKEN': csrf }, failOnStatusCode: false, maxRedirects: 0,
       });

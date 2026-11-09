@@ -1592,7 +1592,10 @@ DELIMITER ;`);
             const body = new URLSearchParams(new FormData(form));
             if (!body.get('chartContext')) throw new Error('The rendered issue form has no chart context');
             body.set('method', 'issueChange');
-            body.set('lineId', index[1]);
+            // The row's control names its patient issue and the one value chosen (#6090).
+            body.set('caseIssueId', radio.getAttribute('data-case-issue-id'));
+            body.set('issueField', 'certain');
+            body.set('issueValue', 'true');
             body.set('ajax', 'true');
             body.set(radioName, 'true');
             body.set('CSRF-TOKEN', csrf);

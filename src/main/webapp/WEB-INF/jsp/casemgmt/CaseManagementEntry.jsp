@@ -319,9 +319,9 @@
         <c:if test="${param.from=='casemgmt'||requestScope.from=='casemgmt'}">
             <input type="hidden" name="from" value="casemgmt"/>
         </c:if>
-        <input type="hidden" name="lineId" value="0"/>
         <input type="hidden" name="addIssue" value="null"/>
-        <input type="hidden" name="deleteId" value="0"/>
+        <%-- Patient issue (casemgmt_issue id) a Delete or Change Issue button targets; never a row position (#6090). --%>
+        <input type="hidden" name="caseIssueId" value=""/>
 
         <b><fmt:message key="casemanagementEntry.clientname"/>
             <I>
@@ -420,12 +420,14 @@
                 <c:if test="${cbb.issueDisplay.location eq 'local'}">
                     <c:if test="${!cbb.used}">
                         <button type="submit" 
-                                onclick="this.form.method.value='issueDelete'; this.form.deleteId.value='${status.index}';">
+                                onclick="this.form.method.value='issueDelete'; this.form.caseIssueId.value=this.getAttribute('data-case-issue-id');"
+                                data-case-issue-id="<carlos:encode value='${cbb.issue.id}' context='htmlAttribute'/>">
                             Delete
                         </button>
                     </c:if>
                     <button type="submit" 
-                            onclick="this.form.method.value='changeDiagnosis'; this.form.deleteId.value='${status.index}';">
+                            onclick="this.form.method.value='changeDiagnosis'; this.form.caseIssueId.value=this.getAttribute('data-case-issue-id');"
+                            data-case-issue-id="<carlos:encode value='${cbb.issue.id}' context='htmlAttribute'/>">
                         Change Issue
                     </button>
                 </c:if>

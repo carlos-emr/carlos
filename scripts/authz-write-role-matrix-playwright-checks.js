@@ -248,8 +248,8 @@ async function issueChange(s, { restricted, restrictedToken, fullToken, name, ca
     h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_issue WHERE demographic_no=${patient}`) === '1', 'The patient has more than the one seeded issue');
   });
 
-  // What the full login's UI really sent, and the one change the replays add to it (a second flag, so the probe
-  // sets resolved and one of acute / certain / major, as the finding is about any of the four).
+  // What the full login's UI really sent, and the one change the replays make to it (they set Major instead of
+  // Resolved, as the finding is about any of the four flags and one request now carries exactly one).
   let captured;
   let overrides;
   const replay = (token) => R.buildReplay(captured, { origin, token, overrides });
@@ -266,15 +266,16 @@ async function issueChange(s, { restricted, restrictedToken, fullToken, name, ca
     h.assert(captured.status === 200, `Choosing Resolved in the full login's chart answered HTTP ${captured.status}`);
     await R.expectCount(sql, 'casemgmt_issue', `id=${issueRow} AND resolved=1`, 1, 'The full login\'s own issueChange did not resolve the issue');
 
-    const field = [...captured.body.keys()].map((key) => /^issueCheckList\[(\d+)\]\.issue\.resolved$/.exec(key)).find(Boolean);
-    h.assert(field, 'The captured issueChange carries no issueCheckList[N].issue.resolved field');
-    overrides = { [`issueCheckList[${field[1]}].issue.major`]: 'true' };
+    // Since #6090 one issueChange names the patient issue and sets exactly the one attribute clicked.
+    h.assert(captured.body.get('caseIssueId') === issueRow && captured.body.get('issueField') === 'resolved'
+      && captured.body.get('issueValue') === 'true', 'The captured issueChange does not name the clicked issue and its Resolved value');
+    overrides = { issueField: 'major', issueValue: 'true' };
 
-    // Positive control: the request the probe sends, from the login that may write, writes both flags.
+    // Positive control: the request the probe sends, from the login that may write, writes that flag.
     reseed();
     const response = await R.sendReplay(s.context, replay(fullToken));
     h.assert(!h.isWafPage(response.status(), await response.text().catch(() => '')), 'The full login\'s replay was refused by the WAF front door, so it proves nothing about the request');
-    await R.expectCount(sql, 'casemgmt_issue', `id=${issueRow} AND resolved=1 AND major=1`, 1,
+    await R.expectCount(sql, 'casemgmt_issue', `id=${issueRow} AND resolved=0 AND major=1`, 1,
       `The same issueChange sent by the full login (HTTP ${response.status()}) did not write, so the replay is not a request the application accepts`);
     reseed();
   });
@@ -296,7 +297,7 @@ async function issueChange(s, { restricted, restrictedToken, fullToken, name, ca
     const where = h.pathOnly(response.headers().location || '');
     // Recorded for the run log only; the verdict is the next step's.
     const [flags] = sql.rows(`SELECT acute, certain, major, resolved FROM casemgmt_issue WHERE id=${issueRow}`);
-    console.log(`  probe ${name}: restricted issueChange (resolved + major) -> HTTP ${response.status()}${where ? ` to ${where}` : ''}; `
+    console.log(`  probe ${name}: restricted issueChange (major) -> HTTP ${response.status()}${where ? ` to ${where}` : ''}; `
       + `issue flags now acute=${flags[0]} certain=${flags[1]} major=${flags[2]} resolved=${flags[3]} (seeded 0 0 0 0)`);
   });
 
