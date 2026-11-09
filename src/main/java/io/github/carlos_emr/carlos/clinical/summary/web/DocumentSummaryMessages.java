@@ -10,6 +10,8 @@ import java.util.ResourceBundle;
 /** Clinician-facing messages the summary actions set as plain text, resolved from oscarResources like the JSP's fmt:message. */
 final class DocumentSummaryMessages {
     static final String BUNDLE = "oscarResources";
+    static final String LOCALE_ATTRIBUTE = "documentSummaryLocale";
+    static final String LANGUAGE_ATTRIBUTE = "documentSummaryLanguageTag";
     // There is no base oscarResources.properties, so the JDK's own fallback for a locale without a bundle
     // would be the server's default locale, whatever that happens to be. Resolve the browser's
     // preferences only, then English explicitly.
@@ -20,12 +22,22 @@ final class DocumentSummaryMessages {
 
     static String text(HttpServletRequest request, String key) {
         try {
-            return ResourceBundle.getBundle(BUNDLE, bundleLocale(request), REQUEST_LOCALE_ONLY).getString(key);
+            return ResourceBundle.getBundle(BUNDLE, prepare(request), REQUEST_LOCALE_ONLY).getString(key);
         } catch (MissingResourceException keyMissingInThatBundle) {
             // A key the resolved bundle lacks reads in English; a key English lacks is a programming
             // error and still throws.
             return ResourceBundle.getBundle(BUNDLE, Locale.ENGLISH, REQUEST_LOCALE_ONLY).getString(key);
         }
+    }
+
+    /** Resolve once per request for both action messages and the JSP's fmt locale and language. */
+    static Locale prepare(HttpServletRequest request) {
+        Object prepared = request.getAttribute(LOCALE_ATTRIBUTE);
+        if (prepared instanceof Locale locale) return locale;
+        Locale locale = bundleLocale(request);
+        request.setAttribute(LOCALE_ATTRIBUTE, locale);
+        request.setAttribute(LANGUAGE_ATTRIBUTE, locale.toLanguageTag());
+        return locale;
     }
 
     /**
@@ -35,6 +47,10 @@ final class DocumentSummaryMessages {
      * null for it, or for the single locale.
      */
     static Locale bundleLocale(HttpServletRequest request) {
+        // Like JSTL's Util.getRequestLocales: no Accept-Language means no browser preference,
+        // even when the container supplies its own default through getLocales().
+        Enumeration<String> languageHeaders = request.getHeaders("accept-language");
+        if (languageHeaders == null || !languageHeaders.hasMoreElements()) return Locale.ENGLISH;
         Enumeration<Locale> preferred = request.getLocales();
         if (preferred == null) {
             Locale single = request.getLocale();

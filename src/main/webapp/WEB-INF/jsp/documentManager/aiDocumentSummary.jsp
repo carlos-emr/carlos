@@ -7,9 +7,10 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
+<fmt:setLocale value="${documentSummaryLocale}"/>
 <fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
-<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
+<html lang="${carlos:forHtmlAttribute(documentSummaryLanguageTag)}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -31,7 +32,8 @@
     <p><a class="btn btn-outline-primary" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/ReviewAiDocumentSummary?documentId=${carlos:forHtmlAttribute(documentSummaryId)}"><fmt:message key="documentSummary.review.prepare"/></a></p>
 </c:if>
 <c:if test="${documentSummaryReviewWorkflow}">
-    <section class="alert alert-warning" aria-label="<fmt:message key="documentSummary.review.noticeLabel"/>">
+    <fmt:message key="documentSummary.review.noticeLabel" var="documentSummaryNoticeLabel"/>
+    <section class="alert alert-warning" aria-label="${carlos:forHtmlAttribute(documentSummaryNoticeLabel)}">
         <p class="document-summary-text"><carlos:encode value="${documentSummaryNotice}"/></p>
     </section>
     <p><a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/ManageDocument?method=display&amp;doc_no=${carlos:forHtmlAttribute(documentSummaryId)}"><fmt:message key="documentSummary.review.openOriginal"/></a></p>
@@ -43,9 +45,9 @@
 <c:choose>
     <c:when test="${documentSummaryGenerated}">
         <c:if test="${documentSummaryReviewWorkflow}">
-            <p><fmt:message key="documentSummary.review.generated"/> <carlos:encode value="${documentSummaryGeneratedAt}"/></p>
+            <p><fmt:message key="documentSummary.review.generatedAt"><fmt:param><carlos:encode value="${documentSummaryGeneratedAt}"/></fmt:param></fmt:message></p>
             <c:if test="${not empty documentSummaryRevisedAt}">
-                <p><fmt:message key="documentSummary.review.revised"/> <carlos:encode value="${documentSummaryRevisedAt}"/>.</p>
+                <p><fmt:message key="documentSummary.review.revisedAt"><fmt:param><carlos:encode value="${documentSummaryRevisedAt}"/></fmt:param></fmt:message></p>
             </c:if>
             <p><a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/ReviewedAiSummaryOriginal?documentId=${carlos:forHtmlAttribute(documentSummaryId)}&amp;draftId=${carlos:forHtmlAttribute(documentSummaryDraftId)}"><fmt:message key="documentSummary.review.downloadOriginal"/></a></p>
         </c:if>
@@ -113,7 +115,8 @@
         </c:if>
     </c:when>
     <c:otherwise>
-        <form id="document-summary-form" data-pending="<fmt:message key="documentSummary.pending"/>" method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/${documentSummaryReviewWorkflow ? 'GenerateReviewedAiDocumentSummary' : 'GenerateAiDocumentSummary'}">
+        <fmt:message key="documentSummary.pending" var="documentSummaryPendingLabel"/>
+        <form id="document-summary-form" data-pending="${carlos:forHtmlAttribute(documentSummaryPendingLabel)}" method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/${documentSummaryReviewWorkflow ? 'GenerateReviewedAiDocumentSummary' : 'GenerateAiDocumentSummary'}">
             <input type="hidden" name="documentId" value="${carlos:forHtmlAttribute(documentSummaryId)}">
             <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
             <button type="submit" class="btn btn-primary" <c:if test="${not documentSummaryAllowed}">disabled</c:if>><fmt:message key="documentSummary.generate"/></button>

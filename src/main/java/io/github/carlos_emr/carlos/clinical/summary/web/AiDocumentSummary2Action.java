@@ -86,6 +86,7 @@ public final class AiDocumentSummary2Action extends ActionSupport {
             return NONE;
         }
         var document = authorizedDocument(user, documentId);
+        DocumentSummaryMessages.prepare(request);
         String contentUnavailable = DocumentSummaryMessages.text(request, "documentSummary.contentUnavailable");
         ClinicalSummaryTextExtractor.Extract extract = extract(document.filename(), document.contentType(), contentUnavailable);
         request.setAttribute("documentSummaryId", documentId);

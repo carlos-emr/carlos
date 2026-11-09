@@ -512,6 +512,8 @@ class AiReviewedDocumentSummaryActionUnitTest {
         verify(request, never()).setAttribute(eq("documentSummaryCorrectionError"), any());
     }
     @Test void clinicianMessagesFollowTheRequestLocale() throws Exception {
+        when(request.getHeaders("accept-language")).thenAnswer(ignored ->
+                java.util.Collections.enumeration(List.of("fr-CA")));
         var review = generate(); approve(review);
         when(request.getLocale()).thenReturn(Locale.CANADA_FRENCH);
         correction(review, "FAKE document.", "Totally unrelated zebra.");
@@ -529,6 +531,8 @@ class AiReviewedDocumentSummaryActionUnitTest {
                 .getString(AiReviewedDocumentSummary2Action.REVIEW_UNAVAILABLE_KEY));
     }
     @Test void clinicianMessagesReadInEnglishForALocaleWithoutABundleAndStillFailOnAMissingKey() {
+        when(request.getHeaders("accept-language")).thenAnswer(ignored ->
+                java.util.Collections.enumeration(List.of("de")));
         when(request.getLocale()).thenReturn(Locale.GERMAN);
         assertThat(DocumentSummaryMessages.text(request, AiReviewedDocumentSummary2Action.CORRECTION_NOT_SAVED_KEY))
                 .isEqualTo(message(AiReviewedDocumentSummary2Action.CORRECTION_NOT_SAVED_KEY));
@@ -541,6 +545,8 @@ class AiReviewedDocumentSummaryActionUnitTest {
         }
     }
     @Test void clinicianMessagesWalkTheBrowsersPreferencesLikeFmtMessage() {
+        when(request.getHeaders("accept-language")).thenAnswer(ignored ->
+                java.util.Collections.enumeration(List.of("de, fr-CA")));
         // "de, fr": no German bundle, so French, as JSTL's fmt:message resolves it for the page.
         when(request.getLocales()).thenReturn(java.util.Collections.enumeration(List.of(Locale.GERMAN, Locale.CANADA_FRENCH)));
         assertThat(DocumentSummaryMessages.bundleLocale(request)).isEqualTo(Locale.CANADA_FRENCH);

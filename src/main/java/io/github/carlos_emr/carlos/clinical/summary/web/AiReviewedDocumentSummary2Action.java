@@ -75,6 +75,7 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
         var actor = LoggedInInfo.getLoggedInInfoFromSession(request);
         var session = request.getSession(false);
         if (actor == null || session == null) throw new SecurityException("Authenticated clinician session required.");
+        DocumentSummaryMessages.prepare(request);
         request.setAttribute("documentSummaryId", documentId);
         request.setAttribute("documentSummaryReviewWorkflow", true);
         request.setAttribute("documentSummaryAllowed", true);

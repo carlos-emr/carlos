@@ -112,7 +112,7 @@ class AiDocumentSummaryJspRegressionTest {
         java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("<fmt:message\\b[^>]*\\bkey=\"([^\"$]+)\"").matcher(source);
         while (matcher.find()) keys.add(matcher.group(1));
         assertThat(keys).contains("documentSummary.review.prepare", "documentSummary.review.noticeLabel",
-                "documentSummary.review.openOriginal", "documentSummary.review.generated", "documentSummary.review.revised",
+                "documentSummary.review.openOriginal", "documentSummary.review.generatedAt", "documentSummary.review.revisedAt",
                 "documentSummary.review.downloadOriginal", "documentSummary.review.correctHeading",
                 "documentSummary.review.correctHelp", "documentSummary.overview", "documentSummary.review.point",
                 "documentSummary.review.removePoint", "documentSummary.review.save", "documentSummary.review.confirmSaved",
@@ -128,7 +128,7 @@ class AiDocumentSummaryJspRegressionTest {
             for (String key : keys) {
                 String value = bundle.getProperty(key);
                 assertThat(value).as("%s in oscarResources_%s.properties", key, locale).isNotBlank();
-                if (!"en".equals(locale) && !key.endsWith(".point")) {
+                if (!"en".equals(locale) && !("fr".equals(locale) && "documentSummary.review.point".equals(key))) {
                     assertThat(value).as("%s should be translated in %s", key, locale).isNotEqualTo(english.getProperty(key));
                 }
             }
@@ -140,26 +140,40 @@ class AiDocumentSummaryJspRegressionTest {
                 "Discard this draft", "Remove point ${", ">Point ${", ">Overview<", "Generated: ", "Clinician text revision: ");
     }
 
-    /** Bundle text inside an attribute must not close it, and {0} keys are exactly the ones given a fmt:param. */
+    /** Bundle labels are encoded in attributes, and {0} keys are exactly the ones given a fmt:param. */
     @Test
-    @DisplayName("should keep attribute-bound values quote-free and parameterised keys matched to fmt:param")
-    void shouldKeepAttributeValuesQuoteFree_andParameterisedKeysMatchedToFmtParam() throws IOException {
+    @DisplayName("should encode attribute-bound values and match parameterised keys to fmt:param")
+    void shouldEncodeAttributeValues_andMatchParameterisedKeysToFmtParam() throws IOException {
         String source = Files.readString(AI_DOCUMENT_SUMMARY_JSP, StandardCharsets.UTF_8);
         java.util.Set<String> attributeKeys = new java.util.LinkedHashSet<>();
         java.util.regex.Matcher inAttribute = java.util.regex.Pattern
                 .compile("=\"<fmt:message\\b[^>]*\\bkey=\"([^\"$]+)\"\\s*/>\"").matcher(source);
         while (inAttribute.find()) attributeKeys.add(inAttribute.group(1));
-        assertThat(attributeKeys).contains("documentSummary.review.noticeLabel", "documentSummary.pending");
+        assertThat(attributeKeys).isEmpty();
+        assertThat(source).contains(
+                "<fmt:message key=\"documentSummary.review.noticeLabel\" var=\"documentSummaryNoticeLabel\"/>",
+                "aria-label=\"${carlos:forHtmlAttribute(documentSummaryNoticeLabel)}\"",
+                "<fmt:message key=\"documentSummary.pending\" var=\"documentSummaryPendingLabel\"/>",
+                "data-pending=\"${carlos:forHtmlAttribute(documentSummaryPendingLabel)}\"",
+                "<fmt:setLocale value=\"${documentSummaryLocale}\"/>",
+                "<html lang=\"${carlos:forHtmlAttribute(documentSummaryLanguageTag)}\">");
+        String hostileLabel = "FAKE \" onmouseover=\"alert(1) & <notice>";
+        assertThat(io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(hostileLabel))
+                .doesNotContain("\"", "<notice>").contains("&");
         java.util.Set<String> parameterised = new java.util.LinkedHashSet<>();
         java.util.regex.Matcher withParam = java.util.regex.Pattern
                 .compile("<fmt:message\\b[^>]*\\bkey=\"([^\"$]+)\"\\s*>\\s*<fmt:param\\b").matcher(source);
         while (withParam.find()) parameterised.add(withParam.group(1));
-        assertThat(parameterised).containsExactlyInAnyOrder("documentSummary.review.point", "documentSummary.review.removePoint");
+        assertThat(parameterised).containsExactlyInAnyOrder("documentSummary.review.point", "documentSummary.review.removePoint",
+                "documentSummary.review.generatedAt", "documentSummary.review.revisedAt");
+        assertThat(source).contains(
+                "<fmt:param><carlos:encode value=\"${documentSummaryGeneratedAt}\"/></fmt:param>",
+                "<fmt:param><carlos:encode value=\"${documentSummaryRevisedAt}\"/></fmt:param>");
         for (String locale : new String[] {"en", "fr", "es", "pl", "pt_BR"}) {
             java.util.Properties bundle = bundle(locale);
-            for (String key : attributeKeys) {
+            for (String key : java.util.List.of("documentSummary.review.noticeLabel", "documentSummary.pending")) {
                 assertThat(bundle.getProperty(key)).as("%s in oscarResources_%s.properties", key, locale)
-                        .isNotBlank().doesNotContain("\"");
+                        .isNotBlank();
             }
             java.util.Set<String> placeholderKeys = new java.util.TreeSet<>();
             for (String name : bundle.stringPropertyNames()) {
