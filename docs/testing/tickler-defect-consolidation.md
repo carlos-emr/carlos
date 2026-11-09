@@ -1,7 +1,7 @@
 # Tickler defect consolidation
 
 Target: `release/2026.08`, initially reviewed at `9004536d`.
-This is the acceptance registry for the expanded PR #5687. Historical validation
+This is the acceptance registry for consolidated PR #6101, retaining the Delete work from #5687. Historical validation
 in that PR does not establish validation of the expanded candidate.
 
 | Ticket | Implementation | Required installed acceptance |
