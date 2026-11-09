@@ -1,5 +1,6 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 import importlib.util
+import hashlib
 import json
 from pathlib import Path
 import tempfile
@@ -47,6 +48,19 @@ class CliEvidenceContractTest(unittest.TestCase):
                         {"clinicalComplete": 1}, {"pendingUnits": 1}):
             with self.subTest(changed=changed), self.assertRaises(RuntimeError):
                 ENGINE.assert_complete(complete | changed)
+
+    def test_protected_report_receipt_must_match_the_actual_delivered_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "owned-report.bin"
+            path.write_bytes(b"owned evidence")
+            receipt = {"protectedPath": str(path), "bytes": path.stat().st_size,
+                       "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+            rows = [{"event": "PROTECTED_REPORTS", "reports": dict.fromkeys(
+                ("event", "error", "receipt", "units"), receipt)}]
+            ENGINE.assert_protected_reports(rows, Path)
+            path.write_bytes(b"changed evidence")
+            with self.assertRaisesRegex(RuntimeError, "size/hash"):
+                ENGINE.assert_protected_reports(rows, Path)
 
 
 if __name__ == "__main__":

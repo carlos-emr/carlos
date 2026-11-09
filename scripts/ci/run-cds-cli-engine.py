@@ -9,6 +9,7 @@ No credential, source XML or clinical report payload is printed by this script.
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
 import hashlib
 import json
 import os
@@ -115,6 +116,55 @@ def assert_complete(outcome: dict, copies: int = 1) -> None:
             and outcome.get("maintenanceReleasePending") is False and outcome.get("maintenanceReleaseState") == "RELEASED"):
         raise RuntimeError("clinical completion counters or delivery were incomplete")
 
+
+
+def assert_category_occurrences(complete: dict) -> None:
+    expected_categories = dict.fromkeys((
+        "Demographics", "PersonalHistory", "FamilyHistory", "PastHealth", "ProblemList", "RiskFactors",
+        "AllergiesAndAdverseReactions", "MedicationsAndTreatments", "Immunizations", "LaboratoryResults",
+        "Appointments", "ClinicalNotes", "CareElements", "AlertsAndSpecialNeeds", "NewCategory"), 1)
+    expected_categories["Reports"] = 2
+    category_rows = complete.get("categories", [])
+    categories = {value["category"]: value for value in category_rows}
+    if len(categories) != len(category_rows) or set(categories) != set(expected_categories):
+        raise RuntimeError("full contract corpus did not account for the exact expected category set")
+    for category, expected in expected_categories.items():
+        actual = categories[category]
+        if actual.get("expected") != expected or actual.get("committed") != expected \
+                or actual.get("alreadyComplete") != 0 or actual.get("pending") != 0:
+            raise RuntimeError("full contract corpus category occurrence counts did not match")
+
+
+def assert_native_projection(native: dict) -> None:
+    for key, expected in {"nativeProfessionalContacts": 2, "nativeDemographicContacts": 3,
+                          "nativeUnknownContactConsents": 3, "nativePreferredPharmacies": 1,
+                          "nativeLaboratoryResults": 1,
+                          "nativeLaboratoryProjection": 1,
+                          "nativeLaboratoryPrivateNoteIsolated": 1, "nativeDrugs": 1,
+                          "nativeAllergies": 1, "nativePreventions": 1, "nativeYearPreventions": 1,
+                          "nativeAppointments": 1, "nativeMeasurements": 2, "nativeDocuments": 2,
+                          "nativeUnclockedReports": 2, "nativeMonthReports": 1, "nativeUnknownReports": 1,
+                          "nativeFamilyPhysicians": 1, "nativeReferringPhysicians": 1,
+                          "nativeUnknownActivePharmacyConsents": 1, "nativeNotesWithoutObservationClock": 7,
+                          "nativeUnsignedAuthorFreeNotes": 7}.items():
+        if native.get(key) != expected:
+            raise RuntimeError("full contract corpus native association/result counts did not match")
+    if native.get("nativeNotes") != 7:
+        raise RuntimeError("full contract corpus did not create the expected native clinical notes")
+
+
+def assert_protected_reports(values: list[dict], path_from: Callable[[str], Path]) -> None:
+    reports = [row for row in values if row.get("event") == "PROTECTED_REPORTS"]
+    if len(reports) != 1 or set(reports[0].get("reports", {})) != {"event", "error", "receipt", "units"}:
+        raise RuntimeError("protected report set was incomplete")
+    for entry in reports[0]["reports"].values():
+        path = path_from(entry["protectedPath"])
+        sha = hashlib.sha256()
+        with path.open("rb") as stream:
+            for block in iter(lambda: stream.read(65536), b""):
+                sha.update(block)
+        if path.stat().st_size != entry["bytes"] or sha.hexdigest() != entry["sha256"]:
+            raise RuntimeError("protected report size/hash did not match its delivered receipt")
 
 
 def main() -> None:
@@ -387,50 +437,13 @@ print(json.dumps({'signal':'SIGKILL','verifiedServiceUid':uid,'javaPid':pid,'pro
         values = invoke("completed-" + operation, ["--" + operation, runs["ordinary"], *common], {0})
         assert_complete(result(values))
         if operation == "report":
-            reports = [row for row in values if row.get("event") == "PROTECTED_REPORTS"]
-            if len(reports) != 1 or set(reports[0].get("reports", {})) != {"event", "error", "receipt", "units"}:
-                raise RuntimeError("protected report set was incomplete")
-            for entry in reports[0]["reports"].values():
-                path = path_from(entry["protectedPath"])
-                sha = hashlib.sha256()
-                with path.open("rb") as stream:
-                    for block in iter(lambda: stream.read(65536), b""):
-                        sha.update(block)
-                if path.stat().st_size != entry["bytes"] or sha.hexdigest() != entry["sha256"]:
-                    raise RuntimeError("protected report size/hash did not match its delivered receipt")
+            assert_protected_reports(values, path_from)
     invoke("unapproved-provider", ["--status", runs["ordinary"], "--provider", "T099"], {3})
     complete = submit("all-categories", metadata["sources"]["allcategory"])
     assert_complete(complete)
-    expected_categories = dict.fromkeys((
-        "Demographics", "PersonalHistory", "FamilyHistory", "PastHealth", "ProblemList", "RiskFactors",
-        "AllergiesAndAdverseReactions", "MedicationsAndTreatments", "Immunizations", "LaboratoryResults",
-        "Appointments", "ClinicalNotes", "CareElements", "AlertsAndSpecialNeeds", "NewCategory"), 1)
-    expected_categories["Reports"] = 2
-    category_rows = complete.get("categories", [])
-    categories = {value["category"]: value for value in category_rows}
-    if len(categories) != len(category_rows) or set(categories) != set(expected_categories):
-        raise RuntimeError("full contract corpus did not account for the exact expected category set")
-    for category, expected in expected_categories.items():
-        actual = categories[category]
-        if actual.get("expected") != expected or actual.get("committed") != expected \
-                or actual.get("alreadyComplete") != 0 or actual.get("pending") != 0:
-            raise RuntimeError("full contract corpus category occurrence counts did not match")
+    assert_category_occurrences(complete)
     native = fixture("inspect", runs["all-categories"])
-    for key, expected in {"nativeProfessionalContacts": 2, "nativeDemographicContacts": 3,
-                          "nativeUnknownContactConsents": 3, "nativePreferredPharmacies": 1,
-                          "nativeLaboratoryResults": 1,
-                          "nativeLaboratoryProjection": 1,
-                          "nativeLaboratoryPrivateNoteIsolated": 1, "nativeDrugs": 1,
-                          "nativeAllergies": 1, "nativePreventions": 1, "nativeYearPreventions": 1,
-                          "nativeAppointments": 1, "nativeMeasurements": 2, "nativeDocuments": 2,
-                          "nativeUnclockedReports": 2, "nativeMonthReports": 1, "nativeUnknownReports": 1,
-                          "nativeFamilyPhysicians": 1, "nativeReferringPhysicians": 1,
-                          "nativeUnknownActivePharmacyConsents": 1, "nativeNotesWithoutObservationClock": 7,
-                          "nativeUnsignedAuthorFreeNotes": 7}.items():
-        if native.get(key) != expected:
-            raise RuntimeError("full contract corpus native association/result counts did not match")
-    if native.get("nativeNotes") != 7:
-        raise RuntimeError("full contract corpus did not create the expected native clinical notes")
+    assert_native_projection(native)
     alpha = submit("all-categories-alphanumeric", metadata["sources"]["allcategoryAlpha"],
                    selected_provider=str(metadata["alphanumericProvider"]))
     assert_complete(alpha)
