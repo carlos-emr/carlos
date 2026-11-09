@@ -21,8 +21,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends /tmp/cli-packag
     && groupadd --system carlos \
     && useradd --system --gid carlos --home-dir /var/lib/carlos-emr --create-home --shell /usr/sbin/nologin carlos
 WORKDIR /workspace
-# Match the actual installed CLI's deliberately minimal process locale. Both
-# transports use this image's JVM default zone and the explicit clinical zone.
+# Match the actual installed CLI's deliberately minimal process locale. Tomcat
+# separately matches the CLI bootstrap's explicit clinical default time zone.
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 USER carlos
 CMD ["sleep", "infinity"]

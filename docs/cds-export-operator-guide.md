@@ -15,6 +15,9 @@ XML validation does not establish clinical completeness or OntarioMD certificati
    Flyway migrations, and retain database, document and durable CDS storage backups
    together. Use Java25 and the same frozen application/dependency/timezone bytes
    for web and CLI work. An accepted job records those compatibility bindings.
+   The CLI uses a minimal `C.UTF-8` process locale and sets Java's default time
+   zone to the configured clinical zone. Give the web JVM the same effective
+   locale and default zone; different runtime bindings prevent shared recovery.
    Original import fingerprints and metadata must never be rewritten to force
    compatibility.
 2. Keep `cds.export.enabled=false` until the deployment's permissions, policies,
