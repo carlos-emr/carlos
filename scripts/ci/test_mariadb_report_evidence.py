@@ -24,10 +24,6 @@ GROWTH_REQUIRED_CASES = {
     "shouldCommitDemographicAudit_whenLoadingWithoutAnMrp(boolean)[1]",
     "shouldCommitDemographicAudit_whenLoadingWithoutAnMrp(boolean)[2]",
 }
-NATIVE_REQUIRED_CASES = {
-    "EncounterFormDaoGroupedHistoryIntegrationTest": "shouldGroupPhysicalHistory_onTheNativeTable",
-    "LabRoutingLookupDaoIntegrationTest": "shouldPreserveBcLikeMatchingAndSpireShortestNameLimit_forProviderSearch",
-}
 
 
 TOKEN_REQUIRED_CASES = {
@@ -103,6 +99,12 @@ IDENTIFIER_REQUIRED_CASES = {
     "shouldRollbackTheNativeWrite_whenALaterFailureOccurs",
     "shouldRetainExplicitEmptyStringClears_inTheNativeTransaction",
     "shouldReportConflict_withoutOverwritingAnOlderTransactionSnapshot",
+}
+
+
+NATIVE_REQUIRED_CASES = {
+    "EncounterFormDaoGroupedHistoryIntegrationTest": "shouldGroupPhysicalHistory_onTheNativeTable",
+    "LabRoutingLookupDaoIntegrationTest": "shouldPreserveBcLikeMatchingAndSpireShortestNameLimit_forProviderSearch",
 }
 
 

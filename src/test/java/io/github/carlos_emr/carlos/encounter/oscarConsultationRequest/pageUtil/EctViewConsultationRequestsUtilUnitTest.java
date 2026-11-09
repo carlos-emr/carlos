@@ -129,9 +129,27 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
     }
 
     private ConsultationListRow row(Integer id, Integer demographic, Integer service, String mrp, Integer specialist) {
+        // Other timezone tests may initialize the shared renderer before restoring
+        // the JVM default. Build this batching fixture in that renderer's zone.
+        java.util.Date appointmentDate = java.util.Date.from(java.time.LocalDate.of(2097, 3, 14)
+                .atStartOfDay(org.apache.commons.lang3.time.DateFormatUtils.ISO_DATE_FORMAT.getTimeZone().toZoneId())
+                .toInstant());
         return new ConsultationListRow(id, "1", demographic, "alias", "201", service, service, null, specialist, " Smith ", null,
                 mrp, "Lovelace", "Ada", null, "site", "team", null,
-                java.sql.Date.valueOf("2097-03-14"), null, null, null);
+                appointmentDate, null, null, null);
+    }
+
+    @Test
+    void shouldBatchCalendarDates_whenDefaultZoneChangesAfterRendererInitialization() {
+        java.util.TimeZone rendererZone = org.apache.commons.lang3.time.DateFormatUtils.ISO_DATE_FORMAT.getTimeZone();
+        java.util.TimeZone previous = java.util.TimeZone.getDefault();
+        try {
+            java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone(
+                    rendererZone.getRawOffset() == 14 * 60 * 60 * 1000 ? "GMT-12:00" : "GMT+14:00"));
+            shouldBatchLookups_forManyRowsWithRepeatedPatientAndProvider();
+        } finally {
+            java.util.TimeZone.setDefault(previous);
+        }
     }
 
     @Test
