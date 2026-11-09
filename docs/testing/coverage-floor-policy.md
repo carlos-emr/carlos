@@ -71,3 +71,11 @@ unreviewed zero floors and misses 33 line, 41 instruction and 29 branch floors.
 No waiver or lower threshold is added; the complete native-lane union remains
 required. This metadata establishes freshness and does not qualify release
 coverage.
+
+The `4159843ab31c` merged-release H2 baseline records 35,804 cases (216 explicit
+routed/prerequisite skips), zero failures/errors and 704 source-bound floors.
+It retains six nonexecutable exclusions, 54 higher historical metrics and all
+ZIP refusal lines, including higher concurrent measurements. There are no
+zero-coverage waivers. Seventy-nine unreviewed zero floors and unmet higher
+metrics remain refused until the complete same-source native union and review
+requirements pass; source freshness alone does not qualify coverage.

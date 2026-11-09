@@ -1213,7 +1213,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 363,
+      "minimumCases": 378,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1356,8 +1356,10 @@
         "test_installed_smoke_signals.InstalledSignalEvidenceTest.test_row_counts_alone_cannot_hide_changed_credentials_or_leftover_files",
         "test_installed_smoke_signals.InstalledSignalEvidenceTest.test_timeout_records_failure_and_stops_before_another_installed_audit",
         "test_lifecycle_baselines.LifecycleBaselineTest.test_a_second_tag_on_the_same_commit_cannot_replace_historical_qualification",
+        "test_lifecycle_baselines.LifecycleBaselineTest.test_candidate_cli_upgrade_keeps_both_published_predecessors_unchanged",
         "test_lifecycle_baselines.LifecycleBaselineTest.test_distinct_historical_migration_and_cli_predecessor_is_required",
         "test_lifecycle_baselines.LifecycleBaselineTest.test_incomplete_package_province_or_published_identity_cannot_qualify",
+        "test_lifecycle_baselines.LifecycleBaselineTest.test_missing_stale_or_malformed_candidate_cli_cannot_qualify",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_added_abstract_methods_enum_constants_and_overloads_require_client_review",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_automatic_provider_discovery_retains_both_known_historical_implementations",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_explicit_xml_provider_requires_the_observed_historical_implementation",
@@ -1395,6 +1397,7 @@
         "test_node_case_inventory.NodeCaseInventoryTest.test_duplicate_invalid_or_missing_reviewed_cases_are_not_an_inventory",
         "test_node_case_inventory.NodeCaseInventoryTest.test_equal_counts_and_names_cannot_replace_a_required_generated_invocation",
         "test_node_case_inventory.NodeCaseInventoryTest.test_old_case_metadata_cannot_qualify_changed_test_source",
+        "test_package_lifecycle.PackageLifecycleTest.test_candidate_cli_pin_does_not_replace_either_predecessor_package",
         "test_package_lifecycle.PackageLifecycleTest.test_clean_cell_must_match_configured_package_even_with_identical_war_binding",
         "test_package_lifecycle.PackageLifecycleTest.test_failed_container_is_stopped_and_retained_and_uncertain_shutdown_cannot_pass",
         "test_package_lifecycle.PackageLifecycleTest.test_failed_result_retains_diagnosis_without_reading_unreconciled_private_files",

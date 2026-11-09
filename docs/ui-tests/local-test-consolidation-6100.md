@@ -299,3 +299,37 @@ stronger four-row Select All control require their own complete installed
 retake. Coverage metadata retains 673 floors, six nonexecutable exclusions,
 47 higher historical metrics and all ZIP refusal lines. Seventy-seven zero
 floors remain unreviewed, and the full H2 comparison remains unqualified.
+
+The `4159843ab31c` production source integrates the released prescription
+recovery changes. Its complete H2 execution passes 35,588 cases, with 216
+explicit routed/prerequisite skips and no failures/errors (35,804 total).
+The normal Ubuntu 26.04 source build produces both EMR and DrugRef packages.
+All 6,289 tested production class files match the built WAR and Debian payload;
+all 6,333 checked classes, JSPs and changed resources match the installed files.
+Production source remains identical through `0c95d9e7cfd`; its four additional
+upload/OAuth/consent test classes pass all 46 focused cases. Node 22 passes all
+7,848 cases in 555 files without skips or changed-source results. The refreshed
+coverage baseline retains 704 floors, six nonexecutable exclusions, 54 higher
+historical metrics and every ZIP refusal line. Its 79 unreviewed zero floors
+and unmet higher metrics remain failures; H2 alone does not qualify the required
+same-source native coverage union.
+
+Snapshot 29 requires the published CLI 1.3.2. Qualification now pins that
+candidate independently while preserving the published beta6 CLI 1.3.1 and
+historical beta5 CLI 1.3.0 as predecessor inputs. Three new required regressions
+cover distinct candidate/predecessor identities and refusal of missing, stale
+or malformed pins; all 378 Python tooling cases pass. An installed transition
+also refuses a stopped predecessor before attempting APT; the real negative
+probe confirms no transaction is attempted.
+
+The older disposable BC fixture had applied an unpublished BC migration at
+1.0.59.33. Published beta7 owns a different common migration at that version,
+so Flyway correctly refuses that fixture's checksum and keeps the application
+stopped. Published SQL and history are unchanged. The failed fixture, including
+its data, documents, key, logs and retained canary, is preserved in a private
+full cold export verified against a second filesystem export. Its package-only
+success result was explicitly invalidated; neither the failed readiness check
+nor its timed-out reinstall counts as a pass or a supported published N-1
+upgrade. Fresh canonical installation and installed retakes are tracked in the
+PR's current verification results. Earlier seven-check and two-check tickler
+passes remain bound to their original `3192f601a58a` application.
