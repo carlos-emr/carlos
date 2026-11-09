@@ -91,16 +91,24 @@ class DemographicWsEndpointTest extends CarlosSoapTestBase {
 
     @Test
     void shouldReturnNoConsentedPatients_whenTheProviderHasNoConsentType() {
+        when(visibility.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"),
+                org.mockito.ArgumentMatchers.isNull())).thenReturn(true);
         when(patientConsentManager.getProviderSpecificConsent(any(LoggedInInfo.class))).thenReturn(null);
         DemographicWs proxy = createClient(DemographicWs.class);
         assertThat(proxy.getConsentedDemographicIdsAfter(new java.util.GregorianCalendar(2026, 0, 2)))
                 .isNullOrEmpty();
         org.mockito.Mockito.verify(patientConsentManager, org.mockito.Mockito.never())
                 .getConsentsByTypeAndEditDate(any(), any(), any());
+        org.mockito.Mockito.verify(visibility, org.mockito.Mockito.never())
+                .getReadableDemographicIds(any(), org.mockito.ArgumentMatchers.anyCollection());
     }
 
     @Test
     void shouldPreserveConsentedPatientSelection_whenTheProviderHasAConsentType() {
+        when(visibility.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"),
+                org.mockito.ArgumentMatchers.isNull())).thenReturn(true);
+        when(visibility.getReadableDemographicIds(any(LoggedInInfo.class), eq(List.of(101, 202))))
+                .thenReturn(java.util.Set.of(101, 202));
         var type = new io.github.carlos_emr.carlos.commn.model.ConsentType();
         type.setId(91);
         when(patientConsentManager.getProviderSpecificConsent(any(LoggedInInfo.class))).thenReturn(type);
