@@ -78,6 +78,16 @@ public class RptMeasuringInstructionBeanHandler {
      *                                 code, as returned by
      *                                 {@code MeasurementDao.findDistinctMeasuringInstructionsByTypes}
      */
+    private RptMeasuringInstructionBeanHandler() { }
+
+    static RptMeasuringInstructionBeanHandler snapshot(RptMeasuringInstructionBeanHandler source) {
+        var result = new RptMeasuringInstructionBeanHandler();
+        for (var instruction : source.getMeasuringInstrcVector()) {
+            result.measuringInstrcVector.add(new RptMeasuringInstructionBean(instruction.getMeasuringInstrc()));
+        }
+        return result;
+    }
+
     public RptMeasuringInstructionBeanHandler(List<MeasurementType> typesForDisplayName,
                                               Map<String, List<String>> storedInstructionsByType) {
         Set<String> instructions = new LinkedHashSet<>();

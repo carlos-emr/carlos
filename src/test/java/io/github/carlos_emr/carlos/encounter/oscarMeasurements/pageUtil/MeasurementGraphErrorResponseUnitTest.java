@@ -166,14 +166,14 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldAnswer503WithoutRendering_whenMeasurementExtensionsCannotBeLoaded() throws Exception {
+    void shouldAnswer500WithoutRendering_whenMeasurementExtensionsCannotBeLoaded() throws Exception {
         request.setParameter("method", "inclRef");
         when(extensions.getMeasurementsExtByMeasurementId(42)).thenThrow(new IllegalStateException("Synthetic database unavailable"));
         AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
         executeMeasurementChart("63", rendered);
 
         assertThat(rendered).hasNullValue();
-        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getStatus()).isEqualTo(500);
         assertThat(response.getContentType()).isNotEqualTo("image/png");
         assertThat(response.getContentAsByteArray()).isEmpty();
     }

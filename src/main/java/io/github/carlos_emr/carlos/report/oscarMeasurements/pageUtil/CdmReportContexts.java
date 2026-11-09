@@ -17,23 +17,35 @@ public final class CdmReportContexts {
 
     private CdmReportContexts() { }
 
-    public static String issue(HttpServletRequest request) {
+    static String issue(HttpServletRequest request) {
         return issue(request, System.currentTimeMillis());
     }
 
     static String issue(HttpServletRequest request, long now) {
+        Map<String, Object> attributes = new LinkedHashMap<>();
+        for (String name : new String[]{"measurementTypes", "CDMGroup", "today", "lastYear"}) {
+            Object value = request.getSession().getAttribute(name);
+            if (value != null) attributes.put(name, value);
+        }
+        return issue(request, attributes, now);
+    }
+
+    public static String issue(HttpServletRequest request, Map<String, Object> attributes) {
+        return issue(request, attributes, System.currentTimeMillis());
+    }
+
+    static String issue(HttpServletRequest request, Map<String, Object> attributes, long now) {
         HttpSession session = request.getSession();
         synchronized (session) {
             Map<String, Entry> entries = entries(session);
             entries.values().removeIf(entry -> now - entry.created() >= TTL_MILLIS);
             while (entries.size() >= CAPACITY) entries.remove(entries.keySet().iterator().next());
-            Map<String, Object> attributes = new LinkedHashMap<>();
-            for (String name : new String[]{"measurementTypes", "CDMGroup", "today", "lastYear"}) {
-                Object value = session.getAttribute(name);
-                if (value != null) attributes.put(name, value);
+            Map<String, Object> snapshot = new LinkedHashMap<>(attributes);
+            if (snapshot.get("measurementTypes") instanceof RptMeasurementTypesBeanHandler definitions) {
+                snapshot.put("measurementTypes", RptMeasurementTypesBeanHandler.snapshot(definitions));
             }
             String token = UUID.randomUUID().toString();
-            entries.put(token, new Entry(now, Map.copyOf(attributes)));
+            entries.put(token, new Entry(now, Map.copyOf(snapshot)));
             restore(request, token, entries.get(token));
             return token;
         }
@@ -59,6 +71,12 @@ public final class CdmReportContexts {
         }
     }
 
+    public static void refuse(jakarta.servlet.http.HttpServletResponse response, org.apache.struts2.ActionSupport action)
+            throws java.io.IOException {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_CONFLICT,
+                action.getText("oscarReport.CDMReport.msgStaleForm"));
+    }
+
     private static boolean selectorsMatch(HttpServletRequest request, Entry entry) {
         Object stored = entry.attributes().get("measurementTypes");
         if (!(stored instanceof RptMeasurementTypesBeanHandler definitions)) return false;
@@ -68,9 +86,11 @@ public final class CdmReportContexts {
             for (String suffix : new String[]{"", "C", "D"}) {
                 allowed.put("value(measurementType" + suffix + row + ")", java.util.Set.of(type));
                 var instructions = definitions.getMeasuringInstrcBeanVector().get(row).getMeasuringInstrcVector();
+                var choices = new java.util.HashSet<String>();
+                for (var instruction : instructions) choices.add(instruction.getMeasuringInstrc());
                 for (int column = 0; column < instructions.size(); column++) {
                     String key = "value(mInstrcsCheckbox" + suffix + row + column + ")";
-                    allowed.computeIfAbsent(key, ignored -> new java.util.HashSet<>()).add(instructions.get(column).getMeasuringInstrc());
+                    allowed.computeIfAbsent(key, ignored -> new java.util.HashSet<>()).addAll(choices);
                 }
             }
         }

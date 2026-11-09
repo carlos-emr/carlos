@@ -64,7 +64,7 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
             throw new SecurityException("missing required sec object (_report)");
         }
         if (!CdmReportContexts.bind(request)) {
-            response.sendError(HttpServletResponse.SC_CONFLICT, "CDM report form expired; reopen the report selection.");
+            CdmReportContexts.refuse(response, this);
             return NONE;
         }
 

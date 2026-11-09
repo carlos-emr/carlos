@@ -92,7 +92,8 @@ public final class RptSelectCDMReport2Action extends ActionSupport {
         session.setAttribute("today", today); // nosemgrep: tainted-session-from-http-request -- server-generated date string from GregorianCalendar
         session.setAttribute("lastYear", lastYear); // nosemgrep: tainted-session-from-http-request -- server-generated date string from GregorianCalendar
 
-        CdmReportContexts.issue(request);
+        CdmReportContexts.issue(request, Map.of("measurementTypes", hd, "CDMGroup", CDMgroup == null ? "" : CDMgroup,
+                "today", today, "lastYear", lastYear));
 
         if (forward != null) {
             if (forward.compareTo("patientWhoMetGuideline") == 0) {

@@ -8,7 +8,7 @@
         "scripts/chart-draw-playwright-checks.js"
       ],
       "source": "scripts/chart-draw-playwright-checks.js",
-      "sourceSha256": "3b4e29dfe4741e96b26a8120fc8477903388030b2b711795f389887b986b6a9b",
+      "sourceSha256": "6aa46c6078223c7747bbda9c5c580f47d57634bb7975b18d177d349a84d469ef",
       "minimumAssertions": 1775
     },
     {

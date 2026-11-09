@@ -184,6 +184,17 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
             when(request.getAttribute(anyString())).thenAnswer(call -> requestAttributes.get(call.getArgument(0)));
             org.mockito.Mockito.doAnswer(call -> { requestAttributes.put(call.getArgument(0), call.getArgument(1)); return null; })
                     .when(request).setAttribute(anyString(), any());
+            when(request.getParameterMap()).thenAnswer(ignored -> {
+                Map<String, String[]> parameters = new java.util.LinkedHashMap<>();
+                for (var stub : org.mockito.Mockito.mockingDetails(request).getStubbings()) {
+                    var call = stub.getInvocation();
+                    if (call.getMethod().getName().equals("getParameter") && call.getArguments()[0] instanceof String name) {
+                        String value = request.getParameter(name);
+                        if (value != null) parameters.put(name, new String[]{value});
+                    }
+                }
+                return parameters;
+            });
             String context = CdmReportContexts.issue(request);
             when(request.getParameter(CdmReportContexts.PARAMETER)).thenReturn(context);
             clearInvocations(measurementDao);
@@ -346,8 +357,8 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
             assertThat(result).isEqualTo("success");
             // Two instructions were rendered for row 0, so validate + report read exactly two
             // checkbox fields each and never probe a third; the DAO sees one query per instruction.
-            verify(request, times(2)).getParameter("value(mInstrcsCheckbox00)");
-            verify(request, times(2)).getParameter("value(mInstrcsCheckbox01)");
+            verify(request, times(3)).getParameter("value(mInstrcsCheckbox00)");
+            verify(request, times(3)).getParameter("value(mInstrcsCheckbox01)");
             verify(request, never()).getParameter(startsWith("value(mInstrcsCheckbox02"));
             verify(measurementDao, times(2)).findLastEntered(any(Date.class), any(Date.class), eq("AACP"), anyString());
         }
@@ -391,10 +402,10 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
 
             String result = action.execute();
 
-            assertThat(result).isEqualTo("input");
+            assertThat(result).isEqualTo("none");
             verifyNoInteractions(measurementDao);
             verifyNoInteractions(formsDao);
-            verify(response, never()).sendRedirect(anyString());
+            verify(response).sendError(eq(409), any());
         }
 
         @Test
@@ -405,7 +416,7 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
 
             String result = action.execute();
 
-            assertThat(result).isEqualTo("input");
+            assertThat(result).isEqualTo("none");
             verify(measurementDao, never()).findLastEntered(any(Date.class), any(Date.class), anyString(), anyString());
             verifyNoInteractions(formsDao);
         }

@@ -51,6 +51,20 @@ public class RptMeasurementTypesBeanHandler {
     Vector<RptMeasurementTypesBean> measurementTypeVector = new Vector<RptMeasurementTypesBean>();
     Vector<RptMeasuringInstructionBeanHandler> measuringInstrcBeanVector = new Vector<RptMeasuringInstructionBeanHandler>();
 
+    private RptMeasurementTypesBeanHandler() { }
+
+    static RptMeasurementTypesBeanHandler snapshot(RptMeasurementTypesBeanHandler source) {
+        var result = new RptMeasurementTypesBeanHandler();
+        for (var type : source.getMeasurementTypeVector()) {
+            result.measurementTypeVector.add(new RptMeasurementTypesBean(type.getId(), type.getType(),
+                    type.getTypeDisplayName(), type.getTypeDesc(), type.getMeasuringInstrc(), type.getValidation()));
+        }
+        for (var instructions : source.getMeasuringInstrcBeanVector()) {
+            result.measuringInstrcBeanVector.add(RptMeasuringInstructionBeanHandler.snapshot(instructions));
+        }
+        return result;
+    }
+
     public RptMeasurementTypesBeanHandler(String groupName) {
         init(groupName);
     }

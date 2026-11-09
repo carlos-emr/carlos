@@ -154,7 +154,10 @@
             </table>
 
 
-            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements?method=ChartMeds&demographic_no=<carlos:encode value='<%= demographicNo %>' context="uriComponent"/><%=drugForGraph%>"/>
+            <img alt="Clinical graph" onerror="document.getElementById('graphUnavailable').hidden=false" src="<%= request.getContextPath() %>/encounter/GraphMeasurements?method=ChartMeds&demographic_no=<carlos:encode value='<%= demographicNo %>' context="uriComponent"/><%=drugForGraph%>"/>
+            <p id="graphUnavailable" hidden role="alert">Graph unavailable. Retry or contact your administrator.
+                <button type="button" onclick="window.location.reload()">Retry</button>
+            </p>
 
 
             <fieldset>

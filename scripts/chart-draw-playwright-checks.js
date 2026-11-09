@@ -378,6 +378,20 @@ async function main() {
             assert.deepEqual(errors, [], `${fixture.name}: page errors`);
         }
 
+        const notice = '2 qualified or nonnumeric results are not plotted; consult the source history.';
+        const warned = await draw(page, { ...JSON.parse(fs.readFileSync(path.join(FIXTURES, 'default-2pt.json'), 'utf8')).input,
+            exclusionNotice: notice }, 1000, 600);
+        assert.equal(warned.canvases.reduce((sum, canvas) => sum + canvas.height, 0), 600,
+            'exclusion notice preserves endpoint image dimensions');
+        assert.equal(warned.canvases.length, 2, 'exclusion notice has a reserved canvas band');
+        assert.ok(await page.evaluate(() => {
+            const canvas = document.querySelector('canvas:last-child');
+            const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+            let ink = 0;
+            for (let index = 0; index < pixels.length; index += 4) if (pixels[index] < 100 && pixels[index + 3] === 255) ink++;
+            return ink > 100;
+        }), 'exclusion explanation has actual visible ink');
+
         // A zero-length prescription is still visible: JFreeChart drew it as a one pixel line with its shadow.
         const thirteen = JSON.parse(fs.readFileSync(path.join(FIXTURES, 'chartmeds-13.json'), 'utf8'));
         const result = await draw(page, thirteen.input, thirteen.width, thirteen.height);
@@ -443,16 +457,24 @@ async function main() {
 
         // The fixed 1e-8 range expansion previously rounded away at this magnitude and left an
         // infinite tick loop. A wide range must also choose units beyond the former 5e12 ceiling.
-        for (const values of [[0], [99], [5_000_000], [12_500_000], [45_000_000], [-6_000_000], [12_500_000, 12_500_000], [100_000_000], [0, 1e20], [1e308]]) {
+        for (const values of [[0.05], [-0.05], [0], [99], [5_000_000], [12_500_000], [45_000_000], [-6_000_000], [12_500_000, 12_500_000], [100_000_000], [0, 1e20], [1e308]]) {
             const input = { ...hourly, datasets: [{ ...hourly.datasets[0], data: values.map((y, index) => ({ x: t0 + index * 86_400_000, y })) }] };
             const large = await draw(page, input, 1000, 600);
             const axis = large.charts[0].y;
             assert.ok(Number.isFinite(axis.min) && Number.isFinite(axis.max) && axis.max > axis.min, 'large values retain a finite nonzero axis range');
             assert.ok(axis.ticks.length > 0 && axis.ticks.length <= 1000, 'large values render a bounded number of ticks');
             assert.equal(new Set(axis.ticks.map(tick => tick.value)).size, axis.ticks.length, 'tick coordinates do not collapse at large magnitudes');
+            assert.ok(axis.min <= Math.min(...values), 'axis includes the smallest observation');
+            assert.ok(axis.max >= Math.max(...values), 'axis includes the largest observation');
+            assert.ok(new Set(axis.ticks.map(tick => tick.label)).size > 1, 'value labels remain distinguishable');
+            if (values.length === 1) {
+                assert.equal(large.charts[0].datasets[0].firstMarkerPixel, large.charts[0].datasets[0].backgroundColor,
+                    'single observation is visibly painted in its series colour');
+                if (values[0] !== 0) assert.ok(axis.max - axis.min <= Math.abs(values[0]), 'constant range scales with observation magnitude');
+            }
         }
         assert.deepEqual(errors, []);
-        console.log(`PASS: ${names.length} JFreeChart fixtures matched (ranges, ticks, labels, colours, fonts, dashed grids on both axes, legend, bars with shadows, item labels, reference ranges)`);
+        console.log(`PASS: ${names.length} chart fixtures passed (unaffected JFreeChart parity plus intentional single-point repair); constant-value and exclusion-notice regressions passed`);
     } finally {
         if (browser) await browser.close();
     }

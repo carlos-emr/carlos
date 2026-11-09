@@ -11,15 +11,14 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Map;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.Logger;
 
 /**
  * Renders the bundled Chart.js to the existing PNG/JPEG endpoint contract, including print views.
  *
  * <p>Each image is drawn in a fresh headless Chromium session from the renderer service shared
- * with eForm PDFs, so a chart costs a browser start and competes for the same two render slots.
+ * with eForm PDFs, so a chart costs a browser start. Class-aware admission shares a two-browser
+ * ceiling while preventing either work class from repeatedly overtaking the other.
  * The bundled scripts are read from the WAR once and reused; chart requests queue for a slot for
  * {@link EFormBrowserPdfService}'s slot wait rather than failing while the slots are merely busy.
  */
@@ -27,12 +26,7 @@ public final class BrowserChartRenderer {
     private static final Logger logger = MiscUtils.getLogger();
     private static final String LIBRARY = "/library/chartjs/chart.umd.min.js";
     private static final String DRAW_SCRIPT = "/library/chartjs/carlos-chart-draw.js";
-    private static final Semaphore SLOTS = EFormBrowserPdfService.RENDER_SLOTS;
-    /**
-     * Chart requests are short, so many may queue for a slot; the bound only keeps a stalled
-     * renderer from holding every servlet thread.
-     */
-    private static final Semaphore WAITERS = new Semaphore(16);
+
     private static volatile String bundledScripts;
     /**
      * The tallest image: ChartMeds grows 30px per drug past ten, and JFreeChart drew any count, so allow
@@ -51,27 +45,24 @@ public final class BrowserChartRenderer {
                 || !("png".equals(format) || "jpeg".equals(format))) {
             throw new IllegalArgumentException("Invalid chart image request");
         }
-        boolean acquired = false;
+        RenderAdmission.Lease lease = null;
+        ChartRenderFailure.Reason phase = ChartRenderFailure.Reason.UNAVAILABLE;
         EFormBrowserPdfService.RendererBrowser session = null;
         try {
-            if (!WAITERS.tryAcquire()) throw new IOException("Chart renderer is busy");
-            try {
-                acquired = SLOTS.tryAcquire(30, TimeUnit.SECONDS);
-            } finally {
-                WAITERS.release();
-            }
-            if (!acquired) throw new IOException("Chart renderer is busy");
+            lease = EFormBrowserPdfService.ADMISSION.acquire(RenderAdmission.Kind.CHART, Duration.ofSeconds(30));
+            if (lease == null) throw new ChartRenderFailure(ChartRenderFailure.Reason.BUSY, "Chart renderer is busy; please retry shortly.");
             String scripts = bundledScripts(context);
             BrowserOptions options = EFormBrowserPdfService.buildBrowserOptions(
                     EFormBrowserPdfService.resolveChromiumPath(), !EFormBrowserPdfService.sandboxEnabled(), "http://127.0.0.1");
             session = new EFormBrowserPdfService().createDriver(options);
+            phase = ChartRenderFailure.Reason.DRAW_FAILED;
             RenderBrowser browser = session.driver();
             browser.setTimeouts(Duration.ofSeconds(30), Duration.ofSeconds(30));
             browser.get("about:blank");
             browser.executeScript("const s=document.createElement('script'); s.textContent=arguments[0]; document.head.append(s);", scripts);
             Object drawn = browser.executeScript("return window.carlosDrawChart(arguments[0], arguments[1], arguments[2]).length > 0;",
                     chart.toConfig(), width, height);
-            if (!Boolean.TRUE.equals(drawn)) throw new IOException("Chart image is unavailable");
+            if (!Boolean.TRUE.equals(drawn)) throw new ChartRenderFailure(ChartRenderFailure.Reason.DRAW_FAILED, "Chart image is unavailable");
             Map<String, Object> capture = new java.util.LinkedHashMap<>();
             capture.put("format", format);
             capture.put("captureBeyondViewport", true);
@@ -80,18 +71,18 @@ public final class BrowserChartRenderer {
             if ("jpeg".equals(format)) capture.put("quality", 100);
             Map<String, Object> screenshot = browser.executeCdpCommand("Page.captureScreenshot", capture);
             Object data = screenshot.get("data");
-            if (!(data instanceof String encoded) || encoded.isEmpty()) throw new IOException("Chart image is unavailable");
+            if (!(data instanceof String encoded) || encoded.isEmpty()) throw new ChartRenderFailure(ChartRenderFailure.Reason.DRAW_FAILED, "Chart image is unavailable");
             output.write(Base64.getDecoder().decode(encoded));
         } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
-            throw new IOException("Chart rendering interrupted");
+            throw new ChartRenderFailure(ChartRenderFailure.Reason.INTERRUPTED, "Chart rendering interrupted");
         } catch (RuntimeException | io.github.carlos_emr.carlos.utility.PDFGenerationException failure) {
             // Browser errors can include clinical values; expose neither the reply nor its cause.
-            logger.warn("Chart rendering failed ({})", failure.getClass().getName());
-            throw new IOException("Chart rendering failed");
+            logger.warn("Chart rendering failed: reason={}", phase);
+            throw new ChartRenderFailure(phase, "Chart rendering failed");
         } finally {
             EFormBrowserPdfService.teardownQuietly(session);
-            if (acquired) SLOTS.release();
+            if (lease != null) lease.close();
         }
     }
 
@@ -106,7 +97,7 @@ public final class BrowserChartRenderer {
 
     private static String read(ServletContext context, String path) throws IOException {
         try (InputStream source = context.getResourceAsStream(path)) {
-            if (source == null) throw new IOException("Bundled chart script is unavailable: " + path);
+            if (source == null) throw new ChartRenderFailure(ChartRenderFailure.Reason.DRAW_FAILED, "Bundled chart script is unavailable");
             return new String(source.readAllBytes(), StandardCharsets.UTF_8);
         }
     }

@@ -133,10 +133,12 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             BrowserChartRenderer.write(request.getServletContext(), image, chart, width, height, "png");
         } catch (IOException | ParseException | RuntimeException unavailable) {
             // Parse/DAO/driver messages can include clinical values; retain only the failure type.
-            log.warn("Measurement graph unavailable ({})", unavailable.getClass().getSimpleName());
+            log.warn("Measurement graph unavailable: reason={}", io.github.carlos_emr.carlos.eform.util.ChartRenderFailure.code(unavailable));
             if (!response.isCommitted()) {
                 response.resetBuffer();
-                response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+                int status = io.github.carlos_emr.carlos.eform.util.ChartRenderFailure.status(unavailable);
+                if (status == 503) response.setHeader("Retry-After", "5");
+                response.sendError(status, "Graph unavailable; " + (status == 503 ? "retry shortly." : "review the source history or contact your administrator."));
             }
             return NONE;
         }
@@ -298,6 +300,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             String result = numericResult(measurement.getDataField());
             if (result != null) {
                 series.addOrUpdate(new Day(measurement.getDateObservedAsDate().toInstant()), plottedValue(measurement.getType(), result));
+            } else if (StringUtils.isNotBlank(measurement.getDataField())) {
+                dataset.excludeObservation();
             }
         }
         dataset.addSeries(series);
@@ -310,7 +314,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         }
         // A bound, titre, date or qualitative grade is not an exact observation.
         String numeric = result.trim();
-        if (numeric.matches("[+-]?[0-9]{1,3}(?:,[0-9]{3})+(?:\\.[0-9]+)?")) numeric = numeric.replace(",", "");
+        if (numeric.matches("[+-]?[1-9][0-9]{0,2}(?:,[0-9]{3})+(?:\\.[0-9]+)?")) numeric = numeric.replace(",", "");
         if (!numeric.matches("[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?")) {
             return null;
         }
@@ -398,7 +402,9 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         return MeasurementChart.lines(chartTitle, "Days", units, dataset)
                 .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.34).withPlotBackground(WHITE).withGridlines("#c0c0c0")
                 .withShapes().withItemLabels(MeasurementChart.labItemLabels(series.getItemCount(), labelBand))
-                .withReferenceRanges("Normal Reference Range", ranges);
+                .withReferenceRanges("Normal Reference Range", ranges)
+                .withExcludedObservations((int) values.stream().filter(value ->
+                        StringUtils.isNotBlank((String) value.get("result")) && numericResult((String) value.get("result")) == null).count());
     }
 
     private static void addLabValue(Series series, Map<String, Serializable> value) throws ParseException {
