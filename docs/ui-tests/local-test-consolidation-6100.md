@@ -205,3 +205,12 @@ four browser/PDF cases and four legacy compatibility cases. Those nine Java
 executions remain bound to that earlier source; they do not qualify the newly
 merged billing production bytes. The merged source needs its own CI report,
 coverage-baseline refresh, source-built packages and installed browser retakes.
+
+The next release update, `1062fe6a02f4` (#6101), advances tickler drafts,
+recipients, dates and cancellation handling. Its complete draft transport and
+real-signal note-dialog harness are retained. Conflict resolution also retains
+the unique visible clinic Change guard, explicit multisite prerequisite,
+billing-centre fixture ownership, document-format navigation restoration and
+translated unavailable-recipient warning. The repeated-draft regression now
+executes the production transport function and verifies every transported field.
+All 115 focused fixture, cancellation, draft and validation cases pass together.

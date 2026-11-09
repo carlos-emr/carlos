@@ -344,7 +344,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         action.setActiveText(new String[]{placeholder});
         action.setInactiveText(new String[]{placeholder});
 
-        assertThat(action.execute()).isEqualTo("close");
+        assertThat(action.updateTextSuggest()).isEqualTo("close");
         verifyNoInteractions(dao);
     }
 
@@ -355,7 +355,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         action.setActiveText(new String[]{"", "0", "  Active suggestion <follow-up>  "});
         action.setInactiveText(new String[]{" ", "0", "Inactive suggestion"});
 
-        assertThat(action.execute()).isEqualTo("close");
+        assertThat(action.updateTextSuggest()).isEqualTo("close");
         ArgumentCaptor<TicklerTextSuggest> saved = ArgumentCaptor.forClass(TicklerTextSuggest.class);
         verify(dao, org.mockito.Mockito.times(2)).persist(saved.capture());
         assertThat(saved.getAllValues()).extracting(TicklerTextSuggest::getSuggestedText)
@@ -389,7 +389,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         action.setActiveText(new String[]{"11", ""});
         action.setInactiveText(new String[]{"0", "12"});
 
-        assertThat(action.execute()).isEqualTo("close");
+        assertThat(action.updateTextSuggest()).isEqualTo("close");
         verify(dao).merge(active);
         verify(dao).merge(inactive);
         verify(dao, never()).persist(any());
@@ -411,7 +411,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         action.setActiveText(new String[]{"", "text:" + text});
         action.setInactiveText(new String[]{"text:" + text, "text: ", "text:"});
 
-        assertThat(action.execute()).isEqualTo("close");
+        assertThat(action.updateTextSuggest()).isEqualTo("close");
         ArgumentCaptor<TicklerTextSuggest> saved = ArgumentCaptor.forClass(TicklerTextSuggest.class);
         verify(dao, org.mockito.Mockito.times(2)).persist(saved.capture());
         assertThat(saved.getAllValues()).extracting(TicklerTextSuggest::getSuggestedText)
@@ -428,10 +428,36 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         action.setActiveText(new String[]{"text:literal"});
         action.setInactiveText(new String[]{""});
 
-        assertThat(action.execute()).isEqualTo("close");
+        assertThat(action.updateTextSuggest()).isEqualTo("close");
         ArgumentCaptor<TicklerTextSuggest> saved = ArgumentCaptor.forClass(TicklerTextSuggest.class);
         verify(dao).persist(saved.capture());
         assertThat(saved.getValue().getSuggestedText()).isEqualTo("text:literal");
     }
 
+
+    @Test
+    void shouldRejectSuggestedTextOperation_onTicklerRoute() {
+        request.setParameter("method", "updateTextSuggest");
+        assertThat(new TestableEditTickler2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(ticklerManager, ticklerAttachmentService);
+    }
+
+    @Test
+    void shouldRejectTicklerOperation_onSuggestedTextRoute() {
+        request.setParameter("method", "editTickler");
+        assertThat(new EditTicklerTextSuggest2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(ticklerManager, ticklerAttachmentService);
+    }
+
+    @Test
+    void shouldReturnBadRequest_forMissingSuggestedTextLists() {
+        request.setParameter("method", "updateTextSuggest");
+        assertThat(new EditTicklerTextSuggest2Action() {
+            @Override public String getText(String key) { return key; }
+        }.execute()).isEqualTo("failure");
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(ticklerManager, ticklerAttachmentService);
+    }
 }

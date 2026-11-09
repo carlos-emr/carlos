@@ -101,6 +101,7 @@ async function main() {
     const end = tickler.indexOf('function DateAdd(', start);
     assert.ok(start >= 0 && end > start, 'Missing shipping quick-pick/date functions');
     await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
+    await page.addScriptTag({ path: path.join(web, 'share/javascript/tickler-calendar.js') });
     await page.addScriptTag({ content: tickler.slice(start, end) });
     await page.evaluate(() => addQuickPick());
     assert.equal(await page.locator('#quickPickDateOptions a').count(), 40);

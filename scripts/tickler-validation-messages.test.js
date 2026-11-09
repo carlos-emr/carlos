@@ -89,11 +89,19 @@ test('native patient search carries the current Tickler draft through repeated a
   assert.ok(submitMatch,'Native Tickler patient search must carry the draft in its submit handler');
   const submit=submitMatch[1];
   assert.match(search,/<input type="hidden" name="ticklerMessage"/);
-  const carried={value:'old draft'},message={value:''};
-  const form={elements:{namedItem(name){assert.equal(name,'ticklerMessage');return carried;}}};
-  const submitDraft=vm.runInNewContext('(function(){'+submit+'})',{document:{getElementById(id){assert.equal(id,'ticklerMessage');return message;}}});
+  const source={ticklerMessage:{value:''},xml_appointment_date:{value:'2026-03-04'},priority:{value:'High'}};
+  const destination={ticklerMessage:{value:'old draft'},ticklerDraftDate:{value:''},ticklerDraftPriority:{value:''}};
+  const form={elements:{namedItem:name=>destination[name]}};
+  const prepare=pages[0].source.match(/(^[ \t]*)function prepareTicklerPatientSearch\(searchForm\) \{[\s\S]*?^\1\}/m);
+  assert.ok(prepare,'Native patient search must execute the complete production draft transport');
+  const context=vm.createContext({document:{forms:{namedItem(name){assert.equal(name,'serviceform');return {elements:{namedItem:field=>source[field]}};}}},
+    CarlosTicklerValidation:{show(){assert.fail('A complete draft must remain submittable');}},i18nDraftSearchUnavailable:'Unavailable draft'});
+  vm.runInContext(prepare[0],context);
+  const submitDraft=vm.runInContext('(function(){'+submit+'})',context);
   for(const draft of ['Unsaved H&P + "quotes" <tag>\nsecond line','Changed patient: é & %26','']){
-    message.value=draft;submitDraft.call(form);assert.equal(carried.value,draft);
+    source.ticklerMessage.value=draft;
+    assert.equal(submitDraft.call(form),true);
+    assert.deepEqual(Object.values(destination).map(field=>field.value),Object.values(source).map(field=>field.value));
   }
 });
 test('shared rendering keeps hostile message text inert and resetting hides and empties the alert', () => {
@@ -111,7 +119,12 @@ test('all validation messages are encoded bundle strings and browser selectors m
     const calls = [...page.source.matchAll(/CarlosTicklerValidation\.show\(([^\n]*)\);/g)];
     assert.ok(calls.length >= 1);
     for (const [, argument] of calls) {
-      const match = argument.match(/^'<carlos:encode value='<%= oscarBundle\.getString\("(tickler\.tickler(?:Add\.[A-Za-z]+|Edit\.attachments\.error))"\) %>' context="javaScriptBlock"\/>'$/);
+      if (argument === 'i18nDraftSearchUnavailable') {
+        assert.match(page.source, /const i18nDraftSearchUnavailable = '<carlos:encode value='<%= oscarBundle\.getString\("tickler\.draft\.searchUnavailable"\) %>' context="javaScriptBlock"\/>';/);
+        assert.ok(bundle.includes('tickler.draft.searchUnavailable='));
+        continue;
+      }
+      const match = argument.match(/^'<carlos:encode value='<%= oscarBundle\.getString\("(tickler\.tickler(?:Add\.[A-Za-z]+|Edit\.attachments\.error)|tickler\.permission\.denied|tickler\.recipient\.required)"\) %>' context="javaScriptBlock"\/>'$/);
       assert.ok(match, 'Validation text must pass through the CARLOS JavaScript encoder');
       assert.ok(bundle.includes(match[1] + '='));
     }

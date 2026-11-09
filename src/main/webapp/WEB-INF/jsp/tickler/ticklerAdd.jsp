@@ -188,6 +188,7 @@
     String priority = "Normal";
     if (request.getParameter("taskTo") != null) taskTo = request.getParameter("taskTo");
     if (request.getParameter("priority") != null) priority = request.getParameter("priority");
+    if (request.getParameter("ticklerDraftPriority") != null) priority = request.getParameter("ticklerDraftPriority");
     if (request.getParameter("recall") != null) recall = true;
 
     UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
@@ -224,7 +225,10 @@
     int curDay = now.get(Calendar.DAY_OF_MONTH);
 %><%
     String xml_vdate = request.getParameter("xml_vdate") == null ? "" : request.getParameter("xml_vdate");
-    String xml_appointment_date = request.getParameter("xml_appointment_date") == null ? MyDateFormat.getMysqlStandardDate(curYear, curMonth, curDay) : request.getParameter("xml_appointment_date");
+    // Draft transport uses distinct names so it cannot shadow the visible form controls.
+    String initialDate = request.getParameter("ticklerDraftDate");
+    if (initialDate == null) initialDate = request.getParameter("xml_appointment_date");
+    String xml_appointment_date = initialDate == null ? MyDateFormat.getMysqlStandardDate(curYear, curMonth, curDay) : initialDate;
 %>
 
 <!DOCTYPE html>
@@ -235,10 +239,21 @@
 
         <%
             java.util.ResourceBundle oscarBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+            // Keep submitted priority identities stable while retaining legacy localized opener values.
+            for (String stablePriority : new String[]{"High", "Normal", "Low"}) {
+                if (priority.equalsIgnoreCase(stablePriority) || priority.equals(oscarBundle.getString(
+                        "tickler.ticklerMain.priority." + stablePriority.toLowerCase(java.util.Locale.ROOT)))) {
+                    priority = stablePriority;
+                    break;
+                }
+            }
+            if (!java.util.Arrays.asList("High", "Normal", "Low").contains(priority)) priority = "Normal";
         %>
         <script src="${pageContext.request.contextPath}/share/javascript/tickler-validation.js"></script>
+        <script src="${pageContext.request.contextPath}/share/javascript/tickler-calendar.js"></script>
         <script>
         // i18n messages for JavaScript — encoded via SafeEncode.forJavaScript() to prevent XSS and broken JS strings
+        const i18nDraftSearchUnavailable = '<carlos:encode value='<%= oscarBundle.getString("tickler.draft.searchUnavailable") %>' context="javaScriptBlock"/>';
         const i18nQuickPickFrom = '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.quickPickFrom") %>' context="javaScriptBlock"/>';
         const i18nQuickPickReset = '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.quickPickReset") %>' context="javaScriptBlock"/>';
         const i18nQuickPickTooltip = '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.quickPickBtnTooltip") %>' context="javaScriptBlock"/>';
@@ -335,12 +350,8 @@
 
                 // Calculate total days from weeks + days
                 const daysFromWeeks = totalWeeks * 7;
-                let date = new Date(baseDate);
-
-                // Add years
-                date.setFullYear(date.getFullYear() + totalYears);
-                // Add months
-                date.setMonth(date.getMonth() + totalMonths);
+                // Combine year/month offsets, then clamp to the destination month's last day.
+                const date = CarlosTicklerCalendar.offset(baseDate, totalYears * 12 + totalMonths, 0);
                 // Add weeks and days
                 date.setDate(date.getDate() + daysFromWeeks + totalDays);
 
@@ -440,6 +451,34 @@
             document.ADDAPPT.keyword.focus();
             document.ADDAPPT.keyword.select();
             addQuickPick();
+            document.serviceform.addEventListener('change', function(event) {
+                if (event.target.name === 'task_assigned_to') {
+                    rememberTicklerRecipient(event.target.value);
+                }
+            });
+        }
+
+        /** Transport deliberate recipient choices, including a clinic change that clears the choice. */
+        function rememberTicklerRecipient(value) {
+            document.ADDAPPT.elements.taskTo.disabled = false;
+            document.ADDAPPT.elements.taskTo.value = value;
+        }
+
+        /** Copy the whole visible draft before search; refuse incomplete forms without partial updates. */
+        function prepareTicklerPatientSearch(searchForm) {
+            const source = document.forms.namedItem('serviceform');
+            const mappings = [['ticklerMessage', 'ticklerMessage'],
+                ['xml_appointment_date', 'ticklerDraftDate'], ['priority', 'ticklerDraftPriority']];
+            const controls = mappings.map(function (names) {
+                return [source && source.elements.namedItem(names[0]),
+                    searchForm && searchForm.elements.namedItem(names[1])];
+            });
+            if (controls.some(function (pair) { return pair.some(function (field) { return !field || typeof field.value !== 'string'; }); })) {
+                CarlosTicklerValidation.show(i18nDraftSearchUnavailable);
+                return false;
+            }
+            controls.forEach(function (pair) { pair[1].value = pair[0].value; });
+            return true;
         }
 
         function initResize() {
@@ -504,6 +543,11 @@
                     }
                     // Verify server confirmed save before proceeding
                     try {
+                        if (iframe.contentDocument && iframe.contentDocument.getElementById('tickler-recipient-refused')) {
+                            CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.recipient.required") %>' context="javaScriptBlock"/>');
+                            enableSubmitButtons();
+                            return;
+                        }
                         var saveOk = iframe.contentDocument && iframe.contentDocument.getElementById('tickler-save-ok');
                         if (!saveOk) {
                             console.error('[ticklerAdd] Server did not confirm tickler save — possible server-side error');
@@ -708,9 +752,12 @@
             }
             ChartNo = bFirstDisp ? "" : request.getParameter("chart_no") == null ? "" : request.getParameter("chart_no");
         %>
-        <form name="ADDAPPT" method="post" action="<%= request.getContextPath() %>/demographic/DemographicSearch"
-              onsubmit="this.elements.namedItem('ticklerMessage').value = document.getElementById('ticklerMessage').value;">
+        <form name="ADDAPPT" onsubmit="return prepareTicklerPatientSearch(this);" method="post" action="<%= request.getContextPath() %>/demographic/DemographicSearch">
             <input type="hidden" name="ticklerMessage" value="<carlos:encode value='<%= suggestedMessage %>' context="htmlAttribute"/>">
+            <input type="hidden" name="ticklerOriginalPatient" value="<carlos:encode value='<%= requestDemographicNo %>' context="htmlAttribute"/>">
+            <input type="hidden" name="ticklerDraftDate" value="">
+            <input type="hidden" name="ticklerDraftPriority" value="">
+            <input type="hidden" name="taskTo" ${param.taskTo eq null ? 'disabled' : ''} value="${carlos:forHtmlAttribute(param.taskTo)}">
             <input type="hidden" name="orderby" value="last_name">
             <input type="hidden" name="search_mode" value="<carlos:encode value='<%= searchMode %>' context="htmlAttribute"/>">
             <input type="hidden" name="originalpage" value="<carlos:encode value='<%= request.getContextPath() + "/tickler/ViewAddTickler" %>' context="htmlAttribute"/>">
@@ -794,15 +841,15 @@
                     <td class="tickler-label"><fmt:message key="tickler.ticklerMain.Priority"/>:</td>
                     <td>
                         <select name="priority" class="form-select">
-                            <option value="<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerMain.priority.high") %>' context="htmlAttribute"/>" <%=priority.equals("High")?"selected":""%>><fmt:message key="tickler.ticklerMain.priority.high"/></option>
-                            <option value="<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerMain.priority.normal") %>' context="htmlAttribute"/>" <%=priority.equals("Normal")?"selected":""%>><fmt:message key="tickler.ticklerMain.priority.normal"/></option>
-                            <option value="<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerMain.priority.low") %>' context="htmlAttribute"/>" <%=priority.equals("Low")?"selected":""%>><fmt:message key="tickler.ticklerMain.priority.low"/></option>
+                            <option value="High" <%=priority.equals("High")?"selected":""%>><fmt:message key="tickler.ticklerMain.priority.high"/></option>
+                            <option value="Normal" <%=priority.equals("Normal")?"selected":""%>><fmt:message key="tickler.ticklerMain.priority.normal"/></option>
+                            <option value="Low" <%=priority.equals("Low")?"selected":""%>><fmt:message key="tickler.ticklerMain.priority.low"/></option>
                         </select>
                     </td>
                 </tr>
 
                 <tr>
-                    <td class="tickler-label"><fmt:message key="tickler.ticklerAdd.assignTaskTo"/>:</td>
+                    <td class="tickler-label"><span id="ticklerAssignedToLabel"><fmt:message key="tickler.ticklerAdd.assignTaskTo"/></span>:</td>
                     <td>
                         <% if (unavailableTaskAssignee) { %>
                         <div class="alert alert-warning" role="alert"><fmt:message key="tickler.ticklerAdd.msgMustAssignProvider"/></div>
@@ -843,14 +890,17 @@
                             <%
                                 } %>
 
-                            function changeSite(sel) {
-                                sel.form.task_assigned_to.innerHTML = sel.value == "none" ? "" : _providers[sel.value];
+                            function changeSite(sel, userInitiated) {
+                                sel.form.task_assigned_to.innerHTML = '<option value=""></option>' + (sel.value == "none" ? "" : _providers[sel.value]);
                                 sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
+                                // Initial rendering must leave an automatic MRP untransported.
+                                if (userInitiated) rememberTicklerRecipient(sel.form.task_assigned_to.value);
                             }
                         </script>
 
                         <div id="selectWrapper">
-                            <select id="site" class="form-select" name="site" onchange="changeSite(this)">
+                            <label for="site" class="visually-hidden"><fmt:message key="tickler.ticklerAdd.selectClinic"/></label>
+                            <select id="site" class="form-select" name="site" onchange="changeSite(this, true)">
                                 <option value="none" style="background-color: white"><fmt:message key="tickler.ticklerAdd.selectClinic"/></option>
                                 <%
                                     for (int i = 0; i < sites.size(); i++) {
@@ -861,7 +911,7 @@
                                 <% } %>
                             </select>
 
-                            <select name="task_assigned_to" id="task_assigned_to" class="form-select"></select>
+                            <select name="task_assigned_to" id="task_assigned_to" aria-labelledby="ticklerAssignedToLabel" class="form-select"></select>
 
                             <h4 id="preferenceLink" style="display:none"><small><a href="#" onclick="toggleWrappers()"><fmt:message key="tickler.ticklerAdd.linkPreference"/></a></small>
                             </h4>
@@ -878,12 +928,15 @@
                             changeSite(document.getElementById("site"));
                         </script>
 
-                        <% if (prop != null || request.getParameter("taskTo") != null) {%>
+                        <% if (prop != null || (request.getParameter("taskTo") != null && !taskTo.isEmpty())) {%>
                         <script>
-                            //prop exists so hide selectWrapper
+                            // A deliberate transported recipient also restores when Preferences is Default.
+                            // Only saved preferences use the collapsed name/Preference controls.
+                            <% if (prop != null) { %>
                             document.getElementById("selectWrapper").style.display = "none";
                             document.getElementById("nameWrapper").style.display = "block";
                             document.getElementById("preferenceLink").style.display = "inline-block";
+                            <% } %>
 
                             var taskToValue = document.getElementById("taskToBin").value;
                             var taskToName = document.getElementById('taskToNameBin').value;
@@ -901,7 +954,7 @@
                             const prefOption = document.createElement('option');
                             prefOption.value = taskToValue;
                             prefOption.textContent = taskToName;
-                            prefOption.selected = true;
+                            prefOption.setAttribute('selected', 'selected');
                             _providers.push(prefOption.outerHTML);
 
                             var newItemKey = _providers.length - 1;
@@ -920,8 +973,8 @@
                         } else {
                         %>
 
-                        <select name="task_assigned_to" class="form-select">
-                            <option value="" <%= unavailableTaskAssignee ? "selected" : "" %>><fmt:message key="tickler.ticklerAdd.msgMustAssignProvider"/></option>
+                        <select name="task_assigned_to" id="singleSiteTaskAssignedTo" aria-labelledby="ticklerAssignedToLabel" class="form-select" required>
+                            <option value="" <%=taskTo.isEmpty() ? "selected" : ""%>><fmt:message key="tickler.recipient.required"/></option>
                             <% String proFirst = "";
                                 String proLast = "";
                                 String proOHIP = "";
@@ -942,6 +995,7 @@
                         </select>
                         <% } %>
 
+                        <% if (taskTo.isEmpty()) { %><div role="alert"><fmt:message key="tickler.recipient.required"/></div><% } %>
                         <input type="hidden" name="docType" value="<carlos:encode value='<%= request.getParameter("docType") != null ? request.getParameter("docType") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                         <input type="hidden" name="docId" value="<carlos:encode value='<%= request.getParameter("docId") != null ? request.getParameter("docId") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                     </td>
