@@ -9,7 +9,7 @@ async function workflow(s) {
   const script=h.insertId(sql,`INSERT INTO prescription(provider_no,demographic_no,date_prescribed,rx_comments) VALUES(${q(provider)},${patient},CURDATE(),'Original')`,'owned prescription');
   s.cleanup(()=>sql.execute(`DELETE FROM prescription WHERE script_no=${script} AND demographic_no=${patient}`));
   const drug=h.insertId(sql,`INSERT INTO drugs(provider_no,demographic_no,customName,special,script_no,drug_form,position,archived) VALUES(${q(provider)},${patient},${q(marker+' version')},'1 tab PO OD',${script},'Tablet',1,0)`,'owned drug');
-  s.cleanup(()=>sql.execute(`DELETE FROM drugs WHERE drugid=${drug} AND demographic_no=${patient} AND customName=${q(marker+' version')}`));
+  s.cleanup(()=>sql.execute(`DELETE FROM drugs WHERE demographic_no=${patient} AND customName=${q(marker+' version')}`));
   const first=await s.context.newPage(),second=await s.context.newPage();
   const url=`${config.baseUrl}/rx/ViewUpdateForm?id=${drug}`;
   await first.goto(url);await second.goto(url);
@@ -54,10 +54,23 @@ async function workflow(s) {
     const post=form=>s.context.request.post(url,{data:{...original,form},headers:{Accept:'application/json','CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest'}});
     const saved=await post('Cream');
     const ack=await saved.json();
-    h.assert(saved.status()===200&&ack.success===true&&ack.drug.rowVersion>original.rowVersion,'The version-aware update was not saved with a fresh token');
+    h.assert(saved.status()===200&&ack.success===true&&ack.drug.drugId!==original.drugId&&Number.isSafeInteger(ack.drug.rowVersion),'The version-aware update did not return the replacement identity and version');
+    h.assert(sql.value(`SELECT drug_form FROM drugs WHERE drugid=${ack.drug.drugId} AND demographic_no=${patient}`)==='Cream','The replacement did not store the selected form');
+    h.assert(sql.value(`SELECT archived FROM drugs WHERE drugid=${drug}`)==='1','The original medication was not archived');
     const refused=await post('Powder');
     h.assert(refused.status()===409,'A stale REST version overwrote the saved medication');
-    h.assert(s.sql.value(`SELECT drug_form FROM drugs WHERE drugid=${drug}`)==='Cream','The stale REST update changed the clinical row');
+    h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient} AND customName=${q(marker+' version')}`)==='2','A stale update created another replacement');
+    h.assert(sql.value(`SELECT drug_form FROM drugs WHERE drugid=${ack.drug.drugId}`)==='Cream','The stale REST update changed the replacement');
+    const legacyRead=await s.context.request.get(endpoint,{headers:{Accept:'application/json'}});
+    const legacyReplacement=(await legacyRead.json()).drug.find(row=>row.drugId===ack.drug.drugId);
+    h.assert(legacyReplacement&&!Object.hasOwn(legacyReplacement,'rowVersion'),'A legacy read unexpectedly opted in');
+    const legacyWrite=await s.context.request.post(`${config.baseUrl}/ws/rs/rx/update?demographicNo=${patient}`,{
+      data:{...legacyReplacement,form:'Ointment'},headers:{Accept:'application/json','CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest'}});
+    const legacyAck=await legacyWrite.json();
+    h.assert(legacyWrite.status()===200&&legacyAck.success===true&&!Object.hasOwn(legacyAck.drug,'rowVersion'),
+      'A versionless legacy update changed its response contract');
+    h.assert(sql.value(`SELECT drug_form FROM drugs WHERE drugid=${legacyAck.drug.drugId} AND demographic_no=${patient}`)==='Ointment',
+      'The legacy replacement was not saved');
   });
 }
 if(require.main===module)runWorkflow('rx-original-version',workflow,{openPatient:true});
