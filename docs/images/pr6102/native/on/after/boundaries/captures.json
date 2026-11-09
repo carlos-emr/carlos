@@ -3,48 +3,48 @@
     "image": "001-GraphMeasurements.png",
     "route": "/carlos/encounter/GraphMeasurements",
     "browser": "154.0.8025.0",
-    "sha256": "2e77ec48f0fef09a39d47505646c554413ed078302f4e39e4141879ee8861240"
+    "sha256": "19958e8fd33b2741e1d160d09d0f4239821918d58fd2d803fe44d6cebe7ee70d"
   },
   {
     "image": "002-GraphMeasurements.png",
     "route": "/carlos/encounter/GraphMeasurements",
     "browser": "154.0.8025.0",
-    "sha256": "02caf03336119283af2f7981ca7de9c0910eec900acc9bca59111c1026e6c68c"
+    "sha256": "09bbb454107328059151d21fd38be784f2d82d1fb54238919dbda822331ea92d"
   },
   {
     "image": "003-GraphMeasurements.png",
     "route": "/carlos/encounter/GraphMeasurements",
     "browser": "154.0.8025.0",
-    "sha256": "1d0476acc41b30417bbb87e36c198e55c52c4a76d1483ef77e09e4432ef9612d"
+    "sha256": "eb114c2446e3c9e55197e01540e2fd07b5dd3688632c1e6996629a998ef29b93"
   },
   {
     "image": "004-GraphMeasurements.png",
     "route": "/carlos/encounter/GraphMeasurements",
     "browser": "154.0.8025.0",
-    "sha256": "932548cc731c49235956ae4cf83d7c6de92c51ea1c4d1f5ac39b76249cb3ec55"
+    "sha256": "c6970c2802461c1c9762bc8d012e10f426733f04ec2913c7fe77a1813755f59f"
   },
   {
     "image": "005-GraphMeasurements.png",
     "route": "/carlos/encounter/GraphMeasurements",
     "browser": "154.0.8025.0",
-    "sha256": "8b776e7a39e63d025270df74f350f4c18f203d8a776b407181b4b550ca248c32"
+    "sha256": "8abbf4fdd9511678cea81ac1395619567f82f679abcb994941a062cfd2b6d20d"
   },
   {
     "image": "006-GraphMeasurements.png",
     "route": "/carlos/encounter/GraphMeasurements",
     "browser": "154.0.8025.0",
-    "sha256": "8ac1a756afe779e0bd28893593036f51c576f02b3abab87f1a567e5b15c00918"
+    "sha256": "fe633aa174937dc0bf4d570b5e37533945ed567311ab22e1f33b19d4710a9881"
   },
   {
     "image": "007-GraphMeasurements.png",
     "route": "/carlos/encounter/GraphMeasurements",
     "browser": "154.0.8025.0",
-    "sha256": "371616388ba5e77b212ff2879306177d9f6f40c2bf132b321d709c6d6d092bc3"
+    "sha256": "72799dbac0b3890ef7f833599f2651719af74eb1f9930da0f6778fb7efbe8afe"
   },
   {
     "image": "008-GraphMeasurements.png",
     "route": "/carlos/encounter/GraphMeasurements",
     "browser": "154.0.8025.0",
-    "sha256": "a1691924a5c0a1c351bd148327be1f7bd4823856847bf110500b6041a044d1a8"
+    "sha256": "1d1392de0d6576e900357a1a50f3e6d5ecc43f760f67ae50a263a08608f8700b"
   }
 ]

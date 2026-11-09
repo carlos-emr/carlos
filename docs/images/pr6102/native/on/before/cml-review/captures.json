@@ -1,0 +1,16 @@
+[
+  {
+    "image": "001-partial-correction-review.png",
+    "label": "partial-correction-review",
+    "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+    "browser": "154.0.8025.0",
+    "sha256": "56f5723d880f31ab154b77b17c1446e2c3395c716c10f220b88e3bff941b29fb"
+  },
+  {
+    "image": "002-original-after-partial-review.png",
+    "label": "original-after-partial-review",
+    "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+    "browser": "154.0.8025.0",
+    "sha256": "9f01ae1f5c2582926e47ab51ce0a59725319a8b0218e1cf915a23ea2fa597323"
+  }
+]

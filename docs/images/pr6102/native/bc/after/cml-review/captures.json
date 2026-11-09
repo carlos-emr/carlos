@@ -1,0 +1,37 @@
+[
+  {
+    "image": "001-partial-correction-review.png",
+    "label": "partial-correction-review",
+    "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+    "browser": "154.0.8025.0",
+    "sha256": "f4063805c87967f65be86d429d0ccd3373069154f1aa342ee6d2acfbd1dae633"
+  },
+  {
+    "image": "002-original-after-partial-review.png",
+    "label": "original-after-partial-review",
+    "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+    "browser": "154.0.8025.0",
+    "sha256": "eff3b7e0fdd77af3b64e2854f31115e8b937f8be74ac56dcab6cd5244380f3be"
+  },
+  {
+    "image": "003-conflicting-revision-ack-blocked.png",
+    "label": "conflicting-revision-ack-blocked",
+    "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+    "browser": "154.0.8025.0",
+    "sha256": "daedfd4ca5b6d22a4c41bdb1df96984164a45621e2aac2e6b76cb673d8ad890a"
+  },
+  {
+    "image": "004-newer-unambiguous-resolution.png",
+    "label": "newer-unambiguous-resolution",
+    "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+    "browser": "154.0.8025.0",
+    "sha256": "a1f045d9e911a3cf703be76e59732f78a816e854119a3de91b35aa4a83154967"
+  },
+  {
+    "image": "005-fully-covered-history-reviewed.png",
+    "label": "fully-covered-history-reviewed",
+    "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+    "browser": "154.0.8025.0",
+    "sha256": "ca05e446507204ca84dfdcd63e93181c4ecf36a3e2a9cecd699309e56352f17c"
+  }
+]

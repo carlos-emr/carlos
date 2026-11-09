@@ -1,0 +1,8 @@
+  PASS measurement-unlink-chain: rejected content stays retryable without a checksum
+  PASS measurement-unlink-chain: first HL7 upload is filed
+  PASS measurement-unlink-chain: the same file again is refused as already uploaded
+FIXTURE original routing provenance [["999998","3080"],["999996","3080"]]
+PASS physical MariaDB late audit INSERT failure: HTTP 500, visible recovery and complete clinical/source rollback
+PASS explicit stale-tab HTTP 409, recovery dialog and unchanged clinical state
+EVIDENCE {"sourceVersions":3,"independentRoutes":0,"automaticRoutes":4,"controlRoutes":false,"activeBefore":1,"archivedAfter":"1","staleStatus":409}
+PASS measurement-unlink-chain

@@ -39,72 +39,72 @@
     "image": "007-ViewLabValuesGraph.png",
     "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
     "browser": "154.0.8025.0",
-    "sha256": "4f53017f6c59ca1178cf41f0e49c1d1f635b78302d12b50ad6772126febcd89b"
+    "sha256": "0f805bd1b9c91b6fb55b1309ed1f969c33def26424679ae6f5481749fd623e75"
   },
   {
     "image": "008-ViewLabValuesGraph.png",
     "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
     "browser": "154.0.8025.0",
-    "sha256": "628e6e611508a88e3d2eb72ed2d91f6c0b3e80fe16f6d37485e0369b7493dd3c"
+    "sha256": "f1629506fe7fc19dc3022f08944c705fb205264a37b8141aa13ec33a82c42f43"
   },
   {
     "image": "009-ViewLabValuesGraph.png",
     "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
     "browser": "154.0.8025.0",
-    "sha256": "9e7df2c6085ebf05bbab501c098e8bf082e23d7f48f70b8fbc4cd61fa4817f91"
+    "sha256": "9bb908c5dfb150e5e2364bb822f57a47050b7c5242d2d464b4f2aedd2aa59489"
   },
   {
     "image": "010-ViewLabValuesGraph.png",
     "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
     "browser": "154.0.8025.0",
-    "sha256": "fc1f2a71445a16a041e72bfac873fa8c3a31387981f2ba1ff8ad4406a3b42040"
+    "sha256": "ae0969608144a09ea8f3f4e04b7d41931a0b5b86321ca33a74f2a3a8aec0a92d"
   },
   {
     "image": "011-ViewLabValuesGraph.png",
     "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
     "browser": "154.0.8025.0",
-    "sha256": "9ebe5ede2c6b1e9f5d18f4953cf5f9ea17e50a08ad5a29653d889abd741c1548"
+    "sha256": "f11393315c4fb973eb4d0cd3a8f5ea5bd0ffa43359392065de2fb65f65f6ec7b"
   },
   {
     "image": "012-ViewLabDisplay.png",
     "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
     "browser": "154.0.8025.0",
-    "sha256": "21afccfd1e8c04c0b0a2634989a14a752cee27b38607ae3a8df38605e276b802"
+    "sha256": "dc355c14833d9695bf87d98581e7eed7e467d3cdfc7221806188c49633d44fb8"
   },
   {
     "image": "013-ViewLabDisplay.png",
     "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
     "browser": "154.0.8025.0",
-    "sha256": "bd4240ea51197ee8e0327d138b2759fb6657fb1f5a625c8b6376890da5b935e8"
+    "sha256": "897101550b1d3db25fff513be970259a68f5fa58dafa7d1bd0c575d0fbed38dd"
   },
   {
     "image": "014-ViewLabDisplay.png",
     "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
     "browser": "154.0.8025.0",
-    "sha256": "104780bdcae485a917d26b10503d4960ff8a960180def3156521678e7429362b"
+    "sha256": "f3a66e60e83b36828c25f7162c983d87807358068574a983da98466aef4ebf8e"
   },
   {
     "image": "015-ViewLabDisplay.png",
     "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
     "browser": "154.0.8025.0",
-    "sha256": "c9c2363fe58ee2aa03956ead4ba2d52cd683df0fd57363a44afa67af228df0ee"
+    "sha256": "822b599fb8d65ad3917591ceaa4c0ab86d50e4c3f6e7cf3b7f33c91f17176e36"
   },
   {
     "image": "016-ViewLabDisplay.png",
     "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
     "browser": "154.0.8025.0",
-    "sha256": "f3fb5029ce2756a394fef8cfdbcd4111a17d768d60c8663e5bec9ffd5592a4b8"
+    "sha256": "897a4b442f2ebeb097c85a1b31410a7f0b71070ac799b611d44bbbb79344df87"
   },
   {
     "image": "017-ViewCumulativeLabValues3.png",
     "route": "/carlos/lab/ViewCumulativeLabValues3",
     "browser": "154.0.8025.0",
-    "sha256": "f5f7cdb5b6783c7fadd6fc9a1f12ae47f657c74005b78001b29d7b96b9cf75d2"
+    "sha256": "26db063c35da58a3d5fcfe6047f46061a2f8446030e8b7c64ff018019bd2cf56"
   },
   {
     "image": "018-ViewCumulativeLabValues.png",
     "route": "/carlos/lab/ViewCumulativeLabValues",
     "browser": "154.0.8025.0",
-    "sha256": "20a6f5a2e7b68f0e9a44780f3dc3b788e4e46df6ecb052ee05d2f198a4b4daa4"
+    "sha256": "95be284bf119cf6f4df81cd638710bbde28409f812db779c751921775070266b"
   }
 ]

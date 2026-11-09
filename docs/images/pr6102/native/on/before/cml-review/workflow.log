@@ -1,0 +1,17 @@
+  PASS cml-partial-correction-source-review: rejected content stays retryable without a checksum
+  PASS cml-partial-correction-source-review: first HL7 upload is filed
+  PASS cml-partial-correction-source-review: the same file again is refused as already uploaded
+FAIL cml-partial-correction-source-review -- Partial review silently filed the unread omitted observation
+{
+  "badResponses": [],
+  "consoleIssues": [],
+  "pageErrors": [],
+  "requestFailures": [],
+  "dialogs": [
+    {
+      "label": "cml-review-source",
+      "type": "prompt",
+      "text": "Please enter a comment (max. 255 characters)"
+    }
+  ]
+}

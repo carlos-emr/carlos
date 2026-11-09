@@ -1,0 +1,5 @@
+  PASS cml-reviewed-projection-repair: rejected content stays retryable without a checksum
+  PASS cml-reviewed-projection-repair: first HL7 upload is filed
+  PASS cml-reviewed-projection-repair: the same file again is refused as already uploaded
+EVIDENCE {"sourceVersions":5,"stale":409,"auditRollback":true,"exactPhysicalMarkers":true,"physicalWaiters":2,"concurrentRepairStatus":200,"missingTimeRawAndUnlink":true,"concurrentUnlinkStatus":200,"unlinkPhysicalWaiters":2}
+PASS cml-reviewed-projection-repair

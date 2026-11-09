@@ -1,0 +1,5 @@
+  PASS cls-source-coordination: rejected content stays retryable without a checksum
+  PASS cls-source-coordination: first HL7 upload is filed
+  PASS cls-source-coordination: the same file again is refused as already uploaded
+EVIDENCE {"clsObservedWaiting":true,"clsElapsedMillis":784,"unrelatedCmlMillis":335,"sourceTypes":["CLS","CML"]}
+PASS cls-source-coordination

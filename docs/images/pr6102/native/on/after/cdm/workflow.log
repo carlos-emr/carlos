@@ -1,0 +1,10 @@
+PASS patientWhoMetGuideline: Z901 remains isolated after the other tab rendered
+PASS patientWhoMetGuideline: Z902 remains isolated after the other tab rendered
+  PASS measurement-cdm-tabs: patientWhoMetGuideline submits both independently rendered groups
+PASS patientInAbnormalRange: Z901 remains isolated after the other tab rendered
+PASS patientInAbnormalRange: Z902 remains isolated after the other tab rendered
+  PASS measurement-cdm-tabs: patientInAbnormalRange submits both independently rendered groups
+PASS freqencyOfReleventTests: Z901 remains isolated after the other tab rendered
+PASS freqencyOfReleventTests: Z902 remains isolated after the other tab rendered
+  PASS measurement-cdm-tabs: freqencyOfReleventTests submits both independently rendered groups
+PASS measurement-cdm-tabs

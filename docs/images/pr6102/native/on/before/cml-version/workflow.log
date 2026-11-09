@@ -1,0 +1,51 @@
+  PASS lab-version-ingestion: control accession: rejected content stays retryable without a checksum
+  PASS lab-version-ingestion: control accession: first HL7 upload is filed
+  PASS lab-version-ingestion: control accession: the same file again is refused as already uploaded
+  PASS lab-version-ingestion: rejected content stays retryable without a checksum
+  PASS lab-version-ingestion: first HL7 upload is filed
+  PASS lab-version-ingestion: the same file again is refused as already uploaded
+  PASS lab-version-ingestion: native acknowledgment reviews the original before any correction is ingested
+  FAIL lab versions: CORRECTION: active derived measurements do not retain only the corrected value/source
+  Observed CORRECTION source metadata: {"versions":[["237","2026-03-10 08:00:00","F","1"],["238","2026-03-10 12:00:00","C","0"]],"activeMeasurements":[["3044","5.1","2026-03-10 08:00:00","237"],["3044","12.7","2026-03-10 12:00:00","238"]]}
+  FAIL lab versions: CORRECTION ingestion: chart current source is not the correction
+  Observed CORRECTION ingestion: selected correction, every historical native source, chart current selection and independent control checked
+  FAIL lab versions: OLDER: active derived measurements do not retain only the corrected value/source
+  Observed OLDER source metadata: {"versions":[["237","2026-03-10 08:00:00","F","1"],["238","2026-03-10 12:00:00","C","0"],["239","2026-03-10 07:00:00","F","1"]],"activeMeasurements":[["3044","5.1","2026-03-10 08:00:00","237"],["3044","4.3","2026-03-10 07:00:00","239"]]}
+  FAIL lab versions: OLDER ingestion: chart current source is not the correction
+  Observed OLDER ingestion: selected correction, every historical native source, chart current selection and independent control checked
+  Observed exact correction replay: no new version, route, clinical or measurement effect; original raw history preserved
+FAIL lab-version-ingestion -- Lab version-ingestion failures: CORRECTION: active derived measurements do not retain only the corrected value/source; CORRECTION ingestion: chart current source is not the correction; OLDER: active derived measurements do not retain only the corrected value/source; OLDER ingestion: chart current source is not the correction
+{
+  "badResponses": [],
+  "consoleIssues": [],
+  "pageErrors": [],
+  "requestFailures": [
+    {
+      "label": "echart",
+      "url": "https://127.0.0.1/carlos/CaseManagementEntry",
+      "resourceType": "ping",
+      "errorText": "net::ERR_ABORTED",
+      "navigationCancellation": {
+        "classification": "BROWSER_NAVIGATION_CANCELLATION",
+        "operation": "reload"
+      }
+    },
+    {
+      "label": "echart",
+      "url": "https://127.0.0.1/carlos/CaseManagementEntry",
+      "resourceType": "ping",
+      "errorText": "net::ERR_ABORTED",
+      "navigationCancellation": {
+        "classification": "BROWSER_NAVIGATION_CANCELLATION",
+        "operation": "reload"
+      }
+    }
+  ],
+  "dialogs": [
+    {
+      "label": "ingested-version-report",
+      "type": "prompt",
+      "text": "Please enter a comment (max. 255 characters)"
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+  PASS chart-print-lab-range: unrestricted chart print includes all dates and only the latest accession version
+  PASS chart-print-lab-range: date-range print includes both boundary days and the latest version inside the range
+  PASS chart-print-lab-range: a date range with no matching notes or labs still produces a complete PDF
+PASS chart-print-lab-range

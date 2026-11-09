@@ -1,0 +1,6 @@
+  PASS measurement-plot-semantics: a single kg observation renders; deleting it restores empty history without a Plot control
+  {"points":5,"dateTicks":7,"valueTicks":19,"tolerancePixels":3}
+  PASS measurement-plot-semantics: five out-of-order observations plot at the independently calibrated chronological kg coordinates
+  PASS measurement-plot-semantics: geometry controls reject omitted, swapped, shifted and foreign observations
+  PASS measurement-plot-semantics: native deletion removes exactly its vertex; remaining coordinates and all unrelated clinical rows survive
+PASS measurement-plot-semantics

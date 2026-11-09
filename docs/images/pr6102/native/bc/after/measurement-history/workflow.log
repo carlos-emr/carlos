@@ -1,0 +1,4 @@
+  PASS measurement-history: history displays both dated values
+  PASS measurement-history: delete removes only the selected measurement and refreshes history
+  PASS measurement-history: the Plot control loads an image with real PNG bytes
+PASS measurement-history

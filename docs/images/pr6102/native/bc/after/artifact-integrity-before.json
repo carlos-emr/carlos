@@ -1,0 +1,20 @@
+{
+  "runtimeRevision": "989f0eb94a529c2cdb30f3c6b93e8b0ca2062389",
+  "warSha256": "0899c34796b1cf81283d3964b4e9b165d67a6604104e8afa9e43cf3f5a8b8ecf",
+  "expectedManifestSha256": "14a3267b3d9d521b44dec14136c8eb31c6cb4bf4a237a9f7aeb96cacbeff66de",
+  "packageSha256": "351ec478b5243c15b929cbf54ad41ff921cd04daae527d834d40d0914dbaeb1a",
+  "packagingOverrides": {
+    "WEB-INF/classes/carlos-build.properties": {
+      "packageSha256": "47f735e206baed44cd5669ada20f6a49b72dffe1cdf3f7986654d3fd4c513205",
+      "warSha256": "a4984ac4b4d3f95c611fb0a4263e0864ff2d67fc3ed718f6b56c9d1537850286"
+    },
+    "WEB-INF/classes/jdbc-defaults.properties": {
+      "packageSha256": "54fdb26c366baf2b62e62694b61d4aca87d5a60387e20bd5a4b5dda86ce7358a",
+      "warSha256": "11fa153c59f162684dbf1e4d0c6f69aaf43239a208243cd4b27297e2147e3c6e"
+    }
+  },
+  "verifiedFiles": 7070,
+  "verifiedClasses": 6216,
+  "verifiedJars": 253,
+  "failures": []
+}

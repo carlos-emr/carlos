@@ -1,0 +1,37 @@
+[
+  {
+    "image": "001-partial-correction-review.png",
+    "label": "partial-correction-review",
+    "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+    "browser": "154.0.8025.0",
+    "sha256": "58770e4200bae965f58546650b37322ff37176824b21d737ec79ba6876117c4a"
+  },
+  {
+    "image": "002-original-after-partial-review.png",
+    "label": "original-after-partial-review",
+    "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+    "browser": "154.0.8025.0",
+    "sha256": "ccd0b098f9d72250ebf6740ba54dd8628200a65887651dc552999fff360afcc5"
+  },
+  {
+    "image": "003-conflicting-revision-ack-blocked.png",
+    "label": "conflicting-revision-ack-blocked",
+    "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+    "browser": "154.0.8025.0",
+    "sha256": "9897ba94119e458912c36e24237b36b11d4b91cc1bce28a57f614c8eb983e1fb"
+  },
+  {
+    "image": "004-newer-unambiguous-resolution.png",
+    "label": "newer-unambiguous-resolution",
+    "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+    "browser": "154.0.8025.0",
+    "sha256": "d5da4db3ffa0b3fdc8805be93c9237cd46924dea134ba3284bee4441f170f875"
+  },
+  {
+    "image": "005-fully-covered-history-reviewed.png",
+    "label": "fully-covered-history-reviewed",
+    "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+    "browser": "154.0.8025.0",
+    "sha256": "d66f241b6a538e2b38d478064fe36f9f646653f752d3272466cbf78932f8fdc4"
+  }
+]

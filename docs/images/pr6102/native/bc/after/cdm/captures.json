@@ -3,36 +3,36 @@
     "image": "001-InitializePatientsMetGuidelineCDMReport.png",
     "route": "/carlos/oscarReport/oscarMeasurements/InitializePatientsMetGuidelineCDMReport",
     "browser": "154.0.8025.0",
-    "sha256": "44117771fb1f74acab0d17697b697a9462ccdc01a8537c116d1940046c8f05d5"
+    "sha256": "52ebc83efae80e47eaf42cb22c082f64657e6a4d7480b3d78d86d7a144102b2e"
   },
   {
     "image": "002-InitializePatientsMetGuidelineCDMReport.png",
     "route": "/carlos/oscarReport/oscarMeasurements/InitializePatientsMetGuidelineCDMReport",
     "browser": "154.0.8025.0",
-    "sha256": "a163284987163638c02bb0aecc412036ec5a2e57dd1e304edc6090f3a7adce0e"
+    "sha256": "e6fc7b7bcae3ffd4e1dc4102ae6f8fb232e745eb1bf8ea1783a0bcf2882fdc39"
   },
   {
     "image": "003-InitializePatientsInAbnormalRangeCDMReport.png",
     "route": "/carlos/oscarReport/oscarMeasurements/InitializePatientsInAbnormalRangeCDMReport",
     "browser": "154.0.8025.0",
-    "sha256": "376f9fff0395362bb93b5837d8adf843a88a784e4304650c86d5c1a1616ee267"
+    "sha256": "ac1ddce1d38d361c7b460ccef1cb871721b36a4b20c74b753649955beb722885"
   },
   {
     "image": "004-InitializePatientsInAbnormalRangeCDMReport.png",
     "route": "/carlos/oscarReport/oscarMeasurements/InitializePatientsInAbnormalRangeCDMReport",
     "browser": "154.0.8025.0",
-    "sha256": "baca487a092a3a304699e52a2e056e9c0575050c44dc7a5ae41bdfbc80c1f501"
+    "sha256": "bc2540eaec46b5928eef538508172b94cb477c0c0cfc40c56ad6da220228b6e6"
   },
   {
     "image": "005-InitializeFrequencyOfRelevantTestsCDMReport.png",
     "route": "/carlos/oscarReport/oscarMeasurements/InitializeFrequencyOfRelevantTestsCDMReport",
     "browser": "154.0.8025.0",
-    "sha256": "e74a7c15ac03fd12dd44f540b622336b33603451a30a9c459ce11b58a3f93921"
+    "sha256": "d7fd42398aa703ddb94cb7ffdfbf9cf9b8498ab0e7369a6f9cc08d10a3a93267"
   },
   {
     "image": "006-InitializeFrequencyOfRelevantTestsCDMReport.png",
     "route": "/carlos/oscarReport/oscarMeasurements/InitializeFrequencyOfRelevantTestsCDMReport",
     "browser": "154.0.8025.0",
-    "sha256": "bca88740cde8847d06f5de881ebbb8e95089b07ba3a7bd9bcea21a95221d34f5"
+    "sha256": "ea163016e3ce23c47f02105fb6d2e83d2b04de6df63210416069611b877edf2a"
   }
 ]
