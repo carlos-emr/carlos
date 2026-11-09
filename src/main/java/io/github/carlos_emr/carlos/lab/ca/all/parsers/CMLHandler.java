@@ -205,12 +205,12 @@ public class CMLHandler implements MessageHandler {
             Segment obr = msg.getRESPONSE().getORDER_OBSERVATION(obrIndex).getOBR();
             Segment obx = getOBXSegment(obrIndex, obxIndex);
             String code = getOBXIdentifier(obrIndex, obxIndex);
-            if (code.isBlank()) throw new IllegalStateException("CML observation identifier is missing");
+            if (code.isBlank()) throw new io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision("CML observation identifier is missing");
             return io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.pack(
                     Terser.get(obr, 4, 0, 1, 1), Terser.get(obr, 4, 0, 3, 1), code,
                     Terser.get(obx, 3, 0, 3, 1), obx.getField(4, 0).encode());
         } catch (Exception failure) {
-            throw new IllegalStateException("CML observation identity is unreadable", failure);
+            throw new io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision("CML observation identity is unreadable");
         }
     }
 
@@ -223,7 +223,7 @@ public class CMLHandler implements MessageHandler {
             String observation = Terser.get(getOBXSegment(obrIndex, obxIndex), 14, 0, 1, 1);
             return observation == null || observation.isBlank() ? Terser.get(obr, 7, 0, 1, 1) : observation;
         } catch (Exception failure) {
-            throw new IllegalStateException("CML revision time is unreadable", failure);
+            throw new io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision("CML revision time is unreadable");
         }
     }
 
@@ -301,7 +301,7 @@ public class CMLHandler implements MessageHandler {
         for (int i=0; i < obrCount; i++){
             obxCount = getOBXCount(i);
             for (int j=0; j < obxCount; j++){
-                if (getOBXResultStatus(i, j).equals("Final") || getOBXResultStatus(i, j).equals("C"))
+                if (getOBXResultStatus(i, j).equals("Final") || getOBXResultStatus(i, j).equalsIgnoreCase("C"))
                     count++;
             }
         }
@@ -647,6 +647,8 @@ public class CMLHandler implements MessageHandler {
                 // Should not reach here due to regex check above
                 return "";
         }
+        try { io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.timestamp(trimmed); }
+        catch (java.time.DateTimeException | IllegalArgumentException invalid) { return ""; }
         Date date = UtilDateUtilities.StringToDate(trimmed, dateFormat);
         return UtilDateUtilities.DateToString(date, stringFormat);
     }

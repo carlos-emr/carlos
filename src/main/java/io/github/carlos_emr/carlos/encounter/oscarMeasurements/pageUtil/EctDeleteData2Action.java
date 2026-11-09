@@ -123,7 +123,7 @@ public class EctDeleteData2Action extends ActionSupport {
             try {
                 SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService.class)
                         .delete(authorized.stream().map(Measurement::getId).toList(), expectedPatient, loggedInInfo);
-            } catch (io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService.StaleMeasurement stale) {
+            } catch (io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService.StaleMeasurement _) {
                 response.sendError(HttpServletResponse.SC_CONFLICT, getText("clinical.measurement.stale"));
                 return NONE;
             }

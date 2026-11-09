@@ -166,6 +166,7 @@ public class Hl7textResultsData {
     public static void projectMeasurements(String lab_no, String demographic_no,
             java.util.function.BiPredicate<Integer, Integer> selected) {
         MessageHandler h = Factory.getHandler(lab_no);
+        if (h == null) throw new IllegalStateException("Source report parser is unavailable");
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         Calendar calender = Calendar.getInstance();
         String day = Integer.toString(calender.get(Calendar.DAY_OF_MONTH));
@@ -505,6 +506,15 @@ public class Hl7textResultsData {
     }
 
     public static String getMatchingLabs(String lab_no) {
+        return matchingLabs(lab_no, true);
+    }
+
+    /** Confirmed source membership without choosing a clinical revision; raw history and unlink remain available. */
+    public static String getMatchingLabsForHistory(String lab_no) {
+        return matchingLabs(lab_no, false);
+    }
+
+    private static String matchingLabs(String lab_no, boolean clinicallyOrdered) {
         String ret = "";
         int monthsBetween = 0;
 
@@ -555,7 +565,8 @@ public class Hl7textResultsData {
                 }
             }
             if (!reports.containsKey(Integer.parseInt(lab_no))) throw new IllegalStateException("CML chain identity is unavailable");
-            return io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.order(reports).stream()
+            return (clinicallyOrdered ? io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.order(reports)
+                    : new java.util.ArrayList<>(reports.keySet())).stream()
                     .map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
         }
         if (ret.equals("")) return (lab_no);
@@ -989,8 +1000,8 @@ public class Hl7textResultsData {
         return labResults;
     }
 
-    private static String[] splitRefRange(String refRangeTxt) {
-        refRangeTxt = refRangeTxt.trim();
+    public static String[] splitRefRange(String refRangeTxt) {
+        refRangeTxt = StringUtils.trimToEmpty(refRangeTxt);
         String[] refRange = {"", "", ""};
         String numeric = "-. 0123456789";
         boolean textual = false;

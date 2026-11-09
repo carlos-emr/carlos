@@ -104,7 +104,7 @@ class EctDeleteData2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(MeasurementDao.class, measurementDao);
         registerMock(MeasurementsDeletedDao.class, measurementsDeletedDao);
         registerMock(io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService.class, deletion);
-        action = new EctDeleteData2Action();
+        action = new EctDeleteData2Action() { @Override public String getText(String key) { return key; } };
     }
 
     @AfterEach
@@ -126,7 +126,7 @@ class EctDeleteData2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(EctDeleteData2Action.NONE);
         assertThat(response.getStatus()).isEqualTo(405);
         assertThat(response.getHeader("Allow")).isEqualTo("POST");
-        verifyNoInteractions(measurementDao, measurementsDeletedDao, securityInfoManager);
+        verifyNoInteractions(measurementDao, measurementsDeletedDao, securityInfoManager, deletion);
     }
 
     @Test
@@ -184,6 +184,7 @@ class EctDeleteData2ActionUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_measurement)");
 
+        verifyNoInteractions(deletion);
         verify(measurementDao, never()).remove(anyInt());
         verify(measurementsDeletedDao, never()).persist(any(MeasurementsDeleted.class));
     }
@@ -231,6 +232,7 @@ class EctDeleteData2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(EctDeleteData2Action.NONE);
         assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(deletion);
         verify(measurementDao, never()).remove(any(Object.class));
         verify(measurementsDeletedDao, never()).persist(any(MeasurementsDeleted.class));
     }
@@ -251,4 +253,19 @@ class EctDeleteData2ActionUnitTest extends CarlosUnitTestBase {
         ReflectionTestUtils.setField(measurement, "id", id);
         return measurement;
     }
+
+    @Test
+    void shouldAnswerConflictWithoutSuccessRedirect_whenDeletionBecomesStaleAfterAuthorization() throws Exception {
+        request.setParameter("demographicNo", "111");
+        when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), anyString(), anyString(), nullable(String.class))).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(nullable(LoggedInInfo.class), eq(111))).thenReturn(true);
+        when(measurementDao.find((Object) Integer.valueOf(5))).thenReturn(measurementFor(111, 5));
+        org.mockito.Mockito.doThrow(new io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService.StaleMeasurement())
+                .when(deletion).delete(eq(java.util.List.of(5)), eq("111"), nullable(LoggedInInfo.class));
+        action.setDeleteCheckbox(new String[]{"5"});
+        assertThat(action.execute()).isEqualTo(EctDeleteData2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getRedirectedUrl()).isNull();
+    }
+
 }

@@ -2503,11 +2503,12 @@
     }
   },
   "reproductionUtilities": {
-    "docs/images/pr6102/capture/boundary-native.cjs": "abddc78f6f06dd987f849e9f18089749368a0be1722d94f706a2f5a9cea0b858",
-    "docs/images/pr6102/capture/capture-native-pages.cjs": "400f394ef692d2fe13b779d8a984a934221cc60d60e7811f5d9fa3e38befea06",
+    "docs/images/pr6102/capture/boundary-native.cjs": "c0b3279cf36f3418b54aceebd9bb1e6e0751cd3c3e896c5cd7542fc16baeb286",
+    "docs/images/pr6102/capture/capture-native-pages.cjs": "28a6e9ecb6f82fde1f13ca9818f49b9bbb3909566b9f6946aa97e4780696e9c6",
     "docs/images/pr6102/capture/cdm-tabs-native.cjs": "1dba6c9632d106346798d8f2c739fa9a995086b4e4bdcaa5993cdf8a83d187b3",
     "docs/images/pr6102/capture/outage-native.cjs": "7a4ccf2b17b1d1db00a15d80656ef602069e8ddeedd3716df896dd1ab74c1c90",
-    "docs/images/pr6102/capture/unlink-native.cjs": "50cf098347ebb2c0485ce85fe8581bcdbeccfa54475639839e125dabcd7f938d"
+    "docs/images/pr6102/capture/unlink-native.cjs": "da67a1151843a0dbd8f28db169ac2a534a70897b56b5ed791c949329f3442826",
+    "docs/images/pr6102/capture/cml-repair-native.cjs": "6e6c7cb0e8b9081128e59657179ff1b16468b315ced7768dc1304b35965bab7c"
   },
   "counts": {
     "pairedNativeScreenshots": 196,

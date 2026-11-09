@@ -17,7 +17,7 @@ import static org.mockito.Mockito.*;
 @Tag("lab")
 class CommonLabTestValuesUnitTest extends CarlosUnitTestBase {
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.CsvSource({" h ,A", "hh,A", " a ,A", "l,L", "ll,L", "n,N"})
+    @org.junit.jupiter.params.provider.CsvSource({"' h ',A", "hh,A", "' a ',A", "l,L", "ll,L", "n,N"})
     void shouldRetainAbnormalGridColour_whenSourceFlagUsesLowercase(String flag, String expected) {
         var raw = List.<Map<String, Serializable>>of(Map.of("lab_no", "100", "result", "Pending",
                 "collDate", "2026-01-02 09:00:00", "identifier", "3007", "abn", flag));
@@ -108,4 +108,23 @@ class CommonLabTestValuesUnitTest extends CarlosUnitTestBase {
         when(dao.findMeasurementsWithIdentifiersByDemographicIdAndLocationCode(17, "FAKE-missing")).thenReturn(List.of());
         assertThat(CommonLabTestValues.findValuesByLoinc2("17", "FAKE-missing")).isEmpty();
     }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldRetainAllStoredReadingsForOneReport_withOrWithoutSourceOverlay(boolean overlay) {
+        var first = new Hashtable<String, Serializable>(Map.of("lab_no", "100", "result", "negative",
+                "date", "2026-01-02 09:00:00", "abn", "A"));
+        var second = new Hashtable<String, Serializable>(Map.of("lab_no", "100", "result", "12.7",
+                "date", "2026-01-03 09:00:00", "abn", "L"));
+        var originals = List.of(new Hashtable<>(first), new Hashtable<>(second));
+        var source = overlay ? List.<Map<String, Serializable>>of(Map.of("lab_no", "100", "result", "Negative",
+                "collDate", "2026-01-02 09:00:00", "identifier", "3007", "abn", "N")) : List.<Map<String, Serializable>>of();
+        var rows = CommonLabTestValues.overlaySourceValues(List.of(first, second), source, Set.of("3007"));
+        assertThat(rows).hasSize(2);
+        assertThat(rows.getFirst()).containsEntry("result", "12.7").containsEntry("abn", "L")
+                .containsEntry("date", "2026-01-03 09:00:00");
+        assertThat(rows.getLast()).containsEntry("result", overlay ? "Negative" : "negative").containsEntry("abn", "A");
+        assertThat(List.of(first, second)).isEqualTo(originals);
+    }
+
 }

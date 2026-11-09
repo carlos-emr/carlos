@@ -1050,7 +1050,16 @@ public class CommonLabResultData {
             if (seen.contains(prefix + lab.getSegmentID())) continue;
             String chain = lab.getSegmentID();
             if ("CML".equals(lab.labType)) chain = new MDSResultsData().getMatchingCMLLabs(lab.getSegmentID());
-            else if ("HL7".equals(lab.labType)) chain = Hl7textResultsData.getMatchingLabs(lab.getSegmentID());
+            else if ("HL7".equals(lab.labType)) {
+                try { chain = Hl7textResultsData.getMatchingLabs(lab.getSegmentID()); }
+                catch (io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision ambiguous) {
+                    // No arbitrary "latest" choice: retain every authorized visible source report.
+                    for (String id : Hl7textResultsData.getMatchingLabsForHistory(lab.getSegmentID()).split(",")) {
+                        if (seen.add(prefix + id) && visible.containsKey(prefix + id)) latest.add(visible.get(prefix + id));
+                    }
+                    continue;
+                }
+            }
             List<String> ids = chain == null ? List.of() : java.util.Arrays.asList(chain.split(","));
             if (!ids.contains(lab.getSegmentID())) ids = List.of(lab.getSegmentID());
             LabResultData newestVisible = lab;

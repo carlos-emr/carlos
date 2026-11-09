@@ -127,7 +127,7 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
 
         private MockedStatic<ServletActionContext> servletActionContext;
         private MockedStatic<LoggedInInfo> loggedInInfo;
-        private HttpServletRequest request;
+        private org.springframework.mock.web.MockHttpServletRequest request;
         private HttpServletResponse response;
         private MeasurementDao measurementDao;
         private FormsDao formsDao;
@@ -143,10 +143,9 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
             measurementDao = createAndRegisterMock(MeasurementDao.class);
             formsDao = createAndRegisterMock(FormsDao.class);
 
-            request = mock(HttpServletRequest.class);
+            request = org.mockito.Mockito.spy(new org.springframework.mock.web.MockHttpServletRequest());
             response = mock(HttpServletResponse.class);
-            HttpSession session = mock(HttpSession.class);
-            when(request.getSession(false)).thenReturn(session);
+            HttpSession session = request.getSession();
             servletActionContext = mockStatic(ServletActionContext.class);
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
@@ -174,29 +173,9 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
             // The same definitions the CDM setup page stores for the report forms, built before the
             // session stub so its DAO calls are not caught inside an in-progress when().
             RptMeasurementTypesBeanHandler definitions = new RptMeasurementTypesBeanHandler(GROUP);
-            Map<String, Object> sessionAttributes = new java.util.HashMap<>();
-            Map<String, Object> requestAttributes = new java.util.HashMap<>();
-            sessionAttributes.put("measurementTypes", definitions);
-            when(request.getSession()).thenReturn(session);
-            when(session.getAttribute(anyString())).thenAnswer(call -> sessionAttributes.get(call.getArgument(0)));
-            org.mockito.Mockito.doAnswer(call -> { sessionAttributes.put(call.getArgument(0), call.getArgument(1)); return null; })
-                    .when(session).setAttribute(anyString(), any());
-            when(request.getAttribute(anyString())).thenAnswer(call -> requestAttributes.get(call.getArgument(0)));
-            org.mockito.Mockito.doAnswer(call -> { requestAttributes.put(call.getArgument(0), call.getArgument(1)); return null; })
-                    .when(request).setAttribute(anyString(), any());
-            when(request.getParameterMap()).thenAnswer(ignored -> {
-                Map<String, String[]> parameters = new java.util.LinkedHashMap<>();
-                for (var stub : org.mockito.Mockito.mockingDetails(request).getStubbings()) {
-                    var call = stub.getInvocation();
-                    if (call.getMethod().getName().equals("getParameter") && call.getArguments()[0] instanceof String name) {
-                        String value = request.getParameter(name);
-                        if (value != null) parameters.put(name, new String[]{value});
-                    }
-                }
-                return parameters;
-            });
+            session.setAttribute("measurementTypes", definitions);
             String context = CdmReportContexts.issue(request, Map.of(CdmReportContexts.MEASUREMENT_TYPES, definitions));
-            when(request.getParameter(CdmReportContexts.PARAMETER)).thenReturn(context);
+            request.setParameter(CdmReportContexts.PARAMETER, context);
             clearInvocations(measurementDao);
         }
 
@@ -211,10 +190,11 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
         }
 
         private RptInitializePatientsMetGuidelineCDMReport2Action actionForRow(int row, String type, String instruction) {
-            when(request.getParameter("value(measurementType" + row + ")")).thenReturn(type);
-            when(request.getParameter("value(mNbInstrcs" + row + ")")).thenReturn("1");
-            when(request.getParameter("value(mInstrcsCheckbox" + row + "0)")).thenReturn(instruction);
-            when(request.getParameter("value(aboveBelow" + row + ")")).thenReturn(">");
+            request.setParameter("value(measurementType" + row + ")", type);
+            request.setParameter("value(mNbInstrcs" + row + ")", "1");
+            if (instruction != null) request.setParameter("value(mInstrcsCheckbox" + row + "0)", instruction);
+            else request.removeParameter("value(mInstrcsCheckbox" + row + "0)");
+            request.setParameter("value(aboveBelow" + row + ")", ">");
             RptInitializePatientsMetGuidelineCDMReport2Action action = new TestableAction();
             action.setGuidelineCheckbox(new String[] {Integer.toString(row)});
             action.setStartDateB(new String[] {"2025-01-01"});
@@ -224,10 +204,10 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
         }
 
         private RptInitializePatientsMetGuidelineCDMReport2Action actionForRawIndex(String rawIndex) {
-            when(request.getParameter("value(measurementType0)")).thenReturn("AACP");
-            when(request.getParameter("value(mNbInstrcs0)")).thenReturn("1");
-            when(request.getParameter("value(mInstrcsCheckbox00)")).thenReturn("Yes/No");
-            when(request.getParameter("value(aboveBelow0)")).thenReturn(">");
+            request.setParameter("value(measurementType0)", "AACP");
+            request.setParameter("value(mNbInstrcs0)", "1");
+            request.setParameter("value(mInstrcsCheckbox00)", "Yes/No");
+            request.setParameter("value(aboveBelow0)", ">");
             RptInitializePatientsMetGuidelineCDMReport2Action action = new TestableAction();
             action.setGuidelineCheckbox(new String[] {rawIndex});
             action.setStartDateB(new String[] {"2025-01-01"});
@@ -282,7 +262,7 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
                     ((RptInitializeFrequencyOfRelevantTestsCDMReport2Action) action).setLessThan(new int[]{2});
                 }
             }
-            when(request.getParameter("value(" + typePrefix + "0)")).thenReturn("AACP");
+            request.setParameter("value(" + typePrefix + "0)", "AACP");
             Class<?> type = action.getClass();
             type.getMethod("set" + checkbox, String[].class).invoke(action, (Object) new String[]{"0"});
             type.getMethod("setStartDate" + suffix, String[].class).invoke(action, (Object) new String[]{"not-a-date"});
@@ -297,8 +277,8 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
         }
 
         private RptInitializeFrequencyOfRelevantTestsCDMReport2Action frequencyAction() {
-            when(request.getParameter("value(measurementTypeD0)")).thenReturn("AACP");
-            when(request.getParameter("value(mInstrcsCheckboxD00)")).thenReturn("Yes/No");
+            request.setParameter("value(measurementTypeD0)", "AACP");
+            request.setParameter("value(mInstrcsCheckboxD00)", "Yes/No");
             var action = new RptInitializeFrequencyOfRelevantTestsCDMReport2Action() {
                 @Override public String getText(String key) { return key; }
                 @Override public String getText(String key, String[] args) { return key; }
@@ -344,8 +324,8 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
 
         @Test
         void shouldFailReport_whenRangeQueryFailsAfterValidation() {
-            when(request.getParameter("value(measurementTypeC0)")).thenReturn("AACP");
-            when(request.getParameter("value(mInstrcsCheckboxC00)")).thenReturn("Yes/No");
+            request.setParameter("value(measurementTypeC0)", "AACP");
+            request.setParameter("value(mInstrcsCheckboxC00)", "Yes/No");
             var action = new RptInitializePatientsInAbnormalRangeCDMReport2Action() {
                 @Override public String getText(String key) { return key; }
                 @Override public String getText(String key, String[] args) { return key; }
@@ -418,16 +398,16 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
         @DisplayName("should bound the instruction loop by the rendered list when a huge count is posted")
         void shouldIgnorePostedCount_whenInstructionCountIsHuge() throws Exception {
             RptInitializePatientsMetGuidelineCDMReport2Action action = actionForRow0("AACP", "Yes/No");
-            when(request.getParameter("value(mNbInstrcs0)")).thenReturn(Integer.toString(Integer.MAX_VALUE));
-            when(request.getParameter("value(mInstrcsCheckbox01)")).thenReturn(CURRENT);
+            request.setParameter("value(mNbInstrcs0)", Integer.toString(Integer.MAX_VALUE));
+            request.setParameter("value(mInstrcsCheckbox01)", CURRENT);
 
             String result = action.execute();
 
             assertThat(result).isEqualTo("success");
-            // Two instructions were rendered. Binding, validation and reporting each read
-            // both fields, never a third; the DAO sees one query per instruction.
-            verify(request, times(3)).getParameter("value(mInstrcsCheckbox00)");
-            verify(request, times(3)).getParameter("value(mInstrcsCheckbox01)");
+            // Two instructions were rendered. Validation and reporting each read
+            // both fields, never a third; binding reads the parameter map directly.
+            verify(request, times(2)).getParameter("value(mInstrcsCheckbox00)");
+            verify(request, times(2)).getParameter("value(mInstrcsCheckbox01)");
             verify(request, never()).getParameter(startsWith("value(mInstrcsCheckbox02"));
             verify(measurementDao, times(2)).findLastEntered(any(Date.class), any(Date.class), eq("AACP"), anyString());
         }

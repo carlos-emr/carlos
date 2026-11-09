@@ -39,6 +39,7 @@ class MeasurementRequestIsolationUnitTest extends CarlosUnitTestBase {
     private SecurityInfoManager security;
     private MeasurementDao measurements;
     private MeasurementsDeletedDao deleted;
+    private io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService deletion;
     private LoggedInInfo login;
     private MockHttpSession session;
     private EctSessionBean global;
@@ -48,6 +49,7 @@ class MeasurementRequestIsolationUnitTest extends CarlosUnitTestBase {
         security = createAndRegisterMock(SecurityInfoManager.class);
         measurements = createAndRegisterMock(MeasurementDao.class);
         deleted = createAndRegisterMock(MeasurementsDeletedDao.class);
+        deletion = createAndRegisterMock(io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService.class);
         login = mock(LoggedInInfo.class);
         session = new MockHttpSession();
         session.setAttribute("user", "999998");
@@ -135,7 +137,7 @@ class MeasurementRequestIsolationUnitTest extends CarlosUnitTestBase {
             assertThat(history.constructed()).isEmpty();
             assertThat(types.constructed()).isEmpty();
             assertThat(validation.constructed()).isEmpty();
-            verifyNoInteractions(measurements, deleted);
+            verifyNoInteractions(measurements, deleted, deletion);
         }
     }
 
@@ -146,7 +148,7 @@ class MeasurementRequestIsolationUnitTest extends CarlosUnitTestBase {
         MockHttpServletResponse response = new MockHttpServletResponse();
         assertThat(delete(invalidRequest(kind), response, "WT", "11")).isEqualTo("none");
         assertThat(response.getStatus()).isEqualTo(400);
-        verifyNoInteractions(measurements, deleted);
+        verifyNoInteractions(measurements, deleted, deletion);
     }
 
     @ParameterizedTest
@@ -164,7 +166,7 @@ class MeasurementRequestIsolationUnitTest extends CarlosUnitTestBase {
             assertThat(history.constructed()).isEmpty();
             assertThat(types.constructed()).isEmpty();
             assertThat(validation.constructed()).isEmpty();
-            verifyNoInteractions(measurements, deleted);
+            verifyNoInteractions(measurements, deleted, deletion);
             assertGlobalUnchanged();
         }
     }
@@ -180,7 +182,7 @@ class MeasurementRequestIsolationUnitTest extends CarlosUnitTestBase {
         assertThat(delete(request("101"), response, "WT", ids)).isEqualTo("none");
         assertThat(response.getStatus()).isEqualTo(400);
         verify(measurements, never()).remove(anyInt());
-        verifyNoInteractions(deleted);
+        verifyNoInteractions(deleted, deletion);
         assertThat(response.getRedirectedUrl()).isNull();
     }
 
@@ -190,11 +192,8 @@ class MeasurementRequestIsolationUnitTest extends CarlosUnitTestBase {
         when(measurements.find(Integer.valueOf(11))).thenReturn(measurement(11, 101));
         MockHttpServletResponse response = new MockHttpServletResponse();
         assertThat(delete(request("000101"), response, "BP & HR", "11")).isEqualTo("none");
-        verify(measurements).remove(11);
-        ArgumentCaptor<MeasurementsDeleted> tombstone = ArgumentCaptor.forClass(MeasurementsDeleted.class);
-        verify(deleted).persist(tombstone.capture());
-        assertThat(tombstone.getValue().getDemographicNo()).isEqualTo(101);
-        assertThat(tombstone.getValue().getOriginalId()).isEqualTo(11);
+        verify(deletion).delete(List.of(11), "101", login);
+        verifyNoInteractions(deleted);
         assertThat(response.getRedirectedUrl()).isEqualTo(
                 "/carlos/encounter/oscarMeasurements/SetupDisplayHistory?type=BP+%26+HR&demographicNo=101");
         assertGlobalUnchanged();
@@ -208,7 +207,7 @@ class MeasurementRequestIsolationUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class);
         verify(security).hasPrivilege(login, "_measurement", "d", "101");
         verify(measurements, never()).remove(anyInt());
-        verifyNoInteractions(deleted);
+        verifyNoInteractions(deleted, deletion);
     }
 
     @Test
@@ -218,7 +217,7 @@ class MeasurementRequestIsolationUnitTest extends CarlosUnitTestBase {
         assertThat(delete(request(null), new MockHttpServletResponse(), null, "11")).isEqualTo("success");
         verify(security).hasPrivilege(login, "_measurement", "d", "101");
         verify(security).isAllowedAccessToPatientRecord(login, 101);
-        verify(measurements).remove(11);
+        verify(deletion).delete(List.of(11), null, login);
     }
 
     private void allowDelete() {

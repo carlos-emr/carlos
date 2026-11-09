@@ -28,7 +28,13 @@ public class ComparisonModels {
    Map<String,Serializable> row=new LinkedHashMap<>();row.put("result",result);row.put("units","g/L");row.put("testName","Synthetic hemoglobin");row.put("range","");
    row.put("collDateDate",Date.from(Instant.parse("2020-01-15T12:00:00Z").plusSeconds(365L*86400*i++)));values.add(row);
   }
-  models.put("qualified-results",((MeasurementChart)method.invoke(null,values,"Synthetic hemoglobin","SYNTHETIC qualified results",10)).toConfig());
+  try {
+   models.put("qualified-results",((MeasurementChart)method.invoke(null,values,"Synthetic hemoglobin","SYNTHETIC qualified results",10)).toConfig());
+  } catch (java.lang.reflect.InvocationTargetException failure) {
+   if (failure.getCause() instanceof Exception cause) throw cause;
+   if (failure.getCause() instanceof Error cause) throw cause;
+   throw failure;
+  }
   ObjectMapper mapper=new ObjectMapper();Path root=Path.of(args[0]);Files.createDirectories(root);
   for(var entry:models.entrySet()) mapper.writerWithDefaultPrettyPrinter().writeValue(root.resolve(entry.getKey()+".json").toFile(),entry.getValue());
   System.out.println("Exported "+models.size()+" actual Java chart configurations for "+Locale.getDefault());

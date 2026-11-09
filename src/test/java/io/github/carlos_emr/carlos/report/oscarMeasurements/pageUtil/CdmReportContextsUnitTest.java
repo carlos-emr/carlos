@@ -185,4 +185,16 @@ class CdmReportContextsUnitTest {
                 .hasMessageContaining("unexpected");
     }
 
+
+    @Test
+    void shouldRefuseMismatchedDefinitionVectors_withoutThrowingOrAcceptingSelectors() {
+        var request = new MockHttpServletRequest();
+        var definitions = renderedDefinitions();
+        org.mockito.Mockito.when(definitions.getMeasuringInstrcBeanVector()).thenReturn(new java.util.Vector<>());
+        String token = CdmReportContexts.issue(request, java.util.Map.of("measurementTypes", definitions));
+        request.setParameter(CdmReportContexts.PARAMETER, token);
+        request.setParameter("value(measurementType0)", "WT");
+        assertThat(CdmReportContexts.bind(request)).isFalse();
+    }
+
 }

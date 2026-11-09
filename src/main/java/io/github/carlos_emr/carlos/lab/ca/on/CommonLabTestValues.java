@@ -491,6 +491,19 @@ public class CommonLabTestValues {
         return labList;
     }
 
+    /** One authorized request's source read shared by all requested history identifiers; never cached across requests. */
+    public static Map<String, List<Map<String, Serializable>>> findSourceValuesForTests(Integer patient, Set<String> identifiers) {
+        Map<String, List<Map<String, Serializable>>> histories = new LinkedHashMap<>();
+        for (String identifier : identifiers) histories.put(identifier, new ArrayList<>());
+        for (Map<String, Serializable> row : Hl7SourceResults.read(patient)) {
+            var history = histories.get(row.get("identifier"));
+            if (history != null) history.add(row);
+        }
+        for (var history : histories.values()) history.sort(Comparator.comparing((Map<String, Serializable> row) ->
+                Objects.toString(row.get("collDate"), "")).reversed());
+        return histories;
+    }
+
     /**
      * Grid-only source overlay: preserve report literals without changing active measurements.
      * The caller loads source observations once for the whole grid. Missing projections are
@@ -510,7 +523,12 @@ public class CommonLabTestValues {
             List<Hashtable<String, Serializable>> measurements, List<Map<String, Serializable>> source,
             Set<String> identifiers) {
         Map<String, Hashtable<String, Serializable>> rows = new LinkedHashMap<>();
-        for (var measurement : measurements) rows.put((String) measurement.get("lab_no"), measurement);
+        List<Hashtable<String, Serializable>> additional = new ArrayList<>();
+        for (var measurement : measurements) {
+            // A report can project several identifiers onto one LOINC. Overlay one row
+            // while retaining every other stored reading independently.
+            if (rows.putIfAbsent((String) measurement.get("lab_no"), measurement) != null) additional.add(measurement);
+        }
         Set<String> overlaid = new HashSet<>();
         for (var observation : source) {
             if (!identifiers.contains(observation.get("identifier"))) continue;
@@ -548,6 +566,7 @@ public class CommonLabTestValues {
             overlaid.add(id);
         }
         ArrayList<Hashtable<String, Serializable>> result = new ArrayList<>(rows.values());
+        result.addAll(additional);
         result.sort(Comparator.comparing((Hashtable<String, Serializable> row) -> (String) row.get("date")).reversed());
         return result;
     }

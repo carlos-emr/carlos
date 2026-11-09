@@ -319,10 +319,12 @@ async function workflow(session, options = {}) {
     if (ownedMeasurements.size) {
       const ids = [...ownedMeasurements].join(',');
       sql.execute(`DELETE FROM measurementsExt WHERE measurement_id IN (${ids});
-        DELETE FROM measurements WHERE id IN (${ids})`);
+        DELETE FROM measurements WHERE id IN (${ids});
+        DELETE FROM measurementsDeleted WHERE originalId IN (${ids}) AND demographicNo=${patient}`);
       h.assert(sql.value(`SELECT
         (SELECT COUNT(*) FROM measurementsExt WHERE measurement_id IN (${ids}))
-        + (SELECT COUNT(*) FROM measurements WHERE id IN (${ids}))`) === '0',
+        + (SELECT COUNT(*) FROM measurements WHERE id IN (${ids}))
+        + (SELECT COUNT(*) FROM measurementsDeleted WHERE originalId IN (${ids}) AND demographicNo=${patient})`) === '0',
       'The synthetic lab measurements were not all removed');
     }
     if (labs.length) {

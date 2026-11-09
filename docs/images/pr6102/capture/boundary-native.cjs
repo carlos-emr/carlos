@@ -15,6 +15,8 @@ async function workflow(s){
  s.cleanup(()=>s.sql.execute(`DELETE FROM measurements WHERE demographicNo=${s.patient} AND comments=${q(s.marker)}`));
  const chart=await s.chart(),index=await s.popup(chart,chart.getByRole('link',{name:'Measurements',exact:true}).first(),'boundary-index');
  const findings=[],records=[];
+ let failure;
+ try {
  for(const value of ['99','0','0.05','-0.05','5000000','12500000','45000000','-6000000']){
   let history,response;
   const file='constant-'+value.replace('-','n').replace('.','_')+'.png';
@@ -47,10 +49,18 @@ async function workflow(s){
    console.log('PASS native constant '+value+': '+pixels+' visible marker pixels');
   }catch(error){findings.push(value+': '+error.message);console.log('FINDING native constant '+value+': '+error.message);}
   finally{
-   for(const page of new Set([response?.page,history]))if(page&&!page.isClosed()&&page!==index)await page.close();
-   fs.writeFileSync(path.join(output,'verdicts.json'),JSON.stringify({records,findings},null,2)+'\n');
+   const cleanup = await Promise.allSettled([...new Set([response?.page,history])]
+     .filter(page=>page&&!page.isClosed()&&page!==index).map(page=>page.close()));
+   for(const result of cleanup)if(result.status==='rejected')findings.push('Cleanup: '+result.reason.message);
   }
  }
  h.assertStrictPage(s.recorder);h.assert(findings.length===0,findings.join('; '));
+ } catch(error) { failure=error; }
+ try {
+  const temporary=path.join(output,'verdicts.json.tmp');
+  fs.writeFileSync(temporary,JSON.stringify({records,findings},null,2)+'\n');
+  fs.renameSync(temporary,path.join(output,'verdicts.json'));
+ } catch(error) { failure=failure?new AggregateError([failure,error],'Boundary workflow and verdict persistence failed'):error; }
+ if(failure)throw failure;
 }
 runWorkflow('measurement-native-boundaries',workflow);

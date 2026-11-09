@@ -20,8 +20,8 @@ import io.github.carlos_emr.carlos.utility.*;
  */
 @Service
 public class CmlProjectionService {
-    public static final String ARCHIVE = "lab_projection_archive";
-    private static final String ORIGIN = "lab_projection_origin";
+    public static final String ARCHIVE = "lab_proj_archive";
+    private static final String ORIGIN = "lab_proj_origin";
     public enum Reason { READY, UNMATCHED, AMBIGUOUS_SOURCE, CLINICIAN_CHANGE, LEGACY_DELETION, WRONG_OWNER }
     public record Summary(String fingerprint, Reason reason, int archiveCount, int createCount,
             boolean spansReports) {
@@ -34,7 +34,7 @@ public class CmlProjectionService {
         public boolean isReviewNeeded() { return reason != Reason.READY && reason != Reason.UNMATCHED; }
         public boolean isChangeNeeded() { return archiveCount + createCount > 0; }
     }
-    private record Expected(String value, String type, String instruction, String comments, Date observed) { }
+    private record Expected(String value, String type, String instruction, String comments, Date observed, Map<String, String> source) { }
     private record Row(Measurement measurement, Map<String, String> extensions, CmlVersionPolicy.Observation source) { }
     private record Plan(Summary summary, int patient, Map<Integer, CMLHandler> reports,
             List<Row> archive, List<CmlVersionPolicy.Observation> create, Map<String, Expected> expected) { }
@@ -68,7 +68,8 @@ public class CmlProjectionService {
     public void reconcile(int report, int patient) {
         Hl7ChainLocks.lockReport(report);
         Plan plan = prepare(report, patient, true, true);
-        if (plan.summary().isReady()) {
+        if (plan.summary().isReady() || plan.summary().reason() == Reason.CLINICIAN_CHANGE
+                || plan.summary().reason() == Reason.LEGACY_DELETION) {
             CMLHandler incoming = plan.reports().get(report);
             for (int obr = 0; obr < incoming.getOBRCount(); obr++) {
                 for (int obx = 0; obx < incoming.getOBXCount(obr); obx++) {
@@ -77,7 +78,7 @@ public class CmlProjectionService {
             }
             execute(plan, "SUPERSEDED");
         }
-        else MiscUtils.getLogger().warn("CML measurements require review: {}", plan.summary().reason());
+        if (plan.summary().isReviewNeeded()) MiscUtils.getLogger().warn("CML measurements require review: {}", plan.summary().reason());
     }
 
     /** Read-only report-page diagnostic; no coordination rows, clinical values or repair writes. */
@@ -136,10 +137,19 @@ public class CmlProjectionService {
     }
 
     private Plan prepare(int report, int patient, boolean lock, boolean incoming) {
+        try { return prepareKnown(report, patient, lock, incoming); }
+        catch (CmlVersionPolicy.AmbiguousRevision ambiguous) {
+            return new Plan(new Summary("", Reason.AMBIGUOUS_SOURCE, 0, 0, false), patient,
+                    Map.of(), List.of(), List.of(), Map.of());
+        }
+    }
+
+    private Plan prepareKnown(int report, int patient, boolean lock, boolean incoming) {
         var selected = Factory.getHandler(Integer.toString(report));
         if (!(selected instanceof CMLHandler)) throw new IllegalArgumentException("A CML report is required");
-        var ids = Arrays.stream(Hl7textResultsData.getMatchingLabs(Integer.toString(report)).split(","))
-                .map(Integer::valueOf).distinct().sorted().toList();
+        var clinicalOrder = Arrays.stream(Hl7textResultsData.getMatchingLabs(Integer.toString(report)).split(","))
+                .map(Integer::valueOf).distinct().toList();
+        var ids = clinicalOrder.stream().sorted().toList();
         if (!ids.contains(report)) throw new IllegalStateException("CML source chain is unavailable");
         Map<Integer, CMLHandler> reports = new LinkedHashMap<>();
         List<CmlVersionPolicy.Observation> observations = new ArrayList<>();
@@ -150,14 +160,16 @@ public class CmlProjectionService {
                 CarlosProperties.getInstance().getProperty("MAP_BY_IDENTIFIER_AND_NAME", "false"),
                 Locale.getDefault().toLanguageTag(), TimeZone.getDefault().getID()));
         Reason reason = Reason.READY;
+        Reason protection = Reason.READY;
+        Set<String> protectedKeys = new HashSet<>();
         for (int id : ids) {
             if (lock) providers.lockRoutingReport(id);
             var routes = lock ? patients.findForUpdate(id, "HL7") : patients.findByLabNoAndLabType(id, "HL7");
-            if (routes.isEmpty() && !(incoming && id == report)) reason = Reason.UNMATCHED;
+            if (reason == Reason.READY && routes.isEmpty() && !(incoming && id == report)) reason = Reason.UNMATCHED;
             for (var route : routes) {
                 fingerprint.append(CmlVersionPolicy.pack("route", Integer.toString(route.getId()), Integer.toString(id),
-                        Objects.toString(route.getDemographicNo(), null), Objects.toString(route.getCreated(), null),
-                        Objects.toString(route.getDateModified(), null)));
+                        Objects.toString(route.getDemographicNo(), null), dateValue(route.getCreated()),
+                        dateValue(route.getDateModified())));
                 if (!Integer.valueOf(patient).equals(route.getDemographicNo())) reason = Reason.WRONG_OWNER;
             }
             var message = messages.find(id);
@@ -173,52 +185,64 @@ public class CmlProjectionService {
                 var value = expected(cml, observation);
                 expected.put(position(observation), value);
                 fingerprint.append(CmlVersionPolicy.pack("expected", position(observation), CmlVersionPolicy.pack(value.value(), value.type(), value.instruction(), value.comments(),
-                        Long.toString(value.observed().getTime()))));
+                        dateValue(value.observed()), packMap(value.source()))));
             }
             Map<String, CmlVersionPolicy.Observation> byPosition = source.stream().collect(Collectors.toMap(
                     row -> row.obr() + "-" + row.obx(), row -> row));
             for (Measurement measurement : measurements.findByValue("lab_no", Integer.toString(id))) {
                 Map<String, String> ext = extensionMap(measurement.getId());
                 fingerprint.append(CmlVersionPolicy.pack("active", Integer.toString(measurement.getId()), Objects.toString(measurement.getDemographicId(), null),
-                        Objects.toString(measurement.getCreateDate(), null), clinical(measurement, ext), packMap(ext)));
+                        dateValue(measurement.getCreateDate()), clinical(measurement, ext), packMap(ext)));
                 var observation = byPosition.get(ext.get("other_id"));
                 active.add(new Row(measurement, ext, observation));
                 if (!Integer.valueOf(patient).equals(measurement.getDemographicId())) reason = Reason.WRONG_OWNER;
-                if (!Integer.toString(id).equals(ext.get("lab_no")) || observation == null) reason = Reason.AMBIGUOUS_SOURCE;
+                if (!Integer.toString(id).equals(ext.get("lab_no")) || observation == null || ext.containsKey(ARCHIVE)) {
+                    reason = Reason.AMBIGUOUS_SOURCE;
+                }
             }
         }
         for (var archive : deleted.findByLabNumbers(ids.stream().map(String::valueOf).toList())) {
             Map<String, String> ext = extensionMap(archive.getOriginalId());
             fingerprint.append(CmlVersionPolicy.pack("archive", Integer.toString(archive.getId()),
-                    Integer.toString(archive.getOriginalId()), Objects.toString(archive.getDateDeleted(), null),
+                    Integer.toString(archive.getOriginalId()), dateValue(archive.getDateDeleted()),
                     packMap(ext), archive.getType(), archive.getDataField(), archive.getProviderNo(),
-                    archive.getMeasuringInstruction(), archive.getComments(), Objects.toString(archive.getDateObserved(), null),
-                    Objects.toString(archive.getDateEntered(), null), Objects.toString(archive.getDemographicNo(), null)));
+                    archive.getMeasuringInstruction(), archive.getComments(), dateValue(archive.getDateObserved()),
+                    dateValue(archive.getDateEntered()), Objects.toString(archive.getDemographicNo(), null)));
             String marker = ext.get(ARCHIVE);
-            if ("CLINICIAN".equals(marker)) reason = Reason.CLINICIAN_CHANGE;
-            else if (!Set.of("SUPERSEDED", "REPAIR", "UNLINK").contains(Objects.toString(marker, ""))) {
-                reason = Reason.LEGACY_DELETION;
+            if (!Set.of("SUPERSEDED", "REPAIR", "UNLINK").contains(Objects.toString(marker, ""))) {
+                String original = ext.get("lab_no") + ":" + ext.get("other_id");
+                var source = observations.stream().filter(row -> position(row).equals(original)).findFirst();
+                if (source.isEmpty()) reason = Reason.AMBIGUOUS_SOURCE;
+                else protectedKeys.add(source.get().key());
+                if ("CLINICIAN".equals(marker)) protection = Reason.CLINICIAN_CHANGE;
+                else if (protection == Reason.READY) protection = Reason.LEGACY_DELETION;
             }
         }
         Map<String, CmlVersionPolicy.Observation> winners;
         try { winners = CmlVersionPolicy.winners(observations); }
-        catch (IllegalStateException ambiguous) { winners = Map.of(); reason = Reason.AMBIGUOUS_SOURCE; }
+        catch (CmlVersionPolicy.AmbiguousRevision ambiguous) { winners = Map.of(); reason = Reason.AMBIGUOUS_SOURCE; }
         List<Row> archive = new ArrayList<>();
         Set<String> retained = new HashSet<>();
         for (Row row : active) {
-            if (row.source() == null) continue;
-            if (!unchanged(row, expected.get(position(row.source())))) reason = Reason.CLINICIAN_CHANGE;
+            if (row.source() != null && !unchanged(row, expected.get(position(row.source())))) {
+                protectedKeys.add(row.source().key()); protection = Reason.CLINICIAN_CHANGE;
+            }
+        }
+        for (Row row : active) {
+            if (row.source() == null || protectedKeys.contains(row.source().key())) continue;
             var winner = winners.get(row.source().key());
             if (winner != null && position(winner).equals(position(row.source())) && !winner.withdrawn()
                     && retained.add(winner.key())) continue;
             archive.add(row);
         }
         List<CmlVersionPolicy.Observation> create = winners.values().stream()
-                .filter(row -> !row.withdrawn() && !retained.contains(row.key())
+                .filter(row -> !row.withdrawn() && !protectedKeys.contains(row.key()) && !retained.contains(row.key())
                         && expected.get(position(row)).value() != null).toList();
-        boolean spans = winners.values().stream().anyMatch(row -> !row.withdrawn() && row.report() != report);
+        boolean spans = winners.values().stream().filter(row -> !row.withdrawn()).map(CmlVersionPolicy.Observation::report)
+                .distinct().count() > 1 || clinicalOrder.getLast() == report
+                && winners.values().stream().anyMatch(row -> !row.withdrawn() && row.report() != report);
         String hash = ContentDigests.sha256Hex(fingerprint.toString());
-        return new Plan(new Summary(hash, reason, archive.size(), create.size(), spans), patient, reports,
+        return new Plan(new Summary(hash, reason == Reason.READY ? protection : reason, archive.size(), create.size(), spans), patient, reports,
                 archive, create, expected);
     }
 
@@ -229,8 +253,12 @@ public class CmlProjectionService {
         String name = Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("MAP_BY_IDENTIFIER_AND_NAME", "false"))
                 ? handler.getOBXName(row.obr(), row.obx()).trim() : "%";
         for (Object[] mapping : mappings.findMeasurements("FLOWSHEET", handler.getOBXIdentifier(row.obr(), row.obx()).trim(), name)) {
-            type = ((MeasurementMap) mapping[1]).getIdentCode();
-            instruction = ((MeasurementType) mapping[2]).getMeasuringInstruction();
+            String nextType = ((MeasurementMap) mapping[1]).getIdentCode();
+            String nextInstruction = ((MeasurementType) mapping[2]).getMeasuringInstruction();
+            if (!type.isEmpty() && (!type.equals(nextType) || !Objects.equals(instruction, nextInstruction))) {
+                throw new CmlVersionPolicy.AmbiguousRevision("CML measurement mapping is ambiguous");
+            }
+            type = nextType; instruction = nextInstruction;
         }
         StringBuilder comments = new StringBuilder();
         for (int n = 0; n < handler.getOBXCommentCount(row.obr(), row.obx()); n++) {
@@ -239,20 +267,46 @@ public class CmlProjectionService {
         }
         String comment = comments.toString().replaceAll("\\<br\\s?/?\\>", "");
         Date observed = Hl7textResultsData.parseObservationDate(handler.getTimeStamp(row.obr(), row.obx()));
-        if (observed == null) throw new IllegalStateException("CML observation time is unavailable");
-        return new Expected(value, type, instruction, comment, observed);
+        if (observed == null && value != null && !row.withdrawn()) {
+            throw new CmlVersionPolicy.AmbiguousRevision("CML observation time is unavailable");
+        }
+        Map<String, String> source = new LinkedHashMap<>();
+        source.put("lab_no", Integer.toString(row.report())); source.put("other_id", row.obr() + "-" + row.obx());
+        source.put("identifier", handler.getOBXIdentifier(row.obr(), row.obx()).trim());
+        source.put("name", handler.getOBXName(row.obr(), row.obx()).trim());
+        source.put("labname", handler.getPatientLocation()); source.put("accession", handler.getAccessionNum());
+        source.put("datetime", handler.getTimeStamp(row.obr(), row.obx())); source.put("request_datetime", handler.getRequestDate(row.obr()));
+        String flag = handler.getOBXAbnormalFlag(row.obr(), row.obx());
+        source.put("abnormal", flag != null && ("A".equals(flag) || flag.startsWith("H")) ? "A"
+                : flag != null && flag.startsWith("L") ? "L" : "N");
+        String status = handler.getOBXResultStatus(row.obr(), row.obx());
+        if (status != null && !status.isEmpty()) source.put("olis_status", status);
+        String unit = handler.getOBXUnits(row.obr(), row.obx());
+        if (unit != null && !unit.isEmpty()) source.put("unit", unit);
+        String[] range = Hl7textResultsData.splitRefRange(handler.getOBXReferenceRange(row.obr(), row.obx()));
+        if (!range[0].isEmpty()) source.put("range", range[0]);
+        else {
+            if (!range[1].isEmpty()) source.put("minimum", range[1]);
+            if (!range[2].isEmpty()) source.put("maximum", range[2]);
+        }
+        if (handler.isTestResultBlocked(row.obr(), row.obx())) source.put("blocked", "BLOCKED");
+        return new Expected(value, type, instruction, comment, observed, source);
     }
 
     private Map<String, String> extensionMap(int measurement) {
         Map<String, String> result = new LinkedHashMap<>();
         for (var extension : extensions.getMeasurementsExtByMeasurementId(measurement)) {
-            if (result.putIfAbsent(extension.getKeyVal(), extension.getVal()) != null) {
-                throw new IllegalStateException("Measurement source extensions are ambiguous");
+            String key = canonicalKey(extension.getKeyVal());
+            if (key == null || result.containsKey(key)) {
+                throw new CmlVersionPolicy.AmbiguousRevision("Measurement source extensions are ambiguous");
             }
+            result.put(key, extension.getVal());
         }
         return result;
     }
 
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "Exact comparison with the legacy server-locale extraction, solely to preserve clinical edits; never identity or authorization")
     private boolean unchanged(Row row, Expected expected) {
         Measurement m = row.measurement();
         String origin = row.extensions().get(ORIGIN);
@@ -261,15 +315,29 @@ public class CmlProjectionService {
                 && (expected.value().equals(m.getDataField()) || expected.value().toLowerCase(Locale.getDefault()).equals(m.getDataField()))
                 && Objects.equals(expected.type(), m.getType()) && Objects.equals(expected.instruction(), m.getMeasuringInstruction())
                 && Objects.equals(expected.comments(), Objects.toString(m.getComments(), ""))
-                && Objects.equals(expected.observed(), m.getDateObserved());
+                && Objects.equals(expected.observed(), m.getDateObserved())
+                && expected.source().equals(clinicalExtensions(row.extensions()));
+    }
+
+    private static String canonicalKey(String key) {
+        if ("lab_projection_archive".equals(key) || "lab_projection_archi".equals(key)) return ARCHIVE;
+        if ("lab_projection_origin".equals(key) || "lab_projection_origi".equals(key)) return ORIGIN;
+        return key;
+    }
+
+    private static Map<String, String> clinicalExtensions(Map<String, String> extensions) {
+        Map<String, String> result = new TreeMap<>();
+        extensions.forEach((key, value) -> { if (!key.startsWith("lab_proj_") && !key.startsWith("lab_projection_")) result.put(key, value); });
+        return result;
     }
 
     private static String clinical(Measurement row, Map<String, String> extensions) {
-        Map<String, String> source = new TreeMap<>();
-        extensions.forEach((key, value) -> { if (!key.startsWith("lab_projection_")) source.put(key, value); });
+        Map<String, String> source = clinicalExtensions(extensions);
         return CmlVersionPolicy.pack(row.getType(), row.getProviderNo(), row.getDataField(), row.getMeasuringInstruction(),
                 row.getComments(), row.getDateObserved() == null ? null : Long.toString(row.getDateObserved().getTime()), packMap(source));
     }
+
+    private static String dateValue(Date value) { return value == null ? null : Long.toString(value.getTime()); }
 
     private static String packMap(Map<String, String> values) {
         StringBuilder result = new StringBuilder();
@@ -311,6 +379,10 @@ public class CmlProjectionService {
     private void marker(int measurement, String key, String value) {
         var extension = new MeasurementsExt(); extension.setMeasurementId(measurement);
         extension.setKeyVal(key); extension.setVal(value); extensions.persist(extension);
+        var stored = extensions.getMeasurementsExtByMeasurementIdAndKeyVal(measurement, key);
+        if (stored == null || !key.equals(stored.getKeyVal()) || !value.equals(stored.getVal())) {
+            throw new IllegalStateException("Measurement provenance was not stored completely");
+        }
     }
 
     public static final class StalePlan extends RuntimeException {

@@ -84,6 +84,7 @@ public final class CdmReportContexts {
     private static boolean selectorsMatch(HttpServletRequest request, Entry entry) {
         Object stored = entry.attributes().get(MEASUREMENT_TYPES);
         if (!(stored instanceof RptMeasurementTypesBeanHandler definitions)) return false;
+        if (definitions.getMeasurementTypeVector().size() != definitions.getMeasuringInstrcBeanVector().size()) return false;
         Map<String, java.util.Set<String>> allowed = new LinkedHashMap<>();
         for (int row = 0; row < definitions.getMeasurementTypeVector().size(); row++) {
             String type = definitions.getMeasurementTypeVector().get(row).getType();

@@ -164,7 +164,7 @@ class Hl7PatientUnlinkIntegrationTest extends CarlosTestBase {
                     .setParameter(1, measurement).getResultList();
             assertThat(archives).singleElement().satisfies(row -> assertThat(row.getDataField()).isEqualTo("12.7"));
             assertThat(extensions.getMeasurementsExtByMeasurementId(measurement)).extracting(MeasurementsExt::getKeyVal)
-                    .containsExactlyInAnyOrder("lab_no", "lab_projection_archive");
+                    .containsExactlyInAnyOrder("lab_no", CmlProjectionService.ARCHIVE);
             for (int report : reports) {
                 assertThat(patients.findByLabNoAndLabType(report, "HL7")).singleElement()
                         .satisfies(row -> assertThat(row.getDemographicNo()).isZero());

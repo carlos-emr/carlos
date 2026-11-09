@@ -54,6 +54,9 @@ class CmlProjectionIntegrationTest extends CarlosTestBase {
     private int patient;
     private String accession, oldFilter;
     private boolean failAudit, failArchiveMarker, lockExisted;
+    private Runnable auditHook = () -> { };
+    private Runnable archiveHook = () -> { };
+    private final List<Integer> controls = new ArrayList<>();
 
     private <T> T transactional(T target) {
         var proxy=new ProxyFactory(target);
@@ -82,25 +85,32 @@ class CmlProjectionIntegrationTest extends CarlosTestBase {
         when(security.isAllowedAccessToPatientRecord(actor,patient)).thenReturn(true);
         when(security.hasPrivilege(eq(actor),anyString(),anyString(),nullable(String.class))).thenReturn(true);
         OscarLogDao auditFault=mock(OscarLogDao.class);
-        doAnswer(call->{audit.persist(call.getArgument(0));if(failAudit)throw new IllegalStateException("late audit INSERT fault");return null;})
+        doAnswer(call->{audit.persist(call.getArgument(0));auditHook.run();if(failAudit)throw new IllegalStateException("late audit INSERT fault");return null;})
                 .when(auditFault).persist(any());
         MeasurementsExtDao extFault=mock(MeasurementsExtDao.class,AdditionalAnswers.delegatesTo(extensions));
         doAnswer(call->{MeasurementsExt row=call.getArgument(0);extensions.persist(row);
-            if(failArchiveMarker&&CmlProjectionService.ARCHIVE.equals(row.getKeyVal()))throw new IllegalStateException("late archive marker fault");return null;})
+            if(CmlProjectionService.ARCHIVE.equals(row.getKeyVal())) {
+                archiveHook.run();
+                if(failArchiveMarker)throw new IllegalStateException("late archive marker fault");
+            }
+            return null;})
                 .when(extFault).persist(any());
         service=transactional(new CmlProjectionService(patients,providers,measurements,deleted,extFault,messages,mappings,security,auditFault));
         manualDelete=transactional(new ClinicalMeasurementDeletionService(measurements,deleted,extensions,security));
     }
     private int add(String time,String status,String... rows) {
         String body=CmlVersionPolicyUnitTest.body(accession,time,status,rows);
+        return addBody(body, status, rows.length);
+    }
+    private int addBody(String body, String status, int rowCount) {
         Hl7TextMessage message=new Hl7TextMessage();message.setType("CML");
         message.setBase64EncodedeMessage(Base64.getEncoder().encodeToString(body.getBytes(StandardCharsets.UTF_8)));
         messages.persist(message);int report=message.getId();reports.add(report);
         var handler=Factory.getHandler("CML",body);
         var info=new Hl7TextInfo();info.setLabNumber(report);info.setAccessionNumber(accession);
-        info.setFirstName(handler.getFirstName());info.setLastName(handler.getLastName());info.setObrDate(handler.getMsgDate());
+        info.setFirstName(handler.getFirstName());info.setLastName(handler.getLastName());info.setObrDate(handler.getServiceDate().isEmpty()?handler.getMsgDate():handler.getServiceDate());
         info.setReportStatus(status);info.setSendingFacility(handler.getPatientLocation());
-        info.setFinalResultCount("F".equals(status)?rows.length:0);infos.persist(info);return report;
+        info.setFinalResultCount("F".equals(status)?rowCount:0);infos.persist(info);return report;
     }
     private int ingest(String time,String status,String... rows) {
         return tx.execute(transaction->{
@@ -136,8 +146,9 @@ class CmlProjectionIntegrationTest extends CarlosTestBase {
                 em.createQuery("delete from Hl7TextInfo h where h.labNumber in ?1").setParameter(1,reports).executeUpdate();
                 em.createQuery("delete from Hl7TextMessage h where h.id in ?1").setParameter(1,reports).executeUpdate();
             }
-            em.createQuery("delete from OscarLog l where l.demographicId=?1 and l.content='HL7_LAB_PROJECTION'").setParameter(1,patient).executeUpdate();
+            em.createQuery("delete from OscarLog l where l.demographicId=?1").setParameter(1,patient).executeUpdate();
             em.createQuery("delete from Demographic d where d.demographicNo=?1").setParameter(1,patient).executeUpdate();
+            for(int control:controls)em.createQuery("delete from Demographic d where d.demographicNo=?1").setParameter(1,control).executeUpdate();
             if(!lockExisted)em.createNativeQuery("delete from providerLabRoutingLock where lab_no=?1")
                     .setParameter(1,Hl7ChainLocks.key("CML",accession)).executeUpdate();
             for(int id:reports)em.createNativeQuery("delete from providerLabRoutingLock where lab_no=?1").setParameter(1,id).executeUpdate();
@@ -230,4 +241,151 @@ class CmlProjectionIntegrationTest extends CarlosTestBase {
         assertThatThrownBy(()->service.apply(report,preview.fingerprint(),actor,"127.0.0.1")).isInstanceOf(SecurityException.class);
         assertThat(active()).hasSize(2);assertThat(archiveCount()).isZero();assertThat(auditCount()).isZero();
     }
+    @Test void shouldUpdateUnprotectedObservations_whenAnotherObservationHasClinicianChanges() {
+        ingest("20260310080000","F","7010=5.1","7020=9.2");
+        int edited=active().stream().filter(row->"5.1".equals(row.getDataField())).findFirst().orElseThrow().getId();
+        tx.executeWithoutResult(status->assertThat(em.createNativeQuery("update measurements set dataField='5.9' where id=?1 and demographicNo=?2")
+                .setParameter(1,edited).setParameter(2,patient).executeUpdate()).isEqualTo(1));
+        int report=ingest("20260310120000","C","7010=12.7","7020=9.9");
+        assertThat(active()).extracting(Measurement::getDataField).containsExactlyInAnyOrder("5.9","9.9");
+        assertThat(archiveCount()).isEqualTo(1);
+        assertThat(service.preview(report,actor).reason()).isEqualTo(CmlProjectionService.Reason.CLINICIAN_CHANGE);
+    }
+    @Test void shouldProtectLegacyUnitEdits_evenWithoutAnOriginMarker() {
+        ingest("20260310080000","F","7010=5.1");int id=active().getFirst().getId();
+        tx.executeWithoutResult(status->{
+            em.createQuery("delete from MeasurementsExt e where e.measurementId=?1 and e.keyVal='lab_proj_origin'").setParameter(1,id).executeUpdate();
+            em.createQuery("update MeasurementsExt e set e.val='mg/dL' where e.measurementId=?1 and e.keyVal='unit'").setParameter(1,id).executeUpdate();
+        });
+        int report=ingest("20260310120000","C","7010=12.7");
+        assertThat(active()).extracting(Measurement::getDataField).containsExactly("5.1");assertThat(archiveCount()).isZero();
+        assertThat(service.preview(report,actor).reason()).isEqualTo(CmlProjectionService.Reason.CLINICIAN_CHANGE);
+    }
+    @Test void shouldBlockWrongOwnership_evenWhenTheSameRowAlsoHasClinicianChanges() {
+        ingest("20260310080000","F","7010=5.1");int id=active().getFirst().getId();
+        int foreign=tx.execute(status->{
+            var demo=new Demographic();demo.setFirstName("Synthetic");demo.setLastName("CONTROL-"+UUID.randomUUID());
+            demo.setYearOfBirth("1980");demo.setMonthOfBirth("01");demo.setDateOfBirth("02");demo.setSex("F");
+            demo.setPatientStatus("AC");demo.setProviderNo("999998");demographics.save(demo);controls.add(demo.getDemographicNo());
+            em.createNativeQuery("update measurements set dataField='5.9',demographicNo=?1 where id=?2 and demographicNo=?3")
+                    .setParameter(1,demo.getDemographicNo()).setParameter(2,id).setParameter(3,patient).executeUpdate();
+            return demo.getDemographicNo();
+        });
+        int report=ingest("20260310120000","C","7010=12.7");
+        assertThat(service.preview(report,actor).reason()).isEqualTo(CmlProjectionService.Reason.WRONG_OWNER);
+        assertThat(active()).isEmpty();assertThat(archiveCount()).isZero();
+        tx.executeWithoutResult(status->{var row=measurements.find(id);assertThat(row.getDemographicId()).isEqualTo(foreign);assertThat(row.getDataField()).isEqualTo("5.9");});
+    }
+    @Test void shouldPreserveRawConflictingObservations_withoutGuessingWhichOneToProject() {
+        ingest("20260310080000","F","7010=5.1");
+        int report=ingest("20260310120000","C","7010=12.7","7010=14.1");
+        assertThat(active()).extracting(Measurement::getDataField).containsExactly("5.1");assertThat(archiveCount()).isZero();
+        assertThat(service.status(report,actor).reason()).isEqualTo(CmlProjectionService.Reason.AMBIGUOUS_SOURCE);
+        tx.executeWithoutResult(status->assertThat(infos.searchByAccessionNumberOrderByObrDate(accession)).hasSize(2));
+    }
+    @Test void shouldRequireReviewForDuplicateSourceExtensions_withoutRejectingTheRawCorrection() {
+        ingest("20260310080000","F","7010=5.1");int id=active().getFirst().getId();
+        tx.executeWithoutResult(status->{var duplicate=new MeasurementsExt();duplicate.setMeasurementId(id);duplicate.setKeyVal("identifier");duplicate.setVal("7010");extensions.persist(duplicate);});
+        int report=ingest("20260310120000","C","7010=12.7");
+        assertThat(active()).extracting(Measurement::getDataField).containsExactly("5.1");assertThat(archiveCount()).isZero();
+        assertThat(service.status(report,actor).reason()).isEqualTo(CmlProjectionService.Reason.AMBIGUOUS_SOURCE);
+    }
+    @Test void shouldNotTreatAnEmptyFinalValueAsAnImplicitDeletion() {
+        ingest("20260310080000","F","7010=5.1");int report=ingest("20260310120000","F","7010=");
+        assertThat(active()).extracting(Measurement::getDataField).containsExactly("5.1");assertThat(archiveCount()).isZero();
+        assertThat(service.status(report,actor).spansReports()).isTrue();
+    }
+    @Test void shouldRepairAnUnambiguousMissingProjection_withoutChangingSourceOrReviewRows() {
+        int report=tx.execute(status->{int id=add("20260310080000","F","7010=5.1");patients.persist(new PatientLabRouting(id,"HL7",patient));return id;});
+        var preview=service.preview(report,actor);assertThat(preview.createCount()).isEqualTo(1);assertThat(preview.archiveCount()).isZero();
+        service.apply(report,preview.fingerprint(),actor,"127.0.0.1");
+        assertThat(active()).extracting(Measurement::getDataField).containsExactly("5.1");assertThat(auditCount()).isEqualTo(1);
+        tx.executeWithoutResult(status->{
+            int id=active().getFirst().getId();
+            assertThat(extensions.getMeasurementsExtByMeasurementIdAndKeyVal(id,"lab_proj_origin").getVal()).hasSize(64);
+            assertThat(patients.findByLabNoAndLabType(report,"HL7")).singleElement().satisfies(row->assertThat(row.getDemographicNo()).isEqualTo(patient));
+        });
+    }
+    @Test void shouldRecognizeLegacyTruncatedMarkers_withoutLosingNewProvenance() {
+        ingest("20260310080000","F","7010=5.1");ingest("20260310120000","C","7010=12.7");
+        tx.executeWithoutResult(status->{
+            em.createQuery("update MeasurementsExt e set e.keyVal='lab_projection_archi' where e.keyVal='lab_proj_archive' and e.measurementId in (select d.originalId from MeasurementsDeleted d where d.demographicNo=?1)")
+                    .setParameter(1,patient).executeUpdate();
+            em.createQuery("update MeasurementsExt e set e.keyVal='lab_projection_origi' where e.keyVal='lab_proj_origin' and e.measurementId in (select d.originalId from MeasurementsDeleted d where d.demographicNo=?1)")
+                    .setParameter(1,patient).executeUpdate();
+        });
+        int report=ingest("20260310140000","C","7010=14.2");
+        assertThat(active()).extracting(Measurement::getDataField).containsExactly("14.2");
+        assertThat(service.preview(report,actor).reason()).isEqualTo(CmlProjectionService.Reason.READY);
+        assertThat(CmlProjectionService.ARCHIVE.length()).isLessThanOrEqualTo(20);
+    }
+    private static void await(java.util.concurrent.CountDownLatch latch) {
+        try { if(!latch.await(15,java.util.concurrent.TimeUnit.SECONDS))throw new IllegalStateException("concurrency test latch expired"); }
+        catch(InterruptedException interrupted){Thread.currentThread().interrupt();throw new IllegalStateException(interrupted);}
+    }
+    @Test void shouldSerializeRepairAndNewIngestion_withoutExposingPartialClinicalWrites() throws Exception {
+        int report=legacyDuplicates();var preview=service.preview(report,actor);
+        var entered=new java.util.concurrent.CountDownLatch(1);var release=new java.util.concurrent.CountDownLatch(1);
+        auditHook=()->{entered.countDown();await(release);};
+        try(var pool=java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            var repair=pool.submit(()->service.apply(report,preview.fingerprint(),actor,"127.0.0.1"));
+            await(entered);
+            var started=new java.util.concurrent.CountDownLatch(1);
+            var incoming=pool.submit(()->{started.countDown();return ingest("20260310140000","C","7010=14.2");});
+            await(started);
+            assertThat(active()).hasSize(2); // READ_COMMITTED sees the prior complete state while repair is uncommitted.
+            assertThat(incoming.isDone()).isFalse();
+            release.countDown();repair.get(30,java.util.concurrent.TimeUnit.SECONDS);incoming.get(30,java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(active()).extracting(Measurement::getDataField).containsExactly("14.2");assertThat(auditCount()).isEqualTo(1);
+        } finally {release.countDown();}
+    }
+    @Test void shouldRefuseAStaleManualDelete_whenIngestionReplacesItsSelectedRow() throws Exception {
+        ingest("20260310080000","F","7010=5.1");int old=active().getFirst().getId();
+        var entered=new java.util.concurrent.CountDownLatch(1);var release=new java.util.concurrent.CountDownLatch(1);
+        archiveHook=()->{entered.countDown();await(release);};
+        try(var pool=java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            var incoming=pool.submit(()->ingest("20260310120000","C","7010=12.7"));await(entered);
+            var deletion=pool.submit(()->manualDelete.delete(List.of(old),Integer.toString(patient),actor));
+            assertThat(active()).extracting(Measurement::getDataField).containsExactly("5.1");
+            release.countDown();incoming.get(30,java.util.concurrent.TimeUnit.SECONDS);
+            assertThatThrownBy(()->deletion.get(30,java.util.concurrent.TimeUnit.SECONDS))
+                    .isInstanceOf(java.util.concurrent.ExecutionException.class)
+                    .hasCauseInstanceOf(ClinicalMeasurementDeletionService.StaleMeasurement.class);
+            assertThat(active()).extracting(Measurement::getDataField).containsExactly("12.7");
+            assertThat(archiveCount()).isEqualTo(1);
+        } finally {release.countDown();}
+    }
+
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", "20260230120000"})
+    void shouldKeepRawHistoryAndUnlinkAvailable_whenClinicalRevisionTimeIsUnusable(String clinicalTime) {
+        int original=ingest("20260310080000","F","7010=5.1");
+        int report=tx.execute(status->{
+            String body=CmlVersionPolicyUnitTest.body(accession,"20260310120000","C","7010=12.7");
+            String[] lines=body.split("\r");
+            for(int i=0;i<lines.length;i++) {
+                String[] fields=lines[i].split("\\|",-1);
+                if("OBR".equals(fields[0])) {fields[7]=clinicalTime;fields[22]=clinicalTime;}
+                if("OBX".equals(fields[0])) fields[14]=clinicalTime;
+                lines[i]=String.join("|",fields);
+            }
+            int id=addBody(String.join("\r",lines)+"\r","C",1);
+            service.reconcile(id,patient);patients.persist(new PatientLabRouting(id,"HL7",patient));return id;
+        });
+        assertThat(active()).singleElement().satisfies(row->assertThat(row.getDataField()).isEqualTo("5.1"));
+        assertThat(service.status(report,actor).reason()).isEqualTo(CmlProjectionService.Reason.AMBIGUOUS_SOURCE);
+        assertThat(service.preview(report,actor).isReady()).isFalse();
+        assertThatThrownBy(()->Hl7textResultsData.getMatchingLabs(Integer.toString(report)))
+                .isInstanceOf(CmlVersionPolicy.AmbiguousRevision.class);
+        assertThat(Hl7textResultsData.getMatchingLabsForHistory(Integer.toString(report)).split(","))
+                .containsExactlyInAnyOrder(Integer.toString(original),Integer.toString(report));
+        var source=Factory.getHandler(Integer.toString(report));assertThat(source.getOBXResult(0,0)).isEqualTo("12.7");
+        var unlink=transactional(new Hl7PatientUnlinkService(patients,providers,measurements,deleted,extensions,messages,security,audit));
+        unlink.unlink(report,unlink.version(report),"synthetic wrong-patient correction",actor,"127.0.0.1");
+        assertThat(active()).isEmpty();
+        tx.executeWithoutResult(status->{for(int id:List.of(original,report))assertThat(patients.findByLabNoAndLabType(id,"HL7"))
+                .allSatisfy(row->assertThat(row.getDemographicNo()).isEqualTo(PatientLabRoutingDao.UNMATCHED));});
+    }
+
 }

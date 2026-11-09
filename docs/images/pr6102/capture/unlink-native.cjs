@@ -116,6 +116,7 @@ DELIMITER ;`);
   record(s.sql.value(`SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${list}) AND demographic_no>0`)==='0','Entire chain must be unmatched');
   record(s.sql.value(`SELECT COUNT(*) FROM measurements WHERE id IN (${activeIds.join(',')})`)==='0','Every active wrong-patient chain projection must be removed');
   record(s.sql.value(`SELECT COUNT(*) FROM measurementsDeleted WHERE originalId IN (${activeIds.join(',')}) AND demographicNo=${s.patient}`)===String(activeIds.length),'Every removed projection must have an archive');
+  record(s.sql.value(`SELECT COUNT(*) FROM measurementsExt WHERE measurement_id IN (${activeIds.join(',')}) AND keyval='lab_proj_archive' AND val='UNLINK'`)===String(activeIds.length),'Every archive must retain its exact untruncated UNLINK provenance key/value');
   for(const [measurement,key,value] of extBefore)record(s.sql.value(`SELECT COUNT(*) FROM measurementsExt WHERE measurement_id=${measurement} AND keyval=${q(key)} AND val=${q(value)}`)==='1','Original projection provenance must remain');
   for(const [id,lab,provider] of independent)record(s.sql.value(`SELECT COUNT(*) FROM providerLabRouting WHERE id=${id} AND lab_type='HL7' AND lab_no=${lab} AND provider_no=${q(provider)} AND status='N' AND mrpDemographicNo IS NULL`)==='1','Independent provider route must reopen: '+id);
   for(const [id] of automatic)record(s.sql.value(`SELECT COUNT(*) FROM providerLabRouting WHERE id=${id}`)==='0','Obsolete automatic MRP route must be revoked: '+id);

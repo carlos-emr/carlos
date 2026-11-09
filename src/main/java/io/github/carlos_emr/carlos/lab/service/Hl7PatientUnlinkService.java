@@ -58,7 +58,7 @@ public class Hl7PatientUnlinkService {
     public boolean hasUnmatchedVersion(int report, MessageHandler incoming) {
         var message = messages.find(report);
         if (message == null) throw new IllegalArgumentException("Report does not exist");
-        String resolved = Hl7textResultsData.getMatchingLabs(Integer.toString(report));
+        String resolved = Hl7textResultsData.getMatchingLabsForHistory(Integer.toString(report));
         if (resolved == null || resolved.isBlank()) throw new IllegalStateException("Source chain is unavailable");
         if (!Arrays.asList(resolved.split(",")).contains(Integer.toString(report))) {
             throw new IllegalStateException("Source chain is unavailable");
@@ -118,7 +118,7 @@ public class Hl7PatientUnlinkService {
             // Extensions remain attached to originalId for provenance. This explicit marker
             // distinguishes unlink archival from deliberate clinician deletion during repair.
             MeasurementsExt marker = new MeasurementsExt();
-            marker.setMeasurementId(measurement.getId()); marker.setKeyVal("lab_projection_archive");
+            marker.setMeasurementId(measurement.getId()); marker.setKeyVal(CmlProjectionService.ARCHIVE);
             marker.setVal("UNLINK"); extensions.persist(marker);
         }
         measurements.batchRemoveAtomically(new ArrayList<>(active.values()));
@@ -155,7 +155,7 @@ public class Hl7PatientUnlinkService {
 
     private List<Integer> chain(int report) {
         if (report <= 0 || messages.find(report) == null) throw new IllegalArgumentException("Report does not exist");
-        String resolved = Hl7textResultsData.getMatchingLabs(Integer.toString(report));
+        String resolved = Hl7textResultsData.getMatchingLabsForHistory(Integer.toString(report));
         if (resolved == null || resolved.isBlank()) throw new IllegalStateException("Source chain is unavailable");
         List<Integer> versions = Arrays.stream(resolved.split(",")).map(String::trim).map(Integer::valueOf).distinct().toList();
         if (!versions.contains(report)) throw new IllegalStateException("Source chain is unavailable");

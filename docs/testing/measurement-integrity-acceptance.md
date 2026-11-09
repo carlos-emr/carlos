@@ -3,8 +3,8 @@
 Target: `release/2026.08`. Screenshot baseline: `9004536dc8314d5f50542b48905ca3ca4099a916`.
 This register distinguishes implementation from qualification. Unchecked requirements
 must not be used to close a ticket. Retained browser/database evidence uses synthetic,
-owned data. This PR remains a draft: current-version selection and historical repair
-are incomplete.
+owned data. This PR remains a draft while the final installed qualification and CI checks run.
+CML explicit-observation ordering and reviewed historical repair are implemented.
 
 [Installed ON/BC comparisons: 98 screenshot pairs](measurement-native-screenshots.md) ·
 [Renderer comparisons: 45 screenshot pairs](measurement-chart-screenshots.md)
@@ -16,7 +16,7 @@ are incomplete.
 | #6091 | Java HALF_EVEN point labels without altering stored/plotted values | Server-formatted labels and real-browser regressions pass; rounding boundaries retained in renderer gallery. Full installed print parity remains a gate. |
 | #6092 | Server locale/date/number conventions preserved | Localized labels and date metadata implemented. English/French renderer comparisons pass; full installed locale matrix remains a gate. |
 | #3935 | Session-private, bounded, expiring per-form definitions; explicit invalid/stale outcome | Implemented. All three native reports preserve each tab's type/count in both provinces. Cross-session, expiry, capacity and invalid-selector tests pass. |
-| #5820, #5819 | Source-aware current selection and atomic active-measurement projection | **Not implemented.** Native ON correction retake still observes both old and corrected active projections, with the original selected as current. |
+| #5820, #5819 | Source-aware current selection and atomic active-measurement projection | Implemented with stable observation keys, clinical revision times, explicit corrections/withdrawals, per-observation clinician protection and transactional reconciliation. Twenty-four real-DAO integration cases pass, including concurrent repair/import and manual deletion/import; installed retakes are pending. |
 | #5835 | Atomic complete-chain unlink, provider reconciliation, stale retry protection | Implemented. Both provinces pass real MariaDB late-audit-fault rollback, normal retry, stale 409, projection archival, independent/automatic provider controls and later-delivery unmatch fence. Concurrent physical ingestion/unlink qualification remains a gate. |
 | #5828 | Literal preservation and visible filter-excluded source results | Implemented. Native source histories/grids retain case and Pending rows, actual PDFs retain source values, and read/plot/print leave clinical state unchanged in both provinces. |
 | #5853 | Fair bounded renderer admission, typed failures, all consumers show failures | Implemented. Native renderer stop, visible warning/Retry, 503/Retry-After, restart/recovery and subsequent actual eForm PDF controls pass in both provinces. Installed saturation/interruption/load remains a gate. |
@@ -24,13 +24,13 @@ are incomplete.
 
 ## Required qualification before merge
 
-- [ ] Obtain the affected sources' full-report versus partial-correction contracts; do not infer clinical deletion semantics from delivery order alone.
+- [x] Use the conservative CML explicit-observation contract: omission and blank final values never delete a prior observation; only explicit D withdraws. Other source policies retain their existing semantics.
 - [ ] Implement and qualify canonical current selection and atomic active projection for #5819/#5820.
 - [ ] Coordinate ingestion, matching, unlinking and repair for each clinical chain, and exercise physical concurrency.
-- [ ] Distinguish deliberate clinician deletions from supersession, unlink and repair archival.
+- [x] Distinguish deliberate clinician deletions from supersession, unlink and repair archival.
 - [ ] Provide fingerprinted, idempotent, dry-run-first historical repair for unambiguous damage.
 - [x] Exercise actual image/PDF contents with independent geometry/value associations, cross-patient controls and unchanged-read checks.
-- [x] Compile all 995 JSPs with Tomcat 11 Jasper; check the packaged WAR dependency/API contents.
+- [x] Compile all 996 JSPs with Tomcat 11 Jasper; check the packaged WAR dependency/API contents.
 - [x] Install and exercise native qualified results, chart geometry, CDM and unlink workflows in both ON and BC packages.
 - [x] Exercise real MariaDB late audit INSERT failure and verify complete rollback before successful retry.
 - [x] Exercise a real renderer-service outage and visible recovery, followed by actual eForm PDF compatibility controls.

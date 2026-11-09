@@ -45,6 +45,13 @@ public final class CmlVersionPolicy {
         return offset == null ? local.atZone(ZoneId.systemDefault()).toInstant() : local.toInstant(offset);
     }
 
+    private static Instant clinicalTime(String value) {
+        try { return timestamp(value); }
+        catch (java.time.DateTimeException | IllegalArgumentException invalid) {
+            throw new AmbiguousRevision("Missing or unusable CML clinical revision time requires review");
+        }
+    }
+
     private static String normalizedStatus(String status) {
         return switch (Objects.toString(status, "")) {
             case "F", "f", "Final" -> "F";
@@ -85,7 +92,7 @@ public final class CmlVersionPolicy {
                         handler.getOBXUnits(i, j), handler.getOBXReferenceRange(i, j),
                         handler.getOBXAbnormalFlag(i, j), handler.getTimeStamp(i, j), status, comments.toString(),
                         Boolean.toString(handler.isTestResultBlocked(i, j))));
-                result.add(new Observation(report, i, j, key, timestamp(handler.getRevisionTimestamp(i, j)),
+                result.add(new Observation(report, i, j, key, clinicalTime(handler.getRevisionTimestamp(i, j)),
                         stage, "D".equals(status), "D".equals(status) ? 2 : "C".equals(status) ? 1 : 0, signature));
             }
         }
@@ -98,7 +105,7 @@ public final class CmlVersionPolicy {
         Set<String> withinReport = new HashSet<>();
         for (Observation observation : observations) {
             if (!withinReport.add(pack(Integer.toString(observation.report()), observation.key()))) {
-                throw new IllegalStateException("Repeated CML observation identity requires review");
+                throw new AmbiguousRevision("Repeated CML observation identity requires review");
             }
             winners.merge(observation.key(), observation, CmlVersionPolicy::newer);
         }
@@ -111,7 +118,7 @@ public final class CmlVersionPolicy {
         if (order == 0) order = Integer.compare(left.correction(), right.correction());
         if (order != 0) return order > 0 ? left : right;
         if (!left.signature().equals(right.signature())) {
-            throw new IllegalStateException("Conflicting CML revisions at the same clinical time require review");
+            throw new AmbiguousRevision("Conflicting CML revisions at the same clinical time require review");
         }
         // Identical clinical content is interchangeable; this tie never chooses between different results.
         return left.report() < right.report() ? left : right;
@@ -129,7 +136,7 @@ public final class CmlVersionPolicy {
                     String status = normalizedStatus(handler.getOBXResultStatus(i, j));
                     int nextStage = stage(status);
                     if (nextStage == 0) continue;
-                    Instant nextTime = timestamp(handler.getRevisionTimestamp(i, j));
+                    Instant nextTime = clinicalTime(handler.getRevisionTimestamp(i, j));
                     int nextCorrection = "D".equals(status) ? 2 : "C".equals(status) ? 1 : 0;
                     if (nextStage > stage || nextStage == stage && (nextTime.isAfter(time)
                             || nextTime.equals(time) && nextCorrection > correction)) {
@@ -143,4 +150,9 @@ public final class CmlVersionPolicy {
                 .thenComparingInt(Revision::correction).thenComparingInt(Revision::report));
         return revisions.stream().map(Revision::report).toList();
     }
+    public static final class AmbiguousRevision extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+        public AmbiguousRevision(String message) { super(message); }
+    }
+
 }

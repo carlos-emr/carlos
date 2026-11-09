@@ -155,6 +155,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="clinical.history.unavailable" var="labHistoryUnavailableText"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
@@ -306,12 +307,18 @@
 
             handler = handlers.get(0);
         } else {
-            multiLabId = Hl7textResultsData.getMatchingLabs(segmentID);
+            boolean clinicalOrderAvailable = true;
+            try { multiLabId = Hl7textResultsData.getMatchingLabs(segmentID); }
+            catch (io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision ambiguous) {
+                clinicalOrderAvailable = false;
+                request.setAttribute("cmlProjectionReview", true);
+                multiLabId = Hl7textResultsData.getMatchingLabsForHistory(segmentID);
+            }
             segmentIDs = multiLabId.split(",");
             LabPatientAccess.requireLabs(securityInfoManager, accessRoutings, loggedInInfo, segmentIDs, "HL7");
 
 		int totalMatchingLabs = segmentIDs.length;
-		if (showLatest != null && "true".equals(showLatest) && totalMatchingLabs > 1) {
+		if (clinicalOrderAvailable && showLatest != null && "true".equals(showLatest) && totalMatchingLabs > 1) {
 			segmentID = segmentIDs[totalMatchingLabs - 1];
 		}
 
@@ -939,65 +946,39 @@ input[id^='acklabel_']{
             console.log("of "+rows.length +" abnormal Labs "+abnormalLabs.length +" to be checked");
                
           // Fetch and insert only for abnormal labs
-          fetchLabsSequentially().then(() => {
+          fetchLabHistories().then(() => {
               const ms = Date.now() - start;
               console.log("All labs fetched and inserted in "+Math.floor(ms / 100)/10+" sec");
           });
         }
 
-        async function fetchLabsSequentially() {
-          for (let i = 0; i < abnormalLabs.length; i++) {
-              const lab = abnormalLabs[i];
-      
-              // Fetch values for this lab
-              await fetchLabValues(lab, demographicNo);
-      
-              // Insert values immediately after fetching
-              insertLabValues(lab);
-              console.log("Inserted values for "+lab.name);
-          }      
-      }
-
-      async function fetchLabValues(lab, demographicNo) {
-          const newURL = "<%=request.getContextPath()%>/lab/CA/ON/ViewLabValues?testName=" + encodeURIComponent(lab.testName) +
-            "&demo=" + encodeURIComponent(demographicNo) + "&labType=HL7&identifier=" + encodeURIComponent(lab.LOINC);      
-     
+        async function fetchLabHistories() {
+          if (!abnormalLabs.length) return;
+          const parameters = new URLSearchParams({historyBatch: '1', demo: demographicNo});
+          [...new Set(abnormalLabs.map(lab => lab.LOINC))].forEach(identifier => parameters.append('identifier', identifier));
           try {
-              const response = await fetch(newURL);
-      
-              if (!response.ok) {
-                  console.warn("Failed to fetch lab: " + lab.name + " — status: " + response.status);
-                  return;
-              }
-      
-              const responseText = await response.text();
-      
-              // Convert returned HTML into a DOM document
-              const parser = new DOMParser();
-              const doc = parser.parseFromString(responseText, "text/html");
-      
-              // Select all result rows
-              const rows = doc.querySelectorAll(
-                  "tr.NormalRes, tr.AbnormalRes, tr.LoRes, tr.HiLoRes"
-              );
-      
-              rows.forEach((row) => {
-                  const cells = row.querySelectorAll("td");
-                  if (cells.length < 6) return;
-                  const value = cells[1].textContent.trim();
-                  const dateTime = cells[5].textContent.trim();
-                  // Extract only the YYYY-MM-DD part
-                  const dateMatch = dateTime.match(/^(\d{4}-\d{2}-\d{2})/);
-                  if (!dateMatch) return;
-                  if (lab.values.length < 10) {
-                      lab.values.push(value);
-                      lab.dates.push(dateMatch[1]);
+              const response = await fetch("<%=request.getContextPath()%>/lab/CA/ON/ViewLabValues?" + parameters);
+              if (!response.ok) throw new Error('History answered HTTP ' + response.status);
+              const histories = await response.json();
+              for (const lab of abnormalLabs) {
+                  for (const row of (histories[lab.LOINC] || []).slice(0, 10)) {
+                      const date = String(row.collDate || '').match(/^(\d{4}-\d{2}-\d{2})/);
+                      if (!date) continue;
+                      lab.values.push(String(row.result));
+                      lab.dates.push(date[1]);
                   }
-              });
+                  insertLabValues(lab);
+              }
           } catch (error) {
-              console.error("Error fetching lab: "+ lab.name, error);
+              const warning = document.createElement('p');
+              warning.setAttribute('role', 'alert');
+              warning.id = 'labHistoryUnavailable';
+              warning.textContent = <%= new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(
+                      pageContext.getAttribute("labHistoryUnavailableText")).replace("</", "<\\/") %>;
+              document.body.prepend(warning);
+              console.error('Lab history unavailable', error);
           }
-      }
+        }
 
       function insertLabValues(lab) {
           const rows = document.querySelectorAll("tr.NormalRes, tr.AbnormalRes, tr.HiLoRes");

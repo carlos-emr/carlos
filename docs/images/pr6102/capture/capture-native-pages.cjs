@@ -35,8 +35,11 @@ pw.chromium.launch = async (...args) => {
                                 sha256: crypto.createHash('sha256').update(fs.readFileSync(target)).digest('hex')});
                             save();
                         } catch (error) {
-                            records.push({image: name, route, failure: error.name}); save();
-                            await close(...closeArgs); throw error;
+                            const failures = [error];
+                            records.push({image: name, route, failure: error.name});
+                            try { save(); } catch (saveError) { failures.push(saveError); }
+                            try { await close(...closeArgs); } catch (closeError) { failures.push(closeError); }
+                            throw failures.length === 1 ? error : new AggregateError(failures, 'Capture failed; evidence/cleanup also failed');
                         }
                     }
                 }

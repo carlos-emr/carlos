@@ -62,4 +62,39 @@ class RenderAdmissionUnitTest {
             }
         }
     }
+
+    @Test
+    void shouldRefusePreInterruptedAdmission_withoutTakingAnAvailableSlot() {
+        var slots = new Semaphore(2);
+        var admission = new RenderAdmission(slots);
+        Thread.currentThread().interrupt();
+        try {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> admission.acquire(RenderAdmission.Kind.CHART, Duration.ZERO))
+                    .isInstanceOf(InterruptedException.class);
+            assertThat(slots.availablePermits()).isEqualTo(2);
+        } finally { Thread.interrupted(); }
+    }
+
+    @Test
+    void shouldRemoveInterruptedWaiter_andPermitFollowingWork() throws Exception {
+        var slots = new Semaphore(0);
+        var admission = new RenderAdmission(slots);
+        var outcome = new java.util.concurrent.atomic.AtomicReference<Throwable>();
+        Thread worker = new Thread(() -> {
+            try (var lease = admission.acquire(RenderAdmission.Kind.PDF, Duration.ofSeconds(5))) {
+                outcome.set(new AssertionError("Interrupted waiter acquired a slot"));
+            } catch (Throwable error) { outcome.set(error); }
+        });
+        worker.start();
+        try {
+            long deadline = System.nanoTime() + Duration.ofSeconds(2).toNanos();
+            while (worker.getState() != Thread.State.TIMED_WAITING && System.nanoTime() < deadline) Thread.yield();
+            assertThat(worker.getState()).isEqualTo(Thread.State.TIMED_WAITING);
+            worker.interrupt();worker.join(2000);
+            assertThat(worker.isAlive()).isFalse();assertThat(outcome.get()).isInstanceOf(InterruptedException.class);
+            slots.release();
+            try (var next = admission.acquire(RenderAdmission.Kind.PDF, Duration.ZERO)) { assertThat(next).isNotNull(); }
+            assertThat(slots.availablePermits()).isEqualTo(1);
+        } finally { worker.interrupt();worker.join(2000); }
+    }
 }

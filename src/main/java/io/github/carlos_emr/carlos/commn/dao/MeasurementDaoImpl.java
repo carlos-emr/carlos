@@ -952,8 +952,11 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
     }
     @Override
     public Measurement findForUpdate(int id) {
-        Measurement row = entityManager.find(Measurement.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
-        if (row != null) entityManager.refresh(row, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        List<Measurement> rows = entityManager.createQuery("select m from Measurement m where m.id=?1", Measurement.class)
+                .setParameter(1, id).setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).getResultList();
+        if (rows.isEmpty()) return null;
+        Measurement row = rows.getFirst();
+        entityManager.refresh(row, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         return row;
     }
 

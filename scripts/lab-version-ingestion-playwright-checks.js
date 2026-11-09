@@ -2,13 +2,19 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 'use strict';
 // #5726: ingest genuine original/correction/older messages; never seed a chain.
-const fs=require('node:fs');
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const h=require('./lib/playwright-harness'),ui=require('./lib/playwright-ui');
 const {runWorkflow}=require('./lib/workflow-session');
 const {workflow:uploadFixture,uploadThroughPopup}=require('./lab-upload-playwright-checks');
 const {openInbox,openSidebar,setMode,search}=require('./inbox-file-forward-playwright-checks');
 const {waitForNavbars}=require('./echart-navbar-modules-playwright-checks');
 const {readPatientState,assertPatientStateUnchanged}=require('./echart-two-patient-isolation-playwright-checks');
+// Settle finite assets before navigation/closure; continuous polling must not stall cleanup.
+async function settled(page) {
+  await page.waitForLoadState('load', {timeout:30000});
+  try { await page.waitForLoadState('networkidle', {timeout:5000}); }
+  catch(error) { if(error.name!=='TimeoutError')throw error; }
+}
 const q=h.sqlString;
 const VERSIONS={
   original:{key:'ORIGINAL',time:'20260310080000',date:'2026-03-10 08:00:00',value:'5.1',flag:'N',status:'F'},
@@ -32,15 +38,15 @@ async function workflow(s) {
   const {sql,patient,provider,marker}=s;
   const screenshots=process.env.LAB_VERSION_SCREENSHOT_DIR;
   const captured=[];
-  if(screenshots){h.assert(require('node:path').isAbsolute(screenshots),'LAB_VERSION_SCREENSHOT_DIR must be absolute');fs.mkdirSync(screenshots,{recursive:true});}
+  if(screenshots){h.assert(path.isAbsolute(screenshots),'LAB_VERSION_SCREENSHOT_DIR must be absolute');fs.mkdirSync(screenshots,{recursive:true});}
   async function screenshot(page,label){
     if(!screenshots)return;
     const file=String(captured.length+1).padStart(3,'0')+'-'+label.replace(/[^A-Za-z0-9_-]/g,'-')+'.png';
-    const target=require('node:path').join(screenshots,file);
+    const target=path.join(screenshots,file);
     await page.screenshot({path:target,fullPage:true});
     captured.push({image:file,label,route:new URL(page.url()).pathname,browser:s.context.browser().version(),
-      sha256:require('node:crypto').createHash('sha256').update(fs.readFileSync(target)).digest('hex')});
-    fs.writeFileSync(require('node:path').join(screenshots,'captures.json'),JSON.stringify(captured,null,2)+'\n');
+      sha256:crypto.createHash('sha256').update(fs.readFileSync(target)).digest('hex')});
+    fs.writeFileSync(path.join(screenshots,'captures.json'),JSON.stringify(captured,null,2)+'\n');
   }
   const controlName=marker.slice(0,-1)+(marker.endsWith('0')?'1':'0');let control,controlClaimed=false;
   s.cleanup(()=>{
@@ -116,18 +122,20 @@ async function workflow(s) {
         // Inbox may navigate the day sheet and reportWindow may reuse its named
         // window. Never close the schedule merely because a helper returned it.
         for(const page of new Set([opened.report,opened.inbox]))if(page!==s.schedule&&!page.isClosed()){
-          await page.waitForLoadState('networkidle');await page.close();
+          await settled(page);await page.close();
         }
         if(s.schedule.isClosed())s.schedule=await s.context.newPage();
-        await s.schedule.waitForLoadState('networkidle');
+        await settled(s.schedule);
         await s.schedule.waitForFunction(()=>window.jQuery&&window.jQuery.active===0);
         h.relabelStrictPage(s.schedule,'ingested-versions-schedule');
-        if(s.schedule.url()!==s.scheduleUrl)await s.schedule.goto(s.scheduleUrl,{waitUntil:'networkidle'});
+        if(s.schedule.url()!==s.scheduleUrl)await s.schedule.goto(s.scheduleUrl,{waitUntil:'load'});
         await s.schedule.locator('#inboxLink').waitFor({state:'attached'});
       }
       let opened=await inboxReport(original);await inspect(opened.report,original,'Original before review');
       await s.step('native acknowledgment reviews the original before any correction is ingested',async()=>{
         const closed=opened.report.waitForEvent('close',{timeout:30000});
+        // Register a rejection observer immediately; the assertion still awaits the original promise.
+        closed.catch(()=>{});
         await h.withExpectedDialogs(opened.report,async()=>{
           const [response]=await Promise.all([opened.report.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/oscarMDS/UpdateStatus')),
             opened.report.locator('input[onclick*="ackLab"],button[onclick*="ackLab"]').first().click()]);h.assert(response.status()===200,'Native acknowledgment failed');
@@ -152,7 +160,7 @@ async function workflow(s) {
           ids[0]=id;
         }
         await retireReports(opened);
-        const chart=await s.chart();await chart.waitForLoadState('networkidle');await chart.reload({waitUntil:'networkidle'});await waitForNavbars(chart,30000);
+        const chart=await s.chart();await settled(chart);await chart.reload({waitUntil:'load'});await waitForNavbars(chart,30000);
         const links=chart.locator('#leftNavBar a[onclick*="lab/CA/ALL/ViewLabDisplay"],#rightNavBar a[onclick*="lab/CA/ALL/ViewLabDisplay"],#leftNavBar a[href*="lab/CA/ALL/ViewLabDisplay"],#rightNavBar a[href*="lab/CA/ALL/ViewLabDisplay"]');
         // Each native list item has both a title and a date anchor. Count
         // source-bearing items, retaining the duplicate-item detection.
@@ -173,7 +181,7 @@ async function workflow(s) {
         const report=await s.popup(chart,[...candidates.values()][0].entry,'ingested-current-chart-lab');
         const current=await report.locator('form[id^="acknowledgeForm_"]').evaluateAll(forms=>forms.map(form=>form.id.replace('acknowledgeForm_','')));
         h.assert(current.length===1&&known.has(current[0]),label+': chart rendered an unknown version');record(current[0]===expected,label+': chart current source is not the correction');
-        await inspect(report,current[0],label+' chart current');await report.waitForLoadState('networkidle');await report.close();
+        await inspect(report,current[0],label+' chart current');await settled(report);await report.close();
         assertPatientStateUnchanged(clinicalBefore,readPatientState(sql,patient),label+' native lab reads');
         h.assert(JSON.stringify(labState(accession))===JSON.stringify(sourceBefore),label+': native report/chart reads changed source or review state');
         checkControl();h.assertStrictPage(s.recorder);console.log('  Observed '+label+': selected correction, every historical native source, chart current selection and independent control checked');

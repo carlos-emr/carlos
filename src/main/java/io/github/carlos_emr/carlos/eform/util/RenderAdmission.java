@@ -26,6 +26,7 @@ final class RenderAdmission {
     }
 
     Lease acquire(Kind kind, Duration timeout) throws InterruptedException {
+        if (Thread.interrupted()) throw new InterruptedException("Render admission interrupted");
         synchronized (monitor) {
             var queue = queues.get(kind);
             if (queue.size() >= (kind == Kind.CHART ? 16 : 4)) return null;
