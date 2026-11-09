@@ -9,7 +9,7 @@ const out=path.join(root,'docs/images/pr6102');
 const sha=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
 (async()=>{
  const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
- const manifest={baseline:'9004536dc8314d5f50542b48905ca3ca4099a916',candidate:'9b0bb15c9f2',browser:browser.version(),jdk:'Temurin 25.0.3',scope:'Actual Java chart configurations rendered with each revision\'s bundled scripts; these are renderer fixtures, not installed native UI qualification.',captures:[]};
+ const manifest={baseline:'9004536dc8314d5f50542b48905ca3ca4099a916',candidate:'4173aa17ef12be8c94eebe8d9013094aec10976a',browser:browser.version(),jdk:'Temurin 25.0.3',scope:'Actual Java chart configurations rendered with each revision\'s bundled scripts; these are renderer fixtures, not installed native UI qualification.',captures:[]};
  try {
   for(const phase of ['before','after']) for(const locale of ['en','fr']) {
    const scripts=phase==='before'?'/workspace/work/measurement-before/src/main/webapp/library/chartjs':path.join(root,'src/main/webapp/library/chartjs');

@@ -1,6 +1,6 @@
 # Measurement chart comparison screenshots
 
-Baseline: `9004536dc8314d5f50542b48905ca3ca4099a916`. Candidate code: `9b0bb15c9f2b391b2081ce76dc107d013b2404e9`.
+Baseline: `9004536dc8314d5f50542b48905ca3ca4099a916`. Candidate code: `4173aa17ef12be8c94eebe8d9013094aec10976a`.
 
 **Scope:** these are Playwright screenshots of actual Java-generated chart configurations rendered using each revision's bundled JavaScript. They are renderer fixtures, not evidence of installed patient-chart, CDM, lab-ingestion, unlink, database, or PDF workflows. All data is synthetic.
 
@@ -70,3 +70,5 @@ These screenshots accompany the existing chart reference suite. The single-point
 ## Remaining evidence
 
 Native installed ON/BC workflow screenshots, CDM two-tab behavior, renderer outage/recovery in the application and actual print/PDF comparisons remain required by the acceptance register.
+
+Visual inspection of the first candidate screenshots identified overlapping French date labels. The overlap was fixed and the final screenshots were recaptured; the earlier failed visual attempt remains in commit `ebab9861b41`.
