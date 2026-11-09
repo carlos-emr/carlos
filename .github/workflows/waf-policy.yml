@@ -44,6 +44,14 @@ jobs:
       DEBIAN_FRONTEND: noninteractive
       WAF_EVIDENCE: /tmp/waf-policy-evidence
     steps:
+      # The minimal image has no CA package yet. The trusted Actions Node runtime
+      # supplies public roots so APT can bootstrap over HTTPS without disabling TLS.
+      - name: Bootstrap trusted HTTPS roots
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            require('node:fs').writeFileSync('/tmp/waf-apt-roots.pem',
+              require('node:tls').rootCertificates.join('\n') + '\n', {mode: 0o600});
       - name: Install real-engine dependencies
         id: dependencies
         run: |
@@ -52,8 +60,10 @@ jobs:
           # Package installation must not start the distribution's nginx.
           printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d
           chmod +x /usr/sbin/policy-rc.d
-          apt-get update 2>&1 | tee "$WAF_EVIDENCE/dependencies.log"
-          apt-get install -y --no-install-recommends \
+          sed -i 's#http://#https://#g' /etc/apt/sources.list.d/*.sources
+          apt_options=(-o Acquire::https::CaInfo=/tmp/waf-apt-roots.pem -o Acquire::Retries=3)
+          apt-get "${apt_options[@]}" -o APT::Update::Error-Mode=any update 2>&1 | tee "$WAF_EVIDENCE/dependencies.log"
+          apt-get "${apt_options[@]}" install -y --no-install-recommends \
             nginx libnginx-mod-http-modsecurity modsecurity-crs \
             nodejs python3 git ca-certificates \
             2>&1 | tee -a "$WAF_EVIDENCE/dependencies.log"
