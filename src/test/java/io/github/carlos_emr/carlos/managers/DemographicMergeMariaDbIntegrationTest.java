@@ -63,6 +63,7 @@ class DemographicMergeMariaDbIntegrationTest {
     @Autowired private PlatformTransactionManager transactions;
     @PersistenceContext private EntityManager em;
     private DemographicManager manager;
+    private SecurityInfoManager privileges;
     private LoggedInInfo actor;
     private int parent;
     private int otherParent;
@@ -85,8 +86,14 @@ class DemographicMergeMariaDbIntegrationTest {
             }
         }
         actor = mock(LoggedInInfo.class);
+        when(actor.getLoggedInProviderNo()).thenReturn("999998");
+        privileges = mock(SecurityInfoManager.class);
+        when(privileges.hasPrivilege(actor, "_demographic", "w", (String) null)).thenReturn(true);
+        when(privileges.hasPrivilege(eq(actor), eq("_demographic"), eq("w"), anyInt()))
+                .thenAnswer(call -> java.util.Set.of(parent, otherParent, first, second).contains(call.<Integer>getArgument(3)));
         var target = new DemographicManagerImpl();
         ReflectionTestUtils.setField(target, "demographicDao", patients);
+        ReflectionTestUtils.setField(target, "securityInfoManager", privileges);
         ReflectionTestUtils.setField(target, "demographicMergedDao", merges);
         var proxy = new ProxyFactory(target);
         proxy.setInterfaces(DemographicManager.class);
@@ -150,6 +157,16 @@ class DemographicMergeMariaDbIntegrationTest {
         assertThat(audits(unmerge)).isEqualTo(beforeUnmerge + 1);
         assertThat(patientAudits(unmerge, first)).isEqualTo(1);
         assertThat(patientAudits(unmerge, parent)).isZero();
+    }
+
+    @Test
+    void shouldRefuseDeniedParticipants_beforeAnyDatabaseOrAuditChange() throws Exception {
+        when(privileges.hasPrivilege(actor, "_demographic", "w", first)).thenReturn(false);
+        long before = audits("DemographicManager.mergeDemographics");
+        assertThatThrownBy(() -> manager.mergeDemographics(actor, parent, List.of(first, second)))
+                .isInstanceOf(SecurityException.class);
+        assertThat(active(first)).isZero(); assertThat(active(second)).isZero();
+        assertThat(audits("DemographicManager.mergeDemographics")).isEqualTo(before);
     }
 
     @AfterEach

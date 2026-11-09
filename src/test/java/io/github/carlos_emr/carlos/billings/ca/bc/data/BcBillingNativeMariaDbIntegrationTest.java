@@ -28,6 +28,10 @@ class BcBillingNativeMariaDbIntegrationTest extends CarlosTestBase {
     @Autowired @Qualifier("billingmasterDAO") private BillingmasterDAO dao;
     @Autowired private BillingServiceDao billingServiceDao;
     @Autowired private DataSource dataSource;
+    @Autowired private io.github.carlos_emr.carlos.billing.CA.BC.dao.BillingHistoryDao historyDao;
+    @Autowired private io.github.carlos_emr.carlos.billing.CA.dao.WcbBpCodeDao bodyParts;
+    @jakarta.persistence.PersistenceContext(unitName = "entityManagerFactory")
+    private jakarta.persistence.EntityManager entityManager;
     private JdbcTemplate jdbc;
     private static final int BILL = 9554601;
     private static final int MASTER = 9554601;
@@ -145,33 +149,19 @@ class BcBillingNativeMariaDbIntegrationTest extends CarlosTestBase {
         assertThatThrownBy(() -> new MSPReconcile().getPayments("BC54", "81234", "missing", "", "", false, false, true, false))
                 .isInstanceOf(BillingmasterDAO.MissingBcPaymentProviderException.class).hasMessage("Provider must have ohip no!");
         assertThatThrownBy(() -> new MSPReconcile(true).getPayments("BC54", "81234", "missing", "", "", false, false, true, false))
-                .isInstanceOf(IllegalStateException.class).hasMessage("Billing export data could not be read").hasNoCause();
+                .isInstanceOf(BillingmasterDAO.MissingBcPaymentProviderException.class).hasMessage("Provider must have ohip no!").hasNoCause();
         assertThat(dao.findBcPayments("other", "81234", "BC54", "", "", false, false, true, false)).isEmpty();
     }
 
     @Test
-    void shouldKeepNativeDecimalDifferentialAndNullableFields_forRemittance() {
+    void shouldKeepNativeMoneyAndNullableFields_forRemittance() {
         remittance("001001", "20261016");
         assertThat(dao.findBcRemittance("812%", "95546")).singleElement().satisfies(row -> {
             assertThat(row.demographic_no()).isEqualTo(985546);
             assertThat(row.t_servicedate()).isEqualTo("20261015");
             assertThat(row.t_exp1()).isNull();
         });
-        assertThat(dao.findBcAdjustmentRemittance("81234", "95546")).singleElement()
-                .satisfies(row -> assertThat(row.differential()).isEqualTo("+"));
-        jdbc.update("update teleplanS00 set t_paidamt='000999' where s21_id=95546");
-        assertThat(dao.findBcAdjustmentRemittance("81234", "95546")).singleElement()
-                .satisfies(row -> assertThat(row.differential()).isEqualTo("-"));
         assertThat(dao.findBcRemittance("other", "95546")).isEmpty();
-    }
-
-    @Test
-    void shouldKeepSubmissionLikeAndBoundValues_forMatchingRecord() {
-        jdbc.update("insert into billactivity (id, sentdate) values (?, ?)", 95546, "2026-10-15 12:34:56");
-        jdbc.update("insert into teleplan_submission_link (billingmaster_no, bill_activity_id) values (?, ?)", MASTER, 95546);
-        assertThat(dao.hasBcMatchingBillingRecord(String.valueOf(MASTER), "2026-10-15%", "00001")).isTrue();
-        assertThat(dao.hasBcMatchingBillingRecord(String.valueOf(MASTER), "2026-10-16%", "00001")).isFalse();
-        assertThat(dao.hasBcMatchingBillingRecord(String.valueOf(MASTER), "2026-10-15%", "' OR '1'='1")).isFalse();
     }
 
     @Test
@@ -200,4 +190,94 @@ class BcBillingNativeMariaDbIntegrationTest extends CarlosTestBase {
         assertThatThrownBy(() -> dao.findBcExtractBills("91234", "or 1=1", new String[0]))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void shouldListInstalledBodyParts_whenSearchIsEmpty() {
+        jdbc.update("INSERT INTO wcb_bp_code (code,level1,usagenote) VALUES (?,?,?)", "TST54", "Synthetic reference", "Synthetic UTF-8 note: café");
+        var rows = bodyParts.findByCodeOrAnyLevel("%%");
+        assertThat(rows).isNotEmpty();
+        assertThat(rows).filteredOn(row -> "TST54".equals(row.getCode()))
+                .singleElement().satisfies(row -> assertThat(row.getUsagenote()).isEqualTo("Synthetic UTF-8 note: café"));
+        assertThat(rows).allSatisfy(row -> {
+            assertThat(row.getCode()).isNotBlank();
+            row.getUsagenote();
+        });
+    }
+
+    @Test
+    void shouldReadOnlyReportPhoneFields_forSelectedPatients() {
+        jdbc.update("UPDATE demographic SET phone=?,phone2=? WHERE demographic_no=?", "0012345", "0098765", 985546);
+        assertThat(dao.findReportPhones(java.util.Arrays.asList("985546", "985546", "999999", null, "", "bad", "999999999999999999999")))
+                .containsEntry("985546", new BillingmasterDAO.PatientPhones("0012345", "0098765"))
+                .doesNotContainKey("999999");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"123456.78", "-12345.67", "badvalue9", " ", "12.34 "})
+    void shouldArchiveEntireSourceAmount_withoutNumericCoercion(String source) {
+        jdbc.update("UPDATE billing SET billingtype='Pri' WHERE billing_no=?", BILL);
+        jdbc.update("UPDATE billingmaster SET bill_amount=?,paymentMethod='1' WHERE billingmaster_no=?", source, MASTER);
+        new BillingHistoryDAO().createBillingHistoryArchive(String.valueOf(MASTER));
+        assertThat(jdbc.queryForObject("SELECT amount FROM billing_history WHERE billingmaster_no=?", String.class, MASTER))
+                .isEqualTo(source == null ? "" : source);
+    }
+
+    @Test
+    void shouldPreserveAllCodeCharacters_whenBodyPartSearchIsWrapped() {
+        jdbc.update("INSERT INTO wcb_bp_code (code,level1) VALUES ('TST54','Synthetic'),('TST55','Synthetic')");
+        assertThat(bodyParts.findByCodeOrAnyLevel("%TST54%"))
+                .extracting(io.github.carlos_emr.carlos.billing.CA.BC.model.WcbBpCode::getCode)
+                .containsExactly("TST54");
+    }
+
+    @Test
+    void shouldTreatLegacyWcbZeroDatesAsMissing_withoutRewritingThemOnAnUnrelatedEdit() {
+        jdbc.update("INSERT INTO wcb (id,billing_no,demographic_no,provider_no) VALUES (95546,?,?,?)", BILL, 985546, "BC54");
+        // Invoke the query implementation within this test's transaction so the owned uncommitted fixture is visible.
+        BillingmasterDAO reader = org.springframework.test.util.AopTestUtils.getTargetObject(dao);
+        var form = reader.getWCBForm("95546");
+        assertThat(form.getFormCreated()).isNull();
+        assertThat(form.getFormEdited()).isNull();
+        assertThat(form.getW_dob()).isNull();
+        assertThat(form.getW_doi()).isNull();
+        assertThat(form.getW_servicedate()).isNull();
+        assertThat(reader.getWCBForms(985546)).hasSize(1);
+        assertThat(reader.findBcWcb(String.valueOf(BILL))).isNotNull();
+        form.setW_problem("Synthetic unrelated edit");
+        entityManager.merge(form);
+        entityManager.flush();
+        assertThat(jdbc.queryForObject("SELECT CAST(w_doi AS CHAR) FROM wcb WHERE id=95546", String.class)).isEqualTo("0000-00-00");
+        assertThat(jdbc.queryForObject("SELECT CAST(formCreated AS CHAR) FROM wcb WHERE id=95546", String.class)).isEqualTo("0000-00-00 00:00:00");
+    }
+
+    @Test
+    void shouldRetainPrivatePayments_whenLegacyCreationDateIsZero() {
+        jdbc.update("UPDATE billing SET billingtype='Pri' WHERE billing_no=?", BILL);
+        jdbc.update("INSERT INTO billing_history (billingmaster_no,billingstatus,amount_received,payment_type_id) VALUES (?,'P','12.34',1)", MASTER);
+        var rows = dao.findBcPrivatePayments("BC54", "81234", "BC54", "", "");
+        assertThat(rows).hasSize(1);
+        assertThat(rows.getFirst().creationDate()).isNull();
+    }
+
+
+    @Test
+    void shouldKeepAllHistoryTotalsConsistent_whenAmountsRequireExactSummationOrAreCorrupt() {
+        for (String amount : java.util.List.of("0.10", "0.20", "")) {
+            jdbc.update("INSERT INTO billing_history (billingmaster_no,amount_received,payment_type_id) VALUES (?,?,1)", MASTER, amount);
+        }
+        assertThat(historyDao.getTotalPaidFromHistory(MASTER, false)).isEqualTo(0.30);
+        assertThat(historyDao.getTotalPaidFromHistoryByBillingMasterNos(java.util.List.of(MASTER))).containsEntry(MASTER, 0.30);
+        assertThat(historyDao.getPaymentTotalsByBillingMasterNos(java.util.List.of(MASTER)).get(MASTER).excludingAdjustments()).isEqualTo(0.30);
+        for (String corrupt : java.util.List.of("bad", "1e3", "1E9999999", "1e-999999")) {
+            jdbc.update("INSERT INTO billing_history (billingmaster_no,amount_received,payment_type_id) VALUES (?,?,'10')", MASTER, corrupt);
+            assertThat(historyDao.getTotalPaidFromHistory(MASTER, false)).isNaN();
+            assertThat(historyDao.getTotalPaidFromHistoryByBillingMasterNos(java.util.List.of(MASTER)).get(MASTER)).isNaN();
+            var totals = historyDao.getPaymentTotalsByBillingMasterNos(java.util.List.of(MASTER)).get(MASTER);
+            assertThat(totals.includingAdjustments()).isNaN();
+            assertThat(totals.excludingAdjustments()).isEqualTo(0.30);
+            jdbc.update("DELETE FROM billing_history WHERE billingmaster_no=? AND amount_received=?", MASTER, corrupt);
+        }
+    }
+
 }

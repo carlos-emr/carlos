@@ -2,12 +2,6 @@
   "schemaVersion": 1,
   "browserExpectedFailures": [
     {
-      "check": "billing-bc-reprocess-bill-inactive-physician",
-      "finding": 153,
-      "step": "Reprocess Bill on the bill of a physician who has left keeps its provider, payee and practitioner numbers",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
       "check": "admin-messages",
       "finding": 330,
       "step": "a punctuated message with a script literal is listed and stored with a future expiry",
@@ -144,12 +138,6 @@
       "finding": 332,
       "step": "cancelled informed-consent confirmation leaves the banner and stored consent unchanged",
       "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "dialog-confirmations-tickler",
-      "finding": 337,
-      "step": "dismissing task Delete confirms once and preserves every task and status history",
-      "disposition": "required installed retake; blocks release readiness"
     }
   ],
   "retiredNodeTodos": [
@@ -233,6 +221,12 @@
       "finding": 348,
       "step": "the forwarded Inbox row displays its exact seeded description and patient identity",
       "disposition": "Source fix in #5689 for #5685: every Inbox view shows a document's type in its Discipline column, as chosen in clinical review on #5689; the step now asserts the seeded type. Manifest pin retired; retained as an active regression. A fresh installed PASS of the whole check, including its review, comment and acknowledgement steps, is still required."
+    },
+    {
+      "check": "dialog-confirmations-tickler",
+      "finding": 337,
+      "step": "dismissing task Delete confirms once and preserves every task and status history",
+      "disposition": "Source fix in #5687 for #5683: Delete on the patient and main task lists asks for one localized confirmation, and Cancel leaves the selection, tasks and status history unchanged. Manifest pin retired; retained as an active regression. A fresh installed PASS is still required."
     }
   ]
 }

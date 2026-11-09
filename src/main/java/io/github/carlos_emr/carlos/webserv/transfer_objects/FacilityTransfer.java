@@ -193,6 +193,8 @@ public final class FacilityTransfer {
         this.rxInteractionWarningLevel = rxInteractionWarningLevel;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getLastUpdated() {
         return (lastUpdated);
     }

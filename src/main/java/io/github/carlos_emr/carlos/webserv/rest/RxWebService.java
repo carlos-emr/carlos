@@ -122,9 +122,47 @@ public class RxWebService extends AbstractServiceImpl {
     @Autowired
     protected PrescriptionManager prescriptionManager;
 
+    /** Query opt-in keeps legacy XML and JSON response shapes unchanged. Clients echo the
+     * returned rowVersion on edits; omitting it retains the legacy write contract. */
+    private boolean includeRowVersion() {
+        // Resolve each request from CXF's current message. A singleton service's injected
+        // servlet-request field is not a reliable source of per-request query parameters.
+        var message = org.apache.cxf.phase.PhaseInterceptorChain.getCurrentMessage();
+        if (message == null) return false;
+        String value = new org.apache.cxf.jaxrs.impl.UriInfoImpl(message).getQueryParameters().getFirst("includeRowVersion");
+        return validateVersionPreference(value);
+    }
+
+    private static boolean validateVersionPreference(String value) {
+        if (value != null && !value.matches("(?i:true|false)")) {
+            throw new jakarta.ws.rs.BadRequestException("includeRowVersion must be true or false");
+        }
+        return Boolean.parseBoolean(value);
+    }
+
+    private DrugTo1 transferDrug(LoggedInInfo info, Drug drug) {
+        DrugTo1 result = drugConverter.getAsTransferObject(info, drug);
+        if (includeRowVersion()) result.setRowVersion(drug.getRowVersion());
+        return result;
+    }
+
+    private List<DrugTo1> transferDrugs(LoggedInInfo info, List<Drug> drugs) {
+        List<DrugTo1> result = drugConverter.getAllAsTransferObjects(info, drugs);
+        if (includeRowVersion()) {
+            for (int index = 0; index < drugs.size(); index++) result.get(index).setRowVersion(drugs.get(index).getRowVersion());
+        }
+        return result;
+    }
+
     @GET
     @Path("/drugs")
     @Produces("application/json")
+    public DrugSearchResponse routeDrugs(@QueryParam("demographicNo") int demographicNo, @QueryParam("includeRowVersion") String versionPreference)
+            throws OperationNotSupportedException  {
+        validateVersionPreference(versionPreference);
+        return drugs(demographicNo);
+    }
+
     public DrugSearchResponse drugs(@QueryParam("demographicNo") int demographicNo)
             throws OperationNotSupportedException {
         return drugs(demographicNo, null);
@@ -143,6 +181,12 @@ public class RxWebService extends AbstractServiceImpl {
     @GET
     @Path("/drugs{status}")
     @Produces("application/json")
+    public DrugSearchResponse routeDrugs(@QueryParam("demographicNo") int demographicNo, @PathParam("status") String status, @QueryParam("includeRowVersion") String versionPreference)
+            throws OperationNotSupportedException  {
+        validateVersionPreference(versionPreference);
+        return drugs(demographicNo, status);
+    }
+
     public DrugSearchResponse drugs(@QueryParam("demographicNo") int demographicNo, @PathParam("status") String status)
             throws OperationNotSupportedException {
 
@@ -167,7 +211,7 @@ public class RxWebService extends AbstractServiceImpl {
 
         }
 
-        response.setContent(this.drugConverter.getAllAsTransferObjects(getLoggedInInfo(), drugList));
+        response.setContent(transferDrugs(getLoggedInInfo(), drugList));
 
         return response;
     }
@@ -184,6 +228,11 @@ public class RxWebService extends AbstractServiceImpl {
     @GET
     @Path("/drugs/{status}/{demographicNo}")
     @Produces(MediaType.APPLICATION_JSON)
+    public DrugSearchResponse routeDrugs(@PathParam("status") String status, @PathParam("demographicNo") int demographicNo, @QueryParam("includeRowVersion") String versionPreference) {
+        validateVersionPreference(versionPreference);
+        return drugs(status, demographicNo);
+    }
+
     public DrugSearchResponse drugs(@PathParam("status") String status, @PathParam("demographicNo") int demographicNo) {
         DrugSearchResponse drugResponse;
 
@@ -211,37 +260,57 @@ public class RxWebService extends AbstractServiceImpl {
     @GET
     @Path("/drugs/all/{demographicNo}")
     @Produces(MediaType.APPLICATION_JSON)
+    public DrugSearchResponse routeGetAllDrugs(@PathParam("demographicNo") int demographicNo, @QueryParam("includeRowVersion") String versionPreference) {
+        validateVersionPreference(versionPreference);
+        return getAllDrugs(demographicNo);
+    }
+
     public DrugSearchResponse getAllDrugs(@PathParam("demographicNo") int demographicNo) {
         assertReadPrivilege(demographicNo);
         List<Drug> drugList = rxManager.getDrugs(getLoggedInInfo(), demographicNo, RxStatus.ALL);
-        return new DrugSearchResponse(this.drugConverter.getAllAsTransferObjects(getLoggedInInfo(), drugList));
+        return new DrugSearchResponse(transferDrugs(getLoggedInInfo(), drugList));
     }
 
     @GET
     @Path("/drugs/current/{demographicNo}")
     @Produces(MediaType.APPLICATION_JSON)
+    public DrugSearchResponse routeGetCurrentDrugs(@PathParam("demographicNo") int demographicNo, @QueryParam("includeRowVersion") String versionPreference) {
+        validateVersionPreference(versionPreference);
+        return getCurrentDrugs(demographicNo);
+    }
+
     public DrugSearchResponse getCurrentDrugs(@PathParam("demographicNo") int demographicNo) {
         assertReadPrivilege(demographicNo);
         List<Drug> drugList = rxManager.getDrugs(getLoggedInInfo(), demographicNo, RxStatus.CURRENT);
-        return new DrugSearchResponse(this.drugConverter.getAllAsTransferObjects(getLoggedInInfo(), drugList));
+        return new DrugSearchResponse(transferDrugs(getLoggedInInfo(), drugList));
     }
 
     @GET
     @Path("/drugs/longterm/{demographicNo}")
     @Produces(MediaType.APPLICATION_JSON)
+    public DrugSearchResponse routeGetLongtermDrugs(@PathParam("demographicNo") int demographicNo, @QueryParam("includeRowVersion") String versionPreference) {
+        validateVersionPreference(versionPreference);
+        return getLongtermDrugs(demographicNo);
+    }
+
     public DrugSearchResponse getLongtermDrugs(@PathParam("demographicNo") int demographicNo) {
         assertReadPrivilege(demographicNo);
         List<Drug> drugList = rxManager.getLongTermDrugs(getLoggedInInfo(), demographicNo);
-        return new DrugSearchResponse(this.drugConverter.getAllAsTransferObjects(getLoggedInInfo(), drugList));
+        return new DrugSearchResponse(transferDrugs(getLoggedInInfo(), drugList));
     }
 
     @GET
     @Path("/drugs/archived/{demographicNo}")
     @Produces(MediaType.APPLICATION_JSON)
+    public DrugSearchResponse routeGetArchivedDrugs(@PathParam("demographicNo") int demographicNo, @QueryParam("includeRowVersion") String versionPreference) {
+        validateVersionPreference(versionPreference);
+        return getArchivedDrugs(demographicNo);
+    }
+
     public DrugSearchResponse getArchivedDrugs(@PathParam("demographicNo") int demographicNo) {
         assertReadPrivilege(demographicNo);
         List<Drug> drugList = rxManager.getDrugs(getLoggedInInfo(), demographicNo, RxStatus.ARCHIVED);
-        return new DrugSearchResponse(this.drugConverter.getAllAsTransferObjects(getLoggedInInfo(), drugList));
+        return new DrugSearchResponse(transferDrugs(getLoggedInInfo(), drugList));
     }
 
     private void assertReadPrivilege(int demographicNo) {
@@ -262,6 +331,11 @@ public class RxWebService extends AbstractServiceImpl {
     @Path("/new")
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     @Consumes({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
+    public DrugResponse routeAddDrug(DrugTo1 transferObject, @QueryParam("demographicNo") int demographicNo, @QueryParam("includeRowVersion") String versionPreference) {
+        validateVersionPreference(versionPreference);
+        return addDrug(transferObject, demographicNo);
+    }
+
     public DrugResponse addDrug(DrugTo1 transferObject, @QueryParam("demographicNo") int demographicNo) {
 
         LoggedInInfo info = getLoggedInInfo();
@@ -284,7 +358,7 @@ public class RxWebService extends AbstractServiceImpl {
             if (outgoingDrug != null) {
 
                 resp.setSuccess(true);
-                resp.setDrug(this.drugConverter.getAsTransferObject(info, outgoingDrug));
+                resp.setDrug(transferDrug(info, outgoingDrug));
 
             } else {
 
@@ -323,6 +397,11 @@ public class RxWebService extends AbstractServiceImpl {
     @POST
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     @Consumes({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
+    public DrugResponse routeUpdateDrug(DrugTo1 transferObject, @QueryParam("demographicNo") int demographicNo, @QueryParam("includeRowVersion") String versionPreference) {
+        validateVersionPreference(versionPreference);
+        return updateDrug(transferObject, demographicNo);
+    }
+
     public DrugResponse updateDrug(DrugTo1 transferObject, @QueryParam("demographicNo") int demographicNo) {
 
         LoggedInInfo info = getLoggedInInfo();
@@ -345,7 +424,7 @@ public class RxWebService extends AbstractServiceImpl {
             if (outgoingDrug != null) {
 
                 resp.setSuccess(true);
-                resp.setDrug(this.drugConverter.getAsTransferObject(info, outgoingDrug));
+                resp.setDrug(transferDrug(info, outgoingDrug));
 
             } else {
 
@@ -355,6 +434,8 @@ public class RxWebService extends AbstractServiceImpl {
 
             }
 
+        } catch (org.springframework.dao.OptimisticLockingFailureException | jakarta.persistence.OptimisticLockException stale) {
+            throw new io.github.carlos_emr.carlos.managers.RxSourceVersionValidator.Conflict();
         } catch (ConversionException ce) {
             logger.info("Failed to convert from transfer object to domain object: " + ce.getMessage());
             logger.error(ce);
@@ -408,6 +489,11 @@ public class RxWebService extends AbstractServiceImpl {
     @POST
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     @Consumes({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
+    public DrugResponse routeReprescribe(@PathParam("drugId") Integer drugId, @QueryParam("includeRowVersion") String versionPreference) {
+        validateVersionPreference(versionPreference);
+        return represcribe(drugId);
+    }
+
     public DrugResponse represcribe(@PathParam("drugId") Integer drugId) {
         LoggedInInfo info = getLoggedInInfo();
         if (drugId == null || drugId <= 0) throw new BadRequestException();
@@ -420,7 +506,7 @@ public class RxWebService extends AbstractServiceImpl {
         String special = RxUtil.trimSpecial(drug);
         drug.setSpecial(special);
         resp.setSuccess(true);
-        resp.setDrug(this.drugConverter.getAsTransferObject(info, drug));
+        resp.setDrug(transferDrug(info, drug));
 
         return resp;
     }
@@ -437,6 +523,12 @@ public class RxWebService extends AbstractServiceImpl {
     @POST
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     @Consumes({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
+    public PrescriptionResponse routePrescribe(List<DrugTo1> drugTransferObjects,
+            @QueryParam("demographicNo") int demographicNo, @QueryParam("includeRowVersion") String versionPreference) {
+        validateVersionPreference(versionPreference);
+        return prescribe(drugTransferObjects, demographicNo);
+    }
+
     public PrescriptionResponse prescribe(
             List<DrugTo1> drugTransferObjects,
             @QueryParam("demographicNo") int demographicNo
@@ -483,12 +575,20 @@ public class RxWebService extends AbstractServiceImpl {
         }
 
         // attempt to prescribe the drugs.
-        pd = rxManager.prescribe(info, drugs, demographicNo);
+        try {
+            pd = rxManager.prescribe(info, drugs, demographicNo);
+        } catch (io.github.carlos_emr.carlos.managers.PrescriptionWriteException
+                | org.springframework.transaction.UnexpectedRollbackException failed) {
+            // The manager's transaction has rolled back; retain the existing failure response.
+            pd = null;
+        } catch (org.springframework.dao.OptimisticLockingFailureException | jakarta.persistence.OptimisticLockException stale) {
+            throw new io.github.carlos_emr.carlos.managers.RxSourceVersionValidator.Conflict();
+        }
 
         if (pd != null) {
 
             // prescribe was success. We can now prepare the response.
-            resp.setDrugs(this.drugConverter.getAllAsTransferObjects(info, pd.drugs));
+            resp.setDrugs(transferDrugs(info, pd.drugs));
             resp.setPrescription(this.prescriptionConverter.getAsTransferObject(info, pd.prescription));
             resp.setSuccess(true);
 
@@ -515,6 +615,12 @@ public class RxWebService extends AbstractServiceImpl {
     @Path("/history")
     @GET
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
+    public DrugSearchResponse routeHistory(@QueryParam("id") int id,
+            @QueryParam("demographicNo") int demographicNo, @QueryParam("includeRowVersion") String versionPreference) {
+        validateVersionPreference(versionPreference);
+        return history(id, demographicNo);
+    }
+
     public DrugSearchResponse history(
             @QueryParam("id") int id,
             @QueryParam("demographicNo") int demographicNo
@@ -530,7 +636,7 @@ public class RxWebService extends AbstractServiceImpl {
         DrugSearchResponse resp = new DrugSearchResponse();
 
         List<Drug> drugs = rxManager.getHistory(id, info, demographicNo);
-        resp.setContent(drugConverter.getAllAsTransferObjects(info, drugs));
+        resp.setContent(transferDrugs(info, drugs));
 
         return resp;
     }

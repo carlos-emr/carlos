@@ -28,6 +28,7 @@ const legacyHarness = require('./lib/legacy-check');
 const h = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const { cleanupTicklerFixture, readNoteLinkFloor } = require('./lib/tickler-fixture-cleanup');
+const { withTicklerConfirmations } = require('./lib/tickler-confirmation');
 const { selectTicklerAssignee } = require('./lib/tickler-clinic');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
@@ -401,6 +402,7 @@ async function createTickler(context) {
   return row.id;
 }
 
+/** Saves the owned task's message, priority and date, then observes its list refresh before closing the popup. */
 async function editTicklerFromList(context, listPage, ticklerNo) {
   await findRowInList(listPage, createdMessage, 'A');
   const rowLocator = listPage.locator('#ticklerResults tbody tr').filter({ hasText: createdMessage }).first();
@@ -419,9 +421,8 @@ async function editTicklerFromList(context, listPage, ticklerNo) {
       const frame = document.getElementById('ticklerEditFrame');
       return frame && frame.contentDocument && frame.contentDocument.getElementById('tickler-edit-ok');
     }, null, { timeout: 30000 });
-    await editPage.waitForTimeout(750).catch(() => {});
-    await editPage.close().catch(() => {});
   });
+  await editPage.close().catch(() => {});
 
   const rows = getTicklerRows();
   assert(rows.length === 1 && rows[0].id === String(ticklerNo), `edited tickler row was not found for ${ticklerNo}`);
@@ -431,6 +432,7 @@ async function editTicklerFromList(context, listPage, ticklerNo) {
   assert(comments.includes(editedMessage), 'edited tickler comment was not saved');
 }
 
+/** Completes the owned task and waits for the broadcast's response body and table draw before closing the popup. */
 async function completeTicklerViaEdit(context, listPage, ticklerNo) {
   await findRowInList(listPage, createdMessage, 'A');
   const row = listPage.locator('#ticklerResults tbody tr').filter({ hasText: createdMessage }).first();
@@ -449,13 +451,23 @@ async function completeTicklerViaEdit(context, listPage, ticklerNo) {
       const frame = document.getElementById('ticklerEditFrame');
       return frame && frame.contentDocument && frame.contentDocument.getElementById('tickler-edit-ok');
     }, null, { timeout: 30000 });
-    await page.close().catch(() => {});
   });
+  // The iframe marker can be visible before its load handler broadcasts the
+  // refresh. Keep the sender alive until the list has received and drawn it.
+  await page.close().catch(() => {});
 
   const rows = getTicklerRows();
   assert(rows.length === 1 && rows[0].status === 'C', `completed tickler status was ${rows[0] && rows[0].status}`);
 }
 
+/**
+ * Deletes the tickler carrying `message` from the Completed view of the task list. The ticked row is
+ * submitted through Delete, which asks for one native confirmation (#5683) that is accepted here, and
+ * the POST to DbTicklerMain must carry the selected id with a Delete submit_form.
+ *
+ * @param {import('playwright').Page} page the wired task-list page
+ * @param {string} message the unique tickler message that identifies the row
+ */
 async function deleteTicklerFromList(page, message) {
   await setTicklerListStatus(page, 'C');
   await findRowInList(page, message, 'C');
@@ -464,15 +476,19 @@ async function deleteTicklerFromList(page, message) {
   const selectedTicklerNo = await checkbox.getAttribute('value');
   assert(selectedTicklerNo, 'tickler delete checkbox had no tickler id');
   await checkbox.check();
-  const [deleteResponse] = await Promise.all([
-    page.waitForResponse((response) => {
-      const request = response.request();
-      return request.method() === 'POST'
-        && new URL(response.url()).pathname.endsWith('/tickler/DbTicklerMain');
-    }, { timeout: 30000 }),
-    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
-    page.locator("form[name='ticklerform'] input.btn-danger").click(),
-  ]);
+  // Delete asks for confirmation (#5683); the helper accepts the one prompt and fails if it is missing or repeated.
+  let deleteResponse;
+  await withTicklerConfirmations(page, 1, async () => {
+    [deleteResponse] = await Promise.all([
+      page.waitForResponse((response) => {
+        const request = response.request();
+        return request.method() === 'POST'
+          && new URL(response.url()).pathname.endsWith('/tickler/DbTicklerMain');
+      }, { timeout: 30000 }),
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+      page.locator("form[name='ticklerform'] input.btn-danger").click(),
+    ]);
+  });
   assert(deleteResponse.status() < 400, `tickler delete returned HTTP ${deleteResponse.status()}`);
   const deleteForm = new URLSearchParams(deleteResponse.request().postData() || '');
   assert(deleteForm.getAll('checkbox').includes(selectedTicklerNo),

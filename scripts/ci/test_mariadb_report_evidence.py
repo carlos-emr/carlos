@@ -26,6 +26,82 @@ GROWTH_REQUIRED_CASES = {
 }
 
 
+TOKEN_REQUIRED_CASES = {
+    "shouldUseEpochExpiryAcrossDatabaseZones_withoutDeletingRecentOrOtherPurposeTokens(String)[1]",
+    "shouldUseEpochExpiryAcrossDatabaseZones_withoutDeletingRecentOrOtherPurposeTokens(String)[2]",
+    "shouldUseEpochExpiryAcrossDatabaseZones_withoutDeletingRecentOrOtherPurposeTokens(String)[3]",
+    "shouldBoundDeletionBatches_andReportActualIdempotentCounts",
+    "shouldRefuseCorruptSoapMetadata_withoutPartiallyDeletingValidRows",
+    "shouldRollbackEarlierDeletes_whenALaterDeleteFails",
+    "shouldRefuseNonTransactionalStorage_beforeAnyDeletion",
+    "shouldRefuseAnExistingTransaction_withoutCommittingOrRollingBackCallerWork",
+}
+SCHEDULE_REQUIRED_CASES = {
+    "shouldApplyProgramProviderPatientFilters_whilePagingNativeTies",
+    "shouldContinuePastConsentBlockedRows_withoutReturningAFalseEmptyNativePage",
+    "shouldFaultLegacyTiePages_andKeepCompleteNativeTimestampGroups",
+    "shouldKeepASingleRepeatableReadSnapshot_acrossNativeBatchQueries",
+    "shouldPageArchiveTiesWithoutLoss_onTheNativeSchema",
+    "shouldPageCurrentTiesWithoutLoss_onTheNativeSchema",
+    "shouldPropagateASecondNativeQueryFailure_withoutReturningAPartialPage",
+    "shouldRequireReconciliationForLateWritesBehindAnAlreadyReturnedCursor",
+    "shouldRetainTheDaoHardPageLimit_atMaximumNativePageSize",
+}
+
+REPORTING_REQUIRED_CASES = {
+    'shouldCommitPatientNameAudit_withAnUnassignedOrMissingProvider(String)[1]',
+    'shouldCommitPatientNameAudit_withAnUnassignedOrMissingProvider(String)[2]',
+    'shouldRollbackEarlierNameAudits_whenLaterCheckedFailureEscapes',
+    'shouldRollbackEarlierNameAudits_whenLaterPatientEnrichmentFails',
+}
+
+ADMISSION_REQUIRED_CASES = {
+    "shouldRollbackReadAudits_whenALaterCheckedFailureEscapes",
+
+    "shouldCommitSynchronousAdmissionAudits_withThePatientFilteredResponse",
+    "shouldRollbackEarlierReadAudits_whenLaterPatientPolicyAbortsTheResponse",
+}
+
+APPOINTMENT_REQUIRED_CASES = {
+    "shouldRefuseStoredPatient_beforeArchivalOrMutation",
+    "shouldRollbackArchiveAndEdit_whenReplacementPatientIsDenied",
+    "shouldAllowAssignedPatientWrite_withoutReadPermission",
+}
+
+RX_REQUIRED_CASES = {
+    "shouldCommitPrescriptionAndDrugs_whenNativeWritesSucceed",
+    "shouldRequireReconciliation_whenCommitSucceedsButAcknowledgementIsLost",
+    "shouldRollbackHeaderEarlierDrugsAndArchive_whenALaterNativeWriteFails",
+    "shouldRollbackPhysicalState_whenCommitFailsBeforeSubmission",
+}
+
+TICKLER_REQUIRED_CASES = {
+    "shouldRetainClinicalPriorityOrdering_whenUsingTypedCriteria",
+    "shouldRollbackLegacyResolution_whenALaterStoredPatientIsDenied",
+        "shouldRollbackLegacyResolutionAlias_whenALaterStoredPatientIsDenied",
+    "shouldBindFilterValues_andKeepSortHintsOutOfNativeQueryText",
+
+    "shouldAuthorizeTheStoredAndRequestedPatients_beforeFlushingAManagedEdit",
+    "shouldDenyTheCurrentStoredPatient_beforeAnyNativeMutation",
+    "shouldHoldThePhysicalPatientLock_untilTheMutationTransactionCommits",
+    "shouldKeepDiscoveryRowsAndTotals_inOneNativeReadSnapshot",
+    "shouldPageAndCountOnlyPermittedRows_afterNativeDeniedBatches",
+    "shouldRetainUpdateOnlyAuthority_withoutAddingReadPermission",
+    "shouldRollbackEarlierNativeWrites_whenALaterMutationFails",
+    "shouldRollbackManagedFieldChanges_whenValidationReturnsFalse",
+}
+
+MERGE_REQUIRED_CASES = {"shouldRefuseDeniedParticipants_beforeAnyDatabaseOrAuditChange"}
+
+IDENTIFIER_REQUIRED_CASES = {
+    "shouldStartItsOwnJpaTransaction_andPreserveUndisclosedIdentifiers",
+    "shouldRefreshPreviouslyCachedIdentifiers_afterTakingTheWriteLock",
+    "shouldRollbackTheNativeWrite_whenALaterFailureOccurs",
+    "shouldRetainExplicitEmptyStringClears_inTheNativeTransaction",
+    "shouldReportConflict_withoutOverwritingAnOlderTransactionSnapshot",
+}
+
+
 class MariaDbReportEvidenceTest(unittest.TestCase):
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
@@ -110,6 +186,29 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                 finally:
                     report.write_text(original)
                     foreign.unlink()
+
+    def test_named_native_regressions_are_required_without_changing_family_counts(self):
+        self.seed()
+        for mode in MODULE.REQUIRED:
+            suffix = "" if mode == "generated" else "-" + mode
+            families = [("AppointmentUpdateDaoIntegrationTest", APPOINTMENT_REQUIRED_CASES)] if mode == "generated" else []
+            for family, names in families + [("SoapTokenHousekeepingDaoIntegrationTest", TOKEN_REQUIRED_CASES),
+                                  ("DemographicMergeMariaDbIntegrationTest", MERGE_REQUIRED_CASES),
+                                  ("DemographicIdentifierPreservationMariaDbIntegrationTest", IDENTIFIER_REQUIRED_CASES),
+                                  ("ScheduleSyncMariaDbIntegrationTest", SCHEDULE_REQUIRED_CASES),
+                                  ("RxPrescribeMariaDbIntegrationTest", RX_REQUIRED_CASES),
+                                  ("TicklerPatientAccessMariaDbIntegrationTest", TICKLER_REQUIRED_CASES),
+                                  ("ProgramAdmissionAuditMariaDbIntegrationTest", ADMISSION_REQUIRED_CASES),
+                                  ("ReportingPatientListAuditMariaDbIntegrationTest", REPORTING_REQUIRED_CASES)]:
+                report = self.reports / ("TEST-" + self.suite(family) + suffix + ".xml")
+                original = report.read_text()
+                for name in names:
+                    with self.subTest(mode=mode, family=family, case=name):
+                        report.write_text(original.replace('name="' + name + '"', 'name="unrelatedCase"'))
+                        try:
+                            self.assert_refused(self.invoke(), f"Required MariaDB {mode} cases missing: {family}")
+                        finally:
+                            report.write_text(original)
 
     def test_clean_controls_pass_in_both_python_modes(self):
         self.seed()

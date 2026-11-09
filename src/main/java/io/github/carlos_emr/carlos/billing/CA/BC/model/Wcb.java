@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
 @Entity
 @Table(name = "wcb")
+@org.hibernate.annotations.DynamicUpdate
 public class Wcb extends AbstractModel<Integer> {
 
     @Id
@@ -61,9 +62,11 @@ public class Wcb extends AbstractModel<Integer> {
     private int providerNo;
 
     @Temporal(TemporalType.TIMESTAMP)
+    @org.hibernate.annotations.ColumnTransformer(read = "CASE WHEN CAST(formCreated AS CHAR(30)) LIKE '0000-00-00%' THEN NULL ELSE formCreated END")
     private Date formCreated;
 
     @Temporal(TemporalType.TIMESTAMP)
+    @org.hibernate.annotations.ColumnTransformer(read = "CASE WHEN CAST(formEdited AS CHAR(30)) LIKE '0000-00-00%' THEN NULL ELSE formEdited END")
     private Date formEdited;
 
     @Column(name = "w_reporttype")
@@ -86,6 +89,7 @@ public class Wcb extends AbstractModel<Integer> {
 
     @Temporal(TemporalType.DATE)
     @Column(name = "w_dob")
+    @org.hibernate.annotations.ColumnTransformer(read = "CASE WHEN CAST(w_dob AS CHAR(30)) LIKE '0000-00-00%' THEN NULL ELSE w_dob END")
     private Date dob;
 
     @Column(name = "w_address")
@@ -136,6 +140,7 @@ public class Wcb extends AbstractModel<Integer> {
 
     @Temporal(TemporalType.DATE)
     @Column(name = "w_servicedate")
+    @org.hibernate.annotations.ColumnTransformer(read = "CASE WHEN CAST(w_servicedate AS CHAR(30)) LIKE '0000-00-00%' THEN NULL ELSE w_servicedate END")
     private Date serviceDate;
 
     @Column(name = "w_diagnosis")
@@ -158,6 +163,7 @@ public class Wcb extends AbstractModel<Integer> {
 
     @Temporal(TemporalType.DATE)
     @Column(name = "w_workdate")
+    @org.hibernate.annotations.ColumnTransformer(read = "CASE WHEN CAST(w_workdate AS CHAR(30)) LIKE '0000-00-00%' THEN NULL ELSE w_workdate END")
     private Date workDate;
 
     @Column(name = "w_clinicinfo")
@@ -186,6 +192,7 @@ public class Wcb extends AbstractModel<Integer> {
 
     @Temporal(TemporalType.DATE)
     @Column(name = "w_estimatedate")
+    @org.hibernate.annotations.ColumnTransformer(read = "CASE WHEN CAST(w_estimatedate AS CHAR(30)) LIKE '0000-00-00%' THEN NULL ELSE w_estimatedate END")
     private Date estimateDate;
 
     @Column(name = "w_tofollow")
@@ -199,6 +206,7 @@ public class Wcb extends AbstractModel<Integer> {
 
     @Temporal(TemporalType.DATE)
     @Column(name = "w_doi")
+    @org.hibernate.annotations.ColumnTransformer(read = "CASE WHEN CAST(w_doi AS CHAR(30)) LIKE '0000-00-00%' THEN NULL ELSE w_doi END")
     private Date doi;
 
     private String status;

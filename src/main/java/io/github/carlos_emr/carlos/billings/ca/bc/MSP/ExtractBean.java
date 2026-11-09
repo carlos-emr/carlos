@@ -30,13 +30,13 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.LogTeleplanTxDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.LogTeleplanTx;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Wcb;
-import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
-import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -44,25 +44,25 @@ import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
-import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.PrintStream;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 
 
 public class ExtractBean extends Object implements Serializable {
     private static Logger logger = MiscUtils.getLogger();
+    private final java.util.Set<Integer> billIdsToMark = new java.util.LinkedHashSet<>();
+    private final java.util.Set<Integer> masterIdsToMark = new java.util.LinkedHashSet<>();
+    public java.util.Set<Integer> getBillIdsToMark() { return java.util.Set.copyOf(billIdsToMark); }
+    public java.util.Set<Integer> getMasterIdsToMark() { return java.util.Set.copyOf(masterIdsToMark); }
+
     private LogTeleplanTxDao logTeleplanTxDao = SpringUtils.getBean(LogTeleplanTxDao.class);
-    private BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
     private BillingmasterDAO billingmasterDao = SpringUtils.getBean(BillingmasterDAO.class);
 
 
@@ -79,7 +79,6 @@ public class ExtractBean extends Object implements Serializable {
     private String demoName;
     private String invNo;
     private String batchHeader;
-    private String totalAmount;
     private int invCount = 0;
     private java.util.Date today;
     private String output;
@@ -94,9 +93,7 @@ public class ExtractBean extends Object implements Serializable {
     private String htmlContentHeader = "";
     private String htmlFooter = "";
     private String htmlValue = "";
-    private double dFee;
     private BigDecimal BigTotal = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-    private BigDecimal bdFee = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
     private DateRange dateRange = null;
     private String eFlag = "";
     private int vsFlag = 0;
@@ -115,6 +112,9 @@ public class ExtractBean extends Object implements Serializable {
 
 
     public synchronized void dbQuery() {
+        if ("1".equals(eFlag) && !org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new IllegalStateException("A transaction is required for a Teleplan export");
+        }
         String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");
         if (HasBillingItemsToSubmit()) {
 
@@ -135,26 +135,39 @@ public class ExtractBean extends Object implements Serializable {
 
             value = batchHeader;
 
-            BillingDao dao = SpringUtils.getBean(BillingDao.class);
             BillingmasterDAO bmDao = SpringUtils.getBean(BillingmasterDAO.class);
-
-            for (Billing b : dao.findByProviderStatusAndDates(providerNo, Arrays.asList(new String[]{"O", "W"}), dateRange)) {
-                patientCount++;
-                invNo = b.getId().toString();
-                demoName = b.getDemographicName();
-                String billType = b.getBillingtype();
+            StringBuilder dateFilter = new StringBuilder();
+            java.util.List<String> dateValues = new java.util.ArrayList<>();
+            if (dateRange != null) {
+                java.text.SimpleDateFormat dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd");
+                if (dateRange.getFrom() != null) { dateFilter.append(" AND billing_date >= ?"); dateValues.add(dateFormat.format(dateRange.getFrom())); }
+                if (dateRange.getTo() != null) { dateFilter.append(" AND billing_date <= ?"); dateValues.add(dateFormat.format(dateRange.getTo())); }
+            }
+            for (var invoice : bmDao.findBcExtractBills(providerNo, dateFilter.toString(), dateValues.toArray(String[]::new))) {
+                int mastersBeforeInvoice = masterIdsToMark.size();
+                invNo = invoice.billingNo().toString();
+                demoName = invoice.demographicName();
+                String billType = invoice.billingType();
                 invCount = 0;
 
                 if (billType.equals("MSP") || billType.equals("ICBC")) {
 
-                    for (Billingmaster bm : bmDao.getBillingMasterWithStatus(invNo, "O")) {
-                        recordCount++;
+                    for (var claim : bmDao.findBcExtractClaims(Integer.parseInt(invNo))) {
+                        Billingmaster bm = formatterClaim(claim, Integer.parseInt(invNo));
                         logNo = getSequence();
-
-                        String dataLine = getClaimDetailRecord(bm, logNo);
-                        if (dataLine.length() != 424) {
-                            MiscUtils.getLogger().debug("dataLine2 " + logNo + " Len" + dataLine.length());
+                        String dataLine;
+                        BigDecimal amount;
+                        try {
+                            amount = claimAmount(bm.getBillAmount());
+                            dataLine = getClaimDetailRecord(bm, logNo);
+                            if (dataLine.length() != 424) throw new IllegalArgumentException("Teleplan claim record length is invalid");
+                        } catch (IllegalArgumentException | ArithmeticException invalid) {
+                            if ("1".equals(eFlag)) throw invalid;
+                            htmlContent += checkData.printErrorMsg(String.valueOf(bm.getBillingmasterNo()),
+                                    "Claim cannot be exported: check its amount and fixed-width fields.");
+                            continue;
                         }
+                        recordCount++;
 
                         value += "\n" + dataLine + "\r";
                         logValue = dataLine;
@@ -164,12 +177,10 @@ public class ExtractBean extends Object implements Serializable {
                             String noteLogNo = getSequence();
                             String noteRecordLine = getNoteRecord(bm, noteLogNo);
                             value += "\n" + noteRecordLine + "\r";
-                            setLog(noteRecordLine, noteLogNo);
+                            setLog(noteLogNo, noteRecordLine);
                         }
 
-                        dFee = bm.getBillAmountAsDouble();
-                        bdFee = new BigDecimal(dFee).setScale(2, BigDecimal.ROUND_HALF_UP);
-                        BigTotal = BigTotal.add(bdFee);
+                        BigTotal = BigTotal.add(amount);
 
                         if (isMSPInsurer(bm)) {
                             htmlContent += htmlLine("" + bm.getBillingmasterNo(), invNo, demoName, bm.getPhn(), bm.getServiceDate(),
@@ -198,9 +209,33 @@ public class ExtractBean extends Object implements Serializable {
                 } else if (billType.equals("WCB")) {
                     BillingServiceDao bsDao = SpringUtils.getBean(BillingServiceDao.class);
 
-                    for (Object[] o : bsDao.findSomethingByBillingId(ConversionUtils.fromIntString(invNo))) {
-
-                        WcbSb sb = new WcbSb((Wcb) o[1]);
+                    java.util.Map<Integer, Wcb> forms = new java.util.LinkedHashMap<>();
+                    for (Wcb form : bsDao.findOpenWcbFormsByBillingId(Integer.valueOf(invNo))) {
+                        forms.put(form.getId(), form);
+                    }
+                    java.util.List<Billingmaster> claims = bmDao.findBcPendingExtractClaims(Integer.parseInt(invNo)).stream()
+                            .map(claim -> formatterClaim(claim, Integer.parseInt(invNo))).toList();
+                    Billingmaster wcbClaim;
+                    BigDecimal amount;
+                    try {
+                        if (forms.size() != 1 || claims.size() != 1) {
+                            throw new IllegalArgumentException("A WCB invoice must have one open form and one eligible claim");
+                        }
+                        wcbClaim = claims.getFirst();
+                        Wcb form = forms.values().iterator().next();
+                        if (!java.util.Objects.equals(form.getFeeItem(), wcbClaim.getBillingCode())
+                                && !java.util.Objects.equals(form.getExtraFeeItem(), wcbClaim.getBillingCode())) {
+                            throw new IllegalArgumentException("WCB form and claim fee codes do not match");
+                        }
+                        amount = claimAmount(wcbClaim.getBillAmount());
+                    } catch (IllegalArgumentException | ArithmeticException invalid) {
+                        if ("1".equals(eFlag)) throw invalid;
+                        htmlContent += checkData.printWarningMsg("WCB invoice " + invNo
+                                + " cannot be exported: check its linked form, fee code and amount.");
+                        continue;
+                    }
+                    for (Wcb form : forms.values()) {
+                        WcbSb sb = new WcbSb(form, wcbClaim);
                         htmlContent += sb.getHtmlLine();
                         htmlContent += checkData.printWarningMsg("");
 
@@ -254,13 +289,15 @@ public class ExtractBean extends Object implements Serializable {
                         }
                     }
 
-                    Billingmaster bm = bmDao.getBillingmaster(ConversionUtils.fromIntString(invNo));
-                    if (bm != null) {
-                        setAsBilledMaster("" + bm.getBillingmasterNo());
-                    }
+                    setAsBilledMaster(String.valueOf(wcbClaim.getBillingmasterNo()));
+                    BigTotal = BigTotal.add(amount);
+                    recordCount++;
                     /////////////////////////////////////
                 }
-                setAsBilled(invNo);
+                if (masterIdsToMark.size() > mastersBeforeInvoice || !"1".equals(eFlag)) {
+                    patientCount++;
+                    setAsBilled(invNo);
+                }
             }
 
             pCount = pCount + patientCount;
@@ -279,23 +316,11 @@ public class ExtractBean extends Object implements Serializable {
 
 
     public void setAsBilled(String newInvNo) {
-        if (eFlag.equals("1")) {
-            Billing b = billingDao.find(Integer.parseInt(newInvNo));
-            if (b != null) {
-                b.setStatus("B");
-                billingDao.merge(b);
-            }
-        }
+        if ("1".equals(eFlag)) billIdsToMark.add(Integer.valueOf(newInvNo));
     }
 
     public void setAsBilledMaster(String newInvNo) {
-        if (eFlag.equals("1")) {
-            Billingmaster b = billingmasterDao.getBillingmaster(Integer.parseInt(newInvNo));
-            if (b != null) {
-                b.setBillingstatus("B");
-                billingmasterDao.update(b);
-            }
-        }
+        if ("1".equals(eFlag)) masterIdsToMark.add(Integer.valueOf(newInvNo));
     }
 
     /**
@@ -329,20 +354,8 @@ public class ExtractBean extends Object implements Serializable {
 
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
-    public void writeFile(String value1) {
-        try {
-            String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
-            File homeDir = new File(home_dir);
-            File safeFile = PathValidationUtils.validatePath(ohipFilename, homeDir);
-            FileOutputStream out = new FileOutputStream(safeFile);
-            PrintStream p = new PrintStream(out);
-            p.println(value1);
-            p.close();
-        } catch (SecurityException e) {
-            logger.error("Invalid file path detected in writeFile", e);
-        } catch (Exception e) {
-            logger.error("Unexpected error", e);
-        }
+    public void writeFile(String content) {
+        writeLegacyFile(ohipFilename, content);
     }
 
     /**
@@ -354,24 +367,21 @@ public class ExtractBean extends Object implements Serializable {
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
-    public void writeHtml(String htmlvalue1) {
-        if (eFlag.equals("1")) {
-            if (htmlFilename == null || htmlFilename.isBlank()) {
-                throw new IllegalStateException("HTML filename must be set before writing a Teleplan report");
-            }
-            try {
-                String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
-                File homeDir = new File(home_dir);
-                File safeFile = PathValidationUtils.validatePath(htmlFilename, homeDir);
-                FileOutputStream out = new FileOutputStream(safeFile);
-                PrintStream p = new PrintStream(out);
-                p.println(htmlvalue1);
-                p.close();
-            } catch (SecurityException e) {
-                logger.error("Invalid file path detected in writeHtml", e);
-            } catch (Exception e) {
-                logger.error("Unexpected error", e);
-            }
+    public void writeHtml(String content) {
+        if ("1".equals(eFlag)) {
+            if (htmlFilename == null || htmlFilename.isBlank()) throw new IllegalStateException("HTML filename must be set before writing a Teleplan report");
+            writeLegacyFile(htmlFilename, content);
+        }
+    }
+
+    private void writeLegacyFile(String filename, String content) {
+        if (filename == null || filename.isBlank()) throw new IllegalStateException("Teleplan filename is required");
+        try {
+            File home = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("HOME_DIR"), "Teleplan output directory");
+            File safe = PathValidationUtils.validatePath(filename, home);
+            java.nio.file.Files.writeString(safe.toPath(), content + System.lineSeparator(), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException failure) {
+            throw new IllegalStateException("Teleplan file could not be written", failure);
         }
     }
 
@@ -388,7 +398,7 @@ public class ExtractBean extends Object implements Serializable {
     }
 
     public String getTotalAmount() {
-        return totalAmount;
+        return BigTotal.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
     }
 
     public String getHtmlValue() {
@@ -459,14 +469,29 @@ public class ExtractBean extends Object implements Serializable {
         dateRange = newDateRange;
     }
 
-    public String roundUp(String str) {
-        String retval = "1";
-        try {
-            retval = new java.math.BigDecimal(str).setScale(0, BigDecimal.ROUND_UP).toString();
-        } catch (Exception e) {
-            logger.error("Unexpected error", e);
+    public String roundUp(String value) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("A valid Teleplan billing unit is required");
         }
-        return retval;
+        try {
+            return new BigDecimal(value.strip()).setScale(0, java.math.RoundingMode.UP).toPlainString();
+        } catch (NumberFormatException invalid) {
+            throw new IllegalArgumentException("A valid Teleplan billing unit is required");
+        }
+    }
+
+    /** Validate decimal dollars before the legacy fixed-width formatter can truncate or mis-scale them. */
+    static BigDecimal claimAmount(String source) {
+        if (source == null || !source.strip().matches("[0-9]++(?:\\.[0-9]*+)?+")) {
+            throw new IllegalArgumentException("A valid Teleplan claim amount is required");
+        }
+        BigDecimal amount;
+        try { amount = new BigDecimal(source.strip()).setScale(2, java.math.RoundingMode.UNNECESSARY); }
+        catch (ArithmeticException invalid) { throw new IllegalArgumentException("Teleplan claim amount must use whole cents"); }
+        if (amount.compareTo(new BigDecimal("99999.99")) > 0) {
+            throw new IllegalArgumentException("Teleplan claim amount exceeds the wire capacity");
+        }
+        return amount;
     }
 
     public String getClaimDetailRecord(Billingmaster bm, String LogNo) {
@@ -484,7 +509,7 @@ public class ExtractBean extends Object implements Serializable {
                 + Misc.forwardSpace(bm.getAfterHour(), 1)           //p24   1
                 + Misc.forwardZero(bm.getNewProgram(), 2)           //p25   2
                 + Misc.forwardZero(bm.getBillingCode(), 5)          //p26   5
-                + Misc.moneyFormatPaddedZeroNoDecimal(bm.getBillAmount(), 7)           //p27   7
+                + Misc.forwardZero(claimAmount(bm.getBillAmount()).movePointRight(2).toBigIntegerExact().toString(), 7)           //p27   7
                 + Misc.forwardZero(bm.getPaymentMode(), 1)         //p28   1
                 + Misc.forwardSpace(bm.getServiceDate(), 8)        //p30   8
                 + Misc.forwardZero(bm.getServiceToDay(), 2)        //p32   2
@@ -537,7 +562,7 @@ public class ExtractBean extends Object implements Serializable {
             }
         } catch (Exception e) {
             retval = false;
-            logger.error("Unexpected error", e);
+            logger.error("Unexpected error: {}", LogSafe.exceptionTrace(e));
         }
         return retval;
     }
@@ -567,8 +592,7 @@ public class ExtractBean extends Object implements Serializable {
 
 
     public static boolean HasBillingItemsToSubmit() {
-        BillingDao dao = SpringUtils.getBean(BillingDao.class);
-        return !dao.getMyMagicBillings().isEmpty();
+        return SpringUtils.getBean(BillingmasterDAO.class).hasBcExtractInvoices();
     }
 
     public boolean isMSPInsurer(Billingmaster bm) {
@@ -579,4 +603,59 @@ public class ExtractBean extends Object implements Serializable {
         }
         return retval;
     }
+    private static Billingmaster formatterClaim(io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows.ExtractClaimRow source, int billingNo) {
+        Billingmaster result = new Billingmaster();
+        result.setBillingNo(billingNo);
+        result.setBillAmount(source.billAmount());
+        result.setBillingmasterNo(source.billingmasterNo());
+        result.setPhn(source.phn());
+        result.setServiceDate(source.serviceDate());
+        result.setBillingCode(source.billingCode());
+        result.setDxCode1(source.dxCode1());
+        result.setDxCode2(source.dxCode2());
+        result.setDxCode3(source.dxCode3());
+        result.setClaimcode(source.claimcode());
+        result.setDatacenter(source.datacenter());
+        result.setPayeeNo(source.payeeNo());
+        result.setPractitionerNo(source.practitionerNo());
+        result.setNameVerify(source.nameVerify());
+        result.setDependentNum(source.dependentNum());
+        result.setBillingUnit(source.billingUnit());
+        result.setClarificationCode(source.clarificationCode());
+        result.setAnatomicalArea(source.anatomicalArea());
+        result.setAfterHour(source.afterHour());
+        result.setNewProgram(source.newProgram());
+        result.setPaymentMode(source.paymentMode());
+        result.setServiceToDay(source.serviceToDay());
+        result.setSubmissionCode(source.submissionCode());
+        result.setServiceLocation(source.serviceLocation());
+        result.setReferralFlag1(source.referralFlag1());
+        result.setReferralNo1(source.referralNo1());
+        result.setReferralFlag2(source.referralFlag2());
+        result.setReferralNo2(source.referralNo2());
+        result.setTimeCall(source.timeCall());
+        result.setServiceStartTime(source.serviceStartTime());
+        result.setServiceEndTime(source.serviceEndTime());
+        result.setBirthDate(source.birthDate());
+        result.setCorrespondenceCode(source.correspondenceCode());
+        result.setMvaClaimCode(source.mvaClaimCode());
+        result.setIcbcClaimNo(source.icbcClaimNo());
+        result.setOriginalClaim(source.originalClaim());
+        result.setFacilityNo(source.facilityNo());
+        result.setFacilitySubNo(source.facilitySubNo());
+        result.setOinInsurerCode(source.oinInsurerCode());
+        result.setOinRegistrationNo(source.oinRegistrationNo());
+        result.setOinBirthdate(source.oinBirthdate());
+        result.setOinFirstName(source.oinFirstName());
+        result.setOinSecondName(source.oinSecondName());
+        result.setOinSurname(source.oinSurname());
+        result.setOinSexCode(source.oinSexCode());
+        result.setOinAddress(source.oinAddress());
+        result.setOinAddress2(source.oinAddress2());
+        result.setOinAddress3(source.oinAddress3());
+        result.setOinAddress4(source.oinAddress4());
+        result.setOinPostalcode(source.oinPostalcode());
+        return result;
+    }
+
 }

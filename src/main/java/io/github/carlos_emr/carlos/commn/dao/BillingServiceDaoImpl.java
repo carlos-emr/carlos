@@ -400,6 +400,22 @@ public class BillingServiceDaoImpl extends AbstractDaoImpl<BillingService> imple
 
     }
 
+    @Override
+    public List<io.github.carlos_emr.carlos.billing.CA.BC.model.Wcb> findOpenWcbFormsByBillingId(Integer billingNo) {
+        // New forms link from the claim. Keep the historic invoice-side link only when
+        // no pending claim specifies a form; a broken explicit link must never be guessed.
+        String sql = "SELECT w FROM Wcb w WHERE w.status IN ('O','W') "
+                + "AND (EXISTS (SELECT 1 FROM Billingmaster bm WHERE bm.billingNo=?1 AND bm.wcbId=w.id "
+                + "AND bm.billingstatus IN ('O','W')) OR (w.billingNo=?1 "
+                + "AND EXISTS (SELECT 1 FROM Billingmaster bm WHERE bm.billingNo=?1 AND bm.billingstatus IN ('O','W')) "
+                + "AND NOT EXISTS (SELECT 1 FROM Billingmaster bm WHERE bm.billingNo=?1 AND bm.billingstatus IN ('O','W') "
+                + "AND bm.wcbId IS NOT NULL AND bm.wcbId<>0))) "
+                + "AND EXISTS (SELECT 1 FROM Billing b WHERE b.id=?1 AND b.status IN ('O','W')) "
+                + "AND EXISTS (SELECT 1 FROM BillingService bs WHERE bs.serviceCode=w.feeItem) ORDER BY w.id";
+        return entityManager.createQuery(sql, io.github.carlos_emr.carlos.billing.CA.BC.model.Wcb.class)
+                .setParameter(1, billingNo).getResultList();
+    }
+
     public List<BillingService> findGst(String code, Date date) {
         String sql = "FROM BillingService b " +
                 "WHERE b.serviceCode = ?1 " +

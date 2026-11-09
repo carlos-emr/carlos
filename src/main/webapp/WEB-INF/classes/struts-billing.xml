@@ -27,6 +27,16 @@
 -->
 <struts>
     <package name="billing" namespace="/" extends="carlos-default" strict-method-invocation="true">
+        <interceptors>
+            <interceptor name="bcProvince" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BcBillingProvinceInterceptor"/>
+            <interceptor-stack name="bcBillingStack">
+                <interceptor-ref name="carlosException"/>
+                <interceptor-ref name="bcProvince"/>
+                <interceptor-ref name="carlosDefaultStack"/>
+            </interceptor-stack>
+        </interceptors>
+        <default-interceptor-ref name="bcBillingStack"/>
+
         <!-- A refused request (SecurityException) renders the shared refusal page with HTTP 403 and an incident id, as in
              the other modules; without this mapping it fell through to the container's error page as HTTP 500. -->
         <global-results>
@@ -144,7 +154,8 @@
         <action name="billing/CA/BC/createBillingReportAction" class="io.github.carlos_emr.carlos.billings.ca.bc.MSP.CreateBillingReport2Action"/>
 
         <action name="billing/CA/BC/associateCodesAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.AssociateCodes2Action">
-            <result name="success">/billing/CA/BC/showServiceCodeAssocs</result>
+            <result name="success" type="redirectAction">billing/CA/BC/showServiceCodeAssocs</result>
+            <result name="input">/WEB-INF/jsp/billing/CA/BC/dxcode_svccode_assoc.jsp</result>
         </action>
 
         <action name="billing/CA/BC/showServiceCodeAssocs" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ShowServiceCodeAssocs2Action">

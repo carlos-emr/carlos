@@ -53,6 +53,18 @@ class CharacterXmlAdapterUnitTest {
     }
 
     @Test
+    void shouldRefuseIllegalXmlCharacters_insteadOfWritingMalformedOrMissingValues() {
+        var adapter = new CharacterXmlAdapter();
+        for (char value : new char[]{1, 11, 0xD800, 0xDC00, 0xFFFE, 0xFFFF}) {
+            assertThatIllegalArgumentException().isThrownBy(() -> adapter.marshal(value));
+            assertThatIllegalArgumentException().isThrownBy(() -> adapter.unmarshal(Character.toString(value)));
+        }
+        for (char value : new char[]{'\t', '\n', '\r', 'A', 'é', ' '}) {
+            assertThat(adapter.unmarshal(adapter.marshal(value))).isEqualTo(value);
+        }
+    }
+
+    @Test
     void shouldPreserveArrayEntries_withNullAndSpecialCharacters() throws Exception {
         var type = io.github.carlos_emr.carlos.webserv.rest.to.model.AllowedAppointmentTypeTransfer.class;
         var bean = new io.github.carlos_emr.carlos.webserv.rest.to.model.AllowedAppointmentTypeTransfer();
