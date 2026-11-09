@@ -1555,6 +1555,15 @@ public class NotesService extends AbstractServiceImpl {
             throw new SecurityException("missing required sec object (_eChart)");
         }
 
+        if (noteId == null || noteId <= 0) throw new jakarta.ws.rs.BadRequestException("Invalid note identifier");
+        CaseManagementNote stored = caseManagementMgr.getNote(noteId.toString());
+        if (stored == null) throw new jakarta.ws.rs.NotFoundException();
+        Integer patient;
+        try { patient = Integer.valueOf(stored.getDemographic_no()); }
+        catch (NumberFormatException invalid) { throw new IllegalStateException("Stored note has no valid patient identity"); }
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.require(
+                getLoggedInInfo(), securityInfoManager, "_eChart", "r", patient);
+
         List<CaseManagementNoteExt> lcme = new ArrayList<CaseManagementNoteExt>();
         lcme.addAll(caseManagementMgr.getExtByNote(noteId));
 

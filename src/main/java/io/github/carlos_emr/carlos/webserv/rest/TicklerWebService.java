@@ -285,6 +285,8 @@ public class TicklerWebService extends AbstractServiceImpl {
             return RestResponse.errorResponse(e.getMessage());
         }
 
+        // Validate every stored patient before the first mutation in a bulk request.
+        for (Integer ticklerNo : ticklerIds) requireStoredTicklerPatient(ticklerNo, "u");
         for (Integer ticklerNo : ticklerIds) {
             ticklerManager.completeTickler(getLoggedInInfo(), ticklerNo, getLoggedInInfo().getLoggedInProviderNo());
         }
@@ -311,6 +313,8 @@ public class TicklerWebService extends AbstractServiceImpl {
             return RestResponse.errorResponse(e.getMessage());
         }
 
+        // Validate every stored patient before the first mutation in a bulk request.
+        for (Integer ticklerNo : ticklerIds) requireStoredTicklerPatient(ticklerNo, "u");
         for (Integer ticklerNo : ticklerIds) {
             ticklerManager.deleteTickler(getLoggedInInfo(), ticklerNo, getLoggedInInfo().getLoggedInProviderNo());
         }
@@ -361,13 +365,20 @@ public class TicklerWebService extends AbstractServiceImpl {
 
         MiscUtils.getLogger().debug("updateTickler called, id={}", LogSafe.sanitize(json != null && json.has("id") ? json.get("id").asText() : "null"));
 
-        Tickler tickler = ticklerManager.getTickler(getLoggedInInfo(), json.get("id") != null ? json.get("id").asInt() : null);
+        JsonNode identity = json == null ? null : json.get("id");
+        if (identity == null || !identity.isIntegralNumber() || !identity.canConvertToInt()) {
+            throw new jakarta.ws.rs.BadRequestException("Invalid tickler identifier");
+        }
+        Integer storedPatient = requireStoredTicklerPatient(identity.intValue(), "u");
+        Tickler tickler = ticklerManager.getTickler(getLoggedInInfo(), identity.intValue());
 
         if (tickler == null) {
             throw new RuntimeException("Tickler not found");
         }
 
-        //TODO: verify it's good data associations
+        if (!storedPatient.equals(tickler.getDemographicNo())) {
+            throw new IllegalStateException("Tickler patient changed during authorization");
+        }
         tickler.setTaskAssignedTo(json.get("taskAssignedTo").asText());
 
         tickler.setStatusAsChar(json.get("status").asText().charAt(0));
@@ -429,6 +440,9 @@ public class TicklerWebService extends AbstractServiceImpl {
             throw new RuntimeException("Access Denied");
         }
 
+        if (tickler == null) throw new jakarta.ws.rs.BadRequestException("Tickler is required");
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.require(
+                getLoggedInInfo(), securityInfoManager, "_tickler", "w", tickler.getDemographicNo());
         tickler.setUpdateDate(new Date());
         tickler.setCreator(getLoggedInInfo().getLoggedInProviderNo());
 
@@ -442,6 +456,15 @@ public class TicklerWebService extends AbstractServiceImpl {
             return RestResponse.successResponse(null);
         }
         return RestResponse.errorResponse("Failed to add tickler");
+    }
+
+    private Integer requireStoredTicklerPatient(Integer ticklerId, String right) {
+        if (ticklerId == null || ticklerId <= 0) throw new jakarta.ws.rs.BadRequestException("Invalid tickler identifier");
+        Integer patient = ticklerManager.getTicklerDemographicNo(getLoggedInInfo(), ticklerId);
+        if (patient == null) throw new jakarta.ws.rs.NotFoundException();
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.require(
+                getLoggedInInfo(), securityInfoManager, "_tickler", right, patient);
+        return patient;
     }
 
     private void requireFilterPatient(CustomFilter filter) {

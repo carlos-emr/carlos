@@ -86,4 +86,31 @@ class TicklerNotePatientAccessEndpointTest extends CarlosRestTestBase {
     @Test void shouldRejectMissingTicklerInput_insteadOfReportingAnInternalFailure() {
         assertThat(save("{}")).isEqualTo(400); verifyNoInteractions(ticklers,notes,providers);
     }
+    @Test void shouldDenyGroupExtensionsForAScopedPatient_beforeReadingExtensions() {
+        var stored = new CaseManagementNote(); stored.setDemographic_no("43");
+        when(notes.getNote("9")).thenReturn(stored);
+        assertThat(request().path("/notes/getGroupNoteExt/9").post(Entity.json("{}")).getStatus()).isEqualTo(403);
+        verify(notes,never()).getExtByNote(anyLong());
+    }
+    @Test void shouldDenyGroupExtensionsForABlockedChart_beforeReadingExtensions() {
+        var stored = new CaseManagementNote(); stored.setDemographic_no("42");
+        when(notes.getNote("9")).thenReturn(stored);
+        when(security.isAllowedAccessToPatientRecord(mockLoggedInInfo,42)).thenReturn(false);
+        assertThat(request().path("/notes/getGroupNoteExt/9").post(Entity.json("{}")).getStatus()).isEqualTo(403);
+        verify(notes,never()).getExtByNote(anyLong());
+    }
+    @Test void shouldRetainAuthorizedGroupExtensionContents() {
+        var stored = new CaseManagementNote(); stored.setDemographic_no("42");
+        when(notes.getNote("9")).thenReturn(stored);
+        var ext = new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt();
+        ext.setKeyVal(io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt.TREATMENT); ext.setValue("Retained treatment");
+        when(notes.getExtByNote(9L)).thenReturn(java.util.List.of(ext));
+        var response=request().path("/notes/getGroupNoteExt/9").post(Entity.json("{}"));
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(responseJson(response).get("treatment").asText()).isEqualTo("Retained treatment");
+    }
+    @Test void shouldReturn404ForMissingGroupNotes_beforeReadingExtensions() {
+        assertThat(request().path("/notes/getGroupNoteExt/9").post(Entity.json("{}")).getStatus()).isEqualTo(404);
+        verify(notes,never()).getExtByNote(anyLong());
+    }
 }
