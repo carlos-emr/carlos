@@ -416,3 +416,18 @@ exit 0
     if (copyStatus) assert.match(result.stdout + result.stderr, /JUnit report could not be retained/);
   }
 });
+
+test('every automatic property profile reaches the supervised Node runner on the default install',t=>{
+  const box=sandbox(t);
+  fs.writeFileSync(path.join(box.dir,'bin/docker'),`#!/bin/sh
+printf '%s\\n' "$*" >> '${box.calls}'
+case "$*" in *NRestarts*) echo 0;; esac
+exit 0
+`,{mode:0o755});
+  for(const profile of Object.keys(require('./lib/property-profiles').PROFILES)) {
+    fs.writeFileSync(box.calls,'');
+    const result=run(['suite','--profile',profile],{...box.env,CARLOS_DISPOSABLE_HOST:'true'});
+    assert.equal(result.status,0,profile+': '+result.stdout+result.stderr);
+    assert.match(fs.readFileSync(box.calls,'utf8'),new RegExp('node scripts/run-playwright-suite\\.js --profile '+profile));
+  }
+});

@@ -65,6 +65,7 @@ def first_login(profile, browser):
     environment = {**os.environ, 'BASE_URL': 'https://127.0.0.1/carlos',
         'CHROME_PATH': browser, 'EXPECT_FRONT_DOOR': 'true', 'MYSQL_HOST': 'localhost',
         'MYSQL_USER': 'root', 'MYSQL_PASSWORD': 'unused-socket-auth', 'MYSQL_DATABASE': 'carlos',
+        'CARLOS_REPORT_SERVER_HOME': '/var/lib/carlos-emr',
         'CARLOS_DISPOSABLE_HOST': 'true', 'CARLOS_SUITE_PROVINCE': profile,
         'ADMIN_FILE': str(adapter.ADMIN_FILE), 'NEW_PASSWORD': password,
         'TEST_USER': fields['user:'], 'TEST_PIN': fields['PIN:'], 'TEST_PASSWORD': password}

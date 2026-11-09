@@ -19,3 +19,12 @@ test('PDF control positions preserve selected and cleared field identities',()=>
 test('PDF control positions reject swapped fields even when selection count is unchanged',()=>assert.throws(()=>assertPdfControlPositions({width:612,height:792,words:[mark(138)]},controls)));
 test('PDF control positions reject displaced marks and unexpected page scaling',()=>{assert.throws(()=>assertPdfControlPositions({width:612,height:792,words:[mark(220)]},controls));assert.throws(()=>assertPdfControlPositions({width:450,height:600,words:[mark(78)]},controls));});
 test('PDF positions reject an unmeasurable cleared control rather than calling it empty',()=>{for(const changed of [{width:0},{x:NaN},{x:700}])assert.throws(()=>assertPdfControlPositions({width:612,height:792,words:[mark(78)]},[controls[0],{...controls[1],...changed}]));});
+
+test('explicitly cleared widgets require one exact blank row, distinct from missing, null or duplicate values',()=>{
+  const {assertStoredWidgetValues}=require('./eform-visual-widgets-playwright-checks');
+  const wanted={cleared:'',selected:'X'};
+  assert.doesNotThrow(()=>assertStoredWidgetValues([['cleared',''],['selected','X']],wanted));
+  for(const invalid of [[],[['cleared',null]],[['cleared','X']],[['cleared',''],['cleared','']]]) {
+    assert.throws(()=>assertStoredWidgetValues([...invalid,['selected','X']],wanted),/Saved widget value\/identity/);
+  }
+});

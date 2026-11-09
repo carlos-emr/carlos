@@ -50,10 +50,14 @@
 #   up            build the image, start the container, install the debs,
 #                 require `carlos-ctl check` to pass, stage the fixtures,
 #                 perform the first-login reset and write /root/suite-env.sh
-#   suite [ARGS]  run scripts/run-playwright-suite.js ARGS in the container,
-#                 limited to the installed province unless ARGS name one
-#                 (default: --tier smoke); fails if carlos-emr restarted
-#                 during the run; the JUnit report is copied to LOG_DIR
+#   suite [ARGS]  run strict, residue-audited qualification in the container
+#                 through the installed-error fault adapter (two extra restarts
+#                 and a temporary web.xml change); default: --tier smoke.
+#                 Adds --strict-release --residue-audit; --skip/--dry-run are
+#                 refused, and SKIP/known-fail/unexpected-pass fail the run.
+#                 Uses the installed province unless ARGS name one; copies
+#                 JUnit to LOG_DIR. Checks NRestarts except for managed profiles.
+#                 For diagnostics, invoke run-playwright-suite.js directly.
 #   audit [ARGS]  run scripts/deb-server-log-audit.sh ARGS in the container
 #   upgrade TAG   install the published TAG package set in a fresh container,
 #                 retain UI-created clinical canaries through the local package
@@ -511,12 +515,12 @@ cmd_suite() {
   # pins must remain failures. Local diagnostics can invoke the runner directly.
   set -- "$@" --strict-release --residue-audit
   # The run must match the configuration the install is in: an install left in a
-  # profile skips the checks that profile cannot run, and a skip passes.
+  # profile may skip checks it cannot run; strict qualification rejects those skips.
   local active requested='' prev='' arg
   active=$(active_profile)
   for arg in "$@"; do [ "$prev" = --profile ] && requested=$arg; prev=$arg; done
   local managed=false
-  case "$requested" in address-lock|no-pin|multisite|caisi-admin|legacy-contacts|private-consent|appointment-options) managed=true ;; esac
+  case "$requested" in address-lock|no-pin|multisite|caisi-admin|legacy-contacts|private-consent|appointment-options|appointment-lock-expiry|native-pathnet|first-nations|first-nations-encoding) managed=true ;; esac
   if [ "$managed" = true ]; then
     [ -z "$active" ] || die "restore the manual profile before running an automatic profile"
   else

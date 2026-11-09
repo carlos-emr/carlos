@@ -22,6 +22,7 @@ const imageRoot=()=>process.env.EFORM_IMAGE_DIR||'/var/lib/carlos-emr/CarlosDocu
 const renderRoot=()=>process.env.EFORM_RENDER_TEMP_DIR||'/var/lib/carlos-emr/catalina/work/carlos/eform-browser-pdf-temp';
 function inkCount(png,rect={x:0,y:0,width:png.width,height:png.height}){let count=0;for(let y=Math.max(0,Math.floor(rect.y));y<Math.min(png.height,Math.ceil(rect.y+rect.height));y++)for(let x=Math.max(0,Math.floor(rect.x));x<Math.min(png.width,Math.ceil(rect.x+rect.width));x++){const i=(y*png.width+x)*4;if(png.data[i+3]>32&&png.data[i]<80&&png.data[i+1]<80&&png.data[i+2]<80)count++;}return count;}
 function signaturePng(value,{blank=false}={}){if(blank&&value==='')return null;h.assert(/^data:image\/png;base64,[A-Za-z0-9+/]+=*$/.test(value),'Signature is not a complete PNG data URL');const bytes=Buffer.from(value.slice(value.indexOf(',')+1),'base64'),png=PNG.sync.read(bytes);h.assert(png.width>=100&&png.height>=30,'Signature dimensions are incomplete');h.assert(blank?inkCount(png)===0:inkCount(png)>50,'Signature ink/clear representation is incorrect');return png;}
+function assertStoredWidgetValues(rows,wanted){for(const [name,value] of Object.entries(wanted))assert.deepEqual(rows.filter(row=>row[0]===name),[[name,value]],'Saved widget value/identity is not exact: '+name);}
 function assertPdfSelections(text,selected){h.assert((text.match(/\bX\b/g)||[]).length===selected,'Widget PDF lost, restored or duplicated selected controls');}
 function assertPdfControlPositions(page,controls){
   h.assert(Math.abs(page.width-612)<1&&Math.abs(page.height-792)<1,'Generated visual eForm PDF changed its native Letter page geometry: '+page.width+'x'+page.height);
@@ -64,7 +65,8 @@ async function workflow(s){
   async function stored(expected,signature,form){
     const wanted={...expected,[fields.signature]:signature};
     const rows=sql.rows('SELECT var_name,var_value FROM eform_values WHERE fdid=? AND fid=? AND demographic_no=? ORDER BY var_name',[fdid,fid,patient]);
-    for(const [name,value] of Object.entries(wanted))assert.deepEqual(rows.filter(row=>row[0]===name),value===''?[]:[[name,value]],'Saved widget value/identity is not exact: '+name);
+    // Explicit blanks must exist so template defaults cannot reappear.
+    assertStoredWidgetValues(rows,wanted);
     h.assert(sql.value('SELECT COUNT(*) FROM eform_data WHERE fid=? AND demographic_no=?',[fid,patient])===String(versions),'Native save created a missing or extra history revision');
     const markup=sql.value('SELECT form_data FROM eform_data WHERE fdid=? AND fid=? AND demographic_no=?',[fdid,fid,patient]);
     const persisted=await form.evaluate(({markup,names})=>{const doc=new DOMParser().parseFromString(markup,'text/html');return Object.fromEntries(names.map(name=>{const fields=[...doc.querySelectorAll('input[name]')].filter(field=>field.name===name);return [name,fields.length===1?fields[0].getAttribute('value'):null];}));},{markup,names:Object.keys(wanted)});
@@ -119,4 +121,4 @@ async function workflow(s){
   if(primary)throw primary;
 }
 if(require.main===module)runWorkflow(NAME,workflow,{preflightConfig});
-module.exports={workflow,preflightConfig,inkCount,signaturePng,verifyPdf,assertPdfSelections,assertPdfControlPositions,acceptanceLedger};
+module.exports={workflow,preflightConfig,assertStoredWidgetValues,inkCount,signaturePng,verifyPdf,assertPdfSelections,assertPdfControlPositions,acceptanceLedger};
