@@ -710,6 +710,9 @@ public class RxPrescriptionData {
         String providerNo;
         int demographicNo;
         long randomId = 0;
+        private String pendingSubmission;
+        public String getPendingSubmission() { return pendingSubmission; }
+        public void setPendingSubmission(String token) { pendingSubmission = token; }
         private Long sourceRowVersion;
         public Long getSourceRowVersion() { return sourceRowVersion; }
         public void setSourceRowVersion(Long version) { sourceRowVersion = version; }

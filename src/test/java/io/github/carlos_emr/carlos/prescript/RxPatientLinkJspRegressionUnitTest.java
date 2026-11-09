@@ -231,15 +231,19 @@ class RxPatientLinkJspRegressionUnitTest {
                 "rx/SideLinksNoEditFavorites2.jsp"}) {
             String jsp = read(name);
             assertThat(jsp).as(name).contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>");
-            for (String value : new String[] {"allergies[j].getDescription()", "allergies[j].getReaction()",
-                    "favorites[j].getFavoriteName()"}) {
+            for (String value : new String[] {"allergies[j].getDescription()", "allergies[j].getReaction()"}) {
                 assertThat(jsp).as(name + " attribute " + value)
                         .contains("<carlos:encode value='<%= " + value + " %>' context=\"htmlAttribute\"/>");
             }
-            for (String value : new String[] {"allergies[j].getShortDesc(13, 8, \"...\")",
-                    "favorites[j].getFavoriteName()", "favorites[j].getFavoriteName().substring(0, 10) + \"...\""}) {
+            String[] favoriteText = name.equals("rx/SideLinksEditFavorites2.jsp")
+                    ? new String[] {"favorite.name()"}
+                    : new String[] {"favorites[j].getFavoriteName()", "favorites[j].getFavoriteName().substring(0, 10) + \"...\""};
+            String favoriteAttribute = name.equals("rx/SideLinksEditFavorites2.jsp") ? "favorite.name()" : "favorites[j].getFavoriteName()";
+            assertThat(jsp).contains("<carlos:encode value='<%= " + favoriteAttribute + " %>' context=\"htmlAttribute\"/>");
+            assertThat(jsp).contains("<carlos:encode value='<%= allergies[j].getShortDesc(13, 8, \"...\") %>' context=\"html\"/>");
+            for (String value : favoriteText) {
                 assertThat(jsp).as(name + " text " + value)
-                        .contains("<carlos:encode value='<%= " + value + " %>' context=\"html\"/>");
+                        .contains("<carlos:encode value='<%= " + value + " %>'" + (name.equals("rx/SideLinksEditFavorites2.jsp") ? "/>" : " context=\"html\"/>"));
             }
             // A raw title lets persisted quotes create attributes; a raw text label permits markup.
             assertThat(jsp).doesNotContain("title=\"<%= allergies", "title=\"<%= favorites",

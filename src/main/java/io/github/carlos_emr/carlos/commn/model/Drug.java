@@ -63,7 +63,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class Drug extends AbstractModel<Integer> implements Serializable {
 
     @jakarta.persistence.Version
-    @Column(name = "row_version")
+    @Column(name = "row_version", nullable = false)
+    @org.hibernate.annotations.ColumnDefault("0")
     private Long rowVersion;
 
     public Long getRowVersion() { return rowVersion; }

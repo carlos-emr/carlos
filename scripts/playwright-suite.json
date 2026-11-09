@@ -19175,6 +19175,48 @@
       ],
       "fixtures": "Five native source labs and a separate owned patient/control, preclaimed unique accessions, exact message/measurement/routing/checksum/archive cleanup. Read-only allocator checks refuse dangling references; unknown submitted writes retain all fixtures and private journals. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#5803: literal qualified/qualitative/numeric results across actual entry, stored HL7, native reports/history/grid/rows/visible tooltips, every offered Plot and actual PDFs. Independent printed-axis OCR and pixel geometry reject bound coercion; exact PDF columns preserve attribution. #5827/#5828 remain fatal with no expected-failure pin. Requires Poppler and English Tesseract."
+    },
+    {
+      "name": "rx-favorite-groups",
+      "script": "scripts/rx-favorite-groups-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Owns synthetic favourite/group rows; verifies native forms, ownership, method and CSRF boundaries, collapse, deletion and single-template staging."
+    },
+    {
+      "name": "rx-original-version",
+      "script": "scripts/rx-original-version-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Owns synthetic prescription/drug rows; two native form editors conflict, and original-comment compare-and-set preserves the first notes edit."
+    },
+    {
+      "name": "rx-renal-waf-privacy",
+      "script": "scripts/rx-renal-waf-privacy-playwright-checks.js",
+      "tiers": [
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Requires root access to the disposable packaged ModSecurity audit log; emits only Boolean evidence, never audit payloads. Verifies routine renal N/A returns200 with no audit and a real injection is blocked and audited."
     }
   ]
 }

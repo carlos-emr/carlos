@@ -271,3 +271,16 @@ for (const [error, message] of [['RX_ALREADY_SAVED', refusedMessages.alreadySave
         assert.deepEqual(reportRefused({status: 409, responseJSON: {error}}), {alerts: [message], refreshed: 1});
     });
 }
+
+test('a later login, CSRF, empty or stale refusal cannot erase an earlier uncertain save outcome', () => {
+    const alerts=[]; let refreshes=0;
+    const context={jsMsg: refusedMessages, alert: message=>alerts.push(message), refreshDrugProfile:()=>refreshes++};
+    vm.runInNewContext(refusedSave, context);
+    context.reportRefusedSave({status:504});
+    for (const status of [400,403,409]) context.reportRefusedSave({status,responseJSON:{error:'STALE_RX_STASH'}});
+    assert.equal(alerts.length,4);
+    assert(alerts.every(message=>message.includes(refusedMessages.saveUncertain)));
+    assert.equal(refreshes,4);
+    context.reportRefusedSave({status:409,responseJSON:{error:'RX_ALREADY_SAVED'}});
+    assert.equal(alerts.at(-1),refusedMessages.alreadySaved);
+});

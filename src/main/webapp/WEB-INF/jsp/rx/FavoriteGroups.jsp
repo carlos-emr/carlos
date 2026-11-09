@@ -6,7 +6,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
-    var view = (RxFavoriteGroupManager.View) request.getAttribute("favoriteGroupView");
+    RxFavoriteGroupManager.View view = (RxFavoriteGroupManager.View) request.getAttribute("favoriteGroupView");
     int patient = (Integer) request.getAttribute("favoriteGroupPatient");
     String action = request.getContextPath() + "/rx/favoriteGroups";
 %>
@@ -27,7 +27,7 @@
 <label><fmt:message key="oscarRx.groups.name"/> <input name="name" required maxlength="80"></label>
 <button type="submit"><fmt:message key="oscarRx.groups.create"/></button>
 </form>
-<% for (var group : view.groups()) { %>
+<% for (RxFavoriteGroupManager.Group group : view.groups()) { %>
 <details open><summary><carlos:encode value='<%= group.name() %>' context="html"/></summary>
 <form action="<%= action %>" method="post">
 <input type="hidden" name="demographicNo" value="<%= patient %>"><input type="hidden" name="groupId" value="<%= group.id() %>">
@@ -38,23 +38,23 @@
 <button name="command" value="delete" formnovalidate><fmt:message key="oscarRx.groups.delete"/></button>
 </form>
 <ul>
-<% for (var favorite : view.favorites()) { if (favorite.groupIds().contains(group.id())) { %>
+<% for (RxFavoriteGroupManager.Favorite favorite : view.favorites()) { if (favorite.groupIds().contains(group.id())) { %>
 <li><a href="<%= request.getContextPath() %>/rx/choosePatient?demographicNo=<%= patient %>&amp;usefav=true&amp;favid=<%= favorite.id() %>"><carlos:encode value='<%= favorite.name() %>' context="html"/></a></li>
 <% } } %>
 </ul></details>
 <% } %>
 <details open><summary><fmt:message key="oscarRx.groups.ungrouped"/></summary><ul>
-<% for (var favorite : view.favorites()) { if (favorite.groupIds().isEmpty()) { %>
+<% for (RxFavoriteGroupManager.Favorite favorite : view.favorites()) { if (favorite.groupIds().isEmpty()) { %>
 <li><a href="<%= request.getContextPath() %>/rx/choosePatient?demographicNo=<%= patient %>&amp;usefav=true&amp;favid=<%= favorite.id() %>"><carlos:encode value='<%= favorite.name() %>' context="html"/></a></li>
 <% } } %>
 </ul></details>
 <h2><fmt:message key="oscarRx.groups.assign"/></h2>
-<% for (var favorite : view.favorites()) { %>
+<% for (RxFavoriteGroupManager.Favorite favorite : view.favorites()) { %>
 <form action="<%= action %>" method="post"><fieldset>
 <legend><carlos:encode value='<%= favorite.name() %>' context="html"/></legend>
 <input type="hidden" name="demographicNo" value="<%= patient %>"><input type="hidden" name="command" value="assign">
 <input type="hidden" name="favoriteId" value="<%= favorite.id() %>">
-<% for (var group : view.groups()) { %>
+<% for (RxFavoriteGroupManager.Group group : view.groups()) { %>
 <label><input type="checkbox" name="groupIds" value="<%= group.id() %>" <%= favorite.groupIds().contains(group.id()) ? "checked" : "" %>><carlos:encode value='<%= group.name() %>' context="html"/></label>
 <% } %>
 <button type="submit"><fmt:message key="oscarRx.groups.save"/></button>

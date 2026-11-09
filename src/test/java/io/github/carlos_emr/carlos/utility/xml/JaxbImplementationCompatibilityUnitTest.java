@@ -210,7 +210,7 @@ class JaxbImplementationCompatibilityUnitTest {
             if (moxy == null) continue; // No legacy XML existed: exact failure is pinned above.
             String oldXml = frozen == null ? xml(moxy, type, value) : frozen;
             String expectedXml = XmlBaselineAssertions.withPublishedMainContracts(type, oldXml);
-            assertThat(structure(newXml)).as(type + " populated=" + populated)
+            assertThat(structure(withoutOptionalRxVersion(type, newXml, populated))).as(type + " populated=" + populated)
                     .isEqualTo(formatterFix ? withoutFormatter(expectedXml) : structure(expectedXml));
             Object read = glassfish.createUnmarshaller()
                     .unmarshal(new javax.xml.transform.stream.StreamSource(new StringReader(oldXml)), type).getValue();
@@ -222,6 +222,27 @@ class JaxbImplementationCompatibilityUnitTest {
                     .as(type + " reads MOXy XML, populated=" + populated)
                     .isEqualTo(structure(xml(glassfish, type, oldRead)));
         }
+    }
+
+    /** The optional RX concurrency token is an explicit additive REST contract. Keep the frozen
+     * corpus as legacy input and require every other element to remain exactly unchanged. */
+    private static String withoutOptionalRxVersion(Class<?> type, String xml, boolean populated) throws Exception {
+        if (!java.util.Set.of("DrugTo1", "DrugResponse", "PrescriptionResponse").contains(type.getSimpleName())) return xml;
+        var factory = io.github.carlos_emr.carlos.utility.XmlUtils.createSecureDocumentBuilderFactory();
+        factory.setNamespaceAware(true);
+        var document = factory.newDocumentBuilder().parse(new org.xml.sax.InputSource(new StringReader(xml)));
+        var versions = document.getElementsByTagName("rowVersion");
+        assertThat(versions.getLength()).as("optional RX versions: " + type).isEqualTo(populated ? 1 : 0);
+        if (populated) {
+            var version = versions.item(0);
+            assertThat(version.getTextContent()).isEqualTo("7");
+            assertThat(version.getPreviousSibling().getLocalName()).isEqualTo("drugId");
+            version.getParentNode().removeChild(version);
+        }
+        var output = new StringWriter();
+        io.github.carlos_emr.carlos.utility.XmlUtils.createSecureTransformerFactory().newTransformer().transform(
+                new javax.xml.transform.dom.DOMSource(document), new javax.xml.transform.stream.StreamResult(output));
+        return output.toString();
     }
 
     private static JAXBContext context(String factory, Class<?> type) throws Exception {

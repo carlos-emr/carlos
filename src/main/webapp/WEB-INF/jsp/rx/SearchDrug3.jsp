@@ -1930,6 +1930,7 @@ function openSavedPrescriptionPreview(transport) {
     refreshDrugProfile();
     // Only the window whose save succeeded receives the new card versions. Another window's
     // stale form remains invalid; Edit Rx in this window can submit its acknowledged version.
+    rxSaveNeedsReconciliation = false;
     if (saved.draftRevisions) {
         Object.keys(saved.draftRevisions).forEach(function(key) {
             if (!/^[0-9]+$/.test(key)) return;
@@ -3172,6 +3173,7 @@ function updateQty(element){
      * writing anything. Any other 5xx may follow a commit (#5686).
      */
     var RX_SAVE_PRE_WRITE_ERRORS = ['RX_DRAFT_VALIDATION_FAILED'];
+    var rxSaveNeedsReconciliation = false;
 
     /**
      * Whether a save the server did not confirm may still have committed (#5686). Only a refusal
@@ -3212,11 +3214,17 @@ function updateQty(element){
     function reportRefusedSave(transport) {
         if (transport && transport.responseJSON && transport.responseJSON.error === 'RX_ALREADY_SAVED') {
             alert(jsMsg.alreadySaved);
+            rxSaveNeedsReconciliation = false;
+            refreshDrugProfile();
+        } else if (rxSaveNeedsReconciliation) {
+            // A later CSRF/login/stale refusal cannot establish the outcome of the earlier attempt.
+            alert(jsMsg.saveUncertain);
             refreshDrugProfile();
         } else if (transport && transport.responseJSON && transport.responseJSON.error === 'RX_SOURCE_CHANGED') {
             alert(jsMsg.sourceChanged);
             refreshDrugProfile();
         } else if (transport && transport.responseJSON && transport.responseJSON.error === 'RX_SAVE_OUTCOME_UNKNOWN') {
+            rxSaveNeedsReconciliation = true;
             alert(jsMsg.saveUncertain);
             refreshDrugProfile();
         } else if (transport && transport.responseJSON && transport.responseJSON.error === 'INCOMPLETE_RX_SAVE') {
@@ -3247,6 +3255,7 @@ function updateQty(element){
             // refuses a replay of cards a committed save consumed. The profile is reloaded after
             // the alert, which blocks the page, so it shows what the server now holds.
             var status = transport ? Number(transport.status) : 0;
+            rxSaveNeedsReconciliation = true;
             alert(jsMsg.saveUncertain + (status > 0 ? ' (HTTP ' + status + ')' : ''));
             refreshDrugProfile();
         } else {

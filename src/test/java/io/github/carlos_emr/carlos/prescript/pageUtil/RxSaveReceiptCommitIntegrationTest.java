@@ -86,7 +86,7 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
         registerMock(PlatformTransactionManager.class, transactions);
         registerMock(RxSubmissionReceiptManager.class, receipts);
     }
-    @AfterEach void resetFault() { fault.remaining.set(0); setAudit(null); }
+    @AfterEach void resetFault() { fault.remaining.set(0); fault.commitBeforeThrow = true; setAudit(null); }
 
     private static void setAudit(OscarLogDao dao) {
         try {
@@ -96,8 +96,10 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
-    void shouldRecoverReceiptAndAudit_whenAcknowledgementOrAuditFails(boolean auditFailure) throws Exception {
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"lost-ack", "audit-failure", "failed-commit"})
+    void shouldRecoverReceiptAndAudit_whenAcknowledgementOrAuditFails(String scenario) throws Exception {
+        boolean auditFailure = "audit-failure".equals(scenario);
+        boolean failedCommit = "failed-commit".equals(scenario);
         var bean = new RxSessionBean(); bean.setProviderNo("999998"); bean.setDemographicNo(1001);
         var card = new RxPrescriptionData.Prescription(0, "999998", 1001);
         card.setRandomId(123); card.setGCN_SEQNO("0"); card.setBrandName("Synthetic receipt medication");
@@ -133,7 +135,8 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
                 }).when(failingAudit).persist(any(OscarLog.class));
                 setAudit(failingAudit);
             } else {
-                fault.remaining.set(2); // Intent commits normally; clinical COMMIT delegates, then throws.
+                fault.commitBeforeThrow = !failedCommit;
+                fault.remaining.set(2); // Intent commits normally; clinical COMMIT then loses its acknowledgement.
             }
             assertThatThrownBy(() -> action.persistStash(info, bean)).isInstanceOf(RxWriteScript2Action.PrescriptionSaveException.class);
             if (auditFailure) {
@@ -148,6 +151,26 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
                 action.persistStash(info, bean); // Only a confirmed rollback releases the exact draft for retry.
             } else {
                 assertThat(request.getAttribute("RX_SAVE_OUTCOME_UNKNOWN")).isEqualTo(true);
+            }
+            if (failedCommit) {
+                assertThat(card.getPendingSubmission()).isEqualTo(token);
+                bean.removePersistedStashItems();
+                assertThat(bean.getStashSize()).isEqualTo(1); // Reopening must retain the editable, locked draft.
+                assertThat(receipts.find("999998", 1001, token).outcome()).isEqualTo("PENDING");
+                request.setParameter("draftRevision_123", card.getDraftRevision()); // New rendered revision after reopening.
+                try (var resolver = mockStatic(RxSessionBeanResolver.class)) {
+                    resolver.when(() -> RxSessionBeanResolver.requestedDemographicNo(request)).thenReturn(1001);
+                    resolver.when(() -> RxSessionBeanResolver.resolve(request)).thenReturn(bean);
+                    resolver.when(() -> RxSessionBeanResolver.isRequestForBeanPatient(request, bean)).thenReturn(true);
+                    assertThat(action.updateSaveAllDrugs()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+                }
+                assertThat(response.getStatus()).isEqualTo(409);
+                assertThat(response.getContentAsString()).contains("RX_SAVE_OUTCOME_UNKNOWN");
+                var failedJdbc = new JdbcTemplate(source);
+                assertThat(failedJdbc.queryForObject("SELECT COUNT(*) FROM prescription", Long.class)).isZero();
+                assertThat(failedJdbc.queryForObject("SELECT COUNT(*) FROM drugs", Long.class)).isZero();
+                assertThat(failedJdbc.queryForObject("SELECT COUNT(*) FROM log WHERE action='add'", Long.class)).isZero();
+                return;
             }
             assertThat(card.getDraftRevision()).isNotEqualTo(originalRevision);
             var receipt = receipts.find("999998", 1001, token);
@@ -178,15 +201,17 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
 
     static class CommitFault {
         final AtomicInteger remaining = new AtomicInteger();
+        volatile boolean commitBeforeThrow = true;
         Connection wrap(Connection delegate) {
             return (Connection) Proxy.newProxyInstance(Connection.class.getClassLoader(), new Class<?>[]{Connection.class},
                     (proxy, method, arguments) -> {
                         try {
-                            Object result = method.invoke(delegate, arguments);
                             if (method.getName().equals("commit") && remaining.get() > 0 && remaining.decrementAndGet() == 0) {
+                                if (commitBeforeThrow) delegate.commit();
+                                else delegate.rollback(); // Simulate disconnect before COMMIT reached the server.
                                 throw new SQLException("Synthetic lost COMMIT acknowledgement", "08006");
                             }
-                            return result;
+                            return method.invoke(delegate, arguments);
                         } catch (InvocationTargetException failure) { throw failure.getCause(); }
                     });
         }
@@ -203,13 +228,27 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
         }
         @Bean LocalContainerEntityManagerFactoryBean entityManagerFactory(DataSource source, IsolatedJpaTestDatabase db) {
             var factory = new LocalContainerEntityManagerFactoryBean(); factory.setDataSource(source);
-            factory.setManagedTypes(PersistenceManagedTypes.of(Drug.class.getName(), Prescription.class.getName(), PartialDate.class.getName(), OscarLog.class.getName()));
+            factory.setManagedTypes(PersistenceManagedTypes.of(Drug.class.getName(), Prescription.class.getName(), PartialDate.class.getName(), OscarLog.class.getName(), Favorites.class.getName(), FavoritesPrivilege.class.getName()));
             factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter()); factory.setJpaPropertyMap(db.jpaProperties()); return factory;
         }
         @Bean PlatformTransactionManager transactionManager(EntityManagerFactory factory) { return new JpaTransactionManager(factory); }
         @Bean DrugDao drugs() { return new DrugDaoImpl(); }
         @Bean PartialDateDao dates() { return new PartialDateDaoImpl(); }
         @Bean OscarLogDao audit() { return new OscarLogDaoImpl(); }
+        @Bean FavoritesDao favorites() { return new FavoritesDaoImpl(); }
+        @Bean FavoritesPrivilegeDao favoritePrivileges() { return new FavoritesPrivilegeDaoImpl(); }
+        @Bean RxFavoriteCopyIntegrationTest.CopyFault copyFault() { return new RxFavoriteCopyIntegrationTest.CopyFault(); }
+        @Bean RxFavoriteCopyManager favoriteCopies(FavoritesDao favorites, FavoritesPrivilegeDao privileges,
+                RxFavoriteCopyIntegrationTest.CopyFault fault) {
+            var observed = mock(FavoritesDao.class, org.mockito.AdditionalAnswers.delegatesTo(favorites));
+            doAnswer(invocation -> {
+                if (fault.remaining.get() > 0 && fault.remaining.decrementAndGet() == 0) {
+                    throw new IllegalStateException("Synthetic second favourite insert failure");
+                }
+                favorites.persist(invocation.getArgument(0)); return null;
+            }).when(observed).persist(any(Favorites.class));
+            return new RxFavoriteCopyManager(observed, privileges);
+        }
         @Bean RxConcurrencyManager concurrency(DataSource source) { return new RxConcurrencyManager(source); }
         @Bean RxSubmissionReceiptManager receipts(DataSource source) { return new RxSubmissionReceiptManager(source); }
     }

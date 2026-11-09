@@ -34,6 +34,7 @@
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.RxFavoriteGroupManager" %>
 <%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
 
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
@@ -167,13 +168,13 @@
         <a href="${pageContext.request.contextPath}/rx/copyFavorite?demographicNo=<carlos:encode value='<%= String.valueOf(bean2.getDemographicNo()) %>' context="uriComponent"/>"><fmt:message key="oscarRx.sideLinks.CopyFavorites"/></a>
     </p>
     <%
-        var favoriteView = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.RxFavoriteGroupManager.class)
+        RxFavoriteGroupManager.View favoriteView = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.RxFavoriteGroupManager.class)
                 .view(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
         // Group headers are navigation only: choosing one favourite stages exactly that template.
-        for (var favoriteGroup : favoriteView.groups()) {
+        for (RxFavoriteGroupManager.Group favoriteGroup : favoriteView.groups()) {
     %>
     <details open class="rx-favorite-group"><summary><carlos:encode value='<%= favoriteGroup.name() %>'/></summary>
-    <% for (var favorite : favoriteView.favorites()) { if (favorite.groupIds().contains(favoriteGroup.id())) { %>
+    <% for (RxFavoriteGroupManager.Favorite favorite : favoriteView.favorites()) { if (favorite.groupIds().contains(favoriteGroup.id())) { %>
     <p class="PropSheetMenuItemLevel1"><a href="javascript:void(0);" onclick="useFav2('<%= favorite.id() %>');"
             title="<carlos:encode value='<%= favorite.name() %>' context="htmlAttribute"/>"><carlos:encode value='<%= favorite.name() %>'/></a></p>
     <% } } %>
@@ -182,7 +183,7 @@
     <% if (!favoriteView.groups().isEmpty()) { %>
     <details open class="rx-favorite-group"><summary><fmt:message key="oscarRx.groups.ungrouped"/></summary>
     <% } %>
-    <% for (var favorite : favoriteView.favorites()) { if (favorite.groupIds().isEmpty()) { %>
+    <% for (RxFavoriteGroupManager.Favorite favorite : favoriteView.favorites()) { if (favorite.groupIds().isEmpty()) { %>
     <p class="PropSheetMenuItemLevel1"><a href="javascript:void(0);" onclick="useFav2('<%= favorite.id() %>');"
             title="<carlos:encode value='<%= favorite.name() %>' context="htmlAttribute"/>"><carlos:encode value='<%= favorite.name() %>'/></a></p>
     <% } } %>

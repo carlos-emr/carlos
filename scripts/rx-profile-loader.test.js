@@ -170,7 +170,7 @@ test('unknown views cannot change the active selection', () => {
 test('all legend links and refresh callbacks use the controller, including a hidden Current link', () => {
     const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/rx/SearchDrug3.jsp'), 'utf8');
     assert.equal((jsp.match(/onclick="selectDrugProfile\(/g) || []).length, 6);
-    assert.equal((jsp.match(/refreshDrugProfile\(\);/g) || []).length, 10);
+    assert.equal((jsp.match(/refreshDrugProfile\(\);/g) || []).length, 11);
     assert.doesNotMatch(jsp, /call(?:Replacement|Addition)WebService/);
     const start = jsp.indexOf('function CngClass(');
     const end = jsp.indexOf('function toggleStartDateUnknown(', start);

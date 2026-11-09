@@ -51,7 +51,8 @@ import org.apache.commons.lang3.StringUtils;
 public class Prescription extends AbstractModel<Integer> implements Serializable, DemographicData {
 
     @jakarta.persistence.Version
-    @Column(name = "row_version")
+    @Column(name = "row_version", nullable = false)
+    @org.hibernate.annotations.ColumnDefault("0")
     private Long rowVersion;
 
     public Long getRowVersion() { return rowVersion; }

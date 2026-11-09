@@ -747,7 +747,11 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(RxWriteScript2Action.NONE);
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(bean.getStashList()).containsExactly(stagedCard, second);
-        verifyNoInteractions(stagedCard, second, mockRxManager, mockSignatureStampService);
+        for (Object card : java.util.List.of(stagedCard, second)) {
+            assertThat(org.mockito.Mockito.mockingDetails(card).getInvocations())
+                    .allSatisfy(invocation -> assertThat(invocation.getMethod().getName()).startsWith("get"));
+        }
+        verifyNoInteractions(mockRxManager, mockSignatureStampService);
         logActionMock.verifyNoInteractions();
     }
 

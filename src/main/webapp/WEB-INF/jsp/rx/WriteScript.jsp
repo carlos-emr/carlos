@@ -888,6 +888,9 @@
         <input type="hidden" name="draftRevision"/>
     </form>
 
+    <% for (RxPrescriptionData.Prescription pendingCard : bean.getStash()) { if (pendingCard.getPendingSubmission() != null) { %>
+    <p role="alert"><fmt:message key="SearchDrug.js.saveUncertain"/></p>
+    <% break; } } %>
     <form action="${pageContext.request.contextPath}/rx/writeScript" method="post" id="frm" name="frm">
 
     <input type="hidden" name="action" id="action"/>

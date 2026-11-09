@@ -1855,6 +1855,21 @@ public final class RxWriteScript2Action extends ActionSupport {
      * Called while holding the bean monitor, together with the subsequent updates and save.
      */
     private boolean validateSubmittedStash(RxSessionBean bean, List<String> submittedKeys) throws IOException {
+        for (var card : bean.getStash()) {
+            String pending = card.getPendingSubmission();
+            if (pending == null) continue;
+            LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
+            if (info == null) throw new SecurityException("missing required sec object (_rx)");
+            var receipt = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptManager.class)
+                    .find(info.getLoggedInProviderNo(), bean.getDemographicNo(), pending);
+            if (receipt != null && "SAVED".equals(receipt.outcome())) {
+                // Acknowledge only this submission; another tab's new draft stays untouched.
+                for (var saved : bean.getStash()) if (pending.equals(saved.getPendingSubmission())) saved.setPendingSubmission(null);
+            }
+            reportReceipt(receipt == null
+                    ? new io.github.carlos_emr.carlos.managers.RxSubmissionReceiptManager.Receipt(null, "PENDING") : receipt);
+            return false;
+        }
         Set<Integer> submittedIndexes = new HashSet<>();
         for (String key : submittedKeys) {
             try {
@@ -2136,14 +2151,19 @@ public final class RxWriteScript2Action extends ActionSupport {
 
     /** Every save, its reasons/dates and archival must commit together, including the staged identities. */
     private String persistStashTransaction(LoggedInInfo loggedInInfo, RxSessionBean bean) {
-        record PreviousIdentity(RxPrescriptionData.Prescription card, int drugId, String scriptNo, String revision, Long sourceVersion) {
+        record PreviousIdentity(RxPrescriptionData.Prescription card, int drugId, String scriptNo, String revision, Long sourceVersion, String pendingSubmission) {
             void restore() {
                 card.restoreSavedIdentity(drugId, scriptNo, revision);
                 card.setSourceRowVersion(sourceVersion);
+                card.setPendingSubmission(pendingSubmission);
             }
         }
         List<PreviousIdentity> previous = Arrays.stream(bean.getStash())
-                .map(card -> new PreviousIdentity(card, card.getDrugId(), card.getScript_no(), card.getDraftRevision(), card.getSourceRowVersion())).toList();
+                .map(card -> new PreviousIdentity(card, card.getDrugId(), card.getScript_no(), card.getDraftRevision(), card.getSourceRowVersion(), card.getPendingSubmission())).toList();
+        if (previous.stream().anyMatch(old -> old.pendingSubmission() != null)) {
+            request.setAttribute("RX_SAVE_OUTCOME_UNKNOWN", Boolean.TRUE);
+            throw new IllegalStateException("Prescription submission requires reconciliation");
+        }
         Map<String, String> receiptVersions = new java.util.TreeMap<>();
         for (var old : previous) receiptVersions.put(Long.toString(old.card().getRandomId()), old.revision());
         String receiptToken = io.github.carlos_emr.carlos.managers.RxSubmissionReceiptManager.fingerprint(receiptVersions);
@@ -2159,13 +2179,14 @@ public final class RxWriteScript2Action extends ActionSupport {
             }
         } catch (RuntimeException intentFailure) {
             request.setAttribute("RX_SAVE_OUTCOME_UNKNOWN", Boolean.TRUE);
+            for (var card : bean.getStash()) card.setPendingSubmission(receiptToken);
             throw intentFailure;
         }
         try {
             var transaction = new org.springframework.transaction.support.TransactionTemplate(
                     SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
             transaction.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-            return transaction.execute(status -> {
+            String result = transaction.execute(status -> {
                 org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
                         new org.springframework.transaction.support.TransactionSynchronization() {
                             @Override
@@ -2202,6 +2223,8 @@ public final class RxWriteScript2Action extends ActionSupport {
                 callbackCompleted.set(true);
                 return savedScript;
             });
+            for (var card : bean.getStash()) card.setPendingSubmission(null);
+            return result;
         } catch (RuntimeException e) {
             request.setAttribute("RX_SAVE_OUTCOME_UNKNOWN", Boolean.TRUE);
             if (!callbackCompleted.get()
@@ -2223,7 +2246,11 @@ public final class RxWriteScript2Action extends ActionSupport {
             if (callbackCompleted.get()) {
                 request.setAttribute("RX_SAVE_OUTCOME_UNKNOWN", Boolean.TRUE);
             }
-            // An uncertain commit keeps the consumed revision: the chart must be reviewed before retrying.
+            if (Boolean.TRUE.equals(request.getAttribute("RX_SAVE_OUTCOME_UNKNOWN"))) {
+                for (var card : bean.getStash()) card.setPendingSubmission(receiptToken);
+            }
+            // An uncertain commit keeps both its consumed revision and its original pending identity.
+            // Reopening must not discard this draft or turn its advanced revision into a fresh save.
             request.removeAttribute("scriptId");
             throw e;
         }

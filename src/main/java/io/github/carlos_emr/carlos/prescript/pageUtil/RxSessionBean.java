@@ -363,7 +363,7 @@ public class RxSessionBean implements java.io.Serializable {
     public synchronized void removePersistedStashItems() {
         RxPrescriptionData.Prescription selected =
                 (stashIndex >= 0 && stashIndex < stash.size()) ? stash.get(stashIndex) : null;
-        stash.removeIf(rx -> rx != null && rx.getDrugId() > 0);
+        stash.removeIf(rx -> rx != null && rx.getDrugId() > 0 && rx.getPendingSubmission() == null);
         if (selected != null && stash.contains(selected)) {
             stashIndex = stash.indexOf(selected);
         } else {

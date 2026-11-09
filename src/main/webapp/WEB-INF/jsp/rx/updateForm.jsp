@@ -77,8 +77,12 @@
             <%
             if (updateRequested) {
             %>
-            window.opener.refresh();
-            window.close();
+            if (window.opener && !window.opener.closed) {
+                try {
+                    if (typeof window.opener.refresh === "function") window.opener.refresh();
+                } catch (unavailableOpener) { /* Saving succeeded; an inaccessible opener cannot undo it. */ }
+                window.close();
+            }
             <% } %>
         </script>
     </head>
@@ -190,6 +194,9 @@
             <option value="Wipe">Wipe</option>
 
         </select>
+        <script type="text/javascript">
+            document.querySelector('select[name="drugForm"]').value = '<carlos:encode value='<%= drugForm %>' context="javaScriptBlock"/>';
+        </script>
         <input type="hidden" name="id" value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="action" value="update"/>
         <input type="hidden" name="originalVersion" value="<carlos:encode value='${requestScope.drugFormVersion}' context="htmlAttribute"/>"/>
