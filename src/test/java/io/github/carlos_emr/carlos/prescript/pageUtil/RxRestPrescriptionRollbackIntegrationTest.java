@@ -56,7 +56,7 @@ class RxRestPrescriptionRollbackIntegrationTest extends CarlosUnitTestBase {
         var manager=(RxManagerImpl)factory.getProxy();
         var first=drug("Synthetic REST one"); var second=drug("Synthetic REST two");
         var info=mock(LoggedInInfo.class); when(info.getLoggedInProviderNo()).thenReturn("999998");
-        assertThatThrownBy(()->manager.prescribe(info,List.of(first,second),1007)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(()->manager.prescribe(info,List.of(first,second),1007)).isInstanceOf(io.github.carlos_emr.carlos.managers.PrescriptionWriteException.class);
         assertThat(count.get()).isEqualTo(2);
         var tx=new TransactionTemplate(transactions);
         Long remainingDrugs=tx.execute(status->em.createQuery("select count(d) from Drug d where d.demographicId=1007",Long.class).getSingleResult());
