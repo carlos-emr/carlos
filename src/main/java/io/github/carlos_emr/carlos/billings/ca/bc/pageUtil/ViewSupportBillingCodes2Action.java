@@ -51,6 +51,14 @@ public final class ViewSupportBillingCodes2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
+        String form = request.getParameter("form");
+        String field = request.getParameter("field");
+        if (form == null || field == null || !form.matches("[A-Za-z_][A-Za-z0-9_]*")
+                || !field.matches("[A-Za-z_][A-Za-z0-9_]*")) {
+            ServletActionContext.getResponse().sendError(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST,
+                    "A valid opener form and field are required.");
+            return NONE;
+        }
         return SUCCESS;
     }
 }

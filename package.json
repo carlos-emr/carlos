@@ -358,6 +358,7 @@
     "test:billing-bc-bill-form-popups-playwright": "node scripts/billing-bc-bill-form-popups-playwright-checks.js",
     "test:billing-bc-day-sheet-unbill-playwright": "node scripts/billing-bc-day-sheet-unbill-playwright-checks.js",
     "test:billing-bc-quick-billing-playwright": "node scripts/billing-bc-quick-billing-playwright-checks.js",
+    "test:billing-bc-legacy-teleplan-playwright": "node scripts/billing-bc-legacy-teleplan-playwright-checks.js",
     "test:billing-bc-teleplan-file-playwright": "node scripts/billing-bc-teleplan-file-playwright-checks.js",
     "test:billing-bc-teleplan-sequence-playwright": "node scripts/billing-bc-teleplan-sequence-playwright-checks.js",
     "test:billing-bc-bill-status-filters-playwright": "node scripts/billing-bc-bill-status-filters-playwright-checks.js",

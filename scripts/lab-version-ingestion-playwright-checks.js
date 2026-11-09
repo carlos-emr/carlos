@@ -211,7 +211,7 @@ async function workflow(s) {
           h.assert(response&&response.status()===200,'Incomplete history prevented selected-report display');
           await inspect(report,corrected,'Incomplete CML history');
           h.assert(await report.locator('[data-carlos-cml-chain="unavailable"]').isVisible(),'Incomplete history was silently presented as complete');
-          const controls=report.locator('fieldset[disabled] input,fieldset[disabled] button,fieldset[disabled] select,fieldset[disabled] textarea');
+          const controls=report.locator('form input,form button,form select,form textarea');
           h.assert(await controls.count()>0,'Read-only recovery has no guarded report controls');
           for(const control of await controls.all())h.assert(await control.isDisabled(),'Incomplete history left a report control enabled');
           h.assert(JSON.stringify(labState(accession))===JSON.stringify(incomplete),'Read-only recovery changed lab sources, reviews or measurements');

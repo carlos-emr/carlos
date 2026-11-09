@@ -194,3 +194,14 @@ probe with exact restoration and independent source/clinical/control snapshots.
 These production corrections require fresh source/package/browser qualification;
 the earlier `ca2bd8bf4836` installed-payload identity does not cover changed Java
 or JSP bytes. Historical failed and partial retakes remain retained separately.
+
+The release branch subsequently advanced to `6eddfa9bd1ec` (#6097). The merge
+retains its BC history migration, billing repairs, explicit native zero-date
+policy controls and 29-case legacy-export family, alongside this PR's grouped
+history case, old-alias JDBC behavior, ROUND default and exact five permission
+routes. Before that integration, `b0ef15c990c1` passed the full 34,527-case H2
+run, five permissions, both 118-case timezone profiles, native 3,128/262/118,
+four browser/PDF cases and four legacy compatibility cases. Those nine Java
+executions remain bound to that earlier source; they do not qualify the newly
+merged billing production bytes. The merged source needs its own CI report,
+coverage-baseline refresh, source-built packages and installed browser retakes.
