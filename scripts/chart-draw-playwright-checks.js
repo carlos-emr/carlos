@@ -97,6 +97,8 @@ async function draw(page, input, width, height) {
                 x: scale(chart.scales.x), y: scale(chart.scales.y), y2: scale(chart.scales.y2),
                 datasets: chart.data.datasets.map((ds, i) => ({ label: ds.label, kind: ds.carlosKind, borderColor: ds.borderColor, backgroundColor: ds.backgroundColor,
                     borderWidth: ds.borderWidth, shapes: ds.carlosShapes === true, showLine: ds.showLine,
+                    firstMarkerPixel: ds.carlosShapes && chart.getDatasetMeta(i).data.length
+                        ? pixel(chart, chart.getDatasetMeta(i).data[0].x, chart.getDatasetMeta(i).data[0].y) : null,
                     markerPixels: ds.carlosShapes ? chart.getDatasetMeta(i).data.slice(1, 2).map(point => ({
                         centre: pixel(chart, Math.round(point.x), Math.round(point.y)),
                         corner: pixel(chart, Math.round(point.x) - 3, Math.round(point.y) - 3),
@@ -363,7 +365,16 @@ async function main() {
             if (screenshotDirectory) {
                 await page.screenshot({ path: buildArtifactPath(screenshotDirectory, file.replace(/\.json$/, '')) });
             }
-            checkFixture(fixture, result);
+            if (fixture.name === 'default-1pt') {
+                // #5814 deliberately replaces the legacy invisible point / 2ms domain.
+                assert.ok(result.charts[0].x.max - result.charts[0].x.min >= 86_400_000);
+                assert.ok(result.charts[0].y.max > 70 && result.charts[0].y.min < 70);
+                assert.ok(new Set(result.charts[0].y.ticks.map(t => t.label)).size > 1);
+                assert.equal(result.charts[0].datasets[0].shapes, true);
+                assert.equal(result.charts[0].datasets[0].firstMarkerPixel, "#ff5555", "single point has actual visible marker pixels");
+            } else {
+                checkFixture(fixture, result);
+            }
             assert.deepEqual(errors, [], `${fixture.name}: page errors`);
         }
 
@@ -432,7 +443,7 @@ async function main() {
 
         // The fixed 1e-8 range expansion previously rounded away at this magnitude and left an
         // infinite tick loop. A wide range must also choose units beyond the former 5e12 ceiling.
-        for (const values of [[100_000_000], [0, 1e20], [1e308]]) {
+        for (const values of [[0], [99], [5_000_000], [12_500_000], [45_000_000], [-6_000_000], [12_500_000, 12_500_000], [100_000_000], [0, 1e20], [1e308]]) {
             const input = { ...hourly, datasets: [{ ...hourly.datasets[0], data: values.map((y, index) => ({ x: t0 + index * 86_400_000, y })) }] };
             const large = await draw(page, input, 1000, 600);
             const axis = large.charts[0].y;

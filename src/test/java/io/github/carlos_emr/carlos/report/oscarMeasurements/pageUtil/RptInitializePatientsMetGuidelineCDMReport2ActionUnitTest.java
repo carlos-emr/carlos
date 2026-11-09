@@ -174,7 +174,18 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
             // The same definitions the CDM setup page stores for the report forms, built before the
             // session stub so its DAO calls are not caught inside an in-progress when().
             RptMeasurementTypesBeanHandler definitions = new RptMeasurementTypesBeanHandler(GROUP);
-            when(session.getAttribute("measurementTypes")).thenReturn(definitions);
+            Map<String, Object> sessionAttributes = new java.util.HashMap<>();
+            Map<String, Object> requestAttributes = new java.util.HashMap<>();
+            sessionAttributes.put("measurementTypes", definitions);
+            when(request.getSession()).thenReturn(session);
+            when(session.getAttribute(anyString())).thenAnswer(call -> sessionAttributes.get(call.getArgument(0)));
+            org.mockito.Mockito.doAnswer(call -> { sessionAttributes.put(call.getArgument(0), call.getArgument(1)); return null; })
+                    .when(session).setAttribute(anyString(), any());
+            when(request.getAttribute(anyString())).thenAnswer(call -> requestAttributes.get(call.getArgument(0)));
+            org.mockito.Mockito.doAnswer(call -> { requestAttributes.put(call.getArgument(0), call.getArgument(1)); return null; })
+                    .when(request).setAttribute(anyString(), any());
+            String context = CdmReportContexts.issue(request);
+            when(request.getParameter(CdmReportContexts.PARAMETER)).thenReturn(context);
             clearInvocations(measurementDao);
         }
 
@@ -348,7 +359,7 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
 
             String result = action.execute();
 
-            assertThat(result).isEqualTo("success");
+            assertThat(result).isEqualTo("input");
             verifyNoInteractions(measurementDao);
             verifyNoInteractions(formsDao);
             verify(response, never()).sendRedirect(anyString());
@@ -358,15 +369,15 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
         @DisplayName("should skip a row whose index is past the rendered rows or the posted arrays")
         void shouldSkipRow_whenIndexIsOutOfRange() throws Exception {
             RptInitializePatientsMetGuidelineCDMReport2Action past = actionForRawIndex("7");
-            assertThat(past.execute()).isEqualTo("success");
+            assertThat(past.execute()).isEqualTo("input");
 
             RptInitializePatientsMetGuidelineCDMReport2Action negative = actionForRawIndex("-1");
-            assertThat(negative.execute()).isEqualTo("success");
+            assertThat(negative.execute()).isEqualTo("input");
 
             // Row 0 is rendered, but the posted arrays are empty: no array may be indexed.
             RptInitializePatientsMetGuidelineCDMReport2Action shortArrays = actionForRawIndex("0");
             shortArrays.setStartDateB(new String[0]);
-            assertThat(shortArrays.execute()).isEqualTo("success");
+            assertThat(shortArrays.execute()).isEqualTo("input");
 
             verifyNoInteractions(measurementDao);
             verifyNoInteractions(formsDao);
@@ -380,7 +391,7 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
 
             String result = action.execute();
 
-            assertThat(result).isEqualTo("success");
+            assertThat(result).isEqualTo("input");
             verifyNoInteractions(measurementDao);
             verifyNoInteractions(formsDao);
             verify(response, never()).sendRedirect(anyString());
@@ -394,7 +405,7 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
 
             String result = action.execute();
 
-            assertThat(result).isEqualTo("success");
+            assertThat(result).isEqualTo("input");
             verify(measurementDao, never()).findLastEntered(any(Date.class), any(Date.class), anyString(), anyString());
             verifyNoInteractions(formsDao);
         }

@@ -257,18 +257,20 @@
         return String(value).padStart(2, '0');
     }
 
+    let formattingLocale = "en-US", localizedMonths = MONTHS, amPm = ["AM", "PM"];
+
     function formatDate(instant, format, timeZone) {
         const p = zonedParts(instant, timeZone);
         switch (format) {
             case 'HH:mm:ss.SSS': return `${pad(p.hour)}:${pad(p.minute)}:${pad(p.second)}.${String(p.millisecond).padStart(3, '0')}`;
             case 'HH:mm:ss': return `${pad(p.hour)}:${pad(p.minute)}:${pad(p.second)}`;
             case 'HH:mm': return `${pad(p.hour)}:${pad(p.minute)}`;
-            case 'd-MMM, HH:mm': return `${p.day}-${MONTHS[p.month]}, ${pad(p.hour)}:${pad(p.minute)}`;
-            case 'd-MMM': return `${p.day}-${MONTHS[p.month]}`;
-            case 'MMM-yyyy': return `${MONTHS[p.month]}-${p.year}`;
+            case 'd-MMM, HH:mm': return `${p.day}-${localizedMonths[p.month]}, ${pad(p.hour)}:${pad(p.minute)}`;
+            case 'd-MMM': return `${p.day}-${localizedMonths[p.month]}`;
+            case 'MMM-yyyy': return `${localizedMonths[p.month]}-${p.year}`;
             case 'yyyy': return String(p.year);
             case 'yyyy.MM.dd': return `${p.year}.${pad(p.month + 1)}.${pad(p.day)}`;
-            default: return `${p.month + 1}/${p.day}/${pad(p.year % 100)}, ${p.hour % 12 || 12}:${pad(p.minute)} ${p.hour < 12 ? 'AM' : 'PM'}`;
+            default: return `${p.month + 1}/${p.day}/${pad(p.year % 100)}, ${p.hour % 12 || 12}:${pad(p.minute)} ${p.hour < 12 ? amPm[0] : amPm[1]}`;
         }
     }
 
@@ -316,7 +318,10 @@
         // and gets no margin. Where that widening is lost to rounding (a constant 100,000,000),
         // JFreeChart widened by a tenth of the value instead (its bug 1549218 fix).
         const range = upper - lower;
-        if (range < 1e-8) {
+        if (range === 0) {
+            const padding = Math.max(Math.abs(lower) * 0.1, 1);
+            lower -= padding; upper += padding;
+        } else if (range < 1e-8) {
             const expand = (1e-8 - range) / 2;
             upper += expand; lower -= expand;
             if (lower === upper) { const adjust = Math.abs(lower) / 10; lower -= adjust; upper += adjust; }
@@ -335,7 +340,7 @@
         if (!values.length) return [0, 1];
         let lower = Math.min(...values), upper = Math.max(...values);
         const span = upper - lower;
-        if (span < 2) { const expand = Math.trunc((2 - span) / 2); upper += expand; lower -= expand; }
+        if (span < 2) { upper += DAY; lower -= DAY; }
         return [lower - Math.trunc(span * margins[0]), upper + Math.trunc(span * margins[1])];
     }
 
@@ -349,7 +354,7 @@
         let exponent = Math.floor(Math.log10(Math.abs(value)));
         let mantissa = Number((value / Math.pow(10, exponent)).toFixed(6));
         if (Math.abs(mantissa) >= 10) { mantissa = Number((mantissa / 10).toFixed(6)); exponent += 1; }
-        return `${String(mantissa)}E${exponent}`;
+        return `${mantissa.toLocaleString(formattingLocale, { useGrouping: false, maximumFractionDigits: 6 })}E${exponent}`;
     }
 
     /**
@@ -358,8 +363,8 @@
      */
     function formatTick(value, unit) {
         const power = numberPower(unit);
-        if (power >= -4 && power <= -1) return Number(value).toFixed(-power);
-        if (power >= 0 && power <= 6) return Math.round(value).toLocaleString('en-US', { maximumFractionDigits: 0 });
+        if (power >= -4 && power <= -1) return Number(value).toLocaleString(formattingLocale, { useGrouping: false, minimumFractionDigits: -power, maximumFractionDigits: -power });
+        if (power >= 0 && power <= 6) return Math.round(value).toLocaleString(formattingLocale, { maximumFractionDigits: 0 });
         return scientific(value);
     }
 
@@ -654,6 +659,9 @@
     }
 
     function drawChart(spec, width, height) {
+        formattingLocale = spec.locale || 'en-US';
+        localizedMonths = spec.months || MONTHS;
+        amPm = spec.amPm || ['AM', 'PM'];
         document.body.replaceChildren();
         document.body.style.cssText = 'margin:0;background:white';
         const style = { theme: 'jfree', plotBackground: '#c0c0c0', gridlines: '#ffffff', domainMargins: [0.02, 0.02], rangeMargins: [0.05, 0.05],
@@ -849,7 +857,7 @@
                             return;
                         }
                         const elements = chart.getDatasetMeta(index).data;
-                        if (source.shapes) {
+                        if (source.shapes || source.data.length === 1) {
                             ctx.fillStyle = colour;
                             elements.forEach(element => drawPlotMarker(ctx, element.x, element.y, shapeIndex(index)));
                         }
@@ -912,7 +920,7 @@
                         label: dataset.label, carlosKind: dataset.kind, yAxisID: dataset.yAxisID || 'y',
                         data: dataset.kind === 'range' ? [] : dataset.data.map(point => ({ x: point.x, y: point.y })),
                         showLine: dataset.kind !== 'range' && dataset.lines !== false, borderColor: colours[index], backgroundColor: colours[index],
-                        borderWidth: 1, pointRadius: 0, pointHitRadius: 0, tension: 0, carlosShapes: !!dataset.shapes })) },
+                        borderWidth: 1, pointRadius: 0, pointHitRadius: 0, tension: 0, carlosShapes: !!dataset.shapes || dataset.data.length === 1 })) },
                     plugins: [jfreePlugin(panelLook, { background: style.plotBackground, series: true, legend: !combined, offset: AXIS_OFFSET })],
                     options: { responsive: false, animation: false, devicePixelRatio: 1, scales,
                         layout: { padding: { ...basePadding, right: basePadding.right + (spec.secondAxis ? 0 : AXIS_OFFSET),
@@ -992,8 +1000,8 @@
 
     function itemLabel(point, format, decimals, timeZone) {
         // DecimalFormat("0.00") / ("0.###"): no grouping separator, trailing zeros dropped for "#".
-        const value = decimals === '0.00' ? Number(point.y).toFixed(2) : String(Number(Number(point.y).toFixed(3)));
-        const date = formatDate(point.x, 'yyyy.MM.dd', timeZone);
+        const value = point.labelValue ?? (decimals === '0.00' ? Number(point.y).toFixed(2) : String(Number(Number(point.y).toFixed(3))));
+        const date = point.labelDate ?? formatDate(point.x, 'yyyy.MM.dd', timeZone);
         // JFreeChart drew the generator's "\n" as nothing visible, leaving the spaces around it.
         return format.replaceAll('{1}', date).replaceAll('{2}', value).replaceAll('\n', '');
     }

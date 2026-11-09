@@ -80,7 +80,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
     private static final Logger log = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private static final String NUMERIC_REGEX = "[^-.\\d]";
     private static final String WHITE = "#ffffff";
     private static final String VALUE_DATE_LABEL = "{1} \n {2}";
     private static final String SYSTOLIC = "Systolic";
@@ -305,12 +304,21 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         return dataset;
     }
 
-    private static String numericResult(String result) {
+    static String numericResult(String result) {
         if (StringUtils.isEmpty(result)) {
             return null;
         }
-        String numeric = result.replaceAll(NUMERIC_REGEX, "");
-        return NumberUtils.isParsable(numeric) ? numeric : null;
+        // A bound, titre, date or qualitative grade is not an exact observation.
+        String numeric = result.trim();
+        if (numeric.matches("[+-]?[0-9]{1,3}(?:,[0-9]{3})+(?:\\.[0-9]+)?")) numeric = numeric.replace(",", "");
+        if (!numeric.matches("[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?")) {
+            return null;
+        }
+        try {
+            return Double.isFinite(Double.parseDouble(numeric)) ? numeric : null;
+        } catch (NumberFormatException invalid) {
+            return null;
+        }
     }
 
     private List<ReferenceRange> measurementReferenceRanges(List<EctMeasurementsDataBean> measurements, String typeIdName) {

@@ -63,6 +63,11 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
             throw new SecurityException("missing required sec object (_report)");
         }
+        if (!CdmReportContexts.bind(request)) {
+            response.sendError(HttpServletResponse.SC_CONFLICT, "CDM report form expired; reopen the report selection.");
+            return NONE;
+        }
+
 
         ArrayList<String> reportMsg = new ArrayList<String>();
         ArrayList<String> headings = new ArrayList<String>();
@@ -141,7 +146,10 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
                 }
             }
         }
-        return valid;
+        if (!selection.isValid()) {
+            addActionError(getText("oscarReport.CDMReport.msgInvalidSelection"));
+        }
+        return valid && selection.isValid();
     }
 
     /**

@@ -93,6 +93,19 @@ class MeasurementChartDataUnitTest {
                 .doesNotContainKey("medicationPanel");
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldUseHalfEvenPointLabels_withoutRoundingTheObservation() {
+        for (String pattern : List.of("0.00", "0.###")) {
+            var chart = MeasurementChart.lines("Synthetic", "Days", "kg", collection("Weight", 0.125))
+                    .withItemLabels("{2}", pattern, 12);
+            var datasets = (List<Map<String, Object>>) chart.toConfig().get("datasets");
+            var point = ((List<Map<String, Object>>) datasets.getFirst().get("data")).getFirst();
+            assertThat(point.get("y")).isEqualTo(0.125);
+            assertThat(point.get("labelValue")).isEqualTo(new java.text.DecimalFormat(pattern).format(0.125));
+        }
+    }
+
     /** V8's Intl accepts IANA regions and "+HH:MM" offsets, not Java's "GMT+03:00" or "Z". */
     @Test
     void shouldPassBrowserTimeZone_asIanaRegionOrOffset() {
