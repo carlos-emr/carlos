@@ -14,7 +14,9 @@ test('Add priority values remain stable across translated draft round trips',()=
 });
 
 const vm=require('node:vm');
-const prepare=add.match(/function prepareTicklerPatientSearch\(searchForm\) \{[\s\S]*?\n        \}/)[0];
+const prepareMatch=add.match(/(^[ \t]*)function prepareTicklerPatientSearch\(searchForm\) \{[\s\S]*?^\1\}/m);
+assert.ok(prepareMatch,'Missing complete prepareTicklerPatientSearch function in Add Tickler JSP');
+const prepare=prepareMatch[0];
 const fieldNames=['ticklerMessage','xml_appointment_date','priority'];
 const hiddenNames=['ticklerMessage','ticklerDraftDate','ticklerDraftPriority'];
 function searchForms(missingSource,missingDestination){

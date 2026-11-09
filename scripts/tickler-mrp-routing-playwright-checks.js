@@ -241,6 +241,13 @@ async function workflow(s) {
     h.assert(await one.locator('input[name="xml_appointment_date"]').inputValue()==='2031-01-31'&&await one.locator('select[name="priority"]').inputValue()==='High','Returning from search lost the draft date or priority');
     await assertAssignee(one,control);await assertAssignee(two,b);
     h.assert(await field(one).inputValue()===patient&&await field(two).inputValue()===patientB,'Returning a draft changed another patient association');
+    // A crafted draft must not let the browser choose the first (High) option.
+    await one.locator('select[name="priority"]').evaluate(select=>select.add(new Option('Invalid draft','invalid-draft',true,true)));
+    await one.locator('form[name="ADDAPPT"] input[name="keyword"]').fill(marker);
+    await ui.clickAndAwaitReload(one,one.locator('form[name="ADDAPPT"] input[type="submit"][name="Submit"]'));
+    await ui.clickAndAwaitReload(one,one.locator('#ticklerReturnDraft'));
+    h.assert(await one.locator('select[name="priority"]').inputValue()==='Normal','An invalid draft priority silently became High');
+    h.assert(await one.locator('#ticklerMessage').inputValue()===marker+' first draft'&&await one.locator('input[name="xml_appointment_date"]').inputValue()==='2031-01-31','Invalid-priority recovery changed the message or date');
     } catch(error) { failure=error; }
     finally {
       // Include partially opened charts/lists even if composer() did not return.

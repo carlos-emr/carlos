@@ -247,6 +247,7 @@
                     break;
                 }
             }
+            if (!java.util.Arrays.asList("High", "Normal", "Low").contains(priority)) priority = "Normal";
         %>
         <script src="${pageContext.request.contextPath}/share/javascript/tickler-validation.js"></script>
         <script src="${pageContext.request.contextPath}/share/javascript/tickler-calendar.js"></script>
