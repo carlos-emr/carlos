@@ -39,6 +39,25 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT rx_comments FROM prescription WHERE script_no=${script}`)==='First notes','Stale notes overwrote the first edit');
     const replay=await post('First notes');h.assert(replay.status()===204,'An exact confirmed notes retry was not idempotent');
   });
+  await s.step('legacy REST responses keep their shape and opted-in versions reject a stale update',async()=>{
+    const endpoint=`${config.baseUrl}/ws/rs/rx/drugs/all/${patient}`;
+    const legacy=await s.context.request.get(endpoint,{headers:{Accept:'application/json'}});
+    h.assert(legacy.status()===200,'The legacy REST list failed');
+    const old=(await legacy.json()).content.find(row=>String(row.drugId)===String(drug));
+    h.assert(old&&!Object.hasOwn(old,'rowVersion'),'Legacy REST unexpectedly added a version element');
+    const versioned=await s.context.request.get(endpoint+'?includeRowVersion=true',{headers:{Accept:'application/json'}});
+    h.assert(versioned.status()===200,'The version-aware REST list failed');
+    const original=(await versioned.json()).content.find(row=>String(row.drugId)===String(drug));
+    h.assert(Number.isSafeInteger(original.rowVersion),'The requested original version was omitted');
+    const csrf=await first.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    const url=`${config.baseUrl}/ws/rs/rx/updateDrug?demographicNo=${patient}&includeRowVersion=true`;
+    const post=form=>s.context.request.post(url,{data:{...original,form},headers:{Accept:'application/json','CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest'}});
+    const saved=await post('Cream');
+    h.assert(saved.status()===200&&(await saved.json()).success===true,'The version-aware update was not saved');
+    const refused=await post('Powder');
+    h.assert(refused.status()===409,'A stale REST version overwrote the saved medication');
+    h.assert(s.sql.value(`SELECT drug_form FROM drugs WHERE drugid=${drug}`)==='Cream','The stale REST update changed the clinical row');
+  });
 }
 if(require.main===module)runWorkflow('rx-original-version',workflow,{openPatient:true});
 module.exports={workflow};

@@ -12,7 +12,7 @@ The integrated change targets `release/2026.08` from `9004536dc8314d5f50542b4890
 | #5986 | Authoritative RX audits use the strict synchronous path inside the business transaction, independently of executor capacity. Audit failure aborts the clinical transaction. |
 | #5989 | Failed composed drafts regain their original editable instructions along with their identities and revisions. |
 | #5867 | REST prescribing has one transaction; any failed medication write aborts the header and earlier medications. An existing-ID update cannot fall through to an insert. |
-| #139 | Drug and prescription entities have versions; current drug-form editors carry the original version, staged replacements retain their source version, and notes compare the original displayed text. REST exposes optional `rowVersion`. See the legacy-client limitation below. |
+| #139 | Drug and prescription entities have versions; current drug-form editors carry the original version, staged replacements retain their source version, and notes compare the original displayed text. REST exposes optional `rowVersion` with `includeRowVersion=true`. See the legacy-client limitation below. |
 | #5752 | Only the explicit JSON `no-guidance` result clears a renal panel. Empty, malformed and failed responses retain an N/A panel with Refresh. |
 | #5984 | Both guidance and failure panels have native collapsible details. Refresh remains available. |
 | #5781 | Routine unusable stored observations render a 200 N/A panel. Security refusals keep their failure statuses and WAF audit policy. No route-wide WAF or audit exemption was introduced. |
@@ -43,7 +43,7 @@ Current web editors detect an intervening edit from the original display, includ
 
 Notes requests carry their original displayed text. Queued edits bind that original when the preceding request is acknowledged, so two local edits do not use one stale common version. Exact retries of the already stored note are idempotent. A response without the explicit write acknowledgement remains unconfirmed.
 
-**Legacy REST limitation:** clients that omit `rowVersion` retain their existing request contract. JPA detects overlapping transaction writes, but the server cannot infer what version an old client originally read before sending its update. Complete stale-read detection for those clients requires them to echo `rowVersion` or a deliberately breaking requirement to supply it. Do not describe this compatibility mode as complete protection for versionless legacy clients, or close #139 on that basis alone. Reopen older prescribing windows after upgrading so they obtain source versions.
+**Legacy REST limitation:** clients that omit `rowVersion` retain their existing request contract and response shape. Current clients request `includeRowVersion=true` to receive the token, then echo it on updates; absent tokens are omitted from both XML and JSON. JPA detects overlapping transaction writes, but the server cannot infer what version an old client originally read before sending its update. Complete stale-read detection for those clients requires them to echo `rowVersion` or a deliberately breaking requirement to supply it. Do not describe this compatibility mode as complete protection for versionless legacy clients, or close #139 on that basis alone. Reopen older prescribing windows after upgrading so they obtain source versions.
 
 ## Renal guidance policy
 

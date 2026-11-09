@@ -122,6 +122,29 @@ public class RxWebService extends AbstractServiceImpl {
     @Autowired
     protected PrescriptionManager prescriptionManager;
 
+    /** Query opt-in keeps legacy XML and JSON response shapes unchanged. Clients echo the
+     * returned rowVersion on edits; omitting it retains the legacy write contract. */
+    @Context
+    protected HttpServletRequest versionRequest;
+
+    private boolean includeRowVersion() {
+        return versionRequest != null && "true".equals(versionRequest.getParameter("includeRowVersion"));
+    }
+
+    private DrugTo1 transferDrug(LoggedInInfo info, Drug drug) {
+        DrugTo1 result = drugConverter.getAsTransferObject(info, drug);
+        if (includeRowVersion()) result.setRowVersion(drug.getRowVersion());
+        return result;
+    }
+
+    private List<DrugTo1> transferDrugs(LoggedInInfo info, List<Drug> drugs) {
+        List<DrugTo1> result = drugConverter.getAllAsTransferObjects(info, drugs);
+        if (includeRowVersion()) {
+            for (int index = 0; index < drugs.size(); index++) result.get(index).setRowVersion(drugs.get(index).getRowVersion());
+        }
+        return result;
+    }
+
     @GET
     @Path("/drugs")
     @Produces("application/json")
@@ -167,7 +190,7 @@ public class RxWebService extends AbstractServiceImpl {
 
         }
 
-        response.setContent(this.drugConverter.getAllAsTransferObjects(getLoggedInInfo(), drugList));
+        response.setContent(transferDrugs(getLoggedInInfo(), drugList));
 
         return response;
     }
@@ -214,7 +237,7 @@ public class RxWebService extends AbstractServiceImpl {
     public DrugSearchResponse getAllDrugs(@PathParam("demographicNo") int demographicNo) {
         assertReadPrivilege(demographicNo);
         List<Drug> drugList = rxManager.getDrugs(getLoggedInInfo(), demographicNo, RxStatus.ALL);
-        return new DrugSearchResponse(this.drugConverter.getAllAsTransferObjects(getLoggedInInfo(), drugList));
+        return new DrugSearchResponse(transferDrugs(getLoggedInInfo(), drugList));
     }
 
     @GET
@@ -223,7 +246,7 @@ public class RxWebService extends AbstractServiceImpl {
     public DrugSearchResponse getCurrentDrugs(@PathParam("demographicNo") int demographicNo) {
         assertReadPrivilege(demographicNo);
         List<Drug> drugList = rxManager.getDrugs(getLoggedInInfo(), demographicNo, RxStatus.CURRENT);
-        return new DrugSearchResponse(this.drugConverter.getAllAsTransferObjects(getLoggedInInfo(), drugList));
+        return new DrugSearchResponse(transferDrugs(getLoggedInInfo(), drugList));
     }
 
     @GET
@@ -232,7 +255,7 @@ public class RxWebService extends AbstractServiceImpl {
     public DrugSearchResponse getLongtermDrugs(@PathParam("demographicNo") int demographicNo) {
         assertReadPrivilege(demographicNo);
         List<Drug> drugList = rxManager.getLongTermDrugs(getLoggedInInfo(), demographicNo);
-        return new DrugSearchResponse(this.drugConverter.getAllAsTransferObjects(getLoggedInInfo(), drugList));
+        return new DrugSearchResponse(transferDrugs(getLoggedInInfo(), drugList));
     }
 
     @GET
@@ -241,7 +264,7 @@ public class RxWebService extends AbstractServiceImpl {
     public DrugSearchResponse getArchivedDrugs(@PathParam("demographicNo") int demographicNo) {
         assertReadPrivilege(demographicNo);
         List<Drug> drugList = rxManager.getDrugs(getLoggedInInfo(), demographicNo, RxStatus.ARCHIVED);
-        return new DrugSearchResponse(this.drugConverter.getAllAsTransferObjects(getLoggedInInfo(), drugList));
+        return new DrugSearchResponse(transferDrugs(getLoggedInInfo(), drugList));
     }
 
     private void assertReadPrivilege(int demographicNo) {
@@ -284,7 +307,7 @@ public class RxWebService extends AbstractServiceImpl {
             if (outgoingDrug != null) {
 
                 resp.setSuccess(true);
-                resp.setDrug(this.drugConverter.getAsTransferObject(info, outgoingDrug));
+                resp.setDrug(transferDrug(info, outgoingDrug));
 
             } else {
 
@@ -345,7 +368,7 @@ public class RxWebService extends AbstractServiceImpl {
             if (outgoingDrug != null) {
 
                 resp.setSuccess(true);
-                resp.setDrug(this.drugConverter.getAsTransferObject(info, outgoingDrug));
+                resp.setDrug(transferDrug(info, outgoingDrug));
 
             } else {
 
@@ -420,7 +443,7 @@ public class RxWebService extends AbstractServiceImpl {
         String special = RxUtil.trimSpecial(drug);
         drug.setSpecial(special);
         resp.setSuccess(true);
-        resp.setDrug(this.drugConverter.getAsTransferObject(info, drug));
+        resp.setDrug(transferDrug(info, drug));
 
         return resp;
     }
@@ -488,7 +511,7 @@ public class RxWebService extends AbstractServiceImpl {
         if (pd != null) {
 
             // prescribe was success. We can now prepare the response.
-            resp.setDrugs(this.drugConverter.getAllAsTransferObjects(info, pd.drugs));
+            resp.setDrugs(transferDrugs(info, pd.drugs));
             resp.setPrescription(this.prescriptionConverter.getAsTransferObject(info, pd.prescription));
             resp.setSuccess(true);
 
@@ -530,7 +553,7 @@ public class RxWebService extends AbstractServiceImpl {
         DrugSearchResponse resp = new DrugSearchResponse();
 
         List<Drug> drugs = rxManager.getHistory(id, info, demographicNo);
-        resp.setContent(drugConverter.getAllAsTransferObjects(info, drugs));
+        resp.setContent(transferDrugs(info, drugs));
 
         return resp;
     }
