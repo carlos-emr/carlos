@@ -141,11 +141,41 @@ class EDocUtilTempPathLogUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldKeepActualPdfReadFailuresVisible() throws Exception {
-        Path invalidPdf = Files.writeString(managedTemp.resolve("invalid.pdf"), "not a PDF");
+        Path invalidPdf = Files.writeString(managedTemp.resolve("FAKE-PRIVATE-PATIENT-invalid.pdf"), "not a PDF");
         try (LogCapture documentsLog = LogCapture.forLogger(EDocUtil.class)) {
             assertThat(EDocUtil.getPDFPageCount(invalidPdf.toString())).isZero();
             assertThat(documentsLog.events()).anyMatch(event -> event.getLevel().isMoreSpecificThan(Level.ERROR)
-                    && event.getThrown() instanceof IOException);
+                    && event.getMessage().getFormattedMessage().contains("java.io.IOException"));
+            assertThat(documentsLog.events()).allSatisfy(event -> assertThat(event.getThrown()).isNull());
+            assertThat(documentsLog.messages()).allSatisfy(message -> assertThat(message)
+                    .doesNotContain("FAKE-PRIVATE-PATIENT", invalidPdf.toString()));
+        }
+    }
+
+    @Test
+    void shouldPreservePatientNamedPdfReads_withoutLoggingTheirPaths() throws Exception {
+        Path pdf = managedTemp.resolve("FAKE-PRIVATE-PATIENT.pdf");
+        try (PDDocument document = new PDDocument()) { document.addPage(new PDPage()); document.save(pdf.toFile()); }
+        try (LogCapture paths = LogCapture.forLogger(PathValidationUtils.class);
+             LogCapture documentsLog = LogCapture.forLogger(EDocUtil.class)) {
+            assertThat(EDocUtil.getPDFPageCount(pdf.toString())).isEqualTo(1);
+            assertThat(EDocUtil.readContent(pdf.toString())).isEqualTo(Files.readAllBytes(pdf));
+            assertNoErrors(paths, documentsLog);
+            for (LogCapture capture : new LogCapture[]{paths, documentsLog}) {
+                assertThat(capture.messages()).allSatisfy(message -> assertThat(message)
+                        .doesNotContain("FAKE-PRIVATE-PATIENT", pdf.toString()));
+            }
+        }
+    }
+
+    @Test
+    void shouldRejectPrivateTraversalInput_withoutLoggingItsValueOrCallerLabel() {
+        try (LogCapture paths = LogCapture.forLogger(PathValidationUtils.class)) {
+            assertThatThrownBy(() -> PathValidationUtils.validatePathComponent("../FAKE-PRIVATE-PATIENT", "FAKE-PRIVATE-FIELD"))
+                    .isInstanceOf(io.github.carlos_emr.carlos.utility.FileValidationException.class);
+            assertThat(paths.events()).anyMatch(event -> event.getLevel().isMoreSpecificThan(Level.WARN));
+            assertThat(paths.messages()).allSatisfy(message -> assertThat(message)
+                    .doesNotContain("FAKE-PRIVATE-PATIENT", "FAKE-PRIVATE-FIELD"));
         }
     }
 

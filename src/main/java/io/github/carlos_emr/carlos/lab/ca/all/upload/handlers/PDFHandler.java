@@ -98,7 +98,7 @@ public class PDFHandler implements MessageHandler {
             return null;
         }
         if (!(fileName.endsWith(".pdf") || fileName.endsWith(".PDF"))) {
-            logger.error("Document {} does not have pdf extension", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.error("Document does not have pdf extension");
             return null;
         } else {
             int fileNameIdx = fileName.lastIndexOf("/");
@@ -120,7 +120,7 @@ public class PDFHandler implements MessageHandler {
 
             // Verify the file exists and is a regular file
             if (!targetFile.exists() || !targetFile.isFile()) {
-                logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                logger.error("File does not exist or is not a regular file");
                 return null;
             }
 
@@ -128,13 +128,13 @@ public class PDFHandler implements MessageHandler {
             filePath = targetFile.getCanonicalPath();
 
         } catch (SecurityException e) {
-            logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.error("Path traversal attempt detected");
             return null;
         } catch (IOException e) {
-            logger.error("Error validating file path: {}", LogSafe.sanitize(filePath), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.error("Error validating file path: {}", LogSafe.exceptionTrace(e));
             return null;
         } catch (Exception e) {
-            logger.error("Unexpected error validating file path: {}", LogSafe.sanitize(filePath), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.error("Unexpected error validating file path: {}", LogSafe.exceptionTrace(e));
             return null;
         }
 
@@ -179,10 +179,10 @@ public class PDFHandler implements MessageHandler {
                 }
             }
         } catch (FileNotFoundException e) {
-            logger.error("File not found: {}", LogSafe.sanitize(filePath), e);
+            logger.error("File not found: {}", LogSafe.exceptionTrace(e));
             return null;
         } catch (Exception e) {
-            logger.error("Error uploading PDF: {}", LogSafe.sanitize(filePath), e);
+            logger.error("Error uploading PDF: {}", LogSafe.exceptionTrace(e));
             return null;
         }
 
