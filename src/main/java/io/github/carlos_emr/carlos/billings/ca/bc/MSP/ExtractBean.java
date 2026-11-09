@@ -77,7 +77,6 @@ public class ExtractBean extends Object implements Serializable {
     private String demoName;
     private String invNo;
     private String batchHeader;
-    private String totalAmount;
     private int invCount = 0;
     private java.util.Date today;
     private String output;
@@ -206,8 +205,7 @@ public class ExtractBean extends Object implements Serializable {
                     BillingServiceDao bsDao = SpringUtils.getBean(BillingServiceDao.class);
 
                     java.util.Map<Integer, Wcb> forms = new java.util.LinkedHashMap<>();
-                    for (Object[] row : bsDao.findSomethingByBillingId(Integer.valueOf(invNo))) {
-                        Wcb form = (Wcb) row[1];
+                    for (Wcb form : bsDao.findOpenWcbFormsByBillingId(Integer.valueOf(invNo))) {
                         forms.put(form.getId(), form);
                     }
                     java.util.List<Billingmaster> claims = bmDao.findBcPendingExtractClaims(Integer.parseInt(invNo)).stream()
@@ -219,6 +217,9 @@ public class ExtractBean extends Object implements Serializable {
                     for (Wcb form : forms.values()) {
                         if (!java.util.Objects.equals(form.getFeeItem(), wcbClaim.getBillingCode())) {
                             throw new IllegalStateException("WCB form and claim fee codes do not match");
+                        }
+                        if (new BigDecimal(form.getBillAmount()).compareTo(new BigDecimal(wcbClaim.getBillAmount())) != 0) {
+                            throw new IllegalStateException("WCB form and billing amounts differ");
                         }
                         WcbSb sb = new WcbSb(form, String.valueOf(wcbClaim.getBillingmasterNo()));
                         htmlContent += sb.getHtmlLine();
@@ -275,6 +276,7 @@ public class ExtractBean extends Object implements Serializable {
                     }
 
                     setAsBilledMaster(String.valueOf(wcbClaim.getBillingmasterNo()));
+                    BigTotal = BigTotal.add(new BigDecimal(wcbClaim.getBillAmount()));
                     recordCount++;
                     /////////////////////////////////////
                 }
@@ -361,7 +363,8 @@ public class ExtractBean extends Object implements Serializable {
     private void writeLegacyFile(String filename, String content) {
         if (filename == null || filename.isBlank()) throw new IllegalStateException("Teleplan filename is required");
         try {
-            File safe = PathValidationUtils.validatePath(filename, new File(CarlosProperties.getInstance().getProperty("HOME_DIR")));
+            File home = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("HOME_DIR"), "Teleplan output directory");
+            File safe = PathValidationUtils.validatePath(filename, home);
             java.nio.file.Files.writeString(safe.toPath(), content + System.lineSeparator(), java.nio.charset.StandardCharsets.UTF_8);
         } catch (java.io.IOException failure) {
             throw new IllegalStateException("Teleplan file could not be written", failure);
@@ -381,7 +384,7 @@ public class ExtractBean extends Object implements Serializable {
     }
 
     public String getTotalAmount() {
-        return totalAmount;
+        return BigTotal.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
     }
 
     public String getHtmlValue() {

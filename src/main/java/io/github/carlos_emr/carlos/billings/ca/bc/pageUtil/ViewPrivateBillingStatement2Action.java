@@ -56,6 +56,13 @@ public final class ViewPrivateBillingStatement2Action extends ActionSupport {
             return NONE;
         }
 
-        return SUCCESS;
+        if (request.getAttribute("bills") != null) return SUCCESS;
+        String provider = request.getParameter("providerId");
+        String destination = request.getContextPath() + "/billing/CA/BC/reprocessBill?showPRIV=show";
+        if (provider != null && !provider.isBlank() && !"%".equals(provider)) {
+            destination += "&providerview=" + java.net.URLEncoder.encode(provider, java.nio.charset.StandardCharsets.UTF_8);
+        }
+        ServletActionContext.getResponse().sendRedirect(destination);
+        return NONE;
     }
 }

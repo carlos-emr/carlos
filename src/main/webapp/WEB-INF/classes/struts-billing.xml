@@ -153,7 +153,8 @@
         <action name="billing/CA/BC/createBillingReportAction" class="io.github.carlos_emr.carlos.billings.ca.bc.MSP.CreateBillingReport2Action"/>
 
         <action name="billing/CA/BC/associateCodesAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.AssociateCodes2Action">
-            <result name="success">/billing/CA/BC/showServiceCodeAssocs</result>
+            <result name="success" type="redirectAction">billing/CA/BC/showServiceCodeAssocs</result>
+            <result name="input">/WEB-INF/jsp/billing/CA/BC/dxcode_svccode_assoc.jsp</result>
         </action>
 
         <action name="billing/CA/BC/showServiceCodeAssocs" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ShowServiceCodeAssocs2Action">

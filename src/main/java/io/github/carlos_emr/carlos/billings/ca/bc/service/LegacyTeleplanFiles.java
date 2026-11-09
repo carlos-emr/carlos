@@ -48,7 +48,7 @@ final class LegacyTeleplanFiles {
             Path target = target(artifact.getKey());
             if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) throw new IOException("Teleplan output filename is already in use");
             byte[] bytes = (artifact.getValue() + System.lineSeparator()).getBytes(StandardCharsets.UTF_8);
-            Path staged = batch.resolve(artifact.getKey());
+            Path staged = child(batch, artifact.getKey());
             writeNew(staged, bytes);
             manifest.setProperty(artifact.getKey(), hash(bytes));
         }
@@ -104,7 +104,7 @@ final class LegacyTeleplanFiles {
     }
 
     private void publishOne(Path batch, String name, String expected) throws IOException {
-        Path source = batch.resolve(name);
+        Path source = child(batch, name);
         verify(source, expected);
         Path destination = target(name);
         if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS)) {
@@ -144,7 +144,15 @@ final class LegacyTeleplanFiles {
         if (!filename.matches("H[A-L][0-9]{4,5}[_\\.][0-9]{3}(?:\\.htm)?")) {
             throw new IOException("Invalid Teleplan output filename");
         }
-        return home.resolve(filename);
+        return child(home, filename);
+    }
+
+    private static Path child(Path directory, String filename) throws IOException {
+        Path resolved = directory.resolve(filename).normalize();
+        if (!resolved.startsWith(directory) || !directory.equals(resolved.getParent())) {
+            throw new IOException("Teleplan output path must be a direct child");
+        }
+        return resolved;
     }
 
     private static void writeNew(Path path, byte[] bytes) throws IOException {

@@ -89,6 +89,11 @@ public class LegacyBcTeleplanExportService {
         for (Provider provider : selected) {
             String insurance = provider.getOhipNo();
             if (insurance == null || insurance.isBlank()) continue;
+            Number pending = (Number) entityManager.createNativeQuery("SELECT COUNT(*) FROM billing b JOIN billingmaster bm "
+                    + "ON bm.billing_no=b.billing_no WHERE b.provider_ohip_no=?1 AND b.status IN ('O','W') "
+                    + "AND bm.billingstatus IN ('O','W') AND b.billingtype IN ('MSP','ICBC','WCB')")
+                    .setParameter(1, insurance).getSingleResult();
+            if (pending.longValue() == 0) continue;
             if (!insurance.matches("[0-9]{5}")) throw new IllegalArgumentException("A provider has an invalid practitioner number");
             // Duplicate insurance identities must not generate duplicate claims under different provider records.
             if (!selectedInsurance.add(insurance)) throw new IllegalArgumentException("Providers share a practitioner number; correct the billing setup");
@@ -96,7 +101,7 @@ public class LegacyBcTeleplanExportService {
             if (!group.matches("[0-9]{4,5}")) throw new IllegalArgumentException("A provider has an invalid billing group");
             groups.computeIfAbsent(group, ignored -> new ArrayList<>()).add(provider);
         }
-        if (selectedInsurance.isEmpty()) throw new IllegalArgumentException("No billing providers matched the selection");
+        if (selected.isEmpty()) throw new IllegalArgumentException("No billing providers matched the selection");
         Map<String, String> artifacts = new LinkedHashMap<>();
         List<ExtractBean> extracts = new ArrayList<>();
         List<BillActivity> activity = new ArrayList<>();

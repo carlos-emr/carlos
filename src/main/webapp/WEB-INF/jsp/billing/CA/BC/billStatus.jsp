@@ -79,6 +79,7 @@
     BigDecimal total = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
     BigDecimal paidTotal = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
     BigDecimal owedTotal = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
+    boolean incompleteTotals = false;
     MSPReconcile msp = new MSPReconcile();
 
     GregorianCalendar now = new GregorianCalendar();
@@ -101,7 +102,7 @@
 
     String readonly = request.getParameter("filterPatient");
     String demographicNo = request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "";
-    var patientNames = "true".equals(readonly)
+    io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.Names patientNames = "true".equals(readonly)
             ? io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.names(request, demographicNo) : null;
 
     boolean adminAccess = false;
@@ -552,20 +553,28 @@
                     BigDecimal valueToAdd = new BigDecimal("0.00");
                     try {
                         valueToAdd = new BigDecimal(b.amount).setScale(2, BigDecimal.ROUND_HALF_UP);
-                    } catch (Exception badValueException) {
-                        MiscUtils.getLogger().error(" Error calculating value for " + b.billMasterNo);
+                    } catch (NumberFormatException | NullPointerException badValueException) {
                         incorrectVal = true;
                     }
                     total = total.add(valueToAdd);
-                    double pAmount = msp.getAmountPaid(b.billMasterNo, b.billingtype, historyTotals);
                     BigDecimal valueToPaidAdd = new BigDecimal("0.00");
                     try {
-                        valueToPaidAdd = new BigDecimal(pAmount).setScale(2, BigDecimal.ROUND_HALF_UP);
-                    } catch (Exception badValueException) {
-                        MiscUtils.getLogger().error(" Error calculating paid value for " + b.billMasterNo);
+                        double pAmount = msp.getAmountPaid(b.billMasterNo, b.billingtype, historyTotals);
+                        valueToPaidAdd = BigDecimal.valueOf(pAmount).setScale(2, BigDecimal.ROUND_HALF_UP);
+                    } catch (NumberFormatException badValueException) {
                         paidinCorrectval = true;
                     }
                     paidTotal = paidTotal.add(valueToPaidAdd);
+                    BigDecimal amtOwed = null;
+                    try {
+                        amtOwed = BigDecimal.valueOf(msp.getAmountOwing(b.billMasterNo, b.amount, b.billingtype, historyTotals))
+                                .setScale(2, BigDecimal.ROUND_HALF_UP);
+                        owedTotal = owedTotal.add(amtOwed);
+                    } catch (NumberFormatException badValueException) {
+                        // An unreadable amount remains unknown; query failures still propagate.
+                    }
+                    boolean unknownBalance = incorrectVal || paidinCorrectval || amtOwed == null;
+                    incompleteTotals |= unknownBalance;
 
             %>
 
@@ -573,6 +582,7 @@
                 <td>
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="billCheck_<%=b.getBilling_no()%>" name="billCheck"
+                               <%= unknownBalance ? "disabled title=\"Correct unknown amounts before selecting this bill\"" : "" %>
                                value="<%=b.getBilling_no() + "_" + b.getBillMasterNo()%>">
                     </div>
                 </td>
@@ -611,17 +621,11 @@
                 </td>
                 <td <%=isBadVal(incorrectVal)%> ><%=b.quantity%>
                 </td>
-                <td <%=isBadVal(incorrectVal)%> ><%=nf.format(Double.parseDouble(b.amount))%>
+                <td <%=isBadVal(incorrectVal)%> ><%=incorrectVal ? "Unknown" : nf.format(valueToAdd)%>
                 </td>
-                <td><%=nf.format(pAmount)%>
+                <td <%=isBadVal(paidinCorrectval)%> ><%=paidinCorrectval ? "Unknown" : nf.format(valueToPaidAdd)%>
                 </td>
-                <%
-                    double dblAmtOwed = msp.getAmountOwing(b.billMasterNo, b.amount, b.billingtype, historyTotals);
-                    BigDecimal amtOwed = new BigDecimal(dblAmtOwed).setScale(2, BigDecimal.ROUND_HALF_UP);
-                    owedTotal = owedTotal.add(amtOwed);
-
-                %>
-                <td><%=nf.format(amtOwed)%>
+                <td <%=isBadVal(amtOwed == null)%> ><%=amtOwed == null ? "Unknown" : nf.format(amtOwed)%>
                 </td>
                 <td><%=s(b.dx1)%>
                 </td>
@@ -662,7 +666,7 @@
                 <td><%=bSearch.list.size()%>
                 </td>
                 <td></td>
-                <td>Total:</td>
+                <td><%= incompleteTotals ? "Total (known amounts only):" : "Total:" %></td>
                 <td><%=nf.format(total.doubleValue())%>
                 </td>
                 <td><%=nf.format(paidTotal.doubleValue())%>

@@ -29,8 +29,6 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 
 /**
@@ -45,68 +43,41 @@ import jakarta.servlet.http.HttpServletResponse;
  * @author not attributable
  * @version 1.0
  */
-import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
-
-import java.io.IOException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.billings.ca.on.web.BillingRequestGuards;
 
-public class AssociateCodes2Action extends ActionSupport {
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+/** Compatibility writer for typed legacy clients and the supported association editor. */
+public class AssociateCodes2Action extends SaveAssoc2Action {
+    private ServiceCodeAssociation legacyAssociation;
 
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
-
-    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
+    @Override
     public String execute() {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
-        }
-
-        ServiceCodeAssociation svc = this.getSvcAssoc();
-        /**
-         * Send back to originating screen if there are no associated codes selected
-         *
-         */
-        if (!svc.hasDXCodes()) {
-            try {
-                response.sendRedirect(request.getContextPath() + "/billing/CA/BC/showServiceCodeAssocs");
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+        // Preserve the old no-diagnosis no-op, after checking the same privilege and verb as the live writer.
+        if (legacyAssociation != null && !legacyAssociation.hasDXCodes()) {
+            var request = ServletActionContext.getRequest();
+            var response = ServletActionContext.getResponse();
+            var login = LoggedInInfo.getLoggedInInfoFromSession(request);
+            if (!SpringUtils.getBean(SecurityInfoManager.class).hasPrivilege(login, "_billing", "w", null)) {
+                throw new SecurityException("missing required sec object (_billing)");
             }
+            if (!BillingRequestGuards.requirePost(request, response)) return NONE;
+            try { response.sendRedirect(request.getContextPath() + "/billing/CA/BC/showServiceCodeAssocs"); }
+            catch (java.io.IOException failure) { throw new IllegalStateException("Association response failed", failure); }
             return NONE;
         }
-        BillingAssociationPersistence per = new BillingAssociationPersistence();
-        ServiceCodeAssociation assoc = this.getSvcAssoc();
-        per.saveServiceCodeAssociation(assoc, this.getMode());
-        return SUCCESS;
+        return super.execute();
     }
 
-    private ServiceCodeAssociation svcAssoc;
-    private String mode;
-
-    public String getMode() {
-        return mode;
-    }
-
-    @StrutsParameter
-    public void setMode(String mode) {
-        this.mode = mode;
-    }
-
+    @Override
     @StrutsParameter(depth = 1)
     public ServiceCodeAssociation getSvcAssoc() {
-        return svcAssoc;
+        return legacyAssociation == null ? super.getSvcAssoc() : legacyAssociation;
     }
 
     @StrutsParameter
-    public void setSvcAssoc(ServiceCodeAssociation svcAssoc) {
-        this.svcAssoc = svcAssoc;
-    }
+    public void setSvcAssoc(ServiceCodeAssociation association) { legacyAssociation = association; }
 }

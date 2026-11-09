@@ -425,4 +425,17 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
         verify(historyDao, never()).getPaymentTotalsByBillingMasterNos(anyCollection());
     }
 
+    @Test
+    void shouldKeepValidExplanationsAndCountBadFolios_withoutStubbingTheC12Reader() {
+        var dao=createAndRegisterMock(io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanC12Dao.class);
+        var valid=new io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanC12();
+        valid.setOfficeFolioClaimNo("0000041"); valid.setExp1("AA");
+        var invalid=new io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanC12(); invalid.setOfficeFolioClaimNo("bad");
+        var missing=new io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanC12();
+        when(dao.findCurrent()).thenReturn(java.util.List.of(valid,invalid,missing));
+        var reader=new MSPReconcile(true);
+        assertThat(reader.currentC12Records()).containsEntry("41","AA ");
+        assertThat(reader.getSkippedC12Count()).isEqualTo(2);
+    }
+
 }

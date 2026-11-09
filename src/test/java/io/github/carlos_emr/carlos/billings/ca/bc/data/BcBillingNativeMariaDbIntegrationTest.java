@@ -152,28 +152,14 @@ class BcBillingNativeMariaDbIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldKeepNativeDecimalDifferentialAndNullableFields_forRemittance() {
+    void shouldKeepNativeMoneyAndNullableFields_forRemittance() {
         remittance("001001", "20261016");
         assertThat(dao.findBcRemittance("812%", "95546")).singleElement().satisfies(row -> {
             assertThat(row.demographic_no()).isEqualTo(985546);
             assertThat(row.t_servicedate()).isEqualTo("20261015");
             assertThat(row.t_exp1()).isNull();
         });
-        assertThat(dao.findBcAdjustmentRemittance("81234", "95546")).singleElement()
-                .satisfies(row -> assertThat(row.differential()).isEqualTo("+"));
-        jdbc.update("update teleplanS00 set t_paidamt='000999' where s21_id=95546");
-        assertThat(dao.findBcAdjustmentRemittance("81234", "95546")).singleElement()
-                .satisfies(row -> assertThat(row.differential()).isEqualTo("-"));
         assertThat(dao.findBcRemittance("other", "95546")).isEmpty();
-    }
-
-    @Test
-    void shouldKeepSubmissionLikeAndBoundValues_forMatchingRecord() {
-        jdbc.update("insert into billactivity (id, sentdate) values (?, ?)", 95546, "2026-10-15 12:34:56");
-        jdbc.update("insert into teleplan_submission_link (billingmaster_no, bill_activity_id) values (?, ?)", MASTER, 95546);
-        assertThat(dao.hasBcMatchingBillingRecord(String.valueOf(MASTER), "2026-10-15%", "00001")).isTrue();
-        assertThat(dao.hasBcMatchingBillingRecord(String.valueOf(MASTER), "2026-10-16%", "00001")).isFalse();
-        assertThat(dao.hasBcMatchingBillingRecord(String.valueOf(MASTER), "2026-10-15%", "' OR '1'='1")).isFalse();
     }
 
     @Test
@@ -226,13 +212,14 @@ class BcBillingNativeMariaDbIntegrationTest extends CarlosTestBase {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"123456.78", "-12345.67", "badvalue9"})
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"123456.78", "-12345.67", "badvalue9", " ", "12.34 "})
     void shouldArchiveEntireSourceAmount_withoutNumericCoercion(String source) {
         jdbc.update("UPDATE billing SET billingtype='Pri' WHERE billing_no=?", BILL);
         jdbc.update("UPDATE billingmaster SET bill_amount=?,paymentMethod='1' WHERE billingmaster_no=?", source, MASTER);
         new BillingHistoryDAO().createBillingHistoryArchive(String.valueOf(MASTER));
         assertThat(jdbc.queryForObject("SELECT amount FROM billing_history WHERE billingmaster_no=?", String.class, MASTER))
-                .isEqualTo(source);
+                .isEqualTo(source == null ? "" : source);
     }
 
     @Test

@@ -52,6 +52,19 @@ class BcPdfTemplatesUnitTest {
         try(var document=Loader.loadPDF(response.getContentAsByteArray())) { assertThat(document.getNumberOfPages()).isPositive(); }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings={"invoice","account_rec","wo","rej","payref","payref_sum"})
+    void shouldRenderAValidEmptyReport_whenTheSuccessfulQueryHasNoRows(String report) throws Exception {
+        var response=new MockHttpServletResponse();
+        PdfDownload.inline(response,"report.pdf", output -> {
+            try(var template=getClass().getResourceAsStream(ROOT+"pdf_rep_"+report+".jrxml")) {
+                new OscarDocumentCreator().fillDocumentStream(parameters(),output,"pdf",template,new JRMapCollectionDataSource(List.of()));
+            }
+        });
+        assertThat(response.getStatus()).as(report).isEqualTo(200);
+        try(var document=Loader.loadPDF(response.getContentAsByteArray())) { assertThat(document.getNumberOfPages()).isPositive(); }
+    }
+
     @Test
     void shouldDiscardEntireDocument_whenALaterInvoiceAmountCannotBeRendered() throws Exception {
         var response=new MockHttpServletResponse();

@@ -54,10 +54,12 @@ class LegacyBcTeleplanExportMariaDbIntegrationTest extends CarlosTestBase {
     @AfterEach
     void removeCommittedSource() {
         if (jdbc != null) {
-            jdbc.update("DELETE FROM billactivity WHERE providerohipno='91234' AND creator='BC60'");
-            jdbc.update("DELETE FROM billingmaster WHERE billingmaster_no=?",MASTER);
-            jdbc.update("DELETE FROM billing WHERE billing_no=?",BILL);
-            jdbc.update("DELETE FROM provider WHERE provider_no='BC60'");
+            jdbc.update("DELETE FROM billactivity WHERE creator='BC60'");
+            jdbc.update("DELETE FROM wcb WHERE billing_no IN (?,?)",BILL,BILL+10);
+            jdbc.update("DELETE FROM billingservice WHERE description='FAKE-Wcb-6097'");
+            jdbc.update("DELETE FROM billingmaster WHERE billingmaster_no IN (?,?)",MASTER,MASTER+10);
+            jdbc.update("DELETE FROM billing WHERE billing_no IN (?,?)",BILL,BILL+10);
+            jdbc.update("DELETE FROM provider WHERE provider_no IN ('BC60','BC61','BC62')");
         }
         var properties=CarlosProperties.getInstance();
         if(previousHome==null) properties.remove("HOME_DIR"); else properties.setProperty("HOME_DIR",previousHome);
@@ -110,4 +112,43 @@ class LegacyBcTeleplanExportMariaDbIntegrationTest extends CarlosTestBase {
             return null;
         });
     }
+    @Test
+    void shouldSeparateBillingGroups_whenAllProvidersAreGenerated() throws Exception {
+        jdbc.update("INSERT INTO provider (provider_no,first_name,last_name,ohip_no,billing_no,provider_type,status,comments,lastUpdateDate) "
+                + "VALUES ('BC61','FAKE','Second','91235','81235','doctor','1','',NOW()),('BC62','FAKE','Unrelated','bad','bad','doctor','1','',NOW())");
+        jdbc.update("INSERT INTO billing (billing_no,provider_no,provider_ohip_no,demographic_no,demographic_name,billingtype,status,billing_date,visitdate) "
+                + "VALUES (?,'BC61','91235',985561,'FAKE,Second','MSP','O','2026-11-01','2026-11-01')",BILL+10);
+        jdbc.update("INSERT INTO billingmaster (billingmaster_no,billing_no,billingstatus,service_date,bill_amount,billing_unit,payee_no,practitioner_no,datacenter,billing_code,correspondence_code) "
+                + "VALUES (?,?,'O','20261101','12.34','1','81235','91235','00001','00100','0')",MASTER+10,BILL+10);
+        assertThat(service.generate(new LegacyBcTeleplanExportService.Selection("all","K","V03",""),"BC60")).isEqualTo(2);
+        assertThat(Files.readString(directory.resolve("HK81234.001"))).startsWith("VS1").contains(String.valueOf(MASTER)).doesNotContain(String.valueOf(MASTER+10));
+        assertThat(Files.readString(directory.resolve("HK81235.001"))).startsWith("VS1").contains(String.valueOf(MASTER+10)).doesNotContain(String.valueOf(MASTER));
+    }
+
+    private void makeWcbSource() {
+        jdbc.update("UPDATE billing SET billingtype='WCB',status='W' WHERE billing_no=?",BILL);
+        jdbc.update("UPDATE billingmaster SET billing_code='19950',billingstatus='W' WHERE billingmaster_no=?",MASTER);
+        jdbc.update("INSERT INTO billingservice (service_code,description,value,billingservice_date,region) VALUES ('19950','FAKE-Wcb-6097','12.34','2026-01-01','BC')");
+        jdbc.update("INSERT INTO wcb (billing_no,demographic_no,provider_no,bill_amount,w_feeitem,w_icd9,w_wcbno,w_lname,w_fname,w_pracno,w_payeeno,formNeeded,status,formCreated,formEdited,w_dob,w_servicedate,w_doi) "
+                + "VALUES (?,985560,'0','12.34','19950','250','123','FAKE','Worker','91234','81234',0,'O',NOW(),NOW(),'1980-01-02','2026-11-01','2026-10-31')",BILL);
+    }
+
+    @Test
+    void shouldUseTheActualClaimIdAndAmount_forWcbExport() throws Exception {
+        makeWcbSource();
+        assertThat(service.generate(selection(),"BC60")).isEqualTo(1);
+        assertThat(Files.readString(directory.resolve("HK81234.001"))).contains(String.valueOf(MASTER),"0001234");
+        assertThat(jdbc.queryForObject("SELECT total FROM billactivity WHERE creator='BC60'",String.class)).isEqualTo("12.34");
+        assertThat(jdbc.queryForObject("SELECT billingstatus FROM billingmaster WHERE billingmaster_no=?",String.class,MASTER)).isEqualTo("B");
+    }
+
+    @Test
+    void shouldKeepWcbClaimsPending_whenTheFormAndClaimAmountsDisagree() {
+        makeWcbSource(); jdbc.update("UPDATE wcb SET bill_amount='11.00' WHERE billing_no=?",BILL);
+        assertThatThrownBy(() -> service.generate(selection(),"BC60")).isInstanceOf(IllegalStateException.class);
+        assertThat(jdbc.queryForObject("SELECT billingstatus FROM billingmaster WHERE billingmaster_no=?",String.class,MASTER)).isEqualTo("W");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM billactivity WHERE creator='BC60'",Integer.class)).isZero();
+        assertThat(directory.resolve("HK81234.001")).doesNotExist();
+    }
+
 }

@@ -184,58 +184,6 @@ public final class BcBillingRows {
     }
 
     /**
-     * Remittance adjustment/report columns in the legacy native query order. Teleplan paid
-     * and adjustment amounts retain implied cents/overpunch strings, while {@code bill_amount}
-     * retains decimal dollars. Service/payment dates retain {@code yyyyMMdd}; the MSP-received
-     * date retains its source Teleplan text.
-     * {@code differential} is the native SQL comparison result: {@code +}, {@code -}, or empty.
-     *
-     * @since 2026-11-02
-     */
-    public record AdjustmentRemittanceRow(
-            Integer billing_no,
-            Integer billingmaster_no,
-            String billing_code,
-            String first_name,
-            String last_name,
-            String t_practitionerno,
-            String t_s00type,
-            String t_msprcddate,
-            String service_date,
-            String t_payment,
-            String t_datacenter,
-            String demographic_name,
-            Integer demographic_no,
-            String differential,
-            String t_paidamt,
-            String bill_amount,
-            String t_exp1,
-            String t_exp2,
-            String t_exp3,
-            String t_exp4,
-            String t_exp5,
-            String t_exp6,
-            String t_dataseq,
-            String t_ajc1,
-            String t_aja1,
-            String t_ajc2,
-            String t_aja2,
-            String t_ajc3,
-            String t_aja3,
-            String t_ajc4,
-            String t_aja4,
-            String t_ajc5,
-            String t_aja5,
-            String t_ajc6,
-            String t_aja6,
-            String t_ajc7,
-            String t_aja7) {
-        @Override
-        public String toString() {
-            return "AdjustmentRemittanceRow[redacted]";
-        }
-    }
-    /**
      * An eligible extract invoice key and unescaped display name. {@code billingNo} is the
      * non-null numeric primary key; the caller retains the legacy exclusion of negative keys.
      *

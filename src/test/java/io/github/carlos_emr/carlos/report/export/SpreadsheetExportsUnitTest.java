@@ -212,4 +212,23 @@ class SpreadsheetExportsUnitTest {
         var rows = CSVFormat.DEFAULT.parse(new StringReader(output.toString(StandardCharsets.UTF_8))).getRecords();
         assertThat(rows.get(1).get(7)).isEqualTo(amount);
     }
+    @Test
+    void shouldPreserveMalformedBilledSource_inTheArDiagnosticWithoutInventingABalance() throws Exception {
+        MSPBill b=bill(); b.setAmount("bad-source"); b.setAmtOwing("");
+        var output=new ByteArrayOutputStream();
+        BcBillingCsv.write(output,"REP_ACCOUNT_REC",List.of(b));
+        var row=CSVFormat.DEFAULT.parse(new StringReader(output.toString(StandardCharsets.UTF_8))).getRecords().get(1);
+        assertThat(row.get(8)).contains("Unparsed billed amount: bad-source");
+        assertThat(row.toList().subList(4,8)).containsOnly("");
+    }
+
+    @Test
+    void shouldKeepInvoiceWarningRowsAligned_whenMalformedC12FoliosAreSkipped() throws Exception {
+        var output=new ByteArrayOutputStream(); BcBillingCsv.write(output,"REP_INVOICE",List.of(bill()),2);
+        var rows=CSVFormat.DEFAULT.parse(new StringReader(output.toString(StandardCharsets.UTF_8))).getRecords();
+        assertThat(rows).hasSize(3);
+        assertThat(rows.get(2).size()).isEqualTo(rows.getFirst().size());
+        assertThat(rows.get(2).get(0)).contains("2 C12 explanation records skipped");
+    }
+
 }

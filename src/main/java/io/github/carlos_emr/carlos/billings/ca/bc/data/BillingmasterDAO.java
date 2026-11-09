@@ -94,8 +94,11 @@ public class BillingmasterDAO {
         if (rows.isEmpty()) return null;
         Object[] row = rows.get(0);
         String[] text = new String[row.length];
-        for (int i = 0; i < row.length; i++) text[i] = org.apache.commons.lang3.StringUtils.trimToEmpty(
-                io.github.carlos_emr.carlos.util.NativeQueryValues.asString(row[i]));
+        for (int i = 0; i < row.length; i++) {
+            String value = io.github.carlos_emr.carlos.util.NativeQueryValues.asString(row[i]);
+            text[i] = i == 3 ? java.util.Objects.toString(value, "")
+                    : org.apache.commons.lang3.StringUtils.trimToEmpty(value);
+        }
         return new BillStateRow(text[0], text[1], text[2], text[3], text[4]);
     }
 
@@ -704,27 +707,6 @@ public class BillingmasterDAO {
 
 
     /**
-     * Tests the original submission date LIKE pattern and data-centre restriction.
-     *
-     * @param billingmasterNo String claim identifier bound to the native query
-     * @param receivedDate String SQL LIKE pattern for sentdate; no wildcard is added here
-     * @param dataCenterNo String data-centre number matched exactly
-     * @return boolean true when at least one matching submission link exists
-     * @since 2026-11-02
-     */
-    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-    public boolean hasBcMatchingBillingRecord(String billingmasterNo, String receivedDate, String dataCenterNo) {
-        String qry = "SELECT tsl.id \n" +
-                "FROM teleplan_submission_link tsl \n" +
-                "JOIN billingmaster bm on bm.billingmaster_no = tsl.billingmaster_no\n" +
-                "JOIN billactivity ba on ba.id = tsl.bill_activity_id\n" +
-                "WHERE tsl.billingmaster_no = ?\n" +
-                "AND bm.datacenter = ?\n" +
-                "AND ba.sentdate like ?";
-        return !readBcRows(qry, new Object[]{billingmasterNo, dataCenterNo, receivedDate}, rs -> rs.getInt(1)).isEmpty();
-    }
-
-    /**
      * Reads the report fields from the first existing WCB mapping for an invoice.
      *
      * @param billingNo String decimal invoice identifier
@@ -921,66 +903,4 @@ public class BillingmasterDAO {
                 rs.getString("t_dataseq")));
     }
 
-    /**
-     * Reads detached remittance adjustments, preserving native decimal comparison and ordering.
-     *
-     * @param payeeNo String payee number matched exactly (this query does not use LIKE)
-     * @param s21Id String S21 remittance identifier bound to the native query
-     * @return {@code List<AdjustmentRemittanceRow>} values ordered by provider, service date and patient
-     * @since 2026-11-02
-     */
-    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-    public List<AdjustmentRemittanceRow> findBcAdjustmentRemittance(String payeeNo, String s21Id) {
-        String qry = "SELECT b.billing_no, bm.billingmaster_no, bm.billing_code, p.first_name, p.last_name, ts00.t_practitionerno, ts00.t_s00type, ts00.t_msprcddate, bm.service_date, ts00.t_payment, ts00.t_datacenter, b.demographic_name, b.demographic_no, \n" +
-                "IF(t_paidamt/100>bm.bill_amount, \"+\", IF(t_paidamt/100<bm.bill_amount, \"-\", \"\")) as differential, ts00.t_paidamt, bm.bill_amount, \n" +
-                "ts00.t_exp1, ts00.t_exp2, ts00.t_exp3, ts00.t_exp4, ts00.t_exp5, ts00.t_exp6, ts00.t_dataseq, \n" +
-                "t_ajc1, t_aja1, t_ajc2, t_aja2, t_ajc3, t_aja3, t_ajc4, t_aja4, t_ajc5, t_aja5, t_ajc6, t_aja6, t_ajc7, t_aja7\n" +
-                "\n" +
-                "from teleplanS00 ts00\n" +
-                "join billingmaster bm on ts00.t_officeno = bm.billingmaster_no\n" +
-                "join billing b on bm.billing_no = b.billing_no\n" +
-                "join provider p on p.ohip_no= ts00.t_practitionerno\n" +
-                "where ts00.s21_id = ?\n" +
-                "and ts00.t_practitionerno != '' \n" +
-                "and ts00.t_payeeno = ?\n" +
-                "order by p.first_name, bm.service_date, b.demographic_name;";
-        return readBcRows(qry, new Object[]{s21Id, payeeNo}, rs -> new AdjustmentRemittanceRow(
-                rs.getObject("billing_no", Integer.class),
-                rs.getObject("billingmaster_no", Integer.class),
-                rs.getString("billing_code"),
-                rs.getString("first_name"),
-                rs.getString("last_name"),
-                rs.getString("t_practitionerno"),
-                rs.getString("t_s00type"),
-                rs.getString("t_msprcddate"),
-                rs.getString("service_date"),
-                rs.getString("t_payment"),
-                rs.getString("t_datacenter"),
-                rs.getString("demographic_name"),
-                rs.getObject("demographic_no", Integer.class),
-                rs.getString("differential"),
-                rs.getString("t_paidamt"),
-                rs.getString("bill_amount"),
-                rs.getString("t_exp1"),
-                rs.getString("t_exp2"),
-                rs.getString("t_exp3"),
-                rs.getString("t_exp4"),
-                rs.getString("t_exp5"),
-                rs.getString("t_exp6"),
-                rs.getString("t_dataseq"),
-                rs.getString("t_ajc1"),
-                rs.getString("t_aja1"),
-                rs.getString("t_ajc2"),
-                rs.getString("t_aja2"),
-                rs.getString("t_ajc3"),
-                rs.getString("t_aja3"),
-                rs.getString("t_ajc4"),
-                rs.getString("t_aja4"),
-                rs.getString("t_ajc5"),
-                rs.getString("t_aja5"),
-                rs.getString("t_ajc6"),
-                rs.getString("t_aja6"),
-                rs.getString("t_ajc7"),
-                rs.getString("t_aja7")));
-    }
 }

@@ -245,7 +245,8 @@ public final class BcBillingCsv {
     private static BigDecimal summaryAmount(String value) {
         if (value == null || value.isBlank()) return BigDecimal.ZERO;
         try {
-            return new BigDecimal(value);
+            BigDecimal amount = new BigDecimal(value);
+            return Double.isFinite(amount.doubleValue()) ? amount : BigDecimal.ZERO;
         } catch (NumberFormatException invalid) {
             // Keep the remaining valid payments/refunds exportable, as for missing amounts.
             return BigDecimal.ZERO;

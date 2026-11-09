@@ -410,7 +410,7 @@ public class MSPReconcile {
     private String createCorrectionsString(String[] exp) {
         String retval = "";
         for (int i = 0; i < exp.length; i++) {
-            if (exp[i].length() != 0) {
+            if (exp[i] != null && !exp[i].isEmpty()) {
                 retval += exp[i] + " ";
             }
         }
@@ -812,7 +812,7 @@ public class MSPReconcile {
             String seq = t.getDataSeq();
 
             for (int i = 0; i < exp.length; i++) {
-                if (exp[i].length() != 0) {
+                if (exp[i] != null && !exp[i].isEmpty()) {
                     retval.add(seq + "&nbsp;&nbsp;" + exp[i] + "&nbsp;&nbsp;" + p.getProperty(exp[i], ""));
                 }
             }
@@ -917,7 +917,7 @@ public class MSPReconcile {
             String seq = s.getDataSeq();
 
             for (int i = 0; i < exp.length; i++) {
-                if (exp[i].length() != 0) {
+                if (exp[i] != null && !exp[i].isEmpty()) {
                     retval.add(seq + "&nbsp;&nbsp;" + exp[i] + "&nbsp;&nbsp;" + p.getProperty(exp[i], ""));
                 }
             }
@@ -1868,31 +1868,6 @@ public class MSPReconcile {
      */
     public List<RemittanceRow> getMSPRemittanceQuery(String payeeNo, String s21Id) {
         return billingmasterDao.findBcRemittance(payeeNo, s21Id);
-    }
-
-    /**
-     * Returns detached rows containing remittance information for the specified S21 and payee number (including any adjustments)
-     *
-     * @param payeeNo String
-     * @param s21Id   String
-     * @return detached remittance rows
-     */
-    public List<AdjustmentRemittanceRow> getAdjustmentsMSPRemittanceQuery(String payeeNo, String s21Id) {
-        return billingmasterDao.findBcAdjustmentRemittance(payeeNo, s21Id);
-    }
-
-    /**
-     * Returns a boolean whether there is a record of a teleplan_submission_link matching on billingmaster_no, submission/received date and datacenter_no
-     *
-     * @param billingmasterNo String
-     * @param receivedDate    String
-     * @param dataCenterNo    String
-     * @return boolean
-     */
-    public boolean hasMatchingBillingRecord(String billingmasterNo, String receivedDate, String dataCenterNo) {
-        MiscUtils.getLogger().debug(new java.util.Date() + ":MSPReconcile.hasMatchingBillingRecord(String billingmasterNo, String receivedDate, String dataCenterNo)");
-
-        return billingmasterDao.hasBcMatchingBillingRecord(billingmasterNo, receivedDate, dataCenterNo);
     }
 
     /**

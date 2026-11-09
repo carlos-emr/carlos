@@ -116,8 +116,8 @@ public class WcbSb {
     public WcbSb(String billingNo) {
         BillingServiceDao bsDao = SpringUtils.getBean(BillingServiceDao.class);
 
-        for (Object[] o : bsDao.findSomethingByBillingId(ConversionUtils.fromIntString(billingNo))) {
-            fillWithRs((Wcb) o[1]);
+        for (Wcb form : bsDao.findOpenWcbFormsByBillingId(ConversionUtils.fromIntString(billingNo))) {
+            fillWithRs(form);
             return;
         }
     }
