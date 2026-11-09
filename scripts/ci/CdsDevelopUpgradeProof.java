@@ -365,9 +365,23 @@ public final class CdsDevelopUpgradeProof {
     private static int cli(
             String command, String locations, DriverManagerDataSource source, Path log)
             throws Exception {
+        require(List.of("migrate", "validate").contains(command), "CLI_COMMAND_INVALID");
+        require(
+                List.of(
+                                "classpath:db/migration/common,classpath:db/migration/on",
+                                "classpath:db/migration/common,classpath:db/migration/bc")
+                        .contains(locations),
+                "CLI_LOCATIONS_INVALID");
+        Path java = Path.of(System.getProperty("java.home"), "bin", "java").toRealPath();
+        require(
+                java.isAbsolute() && Files.isRegularFile(java) && Files.isExecutable(java),
+                "CLI_EXECUTABLE_INVALID");
         var builder =
+                // The executable is the resolved current JVM, not caller input or a PATH lookup.
+                // The runner is fixed, arguments are allowlisted, and no shell interprets them.
+                // nosemgrep: command-injection-process-builder
                 new ProcessBuilder(
-                        Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                        java.toString(),
                         "-cp",
                         System.getProperty("java.class.path"),
                         "io.github.carlos_emr.carlos.deb.FlywayRunner",
