@@ -51,6 +51,7 @@ const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { cleanupAppointmentArchives } = require('./lib/billing-on-submit-cleanup');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
+const { observeBillingNameQueries } = require('./lib/billing-url-privacy');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -451,6 +452,7 @@ legacyHarness.runLegacyCheck('billing-on-submit',async({cancellation})=>{
     browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
     cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
+    const privacy = observeBillingNameQueries(context);
     cancellation?.throwIfCancelled();
     await login(context, config, recorder);
     cancellation?.throwIfCancelled();
@@ -478,7 +480,9 @@ legacyHarness.runLegacyCheck('billing-on-submit',async({cancellation})=>{
     assertNoPageErrors(recorder);
     assert(recorder.badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(recorder.badResponses, null, 2)}`);
     assert(recorder.consoleIssues.length === 0, `unexpected console issues: ${JSON.stringify(recorder.consoleIssues, null, 2)}`);
-    console.log('PASS Ontario bill persistence and browser error checks');
+    privacy.assertNoNames();
+    privacy.dispose();
+    console.log('PASS Ontario bill persistence, patient-name URL privacy and browser error checks');
   } catch (error) {
     console.error(`FAIL Ontario bill submit check: ${error.stack || error.message}`);
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
