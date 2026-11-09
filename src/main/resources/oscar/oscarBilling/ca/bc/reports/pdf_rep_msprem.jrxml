@@ -34,22 +34,22 @@
 		<initialValueExpression><![CDATA["test"]]></initialValueExpression>
 	</variable>
 	<variable name="amtTotal" class="java.lang.Double" resetType="Group" resetGroup="practitioner_no" calculation="Sum">
-		<expression><![CDATA[new Double(io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile.convCurValue($F{t_paidamt}))]]></expression>
+		<expression><![CDATA[new Double(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_paidamt}))]]></expression>
 	</variable>
 	<variable name="cnt01" class="java.lang.Double" calculation="Sum">
-		<expression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s01")?new Double(MSPReconcile.convCurValue($F{t_paidamt})):new Double(0)]]></expression>
+		<expression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s01")?new Double(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_paidamt})):new Double(0)]]></expression>
 	</variable>
 	<variable name="cnt02" class="java.lang.Double" calculation="Sum">
-		<expression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s02")?new Double(MSPReconcile.convCurValue($F{t_paidamt})):new Double(0)]]></expression>
+		<expression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s02")?new Double(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_paidamt})):new Double(0)]]></expression>
 	</variable>
 	<variable name="cnt03" class="java.lang.Double" calculation="Sum">
-		<expression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s03")?new Double(MSPReconcile.convCurValue($F{t_paidamt})):new Double(0)]]></expression>
+		<expression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s03")?new Double(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_paidamt})):new Double(0)]]></expression>
 	</variable>
 	<variable name="cnt04" class="java.lang.Double" calculation="Sum">
-		<expression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s04")?new Double(MSPReconcile.convCurValue($F{t_paidamt})):new Double(0)]]></expression>
+		<expression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s04")?new Double(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_paidamt})):new Double(0)]]></expression>
 	</variable>
 	<variable name="cnt00" class="java.lang.Double" calculation="Sum">
-		<expression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s00")?new Double(MSPReconcile.convCurValue($F{t_paidamt})):new Double(0)]]></expression>
+		<expression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s00")?new Double(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_paidamt})):new Double(0)]]></expression>
 	</variable>
 	<group name="practitioner_no">
 		<expression><![CDATA[$F{t_practitionerno}]]></expression>
@@ -319,7 +319,7 @@
 					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<expression><![CDATA[NumberFormat.getCurrencyInstance().format(new Double(io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile.convCurValue($F{t_paidamt})))]]></expression>
+				<expression><![CDATA[NumberFormat.getCurrencyInstance().format(new Double(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_paidamt})))]]></expression>
 			</element>
 			<element kind="textField" mode="Transparent" x="395" y="0" width="44" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />

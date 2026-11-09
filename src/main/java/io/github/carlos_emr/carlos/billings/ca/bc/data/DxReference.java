@@ -52,12 +52,17 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  */
 public class DxReference {
     private static final Logger _log = MiscUtils.getLogger();
-    private final BillingDiagnosisService diagnosisService = SpringUtils.getBean(BillingDiagnosisService.class);
+    private final BillingDiagnosisService diagnosisService;
 
     /**
      * Creates a new instance of DxReference
      */
     public DxReference() {
+        this(SpringUtils.getBean(BillingDiagnosisService.class));
+    }
+
+    DxReference(BillingDiagnosisService diagnosisService) {
+        this.diagnosisService = java.util.Objects.requireNonNull(diagnosisService);
     }
     //select dx_code1, dx_code2, dx_code3,service_date from billingmaster order by service_date desc;
     /*
