@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 const test=require('node:test'),assert=require('node:assert/strict');
-const {acknowledgeTickler403}=require('./lib/tickler-refusal-diagnostics');
+const {acknowledgeTickler403,acknowledgeTicklerRecipient400}=require('./lib/tickler-refusal-diagnostics');
 function setup() {
  const url='https://unit.test/carlos/tickler/EditTickler',page={};
  const http={label:'editor',url,method:'POST',status:403,resourceType:'document'};
@@ -26,4 +26,16 @@ test('a different task or a generic 403 cannot be acknowledged',async()=>{
   if(mismatch==='task')proof.ticklerNo='43';else proof.response.text=async()=>'<h1>CSRF rejected</h1>';
   await assert.rejects(acknowledgeTickler403(recorder,proof));assert.equal(recorder.badResponses.length,1);
  }
+});
+
+test('recipient 400 requires its own patient, frame and application marker',async()=>{
+ const {recorder,proof}=setup();
+ proof.patient='57';proof.response.request=()=>({method:()=> 'POST',url:()=>proof.expectedUrl,postData:()=> 'demographic_no=57'});
+ proof.response.frame=()=>({page:()=>proof.page,name:()=> 'ticklerSubmitFrame'});
+ proof.response.status=()=>400;proof.response.text=async()=>'<span id="tickler-recipient-refused"></span>';
+ recorder.badResponses[0].status=400;recorder.consoleIssues[0].text=recorder.consoleIssues[0].text.replace('403','400');
+ await assert.rejects(acknowledgeTicklerRecipient400(recorder,{...proof,patient:'58'}));
+ assert.equal(recorder.badResponses.length,1);
+ await acknowledgeTicklerRecipient400(recorder,proof);
+ assert.equal(recorder.badResponses.length,0);assert.equal(recorder.consoleIssues.length,0);
 });

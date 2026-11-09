@@ -181,6 +181,9 @@ async function workflow(s) {
   await s.step('independent composers retain their own unsaved drafts',async()=>{
     const one=await composer(patient,marker),two=await composer(patientB,bMarker);
     await one.locator('#ticklerMessage').fill(marker+' first draft');
+    await one.locator('input[name="xml_appointment_date"]').fill('2031-01-31');
+    await one.locator('select[name="priority"]').selectOption('High');
+    await selectTicklerAssignee(one,control.fixture.providerNo);
     await two.locator('#ticklerMessage').fill(marker+' second draft');
     const search=one.locator('form[name="ADDAPPT"]');
     await search.locator('input[name="keyword"]').fill(marker);
@@ -188,6 +191,8 @@ async function workflow(s) {
     await ui.clickAndAwaitReload(one,one.locator('#ticklerReturnDraft'));
     h.assert(await one.locator('#ticklerMessage').inputValue()===marker+' first draft','First composer lost its own draft');
     h.assert(await two.locator('#ticklerMessage').inputValue()===marker+' second draft','Another composer substituted the draft');
+    h.assert(await one.locator('input[name="xml_appointment_date"]').inputValue()==='2031-01-31'&&await one.locator('select[name="priority"]').inputValue()==='High','Returning from search lost the draft date or priority');
+    await assertAssignee(one,control);await assertAssignee(two,b);
     h.assert(await field(one).inputValue()===patient&&await field(two).inputValue()===patientB,'Returning a draft changed another patient association');
     for(const page of [one,two]) {
       const view=views.get(page);await page.close();await view.list.close();await view.chart.close();
@@ -225,7 +230,10 @@ async function workflow(s) {
   });
   await s.step('a deliberate manual assignee overrides the patient MRP without changing the control task',async()=>{
     const page=await composer(patient,marker);await assertAssignee(page,a);
-    await selectTicklerAssignee(page,control.fixture.providerNo);await save(page,patient,control,'MRP-MANUAL');
+    const draft=marker+' deliberate manual recipient';await page.locator('#ticklerMessage').fill(draft);
+    await selectTicklerAssignee(page,control.fixture.providerNo);
+    await attach(page,patientB,bMarker,draft);await assertAssignee(page,control);
+    await save(page,patientB,control,'MRP-MANUAL',draft);
     h.assert(JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE tickler_no=${controlId}`))===controlState,'Manual assignment changed the control task');
   });
   async function unavailable(label,mrp) {
@@ -245,8 +253,27 @@ async function workflow(s) {
     sql.execute(`UPDATE demographic SET provider_no=${q(a.fixture.providerNo)} WHERE demographic_no=${patient} AND last_name=${q(marker)}`);
   }
   await unavailable('missing','');
+  const stale=await composer(patientB,bMarker),staleDraft=marker+' stale recipient draft\nquoted \"text\" & café';
+  await assertAssignee(stale,b);await stale.locator('#ticklerMessage').fill(staleDraft);
   await s.step('native administration makes only the owned second MRP inactive for the unavailable-recipient case',async()=>{
     await b.context.close();await saveOwnedProviderProfile(authorSession,b,{status:'0'});
+  });
+  await s.step('a recipient made inactive after composition is refused without a write and the draft recovers manually',async()=>{
+    const snapshot=()=>JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE demographic_no IN (${patientSet}) ORDER BY tickler_no`));
+    const initial=snapshot(),before={http:new Set(recorder.badResponses),console:new Set(recorder.consoleIssues)};
+    const [response]=await Promise.all([
+      stale.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/tickler/DbTicklerAdd')),
+      stale.locator('form[name="serviceform"] input.btn-primary[name="Button"]').first().click(),
+    ]);
+    h.assert(response.status()===400,'A stale inactive recipient was not refused');
+    await stale.locator('#error').waitFor({state:'visible'});
+    h.assert(!stale.isClosed()&&await stale.locator('#ticklerMessage').inputValue()===staleDraft&&await stale.locator('#error').innerText()!=='','Recipient refusal was silent or lost the draft');
+    h.assert(snapshot()===initial,'Recipient refusal changed task records');
+    await require('./lib/tickler-refusal-diagnostics').acknowledgeTicklerRecipient400(recorder,{
+      before,response,page:stale,expectedUrl:h.appUrl(config.baseUrl,'/tickler/DbTicklerAdd'),patient:patientB,label:'MRP-task-composer',
+    });
+    await selectTicklerAssignee(stale,author.fixture.providerNo);
+    await save(stale,patientB,author,'MRP-STALE-RECOVERED',staleDraft);
   });
   await unavailable('inactive',b.fixture.providerNo);
   h.assert(JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE tickler_no=${controlId}`))===controlState,'Unavailable MRP cases changed the control task');
