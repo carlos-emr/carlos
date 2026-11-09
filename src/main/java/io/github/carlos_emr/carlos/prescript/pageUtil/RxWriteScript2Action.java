@@ -1922,7 +1922,9 @@ public final class RxWriteScript2Action extends ActionSupport {
         response.setContentType("application/json");
         // Some legacy DAO writes may already have committed. The caller must not claim that
         // nothing was saved or retry automatically; the chart needs checking before another save.
-        response.getWriter().write("{\"error\":\"INCOMPLETE_RX_SAVE\"}");
+        response.getWriter().write(Boolean.TRUE.equals(request.getAttribute("RX_SAVE_OUTCOME_UNKNOWN"))
+                ? "{\"error\":\"RX_SAVE_OUTCOME_UNKNOWN\"}"
+                : "{\"error\":\"INCOMPLETE_RX_SAVE\"}");
         return NONE;
     }
 
@@ -2083,6 +2085,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         var previousReRx = new java.util.concurrent.CopyOnWriteArrayList<>(bean.getReRxDrugIdList());
         var completion = new java.util.concurrent.atomic.AtomicInteger(
                 org.springframework.transaction.support.TransactionSynchronization.STATUS_UNKNOWN);
+        var callbackCompleted = new java.util.concurrent.atomic.AtomicBoolean();
         try {
             var transaction = new org.springframework.transaction.support.TransactionTemplate(
                     SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
@@ -2095,15 +2098,24 @@ public final class RxWriteScript2Action extends ActionSupport {
                                 completion.set(outcome);
                             }
                         });
-                return persistStashLocked(loggedInInfo, bean);
+                String savedScript = persistStashLocked(loggedInInfo, bean);
+                // Flush errors are definite failures before COMMIT. A later exception may
+                // be a durable commit whose JDBC acknowledgement was lost.
+                status.flush();
+                callbackCompleted.set(true);
+                return savedScript;
             });
         } catch (RuntimeException e) {
-            if (completion.get() == org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK) {
+            if (!callbackCompleted.get()
+                    && completion.get() == org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK) {
                 // Only a confirmed rollback makes the old rendered version safe to retry. JPA does not
                 // restore these session objects, so restore their IDs and revisions along with its rows.
                 previous.forEach(PreviousIdentity::restore);
                 bean.setRandomIdDrugIdPair(previousPairs);
                 bean.setReRxDrugIdList(previousReRx);
+            }
+            if (callbackCompleted.get()) {
+                request.setAttribute("RX_SAVE_OUTCOME_UNKNOWN", Boolean.TRUE);
             }
             // An uncertain commit keeps the consumed revision: the chart must be reviewed before retrying.
             request.removeAttribute("scriptId");

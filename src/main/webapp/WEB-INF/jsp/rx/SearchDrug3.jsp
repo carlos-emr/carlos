@@ -2850,6 +2850,11 @@ function updateQty(element){
                CarlosAjax.request(url, {method:'get',parameters:params,onComplete:function(transport) {
                    // A slow earlier response must not replace more recently requested guidance.
                    if (panel.renalDosingRequest === requestNumber && document.getElementById(divId) === panel) {
+                       if (transport.status === 200 && transport.responseJSON
+                               && transport.responseJSON.renalState === 'no-guidance') {
+                           panel.innerHTML = '';
+                           return;
+                       }
                        var renderable = false;
                        if ((transport.status >= 200 && transport.status < 300) || transport.status === 400) {
                            var fragment = document.createElement('template');
@@ -2860,7 +2865,7 @@ function updateQty(element){
                            panel.innerHTML = transport.responseText;
                        } else {
                            // Clear stale guidance, including on an initial failure, and keep a retry.
-                           panel.innerHTML = '<div data-renal-dosing-unavailable><h3>Dosing Information <small><button type="button" class="btn btn-link">Refresh</button></small></h3><output>N/A</output></div>';
+                           panel.innerHTML = '<div data-renal-dosing-unavailable><details open><summary>Renal dosing unavailable</summary><h3>Dosing Information <small><button type="button" class="btn btn-link">Refresh</button></small></h3><output>N/A</output></details></div>';
                            panel.querySelector('button').onclick = function() {
                                getRenalDosingInformation(divId, atcCode);
                            };

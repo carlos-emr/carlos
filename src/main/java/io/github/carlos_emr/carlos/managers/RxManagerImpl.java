@@ -454,6 +454,7 @@ public class RxManagerImpl implements RxManager {
      * @return a record of the prescription and drugs, null if the prescription could not be created.
      */
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public PrescriptionDrugs prescribe(LoggedInInfo info, List<Drug> drugs, Integer demoNo) {
 
         // sanity check on inputs
@@ -495,34 +496,16 @@ public class RxManagerImpl implements RxManager {
         // update drugs in the DB. This should be done
         // after all of the drugs are checked to see if they
         // can be prescribed.
-        Drug temp;
-        List<Drug> newDrugs = new ArrayList<Drug>();
-
+        List<Drug> newDrugs = new ArrayList<>();
         for (Drug d : drugs) {
-
-            // set the scriptNo field the prescription we just created.
             d.setScriptNo(p.getId());
-
-            temp = this.updateDrug(info, d);
-
-            if (temp == null) {
-
-                // if the update attempt returned
-                // null then it means the drug was not
-                // previously in the DB.
-                // Try adding it now.
-                temp = this.addDrug(info, d);
-
-                if (temp == null) {
-
-                    // failed to add drug.
-                    return null;
-
-                }
+            // An existing ID represents an update intent. A failed update must never
+            // be reinterpreted as permission to insert a new active medication.
+            Drug saved = d.getId() == null ? this.addDrug(info, d) : this.updateDrug(info, d);
+            if (saved == null) {
+                throw new IllegalStateException("Prescription medication write failed");
             }
-
-            newDrugs.add(temp);
-
+            newDrugs.add(saved);
         }
 
         return new PrescriptionDrugs(p, newDrugs);

@@ -73,7 +73,9 @@
     }
 
     DosingRecomendation rd = RenalDosingFactory.getDosingInformation(atc);
-    if (rd == null) {  // No data so don't continue
+    if (rd == null) {  // Explicitly distinguish no guidance from an unusable response.
+        response.setContentType("application/json");
+        out.write("{\"renalState\":\"no-guidance\"}");
         return;
     }
 
@@ -138,7 +140,7 @@
     if (invalidInput) {
         // Keep the N/A panel and Refresh link in the refusal response so a correction
         // can be reread without retaining a previously highlighted recommendation.
-        response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
+        response.setHeader("X-Carlos-Renal-State", "unusable-observations");
     }
 
     boolean ageb, weightb, sCrb, equate;
@@ -214,6 +216,7 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
 <div data-renal-dosing-panel style="float:left; margin-left:10px; margin-right: 10px;">
     <h3>Dosing Information <small><button type="button" class="btn btn-link"
         onclick="getRenalDosingInformation('<carlos:encode value='<%= divId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= atc %>' context="javaScriptAttribute"/>');">Refresh</button></small></h3>
+    <details open><summary>Renal dosing details</summary>
     <table class="sofT">
         <tr class="heading">
             <th>Clcr</th>
@@ -272,6 +275,7 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
 
     <div style="clear:left"><carlos:encode value='<%= rd.getMoreinfo() %>' context="html"/>
     </div>
+    </details>
 </div>
 <%--
   -Right now only works for CML

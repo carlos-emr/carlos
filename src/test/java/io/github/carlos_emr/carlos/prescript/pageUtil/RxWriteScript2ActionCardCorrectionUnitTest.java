@@ -586,12 +586,16 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
                     eq("drugid=55"), any(), any(), any()));
         }
 
-        @Test
-        void shouldKeepNewBatchConsumed_whenCommitOutcomeIsUnknown() {
+        @ParameterizedTest
+        @ValueSource(booleans = {false, true})
+        void shouldKeepNewBatchConsumed_whenCommitOutcomeIsUnknown(boolean translatedJdbcFailure) {
             String revision = card.getDraftRevision();
             registerMock(org.springframework.transaction.PlatformTransactionManager.class, new NoDatabaseTransactions() {
                 @Override
                 protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus status) {
+                    if (translatedJdbcFailure) {
+                        throw new org.springframework.dao.DataAccessResourceFailureException("Synthetic lost commit acknowledgement");
+                    }
                     throw new org.springframework.transaction.TransactionSystemException("Synthetic uncertain commit");
                 }
             });
@@ -602,6 +606,7 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
             assertThat(card.getDraftRevision()).isNotEqualTo(revision);
             assertThat(bean.getRandomIdDrugIdPair()).containsEntry(card.getRandomId(), 501);
             assertThat(request.getAttribute("scriptId")).isNull();
+            assertThat(request.getAttribute("RX_SAVE_OUTCOME_UNKNOWN")).isEqualTo(Boolean.TRUE);
             logActionMock.verifyNoInteractions();
         }
 

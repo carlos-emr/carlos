@@ -7,11 +7,12 @@ const {stageFromSearch} = require('./rx-edit-discontinue-playwright-checks');
 const {masterRecordLink} = require('./lib/master-record-link');
 const {CASES, renalInputFixture} = require('./lib/renal-input-fixture');
 const {failureMark, consumeExpectedFailure} = require('./lib/concurrency-support');
-async function consumeRenalRefusal(s,rx,response,mark,status=400) {
+async function consumeRenalRefusal(s,rx,response,mark,status=200) {
   await rx.waitForLoadState('networkidle');
   h.assert(s.recorder.badResponses.slice(mark.responses).every(entry=>entry.url===response.url()),
     'The expected renal refusal cannot account for another failing request');
-  consumeExpectedFailure(s.recorder,mark,{status,method:'GET',path:/\/rx\/ViewRenalDosing$/});
+  if (status >= 400) consumeExpectedFailure(s.recorder,mark,{status,method:'GET',path:/\/rx\/ViewRenalDosing$/});
+  else h.assert(s.recorder.badResponses.length === mark.responses, 'Unusable observations caused a failing request');
 }
 async function workflow(s) {
   const name = process.env.RX_RENAL_CASE || 'male-valid';
@@ -32,7 +33,7 @@ async function workflow(s) {
     ]);
     card=staged;panel=rx.locator(`#renalDosing_${card}`);originalAtc=new URL(response.url()).searchParams.get('atcCode');
     h.assert(originalAtc?.split(',').includes('J01MA02'),'The staged renal product is not ciprofloxacin (J01MA02)');
-    h.assert(response.status()===(initialFailure?503:testCase.status||200),`Renal rendering returned HTTP ${response.status()}, expected ${initialFailure?503:testCase.status||200}`);await response.finished();
+    h.assert(response.status()===(initialFailure?503:200),`Renal rendering returned HTTP ${response.status()}, expected ${initialFailure?503:200}`);await response.finished();
     if(initialFailure) {
       await panel.locator('[data-renal-dosing-unavailable]').waitFor({state:'visible'});
       h.assert(!(await panel.innerText()).includes('Unexpected renal transport failure'),'The renal panel displayed an error response body');
@@ -66,7 +67,7 @@ async function workflow(s) {
     fixture.apply({weight:'40',cr:'not-a-number',crDate:null,lab:'200',labDate:'03-Jan-25'});
     const mark=failureMark(s.recorder);
     const [refusal]=await refresh();
-    h.assert(refusal.status()===400,'Invalid stored observation did not answer HTTP 400');await refusal.finished();
+    h.assert(refusal.status()===200,'Invalid stored observation did not render a successful N/A panel');await refusal.finished();
     await panel.getByRole('button',{name:'Refresh',exact:true}).waitFor({state:'visible'});
     await rx.waitForFunction(id=>document.querySelector(id)?.textContent.includes('N/A'),`#renalDosing_${card}`);
     h.assert(await panel.locator('table.equation').count()===1 && await panel.locator('tr.selected').count()===0,
@@ -93,7 +94,7 @@ async function workflow(s) {
       s.sql.execute('UPDATE demographic SET year_of_birth=?,month_of_birth=?,date_of_birth=? WHERE demographic_no=?',
         [...birthDate,s.patient]);
       const mark=failureMark(s.recorder),[response]=await refresh();
-      h.assert(response.status()===400,'An incomplete or malformed birth date did not answer HTTP 400');await response.finished();
+      h.assert(response.status()===200,'An incomplete or malformed birth date did not render a successful N/A panel');await response.finished();
       await rx.waitForFunction(id=>document.querySelector(`${id} table.equation`)?.textContent.includes('N/A'),`#renalDosing_${card}`);
       h.assert(await panel.locator('tr.selected').count()===0,'An unusable birth date retained a dose recommendation');
       await consumeRenalRefusal(s,rx,response,mark);
@@ -104,7 +105,7 @@ async function workflow(s) {
     const mark=testCase.age<0?failureMark(s.recorder):null;
     const [response]=await Promise.all([rx.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/rx/ViewRenalDosing')),
       panel.getByRole('button',{name:'Refresh',exact:true}).click()]);
-    h.assert(response.status()===(testCase.age<0?400:200),'Restoring renal observations returned an unexpected status');await response.finished();
+    h.assert(response.status()===(200),'Restoring renal observations returned an unexpected status');await response.finished();
     const parameters=new URL(response.url()).searchParams;
     h.assert(parameters.get('demographicNo')===s.patient&&parameters.get('atcCode')===originalAtc&&parameters.get('divId')===`renalDosing_${card}`,
       'Refresh lost the originating patient, controlled drug or panel identity');

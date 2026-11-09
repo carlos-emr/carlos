@@ -80,3 +80,11 @@ for(const initial of ['', '<table><tr class="selected">old dose</tr></table>'])f
     assert.equal(h.panel.innerHTML,recovered);
   });
 }
+
+for (const status of [200, 403, 500]) test(`only an explicit successful no-guidance response clears the renal panel: ${status}`, () => {
+  const h = harness();
+  h.context.getRenalDosingInformation('renalDosing_7', 'J01MA02');
+  h.requests[0].onComplete({status, responseText: '{"renalState":"no-guidance"}', responseJSON: {renalState: 'no-guidance'}});
+  if (status === 200) assert.equal(h.panel.innerHTML, '');
+  else assert.ok(h.panel.innerHTML.includes('data-renal-dosing-unavailable'));
+});

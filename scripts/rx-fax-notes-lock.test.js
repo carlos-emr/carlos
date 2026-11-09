@@ -651,3 +651,18 @@ test('local insertion acknowledges success even if layout fails; missing editor 
   assert.equal(context.pasteToEncounterNote('rx text'), false);
   assert.equal(editor.value, '\nrx text');
 });
+
+for (const state of ['missing-frame', 'missing-document', 'missing-input', 'inaccessible']) {
+  test(`early fax click is visible and has no submission side effects: ${state}`, () => {
+    const {context, elements} = setup();
+    const unload = context.window.onbeforeunload;
+    if (state === 'missing-frame') delete context.frames.preview;
+    else if (state === 'missing-document') context.frames.preview.document = null;
+    else if (state === 'missing-input') context.frames.preview.document.getElementById = () => null;
+    else Object.defineProperty(context.frames.preview, 'document', {get() {throw new Error('loading');}});
+    assert.equal(context.sendFax(false), false);
+    assert.equal(context.faxSubmissionPending, false);
+    assert.equal(context.window.onbeforeunload, unload);
+    assert.equal(elements.faxPreviewChanged.hidden, false);
+  });
+}

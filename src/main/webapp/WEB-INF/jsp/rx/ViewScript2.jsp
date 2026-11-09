@@ -466,9 +466,9 @@
                 console.log("rxPagesize  " + rxPageSize);
 
                 <% if(vecAddressName != null) { %>
-                useSC = true;
                 <%for(int i=0; i<vecAddressName.size(); i++) {%>
                 if (document.getElementById("addressSel").value == "<%=i%>") {
+                    useSC = true;
                     scAddress = "<carlos:encode value='<%= (String)vecAddress.get(i) %>' context="uriComponent"/>";
                 }
                 <%}
@@ -1263,6 +1263,18 @@
                 }
                 let faxNumber = document.getElementById('faxNumber');
                 if (!faxNumber || faxNumber.selectedIndex < 0) {
+                    return false;
+                }
+                // First load and error pages may not contain the preview inputs yet.
+                // Leave submission state untouched until the actual form is usable.
+                try {
+                    if (!frames['preview'] || !frames['preview'].document
+                            || !frames['preview'].document.getElementById('finalFax')) {
+                        document.getElementById('faxPreviewChanged').hidden = false;
+                        return false;
+                    }
+                } catch (previewAccessError) {
+                    document.getElementById('faxPreviewChanged').hidden = false;
                     return false;
                 }
                 var previousUnloadHandler = window.onbeforeunload;

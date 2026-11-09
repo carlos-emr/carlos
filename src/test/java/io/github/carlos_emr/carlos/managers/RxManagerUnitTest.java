@@ -407,11 +407,9 @@ class RxManagerUnitTest extends RxManagerImpl {
             drugs.add(drug);
             LoggedInInfo info = new LoggedInInfo();
 
-            PrescriptionDrugs pd = prescribe(info, drugs, 1);
-
-            assertThat(pd).isNotNull();
-            assertThat(addNewDrugCallCount).isEqualTo(1);
-            assertThat(pd.drugs.get(0).getGenericName()).isEqualTo("ASA");
+            assertThatThrownBy(() -> prescribe(info, drugs, 1))
+                    .isInstanceOf(IllegalStateException.class);
+            assertThat(addNewDrugCallCount).isZero();
         }
 
         @Test
@@ -424,9 +422,9 @@ class RxManagerUnitTest extends RxManagerImpl {
             drugs.add(drug);
             LoggedInInfo info = new LoggedInInfo();
 
-            PrescriptionDrugs pd = prescribe(info, drugs, 1);
-
-            assertThat(pd).isNull();
+            drug.setId(null);
+            assertThatThrownBy(() -> prescribe(info, drugs, 1))
+                    .isInstanceOf(IllegalStateException.class);
             assertThat(addNewDrugCallCount).isEqualTo(1);
         }
     }
