@@ -392,4 +392,26 @@ class CmlProjectionIntegrationTest extends CarlosTestBase {
                 .allSatisfy(row->assertThat(row.getDemographicNo()).isEqualTo(PatientLabRoutingDao.UNMATCHED));});
     }
 
+
+    @Test void shouldKeepAnExplicitRawReportAccessible_withoutInferringPeersFromIncompletePatientIdentity() {
+        List<Integer> incomplete=new ArrayList<>();
+        tx.executeWithoutResult(status->{
+            for(String time:List.of("20260310080000","20260310120000")) {
+                String body=CmlVersionPolicyUnitTest.body(accession,time,"F","7010=5.1").replace("||19800102|F", "|||F");
+                int id=addBody(body,"F",1);service.reconcile(id,patient);
+                patients.persist(new PatientLabRouting(id,"HL7",patient));incomplete.add(id);
+            }
+        });
+        int selected=incomplete.getFirst();
+        assertThat(Hl7textResultsData.getMatchingLabs(Integer.toString(selected))).isEqualTo(Integer.toString(selected));
+        assertThat(Hl7textResultsData.getMatchingLabsForHistory(Integer.toString(selected))).isEqualTo(Integer.toString(selected));
+        assertThat(service.status(selected,actor).reason()).isEqualTo(CmlProjectionService.Reason.AMBIGUOUS_SOURCE);
+        assertThat(active()).isEmpty();
+        var unlink=transactional(new Hl7PatientUnlinkService(patients,providers,measurements,deleted,extensions,messages,security,audit));
+        unlink.unlink(selected,unlink.version(selected),"explicit synthetic report with incomplete source demographics",actor,"127.0.0.1");
+        tx.executeWithoutResult(status->{
+            assertThat(patients.findByLabNoAndLabType(selected,"HL7")).allSatisfy(row->assertThat(row.getDemographicNo()).isEqualTo(PatientLabRoutingDao.UNMATCHED));
+            assertThat(patients.findByLabNoAndLabType(incomplete.getLast(),"HL7")).allSatisfy(row->assertThat(row.getDemographicNo()).isEqualTo(patient));
+        });
+    }
 }

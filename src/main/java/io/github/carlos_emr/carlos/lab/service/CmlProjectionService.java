@@ -179,7 +179,7 @@ public class CmlProjectionService {
             var message = messages.find(id);
             var handler = Factory.getHandler(Integer.toString(id));
             if (message == null || !"CML".equals(message.getType()) || !(handler instanceof CMLHandler cml)
-                    || !sameSourcePatient(selected, cml)) throw new IllegalStateException("CML source identity is ambiguous");
+                    || !sameSourcePatient(selected, cml)) throw new CmlVersionPolicy.AmbiguousRevision("CML source identity requires review");
             reports.put(id, cml);
             if (CmlVersionPolicy.hasUnsupportedStatus(cml)) reason = Reason.AMBIGUOUS_SOURCE;
             fingerprint.append(CmlVersionPolicy.pack("source", Integer.toString(id), message.getBase64EncodedeMessage()));

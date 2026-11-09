@@ -560,7 +560,8 @@ public class Hl7textResultsData {
                 var candidate = Factory.getHandler(id);
                 if (message != null && "CML".equals(message.getType())
                         && candidate instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler cml
-                        && io.github.carlos_emr.carlos.lab.service.CmlProjectionService.sameSourcePatient(selected, cml)) {
+                        && (Integer.parseInt(id) == Integer.parseInt(lab_no)
+                            || io.github.carlos_emr.carlos.lab.service.CmlProjectionService.sameSourcePatient(selected, cml))) {
                     reports.put(Integer.parseInt(id), cml);
                 }
             }

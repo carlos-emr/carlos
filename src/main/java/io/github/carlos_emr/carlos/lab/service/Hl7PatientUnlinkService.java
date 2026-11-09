@@ -167,7 +167,7 @@ public class Hl7PatientUnlinkService {
             if (message == null || !Objects.equals(message.getType(), selectedMessage.getType())
                     || selected == null || candidate == null
                     || !Objects.equals(normalized(selected.getPatientLocation()), normalized(candidate.getPatientLocation()))
-                    || !samePatient(selected, candidate)) {
+                    || id != report && !samePatient(selected, candidate)) {
                 throw new IllegalStateException("Source chain identity is ambiguous");
             }
         }
