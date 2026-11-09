@@ -28,3 +28,10 @@ test('popup acknowledgment removes only server-affected IDs, despite an older po
  vm.runInContext(index.slice(index.indexOf('function serverClearedCount('),index.indexOf('function fileDoc(')),context);
  await context.updateStatus('acknowledgeForm_12');assert.deepEqual(removed,['12']);assert.equal(closed,1);assert.deepEqual(Array.from(notifications[0][3].retainedVersionIds),['10','11']);
 });
+
+test('an inaccessible opener does not turn a committed acknowledgment into a reported failure',()=>{
+ const denied=Object.defineProperty({},'dropAcknowledgedInboxhubItem',{get(){const error=new Error('cross-origin');error.name='SecurityError';throw error;}});
+ const context=vm.createContext({BroadcastChannel:class {constructor(){throw Error('unsupported');}},self:{opener:denied},window:{}});
+ vm.runInContext(source(index,'notifyInboxhubAcknowledged'),context);
+ assert.doesNotThrow(()=>context.notifyInboxhubAcknowledged('12','HL7',1,{affectedVersionIds:[12],retainedVersionIds:[11]}));
+});

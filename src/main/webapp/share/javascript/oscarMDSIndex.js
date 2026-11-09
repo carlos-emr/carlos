@@ -2154,6 +2154,7 @@ function notifyInboxhubAcknowledged(doclabid, labType, clearedCount, chain) {
         }
         bc.close();
     } catch (e) {
+        try {
         const inbox = self.opener || (window.parent !== window ? window.parent : null);
         if (inbox && chain && chain.retainedVersionIds.length && typeof inbox.dropAcknowledgedInboxhubItem === 'function'
                 && inbox.dropAcknowledgedInboxhubItem.length < 4 && typeof inbox.refreshInboxhubAfterHrmRevoke === 'function') {
@@ -2163,6 +2164,9 @@ function notifyInboxhubAcknowledged(doclabid, labType, clearedCount, chain) {
                 chain ? chain.retainedVersionIds : undefined);
             if (!handled && typeof inbox.fetchInboxhubData === 'function') inbox.fetchInboxhubData();
         } else if (inbox && typeof inbox.refreshView === 'function') inbox.refreshView();
+        } catch (unreachableInbox) {
+            if (!unreachableInbox || unreachableInbox.name !== 'SecurityError') throw unreachableInbox;
+        }
     }
 }
 
