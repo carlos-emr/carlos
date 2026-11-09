@@ -225,19 +225,22 @@ class DocumentUpload2ActionFilenameValidationTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("document upload I/O failure should retain diagnostic exception logging")
     void documentUploadIoFailureShouldRetainDiagnosticLogging() throws Exception {
-        tempUploadFile = File.createTempFile("document-upload-missing", ".pdf");
+        tempUploadFile = File.createTempFile("FAKE-PRIVATE-PATIENT-missing", ".pdf");
         Files.delete(tempUploadFile.toPath());
         tempDestinationDirectory = Files.createTempDirectory("document-store").toFile();
         CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", tempDestinationDirectory.getPath());
 
         DocumentUpload2Action action = new DocumentUpload2Action();
         try (LogCapture logs = LogCapture.forLogger(DocumentUpload2Action.class)) {
-            assertThatThrownBy(() -> action.writeLocalFile(tempUploadFile, "diagnostic.pdf"))
-                    .isInstanceOf(IOException.class);
+            Throwable failure = org.assertj.core.api.Assertions.catchThrowable(
+                    () -> action.writeLocalFile(tempUploadFile, "FAKE-PRIVATE-PATIENT.pdf"));
+            assertThat(failure).isInstanceOf(IOException.class);
 
             assertThat(logs.events()).singleElement().satisfies(event -> {
-                assertThat(event.getThrown()).isInstanceOf(IOException.class);
-                assertThat(event.getMessage().getFormattedMessage()).isEqualTo("Error writing local file");
+                assertThat(event.getThrown()).isNull();
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("Error writing local file", failure.getClass().getName(), "DocumentUpload2Action.writeLocalFile:")
+                        .doesNotContain("FAKE-PRIVATE-PATIENT", tempUploadFile.getPath(), tempDestinationDirectory.getPath());
             });
         }
     }

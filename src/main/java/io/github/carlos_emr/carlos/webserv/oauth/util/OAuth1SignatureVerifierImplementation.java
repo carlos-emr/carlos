@@ -244,19 +244,33 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
         return r == 0 && a.length() == b.length();
     }
 
-    // Only raw non-OAuth query parameters reach this decoder. OAuth protocol fields
-    // already passed through OAuthRequestParser; decoding them again changes signed values.
+    // Raw non-OAuth query parameters require strict UTF-8 decoding and retain literal +.
+    // Parsed OAuth protocol fields bypass this helper because they are already decoded.
     private static String pctDecode(String s) {
         if (s == null || s.isEmpty()) return s;
-        int n = s.length(); StringBuilder out = new StringBuilder(n);
-        for (int i = 0; i < n; i++) {
-            char c = s.charAt(i);
-            if (c == '%' && i + 2 < n) {
+        StringBuilder out = new StringBuilder(s.length());
+        for (int i = 0; i < s.length();) {
+            if (s.charAt(i) != '%' || i + 2 >= s.length()
+                    || Character.digit(s.charAt(i + 1), 16) < 0
+                    || Character.digit(s.charAt(i + 2), 16) < 0) {
+                out.append(s.charAt(i++));
+                continue;
+            }
+            // Decode the full escaped byte sequence together; a UTF-8 character may span
+            // several percent escapes. Do not replace malformed bytes and sign altered text.
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            while (i + 2 < s.length() && s.charAt(i) == '%') {
                 int hi = Character.digit(s.charAt(i + 1), 16);
                 int lo = Character.digit(s.charAt(i + 2), 16);
-                if (hi >= 0 && lo >= 0) { out.append((char) ((hi << 4) + lo)); i += 2; continue; }
+                if (hi < 0 || lo < 0) break;
+                bytes.write((hi << 4) + lo);
+                i += 3;
             }
-            out.append(c);
+            try {
+                out.append(UTF8.newDecoder().decode(java.nio.ByteBuffer.wrap(bytes.toByteArray())));
+            } catch (java.nio.charset.CharacterCodingException invalid) {
+                throw new IllegalArgumentException("Invalid percent-encoded UTF-8");
+            }
         }
         return out.toString();
     }

@@ -39,6 +39,17 @@ class RequiredExecutionsTest(unittest.TestCase):
             stream = next(row for row in plan['workstreams'] if row['id'] == stream_id)
             self.assertIn(lane_id, stream['requiredChecks'])
 
+    def test_path_bindings_reject_non_object_entries(self):
+        plan = gate.read_json(gate.DEFAULT_PLAN)
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / 'plan.json'
+            for invalid in (None, [], 'deleted binding'):
+                with self.subTest(binding=invalid):
+                    plan['pathBindings']['src/main/java/Invalid.java'] = invalid
+                    path.write_text(json.dumps(plan))
+                    with self.assertRaisesRegex(EvidenceError, 'Path bindings must map paths to objects'):
+                        gate.load_plan(path)
+
     def test_native_selections_and_family_floors_cover_authoritative_schema_contract(self):
         spec = importlib.util.spec_from_file_location('native_contract',
             Path(__file__).with_name('verify-mariadb-dao-reports.py'))

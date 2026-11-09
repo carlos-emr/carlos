@@ -152,7 +152,7 @@ public class HRMFixMissingReportHelper {
                     logger.info("Searching for report file: {}", LogSafe.sanitize(expected));
                     File source = searchForFile(target.getName());
                     if (source == null) {
-                        logger.warn("UNABLE TO FIND THE FILE: {}", LogSafe.sanitize(target.getPath()));
+                        logger.warn("UNABLE TO FIND THE FILE");
                         incomplete[0]=true;
                         continue;
                     }
@@ -171,14 +171,14 @@ public class HRMFixMissingReportHelper {
                             } else incomplete[0]=true;
                         } catch (IOException failure) {
                             // Preserve the existing best-effort per-file failure policy.
-                            logger.error("Unable to copy the file to DOCUMENT_DIR: {}", LogSafe.sanitize(source.getPath()));
+                            logger.error("Unable to copy the file to DOCUMENT_DIR");
                             incomplete[0]=true;
                             requireRepairRunning();
                         }
                     });
                 } catch (SecurityException invalidPath) {
                     incomplete[0]=true;
-                    logger.error("Skipping HRM document with an invalid report path", invalidPath);
+                    logger.error("Skipping HRM document with an invalid report path: {}", LogSafe.exceptionTrace(invalidPath));
                 }
             }
 
@@ -286,18 +286,18 @@ public class HRMFixMissingReportHelper {
         for (File datedDirectory : rootDir.listFiles()) {
             //should be a decrypted directory within
             if (!datedDirectory.isDirectory()) {
-                logger.warn("skipping file in the root directory:" + datedDirectory);
+                logger.warn("skipping file in the root directory");
                 continue;
             }
             File decryptedDirectory = PathValidationUtils.validateGeneratedChildPath("decrypted", datedDirectory);
             if (!decryptedDirectory.exists() || !decryptedDirectory.isDirectory()) {
-                logger.warn("skipping.decrypted subdirectory not found in :" + datedDirectory);
+                logger.warn("skipping.decrypted subdirectory not found in");
                 continue;
             }
             //we can now check for the file
             File theFile = PathValidationUtils.validateGeneratedChildPath(fileName, decryptedDirectory);
             if (theFile != null && theFile.exists()) {
-                logger.info("Found the file we were missing: {}", LogSafe.sanitize(theFile.getPath()));
+                logger.info("Found the file we were missing");
                 return theFile;
             }
         }

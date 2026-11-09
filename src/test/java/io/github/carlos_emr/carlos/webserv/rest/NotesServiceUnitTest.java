@@ -112,6 +112,10 @@ class NotesServiceUnitTest extends CarlosUnitTestBase {
     @Tag("read")
     void shouldReturnGroupNoteExt_whenCallerHasReadPrivilege() {
         when(mockSecurityInfoManager.hasPrivilege(any(), eq(ECHART), eq("r"), any())).thenReturn(true);
+        var stored = new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote();
+        stored.setDemographic_no("42");
+        when(mockCaseManagementMgr.getNote("94")).thenReturn(stored);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(),eq(42))).thenReturn(true);
         CaseManagementNoteExt ext = new CaseManagementNoteExt();
         ext.setKeyVal(CaseManagementNoteExt.TREATMENT);
         ext.setValue("Sertraline 50mg daily");

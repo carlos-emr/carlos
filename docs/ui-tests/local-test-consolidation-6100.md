@@ -274,3 +274,15 @@ incomplete chains, cache replacement, failure propagation and JSON boundaries.
 The 73 focused lab cases pass. The preceding installed seven-check attempt
 passed six checks and failed this real inbox path; it is retained as failed
 evidence and requires a fresh source build and installed retake.
+
+Release `1335e1b28ab4` (#6098) adds REST/SOAP hardening and an independent
+native XML binary-contract gate. The integration retains all new native
+transaction families and named cases, together with the grouped-history
+family, five-case routing floor, unprivileged permission lane and ten-case
+inbox aggregate family. The matrix now contains 40 workstreams and 92 checks.
+OAuth retains single decoding of parsed protocol fields alongside the new
+strict UTF-8 decoder for raw query input. The earlier `a0eb9d5bcb4e` H2 run
+passed 34,778 cases with 172 explicit routed/prerequisite skips and no failures
+or errors; its 6,209 tested class bytes match its rebuilt 6,237-entry package.
+Those receipts qualify that earlier source only; the merged API production
+tree requires its own package, Java, coverage and installed browser retakes.

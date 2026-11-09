@@ -143,6 +143,9 @@ public final class MeasurementTransfer {
         this.comments = comments;
     }
 
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
     public Date getDateObserved() {
         return (dateObserved);
     }
@@ -159,6 +162,9 @@ public final class MeasurementTransfer {
         this.appointmentNo = appointmentNo;
     }
 
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
     public Date getCreateDate() {
         return (createDate);
     }

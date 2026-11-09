@@ -56,7 +56,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import org.owasp.encoder.Encode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -198,7 +197,7 @@ public class DocumentManagerImpl implements DocumentManager {
             file = createUniqueDocumentFile(normalizedFileName, new File(documentPath), documentData);
             fileName = file.getName();
         } catch (SecurityException e) {
-            logger.error("Document filename failed path validation: {}", Encode.forJava(rawFileName));
+            logger.error("Document filename failed path validation");
             throw new IOException("Document filename failed path validation", e);
         }
 
@@ -466,7 +465,7 @@ public class DocumentManagerImpl implements DocumentManager {
         // Reject filenames containing path separators. Stored filenames are plain basenames;
         // silently stripping a subdirectory component could resolve to a different file.
         if (filename.contains("/") || filename.contains("\\")) {
-            logger.error("Document filename contains path separator, rejected: {}", Encode.forJava(filename));
+            logger.error("Document filename contains path separator, rejected");
             return null;
         }
 
@@ -476,7 +475,7 @@ public class DocumentManagerImpl implements DocumentManager {
         try {
             validatedFile = PathValidationUtils.validatePath(filename, new File(documentDir));
         } catch (SecurityException e) {
-            logger.error("Invalid document filename rejected: {}", Encode.forJava(filename));
+            logger.error("Invalid document filename rejected");
             return null;
         }
 

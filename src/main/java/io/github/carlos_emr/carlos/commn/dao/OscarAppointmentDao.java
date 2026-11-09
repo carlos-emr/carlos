@@ -261,4 +261,14 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
      * @since 2026-04-11
      */
     public List<AppointmentListItemDTO> findDayAppointmentDTOs(Date date, String providerNo);
+    /** Strict timestamp/ID continuation; old extension implementations refuse unsupported paging explicitly. */
+    default List<Appointment> findByUpdateDateAndId(Date after, int afterId, int limit) {
+        throw new UnsupportedOperationException("Schedule keyset paging is not supported by this DAO");
+    }
+
+    default List<Appointment> findByProgramProviderDemographicDateAndId(Integer programId, String providerNo,
+            Integer demographicId, Date after, int afterId, int limit) {
+        throw new UnsupportedOperationException("Filtered schedule keyset paging is not supported by this DAO");
+    }
+
 }

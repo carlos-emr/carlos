@@ -1021,6 +1021,26 @@ public class SecurityInfoManagerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        void shouldPreserveReadonlyPolicy_withLegacySecurityImplementations() {
+            var extension = mock(SecurityInfoManager.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+            when(extension.hasPrivilegeReadOnly(mockLoggedInInfo, "_demographic", SecurityInfoManager.READ, "1"))
+                    .thenReturn(true);
+            assertThat(extension.getReadableDemographicIds(mockLoggedInInfo, List.of(1, 2)))
+                    .containsExactly(1);
+        }
+
+        @Test
+        void shouldFilterLockedPatients_withoutChangingSessionLockState() {
+            privileges(List.of(createPrivilege(ROLE_DOCTOR, "_demographic", "r", 0),
+                    createPrivilege(ROLE_DOCTOR, "_demographic$2", "o", 5)));
+            assertThat(securityInfoManager.getReadableDemographicIds(mockLoggedInInfo, List.of(1, 2, 3)))
+                    .containsExactly(1, 3);
+            verify(mockSession, never()).setAttribute(eq("accountLocked"), any());
+            verify(mockSecuserroleDao).findActiveByProviderNo(TEST_PROVIDER_NO);
+            verify(mockSecObjPrivilegeDao).findByObjectNames(any());
+        }
+
+        @Test
         void shouldReadRolesAndPrivilegesOnce_forManyPatients() {
             privileges(List.of(createPrivilege(ROLE_DOCTOR, "_demographic", "r", 0)));
             List<Integer> patients = java.util.stream.IntStream.rangeClosed(1, 100).boxed().toList();
