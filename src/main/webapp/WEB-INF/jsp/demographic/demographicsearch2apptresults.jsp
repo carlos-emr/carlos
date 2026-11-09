@@ -298,8 +298,8 @@
             <input type="hidden" name="originalpage" value="<carlos:encode value='<%= originalpage %>' context="htmlAttribute"/>">
             <input type="hidden" name="ticklerOriginalPatient" value="${carlos:forHtmlAttribute(param.ticklerOriginalPatient)}"/>
             <input type="hidden" name="ticklerMessage" value="${carlos:forHtmlAttribute(param.ticklerMessage)}">
-            <input type="hidden" name="xml_appointment_date" value="${carlos:forHtmlAttribute(param.xml_appointment_date)}">
-            <input type="hidden" name="priority" value="${carlos:forHtmlAttribute(param.priority)}">
+            <input type="hidden" name="ticklerDraftDate" value="${carlos:forHtmlAttribute(param.ticklerDraftDate)}">
+            <input type="hidden" name="ticklerDraftPriority" value="${carlos:forHtmlAttribute(param.ticklerDraftPriority)}">
             <% if (request.getParameter("taskTo") != null) { %>
             <input type="hidden" name="taskTo" value="${carlos:forHtmlAttribute(param.taskTo)}">
             <% } %>
@@ -371,7 +371,7 @@
     <form method="post" action="${pageContext.request.contextPath}/tickler/ViewAddTickler">
         <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
         <input type="hidden" name="demographic_no" value="${carlos:forHtmlAttribute(param.ticklerOriginalPatient)}"/>
-        <c:forTokens var="draftField" items="ticklerMessage,xml_appointment_date,priority,parentAjaxId,updateParent" delims=",">
+        <c:forTokens var="draftField" items="ticklerMessage,ticklerDraftDate,ticklerDraftPriority,parentAjaxId,updateParent" delims=",">
             <input type="hidden" name="${carlos:forHtmlAttribute(draftField)}" value="${carlos:forHtmlAttribute(param[draftField])}"/>
         </c:forTokens>
         <c:if test="${param.taskTo ne null}">

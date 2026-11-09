@@ -188,6 +188,7 @@
     String priority = "Normal";
     if (request.getParameter("taskTo") != null) taskTo = request.getParameter("taskTo");
     if (request.getParameter("priority") != null) priority = request.getParameter("priority");
+    if (request.getParameter("ticklerDraftPriority") != null) priority = request.getParameter("ticklerDraftPriority");
     if (request.getParameter("recall") != null) recall = true;
 
     UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
@@ -224,7 +225,10 @@
     int curDay = now.get(Calendar.DAY_OF_MONTH);
 %><%
     String xml_vdate = request.getParameter("xml_vdate") == null ? "" : request.getParameter("xml_vdate");
-    String xml_appointment_date = request.getParameter("xml_appointment_date") == null ? MyDateFormat.getMysqlStandardDate(curYear, curMonth, curDay) : request.getParameter("xml_appointment_date");
+    // Draft transport uses distinct names so it cannot shadow the visible form controls.
+    String initialDate = request.getParameter("ticklerDraftDate");
+    if (initialDate == null) initialDate = request.getParameter("xml_appointment_date");
+    String xml_appointment_date = initialDate == null ? MyDateFormat.getMysqlStandardDate(curYear, curMonth, curDay) : initialDate;
 %>
 
 <!DOCTYPE html>
@@ -722,11 +726,11 @@
             }
             ChartNo = bFirstDisp ? "" : request.getParameter("chart_no") == null ? "" : request.getParameter("chart_no");
         %>
-        <form name="ADDAPPT" onsubmit="this.elements.ticklerMessage.value = document.serviceform.ticklerMessage.value; this.elements.xml_appointment_date.value = document.serviceform.xml_appointment_date.value; this.elements.priority.value = document.serviceform.priority.value;" method="post" action="<%= request.getContextPath() %>/demographic/DemographicSearch">
+        <form name="ADDAPPT" onsubmit="this.elements.ticklerMessage.value = document.serviceform.ticklerMessage.value; this.elements.ticklerDraftDate.value = document.serviceform.xml_appointment_date.value; this.elements.ticklerDraftPriority.value = document.serviceform.priority.value;" method="post" action="<%= request.getContextPath() %>/demographic/DemographicSearch">
             <input type="hidden" name="ticklerMessage" value="<carlos:encode value='<%= suggestedMessage %>' context="htmlAttribute"/>">
             <input type="hidden" name="ticklerOriginalPatient" value="<carlos:encode value='<%= requestDemographicNo %>' context="htmlAttribute"/>">
-            <input type="hidden" name="xml_appointment_date" value="">
-            <input type="hidden" name="priority" value="">
+            <input type="hidden" name="ticklerDraftDate" value="">
+            <input type="hidden" name="ticklerDraftPriority" value="">
             <input type="hidden" name="taskTo" ${param.taskTo eq null ? 'disabled' : ''} value="${carlos:forHtmlAttribute(param.taskTo)}">
             <input type="hidden" name="orderby" value="last_name">
             <input type="hidden" name="search_mode" value="<carlos:encode value='<%= searchMode %>' context="htmlAttribute"/>">

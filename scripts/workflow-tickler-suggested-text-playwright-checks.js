@@ -218,6 +218,7 @@ async function workflow(s) {
     const draft=loginMarker+' unsaved permission draft';await edit.locator('#newMessage').fill(draft);
     const initial=taskSnapshot();
     sql.execute(`UPDATE secObjPrivilege SET privilege='r' WHERE roleUserGroup=${q(role)} AND objectName='_tickler' AND privilege='w'`);
+    const beforeRefusal={http:new Set(recorder.badResponses),console:new Set(recorder.consoleIssues)};
     const [response]=await Promise.all([
       edit.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/tickler/EditTickler')),
       edit.locator('input[name="updateTickler"]').click(),
@@ -226,6 +227,10 @@ async function workflow(s) {
     await edit.locator('#error').waitFor({state:'visible'});
     h.assert(await edit.locator('#newMessage').inputValue()===draft&&!edit.isClosed(),'Permission refusal discarded the draft or closed the editor');
     h.assert(await edit.locator('#error').innerText()!==''&&taskSnapshot()===initial,'Permission refusal was silent or changed task rows');
+    await require('./lib/tickler-refusal-diagnostics').acknowledgeTickler403(recorder,{
+      before:beforeRefusal,response,page:edit,expectedUrl:h.appUrl(s.config.baseUrl,'/tickler/EditTickler'),ticklerNo,label:'tickler-refusals',
+    });
+    console.log('  PASS tickler-refusals: reconciled the exact owned iframe 403 after UI and no-write checks');
     const reader={...s,context};
     for(const [route,options] of [
       ['/tickler/EditTicklerTextSuggest',{method:'POST',allowPost:true,mutatingPost:true,form:{method:'updateTextSuggest'}}],
