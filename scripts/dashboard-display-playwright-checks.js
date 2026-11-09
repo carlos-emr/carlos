@@ -48,6 +48,7 @@ async function openTicklerModal(page, trigger) {
   return result;
 }
 
+/** Build an indicator scoped to the current owned provider, with the run marker identifying its UI and stored metadata. */
 function templateXml(marker) {
   const scope = "FROM demographic d WHERE d.provider_no = '${provider}'";
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -90,6 +91,7 @@ function templateXml(marker) {
 </indicatorTemplateXML>`;
 }
 
+/** Qualify native dashboard reads and Tickler saves using owned indicators/patients, retaining deferred failures until cleanup. */
 async function workflow(s) {
   const { sql, marker, recorder } = s;
   const M = h.sqlString(marker);

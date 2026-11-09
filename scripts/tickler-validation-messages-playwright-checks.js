@@ -192,6 +192,7 @@ async function postInvalidForm(context, popup, changes, expectedStatus, sentinel
   h.assert(!(await response.text()).includes(sentinel), 'Invalid tickler form reported success');
 }
 
+/** Exercise repeated native Add/Edit validation attempts and verify recovery without duplicate messages or unauthorized writes. */
 async function workflow(s) {
   const { sql, patient, marker, provider } = s;
   const missingDate = bundleMessage(MISSING_DATE_KEY, MISSING_DATE_FALLBACK);

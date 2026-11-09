@@ -121,9 +121,10 @@ async function workflow(s) {
     h.assert(await select.inputValue()===actor.fixture.providerNo,'Composer does not select the patient MRP');
     h.assert((await select.locator('option:checked').innerText()).includes(actor.marker),'Composer displays another MRP name');
   }
-  async function save(page,id,actor,label,message=marker+' '+label) {
+  /** Save a new message, or verify an existing draft without refilling it. */
+  async function save(page,id,actor,label,{message=marker+' '+label,preserveDraft=false}={}) {
     h.assert(await field(page).inputValue()===id,'Composer has another patient');await assertAssignee(page,actor);
-    if (arguments.length < 5) await page.locator('#ticklerMessage').fill(message);
+    if (!preserveDraft) await page.locator('#ticklerMessage').fill(message);
     else h.assert(await page.locator('#ticklerMessage').inputValue() === message, 'Draft changed before save');
     await page.locator('input[name="xml_appointment_date"]').fill(sql.value('SELECT CURDATE()'));
     const [response]=await Promise.all([page.waitForResponse(answer=>answer.request().method()==='POST'&&new URL(answer.url()).pathname.endsWith('/tickler/DbTicklerAdd')),
@@ -153,6 +154,7 @@ async function workflow(s) {
     primary.b=await save(await composer(patientB,bMarker),patientB,b,'MRP-B');
   });
   const ownedRow=(list,id)=>list.locator(`input[name="checkbox"][value="${id}"]`).locator('xpath=ancestor::tr[1]');
+  /** Open the native task list for one receiver and wait for the owned marker/assignee filter response. */
   async function assignedList(actor) {
     const {page:list}=await ui.clickOpensPopupOrNavigates(actor.schedule,actor.schedule.locator('a:has(#oscar_new_tickler)').first(),
       {context:actor.context,recorder,label:'MRP-assigned-list'});
@@ -184,6 +186,9 @@ async function workflow(s) {
     const error=h.markFailedStep(new Error(message),label);findings.push(error);console.error('  FAIL '+NAME+': '+label+' -- '+message);
   }
   await s.step('independent composers retain their own unsaved drafts',async()=>{
+    const existingPages=new Set(author.context.pages());
+    let failure;
+    try {
     const one=await composer(patient,marker);
     await one.locator('#ticklerMessage').fill(marker+' first draft');
     await one.locator('input[name="xml_appointment_date"]').fill('2031-01-31');
@@ -236,10 +241,16 @@ async function workflow(s) {
     h.assert(await one.locator('input[name="xml_appointment_date"]').inputValue()==='2031-01-31'&&await one.locator('select[name="priority"]').inputValue()==='High','Returning from search lost the draft date or priority');
     await assertAssignee(one,control);await assertAssignee(two,b);
     h.assert(await field(one).inputValue()===patient&&await field(two).inputValue()===patientB,'Returning a draft changed another patient association');
-    for(const page of [one,two]) {
-      const view=views.get(page);await page.close();if(view.list&&!view.list.isClosed())await view.list.close();if(view.chart&&!view.chart.isClosed())await view.chart.close();
+    } catch(error) { failure=error; }
+    finally {
+      // Include partially opened charts/lists even if composer() did not return.
+      const closed=await Promise.allSettled(author.context.pages().filter(page=>!existingPages.has(page)).map(page=>page.close()));
+      const errors=closed.filter(result=>result.status==='rejected').map(result=>result.reason);
+      if(errors.length)failure=new AggregateError([...(failure?[failure]:[]),...errors],'Independent composer cleanup failed');
     }
+    if(failure)throw failure;
   });
+  /** Select the patient through native POST search, then verify identity and retention of the existing draft. */
   async function attach(page,id,needle,draft) {
     const form=page.locator('form[name="ADDAPPT"]');await form.locator('input[name="keyword"]').fill(needle);
     await ui.clickAndAwaitReload(page,form.locator('input[type="submit"][name="Submit"]'));
@@ -264,16 +275,17 @@ async function workflow(s) {
     await attach(page,patientB,bMarker,draft);await assertAssignee(page,b);
     await page.locator('#ticklerMessage').fill(draft);
     await attach(page,patient,marker,draft);await assertAssignee(page,a);
-    await save(page,patient,a,'MRP-LATE-FINAL',draft);
+    await save(page,patient,a,'MRP-LATE-FINAL',{message:draft,preserveDraft:true});
   });
   await s.step('a deliberate manual assignee overrides the patient MRP without changing the control task',async()=>{
     const page=await composer(patient,marker);await assertAssignee(page,a);
     const draft=marker+' deliberate manual recipient';await page.locator('#ticklerMessage').fill(draft);
     await selectTicklerAssignee(page,control.fixture.providerNo);
     await attach(page,patientB,bMarker,draft);await assertAssignee(page,control);
-    await save(page,patientB,control,'MRP-MANUAL',draft);
+    await save(page,patientB,control,'MRP-MANUAL',{message:draft,preserveDraft:true});
     h.assert(JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE tickler_no=${controlId}`))===controlState,'Manual assignment changed the control task');
   });
+  /** Exercise an unavailable MRP with owned patients, require guidance, and save only after deliberate manual assignment. */
   async function unavailable(label,mrp) {
     sql.execute(`UPDATE demographic SET provider_no=${q(mrp)} WHERE demographic_no=${patient} AND last_name=${q(marker)}`);
     const page=await composer(patient,marker),draft=marker+' '+label+' draft';
@@ -286,7 +298,7 @@ async function workflow(s) {
     await s.step(label+' MRP draft survives a deliberate manual assignment and owned save',async()=>{
       await selectTicklerAssignee(page,author.fixture.providerNo);
       h.assert(await page.locator('#ticklerMessage').inputValue()===draft,'Manual fallback lost the draft');
-      await save(page,patient,author,'MRP-'+label.toUpperCase()+'-MANUAL',draft);
+      await save(page,patient,author,'MRP-'+label.toUpperCase()+'-MANUAL',{message:draft,preserveDraft:true});
     });
     sql.execute(`UPDATE demographic SET provider_no=${q(a.fixture.providerNo)} WHERE demographic_no=${patient} AND last_name=${q(marker)}`);
   }
@@ -311,7 +323,7 @@ async function workflow(s) {
       before,response,page:stale,expectedUrl:h.appUrl(config.baseUrl,'/tickler/DbTicklerAdd'),patient:patientB,label:'MRP-task-composer',
     });
     await selectTicklerAssignee(stale,author.fixture.providerNo);
-    await save(stale,patientB,author,'MRP-STALE-RECOVERED',staleDraft);
+    await save(stale,patientB,author,'MRP-STALE-RECOVERED',{message:staleDraft,preserveDraft:true});
   });
   await unavailable('inactive',b.fixture.providerNo);
   h.assert(JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE tickler_no=${controlId}`))===controlState,'Unavailable MRP cases changed the control task');

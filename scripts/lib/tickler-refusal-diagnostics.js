@@ -17,9 +17,11 @@ async function acknowledgeRefusal(recorder,{before,response,page,expectedUrl,ide
  recorder.consoleIssues=recorder.consoleIssues.filter(e=>!console.includes(e));
  return {http:http.length,console:console.length};
 }
+/** Reconcile the verified owned Edit iframe permission refusal, preserving unrelated diagnostics. */
 function acknowledgeTickler403(recorder,proof) {
  return acknowledgeRefusal(recorder,{...proof,identity:proof.ticklerNo},{status:403,marker:'carlos-permission-denied',frameName:'ticklerEditFrame',field:'ticklerNo',consolePattern:/^Failed to load resource: the server responded with a status of 403 \([^\r\n()]*\)$/});
 }
+/** Reconcile the verified owned Add iframe stale-recipient refusal after draft/no-write checks. */
 function acknowledgeTicklerRecipient400(recorder,proof) {
  return acknowledgeRefusal(recorder,{...proof,identity:proof.patient},{status:400,marker:'tickler-recipient-refused',frameName:'ticklerSubmitFrame',field:'demographic_no',consolePattern:/^Failed to load resource: the server responded with a status of 400 \([^\r\n()]*\)$/});
 }

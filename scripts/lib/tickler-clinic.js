@@ -7,7 +7,11 @@ async function selectTicklerAssignee(page, providerNo) {
   const clinic = page.locator('select#site');
   if (await clinic.count()) {
     // A saved preference initially shows its name; use the native Change control.
-    if(!await clinic.isVisible())await page.locator('#nameWrapper a[onclick*="toggleWrappers"]').click();
+    if (!await clinic.isVisible()) {
+      const change = page.locator('#nameWrapper a[onclick*="toggleWrappers"]');
+      if (!await change.count()) throw new Error('Saved Tickler clinic has no Change control');
+      await change.click();
+    }
     const sites = await clinic.locator('option').evaluateAll(options =>
       options.map(option => option.value).filter(value => value && value !== 'none'));
     let found = false;

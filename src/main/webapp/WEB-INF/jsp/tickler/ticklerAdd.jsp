@@ -252,6 +252,7 @@
         <script src="${pageContext.request.contextPath}/share/javascript/tickler-calendar.js"></script>
         <script>
         // i18n messages for JavaScript — encoded via SafeEncode.forJavaScript() to prevent XSS and broken JS strings
+        const i18nDraftSearchUnavailable = '<carlos:encode value='<%= oscarBundle.getString("tickler.draft.searchUnavailable") %>' context="javaScriptBlock"/>';
         const i18nQuickPickFrom = '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.quickPickFrom") %>' context="javaScriptBlock"/>';
         const i18nQuickPickReset = '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.quickPickReset") %>' context="javaScriptBlock"/>';
         const i18nQuickPickTooltip = '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.quickPickBtnTooltip") %>' context="javaScriptBlock"/>';
@@ -348,12 +349,8 @@
 
                 // Calculate total days from weeks + days
                 const daysFromWeeks = totalWeeks * 7;
-                let date = new Date(baseDate);
-
-                // Add years
-                date = CarlosTicklerCalendar.offset(baseDate, totalYears * 12 + totalMonths, 0);
-                // Add months
-                // Year and month offsets were combined before clamping.
+                // Combine year/month offsets, then clamp to the destination month's last day.
+                const date = CarlosTicklerCalendar.offset(baseDate, totalYears * 12 + totalMonths, 0);
                 // Add weeks and days
                 date.setDate(date.getDate() + daysFromWeeks + totalDays);
 
@@ -459,6 +456,23 @@
                     document.ADDAPPT.elements.taskTo.value = event.target.value;
                 }
             });
+        }
+
+        /** Copy the whole visible draft before search; refuse incomplete forms without partial updates. */
+        function prepareTicklerPatientSearch(searchForm) {
+            const source = document.forms.namedItem('serviceform');
+            const mappings = [['ticklerMessage', 'ticklerMessage'],
+                ['xml_appointment_date', 'ticklerDraftDate'], ['priority', 'ticklerDraftPriority']];
+            const controls = mappings.map(function (names) {
+                return [source && source.elements.namedItem(names[0]),
+                    searchForm && searchForm.elements.namedItem(names[1])];
+            });
+            if (controls.some(function (pair) { return pair.some(function (field) { return !field || typeof field.value !== 'string'; }); })) {
+                CarlosTicklerValidation.show(i18nDraftSearchUnavailable);
+                return false;
+            }
+            controls.forEach(function (pair) { pair[1].value = pair[0].value; });
+            return true;
         }
 
         function initResize() {
@@ -734,7 +748,7 @@
             }
             ChartNo = bFirstDisp ? "" : request.getParameter("chart_no") == null ? "" : request.getParameter("chart_no");
         %>
-        <form name="ADDAPPT" onsubmit="this.elements.ticklerMessage.value = document.serviceform.ticklerMessage.value; this.elements.ticklerDraftDate.value = document.serviceform.xml_appointment_date.value; this.elements.ticklerDraftPriority.value = document.serviceform.priority.value;" method="post" action="<%= request.getContextPath() %>/demographic/DemographicSearch">
+        <form name="ADDAPPT" onsubmit="return prepareTicklerPatientSearch(this);" method="post" action="<%= request.getContextPath() %>/demographic/DemographicSearch">
             <input type="hidden" name="ticklerMessage" value="<carlos:encode value='<%= suggestedMessage %>' context="htmlAttribute"/>">
             <input type="hidden" name="ticklerOriginalPatient" value="<carlos:encode value='<%= requestDemographicNo %>' context="htmlAttribute"/>">
             <input type="hidden" name="ticklerDraftDate" value="">

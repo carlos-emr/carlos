@@ -64,6 +64,7 @@ async function withBarrier(context,barrier,work) {
   if(failures.length)throw new AggregateError(failures,failures.map(error=>error.message).join('; '),{cause:failures[0]});
 }
 
+/** Verify stale selection is cleared across native list redraws and bulk actions affect only visible owned tasks. */
 async function workflow(s) {
   const {sql,patient,provider,marker}=s;
   const other=sql.value(`SELECT provider_no FROM provider WHERE status='1' AND provider_no<>${q(provider)}
@@ -195,6 +196,7 @@ async function workflow(s) {
     });
   });
   const changed=new Map();
+  /** Submit one visible active owned task through native Complete/Delete and verify exact request, status and history. */
   async function submit(name) {
     const visible=await visibleIds();await boxes().first().check();
     const selected=await checked().evaluateAll(nodes=>nodes.map(node=>node.value));

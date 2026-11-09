@@ -129,6 +129,7 @@ function macroProperty() {
 
 const {cloneLab,removeOwnedLab}=createOwnedLab({sql,sqlRows,lockNotShared:LOCK_NOT_SHARED});
 
+/** Clone a linked HL7 lab and prepare only the owned clone for the native macro, leaving the source lab unchanged. */
 function stageLabRouting() {
   const chosen = process.env.MACRO_LAB_NO
     ? sql(`SELECT lab_no, demographic_no FROM patientLabRouting WHERE lab_type='HL7' AND lab_no=${Number(process.env.MACRO_LAB_NO)} LIMIT 1`)
@@ -176,6 +177,7 @@ let cleanupDone = false;
 // Runs once from the finally block or the signal handler: every step is attempted
 // and a step that fails marks the run as failed, because a fixture left behind is
 // a failure of this check even when every assertion passed.
+/** Attempt each owned cleanup once and mark the run failed if any rows or attached lab cannot be safely retired. */
 function runCleanup() {
   if (cleanupDone || !mysqlDefaults) {
     return;

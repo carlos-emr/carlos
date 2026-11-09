@@ -51,6 +51,7 @@ function documentStore() {
   return real;
 }
 
+/** Verify suggested-text route dispatch, malformed requests and permission denials with owned preferences and task records. */
 async function workflow(s) {
   const { sql, marker, patient, provider, recorder } = s;
   const suggestion = `${marker} recall suggestion`;
