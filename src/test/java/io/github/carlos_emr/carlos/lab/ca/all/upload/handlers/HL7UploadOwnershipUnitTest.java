@@ -36,7 +36,7 @@ class HL7UploadOwnershipUnitTest extends CarlosUnitTestBase {
         lab.setResultStatus("N");
         var message = new Hl7TextMessage();
         var parser = mock(MessageHandler.class);
-        when(info.find(17)).thenReturn(lab);
+        when(info.findByLabId(17)).thenReturn(java.util.List.of(lab));
         when(messages.find(17)).thenReturn(message);
         when(parser.getOBRCount()).thenReturn(1);
         when(parser.getOBXCount(0)).thenReturn(1);
@@ -45,7 +45,7 @@ class HL7UploadOwnershipUnitTest extends CarlosUnitTestBase {
             factory.when(() -> Factory.getHandler(message)).thenReturn(parser);
             HL7Handler.updateLabStatus(Set.of(17));
         }
-        verify(info).find(17);
+        verify(info).findByLabId(17);
         verify(info).updateResultStatusLowPriority(17, "A");
         verifyNoMoreInteractions(info);
         verify(messages).find(17);
@@ -56,7 +56,7 @@ class HL7UploadOwnershipUnitTest extends CarlosUnitTestBase {
     void shouldPropagateRetrievalFailure_insteadOfSkippingIt() {
         var lab = new Hl7TextInfo();
         lab.setResultStatus("N");
-        when(info.find(17)).thenReturn(lab);
+        when(info.findByLabId(17)).thenReturn(java.util.List.of(lab));
         when(messages.find(17)).thenThrow(new jakarta.persistence.PersistenceException("synthetic read failure"));
         assertThatThrownBy(() -> HL7Handler.updateLabStatus(Set.of(17)))
                 .isInstanceOf(jakarta.persistence.PersistenceException.class);
@@ -70,20 +70,20 @@ class HL7UploadOwnershipUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldNotParseReportsAlreadyMarkedAbnormal() throws Exception {
+    void shouldAvoidReparse_whenStatusAlreadyAbnormal() throws Exception {
         var lab = new Hl7TextInfo();
         lab.setResultStatus(" A ");
-        when(info.find(17)).thenReturn(lab);
+        when(info.findByLabId(17)).thenReturn(java.util.List.of(lab));
         HL7Handler.updateLabStatus(Set.of(17));
         verifyNoInteractions(messages);
-        verify(info).find(17);
+        verify(info).findByLabId(17);
         verifyNoMoreInteractions(info);
     }
 
     @Test
     void shouldSkipContentParseAbsence_withoutUpdatingStatus() throws Exception {
         var lab = new Hl7TextInfo();
-        when(info.find(17)).thenReturn(lab);
+        when(info.findByLabId(17)).thenReturn(java.util.List.of(lab));
         try (var factory = mockStatic(Factory.class)) {
             factory.when(() -> Factory.getHandler((Hl7TextMessage) null)).thenReturn(null);
             HL7Handler.updateLabStatus(Set.of(17));

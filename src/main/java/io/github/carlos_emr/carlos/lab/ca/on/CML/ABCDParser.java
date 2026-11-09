@@ -166,6 +166,7 @@ public class ABCDParser {
     /** Resolve distinct patient heads; ambiguous or cyclic matches stay unmatched. */
     private static String executePatientLookup(java.util.List<LabRoutingLookupDao.Patient> matches, int[] countHolder) {
         String demo = "0";
+        if (matches.isEmpty()) return demo;
         DemographicMerged mergeChain = new DemographicMerged();
         Set<Integer> matchedHeads = new HashSet<>();
         boolean unresolvedChain = false;

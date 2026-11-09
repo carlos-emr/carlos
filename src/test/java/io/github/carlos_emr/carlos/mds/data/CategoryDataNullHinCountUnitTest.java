@@ -160,7 +160,7 @@ class CategoryDataNullHinCountUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldCountMissingAccessionsByReportIdentity() throws SQLException {
+    void shouldCountReportIdentities_whenAccessionsMissing() throws SQLException {
         for (int id = 30; id < 34; id++) {
             insert("INSERT INTO hl7TextInfo (lab_no,result_status,accessionNum) VALUES (?,'A',?)", id, id < 32 ? "" : null);
             insert("INSERT INTO providerLabRouting (provider_no,lab_no,status,lab_type) VALUES (?,?,'N','HL7')", PROVIDER, id);
@@ -169,7 +169,7 @@ class CategoryDataNullHinCountUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldIncludeDateOnlyStart_andWholeEndDay() throws SQLException {
+    void shouldIncludeDateOnlyStart_withWholeEndDayBounds() throws SQLException {
         insert("UPDATE hl7TextInfo SET obr_date=? WHERE lab_no=21", "2026-01-01");
         insert("UPDATE hl7TextInfo SET obr_date=? WHERE lab_no=22", "2026-01-01 23:59:59");
         CategoryData data = new CategoryData("Synthetic", "Nohin", "", true, true, PROVIDER,

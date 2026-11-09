@@ -100,11 +100,12 @@ public class HL7Handler implements MessageHandler {
         var messages = SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao.class);
         for (Integer id : ids) {
             if (id == null || id <= 0) throw new IllegalArgumentException("Invalid uploaded report identity");
-            var lab = dao.find(id);
-            if (lab == null) throw new IllegalStateException("Uploaded lab metadata is missing");
+            var rows = dao.findByLabId(id);
+            if (rows.size() != 1) throw new IllegalStateException("Uploaded lab metadata is missing or ambiguous");
+            var lab = rows.getFirst();
             if (lab.getResultStatus() != null && "A".equals(lab.getResultStatus().trim())) continue;
             // Database failures must propagate; the ID-based factory catches retrieval errors.
-            var stored = messages.find(id);
+            var stored = messages.find(id.intValue());
             io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler handler = Factory.getHandler(stored);
             if (handler == null) continue;
             boolean abnormal = false;
