@@ -70,8 +70,13 @@ public class AllergyService extends AbstractServiceImpl {
         this.legacyProjection = java.util.Objects.requireNonNull(service);
     }
 
-    @Autowired
     private SecurityInfoManager securityInfoManager;
+
+    /** Required setter preserves the endpoint's framework-owned no-argument lifecycle. */
+    @Autowired
+    public void setSecurityInfoManager(SecurityInfoManager service) {
+        this.securityInfoManager = java.util.Objects.requireNonNull(service);
+    }
 
     @GET
     @Path("/active")

@@ -42,6 +42,8 @@ final class CdsExportRetainedPayloadInputStream extends InputStream {
     private final FileChannel channel;
     private final CdsExportRetainedFieldDto.Payload expected;
     private final Runnable checkpoint;
+    // Per-operation incremental digest, owned by this stream/row accumulator; never shared singleton state.
+    @SuppressWarnings("java:S9428")
     private final MessageDigest digest;
     private final Thread owner = Thread.currentThread();
     private long delivered;

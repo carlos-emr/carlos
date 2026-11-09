@@ -45,6 +45,8 @@ public class CdsExportDeliveryService {
         this.stores = Objects.requireNonNull(stores); this.ledger = Objects.requireNonNull(ledger);
         this.scopes = Objects.requireNonNull(scopes); this.disclosure = Objects.requireNonNull(disclosure);
     }
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+    @SuppressWarnings("java:S1143")
     public Encrypted encrypt(CdsExportLeaseDto lease, CdsExportClinicalPackageService.Prepared prepared,
             long maximumCiphertextBytes, CdsExportRunControl control) throws IOException {
         Objects.requireNonNull(control); Objects.requireNonNull(prepared);

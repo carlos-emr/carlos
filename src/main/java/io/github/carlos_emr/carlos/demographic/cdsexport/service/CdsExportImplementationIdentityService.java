@@ -40,6 +40,7 @@ public class CdsExportImplementationIdentityService {
     private final ClassLoader loader;
     private final Supplier<String> shared;
     private volatile String cached, sharedIdentity;
+    @org.springframework.beans.factory.annotation.Autowired
     public CdsExportImplementationIdentityService() { this(CdsExportImplementationIdentityService.class.getClassLoader(), () -> CdsRulesetFingerprint.current().sha256()); }
     CdsExportImplementationIdentityService(ClassLoader loader, Supplier<String> shared) { this.loader = Objects.requireNonNull(loader); this.shared = Objects.requireNonNull(shared); }
     public String current() {

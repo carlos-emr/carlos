@@ -80,8 +80,12 @@ public class EmailComposeManager {
     private EmailConsentResolver emailConsentResolver;
     @Autowired
     private NioFileManager nioFileManager;
-    @Autowired
     private AttachmentOwnershipService attachmentOwnershipService;
+
+    @Autowired
+    public void setAttachmentOwnershipService(AttachmentOwnershipService service) {
+        this.attachmentOwnershipService = java.util.Objects.requireNonNull(service);
+    }
 
     /** The failure for an attachment of another patient, or one that cannot be found; it names no record. */
     private static final String ATTACHMENT_NOT_RENDERED = "A selected email attachment could not be rendered";

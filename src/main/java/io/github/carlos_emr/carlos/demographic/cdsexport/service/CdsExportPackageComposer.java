@@ -44,6 +44,8 @@ import java.util.zip.CRC32;
  * clinical text. This byte layer does not establish clinical or disclosure readiness.
  */
 public final class CdsExportPackageComposer {
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+    @SuppressWarnings("java:S1143")
     public CdsExportPackageDto compose(CdsExportStagingService staging, CdsExportPackageMembers members,
             long maximumZipBytes, long maximumEntries, Runnable checkpoint) throws IOException {
         Objects.requireNonNull(staging); Objects.requireNonNull(members); Objects.requireNonNull(checkpoint);

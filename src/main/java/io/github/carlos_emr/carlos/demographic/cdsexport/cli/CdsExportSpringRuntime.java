@@ -44,6 +44,8 @@ public final class CdsExportSpringRuntime implements CdsExportCliRuntime {
     private final CdsProcessDelegationVerifier.Delegation delegation;
     private final TimeZone previousZone;
     private final String resolved;
+    // Other threads only read this reference to call Thread's thread-safe interrupt API.
+    @SuppressWarnings("java:S3077")
     private volatile Thread active;
 
     public CdsExportSpringRuntime(CdsProcessConfiguration configuration, CdsExportCliArguments arguments,

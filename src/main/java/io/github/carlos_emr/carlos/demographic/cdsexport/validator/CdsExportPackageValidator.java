@@ -48,6 +48,8 @@ import java.util.zip.CRC32;
  */
 public final class CdsExportPackageValidator {
     private static final long DWORD = 0xffff_ffffL;
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+    @SuppressWarnings("java:S1143")
     public void validate(CdsExportStagingService staging, CdsExportPackageMembers members,
             CdsExportPackageDto expected, Runnable checkpoint) throws IOException {
         CdsExportStagedFileDto[] localProof = {null}; Throwable primary = null;

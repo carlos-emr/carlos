@@ -122,35 +122,36 @@ public final class CdsExportReportRetainedSource {
     private static void verifyContent(CdsExportRetainedFieldDto field, String format, CdsReportNativeDto.Variant expected,
             CdsExportRetainedSectionWriter.Values values, long maximum, Runnable checkpoint) throws IOException {
         var digest = CdsImportKeys.digest(); long[] bytes = {0};
-        OutputStream counted = new OutputStream() {
+        try (OutputStream counted = new OutputStream() {
             @Override public void write(int value) throws IOException { byte[] one = {(byte) value}; write(one, 0, 1); }
             @Override public void write(byte[] data, int offset, int length) throws IOException {
                 checkpoint.run(); if (length > maximum - bytes[0]) invalid(); digest.update(data, offset, length); bytes[0] += length;
             }
-        };
-        boolean binary = field.valueType().equals("{http://www.w3.org/2001/XMLSchema}base64Binary");
-        if (binary) { try (var input = values.binary(field)) { transfer(input, counted, checkpoint); } }
-        else if ("Binary".equals(format)) {
-            try (var reader = values.text(field); var ascii = new InputStream() {
-                @Override public int read() throws IOException { checkpoint.run(); int value = reader.read(); if (value > 127) invalid(); return value; }
-                @Override public int read(byte[] bytes, int offset, int length) throws IOException {
-                    Objects.checkFromIndexSize(offset, length, bytes.length); if (length == 0) return 0;
-                    char[] characters = new char[Math.min(length, 4096)];
-                    try {
-                        checkpoint.run(); int count = reader.read(characters); if (count == 0) invalid();
-                        for (int i = 0; i < count; i++) { if (characters[i] > 127) invalid(); bytes[offset + i] = (byte) characters[i]; }
-                        return count;
-                    } finally { Arrays.fill(characters, '\0'); }
-                }
-            }; var input = CdsBase64ValueParser.decode(ascii)) { transfer(input, counted, checkpoint); }
-        } else {
-            var encoder = StandardCharsets.UTF_8.newEncoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT);
-            char[] buffer = new char[4096];
-            try (var reader = values.text(field); var writer = new OutputStreamWriter(counted, encoder)) {
-                for (int n; (n = reader.read(buffer)) != -1;) { checkpoint.run(); if (n == 0) invalid(); writer.write(buffer, 0, n); }
-            } finally { Arrays.fill(buffer, '\0'); }
+        }) {
+            boolean binary = field.valueType().equals("{http://www.w3.org/2001/XMLSchema}base64Binary");
+            if (binary) { try (var input = values.binary(field)) { transfer(input, counted, checkpoint); } }
+            else if ("Binary".equals(format)) {
+                try (var reader = values.text(field); var ascii = new InputStream() {
+                    @Override public int read() throws IOException { checkpoint.run(); int value = reader.read(); if (value > 127) invalid(); return value; }
+                    @Override public int read(byte[] bytes, int offset, int length) throws IOException {
+                        Objects.checkFromIndexSize(offset, length, bytes.length); if (length == 0) return 0;
+                        char[] characters = new char[Math.min(length, 4096)];
+                        try {
+                            checkpoint.run(); int count = reader.read(characters); if (count == 0) invalid();
+                            for (int i = 0; i < count; i++) { if (characters[i] > 127) invalid(); bytes[offset + i] = (byte) characters[i]; }
+                            return count;
+                        } finally { Arrays.fill(characters, '\0'); }
+                    }
+                }; var input = CdsBase64ValueParser.decode(ascii)) { transfer(input, counted, checkpoint); }
+            } else {
+                var encoder = StandardCharsets.UTF_8.newEncoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT);
+                char[] buffer = new char[4096];
+                try (var reader = values.text(field); var writer = new OutputStreamWriter(counted, encoder)) {
+                    for (int n; (n = reader.read(buffer)) != -1;) { checkpoint.run(); if (n == 0) invalid(); writer.write(buffer, 0, n); }
+                } finally { Arrays.fill(buffer, '\0'); }
+            }
+            if (bytes[0] != expected.length() || !HexFormat.of().formatHex(digest.digest()).equals(expected.digest())) mismatch();
         }
-        if (bytes[0] != expected.length() || !HexFormat.of().formatHex(digest.digest()).equals(expected.digest())) mismatch();
     }
     private static void transfer(InputStream input, OutputStream output, Runnable checkpoint) throws IOException {
         byte[] buffer = new byte[65536];
@@ -160,7 +161,7 @@ public final class CdsExportReportRetainedSource {
     private static String normalize(String raw, String rule) throws IOException {
         if (!Set.of("preserve", "replace", "collapse").contains(rule)) invalid(); if (rule.equals("preserve")) return raw;
         String replaced = raw.replace('\t', ' ').replace('\r', ' ').replace('\n', ' ');
-        return rule.equals("replace") ? replaced : replaced.replaceAll(" +", " ").replaceAll("^ | $", "");
+        return rule.equals("replace") ? replaced : replaced.replaceAll(" +", " ").replaceAll("(^ )|( $)", "");
     }
     private static String text(CdsExportRetainedSectionWriter.Values values, CdsExportRetainedFieldDto field, int maximum, Runnable checkpoint) throws IOException {
         var result = new StringBuilder(); char[] buffer = new char[4096];

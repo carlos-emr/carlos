@@ -120,6 +120,8 @@ public class CdsExportNativeCaptureService {
         return Set.copyOf(selected.keySet());
     }
 
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+    @SuppressWarnings("java:S1143")
     public CdsExportPatientCaptureDto capture(CdsExportLeaseDto lease, CdsExportCohortService.Patient patientScope, Set<String> selectedTables,
             long maximumFields, long maximumValueBytes, CdsExportRunControl control) throws IOException {
         Objects.requireNonNull(lease); Objects.requireNonNull(patientScope); patientScope.require(lease); int patient = patientScope.patient();

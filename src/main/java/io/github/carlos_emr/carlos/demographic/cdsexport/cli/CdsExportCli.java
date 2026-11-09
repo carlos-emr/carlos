@@ -141,8 +141,8 @@ public final class CdsExportCli {
         var progress = Executors.newSingleThreadScheduledExecutor(task -> {
             Thread thread = new Thread(task, "cds-export-progress"); thread.setDaemon(true); return thread;
         });
-        Runtime.getRuntime().addShutdownHook(hook);
         try {
+            Runtime.getRuntime().addShutdownHook(hook);
             progress.scheduleWithFixedDelay(() -> {
                 try { line(out, summary(runtime.status(run), "PROGRESS")); }
                 catch (Exception unavailable) { err.println("CDS_EXPORT_PROGRESS: current authorized status is temporarily unavailable"); }

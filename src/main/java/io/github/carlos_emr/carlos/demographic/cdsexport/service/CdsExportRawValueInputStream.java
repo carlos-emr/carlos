@@ -36,6 +36,8 @@ final class CdsExportRawValueInputStream extends InputStream {
     @FunctionalInterface interface Chunks { byte[] read(long offset, int length) throws IOException; }
     private final Chunks source;
     private final CdsExportRawCellDto expected;
+    // Per-operation incremental digest, owned by this stream/row accumulator; never shared singleton state.
+    @SuppressWarnings("java:S9428")
     private final MessageDigest digest;
     private final Thread owner = Thread.currentThread();
     private byte[] buffer;

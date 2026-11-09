@@ -71,6 +71,8 @@ public class CdsExportClinicalPackageService {
     }
 
     /** Starts with a committed cohort in CAPTURING and returns only a private validated ZIP in PACKAGING. */
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+    @SuppressWarnings("java:S1143")
     public Prepared compose(CdsExportLeaseDto lease, String applicationVersion, ZoneId clinicalZone,
             CdsExportClinicalOccurrenceService.Bounds bounds, CdsExportXmlLimitsDto xmlLimits, Limits limits,
             CdsExportRunControl control) throws IOException {

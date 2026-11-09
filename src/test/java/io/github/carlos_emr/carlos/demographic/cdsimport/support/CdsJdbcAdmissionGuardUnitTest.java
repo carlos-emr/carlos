@@ -45,7 +45,8 @@ class CdsJdbcAdmissionGuardUnitTest {
         try (var statement = CdsJdbcAdmissionGuard.prepareBinaryRead(guarded, sql)) {
             assertThat(statement.getConnection()).isSameAs(guarded); statement.setLong(1, 27); statement.setQueryTimeout(5);
             assertThatThrownBy(() -> statement.unwrap(com.mysql.cj.jdbc.ServerPreparedStatement.class)).isInstanceOf(SQLException.class);
-            assertThatThrownBy(() -> statement.getConnection().unwrap(com.mysql.cj.jdbc.JdbcConnection.class)).isInstanceOf(SQLException.class);
+            var statementConnection = statement.getConnection();
+            assertThatThrownBy(() -> statementConnection.unwrap(com.mysql.cj.jdbc.JdbcConnection.class)).isInstanceOf(SQLException.class);
         }
         verify(binary).setLong(1, 27); verify(binary).setQueryTimeout(5); verify(binary).close();
         assertThatThrownBy(() -> CdsJdbcAdmissionGuard.prepareBinaryRead(guarded, "UPDATE drugs SET takemin=1 WHERE drugid=27")).isInstanceOf(SQLException.class);

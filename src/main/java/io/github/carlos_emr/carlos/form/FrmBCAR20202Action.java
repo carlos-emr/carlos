@@ -70,7 +70,7 @@ public class FrmBCAR20202Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private FormBCAR2020Dao bcar2020Dao = SpringUtils.getBean(FormBCAR2020Dao.class);
+    private final FormBCAR2020Dao bcar2020Dao = SpringUtils.getBean(FormBCAR2020Dao.class);
     private BCAR2020FormSaveService formSaveService = SpringUtils.getBean(BCAR2020FormSaveService.class);
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);

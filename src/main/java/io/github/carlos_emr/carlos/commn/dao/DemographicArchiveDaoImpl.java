@@ -127,6 +127,7 @@ public class DemographicArchiveDaoImpl extends AbstractDaoImpl<DemographicArchiv
 
     @Override
     public Long archiveRecord(Demographic d) {
+        if (d == null) throw new IllegalArgumentException("DEMOGRAPHIC_ARCHIVE_SOURCE_REQUIRED");
         DemographicArchive da = new DemographicArchive(d);
         persist(da);
         return da.getId();

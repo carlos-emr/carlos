@@ -63,12 +63,14 @@ class CdsExportXmlValidatorUnitTest {
     }
 
     @Test void shouldRejectSchemaValidReport_withoutTheRequiredBinaryExtension() throws Exception {
-        assertThatThrownBy(() -> validate(fixture().replace("<FileExtensionAndVersion>PNG</FileExtensionAndVersion>", "")))
+        String sourceXml = fixture();
+        assertThatThrownBy(() -> validate(sourceXml.replace("<FileExtensionAndVersion>PNG</FileExtensionAndVersion>", "")))
                 .isInstanceOf(IOException.class).hasMessage("CDS_EXPORT_REPORT_BINARY_EXTENSION_REQUIRED");
     }
 
     @Test void shouldRejectBinaryRepresentation_withMismatchedTextFormat() throws Exception {
-        assertThatThrownBy(() -> validate(fixture().replace("<Format>Binary</Format>", "<Format>Text</Format>")))
+        String sourceXml = fixture();
+        assertThatThrownBy(() -> validate(sourceXml.replace("<Format>Binary</Format>", "<Format>Text</Format>")))
                 .hasMessage("CDS_EXPORT_REPORT_FORMAT_MISMATCH");
     }
 
@@ -92,7 +94,8 @@ class CdsExportXmlValidatorUnitTest {
     }
 
     @Test void shouldRejectNoncanonicalBinaryPadBits_evenWhenTheJdkWouldDecodeThem() throws Exception {
-        assertThatThrownBy(() -> validate(fixture().replaceAll("<cdsd:Media>[^<]+</cdsd:Media>", "<cdsd:Media>AB==</cdsd:Media>")))
+        String sourceXml = fixture();
+        assertThatThrownBy(() -> validate(sourceXml.replaceAll("<cdsd:Media>[^<]+</cdsd:Media>", "<cdsd:Media>AB==</cdsd:Media>")))
                 .hasMessage("CDS_BASE64_PAD_BITS_INVALID");
     }
 
@@ -103,7 +106,8 @@ class CdsExportXmlValidatorUnitTest {
     }
 
     @Test void shouldRejectWrongPatientIdentity_insteadOfCountingAnotherPatientsFile() throws Exception {
-        assertThatThrownBy(() -> validate(fixture().replace(ID, "C99"))).hasMessage("CDS_EXPORT_XML_PATIENT_ID_MISMATCH");
+        String sourceXml = fixture();
+        assertThatThrownBy(() -> validate(sourceXml.replace(ID, "C99"))).hasMessage("CDS_EXPORT_XML_PATIENT_ID_MISMATCH");
     }
 
     @Test void shouldRejectUnselectedCategories_evenWhenTheSchemaAllowsThem() throws Exception {
@@ -113,20 +117,23 @@ class CdsExportXmlValidatorUnitTest {
     }
 
     @Test void shouldRejectInvalidSchemaValues_withoutReturningPatientContentInTheError() throws Exception {
-        assertThatThrownBy(() -> validate(fixture().replace("<Gender>F</Gender>", "<Gender>SECRET-INVALID</Gender>")))
+        String sourceXml = fixture();
+        assertThatThrownBy(() -> validate(sourceXml.replace("<Gender>F</Gender>", "<Gender>SECRET-INVALID</Gender>")))
                 .hasMessage("CDS_EXPORT_XML_SCHEMA_INVALID").hasNoCause();
     }
 
     @Test void shouldRejectDtdAndExternalEntityInput_beforeAnyResolution() throws Exception {
-        assertThatThrownBy(() -> validate(fixture().replace("<OmdCds ",
+        String sourceXml = fixture();
+        assertThatThrownBy(() -> validate(sourceXml.replace("<OmdCds ",
                 "<!DOCTYPE OmdCds [<!ENTITY secret SYSTEM 'file:///nonexistent-cds-export-synthetic'>]><OmdCds ")))
                 .hasMessage("CDS_EXPORT_XML_SCHEMA_INVALID");
     }
 
     @Test void shouldRequireUtf8Declaration_andRejectOtherEncodings() throws Exception {
-        assertThatThrownBy(() -> validate(fixture().replace("encoding=\"UTF-8\"", "encoding=\"UTF-16\"")))
+        String sourceXml = fixture();
+        assertThatThrownBy(() -> validate(sourceXml.replace("encoding=\"UTF-8\"", "encoding=\"UTF-16\"")))
                 .hasMessage("CDS_EXPORT_XML_UTF8_DECLARATION_REQUIRED");
-        assertThatThrownBy(() -> validate(fixture().getBytes(StandardCharsets.UTF_16),
+        assertThatThrownBy(() -> validate(sourceXml.getBytes(StandardCharsets.UTF_16),
                 EnumSet.allOf(CdsCategory.class), CdsExportXmlLimitsDto.defaults(), new ArrayList<>()))
                 .hasMessage("CDS_EXPORT_XML_UTF8_DECLARATION_REQUIRED");
     }

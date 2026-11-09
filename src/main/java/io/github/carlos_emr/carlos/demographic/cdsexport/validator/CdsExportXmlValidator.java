@@ -407,6 +407,8 @@ public final class CdsExportXmlValidator {
         Report(long ordinal) { this.ordinal = ordinal; }
     }
     private static final class CountingInput extends FilterInputStream {
+        // Per-operation incremental digest, owned by this stream/row accumulator; never shared singleton state.
+        @SuppressWarnings("java:S9428")
         final MessageDigest digest;
         final long maximum;
         final Runnable checkpoint;

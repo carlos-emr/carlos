@@ -108,6 +108,8 @@ final class CdsExportDocumentInputStream extends InputStream {
         catch (RuntimeException | Error failure) { failed = true; throw failure; }
     }
     private void requireActive() throws IOException { if (closed || failed || Thread.currentThread() != owner) invalid(); }
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+    @SuppressWarnings("java:S1143")
     @Override public void close() throws IOException {
         if (closed) return; Throwable primary = null;
         try {

@@ -25,7 +25,7 @@ jobs:
           persist-credentials: false
       - name: Verify complete annotation pagination
         run: python3 -m unittest discover -s scripts/ci -p test_report_codefactor_findings.py -v
-      - name: Read exact-head CodeFactor findings
+      - name: Read CodeFactor findings with actual analysis commit
         env:
           GITHUB_TOKEN: ${{ github.token }}
           REPORT_REPOSITORY: ${{ github.repository }}

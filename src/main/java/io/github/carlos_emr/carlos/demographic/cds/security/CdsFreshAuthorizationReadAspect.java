@@ -46,6 +46,8 @@ public class CdsFreshAuthorizationReadAspect {
     public CdsFreshAuthorizationReadAspect(@Qualifier("entityManagerFactory") EntityManagerFactory factory) { this.factory = factory; }
     @Around("execution(public * io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportAccessService.*(..))"
             + " || execution(public * io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccessService.*(..))")
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+    @SuppressWarnings("java:S1143")
     public Object freshViewRead(ProceedingJoinPoint operation) throws Throwable {
         if (TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isSynchronizationActive()
                 || !TransactionSynchronizationManager.hasResource(factory)) return operation.proceed();

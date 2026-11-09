@@ -59,6 +59,8 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
         var result = new CdsExportClinicalOccurrenceService.Result[1];
         xml.source(emitter -> result[0] = assemble(lease, patient, patientKey, requiredTables, source, payloadManifest, bounds, control, emitter, output)); return Objects.requireNonNull(result[0]);
     }
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+    @SuppressWarnings("java:S1143")
     private CdsExportClinicalOccurrenceService.Result assemble(CdsExportLeaseDto lease, CdsExportCohortService.Patient patient, String patientKey,
             Set<String> requiredTables, CdsExportPatientCaptureDto source, CdsExportStagedFileDto payloadManifest,
             CdsExportClinicalOccurrenceService.Bounds bounds, CdsExportRunControl control, CdsExportXmlComposer.SectionEmitter xml,

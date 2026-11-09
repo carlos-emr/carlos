@@ -64,6 +64,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class PreventionDaoDetachedExtensionsIntegrationTest extends CarlosTestBase {
 
     private static final int DEMOGRAPHIC = 20777;
+    private static final String PREVENTION_TYPE = "SYNTHETIC-DETACHED";
 
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
@@ -85,7 +86,7 @@ class PreventionDaoDetachedExtensionsIntegrationTest extends CarlosTestBase {
         transactions.executeWithoutResult(status -> {
             Prevention prevention = new Prevention();
             prevention.setDemographicId(DEMOGRAPHIC);
-            prevention.setPreventionType("Flu");
+            prevention.setPreventionType(PREVENTION_TYPE);
             prevention.setPreventionDate(new Date());
             prevention.setProviderNo("-1");
             prevention.setCreatorProviderNo("999998");
@@ -95,6 +96,7 @@ class PreventionDaoDetachedExtensionsIntegrationTest extends CarlosTestBase {
 
             persistExt(prevention.getId(), ImmunizationProperty.lot.name(), "LOT-001");
             persistExt(prevention.getId(), ImmunizationProperty.providerName.name(), "External Clinic");
+            persistExt(prevention.getId(), "cdsDatePrecision", "FULL_DATE");
         });
     }
 
@@ -132,15 +134,16 @@ class PreventionDaoDetachedExtensionsIntegrationTest extends CarlosTestBase {
 
     @Test
     @Tag("query")
-    @DisplayName("plain list queries leave the extensions collection uninitialized")
+    @DisplayName("the generic list query retains the lazy extensions mapping")
     void shouldLeavePreventionExtsUninitialized_whenLoadedViaListQuery() {
-        List<Prevention> results = preventionDao.findNotDeletedByDemographicId(DEMOGRAPHIC);
+        List<Prevention> results = preventionDao.findByDemographicId(DEMOGRAPHIC);
 
         assertThat(results).hasSize(1);
         Prevention detached = results.get(0);
 
         // Pins the performance contract of the LAZY mapping at runtime, not just the annotation:
-        // bulk list queries must not load one extension collection per row.
+        // The generic query keeps its lazy contract; owning clinical projections
+        // explicitly fetch extensions in one join instead of one query per row.
         assertThat(Hibernate.isInitialized(detached.getPreventionExts())).isFalse();
         assertThatThrownBy(detached::setPreventionExtendedProperties)
                 .isInstanceOf(LazyInitializationException.class);
@@ -150,7 +153,7 @@ class PreventionDaoDetachedExtensionsIntegrationTest extends CarlosTestBase {
     @Tag("query")
     @DisplayName("single extension lookup works for detached preventions without the collection")
     void shouldResolveSingleExtension_withoutInitializingCollection() {
-        Prevention detached = preventionDao.findNotDeletedByDemographicId(DEMOGRAPHIC).get(0);
+        Prevention detached = preventionDao.findByDemographicId(DEMOGRAPHIC).get(0);
 
         // The PreventionData list view resolves the external provider name this way.
         List<PreventionExt> providerName = preventionExtDao.findByPreventionIdAndKey(
@@ -158,6 +161,27 @@ class PreventionDaoDetachedExtensionsIntegrationTest extends CarlosTestBase {
 
         assertThat(providerName).extracting(PreventionExt::getVal).containsExactly("External Clinic");
         assertThat(Hibernate.isInitialized(detached.getPreventionExts())).isFalse();
+    }
+
+    @Test
+    @Tag("query")
+    @DisplayName("owning clinical lists fetch complete metadata without duplicate preventions")
+    void shouldInitializeImportedMetadata_forEveryOwningClinicalList() {
+        for (List<Prevention> results : List.of(
+                preventionDao.findNotDeletedByDemographicId(DEMOGRAPHIC),
+                preventionDao.findByTypeAndDate(PREVENTION_TYPE, new Date(0), new Date(System.currentTimeMillis() + 86400000)),
+                preventionDao.findByTypeAndDemoNo(PREVENTION_TYPE, DEMOGRAPHIC),
+                preventionDao.findActiveByDemoId(DEMOGRAPHIC))) {
+            assertThat(results).hasSize(1);
+            Prevention detached = results.get(0);
+            assertThat(Hibernate.isInitialized(detached.getPreventionExts())).isTrue();
+            assertThat(detached.getPreventionExts()).hasSize(3);
+            assertThat(detached.isCdsImported()).isTrue();
+            detached.setPreventionExtendedProperties();
+            assertThat(detached.getLotNo()).isEqualTo("LOT-001");
+            assertThat(detached.getImmunizationProperty(ImmunizationProperty.providerName))
+                    .isEqualTo("External Clinic");
+        }
     }
 
     private void persistExt(Integer preventionId, String key, String value) {

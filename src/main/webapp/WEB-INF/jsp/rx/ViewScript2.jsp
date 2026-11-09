@@ -1493,7 +1493,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 				<td>
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
-                                        <iframe id='preview' name='preview' width=420px height=890px onload="setComment(); updateHalfLetterPrintControls()"
+                                        <iframe id='preview' name='preview' title='Prescription preview' tabindex='0' width=420px height=890px onload="setComment(); updateHalfLetterPrintControls()"
 							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&demographicNo=<%= viewScriptDemographicNo %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/><%= viewScriptChartContext.isEmpty() ? "" : "&amp;chartContext=" + SafeEncode.forHtmlAttribute(SafeEncode.forUriComponent(viewScriptChartContext)) %>"
 							align=center border=0 frameborder=0></iframe></div>
 					<% } %>

@@ -35,6 +35,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class CdsExportSourceCatalogueDao {
     private static final org.apache.logging.log4j.Logger LOG = org.apache.logging.log4j.LogManager.getLogger(CdsExportSourceCatalogueDao.class);
     @PersistenceContext private EntityManager entityManager;
+    // Identifiers come only from the immutable pinned catalogue, validated as ASCII SQL identifiers.
+    @SuppressWarnings("java:S2077")
     public CdsExportTableSchemaDto readSourceSchema() {
         snapshot(); visibility(); var catalogue = CdsExportSourceCatalogue.current(); var engines = engines(); var profile = profile(catalogue, engines.keySet());
         var columns = new HashMap<String, List<CdsExportTableSchemaDto.Column>>();
@@ -59,6 +61,8 @@ public class CdsExportSourceCatalogueDao {
         }
         return catalogue.scope();
     }
+    // Identifiers come only from the immutable pinned catalogue, validated as ASCII SQL identifiers.
+    @SuppressWarnings("java:S2077")
     public void requireUnclassifiedSourcesEmpty(int patient, Runnable checkpoint) {
         snapshot(); if (patient < 1) throw new IllegalArgumentException("CDS_EXPORT_PATIENT_SCOPE_INVALID"); Objects.requireNonNull(checkpoint).run();
         var catalogue = CdsExportSourceCatalogue.current(); var profile = profile(catalogue, engines().keySet());

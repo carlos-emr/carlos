@@ -52,18 +52,32 @@ expected native facts matched and four schema-valid clinical mutants were reject
 The test retired its own tickets/artifact/metadata and restored temporary
 provider/grant changes; it retained the original native chart and protected keys.
 
-The complete authenticated browser check remains a release gate. Full web startup
-exposed duplicate legacy case-note/issue DAO bean types; the readers now bind to
-the canonical existing names, with a constructor-wiring regression that includes
-both historical names. The installed workspace became unavailable before that
-browser run could be completed. Successful component checks, CLI completion or a
-workflow declaration do not establish browser completion. The paired candidate now incorporates the published
-manifest-format-2/ETL-4 billing import contract and retains its filename/audit
-safeguards. At `2c46adc7`, all 300 coordinated suites passed: 2,230 export,
-1,160 import and 379 shared checks, with zero failures, errors or skips. The
-MariaDB DAO suite, packaging and JSP compilation also passed. Installed
-qualification of the current paired candidate remains required. The adapter is
-[carlos-emr/carlos-ctl#20](https://github.com/carlos-emr/carlos-ctl/pull/20).
+The owned installed workflow now runs the actual CLI and the authenticated asynchronous
+browser against one normally deployed WAR. At `0acf632d`, both reached `READY`,
+downloaded and independently recipient-decrypted packages matching all fourteen
+expected native facts and rejecting four schema-valid clinical mutants. Browser
+login, CSRF/method refusal, HTTP 202 acceptance and reload/submission recovery also
+passed. That run failed the final ledger assertion because CLI and browser runtime
+compatibility digests differed; it is not a completed release qualification. The
+fixture now matches the CLI bootstrap's explicit clinical default time zone and
+minimal locale. Exact runtime equality, unchanged native chart/WAR and retired
+process tickets remain required final assertions.
+
+All 305 reviewed coordinated suites passed at `b59628c7`, with no failures, errors
+or required skips, including the four real MariaDB permission-seed cases and the
+actual Struts action factory. The independent administrator `_cds_import` grant
+was explicitly approved and applied in the new V1.0.85 migration. Existing explicit
+grants and denials are preserved. This independent permission survives later
+removal of `_admin` authority and must be revoked separately when intended.
+The maintainer DCO attestation was also explicitly approved; its PR comment and
+check must match the final head. There is no outstanding permission decision.
+
+The paired CLI at `9bd1a88d` passed its unit, installed MariaDB and Debian checks.
+It incorporates the published manifest-format-2/ETL-4 billing contract and retains
+its filename/audit safeguards. Version 1.3.3 remains unpublished. Final candidate
+Java, security, installed resource and complete clinical workflow results remain
+release gates; the current PR checks and their bounded evidence are authoritative.
+The adapter is [carlos-emr/carlos-ctl#20](https://github.com/carlos-emr/carlos-ctl/pull/20).
 
 The complete reviewed inventory runs in the import/export/shared jobs of
 `.github/workflows/cds-transfer.yml`, each with newly migrated owned databases.

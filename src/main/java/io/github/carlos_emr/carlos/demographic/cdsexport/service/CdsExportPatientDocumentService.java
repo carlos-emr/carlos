@@ -58,6 +58,8 @@ public class CdsExportPatientDocumentService {
         this.clinical = Objects.requireNonNull(clinical);
     }
 
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+    @SuppressWarnings("java:S1143")
     public Document compose(CdsExportLeaseDto lease, CdsExportCohortService.Patient patient, Set<String> requiredTables,
             CdsExportPatientCaptureDto source, CdsExportStagedFileDto payloadManifest,
             CdsExportClinicalOccurrenceService.Bounds bounds, String applicationVersion, CdsExportXmlLimitsDto limits,

@@ -55,9 +55,9 @@
             <textarea id="patientNos" name="patientNos" class="form-control mb-3" rows="2" maxlength="119999" disabled></textarea>
             <fieldset class="mb-3"><legend class="h6">Clinical categories</legend>
                 <c:forEach items="${model.categories}" var="category">
-                    <label class="form-check"><input type="checkbox" class="form-check-input export-category" checked
+                    <label for="exportCategory-${carlos:forHtmlAttribute(category.value)}" class="form-check"><input id="exportCategory-${carlos:forHtmlAttribute(category.value)}" type="checkbox" class="form-check-input export-category" checked
                         value="${carlos:forHtmlAttribute(category.value)}" <c:if test="${category.value eq 'Demographics'}">disabled</c:if>>
-                        <span class="form-check-label"><carlos:encode value="${category.label}"/></span></label>
+                        <span class="visually-hidden">Clinical category: </span><span class="form-check-label"><carlos:encode value="${category.label}"/></span></label>
                 </c:forEach>
             </fieldset>
             <div class="row g-3 mb-3">
@@ -76,7 +76,7 @@
         <div class="input-group mb-2"><input id="runId" class="form-control" aria-label="Job ID" maxlength="36">
             <button id="openExport" type="button" class="btn btn-outline-primary">Open job</button></div>
         <div id="exportStatus" class="border rounded p-3" hidden>
-            <h3 id="exportState" class="h5" aria-live="polite"></h3>
+            <h3 id="exportState" class="h5" aria-live="polite">Export status</h3>
             <p id="exportConnection" role="status" aria-live="polite"></p>
             <p id="exportCounts"></p>
             <progress id="exportProgress" max="1" class="w-100"></progress>

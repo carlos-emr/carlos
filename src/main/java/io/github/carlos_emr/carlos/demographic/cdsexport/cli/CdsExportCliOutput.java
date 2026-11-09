@@ -39,6 +39,8 @@ public final class CdsExportCliOutput {
     private final DirectoryPolicy directories;
     public CdsExportCliOutput() { this(CdsExportProtectedFiles::dataDirectory); }
     CdsExportCliOutput(DirectoryPolicy directories) { this.directories = Objects.requireNonNull(directories); }
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+    @SuppressWarnings("java:S1143")
     public void writeNew(Path destination, Writer writer) throws IOException {
         Objects.requireNonNull(destination); Objects.requireNonNull(writer);
         if (!destination.isAbsolute() || !destination.normalize().equals(destination) || destination.getParent() == null

@@ -45,6 +45,8 @@ public final class CdsExportNativeMetadataReadSupport {
         Table(String name) { this.name = name; }
     }
     private CdsExportNativeMetadataReadSupport() { }
+    // The only interpolated identifier is a fixed Table enum literal; no request or row value enters SQL.
+    @SuppressWarnings("java:S2077")
     public static List<Column> read(EntityManager em, Table table) {
         if (table == null) throw new IllegalArgumentException("CDS_EXPORT_RECEIPT_TABLE_INVALID");
         // Reuse the transaction/deadline checks without reading a single protected value.

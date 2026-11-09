@@ -50,6 +50,8 @@ public final class CdsExportSourceCatalogue {
     }
     private static final ObjectMapper JSON = new ObjectMapper(JsonFactory.builder().enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
             .streamReadConstraints(StreamReadConstraints.builder().maxNestingDepth(32).maxStringLength(1_048_576).build()).build());
+    // Snapshot defensively copies its collections; volatile safely publishes that immutable value.
+    @SuppressWarnings("java:S3077")
     private static volatile Snapshot cached;
     private CdsExportSourceCatalogue() { }
     public static Snapshot current() {

@@ -101,7 +101,7 @@ public final class CdsExportLaboratoryRetainedSource {
         if (!Set.of("preserve", "replace", "collapse").contains(rule)) invalid();
         if (rule.equals("preserve")) return raw;
         String replaced = raw.replace('\t', ' ').replace('\r', ' ').replace('\n', ' ');
-        return rule.equals("replace") ? replaced : replaced.replaceAll(" +", " ").replaceAll("^ | $", "");
+        return rule.equals("replace") ? replaced : replaced.replaceAll(" +", " ").replaceAll("(^ )|( $)", "");
     }
     private static String text(CdsExportRetainedSectionWriter.Values values, CdsExportRetainedFieldDto field, int maximum, Runnable checkpoint) throws IOException {
         var result = new StringBuilder(); char[] buffer = new char[4096];

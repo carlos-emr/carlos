@@ -331,6 +331,8 @@ public final class CdsExportXmlComposer {
         final long maximum;
         final Runnable checkpoint;
         long total;
+        // Per-operation incremental digest, owned by this stream/row accumulator; never shared singleton state.
+        @SuppressWarnings("java:S9428")
         MessageDigest occurrence;
         volatile boolean failed;
         CountingOutput(OutputStream output, long maximum, Runnable checkpoint) { super(output); this.maximum = maximum; this.checkpoint = checkpoint; }

@@ -67,6 +67,8 @@ public class CdsExportSelectionService {
     }
 
     /** Timestamp bounds describe the source read; patient membership is bound by the exact inventory digest. */
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+    @SuppressWarnings("java:S1143")
     public CdsExportSelectionDto capture(CdsExportCommand command, CdsExportStagingService staging,
             long maximumPatients, Runnable checkpoint) throws IOException {
         Objects.requireNonNull(command); Objects.requireNonNull(staging); Objects.requireNonNull(checkpoint);

@@ -50,6 +50,8 @@ public class CdsExportPackageInventoryService {
     private record Head(Reader reader, Entry entry) { }
 
     /** Consumes arbitrary source order, validates and read-backs the complete final inventory. */
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+    @SuppressWarnings("java:S1143")
     public Sealed seal(CdsExportStagingService store, long maximumEntries, long maximumIndexBytes,
             Runnable checkpoint, Producer producer) throws IOException {
         Objects.requireNonNull(store); Objects.requireNonNull(checkpoint); Objects.requireNonNull(producer);
@@ -110,6 +112,8 @@ public class CdsExportPackageInventoryService {
         });
         owned.add(file); batch.clear(); return new Run(file, count);
     }
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+    @SuppressWarnings("java:S1143")
     private static Run merge(CdsExportStagingService store, List<Run> runs, String purpose, Runnable checkpoint,
             List<CdsExportStagedFileDto> owned) throws IOException {
         long expected = 0; for (var run : runs) expected = Math.addExact(expected, run.entries()); long total = expected;
@@ -193,6 +197,8 @@ public class CdsExportPackageInventoryService {
             } catch (IOException | RuntimeException | Error failure) { failed = true; throw failure; }
         }
         @Override public CdsExportPackageMemberDto next() throws IOException { var entry = nextEntry(); return entry == null ? null : entry.member(); }
+        // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+        @SuppressWarnings("java:S1143")
         @Override public void close() throws IOException {
             if (closed) return; Throwable primary = null;
             try { if (!failed) while (nextEntry() != null) checkpoint.run(); }

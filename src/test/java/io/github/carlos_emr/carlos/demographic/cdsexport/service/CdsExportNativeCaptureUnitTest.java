@@ -204,7 +204,8 @@ class CdsExportNativeCaptureUnitTest {
                 case "offset", "bytes" -> field.put(name, field.get(name).asText());
                 default -> field.put(name, "unrecognized");
             }
-            assertThatThrownBy(() -> verify(new Capture(valid.values(), encode(nodes)))).isInstanceOf(IOException.class);
+            Capture malformed = new Capture(valid.values(), encode(nodes));
+            assertThatThrownBy(() -> verify(malformed)).isInstanceOf(IOException.class);
         }
         String duplicate = new String(valid.index(), StandardCharsets.UTF_8).replace("\"protocol\":2", "\"protocol\":2,\"protocol\":2");
         assertThatThrownBy(() -> verify(new Capture(valid.values(), duplicate.getBytes(StandardCharsets.UTF_8)))).isInstanceOf(IOException.class);
@@ -214,7 +215,8 @@ class CdsExportNativeCaptureUnitTest {
         byte[] invalid = {(byte) 0x80};
         var field = (ObjectNode) nodes.stream().filter(n -> n.has("field")).findFirst().orElseThrow().get("field");
         field.put("sha256", sha(invalid));
-        assertThatThrownBy(() -> verify(new Capture(invalid, encode(nodes)))).isInstanceOf(IOException.class);
+        Capture malformed = new Capture(invalid, encode(nodes));
+        assertThatThrownBy(() -> verify(malformed)).isInstanceOf(IOException.class);
     }
     @Test void shouldIndependentlyRejectOmittedAndDuplicatedRowsAndFields() throws Exception {
         var values = new ByteArrayOutputStream(); var index = new ByteArrayOutputStream();
@@ -227,7 +229,8 @@ class CdsExportNativeCaptureUnitTest {
             if (fault == 0) nodes.subList(2, 5).clear();
             if (fault == 1) ((ObjectNode) nodes.get(5)).put("recordKey", "01");
             if (fault == 2) nodes.add(4, nodes.get(3).deepCopy());
-            assertThatThrownBy(() -> reader.verify(new ByteArrayInputStream(values.toByteArray()), new ByteArrayInputStream(encode(nodes)),
+            var malformedIndex = new ByteArrayInputStream(encode(nodes));
+            assertThatThrownBy(() -> reader.verify(new ByteArrayInputStream(values.toByteArray()), malformedIndex,
                     Map.of("source", new CdsExportNativeCaptureReader.Table(Set.of("value"), 2)), 10, LIMIT, () -> {})).isInstanceOf(IOException.class);
         }
         assertThat(original).hasSize(10);

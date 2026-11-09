@@ -74,6 +74,8 @@ public class CdsExportRetainedPayloadService {
     @FunctionalInterface private interface Fields { void accept(CdsExportRetainedFieldDto field) throws IOException; }
     private record Inspection(CdsExportNativeCaptureDto source, long fields, long payloads, long bytes, String sha256) { }
 
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+    @SuppressWarnings("java:S1143")
     public CdsExportRetainedPayloadReceiptDto freeze(CdsExportLeaseDto lease, CdsExportCohortService.Patient patient,
             Set<String> requiredTables, CdsExportStagedFileDto sourceManifest, long maximumFields, long maximumBytes, CdsExportRunControl control) throws IOException {
         scope(requiredTables); patient.require(lease); captures.authorizeSources(lease, patient, requiredTables, control);

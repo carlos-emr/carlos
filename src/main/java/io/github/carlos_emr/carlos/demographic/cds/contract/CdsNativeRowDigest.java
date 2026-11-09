@@ -45,6 +45,8 @@ public final class CdsNativeRowDigest {
     /** Bounded one-row accumulator. Any failure or completed digest permanently closes this instance. */
     public static final class Hasher {
         private final List<Column> columns;
+        // Per-operation incremental digest, owned by this stream/row accumulator; never shared singleton state.
+        @SuppressWarnings("java:S9428")
         private final MessageDigest digest = CdsImportKeys.digest();
         private int position;
         private boolean closed;

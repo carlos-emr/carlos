@@ -109,7 +109,7 @@ class CdsTemporalReadServiceUnitTest {
             @Override protected LoggedInInfo getLoggedInInfo() { return info; }
         };
         var security = mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
-        when(security.hasPrivilege(info, "_allergy", "r", Integer.valueOf(1))).thenReturn(true);
+        when(security.hasPrivilege(info, "_allergy", "r", 1)).thenReturn(true);
         ReflectionTestUtils.setField(service, "securityInfoManager", security);
         ReflectionTestUtils.setField(service, "allergyManager", manager);
         ReflectionTestUtils.setField(service, "legacyProjection", mock(CdsLegacyProjectionService.class));

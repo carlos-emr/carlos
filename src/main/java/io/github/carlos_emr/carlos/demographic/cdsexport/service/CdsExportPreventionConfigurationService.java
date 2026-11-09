@@ -51,6 +51,8 @@ public class CdsExportPreventionConfigurationService {
     CdsExportPreventionConfigurationService(CdsExportNativeCaptureService captures, CdsExportStagingFactory stores, CdsExportCapturedTextRowsReader rows, String location){
         this.captures=Objects.requireNonNull(captures); this.stores=Objects.requireNonNull(stores); this.rows=Objects.requireNonNull(rows); this.location=Objects.requireNonNull(location);
     }
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+    @SuppressWarnings("java:S1143")
     public CdsExportPreventionConfigurationDto freeze(CdsExportLeaseDto lease, CdsExportCohortService.Patient patient, Set<String> requiredTables,
             CdsExportPatientCaptureDto source, long maximumFields, long maximumBytes, CdsExportRunControl control)throws IOException{
         scope(lease, patient, requiredTables, source); captures.authorizeSources(lease, patient, requiredTables, control); control.checkpoint();

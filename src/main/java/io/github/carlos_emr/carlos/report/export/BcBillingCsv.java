@@ -92,7 +92,8 @@ public final class BcBillingCsv {
      * @throws IllegalArgumentException if the accounting report type is unsupported
      */
     public static void write(OutputStream output, String type, List<MSPBill> bills) throws IOException {
-        write(output, type, bills, LocalDate.now());
+        // Accounting reports intentionally use the deployment calendar, as before.
+        write(output, type, bills, LocalDate.now(java.time.Clock.systemDefaultZone()));
     }
 
     static void write(OutputStream output, String type, List<MSPBill> bills, LocalDate reportDate) throws IOException {

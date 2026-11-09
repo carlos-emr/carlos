@@ -121,6 +121,8 @@ public final class CdsExportDeliveryComposer {
         catch (NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
     }
     private static final class CountingOutput extends FilterOutputStream {
+        // Per-operation incremental digest, owned by this stream/row accumulator; never shared singleton state.
+        @SuppressWarnings("java:S9428")
         final MessageDigest digest = sha256();
         final long maximum;
         final Runnable checkpoint;

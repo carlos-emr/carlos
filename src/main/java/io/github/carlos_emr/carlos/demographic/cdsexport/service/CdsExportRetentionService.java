@@ -52,6 +52,8 @@ public class CdsExportRetentionService {
         catch (Error fatal) { LOG.error("CDS export retention stopped: CDS_EXPORT_CLEANUP_FATAL"); throw fatal; }
     }
     /** At most 16 runs and 64 attempts per run per sweep. Older epochs precede a current retry. */
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+    @SuppressWarnings("java:S1143")
     public void sweep() {
         for (var run : ledger.expiredArtifacts(16)) {
             for (long epoch : ledger.artifactEpochs(run, 0, 64)) {

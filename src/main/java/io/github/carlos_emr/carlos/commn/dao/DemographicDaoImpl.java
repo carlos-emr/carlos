@@ -141,6 +141,8 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
      */
     @Override
     @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    // Projection identifiers are fixed application columns; the patient value is bound separately.
+    @SuppressWarnings("java:S2077")
     public io.github.carlos_emr.carlos.commn.dto.CdsExportDemographicRowDto findCdsExportRawDemographic(int demographicNo) {
         if (demographicNo < 1 || !TransactionSynchronizationManager.isActualTransactionActive()
                 || !TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {

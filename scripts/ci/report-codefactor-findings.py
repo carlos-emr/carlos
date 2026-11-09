@@ -55,6 +55,24 @@ def collect(fetch, repository: str, commit: str, check: dict) -> dict:
             "annotationsSha256": digest, "annotations": annotations}
 
 
+def latest_completed_check(fetch, repository: str, requested: str):
+    """External apps may omit checks on CI-only commits; retain the actual analysis SHA."""
+    commit = requested
+    for _ in range(10):
+        response = fetch(f"/repos/{repository}/commits/{commit}/check-runs?check_name=CodeFactor&filter=latest&per_page=100")
+        matches = [check for check in response.get("check_runs", []) if check.get("name") == "CodeFactor"
+                   and check.get("head_sha") == commit and check.get("status") == "completed"]
+        if matches:
+            return commit, max(matches, key=lambda check: check["id"])
+        parents = fetch(f"/repos/{repository}/commits/{commit}").get("parents", [])
+        if not parents:
+            break
+        commit = parents[0].get("sha")
+        if not isinstance(commit, str) or not re.fullmatch(r"[a-f0-9]{40}", commit):
+            raise ValueError("Invalid analysis ancestor")
+    return None
+
+
 def main() -> int:
     repository, commit = os.environ["REPORT_REPOSITORY"], os.environ["REPORT_COMMIT"]
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository) or not re.fullmatch(r"[a-f0-9]{40}", commit):
@@ -76,14 +94,15 @@ def main() -> int:
 
     deadline = time.monotonic() + 900
     while True:
-        response = fetch(f"/repos/{repository}/commits/{commit}/check-runs?check_name=CodeFactor&filter=latest&per_page=100")
-        matches = [check for check in response.get("check_runs", []) if check.get("name") == "CodeFactor"
-                   and check.get("head_sha") == commit and check.get("status") == "completed"]
-        if matches:
-            document = collect(fetch, repository, commit, max(matches, key=lambda check: check["id"]))
+        selected = latest_completed_check(fetch, repository, commit)
+        if selected is not None:
+            analysis_commit, check = selected
+            document = collect(fetch, repository, analysis_commit, check)
+            document["requestedCommit"] = commit
+            document["analysisMayPrecedeCurrentCommit"] = analysis_commit != commit
             break
         if time.monotonic() >= deadline:
-            raise RuntimeError("Completed exact-head CodeFactor check unavailable")
+            raise RuntimeError("Completed CodeFactor check unavailable within bounded history")
         time.sleep(15)
     output = Path(os.environ["REPORT_PATH"])
     output.parent.mkdir(parents=True, exist_ok=True)

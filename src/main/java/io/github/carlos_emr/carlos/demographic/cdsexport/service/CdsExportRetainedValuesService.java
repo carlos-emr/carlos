@@ -52,6 +52,8 @@ public class CdsExportRetainedValuesService {
         this.indices = Objects.requireNonNull(indices); this.payloads = Objects.requireNonNull(payloads);
         this.captures = Objects.requireNonNull(captures); this.stores = Objects.requireNonNull(stores);
     }
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+    @SuppressWarnings("java:S1143")
     public void withValues(CdsExportLeaseDto lease, CdsExportCohortService.Patient patient, Set<String> requiredTables,
             CdsExportStagedFileDto sourceManifest, CdsExportStagedFileDto payloadManifest, long maximumFields,
             long maximumBytes, int maximumRows, long maximumIndexBytes, CdsExportRunControl control, Work work) throws IOException {
@@ -120,6 +122,8 @@ public class CdsExportRetainedValuesService {
                     .onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT)));
         }
         @Override public InputStream binary(CdsExportRetainedFieldDto field) throws IOException { return value(field, true); }
+        // Ownership transfers to Guarded and the scope open-set; the enclosing scope closes every unretired stream.
+        @SuppressWarnings("java:S2095")
         private InputStream value(CdsExportRetainedFieldDto field, boolean binary) throws IOException {
             try {
                 check(); if (!open.isEmpty() || field == null || !field.equals(fields.get(field.id()))) invalid();
@@ -165,6 +169,8 @@ public class CdsExportRetainedValuesService {
                 try { check(); if (closed) invalid(); return input.read(chars, offset, length); }
                 catch (IOException | RuntimeException | Error failure) { failed = true; throw failure; }
             }
+            // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+            @SuppressWarnings("java:S1143")
             @Override public void close() throws IOException {
                 if (closed) return;
                 Throwable primary = null;

@@ -140,6 +140,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     }
 
     @Override
+    // Only fixed HQL fragments and the literal alias x are composed; patient and archived values are bound.
+    @SuppressWarnings("java:S2077")
     public List<Drug> findByDemographicId(Integer demographicId, Boolean archived) {
 
         String sqlCommand = "select x from Drug x where x.demographicId=?1 "
@@ -179,6 +181,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
      */
     @Deprecated
     @Override
+    // Only fixed HQL fragments and the literal alias x are composed; patient and archived values are bound.
+    @SuppressWarnings("java:S2077")
     public List<Drug> findByDemographicIdOrderByDate(Integer demographicId, Boolean archived) {
         // build sql string
         String sqlCommand = "select x from Drug x where x.demographicId=?1 "
@@ -227,6 +231,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     }
 
     @Override
+    // Only fixed HQL fragments and the literal alias x are composed; patient and archived values are bound.
+    @SuppressWarnings("java:S2077")
     public List<Drug> findByDemographicIdOrderByPosition(Integer demographicId, Boolean archived) {
         // build sql string
         String sqlCommand = "select x from Drug x where x.demographicId=?1 "

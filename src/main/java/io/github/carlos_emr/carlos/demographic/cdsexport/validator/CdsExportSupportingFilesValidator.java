@@ -173,7 +173,13 @@ public final class CdsExportSupportingFilesValidator {
         }
     }
     private static final class Counted extends FilterInputStream {
-        private final long[] total; private final long maximum; private final Runnable checkpoint; private final MessageDigest digest; private long bytes;
+        private final long[] total;
+        private final long maximum;
+        private final Runnable checkpoint;
+        // Per-operation incremental digest, owned by this stream/row accumulator; never shared singleton state.
+        @SuppressWarnings("java:S9428")
+        private final MessageDigest digest;
+        private long bytes;
         Counted(InputStream input, long[] total, long maximum, Runnable checkpoint) { super(input); this.total = total; this.maximum = maximum; this.checkpoint = checkpoint; try { digest = MessageDigest.getInstance("SHA-256"); } catch (NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); } }
         @Override public int read() throws IOException { probe(checkpoint); int value = in.read(); if (value != -1) { count(1); digest.update((byte) value); } return value; }
         @Override public int read(byte[] buffer, int offset, int length) throws IOException { probe(checkpoint); int read = in.read(buffer, offset, length); if (read > 0) { count(read); digest.update(buffer, offset, read); } return read; }

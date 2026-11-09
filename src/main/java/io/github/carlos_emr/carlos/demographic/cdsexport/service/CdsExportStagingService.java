@@ -213,14 +213,18 @@ public final class CdsExportStagingService {
             channel.position(0);
             // Closing the verifier erases its plaintext but leaves this scope's descriptor pinned.
             var stream = new java.io.FilterInputStream(Channels.newInputStream(channel)) { @Override public void close() { } };
-            var input = new DataInputStream(stream); byte[] actual = input.readNBytes(HEADER);
-            if (!MessageDigest.isEqual(actual, header)) throw new IOException("CDS_EXPORT_STAGED_SCOPE_MISMATCH");
-            try (var clear = new ChunkInput(input, actual, expected, true)) {
-                byte[] buffer = new byte[CHUNK];
-                try { int count; while ((count = clear.read(buffer)) != -1) if (count == 0) throw new IOException("CDS_EXPORT_VALUE_RANGE_STALLED"); }
-                finally { Arrays.fill(buffer, (byte) 0); }
+            try (var input = new DataInputStream(stream)) {
+                byte[] actual = input.readNBytes(HEADER);
+                if (!MessageDigest.isEqual(actual, header)) throw new IOException("CDS_EXPORT_STAGED_SCOPE_MISMATCH");
+                try (var clear = new ChunkInput(input, actual, expected, true)) {
+                    byte[] buffer = new byte[CHUNK];
+                    try { int count; while ((count = clear.read(buffer)) != -1) if (count == 0) throw new IOException("CDS_EXPORT_VALUE_RANGE_STALLED"); }
+                    finally { Arrays.fill(buffer, (byte) 0); }
+                }
             }
         }
+        // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+        @SuppressWarnings("java:S1143")
         @Override public void close() throws IOException {
             if (closed) return;
             Throwable primary = null;
@@ -235,6 +239,8 @@ public final class CdsExportStagingService {
             }
         }
         private final class FieldRange extends InputStream {
+            // Per-operation incremental digest, owned by this stream/row accumulator; never shared singleton state.
+            @SuppressWarnings("java:S9428")
             private final MessageDigest digest = sha256();
             private final byte[] expectedHash;
             private long position, remaining;
@@ -363,6 +369,8 @@ public final class CdsExportStagingService {
         private final DataOutputStream output;
         private final byte[] header;
         private final SecretKey key;
+        // Per-operation incremental digest, owned by this stream/row accumulator; never shared singleton state.
+        @SuppressWarnings("java:S9428")
         private final MessageDigest digest;
         private final byte[] buffer = new byte[CHUNK];
         private int buffered;
@@ -408,6 +416,8 @@ public final class CdsExportStagingService {
         private final byte[] header;
         private final SecretKey key;
         private final CdsExportStagedFileDto expected;
+        // Per-operation incremental digest, owned by this stream/row accumulator; never shared singleton state.
+        @SuppressWarnings("java:S9428")
         private final MessageDigest digest = sha256();
         private final boolean canonical;
         private byte[] plain = new byte[0];

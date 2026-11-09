@@ -124,7 +124,7 @@ final class CdsExportCareRetainedSource {
     private static String normalize(String value, String whitespace) throws IOException {
         if (whitespace.equals("preserve")) return value;
         if (!Set.of("replace", "collapse").contains(whitespace)) invalid(); String replaced = value.replace('\t', ' ').replace('\r', ' ').replace('\n', ' ');
-        return whitespace.equals("replace") ? replaced : replaced.replaceAll(" +", " ").replaceAll("^ | $", "");
+        return whitespace.equals("replace") ? replaced : replaced.replaceAll(" +", " ").replaceAll("(^ )|( $)", "");
     }
     private static String text(CdsExportRetainedSectionWriter.Values values, CdsExportRetainedFieldDto field, int maximum, Runnable checkpoint) throws IOException {
         var result = new StringBuilder(); char[] buffer = new char[4096];

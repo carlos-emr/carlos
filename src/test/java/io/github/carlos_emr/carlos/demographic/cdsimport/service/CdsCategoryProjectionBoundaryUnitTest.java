@@ -84,7 +84,7 @@ class CdsCategoryProjectionBoundaryUnitTest {
         AllergyManager manager = mock(AllergyManager.class);
         when(manager.getActiveAllergies(null, 42)).thenReturn(List.of(new Allergy()));
         SecurityInfoManager security = mock(SecurityInfoManager.class);
-        when(security.hasPrivilege(null, "_allergy", SecurityInfoManager.READ, Integer.valueOf(42))).thenReturn(true);
+        when(security.hasPrivilege(null, "_allergy", SecurityInfoManager.READ, 42)).thenReturn(true);
         AllergyService service = new AllergyService() { @Override protected LoggedInInfo getLoggedInInfo() { return null; } };
         ReflectionTestUtils.setField(service, "allergyManager", manager);
         ReflectionTestUtils.setField(service, "legacyProjection", new CdsLegacyProjectionService(records));

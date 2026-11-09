@@ -68,7 +68,7 @@
     },
     "installedQualification": {
       "workflow": ".github/workflows/cds-export-installed.yml",
-      "status": "CURRENT_REVISION_RERUN_PENDING",
+      "status": "FINAL_RUNTIME_COMPATIBILITY_REQUALIFICATION_IN_PROGRESS",
       "freshOwnedRuntime": true,
       "productionClassOverlays": false,
       "independentNativeFacts": 14,
@@ -78,36 +78,66 @@
       "packagedContextSha256": "2f54277d0a1e59cf9e359f9d320f8e9b37fe949026cd82fbf28db3d0c6d0b737",
       "strictTestTlsCaAndServerChain": true,
       "previousAttempt": {
-        "head": "3f69d56e29a73a9115de78ad5d9a642e80db2b4c",
-        "workflowRun": 42525528372,
-        "overall": "FAILED_BEFORE_BROWSER",
+        "head": "0acf632dc7bfa22c67966d499ccf4a0987987566",
+        "workflowRun": 42535103329,
+        "overall": "FAILED_AT_FINAL_RUNTIME_COMPATIBILITY_EQUALITY",
+        "warSha256": "baca01eac089e118b6df2b270cab3da971e84ea8eff2d82437dbd873e91da7a6",
         "cliClinicalReady": true,
-        "cliIndependentNativeFacts": 14,
-        "cliSchemaValidClinicalMutantsDetected": 4,
-        "cliRecipientDecryption": true,
-        "failureStage": "REAL_TLS_TOMCAT_STARTUP",
-        "serverStarted": true,
-        "tlsStarted": true,
-        "http200Responses": 128,
-        "loginBodyBytes": 0,
-        "fixtureDescriptorWasIncomplete": true
-      }
+        "browserAuthenticated": true,
+        "browserAcceptedHttp202": true,
+        "browserReloadRecovered": true,
+        "browserClinicalReady": true,
+        "browserFormDownload": true,
+        "cliAndBrowserRecipientDecryption": true,
+        "independentNativeFactsPerTransport": 14,
+        "schemaValidClinicalMutantsDetectedPerTransport": 4,
+        "patientXmlSha256": "28f95cd5e1383293879a4784fd0de9b9c5e38b1cb0e3567a7d65c54fb4db4b0a",
+        "finalLedgerRuntimeCompatibilityEqual": false,
+        "currentCandidateQualificationSubstituted": false
+      },
+      "effectiveRuntimeContract": "The CLI bootstrap sets its Java default zone to the configured clinical zone and uses a minimal C.UTF-8 locale. The owned Tomcat matches both; strict runtime compatibility equality remains mandatory."
     },
     "permissionProposal": {
-      "status": "PENDING_EXPLICIT_APPROVAL_NOT_APPLIED",
+      "status": "APPLIED_AFTER_EXPLICIT_USER_APPROVAL",
       "migration": "V1.0.85__seed_admin_cds_import_permission.sql",
       "existingDefaultsPreserved": true,
       "automaticApprovalReviewRejectedPersistentGrant": true,
       "preservesExplicitImportGrantsAndDenials": true,
-      "grantsOtherRoles": false
+      "grantsOtherRoles": false,
+      "appliedCommit": "b59628c75cd5098930dce11e292fcf0a2569a0e4",
+      "approval": "both approved proceed",
+      "grantSurvivesLaterAdminAuthorityRemoval": true,
+      "independentRevocationRequired": true
     },
     "actionInstantiationContract": {
       "legacyClassMappedActionsRetainNoArg": true,
       "namedPrototypeBeansUseActualStrutsFactory": true,
       "globalAutowireStrategyUnchanged": true,
-      "currentRevisionVerificationPending": true
+      "currentRevisionVerificationPending": false,
+      "verifiedHead": "b59628c75cd5098930dce11e292fcf0a2569a0e4"
     },
-    "reviewedInventorySuites": 304
+    "reviewedInventorySuites": 305,
+    "latestCoordinatedCheckpoint": {
+      "head": "b59628c75cd5098930dce11e292fcf0a2569a0e4",
+      "suites": 305,
+      "shards": [
+        "export",
+        "import",
+        "shared"
+      ],
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "includesFourNativePermissionSeedCases": true,
+      "currentHeadRequalificationRequired": true
+    },
+    "dcoAttestation": {
+      "status": "EXPLICITLY_USER_AUTHORIZED",
+      "commentId": 6728500525,
+      "commentUrl": "https://github.com/carlos-emr/carlos/pull/5706#issuecomment-6728500525",
+      "latestVerifiedPassingHead": "0e25f7d4bacf1cc8fc27a76d8140c0cdf824dab4",
+      "finalHeadConfirmationRequired": true
+    }
   },
   "verifiedClinicalCheckpoint": {
     "warSha256": "17f93a04c56771befd30271d4cfd75c2daad2b492be50df7c22742afe847c407",
@@ -151,11 +181,10 @@
     "Any missing clinical authorization, changed accepted policy or incompatible runtime"
   ],
   "remaining": [
-    "Complete exact-current-candidate authenticated asynchronous browser and CLI qualification",
-    "Validate actual Struts named-bean construction alongside legacy class-mapped action conventions",
-    "Resolve the independent import permission seed decision without weakening the security contract",
-    "Complete current-head broad, security and installed resource CI gates",
-    "Obtain the repository-required DCO attestation for unsigned historical commits before readiness"
+    "Complete the final installed CLI/browser runtime equality, native chart preservation, retired-ticket and unchanged-WAR assertions",
+    "Pass the complete final-head Java, native, source-contract, security and five installed resource profiles",
+    "Review every actionable external quality finding and retain complete diagnostic evidence",
+    "Refresh the final-head DCO check and PR readiness from actual completed checks"
   ],
   "deploymentObligations": [
     "Establish usable complete historical patient audit access for the approved recipient",

@@ -67,6 +67,8 @@ public class CdsExportCohortService {
         this.stores = stores; this.ledger = ledger;
     }
     /** The caller already owns this selection file and must retain it across an uncertain subsequent DB seal. */
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+    @SuppressWarnings("java:S1143")
     public Sealed prepare(CdsExportLeaseDto lease, CdsExportSelectionDto selection, CdsExportRunControl control) throws IOException {
         outside(); Objects.requireNonNull(control); Objects.requireNonNull(selection); control.checkpoint();
         requireBound(lease); if (selection.patients() < 1) throw new IOException("CDS_EXPORT_NO_PATIENTS_SELECTED");
@@ -157,7 +159,7 @@ public class CdsExportCohortService {
         private Patient(Cursor cursor, long generation, CdsExportSelectionRowDto row) { this.cursor = cursor; this.generation = generation; this.row = row; }
         void require(CdsExportLeaseDto lease) {
             cursor.sealed.require(lease);
-            if (cursor.closed || cursor.failed || cursor.generation != generation || Thread.currentThread() != cursor.owner) throw new IllegalStateException("CDS_EXPORT_PATIENT_SCOPE_EXPIRED");
+            if (cursor.closed || cursor.failed || cursor.generation.get() != generation || Thread.currentThread() != cursor.owner) throw new IllegalStateException("CDS_EXPORT_PATIENT_SCOPE_EXPIRED");
         }
         public int patient() { return row.demographicNo(); }
         public CdsExportSelectionRowDto selection() { return row; }
@@ -166,7 +168,8 @@ public class CdsExportCohortService {
     }
     public static final class Cursor implements AutoCloseable {
         private final Sealed sealed; private final InputStream input; private final Rows rows;
-        private volatile boolean closed, failed; private volatile long generation;
+        private volatile boolean closed, failed;
+        private final java.util.concurrent.atomic.AtomicLong generation = new java.util.concurrent.atomic.AtomicLong();
         private final Thread owner = Thread.currentThread();
         private Cursor(Sealed sealed, InputStream input, CdsExportRunControl control) {
             this.sealed = sealed; this.input = input; rows = new Rows(input, sealed.lease.document().command(), sealed.patients(), control);
@@ -174,11 +177,11 @@ public class CdsExportCohortService {
         public Patient next() throws IOException {
             try {
                 if (closed || failed || Thread.currentThread() != owner) throw new IOException("CDS_EXPORT_COHORT_CURSOR_CLOSED");
-                generation++; var row = rows.next(); return row == null ? null : new Patient(this, generation, row);
+                long current = generation.incrementAndGet(); var row = rows.next(); return row == null ? null : new Patient(this, current, row);
             } catch (IOException | RuntimeException | Error failure) { failed = true; throw failure; }
         }
         public boolean complete() { return !failed && rows.eof; }
-        @Override public void close() throws IOException { closed = true; generation++; input.close(); }
+        @Override public void close() throws IOException { closed = true; generation.incrementAndGet(); input.close(); }
         @Override public String toString() { return "CdsExportCohortCursor[protected]"; }
     }
     private static final class Rows {

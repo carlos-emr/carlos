@@ -39,6 +39,8 @@ import java.util.Objects;
 final class CdsExportAuthenticatedRangeInputStream extends InputStream {
     @FunctionalInterface interface Checkpoint { void run() throws IOException; }
     private final InputStream source;
+    // Per-operation incremental digest, owned by this stream/row accumulator; never shared singleton state.
+    @SuppressWarnings("java:S9428")
     private final MessageDigest digest;
     private final byte[] expected;
     private final Checkpoint checkpoint;
@@ -94,6 +96,8 @@ final class CdsExportAuthenticatedRangeInputStream extends InputStream {
             }
         } finally { Arrays.fill(buffer, (byte) 0); }
     }
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that failure.
+    @SuppressWarnings("java:S1143")
     @Override public void close() throws IOException {
         if (closed) return;
         Throwable primary = null;
