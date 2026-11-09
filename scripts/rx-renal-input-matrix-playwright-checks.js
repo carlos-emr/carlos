@@ -117,7 +117,8 @@ async function workflow(s) {
     for(const token of ['80','100 sCr','2025-Jan-02']) {
       h.assert(refreshedEquation.includes(token),`Refreshed renal equation did not reread ${token}`);
     }
-    h.assert(await panel.locator('table.sofT tr.selected').count()===0,'Restored valid high clearance retained the previous recommendation');
+    h.assert(await panel.locator('table.sofT tr.selected').count()===(clearance>=5 && clearance<=30 ? 1 : 0),
+      'Restored observations selected the wrong recommendation for the patient age');
     h.assert(s.sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${s.patient}`)==='0','Input checking unexpectedly saved a prescription');
     if(mark)await consumeRenalRefusal(s,rx,response,mark);
   });
