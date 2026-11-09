@@ -296,13 +296,6 @@
 
             <input type="hidden" name="fromAppt" value="<carlos:encode value='<%= request.getParameter("fromAppt") != null ? request.getParameter("fromAppt") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             <input type="hidden" name="originalpage" value="<carlos:encode value='<%= originalpage %>' context="htmlAttribute"/>">
-            <input type="hidden" name="ticklerOriginalPatient" value="${carlos:forHtmlAttribute(param.ticklerOriginalPatient)}"/>
-            <input type="hidden" name="ticklerMessage" value="${carlos:forHtmlAttribute(param.ticklerMessage)}">
-            <input type="hidden" name="ticklerDraftDate" value="${carlos:forHtmlAttribute(param.ticklerDraftDate)}">
-            <input type="hidden" name="ticklerDraftPriority" value="${carlos:forHtmlAttribute(param.ticklerDraftPriority)}">
-            <% if (request.getParameter("taskTo") != null) { %>
-            <input type="hidden" name="taskTo" value="${carlos:forHtmlAttribute(param.taskTo)}">
-            <% } %>
             <input type="hidden" name="originalPage"
                    value="<carlos:encode value='<%= request.getParameter("originalPage") != null ? request.getParameter("originalPage") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             <input type="hidden" name="bFirstDisp"
@@ -337,7 +330,7 @@
                 String temp = null;
                 for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                     temp = e.nextElement().toString();
-                    if (temp.equals("keyword") || temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no") || temp.equals("ptstatus") || temp.equals("submit"))
+                    if (temp.equals("keyword") || temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no") || temp.equals("ptstatus") || temp.equals("submit") || temp.equals("originalpage"))
                         continue;
             %>
             <input type="hidden" name="<carlos:encode value='<%= temp %>' context="htmlAttribute"/>"

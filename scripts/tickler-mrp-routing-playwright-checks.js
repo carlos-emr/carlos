@@ -188,6 +188,23 @@ async function workflow(s) {
     const search=one.locator('form[name="ADDAPPT"]');
     await search.locator('input[name="keyword"]').fill(marker);
     await ui.clickAndAwaitReload(one,search.locator('input[type="submit"][name="Submit"]'));
+    await one.locator('#searchPopUpButton').click();
+    const repeated=one.locator('form[name="titlesearch"]');
+    h.assert(sql.value("SELECT COUNT(*) FROM demographic WHERE last_name LIKE 'FAKE-PW%' ")==='2','Paging namespace contains unexpected patients');
+    await repeated.locator('input[name="keyword"]').fill('FAKE-PW');
+    await repeated.locator('input[name="limit2"]').evaluate(input=>{input.value='1';});
+    const [repeatedResponse]=await Promise.all([
+      one.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/demographic/DemographicSearch')),
+      ui.clickAndAwaitReload(one,repeated.locator('input[type="submit"]')),
+    ]);
+    const repeatedFields=new URLSearchParams(repeatedResponse.request().postData());
+    for(const name of ['ticklerMessage','ticklerDraftDate','ticklerDraftPriority','taskTo','originalpage'])
+      h.assert(repeatedFields.getAll(name).length===1,'Repeated search duplicated or omitted a draft field: '+name);
+    for(const button of ['#nextPageButton','#prevPageButton']) {
+      await ui.clickAndAwaitReload(one,one.locator(button));
+      const paging=one.locator('form[name="nextform"]');
+      h.assert(await paging.locator('input[name="ticklerMessage"]').inputValue()===marker+' first draft'&&await paging.locator('input[name="ticklerDraftDate"]').inputValue()==='2031-01-31','Paging lost the owned draft');
+    }
     await ui.clickAndAwaitReload(one,one.locator('#ticklerReturnDraft'));
     h.assert(await one.locator('#ticklerMessage').inputValue()===marker+' first draft','First composer lost its own draft');
     h.assert(await two.locator('#ticklerMessage').inputValue()===marker+' second draft','Another composer substituted the draft');
