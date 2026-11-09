@@ -1,0 +1,79 @@
+  PASS lab-qualified-results: native Create Lab stores literal qualified/qualitative/numeric observations and exact patient/test/time identities
+  PASS laboratory assertion: 2021-01-01 native report literal associations
+  PASS laboratory assertion: HEMOGLOBIN native value history
+  FINDING laboratory assertion: HEMOGLOBIN native Plot handles only exact numeric observations: Native lab graph invented numeric points from qualified/qualitative observations or another patient
+  PASS laboratory assertion: HEMATOCRIT native value history
+  FINDING laboratory assertion: HEMATOCRIT native Plot handles only exact numeric observations: Native lab graph invented a numeric point for a wholly qualified/qualitative result
+
+49 !== 0
+
+  PASS laboratory assertion: SODIUM native value history
+  PASS laboratory assertion: SODIUM native Plot handles only exact numeric observations
+  FINDING laboratory assertion: GLUCOSE FASTING-SER native value history: Value history lost or duplicated qualified/qualitative observations
+  PASS laboratory assertion: GLUCOSE FASTING-SER native Plot handles only exact numeric observations
+  PASS laboratory assertion: CHOLESTEROL native value history
+  PASS laboratory assertion: CHOLESTEROL native Plot handles only exact numeric observations
+  PASS laboratory assertion: 2021-01-01 actual native report PDF preserves literals
+  PASS laboratory assertion: 2022-05-07 native report literal associations
+  PASS laboratory assertion: 2022-05-07 actual native report PDF preserves literals
+  PASS laboratory assertion: 2023-12-29 native report literal associations
+  PASS laboratory assertion: 2023-12-29 actual native report PDF preserves literals
+  PASS laboratory assertion: 2025-10-02 native report literal associations
+  PASS laboratory assertion: 2025-10-02 actual native report PDF preserves literals
+  PASS laboratory assertion: 2026-11-01 native report literal associations
+  PASS laboratory assertion: 2026-11-01 actual native report PDF preserves literals
+  PASS laboratory assertion: cumulative grid includes every source lab
+  FINDING laboratory assertion: HEMOGLOBIN cumulative grid retains current and historical literals: Grid changed a historical literal: HEMOGLOBIN 2022-05-07 expected "Negative" actual "negative"
+  PASS laboratory assertion: HEMATOCRIT cumulative grid retains current and historical literals
+  FINDING laboratory assertion: SODIUM cumulative grid retains current and historical literals: Grid latest result/date is stale or coerced: expected Negative actual negative
+  FINDING laboratory assertion: GLUCOSE FASTING-SER cumulative grid retains current and historical literals: Grid omitted the qualitative/qualified test: GLUCOSE FASTING-SER
+  PASS laboratory assertion: CHOLESTEROL cumulative grid retains current and historical literals
+  PASS laboratory assertion: HEMOGLOBIN cumulative row literal history
+  PASS laboratory assertion: HEMATOCRIT cumulative row literal history
+  PASS laboratory assertion: SODIUM cumulative row literal history
+  FINDING laboratory assertion: GLUCOSE FASTING-SER cumulative row literal history: Row history lost or duplicated observations
+  PASS laboratory assertion: CHOLESTEROL cumulative row literal history
+  PASS laboratory assertion: read/print/plot preserve exact owned and unrelated clinical state
+  PASS laboratory assertion: strict browser diagnostics
+FAIL lab-qualified-results -- Qualified laboratory acceptance: HEMOGLOBIN native Plot handles only exact numeric observations: Native lab graph invented numeric points from qualified/qualitative observations or another patient; HEMATOCRIT native Plot handles only exact numeric observations: Native lab graph invented a numeric point for a wholly qualified/qualitative result
+
+49 !== 0
+; GLUCOSE FASTING-SER native value history: Value history lost or duplicated qualified/qualitative observations; HEMOGLOBIN cumulative grid retains current and historical literals: Grid changed a historical literal: HEMOGLOBIN 2022-05-07 expected "Negative" actual "negative"; SODIUM cumulative grid retains current and historical literals: Grid latest result/date is stale or coerced: expected Negative actual negative; GLUCOSE FASTING-SER cumulative grid retains current and historical literals: Grid omitted the qualitative/qualified test: GLUCOSE FASTING-SER; GLUCOSE FASTING-SER cumulative row literal history: Row history lost or duplicated observations
+{
+  "badResponses": [],
+  "consoleIssues": [],
+  "pageErrors": [],
+  "requestFailures": [],
+  "dialogs": [
+    {
+      "label": "qualified-lab-entry-create",
+      "type": "confirm",
+      "text": "Are you sure you want to submit this lab to the system?"
+    },
+    {
+      "label": "qualified-lab-entry-create",
+      "type": "confirm",
+      "text": "Are you sure you want to submit this lab to the system?"
+    },
+    {
+      "label": "qualified-lab-entry-create",
+      "type": "confirm",
+      "text": "Are you sure you want to submit this lab to the system?"
+    },
+    {
+      "label": "qualified-lab-entry-create",
+      "type": "confirm",
+      "text": "Are you sure you want to submit this lab to the system?"
+    },
+    {
+      "label": "qualified-lab-entry-create",
+      "type": "confirm",
+      "text": "Are you sure you want to submit this lab to the system?"
+    },
+    {
+      "label": "qualified-lab-entry-create",
+      "type": "confirm",
+      "text": "Are you sure you want to submit this lab to the system?"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "records": [
+    {
+      "value": "99",
+      "status": 200,
+      "centralMarkerPixels": 49
+    },
+    {
+      "value": "0",
+      "status": 200,
+      "centralMarkerPixels": 49
+    },
+    {
+      "value": "0.05",
+      "status": 200,
+      "centralMarkerPixels": 49
+    },
+    {
+      "value": "-0.05",
+      "status": 200,
+      "centralMarkerPixels": 49
+    },
+    {
+      "value": "5000000",
+      "status": 200,
+      "centralMarkerPixels": 49
+    },
+    {
+      "value": "12500000",
+      "status": 200,
+      "centralMarkerPixels": 49
+    },
+    {
+      "value": "45000000",
+      "status": 200,
+      "centralMarkerPixels": 49
+    },
+    {
+      "value": "-6000000",
+      "status": 200,
+      "centralMarkerPixels": 49
+    }
+  ],
+  "findings": []
+}

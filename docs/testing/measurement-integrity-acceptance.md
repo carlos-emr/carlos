@@ -1,129 +1,92 @@
 # Measurement and chart integrity acceptance
 
-Target: release/2026.08. Baseline: 9004536dc8314d5f50542b48905ca3ca4099a916.
-This register distinguishes implementation from qualification. An unchecked requirement
-is not complete and must not be used to close a ticket. Only synthetic data may be
-used for retained browser/database evidence.
+Target: `release/2026.08`. Screenshot baseline: `9004536dc8314d5f50542b48905ca3ca4099a916`.
+This register distinguishes implementation from qualification. Unchecked requirements
+must not be used to close a ticket. Retained browser/database evidence uses synthetic,
+owned data. This PR remains a draft: current-version selection and historical repair
+are incomplete.
+
+[Installed ON/BC comparisons: 98 screenshot pairs](measurement-native-screenshots.md) ·
+[Renderer comparisons: 45 screenshot pairs](measurement-chart-screenshots.md)
 
 | Tickets | Required outcome | Implementation / qualification |
 | --- | --- | --- |
-| #5814, #5854 | Visible single point, useful domain, distinct ticks; constant values in the millions render | Chart changes and Chromium regression implemented; native ON/BC qualification pending |
-| #5827 | Bounds, titres, dates and qualitative grades never become exact numeric points | Strict parser and tests implemented; visible exclusion band implemented; installed workflows pending |
-| #6091 | Java HALF_EVEN point labels without altering stored/plotted values | Server-formatted point labels and regression implemented; installed print parity pending |
-| #6092 | Server locale/date/number conventions preserved | Locale metadata and localized labels implemented; full locale parity qualification pending |
-| #3935 | Session-private, bounded, expiring per-form definitions; explicit invalid/stale outcome | Per-form contexts and regressions implemented; native two-tab workflow pending |
-| #5820, #5819 | Source-aware current selection and atomic active-measurement projection | Not implemented |
-| #5835 | Atomic complete-chain unlink, provider reconciliation, stale retry protection | Transactional archive/routing/audit, optimistic match version, shared ingestion lock and later-delivery unmatch fence implemented; physical/native concurrency qualification pending |
-| #5828 | Literal preservation and visible filter-excluded source results | Case-preserving extraction and read-only source history/grid overlay implemented; installed ON/BC qualification pending |
-| #5853 | Fair bounded renderer admission, typed failures, all consumers show failures | Shared two-browser admission, safe reason codes, error responses and embedded-image recovery implemented; installed load/fault qualification pending |
-| #5472 | Verify existing #5518 replacements, packaging and documented differences | Existing implementation landed; final acceptance audit pending |
+| #5814, #5854 | Visible single point, useful domain, distinct ticks; constant values in the millions render | Implemented. Eight native geometry cases pass in each province; actual response PNGs retained. |
+| #5827 | Bounds, titres, dates and qualitative grades never become exact numeric points | Bounded exact-number parser and visible exclusion counts implemented. Native qualified-results comparisons pass in both provinces, with numeric controls and actual report PDFs. |
+| #6091 | Java HALF_EVEN point labels without altering stored/plotted values | Server-formatted labels and real-browser regressions pass; rounding boundaries retained in renderer gallery. Full installed print parity remains a gate. |
+| #6092 | Server locale/date/number conventions preserved | Localized labels and date metadata implemented. English/French renderer comparisons pass; full installed locale matrix remains a gate. |
+| #3935 | Session-private, bounded, expiring per-form definitions; explicit invalid/stale outcome | Implemented. All three native reports preserve each tab's type/count in both provinces. Cross-session, expiry, capacity and invalid-selector tests pass. |
+| #5820, #5819 | Source-aware current selection and atomic active-measurement projection | **Not implemented.** Native ON correction retake still observes both old and corrected active projections, with the original selected as current. |
+| #5835 | Atomic complete-chain unlink, provider reconciliation, stale retry protection | Implemented. Both provinces pass real MariaDB late-audit-fault rollback, normal retry, stale 409, projection archival, independent/automatic provider controls and later-delivery unmatch fence. Concurrent physical ingestion/unlink qualification remains a gate. |
+| #5828 | Literal preservation and visible filter-excluded source results | Implemented. Native source histories/grids retain case and Pending rows, actual PDFs retain source values, and read/plot/print leave clinical state unchanged in both provinces. |
+| #5853 | Fair bounded renderer admission, typed failures, all consumers show failures | Implemented. Native renderer stop, visible warning/Retry, 503/Retry-After, restart/recovery and subsequent actual eForm PDF controls pass in both provinces. Installed saturation/interruption/load remains a gate. |
+| #5472 | Verify existing #5518 replacements, packaging and documented differences | Existing replacement is already in release baseline. Native packages and chart/PDF controls are exercised here; final migration/acceptance audit remains incomplete. |
 
 ## Required qualification before merge
 
-- [ ] Define full-report versus partial-correction contracts per affected source.
-- [ ] Serialize ingestion, matching, unlinking and repair for the same clinical chain.
-- [ ] Distinguish deliberate clinician deletions from supersession/unlink/repair archival.
-- [ ] Provide fingerprinted, idempotent, dry-run-first repair for unambiguous legacy damage.
-- [ ] Pass focused and complete Java/Node suites; report every skip separately.
-- [ ] Compile JSPs with Tomcat 11 Jasper and check the built WAR's dependency/API contents.
-- [ ] Run native lab versions, qualified results, measurement history/geometry and CDM workflows on installed ON and BC packages.
-- [ ] Verify actual image/PDF contents independently of production calculations.
-- [ ] Exercise cross-patient controls, patient locks, authorization, unchanged reads and transaction failures.
-- [ ] Exercise renderer saturation, interruption, outage, cleanup and recovery alongside eForm operations.
-- [ ] Resolve valid review findings and qualify the final proposed merge revision.
+- [ ] Obtain the affected sources' full-report versus partial-correction contracts; do not infer clinical deletion semantics from delivery order alone.
+- [ ] Implement and qualify canonical current selection and atomic active projection for #5819/#5820.
+- [ ] Coordinate ingestion, matching, unlinking and repair for each clinical chain, and exercise physical concurrency.
+- [ ] Distinguish deliberate clinician deletions from supersession, unlink and repair archival.
+- [ ] Provide fingerprinted, idempotent, dry-run-first historical repair for unambiguous damage.
+- [x] Exercise actual image/PDF contents with independent geometry/value associations, cross-patient controls and unchanged-read checks.
+- [x] Compile all 995 JSPs with Tomcat 11 Jasper; check the packaged WAR dependency/API contents.
+- [x] Install and exercise native qualified results, chart geometry, CDM and unlink workflows in both ON and BC packages.
+- [x] Exercise real MariaDB late audit INSERT failure and verify complete rollback before successful retry.
+- [x] Exercise a real renderer-service outage and visible recovery, followed by actual eForm PDF compatibility controls.
+- [ ] Complete the installed locale/print matrix and concurrent renderer saturation/interruption/cleanup tests, including CLS lock latency.
+- [ ] Resolve valid review findings and obtain green checks for the final proposed merge revision.
 
-## Evidence recorded so far
+## Evidence and limits
 
-- Chromium, actual bundled chart scripts: 21 reference fixtures plus constant-value
-  boundary cases pass. The single-point exception deliberately asserts a useful
-  date span, distinct value ticks and actual marker pixels, replacing the legacy
-  invisible point / 2ms domain. Unaffected reference recordings remain unchanged.
-- Complete Node suite: 7,701 cases; 7,697 pass, zero failures, four explicit skips.
-- JDK 25 / Maven 3.9.11: 114 focused tests pass without skips, including actual
-  renderer admission, failure classification, exact-number parsing, label formatting,
-  context selection, expiry, cross-session isolation and populated POST validation.
-- Initial full Java/JSP attempt: 34,444 tests, zero assertion failures, seven errors
-  from missing Node in the test container, 147 explicit skips. Node was installed;
-  the affected CPP metadata class passes in the focused retake. This is not a
-  successful final full-suite result.
-- Python 3.14 release tooling: all 356 tests pass. The chart fixture source hash
-  was updated after a real observed run with 1,790 assertions; its pre-existing
-  minimum assertion threshold remains unchanged.
-- No installed-package, physical database, repair or full-release acceptance claim.
+The installed candidate revision and package/WAR hashes are recorded in the native
+[manifest](../images/pr6102/native/manifest.json). The native gallery retains 260 PNGs
+(216 browser screenshots and 44 downloaded endpoint PNGs) and 22 actual PDFs.
+Together with the renderer gallery there are 306 browser screenshots and 143
+before/after pairs. Supplemental unlink provenance and eForm controls have no
+baseline pair. Fixtures forward actual production response bytes; screenshots are
+not edited or composited.
 
-## Additional retakes
+A clean package at `1218a718cdb1` passes 212 selected Java cases, zero failures,
+errors or skips, plus all 995 JSP compilations and WAR API/dependency checks. It
+includes actual PNG/JPEG rendering, real eForm PDFs, context/action validation,
+source literal overlays and transactional unlink tests. Native startup exposed two
+production audit DAO beans; the constructor qualifier was fixed and a two-bean
+Spring wiring regression added before these installed candidate captures.
 
-- Exact package-pinned Chromium/ChromeDriver 154.0.8025.0, SHA-256 verified:
-  38 Java cases pass with zero skips, including actual PNG/JPEG generation and
-  three real eForm PDF browser smoke tests, bounded numeric parsing and renderer readiness.
-- The subsequent full Java/JSP run executed 34,453 tests: zero errors, five
-  failures, 147 explicit skips. All five failures were old readiness-warning
-  assertions; the eight-case readiness class passes after updating the required
-  warning to include measurement graphs. A final all-green full-suite/CI result
-  remains a separate requirement.
-- Final complete Node run: 7,697 pass, zero fail, four skip. The pinned carlos-ctl
-  source was then supplied to the two optional contract files: 31 pass, no skips.
-- The screenshot gallery records 90 images (45 pairs), source/configuration hashes,
-  actual browser version, synthetic fixtures and the deliberately limited renderer scope.
-- Raw numeric parsing has a 512-character bound before grammar validation and
-  excludes nonzero results that underflow to zero.
+Full Java/JSP verification at `0ede7b1b0e9` passed 34,509 cases with zero failures
+or errors and 143 explicit skips. The post-release-merge local attempt ran 34,565
+cases: four child-process deadline failures, zero errors, 143 skips. All three
+affected classes passed unchanged in an isolated 71-case retake (zero skips).
+This local full attempt is not recorded as green. The `tests` CI job at
+`0866965e803` passed; that head has 45 successful checks, seven skips and two
+Sonar reliability failures being addressed separately. No gate is weakened.
 
-## Subsequent lab integrity changes (qualification in progress)
+The post-merge Node run has 7,707 cases: 7,703 pass, zero fail and four optional
+CLI-source skips. With the pinned CLI source supplied, the three affected contract
+files pass all 43 cases without skips; these overlap the full run and are not
+added to its total. Python 3.14 release tooling passes all 356 cases. Locale key
+parity and ASCII bundle-escape checks pass.
 
-- All 226 focused cases pass with no skips, including strict numeric syntax,
-  actual existing HL7 upload/duplicate/rollback regressions and the new unlink
-  transaction tests. Injected failures in archival, extensions, measurement
-  removal, patient routing, provider reconciliation and audit all roll back the
-  transaction. These fault tests use real H2 transaction advice and instrumented
-  DAO writes; they do not substitute for physical clinical-row/native qualification.
-- An additional 20-case persisted-row/access/DAO run passes without skips. Real
-  H2 clinical rows prove successful complete-chain unlink, extension retention,
-  stale retry refusal and rollback after an actual late audit INSERT. The new
-  patient-routing locking read refreshes a cached match and keeps lab namespaces
-  separate. This is still distinct from the physical MariaDB/native workflow tier.
-- Numeric syntax now uses a bounded linear character parser (no regex), and
-  browser admission uses a private monitor, addressing the subsequent security
-  scan findings without suppressing them.
-- The measurement filter keeps its existing matching semantics on a server-locale
-  lowercase shadow, and matched boundaries extract the original-case literal.
-  Matches splitting a Unicode case expansion are explicitly refused. Read-only lab history discovers reports through patient
-  routing; the grid overlays exact source literals and visibly explains results
-  without active measurements or multiple source observations. It never writes
-  clinical projections. Unreadable source data produces an explicit failure.
-- Unlink now requires the displayed `matchVersion` on its existing POST endpoint.
-  Missing/duplicate fields are refused; a stale fingerprint returns 409. Existing
-  open pages from before an upgrade must reload before unlinking. The browser
-  handles every non-success outcome explicitly. Patient and record locks are
-  checked before clinical writes. Archive extensions retain the original source
-  references and carry a `lab_projection_archive=UNLINK` marker.
-- Source/accession coordination uses negative ids in the existing signed
-  `providerLabRoutingLock` table, before positive report locks. Hash collisions
-  only serialize unrelated chains; they never establish clinical membership.
-  CLS uses a source-wide key because its legacy glucose-tolerance chain can
-  span accessions. An explicit unmatch fence prevents later deliveries from
-  automatically restoring that wrong-patient match. Ambiguous current clinical
-  ordering, feed correction contracts and historical repair remain separate,
-  unchecked requirements above.
-- CLS source-wide serialization is deliberate: the legacy accession/filler-order
-  lookup can produce overlapping chains, so narrowing to one filler number is
-  not yet proven safe. Database lock failures are logged by class without source
-  or patient data and propagate as failures. Large-CLS transaction/wait latency
-  qualification remains a merge gate; no throughput claim is made.
-- Full Java/JSP verification at 0ede7b1b0e9 succeeds: 34,509 cases, zero failures
-  or errors, 143 explicit skips. The exact pinned browser was enabled. Subsequent
-  review corrections require their own focused checks and current-head CI.
-- CodeRabbit review retake: 93 focused cases pass without skips, including real
-  PNG/JPEG and eForm PDF rendering, day-precision HL7 chart data, exclusion-count
-  accumulation, source/projection display controls, POST authorization, CDM
-  binding and transaction faults. The review changes localize warnings/retry
-  controls, retain healthy grid rows under an explicit source-load failure, and
-  distinguish internal I/O defects from defined retryable availability failures.
-- Further compatibility checks: 129 cases pass without skips, covering the filter's
-  original regex selection semantics, Unicode expansion boundaries, missing/negative
-  frequency counts and actual query-failure propagation in frequency/range reports.
-  The native baseline confirms tab interference in all three report forms. Frequency
-  count fields are populated for this comparison; omitted counts must instead show
-  an explicit form error. Native candidate retakes remain pending.
-- Translation key parity and ASCII Unicode-escape policy pass for every locale;
-  the EPDS whole-bundle encoding regression also passes. These correct the two
-  current-head CI failures without changing any displayed translation.
+The native ON version-retake observes the unresolved correction defect before its
+legacy browser workflow times out; it is not a passing version suite. The BC
+retake times out before that observation and supplies no ordering qualification.
+The screenshot gallery does not establish canonical ordering or historical repair.
+
+## Compatibility and implementation notes
+
+- Regex selection still uses the existing server-locale lowercase shadow; extraction
+  maps exact boundaries back to original source case. Ambiguous Unicode expansion
+  splits are refused rather than altering the clinical literal.
+- Source overlays are read-only, preserve clinician-edited projections, and visibly
+  explain unprojected or multiple observations. Source-read errors remain explicit.
+- Unlink requires the displayed `matchVersion` on POST. Pages open before upgrade
+  must reload; missing/stale versions return explicit conflicts. Original source
+  extensions are retained with an `UNLINK` archival marker.
+- Unlink auditing persists through the transactional DAO so a late audit failure
+  rolls back clinical writes. Independent provider access remains and reopens;
+  obsolete automatic MRP access is removed.
+- Source coordination takes negative keys in the existing signed lock table before
+  positive report locks. Collisions serialize unrelated work without establishing
+  clinical membership. CLS deliberately uses a source-wide key because legacy
+  accession lookup can produce overlapping chains; throughput is not qualified.

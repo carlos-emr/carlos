@@ -1,0 +1,38 @@
+[
+  {
+    "image": "001-InitializePatientsMetGuidelineCDMReport.png",
+    "route": "/carlos/oscarReport/oscarMeasurements/InitializePatientsMetGuidelineCDMReport",
+    "browser": "154.0.8025.0",
+    "sha256": "91c1e1991d7af8c59efdda6d16373cb5e05e30adc544fa3d2db397769a8e5b2d"
+  },
+  {
+    "image": "002-InitializePatientsMetGuidelineCDMReport.png",
+    "route": "/carlos/oscarReport/oscarMeasurements/InitializePatientsMetGuidelineCDMReport",
+    "browser": "154.0.8025.0",
+    "sha256": "35f1671bd7f7f56af7417b90302a1f4d3d676153e034368ef1780d9e296aa2db"
+  },
+  {
+    "image": "003-InitializePatientsInAbnormalRangeCDMReport.png",
+    "route": "/carlos/oscarReport/oscarMeasurements/InitializePatientsInAbnormalRangeCDMReport",
+    "browser": "154.0.8025.0",
+    "sha256": "6cc4c5123d3e53dd913fcca97a8f6f9e301a721a745aaec3dd4304af8703de57"
+  },
+  {
+    "image": "004-InitializePatientsInAbnormalRangeCDMReport.png",
+    "route": "/carlos/oscarReport/oscarMeasurements/InitializePatientsInAbnormalRangeCDMReport",
+    "browser": "154.0.8025.0",
+    "sha256": "56de9a28288e3a999c006382975b6d7221e214165b998aebab9cbfdc842b3c15"
+  },
+  {
+    "image": "005-InitializeFrequencyOfRelevantTestsCDMReport.png",
+    "route": "/carlos/oscarReport/oscarMeasurements/InitializeFrequencyOfRelevantTestsCDMReport",
+    "browser": "154.0.8025.0",
+    "sha256": "3f75743f9d0946c2013f7dd109f618dac1b262bb10b503d332877ee4d022f7d7"
+  },
+  {
+    "image": "006-InitializeFrequencyOfRelevantTestsCDMReport.png",
+    "route": "/carlos/oscarReport/oscarMeasurements/InitializeFrequencyOfRelevantTestsCDMReport",
+    "browser": "154.0.8025.0",
+    "sha256": "4256a2a741f3adfbfcf68b7598a16606576f52e444051133725e2f1e342ad363"
+  }
+]

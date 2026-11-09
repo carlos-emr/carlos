@@ -1,0 +1,14 @@
+  PASS measurement-renderer-outage: rejected content stays retryable without a checksum
+  PASS measurement-renderer-outage: first HL7 upload is filed
+  PASS measurement-renderer-outage: the same file again is refused as already uploaded
+FINDING Renderer outage must include Retry-After
+FINDING Broken graph must have a visible recovery warning
+EVIDENCE {"healthy":200,"outage":503,"recovered":200}
+FAIL measurement-renderer-outage -- Renderer outage must include Retry-After; Broken graph must have a visible recovery warning
+{
+  "badResponses": [],
+  "consoleIssues": [],
+  "pageErrors": [],
+  "requestFailures": [],
+  "dialogs": []
+}

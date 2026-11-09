@@ -5,7 +5,7 @@ import java.time.Instant;
 import java.util.*;
 import java.io.Serializable;
 import com.fasterxml.jackson.databind.ObjectMapper;
-/** Regression coverage for this contract.
+/** Exports synthetic chart configurations from compiled application classes for renderer comparisons.
  * @since 2026-11-09
  */
 public class ComparisonModels {

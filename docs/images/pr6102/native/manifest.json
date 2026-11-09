@@ -1,0 +1,2498 @@
+{
+  "schema": 1,
+  "scope": "Actual installed native UI and native image/PDF responses; synthetic owned fixtures only. Distinct from the renderer-only gallery.",
+  "baseline": {
+    "revision": "9004536dc8314d5f50542b48905ca3ca4099a916",
+    "warSha256": "373f8920ec760466246d5945db627ff33f7e638476162c80233a5e967d38d1be"
+  },
+  "candidate": {
+    "runtimeRevision": "1218a718cdb1f20c8bd8829b270b3cbb1ba37776",
+    "releaseBase": "74f240a4b9f92188300a8700cf11f1d74bc2b58d",
+    "warSha256": "1373573e1c431cb6b516900caa916ed54898d546c86a341cca1955f2461431cb"
+  },
+  "environment": {
+    "os": "Ubuntu 26.04.1 LTS",
+    "runtimeJdk": "OpenJDK 25.0.5",
+    "tomcat": "11.0.22",
+    "mariadb": "11.8.6",
+    "nginx": "1.28.3 with ModSecurity/CRS",
+    "browser": "154.0.8025.0",
+    "packageVersion": "2026.09.0~snapshot28",
+    "applicationVersion": "2026.08.0-beta7-SNAPSHOT",
+    "baselineWarCompiler": "Ubuntu 26.04 / OpenJDK 25.0.5",
+    "candidateWarCompiler": "Temurin 25.0.3; Debian packages built on Ubuntu 26.04"
+  },
+  "comparisons": [
+    {
+      "province": "on",
+      "workflow": "qualified",
+      "case": "Unrelated-patient Create Lab control",
+      "route": "/carlos/oscarMDS/ViewCreateLab",
+      "before": "on/before/qualified/001-ViewCreateLab.png",
+      "after": "on/after/qualified/001-ViewCreateLab.png"
+    },
+    {
+      "province": "on",
+      "workflow": "qualified",
+      "case": "Create Lab: 2021 qualified/qualitative panel",
+      "route": "/carlos/oscarMDS/ViewCreateLab",
+      "before": "on/before/qualified/002-ViewCreateLab.png",
+      "after": "on/after/qualified/002-ViewCreateLab.png"
+    },
+    {
+      "province": "on",
+      "workflow": "qualified",
+      "case": "Create Lab: 2022 Negative observation",
+      "route": "/carlos/oscarMDS/ViewCreateLab",
+      "before": "on/before/qualified/003-ViewCreateLab.png",
+      "after": "on/after/qualified/003-ViewCreateLab.png"
+    },
+    {
+      "province": "on",
+      "workflow": "qualified",
+      "case": "Create Lab: 2023 exact numeric observation",
+      "route": "/carlos/oscarMDS/ViewCreateLab",
+      "before": "on/before/qualified/004-ViewCreateLab.png",
+      "after": "on/after/qualified/004-ViewCreateLab.png"
+    },
+    {
+      "province": "on",
+      "workflow": "qualified",
+      "case": "Create Lab: 2025 qualified observation",
+      "route": "/carlos/oscarMDS/ViewCreateLab",
+      "before": "on/before/qualified/005-ViewCreateLab.png",
+      "after": "on/after/qualified/005-ViewCreateLab.png"
+    },
+    {
+      "province": "on",
+      "workflow": "qualified",
+      "case": "Create Lab: 2026 exact numeric observation",
+      "route": "/carlos/oscarMDS/ViewCreateLab",
+      "before": "on/before/qualified/006-ViewCreateLab.png",
+      "after": "on/after/qualified/006-ViewCreateLab.png"
+    },
+    {
+      "province": "on",
+      "workflow": "qualified",
+      "case": "Hemoglobin: exact points and excluded observations",
+      "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
+      "before": "on/before/qualified/007-ViewLabValuesGraph.png",
+      "after": "on/after/qualified/007-ViewLabValuesGraph.png"
+    },
+    {
+      "province": "on",
+      "workflow": "qualified",
+      "case": "Hematocrit: wholly qualified result",
+      "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
+      "before": "on/before/qualified/008-ViewLabValuesGraph.png",
+      "after": "on/after/qualified/008-ViewLabValuesGraph.png"
+    },
+    {
+      "province": "on",
+      "workflow": "qualified",
+      "case": "Sodium: qualitative result history/plot",
+      "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
+      "before": "on/before/qualified/009-ViewLabValuesGraph.png",
+      "after": "on/after/qualified/009-ViewLabValuesGraph.png"
+    },
+    {
+      "province": "on",
+      "workflow": "qualified",
+      "case": "Glucose: filter-excluded Pending result",
+      "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
+      "before": "on/before/qualified/010-ViewLabValuesGraph.png",
+      "after": "on/after/qualified/010-ViewLabValuesGraph.png"
+    },
+    {
+      "province": "on",
+      "workflow": "qualified",
+      "case": "Cholesterol: numeric compatibility control",
+      "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
+      "before": "on/before/qualified/011-ViewLabValuesGraph.png",
+      "after": "on/after/qualified/011-ViewLabValuesGraph.png"
+    },
+    {
+      "province": "on",
+      "workflow": "qualified",
+      "case": "Raw report: 2021-01-01",
+      "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+      "before": "on/before/qualified/012-ViewLabDisplay.png",
+      "after": "on/after/qualified/012-ViewLabDisplay.png"
+    },
+    {
+      "province": "on",
+      "workflow": "qualified",
+      "case": "Raw report: 2022-05-07",
+      "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+      "before": "on/before/qualified/013-ViewLabDisplay.png",
+      "after": "on/after/qualified/013-ViewLabDisplay.png"
+    },
+    {
+      "province": "on",
+      "workflow": "qualified",
+      "case": "Raw report: 2023-12-29",
+      "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+      "before": "on/before/qualified/014-ViewLabDisplay.png",
+      "after": "on/after/qualified/014-ViewLabDisplay.png"
+    },
+    {
+      "province": "on",
+      "workflow": "qualified",
+      "case": "Raw report: 2025-10-02",
+      "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+      "before": "on/before/qualified/015-ViewLabDisplay.png",
+      "after": "on/after/qualified/015-ViewLabDisplay.png"
+    },
+    {
+      "province": "on",
+      "workflow": "qualified",
+      "case": "Raw report: 2026-11-01",
+      "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+      "before": "on/before/qualified/016-ViewLabDisplay.png",
+      "after": "on/after/qualified/016-ViewLabDisplay.png"
+    },
+    {
+      "province": "on",
+      "workflow": "qualified",
+      "case": "Cumulative grid: source case and Pending row",
+      "route": "/carlos/lab/ViewCumulativeLabValues3",
+      "before": "on/before/qualified/017-ViewCumulativeLabValues3.png",
+      "after": "on/after/qualified/017-ViewCumulativeLabValues3.png"
+    },
+    {
+      "province": "on",
+      "workflow": "qualified",
+      "case": "Cumulative row history: source literals",
+      "route": "/carlos/lab/ViewCumulativeLabValues",
+      "before": "on/before/qualified/018-ViewCumulativeLabValues.png",
+      "after": "on/after/qualified/018-ViewCumulativeLabValues.png"
+    },
+    {
+      "province": "on",
+      "workflow": "cdm",
+      "case": "Guideline: original tab A",
+      "route": "/carlos/oscarReport/oscarMeasurements/InitializePatientsMetGuidelineCDMReport",
+      "before": "on/before/cdm/001-InitializePatientsMetGuidelineCDMReport.png",
+      "after": "on/after/cdm/001-InitializePatientsMetGuidelineCDMReport.png"
+    },
+    {
+      "province": "on",
+      "workflow": "cdm",
+      "case": "Guideline: second tab B control",
+      "route": "/carlos/oscarReport/oscarMeasurements/InitializePatientsMetGuidelineCDMReport",
+      "before": "on/before/cdm/002-InitializePatientsMetGuidelineCDMReport.png",
+      "after": "on/after/cdm/002-InitializePatientsMetGuidelineCDMReport.png"
+    },
+    {
+      "province": "on",
+      "workflow": "cdm",
+      "case": "Range: original tab A",
+      "route": "/carlos/oscarReport/oscarMeasurements/InitializePatientsInAbnormalRangeCDMReport",
+      "before": "on/before/cdm/003-InitializePatientsInAbnormalRangeCDMReport.png",
+      "after": "on/after/cdm/003-InitializePatientsInAbnormalRangeCDMReport.png"
+    },
+    {
+      "province": "on",
+      "workflow": "cdm",
+      "case": "Range: second tab B control",
+      "route": "/carlos/oscarReport/oscarMeasurements/InitializePatientsInAbnormalRangeCDMReport",
+      "before": "on/before/cdm/004-InitializePatientsInAbnormalRangeCDMReport.png",
+      "after": "on/after/cdm/004-InitializePatientsInAbnormalRangeCDMReport.png"
+    },
+    {
+      "province": "on",
+      "workflow": "cdm",
+      "case": "Frequency: original tab A",
+      "route": "/carlos/oscarReport/oscarMeasurements/InitializeFrequencyOfRelevantTestsCDMReport",
+      "before": "on/before/cdm/005-InitializeFrequencyOfRelevantTestsCDMReport.png",
+      "after": "on/after/cdm/005-InitializeFrequencyOfRelevantTestsCDMReport.png"
+    },
+    {
+      "province": "on",
+      "workflow": "cdm",
+      "case": "Frequency: second tab B control",
+      "route": "/carlos/oscarReport/oscarMeasurements/InitializeFrequencyOfRelevantTestsCDMReport",
+      "before": "on/before/cdm/006-InitializeFrequencyOfRelevantTestsCDMReport.png",
+      "after": "on/after/cdm/006-InitializeFrequencyOfRelevantTestsCDMReport.png"
+    },
+    {
+      "province": "on",
+      "workflow": "unlink",
+      "case": "Invalid upload: first rejection control",
+      "route": "/carlos/lab/CA/ALL/insideLabUpload",
+      "before": "on/before/unlink/001-insideLabUpload.png",
+      "after": "on/after/unlink/001-insideLabUpload.png"
+    },
+    {
+      "province": "on",
+      "workflow": "unlink",
+      "case": "Invalid upload: retry rejection control",
+      "route": "/carlos/lab/CA/ALL/insideLabUpload",
+      "before": "on/before/unlink/002-insideLabUpload.png",
+      "after": "on/after/unlink/002-insideLabUpload.png"
+    },
+    {
+      "province": "on",
+      "workflow": "unlink",
+      "case": "Original source upload",
+      "route": "/carlos/lab/CA/ALL/insideLabUpload",
+      "before": "on/before/unlink/003-insideLabUpload.png",
+      "after": "on/after/unlink/003-insideLabUpload.png"
+    },
+    {
+      "province": "on",
+      "workflow": "unlink",
+      "case": "Exact duplicate rejection control",
+      "route": "/carlos/lab/CA/ALL/insideLabUpload",
+      "before": "on/before/unlink/004-insideLabUpload.png",
+      "after": "on/after/unlink/004-insideLabUpload.png"
+    },
+    {
+      "province": "on",
+      "workflow": "unlink",
+      "case": "Correction source upload",
+      "route": "/carlos/lab/CA/ALL/insideLabUpload",
+      "before": "on/before/unlink/005-insideLabUpload.png",
+      "after": "on/after/unlink/005-insideLabUpload.png"
+    },
+    {
+      "province": "on",
+      "workflow": "unlink",
+      "case": "Actual report before unlink",
+      "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+      "before": "on/before/unlink/006-ViewLabDisplay.png",
+      "after": "on/after/unlink/006-ViewLabDisplay.png"
+    },
+    {
+      "province": "on",
+      "workflow": "unlink",
+      "case": "Later delivery after unlink",
+      "route": "/carlos/lab/CA/ALL/insideLabUpload",
+      "before": "on/before/unlink/007-insideLabUpload.png",
+      "after": "on/after/unlink/007-insideLabUpload.png"
+    },
+    {
+      "province": "on",
+      "workflow": "unlink",
+      "case": "Actual report after unlink",
+      "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+      "before": "on/before/unlink/008-ViewLabDisplay.png",
+      "after": "on/after/unlink/008-ViewLabDisplay.png"
+    },
+    {
+      "province": "on",
+      "workflow": "unlink",
+      "case": "Obsolete second-tab report",
+      "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+      "before": "on/before/unlink/009-ViewLabDisplay.png",
+      "after": "on/after/unlink/009-ViewLabDisplay.png"
+    },
+    {
+      "province": "on",
+      "workflow": "boundaries",
+      "case": "Single 99",
+      "route": "/carlos/encounter/GraphMeasurements",
+      "before": "on/before/boundaries/001-GraphMeasurements.png",
+      "after": "on/after/boundaries/001-GraphMeasurements.png"
+    },
+    {
+      "province": "on",
+      "workflow": "boundaries",
+      "case": "Single zero",
+      "route": "/carlos/encounter/GraphMeasurements",
+      "before": "on/before/boundaries/002-GraphMeasurements.png",
+      "after": "on/after/boundaries/002-GraphMeasurements.png"
+    },
+    {
+      "province": "on",
+      "workflow": "boundaries",
+      "case": "Single 0.05",
+      "route": "/carlos/encounter/GraphMeasurements",
+      "before": "on/before/boundaries/003-GraphMeasurements.png",
+      "after": "on/after/boundaries/003-GraphMeasurements.png"
+    },
+    {
+      "province": "on",
+      "workflow": "boundaries",
+      "case": "Single -0.05",
+      "route": "/carlos/encounter/GraphMeasurements",
+      "before": "on/before/boundaries/004-GraphMeasurements.png",
+      "after": "on/after/boundaries/004-GraphMeasurements.png"
+    },
+    {
+      "province": "on",
+      "workflow": "boundaries",
+      "case": "Constant 5,000,000",
+      "route": "/carlos/encounter/GraphMeasurements",
+      "before": "on/before/boundaries/005-GraphMeasurements.png",
+      "after": "on/after/boundaries/005-GraphMeasurements.png"
+    },
+    {
+      "province": "on",
+      "workflow": "boundaries",
+      "case": "Constant 12,500,000",
+      "route": "/carlos/encounter/GraphMeasurements",
+      "before": "on/before/boundaries/006-GraphMeasurements.png",
+      "after": "on/after/boundaries/006-GraphMeasurements.png"
+    },
+    {
+      "province": "on",
+      "workflow": "boundaries",
+      "case": "Constant 45,000,000",
+      "route": "/carlos/encounter/GraphMeasurements",
+      "before": "on/before/boundaries/007-GraphMeasurements.png",
+      "after": "on/after/boundaries/007-GraphMeasurements.png"
+    },
+    {
+      "province": "on",
+      "workflow": "boundaries",
+      "case": "Constant -6,000,000",
+      "route": "/carlos/encounter/GraphMeasurements",
+      "before": "on/before/boundaries/008-GraphMeasurements.png",
+      "after": "on/after/boundaries/008-GraphMeasurements.png"
+    },
+    {
+      "province": "on",
+      "workflow": "outage",
+      "case": "Invalid upload: first rejection control",
+      "route": "/carlos/lab/CA/ALL/insideLabUpload",
+      "before": "on/before/outage/001-insideLabUpload.png",
+      "after": "on/after/outage/001-insideLabUpload.png"
+    },
+    {
+      "province": "on",
+      "workflow": "outage",
+      "case": "Invalid upload: retry rejection control",
+      "route": "/carlos/lab/CA/ALL/insideLabUpload",
+      "before": "on/before/outage/002-insideLabUpload.png",
+      "after": "on/after/outage/002-insideLabUpload.png"
+    },
+    {
+      "province": "on",
+      "workflow": "outage",
+      "case": "Original source upload",
+      "route": "/carlos/lab/CA/ALL/insideLabUpload",
+      "before": "on/before/outage/003-insideLabUpload.png",
+      "after": "on/after/outage/003-insideLabUpload.png"
+    },
+    {
+      "province": "on",
+      "workflow": "outage",
+      "case": "Exact duplicate rejection control",
+      "route": "/carlos/lab/CA/ALL/insideLabUpload",
+      "before": "on/before/outage/004-insideLabUpload.png",
+      "after": "on/after/outage/004-insideLabUpload.png"
+    },
+    {
+      "province": "on",
+      "workflow": "outage",
+      "case": "Healthy embedded graph control",
+      "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
+      "before": "on/before/outage/005-ViewLabValuesGraph.png",
+      "after": "on/after/outage/005-ViewLabValuesGraph.png"
+    },
+    {
+      "province": "on",
+      "workflow": "outage",
+      "case": "Renderer stopped: visible failure and retry",
+      "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
+      "before": "on/before/outage/006-ViewLabValuesGraph.png",
+      "after": "on/after/outage/006-ViewLabValuesGraph.png"
+    },
+    {
+      "province": "on",
+      "workflow": "outage",
+      "case": "Graph recovered after restart/retry",
+      "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
+      "before": "on/before/outage/007-ViewLabValuesGraph.png",
+      "after": "on/after/outage/007-ViewLabValuesGraph.png"
+    },
+    {
+      "province": "on",
+      "workflow": "outage",
+      "case": "Raw source report control",
+      "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+      "before": "on/before/outage/008-ViewLabDisplay.png",
+      "after": "on/after/outage/008-ViewLabDisplay.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "qualified",
+      "case": "Unrelated-patient Create Lab control",
+      "route": "/carlos/oscarMDS/ViewCreateLab",
+      "before": "bc/before/qualified/001-ViewCreateLab.png",
+      "after": "bc/after/qualified/001-ViewCreateLab.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "qualified",
+      "case": "Create Lab: 2021 qualified/qualitative panel",
+      "route": "/carlos/oscarMDS/ViewCreateLab",
+      "before": "bc/before/qualified/002-ViewCreateLab.png",
+      "after": "bc/after/qualified/002-ViewCreateLab.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "qualified",
+      "case": "Create Lab: 2022 Negative observation",
+      "route": "/carlos/oscarMDS/ViewCreateLab",
+      "before": "bc/before/qualified/003-ViewCreateLab.png",
+      "after": "bc/after/qualified/003-ViewCreateLab.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "qualified",
+      "case": "Create Lab: 2023 exact numeric observation",
+      "route": "/carlos/oscarMDS/ViewCreateLab",
+      "before": "bc/before/qualified/004-ViewCreateLab.png",
+      "after": "bc/after/qualified/004-ViewCreateLab.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "qualified",
+      "case": "Create Lab: 2025 qualified observation",
+      "route": "/carlos/oscarMDS/ViewCreateLab",
+      "before": "bc/before/qualified/005-ViewCreateLab.png",
+      "after": "bc/after/qualified/005-ViewCreateLab.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "qualified",
+      "case": "Create Lab: 2026 exact numeric observation",
+      "route": "/carlos/oscarMDS/ViewCreateLab",
+      "before": "bc/before/qualified/006-ViewCreateLab.png",
+      "after": "bc/after/qualified/006-ViewCreateLab.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "qualified",
+      "case": "Hemoglobin: exact points and excluded observations",
+      "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
+      "before": "bc/before/qualified/007-ViewLabValuesGraph.png",
+      "after": "bc/after/qualified/007-ViewLabValuesGraph.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "qualified",
+      "case": "Hematocrit: wholly qualified result",
+      "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
+      "before": "bc/before/qualified/008-ViewLabValuesGraph.png",
+      "after": "bc/after/qualified/008-ViewLabValuesGraph.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "qualified",
+      "case": "Sodium: qualitative result history/plot",
+      "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
+      "before": "bc/before/qualified/009-ViewLabValuesGraph.png",
+      "after": "bc/after/qualified/009-ViewLabValuesGraph.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "qualified",
+      "case": "Glucose: filter-excluded Pending result",
+      "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
+      "before": "bc/before/qualified/010-ViewLabValuesGraph.png",
+      "after": "bc/after/qualified/010-ViewLabValuesGraph.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "qualified",
+      "case": "Cholesterol: numeric compatibility control",
+      "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
+      "before": "bc/before/qualified/011-ViewLabValuesGraph.png",
+      "after": "bc/after/qualified/011-ViewLabValuesGraph.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "qualified",
+      "case": "Raw report: 2021-01-01",
+      "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+      "before": "bc/before/qualified/012-ViewLabDisplay.png",
+      "after": "bc/after/qualified/012-ViewLabDisplay.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "qualified",
+      "case": "Raw report: 2022-05-07",
+      "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+      "before": "bc/before/qualified/013-ViewLabDisplay.png",
+      "after": "bc/after/qualified/013-ViewLabDisplay.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "qualified",
+      "case": "Raw report: 2023-12-29",
+      "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+      "before": "bc/before/qualified/014-ViewLabDisplay.png",
+      "after": "bc/after/qualified/014-ViewLabDisplay.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "qualified",
+      "case": "Raw report: 2025-10-02",
+      "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+      "before": "bc/before/qualified/015-ViewLabDisplay.png",
+      "after": "bc/after/qualified/015-ViewLabDisplay.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "qualified",
+      "case": "Raw report: 2026-11-01",
+      "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+      "before": "bc/before/qualified/016-ViewLabDisplay.png",
+      "after": "bc/after/qualified/016-ViewLabDisplay.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "qualified",
+      "case": "Cumulative grid: source case and Pending row",
+      "route": "/carlos/lab/ViewCumulativeLabValues3",
+      "before": "bc/before/qualified/017-ViewCumulativeLabValues3.png",
+      "after": "bc/after/qualified/017-ViewCumulativeLabValues3.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "qualified",
+      "case": "Cumulative row history: source literals",
+      "route": "/carlos/lab/ViewCumulativeLabValues",
+      "before": "bc/before/qualified/018-ViewCumulativeLabValues.png",
+      "after": "bc/after/qualified/018-ViewCumulativeLabValues.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "cdm",
+      "case": "Guideline: original tab A",
+      "route": "/carlos/oscarReport/oscarMeasurements/InitializePatientsMetGuidelineCDMReport",
+      "before": "bc/before/cdm/001-InitializePatientsMetGuidelineCDMReport.png",
+      "after": "bc/after/cdm/001-InitializePatientsMetGuidelineCDMReport.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "cdm",
+      "case": "Guideline: second tab B control",
+      "route": "/carlos/oscarReport/oscarMeasurements/InitializePatientsMetGuidelineCDMReport",
+      "before": "bc/before/cdm/002-InitializePatientsMetGuidelineCDMReport.png",
+      "after": "bc/after/cdm/002-InitializePatientsMetGuidelineCDMReport.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "cdm",
+      "case": "Range: original tab A",
+      "route": "/carlos/oscarReport/oscarMeasurements/InitializePatientsInAbnormalRangeCDMReport",
+      "before": "bc/before/cdm/003-InitializePatientsInAbnormalRangeCDMReport.png",
+      "after": "bc/after/cdm/003-InitializePatientsInAbnormalRangeCDMReport.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "cdm",
+      "case": "Range: second tab B control",
+      "route": "/carlos/oscarReport/oscarMeasurements/InitializePatientsInAbnormalRangeCDMReport",
+      "before": "bc/before/cdm/004-InitializePatientsInAbnormalRangeCDMReport.png",
+      "after": "bc/after/cdm/004-InitializePatientsInAbnormalRangeCDMReport.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "cdm",
+      "case": "Frequency: original tab A",
+      "route": "/carlos/oscarReport/oscarMeasurements/InitializeFrequencyOfRelevantTestsCDMReport",
+      "before": "bc/before/cdm/005-InitializeFrequencyOfRelevantTestsCDMReport.png",
+      "after": "bc/after/cdm/005-InitializeFrequencyOfRelevantTestsCDMReport.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "cdm",
+      "case": "Frequency: second tab B control",
+      "route": "/carlos/oscarReport/oscarMeasurements/InitializeFrequencyOfRelevantTestsCDMReport",
+      "before": "bc/before/cdm/006-InitializeFrequencyOfRelevantTestsCDMReport.png",
+      "after": "bc/after/cdm/006-InitializeFrequencyOfRelevantTestsCDMReport.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "unlink",
+      "case": "Invalid upload: first rejection control",
+      "route": "/carlos/lab/CA/ALL/insideLabUpload",
+      "before": "bc/before/unlink/001-insideLabUpload.png",
+      "after": "bc/after/unlink/001-insideLabUpload.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "unlink",
+      "case": "Invalid upload: retry rejection control",
+      "route": "/carlos/lab/CA/ALL/insideLabUpload",
+      "before": "bc/before/unlink/002-insideLabUpload.png",
+      "after": "bc/after/unlink/002-insideLabUpload.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "unlink",
+      "case": "Original source upload",
+      "route": "/carlos/lab/CA/ALL/insideLabUpload",
+      "before": "bc/before/unlink/003-insideLabUpload.png",
+      "after": "bc/after/unlink/003-insideLabUpload.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "unlink",
+      "case": "Exact duplicate rejection control",
+      "route": "/carlos/lab/CA/ALL/insideLabUpload",
+      "before": "bc/before/unlink/004-insideLabUpload.png",
+      "after": "bc/after/unlink/004-insideLabUpload.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "unlink",
+      "case": "Correction source upload",
+      "route": "/carlos/lab/CA/ALL/insideLabUpload",
+      "before": "bc/before/unlink/005-insideLabUpload.png",
+      "after": "bc/after/unlink/005-insideLabUpload.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "unlink",
+      "case": "Actual report before unlink",
+      "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+      "before": "bc/before/unlink/006-ViewLabDisplay.png",
+      "after": "bc/after/unlink/006-ViewLabDisplay.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "unlink",
+      "case": "Later delivery after unlink",
+      "route": "/carlos/lab/CA/ALL/insideLabUpload",
+      "before": "bc/before/unlink/007-insideLabUpload.png",
+      "after": "bc/after/unlink/007-insideLabUpload.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "unlink",
+      "case": "Actual report after unlink",
+      "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+      "before": "bc/before/unlink/008-ViewLabDisplay.png",
+      "after": "bc/after/unlink/008-ViewLabDisplay.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "unlink",
+      "case": "Obsolete second-tab report",
+      "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+      "before": "bc/before/unlink/009-ViewLabDisplay.png",
+      "after": "bc/after/unlink/009-ViewLabDisplay.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "boundaries",
+      "case": "Single 99",
+      "route": "/carlos/encounter/GraphMeasurements",
+      "before": "bc/before/boundaries/001-GraphMeasurements.png",
+      "after": "bc/after/boundaries/001-GraphMeasurements.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "boundaries",
+      "case": "Single zero",
+      "route": "/carlos/encounter/GraphMeasurements",
+      "before": "bc/before/boundaries/002-GraphMeasurements.png",
+      "after": "bc/after/boundaries/002-GraphMeasurements.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "boundaries",
+      "case": "Single 0.05",
+      "route": "/carlos/encounter/GraphMeasurements",
+      "before": "bc/before/boundaries/003-GraphMeasurements.png",
+      "after": "bc/after/boundaries/003-GraphMeasurements.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "boundaries",
+      "case": "Single -0.05",
+      "route": "/carlos/encounter/GraphMeasurements",
+      "before": "bc/before/boundaries/004-GraphMeasurements.png",
+      "after": "bc/after/boundaries/004-GraphMeasurements.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "boundaries",
+      "case": "Constant 5,000,000",
+      "route": "/carlos/encounter/GraphMeasurements",
+      "before": "bc/before/boundaries/005-GraphMeasurements.png",
+      "after": "bc/after/boundaries/005-GraphMeasurements.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "boundaries",
+      "case": "Constant 12,500,000",
+      "route": "/carlos/encounter/GraphMeasurements",
+      "before": "bc/before/boundaries/006-GraphMeasurements.png",
+      "after": "bc/after/boundaries/006-GraphMeasurements.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "boundaries",
+      "case": "Constant 45,000,000",
+      "route": "/carlos/encounter/GraphMeasurements",
+      "before": "bc/before/boundaries/007-GraphMeasurements.png",
+      "after": "bc/after/boundaries/007-GraphMeasurements.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "boundaries",
+      "case": "Constant -6,000,000",
+      "route": "/carlos/encounter/GraphMeasurements",
+      "before": "bc/before/boundaries/008-GraphMeasurements.png",
+      "after": "bc/after/boundaries/008-GraphMeasurements.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "outage",
+      "case": "Invalid upload: first rejection control",
+      "route": "/carlos/lab/CA/ALL/insideLabUpload",
+      "before": "bc/before/outage/001-insideLabUpload.png",
+      "after": "bc/after/outage/001-insideLabUpload.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "outage",
+      "case": "Invalid upload: retry rejection control",
+      "route": "/carlos/lab/CA/ALL/insideLabUpload",
+      "before": "bc/before/outage/002-insideLabUpload.png",
+      "after": "bc/after/outage/002-insideLabUpload.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "outage",
+      "case": "Original source upload",
+      "route": "/carlos/lab/CA/ALL/insideLabUpload",
+      "before": "bc/before/outage/003-insideLabUpload.png",
+      "after": "bc/after/outage/003-insideLabUpload.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "outage",
+      "case": "Exact duplicate rejection control",
+      "route": "/carlos/lab/CA/ALL/insideLabUpload",
+      "before": "bc/before/outage/004-insideLabUpload.png",
+      "after": "bc/after/outage/004-insideLabUpload.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "outage",
+      "case": "Healthy embedded graph control",
+      "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
+      "before": "bc/before/outage/005-ViewLabValuesGraph.png",
+      "after": "bc/after/outage/005-ViewLabValuesGraph.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "outage",
+      "case": "Renderer stopped: visible failure and retry",
+      "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
+      "before": "bc/before/outage/006-ViewLabValuesGraph.png",
+      "after": "bc/after/outage/006-ViewLabValuesGraph.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "outage",
+      "case": "Graph recovered after restart/retry",
+      "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
+      "before": "bc/before/outage/007-ViewLabValuesGraph.png",
+      "after": "bc/after/outage/007-ViewLabValuesGraph.png"
+    },
+    {
+      "province": "bc",
+      "workflow": "outage",
+      "case": "Raw source report control",
+      "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+      "before": "bc/before/outage/008-ViewLabDisplay.png",
+      "after": "bc/after/outage/008-ViewLabDisplay.png"
+    }
+  ],
+  "files": [
+    {
+      "path": "bc/after/boundaries/001-GraphMeasurements.png",
+      "sha256": "dca3734ca95114a9da50f16437c6f0b0af91a942601ae3f1e380733c04b5c989",
+      "bytes": 13465
+    },
+    {
+      "path": "bc/after/boundaries/002-GraphMeasurements.png",
+      "sha256": "e6ce5011cfeb56d3459ce667598c4cc4ed5b63e909a578b46ccbc7678f1661fa",
+      "bytes": 13539
+    },
+    {
+      "path": "bc/after/boundaries/003-GraphMeasurements.png",
+      "sha256": "c57d6dc84c5117a354c6eee20ae81f66c51bd81cf9b40ad05e7412761baf40b3",
+      "bytes": 14760
+    },
+    {
+      "path": "bc/after/boundaries/004-GraphMeasurements.png",
+      "sha256": "1dac27f8a70aaa79e37244c745ff660ce9c21f7c406d19cc22500d0a3aa3d1a0",
+      "bytes": 14294
+    },
+    {
+      "path": "bc/after/boundaries/005-GraphMeasurements.png",
+      "sha256": "7843685e7baa5d033d7cfac5ed6d9a03637856ab418eb77548bcbd3a7f78c101",
+      "bytes": 14738
+    },
+    {
+      "path": "bc/after/boundaries/006-GraphMeasurements.png",
+      "sha256": "0ab0e2ea2774d01265743d9c66e874eb92a562fb3650cee4d2c7aa2747693ec0",
+      "bytes": 14569
+    },
+    {
+      "path": "bc/after/boundaries/007-GraphMeasurements.png",
+      "sha256": "ef16305b0bf78b95eabf1f6bed1c9c0b0d8c9b88864669c2c02b097a86120bfe",
+      "bytes": 16422
+    },
+    {
+      "path": "bc/after/boundaries/008-GraphMeasurements.png",
+      "sha256": "a62225c93622365d81b3092a0088f3b57dd6df09f6a9ed157871575f427a4ec8",
+      "bytes": 15711
+    },
+    {
+      "path": "bc/after/boundaries/captures.json",
+      "sha256": "facf2498b3d8bb2319ae59ad60627bd5f3c40b06ae1b3fe84d460079c5120a9a",
+      "bytes": 1723
+    },
+    {
+      "path": "bc/after/boundary-artifacts/constant-0.png",
+      "sha256": "b94aa625a0d6f34b5feb8b456648f6b3b16bedab206203d2f0255b650daffa87",
+      "bytes": 32470
+    },
+    {
+      "path": "bc/after/boundary-artifacts/constant-0_05.png",
+      "sha256": "cca89c37eef1c3595d2a2d28af4d65ef937178a22d1a8e09d0d09a011e005acd",
+      "bytes": 35848
+    },
+    {
+      "path": "bc/after/boundary-artifacts/constant-12500000.png",
+      "sha256": "cb8432f076a1d45b036cbef548904568321a0e7c9f33ce22a1bae8d6eeaf8b95",
+      "bytes": 40633
+    },
+    {
+      "path": "bc/after/boundary-artifacts/constant-45000000.png",
+      "sha256": "9b6badfe7414aaf1444b97af4559ecc95e22c0f6b8fd5ef3d76bf25aa922216c",
+      "bytes": 36402
+    },
+    {
+      "path": "bc/after/boundary-artifacts/constant-5000000.png",
+      "sha256": "74768f932e90928451cfdd3c578a5cc880f7d588d0c250362daef2e74c04174f",
+      "bytes": 37058
+    },
+    {
+      "path": "bc/after/boundary-artifacts/constant-99.png",
+      "sha256": "7eacd18475d506ff8a3e8e00875720bc5d936686d36ad3f43d11403e47db8f0d",
+      "bytes": 31609
+    },
+    {
+      "path": "bc/after/boundary-artifacts/constant-n0_05.png",
+      "sha256": "334213d18ef184618cf92b0dd99d9007fbb92fbdbd3d1e98e88b08ed642287be",
+      "bytes": 35666
+    },
+    {
+      "path": "bc/after/boundary-artifacts/constant-n6000000.png",
+      "sha256": "3c0125283fa05c32a103e2771b7afd353978039103f8c8ca933ea2fa1662bfec",
+      "bytes": 40896
+    },
+    {
+      "path": "bc/after/boundary-artifacts/verdicts.json",
+      "sha256": "37acb85d7f74bd975c609c1328d73206494b9934d30d1341e113268b20b54cae",
+      "bytes": 763
+    },
+    {
+      "path": "bc/after/cdm/001-InitializePatientsMetGuidelineCDMReport.png",
+      "sha256": "91c1e1991d7af8c59efdda6d16373cb5e05e30adc544fa3d2db397769a8e5b2d",
+      "bytes": 25696
+    },
+    {
+      "path": "bc/after/cdm/002-InitializePatientsMetGuidelineCDMReport.png",
+      "sha256": "35f1671bd7f7f56af7417b90302a1f4d3d676153e034368ef1780d9e296aa2db",
+      "bytes": 26157
+    },
+    {
+      "path": "bc/after/cdm/003-InitializePatientsInAbnormalRangeCDMReport.png",
+      "sha256": "6cc4c5123d3e53dd913fcca97a8f6f9e301a721a745aaec3dd4304af8703de57",
+      "bytes": 26373
+    },
+    {
+      "path": "bc/after/cdm/004-InitializePatientsInAbnormalRangeCDMReport.png",
+      "sha256": "56de9a28288e3a999c006382975b6d7221e214165b998aebab9cbfdc842b3c15",
+      "bytes": 26371
+    },
+    {
+      "path": "bc/after/cdm/005-InitializeFrequencyOfRelevantTestsCDMReport.png",
+      "sha256": "3f75743f9d0946c2013f7dd109f618dac1b262bb10b503d332877ee4d022f7d7",
+      "bytes": 33014
+    },
+    {
+      "path": "bc/after/cdm/006-InitializeFrequencyOfRelevantTestsCDMReport.png",
+      "sha256": "4256a2a741f3adfbfcf68b7598a16606576f52e444051133725e2f1e342ad363",
+      "bytes": 33267
+    },
+    {
+      "path": "bc/after/cdm/captures.json",
+      "sha256": "cbfa786e5e0bcbc2da4bd1e582bbd187aea9b928820a954f33ab89306f7942d8",
+      "bytes": 1705
+    },
+    {
+      "path": "bc/after/eform/eform-bootstrap-print-fidelity.pdf",
+      "sha256": "90ec0474fe46e96fb013579dcdd3dfc9901b15d80a0ba230eeb532bb5ec3b4fe",
+      "bytes": 34239
+    },
+    {
+      "path": "bc/after/eform/eform-bootstrap-print-fidelity.png",
+      "sha256": "bc36ea2e16d6c0dbf23e5eade2cb7f3dd423ce9f7c04ceea73174657b42469fe",
+      "bytes": 55036
+    },
+    {
+      "path": "bc/after/outage/001-insideLabUpload.png",
+      "sha256": "0209cbf63f37ab47b447e43e634e6239881cea56c89c222a51b9b3899c4ee86d",
+      "bytes": 39361
+    },
+    {
+      "path": "bc/after/outage/002-insideLabUpload.png",
+      "sha256": "c68a5ac0055aca7d0891157e75a65194bb1503ef6e5ff44fcc313d4b20a79b96",
+      "bytes": 39355
+    },
+    {
+      "path": "bc/after/outage/003-insideLabUpload.png",
+      "sha256": "3efea696cf1a34ec2931c5b6f078034fc588a35f278065a3ad1fb05b1d821932",
+      "bytes": 41135
+    },
+    {
+      "path": "bc/after/outage/004-insideLabUpload.png",
+      "sha256": "65b4c82a67f131e6e58216398ebaca3ad112a35ad40a6d691641bdfec3005071",
+      "bytes": 40437
+    },
+    {
+      "path": "bc/after/outage/005-ViewLabValuesGraph.png",
+      "sha256": "d5266c260b767f8bd5557d2a38496811d9dc358c0bf7d549ff3e5bf7bee04861",
+      "bytes": 46471
+    },
+    {
+      "path": "bc/after/outage/006-ViewLabValuesGraph.png",
+      "sha256": "479898d96a0e9c40d09d1943306262e0f9e5f7e63ef35a3fde1a713ef2e0122a",
+      "bytes": 21069
+    },
+    {
+      "path": "bc/after/outage/007-ViewLabValuesGraph.png",
+      "sha256": "84faad6073827ac89921b6cdef0581d17c5cdb87163b6b140a43ce594276732e",
+      "bytes": 44513
+    },
+    {
+      "path": "bc/after/outage/008-ViewLabDisplay.png",
+      "sha256": "8ffc611a5eb9b58818655bd51ed3d6bebf44340830df4d2d3357a423c1462c83",
+      "bytes": 65408
+    },
+    {
+      "path": "bc/after/outage/captures.json",
+      "sha256": "472ba4f2c915e0c4b3d958a1503d574b80a9c0a399377dd32bb8232bc2244630",
+      "bytes": 1712
+    },
+    {
+      "path": "bc/after/qualified/001-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "bc/after/qualified/002-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "bc/after/qualified/003-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "bc/after/qualified/004-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "bc/after/qualified/005-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "bc/after/qualified/006-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "bc/after/qualified/007-ViewLabValuesGraph.png",
+      "sha256": "e59d39e245b02ffd4f8220bac468dcd6191045f0316ec0a57b43cd682d66f433",
+      "bytes": 51543
+    },
+    {
+      "path": "bc/after/qualified/008-ViewLabValuesGraph.png",
+      "sha256": "05bc3b4b3192d5f2a2472fad07b96ee4736d3e77b379823c0cce516c5b3a3569",
+      "bytes": 47949
+    },
+    {
+      "path": "bc/after/qualified/009-ViewLabValuesGraph.png",
+      "sha256": "aebc2e75e45c85fce10635c6d06bd30e55fb5d8d1ca97d5d081a3fe2cf3df159",
+      "bytes": 45963
+    },
+    {
+      "path": "bc/after/qualified/010-ViewLabValuesGraph.png",
+      "sha256": "5bed4a7aa529d522cb8f938a6d3a47ed446433a6f9105b6116a062a6d3886900",
+      "bytes": 47367
+    },
+    {
+      "path": "bc/after/qualified/011-ViewLabValuesGraph.png",
+      "sha256": "e85aa03db81a8fc92efe04d48e7a2586c80b71a7d50821ac2628218c73eccab7",
+      "bytes": 47960
+    },
+    {
+      "path": "bc/after/qualified/012-ViewLabDisplay.png",
+      "sha256": "aa83e12df573d2d25557dff9bef3f67b2ce8445dfaefb206b3ee138aa148b38f",
+      "bytes": 75619
+    },
+    {
+      "path": "bc/after/qualified/013-ViewLabDisplay.png",
+      "sha256": "e753ace4d58075840a76e6a4be3640840824bd490c29cc6bd964a2e9f95834bf",
+      "bytes": 58874
+    },
+    {
+      "path": "bc/after/qualified/014-ViewLabDisplay.png",
+      "sha256": "8682f3a03cbeffe6aad6fe845002473d6faca8d80412d65a9aa50002c6fdf534",
+      "bytes": 58773
+    },
+    {
+      "path": "bc/after/qualified/015-ViewLabDisplay.png",
+      "sha256": "d2140cc947fcfc922cc89e7feba9d9488c33269563f4d02f71e5c3149edf138a",
+      "bytes": 58210
+    },
+    {
+      "path": "bc/after/qualified/016-ViewLabDisplay.png",
+      "sha256": "cefe80da50a80465de56641c8975f44cd90ff079b51659ae68949bc15dfa2a6c",
+      "bytes": 64443
+    },
+    {
+      "path": "bc/after/qualified/017-ViewCumulativeLabValues3.png",
+      "sha256": "a62255b066f71602e16d39ae166030ac5972e406c8af85e0a22e2c2ff9c15798",
+      "bytes": 52930
+    },
+    {
+      "path": "bc/after/qualified/018-ViewCumulativeLabValues.png",
+      "sha256": "01565200e4d41b08ad7b8f66cd0378cd77be1698def34a1a21143a5fd06b3ad3",
+      "bytes": 45326
+    },
+    {
+      "path": "bc/after/qualified/captures.json",
+      "sha256": "a8b2dd2d645ab601b2acdfd6df1d22cf5adb95816060e53aea885c5203a01f8e",
+      "bytes": 3818
+    },
+    {
+      "path": "bc/after/qualified-artifacts/FAKE-PW3dcc7f436c753e43-183.pdf",
+      "sha256": "366ebae0642a56b89d0d0ac618f488ca1cb9db6dcd03d1748f276c3d1c9c43b7",
+      "bytes": 39103
+    },
+    {
+      "path": "bc/after/qualified-artifacts/FAKE-PW3dcc7f436c753e43-184.pdf",
+      "sha256": "3b828403ee0a5f331517ca02be96ec77bcf2f3413679751c1af9ff95003c0253",
+      "bytes": 38382
+    },
+    {
+      "path": "bc/after/qualified-artifacts/FAKE-PW3dcc7f436c753e43-185.pdf",
+      "sha256": "8c0942e20879b3540e11de18fbd8b3ce1a7fe541e36569aeb6482bded957c254",
+      "bytes": 38377
+    },
+    {
+      "path": "bc/after/qualified-artifacts/FAKE-PW3dcc7f436c753e43-186.pdf",
+      "sha256": "f149580ade79dc4e862e460158d54482b69acbef8c2bcdbb156b6041d4fe07a7",
+      "bytes": 38444
+    },
+    {
+      "path": "bc/after/qualified-artifacts/FAKE-PW3dcc7f436c753e43-187.pdf",
+      "sha256": "6156bf2f2eeaa16e75f780afa3539678edaf001a549e6be662f1e82f31ee45ef",
+      "bytes": 38517
+    },
+    {
+      "path": "bc/after/qualified-artifacts/FAKE-PW3dcc7f436c753e43-2010.png",
+      "sha256": "5c9803b117123357e08877411bb6d52943b66e5756217c5b4886e9dab4dd1be1",
+      "bytes": 39213
+    },
+    {
+      "path": "bc/after/qualified-artifacts/FAKE-PW3dcc7f436c753e43-2013.png",
+      "sha256": "3501fa65de3bd8ed66467a1d952e3edf61f58c732c20f466257962c5afda6e7c",
+      "bytes": 35622
+    },
+    {
+      "path": "bc/after/qualified-artifacts/FAKE-PW3dcc7f436c753e43-3007.png",
+      "sha256": "212b8a2d23b54e0b20cf125dee23c44f80b7d65be348122130ca4adcf0b2ed2e",
+      "bytes": 35052
+    },
+    {
+      "path": "bc/after/qualified-artifacts/FAKE-PW3dcc7f436c753e43-3120.png",
+      "sha256": "ec5d2d68f5da8e4746d7ee56af9647ab49125c441f567f7c804d141df92c1ad5",
+      "bytes": 35591
+    },
+    {
+      "path": "bc/after/qualified-artifacts/FAKE-PW3dcc7f436c753e43-3210.png",
+      "sha256": "45cd2c279a75b2729bb4f343fef524396e02f98df7499976b5d150201d25bbb3",
+      "bytes": 33595
+    },
+    {
+      "path": "bc/after/unlink/001-insideLabUpload.png",
+      "sha256": "1e477754df39ad72a6b42af4d7a429f809375102913768a3dd0c61247d199de8",
+      "bytes": 39314
+    },
+    {
+      "path": "bc/after/unlink/002-insideLabUpload.png",
+      "sha256": "1e477754df39ad72a6b42af4d7a429f809375102913768a3dd0c61247d199de8",
+      "bytes": 39314
+    },
+    {
+      "path": "bc/after/unlink/003-insideLabUpload.png",
+      "sha256": "e20394ad43796d60b403dc897a13ce521f911fbf72f5fa48b1ec9d0d71462b0a",
+      "bytes": 41097
+    },
+    {
+      "path": "bc/after/unlink/004-insideLabUpload.png",
+      "sha256": "d1b17563f05eb657f79b22c1653edd8779f85d28508dd37703c0f24460c048b3",
+      "bytes": 40395
+    },
+    {
+      "path": "bc/after/unlink/005-insideLabUpload.png",
+      "sha256": "6721ca1602dae0eb7c70da6e3bbe2c10b3044bf13cfda8de2168e88a120ac3d5",
+      "bytes": 41092
+    },
+    {
+      "path": "bc/after/unlink/006-ViewLabDisplay.png",
+      "sha256": "1ef510ce4a1f1f0abac3a795612ffb96892d8d9e1d32456fa6401f331d617596",
+      "bytes": 69933
+    },
+    {
+      "path": "bc/after/unlink/007-insideLabUpload.png",
+      "sha256": "6721ca1602dae0eb7c70da6e3bbe2c10b3044bf13cfda8de2168e88a120ac3d5",
+      "bytes": 41092
+    },
+    {
+      "path": "bc/after/unlink/008-ViewLabDisplay.png",
+      "sha256": "c5535c9c46f01236c052bb0a2d78567fa2a7b27b48916194e117f23cb2550206",
+      "bytes": 64109
+    },
+    {
+      "path": "bc/after/unlink/009-ViewLabDisplay.png",
+      "sha256": "8229f02f6ca85b6b9c677cae77c201a3db54916904e2da9f2fafc7fbee6d3633",
+      "bytes": 70449
+    },
+    {
+      "path": "bc/after/unlink/captures.json",
+      "sha256": "23a504b2cd52fba870e6a16f58337ccf32ca003d82cefc0f04a2a36f85d968de",
+      "bytes": 1905
+    },
+    {
+      "path": "bc/after/unlink-controls/001-insideLabUpload.png",
+      "sha256": "7e93f7d77573d254949c1b41f2cf0ea7931c9e6af73e89edcbd8c614cf11bd5a",
+      "bytes": 39291
+    },
+    {
+      "path": "bc/after/unlink-controls/002-insideLabUpload.png",
+      "sha256": "7e93f7d77573d254949c1b41f2cf0ea7931c9e6af73e89edcbd8c614cf11bd5a",
+      "bytes": 39291
+    },
+    {
+      "path": "bc/after/unlink-controls/003-insideLabUpload.png",
+      "sha256": "b6bf61de3ad7942cd3fee6e5fb00d21566bc3ccce787b65713d0120170a8f172",
+      "bytes": 41036
+    },
+    {
+      "path": "bc/after/unlink-controls/004-insideLabUpload.png",
+      "sha256": "42bdb5d35dab78ca3e4052f542f58a63d3ff4cda70fb1c4f159228cbd675f2f6",
+      "bytes": 40343
+    },
+    {
+      "path": "bc/after/unlink-controls/005-insideLabUpload.png",
+      "sha256": "b6bf61de3ad7942cd3fee6e5fb00d21566bc3ccce787b65713d0120170a8f172",
+      "bytes": 41036
+    },
+    {
+      "path": "bc/after/unlink-controls/006-ViewLabDisplay.png",
+      "sha256": "1d97843a10a225ccb818963f9e1043fb7aff430d459d88b8d64a3fda224b53aa",
+      "bytes": 79522
+    },
+    {
+      "path": "bc/after/unlink-controls/007-insideLabUpload.png",
+      "sha256": "bb17e47ce1065bfcd00d3cc3d2d5a16cfdbcb4802c2bec6b7182ab443cf31b7c",
+      "bytes": 41044
+    },
+    {
+      "path": "bc/after/unlink-controls/008-ViewLabDisplay.png",
+      "sha256": "54946b08ff370976343cec27a2ffbf838b6b29af9183f9d4862136f70d5af707",
+      "bytes": 71713
+    },
+    {
+      "path": "bc/after/unlink-controls/009-ViewLabDisplay.png",
+      "sha256": "b618fcb04f3cac3230509bfc9570a9963c00c12c565d47408d7461a9cfd1ec61",
+      "bytes": 80023
+    },
+    {
+      "path": "bc/after/unlink-controls/captures.json",
+      "sha256": "11e6bd903488379820a3c0169867f4423f34f6070db6e3ce3c5ef3099cd61a24",
+      "bytes": 1905
+    },
+    {
+      "path": "bc/before/boundaries/001-GraphMeasurements.png",
+      "sha256": "032aaa67d28bad18f5e28af6a86fffccda6deabad5b85b1733d7d840f4b82610",
+      "bytes": 10884
+    },
+    {
+      "path": "bc/before/boundaries/002-GraphMeasurements.png",
+      "sha256": "84acf4ceb73724ac1aaf9563e26654e0d75a9ebcfe6be7f904fe4634ceaab20f",
+      "bytes": 12202
+    },
+    {
+      "path": "bc/before/boundaries/003-GraphMeasurements.png",
+      "sha256": "c9753e1ddafa4e47bd75ea5e4fefd69f255f81bf81a023688c210354b2bb4b2d",
+      "bytes": 11554
+    },
+    {
+      "path": "bc/before/boundaries/004-GraphMeasurements.png",
+      "sha256": "e1453ed12f34789fab7a57371ba0c361d6411c6a4d2e7b1929312aa8ac61718f",
+      "bytes": 11514
+    },
+    {
+      "path": "bc/before/boundaries/005-GraphMeasurements.png",
+      "sha256": "c571cec87011d16a0400a6ee71b57fef154cf9dd1eaf521ea99275e6b767b1c5",
+      "bytes": 25821
+    },
+    {
+      "path": "bc/before/boundaries/006-GraphMeasurements.png",
+      "sha256": "c571cec87011d16a0400a6ee71b57fef154cf9dd1eaf521ea99275e6b767b1c5",
+      "bytes": 25821
+    },
+    {
+      "path": "bc/before/boundaries/007-GraphMeasurements.png",
+      "sha256": "c571cec87011d16a0400a6ee71b57fef154cf9dd1eaf521ea99275e6b767b1c5",
+      "bytes": 25821
+    },
+    {
+      "path": "bc/before/boundaries/008-GraphMeasurements.png",
+      "sha256": "c571cec87011d16a0400a6ee71b57fef154cf9dd1eaf521ea99275e6b767b1c5",
+      "bytes": 25821
+    },
+    {
+      "path": "bc/before/boundaries/captures.json",
+      "sha256": "ee15e43b3a696c3805d1bea0d2cee3d04ca48760e59c37dfd441a47b61fe623d",
+      "bytes": 1723
+    },
+    {
+      "path": "bc/before/boundary-artifacts/constant-0.png",
+      "sha256": "6f6d4e528f3776e6304a577c483bc58b80abc2cc0eab00bdf1c0ee5ceb91f543",
+      "bytes": 27555
+    },
+    {
+      "path": "bc/before/boundary-artifacts/constant-0_05.png",
+      "sha256": "73bdec73b95e36f3843653e4aa9fdef02e9ddab6fafc3129f4e0320732a05db9",
+      "bytes": 25555
+    },
+    {
+      "path": "bc/before/boundary-artifacts/constant-99.png",
+      "sha256": "8d57aa29a31c85827c193e21ec8a4057e4a8a3611678ccb5df46c17e94a854af",
+      "bytes": 24689
+    },
+    {
+      "path": "bc/before/boundary-artifacts/constant-n0_05.png",
+      "sha256": "6c3c01cb8650c535e4028858533742fad7545dbac0bf46d8e7167635bd81c53f",
+      "bytes": 25267
+    },
+    {
+      "path": "bc/before/boundary-artifacts/verdicts.json",
+      "sha256": "a0c615fad29b0f0c8d86404a93ce0ab500410cf6a27de8ca3cf2a0d28cc1c091",
+      "bytes": 1068
+    },
+    {
+      "path": "bc/before/cdm/001-InitializePatientsMetGuidelineCDMReport.png",
+      "sha256": "e09e7e5167339788c32c92c5c28e48b7bb2f303eb517c55bb299076cf1a38e57",
+      "bytes": 18442
+    },
+    {
+      "path": "bc/before/cdm/002-InitializePatientsMetGuidelineCDMReport.png",
+      "sha256": "6251d8389d86d9550f7e11698448442ba4a2d1d78dcf9fa76459f06f386db60e",
+      "bytes": 25961
+    },
+    {
+      "path": "bc/before/cdm/003-InitializePatientsInAbnormalRangeCDMReport.png",
+      "sha256": "74ef7f4d9925063fbc3407722f8ca007d196bac07c5782e1b2b80b54b72edd07",
+      "bytes": 18684
+    },
+    {
+      "path": "bc/before/cdm/004-InitializePatientsInAbnormalRangeCDMReport.png",
+      "sha256": "f20b084957bc90214bdaa8f12b69c6a62d0b72ad7e89b3ce128b5a4950e2ee81",
+      "bytes": 26172
+    },
+    {
+      "path": "bc/before/cdm/005-InitializeFrequencyOfRelevantTestsCDMReport.png",
+      "sha256": "b45f36a7d6f6a76ad83e2edb39f053efaafe7ab42bf96aa28987d9b796b14dd7",
+      "bytes": 18592
+    },
+    {
+      "path": "bc/before/cdm/006-InitializeFrequencyOfRelevantTestsCDMReport.png",
+      "sha256": "377c895cf7bf22cdffbbc46509570245207adfe9a311ba60e1f1ba5fbc8d6151",
+      "bytes": 33071
+    },
+    {
+      "path": "bc/before/cdm/captures.json",
+      "sha256": "91da36c841f22e0c255a155d5bd65dda366262506dbecc83ca02f4978498795e",
+      "bytes": 1705
+    },
+    {
+      "path": "bc/before/outage/001-insideLabUpload.png",
+      "sha256": "ef3d27dea40b771a6ca084aa6e1b6d8b1a3075d408f6ef2a49b5188ed1023a24",
+      "bytes": 39381
+    },
+    {
+      "path": "bc/before/outage/002-insideLabUpload.png",
+      "sha256": "def8709ae03dcbe3742625ab3ae4590e26b4740fd1c7358449b1c4ee258ad6bf",
+      "bytes": 39381
+    },
+    {
+      "path": "bc/before/outage/003-insideLabUpload.png",
+      "sha256": "033d9646967dcedc419ca7f8444731a12f679d0ebcec42b7ba326a7948cc6d80",
+      "bytes": 41161
+    },
+    {
+      "path": "bc/before/outage/004-insideLabUpload.png",
+      "sha256": "0ecd82db3ee2a9aef7f9c76848d988ffa298a030548e52269087f009866670ad",
+      "bytes": 40456
+    },
+    {
+      "path": "bc/before/outage/005-ViewLabValuesGraph.png",
+      "sha256": "806c0a3fc49ff553e713ba2eb5d6cf589be24a58e9a8b5b910677c92d9c503f1",
+      "bytes": 38031
+    },
+    {
+      "path": "bc/before/outage/006-ViewLabValuesGraph.png",
+      "sha256": "a93c4c7ff11eb68b1c207a7a20d1f9d9412a90a3c0fcff3b1d9f4737a3173e99",
+      "bytes": 16666
+    },
+    {
+      "path": "bc/before/outage/007-ViewLabValuesGraph.png",
+      "sha256": "977b826c62dbb2b8c468058d79967f6aeea5e9601ed72da67c207154b0aaabdd",
+      "bytes": 37184
+    },
+    {
+      "path": "bc/before/outage/008-ViewLabDisplay.png",
+      "sha256": "285958666c55ca367e4c436fd67cf183d88cf790463c2b62472b94e2e8b5ec0a",
+      "bytes": 64626
+    },
+    {
+      "path": "bc/before/outage/captures.json",
+      "sha256": "40bdd86dcd6caa1b12a92415df537337a95f4942b670f9586d15b543909654d6",
+      "bytes": 1712
+    },
+    {
+      "path": "bc/before/qualified/001-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "bc/before/qualified/002-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "bc/before/qualified/003-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "bc/before/qualified/004-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "bc/before/qualified/005-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "bc/before/qualified/006-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "bc/before/qualified/007-ViewLabValuesGraph.png",
+      "sha256": "8ef90de9d64f32e6355bc6c09c7814591d20528a0505a92af54752dfdcca37b9",
+      "bytes": 58487
+    },
+    {
+      "path": "bc/before/qualified/008-ViewLabValuesGraph.png",
+      "sha256": "be0256459ac4030ce05b495c7ac60d80d5535f0e1f36b96797432daf32d1bf36",
+      "bytes": 41056
+    },
+    {
+      "path": "bc/before/qualified/009-ViewLabValuesGraph.png",
+      "sha256": "7aeb9711495c8b2e1dce4fc63b73ad1ba616c1e913f58e8a5170ce9adcc83d01",
+      "bytes": 43731
+    },
+    {
+      "path": "bc/before/qualified/010-ViewLabValuesGraph.png",
+      "sha256": "d226ac4eaac8b011191d4375f71469a8895318cd6541a66383f1c94be54f223e",
+      "bytes": 37127
+    },
+    {
+      "path": "bc/before/qualified/011-ViewLabValuesGraph.png",
+      "sha256": "0020af86ad25447ebff87eaf736815a67d798f07d064c7697af60b5a31543957",
+      "bytes": 48537
+    },
+    {
+      "path": "bc/before/qualified/012-ViewLabDisplay.png",
+      "sha256": "e79a78c5442ae1e9dd16f2aec9f934402a39a94e4b803ad4e18ea58c3c367057",
+      "bytes": 75337
+    },
+    {
+      "path": "bc/before/qualified/013-ViewLabDisplay.png",
+      "sha256": "58041259e69c05797fdc04bf5fc926746f18d3d91ad08ef435db5d0d64e561a8",
+      "bytes": 58692
+    },
+    {
+      "path": "bc/before/qualified/014-ViewLabDisplay.png",
+      "sha256": "780ed76cab583e28e6033927ef238d57966daaac1ccb6508d4d3a075bc7cdf82",
+      "bytes": 58573
+    },
+    {
+      "path": "bc/before/qualified/015-ViewLabDisplay.png",
+      "sha256": "cd9ab1eadfb4454b0273719174e57584e212bd1a77af0fceee0938df9da88d4c",
+      "bytes": 58107
+    },
+    {
+      "path": "bc/before/qualified/016-ViewLabDisplay.png",
+      "sha256": "80f1288d1d606a37f4cf3feb080496982d098a30b730c1e75ae36ac1b516cfc5",
+      "bytes": 64502
+    },
+    {
+      "path": "bc/before/qualified/017-ViewCumulativeLabValues3.png",
+      "sha256": "281cfc228678052ea85df0f5fb14b915b684718b6b33da1ed7ca19999453dfba",
+      "bytes": 34763
+    },
+    {
+      "path": "bc/before/qualified/018-ViewCumulativeLabValues.png",
+      "sha256": "ded979b0093d767c2c136c7e47976381e160ac49d7549a61dc6dad7ad974843b",
+      "bytes": 43320
+    },
+    {
+      "path": "bc/before/qualified/captures.json",
+      "sha256": "89073e5867e873b37e9db2f8ca8279b84c0442366f9fc29f022e01311c681e3d",
+      "bytes": 3818
+    },
+    {
+      "path": "bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-173.pdf",
+      "sha256": "9d04d6098e11c60c627caf586e96315a318c1710143283ea1dd7bdfd8d2e6e71",
+      "bytes": 39108
+    },
+    {
+      "path": "bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-174.pdf",
+      "sha256": "59ed901c5d54974c86f167f6f36ab871fa4e76286b847dcf4f8e7bf58b0ba834",
+      "bytes": 38383
+    },
+    {
+      "path": "bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-175.pdf",
+      "sha256": "f7cd9a3615e2f13253ccdb8ad9063a00cae410395deb8573673df4ad40450e1a",
+      "bytes": 38382
+    },
+    {
+      "path": "bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-176.pdf",
+      "sha256": "819c0759a826621fc693265474c574c0c146397748032666e90a7243dd1fd909",
+      "bytes": 38446
+    },
+    {
+      "path": "bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-177.pdf",
+      "sha256": "fd204f6dc010764969e9a72aba6aed97ed82111d33239745908b10206ae491a6",
+      "bytes": 38518
+    },
+    {
+      "path": "bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-2010.png",
+      "sha256": "6c0319804d9aeb75d470b6b2a9b22e46102cd0fea64ae0c8fee3a77edc6cfe74",
+      "bytes": 45535
+    },
+    {
+      "path": "bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-2013.png",
+      "sha256": "b0e3b9f9663681407d0219aa0279b24b46a868c73d0388f11193fbb81d276094",
+      "bytes": 28317
+    },
+    {
+      "path": "bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-3007.png",
+      "sha256": "1a664bca602bb4840d5f7e2661f00d0bacb737208069fe4797aaa5eb0079371a",
+      "bytes": 24223
+    },
+    {
+      "path": "bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-3120.png",
+      "sha256": "453622b0c6082904144267240315221fd9667e9dd0220ac4b62d9f2455c22fe8",
+      "bytes": 35729
+    },
+    {
+      "path": "bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-3210.png",
+      "sha256": "79928fccc4eaa8c0859b1680bdb4a915865f133a5550cb94799f3f1c14c69d9b",
+      "bytes": 31059
+    },
+    {
+      "path": "bc/before/unlink/001-insideLabUpload.png",
+      "sha256": "987ed7f23b2144fee6f73b7a4a4cf3983c1acfcf7e9dfa2b9542a05b7297515a",
+      "bytes": 39248
+    },
+    {
+      "path": "bc/before/unlink/002-insideLabUpload.png",
+      "sha256": "d3468cd5c7da19655c931fcebb76f7f479d8b66801a0dbe229c26aefb50e99da",
+      "bytes": 39224
+    },
+    {
+      "path": "bc/before/unlink/003-insideLabUpload.png",
+      "sha256": "a30b1d1a29aca7ad1d6b8666fd78367525e6612f797102f48a4e0df0e647eaf4",
+      "bytes": 41005
+    },
+    {
+      "path": "bc/before/unlink/004-insideLabUpload.png",
+      "sha256": "3db8a68dd089e248aa6ab054d83ac2ec127a1e1cff7a46a1aaf17b8ba686a00f",
+      "bytes": 40328
+    },
+    {
+      "path": "bc/before/unlink/005-insideLabUpload.png",
+      "sha256": "6a2382579ee82791b0d56bc89f634980072b9ded254f94dfb9eb65db82cd3dd6",
+      "bytes": 40989
+    },
+    {
+      "path": "bc/before/unlink/006-ViewLabDisplay.png",
+      "sha256": "f33690e788b86d5b8e468d92c25a487506e7896c3f82a0ba030fa928faf8afa3",
+      "bytes": 69439
+    },
+    {
+      "path": "bc/before/unlink/007-insideLabUpload.png",
+      "sha256": "6a2382579ee82791b0d56bc89f634980072b9ded254f94dfb9eb65db82cd3dd6",
+      "bytes": 40989
+    },
+    {
+      "path": "bc/before/unlink/008-ViewLabDisplay.png",
+      "sha256": "6a7e4385c8162dc25464eb9627a603799f1c150141951e88a358d3e10e72d405",
+      "bytes": 76827
+    },
+    {
+      "path": "bc/before/unlink/009-ViewLabDisplay.png",
+      "sha256": "f2067c02e93c3e0d565df7f8180d046044e7584a055df4716df8fb81a9e48668",
+      "bytes": 69879
+    },
+    {
+      "path": "bc/before/unlink/captures.json",
+      "sha256": "bebff149cc385417efd724a91e51af44b16390b25b9fe5372e80b1dd8f563ea1",
+      "bytes": 1905
+    },
+    {
+      "path": "logs/bc-boundaries-after.log",
+      "sha256": "852a5e2adf5c483cac386690b994be3c62d798b702b0b9332913f8c9b4915416",
+      "bytes": 462
+    },
+    {
+      "path": "logs/bc-boundaries-before.log",
+      "sha256": "f410e04b2f2a7979cb4380779e78ae289a03c3ac1ea21cc364e65f0b08e43dfa",
+      "bytes": 4141
+    },
+    {
+      "path": "logs/bc-cdm-after.log",
+      "sha256": "16407bf40fa18c6621818be8e69d34c796f953a6dcd874677928d3e82416a895",
+      "bytes": 794
+    },
+    {
+      "path": "logs/bc-cdm-before.log",
+      "sha256": "457a2c68281389ff51fb9611ee9e86ae2177e5ab9a14838aebb8ec5c590d4aea",
+      "bytes": 1156
+    },
+    {
+      "path": "logs/bc-eform-after.log",
+      "sha256": "292c60566abbe4b0edc1be923c78f9e7c6286ca36c578708148e3a566c04cbed",
+      "bytes": 36
+    },
+    {
+      "path": "logs/bc-outage-after.log",
+      "sha256": "37c478c1a3ab203f06437cea5ef3b086ab39abe0adaa9bab01c6956a95793254",
+      "bytes": 341
+    },
+    {
+      "path": "logs/bc-outage-before.log",
+      "sha256": "727f96c890a98f784a5b3127679122be7b4fcabcbd0a978dfdbc1cdb47e08337",
+      "bytes": 636
+    },
+    {
+      "path": "logs/bc-qualified-after.log",
+      "sha256": "f0cd4564b4a41c07dcd72578da0202f79d63315ee6f256dbd05a0e6ad5bfff0a",
+      "bytes": 2813
+    },
+    {
+      "path": "logs/bc-qualified-before.log",
+      "sha256": "3792024e0385760fead57c023ba11111553bac8443a568d0d25cd1db648a2888",
+      "bytes": 5448
+    },
+    {
+      "path": "logs/bc-unlink-after.log",
+      "sha256": "7aadb9e26546c0857ce9cc9687f9f9201b0a824ae1f7de0cd0004a6773815f39",
+      "bytes": 674
+    },
+    {
+      "path": "logs/bc-unlink-before.log",
+      "sha256": "f3877ff1c711fdd667470c5722543f6d9b5b20768bc651a0ea68737d648e2bbb",
+      "bytes": 2228
+    },
+    {
+      "path": "logs/bc-unlink-controls-after.log",
+      "sha256": "ba40bb5ebe8a6f3830d53476e01f05acfcb6a8ddbf048748d829ce8ee221d08c",
+      "bytes": 673
+    },
+    {
+      "path": "logs/on-boundaries-after.log",
+      "sha256": "852a5e2adf5c483cac386690b994be3c62d798b702b0b9332913f8c9b4915416",
+      "bytes": 462
+    },
+    {
+      "path": "logs/on-boundaries-before.log",
+      "sha256": "e9f2adfdae966ef2a15b9052565b73fcd489fc902a2d944908c14dbc6817fb37",
+      "bytes": 4141
+    },
+    {
+      "path": "logs/on-cdm-after.log",
+      "sha256": "16407bf40fa18c6621818be8e69d34c796f953a6dcd874677928d3e82416a895",
+      "bytes": 794
+    },
+    {
+      "path": "logs/on-cdm-before.log",
+      "sha256": "457a2c68281389ff51fb9611ee9e86ae2177e5ab9a14838aebb8ec5c590d4aea",
+      "bytes": 1156
+    },
+    {
+      "path": "logs/on-eform-after.log",
+      "sha256": "292c60566abbe4b0edc1be923c78f9e7c6286ca36c578708148e3a566c04cbed",
+      "bytes": 36
+    },
+    {
+      "path": "logs/on-outage-after.log",
+      "sha256": "37c478c1a3ab203f06437cea5ef3b086ab39abe0adaa9bab01c6956a95793254",
+      "bytes": 341
+    },
+    {
+      "path": "logs/on-outage-before.log",
+      "sha256": "727f96c890a98f784a5b3127679122be7b4fcabcbd0a978dfdbc1cdb47e08337",
+      "bytes": 636
+    },
+    {
+      "path": "logs/on-qualified-after.log",
+      "sha256": "f0cd4564b4a41c07dcd72578da0202f79d63315ee6f256dbd05a0e6ad5bfff0a",
+      "bytes": 2813
+    },
+    {
+      "path": "logs/on-qualified-before.log",
+      "sha256": "3792024e0385760fead57c023ba11111553bac8443a568d0d25cd1db648a2888",
+      "bytes": 5448
+    },
+    {
+      "path": "logs/on-unlink-after.log",
+      "sha256": "d62944e5cf07f96cbf7c24287cd39e3ecacc2c8c0766a2586a6a0dba88998b14",
+      "bytes": 674
+    },
+    {
+      "path": "logs/on-unlink-before.log",
+      "sha256": "65b4817f97f7f7a11dc432d203391fc2864fe6ec7317e49e1cf693c61796005e",
+      "bytes": 2228
+    },
+    {
+      "path": "logs/on-unlink-controls-after.log",
+      "sha256": "0d66dd78afc2021e58bbbce2553b6de4802b6d3f507972e0d4ba6664b4a1da48",
+      "bytes": 673
+    },
+    {
+      "path": "on/after/boundaries/001-GraphMeasurements.png",
+      "sha256": "c11b43be77ab925696dcb95f9eba3958fe4edf320c6dfe67849d18f4eb31e056",
+      "bytes": 13554
+    },
+    {
+      "path": "on/after/boundaries/002-GraphMeasurements.png",
+      "sha256": "7d78717213d66f74885efae5efba5f7643faf1a1a3c72c81c7b63a1cd63e4274",
+      "bytes": 13632
+    },
+    {
+      "path": "on/after/boundaries/003-GraphMeasurements.png",
+      "sha256": "9676c41f80c0d3e86f557b9c215d6cad335a0f610c019f9646039cb3b282368b",
+      "bytes": 14849
+    },
+    {
+      "path": "on/after/boundaries/004-GraphMeasurements.png",
+      "sha256": "6e17029022788dd93acf0c8b60089af003cf9e54cd076bc40539aca7c071192e",
+      "bytes": 14377
+    },
+    {
+      "path": "on/after/boundaries/005-GraphMeasurements.png",
+      "sha256": "c1e81456501375dbcea4aa238b14a809dfd1c7bc20220c7499d39fab5feb20cc",
+      "bytes": 14819
+    },
+    {
+      "path": "on/after/boundaries/006-GraphMeasurements.png",
+      "sha256": "07f77baf537877510bb52ba2b0c8f6c57e517ee4d8988c08dabd8a66ba724a21",
+      "bytes": 14653
+    },
+    {
+      "path": "on/after/boundaries/007-GraphMeasurements.png",
+      "sha256": "c8e5c3c598a1c34bb7928eae0891b251458e3d77440261d46e80d0aec51aaa44",
+      "bytes": 16524
+    },
+    {
+      "path": "on/after/boundaries/008-GraphMeasurements.png",
+      "sha256": "7ca899dc137c4ec7b2ae36fb82ab8898847b31fd203c900acb6d891e6199bc6d",
+      "bytes": 15794
+    },
+    {
+      "path": "on/after/boundaries/captures.json",
+      "sha256": "0953a4ea2f207bbb093b15f7b2de53d39120a031352aad8d49a7ff614e979e40",
+      "bytes": 1723
+    },
+    {
+      "path": "on/after/boundary-artifacts/constant-0.png",
+      "sha256": "818358b13cae00d029464102b10608d425921b7fa862a94c4116252a4df2380d",
+      "bytes": 32880
+    },
+    {
+      "path": "on/after/boundary-artifacts/constant-0_05.png",
+      "sha256": "f9ed9d2cc0e1fd6a36881f2bce0e5b51626cb39e0b644ea541f46276ff6aa3fe",
+      "bytes": 36254
+    },
+    {
+      "path": "on/after/boundary-artifacts/constant-12500000.png",
+      "sha256": "72382a85ad6a6ac59b35730fd20f7b230e5ae134f05ba9a0c62900259c234c77",
+      "bytes": 41035
+    },
+    {
+      "path": "on/after/boundary-artifacts/constant-45000000.png",
+      "sha256": "cfe0032115ea9815218212df37815231342aef5de8b16469b0f5561a0f51e603",
+      "bytes": 36805
+    },
+    {
+      "path": "on/after/boundary-artifacts/constant-5000000.png",
+      "sha256": "297929fc7bfd3557eca66478f23ca897d38b85582c775cb0019a66d229f1138c",
+      "bytes": 37464
+    },
+    {
+      "path": "on/after/boundary-artifacts/constant-99.png",
+      "sha256": "e6b59587d3596c7194b61614cae0d23cd70c92284e7fed75e79d0c0f4cdb8cc6",
+      "bytes": 32015
+    },
+    {
+      "path": "on/after/boundary-artifacts/constant-n0_05.png",
+      "sha256": "2498932360869a4b32ef4d8e1c4477370b4aa8810dbf1cedc13a6be5e423c797",
+      "bytes": 36068
+    },
+    {
+      "path": "on/after/boundary-artifacts/constant-n6000000.png",
+      "sha256": "c8f4b96b9143b407e0a477f002ea8958efb4b893c15dfc21f8449a15a9ffd120",
+      "bytes": 41319
+    },
+    {
+      "path": "on/after/boundary-artifacts/verdicts.json",
+      "sha256": "37acb85d7f74bd975c609c1328d73206494b9934d30d1341e113268b20b54cae",
+      "bytes": 763
+    },
+    {
+      "path": "on/after/cdm/001-InitializePatientsMetGuidelineCDMReport.png",
+      "sha256": "1b53022c1f6f517b4ee29411b7035ab4060d889739cbaf9a37b782f7caa1b07d",
+      "bytes": 25880
+    },
+    {
+      "path": "on/after/cdm/002-InitializePatientsMetGuidelineCDMReport.png",
+      "sha256": "18d99e1292443e2d73eda509a1ca7909fc5ecd07ae2f62c806a636af64f82832",
+      "bytes": 26344
+    },
+    {
+      "path": "on/after/cdm/003-InitializePatientsInAbnormalRangeCDMReport.png",
+      "sha256": "aac788fec17d2a821561f6768523a4a7c5a38ce49962227efad55f8e653c09cb",
+      "bytes": 26557
+    },
+    {
+      "path": "on/after/cdm/004-InitializePatientsInAbnormalRangeCDMReport.png",
+      "sha256": "3b57f2be89e65130209b22576e0c1dc9b9c9c8c730e75c799540bdba08ae3c52",
+      "bytes": 26560
+    },
+    {
+      "path": "on/after/cdm/005-InitializeFrequencyOfRelevantTestsCDMReport.png",
+      "sha256": "91660883c6297c387f0da97a58600f91df18c7506b0e544b03724af2e8c55772",
+      "bytes": 33190
+    },
+    {
+      "path": "on/after/cdm/006-InitializeFrequencyOfRelevantTestsCDMReport.png",
+      "sha256": "6ad620348b9f3c009a1e5c9c752ee3331cca7be2eff9a1fc70df8d5f291c3ca1",
+      "bytes": 33447
+    },
+    {
+      "path": "on/after/cdm/captures.json",
+      "sha256": "5b14d8c5789ebc5599d007580bad3a337e4bbd76e0e158f134cce8e4e516dc82",
+      "bytes": 1705
+    },
+    {
+      "path": "on/after/eform/eform-bootstrap-print-fidelity.pdf",
+      "sha256": "57e0ef025edb32cb7d85fb016daabebfbce2f0e1d63caca12b772157f2c64943",
+      "bytes": 34239
+    },
+    {
+      "path": "on/after/eform/eform-bootstrap-print-fidelity.png",
+      "sha256": "bc36ea2e16d6c0dbf23e5eade2cb7f3dd423ce9f7c04ceea73174657b42469fe",
+      "bytes": 55036
+    },
+    {
+      "path": "on/after/outage/001-insideLabUpload.png",
+      "sha256": "e513d4db2190bce88922b01b9d8bedfbe45cdeb5fac37fc3df736bee9ad7076f",
+      "bytes": 39329
+    },
+    {
+      "path": "on/after/outage/002-insideLabUpload.png",
+      "sha256": "e513d4db2190bce88922b01b9d8bedfbe45cdeb5fac37fc3df736bee9ad7076f",
+      "bytes": 39329
+    },
+    {
+      "path": "on/after/outage/003-insideLabUpload.png",
+      "sha256": "ed446d158c138bae3f269796d71bbc8f4209dedcfaa8377f100f155cfdb5192a",
+      "bytes": 41131
+    },
+    {
+      "path": "on/after/outage/004-insideLabUpload.png",
+      "sha256": "d87bef0963972608433a346c3acc7beddf87b7756acd76e3f9df3b6e7f3c6317",
+      "bytes": 40427
+    },
+    {
+      "path": "on/after/outage/005-ViewLabValuesGraph.png",
+      "sha256": "804aa5b151c9e08fb19d5563bf8c0b417e66c3d0c69dc28887be16bb89437fc6",
+      "bytes": 46487
+    },
+    {
+      "path": "on/after/outage/006-ViewLabValuesGraph.png",
+      "sha256": "e53aa66bdef5b42f4ac10862617870576d4b8392d3e0c962dac49d5757849ba5",
+      "bytes": 21134
+    },
+    {
+      "path": "on/after/outage/007-ViewLabValuesGraph.png",
+      "sha256": "3254f3278247f90c2d06c355cfc80dddfddab9a462a81527f08a2d0d9e767a55",
+      "bytes": 44620
+    },
+    {
+      "path": "on/after/outage/008-ViewLabDisplay.png",
+      "sha256": "4ca07c1ab5bc086c03fc168f705c802319e9ac542a6fbe1dd32a3da91f6f182a",
+      "bytes": 66005
+    },
+    {
+      "path": "on/after/outage/captures.json",
+      "sha256": "cb318271d01f0950b863cc5b3bfe19312675dd8bb7b9c9a9c6511b6b8a888d49",
+      "bytes": 1712
+    },
+    {
+      "path": "on/after/qualified/001-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "on/after/qualified/002-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "on/after/qualified/003-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "on/after/qualified/004-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "on/after/qualified/005-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "on/after/qualified/006-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "on/after/qualified/007-ViewLabValuesGraph.png",
+      "sha256": "e2c9e4fa854fe97a987bd7602d3e7270d0583d5ab2c1bc368e6db1fd16e8ca3d",
+      "bytes": 52271
+    },
+    {
+      "path": "on/after/qualified/008-ViewLabValuesGraph.png",
+      "sha256": "b99f52d689fe2832fffea802ef4060a913c343ff8843fa149da0fcde43ef94bd",
+      "bytes": 48735
+    },
+    {
+      "path": "on/after/qualified/009-ViewLabValuesGraph.png",
+      "sha256": "b1fcb2feea1409c6ca3996d534525c3d67c5459c607af9c3b7905eda90d9289a",
+      "bytes": 46715
+    },
+    {
+      "path": "on/after/qualified/010-ViewLabValuesGraph.png",
+      "sha256": "e91f5598955860bb31263d3757593879724e9f4f214a233d6b8490b6ef25f514",
+      "bytes": 48105
+    },
+    {
+      "path": "on/after/qualified/011-ViewLabValuesGraph.png",
+      "sha256": "229571d60665633a7a2d9f0ef7bf6100d5f7640527584666839d9ae41c878b86",
+      "bytes": 48733
+    },
+    {
+      "path": "on/after/qualified/012-ViewLabDisplay.png",
+      "sha256": "4ea6e30f817bb0dba85fd5fece5c777b86c4607ae48595f2c519f3da9eb8940a",
+      "bytes": 75273
+    },
+    {
+      "path": "on/after/qualified/013-ViewLabDisplay.png",
+      "sha256": "16d1d396a9c62fc1c750647dbb3b8d1b471eda6916a515c410c78f37daaacd51",
+      "bytes": 58804
+    },
+    {
+      "path": "on/after/qualified/014-ViewLabDisplay.png",
+      "sha256": "d71019014f0aa708c71ddb9decdaf6f9b46a5f67e1a181dc5378122800668b35",
+      "bytes": 58581
+    },
+    {
+      "path": "on/after/qualified/015-ViewLabDisplay.png",
+      "sha256": "6ac4536ec693c30e7d24e5eba949a2b057048e9c46ea41749455d602307f9db7",
+      "bytes": 58084
+    },
+    {
+      "path": "on/after/qualified/016-ViewLabDisplay.png",
+      "sha256": "c30b4d41bb6a5d3a123d00cd03207f8ac99f53b2d13d28b21be1ac23581ec5c4",
+      "bytes": 64091
+    },
+    {
+      "path": "on/after/qualified/017-ViewCumulativeLabValues3.png",
+      "sha256": "a9eac0069e250e87b652df6fa7cdcd19c5cbca1bcb9a67ae276dd0a56f9040b8",
+      "bytes": 52861
+    },
+    {
+      "path": "on/after/qualified/018-ViewCumulativeLabValues.png",
+      "sha256": "5c8be2242af72197e484ff4dff84150908d145a779f23609697d9a2d2237b862",
+      "bytes": 45515
+    },
+    {
+      "path": "on/after/qualified/captures.json",
+      "sha256": "1ed2d857e3c73bfbeaa24879f0e643305f3259218d35520a5f79d2dae0b26140",
+      "bytes": 3818
+    },
+    {
+      "path": "on/after/qualified-artifacts/FAKE-PW5239d090e357fd3d-190.pdf",
+      "sha256": "66fc0291e7f0d4230fcd3139f240ccfaade8e09cc9dc1838eacc5a3c949cd1a6",
+      "bytes": 39104
+    },
+    {
+      "path": "on/after/qualified-artifacts/FAKE-PW5239d090e357fd3d-191.pdf",
+      "sha256": "c0b8d9a62123b174b8706327e6d35178be44e361259d1256e9d116ccb46d3420",
+      "bytes": 38383
+    },
+    {
+      "path": "on/after/qualified-artifacts/FAKE-PW5239d090e357fd3d-192.pdf",
+      "sha256": "9b066f7bdfbac3863bf3fe13f1024a1049b89917bb9bf78ad7cc8cb79d5b8af0",
+      "bytes": 38382
+    },
+    {
+      "path": "on/after/qualified-artifacts/FAKE-PW5239d090e357fd3d-193.pdf",
+      "sha256": "1f0ffa7f646580894eea33560a10b46fe4348d62b7f39f51d11212a5191ecfb4",
+      "bytes": 38446
+    },
+    {
+      "path": "on/after/qualified-artifacts/FAKE-PW5239d090e357fd3d-194.pdf",
+      "sha256": "0d576d9622bc2c79734faedcfba209a448c60031c77a464f272056a1dbeaa0fd",
+      "bytes": 38517
+    },
+    {
+      "path": "on/after/qualified-artifacts/FAKE-PW5239d090e357fd3d-2010.png",
+      "sha256": "06d4c3825e874e2c4e6099880563a5354ebd3a28cb0965509105515cf84054a6",
+      "bytes": 39729
+    },
+    {
+      "path": "on/after/qualified-artifacts/FAKE-PW5239d090e357fd3d-2013.png",
+      "sha256": "6d29213adc8efde8a2166a0aaa2206f694898adfd21f173b97553673a96e1f91",
+      "bytes": 36154
+    },
+    {
+      "path": "on/after/qualified-artifacts/FAKE-PW5239d090e357fd3d-3007.png",
+      "sha256": "a87dc02c8ee17e2f67e229e6db6a45927839b155833b4d1ffbece2e570676942",
+      "bytes": 35578
+    },
+    {
+      "path": "on/after/qualified-artifacts/FAKE-PW5239d090e357fd3d-3120.png",
+      "sha256": "b9da967b626fb356573eeba588b52296299884c82ecfa1f18741a5a41271c94a",
+      "bytes": 36140
+    },
+    {
+      "path": "on/after/qualified-artifacts/FAKE-PW5239d090e357fd3d-3210.png",
+      "sha256": "e7e35d676c09185cc5e5ffb097cca7b5b06a79ca8985d203a7176c2d5bccc913",
+      "bytes": 34121
+    },
+    {
+      "path": "on/after/unlink/001-insideLabUpload.png",
+      "sha256": "67c0cbc061e0f0e58951269782a9e22562560def9b83176d7effc28a4b6fc39a",
+      "bytes": 39186
+    },
+    {
+      "path": "on/after/unlink/002-insideLabUpload.png",
+      "sha256": "67c0cbc061e0f0e58951269782a9e22562560def9b83176d7effc28a4b6fc39a",
+      "bytes": 39186
+    },
+    {
+      "path": "on/after/unlink/003-insideLabUpload.png",
+      "sha256": "393b126ab75e477c6c311f94bd20791d4f6482611b32db160cb9ac041d2fca9e",
+      "bytes": 40951
+    },
+    {
+      "path": "on/after/unlink/004-insideLabUpload.png",
+      "sha256": "8852253fa6deb20ff597a60aca4dcb48546500095c8b92e3360262bfc6bd82b5",
+      "bytes": 40280
+    },
+    {
+      "path": "on/after/unlink/005-insideLabUpload.png",
+      "sha256": "cbcfd9f751c414f1fec83f1c0d4b37cad7a7dc6756bdb03f010e95b4b15bcedf",
+      "bytes": 40958
+    },
+    {
+      "path": "on/after/unlink/006-ViewLabDisplay.png",
+      "sha256": "f436ff4ff0e652680daec7c67da5841eb24d723566d4adca6194e89e8f845c91",
+      "bytes": 69359
+    },
+    {
+      "path": "on/after/unlink/007-insideLabUpload.png",
+      "sha256": "393b126ab75e477c6c311f94bd20791d4f6482611b32db160cb9ac041d2fca9e",
+      "bytes": 40951
+    },
+    {
+      "path": "on/after/unlink/008-ViewLabDisplay.png",
+      "sha256": "23291dcf8fe59782b23b03062ebe31ccb16da9b684e0821f093b4940d0352747",
+      "bytes": 63852
+    },
+    {
+      "path": "on/after/unlink/009-ViewLabDisplay.png",
+      "sha256": "7d30b51774aac5cf3bbbc19c46c4059445b40ad17407ef7d24a9a651d3f0f5b1",
+      "bytes": 69788
+    },
+    {
+      "path": "on/after/unlink/captures.json",
+      "sha256": "48f658cb3361ec923a0e83eaf6876bb939d35b89eaad1711e05414caf18ca0c4",
+      "bytes": 1905
+    },
+    {
+      "path": "on/after/unlink-controls/001-insideLabUpload.png",
+      "sha256": "62dd115cacbf452b026ec63f5ed0f7f785170e1d283f64f8ff567d731d4ccba8",
+      "bytes": 39382
+    },
+    {
+      "path": "on/after/unlink-controls/002-insideLabUpload.png",
+      "sha256": "a2c654ea5de172413afc2abcfa975508eda86875a333ed2ef8def55a91a73b9a",
+      "bytes": 39380
+    },
+    {
+      "path": "on/after/unlink-controls/003-insideLabUpload.png",
+      "sha256": "101c590410473f29a8212fc9c7d6e1b68e7888a5500b25dc24212d513c842885",
+      "bytes": 41176
+    },
+    {
+      "path": "on/after/unlink-controls/004-insideLabUpload.png",
+      "sha256": "bb06a54d11b5fa50f52a3de79ddc3a34cff7a5c5d3a2cecc507e1f9ed6805bd3",
+      "bytes": 40463
+    },
+    {
+      "path": "on/after/unlink-controls/005-insideLabUpload.png",
+      "sha256": "f984cf118ff8b6c2998a8849b8f063e8883a89e874a8af941537256dd410ac9f",
+      "bytes": 41194
+    },
+    {
+      "path": "on/after/unlink-controls/006-ViewLabDisplay.png",
+      "sha256": "8f1a3a8c76c37937efd3dfd1fb9a129da8a363c75dd17172f8908e6b3a2745be",
+      "bytes": 79536
+    },
+    {
+      "path": "on/after/unlink-controls/007-insideLabUpload.png",
+      "sha256": "101c590410473f29a8212fc9c7d6e1b68e7888a5500b25dc24212d513c842885",
+      "bytes": 41176
+    },
+    {
+      "path": "on/after/unlink-controls/008-ViewLabDisplay.png",
+      "sha256": "74c57a3a2f3718bad74aa49c068c807868b5bbd000c334797ef9c257b84af1c4",
+      "bytes": 71778
+    },
+    {
+      "path": "on/after/unlink-controls/009-ViewLabDisplay.png",
+      "sha256": "5580f36189415c27cf4615255f9d500bd2b54ea4fb48e4a3150af3dcc07b2ffc",
+      "bytes": 80034
+    },
+    {
+      "path": "on/after/unlink-controls/captures.json",
+      "sha256": "5fc2c65ecca40cdcf2b8cff8030cfb5d3a037e1204c4c54fe924a61fc2c0d32d",
+      "bytes": 1905
+    },
+    {
+      "path": "on/before/boundaries/001-GraphMeasurements.png",
+      "sha256": "57ad541cea0300310c7b2aeb736efdfac367dd092f6de719af5e4d1f24b8fcdc",
+      "bytes": 11121
+    },
+    {
+      "path": "on/before/boundaries/002-GraphMeasurements.png",
+      "sha256": "2b4466661e112657b1b38d53005bb81015bf50f881cf3ca3976a3b6e911b1924",
+      "bytes": 12451
+    },
+    {
+      "path": "on/before/boundaries/003-GraphMeasurements.png",
+      "sha256": "ea2409c1549b5877831d5b184cf3ad9a73fcc889d4aa207ea1fa26b61e65539b",
+      "bytes": 11790
+    },
+    {
+      "path": "on/before/boundaries/004-GraphMeasurements.png",
+      "sha256": "b204327d6f90d620d927cf043a6ee7a7a94fac09931d3b3ed8cf670c4f69070f",
+      "bytes": 11769
+    },
+    {
+      "path": "on/before/boundaries/005-GraphMeasurements.png",
+      "sha256": "c571cec87011d16a0400a6ee71b57fef154cf9dd1eaf521ea99275e6b767b1c5",
+      "bytes": 25821
+    },
+    {
+      "path": "on/before/boundaries/006-GraphMeasurements.png",
+      "sha256": "c571cec87011d16a0400a6ee71b57fef154cf9dd1eaf521ea99275e6b767b1c5",
+      "bytes": 25821
+    },
+    {
+      "path": "on/before/boundaries/007-GraphMeasurements.png",
+      "sha256": "c571cec87011d16a0400a6ee71b57fef154cf9dd1eaf521ea99275e6b767b1c5",
+      "bytes": 25821
+    },
+    {
+      "path": "on/before/boundaries/008-GraphMeasurements.png",
+      "sha256": "c571cec87011d16a0400a6ee71b57fef154cf9dd1eaf521ea99275e6b767b1c5",
+      "bytes": 25821
+    },
+    {
+      "path": "on/before/boundaries/captures.json",
+      "sha256": "88268fefa4e299e7b735e3bec0bc8de19d03c6c555035482ca45221fe35694ac",
+      "bytes": 1723
+    },
+    {
+      "path": "on/before/boundary-artifacts/constant-0.png",
+      "sha256": "234e4318a56fe03e400744765fdea0f6b53cf112313216aba16ffc1d3c0fa43a",
+      "bytes": 28085
+    },
+    {
+      "path": "on/before/boundary-artifacts/constant-0_05.png",
+      "sha256": "7817c41e6b5a909dd6f35f4104b8fa314ee53c5bb079c3114facaa8f0561d404",
+      "bytes": 26090
+    },
+    {
+      "path": "on/before/boundary-artifacts/constant-99.png",
+      "sha256": "b990bf44f8084f960d3698fd6400fe34289f49e910f3855f6c5f7a9ff4cd68fd",
+      "bytes": 25235
+    },
+    {
+      "path": "on/before/boundary-artifacts/constant-n0_05.png",
+      "sha256": "354c4868e63c2e54835dd2ba7f242cf73ea547bc8092e83670dce3b1906ec6b1",
+      "bytes": 25794
+    },
+    {
+      "path": "on/before/boundary-artifacts/verdicts.json",
+      "sha256": "a0c615fad29b0f0c8d86404a93ce0ab500410cf6a27de8ca3cf2a0d28cc1c091",
+      "bytes": 1068
+    },
+    {
+      "path": "on/before/cdm/001-InitializePatientsMetGuidelineCDMReport.png",
+      "sha256": "599ea309c923be7e6ebeeeff94f2879e678c6ebd2bb5d7f7bd134c02fb2f6185",
+      "bytes": 18485
+    },
+    {
+      "path": "on/before/cdm/002-InitializePatientsMetGuidelineCDMReport.png",
+      "sha256": "819f4dbcbbe18ef6e583af143a0446f6042c001a49f68c5ab345ef860634ed0a",
+      "bytes": 26005
+    },
+    {
+      "path": "on/before/cdm/003-InitializePatientsInAbnormalRangeCDMReport.png",
+      "sha256": "beed601f96db50a56bd0d7fb849378fa089cf54f6ea88671f387af6392c34848",
+      "bytes": 18730
+    },
+    {
+      "path": "on/before/cdm/004-InitializePatientsInAbnormalRangeCDMReport.png",
+      "sha256": "f4c7c2c724604e579c1c43dff6d4d07b4a3f3c2a5bdda83457364c788e4cfde7",
+      "bytes": 26218
+    },
+    {
+      "path": "on/before/cdm/005-InitializeFrequencyOfRelevantTestsCDMReport.png",
+      "sha256": "3bd01b64c15b28417667c46ccf40f9021a557445920a66d2208548a3295be60f",
+      "bytes": 18634
+    },
+    {
+      "path": "on/before/cdm/006-InitializeFrequencyOfRelevantTestsCDMReport.png",
+      "sha256": "1a76ff11c085b9f151053af58e578598a71baf24a1d9b259f0e5f74e88d24320",
+      "bytes": 33113
+    },
+    {
+      "path": "on/before/cdm/captures.json",
+      "sha256": "bf0d5d3d5e94271bb8709c349cf045d4de6aac6469416d2d5522b41f1cb1e4f9",
+      "bytes": 1705
+    },
+    {
+      "path": "on/before/outage/001-insideLabUpload.png",
+      "sha256": "3a97d65cae20668f9e0f62d7a18ec2e5f260c5ceaac7cb9132c976fd8a7206f2",
+      "bytes": 39529
+    },
+    {
+      "path": "on/before/outage/002-insideLabUpload.png",
+      "sha256": "3a97d65cae20668f9e0f62d7a18ec2e5f260c5ceaac7cb9132c976fd8a7206f2",
+      "bytes": 39529
+    },
+    {
+      "path": "on/before/outage/003-insideLabUpload.png",
+      "sha256": "991ebe1d541a90967ca6897b6875cccb11e23ba15a75bb8d0393d979a92510c3",
+      "bytes": 41266
+    },
+    {
+      "path": "on/before/outage/004-insideLabUpload.png",
+      "sha256": "6645126dc06a7de01f0b3405c1a6666ee1bd89d919e291b6e1977137786a87c1",
+      "bytes": 40598
+    },
+    {
+      "path": "on/before/outage/005-ViewLabValuesGraph.png",
+      "sha256": "b4a864b41e0c4e59f720672399857ebd8ac6bc861e8c434c8147d4ec1bda969f",
+      "bytes": 38569
+    },
+    {
+      "path": "on/before/outage/006-ViewLabValuesGraph.png",
+      "sha256": "4e2dbc99a877d2fa9a01ec8ee497935d5c27352c0e7f5e7840efd4f14118ab04",
+      "bytes": 16798
+    },
+    {
+      "path": "on/before/outage/007-ViewLabValuesGraph.png",
+      "sha256": "941220faf26d871d2f949ee31f50c76eba8c04c98739dca1a089497be398668c",
+      "bytes": 37704
+    },
+    {
+      "path": "on/before/outage/008-ViewLabDisplay.png",
+      "sha256": "dccad705d0b140b1e0c92b5e2c541e0d95c8ad9c91e9f5981978b5e139734fcc",
+      "bytes": 65608
+    },
+    {
+      "path": "on/before/outage/captures.json",
+      "sha256": "7e4952cbd8ca747a42201a80bcbf004437719d08ce19afb6a4346358909d7529",
+      "bytes": 1712
+    },
+    {
+      "path": "on/before/qualified/001-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "on/before/qualified/002-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "on/before/qualified/003-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "on/before/qualified/004-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "on/before/qualified/005-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "on/before/qualified/006-ViewCreateLab.png",
+      "sha256": "a54df7212eee06f92c26b51b5fbea5a05baceb1ba5840c8fd3917402cfe75359",
+      "bytes": 47866
+    },
+    {
+      "path": "on/before/qualified/007-ViewLabValuesGraph.png",
+      "sha256": "023a8e6856ea7a370c4d87febdc0dcc24e91713671c225d51d3e0496238a59b8",
+      "bytes": 58675
+    },
+    {
+      "path": "on/before/qualified/008-ViewLabValuesGraph.png",
+      "sha256": "17b7cb6725b668bac0ee4e9e2a73fd6546593aa7e47b0e3bdb373895beb9b824",
+      "bytes": 41215
+    },
+    {
+      "path": "on/before/qualified/009-ViewLabValuesGraph.png",
+      "sha256": "1fa03e41af9bf06fd1f5e83daf1b6e8d5a2ecde210c7bb0eee288f98fbf2661f",
+      "bytes": 43909
+    },
+    {
+      "path": "on/before/qualified/010-ViewLabValuesGraph.png",
+      "sha256": "d95007de3bd5ece7b9647364f8d7f05a0dc778dfbe48197b4444363632bb4b5b",
+      "bytes": 37295
+    },
+    {
+      "path": "on/before/qualified/011-ViewLabValuesGraph.png",
+      "sha256": "856e72cf1c647c531514704ff547986fedcc5160465773992670e262b03e2748",
+      "bytes": 48722
+    },
+    {
+      "path": "on/before/qualified/012-ViewLabDisplay.png",
+      "sha256": "a5ed3d997bec9d4b65a4dd10da2d6a3820de3213c7add0e03d2e474af04376c3",
+      "bytes": 75258
+    },
+    {
+      "path": "on/before/qualified/013-ViewLabDisplay.png",
+      "sha256": "1ce08e1da92bc2aec6e542d568a50b5b07df5eb74e99be9d64618da25ddb88ec",
+      "bytes": 58673
+    },
+    {
+      "path": "on/before/qualified/014-ViewLabDisplay.png",
+      "sha256": "5610bf0c88530a18a18f783589ee6960b35efb50a6bcba620a3e4ec605c40b04",
+      "bytes": 58507
+    },
+    {
+      "path": "on/before/qualified/015-ViewLabDisplay.png",
+      "sha256": "b95f2a4559094a9655a8c9b1c575a119caa3573a7295d32ddef7ffd635b30a83",
+      "bytes": 58084
+    },
+    {
+      "path": "on/before/qualified/016-ViewLabDisplay.png",
+      "sha256": "bead5e350e5a22f1f0208f4b46e245d50ab40fe25e084106e0fe5ed90f0675ea",
+      "bytes": 64147
+    },
+    {
+      "path": "on/before/qualified/017-ViewCumulativeLabValues3.png",
+      "sha256": "10654a45c041ad313a31b49122a5faf25ea76f806650803d8f06ffdbfd9a38c3",
+      "bytes": 34629
+    },
+    {
+      "path": "on/before/qualified/018-ViewCumulativeLabValues.png",
+      "sha256": "0d043f2e3807e8e976d43a6e443d89334706efc18cfebe0c996cab97393c610a",
+      "bytes": 43467
+    },
+    {
+      "path": "on/before/qualified/captures.json",
+      "sha256": "d938f20791e143c8407669e0c945a5180c3fbb7893c7f91d97ee6cd9ae08713a",
+      "bytes": 3818
+    },
+    {
+      "path": "on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-173.pdf",
+      "sha256": "ab069db4f54c4bf5d342c4d40470324319430b2638c6a42d6aed09111857470f",
+      "bytes": 39104
+    },
+    {
+      "path": "on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-174.pdf",
+      "sha256": "715f095fff5ff4060438d2e5132924148c1eaf0f629b19715e805c35f47c0689",
+      "bytes": 38381
+    },
+    {
+      "path": "on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-175.pdf",
+      "sha256": "c69cb8ab13d6891fe0cfced57006eb4cf07cf28e672c25931d6cb8b748c71f96",
+      "bytes": 38382
+    },
+    {
+      "path": "on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-176.pdf",
+      "sha256": "3b1cdee5210cfcaba83142ba71c963ae12d7a9dc64d5dedce1f951e784c3c645",
+      "bytes": 38440
+    },
+    {
+      "path": "on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-177.pdf",
+      "sha256": "0ff1345518f2e7bdd8651105f6648adec92bc67bfe04ecec2c7b176543616618",
+      "bytes": 38517
+    },
+    {
+      "path": "on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-2010.png",
+      "sha256": "2b012702c10e447cb8d4e1ce27b93b0c818d3ac5723ccb80eb75ef0aa47d10ab",
+      "bytes": 45918
+    },
+    {
+      "path": "on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-2013.png",
+      "sha256": "009be4ab9afb1eb75c9c9cb9cb82dee3ea905f08ea69a862cec8c4f9c6f8cf63",
+      "bytes": 28711
+    },
+    {
+      "path": "on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-3007.png",
+      "sha256": "ed5d99bd0e11939a389893cc6241e7be2944931eba273d7e15fe4c7c801d4d23",
+      "bytes": 24614
+    },
+    {
+      "path": "on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-3120.png",
+      "sha256": "b024009d62c83a81f6414847e2898d867e0eb0a6103fee6b341d24d7d550da1e",
+      "bytes": 36143
+    },
+    {
+      "path": "on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-3210.png",
+      "sha256": "d10477eed8f0426efbf398c56287906dd99014f4d176bafbd2f6b852c1b25cb1",
+      "bytes": 31450
+    },
+    {
+      "path": "on/before/unlink/001-insideLabUpload.png",
+      "sha256": "b0f4471f9bb4349cb8609731ba7d480c98fd98ff8f25ebda5c0167e094fc0d78",
+      "bytes": 39467
+    },
+    {
+      "path": "on/before/unlink/002-insideLabUpload.png",
+      "sha256": "276b3f60b0cb0dd4cfb68fcac2b03e1964ace435053accc86ae135ffead06554",
+      "bytes": 39469
+    },
+    {
+      "path": "on/before/unlink/003-insideLabUpload.png",
+      "sha256": "60347fd427595b95d2e32386db210dc7678d22142bcda64889aff3d7843a973a",
+      "bytes": 41208
+    },
+    {
+      "path": "on/before/unlink/004-insideLabUpload.png",
+      "sha256": "66472e4a324efd0f85db68147665f6f6b4876426355bc41132290b013e0cfb45",
+      "bytes": 40554
+    },
+    {
+      "path": "on/before/unlink/005-insideLabUpload.png",
+      "sha256": "ff1a6cd39b9b93f9277a9bb5d51b3cba6672874e947e4fad78483fcd14265a05",
+      "bytes": 41217
+    },
+    {
+      "path": "on/before/unlink/006-ViewLabDisplay.png",
+      "sha256": "da65501aa788becb9c32aaadfa569110a5fb948ad4c64344f24c21222b2ec399",
+      "bytes": 69279
+    },
+    {
+      "path": "on/before/unlink/007-insideLabUpload.png",
+      "sha256": "08ba65de0ca9c2b8dd344d22a11ae9f8be7c4493382bd8913e97d21ca798ed43",
+      "bytes": 41195
+    },
+    {
+      "path": "on/before/unlink/008-ViewLabDisplay.png",
+      "sha256": "7df401450f0890e433b3fc38e5bfd124469df102f709421136e347ecc3da7961",
+      "bytes": 76608
+    },
+    {
+      "path": "on/before/unlink/009-ViewLabDisplay.png",
+      "sha256": "f16b08bd8045aa391b29b0607383841f4c666fd39f23aac3a33ebc8f3f05b7b6",
+      "bytes": 69758
+    },
+    {
+      "path": "on/before/unlink/captures.json",
+      "sha256": "ba499b7092999cdd9b63a81371f2f73f633ba9c96d7322cd0bacef9092242c42",
+      "bytes": 1905
+    }
+  ],
+  "packages": {
+    "baseline": {
+      "carlos-ctl_1.3.1_all.deb": "9fd97ed0751550e07b132587e8f265b84be7628b14260a2f936f9789392c038d",
+      "carlos-emr-drugref_2026.09.0~snapshot28_all.deb": "5e072f6acad7b4d467d51cc10d18b77e26747aac30d16e5d1138c10019eae741",
+      "carlos-emr_2026.09.0~snapshot28_amd64.deb": "ad790afeff068c1f39e076d950800159f2f9908857c92cbf22b08e7a022e92aa"
+    },
+    "candidate": {
+      "carlos-ctl_1.3.1_all.deb": "9fd97ed0751550e07b132587e8f265b84be7628b14260a2f936f9789392c038d",
+      "carlos-emr-drugref_2026.09.0~snapshot28_all.deb": "5e072f6acad7b4d467d51cc10d18b77e26747aac30d16e5d1138c10019eae741",
+      "carlos-emr_2026.09.0~snapshot28_amd64.deb": "4ca8f59e7775bf37e2803a0c53a31fc8994948ad81dc2fc4d94e7f9130323f8e"
+    }
+  },
+  "reproductionUtilities": {
+    "docs/images/pr6102/capture/boundary-native.cjs": "abddc78f6f06dd987f849e9f18089749368a0be1722d94f706a2f5a9cea0b858",
+    "docs/images/pr6102/capture/capture-native-pages.cjs": "400f394ef692d2fe13b779d8a984a934221cc60d60e7811f5d9fa3e38befea06",
+    "docs/images/pr6102/capture/cdm-tabs-native.cjs": "1dba6c9632d106346798d8f2c739fa9a995086b4e4bdcaa5993cdf8a83d187b3",
+    "docs/images/pr6102/capture/outage-native.cjs": "7a4ccf2b17b1d1db00a15d80656ef602069e8ddeedd3716df896dd1ab74c1c90",
+    "docs/images/pr6102/capture/unlink-native.cjs": "50cf098347ebb2c0485ce85fe8581bcdbeccfa54475639839e125dabcd7f938d"
+  },
+  "counts": {
+    "pairedNativeScreenshots": 196,
+    "nativePairs": 98,
+    "png": 260,
+    "pdf": 22
+  }
+}

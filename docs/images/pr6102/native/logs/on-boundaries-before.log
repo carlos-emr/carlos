@@ -1,0 +1,98 @@
+FINDING native constant 99: Single-point series has no visible central marker
+FINDING native constant 0: Single-point series has no visible central marker
+FINDING native constant 0.05: Single-point series has no visible central marker
+FINDING native constant -0.05: Single-point series has no visible central marker
+FINDING native constant 5000000: Native graph answered HTTP 503
+FINDING native constant 12500000: Native graph answered HTTP 503
+FINDING native constant 45000000: Native graph answered HTTP 503
+FINDING native constant -6000000: Native graph answered HTTP 503
+FAIL measurement-native-boundaries -- The browser reported 8 JavaScript-layer problem(s): [boundary-history-5000000] console error: Failed to load resource: the server responded with a status of 503 (Service Unavailable) | [boundary-history-12500000] console error: Failed to load resource: the server responded with a status of 503 (Service Unavailable) | [boundary-history-45000000] console error: Failed to load resource: the server responded with a status of 503 (Service Unavailable) | [boundary-history--6000000] console error: Failed to load resource: the server responded with a status of 503 (Service Unavailable) | [boundary-history-5000000] HTTP 503 on a document | [boundary-history-12500000] HTTP 503 on a document | [boundary-history-45000000] HTTP 503 on a document | [boundary-history--6000000] HTTP 503 on a document
+{
+  "badResponses": [
+    {
+      "label": "boundary-history-5000000",
+      "status": 503,
+      "method": "GET",
+      "url": "https://127.0.0.1/carlos/encounter/GraphMeasurements",
+      "contentType": "text/html;charset=UTF-8",
+      "resourceType": "document"
+    },
+    {
+      "label": "boundary-history-12500000",
+      "status": 503,
+      "method": "GET",
+      "url": "https://127.0.0.1/carlos/encounter/GraphMeasurements",
+      "contentType": "text/html;charset=UTF-8",
+      "resourceType": "document"
+    },
+    {
+      "label": "boundary-history-45000000",
+      "status": 503,
+      "method": "GET",
+      "url": "https://127.0.0.1/carlos/encounter/GraphMeasurements",
+      "contentType": "text/html;charset=UTF-8",
+      "resourceType": "document"
+    },
+    {
+      "label": "boundary-history--6000000",
+      "status": 503,
+      "method": "GET",
+      "url": "https://127.0.0.1/carlos/encounter/GraphMeasurements",
+      "contentType": "text/html;charset=UTF-8",
+      "resourceType": "document"
+    }
+  ],
+  "consoleIssues": [
+    {
+      "label": "boundary-history-5000000",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+      "location": {
+        "url": "https://127.0.0.1/carlos/encounter/GraphMeasurements?demographic_no=3011&type=WT",
+        "line": 0,
+        "column": 0,
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "label": "boundary-history-12500000",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+      "location": {
+        "url": "https://127.0.0.1/carlos/encounter/GraphMeasurements?demographic_no=3011&type=WT",
+        "line": 0,
+        "column": 0,
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "label": "boundary-history-45000000",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+      "location": {
+        "url": "https://127.0.0.1/carlos/encounter/GraphMeasurements?demographic_no=3011&type=WT",
+        "line": 0,
+        "column": 0,
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "label": "boundary-history--6000000",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+      "location": {
+        "url": "https://127.0.0.1/carlos/encounter/GraphMeasurements?demographic_no=3011&type=WT",
+        "line": 0,
+        "column": 0,
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    }
+  ],
+  "pageErrors": [],
+  "requestFailures": [],
+  "dialogs": []
+}

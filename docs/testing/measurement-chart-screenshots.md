@@ -73,6 +73,6 @@ These screenshots accompany the existing chart reference suite. The single-point
 
 ## Remaining evidence
 
-Native installed ON/BC workflow screenshots, CDM two-tab behavior, renderer outage/recovery in the application and actual print/PDF comparisons remain required by the acceptance register.
+The [installed ON/BC gallery](measurement-native-screenshots.md) now supplies 98 additional before/after pairs, actual report PDFs, CDM two-tab controls, physical unlink rollback and renderer outage/recovery. Remaining merge gates are tracked in the [acceptance register](measurement-integrity-acceptance.md).
 
 Visual inspection of the first candidate screenshots identified overlapping French date labels. The overlap was fixed and the final screenshots were recaptured; the earlier failed visual attempt remains in commit `ebab9861b41`.

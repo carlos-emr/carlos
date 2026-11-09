@@ -1,0 +1,50 @@
+[
+  {
+    "image": "001-GraphMeasurements.png",
+    "route": "/carlos/encounter/GraphMeasurements",
+    "browser": "154.0.8025.0",
+    "sha256": "57ad541cea0300310c7b2aeb736efdfac367dd092f6de719af5e4d1f24b8fcdc"
+  },
+  {
+    "image": "002-GraphMeasurements.png",
+    "route": "/carlos/encounter/GraphMeasurements",
+    "browser": "154.0.8025.0",
+    "sha256": "2b4466661e112657b1b38d53005bb81015bf50f881cf3ca3976a3b6e911b1924"
+  },
+  {
+    "image": "003-GraphMeasurements.png",
+    "route": "/carlos/encounter/GraphMeasurements",
+    "browser": "154.0.8025.0",
+    "sha256": "ea2409c1549b5877831d5b184cf3ad9a73fcc889d4aa207ea1fa26b61e65539b"
+  },
+  {
+    "image": "004-GraphMeasurements.png",
+    "route": "/carlos/encounter/GraphMeasurements",
+    "browser": "154.0.8025.0",
+    "sha256": "b204327d6f90d620d927cf043a6ee7a7a94fac09931d3b3ed8cf670c4f69070f"
+  },
+  {
+    "image": "005-GraphMeasurements.png",
+    "route": "/carlos/encounter/GraphMeasurements",
+    "browser": "154.0.8025.0",
+    "sha256": "c571cec87011d16a0400a6ee71b57fef154cf9dd1eaf521ea99275e6b767b1c5"
+  },
+  {
+    "image": "006-GraphMeasurements.png",
+    "route": "/carlos/encounter/GraphMeasurements",
+    "browser": "154.0.8025.0",
+    "sha256": "c571cec87011d16a0400a6ee71b57fef154cf9dd1eaf521ea99275e6b767b1c5"
+  },
+  {
+    "image": "007-GraphMeasurements.png",
+    "route": "/carlos/encounter/GraphMeasurements",
+    "browser": "154.0.8025.0",
+    "sha256": "c571cec87011d16a0400a6ee71b57fef154cf9dd1eaf521ea99275e6b767b1c5"
+  },
+  {
+    "image": "008-GraphMeasurements.png",
+    "route": "/carlos/encounter/GraphMeasurements",
+    "browser": "154.0.8025.0",
+    "sha256": "c571cec87011d16a0400a6ee71b57fef154cf9dd1eaf521ea99275e6b767b1c5"
+  }
+]
