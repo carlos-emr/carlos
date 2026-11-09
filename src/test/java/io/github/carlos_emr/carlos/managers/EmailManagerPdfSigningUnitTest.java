@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.utility.DocumentManifest;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFSigningConfig;
+import io.github.carlos_emr.carlos.utility.PDFEncryptionUtil;
 import io.github.carlos_emr.carlos.utility.PDFSigningUtil;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
@@ -416,6 +417,58 @@ class EmailManagerPdfSigningUnitTest extends CarlosUnitTestBase {
             }
         } finally {
             closeWorkingDirectory(emailData);
+        }
+    }
+
+    @Test
+    @DisplayName("should audit the actual state of clear documents and a protected message in the same send")
+    void shouldAuditEachPdfsActualEncryption_whenTheMessageAndAttachmentsDiffer() throws Exception {
+        Path clear = writeSinglePagePdf("clear-document.pdf");
+        String password = "FAKE mixed-send PDF passphrase";
+        Path protectedMessage = PDFEncryptionUtil.encryptPDF(writeSinglePagePdf("message.pdf"), password);
+        EmailData emailData = emailDataWith(clear);
+        emailData.setIsEncrypted(true);
+        emailData.setIsAttachmentEncrypted(false);
+        emailData.setPassword(password);
+        // The message PDF's sentinel record is the one createMessageAttachment uses.
+        emailData.getAttachments().add(new EmailAttachment("message.pdf", protectedMessage.toString(), DocumentType.DOC, -1));
+        LoggedInInfo actor = mock(LoggedInInfo.class);
+        EmailLog emailLog = new EmailLog();
+        ReflectionTestUtils.setField(emailLog, "id", 71);
+        Demographic patient = new Demographic();
+        patient.setDemographicNo(1001);
+        emailLog.setDemographic(patient);
+        String keyId = "FAKE-" + "k".repeat(59);
+        EmailManager manager = createEmailManager(actor, emailLog, attachment -> null);
+
+        try (MockedStatic<PDFSigningConfig> config = mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS);
+                MockedStatic<PDFSigningUtil> signer = mockStatic(PDFSigningUtil.class);
+                MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
+            config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
+            paths.when(() -> PathValidationUtils.resolveTrustedPath(any())).thenAnswer(call -> call.getArgument(0));
+            signer.when(() -> PDFSigningUtil.signingKeyId(any(PDFSigningConfig.class))).thenReturn(keyId);
+            // The crypto signature is covered by the real-pipeline cases; preserve real PDF bytes
+            // here so the audit must distinguish the two actual protection states itself.
+            signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any(), any()))
+                    .thenAnswer(call -> call.getArgument(0));
+
+            manager.signAttachments(emailData, actor, emailLog);
+
+            String prefix = "emailLogId=71&source=doc&recordId=";
+            String suffix = "&kid=" + keyId + "&documentId=&version=&encrypted=";
+            logActionMock.verify(() -> LogAction.addLog(actor, "EmailManager.signAttachment", "Email",
+                    "71", "1001", prefix + "1" + suffix + "false"));
+            logActionMock.verify(() -> LogAction.addLog(actor, "EmailManager.signAttachment", "Email",
+                    "71", "1001", prefix + "-1" + suffix + "true"));
+            try (PDDocument opened = Loader.loadPDF(Path.of(emailData.getAttachments().get(0).getFilePath()).toFile(), password)) {
+                assertThat(opened.isEncrypted()).isFalse();
+            }
+            try (PDDocument opened = Loader.loadPDF(Path.of(emailData.getAttachments().get(1).getFilePath()).toFile(), password)) {
+                assertThat(opened.isEncrypted()).isTrue();
+            }
+        } finally {
+            closeWorkingDirectory(emailData);
+            Files.deleteIfExists(protectedMessage);
         }
     }
 

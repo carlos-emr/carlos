@@ -20,6 +20,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.commons.lang3.math.NumberUtils;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService;
@@ -1803,8 +1805,16 @@ public class EmailManager {
                 Path attachmentPDFPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
                 DocumentManifest manifest = manifests.forAttachment(attachment);
                 signedPDFPath = PDFSigningUtil.signPDF(attachmentPDFPath, signingConfig, ownerPassword, manifest);
+                boolean attachmentEncrypted = false;
+                if (loggedInInfo != null && emailLog != null) {
+                    // A protected message PDF can share a send with clear document attachments.
+                    // Read the signed bytes, not either send-level intent flag, for this audit row.
+                    try (PDDocument signed = Loader.loadPDF(signedPDFPath.toFile(), ownerPassword == null ? "" : ownerPassword)) {
+                        attachmentEncrypted = signed.isEncrypted();
+                    }
+                }
                 attachment.setFilePath(emailData.getWorkingDirectory().adoptGeneratedPdf(signedPDFPath).toString());
-                auditSignedAttachment(loggedInInfo, emailLog, attachment, keyId, manifest, emailData.getIsEncrypted());
+                auditSignedAttachment(loggedInInfo, emailLog, attachment, keyId, manifest, attachmentEncrypted);
             } catch (IOException | RuntimeException e) {
                 // Any RuntimeException, not a chosen few: one that escaped would skip
                 // completeFailedSend and strand the EmailLog at PENDING behind a 500.
