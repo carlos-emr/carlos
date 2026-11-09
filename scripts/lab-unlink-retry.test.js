@@ -67,3 +67,29 @@ test('cancelled or empty reasons do not send an unlink request', async () => {
   assert.equal(f.requests.length, 0);
   assert.equal(f.context.unlinkDemographic.reasons['17'], undefined);
 });
+
+test('confirmed unlink refreshes the report when the opener is missing or closed', async () => {
+  for (const opener of [null, {closed: true}]) {
+    const f = fixture(); f.result({ok: true, success: true});
+    f.context.top.opener = opener;
+    await f.unlink(17, 'completed reason');
+    assert.equal(f.context.unlinkDemographic.reasons['17'], undefined);
+    assert.equal(f.reloads(), 1);
+    assert.equal(f.alerts.length, 0);
+  }
+});
+
+for (const target of ['opener', 'report', 'both']) {
+  test(`confirmed unlink remains successful when ${target} reload fails`, async () => {
+    const f = fixture(); f.result({ok: true, success: true});
+    const fail = () => { throw new Error('synthetic navigation failure'); };
+    if (target === 'opener' || target === 'both') f.context.top.opener.location.reload = fail;
+    if (target === 'report' || target === 'both') f.context.window.location.reload = fail;
+    await f.unlink(17, 'completed reason');
+    assert.equal(f.context.unlinkDemographic.reasons['17'], undefined);
+    assert.equal(f.reloads(), target === 'both' ? 0 : 1);
+    assert.equal(f.alerts.length, 1);
+    assert.match(f.alerts[0], /^The lab was unlinked\./);
+    assert.doesNotMatch(f.alerts[0], /could not be confirmed|reason is retained/);
+  });
+}

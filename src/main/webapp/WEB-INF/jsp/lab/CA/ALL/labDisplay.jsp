@@ -831,10 +831,23 @@ input[id^='acklabel_']{
             .then(function(data) {
                 if (data.success) {
                     delete reasons[String(labNo)];
-                    // refresh the opening page with new results
-                    top.opener.location.reload();
-                    // refresh the lab display page and offer dialog to rematch.
-                    window.location.reload();
+                    // A navigation problem must not undo a confirmed unlink outcome.
+                    var refreshFailed = false;
+                    try {
+                        if (top.opener && !top.opener.closed) top.opener.location.reload();
+                    } catch (refreshError) {
+                        refreshFailed = true;
+                        console.error('Lab unlinked; inbox refresh failed:', refreshError);
+                    }
+                    try {
+                        window.location.reload();
+                    } catch (refreshError) {
+                        refreshFailed = true;
+                        console.error('Lab unlinked; report refresh failed:', refreshError);
+                    }
+                    if (refreshFailed) {
+                        alert('The lab was unlinked. Refresh the report and inbox manually to update their displayed status.');
+                    }
                 }
             })
             .catch(function(error) {
