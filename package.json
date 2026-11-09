@@ -731,6 +731,7 @@
     "test:rx-card-options-playwright": "node scripts/rx-card-options-playwright-checks.js",
     "test:rx-prescription-lifecycle-playwright": "node scripts/rx-prescription-lifecycle-playwright-checks.js",
     "test:document-edit-replace-file-playwright": "node scripts/document-edit-replace-file-playwright-checks.js",
+    "test:document-review-attestation-playwright": "node scripts/document-review-attestation-playwright-checks.js",
     "test:document-add-new-type-playwright": "node scripts/document-add-new-type-playwright-checks.js",
     "test:document-viewer-macro-playwright": "node scripts/document-viewer-macro-playwright-checks.js",
     "test:document-viewer-review-actions-playwright": "node scripts/document-viewer-review-actions-playwright-checks.js",
