@@ -337,6 +337,8 @@ test('full-chart navigation waits for acknowledgement of a dirty note save', () 
   h.context.loadFullChart = () => loads++;
   h.context.viewFullChart(true);
   assert.equal(loads, 0);
+  assert.equal(new URLSearchParams(h.updates[0].postBody).get('preserveEditor'), 'true',
+    'the acknowledged save must retain editable controls until the chart replaces them');
   h.updates[0].onFailure({status: 503});
   h.updates[0].onComplete({status: 503});
   assert.equal(loads, 0);

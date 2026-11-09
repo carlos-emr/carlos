@@ -134,3 +134,13 @@ Native candidate checks and final packaged verification are recorded in the PR d
 
 Release integration was refreshed to `ef69eea17a4cc3fb288b26327471fce1e20dcd8f`
 after #6099 landed; both prescribing and consultation translations were retained.
+
+### Full-chart failure after an acknowledged save
+
+The compact save used before Quick/Full Chart navigation now requests an editable
+acknowledgement. Ordinary note switching keeps its existing view conversion. The
+chart-specific response retains encounter date/type/duration and assignment controls,
+updates the textarea and form to the saved revision ID, and resets the dirty baseline.
+A failed chart request restores autosave; retrying the chart does not create another
+revision. The installed editor workflow now injects HTTP 503 after the real compact
+save and checks text, controls, saved identity and duplicate-free retry.

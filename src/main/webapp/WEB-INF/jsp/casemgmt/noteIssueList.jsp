@@ -61,6 +61,7 @@
         return;
     }
 %>
+<c:set var="preserveEditor" value="${param.preserveEditor eq 'true'}"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <%
     LoggedInInfo loggedInInfo73557 = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -103,7 +104,7 @@
 
 <div style="margin: 0 3px 0 0;"><span style="float: right;">
     <c:choose>
-        <c:when test="${not empty ajaxsave}">
+        <c:when test="${not empty ajaxsave and not preserveEditor}">
             <fmt:message key="encounter.encounterDate.title"/>&nbsp;
             <span id="obs${caseManagementEntryForm.caseNote.id}">
                 <carlos:encode value="<%= observationDateText %>"/>
@@ -163,7 +164,7 @@
 %>
 <div style="clear: right; margin: 0 30px 0 0; float: right;"><span>
     <c:choose>
-        <c:when test="${not empty ajaxsave}">
+        <c:when test="${not empty ajaxsave and not preserveEditor}">
             <fmt:message key="encounter.encounterTime.title"/>:&nbsp;
             <span id="encTimeHr${caseManagementEntryForm.caseNote.id}">
                 ${caseManagementEntryForm.caseNote.hourOfEncounterTime}
@@ -194,7 +195,7 @@
 %>
 <div style="clear: right; margin: 0 30px 0 0; float: right;"><span>
     <c:choose>
-        <c:when test="${not empty ajaxsave}">
+        <c:when test="${not empty ajaxsave and not preserveEditor}">
             <fmt:message key="encounter.encounterTransportation.title"/>:&nbsp;
             <span id="encTransTimeHr${caseManagementEntryForm.caseNote.id}">
                 ${caseManagementEntryForm.caseNote.hourOfEncTransportationTime}
@@ -228,7 +229,7 @@
     <fmt:message key="encounter.encType.title"/>:&nbsp;
     <span id="encType${noteIndex}">
         <c:choose>
-            <c:when test="${empty ajaxsave}">
+            <c:when test="${empty ajaxsave or preserveEditor}">
                 <select id="${encSelect}" class="encTypeCombo" name="caseNote.encounter_type">
                     <option value="" ${empty caseManagementEntryForm.caseNote.encounter_type ? 'selected' : ''}></option>
                     <option value="face to face encounter with client" ${caseManagementEntryForm.caseNote.encounter_type == 'face to face encounter with client' ? 'selected' : ''}><fmt:message key="encounter.faceToFaceEnc.title"/></option>
@@ -277,7 +278,7 @@
 
 
 <div id="noteIssues" data-saved-note-id="${carlos:forHtmlAttribute(ajaxsave)}">
-    <c:if test="${empty ajaxsave}">
+    <c:if test="${empty ajaxsave or preserveEditor}">
         <div class="add-issues">
             <label for="issueAutocomplete"><fmt:message key="encounter.Index.assnIssue"/></label>
             <input type="text" id="issueAutocomplete" class="issueAutocomplete" name="issueSearch"
@@ -485,7 +486,24 @@
         updatedNoteId = newId;
 
         var noteTxt = "${carlos:forJavaScriptBlock(noteTxt)}";
-        completeChangeToView(noteTxt, newId);
+        <c:choose>
+            <c:when test="${preserveEditor}">
+                // The following chart request can fail: retain the saved editor,
+                // its controls and its new revision identity for a safe retry.
+                var editor = $(caseNote);
+                editor.id = "caseNote_note" + newId;
+                caseNote = editor.id;
+                document.forms["caseManagementEntryForm"].noteId.value = newId;
+                document.forms["caseManagementEntryForm"].note_edit.value = "existing";
+                origCaseNote = editor.value;
+                origObservationDate = $("observationDate").value;
+                noteIssuesChanged = false;
+                initializeIssueAutocomplete(document.getElementById('noteIssues'));
+            </c:when>
+            <c:otherwise>
+                completeChangeToView(noteTxt, newId);
+            </c:otherwise>
+        </c:choose>
 
         if (origId.substr(0, 1) == "0") {
             // A first save turns a new-note container into a saved one so the print

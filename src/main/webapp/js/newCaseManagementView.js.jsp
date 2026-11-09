@@ -435,7 +435,7 @@
             var noteId = editor.parentNode.id.substr(1);
             ajaxSaveNote('sig' + noteId, noteId, editor.value, function (succeeded) {
                 if (succeeded) loadFullChart(displayFullChart);
-            });
+            }, true);
             return false;
         }
         return loadFullChart(displayFullChart);
@@ -449,6 +449,7 @@
         // Keep the live editor until the request succeeds. Freeze its controls
         // after serialization so edits cannot race the replacement response.
         var restoreControls = beginNoteSwitchSave();
+        var chartLoaded = false;
         try {
             CarlosAjax.request(
                 url,
@@ -465,6 +466,7 @@
                         fullChart = displayFullChart ? "true" : "false";
                         destroyNoteIssueAutocomplete();
                         $("notCPP").update(request.responseText);
+                        chartLoaded = true;
                         var qc = $("quickChart");
                         if (displayFullChart) {
                             if (qc) {
@@ -483,12 +485,22 @@
                     onFailure: function (request) {
                         showChartLoadError("notCPP", request.status);
                     },
-                    onComplete: function () { restoreControls(); }
+                    onComplete: function () {
+                        restoreControls();
+                        if (!chartLoaded && $(caseNote)) {
+                            clearAutoSaveTimer();
+                            setTimer();
+                        }
+                    }
                 }
             );
         } catch (error) {
             restoreControls();
             showChartLoadError("notCPP", 0);
+            if ($(caseNote)) {
+                clearAutoSaveTimer();
+                setTimer();
+            }
         }
         return false;
     }
@@ -2856,7 +2868,7 @@ function updateCPPNote() {
     var encMinError;
     var encTimeMandatoryMsg;
     var encTimeMandatory;
-    function ajaxSaveNote(div, noteId, noteTxt, complete) {
+    function ajaxSaveNote(div, noteId, noteTxt, complete, preserveEditor) {
 
         if (lostNoteLock) {
             alert(noteLockLostError);
@@ -2946,6 +2958,9 @@ function updateCPPNote() {
         // the clinician opens another note or the new-note icon with unsaved text.
         var params = "nId=" + noteId + issueParams + "&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&numIssues=" + idx + "&obsDate=" + $F("observationDate") + "&encType=" + encodeURIComponent($F(encType)) + "&noteTxt=" + encodeURIComponent(noteTxt);
         params += "&" + Form.serialize(caseMgtEntryfrm);
+        // A chart refresh may still fail after this save succeeds. Keep the
+        // acknowledged revision editable until its replacement chart arrives.
+        if (preserveEditor) params += "&preserveEditor=true";
 
         updatedNoteId = -1;
         clearAutoSaveTimer();
