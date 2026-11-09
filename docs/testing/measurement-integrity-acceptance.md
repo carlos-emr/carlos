@@ -50,3 +50,20 @@ used for retained browser/database evidence.
   was updated after a real observed run with 1,790 assertions; its pre-existing
   minimum assertion threshold remains unchanged.
 - No installed-package, physical database, repair or full-release acceptance claim.
+
+## Additional retakes
+
+- Exact package-pinned Chromium/ChromeDriver 154.0.8025.0, SHA-256 verified:
+  38 Java cases pass with zero skips, including actual PNG/JPEG generation and
+  three real eForm PDF browser smoke tests, bounded numeric parsing and renderer readiness.
+- The subsequent full Java/JSP run executed 34,453 tests: zero errors, five
+  failures, 147 explicit skips. All five failures were old readiness-warning
+  assertions; the eight-case readiness class passes after updating the required
+  warning to include measurement graphs. A final all-green full-suite/CI result
+  remains a separate requirement.
+- Final complete Node run: 7,697 pass, zero fail, four skip. The pinned carlos-ctl
+  source was then supplied to the two optional contract files: 31 pass, no skips.
+- The screenshot gallery records 90 images (45 pairs), source/configuration hashes,
+  actual browser version, synthetic fixtures and the deliberately limited renderer scope.
+- Raw numeric parsing is bounded before regex work, uses possessive numeric
+  components, and excludes nonzero results that underflow to zero.

@@ -314,12 +314,18 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         }
         // A bound, titre, date or qualitative grade is not an exact observation.
         String numeric = result.trim();
-        if (numeric.matches("[+-]?[1-9][0-9]{0,2}(?:,[0-9]{3})+(?:\\.[0-9]+)?")) numeric = numeric.replace(",", "");
-        if (!numeric.matches("[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?")) {
+        // Raw lab text is not constrained by measurements.dataField. Bound work
+        // before matching/parsing; excluded source text remains available in history.
+        if (numeric.length() > 512) return null;
+        if (numeric.matches("[+-]?[1-9][0-9]{0,2}(?:,[0-9]{3})++(?:\\.[0-9]++)?")) numeric = numeric.replace(",", "");
+        if (!numeric.matches("[+-]?(?:[0-9]++(?:\\.[0-9]*+)?|\\.[0-9]++)(?:[eE][+-]?[0-9]++)?")) {
             return null;
         }
         try {
-            return Double.isFinite(Double.parseDouble(numeric)) ? numeric : null;
+            double value = Double.parseDouble(numeric);
+            if (!Double.isFinite(value)) return null;
+            if (value == 0 && new java.math.BigDecimal(numeric).signum() != 0) return null;
+            return numeric;
         } catch (NumberFormatException invalid) {
             return null;
         }
