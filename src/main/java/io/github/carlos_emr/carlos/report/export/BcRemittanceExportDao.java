@@ -27,15 +27,14 @@ public final class BcRemittanceExportDao {
     /**
      * Writes billed claim rows for one exact payee and remittance, with one CSV header.
      * No matching claims produces a header-only file.
+     * Malformed Teleplan amounts retain their source in an {@code Unparsed Teleplan amount:} cell;
+     * malformed dates retain their source text.
      *
      * @param output OutputStream receiving UTF-8 CSV; closed when generation finishes
      * @param payee String literal Teleplan payee identifier, matched exactly
      * @param s21 String remittance S21 identifier, bound as a query parameter
      * @throws SQLException if the billing query fails
      * @throws IOException if CSV output fails
-     * @throws java.time.DateTimeException if a report date is invalid
-     * @throws NumberFormatException if a Teleplan amount is invalid
-     * @throws ArithmeticException if a Teleplan amount contains fractional cents
      */
     public void writeBilled(OutputStream output, String payee, String s21) throws SQLException, IOException {
         String sql = """
@@ -57,7 +56,7 @@ public final class BcRemittanceExportDao {
                 while (rs.next()) csv.row(BcBillingCsv.initial(rs.getString(1)) + BcBillingCsv.initial(rs.getString(2)),
                         rs.getString(3), BcBillingCsv.date(rs.getString(4)), BcBillingCsv.date(rs.getString(5)),
                         rs.getString(6), text(rs.getString(7)) + "(" + text(rs.getString(8)) + ")",
-                        TeleplanAmount.decode(rs.getString(9)), rs.getString(10), rs.getString(11), rs.getString(12));
+                        decodedAmount(rs.getString(9)), rs.getString(10), rs.getString(11), rs.getString(12));
             }
         }
     }
@@ -65,14 +64,13 @@ public final class BcRemittanceExportDao {
     /**
      * Writes one header and discriminated S21/S22/S23/S25 rows without a Jasper layout grid.
      * Deleted remittances and practitioner rows are excluded; orphan adjustments remain included.
+     * Malformed Teleplan amounts retain their source in an {@code Unparsed Teleplan amount:} cell;
+     * malformed dates retain their source text.
      *
      * @param output OutputStream receiving UTF-8 CSV; closed when generation finishes
      * @param s21 String remittance S21 identifier, bound in every query
      * @throws SQLException if a query fails or the remittance is unavailable or deleted
      * @throws IOException if CSV output fails
-     * @throws java.time.DateTimeException if a report date is invalid
-     * @throws NumberFormatException if a Teleplan amount is invalid
-     * @throws ArithmeticException if a Teleplan amount contains fractional cents
      */
     public void writeSummary(OutputStream output, String s21) throws SQLException, IOException {
         String[] headers = {"Record Type", "Payment Date", "Payee No", "Payee Name", "Billed (CAD)", "Paid (CAD)",
@@ -91,7 +89,7 @@ public final class BcRemittanceExportDao {
                     var row = row("Remittance");
                     row[1] = BcBillingCsv.date(rs.getString(1)); row[2] = rs.getString(2); row[3] = rs.getString(3);
                     payee = rs.getString(2);
-                    row[4] = TeleplanAmount.decode(rs.getString(4)); row[5] = TeleplanAmount.decode(rs.getString(5)); row[6] = TeleplanAmount.decode(rs.getString(6));
+                    row[4] = decodedAmount(rs.getString(4)); row[5] = decodedAmount(rs.getString(5)); row[6] = decodedAmount(rs.getString(6));
                     csv.row(row);
                 }
             }
@@ -104,7 +102,7 @@ public final class BcRemittanceExportDao {
                 try (var rs = st.executeQuery()) {
                     while (rs.next()) {
                         var row = row("Practitioner"); row[1] = BcBillingCsv.date(rs.getString(1)); row[2] = rs.getString(2);
-                        row[7] = rs.getString(3); row[8] = rs.getString(4); row[4] = TeleplanAmount.decode(rs.getString(5)); row[5] = TeleplanAmount.decode(rs.getString(6));
+                        row[7] = rs.getString(3); row[8] = rs.getString(4); row[4] = decodedAmount(rs.getString(5)); row[5] = decodedAmount(rs.getString(6));
                         csv.row(row);
                     }
                 }
@@ -120,7 +118,7 @@ public final class BcRemittanceExportDao {
                     while (rs.next()) {
                         var row = row("Adjustment"); row[7] = rs.getString(1);
                         for (int i = 2; i <= 6; i++) row[i + 7] = rs.getString(i);
-                        for (int i = 7; i <= 12; i++) row[i + 7] = TeleplanAmount.decode(rs.getString(i));
+                        for (int i = 7; i <= 12; i++) row[i + 7] = decodedAmount(rs.getString(i));
                         csv.row(row);
                     }
                 }
@@ -149,4 +147,12 @@ public final class BcRemittanceExportDao {
     private static String text(String value) {
         return value == null ? "" : value;
     }
+    /** Keeps malformed legacy fields visible; SQL/I/O failures still abort the staged download. */
+    private static String decodedAmount(String value) {
+        try { return TeleplanAmount.decode(value); }
+        catch (NumberFormatException invalid) {
+            return "Unparsed Teleplan amount: " + (value == null ? "" : value);
+        }
+    }
+
 }

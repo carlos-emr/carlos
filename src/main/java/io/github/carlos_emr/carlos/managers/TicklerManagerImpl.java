@@ -151,6 +151,7 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional
     public boolean addTickler(LoggedInInfo loggedInInfo, Tickler tickler) {
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
@@ -158,6 +159,7 @@ public class TicklerManagerImpl implements TicklerManager {
             return false;
         }
 
+        requirePatientWrite(loggedInInfo, tickler.getDemographicNo(), PRIVILEGE_WRITE);
         ticklerDao.persist(tickler);
 
         // --- log action ---
@@ -173,6 +175,10 @@ public class TicklerManagerImpl implements TicklerManager {
 
         if (!validateTicklerIsValid(tickler)) {
             return false;
+        }
+        Integer storedPatient = getTicklerDemographicNoForUpdate(loggedInInfo, tickler.getId());
+        if (!storedPatient.equals(tickler.getDemographicNo())) {
+            requirePatientWrite(loggedInInfo, tickler.getDemographicNo(), PRIVILEGE_UPDATE);
         }
         for (TicklerUpdate tu : tickler.getUpdates()) {
             if (tu.getId() == null || tu.getId().intValue() == 0) {
@@ -451,6 +457,27 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public Integer getTicklerDemographicNoForUpdate(LoggedInInfo actor, Integer id) {
+        checkPrivilege(actor, PRIVILEGE_UPDATE);
+        if (id == null || id <= 0) throw new jakarta.ws.rs.BadRequestException("Invalid tickler identifier");
+        List<Integer> patients = ticklerDao.lockPatientForUpdate(id);
+        if (patients.isEmpty()) throw new jakarta.ws.rs.NotFoundException();
+        if (patients.size() != 1) throw new IllegalStateException("Invalid tickler identity result");
+        Integer patient = patients.getFirst();
+        requirePatientWrite(actor, patient, PRIVILEGE_UPDATE);
+        return patient;
+    }
+
+    private void requirePatientWrite(LoggedInInfo actor, Integer patient, String right) {
+        if (patient == null || patient <= 0) throw new IllegalStateException("Stored tickler has no patient identity");
+        if (!securityInfoManager.hasPrivilege(actor, "_tickler", right, patient.toString())
+                || !securityInfoManager.isAllowedAccessToPatientRecord(actor, patient)) {
+            throw new io.github.carlos_emr.carlos.commn.exception.AccessDeniedException("_tickler", right, patient.toString());
+        }
+    }
+
+    @Override
     public Integer getTicklerDemographicNo(LoggedInInfo loggedInInfo, Integer id) {
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);
         List<Integer> patients = ticklerDao.findDemographicNos(id);
@@ -510,11 +537,16 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional
     public void updateStatus(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, Tickler.STATUS status) {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
 
+        Integer storedPatient = getTicklerDemographicNoForUpdate(loggedInInfo, tickler_id);
         Tickler tickler = ticklerDao.find(tickler_id);
-        if (tickler != null && tickler.getStatus() != null && tickler.getStatus() != null
+        if (tickler == null || !storedPatient.equals(tickler.getDemographicNo())) {
+            throw new IllegalStateException("Tickler patient changed during authorization");
+        }
+        if (tickler.getStatus() != null && tickler.getStatus() != null
                 && !status.equals(tickler.getStatus())) {
             tickler.setStatus(status);
             TicklerUpdate update = new TicklerUpdate();
@@ -540,6 +572,7 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional
     public void completeTickler(LoggedInInfo loggedInInfo, Integer tickler_id, String provider) {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
 
@@ -547,6 +580,7 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional
     public void deleteTickler(LoggedInInfo loggedInInfo, Integer tickler_id, String provider) {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
 
@@ -554,6 +588,7 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional
     public void resolveTicklersBySubstring(LoggedInInfo loggedInInfo, String providerNo, List<String> demographicIds,
                                            String remString) {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
@@ -562,7 +597,8 @@ public class TicklerManagerImpl implements TicklerManager {
         for (String str : demographicIds) {
             tmp.add(Integer.parseInt(str));
         }
-        List<Tickler> ticklers = ticklerDao.findActiveByMessageForPatients(tmp, remString);
+        List<Tickler> ticklers = new ArrayList<>(ticklerDao.findActiveByMessageForPatients(tmp, remString));
+        ticklers.sort(java.util.Comparator.comparing(Tickler::getId));
         for (Tickler t : ticklers) {
             deleteTickler(loggedInInfo, t.getId(), providerNo);
         }
@@ -663,6 +699,7 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional
     public void resolveTicklers(LoggedInInfo loggedInInfo, String providerNo, List<String> cdmPatientNos,
                                 String remString) {
         resolveTicklersBySubstring(loggedInInfo, providerNo, cdmPatientNos, remString);
@@ -784,7 +821,7 @@ public class TicklerManagerImpl implements TicklerManager {
 
     private void checkPrivilege(LoggedInInfo loggedInInfo, String privilege) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", privilege, null)) {
-            throw new RuntimeException("missing required sec object (_tickler)");
+            throw new SecurityException("missing required sec object (_tickler)");
         }
     }
 }

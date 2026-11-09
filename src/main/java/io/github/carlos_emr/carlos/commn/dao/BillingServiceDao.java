@@ -108,6 +108,9 @@ public interface BillingServiceDao extends AbstractDao<BillingService> {
 
     List<Object[]> findSomethingByBillingId(Integer billingNo);
 
+    /** Loads only the form, avoiding nullable primitive invoice fields in the legacy tuple query. */
+    List<io.github.carlos_emr.carlos.billing.CA.BC.model.Wcb> findOpenWcbFormsByBillingId(Integer billingNo);
+
     List<BillingService> findGst(String code, Date date);
 
     List<BillingService> search_service_code(String code, String code1, String code2, String desc, String desc1, String desc2);

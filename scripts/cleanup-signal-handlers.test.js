@@ -70,7 +70,7 @@ test('a failing cleanup is reported on stderr and the process still exits with t
 const ADOPTERS = [
   'add-login-account', 'demographic-add', 'echart-new-patient-notes',
   'eform-admin-crud', 'report-demographic-navigation', 'rx-preview-pharmacy',
-  'tickler-note-dialog', 'flowsheet-admin', 'flu-billing-report', 'rx-fax-reprint-represcribe',
+  'flowsheet-admin', 'flu-billing-report', 'rx-fax-reprint-represcribe',
 ];
 
 for (const name of ADOPTERS) {
@@ -84,7 +84,7 @@ for (const name of ADOPTERS) {
   });
 }
 
-for (const name of ['document-upload', 'login', 'tickler-crud']) {
+for (const name of ['document-upload', 'login', 'tickler-crud', 'tickler-note-dialog']) {
   test(`${name} uses cooperative structured completion and defers restoration until writes settle`, () => {
     const source = fs.readFileSync(path.join(__dirname, `${name}-playwright-checks.js`), 'utf8');
     assert.match(source, /legacyHarness\.runLegacyCheck\(/);

@@ -1192,13 +1192,12 @@ public class EFormBrowserPdfService {
             // the caller displays the sanitized issue report and requires exact approval.
             throw e;
         } catch (PDFGenerationException e) {
-            logger.error("Browser eForm renderer failed: fdid={} baseUrl={} reason={}", fdid, baseUrl, RenderLogRedaction.redactUrls(e.getMessage()));
+            logger.error("Browser eForm renderer failed: fdid={} diagnostic={}", fdid, LogSafe.exceptionTrace(e));
             throw e;
         } catch (IOException e) {
             // Redact: an IOException from temp-file/capture handling can carry a path; keep the type and
             // a redacted message rather than the raw throwable, consistent with the RuntimeException path.
-            logger.error("Browser eForm renderer I/O failure: fdid={} baseUrl={} type={} error={}",
-                    fdid, baseUrl, e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
+            logger.error("Browser eForm renderer I/O failure: fdid={}: {}", fdid, LogSafe.exceptionTrace(e));
             throw new PDFGenerationException("Unable to prepare files for the browser PDF renderer.", e);
         } catch (RuntimeException e) {
             // Deliberately no catch (IllegalArgumentException e) here: that would re-widen this
@@ -1218,9 +1217,7 @@ public class EFormBrowserPdfService {
             // a type+frame-only stack summary for message-less exceptions, and the redacted caused-by
             // chain so a wrapped transport root cause (RenderBrowser's IllegalStateException around
             // an HttpTimeoutException/ConnectException) is not lost.
-            logger.error("Browser eForm renderer failed: fdid={} baseUrl={} type={} error={} at={} causedBy={}",
-                    fdid, baseUrl, e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())),
-                    RenderLogRedaction.stackSummary(e), RenderLogRedaction.causeChain(e));
+            logger.error("Browser eForm renderer failed: fdid={}: {}", fdid, LogSafe.exceptionTrace(e));
             throw new PDFGenerationException("Browser rendering failed while generating the eForm PDF.");
         } finally {
             // The render grant was already invalidated by the RenderLease's close() (the lease is the
@@ -1444,9 +1441,7 @@ public class EFormBrowserPdfService {
             // missing binary, sandbox crash) in the top-level message. Still never chained into the
             // thrown exception -- a downstream handler that logs the chain would re-emit an
             // embedded URL unredacted.
-            logger.error("eForm render browser session failure detail: type={} error={} at={} causedBy={}",
-                    e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())),
-                    RenderLogRedaction.stackSummary(e), RenderLogRedaction.causeChain(e));
+            logger.error("eForm render browser session failure detail: {}", LogSafe.exceptionTrace(e));
             if (isServiceUnreachable(e)) {
                 logger.error("The eForm render browser service is not reachable. Start it "
                         + "(systemctl status carlos-emr-render-browser) or correct {} in carlos.properties.",
@@ -1668,8 +1663,7 @@ public class EFormBrowserPdfService {
         } catch (RuntimeException e) {
             // Never pass the raw WebDriver throwable: its message/stack can embed the loopback render
             // URL (fdid + render token). Log the type and a redacted message only.
-            logger.debug("Unable to quit browser eForm renderer driver cleanly: type={} error={}",
-                    e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
+            logger.debug("Unable to quit browser eForm renderer driver cleanly: {}", LogSafe.exceptionTrace(e));
             return false;
         }
     }
@@ -1750,11 +1744,7 @@ public class EFormBrowserPdfService {
                     + "A browser holding a rendered page may still be running; "
                     + "systemctl restart carlos-emr-render-browser clears it.", sessionId);
         } catch (RuntimeException | java.io.IOException e) {
-            logger.warn("Unable to force-delete browser eForm renderer session {}: type={} error={}. "
-                    + "A browser holding a rendered page may still be running; "
-                    + "systemctl restart carlos-emr-render-browser clears it.",
-                    sessionId, e.getClass().getName(),
-                    RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
+            logger.warn("Unable to force-delete browser renderer session; a browser may still hold a rendered page. Restart carlos-emr-render-browser to clear it: {}", LogSafe.exceptionTrace(e));
         } finally {
             if (interrupted) {
                 Thread.currentThread().interrupt();
@@ -2213,8 +2203,7 @@ public class EFormBrowserPdfService {
             // failing is a WebDriver fault, not a capability gap — and a silently-empty console
             // gate was the only defense against faxing a form whose background never painted.
             // Redacted (no raw WebDriver throwable — it can embed the render URL/token).
-            logger.error("Browser console log unavailable for eForm render gate: fdid={} type={} error={}",
-                    fdid, e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
+            logger.error("Browser console log unavailable for eForm render gate: fdid={}: {}", fdid, LogSafe.exceptionTrace(e));
             throw new PDFGenerationException(
                     "Browser rendering could not verify the page's console error state.");
         }
@@ -2717,8 +2706,7 @@ public class EFormBrowserPdfService {
             // failures here), so a drain fault silently returning 0 would let a broken render
             // pass every gate on truncated evidence.
             // Redacted (no raw WebDriver throwable — it can embed the render URL/token).
-            logger.error("Browser performance log unavailable for eForm render: type={} error={}",
-                    e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
+            logger.error("Browser performance log unavailable for eForm render: {}", LogSafe.exceptionTrace(e));
             throw new PDFGenerationException("Browser rendering could not verify the page's network activity.");
         }
     }
@@ -3167,8 +3155,7 @@ public class EFormBrowserPdfService {
             // Fail closed, but say why: a permissions/mount fault on the renderer temp root would
             // otherwise be indistinguishable from a garbage capture and send the operator chasing
             // the Chromium pipeline. Redacted message per this file's convention.
-            logger.warn("Could not read rendered PDF header at the success gate: type={} error={}",
-                    e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
+            logger.warn("Could not read rendered PDF header at the success gate: {}", LogSafe.exceptionTrace(e));
             return false;
         }
     }
@@ -3221,7 +3208,7 @@ public class EFormBrowserPdfService {
             // WARN, not DEBUG: an undeletable rendered PDF is PHI accumulating on disk, and at
             // default log levels an operator must learn the sweep is papering over a real
             // filesystem/permission problem. The path is a managed temp path, not PHI.
-            logger.warn("Unable to delete temporary browser-rendered PDF {}", outputPath, e);
+            logger.warn("Unable to delete temporary browser-rendered PDF: {}", LogSafe.exceptionTrace(e));
         }
         return !Files.exists(outputPath);
     }
@@ -3240,16 +3227,15 @@ public class EFormBrowserPdfService {
                     Files.deleteIfExists(entry);
                 } catch (IOException e) {
                     failedEntries++;
-                    logger.debug("Unable to delete renderer capture entry {}", entry, e);
+                    logger.debug("Unable to delete renderer capture entry: {}", LogSafe.exceptionTrace(e));
                 }
             }
         } catch (IOException e) {
-            logger.warn("Unable to delete temporary browser-rendered capture directory {}", directory, e);
+            logger.warn("Unable to delete temporary browser-rendered capture directory: {}", LogSafe.exceptionTrace(e));
             return false;
         }
         if (failedEntries > 0) {
-            logger.warn("Unable to delete {} entries under renderer capture directory {}; PHI capture images may be accumulating",
-                    failedEntries, directory);
+            logger.warn("Unable to delete {} renderer capture entries; PHI capture images may be accumulating", failedEntries);
             return false;
         }
         return !Files.exists(directory);
@@ -3323,7 +3309,7 @@ public class EFormBrowserPdfService {
             }
         } catch (IOException | RuntimeException e) {
             // WARN: a sweep that cannot run leaves orphaned PHI captures on disk indefinitely.
-            logger.warn("Unable to sweep stale renderer temp roots under {}", managedRoot, e);
+            logger.warn("Unable to sweep stale renderer temp roots under: {}", LogSafe.exceptionTrace(e));
         }
         if (reclaimed > 0) {
             logger.debug("Swept {} stale renderer artifact(s) under the managed temp root", reclaimed);

@@ -114,6 +114,26 @@ jobs:
             make install
           "
 
+      - name: Verify native XML objects and unchanged published clients
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" target
+          python3 -m pip install --require-hashes --target target/native-xml-python -r scripts/ci/requirements.txt
+          mkdir -p target/native-xml-input
+          curl --fail --location --retry 2 \
+            --output target/native-xml-input/main.deb \
+            https://github.com/carlos-emr/carlos/releases/download/2026.08.0-beta6/carlos-emr_2026.08.0.beta6_amd64.deb
+          docker exec -e PYTHONPATH=/workspace/target/native-xml-python carlos-tomcat-dev bash -euc '
+            shopt -s nullglob
+            wars=(target/*.war)
+            test "${#wars[@]}" -eq 1
+            mvn -B -ntp dependency:get -Dartifact=org.apache.tomcat:tomcat-jsp-api:11.0.27 -Dtransitive=false
+            python3 scripts/ci/run-native-xml-binary-contracts.py \
+              --main-package target/native-xml-input/main.deb \
+              --candidate "${wars[0]}" \
+              --tomcat-jsp-api /root/.m2/repository/org/apache/tomcat/tomcat-jsp-api/11.0.27/tomcat-jsp-api-11.0.27.jar \
+              --output target/native-xml-contracts
+          '
+
       - name: Compile packaged Edit Appointment servlet
         run: |
           docker exec carlos-tomcat-dev bash -c '
@@ -129,6 +149,15 @@ jobs:
         # before the post steps run.
         if: always()
         run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE"
+
+      - name: Preserve native XML compatibility evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-xml-compatibility
+          path: target/native-xml-contracts/
+          if-no-files-found: error
+          retention-days: 14
 
   tests:
     # No dependency on the build job: make install --run-tests compiles from
@@ -309,7 +338,7 @@ jobs:
             -e CARLOS_TEST_MARIADB_SCHEMA=generated \
             -e CARLOS_TEST_MARIADB_URL=jdbc:mariadb://host.docker.internal:3306/ \
             carlos-tomcat-dev mvn --batch-mode --no-transfer-progress test jacoco:report \
-            '-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,QueryReturnTypeIntegrationTest,JdbcConnectorMariaDbIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest' \
+            '-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,QueryReturnTypeIntegrationTest,JdbcConnectorMariaDbIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest' \
             '-Dgroups=spring-context | mariadb-native' -DexcludedGroups=flyway-schema -Dtest.forkCount=3 \
             -Djacoco.destFile=target/jacoco-mariadb-generated.exec -Djacoco.dataFile=target/jacoco-mariadb-generated.exec \
             -Dtest.coverageDirectory=target/coverage-mariadb/generated
@@ -321,7 +350,7 @@ jobs:
           docker exec -e CARLOS_TEST_MARIADB_DAO=true -e CARLOS_TEST_MARIADB_SCHEMA=flyway \
             -e CARLOS_TEST_MARIADB_URL=jdbc:mariadb://host.docker.internal:3306/ \
             carlos-tomcat-dev mvn --batch-mode --no-transfer-progress jacoco:prepare-agent surefire:test jacoco:report \
-            -Dtest=FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,ConsultationArchiveDaoIntegrationTest,ArchiveAuditTimestampIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,ConsultationListProjectionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest \
+            -Dtest=SoapTokenHousekeepingDaoIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,ConsultationArchiveDaoIntegrationTest,ArchiveAuditTimestampIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,ConsultationListProjectionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest \
             '-Dgroups=spring-context | mariadb-native' -Dtest.forkCount=1 -Dcarlos.test.schema.expected=flyway \
             -Dsurefire.reportNameSuffix=flyway \
             -Djacoco.destFile=target/jacoco-mariadb-flyway.exec -Djacoco.dataFile=target/jacoco-mariadb-flyway.exec \
@@ -335,7 +364,7 @@ jobs:
             -e CARLOS_TEST_MARIADB_PROVINCE=bc \
             -e CARLOS_TEST_MARIADB_URL=jdbc:mariadb://host.docker.internal:3306/ \
             carlos-tomcat-dev mvn --batch-mode --no-transfer-progress jacoco:prepare-agent surefire:test jacoco:report \
-            -Dtest=FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,LabRoutingLookupDaoIntegrationTest,ConsultationArchiveDaoIntegrationTest,ArchiveAuditTimestampIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest \
+            -Dtest=SoapTokenHousekeepingDaoIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,LabRoutingLookupDaoIntegrationTest,ConsultationArchiveDaoIntegrationTest,ArchiveAuditTimestampIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,LegacyBcTeleplanExportMariaDbIntegrationTest \
             '-Dgroups=spring-context | mariadb-native' -Dtest.forkCount=1 \
             -Dsurefire.reportNameSuffix=bc-flyway \
             -Djacoco.destFile=target/jacoco-mariadb-bc-flyway.exec -Djacoco.dataFile=target/jacoco-mariadb-bc-flyway.exec \

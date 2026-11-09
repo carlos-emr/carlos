@@ -844,7 +844,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
     public List<Admission> findAdmissionsByProgramAndDate(Integer programNo, Date day, int startIndex,
                                                           int numToReturn) {
 
-        String queryStr = "select a FROM Admission a WHERE a.programId=?1 and a.admissionDate <= ?2 and (a.dischargeDate >= ?3 or a.dischargeDate is null) ORDER BY a.admissionDate";
+        String queryStr = "select a FROM Admission a WHERE a.programId=?1 and a.admissionDate <= ?2 and (a.dischargeDate >= ?3 or a.dischargeDate is null) ORDER BY a.admissionDate, a.id";
 
         Query query = entityManager.createQuery(queryStr);
 
@@ -869,7 +869,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
     @Override
     public Integer findAdmissionsByProgramAndDateAsCount(Integer programNo, Date day) {
 
-        String queryStr = "select count(a) FROM Admission a WHERE a.programId=?1 and a.admissionDate <= ?2 and (a.dischargeDate >= ?3 or a.dischargeDate is null) ORDER BY a.admissionDate";
+        String queryStr = "select count(a) FROM Admission a WHERE a.programId=?1 and a.admissionDate <= ?2 and (a.dischargeDate >= ?3 or a.dischargeDate is null) ORDER BY a.admissionDate, a.id";
 
         Query query = entityManager.createQuery(queryStr);
 

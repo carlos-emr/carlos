@@ -335,3 +335,21 @@ Private recovery archives include encrypted repository bytes and credential/key
 escrow; publish only receipt hashes. The separate `backup-retention-purge` check
 still requires retention, interruption and terminal purge qualification. This core
 does not claim those phases or complete issue 5700 by itself.
+
+### BC route compatibility decisions (PR #6097)
+
+The application and the local eForm corpus at `b4fe05452d459ba1a64325cdcb792ad5e7778c28` were rechecked for the four exact candidates in #5325, #5327 and #5328. The corpus scan covered 10,944 tracked files, 929 distinct ZIP contents and their extracted documents, with no matching candidate reference and no skipped entries. Duplicate archive contents were scanned once. This is static evidence; installed custom forms, bookmarks and production request counts remain unknown.
+
+| Candidate | Disposition and supported behavior |
+| --- | --- |
+| `billing/CA/BC/associateCodesAction` | Retain and repair as the association editor's POST writer. It shares the live writer's code validation, preserves typed `svcAssoc` clients and their no-diagnosis no-op, and uses the protected editor for validation refusal. `saveAssocAction` remains available. |
+| `billing/CA/BC/privateBilling/ViewStatement` | Retain the gated URL. An internal dispatch with an assembled `bills` model keeps its protected view. A standalone bookmark redirects to the supported Billing Status private-invoice list, preserving the provider filter. |
+| `billing/CA/BC/privateBilling/PrintPreview` | Retain the gated URL and prepared-model dispatch. A standalone request, which cannot supply the view's required `patientBills` attribute, returns to the supported private-invoice list for invoice selection. It does not activate the unmapped legacy servlet. |
+| `billing/CA/BC/support/BillingCodes` | Retain the all-code picker, linked from the association editor. Missing or invalid opener form/field identifiers return 400 before its lookup. The existing search picker remains available. |
+
+All four routes remain behind the BC province guard and their existing billing privileges. Shared views, DAOs, association helpers and persisted records are retained. No generic `.do`/`.jsp` aliases or public JSP paths are introduced.
+
+Legacy BC Teleplan group generation requires both the existing reporting read privilege
+(`_report`, `_admin.reporting` or `_admin`) and `_billing w`. Generation publishes files
+and marks claims as billed; report-only operators can continue viewing activities but
+need an administrator to grant billing write access before generating a batch.

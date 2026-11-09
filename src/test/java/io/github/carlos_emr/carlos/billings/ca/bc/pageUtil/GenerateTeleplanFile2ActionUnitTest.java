@@ -96,7 +96,7 @@ class GenerateTeleplanFile2ActionUnitTest extends CarlosUnitTestBase {
     private TeleplanSubmission submission;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         request = new MockHttpServletRequest();
         request.setRequestURI("/carlos/billing/CA/BC/GenerateTeleplanFile");
         response = new MockHttpServletResponse();
@@ -104,6 +104,9 @@ class GenerateTeleplanFile2ActionUnitTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), info);
         security = createAndRegisterMock(SecurityInfoManager.class);
         when(security.hasPrivilege(info, "_billing", "w", null)).thenReturn(true);
+        when(info.getLoggedInProviderNo()).thenReturn("999998");
+        var coordinator=createAndRegisterMock(io.github.carlos_emr.carlos.billings.ca.bc.service.TeleplanExportCoordinator.class);
+        when(coordinator.generate(any())).thenAnswer(call -> ((java.util.concurrent.Callable<?>) call.getArgument(0)).call());
         billingmasterDao = createAndRegisterMock(BillingmasterDAO.class);
         demographicManager = createAndRegisterMock(DemographicManager.class);
         servlet = mockStatic(ServletActionContext.class);
@@ -189,6 +192,19 @@ class GenerateTeleplanFile2ActionUnitTest extends CarlosUnitTestBase {
         verify(writer.constructed().get(0)).getSubmission(any(), eq(false), any(ProviderData[].class), nullable(String.class));
         verify(submission).commit(startsWith("HJ"), nullable(String.class), eq("J"), eq("1"), nullable(String.class));
         assertThat(request.getAttribute("error")).isNull();
+    }
+
+    @Test
+    void shouldExplainLockContention_withoutAttemptingGeneration() throws Exception {
+        request.setMethod("POST"); request.addParameter("providers",PRACTITIONER);
+        var coordinator=io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
+                io.github.carlos_emr.carlos.billings.ca.bc.service.TeleplanExportCoordinator.class);
+        org.mockito.Mockito.doThrow(new IllegalStateException("Another Teleplan export is running; retry when it finishes"))
+                .when(coordinator).generate(any());
+        assertThat(execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(request.getAttribute("error")).isEqualTo("Another Teleplan export is running; retry when it finishes");
+        assertThat(writer.constructed()).isEmpty(); verifyNoInteractions(submission);
     }
 
     @Test

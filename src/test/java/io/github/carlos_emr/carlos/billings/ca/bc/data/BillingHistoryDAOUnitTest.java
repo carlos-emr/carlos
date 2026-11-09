@@ -100,7 +100,7 @@ class BillingHistoryDAOUnitTest extends CarlosUnitTestBase {
         verify(mockBillingHistoryDao).persist(archived.capture());
         assertThat(archived.getValue().getBillingMasterNo()).isEqualTo(41);
         assertThat(archived.getValue().getStatus()).isEqualTo("O");
-        assertThat(archived.getValue().getAmount()).isEqualTo("27.9");
+        assertThat(archived.getValue().getAmount()).isEqualTo("27.90");
     }
 
     @Test

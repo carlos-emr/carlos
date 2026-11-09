@@ -112,11 +112,11 @@ public class AppointmentConverter extends AbstractConverter<Appointment, Appoint
         BeanUtils.copyProperties(d, t);
 
         if (includeDemographic && t.getDemographicNo() > 0) {
-            t.setDemographic(demographicDao.getDemographicById(t.getDemographicNo()));
+            t.setDemographicSnapshot(EmbeddedRecordSnapshots.demographic(loggedInInfo, demographicDao.getDemographicById(t.getDemographicNo())));
         }
 
         if (includeProvider && t.getProviderNo() != null) {
-            t.setProvider(providerDao.getProvider(t.getProviderNo()));
+            t.setProviderSnapshot(EmbeddedRecordSnapshots.provider(loggedInInfo, providerDao.getProvider(t.getProviderNo())));
         }
 
         return t;

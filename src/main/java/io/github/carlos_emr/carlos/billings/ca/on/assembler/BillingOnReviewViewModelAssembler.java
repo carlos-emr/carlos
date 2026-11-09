@@ -278,7 +278,7 @@ public class BillingOnReviewViewModelAssembler {
                 "service_date", "referralDocName", "referralCode", "site",
                 "siteId", "xml_billtype", "xml_visittype", "xml_location",
                 "xml_slicode", "xml_vdate", "m_review", "appointment_no",
-                "demographic_no", "demographic_name", "apptProvider_no",
+                "demographic_no", "apptProvider_no",
                 "assgProvider_no", "checkFlag"
         };
         for (String k : keys) {
@@ -290,7 +290,7 @@ public class BillingOnReviewViewModelAssembler {
 
     private void populateLabelFields(HttpServletRequest request,
                                      BillingOnReviewViewModel.Builder b) {
-        b.demoName(nullToEmpty(request.getParameter("demographic_name")));
+        b.demoName(nullToEmpty(io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.name(request)));
         b.multisitesEnabled(IsPropertiesOn.isMultisitesEnable());
         b.mReview(request.getParameter("m_review") != null);
         b.siteName(nullToEmpty(request.getParameter("site")));
