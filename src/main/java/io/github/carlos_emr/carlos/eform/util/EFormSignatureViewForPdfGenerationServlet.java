@@ -123,8 +123,10 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
             if (renderEform == null) {
                 // Distinct from the mismatch below: the eForm row vanished between grant mint and
                 // fetch (delete race) — an unprovable binding, not a merge-tooling symptom.
-                logger.warn("Rejected signature fetch: render eForm row no longer exists: fdid={}",
-                        LogSafe.sanitize(String.valueOf(grant.fdid())));
+                if (logger.isWarnEnabled()) {
+                    logger.warn("Rejected signature fetch: render eForm row no longer exists: fdid={}",
+                            LogSafe.sanitize(String.valueOf(grant.fdid())));
+                }
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return;
             }
@@ -132,15 +134,19 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
 			DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
 			DigitalSignature metadata = digitalSignatureManager.getDigitalSignatureMetadata(digitalSignatureId);
 			if (metadata == null) {
-				logger.warn("Rejected signature fetch: no readable signature metadata for render eForm: fdid={}",
-						LogSafe.sanitize(String.valueOf(grant.fdid())));
+				if (logger.isWarnEnabled()) {
+					logger.warn("Rejected signature fetch: no readable signature metadata for render eForm: fdid={}",
+							LogSafe.sanitize(String.valueOf(grant.fdid())));
+				}
 				response.sendError(HttpServletResponse.SC_NOT_FOUND);
 				return;
 			}
 			if (metadata.getModuleType() != io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.E_FORM
 					|| renderDemographic == null || !renderDemographic.equals(metadata.getDemographicId())) {
-				logger.warn("Rejected signature fetch: signature module or patient does not match render eForm: fdid={}",
-						LogSafe.sanitize(String.valueOf(grant.fdid())));
+				if (logger.isWarnEnabled()) {
+					logger.warn("Rejected signature fetch: signature module or patient does not match render eForm: fdid={}",
+							LogSafe.sanitize(String.valueOf(grant.fdid())));
+				}
 				response.sendError(HttpServletResponse.SC_FORBIDDEN);
 				return;
 			}
