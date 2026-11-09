@@ -26,6 +26,8 @@ on:
       - 'debian/**'
       - 'scripts/migration/o19/**'
       - 'scripts/ci/prepare-cli-manifest-test-copy.py'
+      - 'scripts/ci/prepare-o19-native.sh'
+      - 'scripts/ci/run-python-release-tests.py'
       # the manifest generator's inputs (schema/overlay parity tests run
       # here; full --check also needs an OSCAR 19 checkout): the Flyway set
       # and the legacy patches it reads, the entity
@@ -46,6 +48,8 @@ on:
       - 'debian/**'
       - 'scripts/migration/o19/**'
       - 'scripts/ci/prepare-cli-manifest-test-copy.py'
+      - 'scripts/ci/prepare-o19-native.sh'
+      - 'scripts/ci/run-python-release-tests.py'
       # the manifest generator's inputs (schema/overlay parity tests run
       # here; full --check also needs an OSCAR 19 checkout): the Flyway set
       # and the legacy patches it reads, the entity
@@ -68,7 +72,7 @@ jobs:
   tests:
     name: Debian Python regressions
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
       CARLOS_CTL_SRC: ${{ github.workspace }}/.carlos-ctl
       PYTHONDONTWRITEBYTECODE: '1'
@@ -112,6 +116,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends restic
           python3 scripts/ci/run-python-release-tests.py --start debian/assets/tests --output target/debian-python-ci.json
+      - name: Provision migrated ON and BC references for native generator tests
+        run: |
+          sudo apt-get install -y --no-install-recommends mariadb-client
+          bash scripts/ci/prepare-o19-native.sh
       - name: Manifest generator and shipped-manifest tests
         run: python3 scripts/ci/run-python-release-tests.py --start scripts/migration/o19/tests --top-level . --output target/o19-python-ci.json
       # Standalone data belongs to carlos-emr and can advance independently
@@ -134,3 +142,9 @@ jobs:
           python3 "$GITHUB_WORKSPACE/scripts/ci/prepare-cli-manifest-test-copy.py" --verify \
             "$GITHUB_WORKSPACE/.carlos-ctl" "$RUNNER_TEMP/carlos-ctl-current-data" "$GITHUB_WORKSPACE"
           exit "$test_status"
+      - name: Remove the owned native generator database
+        if: always()
+        run: |
+          if docker container inspect carlos-o19-ci >/dev/null 2>&1; then
+            docker rm -f carlos-o19-ci
+          fi
