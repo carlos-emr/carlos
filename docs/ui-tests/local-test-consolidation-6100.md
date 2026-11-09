@@ -16,11 +16,11 @@ has current evidence.
 | #5812 | Retain native MRP routing assertions. Draft loss (#5824) and unavailable-MRP routing (#5825) remain product blockers. |
 | #5806 | Retain actual signed callback/deny boundaries. Encoded callback handling and invalid-signature response (#5823) remain product blockers. |
 | #5801 | Explicit empty eForm values now reach persistence; missing parameters remain distinct. Installed visual editor, checkbox, radio, image and signature acceptance remains required. |
-| #5709 | Retain lookup CRUD and consumer isolation. Deactivated practitioner types (#5816) remain a product blocker, including the existing retired-value policy. |
+| #5709 | Retain lookup CRUD and consumer isolation. Provider add/edit forms omit inactive choices; edit explicitly preserves and labels its current retired value. The consumer test checks both that preservation and the new-provider boundary; installed retakes remain required. |
 | #5708 | Retain multi-recipient forwarding and independent ownership/restoration assertions; complete current installed retakes remain required. |
 | #5730 | PDF suffix matching now handles upper/mixed case; action tests inspect stored page count and MIME. All native format/malformed-content retakes remain required. |
 | #5803 | Qualified bounds are excluded from exact numeric graph points, with numeric and qualitative controls. Literal/history behavior (#5828) still requires an explicit clinical contract and installed retakes. |
-| #5727 | Corrected request-scoped First Nations selected/original values and removed a missing focus handler; current installed save/edit/clear round trips remain required. |
+| #5727 | Corrected request-scoped First Nations selected/original values and removed a missing focus handler; separate required First Nations round-trip and encoding profiles enable the module. Round-trip fixtures need two configured three-digit communities; installed retakes remain required. |
 | #5726 | Retain original/corrected/out-of-order ingestion assertions. Current-version selection (#5819) and stale measurement replacement (#5820) remain product blockers. |
 | #5794 | Only the error check provisions temporary fault routes; exact descriptor restoration is required before its supervisor exits. Packaged and development filter qualification remains required. |
 | #6025 | Growth persistence tests compare all five submitted headers, with H2 and physical MariaDB executions. |

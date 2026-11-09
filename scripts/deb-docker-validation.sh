@@ -341,6 +341,10 @@ stage_fixtures() {
   in_container "
     set -e
     P=/etc/carlos-emr/carlos.properties
+    # Browser/PDF fixtures snapshot a real renderer store before their first render.
+    # The production renderer creates this lazily; prepare the disposable fixture.
+    install -d -o carlos -g carlos -m 0750 /var/lib/carlos-emr/catalina/work/carlos
+    install -d -o carlos -g carlos -m 0700 /var/lib/carlos-emr/catalina/work/carlos/eform-browser-pdf-temp
     for d in /var/lib/carlos-emr/CarlosDocument/carlos/eform/images /var/lib/carlos-emr/CarlosDocument/eform/images; do
       install -d -o carlos -g carlos -m 0750 \"\$d\"
       install -o carlos -g carlos -m 0640 /root/carlos/release/4422-84v9-1.png \"\$d/consult_sig_999998.png\"

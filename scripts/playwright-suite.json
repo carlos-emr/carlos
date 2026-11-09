@@ -1743,7 +1743,8 @@
         "FIRST_NATIONS_DEMOGRAPHIC_NO",
         "FIRST_NATIONS_SCREENSHOT_DIR",
         "RESET_PASSWORD"
-      ]
+      ],
+      "profile": "first-nations-encoding"
     },
     {
       "name": "flowsheet-admin",
@@ -18679,7 +18680,8 @@
       "assertsDatabase": true,
       "env": [],
       "fixtures": "Owned patient/control and exact demographic save-support cleanup. Requires actual FIRST_NATIONS_MODULE=true, showBandNumberOnly=false and one configured firstNationCommunity lookup with two distinct three-digit community values; no lookup configuration is changed by this check.",
-      "notes": "#5727 native valid status/community/family save/reopen, manual and cleared community after status revisit, optional Unicode edits/clears, band search after changes, unchanged unrelated values/control. Installed enabled-profile attempt currently fails on real browser ReferenceError and reopened flag (#5815); later steps remain unreached, with no pin or waiver."
+      "notes": "#5727 native valid status/community/family save/reopen, manual and cleared community after status revisit, optional Unicode edits/clears, band search after changes, unchanged unrelated values/control. Installed enabled-profile attempt currently fails on real browser ReferenceError and reopened flag (#5815); later steps remain unreached, with no pin or waiver.",
+      "profile": "first-nations"
     },
     {
       "name": "lookup-list-isolation",

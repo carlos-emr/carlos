@@ -881,7 +881,9 @@
         "packaged-profile-no-pin",
         "packaged-profile-private-consent",
         "manual-shared-outcomes-launch",
-        "browser-process-oracle"
+        "browser-process-oracle",
+        "packaged-profile-first-nations",
+        "packaged-profile-first-nations-encoding"
       ]
     },
     {
@@ -1567,7 +1569,7 @@
         "{run}/node.json"
       ],
       "timeoutSeconds": 900,
-      "minimumCases": 7715,
+      "minimumCases": 7718,
       "requiresEnvironment": [
         "CARLOS_CTL_SRC"
       ],
@@ -5157,6 +5159,78 @@
         "{run}/browser.xml"
       ],
       "requireLockedChromium": true
+    },
+    {
+      "id": "packaged-profile-first-nations",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--profile",
+        "first-nations",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "packaged": true,
+      "propertyProfile": "first-nations",
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST"
+      ],
+      "timeoutSeconds": 7200,
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "requireLockedChromium": true,
+      "selection": [
+        "first-nations-roundtrip"
+      ]
+    },
+    {
+      "id": "packaged-profile-first-nations-encoding",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--profile",
+        "first-nations-encoding",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "packaged": true,
+      "propertyProfile": "first-nations-encoding",
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST"
+      ],
+      "timeoutSeconds": 7200,
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "requireLockedChromium": true,
+      "selection": [
+        "first-nations-encoding"
+      ]
     }
   ],
   "requireJavaDiscovery": true,
