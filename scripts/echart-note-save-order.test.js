@@ -353,11 +353,9 @@ for (const [index, kind] of ['resolved', 'unresolved'].entries()) {
     assert.equal(inputs.length, 2);
     const handler = inputs[index].match(/onchange="([^"]+)"/);
     assert.ok(handler, 'AJAX-rendered checkboxes must retain their change handler');
-    h.form.elements.issueChange = {value: 'false'};
     h.context.changedCheckbox = {form: h.form};
     vm.runInContext('(function () {' + handler[1] + '}).call(changedCheckbox)', h.context);
     assert.equal(h.context.noteIssuesChanged, true);
-    assert.equal(h.form.elements.issueChange.value, 'true', 'the server must not classify a checklist-only edit as unchanged');
     h.context.changeToView('editor1');
     assert.equal(h.updates.length, 1, 'an issue-only change must save before the UI is removed');
     h.updates[0].onFailure({status: 503});

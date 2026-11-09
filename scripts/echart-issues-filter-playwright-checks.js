@@ -444,10 +444,15 @@ async function workflow(s) {
         h.assert(await checkbox.isChecked() === !resolved, 'The reopened association differs from the stored revision');
         await checkbox.setChecked(resolved);
         const uuid = sql.value(`SELECT uuid FROM casemgmt_note WHERE note_id=${oldId} AND demographic_no=${patient}`);
-        const [response] = await Promise.all([
-          chart.waitForResponse(candidate => chartSaveRequest('ajaxsave')(candidate.request()), {timeout: TIMEOUT}),
-          chart.locator('#newNoteImg').click({timeout: TIMEOUT}),
-        ]);
+        let response;
+        const dialogs = await h.withExpectedDialogs(chart, async () => {
+          [response] = await Promise.all([
+            chart.waitForResponse(candidate => chartSaveRequest('ajaxsave')(candidate.request()), {timeout: TIMEOUT}),
+            chart.locator('#newNoteImg').click({timeout: TIMEOUT}),
+          ]);
+        });
+        h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm' && /save/i.test(dialogs[0].text),
+          'Checklist-only switching did not offer exactly one save confirmation');
         h.assert(response.status() === 200, `Checkbox-only switch answered HTTP ${response.status()}`);
         await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}
           AND uuid=${q(uuid)} AND note_id>${oldId}`, '1', 'Checkbox-only switching did not save one new revision');

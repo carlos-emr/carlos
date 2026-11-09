@@ -116,3 +116,21 @@ and final-head CI remain outstanding. This ledger does not authorize issue closu
   The last authorization extension still requires installation/qualification of its build.
 - Full Node regressions: 7,803 passed, four existing skips, zero failures. Final-head CI and
   the remaining installed encounter workflow selection are still running.
+
+### Installed checklist regression and release integration
+
+The native persistence regression now changes only an existing unresolved or resolved
+checkbox, accepts the normal save confirmation, switches notes and reopens the saved
+revision. It verifies database membership, exact clinical text, and the prior revision's
+unchanged associations. Expected confirmations use the harness's single dialog handler.
+The resolve check locates the control by its actual ARIA target; its previous search
+excluded every control inside `noteIssues`, including the new checklist toggle.
+The obsolete finding-227 expected-failure pin is removed.
+
+A fresh AJAX checklist derives its open state from its own button, so an expanded earlier
+editor cannot swallow the first click. The prototype's unnecessary CPP-only field write
+was removed: encounter note saves require the dirty lifecycle, not the CPP save flag.
+Native candidate checks and final packaged verification are recorded in the PR discussion.
+
+Release integration was refreshed to `ef69eea17a4cc3fb288b26327471fce1e20dcd8f`
+after #6099 landed; both prescribing and consultation translations were retained.
