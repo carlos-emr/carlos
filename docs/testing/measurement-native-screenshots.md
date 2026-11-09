@@ -2,7 +2,7 @@
 
 **98 before/after screenshot pairs**, across installed Ontario and BC configurations. The [renderer gallery](measurement-chart-screenshots.md) adds 45 pairs covering English/French formatting and compatibility fixtures. All retained clinical data is synthetic and owned by the tests.
 
-Baseline: `9004536dc8314d5f50542b48905ca3ca4099a916`. Installed candidate: `1218a718cdb1f20c8bd8829b270b3cbb1ba37776`, including release updates through `74f240a4b9f`. Subsequent CI/documentation changes do not change the application runtime tree.
+Baseline: `9004536dc8314d5f50542b48905ca3ca4099a916`. Installed candidate: `a7b22e9b63f9481dcb34ea776a31dfba254cb9cb`, including release updates through `74f240a4b9f`. All candidate workflows below were rerun on this installed revision, including the serializable CDM context and cached-image recovery changes. Later runtime changes require separate qualification.
 
 Both configurations use Ubuntu 26.04.1, OpenJDK 25.0.5, Tomcat 11.0.22, MariaDB 11.8.6, nginx/ModSecurity and the package-pinned Chromium/ChromeDriver 154.0.8025.0. Debian package version `2026.09.0~snapshot28` contains Maven application version `2026.08.0-beta7-SNAPSHOT`; the PR targets `release/2026.08`. The baseline WAR was compiled on Ubuntu 26.04; the candidate WAR was compiled with Temurin 25.0.3 and packaged on Ubuntu 26.04.
 
@@ -11,6 +11,7 @@ Both configurations use Ubuntu 26.04.1, OpenJDK 25.0.5, Tomcat 11.0.22, MariaDB 
 ## What these runs establish
 
 - The qualified-results checker reproduces seven baseline findings and passes on the candidate in both provinces. It independently checks raw report/PDF associations, literal histories, exact numeric geometry, numeric controls, other-patient isolation and unchanged clinical state through reads.
+- Installed Report by Template exports preserve SQL headings, duplicate column aliases, literal multiline text, NULL/date/decimal values, and XLSX cell types in both provinces. The deployed JSTL/EL page controls also pass; their logs are retained.
 - Each of the three CDM reports loses the original tab’s definition on the baseline. Both tabs retain their own type and correct counts on the candidate.
 - The baseline single-point charts have no marker; all four large constant charts return HTTP 503. All eight candidate graphs return PNG and contain a visible marker. Raw 1000 × 600 chart images are linked below; the browser may scale a direct image view to its popup viewport.
 - A real renderer-service shutdown leaves the baseline embedded image without a visible recovery warning or Retry-After. The candidate returns 503 with Retry-After, displays a warning/Retry button, and renders successfully after restart and Retry.
@@ -112,16 +113,16 @@ These files are native endpoint responses, in addition to the browser screenshot
 | Constant 12500000 | HTTP 503; see browser screenshot above | [PNG](../images/pr6102/native/on/after/boundary-artifacts/constant-12500000.png) |
 | Constant 45000000 | HTTP 503; see browser screenshot above | [PNG](../images/pr6102/native/on/after/boundary-artifacts/constant-45000000.png) |
 | Constant -6000000 | HTTP 503; see browser screenshot above | [PNG](../images/pr6102/native/on/after/boundary-artifacts/constant-n6000000.png) |
-| Hemoglobin plot | [PNG](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-2010.png) | [PNG](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW5239d090e357fd3d-2010.png) |
-| Hematocrit plot | [PNG](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-2013.png) | [PNG](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW5239d090e357fd3d-2013.png) |
-| Sodium plot | [PNG](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-3210.png) | [PNG](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW5239d090e357fd3d-3210.png) |
-| Glucose plot | [PNG](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-3007.png) | [PNG](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW5239d090e357fd3d-3007.png) |
-| Cholesterol plot | [PNG](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-3120.png) | [PNG](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW5239d090e357fd3d-3120.png) |
-| Raw report 2021-01-01 | [PDF](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-173.pdf) | [PDF](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW5239d090e357fd3d-190.pdf) |
-| Raw report 2022-05-07 | [PDF](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-174.pdf) | [PDF](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW5239d090e357fd3d-191.pdf) |
-| Raw report 2023-12-29 | [PDF](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-175.pdf) | [PDF](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW5239d090e357fd3d-192.pdf) |
-| Raw report 2025-10-02 | [PDF](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-176.pdf) | [PDF](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW5239d090e357fd3d-193.pdf) |
-| Raw report 2026-11-01 | [PDF](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-177.pdf) | [PDF](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW5239d090e357fd3d-194.pdf) |
+| Hemoglobin plot | [PNG](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-2010.png) | [PNG](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW77c0d7771e3b2633-2010.png) |
+| Hematocrit plot | [PNG](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-2013.png) | [PNG](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW77c0d7771e3b2633-2013.png) |
+| Sodium plot | [PNG](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-3210.png) | [PNG](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW77c0d7771e3b2633-3210.png) |
+| Glucose plot | [PNG](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-3007.png) | [PNG](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW77c0d7771e3b2633-3007.png) |
+| Cholesterol plot | [PNG](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-3120.png) | [PNG](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW77c0d7771e3b2633-3120.png) |
+| Raw report 2021-01-01 | [PDF](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-173.pdf) | [PDF](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW77c0d7771e3b2633-214.pdf) |
+| Raw report 2022-05-07 | [PDF](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-174.pdf) | [PDF](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW77c0d7771e3b2633-215.pdf) |
+| Raw report 2023-12-29 | [PDF](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-175.pdf) | [PDF](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW77c0d7771e3b2633-216.pdf) |
+| Raw report 2025-10-02 | [PDF](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-176.pdf) | [PDF](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW77c0d7771e3b2633-217.pdf) |
+| Raw report 2026-11-01 | [PDF](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-177.pdf) | [PDF](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW77c0d7771e3b2633-218.pdf) |
 
 ## BC native screenshots
 
@@ -213,16 +214,16 @@ These files are native endpoint responses, in addition to the browser screenshot
 | Constant 12500000 | HTTP 503; see browser screenshot above | [PNG](../images/pr6102/native/bc/after/boundary-artifacts/constant-12500000.png) |
 | Constant 45000000 | HTTP 503; see browser screenshot above | [PNG](../images/pr6102/native/bc/after/boundary-artifacts/constant-45000000.png) |
 | Constant -6000000 | HTTP 503; see browser screenshot above | [PNG](../images/pr6102/native/bc/after/boundary-artifacts/constant-n6000000.png) |
-| Hemoglobin plot | [PNG](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-2010.png) | [PNG](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW3dcc7f436c753e43-2010.png) |
-| Hematocrit plot | [PNG](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-2013.png) | [PNG](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW3dcc7f436c753e43-2013.png) |
-| Sodium plot | [PNG](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-3210.png) | [PNG](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW3dcc7f436c753e43-3210.png) |
-| Glucose plot | [PNG](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-3007.png) | [PNG](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW3dcc7f436c753e43-3007.png) |
-| Cholesterol plot | [PNG](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-3120.png) | [PNG](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW3dcc7f436c753e43-3120.png) |
-| Raw report 2021-01-01 | [PDF](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-173.pdf) | [PDF](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW3dcc7f436c753e43-183.pdf) |
-| Raw report 2022-05-07 | [PDF](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-174.pdf) | [PDF](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW3dcc7f436c753e43-184.pdf) |
-| Raw report 2023-12-29 | [PDF](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-175.pdf) | [PDF](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW3dcc7f436c753e43-185.pdf) |
-| Raw report 2025-10-02 | [PDF](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-176.pdf) | [PDF](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW3dcc7f436c753e43-186.pdf) |
-| Raw report 2026-11-01 | [PDF](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-177.pdf) | [PDF](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW3dcc7f436c753e43-187.pdf) |
+| Hemoglobin plot | [PNG](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-2010.png) | [PNG](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW6bfce92b81844504-2010.png) |
+| Hematocrit plot | [PNG](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-2013.png) | [PNG](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW6bfce92b81844504-2013.png) |
+| Sodium plot | [PNG](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-3210.png) | [PNG](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW6bfce92b81844504-3210.png) |
+| Glucose plot | [PNG](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-3007.png) | [PNG](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW6bfce92b81844504-3007.png) |
+| Cholesterol plot | [PNG](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-3120.png) | [PNG](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW6bfce92b81844504-3120.png) |
+| Raw report 2021-01-01 | [PDF](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-173.pdf) | [PDF](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW6bfce92b81844504-206.pdf) |
+| Raw report 2022-05-07 | [PDF](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-174.pdf) | [PDF](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW6bfce92b81844504-207.pdf) |
+| Raw report 2023-12-29 | [PDF](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-175.pdf) | [PDF](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW6bfce92b81844504-208.pdf) |
+| Raw report 2025-10-02 | [PDF](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-176.pdf) | [PDF](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW6bfce92b81844504-209.pdf) |
+| Raw report 2026-11-01 | [PDF](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-177.pdf) | [PDF](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW6bfce92b81844504-210.pdf) |
 
 ## Additional candidate controls
 

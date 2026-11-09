@@ -1,0 +1,5 @@
+  Administration: 86 menu links resolve under /carlos
+  Disease Registry: 2 coding system(s), "patientRegistedAll" checked by <c:if>, code and results tables rendered
+  Facility management: 1 facility row(s) under headers ["Name","Description"]
+  Add professional contact: carlos:forJavaScript and carlos:forHtmlAttribute round-trip "EL \"6\" O'Brien & Sons <Ltd> A/B"
+PASS el-jstl-pages

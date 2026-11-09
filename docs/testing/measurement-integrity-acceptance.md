@@ -20,7 +20,7 @@ are incomplete.
 | #5835 | Atomic complete-chain unlink, provider reconciliation, stale retry protection | Implemented. Both provinces pass real MariaDB late-audit-fault rollback, normal retry, stale 409, projection archival, independent/automatic provider controls and later-delivery unmatch fence. Concurrent physical ingestion/unlink qualification remains a gate. |
 | #5828 | Literal preservation and visible filter-excluded source results | Implemented. Native source histories/grids retain case and Pending rows, actual PDFs retain source values, and read/plot/print leave clinical state unchanged in both provinces. |
 | #5853 | Fair bounded renderer admission, typed failures, all consumers show failures | Implemented. Native renderer stop, visible warning/Retry, 503/Retry-After, restart/recovery and subsequent actual eForm PDF controls pass in both provinces. Installed saturation/interruption/load remains a gate. |
-| #5472 | Verify existing #5518 replacements, packaging and documented differences | Existing replacement is already in release baseline. Native packages and chart/PDF controls are exercised here; final migration/acceptance audit remains incomplete. |
+| #5472 | Verify existing #5518 replacements, packaging and documented differences | Existing replacement is already in the release baseline. Native XLSX/CSV, JSTL/EL, chart and eForm PDF controls pass in both provinces; existing output-difference sign-off remains with #5472. |
 
 ## Required qualification before merge
 
@@ -47,8 +47,10 @@ before/after pairs. Supplemental unlink provenance and eForm controls have no
 baseline pair. Fixtures forward actual production response bytes; screenshots are
 not edited or composited.
 
-A clean package at `1218a718cdb1` passes 212 selected Java cases, zero failures,
-errors or skips, plus all 995 JSP compilations and WAR API/dependency checks. It
+At `a7b22e9b63f`, the clean package passes 84 selected Java cases and a separate
+137-case upload/action/real-PDF retake passes: 221 selected cases in total, zero
+failures, errors or skips. All 995 JSP compilations and WAR API/dependency checks
+pass. Both installed deployment checks identify that revision and pass. It
 includes actual PNG/JPEG rendering, real eForm PDFs, context/action validation,
 source literal overlays and transactional unlink tests. Native startup exposed two
 production audit DAO beans; the constructor qualifier was fixed and a two-bean
@@ -60,13 +62,19 @@ cases: four child-process deadline failures, zero errors, 143 skips. All three
 affected classes passed unchanged in an isolated 71-case retake (zero skips).
 This local full attempt is not recorded as green. The `tests` CI job at
 `0866965e803` passed; that head has 45 successful checks, seven skips and two
-Sonar reliability failures being addressed separately. No gate is weakened.
+Sonar reliability failures. The four reported reliability findings are fixed at
+`a7b22e9b63f`; final-head CI remains required. No gate is weakened.
 
 The post-merge Node run has 7,707 cases: 7,703 pass, zero fail and four optional
 CLI-source skips. With the pinned CLI source supplied, the three affected contract
 files pass all 43 cases without skips; these overlap the full run and are not
 added to its total. Python 3.14 release tooling passes all 356 cases. Locale key
 parity and ASCII bundle-escape checks pass.
+
+All nine native candidate workflows pass in each province at `a7b22e9b63f`,
+including the subsequent spreadsheet-export and deployed JSTL/EL controls. All
+41 existing CodeRabbit threads are resolved. The latest review request was rate
+limited, so a fresh review of the newest changes is still outstanding.
 
 The native ON version-retake observes the unresolved correction defect before its
 legacy browser workflow times out; it is not a passing version suite. The BC

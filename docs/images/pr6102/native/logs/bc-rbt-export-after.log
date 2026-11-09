@@ -1,0 +1,7 @@
+  PASS export-content-rbt-columns: the owned template (aliases, a name collision, NULL, date, decimal, multi-line text) uploads and opens
+  PASS export-content-rbt-columns: Run Query shows one row with the SQL values and the SELECT's aliases as column headings
+  PASS export-content-rbt-columns: the result table values equal the SQL values
+  PASS export-content-rbt-columns: Export to CSV parses to the same header and row as SQL
+  PASS export-content-rbt-columns: the XLSX workbook holds the same values in the same order
+  PASS export-content-rbt-columns: the table shows each of the two columns named last_name with its own value, the headings are the aliases, and the XLSX keeps text cells as text
+PASS export-content-rbt-columns
