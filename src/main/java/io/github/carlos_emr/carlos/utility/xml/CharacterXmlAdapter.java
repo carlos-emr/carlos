@@ -22,20 +22,40 @@
 package io.github.carlos_emr.carlos.utility.xml;
 
 
-/** Keeps the character-valued XML contract established by MOXy before Metro was removed. */
+/** Published literal characters by default; numeric code units require an explicit historical profile. */
 public final class CharacterXmlAdapter extends XmlCompatibilityAdapter<String, Character> {
     @Override
     public Character unmarshal(String value) {
         if (value == null) return null;
+        if (XmlWireProfile.current().numericCharacters()) {
+            if (!value.matches("[0-9]{1,5}")) throw new XmlCompatibilityValueException("Expected an unsigned XML character code");
+            int code = Integer.parseInt(value);
+            if (code > Character.MAX_VALUE) throw new XmlCompatibilityValueException("XML character code is out of range");
+            return (char) code;
+        }
         if (value.isEmpty()) return '\0';
-        if (value.length() != 1) throw new IllegalArgumentException("Expected one XML character");
-        return value.charAt(0);
+        if (value.length() != 1) throw new XmlCompatibilityValueException("Expected one XML character");
+        char character = value.charAt(0);
+        requireXmlCharacter(character);
+        return character;
     }
 
     @Override
     public String marshal(Character value) {
         // MOXy omits null but writes the NUL sentinel as an empty element, never a numeric zero.
         if (value == null) return null;
-        return value == '\0' ? "" : value.toString();
+        if (XmlWireProfile.current().numericCharacters()) {
+            return Integer.toString(value);
+        }
+        if (value == '\0') return "";
+        requireXmlCharacter(value);
+        return value.toString();
+    }
+
+    private static void requireXmlCharacter(char value) {
+        if (value != '\t' && value != '\n' && value != '\r'
+                && (value < 0x20 || value >= 0xD800 && value <= 0xDFFF || value >= 0xFFFE)) {
+            throw new XmlCompatibilityValueException("Character cannot be represented by the published XML profile");
+        }
     }
 }

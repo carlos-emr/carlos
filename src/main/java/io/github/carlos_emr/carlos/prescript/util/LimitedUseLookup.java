@@ -116,7 +116,7 @@ public class LimitedUseLookup {
                 String fileName = CarlosProperties.getInstance().getProperty("odb_formulary_file");
                 if (fileName != null && !fileName.isEmpty()) {
                     is = new BufferedInputStream(new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(fileName))));
-                    log.info("loading odb file from property " + fileName);
+                    log.info("loading odb file from property");
 
                 } else {
                     ResourceStorage resourceStorage = resourceStorageDao.findActive(ResourceStorage.LU_CODES);

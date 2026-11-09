@@ -31,6 +31,8 @@
 
 package io.github.carlos_emr.carlos.login;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
@@ -89,21 +91,21 @@ public class Startup implements ServletContextListener {
 
                 contextPath = url;
             } catch (Exception e) {
-                logger.error("Error", e);
+                logger.error("Error: {}", LogSafe.exceptionTrace(e));
             }
 
             String propName = contextPath + ".properties";
 
             char sep = System.getProperty("file.separator").toCharArray()[0];
             propFileName = System.getProperty("user.home") + sep + propName;
-            logger.info("looking up " + propFileName);
+            logger.info("Looking up application configuration");
 
             try {
                 // This has been used to look in the users home directory that started tomcat
                 p.readFromFile(propFileName);
-                logger.info("loading properties from " + propFileName);
+                logger.info("Loading application configuration");
             } catch (java.io.FileNotFoundException ex) {
-                logger.info(propFileName + " not found");
+                logger.info("Configuration file not found");
             }
             if (p.isEmpty()) {
                 /* if the file not found in the user root, look in the WEB-INF directory */
@@ -137,12 +139,11 @@ public class Startup implements ServletContextListener {
                 sc.getServletContext().setAttribute("CaseMgmtUsers", listUsers);
 
                 logger.info("BILLING REGION : " + p.getProperty("billregion", "NOTSET"));
-                logger.info("DB PROPS: Username :" + p.getProperty("db_username", "NOTSET") + " db name: " + p.getProperty("db_name", "NOTSET"));
+                logger.info("Database configuration loaded");
                 p.setProperty("OSCAR_START_TIME", "" + System.currentTimeMillis());
 
             } catch (Exception e) {
-                String s = "Property file not found at:" + propFileName;
-                logger.error(s, e);
+                logger.error("Application properties could not be loaded: {}", LogSafe.exceptionTrace(e));
             }
 
 
@@ -189,7 +190,7 @@ public class Startup implements ServletContextListener {
 			// CHECK FOR DEFAULT PROPERTIES
 			String baseDocumentDir = p.getProperty("BASE_DOCUMENT_DIR");
 			if (baseDocumentDir != null) {
-				logger.info("Found Base Document Dir: " + baseDocumentDir);
+				logger.info("Found base document directory");
 				checkAndSetProperty(baseDocumentDir, contextPath, "HOME_DIR", "/billing/download/");
 				checkAndSetProperty(baseDocumentDir, contextPath, "DOCUMENT_DIR", "/document/");
 				checkAndSetProperty(baseDocumentDir, contextPath, "DOCUMENT_CACHE_DIR", "/document_cache/");
@@ -208,7 +209,7 @@ public class Startup implements ServletContextListener {
 
             logger.debug("LAST LINE IN contextInitialized");
         } catch (Exception e) {
-            logger.error("Unexpected error.", e);
+            logger.error("Unexpected error.: {}", LogSafe.exceptionTrace(e));
             throw (new RuntimeException(e));
         }
     }
@@ -221,14 +222,14 @@ public class Startup implements ServletContextListener {
         String propertyDir = p.getProperty(propName);
         if (propertyDir == null) {
             propertyDir = baseDir + "/" + context + endDir;
-            logger.debug("Setting property " + propName + " with value " + propertyDir);
+            logger.debug("Resolving configured application directory");
             p.setProperty(propName, propertyDir);
             // Create directory if it does not exist
             File propertyDirectory = PathValidationUtils.resolveConfiguredDirectory(propertyDir, propName);
             if (!propertyDirectory.exists()) {
-                logger.warn("Directory does not exist:  " + propertyDir + ". Creating.");
+                logger.warn("Directory does not exist; creating");
                 boolean success = propertyDirectory.mkdirs();
-                if (!success) logger.error("An error occured when creating " + propertyDir);
+                if (!success) logger.error("Application directory could not be created");
             }
         }
     }

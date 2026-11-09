@@ -144,7 +144,9 @@
         "scripts/rx-save-check.test.js",
         "src/test/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxCorrectionSaveRollbackIntegrationTest.java",
         "src/test/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxWriteScript2ActionCardCorrectionUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxWriteScript2ActionIntegrationTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxWriteScript2ActionIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/RxPrescribeMariaDbIntegrationTest.java",
+        "docs/prescription-api-failure-recovery.md"
       ],
       "implementation": "Extend the real-DB rollback proof to native MariaDB and the installed application. Preserve existing tests for new, corrected and mixed cards; add driver/commit uncertainty and duplicate request interleavings rather than duplicating mock assertions.",
       "cases": "Failure after script header, first/second drug, partial date, reason and archival; audit only after commit; known rollback restores original IDs/revisions and values; uncertain commit keeps the draft consumed; retry and double-click never duplicate rows, signatures, prints or faxes.",
@@ -227,7 +229,10 @@
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/CalendarXmlStateUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentArchiveDateTimeContractUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/PublishedXmlSchemaContractUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java",
+        "scripts/ci/NativeXmlContractProbe.java",
+        "scripts/ci/run-native-xml-binary-contracts.py",
+        "docs/testing/issue-5721-native-xml-cases.json"
       ],
       "implementation": "Extend the existing installed REST check to nonempty XML allergy/prevention date DTOs and every supported precision, plus restricted-user/error and OAuth surfaces. Preserve production mapper and both JAXB provider tests.",
       "cases": "Accept application/xml, application/json and */*; UNKNOWN/YEAR/MONTH/FULL_DATE, leap days, nulls and epoch values in UTC/Toronto/Tokyo; 400/401/403/404; malformed or foreign patient; exact field names and precision shapes; shared provider initialization must not fall back silently.",
@@ -244,7 +249,8 @@
         "main-release-wire-compatibility",
         "public-api-oracle",
         "main-glassfish-release-wire-compatibility",
-        "main-moxy-release-wire-compatibility"
+        "main-moxy-release-wire-compatibility",
+        "native-xml-binary-contracts"
       ]
     },
     {
@@ -256,7 +262,12 @@
         "src/test/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleServiceEndpointTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleServiceUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/rest/conversion/AppointmentConverterUnitTest.java",
-        "docs/testing/release-2026.08-main-release-browser-findings.json"
+        "docs/testing/release-2026.08-main-release-browser-findings.json",
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java",
+        "docs/soap-schedule-sync-profiles.md"
       ],
       "implementation": "Qualify full/status/type/urgency edits with omitted/null/blank editVersion compatibility, explicit stale conflicts, row locking and committed archive/audit behavior.",
       "cases": "Full edit plus status/type/urgency routes; omitted/null/blank token preserves legacy compatibility; invalid request 400, stale token 409, missing row 404; legacy null timestamp; multiple writes in one second; bulk and legacy-JDBC updates invalidate tokens; one winner under contention; original audit fields preserved; failed mutation rolls back archive and audit.",
@@ -2283,6 +2294,10 @@
             {
               "name": "shouldPersistMergeAndUnmergeAudits_whenObservedAfterCommit",
               "container": ""
+            },
+            {
+              "name": "shouldRefuseDeniedParticipants_beforeAnyDatabaseOrAuditChange",
+              "container": ""
             }
           ]
         },
@@ -2683,6 +2698,212 @@
             }
           ]
         },
+        "io.github.carlos_emr.carlos.commn.dao.SoapTokenHousekeepingDaoIntegrationTest": {
+          "check": "java-native-generated",
+          "cases": [
+            {
+              "name": "shouldBoundDeletionBatches_andReportActualIdempotentCounts",
+              "container": ""
+            },
+            {
+              "name": "shouldRefuseCorruptSoapMetadata_withoutPartiallyDeletingValidRows",
+              "container": ""
+            },
+            {
+              "name": "shouldRollbackEarlierDeletes_whenALaterDeleteFails",
+              "container": ""
+            },
+            {
+              "name": "shouldRefuseNonTransactionalStorage_beforeAnyDeletion",
+              "container": ""
+            },
+            {
+              "name": "shouldRefuseAnExistingTransaction_withoutCommittingOrRollingBackCallerWork",
+              "container": ""
+            },
+            {
+              "name": "shouldUseEpochExpiryAcrossDatabaseZones_withoutDeletingRecentOrOtherPurposeTokens(String)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldUseEpochExpiryAcrossDatabaseZones_withoutDeletingRecentOrOtherPurposeTokens(String)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldUseEpochExpiryAcrossDatabaseZones_withoutDeletingRecentOrOtherPurposeTokens(String)[2]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldUseEpochExpiryAcrossDatabaseZones_withoutDeletingRecentOrOtherPurposeTokens(String)[3]",
+                  "container": ""
+                }
+              ]
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.managers.DemographicIdentifierPreservationMariaDbIntegrationTest": {
+          "check": "java-native-generated",
+          "cases": [
+            {
+              "name": "shouldStartItsOwnJpaTransaction_andPreserveUndisclosedIdentifiers",
+              "container": ""
+            },
+            {
+              "name": "shouldRefreshPreviouslyCachedIdentifiers_afterTakingTheWriteLock",
+              "container": ""
+            },
+            {
+              "name": "shouldRollbackTheNativeWrite_whenALaterFailureOccurs",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainExplicitEmptyStringClears_inTheNativeTransaction",
+              "container": ""
+            },
+            {
+              "name": "shouldReportConflict_withoutOverwritingAnOlderTransactionSnapshot",
+              "container": ""
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.managers.ScheduleSyncMariaDbIntegrationTest": {
+          "check": "java-native-generated",
+          "cases": [
+            {
+              "name": "shouldPageCurrentTiesWithoutLoss_onTheNativeSchema",
+              "container": ""
+            },
+            {
+              "name": "shouldPageArchiveTiesWithoutLoss_onTheNativeSchema",
+              "container": ""
+            },
+            {
+              "name": "shouldApplyProgramProviderPatientFilters_whilePagingNativeTies",
+              "container": ""
+            },
+            {
+              "name": "shouldFaultLegacyTiePages_andKeepCompleteNativeTimestampGroups",
+              "container": ""
+            },
+            {
+              "name": "shouldContinuePastConsentBlockedRows_withoutReturningAFalseEmptyNativePage",
+              "container": ""
+            },
+            {
+              "name": "shouldKeepASingleRepeatableReadSnapshot_acrossNativeBatchQueries",
+              "container": ""
+            },
+            {
+              "name": "shouldPropagateASecondNativeQueryFailure_withoutReturningAPartialPage",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainTheDaoHardPageLimit_atMaximumNativePageSize",
+              "container": ""
+            },
+            {
+              "name": "shouldRequireReconciliationForLateWritesBehindAnAlreadyReturnedCursor",
+              "container": ""
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.eform.util.DhirReviewJspBrowserIntegrationTest": {
+          "check": "java-browser-pdf",
+          "cases": [
+            {
+              "name": "shouldRenderClinicalTextAndUuidAsData_inTheActualReviewJsp",
+              "container": ""
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.managers.RxPrescribeMariaDbIntegrationTest": {
+          "check": "java-native-generated",
+          "cases": [
+            {
+              "name": "shouldCommitPrescriptionAndDrugs_whenNativeWritesSucceed",
+              "container": ""
+            },
+            {
+              "name": "shouldRollbackHeaderEarlierDrugsAndArchive_whenALaterNativeWriteFails",
+              "container": ""
+            },
+            {
+              "name": "shouldRollbackPhysicalState_whenCommitFailsBeforeSubmission",
+              "container": ""
+            },
+            {
+              "name": "shouldRequireReconciliation_whenCommitSucceedsButAcknowledgementIsLost",
+              "container": ""
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.managers.TicklerPatientAccessMariaDbIntegrationTest": {
+          "check": "java-native-generated",
+          "cases": [
+            {
+              "name": "shouldPageAndCountOnlyPermittedRows_afterNativeDeniedBatches",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainUpdateOnlyAuthority_withoutAddingReadPermission",
+              "container": ""
+            },
+            {
+              "name": "shouldRollbackEarlierNativeWrites_whenALaterMutationFails",
+              "container": ""
+            },
+            {
+              "name": "shouldDenyTheCurrentStoredPatient_beforeAnyNativeMutation",
+              "container": ""
+            },
+            {
+              "name": "shouldAuthorizeTheStoredAndRequestedPatients_beforeFlushingAManagedEdit",
+              "container": ""
+            },
+            {
+              "name": "shouldRollbackManagedFieldChanges_whenValidationReturnsFalse",
+              "container": ""
+            },
+            {
+              "name": "shouldHoldThePhysicalPatientLock_untilTheMutationTransactionCommits",
+              "container": ""
+            },
+            {
+              "name": "shouldKeepDiscoveryRowsAndTotals_inOneNativeReadSnapshot",
+              "container": ""
+            },
+            {
+              "name": "shouldRollbackLegacyResolution_whenALaterStoredPatientIsDenied",
+              "container": ""
+            },
+            {
+              "name": "shouldBindFilterValues_andKeepSortHintsOutOfNativeQueryText",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainClinicalPriorityOrdering_whenUsingTypedCriteria",
+              "container": ""
+            },
+            "shouldRollbackLegacyResolutionAlias_whenALaterStoredPatientIsDenied"
+          ]
+        },
+        "io.github.carlos_emr.carlos.managers.ProgramAdmissionAuditMariaDbIntegrationTest": {
+          "check": "java-native-generated",
+          "cases": [
+            {
+              "name": "shouldCommitSynchronousAdmissionAudits_withThePatientFilteredResponse",
+              "container": ""
+            },
+            {
+              "name": "shouldRollbackEarlierReadAudits_whenLaterPatientPolicyAbortsTheResponse",
+              "container": ""
+            },
+            {
+              "name": "shouldRollbackReadAudits_whenALaterCheckedFailureEscapes",
+              "container": ""
+            }
+          ]
+        },
         "io.github.carlos_emr.carlos.billings.ca.bc.service.LegacyBcTeleplanExportMariaDbIntegrationTest": {
           "check": "java-native-bc-flyway",
           "cases": [
@@ -2812,6 +3033,33 @@
               "container": ""
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.webserv.rest.ReportingPatientListAuditMariaDbIntegrationTest": {
+          "check": "java-native-generated",
+          "cases": [
+            {
+              "name": "shouldCommitPatientNameAudit_withAnUnassignedOrMissingProvider(String)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldCommitPatientNameAudit_withAnUnassignedOrMissingProvider(String)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldCommitPatientNameAudit_withAnUnassignedOrMissingProvider(String)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldRollbackEarlierNameAudits_whenLaterPatientEnrichmentFails",
+              "container": ""
+            },
+            {
+              "name": "shouldRollbackEarlierNameAudits_whenLaterCheckedFailureEscapes",
+              "container": ""
+            }
+          ]
         }
       },
       "runtimeConstraints": {
@@ -2863,7 +3111,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest",
+        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2873,12 +3121,12 @@
         "-DexcludedGroups=flyway-schema",
         "-Dcarlos.test.schema.expected=generated"
       ],
-      "minimumCases": 2528,
+      "minimumCases": 2572,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
-        "DemographicMergeMariaDbIntegrationTest": 8,
+        "DemographicMergeMariaDbIntegrationTest": 9,
         "JdbcConnectorMariaDbIntegrationTest": 32,
         "BilledProviderReportDaoIntegrationTest": 2,
         "MariaDbDaoHarnessIntegrationTest": 1,
@@ -2896,7 +3144,15 @@
         "Growth0To36FormPersistenceIntegrationTest": 19,
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementIntegrationTest": 5,
-        "PatientEndYearStatementTransactionIntegrationTest": 2
+        "PatientEndYearStatementTransactionIntegrationTest": 2,
+        "SoapTokenHousekeepingDaoIntegrationTest": 8,
+        "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
+        "ScheduleSyncMariaDbIntegrationTest": 9,
+        "RxPrescribeMariaDbIntegrationTest": 4,
+        "TicklerPatientAccessMariaDbIntegrationTest": 12,
+        "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
+        "AppointmentUpdateDaoIntegrationTest": 17,
+        "ReportingPatientListAuditMariaDbIntegrationTest": 4
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -2926,7 +3182,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest",
+        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2935,12 +3191,12 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 116,
+      "minimumCases": 157,
       "requiredFamilies": {
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
         "CaseManagementIssueDAOIntegrationTest": 22,
-        "DemographicMergeMariaDbIntegrationTest": 8,
+        "DemographicMergeMariaDbIntegrationTest": 9,
         "CaseManagementNoteLockMariaDbIntegrationTest": 15,
         "ConsultationArchiveDaoIntegrationTest": 1,
         "BilledProviderReportDaoIntegrationTest": 2,
@@ -2956,7 +3212,14 @@
         "Growth0To36FormPersistenceIntegrationTest": 19,
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementIntegrationTest": 5,
-        "PatientEndYearStatementTransactionIntegrationTest": 2
+        "PatientEndYearStatementTransactionIntegrationTest": 2,
+        "SoapTokenHousekeepingDaoIntegrationTest": 8,
+        "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
+        "ScheduleSyncMariaDbIntegrationTest": 9,
+        "RxPrescribeMariaDbIntegrationTest": 4,
+        "TicklerPatientAccessMariaDbIntegrationTest": 12,
+        "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
+        "ReportingPatientListAuditMariaDbIntegrationTest": 4
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -2986,7 +3249,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,LegacyBcTeleplanExportMariaDbIntegrationTest",
+        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,LegacyBcTeleplanExportMariaDbIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2995,12 +3258,12 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 145,
+      "minimumCases": 186,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 22,
         "BcBillingDaoTransactionIntegrationTest": 4,
-        "DemographicMergeMariaDbIntegrationTest": 8,
+        "DemographicMergeMariaDbIntegrationTest": 9,
         "CaseManagementNoteLockMariaDbIntegrationTest": 15,
         "ConsultationArchiveDaoIntegrationTest": 1,
         "LabRoutingLookupDaoIntegrationTest": 4,
@@ -3014,7 +3277,14 @@
         "Growth0To36FormPersistenceIntegrationTest": 19,
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
-        "LegacyBcTeleplanExportMariaDbIntegrationTest": 29
+        "SoapTokenHousekeepingDaoIntegrationTest": 8,
+        "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
+        "ScheduleSyncMariaDbIntegrationTest": 9,
+        "RxPrescribeMariaDbIntegrationTest": 4,
+        "TicklerPatientAccessMariaDbIntegrationTest": 12,
+        "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
+        "LegacyBcTeleplanExportMariaDbIntegrationTest": 29,
+        "ReportingPatientListAuditMariaDbIntegrationTest": 4
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -3889,14 +4159,14 @@
         "all"
       ],
       "repetitions": 1,
-      "minimumCases": 4,
+      "minimumCases": 5,
       "command": [
         "mvn",
         "-B",
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest,MeasurementChartSmokeIntegrationTest",
+        "-Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest,DhirReviewJspBrowserIntegrationTest,MeasurementChartSmokeIntegrationTest",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
         "-Djacoco.destFile={run}/jacoco.exec",
@@ -5294,6 +5564,55 @@
           "no-unreviewed-wire-breaks"
         ]
       }
+    },
+    {
+      "id": "native-xml-binary-contracts",
+      "kind": "command",
+      "profiles": [
+        "all"
+      ],
+      "repetitions": 1,
+      "packaged": false,
+      "requiresArtifact": true,
+      "command": [
+        "python3",
+        "scripts/ci/run-native-xml-binary-contracts.py",
+        "--main-package",
+        "{mainPackage}",
+        "--candidate",
+        "{artifact}",
+        "--tomcat-jsp-api",
+        "{tomcatJspApi}",
+        "--output",
+        "{run}/native-xml",
+        "--result",
+        "{run}/native-xml-result.json"
+      ],
+      "requiresEnvironment": [
+        "CARLOS_MAIN_PACKAGE",
+        "CARLOS_TOMCAT_JSP_API"
+      ],
+      "environmentInputs": {
+        "mainPackage": "CARLOS_MAIN_PACKAGE",
+        "tomcatJspApi": "CARLOS_TOMCAT_JSP_API"
+      },
+      "requiresExecutables": [
+        "java",
+        "javac",
+        "dpkg-deb"
+      ],
+      "timeoutSeconds": 900,
+      "runtimeConstraints": {
+        "java": "25"
+      },
+      "resultContract": {
+        "file": "native-xml-result.json",
+        "assertions": [
+          "published-56-native-writes-valid",
+          "glassfish-unchanged-readers-no-new-breaks",
+          "moxy-unchanged-readers-no-new-breaks"
+        ]
+      }
     }
   ],
   "requireJavaDiscovery": true,
@@ -5310,7 +5629,8 @@
       ],
       "checks": [
         "java-all",
-        "main-release-wire-compatibility"
+        "main-release-wire-compatibility",
+        "native-xml-binary-contracts"
       ],
       "workstreams": [
         "T08"
@@ -5327,7 +5647,8 @@
       ],
       "checks": [
         "java-all",
-        "main-release-wire-compatibility"
+        "main-release-wire-compatibility",
+        "native-xml-binary-contracts"
       ],
       "workstreams": [
         "T08"
@@ -5339,7 +5660,8 @@
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/DateXmlAdapterUnitTest.java"
       ],
       "checks": [
-        "java-all"
+        "java-all",
+        "native-xml-binary-contracts"
       ],
       "workstreams": [
         "T08"
@@ -5351,7 +5673,8 @@
         "src/test/java/io/github/carlos_emr/carlos/webserv/rest/util/RestXmlAnnotationIntrospectorUnitTest.java"
       ],
       "checks": [
-        "java-all"
+        "java-all",
+        "native-xml-binary-contracts"
       ],
       "workstreams": [
         "T08"
@@ -5363,7 +5686,8 @@
         "src/test/java/io/github/carlos_emr/carlos/webserv/rest/util/RestXmlAnnotationIntrospectorUnitTest.java"
       ],
       "checks": [
-        "java-all"
+        "java-all",
+        "native-xml-binary-contracts"
       ],
       "workstreams": [
         "T08"
@@ -5431,7 +5755,8 @@
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/DemographicBirthdayXmlContractUnitTest.java"
       ],
       "checks": [
-        "java-all"
+        "java-all",
+        "native-xml-binary-contracts"
       ],
       "workstreams": [
         "T08"
@@ -5743,7 +6068,8 @@
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/CalendarXmlAdapterUnitTest.java"
       ],
       "checks": [
-        "java-all"
+        "java-all",
+        "native-xml-binary-contracts"
       ],
       "workstreams": [
         "T08"
@@ -5841,6 +6167,438 @@
       "checks": [
         "java-all",
         "main-release-wire-compatibility"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePage.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePages.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/ScheduleSyncBoundaryException.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncHeaders.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncSelectionUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncOutInterceptor.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/ScheduleManager.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/ScheduleManagerImpl.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentPatientAccessUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/commn/dao/AppointmentUpdateDaoIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleServiceEndpointTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/ScheduleWs.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/AppointmentArchiveDao.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/AppointmentArchiveDaoImpl.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/OscarAppointmentDao.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/OscarAppointmentDaoImpl.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/prevention/review.jsp": {
+      "reason": "The actual DHIR review JSP must render hostile clinical text and UUID values as data and preserve Unicode; real Jasper/Chromium tests include a script-execution positive control.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/eform/util/DhirReviewJspBrowserIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-browser-pdf"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/TicklerDao.java": {
+      "reason": "Patient-aware tickler reads and atomic writes require bounded authorized rows/totals, stored identity locking before flush, preserved update-only authority and real native rollback/contending-writer evidence.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/TicklerPatientAccessMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientDiscoveryEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientMutationEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ProgramAdmissionAuditMariaDbIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T04"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/TicklerDaoImpl.java": {
+      "reason": "Patient-aware tickler reads and atomic writes require bounded authorized rows/totals, stored identity locking before flush, preserved update-only authority and real native rollback/contending-writer evidence.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/TicklerPatientAccessMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientDiscoveryEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientMutationEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ProgramAdmissionAuditMariaDbIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T04"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/TicklerManager.java": {
+      "reason": "Patient-aware tickler reads and atomic writes require bounded authorized rows/totals, stored identity locking before flush, preserved update-only authority and real native rollback/contending-writer evidence.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/TicklerPatientAccessMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientDiscoveryEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientMutationEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ProgramAdmissionAuditMariaDbIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T04"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/TicklerManagerImpl.java": {
+      "reason": "Patient-aware tickler reads and atomic writes require bounded authorized rows/totals, stored identity locking before flush, preserved update-only authority and real native rollback/contending-writer evidence.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/TicklerPatientAccessMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientDiscoveryEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientMutationEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ProgramAdmissionAuditMariaDbIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T04"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/TicklerWebService.java": {
+      "reason": "Patient-aware tickler reads and atomic writes require bounded authorized rows/totals, stored identity locking before flush, preserved update-only authority and real native rollback/contending-writer evidence.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/TicklerPatientAccessMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientDiscoveryEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientMutationEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ProgramAdmissionAuditMariaDbIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T04"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/util/PatientApiPages.java": {
+      "reason": "Patient-aware tickler reads and atomic writes require bounded authorized rows/totals, stored identity locking before flush, preserved update-only authority and real native rollback/contending-writer evidence.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/TicklerPatientAccessMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientDiscoveryEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientMutationEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ProgramAdmissionAuditMariaDbIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T04"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/ProgramService.java": {
+      "reason": "Patient-scoped rows and totals; synchronous admission audit commits and rollback are qualified on all three native schemas.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/ProgramAdmissionAuditMariaDbIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/ReportingService.java": {
+      "reason": "Patient-scoped rows and totals; synchronous admission audit commits and rollback are qualified on all three native schemas.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/ReportingPatientDiscoveryEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/ReportingPatientListAuditMariaDbIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/AppointmentPatientAccess.java": {
+      "reason": "Appointment patient rights and chart restrictions precede clinical responses and writes. Native generated-schema cases prove rollback and retain write-only authority.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentPatientAccessUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/commn/dao/AppointmentUpdateDaoIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleServiceEndpointTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/AppointmentManagerImpl.java": {
+      "reason": "Appointment patient rights and chart restrictions precede clinical responses and writes. Native generated-schema cases prove rollback and retain write-only authority.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentPatientAccessUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/commn/dao/AppointmentUpdateDaoIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleServiceEndpointTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleService.java": {
+      "reason": "Appointment patient rights and chart restrictions precede clinical responses and writes. Native generated-schema cases prove rollback and retain write-only authority.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentPatientAccessUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/commn/dao/AppointmentUpdateDaoIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleServiceEndpointTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/xml/MoxyAppointmentOrderWriter.java": {
+      "reason": "Explicit historical MOXy scalar sequence; native objects are read by the unchanged pinned binary, while default published XML and both JSON surfaces remain independently tested.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/MoxyAppointmentOrderWriterUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/XmlWireProfileIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/XmlWireProfileSoapIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "native-xml-binary-contracts"
       ],
       "workstreams": [
         "T08"

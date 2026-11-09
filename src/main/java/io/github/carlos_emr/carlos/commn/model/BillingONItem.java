@@ -114,6 +114,15 @@ public class BillingONItem extends AbstractModel<Integer> implements Serializabl
     @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date lastEditDT;
 
+    // Retain the pre-snapshot entity serialization identity after adding compatibility constructors.
+    private static final long serialVersionUID = 4758912463499371165L;
+
+    /** Required by JPA and existing Java callers. */
+    public BillingONItem() { }
+
+    /** Identified detached compatibility view; this does not persist or attach it. */
+    public BillingONItem(Integer id) { this.id = id; }
+
     @Override
     public Integer getId() {
         return id;

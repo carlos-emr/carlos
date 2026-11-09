@@ -60,7 +60,7 @@ public class OscarUsernameTokenValidator extends UsernameTokenValidator {
 
     @Override
     protected void verifyPlaintextPassword(UsernameToken usernameToken, RequestData data) throws WSSecurityException {
-        logger.debug("userIdString=" + usernameToken.getName());
+        logger.debug("SOAP username-token authentication attempt");
 
         try {
             Integer securityUserId = Integer.parseInt(usernameToken.getName());
@@ -71,7 +71,7 @@ public class OscarUsernameTokenValidator extends UsernameTokenValidator {
             HttpServletRequest request = (HttpServletRequest) soapMessage.get(AbstractHTTPDestination.HTTP_REQUEST);
             if (WsUtils.checkAuthenticationAndSetLoggedInInfo(request, security, usernameToken.getPassword())) return;
         } catch (NumberFormatException e) {
-            logger.error("userIdString is not a number? usernameToken.getName()='" + usernameToken.getName() + '\'');
+            logger.warn("SOAP username-token account identifier is invalid");
         }
 
         throw new WSSecurityException(WSSecurityException.ErrorCode.FAILED_AUTHENTICATION);

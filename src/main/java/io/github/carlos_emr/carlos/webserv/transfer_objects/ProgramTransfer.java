@@ -427,6 +427,8 @@ public final class ProgramTransfer {
         this.lastUpdateUser = lastUpdateUser;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getLastUpdateDate() {
         return (lastUpdateDate);
     }
@@ -467,6 +469,8 @@ public final class ProgramTransfer {
         this.emailNotificationAddressesCsv = emailNotificationAddressesCsv;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getLastReferralNotification() {
         return (lastReferralNotification);
     }

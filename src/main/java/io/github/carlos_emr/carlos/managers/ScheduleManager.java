@@ -116,4 +116,16 @@ public interface ScheduleManager {
 
     public boolean removeIfDoubleBooked(LoggedInInfo loggedInInfo, Calendar startTime, Calendar endTime, String providerNo, Appointment appointment);
 
+    /** Explicit timestamp/ID sync; defaults preserve extension linkage and refuse unsupported semantics. */
+    default AppointmentUpdatePage<Appointment> getAppointmentUpdatedPage(LoggedInInfo actor, Date after, int afterId, int limit) {
+        throw new UnsupportedOperationException("Schedule keyset sync is not supported by this manager");
+    }
+    default AppointmentUpdatePage<AppointmentArchive> getAppointmentArchiveUpdatedPage(LoggedInInfo actor, Date after, int afterId, int limit) {
+        throw new UnsupportedOperationException("Archive keyset sync is not supported by this manager");
+    }
+    default AppointmentUpdatePage<Appointment> getAppointmentsByProgramProviderDemographicPage(LoggedInInfo actor,
+            Integer programId, String providerNo, Integer demographicId, Date after, int afterId, int limit) {
+        throw new UnsupportedOperationException("Filtered keyset sync is not supported by this manager");
+    }
+
 }

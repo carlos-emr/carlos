@@ -209,7 +209,7 @@ public final class ConvertToEdoc {
             // No source HTML to render. Return null per this method's documented failure contract
             // instead of NPE-ing deep in the Jsoup/Flying Saucer pipeline; callers treat null as a
             // conversion failure and surface it.
-            logger.error("Cannot render PDF: source HTML was null for {}", LogSafe.sanitize(filename)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.error("Cannot render PDF: source HTML was null");
             return null;
         }
         Path path = null;
@@ -222,10 +222,10 @@ public final class ConvertToEdoc {
             path = SpringUtils.getBean(NioFileManager.class).saveTempFile(filename, os);
             if (logger.isDebugEnabled()) {
                 // Filename embeds demographic_no (buildFilename), so it is sanitized before logging.
-                logger.debug("Rendered temporary PDF ({} bytes) for {}", os.size(), LogSafe.sanitize(filename));
+                logger.debug("Rendered temporary PDF ({} bytes)", os.size());
             }
         } catch (PDFGenerationException | IOException | RuntimeException e) {
-            logger.error("HTML could not be converted to PDF for {}: {}", LogSafe.sanitize(filename), e.getClass().getSimpleName());
+            logger.error("HTML could not be converted to PDF: {}", LogSafe.exceptionTrace(e));
         }
 
         return path;
@@ -870,7 +870,7 @@ public final class ConvertToEdoc {
         try {
             return Path.of(normalized).isAbsolute();
         } catch (InvalidPathException e) {
-            logger.debug("Skipping malformed resource path", e);
+            logger.debug("Skipping malformed resource path: {}", LogSafe.exceptionTrace(e));
             return true;
         }
     }
@@ -885,7 +885,7 @@ public final class ConvertToEdoc {
             File imageDirectory = PathValidationUtils.resolveConfiguredDirectory(getImageDirectory(), "image directory");
             return PathValidationUtils.validateExistingPath(new File(imageDirectory, filename), imageDirectory).getPath();
         } catch (SecurityException e) {
-            logger.warn("Skipping invalid image resource path", e);
+            logger.warn("Skipping invalid image resource path: {}", LogSafe.exceptionTrace(e));
             return "";
         }
     }
@@ -919,7 +919,7 @@ public final class ConvertToEdoc {
 					}
 				}
 			} catch (Exception e) {
-				logger.error("Error while searching file in directory: " + ConvertToEdoc.realPath, e);
+				logger.error("Error while searching file in directory: {}", LogSafe.exceptionTrace(e));
 			}
         }
 
@@ -982,7 +982,7 @@ public final class ConvertToEdoc {
      */
     private static String validateLink(List<String> potentialLinks) {
 
-        logger.debug("Validating potential file paths " + potentialLinks);
+        logger.debug("Validating potential file paths");
 
         List<String> validLinks = validateLinks(potentialLinks);
 
@@ -1015,14 +1015,14 @@ public final class ConvertToEdoc {
             } catch (SecurityException e) {
                 // Best-effort link resolver: an unresolvable/malformed path is treated as "no valid
                 // local file" (returns null below) rather than throwing an unchecked exception.
-                logger.debug("Ignoring unresolvable link path", e);
+                logger.debug("Ignoring unresolvable link path: {}", LogSafe.exceptionTrace(e));
             }
         }
 
         if (path != null && Files.exists(path)) {
             absolutePath = path.toAbsolutePath().toString();
 
-            logger.debug("Validated path " + absolutePath);
+            logger.debug("Validated path");
         }
 
         return absolutePath;

@@ -192,7 +192,7 @@ public class MoveMohFiles2Action extends ActionSupport {
                     for (String fileName : fileNames) {
                         File file = getFile(folderPath, fileName);
                         if (file == null) {
-                            logger.warn("Unable to get file {}{}{}", LogSafe.sanitize(folderPath), File.separator, LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                            logger.warn("Unable to get file"); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
                             errors.add(localizedMessage("billing.moveMohFiles.error.fileMissing", fileName));
                             continue;
@@ -200,7 +200,7 @@ public class MoveMohFiles2Action extends ActionSupport {
 
                         boolean isValidFileLocation = validateFileLocation(file);
                         if (!isValidFileLocation) {
-                            logger.warn("Invalid file location {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                            logger.warn("Invalid file location"); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
                             errors.add(localizedMessage("billing.moveMohFiles.error.invalidFileLocation", fileName));
                             continue;
@@ -214,7 +214,7 @@ public class MoveMohFiles2Action extends ActionSupport {
                                 errors.add(localizedMessage("billing.moveMohFiles.error.archiveFailed", file.getName()));
                             }
                         } else {
-                            logger.warn("Selected MOH file disappeared before archive {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                            logger.warn("Selected MOH file disappeared before archive"); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                             errors.add(localizedMessage("billing.moveMohFiles.error.fileMissing", fileName));
                         }
                     }
@@ -349,7 +349,7 @@ public class MoveMohFiles2Action extends ActionSupport {
             logger.warn("viewMOHFiles: path traversal attempt blocked for unzipfile parameter");
             unzipMSG = "(Blocked: invalid file path)";
         } catch (Exception e) {
-            logger.error("viewMOHFiles: unzip file Unhandled exception:", e);
+            logger.error("viewMOHFiles: unzip file Unhandled exception: {}", LogSafe.exceptionTrace(e));
             unzipMSG = "(Cannot unzip — see server logs)";
         }
 
@@ -418,10 +418,7 @@ public class MoveMohFiles2Action extends ActionSupport {
                 // and surfaces as a pattern in audit triage; legitimate
                 // calls that hit the right folder break out before more
                 // than one DEBUG fires.
-                logger.debug("EDT folder {} rejected file path during validation: {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
-                        io.github.carlos_emr.carlos.utility.LogSafe.sanitize(folder.name()),
-                        io.github.carlos_emr.carlos.utility.LogSafe.sanitize(
-                                file == null ? "null" : file.getPath()));
+                logger.debug("EDT folder rejected file path during validation");
             }
         }
         return result;
@@ -449,11 +446,11 @@ public class MoveMohFiles2Action extends ActionSupport {
         try {
             fileName = URLDecoder.decode(fileName, "UTF-8");
         } catch (UnsupportedEncodingException e) {
-            logger.error("Unable to decode {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+            logger.error("Unable to decode: {}", LogSafe.exceptionTrace(e)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             return null;
         }
         if (fileName.contains("/") || fileName.contains("\\") || fileName.contains("..")) {
-            logger.warn("Rejected decoded file path: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+            logger.warn("Rejected decoded file path"); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             return null;
         }
         String safeFileName = FilenameUtils.getName(fileName);
@@ -467,8 +464,7 @@ public class MoveMohFiles2Action extends ActionSupport {
         try {
             return PathValidationUtils.validatePath(safeFileName, new File(folderPath));
         } catch (SecurityException e) {
-            logger.warn("Rejected file path: {} in {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
-                    LogSafe.sanitize(fileName), LogSafe.sanitize(folderPath), e);
+            logger.warn("Rejected file path: {}", LogSafe.exceptionTrace(e));
             return null;
         }
     }
@@ -498,7 +494,7 @@ public class MoveMohFiles2Action extends ActionSupport {
             File archiveDir = PathValidationUtils.resolveConfiguredDirectory(EDTFolder.ARCHIVE.getPath(), "ONEDT_ARCHIVE");
             FileUtils.moveToDirectory(file, archiveDir, true);
         } catch (IOException | SecurityException e) {
-            logger.error("Unable to move", e);
+            logger.error("Unable to move: {}", LogSafe.exceptionTrace(e));
             return false;
         }
         return true;

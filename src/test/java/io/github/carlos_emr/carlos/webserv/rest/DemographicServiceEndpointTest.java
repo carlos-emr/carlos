@@ -85,6 +85,7 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
 
     @Mock
     private DemographicManager mockDemographicManager;
+    @Mock private io.github.carlos_emr.carlos.commn.dao.DemographicDao updateRecords;
     @Mock
     private ContactDao mockContactDao;
     @Mock
@@ -127,7 +128,7 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
 
     @Override
     protected Object getServiceBean() {
-        DemographicService service = new DemographicService(new CdsLegacyProjectionService(mockProjectionRecords));
+        DemographicService service = new DemographicService(new CdsLegacyProjectionService(mockProjectionRecords), updateRecords);
         injectDependency(service, "demographicManager", mockDemographicManager);
         injectDependency(service, "contactDao", mockContactDao);
         injectDependency(service, "allergyManager", mockAllergyManager);
@@ -145,11 +146,16 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
 
     @Override
     protected List<Object> additionalServerProviders() {
-        return List.of(new SecurityExceptionMapper());
+        return List.of(new SecurityExceptionMapper(),
+                new io.github.carlos_emr.carlos.webserv.rest.util.DemographicWriteProfileResponseFilter());
     }
 
     @BeforeEach
     void setUpSecurityDefaults() {
+        var existing = createTestDemographic(42, "Existing", "Patient");
+        existing.setSin("FAKE-SIN"); existing.setHin("FAKE-HIN");
+        org.mockito.Mockito.lenient().when(updateRecords.findForUpdate(42)).thenReturn(existing);
+        org.mockito.Mockito.lenient().when(updateRecords.findFreshForUpdate(42)).thenReturn(existing);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(), any(), any()))
             .thenReturn(true);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), eq(42)))
@@ -235,6 +241,68 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             assertThat(saved.getValue().getPronoun()).isEqualTo(exact);
             assertThat(saved.getValue().getGender()).isEqualTo(exact);
         }
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"default", "preserve-hidden-identifiers", "legacy-null-identifiers"})
+    void shouldPreserveHiddenIdentifiersByDefault_andSupportExplicitLegacyNullClears(String profile) {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("u"), eq(42)))
+                .thenReturn(true);
+        var data = new DemographicTo1(); data.setDemographicNo(42);
+        data.setFirstName("Changed"); data.setLastName("Patient");
+        data.setDobYear("1980"); data.setDobMonth("06"); data.setDobDay("15");
+        if (profile.equals("legacy-null-identifiers")) {
+            when(updateRecords.findFreshForUpdate(42)).thenThrow(new UnsupportedOperationException("Legacy DAO"));
+        }
+        var client = request().path("/demographics");
+        if (!profile.equals("default")) client.header("X-Carlos-Demographic-Write-Profile", profile);
+        try (Response response = client.invoke("PUT", data)) {
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getHeaderString("X-Carlos-Demographic-Write-Profile"))
+                    .isEqualTo(profile.equals("default") ? "preserve-hidden-identifiers" : profile);
+            assertThat(response.readEntity(String.class)).doesNotContain("FAKE-SIN");
+        }
+        var saved = ArgumentCaptor.forClass(Demographic.class);
+        verify(mockDemographicManager).updateDemographic(eq(mockLoggedInInfo), saved.capture());
+        assertThat(saved.getValue().getFirstName()).isEqualTo("Changed");
+        boolean preserve = !profile.equals("legacy-null-identifiers");
+        assertThat(saved.getValue().getSin()).isEqualTo(preserve ? "FAKE-SIN" : null);
+        assertThat(saved.getValue().getHin()).isEqualTo(preserve ? "FAKE-HIN" : null);
+        if (preserve) verify(updateRecords).findFreshForUpdate(42);
+        else verify(updateRecords).findForUpdate(42);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", "unknown-private-value", "legacy-null-identifiers,preserve-hidden-identifiers"})
+    void shouldRejectUnknownIdentifierWriteProfiles_beforeLockingOrWriting(String profile) {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("u"), eq(42)))
+                .thenReturn(true);
+        var data = new DemographicTo1(); data.setDemographicNo(42);
+        data.setDobYear("1980"); data.setDobMonth("06"); data.setDobDay("15");
+        try (Response response = request().path("/demographics")
+                .header("X-Carlos-Demographic-Write-Profile", profile).invoke("PUT", data)) {
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.readEntity(String.class)).doesNotContain("unknown-private-value");
+        }
+        verifyNoInteractions(updateRecords, mockDemographicManager);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"HY000,1020", "HY000,1205", "40001,1213"})
+    void shouldReportPreWriteDatabaseConflicts_withoutLeakingSqlOrChangingRelatedRecords(String state, int code) {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("u"), eq(42)))
+                .thenReturn(true);
+        when(updateRecords.findFreshForUpdate(42)).thenThrow(new IllegalStateException(
+                new java.sql.SQLException("FAKE-PRIVATE-SQL-VALUE", state, code)));
+        var data = new DemographicTo1(); data.setDemographicNo(42);
+        data.setDobYear("1980"); data.setDobMonth("06"); data.setDobDay("15");
+        data.setNurse("41"); data.setWaitingListID(7);
+        try (Response response = request().path("/demographics").invoke("PUT", data)) {
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(response.readEntity(String.class)).contains("reload before retrying")
+                    .doesNotContain("FAKE-PRIVATE-SQL-VALUE", "SQLException");
+        }
+        verifyNoInteractions(mockDemographicManager, mockWaitingListDao);
     }
 
     /** Tests for GET /demographics (list all). */

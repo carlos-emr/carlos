@@ -142,6 +142,11 @@ public interface TicklerManager {
      */
     public Integer getTicklerDemographicNo(LoggedInInfo loggedInInfo, Integer id);
 
+    /** Requires an existing transaction and update authority, without adding a read prerequisite. */
+    default Integer getTicklerDemographicNoForUpdate(LoggedInInfo actor, Integer id) {
+        throw new UnsupportedOperationException("Tickler patient locking is not implemented");
+    }
+
     public void addComment(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, String message);
 
     public void reassign(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, String task_assigned_to);

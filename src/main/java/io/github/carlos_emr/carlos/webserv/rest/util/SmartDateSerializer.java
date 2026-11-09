@@ -14,7 +14,8 @@ import java.util.Calendar;
 import java.util.Date;
 
 /**
- * Custom Jackson Date serializer that mimics the original OpenO EMR behavior:
+ * OAuth Date serializer with declared calendar/clock semantics and an explicit legacy profile.
+ * The legacy profile and uncontracted standalone values preserve the original behavior:
  * - Dates on epoch date (1970-01-01) with time components are serialized as "HH:mm:ss" strings
  * - Dates with time component 00:00:00 are serialized as "yyyy-MM-dd" strings
  * - Dates with actual time components are serialized as epoch timestamps
@@ -24,7 +25,8 @@ import java.util.Date;
  * mapper, the surface third-party integrations such as Ocean call; the session {@code /ws/rs}
  * mapper writes every unannotated {@code Date} as epoch milliseconds.
  *
- * <p>The shape is chosen from the value, not the field, so it is stable only for a field that
+ * <p>RestDateSemantics declares calendar/clock properties in the REST response graph. The
+ * compatibility profile retains value inference; that historical inference is stable only for a field that
  * always holds the same kind of value: a calendar date (a {@code DATE} column, always midnight)
  * or a clock time (a {@code TIME} column, always on 1970-01-01). A field that holds a full
  * timestamp would otherwise turn into a string whenever its value happened to fall on midnight,
@@ -39,13 +41,19 @@ public class SmartDateSerializer extends JsonSerializer<Date> implements Context
     private static final ThreadLocal<SimpleDateFormat> DATE_FORMAT = ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd"));
     private static final ThreadLocal<SimpleDateFormat> TIME_FORMAT = ThreadLocal.withInitial(() -> new SimpleDateFormat("HH:mm:ss"));
     private final boolean forceEpoch;
+    private final RestDateSemantics.Kind declared;
 
     public SmartDateSerializer() {
-        this.forceEpoch = false;
+        this(false, null);
     }
 
     public SmartDateSerializer(boolean forceEpoch) {
+        this(forceEpoch, null);
+    }
+
+    private SmartDateSerializer(boolean forceEpoch, RestDateSemantics.Kind declared) {
         this.forceEpoch = forceEpoch;
+        this.declared = declared;
     }
 
     @Override
@@ -61,6 +69,13 @@ public class SmartDateSerializer extends JsonSerializer<Date> implements Context
             return;
         }
 
+        if (declared != null && JsonDateProfile.current() != JsonDateProfile.LEGACY_VALUE_INFERENCE) {
+            String pattern = declared == RestDateSemantics.Kind.DATE ? "yyyy-MM-dd" : "HH:mm:ss";
+            gen.writeString(new SimpleDateFormat(pattern, java.util.Locale.ROOT).format(date));
+            return;
+        }
+
+        // Preserve historical inference only for the explicit profile or uncontracted values.
         // Check if the date represents a time-only value (epoch date 1970-01-01)
         Calendar cal = Calendar.getInstance();
         cal.setTime(date);
@@ -94,6 +109,8 @@ public class SmartDateSerializer extends JsonSerializer<Date> implements Context
             if (format != null && format.getShape() == JsonFormat.Shape.NUMBER) {
                 return new SmartDateSerializer(true);
             }
+            RestDateSemantics.Kind kind = RestDateSemantics.find(property.getMember().getDeclaringClass(), property.getName());
+            if (kind != null) return new SmartDateSerializer(false, kind);
         }
         return this;
     }

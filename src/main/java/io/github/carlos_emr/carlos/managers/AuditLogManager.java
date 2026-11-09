@@ -28,6 +28,8 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -143,10 +145,10 @@ public class AuditLogManager {
 
             exitValue = p.waitFor();
         } catch (IOException e) {
-            logger.error("Error running mysqldump command. Aborting!", e);
+            logger.error("Error running mysqldump command. Aborting!: {}", LogSafe.exceptionTrace(e));
             throw new Exception(e);
         } catch (InterruptedException e) {
-            logger.error("Error running mysqldump command. Aborting!", e);
+            logger.error("Error running mysqldump command. Aborting!: {}", LogSafe.exceptionTrace(e));
             throw new Exception(e);
         }
 
@@ -155,7 +157,7 @@ public class AuditLogManager {
             throw new Exception("Error running mysqldump command. Received an exit value of " + exitValue);
         }
 
-        logger.info("Backed up audit log which will be purged to " + filename);
+        logger.info("Backed up audit log which will be purged to");
 
         LogAction.addLogSynchronous(loggedInInfo, "AuditLogManager.purgeAuditLog", formatter2.format(endDateToPurge));
 

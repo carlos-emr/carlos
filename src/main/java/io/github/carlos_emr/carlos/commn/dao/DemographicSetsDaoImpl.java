@@ -48,6 +48,15 @@ public class DemographicSetsDaoImpl extends AbstractDaoImpl<DemographicSets> imp
     }
 
     @Override
+    public List<DemographicSets> findBySetNamePage(String name, int offset, int limit) {
+        var query = entityManager.createQuery(
+                "select x from DemographicSets x where x.archive != ?1 and x.name = ?2 order by x.id", DemographicSets.class);
+        query.setParameter(1, "1").setParameter(2, name).setFirstResult(offset);
+        setLimit(query, limit);
+        return query.getResultList();
+    }
+
+    @Override
     public List<DemographicSets> findBySetName(String setName) {
         String sql = "select x from DemographicSets x where x.archive != ?1 and x.name=?2";
         Query query = entityManager.createQuery(sql);

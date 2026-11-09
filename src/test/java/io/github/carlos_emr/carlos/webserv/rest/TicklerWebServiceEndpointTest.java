@@ -86,6 +86,7 @@ class TicklerWebServiceEndpointTest extends CarlosRestTestBase {
 
     @BeforeEach
     void setUpSecurity() {
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), eq(123))).thenReturn(true);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(), any(), any()))
             .thenReturn(true);
         registerMock(UserPropertyDAO.class, mock(UserPropertyDAO.class));
@@ -99,7 +100,7 @@ class TicklerWebServiceEndpointTest extends CarlosRestTestBase {
         @Test
         @DisplayName("should return 200 with empty list when no ticklers match")
         void shouldReturn200WithEmptyList_whenNoTicklersMatch() {
-            when(mockTicklerManager.getTicklers(any(LoggedInInfo.class), any(CustomFilter.class), eq(0), eq(10)))
+            when(mockTicklerManager.getTicklers(any(LoggedInInfo.class), any(CustomFilter.class), eq(0), eq(500), eq(false), eq(false), eq(false), eq(false)))
                 .thenReturn(Collections.emptyList());
 
             String searchJson = "{\"status\":\"C\"}";
@@ -123,7 +124,7 @@ class TicklerWebServiceEndpointTest extends CarlosRestTestBase {
         @Test
         @DisplayName("should return 200 with empty list when provider has no ticklers")
         void shouldReturn200WithEmptyList_whenNoTicklersForProvider() {
-            when(mockTicklerManager.getTicklers(any(LoggedInInfo.class), any(CustomFilter.class), eq(0), eq(10)))
+            when(mockTicklerManager.getTicklers(any(LoggedInInfo.class), any(CustomFilter.class), eq(0), eq(500), eq(false), eq(false), eq(false), eq(false)))
                 .thenReturn(Collections.emptyList());
 
             Response response = request().path("/tickler/mine")
@@ -153,6 +154,43 @@ class TicklerWebServiceEndpointTest extends CarlosRestTestBase {
             var wireJson = responseJson(response);
             assertThat(wireJson.intValue()).isEqualTo(5);
         }
+    }
+
+    @Test
+    void shouldDenyScopedTicklerCount_beforeQueryingTheManager() {
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo,"_tickler","r","123")).thenReturn(false);
+        assertThat(request().path("/tickler/123/count/overdue").get().getStatus()).isEqualTo(403);
+        org.mockito.Mockito.verifyNoInteractions(mockTicklerManager);
+    }
+
+    @Test
+    void shouldDenyBlockedChartCount_beforeQueryingTheManager() {
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo,123)).thenReturn(false);
+        assertThat(request().path("/tickler/123/count/overdue").get().getStatus()).isEqualTo(403);
+        org.mockito.Mockito.verifyNoInteractions(mockTicklerManager);
+    }
+
+    @Test
+    void shouldRejectNonpositiveCountPatient_beforeQueryingTheManager() {
+        assertThat(request().path("/tickler/0/count/overdue").get().getStatus()).isEqualTo(400);
+        org.mockito.Mockito.verifyNoInteractions(mockTicklerManager);
+    }
+
+    @Test
+    void shouldApplyPatientOverridesToJsonSearch_beforeQueryingTicklers() {
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo,"_tickler","r","123")).thenReturn(false);
+        assertThat(request().path("/tickler/search").query("startIndex",0).query("limit",10)
+                .post(jakarta.ws.rs.client.Entity.json("{\"demographicNo\":123}")).getStatus()).isEqualTo(403);
+        org.mockito.Mockito.verifyNoInteractions(mockTicklerManager);
+    }
+
+    @Test
+    void shouldApplyPatientOverridesToLegacyListFilters_beforeCountingOrQueryingTicklers() {
+        mockServletRequest.setParameter("demographicNo","123"); mockServletRequest.setParameter("count","20");
+        mockServletRequest.setParameter("page","1");
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo,"_tickler","r","123")).thenReturn(false);
+        assertThat(request().path("/tickler/ticklers").get().getStatus()).isEqualTo(403);
+        org.mockito.Mockito.verifyNoInteractions(mockTicklerManager);
     }
 
     /** Tests for GET /tickler/textSuggestions endpoint. */

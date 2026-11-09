@@ -38,6 +38,21 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 @Component
 public class ProviderConverter extends AbstractConverter<Provider, ProviderTo1> {
+    private final io.github.carlos_emr.carlos.managers.SecurityInfoManager permissions;
+
+    /** Retained for existing manually constructed nested converters. */
+    public ProviderConverter() { this(null); }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public ProviderConverter(io.github.carlos_emr.carlos.managers.SecurityInfoManager permissions) {
+        this.permissions = permissions;
+    }
+
+    private boolean canReadBilling(LoggedInInfo actor) {
+        return permissions == null ? io.github.carlos_emr.carlos.webserv.ProviderBillingAccess.canRead(actor)
+                : io.github.carlos_emr.carlos.webserv.ProviderBillingAccess.canRead(actor, permissions);
+    }
+
 
     @Override
     public Provider getAsDomainObject(LoggedInInfo loggedInInfo, ProviderTo1 t) throws ConversionException {
@@ -81,7 +96,6 @@ public class ProviderConverter extends AbstractConverter<Provider, ProviderTo1> 
         t.setProviderNo(d.getProviderNo());
         t.setComments(d.getComments());
         t.setPhone(d.getPhone());
-        t.setBillingNo(d.getBillingNo());
         t.setWorkPhone(d.getWorkPhone());
         t.getAddress().setAddress(d.getAddress());
         t.setTeam(d.getTeam());
@@ -95,21 +109,24 @@ public class ProviderConverter extends AbstractConverter<Provider, ProviderTo1> 
                 // swallow
             }
         }
-        t.setOhipNo(d.getOhipNo());
         t.setSpecialty(d.getSpecialty());
         t.setDob(d.getDob());
-        t.setHsoNo(d.getHsoNo());
         t.setProviderActivity(d.getProviderActivity());
         t.setFirstName(d.getFirstName());
         t.setLastName(d.getLastName());
         t.setName(d.getLastName() + ", " + d.getFirstName());
-        t.setRmaNo(d.getRmaNo());
         t.setSignedConfidentiality(d.getSignedConfidentiality());
         t.setPractitionerNo(d.getPractitionerNo());
         t.setEmail(d.getEmail());
         t.setTitle(d.getTitle());
         t.setLastUpdateUser(d.getLastUpdateUser());
         t.setLastUpdateDate(d.getLastUpdateDate());
+        if (canReadBilling(loggedInInfo)) {
+            t.setBillingNo(d.getBillingNo());
+            t.setOhipNo(d.getOhipNo());
+            t.setHsoNo(d.getHsoNo());
+            t.setRmaNo(d.getRmaNo());
+        }
         return t;
     }
 

@@ -30,7 +30,19 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 
 @Tag("unit")
+@org.junit.jupiter.api.parallel.ResourceLock("java.util.TimeZone")
+@org.junit.jupiter.api.parallel.ResourceLock("java.util.Locale")
 class IsoDatesUnitTest {
+    @Test
+    void shouldRejectInvalidAndTrailingValues_atStrictApiBoundary() throws Exception {
+        for (String value : new String[]{null, "", "2026-02-30", "2026-13-01", "2026-7-15",
+                "2026-07-15junk", "2026-07-15T23:59:00Z"}) {
+            assertThatThrownBy(() -> IsoDates.parseStrictDate(value)).isInstanceOf(ParseException.class);
+        }
+        assertThat(IsoDates.parseStrictDate("2024-02-29"))
+                .isEqualTo(IsoDates.parseIso8601Date("2024-02-29"));
+    }
+
     @Test
     void shouldKeepLeniencyAndPrefixParsing_forLegacyRestDates() throws Exception {
         assertThat(IsoDates.parseIso8601Date("2026-13-01"))

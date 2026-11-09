@@ -429,13 +429,13 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             pdfPTable.addCell(cell);
 
         } catch (FileNotFoundException e) {
-            logger.error("Failed to locate file at " + filename, e);
+            logger.error("Failed to locate file: {}", LogSafe.exceptionTrace(e));
         } catch (BadElementException e) {
-            logger.error("Unexpected error.", e);
+            logger.error("Unexpected error.: {}", LogSafe.exceptionTrace(e));
         } catch (MalformedURLException e) {
-            logger.error("This image location is malformed " + filename, e);
+            logger.error("This image location is malformed: {}", LogSafe.exceptionTrace(e));
         } catch (IOException e) {
-            logger.error("Unexpected error.", e);
+            logger.error("Unexpected error.: {}", LogSafe.exceptionTrace(e));
         }
     }
 
@@ -768,7 +768,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
                 Image image = createScaledSignatureImage(signatureImage);
                 addTable(pdfPTable, createRightAlignedSignatureTable(getResource("msgSignature"), image, font));
             } catch (BadElementException | IOException e) {
-                logger.error("An error occurred while trying to create an image from the signature", e);
+                logger.error("An error occurred while trying to create an image from the signature: {}", LogSafe.exceptionTrace(e));
             }
         }
     }
@@ -869,7 +869,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         } catch (RuntimeException e) {
             // A real lookup fault (DB/infra) - log WITH the stack trace rather than mislabel it
             // "not found"; stay fail-soft so a transient blip renders unsigned instead of blanking the PDF.
-            logger.error("Error loading consultation digital signature {}", parsedId, e);
+            logger.error("Error loading consultation digital signature {} {}", parsedId, LogSafe.exceptionTrace(e));
             return null;
         }
     }

@@ -91,6 +91,7 @@ class ReportingServiceUnitTest extends CarlosUnitTestBase {
      * SpringUtils dependencies cannot initialize in a unit context.
      */
     private Report stubReport;
+    private RuntimeException stubReportFailure;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -119,6 +120,7 @@ class ReportingServiceUnitTest extends CarlosUnitTestBase {
 
             @Override
             protected Report buildPreventionReport(LoggedInInfo info, String providerNo, PreventionSearchTo1 search) {
+                if (stubReportFailure != null) throw stubReportFailure;
                 return stubReport;
             }
         };
@@ -232,27 +234,27 @@ class ReportingServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should return 268 when getPreventionReport JSON is malformed")
-        void shouldReturn268_whenReportJsonInvalid() {
+        @DisplayName("should return 500 when getPreventionReport JSON is malformed")
+        void shouldReturn500_whenReportJsonInvalid() {
             PreventionReport pr = mock(PreventionReport.class);
             when(pr.getJson()).thenReturn("{ not valid json");
             when(mockPreventionReportDao.find(Integer.valueOf(7))).thenReturn(pr);
 
             Response response = service.getPreventionReport(7, emptyJson());
 
-            assertThat(response.getStatus()).isEqualTo(268);
+            assertThat(response.getStatus()).isEqualTo(500);
         }
 
         @Test
-        @DisplayName("should return 268 when getPreventionReport JSON payload is null")
-        void shouldReturn268_whenReportJsonNull() {
+        @DisplayName("should return 500 when getPreventionReport JSON payload is null")
+        void shouldReturn500_whenReportJsonNull() {
             PreventionReport pr = mock(PreventionReport.class);
             when(pr.getJson()).thenReturn(null);
             when(mockPreventionReportDao.find(Integer.valueOf(8))).thenReturn(pr);
 
             Response response = service.getPreventionReport(8, emptyJson());
 
-            assertThat(response.getStatus()).isEqualTo(268);
+            assertThat(response.getStatus()).isEqualTo(500);
         }
 
         @Test
@@ -268,15 +270,15 @@ class ReportingServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should return 268 when runPreventionReport JSON is malformed")
-        void shouldReturn268_whenRunReportJsonInvalid() {
+        @DisplayName("should return 500 when runPreventionReport JSON is malformed")
+        void shouldReturn500_whenRunReportJsonInvalid() {
             PreventionReport pr = mock(PreventionReport.class);
             when(pr.getJson()).thenReturn("{ not valid json");
             when(mockPreventionReportDao.find(Integer.valueOf(6))).thenReturn(pr);
 
             Response response = service.runPreventionReport(6, emptyJson());
 
-            assertThat(response.getStatus()).isEqualTo(268);
+            assertThat(response.getStatus()).isEqualTo(500);
         }
 
         @Test
@@ -294,19 +296,43 @@ class ReportingServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should return 268 when runPreventionReport builds no result")
-        void shouldReturn268_whenRunReportBuildsNoResult() {
+        @DisplayName("should preserve an explicit clinical review conflict when building a report")
+        void shouldPreserveClinicalReviewConflict_whenBuildingReport() {
+            PreventionReport pr = mock(PreventionReport.class);
+            when(pr.getJson()).thenReturn("{}");
+            when(mockPreventionReportDao.find(Integer.valueOf(10))).thenReturn(pr);
+            stubReportFailure = new jakarta.ws.rs.WebApplicationException(Response.status(409).entity("Clinical timing requires review").build());
+            assertThatThrownBy(() -> service.runPreventionReport(10, emptyJson()))
+                    .isInstanceOfSatisfying(jakarta.ws.rs.WebApplicationException.class, error ->
+                            assertThat(error.getResponse().getStatus()).isEqualTo(409));
+        }
+
+        @Test
+        @DisplayName("should return a safe server failure when a report build fails")
+        void shouldReturnSafeServerFailure_whenReportBuildFails() {
+            PreventionReport pr = mock(PreventionReport.class);
+            when(pr.getJson()).thenReturn("{}");
+            when(mockPreventionReportDao.find(Integer.valueOf(10))).thenReturn(pr);
+            stubReportFailure = new IllegalStateException("PRIVATE_patient_report.sql");
+            Response response = service.runPreventionReport(10, emptyJson());
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getEntity().toString()).doesNotContain("PRIVATE", "patient_report.sql");
+        }
+
+        @Test
+        @DisplayName("should return 500 when runPreventionReport builds no result")
+        void shouldReturn500_whenRunReportBuildsNoResult() {
             PreventionReport pr = mock(PreventionReport.class);
             when(pr.getJson()).thenReturn("{}");
             // isActive() stubbed true so the null build result is not dereferenced by the
-            // inactive-report branch; the assertion isolates "no result built -> 268".
+            // inactive-report branch; the assertion isolates "no result built -> 500".
             when(pr.isActive()).thenReturn(true);
             when(mockPreventionReportDao.find(Integer.valueOf(11))).thenReturn(pr);
             stubReport = null;
 
             Response response = service.runPreventionReport(11, emptyJson());
 
-            assertThat(response.getStatus()).isEqualTo(268);
+            assertThat(response.getStatus()).isEqualTo(500);
         }
     }
 

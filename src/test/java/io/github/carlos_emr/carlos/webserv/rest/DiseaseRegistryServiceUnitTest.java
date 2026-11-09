@@ -111,6 +111,7 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
         inject("dxresearchDao", mockDxresearchDao);
         inject("issueDao", mockIssueDao);
         inject("securityInfoManager", mockSecurityInfoManager);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), eq(123))).thenReturn(true);
     }
 
     private void inject(String fieldName, Object value) throws Exception {
@@ -235,8 +236,8 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> service.addToDiseaseRegistry(123, new IssueTo1()))
-            .isInstanceOf(SecurityException.class)
-            .hasMessage("missing required sec object (_newCasemgmt.DxRegistry)");
+            .isInstanceOf(jakarta.ws.rs.ForbiddenException.class)
+            .hasMessage("Patient module access denied");
 
         verify(mockDxresearchDao, never()).activeEntryExists(anyInt(), anyString(), anyString());
         verify(mockDxresearchDao, never()).persist(any());
@@ -262,8 +263,8 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> service.getDiseaseRegistry(123))
-            .isInstanceOf(SecurityException.class)
-            .hasMessage("missing required sec object (_newCasemgmt.DxRegistry)");
+            .isInstanceOf(jakarta.ws.rs.ForbiddenException.class)
+            .hasMessage("Patient module access denied");
 
         verify(mockDxresearchDao, never()).getByDemographicNo(anyInt());
     }

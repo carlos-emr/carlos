@@ -41,6 +41,10 @@ public interface DemographicSetsDao extends AbstractDao<DemographicSets> {
 
     public List<DemographicSets> findBySetName(String setName);
 
+    default List<DemographicSets> findBySetNamePage(String name, int offset, int limit) {
+        throw new UnsupportedOperationException("Paged demographic sets are not implemented");
+    }
+
     public List<DemographicSets> findBySetNames(Collection<String> setNameList);
 
     public List<DemographicSets> findBySetNameAndEligibility(String setName, String eligibility);

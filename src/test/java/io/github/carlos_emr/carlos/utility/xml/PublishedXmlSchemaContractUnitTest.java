@@ -150,6 +150,31 @@ class PublishedXmlSchemaContractUnitTest extends CarlosUnitTestBase {
 
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"glassfish", "moxy"})
+    void shouldSatisfyTheUnchangedDrugSchema_underTheExplicitLegacyWriter(String provider) throws Exception {
+        var drug = new io.github.carlos_emr.carlos.webserv.transfer_objects.DrugTransfer();
+        drug.seteTreatmentType("é<&日本語");
+        drug.setDuration("7");
+        drug.setUnitName("mg");
+        var binding = provider.equals("glassfish") ? context(drug.getClass())
+                : org.eclipse.persistence.jaxb.JAXBContextFactory.createContext(new Class<?>[]{drug.getClass()}, Map.of());
+        StringWriter output = new StringWriter();
+        var writer = new LegacyDrugOrderWriter(org.apache.cxf.staxutils.StaxUtils.createXMLStreamWriter(output));
+        binding.createMarshaller().marshal(new JAXBElement<>(new QName("value"),
+                io.github.carlos_emr.carlos.webserv.transfer_objects.DrugTransfer.class, drug), writer);
+        writer.flush();
+        String xml = output.toString();
+        validatePublished(drug.getClass(), xml);
+        assertThat(xml.indexOf("<eTreatmentType")).isGreaterThan(xml.indexOf("<unitName>"));
+        var reader = binding.createUnmarshaller();
+        reader.setEventHandler(event -> false);
+        assertThat(reader.unmarshal(new StreamSource(new StringReader(xml)), drug.getClass()).getValue())
+                .extracting("eTreatmentType", "duration", "unitName").containsExactly("é<&日本語", "7", "mg");
+        String ordinary = write(drug);
+        assertThat(ordinary.indexOf("<eTreatmentType")).isLessThan(ordinary.indexOf("<unitName>"));
+    }
+
     /** Detects accidental edits to the independently captured published schemas. */
     @Test
     void shouldRetainSchemaFixtureIdentity_whenCheckingPublishedContracts() throws Exception {

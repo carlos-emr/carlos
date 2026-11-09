@@ -104,6 +104,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
      */
     @BeforeEach
     void setUp() {
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(),eq(TEST_DEMO_NO))).thenReturn(true);
         // Register DAO mocks for SpringUtils
         registerMock(OscarAppointmentDao.class, mockAppointmentDao);
         registerMock(AppointmentStatusDao.class, mockAppointmentStatusDao);
@@ -456,7 +457,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         void shouldArchiveAndRemove_whenDeleting() {
             // Given
             Appointment existing = createTestAppointmentWithId(TEST_APPOINTMENT_ID);
-            when(mockAppointmentDao.find((int) TEST_APPOINTMENT_ID)).thenReturn(existing);
+            when(mockAppointmentDao.findForUpdate((int) TEST_APPOINTMENT_ID)).thenReturn(existing);
 
             // When
             appointmentManager.deleteAppointment(mockLoggedInInfo, TEST_APPOINTMENT_ID);
@@ -470,7 +471,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         @DisplayName("should skip archive when existing appointment not found")
         void shouldSkipArchive_whenExistingNotFound() {
             // Given
-            when(mockAppointmentDao.find((int) TEST_APPOINTMENT_ID)).thenReturn(null);
+            when(mockAppointmentDao.findForUpdate((int) TEST_APPOINTMENT_ID)).thenReturn(null);
 
             // When
             appointmentManager.deleteAppointment(mockLoggedInInfo, TEST_APPOINTMENT_ID);
@@ -484,7 +485,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         @DisplayName("should check delete privilege on _appointment")
         void shouldCheckDeletePrivilege_whenDeleting() {
             // Given
-            when(mockAppointmentDao.find(anyInt())).thenReturn(null);
+            when(mockAppointmentDao.findForUpdate(anyInt())).thenReturn(null);
 
             // When
             appointmentManager.deleteAppointment(mockLoggedInInfo, TEST_APPOINTMENT_ID);
@@ -497,7 +498,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         @DisplayName("should remove by appointment number even when existing is null")
         void shouldRemoveByNumber_whenExistingIsNull() {
             // Given
-            when(mockAppointmentDao.find(77)).thenReturn(null);
+            when(mockAppointmentDao.findForUpdate(77)).thenReturn(null);
 
             // When
             appointmentManager.deleteAppointment(mockLoggedInInfo, 77);

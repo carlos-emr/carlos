@@ -570,8 +570,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             logger.debug("Concatenated {} PDF document(s) into a combined PDF ({} bytes)",
                     pdfDocumentList.size(), outputStream.size());
         } catch (IOException e) {
-            logger.error("Failed to concatenate {} PDF document(s) into a combined eForm PDF",
-                    pdfDocumentList.size(), e);
+            logger.error("Failed to concatenate {} PDF document(s) into a combined eForm PDF {}",
+                    pdfDocumentList.size(), LogSafe.exceptionTrace(e));
             throw new PDFGenerationException("An error occurred while concatenating PDF.", e);
         }
         return path;
@@ -1204,8 +1204,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                 } catch (IOException cleanupFailure) {
                     // Best-effort cleanup on a failed move; the original file is intact. Log it (basename
                     // only) so an orphaned flatten temp is recorded rather than silently left on disk.
-                    logger.warn("Could not remove orphaned flatten temp file: {}",
-                            LogSafe.sanitize(flattenedTemp.getFileName().toString()));
+                    logger.warn("Could not remove orphaned flatten temp file");
                 }
             }
         }

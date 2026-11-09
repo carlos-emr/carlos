@@ -130,7 +130,7 @@ public class zip {
             targetDir = PathValidationUtils.resolveConfiguredDirectory(dirName, "unzip target directory");
             zipInputFile = PathValidationUtils.validatePath(fName, targetDir);
         } catch (SecurityException e) {
-            logger.error("unzipXML: invalid target directory or zip file path", e);
+            logger.error("unzipXML: invalid target directory or zip file path: {}", LogSafe.exceptionTrace(e));
             return result;
         }
         String fullpath = zipInputFile.getPath();
@@ -173,7 +173,7 @@ public class zip {
                 }
             }
         } catch (Exception e) {
-            logger.error("io.github.carlos_emr.carlos.util.zip.unzipXML Unhandled exception:", e);
+            logger.error("io.github.carlos_emr.carlos.util.zip.unzipXML Unhandled exception: {}", LogSafe.exceptionTrace(e));
             return result;
         }
 
@@ -185,10 +185,10 @@ public class zip {
             if (!dir.exists()) dir.mkdirs();
             boolean success = afile.renameTo(PathValidationUtils.validateGeneratedChildPath(afile.getName(), dir));
             if (!success) {
-                logger.error("io.github.carlos_emr.carlos.util.zip.unzipXML: the zip file {} was not archived", LogSafe.sanitize(fullpath)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                logger.error("Zip file was not archived"); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             }
         } catch (Exception e) {
-            logger.error("io.github.carlos_emr.carlos.util.zip.unzipXML: failed to archive the zip file {}", LogSafe.sanitize(fullpath), e); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+            logger.error("unzipXML: failed to archive the zip file: {}", LogSafe.exceptionTrace(e)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
         }
         result = true;
         return result;

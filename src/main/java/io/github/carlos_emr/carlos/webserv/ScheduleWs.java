@@ -57,6 +57,8 @@ import org.springframework.stereotype.Component;
 
 @WebService(targetNamespace = "http://ws.oscarehr.org/")
 @Component
+@org.apache.cxf.interceptor.OutInterceptors(interceptors = {"io.github.carlos_emr.carlos.webserv.ScheduleSyncOutInterceptor"})
+@org.apache.cxf.interceptor.OutFaultInterceptors(interceptors = {"io.github.carlos_emr.carlos.webserv.ScheduleSyncOutInterceptor"})
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)
 public class ScheduleWs extends AbstractWs {
     private static final Logger logger = MiscUtils.getLogger();
@@ -156,18 +158,56 @@ public class ScheduleWs extends AbstractWs {
     }
 
     public AppointmentTransfer[] getAppointmentsUpdatedAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn, boolean useGMTTime) {
-        List<Appointment> appointments = scheduleManager.getAppointmentUpdatedAfterDate(getLoggedInInfo(), updatedAfterThisDateExclusive, itemsToReturn);
-        return (AppointmentTransfer.toTransfers(appointments, useGMTTime));
+        Date after = updatedAfterThisDateExclusive; int limit = itemsToReturn;
+        var actor = getLoggedInInfo();
+        var selection = ScheduleSyncHeaders.select(actor, "current", after, limit, useGMTTime);
+        List<Appointment> appointments = invokeSync(() -> {
+            if (!selection.keyset()) return scheduleManager.getAppointmentUpdatedAfterDate(actor, after, limit);
+            var page = scheduleManager.getAppointmentUpdatedPage(actor, new Date(selection.afterMillis()), selection.afterId(), limit);
+            ScheduleSyncHeaders.complete(selection, page, Appointment::getUpdateDateTime, Appointment::getId);
+            return page.items();
+        });
+        return AppointmentTransfer.toTransfers(appointments, useGMTTime);
     }
 
     public AppointmentArchiveTransfer[] getAppointmentArchivesUpdatedAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn, boolean useGMTTime) {
-        List<AppointmentArchive> appointments = scheduleManager.getAppointmentArchiveUpdatedAfterDate(getLoggedInInfo(), updatedAfterThisDateExclusive, itemsToReturn);
-        return (AppointmentArchiveTransfer.toTransfers(appointments, useGMTTime));
+        Date after = updatedAfterThisDateExclusive; int limit = itemsToReturn;
+        var actor = getLoggedInInfo();
+        var selection = ScheduleSyncHeaders.select(actor, "archive", after, limit, useGMTTime);
+        List<AppointmentArchive> appointments = invokeSync(() -> {
+            if (!selection.keyset()) return scheduleManager.getAppointmentArchiveUpdatedAfterDate(actor, after, limit);
+            var page = scheduleManager.getAppointmentArchiveUpdatedPage(actor, new Date(selection.afterMillis()), selection.afterId(), limit);
+            ScheduleSyncHeaders.complete(selection, page, AppointmentArchive::getUpdateDateTime, AppointmentArchive::getId);
+            return page.items();
+        });
+        return AppointmentArchiveTransfer.toTransfers(appointments, useGMTTime);
     }
 
-    public AppointmentTransfer[] getAppointmentsByProgramProviderDemographicDate(Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateExclusive, int itemsToReturn, boolean useGMTTime) {
-        List<Appointment> appointments = scheduleManager.getAppointmentsByProgramProviderDemographicDate(getLoggedInInfo(), programId, providerNo, demographicId, updatedAfterThisDateExclusive, itemsToReturn);
-        return (AppointmentTransfer.toTransfers(appointments, useGMTTime));
+    public AppointmentTransfer[] getAppointmentsByProgramProviderDemographicDate(Integer programId, String providerNo,
+            Integer demographicId, Calendar updatedAfterThisDateExclusive, int itemsToReturn, boolean useGMTTime) {
+        Calendar after = updatedAfterThisDateExclusive; int limit = itemsToReturn;
+        Date initial = after == null ? null : after.getTime();
+        var actor = getLoggedInInfo();
+        var selection = ScheduleSyncHeaders.select(actor, "filtered", initial, limit, programId, providerNo, demographicId, useGMTTime);
+        List<Appointment> appointments = invokeSync(() -> {
+            if (!selection.keyset()) return scheduleManager.getAppointmentsByProgramProviderDemographicDate(
+                    actor, programId, providerNo, demographicId, after, limit);
+            var page = scheduleManager.getAppointmentsByProgramProviderDemographicPage(actor, programId, providerNo, demographicId,
+                    new Date(selection.afterMillis()), selection.afterId(), limit);
+            ScheduleSyncHeaders.complete(selection, page, Appointment::getUpdateDateTime, Appointment::getId);
+            return page.items();
+        });
+        return AppointmentTransfer.toTransfers(appointments, useGMTTime);
+    }
+
+    private <T> T invokeSync(java.util.function.Supplier<T> read) {
+        try { return read.get(); }
+        catch (io.github.carlos_emr.carlos.managers.ScheduleSyncBoundaryException boundary) {
+            throw new org.apache.cxf.binding.soap.SoapFault(boundary.getMessage(), org.apache.cxf.binding.soap.SoapFault.FAULT_CODE_CLIENT);
+        } catch (RuntimeException failure) {
+            logger.error("Schedule synchronization failed: {}", io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(failure));
+            throw new org.apache.cxf.binding.soap.SoapFault("Schedule synchronization failed", org.apache.cxf.binding.soap.SoapFault.FAULT_CODE_SERVER);
+        }
     }
 
     /**

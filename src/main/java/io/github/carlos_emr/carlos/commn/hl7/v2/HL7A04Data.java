@@ -203,7 +203,7 @@ public class HL7A04Data {
             return false;
         }
 
-        logger.info("Successfully saved HL7 A04 file: " + saveDir + this.fileName);
+        logger.info("Successfully saved HL7 A04 file");
 
         return true;
     }

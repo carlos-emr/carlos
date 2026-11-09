@@ -230,13 +230,14 @@ public class ScheduleManagerImpl implements ScheduleManager {
         return (results);
     }
 
-    public List<Appointment> getAppointmentsByProgramProviderDemographicDate(LoggedInInfo loggedInInfo, Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateExclusive, int itemsToReturn) {
-        List<Appointment> results = oscarAppointmentDao.findByProgramProviderDemographicDate(programId, providerNo, demographicId, updatedAfterThisDateExclusive.getTime(), itemsToReturn);
-
-        //--- log action ---
-        LogAction.addLogSynchronous(loggedInInfo, "AppointmentManager.getAppointmentsByProgramProviderPatientDate", "appointments for programId=" + programId + ", providerNo=" + providerNo + ", demographicId=" + demographicId + ", updatedAfterThisDateExclusive=" + updatedAfterThisDateExclusive.getTime() + ", itemsToReturn=" + itemsToReturn);
-
-        return (results);
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public List<Appointment> getAppointmentsByProgramProviderDemographicDate(LoggedInInfo actor, Integer programId,
+            String providerNo, Integer demographicId, Calendar after, int limit) {
+        if (limit == 0) return new ArrayList<>();
+        if (after == null) throw new IllegalArgumentException("Schedule update timestamp is required");
+        var page = filteredUpdatePage(actor, programId, providerNo, demographicId, after.getTime(), Integer.MAX_VALUE, limit);
+        return AppointmentUpdatePages.legacy(page);
     }
 
     public Appointment getAppointment(LoggedInInfo loggedInInfo, Integer appointmentId) {
@@ -281,17 +282,19 @@ public class ScheduleManagerImpl implements ScheduleManager {
         if (current == null) {
             throw new AppointmentUpdateException(AppointmentUpdateException.Reason.NOT_FOUND);
         }
+        AppointmentPatientAccess.require(loggedInInfo, securityInfoManager, current.getDemographicNo(), "w");
         if (hasVersion && !current.getEditVersion().equals(expectedVersion)) {
             throw new AppointmentUpdateException(AppointmentUpdateException.Reason.STALE_VERSION);
         }
         if (!hasVersion) {
-            logger.warn("Appointment update without editVersion uses legacy last-writer-wins behavior; "
+            logger.debug("Appointment update without editVersion uses legacy last-writer-wins behavior; "
                     + "clients should echo editVersion to enable conflict detection");
         }
         // Archive the unmodified locked row. Validation, archive and mutation share this
         // transaction: a rejected edit or failed flush cannot leave a stray archive behind.
         appointmentArchiveDao.archiveAppointment(current);
         edit.accept(current);
+        AppointmentPatientAccess.require(loggedInInfo, securityInfoManager, current.getDemographicNo(), "w");
         current.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
         oscarAppointmentDao.merge(current);
         // Run the version callback before serializing the response token.
@@ -310,15 +313,11 @@ public class ScheduleManagerImpl implements ScheduleManager {
         return (appointments);
     }
 
-    public List<Appointment> getAppointmentUpdatedAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateExclusive, int itemsToReturn) {
-        List<Appointment> results = oscarAppointmentDao.findByUpdateDate(updatedAfterThisDateExclusive, itemsToReturn);
-
-        LogAction.addLogSynchronous(loggedInInfo, "ScheduleManager.getAppointmentUpdatedAfterDate", "updatedAfterThisDateExclusive=" + updatedAfterThisDateExclusive);
-
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment.UpdatedAfterDate", "x", null)) {
-            patientConsentManager.filterProviderSpecificConsent(loggedInInfo, results);
-        }
-        return (results);
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public List<Appointment> getAppointmentUpdatedAfterDate(LoggedInInfo actor, Date after, int limit) {
+        if (limit == 0) return new ArrayList<>();
+        return AppointmentUpdatePages.legacy(currentUpdatePage(actor, after, Integer.MAX_VALUE, limit));
     }
 
     public List<Appointment> getAppointmentByDemographicIdUpdatedAfterDate(LoggedInInfo loggedInInfo, Integer demographicId, Date updatedAfterThisDateExclusive) {
@@ -331,12 +330,11 @@ public class ScheduleManagerImpl implements ScheduleManager {
         return (results);
     }
 
-    public List<AppointmentArchive> getAppointmentArchiveUpdatedAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateExclusive, int itemsToReturn) {
-        List<AppointmentArchive> results = appointmentArchiveDao.findByUpdateDate(updatedAfterThisDateExclusive, itemsToReturn);
-
-        LogAction.addLogSynchronous(loggedInInfo, "ScheduleManager.getAppointmentArchiveUpdatedAfterDate", "updatedAfterThisDateExclusive=" + updatedAfterThisDateExclusive);
-
-        return (results);
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public List<AppointmentArchive> getAppointmentArchiveUpdatedAfterDate(LoggedInInfo actor, Date after, int limit) {
+        if (limit == 0) return new ArrayList<>();
+        return AppointmentUpdatePages.legacy(archiveUpdatePage(actor, after, Integer.MAX_VALUE, limit));
     }
 
     public List<AppointmentStatus> getAppointmentStatuses(LoggedInInfo loggedInInfo) {
@@ -389,8 +387,8 @@ public class ScheduleManagerImpl implements ScheduleManager {
         Date sDate = null;
         Date eDate = null;
         try {
-            sDate = IsoDates.parseIso8601Date(sDateStr);
-            eDate = IsoDates.parseIso8601Date(eDateStr);
+            sDate = IsoDates.parseStrictDate(sDateStr);
+            eDate = IsoDates.parseStrictDate(eDateStr);
         } catch (Exception e) {
             throw new WebApplicationException(Response.status(Status.BAD_REQUEST).entity("Path parameter has the wrong format").build());
         }
@@ -468,6 +466,68 @@ public class ScheduleManagerImpl implements ScheduleManager {
             logger.error("unexpected error, maybe not compatible oscar", e);
         }
         return false;
+    }
+
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    @Override
+    public AppointmentUpdatePage<Appointment> getAppointmentUpdatedPage(LoggedInInfo actor, Date after, int afterId, int limit) {
+        return currentUpdatePage(actor, after, afterId, limit);
+    }
+
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    @Override
+    public AppointmentUpdatePage<AppointmentArchive> getAppointmentArchiveUpdatedPage(LoggedInInfo actor, Date after, int afterId, int limit) {
+        return archiveUpdatePage(actor, after, afterId, limit);
+    }
+
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    @Override
+    public AppointmentUpdatePage<Appointment> getAppointmentsByProgramProviderDemographicPage(LoggedInInfo actor,
+            Integer programId, String providerNo, Integer demographicId, Date after, int afterId, int limit) {
+        return filteredUpdatePage(actor, programId, providerNo, demographicId, after, afterId, limit);
+    }
+
+    private AppointmentUpdatePage<Appointment> currentUpdatePage(LoggedInInfo actor, Date after, int afterId, int limit) {
+        boolean unrestrictedConsent = securityInfoManager.hasPrivilege(actor, "_appointment.UpdatedAfterDate", "x", null);
+        var page = AppointmentUpdatePages.read(after, afterId, limit,
+                (position, batch) -> oscarAppointmentDao.findByUpdateDateAndId(new Date(position.millis()), position.id(), batch),
+                rows -> unrestrictedConsent ? rows : consentFiltered(actor, rows), Appointment::getUpdateDateTime, Appointment::getId);
+        LogAction.addLogSynchronous(actor, "ScheduleManager.getAppointmentUpdatedAfterDate", "updatedAfterThisDateExclusive=" + after);
+        return page;
+    }
+
+    private List<Appointment> consentFiltered(LoggedInInfo actor, List<Appointment> rows) {
+        List<? extends io.github.carlos_emr.carlos.commn.model.DemographicData> permitted =
+                patientConsentManager.filterProviderSpecificConsent(actor, rows);
+        if (permitted == null) throw new IllegalStateException("Schedule consent policy returned no result");
+        List<Appointment> result = new ArrayList<>(permitted.size());
+        for (var row : permitted) {
+            if (!(row instanceof Appointment appointment)) throw new IllegalStateException("Invalid schedule consent result type");
+            result.add(appointment);
+        }
+        return result;
+    }
+
+    private AppointmentUpdatePage<AppointmentArchive> archiveUpdatePage(LoggedInInfo actor, Date after, int afterId, int limit) {
+        var page = AppointmentUpdatePages.read(after, afterId, limit,
+                (position, batch) -> appointmentArchiveDao.findByUpdateDateAndId(new Date(position.millis()), position.id(), batch),
+                java.util.function.Function.identity(), AppointmentArchive::getUpdateDateTime, AppointmentArchive::getId);
+        LogAction.addLogSynchronous(actor, "ScheduleManager.getAppointmentArchiveUpdatedAfterDate", "updatedAfterThisDateExclusive=" + after);
+        return page;
+    }
+
+    private AppointmentUpdatePage<Appointment> filteredUpdatePage(LoggedInInfo actor, Integer programId, String providerNo,
+            Integer demographicId, Date after, int afterId, int limit) {
+        var page = AppointmentUpdatePages.read(after, afterId, limit,
+                (position, batch) -> oscarAppointmentDao.findByProgramProviderDemographicDateAndId(
+                        programId, providerNo, demographicId, new Date(position.millis()), position.id(), batch),
+                java.util.function.Function.identity(), Appointment::getUpdateDateTime, Appointment::getId);
+        LogAction.addLogSynchronous(actor, "AppointmentManager.getAppointmentsByProgramProviderPatientDate",
+                "programId=" + programId + ", providerNo=" + providerNo + ", demographicId=" + demographicId + ", updatedAfter=" + after);
+        return page;
     }
 
 }

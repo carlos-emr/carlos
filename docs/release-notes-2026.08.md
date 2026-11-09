@@ -171,3 +171,77 @@ The last four items include production corrections delivered in `8e70d7a8`
 (#5701), despite that commit's `test(release)` title. The
 [verification guide](testing/release-2026.08-verification.md) separates implemented
 regressions from installed, vendor and client qualification still required.
+
+## REST and SOAP hardening (candidate)
+
+Schedule date path parameters now require a complete valid `yyyy-MM-dd` value.
+Invalid days/months, trailing characters and date-time strings return HTTP 400
+instead of silently selecting another day. The documented `today` day selector
+continues to work. Missing appointment IDs return 400; nonexistent appointments
+and search configurations return 404 rather than server errors.
+
+REST prevention responses now carry the stored refusal/ineligibility, deletion
+and never flags and original creation/update dates. Clients must use these flags
+when interpreting immunization records; a refused or ineligible record is not a
+completed immunization. Response field names and types are retained.
+
+Optional measurement SOAP date elements accept empty/whitespace text as null.
+Nonempty malformed dates remain errors, and the published date-time schema is
+unchanged. Active demographic lists use unique patient identifier ordering;
+this makes unchanged-table paging deterministic and does not create a snapshot
+across concurrent changes.
+
+The complete candidate acceptance and outstanding work is recorded in
+`docs/rest-soap-release-hardening-ledger.md`; these corrections alone do not
+establish full API or release qualification.
+
+REST uncaught access, directive, validation/conversion and internal exceptions now
+return structured JSON errors with `code`, a generic `message`, an optional safe
+`details` object and a UTC `timestamp`. Clients should use status and code for
+handling errors; raw exception text is not a public contract. Existing explicit
+HTTP responses and domain/OAuth-specific mappings retain their statuses and
+headers. Successful response representations and the OAuth token exchange
+format are unchanged.
+
+Patient-list rows and totals now respect patient-specific read restrictions.
+Pagination applies to the permitted active-patient set. SOAP incremental
+patient exports omit restricted records; explicit bulk ID reads are refused
+before fetching records if any requested patient is denied.
+
+Explicit XML profiles preserve historical MOXy date-only birthdays and Glassfish
+numeric characters without guessing from ambiguous values. See
+[XML compatibility profiles](rest-soap-xml-profiles.md) for request headers,
+response verification and deployment/rollback requirements. Malformed XML
+binding values now fail explicitly instead of silently becoming null.
+
+Merge/unmerge now enforce manager-level write permissions for every participant
+before locking or writing, and stamp actor/date metadata. Unmerge changes only
+current links and returns HTTP 409 when any requested pair has no current link;
+repeated requests do not fabricate new unmerge audit events. The historical
+lookup method remains available for consumers that need merge history.
+
+Appointment callers can explicitly choose guarded writes or legacy echo-client
+compatibility without changing existing token-aware behavior. See
+[appointment API write modes](appointment-api-write-modes.md). Unknown modes
+fail before mutation, and legacy writes no longer emit a WARN on every request.
+
+OAuth XML configuration factories now parse well-formed XML and reject malformed,
+DTD-bearing or ambiguous duplicate/nested fields. Both public configuration APIs
+and their distinct roles remain; see [OAuth configuration contracts](oauth-configuration-contracts.md).
+
+SOAP login tokens are now random credentials stored as hashes, with bounded
+expiry and an authenticated revocation operation. Existing numeric deterministic
+tokens must be discarded at coordinated client/server cutover; password login
+and published response schemas remain. See [SOAP token lifecycle](soap-token-lifecycle.md)
+for configuration, refresh, multi-node deployment, revocation and recovery gates.
+
+Prescribing rejects any medication whose patient differs from the prescription
+patient before creating the header or drugs, including new medications without
+a stored source row. Access to both charts does not make a mixed-patient batch
+valid.
+
+OAuth JSON date properties now use declared calendar/clock semantics even on the epoch day or at non-midnight times. The session numeric contract remains. Clients requiring historical inference can select the explicit profile in [REST JSON date contracts](rest-json-dates.md). Review the [required production integration configuration](production-integration-overrides.md) before enabling integrations. The [allergy identity decision](allergy-api-identity-decision.md) records the release contract limitation without changing published response shapes.
+
+`DrugTransfer` JSON members remain alphabetical on both REST surfaces. `AppointmentExtTo` retains its restored explicit order. Integrations comparing JSON text should follow the [JSON property-order notice](rest-json-order-notice.md).
+
+Demographic name/attribute SOAP searches and REST search pages/totals now respect per-patient read restrictions. Offsets count permitted patients, and blocked raw pages do not terminate an authorized search. Name/attribute request sizes are retained while internal scans use bounded batches.

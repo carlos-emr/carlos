@@ -95,7 +95,7 @@ class RestJaxbContextUnitTest extends CarlosUnitTestBase {
         }
         assertThat(services).contains(AllergyService.class, DemographicService.class, ProviderService.class);
         var bus = new ExtensionManagerBus();
-        var factory = selectedBeans("spring_ws.xml", "jaxb");
+        var factory = selectedBeans("spring_ws.xml", "jaxb", "strictXmlValidationHandler");
         try {
             var model = new JAXRSServiceFactoryBean();
             model.setBus(bus);

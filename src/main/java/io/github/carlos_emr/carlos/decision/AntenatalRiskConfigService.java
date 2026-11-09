@@ -12,6 +12,8 @@
  */
 package io.github.carlos_emr.carlos.decision;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
@@ -420,7 +422,7 @@ public final class AntenatalRiskConfigService {
         try (FileChannel channel = FileChannel.open(directory, StandardOpenOption.READ)) {
             channel.force(true);
         } catch (IOException | UnsupportedOperationException e) {
-            logger.debug("Could not flush the document directory after the atomic move", e);
+            logger.debug("Could not flush the document directory after the atomic move: {}", LogSafe.exceptionTrace(e));
         }
     }
 

@@ -29,6 +29,8 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.upload.handlers;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import org.openpdf.text.pdf.PdfReader;
 
 import ca.uhn.fhir.context.FhirContext;
@@ -59,7 +61,6 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -139,11 +140,11 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             try {
                 targetFile = PathValidationUtils.validateExistingPath(fileName, baseDir);
             } catch (SecurityException e) {
-                logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                logger.error("Path traversal attempt detected");
                 return null;
             }
             if (!targetFile.exists() || !targetFile.isFile()) {
-                logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                logger.error("File does not exist or is not a regular file");
                 return null;
             }
             
@@ -216,7 +217,7 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             LogAction.addLog(providerNo, LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, ipAddr, "", "DocUpload.FHIRCommunicationRequest");
 
         } catch (Exception e) {
-            logger.error("error parsing Document Reference Document", e);
+            logger.error("error parsing Document Reference Document: {}", LogSafe.exceptionTrace(e));
             return null;
         } finally {
             IOUtils.closeQuietly(in);

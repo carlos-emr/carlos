@@ -22,6 +22,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -445,7 +447,7 @@ public class OhipClaimExtractService implements Serializable {
             // misdirecting to "disk full / file write" via the file-write
             // type. The per-provider tx in OhipReportGenerationService
             // catches RuntimeException and rolls back this provider only.
-            logger.error("OHIP claim extraction failed", e);
+            logger.error("OHIP claim extraction failed: {}", LogSafe.exceptionTrace(e));
             throw new BillingDataLoadException(
                     "OHIP claim extraction failed", e,
                     BillingDataLoadException.Phase.CLAIM_EXTRACT,
@@ -575,7 +577,7 @@ public class OhipClaimExtractService implements Serializable {
             File homeDir = PathValidationUtils.validateConfiguredDirectory(home_dir, "HOME_DIR");
             safeFile = PathValidationUtils.validatePath(ohipFilename, homeDir);
         } catch (SecurityException e) {
-            logger.error("Path traversal attempt detected for OHIP file: {}", ohipFilename, e);
+            logger.error("Path traversal attempt detected for OHIP file: {}", LogSafe.exceptionTrace(e));
             throw new BillingFileWriteException(
                     "Refused to write OHIP claim file due to path-traversal: " + ohipFilename, e);
         }
@@ -589,7 +591,7 @@ public class OhipClaimExtractService implements Serializable {
             bw.write(value1);
             bw.newLine();
         } catch (IOException e) {
-            logger.error("Write OHIP File Error: filename={}", ohipFilename, e);
+            logger.error("Write OHIP File Error: filename=: {}", LogSafe.exceptionTrace(e));
             throw new BillingFileWriteException(
                     "Failed to write OHIP claim file: " + ohipFilename, e);
         }
@@ -605,7 +607,7 @@ public class OhipClaimExtractService implements Serializable {
             File homeDir = PathValidationUtils.validateConfiguredDirectory(home_dir1, "HOME_DIR");
             safeFile = PathValidationUtils.validatePath(htmlFilename, homeDir);
         } catch (SecurityException e) {
-            logger.error("Path traversal attempt detected for HTML file: {}", htmlFilename, e);
+            logger.error("Path traversal attempt detected for HTML file: {}", LogSafe.exceptionTrace(e));
             throw new BillingFileWriteException(
                     "Refused to write OHIP HTML companion file due to path-traversal: " + htmlFilename, e);
         }
@@ -615,7 +617,7 @@ public class OhipClaimExtractService implements Serializable {
             bw.write(htmlvalue1);
             bw.newLine();
         } catch (IOException e) {
-            logger.error("Write HTML File Error: filename={}", htmlFilename, e);
+            logger.error("Write HTML File Error: filename=: {}", LogSafe.exceptionTrace(e));
             throw new BillingFileWriteException(
                     "Failed to write OHIP HTML companion file: " + htmlFilename, e);
         }

@@ -326,6 +326,21 @@ class RxManagerUnitTest extends RxManagerImpl {
         }
 
         @Test
+        void shouldRejectMixedPatients_beforeCreatingTheHeaderOrAnyDrug() {
+            var prescriptions = org.mockito.Mockito.mock(PrescriptionManager.class);
+            prescriptionManager = prescriptions;
+            Drug first = createTestDrug();
+            Drug other = createTestDrug();
+            other.setId(null); // A new drug has no persisted source row for the later source check.
+            other.setDemographicId(2); // The caller has write access to both patients.
+            assertThatThrownBy(() -> prescribe(new LoggedInInfo(), List.of(first, other), 1))
+                    .isInstanceOf(AccessDeniedException.class);
+            org.mockito.Mockito.verifyNoInteractions(prescriptions);
+            assertThat(addNewDrugCallCount).isZero();
+            assertThat(mergedDrug).isNull();
+        }
+
+        @Test
         @DisplayName("should create prescription with multiple drugs")
         void shouldCreatePrescription_withMultipleDrugs() {
             List<Drug> drugs = new ArrayList<>();
@@ -424,9 +439,8 @@ class RxManagerUnitTest extends RxManagerImpl {
             drugs.add(drug);
             LoggedInInfo info = new LoggedInInfo();
 
-            PrescriptionDrugs pd = prescribe(info, drugs, 1);
-
-            assertThat(pd).isNull();
+            assertThatThrownBy(() -> prescribe(info, drugs, 1))
+                    .isInstanceOf(PrescriptionWriteException.class);
             assertThat(addNewDrugCallCount).isEqualTo(1);
         }
     }

@@ -454,10 +454,11 @@ public class RxManagerImpl implements RxManager {
      * @return a record of the prescription and drugs, null if the prescription could not be created.
      */
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public PrescriptionDrugs prescribe(LoggedInInfo info, List<Drug> drugs, Integer demoNo) {
 
         // sanity check on inputs
-        if (info == null || drugs == null || drugs.size() < 1 || demoNo < 0) {
+        if (info == null || drugs == null || drugs.size() < 1 || demoNo == null || demoNo < 0) {
             logger.error("Sanity Check Failed");
             return null;
         }
@@ -470,6 +471,11 @@ public class RxManagerImpl implements RxManager {
             if (!canPrescribe(d)) {
                 logger.error("Can't prescribe drug returning null");
                 return null;
+            }
+            // The prescription header and every medication must describe the same patient,
+            // including new drugs with no source row to check later.
+            if (!Objects.equals(d.getDemographicId(), demoNo)) {
+                throw new AccessDeniedException("_rx", "w", String.valueOf(demoNo));
             }
         }
 
@@ -491,6 +497,7 @@ public class RxManagerImpl implements RxManager {
         // p will contain the ID of the prescription in the DB.
         // use this ID and associate with drugs before doing updates.
         Prescription p = this.prescriptionManager.createNewPrescription(info, drugs, demoNo);
+        if (p == null) throw new PrescriptionWriteException();
 
         // update drugs in the DB. This should be done
         // after all of the drugs are checked to see if they
@@ -515,8 +522,8 @@ public class RxManagerImpl implements RxManager {
 
                 if (temp == null) {
 
-                    // failed to add drug.
-                    return null;
+                    // A normal return would commit the header and preceding drugs.
+                    throw new PrescriptionWriteException();
 
                 }
             }

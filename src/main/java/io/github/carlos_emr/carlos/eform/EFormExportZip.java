@@ -150,11 +150,11 @@ public class EFormExportZip {
             int suffix = 2;
             while (!folders.add(formFolder)) formFolder = boundedComponent(baseFolder, "-" + suffix++, 255);
             String fileName = eForm.getFormFileName();
-            _log.debug("before:>" + fileName + "<");
+            _log.debug("Preparing eForm archive filename");
             if (fileName == null || fileName.equals("")) {
                 fileName = boundedComponent(formFolder, ".html", 255);
             }
-            _log.debug("after:>" + fileName + "<");
+            _log.debug("Prepared eForm archive filename");
 
             // Stored file paths remain strict; only names generated from display titles are sanitized.
             fileName = PathValidationUtils.validatePathComponent(fileName, "eform export file name");
@@ -185,7 +185,7 @@ public class EFormExportZip {
             //write html
             String htmlFilename = "";
             htmlFilename = directoryName + fileName;
-            _log.debug("html file name " + htmlFilename);
+            _log.debug("html file name");
             ZipEntry htmlZipEntry = new ZipEntry(htmlFilename);
             zos.putNextEntry(htmlZipEntry);
             byte[] bytes = html.getBytes("UTF-8");
@@ -348,7 +348,7 @@ public class EFormExportZip {
                 continue;
             }
             String zipEntryFileName = PathValidationUtils.validatePathComponent(zipEntryFile.getName(), "eform import zip entry");
-            _log.info("Unzipping..." + LogSafe.sanitize(zipEntryFileName));
+            _log.info("Unzipping");
             if (zipEntryFileName.equalsIgnoreCase("eform.properties")) {
                 textBytes = stageImportProperties(zis, imageTempFolderDir, textBytes, eformTable, eformTableFailed, errors);
             } else {
@@ -391,7 +391,7 @@ public class EFormExportZip {
         if (newEForm.getFormFileName() == null || newEForm.getFormFileName().isEmpty()) {
             errors.add("Skipped form titled '" + newEForm.getFormName() + "' because it has no form filename.");
             if (_log.isInfoEnabled()) {
-                _log.info("Skipped form titled '{}' because it has no form filename.", LogSafe.sanitize(newEForm.getFormName()));
+                _log.info("Skipped form because it has no form filename");
             }
             return textBytes;
         }
@@ -405,7 +405,7 @@ public class EFormExportZip {
         }
         eformTable.put(newEForm.getFormFileName(), newEForm);
         if (_log.isDebugEnabled()) {
-            _log.debug("going in eform table >{}<", LogSafe.sanitize(newEForm.getFormFileName()));
+            _log.debug("Importing eForm record");
         }
         zis.closeEntry();
         return textBytes;
@@ -415,7 +415,7 @@ public class EFormExportZip {
     private void publishImportFiles(File imageTempFolderDir, Map<String, EForm> eformTable,
             Map<String, EForm> eformTableFailed, Map<String, File> tempFiles, List<String> errors) throws IOException {
         for (Entry<String, File> tempFile : tempFiles.entrySet()) {
-            _log.info("looking at {}", LogSafe.sanitize(tempFile.getKey()));
+            _log.info("Inspecting eForm import entry");
             if (eformTable.containsKey(tempFile.getKey())) {
                 File extractedTempFile = PathValidationUtils.validateExistingPath(tempFile.getValue(), imageTempFolderDir);
                 try (FileInputStream fis = new FileInputStream(extractedTempFile);
@@ -440,10 +440,10 @@ public class EFormExportZip {
             // Publish the complete inode without replacing another import's image.
             // Cleanup unlinks only our private staging name, preserving the public link.
             Files.createLink(imageFile.toPath(), extractedTempFile.toPath());
-            _log.info("Loaded eform file: {}", LogSafe.sanitize(tempFile.getKey()));
+            _log.info("Loaded eForm import entry");
         } catch (FileAlreadyExistsException e) {
             errors.add("Image '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
-            _log.info("EForm Import: Image with name '{}' already exists, skipping image, but the form may still be uploaded.  Please resolve.", LogSafe.sanitize(tempFile.getKey()));
+            _log.info("eForm import image already exists; skipping image, but the form may still be uploaded. Please resolve.");
         } catch (UnsupportedOperationException e) {
             throw new IOException("The eForm image filesystem does not support safe atomic asset publication.", e);
         }

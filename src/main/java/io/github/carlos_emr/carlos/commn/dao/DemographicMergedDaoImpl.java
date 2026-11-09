@@ -79,6 +79,13 @@ public class DemographicMergedDaoImpl extends AbstractDaoImpl<DemographicMerged>
     }
 
     @Override
+    public List<DemographicMerged> findActiveByParentAndChildIds(Integer parentId, Integer childId) {
+        return entityManager.createQuery("SELECT d FROM DemographicMerged d WHERE d.demographicNo = :child "
+                        + "AND d.mergedTo = :parent AND d.deleted = 0 ORDER BY d.id", DemographicMerged.class)
+                .setParameter("child", childId).setParameter("parent", parentId).getResultList();
+    }
+
+    @Override
     @SuppressWarnings("unchecked")
     public List<DemographicMerged> findByParentAndChildIds(Integer parentId, Integer childId) {
         Query q = createQuery("d", "d.demographicNo = ?1 AND d.mergedTo = ?2");

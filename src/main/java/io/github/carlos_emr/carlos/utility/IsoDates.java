@@ -32,6 +32,19 @@ public final class IsoDates {
     private IsoDates() {
     }
 
+    /** Strict API date boundary; the legacy parser below remains available to other callers. */
+    public static Date parseStrictDate(String value) throws ParseException {
+        try {
+            if (value == null || !value.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) {
+                throw new java.time.DateTimeException("Expected date-only value");
+            }
+            return Date.from(java.time.LocalDate.parse(value).atStartOfDay(
+                    java.time.ZoneId.systemDefault()).toInstant());
+        } catch (java.time.DateTimeException invalid) {
+            throw new ParseException("Date must use yyyy-MM-dd", 0);
+        }
+    }
+
     /**
      * Creates a formatter per call so changes to the default locale/time zone still apply.
      * Trailing text and dates outside their nominal month/day ranges remain accepted.

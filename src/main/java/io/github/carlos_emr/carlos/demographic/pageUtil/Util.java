@@ -176,9 +176,9 @@ public class Util {
         } catch (IOException | SecurityException ex) {
             // resolveConfiguredDirectory throws SecurityException on a blank/non-directory dirName;
             // catch it here so this method honours its boolean contract instead of throwing.
-            logger.error("Error", ex);
+            logger.error("Error: {}", LogSafe.exceptionTrace(ex));
         }
-        logger.error("Error! Cannot write to directory [" + dirName + "]");
+        logger.error("Error! Cannot write to directory");
         return false;
     }
 
@@ -202,7 +202,7 @@ public class Util {
             f = PathValidationUtils.validateExistingPath(f, baseDir);
             return cleanFile(f);
         } catch (SecurityException e) {
-            logger.error("Error! Attempted path traversal attack detected for file: {}", LogSafe.sanitize(filename));
+            logger.error("Error! Attempted path traversal attack detected for file");
             return false;
         }
     }
@@ -223,7 +223,7 @@ public class Util {
                     return cleanFile(validatedFile);
                 } catch (SecurityException e) {
                     // File not in this directory, try next configured directory
-                    logger.debug("File validation failed for {}: {}", propName, e.getMessage());
+                    logger.debug("File validation failed: {}", LogSafe.exceptionTrace(e));
                 }
             }
         }
@@ -233,13 +233,13 @@ public class Util {
             return cleanFile(f);
         }
 
-        logger.error("File validation failed - file is outside all allowed directories: {}", filename);
+        logger.error("File validation failed - file is outside all allowed directories");
         return false;
     }
 
     static public boolean cleanFile(File file) {
         if (!file.delete()) {
-            logger.error("Error! Cannot delete file [" + file.getPath() + "]");
+            logger.error("Error! Cannot delete file");
             return false;
         }
         return true;
@@ -272,7 +272,7 @@ public class Util {
             
             // If the filename is empty or null after sanitization, reject the request
             if (safeFileName == null || safeFileName.trim().isEmpty()) {
-                logger.error("Invalid filename provided: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                logger.error("Invalid filename provided"); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return;
             }
             
@@ -284,13 +284,13 @@ public class Util {
             try {
                 requestedFile = PathValidationUtils.validateExistingPath(requestedFile, documentDir);
             } catch (SecurityException e) {
-                logger.error("Path traversal attempt detected for file: {}", LogSafe.sanitize(fileName));
+                logger.error("Path traversal attempt detected for file");
                 return;
             }
 
             // Verify the file exists and is readable
             if (!requestedFile.exists() || !requestedFile.isFile() || !requestedFile.canRead()) {
-                logger.error("Error during file download: file does not exist or is not accessible - {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                logger.error("Error during file download: file does not exist or is not accessible"); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 rsp.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
@@ -308,7 +308,7 @@ public class Util {
                 }
             }
         } catch (IOException ex) {
-            logger.error("Error during file download: {}", LogSafe.sanitize(fileName), ex);
+            logger.error("Error during file download: {}", LogSafe.exceptionTrace(ex));
         }
     }
     
@@ -554,7 +554,7 @@ public class Util {
             // SecurityException is thrown by PathValidationUtils when an output dir/name fails
             // validation; honor this boolean method's contract by returning false rather than
             // letting the unchecked exception escape.
-            logger.error("Error", ex);
+            logger.error("Error: {}", LogSafe.exceptionTrace(ex));
         }
         return false;
     }
@@ -610,7 +610,7 @@ public class Util {
 
                     // Validate the file path
                     if (!isPathWithinDirectory(f, dirName)) {
-                        logger.error("Error! File path is outside the allowed directory: " + f.getAbsolutePath());
+                        logger.error("Error! File path is outside the allowed directory");
                         return false;
                     }
 
@@ -645,7 +645,7 @@ public class Util {
             // SecurityException is thrown by PathValidationUtils when an output dir/name fails
             // validation; honor this boolean method's contract by returning false rather than
             // letting the unchecked exception escape.
-            logger.error("Error", ex);
+            logger.error("Error: {}", LogSafe.exceptionTrace(ex));
         }
         return false;
     }
@@ -874,7 +874,7 @@ public class Util {
         
         // Final validation - ensure no path traversal characters remain
         if (sanitized.contains("..") || sanitized.contains("/") || sanitized.contains("\\")) {
-            logger.error("Invalid filename after sanitization: {}", LogSafe.sanitize(fileName));
+            logger.error("Invalid filename after sanitization");
             return "";
         }
         

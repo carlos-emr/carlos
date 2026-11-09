@@ -315,6 +315,16 @@ class JaxbImplementationCompatibilityUnitTest {
         return value;
     }
 
+    private static io.github.carlos_emr.carlos.webserv.rest.to.model.EmbeddedProviderTo1 bindingProvider(
+            io.github.carlos_emr.carlos.commn.model.Provider source) {
+        var value = io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.provider(null, source);
+        if (value != null) {
+            value.setBillingNo(source.getBillingNo()); value.setOhipNo(source.getOhipNo());
+            value.setHsoNo(source.getHsoNo()); value.setRmaNo(source.getRmaNo());
+        }
+        return value;
+    }
+
     private static Object populated(Type generic, Set<Class<?>> parents, int depth, RuntimeTypeInfoSet model) throws Exception {
         Class<?> type = generic instanceof Class<?> c ? c
                 : generic instanceof ParameterizedType p ? (Class<?>) p.getRawType() : Object.class;
@@ -366,6 +376,22 @@ class JaxbImplementationCompatibilityUnitTest {
                 || type.getName().startsWith("org.w3."))) throw new IllegalArgumentException("Missing fixture for " + generic);
         Set<Class<?>> branch = new HashSet<>(parents);
         branch.add(type);
+        if (type == io.github.carlos_emr.carlos.webserv.rest.to.model.EmbeddedProfessionalSpecialistTo1.class) {
+            var original = io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist.class;
+            var originalModel = ((JAXBContextImpl) context("org.glassfish.jaxb.runtime.v2.ContextFactory", original)).getTypeInfoSet();
+            return io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.professionalSpecialist(null,
+                    (io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist) populated(original, parents, depth, originalModel));
+        }
+        if (type == io.github.carlos_emr.carlos.webserv.rest.to.model.EmbeddedDemographicTo1.class) {
+            var original = io.github.carlos_emr.carlos.commn.model.Demographic.class;
+            var originalModel = ((JAXBContextImpl) context("org.glassfish.jaxb.runtime.v2.ContextFactory", original)).getTypeInfoSet();
+            var source = (io.github.carlos_emr.carlos.commn.model.Demographic) populated(original, parents, depth, originalModel);
+            var detached = io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.demographic(null, source);
+            // Binding fixtures preserve historical readable members; production disclosure policy is tested separately.
+            detached.setSin(source.getSin()); detached.setHin(source.getHin());
+            detached.setProvider(bindingProvider(source.getProvider())); detached.setMrp(bindingProvider(source.getMrp()));
+            return detached;
+        }
         Object bean = instance(type);
         if (type.getName().endsWith(".ProfessionalSpecialist")) {
             Field address = backingField(type, "addressArray");
@@ -383,7 +409,7 @@ class JaxbImplementationCompatibilityUnitTest {
                 if (value instanceof String && property.getName().equals("dateOfBirth")) value = "15";
                 if (value instanceof String && property.getName().equals("monthOfBirth")) value = "07";
                 if (value instanceof String && property.getName().equals("yearOfBirth")) value = "1980";
-                if (type.getName().endsWith(".BillingONItem") && property.getName().equals("fee")) value = "7.25";
+                if ((type.getName().endsWith(".BillingONItem") || type.getName().endsWith(".EmbeddedBillingONItemTo1")) && property.getName().equals("fee")) value = "7.25";
                 if (type.getName().endsWith(".PhoneNumber") && property.getName().equals("content")) {
                     value = new ArrayList<>(List.of(new io.github.carlos_emr.carlos.hospitalReportManager.xsd.ObjectFactory()
                             .createPhoneNumberNumber("5550100")));

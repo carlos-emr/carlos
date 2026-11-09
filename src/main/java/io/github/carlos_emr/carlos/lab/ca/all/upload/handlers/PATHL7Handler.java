@@ -87,7 +87,7 @@ public class PATHL7Handler implements MessageHandler {
             java.io.File targetFile = PathValidationUtils.validateExistingPath(fileName, baseDirFile);
 
             if (!targetFile.exists() || !targetFile.isFile()) {
-                logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                logger.error("File does not exist or is not a regular file");
                 return null;
             }
 
@@ -96,13 +96,13 @@ public class PATHL7Handler implements MessageHandler {
             doc = docBuilder.parse(targetFile);
 
         } catch (IllegalArgumentException e) {
-            logger.error("Invalid file name: {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.error("Invalid file name: {}", LogSafe.exceptionTrace(e));
             return null;
         } catch (ParserConfigurationException e) {
-            logger.error("Failed to configure XML parser", e);
+            logger.error("Failed to configure XML parser: {}", LogSafe.exceptionTrace(e));
             return null;
         } catch (Exception e) {
-            logger.error("Could not parse PATHL7 message", e);
+            logger.error("Could not parse PATHL7 message: {}", LogSafe.exceptionTrace(e));
         }
 
         if (doc != null) {
@@ -117,7 +117,7 @@ public class PATHL7Handler implements MessageHandler {
                     labNo = routeResults.segmentId;
                 }
             } catch (Exception e) {
-                logger.error("Could not upload PATHL7 message", e);
+                logger.error("Could not upload PATHL7 message: {}", LogSafe.exceptionTrace(e));
                 MiscUtils.getLogger().error("Error in Lab #{} in batch file {}", i + 1, LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 MessageUploader.clean(fileId);
                 return null;

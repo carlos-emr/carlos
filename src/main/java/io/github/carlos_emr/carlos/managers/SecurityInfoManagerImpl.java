@@ -176,6 +176,25 @@ public class SecurityInfoManagerImpl implements SecurityInfoManager {
         }
     }
 
+    /** One operation-local policy snapshot; list discovery must not lock the user's session. */
+    @Override
+    public Set<Integer> getReadableDemographicIds(LoggedInInfo info, Collection<Integer> demographicNos) {
+        Set<Integer> result = new LinkedHashSet<>();
+        if (demographicNos.isEmpty()) return result;
+        Set<Integer> ids = new LinkedHashSet<>(demographicNos);
+        String roles = roleNames(info);
+        List<String> objects = new ArrayList<>();
+        objects.add("_demographic");
+        for (Integer id : ids) objects.add("_demographic$" + Objects.requireNonNull(id));
+        Map<String, Vector<Object>> privileges = OscarRoleObjectPrivilege.getPrivilegeProps(objects);
+        for (Integer id : ids) {
+            if (evaluatePrivilege(info, "_demographic", READ, id.toString(), false, roles, privileges::get)) {
+                result.add(id);
+            }
+        }
+        return result;
+    }
+
     @SuppressWarnings("unchecked")
     // Shared privilege policy; locale-safe hardening tracked in #2496.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Shared privilege policy; locale-safe hardening tracked in #2496")

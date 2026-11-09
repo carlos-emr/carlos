@@ -54,7 +54,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 /**
  * The contract that replaced struts-default's silent exception mapping: every mapped failure is
  * logged once with an incident id, the same id reaches the result page, the status is real, and
- * nothing about the request beyond its path reaches the log line.
+ * request paths and payloads stay outside the log line.
  */
 @DisplayName("CarlosExceptionMappingInterceptor")
 @Tag("unit")
@@ -125,15 +125,16 @@ class CarlosExceptionMappingInterceptorUnitTest {
         assertThat(messages.get(0))
                 .contains((String) incidentId)
                 .contains("IllegalArgumentException")
-                .contains("encounter/RequestConsultation")
+                .contains("Some2Action")
                 .contains("POST")
-                .contains("/carlos/encounter/RequestConsultation")
+                .doesNotContain("/carlos/encounter/RequestConsultation")
                 .contains("provider=999998");
     }
 
     @Test
     @DisplayName("keeps the query string, the session id and the exception message out of the log line")
     void shouldKeepRequestDetail_outOfLogLine() throws Exception {
+        request.setRequestURI("/carlos/PRIVATE_patient_report.pdf;jsessionid=abc");
         when(invocation.invoke()).thenThrow(new IllegalStateException("value was " + QUERY_VALUE));
 
         List<String> messages;
@@ -146,7 +147,7 @@ class CarlosExceptionMappingInterceptorUnitTest {
         assertThat(messages.get(0))
                 .doesNotContain(QUERY_VALUE)
                 .doesNotContain("jsessionid")
-                .doesNotContain("value was");
+                .doesNotContain("value was", "PRIVATE_patient_report", ".pdf");
     }
 
     @Test
@@ -276,7 +277,8 @@ class CarlosExceptionMappingInterceptorUnitTest {
         assertThat(messages.get(0))
                 .startsWith("Handled")
                 .contains("BillingValidationException")
-                .contains("billing/CreateBill")
+                .contains("Some2Action")
+                .doesNotContain("billing/CreateBill")
                 .doesNotContain("PRIVATE_");
     }
 

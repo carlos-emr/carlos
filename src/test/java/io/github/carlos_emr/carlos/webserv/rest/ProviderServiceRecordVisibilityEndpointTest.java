@@ -121,6 +121,8 @@ class ProviderServiceRecordVisibilityEndpointTest extends CarlosRestTestBase {
 
     @BeforeEach
     void signInAsSelf() {
+        org.mockito.Mockito.lenient().when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class),
+                eq("_billing"), eq("r"), isNull())).thenReturn(true);
         Provider self = provider(SELF);
         when(mockLoggedInInfo.getLoggedInProvider()).thenReturn(self);
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(SELF);
@@ -165,6 +167,26 @@ class ProviderServiceRecordVisibilityEndpointTest extends CarlosRestTestBase {
         Response response = request().path(path).get();
         assertThat(response.getStatus()).as("GET %s", path).isEqualTo(200);
         return responseJson(response);
+    }
+
+    @Test
+    void shouldRequireBillingRead_forSelfAndAdminAcrossAllJsonAndTransferRoutes() {
+        grantAdminRead();
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("r"), isNull())).thenReturn(false);
+        for (String path : List.of("/providerService/providerjson/" + SELF,
+                "/providerService/providerjson/" + OTHER, "/providerService/provider/" + SELF,
+                "/providerService/provider/" + OTHER, "/providerService/provider/me")) {
+            JsonNode record = get(path);
+            for (String name : List.of("ohipNo", "billingNo", "rmaNo", "hsoNo")) {
+                assertThat(record.path(name).isNull() || record.path(name).isMissingNode()).as("%s on %s", name, path).isTrue();
+            }
+            assertThat(record.path("email").asText()).startsWith("fake");
+        }
+        for (JsonNode record : get("/providerService/providers_json").path("content")) {
+            for (String name : List.of("ohipNo", "billingNo", "rmaNo", "hsoNo")) {
+                assertThat(record.path(name).isNull() || record.path(name).isMissingNode()).isTrue();
+            }
+        }
     }
 
     @Test

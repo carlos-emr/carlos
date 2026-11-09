@@ -179,4 +179,22 @@ class DemographicConverterUnitTest {
         assertThat((String) ReflectionTestUtils.getField(d, "prefName"))
             .hasSize(Demographic.PREF_NAME_MAX_LENGTH);
     }
+    @Test
+    void shouldOmitSinAndBulkHealthCards_withoutMutatingThePatient() {
+        Demographic patient = demographicWithValidBirthDate();
+        patient.setSin("FAKE-SIN"); patient.setHin("FAKE-HIN");
+        var detail = converter.getAsTransferObject(null, patient);
+        assertThat(detail.getSin()).isNull();
+        assertThat(detail.getHin()).isEqualTo("FAKE-HIN");
+        var list = converter.getAllAsTransferObjects(null, java.util.List.of(patient));
+        assertThat(list).singleElement().satisfies(value -> {
+            assertThat(value.getSin()).isNull(); assertThat(value.getHin()).isNull();
+            assertThat(value.getDemographicNo()).isEqualTo(patient.getDemographicNo());
+        });
+        assertThat(io.github.carlos_emr.carlos.webserv.transfer_objects.DemographicTransfer.toTransfer(patient).getSin()).isNull();
+        assertThat(io.github.carlos_emr.carlos.webserv.transfer_objects.DemographicTransfer2.toTransfer(patient).getSin()).isNull();
+        assertThat(patient.getSin()).isEqualTo("FAKE-SIN");
+        assertThat(patient.getHin()).isEqualTo("FAKE-HIN");
+    }
+
 }

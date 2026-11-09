@@ -192,7 +192,7 @@ public class FrmPDFServlet extends HttpServlet {
             try {
                 res.sendError(HttpServletResponse.SC_FORBIDDEN);
             } catch (java.io.IOException ioe) {
-                log.warn("Unable to send 403 for unauthenticated form PDF request", ioe);
+                log.warn("Unable to send 403 for unauthenticated form PDF request: {}", LogSafe.exceptionTrace(ioe));
             }
             return;
         }
@@ -285,7 +285,7 @@ public class FrmPDFServlet extends HttpServlet {
             LogAction.addLogSynchronous(loggedInInfo, "FrmPDFServlet", "formID=" + req.getParameter("formId") + ",form_class=" + req.getParameter("form_class"));
 
         } catch (DocumentException dex) {
-            log.error("Document error generating form PDF", dex);
+            log.error("Document error generating form PDF: {}", LogSafe.exceptionTrace(dex));
             if (!res.isCommitted()) {
                 res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "An internal error occurred. Please try again or contact your system administrator.");
@@ -293,7 +293,7 @@ public class FrmPDFServlet extends HttpServlet {
         } catch (java.io.IOException e) {
             throw e;
         } catch (Exception e) {
-            log.error("Unexpected error in FrmPDFServlet", e);
+            log.error("Unexpected error in FrmPDFServlet: {}", LogSafe.exceptionTrace(e));
             if (!res.isCommitted()) {
                 res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "An internal error occurred. Please try again or contact your system administrator.");
@@ -451,7 +451,7 @@ public class FrmPDFServlet extends HttpServlet {
                     try {
                         props = pp.get().process(props);
                     } catch (Exception e) {
-                        log.warn("Post-processor {} failed during execution - form rendered without post-processing", Encode.forJava(postProcessorName), e);
+                        log.warn("Post-processor {} failed during execution - form rendered without post-processing {}", Encode.forJava(postProcessorName), LogSafe.exceptionTrace(e));
                     }
                 } else {
                     log.warn("Post-processor '{}' is not on the allowlist and will not be applied", Encode.forJava(postProcessorName));
@@ -568,9 +568,9 @@ public class FrmPDFServlet extends HttpServlet {
             int n;
             try {
                 reader = new PdfReader(propFilename);
-                log.info("Found template at {}", LogSafe.sanitize(propFilename));
+                log.info("Found form template");
             } catch (Exception dex) {
-                log.debug("change path to inside oscar from: {}", LogSafe.sanitize(propFilename));
+                log.debug("Resolving bundled form template");
                 reader = new PdfReader("/oscar/form/prop/" + template);
                 log.debug("Found template at /oscar/form/prop/{}", LogSafe.sanitize(template));
             }
@@ -927,7 +927,7 @@ public class FrmPDFServlet extends HttpServlet {
                     document.close();
                 }
                 catch (Exception e) {
-                    log.error("Error closing PDF document", e);
+                    log.error("Error closing PDF document: {}", LogSafe.exceptionTrace(e));
                 }
             }
             if (writer != null) {
@@ -935,14 +935,14 @@ public class FrmPDFServlet extends HttpServlet {
                     writer.close();
                 }
                 catch (Exception e) {
-                    log.error("Error closing PDF writer", e);
+                    log.error("Error closing PDF writer: {}", LogSafe.exceptionTrace(e));
                 }
             }   
             if (reader != null) {
                 try {
                     reader.close();
                 } catch (Exception e) {
-                    log.error("Error closing PDF reader", e);
+                    log.error("Error closing PDF reader: {}", LogSafe.exceptionTrace(e));
                 }
             }
         }
@@ -971,7 +971,7 @@ public class FrmPDFServlet extends HttpServlet {
         // Step 1: Extract just the filename, removing any directory paths
         String baseFilename = org.apache.commons.io.FilenameUtils.getName(cfgFilename);
         if (baseFilename == null || baseFilename.isEmpty()) {
-            log.warn("Invalid config filename after sanitization: {}", LogSafe.sanitize(cfgFilename));
+            log.warn("Invalid config filename after sanitization");
             return ret;
         }
         
@@ -1002,7 +1002,7 @@ public class FrmPDFServlet extends HttpServlet {
             return cpProps;
         }
         
-        log.warn("Config file not found: " + cleanFilename);
+        log.warn("Config file not found");
         return ret;
     }
     
@@ -1018,14 +1018,14 @@ public class FrmPDFServlet extends HttpServlet {
             try (InputStream is = new FileInputStream(validatedFile)) {
                 Properties props = new Properties();
                 props.load(is);
-                log.debug("Loaded config from filesystem: " + safeFilename);
+                log.debug("Loaded config from filesystem");
                 return props;
             }
         } catch (SecurityException e) {
-            log.warn("Path validation failed for file: " + safeFilename);
+            log.warn("Path validation failed for file");
             return null;
         } catch (Exception e) {
-            log.debug("Failed to load from filesystem: " + safeFilename);
+            log.debug("Failed to load from filesystem");
             return null;
         }
     }
@@ -1050,12 +1050,12 @@ public class FrmPDFServlet extends HttpServlet {
                 try (InputStream autoCloseIs = is) {
                     Properties props = new Properties();
                     props.load(autoCloseIs);
-                    log.debug("Loaded config from classpath: " + safeFilename);
+                    log.debug("Loaded config from classpath");
                     return props;
                 }
             }
         } catch (Exception e) {
-            log.debug("Failed to load from classpath: " + safeFilename);
+            log.debug("Failed to load from classpath");
         }
         return null;
     }

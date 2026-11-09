@@ -166,16 +166,16 @@ class RestTransferObjectDateShapeContractUnitTest {
             entry("webserv.rest.to.model.ProviderPeriodAppsTo.appointmentDate", DATE),
             entry("webserv.rest.to.model.ProviderTo1.dob", DATE),
             entry("webserv.transfer_objects.ProviderTransfer.dob", DATE),
-            // Entities that /ws/services responses embed (e.g. getAppointment's demographic and provider).
-            entry("commn.model.BillingONItem.serviceDate", DATE + " (billing_on_item.service_date)"),
-            entry("commn.model.Demographic.dateJoined", DATE),
-            entry("commn.model.Demographic.effDate", DATE),
-            entry("commn.model.Demographic.endDate", DATE),
-            entry("commn.model.Demographic.hcRenewDate", DATE),
-            entry("commn.model.Demographic.patientStatusDate", DATE),
-            entry("commn.model.Demographic.rosterDate", DATE),
-            entry("commn.model.Demographic.rosterTerminationDate", DATE),
-            entry("commn.model.Provider.dob", DATE));
+            // Detached records that /ws/services responses embed (e.g. getAppointment's demographic and provider).
+            entry("webserv.rest.to.model.EmbeddedBillingONItemTo1.serviceDate", DATE + " (billing_on_item.service_date)"),
+            entry("webserv.rest.to.model.EmbeddedDemographicTo1.dateJoined", DATE),
+            entry("webserv.rest.to.model.EmbeddedDemographicTo1.effDate", DATE),
+            entry("webserv.rest.to.model.EmbeddedDemographicTo1.endDate", DATE),
+            entry("webserv.rest.to.model.EmbeddedDemographicTo1.hcRenewDate", DATE),
+            entry("webserv.rest.to.model.EmbeddedDemographicTo1.patientStatusDate", DATE),
+            entry("webserv.rest.to.model.EmbeddedDemographicTo1.rosterDate", DATE),
+            entry("webserv.rest.to.model.EmbeddedDemographicTo1.rosterTerminationDate", DATE),
+            entry("webserv.rest.to.model.EmbeddedProviderTo1.dob", DATE));
 
     private static Date local(int year, int month, int day, int hour, int minute) {
         Calendar calendar = Calendar.getInstance();
@@ -206,6 +206,17 @@ class RestTransferObjectDateShapeContractUnitTest {
                     violations.add(property.key() + " is listed in STRING_SHAPED but is written as " + atMidnight
                             + "; remove it from the list");
                 }
+                JsonNode epochCalendar = write(mapper, property, epochDayTime);
+                String reason = STRING_SHAPED.get(property.key());
+                if (reason.startsWith("calendar date")) {
+                    assertThat(epochCalendar.asText()).as(property.key()).isEqualTo("1970-01-01");
+                    assertThat(write(mapper, property, local(2026, Calendar.MARCH, 11, 13, 17)).asText())
+                            .as(property.key()).isEqualTo("2026-03-11");
+                } else if (reason.startsWith("clock time")) {
+                    assertThat(epochCalendar.asText()).as(property.key()).isEqualTo("09:30:00");
+                    assertThat(write(mapper, property, local(2026, Calendar.MARCH, 11, 13, 17)).asText())
+                            .as(property.key()).isEqualTo("13:17:00");
+                }
                 continue;
             }
             JsonNode atEpochDay = write(mapper, property, epochDayTime);
@@ -225,7 +236,7 @@ class RestTransferObjectDateShapeContractUnitTest {
 
     @Test
     @DisplayName("should reach the services and embedded entities the OAuth server publishes")
-    void shouldReachEmbeddedEntities_fromPublishedServices() throws Exception {
+    void shouldReachDetachedRecords_fromPublishedServices() throws Exception {
         // Guards the walk itself: if it stopped following service return types into nested
         // entities, the test above would pass while those entities flipped shape.
         Set<String> keys = new HashSet<>();
@@ -238,10 +249,10 @@ class RestTransferObjectDateShapeContractUnitTest {
         // ProviderService.getProviders, and /schedule/day/{date}.
         assertThat(restServiceClasses()).hasSizeGreaterThan(30);
         assertThat(keys).contains(
-                "commn.model.Measurement.createDate",
-                "commn.model.BillingONItem.lastEditDT",
-                "commn.model.Demographic.lastUpdateDate",
-                "casemgmt.model.CaseManagementIssue.update_date",
+                "webserv.rest.to.model.EmbeddedMeasurementTo1.createDate",
+                "webserv.rest.to.model.EmbeddedBillingONItemTo1.lastEditDT",
+                "webserv.rest.to.model.EmbeddedDemographicTo1.lastUpdateDate",
+                "webserv.rest.to.model.EmbeddedCaseManagementIssueTo1.update_date",
                 "webserv.transfer_objects.ProviderTransfer.signedConfidentiality",
                 "web.PatientListApptItemBean.date");
     }

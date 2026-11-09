@@ -101,7 +101,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             try {
                 importFile = PathValidationUtils.validateUpload(importFile);
             } catch (SecurityException e) {
-                _logger.error("Invalid upload source - potential path traversal: " + importFile.getPath());
+                _logger.error("Invalid upload source - potential path traversal");
                 outcome = OUTCOME_EXCEPTION;
                 request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
                 return SUCCESS;

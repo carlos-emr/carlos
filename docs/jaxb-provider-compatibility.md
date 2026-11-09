@@ -62,7 +62,7 @@ the native JAXB acceptance of whitespace-surrounded date-times; the regression
 uses an appointment DTO and rejects any JAXB validation event. `AppointmentExtTo`
 now pins the beta6 Glassfish sequence explicitly. `DrugTransfer` retains the
 alphabetical sequence required by the published Prescription WSDL; its conflict
-with the historical Glassfish sequence remains a client-policy decision. Present
+with the historical Glassfish sequence uses the explicit `glassfish-legacy` profile. Present
 empty filter maps retain `<params/>`, and present empty appointment-duration maps
 retain `<appointmentCodeDurations/>`; absent maps remain absent. Empty containers
 carry no character values and therefore do not require choosing between the
@@ -211,13 +211,14 @@ order, missing elements and API differences; no compatibility allowlist was adde
 Automatic discovery on beta6 can select either provider, so its results must not
 be relabeled as the historical Glassfish observation.
 
-Character input remains an unresolved protocol decision: literal `0` and numeric
-`0` denote different characters. A permissive numeric fallback cannot preserve
-both clients. The current literal contract and all 14 published WSDLs remain in
-force pending an explicit version/endpoint/migration policy. The Prescription
-sequence conflict requires the same decision. Fractional-zero spellings, optional
-edit versions, temporal precision carriers and the provider root also retain
-their separate client-acceptance requirements.
+The release default follows the published WSDLs. Literal `0` and numeric `0`
+denote different characters, so the server never guesses which input was meant.
+The explicit profiles in [rest-soap-xml-profiles.md](rest-soap-xml-profiles.md)
+preserve numeric characters, historical MOXy date-only birthdays and the historical
+flat drug sequence. Requests and responses acknowledge the selected contract;
+unknown or repeated selections fail. All fourteen published WSDLs remain unchanged.
+Fractional-zero spellings, optional edit versions, temporal precision carriers and
+the provider root retain separate binary-client qualification requirements.
 
 These corrections do not close the release qualification umbrella. Reviewed
 production-path ownership, the complete coverage union, installed ON/BC lifecycle

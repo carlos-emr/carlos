@@ -28,6 +28,8 @@
  */
 package io.github.carlos_emr.carlos.lab.ca.all.parsers;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -89,7 +91,7 @@ public class CLSHandler implements MessageHandler {
         try {
             return (formatDateTime(msg.getRESPONSE().getORDER_OBSERVATION(0).getOBR().getObservationDateTime().getTimeOfAnEvent().getValue()));
         } catch (Exception e) {
-            logger.error("Could not retrieve message date", e);
+            logger.error("Could not retrieve message date: {}", LogSafe.exceptionTrace(e));
             return ("");
         }
     }
@@ -100,7 +102,7 @@ public class CLSHandler implements MessageHandler {
             Date dateTime = UtilDateUtilities.StringToDate(get("/.MSH-7"), dateFormat);
             return dateTime;
         } catch (Exception e) {
-            logger.error("Could not retrieve message date", e);
+            logger.error("Could not retrieve message date: {}", LogSafe.exceptionTrace(e));
             return null;
         }
     }
@@ -157,7 +159,7 @@ public class CLSHandler implements MessageHandler {
         try {
             msg.getRESPONSE().insertORDER_OBSERVATION(newOBR, getOBRCount());
         } catch (HL7Exception e) {
-            logger.error("Error Adding OBR segment.", e);
+            logger.error("Error Adding OBR segment.: {}", LogSafe.exceptionTrace(e));
         }
     }
 
@@ -296,7 +298,7 @@ public class CLSHandler implements MessageHandler {
             }
             // TODO find out about "Cancelled" status
         } catch (Exception e) {
-            logger.error("Error retrieving obx result status", e);
+            logger.error("Error retrieving obx result status: {}", LogSafe.exceptionTrace(e));
             return status;
         }
         return status;
@@ -376,7 +378,7 @@ public class CLSHandler implements MessageHandler {
             }
 
         } catch (Exception e) {
-            logger.error("Error retrieving obx comment count", e);
+            logger.error("Error retrieving obx comment count: {}", LogSafe.exceptionTrace(e));
         }
         return count;
     }
@@ -466,7 +468,7 @@ public class CLSHandler implements MessageHandler {
             java.util.Date date = formatter.parse(dob);
             age = UtilDateUtilities.calcAge(date);
         } catch (ParseException e) {
-            logger.error("Could not get age", e);
+            logger.error("Could not get age: {}", LogSafe.exceptionTrace(e));
 
         }
         return age;
@@ -540,7 +542,7 @@ public class CLSHandler implements MessageHandler {
             }
             return (docNum);
         } catch (Exception e) {
-            logger.error("Could not return doctor id numbers", e);
+            logger.error("Could not return doctor id numbers: {}", LogSafe.exceptionTrace(e));
             return ("");
         }
     }
@@ -559,7 +561,7 @@ public class CLSHandler implements MessageHandler {
             }
             return (docName);
         } catch (Exception e) {
-            logger.error("Could not return doctor names", e);
+            logger.error("Could not return doctor names: {}", LogSafe.exceptionTrace(e));
             return ("");
         }
     }
@@ -578,7 +580,7 @@ public class CLSHandler implements MessageHandler {
             }
             return (docName);
         } catch (Exception e) {
-            logger.error("Could not return cc'ed doctors", e);
+            logger.error("Could not return cc'ed doctors: {}", LogSafe.exceptionTrace(e));
             return ("");
         }
     }
@@ -598,7 +600,7 @@ public class CLSHandler implements MessageHandler {
                 i++;
             }
         } catch (Exception e) {
-            logger.error("Could not return doctor nums", e);
+            logger.error("Could not return doctor nums: {}", LogSafe.exceptionTrace(e));
 
         }
 
@@ -676,7 +678,7 @@ public class CLSHandler implements MessageHandler {
         try {
             return terser.get(path);
         } catch (HL7Exception e) {
-            logger.warn("Unable to get field at " + path, e);
+            logger.warn("Unable to get field: {}", LogSafe.exceptionTrace(e));
             return null;
         }
     }

@@ -101,7 +101,7 @@ public final class LocaleUtils {
             // Without a preference, getLocales() supplies the container's default locale.
             // Treat that as an absent browser preference, not a supported language choice.
             if (acceptLanguage == null || acceptLanguage.isBlank()) {
-                return logResolved(DEFAULT_LOCALE, acceptLanguage, request);
+                return logResolved(DEFAULT_LOCALE);
             }
         }
         Enumeration<Locale> preferred = request == null ? null : request.getLocales();
@@ -109,30 +109,18 @@ public final class LocaleUtils {
             Locale candidate = preferred.nextElement();
             try {
                 ResourceBundle.getBundle(BASE_NAME, candidate, NO_FALLBACK_CONTROL);
-                return logResolved(candidate, acceptLanguage, request);
+                return logResolved(candidate);
             } catch (MissingResourceException _) {
                 // No bundle for this preference; try the browser's next choice.
             }
         }
-        return logResolved(DEFAULT_LOCALE, acceptLanguage, request);
+        return logResolved(DEFAULT_LOCALE);
     }
 
-    /**
-     * Records, at DEBUG only, which locale a request negotiated and from what. A field report
-     * of a page rendered in the wrong language cannot be diagnosed from the page alone: the
-     * markup carries the negotiated language (the chart's {@code lang} attributes), and this
-     * line pairs it with the raw preference the server saw for that request. {@code Accept-Language}
-     * and the request path carry no patient data, but both are client-controlled, so the path
-     * goes through {@link LogSafe#sanitizeUri(String)} (it strips a URL-rewritten
-     * {@code ;jsessionid} bearer token) and the header through {@link LogSafe#sanitize(String)}
-     * (log-injection escaping). No-op unless DEBUG is enabled for this logger.
-     */
-    private static Locale logResolved(Locale resolved, String acceptLanguage, ServletRequest request) {
+    /** Records the negotiated locale without retaining request headers or paths. */
+    private static Locale logResolved(Locale resolved) {
         if (logger.isDebugEnabled()) {
-            String path = request instanceof HttpServletRequest httpRequest
-                    ? LogSafe.sanitizeUri(httpRequest.getRequestURI()) : null;
-            logger.debug("Negotiated bundle locale {} for {} from Accept-Language [{}] (bundle base {})",
-                    resolved, path, LogSafe.sanitize(acceptLanguage), BASE_NAME);
+            logger.debug("Negotiated bundle locale {} (bundle base {})", resolved, BASE_NAME);
         }
         return resolved;
     }

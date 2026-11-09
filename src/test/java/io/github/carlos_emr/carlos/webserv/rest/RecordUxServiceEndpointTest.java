@@ -206,43 +206,46 @@ class RecordUxServiceEndpointTest extends CarlosRestTestBase {
     @Nested
     @DisplayName("GET /recordUX/{demographicNo}/recordMenu")
     class GetRecordMenu {
+        @org.junit.jupiter.api.BeforeEach void authorizeMenuChart() {
+            when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo,123)).thenReturn(true);
+        }
 
         @Test
         @DisplayName("should return 200 with menu items when user has privileges")
         void shouldReturn200WithMenuItems_whenUserHasPrivileges() {
-            when(mockSecurityInfoManager.hasPrivilege(
-                any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull()))
+            when(mockSecurityInfoManager.hasPrivilegeReadOnly(
+                any(LoggedInInfo.class), eq("_demographic"), eq("r"), eq("123")))
                 .thenReturn(true);
-            when(mockSecurityInfoManager.hasPrivilege(
-                any(LoggedInInfo.class), eq("_eChart"), eq("r"), isNull()))
+            when(mockSecurityInfoManager.hasPrivilegeReadOnly(
+                any(LoggedInInfo.class), eq("_eChart"), eq("r"), eq("123")))
                 .thenReturn(true);
-            when(mockSecurityInfoManager.hasPrivilege(
-                any(LoggedInInfo.class), eq("_newCasemgmt.prescriptions"), eq("r"), isNull()))
+            when(mockSecurityInfoManager.hasPrivilegeReadOnly(
+                any(LoggedInInfo.class), eq("_newCasemgmt.prescriptions"), eq("r"), eq("123")))
                 .thenReturn(true);
-            when(mockSecurityInfoManager.hasPrivilege(
-                any(LoggedInInfo.class), eq("_newCasemgmt.consultations"), eq("r"), isNull()))
+            when(mockSecurityInfoManager.hasPrivilegeReadOnly(
+                any(LoggedInInfo.class), eq("_newCasemgmt.consultations"), eq("r"), eq("123")))
                 .thenReturn(false);
             // Return false for the rest to keep menu simple
-            when(mockSecurityInfoManager.hasPrivilege(
-                any(LoggedInInfo.class), eq("_newCasemgmt.forms"), eq("r"), isNull()))
+            when(mockSecurityInfoManager.hasPrivilegeReadOnly(
+                any(LoggedInInfo.class), eq("_newCasemgmt.forms"), eq("r"), eq("123")))
                 .thenReturn(false);
-            when(mockSecurityInfoManager.hasPrivilege(
-                any(LoggedInInfo.class), eq("_newCasemgmt.eforms"), eq("r"), isNull()))
+            when(mockSecurityInfoManager.hasPrivilegeReadOnly(
+                any(LoggedInInfo.class), eq("_newCasemgmt.eforms"), eq("r"), eq("123")))
                 .thenReturn(false);
-            when(mockSecurityInfoManager.hasPrivilege(
-                any(LoggedInInfo.class), eq("_newCasemgmt.viewTickler"), eq("r"), isNull()))
+            when(mockSecurityInfoManager.hasPrivilegeReadOnly(
+                any(LoggedInInfo.class), eq("_newCasemgmt.viewTickler"), eq("r"), eq("123")))
                 .thenReturn(false);
-            when(mockSecurityInfoManager.hasPrivilege(
-                any(LoggedInInfo.class), eq("_newCasemgmt.DxRegistry"), eq("r"), isNull()))
+            when(mockSecurityInfoManager.hasPrivilegeReadOnly(
+                any(LoggedInInfo.class), eq("_newCasemgmt.DxRegistry"), eq("r"), eq("123")))
                 .thenReturn(false);
-            when(mockSecurityInfoManager.hasPrivilege(
-                any(LoggedInInfo.class), eq("_newCasemgmt.oscarMsg"), eq("r"), isNull()))
+            when(mockSecurityInfoManager.hasPrivilegeReadOnly(
+                any(LoggedInInfo.class), eq("_newCasemgmt.oscarMsg"), eq("r"), eq("123")))
                 .thenReturn(false);
-            when(mockSecurityInfoManager.hasPrivilege(
-                any(LoggedInInfo.class), eq("_newCasemgmt.documents"), eq("r"), isNull()))
+            when(mockSecurityInfoManager.hasPrivilegeReadOnly(
+                any(LoggedInInfo.class), eq("_newCasemgmt.documents"), eq("r"), eq("123")))
                 .thenReturn(false);
-            when(mockSecurityInfoManager.hasPrivilege(
-                any(LoggedInInfo.class), eq("_newCasemgmt.decisionSupportAlerts"), eq("r"), isNull()))
+            when(mockSecurityInfoManager.hasPrivilegeReadOnly(
+                any(LoggedInInfo.class), eq("_newCasemgmt.decisionSupportAlerts"), eq("r"), eq("123")))
                 .thenReturn(false);
 
             Response response = request().path("/recordUX/123/recordMenu").get();
@@ -260,8 +263,9 @@ class RecordUxServiceEndpointTest extends CarlosRestTestBase {
         @Test
         @DisplayName("should return 200 with empty menu when user has no privileges")
         void shouldReturn200WithEmptyMenu_whenUserHasNoPrivileges() {
-            when(mockSecurityInfoManager.hasPrivilege(
-                any(LoggedInInfo.class), anyString(), anyString(), isNull()))
+            when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo,456)).thenReturn(true);
+            when(mockSecurityInfoManager.hasPrivilegeReadOnly(
+                any(LoggedInInfo.class), anyString(), anyString(), eq("456")))
                 .thenReturn(false);
 
             Response response = request().path("/recordUX/456/recordMenu").get();

@@ -172,6 +172,8 @@ public final class ProviderTransfer {
         this.specialty = specialty;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getDob() {
         return (dob);
     }
@@ -214,6 +216,8 @@ public final class ProviderTransfer {
 
     // On the getter: the field is named SignedConfidentiality and would not bind to this property.
     @JsonFormat(shape = JsonFormat.Shape.NUMBER)
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getSignedConfidentiality() {
         return (SignedConfidentiality);
     }
@@ -255,26 +259,41 @@ public final class ProviderTransfer {
         this.title = title;
     }
 
+    public static ProviderTransfer toTransfer(Provider provider) {
+        return toTransfer(provider, false);
+    }
+
     // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
     // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
     @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
             justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
                     "known CARLOS types; no user-controlled property name reaches the sink")
-    public static ProviderTransfer toTransfer(Provider provider) {
+    /** Only an authorized service/converter may opt into billing identifiers. */
+    public static ProviderTransfer toTransfer(Provider provider, boolean includeBilling) {
         if (provider == null) return (null);
 
         ProviderTransfer providerTransfer = new ProviderTransfer();
 
         BeanUtils.copyProperties(provider, providerTransfer);
+        if (!includeBilling) {
+            providerTransfer.setBillingNo(null);
+            providerTransfer.setOhipNo(null);
+            providerTransfer.setHsoNo(null);
+            providerTransfer.setRmaNo(null);
+        }
 
         return (providerTransfer);
     }
 
     public static ProviderTransfer[] toTransfers(List<Provider> providers) {
+        return toTransfers(providers, false);
+    }
+
+    public static ProviderTransfer[] toTransfers(List<Provider> providers, boolean includeBilling) {
         ArrayList<ProviderTransfer> results = new ArrayList<ProviderTransfer>();
 
         for (Provider provider : providers) {
-            results.add(toTransfer(provider));
+            results.add(toTransfer(provider, includeBilling));
         }
 
         return (results.toArray(new ProviderTransfer[0]));

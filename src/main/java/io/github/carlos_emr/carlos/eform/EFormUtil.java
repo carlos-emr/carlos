@@ -260,12 +260,12 @@ public class EFormUtil {
 
     public static ArrayList<String> listImages() {
         String imagePath = CarlosProperties.getInstance().getEformImageDirectory();
-        logger.debug("Img Path: " + imagePath);
+        logger.debug("Resolving eForm image");
         File dir;
         try {
             dir = PathValidationUtils.resolveConfiguredDirectory(imagePath, "eform image path");
         } catch (SecurityException e) {
-            logger.warn("eForm image path is unavailable", e);
+            logger.warn("eForm image path is unavailable: {}", LogSafe.exceptionTrace(e));
             return new ArrayList<String>();
         }
         String[] files = dir.list();
@@ -335,7 +335,7 @@ public class EFormUtil {
                 results.add(curht);
             }
         } catch (Exception sqe) {
-            logger.error("Error", sqe);
+            logger.error("Error: {}", LogSafe.exceptionTrace(sqe));
         }
         return (results);
     }
@@ -380,7 +380,7 @@ public class EFormUtil {
                 results.add(curht);
             }
         } catch (Exception sqe) {
-            logger.error("Error", sqe);
+            logger.error("Error: {}", LogSafe.exceptionTrace(sqe));
         }
         return (results);
     }
@@ -414,7 +414,7 @@ public class EFormUtil {
                 results.add(curht);
             }
         } catch (Exception sqe) {
-            logger.error("Error", sqe);
+            logger.error("Error: {}", LogSafe.exceptionTrace(sqe));
         }
         return (results);
     }
@@ -452,7 +452,7 @@ public class EFormUtil {
                 results.add(curht);
             }
         } catch (Exception sqe) {
-            logger.error("Error", sqe);
+            logger.error("Error: {}", LogSafe.exceptionTrace(sqe));
         }
         return (results);
     }
@@ -477,7 +477,7 @@ public class EFormUtil {
                 results.add(curht);
             }
         } catch (Exception sqe) {
-            logger.error("Error", sqe);
+            logger.error("Error: {}", LogSafe.exceptionTrace(sqe));
         }
         return (results);
     }
@@ -580,7 +580,7 @@ public class EFormUtil {
         else if (fieldName.equalsIgnoreCase("roleType"))
             return eform.getRoleType();
 
-        logger.warn("Invalid field name: " + fieldName + ". Please use one of formName, formSubject, formFileName, formDate, formTime, formStatus, formHtml, showLatestFormOnly, patientIndependent or roleType.");
+        logger.warn("Invalid field name");
 
         return null;
     }
@@ -731,7 +731,7 @@ public class EFormUtil {
                 eFormValueDao().persist(eFormValue);
             }
         } catch (PersistenceException ee) {
-            logger.error("Unexpected Error", ee);
+            logger.error("Unexpected Error: {}", LogSafe.exceptionTrace(ee));
         }
     }
 
@@ -1318,7 +1318,7 @@ public class EFormUtil {
                 results.add(curht);
             }
         } catch (Exception sqe) {
-            logger.error("Error", sqe);
+            logger.error("Error: {}", LogSafe.exceptionTrace(sqe));
         }
         return (results);
     }

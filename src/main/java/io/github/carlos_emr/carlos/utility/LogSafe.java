@@ -104,7 +104,7 @@ public final class LogSafe {
     static final int MAX_ENCODED_LENGTH = DEFAULT_MAX_LENGTH * ENCODING_EXPANSION_FACTOR;
 
     /**
-     * Bounded diagnostic trace containing exception types and code locations only. Never calls
+     * Bounded diagnostic trace containing exception types and class/method/line locations, without source filenames. Never calls
      * Throwable.toString/getMessage or attaches the original throwable to a logging event: those
      * paths can expose clinical values in nested causes and suppressed exceptions.
      */
@@ -125,7 +125,10 @@ public final class LogSafe {
         trace.append("\n").append(relation).append(failure.getClass().getName());
         StackTraceElement[] frames = failure.getStackTrace();
         for (int i = 0; i < Math.min(frames.length, 32); i++) {
-            trace.append("\n  at ").append(sanitize(frames[i].toString(), 500));
+            StackTraceElement frame = frames[i];
+            // Generated/report source filenames can carry clinical identifiers too.
+            String position = frame.getClassName() + "." + frame.getMethodName() + ":" + frame.getLineNumber();
+            trace.append("\n  at ").append(sanitize(position, 500));
         }
         if (frames.length > 32) trace.append("\n  [remaining frames omitted]");
         appendExceptionTrace(failure.getCause(), "Caused by: ", trace, seen);

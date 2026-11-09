@@ -87,7 +87,8 @@ public class ReportBuilder {
         searchConfig.setProviderName(providerDao.getProviderName(providerNo));
         List<Integer> demographicList = getDemographicDenominator(loggedInInfo, searchConfig, providerNo);
 
-        logger.error("remove but " + demographicList.size());
+        demographicList = PreventionReportAccess.readableCandidates(loggedInInfo,
+                SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class), demographicList);
 
         Report report = new Report();
         report.setSearchConfig(searchConfig);

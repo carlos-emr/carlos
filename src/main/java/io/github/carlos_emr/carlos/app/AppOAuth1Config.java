@@ -33,11 +33,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 
-import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
-import org.w3c.dom.Node;
+import org.w3c.dom.Element;
+import io.github.carlos_emr.carlos.utility.OAuthConfigXml;
 
 
 /*
@@ -56,7 +55,6 @@ import org.w3c.dom.Node;
  *
  */
 public class AppOAuth1Config implements AppAuthConfig {
-    private static final Logger logger = MiscUtils.getLogger();
 
     private String type = null;
     private String name = null;
@@ -113,22 +111,24 @@ public class AppOAuth1Config implements AppAuthConfig {
     }
 
     public static AppOAuth1Config fromDocument(String s) throws Exception {
-        return fromDocument(XmlUtils.toDocument(s));
+        return fromRoot(OAuthConfigXml.root(s));
     }
 
     public static AppOAuth1Config fromDocument(Document doc) {
+        return fromRoot(OAuthConfigXml.root(doc));
+    }
+
+    private static AppOAuth1Config fromRoot(Element rootNode) {
         AppOAuth1Config config = new AppOAuth1Config();
+        config.type = OAuthConfigXml.text(rootNode, "type");
+        config.name = OAuthConfigXml.text(rootNode, "name");
+        config.consumerKey = OAuthConfigXml.text(rootNode, "consumerKey");
+        config.consumerSecret = OAuthConfigXml.text(rootNode, "consumerSecret");
 
-        Node rootNode = doc.getFirstChild();
-        config.type = XmlUtils.getChildNodeTextContents(rootNode, "type");
-        config.name = XmlUtils.getChildNodeTextContents(rootNode, "name");
-        config.consumerKey = XmlUtils.getChildNodeTextContents(rootNode, "consumerKey");
-        config.consumerSecret = XmlUtils.getChildNodeTextContents(rootNode, "consumerSecret");
-
-        config.requestTokenService = XmlUtils.getChildNodeTextContents(rootNode, "requestTokenService");
-        config.accessTokenService = XmlUtils.getChildNodeTextContents(rootNode, "accessTokenService");
-        config.authorizationServiceURI = XmlUtils.getChildNodeTextContents(rootNode, "authorizationServiceURI");
-        config.baseURL = XmlUtils.getChildNodeTextContents(rootNode, "baseURL");
+        config.requestTokenService = OAuthConfigXml.text(rootNode, "requestTokenService");
+        config.accessTokenService = OAuthConfigXml.text(rootNode, "accessTokenService");
+        config.authorizationServiceURI = OAuthConfigXml.text(rootNode, "authorizationServiceURI");
+        config.baseURL = OAuthConfigXml.text(rootNode, "baseURL");
 
         return config;
     }
@@ -145,12 +145,9 @@ public class AppOAuth1Config implements AppAuthConfig {
 
 
     public static Map<String, String> getKeySecret(String str) throws Exception {
-        logger.debug("token XML length: {}", str == null ? 0 : str.length());
-        Document doc = XmlUtils.toDocument(str);
-        Node node = doc.getFirstChild();
-        logger.debug(node.getNodeName());
-        String key = XmlUtils.getChildNodeTextContents(node, "key");
-        String secret = XmlUtils.getChildNodeTextContents(node, "secret");
+        Element node = OAuthConfigXml.root(str);
+        String key = OAuthConfigXml.text(node, "key");
+        String secret = OAuthConfigXml.text(node, "secret");
         Map<String, String> map = new HashMap<String, String>();
         map.put("key", key);
         map.put("secret", secret);

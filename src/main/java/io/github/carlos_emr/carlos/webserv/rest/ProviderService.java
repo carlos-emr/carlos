@@ -136,7 +136,7 @@ public class ProviderService extends AbstractServiceImpl {
                 OscarSearchResponse<ProviderTransfer>();
 
             for (Provider p : visible(getLoggedInInfo(), providerDao.getActiveProviders())) {
-                lst.getContent().add(ProviderTransfer.toTransfer(p));
+                lst.getContent().add(ProviderTransfer.toTransfer(p, io.github.carlos_emr.carlos.webserv.ProviderBillingAccess.canRead(getLoggedInInfo(), securityInfoManager)));
             }
             lst.setTimestamp(new Date());
             lst.setTotal(lst.getContent().size());
@@ -164,7 +164,7 @@ public class ProviderService extends AbstractServiceImpl {
 
 
             LoggedInInfo loggedInInfo = getLoggedInInfo();
-            List<ProviderTo1> providers = new ProviderConverter().getAllAsTransferObjects(loggedInInfo,
+            List<ProviderTo1> providers = new ProviderConverter(securityInfoManager).getAllAsTransferObjects(loggedInInfo,
                     visible(loggedInInfo, providerDao.getActiveProviders()));
 
             AbstractSearchResponse<ProviderTo1> response = new AbstractSearchResponse<ProviderTo1>();
@@ -200,7 +200,7 @@ public class ProviderService extends AbstractServiceImpl {
             }
 
             logger.info("Successfully retrieved provider: {}", LogSafe.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            return ProviderTransfer.toTransfer(visible(getLoggedInInfo(), provider));
+            return ProviderTransfer.toTransfer(visible(getLoggedInInfo(), provider), io.github.carlos_emr.carlos.webserv.ProviderBillingAccess.canRead(getLoggedInInfo(), securityInfoManager));
         }
 
     /**
@@ -227,7 +227,7 @@ public class ProviderService extends AbstractServiceImpl {
             }
 
             // serialize the provider to JSON
-            String body = objectMapper.valueToTree(provider).toString();
+            String body = providerJson(getLoggedInInfo(), provider);
 
             logger.info("Successfully retrieved logged-in provider: {}", provider.getProviderNo());
             return Response.ok(body, "application/json").build();
@@ -261,7 +261,7 @@ public class ProviderService extends AbstractServiceImpl {
         }
 
         logger.info("Successfully retrieved provider {} as JSON", LogSafe.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-        return objectMapper.valueToTree(visible(getLoggedInInfo(), provider)).toString();
+        return providerJson(getLoggedInInfo(), visible(getLoggedInInfo(), provider));
     }
 
 
@@ -339,7 +339,7 @@ public class ProviderService extends AbstractServiceImpl {
             // build response...
             AbstractSearchResponse<ProviderTo1> resp = new AbstractSearchResponse<>();
             resp.setContent(
-                new ProviderConverter().getAllAsTransferObjects(loggedInInfo, visible(loggedInInfo, results))
+                new ProviderConverter(securityInfoManager).getAllAsTransferObjects(loggedInInfo, visible(loggedInInfo, results))
             );
             resp.setTotal(resp.getContent().size());
             return resp;
@@ -471,6 +471,14 @@ public class ProviderService extends AbstractServiceImpl {
         return RestResponse.successResponse(suggestProviderNo);
     }
 
+
+    private String providerJson(LoggedInInfo actor, Provider provider) {
+        ObjectNode value = objectMapper.valueToTree(provider);
+        if (!io.github.carlos_emr.carlos.webserv.ProviderBillingAccess.canRead(actor, securityInfoManager)) {
+            for (String name : List.of("ohipNo", "billingNo", "rmaNo", "hsoNo")) value.putNull(name);
+        }
+        return value.toString();
+    }
 
     /**
      * The providers as this caller may see them: a provider's whole record goes to that provider and

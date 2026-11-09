@@ -143,6 +143,29 @@ class OAuthImportedTokenUnitTest {
         verify(tokens, never()).remove(token);
     }
 
+    @Test
+    void shouldVerifyIndependentClientSignatures_withUtf8QueryValues() throws Exception {
+        for (String value : new String[]{"ASCII", "José", "患者🩺"}) {
+            var request = signed("fixture-o19-consumer", "fixture-o19-consumer-secret", value);
+            assertThat(verifier.verifySignature(request,
+                    config("fixture-o19-consumer", "fixture-o19-consumer-secret")))
+                    .isEqualTo(token.getTokenId());
+            assertThatThrownBy(() -> verifier.verifySignature(request,
+                    config("fixture-o19-consumer", "fixture-o19-consumer-secret")))
+                    .isInstanceOf(OAuth1Exception.class);
+        }
+    }
+
+    @Test
+    void shouldRejectMalformedUtf8_withoutReplacingSignatureInput() throws Exception {
+        var request = signed("fixture-o19-consumer", "fixture-o19-consumer-secret");
+        request.setQueryString("name=%C3");
+        assertThatThrownBy(() -> verifier.verifySignature(request,
+                config("fixture-o19-consumer", "fixture-o19-consumer-secret")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid percent-encoded UTF-8");
+    }
+
     private static AppOAuth1Config config(String key, String secret) {
         AppOAuth1Config config = new AppOAuth1Config();
         config.setConsumerKey(key);
@@ -151,12 +174,17 @@ class OAuthImportedTokenUnitTest {
     }
 
     private MockHttpServletRequest signed(String consumer, String secret) throws Exception {
+        return signed(consumer, secret, null);
+    }
+
+    private MockHttpServletRequest signed(String consumer, String secret, String queryValue) throws Exception {
         Map<String, String> params = new TreeMap<>();
         params.put("oauth_consumer_key", consumer);
         params.put("oauth_token", token.getTokenId());
         params.put("oauth_signature_method", "HMAC-SHA1");
         params.put("oauth_timestamp", Long.toString(System.currentTimeMillis() / 1000));
         params.put("oauth_nonce", UUID.randomUUID().toString());
+        if (queryValue != null) params.put("name", queryValue);
         String normalized = params.entrySet().stream().map(e -> enc(e.getKey()) + "=" + enc(e.getValue()))
                 .collect(java.util.stream.Collectors.joining("&"));
         String base = "GET&" + enc("https://clinic.example" + PATH) + "&" + enc(normalized);
@@ -168,6 +196,10 @@ class OAuthImportedTokenUnitTest {
         request.setScheme("https");
         request.setServerName("clinic.example");
         request.setServerPort(443);
+        if (queryValue != null) {
+            request.setQueryString("name=" + enc(queryValue));
+            params.remove("name");
+        }
         params.forEach(request::addParameter);
         return request;
     }

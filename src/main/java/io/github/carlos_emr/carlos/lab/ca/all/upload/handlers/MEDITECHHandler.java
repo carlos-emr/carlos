@@ -90,7 +90,7 @@ public class MEDITECHHandler implements MessageHandler {
 
         } catch (Exception e) {
             success = null;
-            logger.error("Could not upload MEDITECH message {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.error("Could not upload MEDITECH message: {}", LogSafe.exceptionTrace(e));
         } finally {
             if (success == null) {
                 logger.error("Cleaning up MessageUploader file.");
@@ -210,7 +210,7 @@ public class MEDITECHHandler implements MessageHandler {
             try {
                 file = PathValidationUtils.validateUpload(new File(fileName));
             } catch (SecurityException uploadPathFailure) {
-                logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                logger.error("Path traversal attempt detected");
                 throw new IllegalArgumentException("Invalid file path - access denied", uploadPathFailure);
             }
         }

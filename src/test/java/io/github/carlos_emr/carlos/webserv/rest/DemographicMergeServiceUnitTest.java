@@ -178,4 +178,15 @@ class DemographicMergeServiceUnitTest extends CarlosUnitTestBase {
 
         verify(mockDemographicManager, never()).unmergeDemographics(any(), anyInt(), anyList());
     }
+    @Test
+    void shouldReturnConflict_whenThereIsNoActiveLink() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq("w"), org.mockito.ArgumentMatchers.isNull())).thenReturn(true);
+        org.mockito.Mockito.doThrow(new io.github.carlos_emr.carlos.managers.DemographicMergeConflictException())
+                .when(mockDemographicManager).unmergeDemographics(any(), eq(1), anyList());
+        assertThatThrownBy(() -> service.unmergeDemographic(1, 2))
+                .isInstanceOf(jakarta.ws.rs.ClientErrorException.class)
+                .satisfies(error -> org.assertj.core.api.Assertions.assertThat(
+                        ((jakarta.ws.rs.ClientErrorException) error).getResponse().getStatus()).isEqualTo(409));
+    }
+
 }

@@ -60,6 +60,10 @@ public interface RxManager {
 
     public boolean discontinue(LoggedInInfo info, int drugId, int demographicId, String reason);
 
+    /**
+     * Commits a complete prescription or rolls back all its writes.
+     * @throws PrescriptionWriteException when a write fails after creation starts
+     */
     public RxManagerImpl.PrescriptionDrugs prescribe(LoggedInInfo info, List<Drug> drugs, Integer demoNo);
 
     public List<Drug> getHistory(Integer id, LoggedInInfo info, Integer demographicNo);

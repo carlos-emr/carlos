@@ -241,8 +241,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
      */
     @Override
     public List<Appointment> findByUpdateDate(Date updatedAfterThisDateExclusive, int itemsToReturn) {
-        String sqlCommand = "select x from " + modelClass.getSimpleName()
-                + " x where x.updateDateTime>?1 order by x.updateDateTime";
+        String sqlCommand = "select x from Appointment x where x.updateDateTime>?1 order by x.updateDateTime, x.id";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, updatedAfterThisDateExclusive);
@@ -259,7 +258,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     @Override
     public List<Appointment> findByDemographicIdUpdateDate(Integer demographicId, Date updatedAfterThisDateExclusive) {
         String sqlCommand = "select x from " + modelClass.getSimpleName()
-                + " x where x.demographicNo=?1 and x.updateDateTime>?2 order by x.updateDateTime";
+                + " x where x.demographicNo=?1 and x.updateDateTime>?2 order by x.updateDateTime, x.id";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, demographicId);
@@ -894,7 +893,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     public List<Appointment> findByProgramProviderDemographicDate(Integer programId, String providerNo,
                                                                   Integer demographicId, Date updatedAfterThisDateExclusive, int itemsToReturn) {
         Query query = entityManager.createQuery(
-                "select x from Appointment x where (x.programId=?1 or x.programId is null or x.programId=0) and x.demographicNo=?2 and x.providerNo=?3 and x.updateDateTime>?4 order by x.updateDateTime");
+                "select x from Appointment x where (x.programId=?1 or x.programId is null or x.programId=0) and x.demographicNo=?2 and x.providerNo=?3 and x.updateDateTime>?4 order by x.updateDateTime, x.id");
         query.setParameter(1, programId);
         query.setParameter(2, demographicId);
         query.setParameter(3, providerNo);
@@ -1079,6 +1078,33 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     private static String value(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<Appointment> findByUpdateDateAndId(Date after, int afterId, int limit) {
+        Query query = entityManager.createQuery("select x from Appointment x where "
+                + "(x.updateDateTime>?1 or (x.updateDateTime=?1 and x.id>?2)) order by x.updateDateTime, x.id");
+        query.setParameter(1, after);
+        query.setParameter(2, afterId);
+        setLimit(query, limit);
+        return query.getResultList();
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<Appointment> findByProgramProviderDemographicDateAndId(Integer programId, String providerNo,
+            Integer demographicId, Date after, int afterId, int limit) {
+        Query query = entityManager.createQuery("select x from Appointment x where "
+                + "(x.programId=?1 or x.programId is null or x.programId=0) and x.demographicNo=?2 and x.providerNo=?3 "
+                + "and (x.updateDateTime>?4 or (x.updateDateTime=?4 and x.id>?5)) order by x.updateDateTime, x.id");
+        query.setParameter(1, programId);
+        query.setParameter(2, demographicId);
+        query.setParameter(3, providerNo);
+        query.setParameter(4, after);
+        query.setParameter(5, afterId);
+        setLimit(query, limit);
+        return query.getResultList();
     }
 
 }

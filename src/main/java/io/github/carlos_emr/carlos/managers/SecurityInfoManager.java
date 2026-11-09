@@ -73,5 +73,14 @@ public interface SecurityInfoManager {
         return true;
     }
 
+    /** Returns readable IDs for discovery without changing session lock state. */
+    default java.util.Set<Integer> getReadableDemographicIds(LoggedInInfo info, Collection<Integer> ids) {
+        java.util.Set<Integer> result = new java.util.LinkedHashSet<>();
+        for (Integer id : ids) {
+            if (hasPrivilegeReadOnly(info, "_demographic", READ, id.toString())) result.add(id);
+        }
+        return result;
+    }
+
     public boolean isAllowedAccessToPatientRecord(LoggedInInfo loggedInInfo, Integer demographicNo);
 }

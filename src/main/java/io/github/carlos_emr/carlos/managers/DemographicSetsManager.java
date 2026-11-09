@@ -44,4 +44,8 @@ public interface DemographicSetsManager {
     public List<String> getNames(LoggedInInfo loggedInInfo);
 
     public List<DemographicSets> getByName(LoggedInInfo loggedInInfo, String setName);
+
+    default List<DemographicSets> getByNamePage(LoggedInInfo actor, String name, int offset, int limit) {
+        throw new UnsupportedOperationException("Paged demographic sets are not implemented");
+    }
 }

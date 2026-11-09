@@ -107,7 +107,6 @@
     if (!delegateOneIdEmail.equals("")) {
         providerEmail = delegateOneIdEmail;
     }
-    //logger.debug("providerEmail is " + providerEmail);
 
     String backendEconsultUrl = CarlosProperties.getInstance().getProperty("backendEconsultUrl");
 
@@ -462,11 +461,11 @@
                 <%
                         }
                     } catch (IOException | IllegalStateException e) {
-                        logger.error("Failed to submit DHIR request", e);
+                        logger.error("Failed to submit DHIR request: {}", io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(e));
                     } catch (NoSuchAlgorithmException e) {
-                        logger.error("Failed to create an HttpClient that allows all SSL", e);
+                        logger.error("Failed to initialize DHIR HTTP client: {}", io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(e));
                     } catch (KeyManagementException e) {
-                        logger.error("Failed to create an HttpClient that allows all SSL", e);
+                        logger.error("Failed to initialize DHIR HTTP client: {}", io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(e));
                     }
 
                     bundles.put(uuid, null);

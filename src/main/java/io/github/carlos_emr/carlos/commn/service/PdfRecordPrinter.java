@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.commn.service;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
 
 import java.text.SimpleDateFormat;
@@ -911,12 +913,12 @@ public class PdfRecordPrinter {
                 try (FileOutputStream fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(tempFile))) {
                     convert.convertToImage(image, drawData.getVarValue(), "PNG", fos);
                 }
-                logger.debug("converted image is " + tempFile.getName());
+                logger.debug("converted image is");
             } catch (IOException | SecurityException e) {
                 // SecurityException is thrown by PathValidationUtils.validateConfiguredFile when the
                 // referenced eForm diagram image is missing/invalid. Skip that one diagram (as the
                 // legacy FileNotFoundException path did) rather than aborting the whole record PDF.
-                logger.error("Error", e);
+                logger.error("Error: {}", LogSafe.exceptionTrace(e));
                 if (tempFile != null) {
                     tempFile.delete();
                 }
@@ -925,10 +927,10 @@ public class PdfRecordPrinter {
 
             Image img = null;
             try {
-                logger.info("adding diagram " + tempFile.getAbsolutePath());
+                logger.info("adding diagram");
                 img = Image.getInstance(tempFile.getAbsolutePath());
             } catch (IOException e) {
-                logger.error("error:", e);
+                logger.error("error: {}", LogSafe.exceptionTrace(e));
                 continue;
             }
             img.scaleToFit(getDocument().getPageSize().getWidth() - getDocument().leftMargin() - getDocument().rightMargin(), getDocument().getPageSize().getHeight());

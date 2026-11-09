@@ -29,6 +29,8 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -150,7 +152,7 @@ public class LabService extends AbstractServiceImpl {
             // Use the containment-validated path for all downstream consumers (e.g. msgHandler.parse below).
             filePath = savedLabFile.getPath();
         } catch (IOException | SecurityException e) {
-            logger.error("Invalid saved lab file path", e);
+            logger.error("Invalid saved lab file path: {}", LogSafe.exceptionTrace(e));
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(labT.getFileName(), "Failed", "Error occurred while processing the file", null, type)).build();
         }
         MessageHandler msgHandler = HandlerClassFactory.getHandler(type);

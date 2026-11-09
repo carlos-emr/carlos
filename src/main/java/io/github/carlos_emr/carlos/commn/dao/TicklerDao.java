@@ -40,6 +40,11 @@ import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
 
 public interface TicklerDao extends AbstractDao<Tickler> {
 
+    /** Current stored identity under a row lock; must not auto-flush an edited incoming entity. */
+    default List<Integer> lockPatientForUpdate(Integer id) {
+        throw new UnsupportedOperationException("Tickler patient locking is not implemented");
+    }
+
     /**
      * Finds a Tickler by its ID.
      */

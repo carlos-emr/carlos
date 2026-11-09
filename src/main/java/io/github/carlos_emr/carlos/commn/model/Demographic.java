@@ -1644,7 +1644,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     // Published main uses Glassfish and emits midnight with an offset for this xs:dateTime,
     // even though the date-only calendar below has no explicitly assigned time/zone fields.
     @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
-            io.github.carlos_emr.carlos.utility.xml.CalendarDateTimeXmlAdapter.class)
+            io.github.carlos_emr.carlos.utility.xml.BirthdayXmlAdapter.class)
     @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Calendar getBirthDay() {
         GregorianCalendar cal = null;

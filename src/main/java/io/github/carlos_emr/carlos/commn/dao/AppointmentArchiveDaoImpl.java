@@ -63,8 +63,7 @@ public class AppointmentArchiveDaoImpl extends AbstractDaoImpl<AppointmentArchiv
      */
     @Override
     public List<AppointmentArchive> findByUpdateDate(Date updatedAfterThisDateExclusive, int itemsToReturn) {
-        String sqlCommand = "select x from " + modelClass.getSimpleName()
-                + " x where x.updateDateTime>?1 order by x.updateDateTime";
+        String sqlCommand = "select x from AppointmentArchive x where x.updateDateTime>?1 order by x.updateDateTime, x.id";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, updatedAfterThisDateExclusive);
@@ -74,4 +73,15 @@ public class AppointmentArchiveDaoImpl extends AbstractDaoImpl<AppointmentArchiv
         List<AppointmentArchive> results = query.getResultList();
         return (results);
     }
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<AppointmentArchive> findByUpdateDateAndId(Date after, int afterId, int limit) {
+        Query query = entityManager.createQuery("select x from AppointmentArchive x where "
+                + "(x.updateDateTime>?1 or (x.updateDateTime=?1 and x.id>?2)) order by x.updateDateTime, x.id");
+        query.setParameter(1, after);
+        query.setParameter(2, afterId);
+        setLimit(query, limit);
+        return query.getResultList();
+    }
+
 }

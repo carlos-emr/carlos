@@ -120,6 +120,7 @@ class DemographicLabelPdfUnitTest {
         Connection connection = DriverManager.getConnection("jdbc:h2:mem:failedLabelFill");
         MockHttpServletResponse response = new MockHttpServletResponse();
         SQLException cause = new SQLException("FAKE clinical SQL value");
+        cause.setStackTrace(new StackTraceElement[]{new StackTraceElement("safe.GeneratedReport", "query", "FAKE-PATIENT-report.jrxml", 17)});
         cause.addSuppressed(new IllegalStateException("FAKE suppressed patient details"));
         JRException failure = new JRException("FAKE report expression value", cause);
         try (LogCapture logs = LogCapture.forLogger(DemographicLabelPdf.class);
@@ -131,7 +132,7 @@ class DemographicLabelPdfUnitTest {
             DemographicLabelPdf.write(response, Map.of("demo", "FAKE request value"), template("SELECT 'name' AS NAME"), null);
             assertDiagnostic(logs, "filling label report", "net.sf.jasperreports.engine.JRException");
             assertThat(logs.events().getFirst().getMessage().getFormattedMessage())
-                    .contains("Caused by: java.sql.SQLException", "Suppressed: java.lang.IllegalStateException")
+                    .contains("Caused by: java.sql.SQLException", "Suppressed: java.lang.IllegalStateException", "safe.GeneratedReport.query:17")
                     .doesNotContain("FAKE", "clinical SQL value", "patient details", "expression value", "request value");
         }
         assertFailure(response);
@@ -145,7 +146,7 @@ class DemographicLabelPdfUnitTest {
         assertThat(event.getLevel()).isEqualTo(Level.ERROR);
         assertThat(event.getThrown()).isNull();
         assertThat(event.getMessage().getFormattedMessage())
-                .contains("Label PDF generation failed while ", context, exceptionType, "DemographicLabelPdf.java:");
+                .contains("Label PDF generation failed while ", context, exceptionType, "DemographicLabelPdf.write:");
     }
 
     private static void assertFailure(MockHttpServletResponse response) {

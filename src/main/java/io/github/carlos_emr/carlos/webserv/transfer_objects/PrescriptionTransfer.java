@@ -79,6 +79,8 @@ public final class PrescriptionTransfer {
         this.demographicId = demographicId;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getDatePrescribed() {
         return (datePrescribed);
     }
@@ -87,6 +89,8 @@ public final class PrescriptionTransfer {
         this.datePrescribed = datePrescribed;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getDatePrinted() {
         return (datePrinted);
     }
@@ -119,6 +123,8 @@ public final class PrescriptionTransfer {
         this.comments = comments;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getLastUpdateDate() {
         return (lastUpdateDate);
     }
