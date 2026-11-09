@@ -86,8 +86,10 @@ class RxFavoriteGroups2ActionUnitTest extends CarlosUnitTestBase {
             session.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
             access.when(() -> RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r")).thenReturn(bean);
             new RxFavoriteGroups2Action(security, manager, transactionManager()).execute();
-            response.reset(); // The replay is a separate HTTP response with the same rendered token.
+            var replayResponse = new MockHttpServletResponse();
+            context.when(ServletActionContext::getResponse).thenReturn(replayResponse);
             new RxFavoriteGroups2Action(security, manager, transactionManager()).execute();
+            assertThat(replayResponse.getRedirectedUrl()).isEqualTo(response.getRedirectedUrl());
             switch (command) {
                 case "create" -> verify(manager).create("997001", "Synthetic group");
                 case "up" -> verify(manager).move("997001", 2, -1);
