@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.commn.model.DemographicMerged;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.commn.dao.utils.AuthUtils;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.persistence.EntityManager;
@@ -60,7 +61,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("integration")
 @Tag("lab")
 @Tag("demographic")
-@Isolated("MessageUploader caches Spring beans in static fields")
+@Isolated("MessageUploader and HL7 result readers cache Spring beans in static fields")
 class MessageUploaderMergedPatientMatchIntegrationTest extends CarlosTestBase {
     private static final String HIN = "9876543210";
     private static final String OTHER_HIN = "9876543211";
@@ -78,13 +79,16 @@ class MessageUploaderMergedPatientMatchIntegrationTest extends CarlosTestBase {
     void setUpUploaderBeans() throws Exception {
         // Provider routing takes a MySQL-only advisory-lock row that the H2 schema does not create.
         em.createNativeQuery("CREATE TABLE IF NOT EXISTS providerLabRoutingLock (lab_no INT PRIMARY KEY)").executeUpdate();
-        // A unit test may have initialized this legacy class first with mocked Spring beans.
-        for (Field field : MessageUploader.class.getDeclaredFields()) {
-            if (Modifier.isStatic(field.getModifiers()) && !Modifier.isFinal(field.getModifiers())
-                    && (field.getName().endsWith("Dao") || field.getName().endsWith("Manager"))) {
-                field.setAccessible(true);
-                originalBeans.put(field, field.get(null));
-                field.set(null, applicationContext.getBean(field.getType()));
+        // Earlier unit tests can initialize either legacy class with mocked Spring beans.
+        // The unlink fence reads source history through Hl7textResultsData during routing.
+        for (Class<?> legacyClass : List.of(MessageUploader.class, Hl7textResultsData.class)) {
+            for (Field field : legacyClass.getDeclaredFields()) {
+                if (Modifier.isStatic(field.getModifiers()) && !Modifier.isFinal(field.getModifiers())
+                        && (field.getName().endsWith("Dao") || field.getName().endsWith("Manager"))) {
+                    field.setAccessible(true);
+                    originalBeans.put(field, field.get(null));
+                    field.set(null, applicationContext.getBean(field.getType()));
+                }
             }
         }
         // The test context supplies a mock DemographicManager; make it load real rows so the head record

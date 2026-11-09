@@ -91,7 +91,10 @@ The final focused package passes 825 Java cases with zero failures/errors/skips,
 including 28 real-DAO CML projection cases, 43 acknowledgment cases, filing,
 consultation and actual browser PNG/PDF smoke controls. The routing-audit integration
 case is included. The 27-case inbox notification wiring class also passes after
-updating its source assertions for retained-version metadata. The full Node suite passes 7,721 cases with four
+updating its source assertions for retained-version metadata. The five merged-patient
+routing cases and 13 unlink unit cases also pass in one JVM with the unlink unit
+cases first, reproducing and fixing the cached-DAO test-order failure seen in CI.
+The fixture binds and restores both legacy readers to the real test context. The full Node suite passes 7,721 cases with four
 existing optional skips. Final-head CI supplies the complete Java, database,
 packaging and static-analysis checks.
 
