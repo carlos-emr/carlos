@@ -48,6 +48,13 @@ SCHEDULE_REQUIRED_CASES = {
     "shouldRetainTheDaoHardPageLimit_atMaximumNativePageSize",
 }
 
+RX_REQUIRED_CASES = {
+    "shouldCommitPrescriptionAndDrugs_whenNativeWritesSucceed",
+    "shouldRequireReconciliation_whenCommitSucceedsButAcknowledgementIsLost",
+    "shouldRollbackHeaderEarlierDrugsAndArchive_whenALaterNativeWriteFails",
+    "shouldRollbackPhysicalState_whenCommitFailsBeforeSubmission",
+}
+
 MERGE_REQUIRED_CASES = {"shouldRefuseDeniedParticipants_beforeAnyDatabaseOrAuditChange"}
 
 IDENTIFIER_REQUIRED_CASES = {
@@ -92,6 +99,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                     "DemographicMergeMariaDbIntegrationTest": MERGE_REQUIRED_CASES,
                     "DemographicIdentifierPreservationMariaDbIntegrationTest": IDENTIFIER_REQUIRED_CASES,
                     "ScheduleSyncMariaDbIntegrationTest": SCHEDULE_REQUIRED_CASES,
+                    "RxPrescribeMariaDbIntegrationTest": RX_REQUIRED_CASES,
                 }.get(family, set()))
                 def case(index):
                     fault = tag if selected == mode and family == next(iter(required)) and index == 0 else ""
@@ -157,7 +165,8 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             for family, names in (("SoapTokenHousekeepingDaoIntegrationTest", TOKEN_REQUIRED_CASES),
                                   ("DemographicMergeMariaDbIntegrationTest", MERGE_REQUIRED_CASES),
                                   ("DemographicIdentifierPreservationMariaDbIntegrationTest", IDENTIFIER_REQUIRED_CASES),
-                                  ("ScheduleSyncMariaDbIntegrationTest", SCHEDULE_REQUIRED_CASES)):
+                                  ("ScheduleSyncMariaDbIntegrationTest", SCHEDULE_REQUIRED_CASES),
+                                  ("RxPrescribeMariaDbIntegrationTest", RX_REQUIRED_CASES)):
                 report = self.reports / ("TEST-" + self.suite(family) + suffix + ".xml")
                 original = report.read_text()
                 for name in names:
