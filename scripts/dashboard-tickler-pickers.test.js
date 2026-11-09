@@ -27,12 +27,12 @@ for (const value of ['2030-12-31', '2028-02-29', '2000-02-29', '0099-01-01']) {
   });
 }
 for (const value of ['25:90', '00:30 AM', '13:30 PM', '10:60 AM', '10:30garbage', '10:30 AMjunk',
-  '10:30', '14:30', '10:30 am', '10:30 AM ', 'today', '']) {
+  '24:00', '10:30 AM ', 'today', '']) {
   test(`Service Time rejects ${JSON.stringify(value)}`, () => {
     assert.equal(context.parseTicklerValue(value, 'h:i K'), undefined);
   });
 }
-for (const [value, hour, minute] of [['12:00 AM', 0, 0], ['12:00 PM', 12, 0], ['10:30 AM', 10, 30], ['11:59 PM', 23, 59], ['1:30 PM', 13, 30], ['01:30 AM', 1, 30]]) {
+for (const [value, hour, minute] of [['14:30', 14, 30], ['10:30 am', 10, 30], ['2:30 Pm', 14, 30], ['00:00', 0, 0], ['23:59', 23, 59], ['12:00 AM', 0, 0], ['12:00 PM', 12, 0], ['10:30 AM', 10, 30], ['11:59 PM', 23, 59], ['1:30 PM', 13, 30], ['01:30 AM', 1, 30]]) {
   test(`Service Time preserves ${value}`, () => {
     const date = context.parseTicklerValue(value, 'h:i K');
     assert.deepEqual([date.getHours(), date.getMinutes()], [hour, minute]);

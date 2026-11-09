@@ -50,7 +50,7 @@
 </head>
 <body>
 
-<h5>Security Exception</h5>
+<h5 id="carlos-permission-denied">Security Exception</h5>
 
 You tried to access a resource with insufficient privileges.
 <%-- Set by CarlosExceptionMappingInterceptor: the id on the WARN line that records this refusal. --%>

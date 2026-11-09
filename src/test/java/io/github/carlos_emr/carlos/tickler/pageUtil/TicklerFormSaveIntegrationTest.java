@@ -47,6 +47,12 @@ class TicklerFormSaveIntegrationTest extends CarlosWebTestBase {
                 mock(io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService.class));
         replaceSpringUtilsBean(TicklerLinkDao.class, linkDao);
         replaceSpringUtilsBean(TicklerTextSuggestDao.class, suggestDao);
+        var providers = mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class);
+        var recipient = new io.github.carlos_emr.carlos.commn.model.Provider();
+        recipient.setProviderNo("999998");
+        recipient.setStatus("1");
+        when(providers.getProvider("999998")).thenReturn(recipient);
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class, providers);
         mockRequest.setMethod("POST");
         mockRequest.setParameter("demographic_no", "123");
         mockRequest.setParameter("user_no", "999998");

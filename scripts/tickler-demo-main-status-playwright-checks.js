@@ -26,6 +26,7 @@ const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { withTicklerConfirmations, dismissTicklerDelete } = require('./lib/tickler-confirmation');
 
 const TIMEOUT = 20000;
 const FORM = 'form[name="ticklerform"]';
@@ -59,6 +60,13 @@ function documentStore() {
   return real;
 }
 
+/**
+ * Drives the patient task list opened from the chart document viewer: Delete (which asks for one native
+ * confirmation, #5683) and Complete on owned tasks, the Move to views, a legacy erase submission, and
+ * refused GET and tokenless POST requests. The owned tasks and the PDF fixture are removed and verified gone.
+ *
+ * @param {object} s the workflow session from lib/workflow-session.js (patient, marker, sql, steps)
+ */
 async function workflow(s) {
   const { sql, marker, patient, provider, recorder } = s;
   const store = documentStore();
@@ -139,15 +147,24 @@ async function workflow(s) {
     return list;
   }
   const box = label => list.locator(`${FORM} input[name="checkbox"][value="${tickler[label]}"]`);
+  /**
+   * Clicks one of the patient list's actions (or posts the retired legacy erase form) and waits for the
+   * return to that patient's list. Delete raises one native confirmation that is accepted; Complete and
+   * the legacy erase raise none.
+   *
+   * @param {'complete'|'delete'|'legacyErase'} button the action to run
+   */
   async function press(button) {
-    await Promise.all([
+    // Only Delete asks for confirmation (#5683); the helper accepts it and fails if Delete stops asking
+    // or Complete / the legacy erase submission start to.
+    await withTicklerConfirmations(list, button === 'delete' ? 1 : 0, () => Promise.all([
       list.waitForEvent('domcontentloaded', { timeout: TIMEOUT }),
       button === 'legacyErase' ? list.evaluate(() => {
         const form = document.forms['ticklerform'];
         form.submit_form.value = 'Erase Completely';
         form.submit();
       }) : list.locator(BUTTON[button]).click(),
-    ]);
+    ]));
     await h.assertNotErrorPage(list, `the tickler list after ${button}`);
     const returned = new URL(list.url()).searchParams;
     h.assert(returned.get('demoview') === patient, `${button} returned to another patient's tickler list`);
@@ -187,11 +204,19 @@ async function workflow(s) {
     await offers({ complete: true, delete: true, erase: false });
   });
 
-  if(process.env.DIALOG_CONFIRMATION_TARGET==='tickler') await s.step('dismissing task Delete confirms once and preserves every task and status history',async()=>{
-    await box('first').check();const before=statuses(),history=JSON.stringify(sql.rows(`SELECT * FROM tickler_update WHERE tickler_no IN (${Object.values(tickler).join(',')}) ORDER BY id`));
-    const dialogs=await h.withExpectedDialogs(list,()=>list.locator(BUTTON.delete).click(),{accept:false});
-    if(!dialogs.length)await list.waitForLoadState('networkidle',{timeout:TIMEOUT});
-    h.assert(dialogs.length===1&&dialogs[0].type==='confirm'&&statuses()===before&&JSON.stringify(sql.rows(`SELECT * FROM tickler_update WHERE tickler_no IN (${Object.values(tickler).join(',')}) ORDER BY id`))===history,'Task Delete did not offer cancellable confirmation or changed a task after dismissal');
+  // Run by the dialog-confirmations-tickler suite entry (DIALOG_CONFIRMATION_TARGET=tickler); the ordinary run
+  // still answers and counts the same prompt in press('delete') below.
+  if (process.env.DIALOG_CONFIRMATION_TARGET === 'tickler') await s.step('dismissing task Delete confirms once and preserves every task and status history', async () => {
+    const records = () => JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE tickler_no IN (${Object.values(tickler).join(',')}) ORDER BY tickler_no`));
+    const history = () => JSON.stringify(sql.rows(`SELECT * FROM tickler_update WHERE tickler_no IN (${Object.values(tickler).join(',')}) ORDER BY id`));
+    await box('first').check();
+    const recordsBefore = records();
+    const historyBefore = history();
+    await dismissTicklerDelete(list, () => list.locator(BUTTON.delete).click());
+    h.assert(records() === recordsBefore && history() === historyBefore,
+      'Task Delete changed a task or its status history after the confirmation was dismissed');
+    h.assert(await box('first').isChecked() && new URL(list.url()).pathname.endsWith('/tickler/ViewTicklerDemoMain'),
+      'Dismissing the Delete confirmation reloaded or left the task list instead of staying on it with the selection intact');
   });
 
   await s.step('Delete with one tickler ticked marks only that one deleted and returns to the patient\'s list', async () => {

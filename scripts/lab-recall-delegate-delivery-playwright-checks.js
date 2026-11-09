@@ -246,7 +246,7 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM messagelisttbl WHERE provider_no=${q(control.fixture.providerNo)}`)==='0','Control acquired an unintended message');
     h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE task_assigned_to=${q(control.fixture.providerNo)}`)==='0','Control acquired an unintended task');
   });
-  if(findings.length)throw h.markFailedStep(new AggregateError(findings,findings.map(error=>error.message).join('; ')),findings[0].failedStep);
+  require('./lib/workflow-findings').throwFindings(findings);
 }
 if(require.main===module)runWorkflow(NAME,workflow,{openMaster:false,preflightConfig:()=>{
   if(process.env.CARLOS_DISPOSABLE_HOST!=='true'||process.env.EXCLUSIVE!=='1')throw new h.SkipCheck('Requires CARLOS_DISPOSABLE_HOST=true and EXCLUSIVE=1 for isolated recall delivery');

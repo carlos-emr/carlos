@@ -88,7 +88,7 @@ public class ForwardDemographicTickler2Action extends ActionSupport {
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "u", null)) {
-            throw new RuntimeException("missing required sec object (_tickler)");
+            throw new SecurityException("missing required sec object (_tickler)");
         }
 
         String demoNo = request.getParameter("demographic_no");

@@ -166,6 +166,12 @@ public final class DbTicklerAdd2Action extends ActionSupport {
             return NONE;
         }
 
+        io.github.carlos_emr.carlos.commn.model.Provider recipient = SpringUtils.getBean(
+                io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class).getProvider(taskAssignedTo);
+        if (recipient == null || !"1".equals(recipient.getStatus())) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return "recipientRefused";
+        }
         tickler.setUpdateDate(new Date());
         if (priority != null && priority.equalsIgnoreCase("High")) {
             tickler.setPriority(Tickler.PRIORITY.High);

@@ -91,17 +91,21 @@ public class EditTickler2Action extends ActionSupport {
             response.setHeader("Allow", "POST");
             return NONE;
         }
-        if ("editTickler".equals(request.getParameter("method"))) {
-            return editTickler();
-        }
-        return updateTextSuggest();
+        String method = request.getParameter("method");
+        if (suggestedTextRoute() && (method == null || "updateTextSuggest".equals(method))) return updateTextSuggest();
+        if (!suggestedTextRoute() && (method == null || "editTickler".equals(method))) return editTickler();
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        return NONE;
     }
+
+    /** Route identity comes from the mapped class, never from a request parameter. */
+    protected boolean suggestedTextRoute() { return false; }
 
     public String editTickler() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "u", null)) {
-            throw new RuntimeException("missing required sec object (_tickler)");
+            throw new SecurityException("missing required sec object (_tickler)");
         }
 
         if (!requirePost()) return NONE;
@@ -113,6 +117,8 @@ public class EditTickler2Action extends ActionSupport {
                         if (!CLOSE_RESULT.equals(result)) transaction.setRollbackOnly();
                         return result;
                     });
+        } catch (SecurityException denied) {
+            throw denied;
         } catch (RuntimeException e) {
             logger.error("Failed to commit tickler edit", e);
             addActionError(getText("tickler.ticklerEdit.arg.error"));
@@ -286,6 +292,8 @@ public class EditTickler2Action extends ActionSupport {
                     addActionError(getText("tickler.ticklerEdit.arg.error"));
                     return "error";
                 }
+            } catch (SecurityException denied) {
+                throw denied;
             } catch (Exception e) {
                 logger.error("Tickler update failed: {}", e.getClass().getSimpleName());
                 addActionError(getText("tickler.ticklerEdit.arg.error"));
@@ -306,7 +314,7 @@ public class EditTickler2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "u", null)) {
-            throw new RuntimeException("missing required sec object (_tickler)");
+            throw new SecurityException("missing required sec object (_tickler)");
         }
 
         if (!requirePost()) {
@@ -316,11 +324,13 @@ public class EditTickler2Action extends ActionSupport {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         if (activeText == null) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             addActionError(getText("tickler.ticklerEdit.arg.error"));
             return "failure";
         }
 
         if (inactiveText == null) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             addActionError(getText("tickler.ticklerEdit.arg.error"));
 
             return "failure";

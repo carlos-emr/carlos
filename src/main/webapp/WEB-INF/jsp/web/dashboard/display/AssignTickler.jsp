@@ -36,7 +36,10 @@
 <fmt:message key="tickler.ticklerAdd.additionalMessage" var="ticklerAdditionalMessage"/>
 <%-- The date and time pickers are started by initTicklerPickers() in drilldownDisplayController.js once
      this fragment is inserted: the modal body is sanitized with DOMPurify, which strips inline scripts. --%>
+<fmt:message key="tickler.date.invalid" var="dateError"/>
+<fmt:message key="tickler.time.invalid" var="timeError"/>
 <form name="ticklerAddForm" id="ticklerAddForm"
+      data-date-error="${carlos:forHtmlAttribute(dateError)}" data-time-error="${carlos:forHtmlAttribute(timeError)}"
       action="${ pageContext.request.contextPath }/web/dashboard/display/AssignTickler" method="POST" novalidate>
     <input type="hidden" value="saveTickler" name="method"/>
     <input type="hidden" name="ticklerSubmission" value="${carlos:forHtmlAttribute(ticklerSubmission)}"/>

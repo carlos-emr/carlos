@@ -343,6 +343,8 @@ class MutatorActionGetRejectionContractUnitTest {
             Arguments.of("io.github.carlos_emr.carlos.messenger.pageUtil.MsgAdjustAttachments2Action",
                     "_msg", "w"),
             // --- tickler ---
+            Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.EditTicklerTextSuggest2Action",
+                    "_tickler", "u"),
             Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerAdd2Action",
                     "_tickler", "w"),
             // Both dispatches (editTickler, suggested-text maintenance) mutate; the verb is

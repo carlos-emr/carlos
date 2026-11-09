@@ -5,9 +5,17 @@
 const h=require('./lib/playwright-harness');
 const ui=require('./lib/playwright-ui');
 const {runWorkflow}=require('./lib/workflow-session');
+const {withTicklerConfirmations}=require('./lib/tickler-confirmation');
 const {waitForTicklerTable}=require('./tickler-forward-filters-playwright-checks');
 const all=process.env.TICKLER_SELECTION_ACTION==='first';
 const name=all?'tickler-first-page-delete':'tickler-last-page-complete';
+/**
+ * Checks that Check All on one page of the 50-row task list submits only that page's owned tasks: Complete
+ * on the last page, or Delete (one native confirmation, #5683) on the first page. The 53 owned tasks are
+ * removed and verified gone.
+ *
+ * @param {object} s the workflow session from lib/workflow-session.js (patient, marker, sql, steps)
+ */
 async function workflow(s){
   const {sql,patient,marker,provider}=s,q=h.sqlString;
   const owned=`demographic_no=${patient} AND message LIKE ${q(marker+'%')}`;
@@ -39,11 +47,15 @@ async function workflow(s){
     await list.locator('#checkAllLink').click();
     await list.waitForFunction(n=>document.querySelectorAll('#ticklerResults input[name="checkbox"]:checked').length===n,selected.length);
     const action=all?'Delete':'Complete';
-    const [response]=await Promise.all([
-      list.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/tickler/DbTicklerMain')&&r.request().method()==='POST'),
-      list.waitForNavigation({waitUntil:'domcontentloaded'}),
-      list.locator(`input[type="button"][onclick*="submit_form.value='${action}'"]`).click(),
-    ]);
+    // Delete asks for confirmation (#5683) and Complete does not; the helper answers it and counts it.
+    let response;
+    await withTicklerConfirmations(list,all?1:0,async()=>{
+      [response]=await Promise.all([
+        list.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/tickler/DbTicklerMain')&&r.request().method()==='POST'),
+        list.waitForNavigation({waitUntil:'domcontentloaded'}),
+        list.locator(`input[type="button"][onclick*="submit_form.value='${action}'"]`).click(),
+      ]);
+    });
     h.assert(response.status()<400,`Paged action answered HTTP ${response.status()}`);
     const data=new URLSearchParams(response.request().postData());
     h.assert(data.get('CSRF-TOKEN')&&JSON.stringify(data.getAll('checkbox').sort())===JSON.stringify([...selected].sort()),'Action submitted other than the visible checked IDs');

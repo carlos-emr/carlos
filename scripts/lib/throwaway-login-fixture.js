@@ -23,7 +23,7 @@ const { randomInt } = require('node:crypto');
 const { assert, gotoApp, pathOnly, sqlString } = require('./playwright-harness');
 const { settleOperations } = require('../graceful-signal-cancellation');
 
-const PROVIDER_LINKED_TABLES = ['provider_facility', 'program_provider', 'providersite', 'property', 'secUserRole'];
+const PROVIDER_LINKED_TABLES = ['provider_facility', 'program_provider', 'providersite', 'providerbillcenter', 'property', 'secUserRole'];
 // Logging in creates a ProviderPreference row (keyed providerNo, not provider_no),
 // and the preferences popup can add its appointment-screen children. Leaving them
 // behind accumulated orphan preference rows for providers that no longer exist.

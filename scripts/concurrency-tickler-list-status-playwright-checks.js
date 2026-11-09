@@ -22,19 +22,27 @@ const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { openSecondSession } = require('./lib/concurrency-support');
 const { seedTickler, openPatientTicklerList, listRow } = require('./lib/concurrency-tickler');
+const { withTicklerConfirmations } = require('./lib/tickler-confirmation');
 
-async function batch(list, message, buttonValue) {
+/** `confirms` is 1 for Delete, which asks before it submits (#5683), and 0 for Complete. */
+async function batch(list, message, buttonValue, confirms) {
   const row = await listRow(list, message);
   await row.locator('input[name="checkbox"]').check();
   const button = list.locator(`input[type="button"][value="${buttonValue}"]`).first();
   h.assert(await button.count() > 0, `The tickler list offers no ${buttonValue} button`);
-  await ui.clickAndAwaitReload(list, button, { timeout: 30000, label: buttonValue });
+  await withTicklerConfirmations(list, confirms, () => ui.clickAndAwaitReload(list, button, { timeout: 30000, label: buttonValue }));
   // DbTicklerMain2Action swallows a per-row exception and redirects with failCount=N; a failed update must not be read as the
   // application protecting the row (the status assertions below could not tell the two apart).
   h.assert(!new URL(list.url()).searchParams.has('failCount'),
     `The ${buttonValue} batch reported failed rows (failCount in the redirect URL), so the update itself did not run`);
 }
 
+/**
+ * Runs the stale-list race: session B deletes a task (one native confirmation, #5683), then session A, whose
+ * list still shows it Active, completes it. Passes only if the deleted task is not resurrected as Completed.
+ *
+ * @param {object} s the workflow session from lib/workflow-session.js (patient, marker, sql, steps)
+ */
 async function workflow(s) {
   const { sql } = s;
   const tickler = seedTickler(s, 'list race');
@@ -48,11 +56,11 @@ async function workflow(s) {
   const deleteLabel = await aList.locator('input.btn-danger[onclick*="Delete"]').first().getAttribute('value');
 
   await s.step('session B deletes the tickler from its list', async () => {
-    await batch(bList, tickler.message, deleteLabel);
+    await batch(bList, tickler.message, deleteLabel, 1);
     await expectValue(sql, statusQuery, 'D', 'Session B\'s delete did not reach the database');
   });
   await s.step('session A completes the same tickler from its stale list', async () => {
-    await batch(aList, tickler.message, completeLabel);
+    await batch(aList, tickler.message, completeLabel, 0);
   });
   await s.step('the tickler session B deleted stays deleted', async () => {
     const status = sql.value(statusQuery);
