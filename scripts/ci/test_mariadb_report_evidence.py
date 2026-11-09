@@ -24,6 +24,10 @@ GROWTH_REQUIRED_CASES = {
     "shouldCommitDemographicAudit_whenLoadingWithoutAnMrp(boolean)[1]",
     "shouldCommitDemographicAudit_whenLoadingWithoutAnMrp(boolean)[2]",
 }
+NATIVE_REQUIRED_CASES = {
+    "EncounterFormDaoGroupedHistoryIntegrationTest": "shouldGroupPhysicalHistory_onTheNativeTable",
+    "LabRoutingLookupDaoIntegrationTest": "shouldPreserveBcLikeMatchingAndSpireShortestNameLimit_forProviderSearch",
+}
 
 
 class MariaDbReportEvidenceTest(unittest.TestCase):
@@ -54,6 +58,8 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                 suite = self.suite(family)
                 suffix = "" if selected == "generated" else "-" + selected
                 required_names = sorted(GROWTH_REQUIRED_CASES) if family == "Growth0To36FormPersistenceIntegrationTest" else []
+                if family in NATIVE_REQUIRED_CASES:
+                    required_names = [NATIVE_REQUIRED_CASES[family]]
                 def case(index):
                     fault = tag if selected == mode and family == next(iter(required)) and index == 0 else ""
                     name = required_names[index] if index < len(required_names) else f"shouldRead_forRow{index}"
@@ -191,6 +197,27 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                                         f"Required MariaDB {mode} coverage missing: LegacyLabUploadDaoIntegrationTest")
                 finally:
                     path.write_bytes(original)
+
+    def test_native_case_families_cannot_be_omitted_or_substituted_in_any_lane(self):
+        self.seed()
+        for family, required_case in NATIVE_REQUIRED_CASES.items():
+            for mode in ("generated", "flyway", "bc-flyway"):
+                suffix = "" if mode == "generated" else "-" + mode
+                path = self.reports / ("TEST-example." + family + suffix + ".xml")
+                original = path.read_bytes()
+                for missing_report in (True, False):
+                    with self.subTest(family=family, mode=mode, missing_report=missing_report):
+                        if missing_report:
+                            path.unlink()
+                            reason = f"Required MariaDB {mode} coverage missing: {family}"
+                        else:
+                            path.write_bytes(original.replace(required_case.encode(), b"shouldPass_forUnrelatedScenario"))
+                            reason = f"Required MariaDB {mode} cases missing: {family}: {required_case}"
+                        try:
+                            for optimized in (False, True):
+                                self.assert_refused(self.invoke(optimized), reason)
+                        finally:
+                            path.write_bytes(original)
 
     def test_growth_required_cases_cannot_be_replaced_by_unrelated_cases_in_any_lane(self):
         self.seed()

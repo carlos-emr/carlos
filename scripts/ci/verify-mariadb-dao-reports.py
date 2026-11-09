@@ -15,9 +15,15 @@ CRITICAL = {
     "ProviderLabRoutingDaoIntegrationTest": 1,
     "BillingONCHeader1DaoIntegrationTest": 1,
 }
-# Surefire's default JUnit 5 names distinguish both boolean invocations. Counts
-# alone cannot prove archive-failure or demographic-audit regressions executed.
+# Counts alone cannot prove the physical history/lookup paths or both boolean
+# archive-failure and demographic-audit controls actually executed.
 REQUIRED_CASES = {
+    "EncounterFormDaoGroupedHistoryIntegrationTest": {
+        "shouldGroupPhysicalHistory_onTheNativeTable",
+    },
+    "LabRoutingLookupDaoIntegrationTest": {
+        "shouldPreserveBcLikeMatchingAndSpireShortestNameLimit_forProviderSearch",
+    },
     "Growth0To36FormPersistenceIntegrationTest": {
         f"{method}(boolean)[{index}]"
         for method in (
@@ -30,7 +36,7 @@ REQUIRED_CASES = {
 # AbstractDaoFindAllOrderingIntegrationTest pins issue #5308 where it matters: MariaDB returns an
 # unordered page in secondary-index order, so its paging cases must execute on the physical server.
 # CaseManagementIssueDAO adds one duplicate-link case on the legacy Flyway schema only.
-REQUIRED = {"generated": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 6, "LabRoutingLookupDaoIntegrationTest": 4, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
+REQUIRED = {"generated": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 6, "LabRoutingLookupDaoIntegrationTest": 5, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
                           "JdbcConnectorMariaDbIntegrationTest": 32,
                           "BillingHistoryDaoIntegrationTest": 1, "LookupDaoIntegrationTest": 1,
                           "AbstractDaoFindAllOrderingIntegrationTest": 6,
@@ -39,8 +45,9 @@ REQUIRED = {"generated": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, 
                           "BCAR2020FormSaveTransactionIntegrationTest": 15,
                           "RxCorrectionSaveRollbackIntegrationTest": 2,
                           "DemographicMergeMariaDbIntegrationTest": 8,
-                          "Growth0To36FormPersistenceIntegrationTest": 19},
-            "flyway": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 6, "LabRoutingLookupDaoIntegrationTest": 4,
+                          "Growth0To36FormPersistenceIntegrationTest": 19,
+                          "EncounterFormDaoGroupedHistoryIntegrationTest": 1},
+            "flyway": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 6, "LabRoutingLookupDaoIntegrationTest": 5,
                        "LegacyLabNativeMariaDbIntegrationTest": 7, "ConsultationArchiveDaoIntegrationTest": 1,
                        "ArchiveAuditTimestampIntegrationTest": 2,
                        "CaseManagementNoteLockMariaDbIntegrationTest": 15,
@@ -48,8 +55,9 @@ REQUIRED = {"generated": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, 
                        "ConsultationListProjectionIntegrationTest": 17,
                        "RxCorrectionSaveRollbackIntegrationTest": 2,
                        "DemographicMergeMariaDbIntegrationTest": 8,
-                       "Growth0To36FormPersistenceIntegrationTest": 19},
-            "bc-flyway": {"FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementTransactionIntegrationTest": 2, "LabRoutingLookupDaoIntegrationTest": 4,
+                       "Growth0To36FormPersistenceIntegrationTest": 19,
+                       "EncounterFormDaoGroupedHistoryIntegrationTest": 1},
+            "bc-flyway": {"FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementTransactionIntegrationTest": 2, "LabRoutingLookupDaoIntegrationTest": 5,
                            "LegacyLabNativeMariaDbIntegrationTest": 7,
                            "ConsultationArchiveDaoIntegrationTest": 1,
                            "ArchiveAuditTimestampIntegrationTest": 2,
@@ -63,7 +71,8 @@ REQUIRED = {"generated": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, 
                            "BcBillingDaoTransactionIntegrationTest": 4,
                            "BCAR2020FormSaveTransactionIntegrationTest": 15,
                            "DemographicMergeMariaDbIntegrationTest": 8,
-                           "Growth0To36FormPersistenceIntegrationTest": 19}}
+                           "Growth0To36FormPersistenceIntegrationTest": 19,
+                           "EncounterFormDaoGroupedHistoryIntegrationTest": 1}}
 
 
 INBOX_CASES = (

@@ -1191,7 +1191,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 330,
+      "minimumCases": 331,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1362,6 +1362,7 @@
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_junit_display_class_names_bind_to_the_qualified_suite",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_malformed_entities_and_symlinks_are_refused",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_missing_required_family_in_each_lane_fails",
+        "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_native_case_families_cannot_be_omitted_or_substituted_in_any_lane",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_nested_name_collision_is_explicit_and_does_not_hide_a_failed_attempt",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_parenthesized_surefire_schema_suffixes_are_bound_to_the_filename",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_summary_omits_configuration_and_console_output",
@@ -2721,7 +2722,7 @@
         "ProviderLabRoutingDaoIntegrationTest": 1,
         "BillingONCHeader1DaoIntegrationTest": 1,
         "LegacyLabUploadDaoIntegrationTest": 6,
-        "LabRoutingLookupDaoIntegrationTest": 4,
+        "LabRoutingLookupDaoIntegrationTest": 5,
         "MeasurementPatientMatchMariaDbIntegrationTest": 10,
         "BillingHistoryDaoIntegrationTest": 1,
         "LookupDaoIntegrationTest": 1,
@@ -2785,7 +2786,7 @@
         "ProviderLabRoutingDaoIntegrationTest": 1,
         "BillingONCHeader1DaoIntegrationTest": 1,
         "LegacyLabUploadDaoIntegrationTest": 6,
-        "LabRoutingLookupDaoIntegrationTest": 4,
+        "LabRoutingLookupDaoIntegrationTest": 5,
         "LegacyLabNativeMariaDbIntegrationTest": 7,
         "ArchiveAuditTimestampIntegrationTest": 2,
         "Growth0To36FormPersistenceIntegrationTest": 19,
@@ -2839,7 +2840,7 @@
         "DemographicMergeMariaDbIntegrationTest": 8,
         "CaseManagementNoteLockMariaDbIntegrationTest": 15,
         "ConsultationArchiveDaoIntegrationTest": 1,
-        "LabRoutingLookupDaoIntegrationTest": 4,
+        "LabRoutingLookupDaoIntegrationTest": 5,
         "LegacyLabNativeMariaDbIntegrationTest": 7,
         "ArchiveAuditTimestampIntegrationTest": 2,
         "FormXmlImportServiceIntegrationTest": 7,
