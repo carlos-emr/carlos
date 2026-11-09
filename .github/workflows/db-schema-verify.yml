@@ -64,9 +64,11 @@ jobs:
           FLYWAY_VERSION=13.12.0
           # SHA256 published with the upstream GitHub release asset; update with the version.
           FLYWAY_SHA256=e332704f4bbb16baba4ac565a822ccb24354003a284deaa11668c1be77013c34
+          # Obtain a fresh asset redirect for this attempt; version and content hash stay pinned.
+          FLYWAY_DOWNLOAD="https://github.com/flyway/flyway/releases/download/flyway-${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz?download=1&run=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${{ matrix.province }}"
           # Retry transient upstream download failures; the pinned checksum still gates extraction.
           curl --retry 4 --retry-delay 2 --retry-max-time 120 --connect-timeout 15 --max-time 60 \
-            -fsSL "https://github.com/flyway/flyway/releases/download/flyway-${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
+            -fsSL "${FLYWAY_DOWNLOAD}" \
             -o /tmp/flyway.tgz
           echo "${FLYWAY_SHA256}  /tmp/flyway.tgz" | sha256sum -c -
           tar xzf /tmp/flyway.tgz
