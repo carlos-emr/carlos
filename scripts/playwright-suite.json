@@ -18432,11 +18432,7 @@
       "envSet": {
         "DIALOG_CONFIRMATION_TARGET": "tickler"
       },
-      "notes": "Task 38: dismiss the real Delete confirmation before the existing accepted-write/control assertions; missing confirmation fails independently.",
-      "expectedFailure": {
-        "finding": 337,
-        "step": "dismissing task Delete confirms once and preserves every task and status history"
-      }
+      "notes": "Task 38: dismiss the real Delete confirmation before the existing accepted-write/control assertions; missing confirmation fails independently. Fixed for #5683."
     },
     {
       "name": "rx-save-failure-retry-only-new",

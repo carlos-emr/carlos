@@ -295,6 +295,12 @@
             <INPUT TYPE="hidden" NAME="ptstatus" VALUE="active">
 
             <input type="hidden" name="fromAppt" value="<carlos:encode value='<%= request.getParameter("fromAppt") != null ? request.getParameter("fromAppt") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+            <input type="hidden" name="ticklerMessage" value="${carlos:forHtmlAttribute(param.ticklerMessage)}">
+            <input type="hidden" name="xml_appointment_date" value="${carlos:forHtmlAttribute(param.xml_appointment_date)}">
+            <input type="hidden" name="priority" value="${carlos:forHtmlAttribute(param.priority)}">
+            <% if (request.getParameter("taskTo") != null) { %>
+            <input type="hidden" name="taskTo" value="${carlos:forHtmlAttribute(param.taskTo)}">
+            <% } %>
             <input type="hidden" name="originalPage"
                    value="<carlos:encode value='<%= request.getParameter("originalPage") != null ? request.getParameter("originalPage") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             <input type="hidden" name="bFirstDisp"

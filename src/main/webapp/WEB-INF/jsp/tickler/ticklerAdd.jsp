@@ -210,6 +210,11 @@
 
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+    boolean taskToAvailable = false;
+    for (Provider candidate : providerDao.getActiveProviders()) {
+        if (candidate.getProviderNo().equals(taskTo)) { taskToAvailable = true; break; }
+    }
+    if (!taskToAvailable) taskTo = "";
 %>
 
 <%
@@ -232,6 +237,7 @@
             java.util.ResourceBundle oscarBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
         %>
         <script src="${pageContext.request.contextPath}/share/javascript/tickler-validation.js"></script>
+        <script src="${pageContext.request.contextPath}/share/javascript/tickler-calendar.js"></script>
         <script>
         // i18n messages for JavaScript — encoded via SafeEncode.forJavaScript() to prevent XSS and broken JS strings
         const i18nQuickPickFrom = '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.quickPickFrom") %>' context="javaScriptBlock"/>';
@@ -333,9 +339,9 @@
                 let date = new Date(baseDate);
 
                 // Add years
-                date.setFullYear(date.getFullYear() + totalYears);
+                date = CarlosTicklerCalendar.offset(baseDate, totalYears * 12 + totalMonths, 0);
                 // Add months
-                date.setMonth(date.getMonth() + totalMonths);
+                // Year and month offsets were combined before clamping.
                 // Add weeks and days
                 date.setDate(date.getDate() + daysFromWeeks + totalDays);
 
@@ -435,6 +441,12 @@
             document.ADDAPPT.keyword.focus();
             document.ADDAPPT.keyword.select();
             addQuickPick();
+            document.serviceform.addEventListener('change', function(event) {
+                if (event.target.name === 'task_assigned_to') {
+                    document.ADDAPPT.elements.taskTo.disabled = false;
+                    document.ADDAPPT.elements.taskTo.value = event.target.value;
+                }
+            });
         }
 
         function initResize() {
@@ -499,6 +511,11 @@
                     }
                     // Verify server confirmed save before proceeding
                     try {
+                        if (iframe.contentDocument && iframe.contentDocument.getElementById('tickler-recipient-refused')) {
+                            CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.recipient.required") %>' context="javaScriptBlock"/>');
+                            enableSubmitButtons();
+                            return;
+                        }
                         var saveOk = iframe.contentDocument && iframe.contentDocument.getElementById('tickler-save-ok');
                         if (!saveOk) {
                             console.error('[ticklerAdd] Server did not confirm tickler save — possible server-side error');
@@ -705,7 +722,11 @@
             }
             ChartNo = bFirstDisp ? "" : request.getParameter("chart_no") == null ? "" : request.getParameter("chart_no");
         %>
-        <form name="ADDAPPT" method="post" action="<%= request.getContextPath() %>/demographic/DemographicSearch">
+        <form name="ADDAPPT" onsubmit="this.elements.ticklerMessage.value = document.serviceform.ticklerMessage.value; this.elements.xml_appointment_date.value = document.serviceform.xml_appointment_date.value; this.elements.priority.value = document.serviceform.priority.value;" method="post" action="<%= request.getContextPath() %>/demographic/DemographicSearch">
+            <input type="hidden" name="ticklerMessage" value="<carlos:encode value='<%= suggestedMessage %>' context="htmlAttribute"/>">
+            <input type="hidden" name="xml_appointment_date" value="">
+            <input type="hidden" name="priority" value="">
+            <input type="hidden" name="taskTo" <%= request.getParameter("taskTo") == null ? "disabled" : "" %> value="${carlos:forHtmlAttribute(param.taskTo)}">
             <input type="hidden" name="orderby" value="last_name">
             <input type="hidden" name="search_mode" value="<carlos:encode value='<%= searchMode %>' context="htmlAttribute"/>">
             <input type="hidden" name="originalpage" value="<carlos:encode value='<%= request.getContextPath() + "/tickler/ViewAddTickler" %>' context="htmlAttribute"/>">
@@ -836,7 +857,7 @@
                                 } %>
 
                             function changeSite(sel) {
-                                sel.form.task_assigned_to.innerHTML = sel.value == "none" ? "" : _providers[sel.value];
+                                sel.form.task_assigned_to.innerHTML = '<option value=""></option>' + (sel.value == "none" ? "" : _providers[sel.value]);
                                 sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
                             }
                         </script>
@@ -912,7 +933,8 @@
                         } else {
                         %>
 
-                        <select name="task_assigned_to" class="form-select">
+                        <select name="task_assigned_to" class="form-select" required>
+                            <option value="" <%=taskTo.isEmpty() ? "selected" : ""%>><fmt:message key="tickler.recipient.required"/></option>
                             <% String proFirst = "";
                                 String proLast = "";
                                 String proOHIP = "";
@@ -933,6 +955,7 @@
                         </select>
                         <% } %>
 
+                        <% if (taskTo.isEmpty()) { %><div role="alert"><fmt:message key="tickler.recipient.required"/></div><% } %>
                         <input type="hidden" name="docType" value="<carlos:encode value='<%= request.getParameter("docType") != null ? request.getParameter("docType") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                         <input type="hidden" name="docId" value="<carlos:encode value='<%= request.getParameter("docId") != null ? request.getParameter("docId") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                     </td>
