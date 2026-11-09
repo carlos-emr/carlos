@@ -130,7 +130,7 @@ for (const [page, key] of Object.entries(PAGES)) {
 test('every browser check that clicks the task-list Delete control answers the prompt through the shared helper', () => {
   const scriptsDir = __dirname;
   const DRIVES_LIST = /tickler/i;
-  const SELECTS_DELETE = /input\.btn-danger|submit_form\.value='(?:Delete|\$\{)|\[onclick\*="Delete"\]/;
+  const SELECTS_DELETE = /input\.btn-danger|submit_form\.value='(?:Delete|\$\{)|\[onclick\*="Delete"\]|submit\('Delete'\)/;
   const offenders = [];
   const covered = [];
   for (const name of fs.readdirSync(scriptsDir).filter(file => /-playwright-checks\.js$/.test(file))) {
@@ -146,5 +146,6 @@ test('every browser check that clicks the task-list Delete control answers the p
     'tickler-demo-main-status-playwright-checks.js',
     'tickler-main-list-lifecycle-playwright-checks.js',
     'tickler-paged-selection-playwright-checks.js',
+    'tickler-stale-selection-playwright-checks.js',
   ].sort(), 'the set of checks driving the task-list Delete changed; confirm each one answers the prompt, then update this list');
 });
