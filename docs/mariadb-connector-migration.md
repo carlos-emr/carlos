@@ -84,6 +84,19 @@ Connections without TLS options retain the application's existing PREFERRED
 default, which negotiates TLS when available without certificate verification.
 Native system-store fallback and LOCAL INFILE flags retain MariaDB's Boolean
 tokens, including an empty value for true; unsupported `yes`/`no` values fail.
+MySQL-style configuration (`jdbc:mysql:` URLs, with their connection properties
+and address descriptors) keeps MySQL Connector/J's `yes` and `no` spellings, in
+any letter case, for every option MariaDB reads as Boolean: they become `true`
+and `false` (#5969). This includes options the adapter does not otherwise
+translate, such as `allowPublicKeyRetrieval`, `useServerPrepStmts`,
+`cachePrepStmts`, `useCompression`, `allowMultiQueries`, `useAffectedRows`,
+`tcpKeepAlive`, `useLocalSessionState`, `yearIsDateType`,
+`createDatabaseIfNotExist` and `nullCatalogMeansCurrent`. The option list is
+read from the shipped MariaDB driver, so a connector upgrade cannot leave a new
+Boolean option out. Other values for these options reach MariaDB unchanged: it
+accepts `true`, `false`, `1`, `0` or an empty value and refuses anything else
+with an error naming the option. Native `jdbc:mariadb:` URLs keep MariaDB's own
+tokens.
 LOCAL INFILE remains disabled unless explicitly enabled. MariaDB always uses
 Unicode and INFORMATION_SCHEMA metadata; the former
 `useInformationSchema` setting is accepted but no longer selects an implementation.

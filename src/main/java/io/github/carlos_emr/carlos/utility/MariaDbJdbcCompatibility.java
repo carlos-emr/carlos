@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
@@ -30,12 +31,14 @@ import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
+import org.mariadb.jdbc.util.options.OptionAliases;
 
 /** Translates installed Connector/J configuration before passing it to MariaDB Connector/J. */
 public final class MariaDbJdbcCompatibility {
@@ -145,6 +148,8 @@ public final class MariaDbJdbcCompatibility {
             "trustManagerFactoryProvider", "keyStoreProvider", "sslContextProvider");
     private static final Set<String> NATIVE_SECURITY_BOOLEANS = Set.of(ALLOW_LOCAL_INFILE,
             FALLBACK_TO_SYSTEM_KEY_STORE, FALLBACK_TO_SYSTEM_TRUST_STORE);
+    // Booleans this adapter reads or polices itself: a value outside true/false/yes/no/1/0 is refused
+    // here. Every other option MariaDB parses as Boolean only has legacy yes/no translated (#5969).
     private static final Set<String> BOOLEAN_OPTIONS = Set.of(REQUIRE_SSL, VERIFY_SERVER_CERTIFICATE,
             "useOldAliasMetadataBehavior", TRANSFORMED_BIT_IS_BOOLEAN, PRESERVE_INSTANTS, PURE_LOCAL_DATE_TIME,
             "tinyInt1isBit", ALLOW_LOCAL_INFILE, "useInformationSchema", DNS_SRV, "useUnicode",
@@ -444,6 +449,8 @@ public final class MariaDbJdbcCompatibility {
         if (legacyUseSsl) key = USE_SSL;
         if (BOOLEAN_OPTIONS.contains(key) || legacyUseSsl) {
             value = normalizedBoolean(properties, key, value);
+        } else if (properties.containsKey(LEGACY_MYSQL_SCHEME) && NativeBooleanOptions.contains(key)) {
+            value = legacyYesNo(value);
         }
         if (asciiEquals(key, "allowLoadLocalInfileInPath") && !value.isEmpty()) throw invalid();
         if (key.equals(SSL_MODE)) {
@@ -488,6 +495,44 @@ public final class MariaDbJdbcCompatibility {
             case FALSE, "no", "0" -> FALSE;
             default -> throw invalid();
         };
+    }
+
+    /**
+     * Connector/J accepted YES and NO, in any case, for every Boolean property. MariaDB accepts only
+     * true, false, 1, 0 or an empty value and refuses the whole connection otherwise (#5969). Other
+     * values are left unchanged so MariaDB keeps its own validation of them.
+     */
+    private static String legacyYesNo(String value) {
+        if (asciiEquals(value, "yes")) return "true";
+        if (asciiEquals(value, "no")) return FALSE;
+        return value;
+    }
+
+    /**
+     * Option names MariaDB parses as Boolean, read from the driver so that a connector upgrade cannot
+     * leave a newly added option out. MariaDB resolves its alias table first, then matches
+     * {@code Configuration.Builder} fields by name without regard to case; this mirrors both steps.
+     * Loaded on first use so callers that only classify URLs do not need the driver's internals.
+     */
+    private static final class NativeBooleanOptions {
+        private static final Set<String> NAMES = load();
+
+        private NativeBooleanOptions() { }
+
+        private static boolean contains(String key) {
+            return NAMES.contains(asciiLowerCase(key));
+        }
+
+        private static Set<String> load() {
+            Set<String> names = new HashSet<>();
+            for (Field field : org.mariadb.jdbc.Configuration.Builder.class.getDeclaredFields()) {
+                if (field.getType() == Boolean.class) names.add(asciiLowerCase(field.getName()));
+            }
+            for (Map.Entry<String, String> alias : OptionAliases.OPTIONS_ALIASES.entrySet()) {
+                if (names.contains(asciiLowerCase(alias.getValue()))) names.add(asciiLowerCase(alias.getKey()));
+            }
+            return Set.copyOf(names);
+        }
     }
 
     /** Never silently replace an explicitly selected JSSE security implementation. */

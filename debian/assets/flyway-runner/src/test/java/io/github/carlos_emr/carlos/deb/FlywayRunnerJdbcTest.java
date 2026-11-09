@@ -55,6 +55,11 @@ public final class FlywayRunnerJdbcTest {
         require("carlos".equals(configuration.database()), "database selection must survive translation");
         require("DISABLE".equals(configuration.sslMode().name()), "explicit disabled TLS must remain disabled");
         require(configuration.allowPublicKeyRetrieval(), "authentication option must survive translation");
+        // #5969: Connector/J accepted yes/no for every Boolean option; MariaDB refuses them unless translated.
+        Configuration spelled = parsed(FlywayRunner.jdbcUrl("jdbc:mysql://127.0.0.1:3306/carlos"
+                + "?useSSL=false&allowPublicKeyRetrieval=yes&useServerPrepStmts=No&tcpKeepAlive=YES"));
+        require(spelled.allowPublicKeyRetrieval() && !spelled.useServerPrepStmts() && spelled.tcpKeepAlive(),
+                "Connector/J yes/no Boolean spellings must survive translation");
 
         String secured = FlywayRunner.jdbcUrl("jdbc:mysql://db.example:3306/carlos?sslMode=VERIFY_IDENTITY");
         require("VERIFY_FULL".equals(parsed(secured).sslMode().name()),

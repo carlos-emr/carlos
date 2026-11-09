@@ -417,6 +417,35 @@ class JdbcConnectorMariaDbIntegrationTest {
         }
     }
 
+    @org.junit.jupiter.api.Test
+    void shouldConnectAndApplyConnectorJYesNo_forLegacyBooleanOptions() throws Exception {
+        // #5969: these Connector/J spellings failed every MariaDB connection before translation.
+        try (var source = source(true, "allowPublicKeyRetrieval=yes&useServerPrepStmts=YES&cachePrepStmts=No"
+                + "&tcpKeepAlive=Yes&allowMultiQueries=yes&useAffectedRows=no&yearIsDateType=NO");
+             var connection = source.getConnection(); var statement = connection.createStatement()) {
+            var configuration = connection.unwrap(org.mariadb.jdbc.Connection.class).getContext().getConf();
+            assertThat(configuration.allowPublicKeyRetrieval()).isTrue();
+            assertThat(configuration.useServerPrepStmts()).isTrue();
+            assertThat(configuration.cachePrepStmts()).isFalse();
+            assertThat(configuration.tcpKeepAlive()).isTrue();
+            assertThat(configuration.allowMultiQueries()).isTrue();
+            assertThat(configuration.useAffectedRows()).isFalse();
+            assertThat(configuration.yearIsDateType()).isFalse();
+            statement.execute("CREATE TABLE yes_no_probe(id INT PRIMARY KEY, label VARCHAR(10))");
+            // allowMultiQueries=yes: one statement string carries two inserts.
+            statement.execute("INSERT INTO yes_no_probe VALUES (1, 'same'); INSERT INTO yes_no_probe VALUES (2, 'same')");
+            // useAffectedRows=no keeps Connector/J's found-rows count for a row that does not change.
+            assertThat(statement.executeUpdate("UPDATE yes_no_probe SET label='same' WHERE id=1")).isEqualTo(1);
+            try (var count = connection.prepareStatement("SELECT COUNT(*) FROM yes_no_probe WHERE label=?")) {
+                count.setString(1, "same");
+                try (var rows = count.executeQuery()) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getInt(1)).isEqualTo(2);
+                }
+            }
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void shouldReturnRequestedNativeTypes_whenUnwrappingJdbcObjects(boolean legacy) throws Exception {
