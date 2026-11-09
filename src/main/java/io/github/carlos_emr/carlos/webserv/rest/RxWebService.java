@@ -134,7 +134,7 @@ public class RxWebService extends AbstractServiceImpl {
     }
 
     private static boolean validateVersionPreference(String value) {
-        if (value != null && !"true".equalsIgnoreCase(value) && !"false".equalsIgnoreCase(value)) {
+        if (value != null && !value.matches("(?i:true|false)")) {
             throw new jakarta.ws.rs.BadRequestException("includeRowVersion must be true or false");
         }
         return Boolean.parseBoolean(value);

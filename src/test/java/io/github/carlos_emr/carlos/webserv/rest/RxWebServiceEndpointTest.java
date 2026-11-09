@@ -168,9 +168,11 @@ class RxWebServiceEndpointTest extends CarlosRestTestBase {
 
     @Test
     void shouldRejectInvalidVersionPreference_beforeAnyPrescriptionWrite() {
-        try (Response response = request().path("/rx/prescribe").query("demographicNo", "100")
-                .query("includeRowVersion", "1").post(jakarta.ws.rs.client.Entity.json(List.of(aspirinTransfer())))) {
-            assertThat(response.getStatus()).isEqualTo(400);
+        for (String invalid : List.of("1", "fal\u017fe", " true", "false ")) {
+            try (Response response = request().path("/rx/prescribe").query("demographicNo", "100")
+                    .query("includeRowVersion", invalid).post(jakarta.ws.rs.client.Entity.json(List.of(aspirinTransfer())))) {
+                assertThat(response.getStatus()).isEqualTo(400);
+            }
         }
         org.mockito.Mockito.verifyNoInteractions(mockRxManager, mockDrugConverter);
     }

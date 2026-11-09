@@ -61,7 +61,9 @@ public class RxSourceVersionValidator {
     public long updateCommentDigest(String provider, int patient, int script, Long original, String digest, String comment) {
         if (digest == null || !digest.matches("[a-f0-9]{64}")) throw new IllegalArgumentException("Invalid note digest");
         return updateCommentLocked(provider, patient, script, original,
-                current -> digest.equals(commentDigest(current)), comment);
+                current -> java.security.MessageDigest.isEqual(
+                        digest.getBytes(java.nio.charset.StandardCharsets.US_ASCII),
+                        commentDigest(current).getBytes(java.nio.charset.StandardCharsets.US_ASCII)), comment);
     }
 
     private long updateCommentLocked(String provider, int patient, int script, Long original,
