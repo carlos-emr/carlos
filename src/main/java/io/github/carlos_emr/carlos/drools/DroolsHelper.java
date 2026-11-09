@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.drools;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -285,13 +287,13 @@ public final class DroolsHelper {
                 try {
                     kContainer.dispose();
                 } catch (RuntimeException e) {
-                    log.warn("Failed to dispose KieContainer for releaseId {}", releaseId, e);
+                    log.warn("Failed to dispose KieContainer for releaseId {} {}", releaseId, LogSafe.exceptionTrace(e));
                 }
             }
             try {
                 ks.getRepository().removeKieModule(releaseId);
             } catch (RuntimeException e) {
-                log.warn("Failed to remove KieModule for releaseId {}", releaseId, e);
+                log.warn("Failed to remove KieModule for releaseId {} {}", releaseId, LogSafe.exceptionTrace(e));
             }
         }
     }
@@ -328,7 +330,7 @@ public final class DroolsHelper {
                 File allowedDir = new File(measurementDirPath);
                 File file = PathValidationUtils.validatePath(drlFilename, allowedDir);
                 if (file.isFile() && file.canRead()) {
-                    log.debug("Loading measurement DRL from file: {}", file.getName());
+                    log.debug("Loading configured measurement rules");
                     try (FileInputStream fis = new FileInputStream(file)) {
                         measurementRuleBase = loadFromInputStream(fis);
                     }
@@ -341,17 +343,17 @@ public final class DroolsHelper {
                 String resourcePath = "/oscar/encounter/oscarMeasurements/flowsheets/decisionSupport/" + drlFilename;
                 URL url = classpathAnchor.getResource(resourcePath);
                 if (url == null) {
-                    log.warn("Measurement DRL resource not found on classpath: {}", resourcePath);
+                    log.warn("Measurement DRL resource not found on classpath");
                     return null;
                 }
-                log.debug("Loading measurement DRL from classpath: {}", url.getFile());
+                log.debug("Loading measurement DRL from classpath");
                 measurementRuleBase = loadFromUrl(url);
             }
         } catch (SecurityException e) {
-            log.error("Security violation loading measurement DRL '{}': path traversal rejected", drlFilename, e);
+            log.error("Security violation loading measurement DRL: path traversal rejected: {}", LogSafe.exceptionTrace(e));
             throw e;
         } catch (IOException | DroolsCompilationException e) {
-            log.error("Failed to load measurement rule base for DRL file '{}'", drlFilename, e);
+            log.error("Failed to load measurement rule base for DRL file: {}", LogSafe.exceptionTrace(e));
         }
         return measurementRuleBase;
     }

@@ -22,6 +22,8 @@
 
 package io.github.carlos_emr.carlos.eform;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.File;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -251,7 +253,7 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         try {
             targetDir = PathValidationUtils.resolveConfiguredDirectory(imageDir, "EFORM_IMAGES_DIR");
         } catch (SecurityException e) {
-            logger.warn("eForm image directory is invalid: {}; skipping asset deployment", imageDir, e);
+            logger.warn("eForm image directory is invalid; skipping asset deployment: {}", LogSafe.exceptionTrace(e));
             return;
         }
         if (!createDirectory(targetDir, imageDir)) {
@@ -271,7 +273,7 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         // that the deployer RAN to the end, not that every asset succeeded — a failed asset above is
         // logged there — so it says "attempt finished" rather than "complete" to avoid misleading
         // startup monitoring into treating the assets as fully available.
-        logger.info("eForm asset deployment attempt finished for directory: {}", targetDir.getAbsolutePath());
+        logger.info("eForm asset deployment attempt finished for directory");
     }
 
     /**
@@ -294,7 +296,7 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         try {
             createDirectoriesWithOwnerOnlyPermissions(targetPath);
         } catch (IOException e) {
-            logger.warn("eForm image directory does not exist and could not be created: {}; skipping asset deployment", imageDir, e);
+            logger.warn("eForm image directory does not exist and could not be created; skipping asset deployment: {}", LogSafe.exceptionTrace(e));
             return false;
         }
 
@@ -312,7 +314,7 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
             }
         }
         if (targetVerified) {
-            logger.info("Created eForm image directory with verified owner-only permissions: {}", imageDir);
+            logger.info("Created eForm image directory with verified owner-only permissions");
         }
         return true;
     }
@@ -344,16 +346,15 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
             Set<PosixFilePermission> actualPermissions = Files.getPosixFilePermissions(targetPath);
             if (!actualPermissions.equals(ownerOnlyPermissions)) {
                 if (logger.isWarnEnabled()) {
-                    logger.warn("Could not verify owner-only permissions on eForm image directory: {}; actual permissions={}",
-                            imageDir, PosixFilePermissions.toString(actualPermissions));
+                    logger.warn("Could not verify owner-only permissions on eForm image directory; actual permissions={}", PosixFilePermissions.toString(actualPermissions));
                 }
                 return false;
             }
             return true;
         } catch (UnsupportedOperationException e) {
-            logger.warn("Could not restrict permissions on eForm image directory: {}; POSIX permissions are unsupported on this filesystem", imageDir);
+            logger.warn("Could not restrict permissions on eForm image directory; POSIX permissions are unsupported on this filesystem");
         } catch (IOException e) {
-            logger.warn("Could not restrict permissions on eForm image directory: {}; directory may be world-accessible", imageDir, e);
+            logger.warn("Could not restrict permissions on eForm image directory; directory may be world-accessible: {}", LogSafe.exceptionTrace(e));
         }
         return false;
     }
@@ -380,7 +381,7 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         } catch (IOException e) {
             // ByteArrayInputStream.close() is a documented no-op; this only satisfies the
             // try-with-resources close() contract should a non-array stream type be used here later.
-            logger.error("Failed to close generated asset stream for {}", filename, e);
+            logger.error("Failed to close generated asset stream for: {}", LogSafe.exceptionTrace(e));
         }
     }
 
@@ -407,20 +408,19 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         // Managed assets fall through to deployAssetFromStream, which compares the shipped bytes
         // against what is on disk; only seeded assets short-circuit here.
         if (targetFile.exists() && !isManagedAsset(filename)) {
-            logger.debug("Seeded eForm asset already exists, leaving clinic copy in place: {}",
-                    targetFile.getAbsolutePath());
+            logger.debug("Seeded eForm asset already exists, leaving clinic copy in place");
             return;
         }
 
         InputStream resourceStream = servletContext.getResourceAsStream(resourcePath);
         if (resourceStream == null) {
-            logger.warn("Bundled eForm asset not found in WAR: {}", resourcePath);
+            logger.warn("Bundled eForm asset not found in WAR");
             return;
         }
         try (InputStream is = resourceStream) {
             deployAssetFromStream(filename, targetDir, is, resourcePath);
         } catch (IOException e) {
-            logger.error("Failed to deploy eForm asset: {}", filename, e);
+            logger.error("Failed to deploy eForm asset: {}", LogSafe.exceptionTrace(e));
         }
     }
 
@@ -436,8 +436,7 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         // See deployAssetFromPath: managed assets are compared, not skipped. This is the case the
         // "degraded asset would become permanent across redeploys" comment below was worried about.
         if (targetFile.exists() && !isManagedAsset(filename)) {
-            logger.debug("Seeded eForm asset already exists, leaving clinic copy in place: {}",
-                    targetFile.getAbsolutePath());
+            logger.debug("Seeded eForm asset already exists, leaving clinic copy in place");
             return;
         }
         try (InputStream jq = servletContext.getResourceAsStream(JQUERY_RESOURCE_PATH);
@@ -462,13 +461,12 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
                 // the legacy filename 404s, which the render gate DOES see; on a later startup it
                 // means the previous good copy stays in place rather than being replaced by a
                 // silently degraded one.
-                logger.error("jQuery compat shim not found in WAR ({}); refusing to deploy {} without it",
-                        JQUERY_COMPAT_RESOURCE_PATH, filename);
+                logger.error("jQuery compat shim not found in WAR; refusing to deploy without it");
                 return;
             }
             deployGeneratedAsset(filename, targetDir, combined.toByteArray());
         } catch (IOException e) {
-            logger.error("Failed to deploy combined jQuery+compat asset: {}", filename, e);
+            logger.error("Failed to deploy combined jQuery+compat asset: {}", LogSafe.exceptionTrace(e));
         }
     }
 
@@ -478,8 +476,7 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         Path tempFile = null;
         boolean managed = isManagedAsset(filename) || isRetiredShippedCopy(filename, targetPath);
         if (targetFile.exists() && !managed) {
-            logger.debug("Seeded eForm asset already exists, leaving clinic copy in place: {}",
-                    targetFile.getAbsolutePath());
+            logger.debug("Seeded eForm asset already exists, leaving clinic copy in place");
             return;
         }
 
@@ -491,20 +488,19 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
                 // asset is neither rewritten nor logged on every startup — only a genuine version
                 // change touches the filesystem.
                 if (Files.mismatch(tempFile, targetPath) < 0) {
-                    logger.debug("Managed eForm asset is already current: {}", targetFile.getAbsolutePath());
+                    logger.debug("Managed eForm asset is already current");
                     return;
                 }
                 replaceTempFile(tempFile, targetPath);
-                logger.info("Updated managed eForm asset to the shipped version: {} -> {}",
-                        sourceLabel, targetFile.getAbsolutePath());
+                logger.info("Updated managed eForm asset to the shipped version");
                 return;
             }
             moveTempFile(tempFile, targetPath);
-            logger.info("Deployed eForm asset: {} -> {}", sourceLabel, targetFile.getAbsolutePath());
+            logger.info("Deployed eForm asset");
         } catch (FileAlreadyExistsException e) {
-            logger.debug("eForm asset was created concurrently, skipping: {}", targetFile.getAbsolutePath());
+            logger.debug("eForm asset was created concurrently, skipping");
         } catch (IOException e) {
-            logger.error("Failed to deploy eForm asset: {}", filename, e);
+            logger.error("Failed to deploy eForm asset: {}", LogSafe.exceptionTrace(e));
         } finally {
             deleteTempFile(tempFile);
         }
@@ -540,8 +536,7 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
             byte[] digest = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(target));
             return retired.contains(HexFormat.of().formatHex(digest));
         } catch (IOException | NoSuchAlgorithmException e) {
-            logger.warn("Could not compare seeded eForm asset with retired shipped versions; leaving it in place: {}",
-                    target, e);
+            logger.warn("Could not compare seeded eForm asset with retired shipped versions; leaving it in place: {}", LogSafe.exceptionTrace(e));
             return false;
         }
     }
@@ -550,7 +545,7 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         try {
             moveTempFileAtomically(tempFile, targetPath);
         } catch (AtomicMoveNotSupportedException e) {
-            logger.debug("Atomic move not supported for eForm asset deployment; falling back to regular move: {} -> {}", tempFile, targetPath);
+            logger.debug("Atomic move not supported for eForm asset deployment; falling back to regular move");
             moveTempFileWithoutAtomicOption(tempFile, targetPath);
         }
     }
@@ -564,7 +559,7 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         try {
             replaceTempFileAtomically(tempFile, targetPath);
         } catch (AtomicMoveNotSupportedException e) {
-            logger.debug("Atomic move not supported for eForm asset replacement; falling back to regular move: {} -> {}", tempFile, targetPath);
+            logger.debug("Atomic move not supported for eForm asset replacement; falling back to regular move");
             replaceTempFileWithoutAtomicOption(tempFile, targetPath);
         }
     }
@@ -592,7 +587,7 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         try {
             Files.deleteIfExists(tempFile);
         } catch (IOException deleteEx) {
-            logger.warn("Could not remove temporary eForm asset file: {}", tempFile, deleteEx);
+            logger.warn("Could not remove temporary eForm asset file: {}", LogSafe.exceptionTrace(deleteEx));
         }
     }
 

@@ -24,6 +24,8 @@
 
 package io.github.carlos_emr.carlos.demographic;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
@@ -89,7 +91,7 @@ public class PrintDemoLabel2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static Logger logger = MiscUtils.getLogger();
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     /**
      * Default constructor for PrintDemoLabel2Action.
@@ -200,9 +202,9 @@ public class PrintDemoLabel2Action extends ActionSupport {
         logger.debug("user home: " + System.getProperty("user.home"));
         try {
             ins = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(labelPath)));
-            logger.debug("loading from :" + labelPath + " " + ins);
+            logger.debug("Loading configured report resource");
         } catch (FileNotFoundException | SecurityException ex1) {
-            logger.warn("label xml file not found at " + labelPath + " using default instead", ex1);
+            logger.warn("Label XML template not found; using bundled default: {}", LogSafe.exceptionTrace(ex1));
         }
         if (ins == null) {
             try {

@@ -76,6 +76,11 @@ public interface DemographicDao {
 
     public List<Demographic> getActiveDemographics(final int offset, final int limit);
 
+    /** Bounded identifier-only scan used to count authorized active patients. */
+    default List<Integer> getActiveDemographicIds(int offset, int limit) {
+        return getActiveDemographics(offset, limit).stream().map(Demographic::getDemographicNo).toList();
+    }
+
     public Demographic getDemographicById(Integer demographic_id);
 
     /** Reads only ID and name columns, in batches of at most 500 distinct IDs. */
@@ -393,6 +398,15 @@ public interface DemographicDao {
      * @since 2026-10-15
      */
     public Demographic findForUpdate(Integer demographicNo);
+
+    /**
+     * Fresh current row under a write lock, including when this context already cached it.
+     * Existing extension DAOs remain binary compatible and refuse an unsupported safety guarantee.
+     */
+    default Demographic findFreshForUpdate(Integer demographicNo) {
+        throw new UnsupportedOperationException("Fresh locked patient reads are not supported by this DAO");
+    }
+
 
     /**
      * Locks an existing participant row for a merge inside the caller's transaction.

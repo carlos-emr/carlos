@@ -170,7 +170,7 @@ public class DSPreventionDrools {
      *                   DRL compilation encounters syntax errors in the generated rules
      */
     public static KieBase createRuleBase(byte[] ruleSet) throws Exception {
-        logger.debug(preventionObjectClassPath);
+        logger.debug("Loading configured prevention classes");
         RuleBaseCreator rbc = new RuleBaseCreator();
         ResourceBundle oscarResource = ResourceBundle.getBundle("oscarResources");
 

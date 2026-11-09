@@ -40,6 +40,13 @@ public final class RestXmlAnnotationIntrospector extends JakartaXmlBindAnnotatio
         super(typeFactory);
     }
 
+    /** Explicit JSON inclusion can retain a JSON-only property excluded from published XML. */
+    @Override
+    public boolean hasIgnoreMarker(com.fasterxml.jackson.databind.introspect.AnnotatedMember member) {
+        var json = member.getAnnotation(com.fasterxml.jackson.annotation.JsonIgnore.class);
+        return json != null && !json.value() ? false : super.hasIgnoreMarker(member);
+    }
+
     /**
      * Retains existing JSON adapter conversions while ignoring the XML-only compatibility adapter family.
      *

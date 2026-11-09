@@ -66,6 +66,7 @@ class DemographicWsEndpointTest extends CarlosSoapTestBase {
     @Mock
     private PatientConsentManager patientConsentManager;
 
+    @Mock private io.github.carlos_emr.carlos.managers.SecurityInfoManager visibility;
     private DemographicWs ws;
 
     @Override
@@ -83,6 +84,7 @@ class DemographicWsEndpointTest extends CarlosSoapTestBase {
     void setUpMocks() {
         registerMock(DemographicManager.class, demographicManager);
         registerMock(PatientConsentManager.class, patientConsentManager);
+        registerMock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class, visibility);
         injectDependency(ws, "demographicManager", demographicManager);
         injectDependency(ws, "patientConsentManager", patientConsentManager);
     }
@@ -220,4 +222,38 @@ class DemographicWsEndpointTest extends CarlosSoapTestBase {
             assertThat(result).isNullOrEmpty();
         }
     }
+    @Test
+    void shouldFilterAndDeduplicateConsentedIds_throughBoundedReadonlyPatientPolicy() {
+        when(visibility.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"),
+                org.mockito.ArgumentMatchers.isNull())).thenReturn(true);
+        var type = new io.github.carlos_emr.carlos.commn.model.ConsentType();
+        when(patientConsentManager.getProviderSpecificConsent(any(LoggedInInfo.class))).thenReturn(type);
+        List<io.github.carlos_emr.carlos.commn.model.Consent> consents = new ArrayList<>();
+        for (int id = 1; id <= 502; id++) {
+            var consent = new io.github.carlos_emr.carlos.commn.model.Consent(); consent.setDemographicNo(id);
+            consents.add(consent); consents.add(consent);
+        }
+        when(patientConsentManager.getConsentsByTypeAndEditDate(any(LoggedInInfo.class), eq(type), any(java.util.Date.class)))
+                .thenReturn(consents);
+        when(visibility.getReadableDemographicIds(any(LoggedInInfo.class), org.mockito.ArgumentMatchers.anyCollection()))
+                .thenAnswer(call -> {
+                    var ids = new java.util.LinkedHashSet<>(call.<java.util.Collection<Integer>>getArgument(1));
+                    ids.retainAll(List.of(501, 502)); return ids;
+                });
+        var proxy = createClient(DemographicWs.class);
+        assertThat(proxy.getConsentedDemographicIdsAfter(java.util.Calendar.getInstance())).containsExactly(501, 502);
+        org.mockito.Mockito.verify(visibility).getReadableDemographicIds(any(LoggedInInfo.class),
+                eq(java.util.stream.IntStream.rangeClosed(1, 500).boxed().toList()));
+        org.mockito.Mockito.verify(visibility).getReadableDemographicIds(any(LoggedInInfo.class), eq(List.of(501, 502)));
+    }
+
+    @Test
+    void shouldRefuseUnauthorizedConsentDiscovery_beforeReadingConsentRecords() {
+        var proxy = createClient(DemographicWs.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> proxy.getConsentedDemographicIdsAfter(java.util.Calendar.getInstance()))
+                .isInstanceOf(jakarta.xml.ws.soap.SOAPFaultException.class);
+        org.mockito.Mockito.verifyNoInteractions(patientConsentManager);
+    }
+
 }

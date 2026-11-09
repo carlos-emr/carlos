@@ -64,13 +64,13 @@ public final class ConfigXmlUtils {
 
             return results;
         } catch (Exception var3) {
-            logger.error("Error initialising ConfigXmlUtils", var3);
+            logger.error("Error initialising ConfigXmlUtils: {}", LogSafe.exceptionTrace(var3));
             throw new RuntimeException(var3);
         }
     }
 
     private static void readFileIntoMap(String fileName, HashMap<String, HashMap<String, Object>> map) throws ParserConfigurationException, SAXException, IOException {
-        logger.info("Reading config file into map : " + fileName);
+        logger.info("Reading config file into map");
         Document doc = XmlUtils.toDocumentFromFile(fileName);
         Node rootNode = doc.getFirstChild();
         NodeList categories = rootNode.getChildNodes();

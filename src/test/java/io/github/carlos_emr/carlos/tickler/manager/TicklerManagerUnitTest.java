@@ -97,6 +97,9 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         lenient().when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any()))
             .thenReturn(true);
 
+        lenient().when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), eq(TEST_DEMO_NO))).thenReturn(true);
+        lenient().when(mockTicklerDao.lockPatientForUpdate(anyInt())).thenReturn(java.util.List.of(TEST_DEMO_NO));
+
         // Create manager instance
         ticklerManager = new TicklerManagerImpl();
 
@@ -406,6 +409,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
             assertThat(update.getValue().getTicklerNo()).isEqualTo(77);
             assertThat(update.getValue().getStatus()).isEqualTo(Tickler.STATUS.D);
             assertThat(update.getValue().getProviderNo()).isEqualTo(TEST_PROVIDER);
+            verify(mockTicklerDao).lockPatientForUpdate(ticklerId);
             verify(mockTicklerDao).find(ticklerId);
             verify(mockTicklerDao).merge(tickler);
             verifyNoMoreInteractions(mockTicklerDao, mockTicklerUpdateDao);
@@ -423,6 +427,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
             ticklerManager.deleteTickler(mockLoggedInInfo, ticklerId, TEST_PROVIDER);
 
             assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.D);
+            verify(mockTicklerDao).lockPatientForUpdate(ticklerId);
             verify(mockTicklerDao).find(ticklerId);
             verifyNoMoreInteractions(mockTicklerDao);
             verifyNoInteractions(mockTicklerUpdateDao, mockTicklerCommentDao, mockTicklerDocsDao);

@@ -120,6 +120,9 @@ def load_plan(path=DEFAULT_PLAN, root=ROOT):
     plan = read_json(path)
     if plan.get("schemaVersion") != 1 or plan.get("targetBranch") != "release/2026.08":
         raise EvidenceError("Wrong plan schema or target branch")
+    bindings = plan.get("pathBindings", {})
+    if not isinstance(bindings, dict) or any(not isinstance(binding, dict) for binding in bindings.values()):
+        raise EvidenceError("Path bindings must map paths to objects")
     work = plan.get("workstreams", [])
     if len(work) != 40 or {row.get("id") for row in work} != {f"T{i:02}" for i in range(1, 41)}:
         raise EvidenceError("The 40 reviewed workstreams must appear exactly once")

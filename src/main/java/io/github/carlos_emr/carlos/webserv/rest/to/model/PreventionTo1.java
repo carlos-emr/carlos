@@ -161,6 +161,19 @@ public class PreventionTo1 {
         return creationDate;
     }
 
+    /** Copies the single stored refusal discriminator without boolean setters overwriting it. */
+    public void applyClinicalState(boolean deleted, int refusalStatus, boolean never,
+            Date creationDate, Date lastUpdateDate) {
+        if (refusalStatus < 0 || refusalStatus > 3) {
+            throw new IllegalArgumentException("Unknown prevention status");
+        }
+        setDeleted(deleted);
+        refused = (char) ('0' + refusalStatus);
+        setNever(never);
+        this.creationDate = creationDate;
+        this.lastUpdateDate = lastUpdateDate;
+    }
+
     protected void autoSetUpdateTime() {
         lastUpdateDate = new Date();
     }

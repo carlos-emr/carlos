@@ -87,6 +87,8 @@ class TicklerWebServiceUnitTest extends CarlosUnitTestBase {
         injectDependency(service, "ticklerManager", ticklerManager);
         injectDependency(service, "securityInfoManager", securityInfoManager);
 
+        lenient().when(ticklerManager.getTicklerDemographicNoForUpdate(any(),org.mockito.ArgumentMatchers.anyInt())).thenReturn(42);
+        lenient().when(securityInfoManager.isAllowedAccessToPatientRecord(any(),eq(42))).thenReturn(true);
         lenient().when(securityInfoManager.hasPrivilege(any(), eq("_tickler"), eq("u"), any()))
                 .thenReturn(true);
     }
