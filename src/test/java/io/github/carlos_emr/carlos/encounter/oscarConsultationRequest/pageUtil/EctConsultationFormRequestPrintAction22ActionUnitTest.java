@@ -219,6 +219,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         }
     }
 
+    /** A verification failure must leave no printable consultation PDF behind. */
     @Test
     @DisplayName("should refuse direct printing when the stored consultation signature cannot be verified")
     void shouldRefuseDirectPrint_whenStoredSignatureCannotBeVerified() {

@@ -283,6 +283,7 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
             assertThat(readable.getModuleType()).isEqualTo(ModuleType.E_FORM);
         }
 
+        /** Checks that each saved Rich Text Letter URL spelling identifies the same signature. */
         @ParameterizedTest
         @Tag("query")
         @ValueSource(strings = {

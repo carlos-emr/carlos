@@ -59,6 +59,10 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
     // a raw parameter nor a valid escape) is NOT accepted.
     private static final Pattern DIGITAL_SIGNATURE_ID_REFERENCE = Pattern.compile("(?:\\?|&(?:amp;)?)digitalSignatureId=(\\d+)");
 
+    /**
+     * Serves a stored signature only for the patient and eForm bound to a live render grant.
+     * Unprovable or conflicting bindings fail closed before signature bytes are loaded.
+     */
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         // ensure it's a local machine request... no one else should be calling this servlet.
