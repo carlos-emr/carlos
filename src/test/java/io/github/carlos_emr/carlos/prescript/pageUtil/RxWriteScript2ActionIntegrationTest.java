@@ -81,6 +81,9 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
 
     @BeforeEach
     void setUp() {
+        var receipts = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.class);
+        when(receipts.start(any(), anyInt(), any(), any(), any())).thenReturn(true);
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.class, receipts);
         replaceSpringUtilsBean(DrugDao.class, mockDrugDao);
         replaceSpringUtilsBean(RxManager.class, mockRxManager);
         // Patient-level Rx access (the shared Rx write check, #3908) is granted unless a test denies it.
@@ -922,31 +925,27 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should not emit a successful archival audit when its transaction rolls back")
-    void shouldNotAuditArchival_whenTransactionRollsBack() {
+    @DisplayName("should issue authoritative archival audits inside the clinical transaction")
+    void shouldIssueAuditInsideTransaction_whenArchiving() {
         RxSessionBean bean = new RxSessionBean();
         bean.setDemographicNo(1001);
         bean.getReRxDrugIdList().add("3003");
         when(mockRxManager.archiveDrug(any(), eq(3003), eq(1001), eq(Drug.REPRESCRIBED))).thenReturn(true);
-
         try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
             assertThat(action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(3003), "127.0.0.1", "audit")).isTrue();
-            logAction.verifyNoInteractions();
-
+            verifyAudited(logAction, 3003);
             TestTransaction.flagForRollback();
             TestTransaction.end();
-
-            logAction.verifyNoInteractions();
+            // Physical rollback of strict audit rows is exercised by RxSaveReceiptCommitIntegrationTest.
         }
         verify(mockRxManager).archiveDrug(any(), eq(3003), eq(1001), eq(Drug.REPRESCRIBED));
     }
 
     /**
      * These tests replace drug persistence/archival with mocks, so committing writes no fixture rows.
-     * Keep the audit mock open through the real commit, and prove it was not called beforehand.
+     * Keep the audit mock open through the real commit; authoritative audit calls now join that transaction.
      */
     private void commitAuditTransaction(MockedStatic<LogAction> logAction) {
-        logAction.verifyNoInteractions();
         TestTransaction.flagForCommit();
         TestTransaction.end();
     }
@@ -956,17 +955,17 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
      * discontinued by the system.
      */
     private void verifyAudited(MockedStatic<LogAction> logAction, int drugId) {
-        logAction.verify(() -> LogAction.addLog(any(), eq(LogConst.REPRESCRIBE), any(),
+        logAction.verify(() -> LogAction.addLogStrict(any(), eq(LogConst.REPRESCRIBE), any(),
                 eq("drugid=" + drugId), any(), any(), any()));
-        logAction.verify(() -> LogAction.addLog(any(), eq(LogConst.DISCONTINUE), any(),
+        logAction.verify(() -> LogAction.addLogStrict(any(), eq(LogConst.DISCONTINUE), any(),
                 eq("drugid=" + drugId), any(), any(), any()));
     }
 
     /** Asserts a drug that was not archived left no audit trail of either kind. */
     private void verifyNotAudited(MockedStatic<LogAction> logAction, int drugId) {
-        logAction.verify(() -> LogAction.addLog(any(), eq(LogConst.REPRESCRIBE), any(),
+        logAction.verify(() -> LogAction.addLogStrict(any(), eq(LogConst.REPRESCRIBE), any(),
                 eq("drugid=" + drugId), any(), any(), any()), never());
-        logAction.verify(() -> LogAction.addLog(any(), eq(LogConst.DISCONTINUE), any(),
+        logAction.verify(() -> LogAction.addLogStrict(any(), eq(LogConst.DISCONTINUE), any(),
                 eq("drugid=" + drugId), any(), any(), any()), never());
     }
 

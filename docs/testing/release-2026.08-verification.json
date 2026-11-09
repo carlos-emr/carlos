@@ -3185,7 +3185,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest",
+        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,RxStrictAuditIntegrationTest,RxSaveReceiptCommitIntegrationTest,RxConcurrencyIntegrationTest,RxFavoriteGroupIntegrationTest,RxFavoriteCopyIntegrationTest,RxRestPrescriptionRollbackIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -3227,7 +3227,13 @@
         "TicklerPatientAccessMariaDbIntegrationTest": 12,
         "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
         "AppointmentUpdateDaoIntegrationTest": 17,
-        "ReportingPatientListAuditMariaDbIntegrationTest": 4
+        "ReportingPatientListAuditMariaDbIntegrationTest": 4,
+        "RxSaveReceiptCommitIntegrationTest": 8,
+        "RxConcurrencyIntegrationTest": 6,
+        "RxFavoriteGroupIntegrationTest": 6,
+        "RxFavoriteCopyIntegrationTest": 1,
+        "RxRestPrescriptionRollbackIntegrationTest": 1,
+        "RxStrictAuditIntegrationTest": 1
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"

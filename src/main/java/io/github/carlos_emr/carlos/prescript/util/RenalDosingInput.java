@@ -30,6 +30,54 @@ public final class RenalDosingInput {
         }
     }
 
+    /** Normalizes explicitly identified creatinine units; missing or ambiguous units cannot support dosing. */
+    public static double creatinineMicromoles(String observation, String units) {
+        double value = positiveNumber(observation);
+        if (!Double.isFinite(value) || units == null) return Double.NaN;
+        String normalized = normalizeUnits(units);
+        return switch (normalized) {
+            case "umol/l", "inumol/l", "micromol/l", "micromoles/l" -> value;
+            case "mg/dl", "inmg/dl" -> Double.isFinite(value * 88.4) ? value * 88.4 : Double.NaN;
+            default -> Double.NaN;
+        };
+    }
+
+    /** Normalizes explicitly recorded weight units without guessing from the magnitude. */
+    public static double weightKilograms(String observation, String units) {
+        double value = positiveNumber(observation);
+        if (!Double.isFinite(value) || units == null) return Double.NaN;
+        return switch (normalizeUnits(units)) {
+            case "kg", "inkg", "kilograms" -> value;
+            case "lb", "lbs", "inlb", "inlbs" -> value * 0.45359237;
+            default -> Double.NaN;
+        };
+    }
+
+    /**
+     * Conservative qualification range for automatic adult highlighting, not a normal-reference range.
+     * Outside it the complete dosing table remains available for manual clinical assessment.
+     */
+    public static boolean supportsAutomaticHighlight(int age, double kilograms, double micromoles) {
+        return supportsAge(age) && supportsWeight(kilograms) && supportsCreatinine(micromoles);
+    }
+
+    public static boolean supportsAge(int age) { return age >= 18 && age <= 120; }
+    public static boolean supportsWeight(double value) { return Double.isFinite(value) && value >= 20 && value <= 500; }
+    public static boolean supportsCreatinine(double value) { return Double.isFinite(value) && value >= 10 && value <= 3000;
+    }
+
+    /** Fold only ASCII unit letters and explicitly supported micro signs; reject Unicode look-alikes. */
+    private static String normalizeUnits(String units) {
+        StringBuilder normalized = new StringBuilder();
+        for (char value : units.trim().toCharArray()) {
+            if (value == ' ') continue;
+            if (value >= 'A' && value <= 'Z') value = (char) (value + ('a' - 'A'));
+            if (value == 'µ' || value == 'μ') value = 'u';
+            normalized.append(value);
+        }
+        return normalized.toString();
+    }
+
     /**
      * Validates the complete birth date before the demographic age calculation.
      *

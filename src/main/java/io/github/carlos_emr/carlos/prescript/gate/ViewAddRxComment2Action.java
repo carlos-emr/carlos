@@ -33,6 +33,8 @@ import java.util.Objects;
  * @since 2026-04-13
  */
 public final class ViewAddRxComment2Action extends ActionSupport {
+    private static final String ORIGINAL_COMMENT_HASH = "originalCommentHash";
+
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private PrescriptionDao prescriptionDao = SpringUtils.getBean(PrescriptionDao.class);
@@ -85,6 +87,26 @@ public final class ViewAddRxComment2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_rx)");
         }
 
+        if (request.getParameter("originalVersion") != null || request.getParameter("originalComment") != null || request.getParameter(ORIGINAL_COMMENT_HASH) != null) {
+            try {
+                Long original = io.github.carlos_emr.carlos.managers.RxSourceVersionValidator.originalVersion(request.getParameter("originalVersion"));
+                var validator = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.RxSourceVersionValidator.class);
+                long version = request.getParameter(ORIGINAL_COMMENT_HASH) != null
+                        ? validator.updateCommentDigest(loggedInProvider, prescription.getDemographicId(), scriptNo, original,
+                                request.getParameter(ORIGINAL_COMMENT_HASH), comment)
+                        : validator.updateComment(loggedInProvider, prescription.getDemographicId(), scriptNo, original,
+                                request.getParameter("originalComment"), request.getParameter("originalComment") != null, comment);
+                response.setHeader("X-Carlos-Rx-Comment-Hash", io.github.carlos_emr.carlos.managers.RxSourceVersionValidator.commentDigest(comment));
+                response.setHeader("X-Carlos-Rx-Comment", "written");
+                response.setHeader("X-Carlos-Rx-Comment-Version", Long.toString(version));
+                response.setStatus(HttpServletResponse.SC_NO_CONTENT);
+                return NONE;
+            } catch (io.github.carlos_emr.carlos.managers.RxSourceVersionValidator.Conflict conflict) {
+                response.sendError(HttpServletResponse.SC_CONFLICT); return NONE;
+            } catch (IllegalArgumentException invalid) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST); return NONE;
+            }
+        }
         int updated = prescriptionDao.updatePrescriptionsByScriptNo(scriptNo, comment);
         // Driver configurations that count changed rather than matched rows return zero
         // for a no-op retry. Confirm the exact stored value with a fresh scalar read; the
@@ -93,6 +115,7 @@ public final class ViewAddRxComment2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_CONFLICT);
             return NONE;
         }
+        response.setHeader("X-Carlos-Rx-Comment", "written");
         response.setStatus(HttpServletResponse.SC_NO_CONTENT);
         return NONE;
     }
