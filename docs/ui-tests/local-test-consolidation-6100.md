@@ -56,7 +56,7 @@ historical evidence never substitutes for that qualification.
 | #5973 | Native DAO URLs use the packaged ROUND/old-alias conversion options through the compatibility driver. |
 | #5977 | Source-contract tests pin both the DrugRef lock goal/path and absence of the lock-skip flag. The new PR package job executes the shipping source-build pipeline. |
 | #6048 | Jasper compiles all eight dynamically dispatched JSP fragments in addition to the ordinary JSP execution; an exposed source-level incompatibility was repaired. |
-| #6062 | Source/blob-bound candidate floors are regenerated; CI detects stale Java sources, comparison bases and missing/stale floors. Twenty-seven policy tests cover refusal paths and stale-result removal. Executable zero floors require an actual named, source-bound review permalink. Higher old floors and all required ZIP refusal lines are retained. No waiver was added: H2 still refuses 29 unreviewed zero floors and unmet higher metrics; the complete native-lane union remains required. See `docs/testing/coverage-floor-policy.md`. |
+| #6062 | Source/blob-bound candidate floors are regenerated; CI detects stale Java sources, comparison bases and missing/stale floors. Twenty-nine policy tests cover refusal paths, stale-result removal and isolation from inherited Git locations. Executable zero floors require an actual named, source-bound review permalink. Higher old floors and all required ZIP refusal lines are retained. No waiver was added: the merged-source H2 report still refuses 32 unreviewed zero floors and unmet higher metrics across the full currentMain comparison; PR #6100's changed Java files meet their retained floors. The complete native-lane union remains required. See `docs/testing/coverage-floor-policy.md`. |
 | #6069 | Java runs on main/release pushes; PR CI now builds both complete Debian packages and tests ON/BC installs. The final head must pass these CI lanes. On restricted AppArmor kernels, the disposable container exposes securityfs before installation so the package can load its dedicated Chromium userns profile; the kernel restriction and renderer sandbox remain enabled. Installed CI also exercises a real eForm PDF. |
 | #6070 | Node, packaging Python and O19 generator CI use strict outcome runners. Native ON/BC references are provisioned for required generator cases. The pinned CLI's separate upstream suite retains its own contract. |
 | #6072 | Error-page detection recognizes colon-bearing HTTP status and the sanitizer heading/reference signature; failed body reads propagate. Controls cover legitimate reference prose. |
@@ -223,10 +223,42 @@ transfer and retry time. The incomplete-CML report omits its acknowledgement
 macro menu; its native browser probe includes a healthy configured-macro control
 and exact preference restoration. Polish notices explain the literal Pending.
 
-The provider-consent caller already failed without a concrete consent type.
-The manager now rejects that invalid input explicitly before DAO/audit access.
-Returning an empty patient set would silently introduce a successful-result
-contract for missing consent scope; the existing provider filter elsewhere treats
-an absent type as no filter. That domain/API decision is not inferred here. The
-separate pre-existing non-OAuth raw-query `+` decoding note likewise does not
-change the corrected single-decode contract for OAuth parameters.
+The SOAP caller now returns an empty ID set when its provider has no consent
+type, avoiding an unscoped consent query. A concrete consent type still follows
+the normal consent/date lookup and ID de-duplication path. Direct manager calls
+reject a missing type before DAO/audit access. The pre-existing non-OAuth
+raw-query `+` decoding note remains separate from the corrected single-decode
+contract for OAuth parameters.
+
+## Merged-source review evidence
+
+The `0f47111d0e0` production tree integrates release `1062fe6a02f4` and the
+concurrent review repairs. Its complete Ubuntu 26.04/JDK 25 H2 run passes
+34,768 actual cases, with zero failures/errors and 167 explicit prerequisite
+or routed skips. All 287 focused clinical, authorization, audit and SOAP cases
+also pass. Node 22 passes all 7,828 cases in 555 files without skips,
+cancellations or TODOs; the reviewed inventory is regenerated from that run.
+Python 3.14 passes 367 tooling and 29 coverage-policy cases, and the matrix
+still validates all 40 workstreams and 91 checks.
+
+The clean Debian build using the supported external-WAR inputs and lintian
+passes. All 6,209 tested production classes and 16 changed JSP/resource files
+match the WAR and Debian payload. Current CI independently builds from source
+and qualifies both installed provinces. Earlier payload and installation
+receipts remain bound to their original candidates.
+
+The CML display fallback retains every independently visible report, warns
+about the incomplete related-source chain, and omits configured macros and
+mutation controls. Strict mutation and measurement lookups still refuse the
+same incomplete chain; database and authorization failures propagate. The
+installed regression configures an owned macro before corrupting an owned raw
+source, checks the healthy and read-only states, and restores both exact values
+in cleanup while retaining independent patient/control snapshots.
+
+The current H2 coverage metadata retains 508 floors, six nonexecutable
+exclusions, all four ZIP refusal lines and higher historical metrics for 19
+files. PR #6100's Java changes meet their retained floors. The full currentMain
+comparison still refuses 32 unreviewed zero floors and unmet higher metrics;
+no waiver or lower floor substitutes for the required native-lane union.
+Failed browser, package and permission setup attempts remain separate evidence
+and do not count as passes.

@@ -17,12 +17,8 @@ blobs rather than commit ancestry. When the historical commit is available,
 its source tree is also checked; its availability is recorded explicitly.
 An absent commit does not waive any source identity or coverage requirement.
 
-Squash and rebase merges may rewrite the baseline commit without changing its
-Java sources. Freshness therefore checks source identity rather than commit
-ancestry. `baselineSourceTree` retains the measured tree if the original commit
-object becomes unavailable; when that object is present, its tree must also
-match. This does not bypass the comparison fingerprint, individual source blobs,
-report hash, metric floors or review requirements.
+`baselineSourceTree` retains the measured tree if the original commit object
+becomes unavailable; when that object is present, its tree must also match.
 
 Run freshness independently:
 
@@ -54,11 +50,13 @@ do not lower them to obtain a pass. Enumerate every changed source, retaining
 only the documented nonexecutable exclusions. Record current source blobs and
 report/test evidence hashes. Never carry a waiver to changed source bytes.
 
-The `e2b2c4979a2f50e2a3fb90a163ef60e133f2c980` H2 refresh has 34,526 actual
-test cases, no failures/errors, and 148 explicit prerequisite/routed skips.
-It records 467 source-file floors and six package-annotation exclusions,
-retaining higher pre-existing floors for 11 files and all four required ZIP
-refusal lines. Twenty-nine zero floors remain unreviewed. H2 alone also misses
-seven line, six instruction and ten branch floors. These are explicit failures;
+The `0f47111d0e0` merged-source H2 refresh has 34,768 actual test cases,
+no failures/errors, and 167 explicit prerequisite/routed skips. It records
+508 source-file floors and six package-annotation exclusions, retaining higher
+pre-existing floors for 19 files and all four required ZIP refusal lines.
+Thirty-two zero floors remain unreviewed. H2 alone also misses 14 line,
+13 instruction and 14 branch floors across the full comparison with currentMain.
+The Java files changed by PR #6100 meet their retained floors in this report.
+These wider comparison gaps are explicit failures;
 the required native-lane union and reviewed dispositions remain outstanding.
 This refresh is not a passing release coverage receipt.

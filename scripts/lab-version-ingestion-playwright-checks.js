@@ -224,7 +224,7 @@ async function workflow(s) {
           if(macrosBefore.length)sql.execute(`UPDATE property SET value=${q(macroValue)} WHERE id=${macrosBefore[0][0]} AND provider_no=${q(provider)} AND name='labMacroJSON'`);
           else sql.execute(`INSERT INTO property(provider_no,name,value) VALUES(${q(provider)},'labMacroJSON',${q(macroValue)})`);
           healthy=await inboxReport(corrected);
-          h.assert(await healthy.report.locator('.macro-dropdown').isVisible()&&await healthy.report.getByRole('link',{name:marker+' read-only macro',exact:true}).count()===1,'Configured macro menu precondition was not established');
+          h.assert(await healthy.report.locator('.macro-dropdown').isVisible()&&await healthy.report.locator('.macro-dropdown a').filter({hasText:marker+' read-only macro'}).count()===1,'Configured macro menu precondition was not established');
           await retireReports(healthy);healthy=null;
           cleared=true;
           sql.execute(`UPDATE hl7TextMessage SET message='' WHERE lab_id=${original} AND type='CML' AND message=${q(stored)}`);
