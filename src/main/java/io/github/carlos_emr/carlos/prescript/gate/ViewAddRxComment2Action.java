@@ -85,6 +85,22 @@ public final class ViewAddRxComment2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_rx)");
         }
 
+        if (request.getParameter("originalVersion") != null || request.getParameter("originalComment") != null) {
+            try {
+                Long original = io.github.carlos_emr.carlos.managers.RxConcurrencyManager.originalVersion(request.getParameter("originalVersion"));
+                long version = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.RxConcurrencyManager.class)
+                        .updateComment(loggedInProvider, prescription.getDemographicId(), scriptNo, original,
+                                request.getParameter("originalComment"), request.getParameter("originalComment") != null, comment);
+                response.setHeader("X-Carlos-Rx-Comment", "written");
+                response.setHeader("X-Carlos-Rx-Comment-Version", Long.toString(version));
+                response.setStatus(HttpServletResponse.SC_NO_CONTENT);
+                return NONE;
+            } catch (io.github.carlos_emr.carlos.managers.RxConcurrencyManager.Conflict conflict) {
+                response.sendError(HttpServletResponse.SC_CONFLICT); return NONE;
+            } catch (IllegalArgumentException invalid) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST); return NONE;
+            }
+        }
         int updated = prescriptionDao.updatePrescriptionsByScriptNo(scriptNo, comment);
         // Driver configurations that count changed rather than matched rows return zero
         // for a no-op retry. Confirm the exact stored value with a fresh scalar read; the
@@ -93,6 +109,7 @@ public final class ViewAddRxComment2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_CONFLICT);
             return NONE;
         }
+        response.setHeader("X-Carlos-Rx-Comment", "written");
         response.setStatus(HttpServletResponse.SC_NO_CONTENT);
         return NONE;
     }

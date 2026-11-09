@@ -218,6 +218,7 @@ public class RxManagerImpl implements RxManager {
         // Have to set ID to null so that database
         // can auto-generate one for this drug.
         d.setId(null);
+        d.setRowVersion(null);
 
         if (this.drugDao.addNewDrug(d)) {
 
@@ -248,6 +249,7 @@ public class RxManagerImpl implements RxManager {
      * @return a drug object representing the new version, null otherwise.
      */
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public Drug updateDrug(LoggedInInfo info, Drug d) {
 
         // Will throw an exception if access is denied.
@@ -278,6 +280,10 @@ public class RxManagerImpl implements RxManager {
                     LogSafe.sanitize(String.valueOf(old.getDemographicId())),
                     LogSafe.sanitize(String.valueOf(d.getDemographicId()))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             throw new AccessDeniedException("_rx", "w", String.valueOf(d.getDemographicId()));
+        }
+
+        if (d.getRowVersion() != null && !Objects.equals(d.getRowVersion(), old.getRowVersion())) {
+            throw new RxConcurrencyManager.Conflict();
         }
 
         // The legacy replacement DTO omits imported uncertainty and authority. Refuse

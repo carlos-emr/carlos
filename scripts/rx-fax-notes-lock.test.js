@@ -50,7 +50,7 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
     faxNumber: { selectedIndex: 0, options: [{ value: '5555555555' }] },
     preview: { contentWindow: { document: { getElementById: () => previewForm } } },
   };
-  const previewElements = { finalFax: { value: '' }, additNotes: { style: {} } };
+  const previewElements = { preview2Form: previewForm, finalFax: { value: '' }, additNotes: { style: {} } };
   const savedBodies = [];
   const deferredTimeouts = [];
   const clearedTimeouts = [];
@@ -76,6 +76,7 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
     setTimeout: (fn) => { deferredTimeouts.push(fn); return deferredTimeouts.length; },
     clearTimeout: (id) => { clearedTimeouts.push(id); },
     faxScriptNo: '12345',
+    savedAdditionalNotes: 'original notes',
     faxSubmissionPending: false,
     faxSubmissionUncertain: false,
     faxPreviewReloading: false,
@@ -100,7 +101,7 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
     fetch: async (_url, options) => {
       savedBodies.push(options.body);
       await saveGate;
-      return { ok: true };
+      return { ok: true, headers: {get: () => 'written'} };
     },
   });
   for (const [name, next] of [
@@ -130,7 +131,7 @@ test('a failed blur save is observed immediately, stays rejected for fax, and sh
   assert.equal(elements.additionalNotesSaveError.hidden, false);
   await assert.rejects(failedSave, /fixture save rejection/);
   assert.equal(context.pendingNotesSave, failedSave, 'the UI observer must not replace the rejected fax guard');
-  context.fetch = async () => ({ ok: true });
+  context.fetch = async () => ({ ok: true, headers: {get: () => 'written'} });
   context.addNotes();
   await context.pendingNotesSave;
   assert.equal(elements.additionalNotesSaveError.hidden, true);
@@ -505,9 +506,10 @@ for (const options of [{ script: '54321' }, { patient: '2' }, { missing: true }]
     const fixture = faxResultFixture(options);
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(fixture.submissions(), 0);
-    assert.equal(fixture.context.hasPreview, false);
+    assert.equal(fixture.context.hasPreview, !!options.missing, 'a loading document must remain retryable after its form arrives');
     assert.equal(fixture.elements.faxPreviewChanged.hidden, false);
-    assert.equal(fixture.elements.faxButton.disabled, true);
+    assert.equal(fixture.context.faxSubmissionPending, false);
+    if (!options.missing) assert.equal(fixture.elements.faxButton.disabled, true);
   });
 }
 
@@ -666,3 +668,22 @@ for (const state of ['missing-frame', 'missing-document', 'missing-input', 'inac
     assert.equal(elements.faxPreviewChanged.hidden, false);
   });
 }
+
+test('queued note edits submit the last confirmed original text rather than a stale common version', async () => {
+  const {context, notes, releaseSave, savedBodies} = setup();
+  notes.value = 'First edit'; context.addNotes();
+  notes.value = 'Second edit'; context.addNotes();
+  releaseSave(); await context.pendingNotesSave;
+  assert.equal(savedBodies.length, 2);
+  assert.equal(new URLSearchParams(savedBodies[0]).get('originalComment'), 'original notes');
+  assert.equal(new URLSearchParams(savedBodies[1]).get('originalComment'), 'First edit');
+  assert.equal(context.savedAdditionalNotes, 'Second edit');
+});
+
+test('a successful-looking notes response without a write acknowledgement remains visibly unconfirmed', async () => {
+  const {context, elements} = setup();
+  context.fetch = async () => ({ok: true, status: 200, headers: {get: () => null}});
+  context.addNotes(); await assert.rejects(context.pendingNotesSave, /ViewAddRxComment/);
+  assert.equal(elements.additionalNotesSaveError.hidden, false);
+  assert.equal(context.savedAdditionalNotes, 'original notes');
+});

@@ -53,6 +53,7 @@ function run(pharmacy) {
     faxSubmissionUncertain: false, faxPreviewReloading: false, isReprint: false, hasPreview: true,
     faxQueued: false, faxSubmissionPending: false, faxPasteCanRetry: false, lastFaxPasteText: null,
     window: { parent: { opener: null } },
+    frames: { preview: { document: { getElementById() { return {}; } } } },
     document: { getElementById: () => null, all: undefined },
     alert: (message) => { throw new Error(String(message)); },
     Promise,

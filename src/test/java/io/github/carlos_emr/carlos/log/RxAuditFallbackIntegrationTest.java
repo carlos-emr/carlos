@@ -30,7 +30,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.support.TransactionTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Exercises the real afterCommit fallback against JPA rather than a mocked transaction manager. */
+/** Authoritative Rx audits bypass the async executor and commit in the clinical transaction. */
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = RxAuditFallbackIntegrationTest.Config.class)
 @Tag("integration")
@@ -47,7 +47,7 @@ class RxAuditFallbackIntegrationTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldCommitAudit_whenExecutorRejectsAfterClinicalCommit() throws Exception {
+    void shouldCommitAuthoritativeAudit_whenExecutorIsUnavailable() throws Exception {
         // The unit base deliberately silences audits; this regression must execute
         // the real logger and verify the physical row instead.
         logActionMock.close();
@@ -59,16 +59,10 @@ class RxAuditFallbackIntegrationTest extends CarlosUnitTestBase {
         var rejecting = Executors.newSingleThreadExecutor();
         rejecting.shutdown();
         LogAction.setExecutorServiceForTesting(rejecting);
-        var callback = RxWriteScript2Action.class.getDeclaredMethod("afterSaveCommit", Runnable.class);
-        callback.setAccessible(true);
         var transaction = new TransactionTemplate(transactions);
         transaction.executeWithoutResult(status -> {
-            try {
-                callback.invoke(null, (Runnable) () -> LogAction.addLog("999998", "add", "prescription",
-                        "synthetic-commit", "127.0.0.1", "1001", "synthetic"));
-            } catch (ReflectiveOperationException failure) {
-                throw new IllegalStateException(failure);
-            }
+            LogAction.addLogStrict("999998", "add", "prescription", "synthetic-commit", "127.0.0.1", "1001", "synthetic");
+            status.flush();
         });
         Long count = transaction.execute(status -> entityManager.createQuery(
                 "select count(l) from OscarLog l where l.contentId = :id", Long.class)

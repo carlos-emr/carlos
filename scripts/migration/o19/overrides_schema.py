@@ -696,9 +696,10 @@ NOT_RENAMES = {
     ("drugs", "dispensingUnits"): (
         "curated B3 drop; CARLOS's demographic_contact_id/protocol/"
         "priorRxProtocol/pharmacyId and CDS currentness, exact dose text and "
-        "projection-completeness metadata are additions, not dispensing units",
+        "projection-completeness metadata and the native optimistic-lock counter "
+        "are additions, not dispensing units",
         ("demographic_contact_id", "protocol", "priorRxProtocol",
-         "pharmacyId", "cds_currentness", "cds_dose_text", "cds_projection_incomplete")),
+         "pharmacyId", "cds_currentness", "cds_dose_text", "cds_projection_incomplete", "row_version")),
 
     # The eRx module CARLOS removed. CARLOS's defaultBillingLocation and
     # defaultSliCode are unrelated additions.

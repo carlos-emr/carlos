@@ -94,7 +94,7 @@
         weight = RenalDosingInput.weightKilograms((String) measurementHash.get("value"),
                 (String) measurementHash.get("measuringInstruction"));
         wtDate = (Date) measurementHash.get("dateObserved_date");
-        invalidInput |= !Double.isFinite(weight);
+        invalidInput |= !Double.isFinite(weight) || wtDate == null;
     }
 
     double measurementsCr = -1;
@@ -106,7 +106,7 @@
                 (String) measurementHash.get("measuringInstruction"));
         measurementsCrDate = (Date) measurementHash.get("dateObserved_date");
         // An undated unusable reading cannot safely be ordered against a valid lab.
-        invalidInput |= measurementsCrDate == null && !Double.isFinite(measurementsCr);
+        invalidInput |= measurementsCrDate == null;
     }
 
 
@@ -116,10 +116,11 @@
     List labs = CommonLabTestValues.findValuesForTest("CML", Integer.valueOf(demographicNo), "CREATININE");
     if (labs != null && labs.size() > 0) {
 
-        Collections.sort(labs, new SortHashtable());
-        Hashtable hash = (Hashtable) labs.get(0);
+        // CML rows are already ordered by their typed date, with unusable undated rows first.
+        java.util.Map hash = (java.util.Map) labs.get(0);
         String sCrStr = (String) hash.get("result");
         sCrDate = (Date) hash.get("collDateDate");
+        invalidInput |= sCrDate == null;
         sCr = RenalDosingInput.creatinineMicromoles(sCrStr, (String) hash.get("units"));
     }
 
@@ -150,20 +151,20 @@
 
 
     // This is adult creatinine-clearance guidance. Unknown sex must not silently use the male factor.
-    if (age >= 18 && age < 140 && ("M".equalsIgnoreCase(demographic.getSex())
+    if (age >= 18 && age <= 120 && ("M".equalsIgnoreCase(demographic.getSex())
             || "F".equalsIgnoreCase(demographic.getSex()))) {
         ageb = true;
     }
-    if (weight > 0) {
+    if (weight >= 20 && weight <= 500) {
         weightb = true;
     }
-    if (sCr > 0) {
+    if (sCr >= 10 && sCr <= 3000) {
         sCrb = true;
     }
 
 
     int Clcr = 0;
-    if (!invalidInput && ageb && weightb && sCrb) {
+    if (!invalidInput && ageb && RenalDosingInput.supportsAutomaticHighlight(age, weight, sCr)) {
         equate = true;
         Clcr = RxUtil.getClcr(age, weight, sCr, female);
     }
@@ -221,7 +222,7 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
     <h3>Dosing Information <small><button type="button" class="btn btn-link"
         onclick="getRenalDosingInformation('<carlos:encode value='<%= divId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= atc %>' context="javaScriptAttribute"/>');">Refresh</button></small></h3>
     <% if (!equate) { %>
-    <p role="status"><fmt:message key="oscarRx.renal.unusableObservations"/></p>
+    <p role="status"><fmt:message key="oscarRx.renal.unusableObservations"/> <fmt:message key="oscarRx.renal.highlightRange"/></p>
     <% } %>
     <details open><summary>Renal dosing details</summary>
     <table class="sofT">

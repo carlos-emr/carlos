@@ -1398,6 +1398,17 @@ public final class RxWriteScript2Action extends ActionSupport {
             return NONE;
         }
 
+        // A committed receipt remains authoritative after session expiry or a newer draft.
+        // Authorize the explicitly submitted patient before looking up any durable result.
+        int receiptPatient = RxSessionBeanResolver.requestedDemographicNo(request);
+        String receiptToken = submittedReceiptToken();
+        if (receiptPatient > 0 && receiptToken != null) {
+            LoggedInInfo receiptInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            RxRequestedPatientAccess.requirePatient(securityInfoManager, receiptInfo, receiptPatient, "_rx", PRIVILEGE_WRITE);
+            var saved = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptManager.class)
+                    .find(receiptInfo.getLoggedInProviderNo(), receiptPatient, receiptToken);
+            if (saved != null) return reportReceipt(saved);
+        }
         RxSessionBean bean = RxSessionBeanResolver.resolve(request);
         // A save must name the patient of the window it came from, and that patient's bean must be
         // the one being saved (#3875). Never save on the no-patient fallback: with two charts open
@@ -1418,7 +1429,10 @@ public final class RxWriteScript2Action extends ActionSupport {
         // window must not shift a cached index onto another drug partway through this save.
         try {
             synchronized (bean) {
-                result = updateSaveAllDrugsLocked(bean, loggedInInfo);
+                var receipt = receiptToken == null ? null : SpringUtils.getBean(
+                        io.github.carlos_emr.carlos.managers.RxSubmissionReceiptManager.class)
+                        .find(loggedInInfo.getLoggedInProviderNo(), bean.getDemographicNo(), receiptToken);
+                result = receipt == null ? updateSaveAllDrugsLocked(bean, loggedInInfo) : reportReceipt(receipt);
                 if ("refresh".equals(result)) {
                     Map<String, String> revisions = new HashMap<>();
                     for (RxPrescriptionData.Prescription card : bean.getStash()) {
@@ -1798,6 +1812,28 @@ public final class RxWriteScript2Action extends ActionSupport {
         return "refresh";
     }
 
+    private String submittedReceiptToken() {
+        Map<String, String> versions = new java.util.TreeMap<>();
+        Enumeration<String> names = request.getParameterNames();
+        while (names.hasMoreElements()) {
+            String name = names.nextElement();
+            if (!name.startsWith("draftRevision_")) continue;
+            String[] values = request.getParameterValues(name);
+            if (values == null || values.length != 1 || versions.size() >= 1000) return null;
+            versions.put(name.substring("draftRevision_".length()), values[0]);
+        }
+        return io.github.carlos_emr.carlos.managers.RxSubmissionReceiptManager.fingerprint(versions);
+    }
+
+    private String reportReceipt(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptManager.Receipt receipt) throws IOException {
+        response.setStatus(HttpServletResponse.SC_CONFLICT);
+        response.setContentType("application/json");
+        objectMapper.writeValue(response.getWriter(), "SAVED".equals(receipt.outcome())
+                ? Map.of("error", "RX_ALREADY_SAVED", "scriptId", receipt.scriptId())
+                : Map.of("error", "RX_SAVE_OUTCOME_UNKNOWN"));
+        return NONE;
+    }
+
     /** Validates the complete workspace rendered by a legacy save or preview form. Call under its lock. */
     boolean validateRenderedStash(RxSessionBean bean) throws IOException {
         List<String> keys = new ArrayList<>();
@@ -1928,10 +1964,16 @@ public final class RxWriteScript2Action extends ActionSupport {
     }
 
     String reportIncompleteSave() throws IOException {
+        if (Boolean.TRUE.equals(request.getAttribute("RX_SOURCE_CHANGED"))) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"RX_SOURCE_CHANGED\"}");
+            return NONE;
+        }
         response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         response.setContentType("application/json");
-        // Some legacy DAO writes may already have committed. The caller must not claim that
-        // nothing was saved or retry automatically; the chart needs checking before another save.
+        // Only a failed callback with confirmed rollback and a released durable intent is retryable.
+        // COMMIT failures retain PENDING or SAVED evidence and always require profile reconciliation.
         response.getWriter().write(Boolean.TRUE.equals(request.getAttribute("RX_SAVE_OUTCOME_UNKNOWN"))
                 ? "{\"error\":\"RX_SAVE_OUTCOME_UNKNOWN\"}"
                 : "{\"error\":\"INCOMPLETE_RX_SAVE\"}");
@@ -2032,6 +2074,16 @@ public final class RxWriteScript2Action extends ActionSupport {
         RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo,
                 bean.getDemographicNo(), "_rx", PRIVILEGE_WRITE);
 
+        String token = submittedReceiptToken();
+        if (token != null) {
+            var receipt = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptManager.class)
+                    .find(loggedInInfo.getLoggedInProviderNo(), bean.getDemographicNo(), token);
+            if (receipt != null) {
+                try { reportReceipt(receipt); } catch (IOException failure) { throw new java.io.UncheckedIOException(failure); }
+                return;
+            }
+        }
+
         // Nothing staged: do not write an empty script, and above all do not reach the re-Rx
         // archival below. A ReRx box that was ticked but never staged would otherwise archive
         // the patient's active medication with no replacement written (#3869). The prescribing
@@ -2084,18 +2136,31 @@ public final class RxWriteScript2Action extends ActionSupport {
 
     /** Every save, its reasons/dates and archival must commit together, including the staged identities. */
     private String persistStashTransaction(LoggedInInfo loggedInInfo, RxSessionBean bean) {
-        record PreviousIdentity(RxPrescriptionData.Prescription card, int drugId, String scriptNo, String revision) {
+        record PreviousIdentity(RxPrescriptionData.Prescription card, int drugId, String scriptNo, String revision, Long sourceVersion) {
             void restore() {
                 card.restoreSavedIdentity(drugId, scriptNo, revision);
+                card.setSourceRowVersion(sourceVersion);
             }
         }
         List<PreviousIdentity> previous = Arrays.stream(bean.getStash())
-                .map(card -> new PreviousIdentity(card, card.getDrugId(), card.getScript_no(), card.getDraftRevision())).toList();
+                .map(card -> new PreviousIdentity(card, card.getDrugId(), card.getScript_no(), card.getDraftRevision(), card.getSourceRowVersion())).toList();
+        Map<String, String> receiptVersions = new java.util.TreeMap<>();
+        for (var old : previous) receiptVersions.put(Long.toString(old.card().getRandomId()), old.revision());
+        String receiptToken = io.github.carlos_emr.carlos.managers.RxSubmissionReceiptManager.fingerprint(receiptVersions);
         HashMap previousPairs = new HashMap(bean.getRandomIdDrugIdPair());
         var previousReRx = new java.util.concurrent.CopyOnWriteArrayList<>(bean.getReRxDrugIdList());
         var completion = new java.util.concurrent.atomic.AtomicInteger(
                 org.springframework.transaction.support.TransactionSynchronization.STATUS_UNKNOWN);
         var callbackCompleted = new java.util.concurrent.atomic.AtomicBoolean();
+        var receipts = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptManager.class);
+        try {
+            if (!receipts.start(loggedInInfo.getLoggedInProviderNo(), bean.getDemographicNo(), receiptToken)) {
+                throw new IllegalStateException("Prescription submission already in progress or saved");
+            }
+        } catch (RuntimeException intentFailure) {
+            request.setAttribute("RX_SAVE_OUTCOME_UNKNOWN", Boolean.TRUE);
+            throw intentFailure;
+        }
         try {
             var transaction = new org.springframework.transaction.support.TransactionTemplate(
                     SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
@@ -2108,7 +2173,29 @@ public final class RxWriteScript2Action extends ActionSupport {
                                 completion.set(outcome);
                             }
                         });
+                Map<Integer, Long> sourceVersions = new java.util.TreeMap<>();
+                for (var card : bean.getStash()) {
+                    int source = card.getDrugId() > 0 ? card.getDrugId() : card.getDrugReferenceId();
+                    if (source > 0 && card.getSourceRowVersion() != null) {
+                        Long earlier = sourceVersions.putIfAbsent(source, card.getSourceRowVersion());
+                        if (earlier != null && !earlier.equals(card.getSourceRowVersion())) {
+                            request.setAttribute("RX_SOURCE_CHANGED", Boolean.TRUE);
+                            throw new io.github.carlos_emr.carlos.managers.RxConcurrencyManager.Conflict();
+                        }
+                    }
+                }
+                if (!sourceVersions.isEmpty()) {
+                    try {
+                        SpringUtils.getBean(io.github.carlos_emr.carlos.managers.RxConcurrencyManager.class)
+                                .checkSources(bean.getDemographicNo(), sourceVersions);
+                    } catch (io.github.carlos_emr.carlos.managers.RxConcurrencyManager.Conflict conflict) {
+                        request.setAttribute("RX_SOURCE_CHANGED", Boolean.TRUE);
+                        throw conflict;
+                    }
+                }
                 String savedScript = persistStashLocked(loggedInInfo, bean);
+                receipts.record(loggedInInfo.getLoggedInProviderNo(), bean.getDemographicNo(), receiptToken,
+                                Integer.parseInt(savedScript));
                 // Flush errors are definite failures before COMMIT. A later exception may
                 // be a durable commit whose JDBC acknowledgement was lost.
                 status.flush();
@@ -2116,6 +2203,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 return savedScript;
             });
         } catch (RuntimeException e) {
+            request.setAttribute("RX_SAVE_OUTCOME_UNKNOWN", Boolean.TRUE);
             if (!callbackCompleted.get()
                     && completion.get() == org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK) {
                 // Only a confirmed rollback makes the old rendered version safe to retry. JPA does not
@@ -2123,6 +2211,14 @@ public final class RxWriteScript2Action extends ActionSupport {
                 previous.forEach(PreviousIdentity::restore);
                 bean.setRandomIdDrugIdPair(previousPairs);
                 bean.setReRxDrugIdList(previousReRx);
+                try {
+                    receipts.failed(loggedInInfo.getLoggedInProviderNo(), bean.getDemographicNo(), receiptToken);
+                    request.removeAttribute("RX_SAVE_OUTCOME_UNKNOWN");
+                } catch (RuntimeException receiptFailure) {
+                    // The clinical rollback is known, but the durable intent cannot safely be released.
+                    request.setAttribute("RX_SAVE_OUTCOME_UNKNOWN", Boolean.TRUE);
+                    e.addSuppressed(receiptFailure);
+                }
             }
             if (callbackCompleted.get()) {
                 request.setAttribute("RX_SAVE_OUTCOME_UNKNOWN", Boolean.TRUE);
@@ -2130,34 +2226,6 @@ public final class RxWriteScript2Action extends ActionSupport {
             // An uncertain commit keeps the consumed revision: the chart must be reviewed before retrying.
             request.removeAttribute("scriptId");
             throw e;
-        }
-    }
-
-    /** An audit of a successful save must not survive rollback of the prescription it describes. */
-    private static void afterSaveCommit(Runnable audit) {
-        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
-            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
-                    new org.springframework.transaction.support.TransactionSynchronization() {
-                        @Override
-                        public void afterCommit() {
-                            try {
-                                // JPA resources remain bound during afterCommit. A saturated
-                                // executor falls back to this thread, so it needs a new transaction.
-                                var auditTransaction = new org.springframework.transaction.support.TransactionTemplate(
-                                        SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
-                                auditTransaction.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-                                auditTransaction.executeWithoutResult(status -> {
-                                    audit.run();
-                                    status.flush();
-                                });
-                            } catch (RuntimeException e) {
-                                // The prescription has committed. Do not restore its session IDs as if it rolled back.
-                                logger.error("Committed prescription audit could not be queued ({})", e.getClass().getSimpleName());
-                            }
-                        }
-                    });
-        } else {
-            audit.run();
         }
     }
 
@@ -2251,8 +2319,8 @@ public final class RxWriteScript2Action extends ActionSupport {
             throw new PrescriptionSaveException(null);
         }
 
-        afterSaveCommit(() -> LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD,
-                LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString()));
+        LogAction.addLogStrict(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD,
+                LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString());
 
         return scriptId;
     }
@@ -2486,8 +2554,8 @@ public final class RxWriteScript2Action extends ActionSupport {
             Drug earlier = drugDao.find(earlierId);
             if (earlier != null && !earlier.isArchived()) {
                 if (archiveReplacedRow(loggedInInfo, bean, earlierId)) {
-                    afterSaveCommit(() -> LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REPRESCRIBE,
-                            LogConst.CON_MEDICATION, AUDIT_DRUG_ID + earlierId, ip, "" + bean.getDemographicNo(), auditStr));
+                    LogAction.addLogStrict(loggedInInfo.getLoggedInProviderNo(), LogConst.REPRESCRIBE,
+                            LogConst.CON_MEDICATION, AUDIT_DRUG_ID + earlierId, ip, "" + bean.getDemographicNo(), auditStr);
                 } else {
                     failed++;
                 }
@@ -2554,11 +2622,11 @@ public final class RxWriteScript2Action extends ActionSupport {
             return ArchiveOutcome.REFUSED;
         }
         //log that this med is being re-prescribed
-        afterSaveCommit(() -> LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REPRESCRIBE,
-                LogConst.CON_MEDICATION, AUDIT_DRUG_ID + sourceId, ip, "" + bean.getDemographicNo(), auditStr));
+        LogAction.addLogStrict(loggedInInfo.getLoggedInProviderNo(), LogConst.REPRESCRIBE,
+                LogConst.CON_MEDICATION, AUDIT_DRUG_ID + sourceId, ip, "" + bean.getDemographicNo(), auditStr);
         //log that the med is being discontinued buy the system
-        afterSaveCommit(() -> LogAction.addLog("-1", LogConst.DISCONTINUE, LogConst.CON_MEDICATION,
-                AUDIT_DRUG_ID + sourceId, "", "" + bean.getDemographicNo(), auditStr));
+        LogAction.addLogStrict("-1", LogConst.DISCONTINUE, LogConst.CON_MEDICATION,
+                AUDIT_DRUG_ID + sourceId, "", "" + bean.getDemographicNo(), auditStr);
         return ArchiveOutcome.ARCHIVED;
     }
 
@@ -2669,8 +2737,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
 
         String ip = request.getRemoteAddr();
-        afterSaveCommit(() -> LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(),
-                LogConst.ADD, LogConst.CON_DRUGREASON, "" + dr.getId(), ip, demographicNo, dr.getAuditString()));
+        LogAction.addLogStrict(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(),
+                LogConst.ADD, LogConst.CON_DRUGREASON, "" + dr.getId(), ip, demographicNo, dr.getAuditString());
 
     }
 

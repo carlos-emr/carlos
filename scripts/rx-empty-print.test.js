@@ -21,7 +21,7 @@ for (const scenario of ['uninitialized', 'empty', 'missing-frame', 'ready', 'leg
     });
     if (scenario !== 'uninitialized') context.hasPreview = scenario !== 'empty';
     if (['ready', 'legacy-browser'].includes(scenario)) {
-      context.frames.preview = { focus() { calls.push('preview-focus'); }, print() { calls.push('print'); } };
+      context.frames.preview = { document: { getElementById() { return {}; } }, focus() { calls.push('preview-focus'); }, print() { calls.push('print'); } };
     }
     vm.runInContext(printSource, context);
     assert.doesNotThrow(() => context.printIframe());
@@ -97,3 +97,16 @@ test('only a hand-picked prescription address becomes the remembered default', (
   assert.doesNotMatch(jsp, /session\.setAttribute\("RX_ADDR"/);
   assert.doesNotMatch(jsp, /"cur_appointment_no"/);
 });
+
+for (const inaccessible of [false, true]) {
+  test(`ordinary Print refuses an unfinished preview before clearing unload state (${inaccessible})`, () => {
+    const notice = {hidden: true}; const unload = () => {};
+    const frame = {focus() { assert.fail('unfinished preview focused'); }, print() { assert.fail('unfinished preview printed'); }};
+    Object.defineProperty(frame, 'document', {get() { if (inaccessible) throw new Error('unavailable'); return {getElementById() {return null;}}; }});
+    const context = vm.createContext({hasPreview: true, frames: {preview: frame}, document: {getElementById() {return notice;}}, window: {onbeforeunload: unload}});
+    vm.runInContext(printSource, context);
+    assert.doesNotThrow(() => context.printIframe());
+    assert.equal(context.window.onbeforeunload, unload);
+    if (!inaccessible) assert.equal(notice.hidden, false);
+  });
+}

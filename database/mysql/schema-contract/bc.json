@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "2e16618f8b95b2529bfa12e45c89c97a6243c8dfdfe3a90f8609de840d773e82",
+ "migration_sha256": "b0361eb840594ffcc3beb840c843e7501267fc280978700132c26975125c71b8",
  "province": "bc",
  "schema": {
   "checks": [
@@ -13,6 +13,11 @@
     "cds_import_preparation",
     "payload",
     "octet_length(`payload`) <= 1048576"
+   ],
+   [
+    "rx_submission_receipt",
+    "rx_submission_receipt_outcome",
+    "`outcome` = 'SAVED' and `prescription_id` is not null or `outcome` in ('PENDING','FAILED') and `prescription_id` is null"
    ]
   ],
   "columns": [
@@ -23403,6 +23408,18 @@
     "utf8mb4_general_ci",
     null,
     30
+   ],
+   [
+    "drugs",
+    "row_version",
+    "bigint(20)",
+    "NO",
+    "0",
+    "",
+    null,
+    null,
+    null,
+    65
    ],
    [
     "drugs",
@@ -168690,6 +168707,18 @@
    ],
    [
     "prescription",
+    "row_version",
+    "bigint(20)",
+    "NO",
+    "0",
+    "",
+    null,
+    null,
+    null,
+    11
+   ],
+   [
+    "prescription",
     "rx_comments",
     "mediumtext",
     "YES",
@@ -173667,6 +173696,150 @@
     "utf8mb4_general_ci",
     null,
     10
+   ],
+   [
+    "rx_favorite_group",
+    "id",
+    "int(11)",
+    "NO",
+    null,
+    "auto_increment",
+    null,
+    null,
+    null,
+    1
+   ],
+   [
+    "rx_favorite_group",
+    "name",
+    "varchar(80)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    3
+   ],
+   [
+    "rx_favorite_group",
+    "position",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    4
+   ],
+   [
+    "rx_favorite_group",
+    "provider_no",
+    "varchar(6)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    2
+   ],
+   [
+    "rx_favorite_group_member",
+    "favorite_id",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    2
+   ],
+   [
+    "rx_favorite_group_member",
+    "group_id",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    1
+   ],
+   [
+    "rx_submission_receipt",
+    "created_at",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    6
+   ],
+   [
+    "rx_submission_receipt",
+    "demographic_no",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    3
+   ],
+   [
+    "rx_submission_receipt",
+    "outcome",
+    "varchar(7)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    5
+   ],
+   [
+    "rx_submission_receipt",
+    "prescription_id",
+    "int(11)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    4
+   ],
+   [
+    "rx_submission_receipt",
+    "provider_no",
+    "varchar(6)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    2
+   ],
+   [
+    "rx_submission_receipt",
+    "submission_hash",
+    "char(64)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    1
    ],
    [
     "scheduledate",
@@ -189543,6 +189716,116 @@
     "NO"
    ],
    [
+    "rx_favorite_group",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group",
+    "rx_favorite_group_owner_name",
+    0,
+    1,
+    "provider_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group",
+    "rx_favorite_group_owner_name",
+    0,
+    2,
+    "name",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group_member",
+    "PRIMARY",
+    0,
+    1,
+    "group_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group_member",
+    "PRIMARY",
+    0,
+    2,
+    "favorite_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_favorite",
+    1,
+    1,
+    "favorite_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    0,
+    1,
+    "submission_hash",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    0,
+    2,
+    "provider_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    0,
+    3,
+    "demographic_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_submission_receipt",
+    "rx_submission_receipt_prescription",
+    1,
+    1,
+    "prescription_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
     "scheduledate",
     "PRIMARY",
     0,
@@ -195453,6 +195736,96 @@
     null
    ],
    [
+    "rx_favorite_group",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group",
+    "rx_favorite_group_owner_name",
+    1,
+    "provider_no",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group",
+    "rx_favorite_group_owner_name",
+    2,
+    "name",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group_member",
+    "PRIMARY",
+    1,
+    "group_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group_member",
+    "PRIMARY",
+    2,
+    "favorite_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_favorite_fk",
+    1,
+    "favorite_id",
+    "$self",
+    "favorites",
+    "favoriteid"
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_group_fk",
+    1,
+    "group_id",
+    "$self",
+    "rx_favorite_group",
+    "id"
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    1,
+    "submission_hash",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    2,
+    "provider_no",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    3,
+    "demographic_no",
+    null,
+    null,
+    null
+   ],
+   [
     "scheduledate",
     "PRIMARY",
     1,
@@ -196318,6 +196691,20 @@
     "Facility",
     "RESTRICT",
     "RESTRICT"
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_favorite_fk",
+    "favorites",
+    "RESTRICT",
+    "CASCADE"
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_group_fk",
+    "rx_favorite_group",
+    "RESTRICT",
+    "CASCADE"
    ]
   ],
   "tables": [
@@ -198909,6 +199296,24 @@
    ],
    [
     "rschedule",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "rx_favorite_group",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "rx_favorite_group_member",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "rx_submission_receipt",
     "InnoDB",
     "Dynamic",
     "utf8mb4_general_ci"

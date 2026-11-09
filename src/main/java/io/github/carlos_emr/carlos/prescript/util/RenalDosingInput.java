@@ -34,8 +34,7 @@ public final class RenalDosingInput {
     public static double creatinineMicromoles(String observation, String units) {
         double value = positiveNumber(observation);
         if (!Double.isFinite(value) || units == null) return Double.NaN;
-        String normalized = units.trim().toLowerCase(java.util.Locale.ROOT)
-                .replace('µ', 'u').replace('μ', 'u').replace(" ", "");
+        String normalized = normalizeUnits(units);
         return switch (normalized) {
             case "umol/l", "inumol/l", "micromol/l", "micromoles/l" -> value;
             case "mg/dl", "inmg/dl" -> Double.isFinite(value * 88.4) ? value * 88.4 : Double.NaN;
@@ -47,11 +46,32 @@ public final class RenalDosingInput {
     public static double weightKilograms(String observation, String units) {
         double value = positiveNumber(observation);
         if (!Double.isFinite(value) || units == null) return Double.NaN;
-        return switch (units.trim().toLowerCase(java.util.Locale.ROOT).replace(" ", "")) {
+        return switch (normalizeUnits(units)) {
             case "kg", "inkg", "kilograms" -> value;
             case "lb", "lbs", "inlb", "inlbs" -> value * 0.45359237;
             default -> Double.NaN;
         };
+    }
+
+    /**
+     * Conservative qualification range for automatic adult highlighting, not a normal-reference range.
+     * Outside it the complete dosing table remains available for manual clinical assessment.
+     */
+    public static boolean supportsAutomaticHighlight(int age, double kilograms, double micromoles) {
+        return age >= 18 && age <= 120 && Double.isFinite(kilograms) && kilograms >= 20 && kilograms <= 500
+                && Double.isFinite(micromoles) && micromoles >= 10 && micromoles <= 3000;
+    }
+
+    /** Fold only ASCII unit letters and explicitly supported micro signs; reject Unicode look-alikes. */
+    private static String normalizeUnits(String units) {
+        StringBuilder normalized = new StringBuilder();
+        for (char value : units.trim().toCharArray()) {
+            if (value == ' ') continue;
+            if (value >= 'A' && value <= 'Z') value = (char) (value + ('a' - 'A'));
+            if (value == 'µ' || value == 'μ') value = 'u';
+            normalized.append(value);
+        }
+        return normalized.toString();
     }
 
     /**

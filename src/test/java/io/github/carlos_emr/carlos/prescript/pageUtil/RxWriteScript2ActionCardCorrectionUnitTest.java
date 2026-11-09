@@ -130,6 +130,9 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
+        var receipts = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptManager.class);
+        org.mockito.Mockito.when(receipts.start(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+        registerMock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptManager.class, receipts);
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(UserPropertyDAO.class, mockUserPropertyDAO);
         registerMock(PartialDateDao.class, mockPartialDateDao);
@@ -568,7 +571,7 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void shouldQueueAuditsOnlyAfterCommit_whenNewRenewalBatchSaved() {
+        void shouldWriteAuthoritativeAuditsBeforeCommit_whenNewRenewalBatchSaved() {
             card.setDrugReferenceId(55);
             bean.addReRxDrugIdList("55");
             when(mockRxManager.archiveDrug(mockLoggedInInfo, 55, DEMOGRAPHIC_NO, Drug.REPRESCRIBED)).thenReturn(true);
@@ -581,9 +584,9 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
             registerMock(org.springframework.transaction.PlatformTransactionManager.class, new NoDatabaseTransactions() {
                 @Override
                 protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus status) {
-                    // Only the clinical commit precedes every audit. Audit fallback
-                    // transactions commit independently after this first invocation.
-                    if (committed.compareAndSet(false, true)) logActionMock.verifyNoInteractions();
+                    committed.set(true);
+                    logActionMock.verify(() -> LogAction.addLogStrict(any(), eq(LogConst.ADD), eq(LogConst.CON_PRESCRIPTION),
+                            eq("77"), any(), any(), any()));
                 }
             });
 
@@ -593,13 +596,13 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
             }
 
             assertThat(committed).isTrue();
-            logActionMock.verify(() -> LogAction.addLog(any(), eq(LogConst.ADD), eq(LogConst.CON_PRESCRIPTION),
+            logActionMock.verify(() -> LogAction.addLogStrict(any(), eq(LogConst.ADD), eq(LogConst.CON_PRESCRIPTION),
                     eq("77"), any(), any(), any()));
-            logActionMock.verify(() -> LogAction.addLog(any(), eq(LogConst.ADD), eq(LogConst.CON_DRUGREASON),
+            logActionMock.verify(() -> LogAction.addLogStrict(any(), eq(LogConst.ADD), eq(LogConst.CON_DRUGREASON),
                     any(), any(), any(), any()));
-            logActionMock.verify(() -> LogAction.addLog(any(), eq(LogConst.REPRESCRIBE), eq(LogConst.CON_MEDICATION),
+            logActionMock.verify(() -> LogAction.addLogStrict(any(), eq(LogConst.REPRESCRIBE), eq(LogConst.CON_MEDICATION),
                     eq("drugid=55"), any(), any(), any()));
-            logActionMock.verify(() -> LogAction.addLog(any(), eq(LogConst.DISCONTINUE), eq(LogConst.CON_MEDICATION),
+            logActionMock.verify(() -> LogAction.addLogStrict(any(), eq(LogConst.DISCONTINUE), eq(LogConst.CON_MEDICATION),
                     eq("drugid=55"), any(), any(), any()));
         }
 
@@ -624,7 +627,8 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
             assertThat(bean.getRandomIdDrugIdPair()).containsEntry(card.getRandomId(), 501);
             assertThat(request.getAttribute("scriptId")).isNull();
             assertThat(request.getAttribute("RX_SAVE_OUTCOME_UNKNOWN")).isEqualTo(Boolean.TRUE);
-            logActionMock.verifyNoInteractions();
+            logActionMock.verify(() -> LogAction.addLogStrict(any(), eq(LogConst.ADD), eq(LogConst.CON_PRESCRIPTION),
+                    eq("77"), any(), any(), any()));
         }
 
         @Test
@@ -643,7 +647,7 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
             assertThat(card.getDrugId()).isEqualTo(502);
             verify(mockRxManager).archiveDrug(mockLoggedInInfo, 501, DEMOGRAPHIC_NO, Drug.REPRESCRIBED);
             verify(mockRxManager, never()).archiveDrug(any(), eq(502), anyInt(), anyString());
-            logActionMock.verify(() -> LogAction.addLog(eq("999998"), eq(LogConst.REPRESCRIBE), eq(LogConst.CON_MEDICATION),
+            logActionMock.verify(() -> LogAction.addLogStrict(eq("999998"), eq(LogConst.REPRESCRIBE), eq(LogConst.CON_MEDICATION),
                     eq("drugid=501"), any(), eq(String.valueOf(DEMOGRAPHIC_NO)), any()));
         }
 
@@ -710,7 +714,8 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
             assertThat(card.getDrugId()).isEqualTo(502);
             assertThat(card.getDraftRevision()).isNotEqualTo(revision);
             assertThat(request.getAttribute("scriptId")).isNull();
-            logActionMock.verifyNoInteractions();
+            logActionMock.verify(() -> LogAction.addLogStrict(any(), eq(LogConst.ADD), eq(LogConst.CON_PRESCRIPTION),
+                    eq("77"), any(), any(), any()));
         }
 
         @Test

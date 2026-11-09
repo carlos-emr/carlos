@@ -62,6 +62,13 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 @Table(name = "drugs")
 public class Drug extends AbstractModel<Integer> implements Serializable {
 
+    @jakarta.persistence.Version
+    @Column(name = "row_version")
+    private Long rowVersion;
+
+    public Long getRowVersion() { return rowVersion; }
+    public void setRowVersion(Long version) { this.rowVersion = version; }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "drugid")

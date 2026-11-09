@@ -55,7 +55,7 @@ test('an empty stash is refused before any confirmation or save', () => {
 // of its contract; setPharmacyId is the next function after them.
 const refusedSave = slice('var RX_SAVE_PRE_WRITE_ERRORS', 'function setPharmacyId(');
 const refusedMessages = {
-    staleDraft: 'review the current draft', saveRefused: 'reopen the session',
+    alreadySaved: 'already saved; review the profile', staleDraft: 'review the current draft', saveRefused: 'reopen the session',
     saveIncomplete: 'review the chart before retrying', saveUncertain: 'it may be saved; check the profile',
 };
 
@@ -263,5 +263,11 @@ for (const name of ['updateSaveAllDrugsPrintContinue', 'updateSaveAllDrugsContin
         // Any validation, serialization or request after the rejected edit would fail here.
         vm.runInNewContext(code, context);
         assert.equal(context[name](), false);
+    });
+}
+
+for (const [error, message] of [['RX_ALREADY_SAVED', refusedMessages.alreadySaved], ['RX_SAVE_OUTCOME_UNKNOWN', refusedMessages.saveUncertain]]) {
+    test(`a durable receipt reports ${error} without a false not-saved refusal`, () => {
+        assert.deepEqual(reportRefused({status: 409, responseJSON: {error}}), {alerts: [message], refreshed: 1});
     });
 }

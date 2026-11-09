@@ -271,7 +271,9 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <fmt:message key="SearchDrug.js.saveWarning"               var="msg_saveWarning"/>
         <fmt:message key="SearchDrug.js.savePrompt"                var="msg_savePrompt"/>
         <fmt:message key="SearchDrug.js.saveRefused"               var="msg_saveRefused"/>
-        <fmt:message key="SearchDrug.js.saveIncomplete"            var="msg_saveIncomplete"/>
+        <fmt:message key="oscarRx.sourceChanged" var="msg_sourceChanged"/>
+        <fmt:message key="oscarRx.saveAlreadySaved" var="msg_saveAlreadySaved"/>
+<fmt:message key="SearchDrug.js.saveIncomplete"            var="msg_saveIncomplete"/>
         <fmt:message key="SearchDrug.js.saveUncertain"             var="msg_saveUncertain"/>
         <fmt:message key="SearchDrug.js.discontinueIncomplete"     var="msg_discontinueIncomplete"/>
         <fmt:message key="SearchDrug.js.staleDraft"                var="msg_staleDraft"/>
@@ -320,6 +322,8 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
                 saveWarning: '${carlos:forJavaScript(msg_saveWarning)}',
                 savePrompt: '${carlos:forJavaScript(msg_savePrompt)}',
                 saveRefused: '${carlos:forJavaScript(msg_saveRefused)}',
+                sourceChanged: '${carlos:forJavaScript(msg_sourceChanged)}',
+                alreadySaved: '${carlos:forJavaScript(msg_saveAlreadySaved)}',
                 saveIncomplete: '${carlos:forJavaScript(msg_saveIncomplete)}',
                 saveUncertain: '${carlos:forJavaScript(msg_saveUncertain)}',
                 discontinueIncomplete: '${carlos:forJavaScript(msg_discontinueIncomplete)}',
@@ -3206,7 +3210,16 @@ function updateQty(element){
      * @param {Object} transport the CarlosAjax transport of the failed or unconfirmed request
      */
     function reportRefusedSave(transport) {
-        if (transport && transport.responseJSON && transport.responseJSON.error === 'INCOMPLETE_RX_SAVE') {
+        if (transport && transport.responseJSON && transport.responseJSON.error === 'RX_ALREADY_SAVED') {
+            alert(jsMsg.alreadySaved);
+            refreshDrugProfile();
+        } else if (transport && transport.responseJSON && transport.responseJSON.error === 'RX_SOURCE_CHANGED') {
+            alert(jsMsg.sourceChanged);
+            refreshDrugProfile();
+        } else if (transport && transport.responseJSON && transport.responseJSON.error === 'RX_SAVE_OUTCOME_UNKNOWN') {
+            alert(jsMsg.saveUncertain);
+            refreshDrugProfile();
+        } else if (transport && transport.responseJSON && transport.responseJSON.error === 'INCOMPLETE_RX_SAVE') {
             alert(jsMsg.saveIncomplete);
         } else if (transport && transport.status === 409 && transport.responseJSON
                 && transport.responseJSON.error === 'STALE_RX_STASH') {

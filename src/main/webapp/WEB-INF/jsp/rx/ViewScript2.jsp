@@ -474,7 +474,17 @@
                 <%}
             }%>
                 let action = "<%= request.getContextPath() %>/form/createcustomedpdf?__title=Rx&__method=" + method + "&useSC=" + useSC + "&scAddress=" + scAddress + "&rxPageSize=" + rxPageSize + "&scriptId=" + scriptId;
-                var previewForm = document.getElementById("preview").contentWindow.document.getElementById("preview2Form");
+                var previewForm;
+                try {
+                    var frame = document.getElementById("preview");
+                    previewForm = frame && frame.contentWindow.document.getElementById("preview2Form");
+                } catch (previewAccessError) { previewForm = null; }
+                if (!previewForm) {
+                    if (method === 'oscarRxFax') resetFailedFaxSubmission(previousUnloadHandler);
+                    var notice = document.getElementById('faxPreviewChanged');
+                    if (notice) notice.hidden = false;
+                    return false;
+                }
                 if (method === "oscarRxFax") {
                     if (!matchesFaxPreview(previewForm)) {
                         hasPreview = false;
@@ -644,7 +654,8 @@
                 }
                 var url = '${carlos:forJavaScript(ctx)}/rx/ViewAddRxComment';
                 var ran_number = Math.round(Math.random() * 1000000);
-                var comment = encodeURIComponent(document.getElementById('additionalNotes').value);
+                var rawComment = document.getElementById('additionalNotes').value;
+                var comment = encodeURIComponent(rawComment);
                 var params = "scriptNo=" + encodeURIComponent(faxScriptNo) + "&comment=" + comment + "&rand=" + ran_number;  //]
                 var saveWarning = document.getElementById('additionalNotesSaveError');
                 if (saveWarning) saveWarning.hidden = true;
@@ -667,11 +678,12 @@
                         method: 'POST',
                         headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
                         credentials: 'same-origin',
-                        body: params
+                        body: params + '&originalComment=' + encodeURIComponent(savedAdditionalNotes)
                     }).then(function (response) {
-                        if (!response.ok) {
+                        if (!response.ok || response.redirected || (!response.headers || response.headers.get('X-Carlos-Rx-Comment') !== 'written')) {
                             throw new Error('ViewAddRxComment returned HTTP ' + response.status);
                         }
+                        savedAdditionalNotes = rawComment;
                     });
                 });
                 // Observe rejection immediately: a blur save can fail before the later Fax
@@ -711,6 +723,17 @@
                 // obey the same boundary as the disabled ordinary Print control.
                 if (typeof hasPreview === 'undefined' || !hasPreview || !frames['preview']) return;
                 var previewFrame = frames['preview'];
+                try {
+                    if (!previewFrame.document || !previewFrame.document.getElementById('preview2Form')) {
+                        var notice = document.getElementById('faxPreviewChanged');
+                        if (notice) notice.hidden = false;
+                        return false;
+                    }
+                } catch (previewAccessError) {
+                    var inaccessibleNotice = document.getElementById('faxPreviewChanged');
+                    if (inaccessibleNotice) inaccessibleNotice.hidden = false;
+                    return false;
+                }
                 var browserName = navigator.appName;
                 if (browserName == "Microsoft Internet Explorer") {
                     alert('${carlos:forJavaScript(msg_msieNotPermitted)}')
@@ -735,6 +758,14 @@
             function printPaste2Parent(print, fax, pasteRx, capturedPasteText, useCapturedPasteTextAsIs) {
                 //console.log("in printPaste2Parent");
                 if (faxSubmissionUncertain || faxPreviewReloading || ((isReprint || !hasPreview || faxQueued || faxSubmissionPending) && !fax)) return Promise.resolve(false);
+                try {
+                    if (!fax && (!frames['preview'] || !frames['preview'].document
+                            || !frames['preview'].document.getElementById('preview2Form'))) {
+                        var loadingNotice = document.getElementById('faxPreviewChanged');
+                        if (loadingNotice) loadingNotice.hidden = false;
+                        return Promise.resolve(false);
+                    }
+                } catch (previewAccessError) { return Promise.resolve(false); }
                 // A retry is safe only until an insertion or request may have written text.
                 // Network failures and editor callbacks can fail AFTER their side effect.
                 faxPasteCanRetry = true;
@@ -1053,6 +1084,7 @@
             var POLL_TIME = 1500;
             var counter = 0;
             var isRxFaxEnabled = "<%=CarlosProperties.getInstance().isRxFaxEnabled()%>";
+            var savedAdditionalNotes = '<%= SafeEncode.forJavaScript(comment) %>';
             var faxScriptNo = "<carlos:encode value='<%= scriptIdForFax %>' context="javaScriptBlock"/>";
             // Ordinary Print and Paste also needs these, even when Rx faxing is disabled.
             var hasPreview = <%= previewAvailable ? "true" : "false" %>;

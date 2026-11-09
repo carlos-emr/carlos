@@ -73,4 +73,16 @@ class RenalDosingInputUnitTest extends CarlosUnitTestBase {
     void shouldAccept_whenBirthDateIsValid(String year, String month, String day) {
         assertThat(RenalDosingInput.validBirthDate(year, month, day)).isTrue();
     }
+    @org.junit.jupiter.api.Test
+    void shouldRefuseUnqualifiedExtremesAndUnicodeLookalikes_beforeAutomaticHighlighting() {
+        org.assertj.core.api.Assertions.assertThat(RenalDosingInput.supportsAutomaticHighlight(18, 20, 10)).isTrue();
+        org.assertj.core.api.Assertions.assertThat(RenalDosingInput.supportsAutomaticHighlight(120, 500, 3000)).isTrue();
+        for (double[] input : new double[][]{{17, 70, 100}, {121, 70, 100}, {40, 19, 100},
+                {40, 501, 100}, {40, 70, 9}, {40, 70, 3001}, {40, 70, Double.NaN}}) {
+            org.assertj.core.api.Assertions.assertThat(RenalDosingInput.supportsAutomaticHighlight((int)input[0], input[1], input[2])).isFalse();
+        }
+        org.assertj.core.api.Assertions.assertThat(RenalDosingInput.weightKilograms("70", "Kg")).isNaN();
+        org.assertj.core.api.Assertions.assertThat(RenalDosingInput.creatinineMicromoles("100", "umol/ℓ")).isNaN();
+    }
+
 }

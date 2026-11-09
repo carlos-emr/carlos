@@ -192,6 +192,10 @@
         </select>
         <input type="hidden" name="id" value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="action" value="update"/>
+        <input type="hidden" name="originalVersion" value="<carlos:encode value='${requestScope.drugFormVersion}' context="htmlAttribute"/>"/>
+        <% if (Boolean.TRUE.equals(request.getAttribute("drugFormConflict"))) { %>
+        <p role="alert"><fmt:message key="oscarRx.sourceChanged"/> <a href="<%= request.getContextPath() %>/rx/ViewUpdateForm?id=<carlos:encode value='<%= id %>' context="uriComponent"/>"><fmt:message key="oscarRx.groups.back"/></a></p>
+        <% } %>
         <input type="submit" class="btn btn-primary" value="submit">
     </form>
     </body>

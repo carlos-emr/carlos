@@ -79,12 +79,35 @@ public final class ViewUpdateForm2Action extends ActionSupport {
                 "_rx", update ? "w" : "r");
 
         if (update) {
-            drug.setDrugForm(request.getParameter("drugForm"));
-            drugDao.merge(drug);
+            String form = request.getParameter("drugForm");
+            if (request.getParameter("originalVersion") == null) {
+                // Older callers retain their existing contract; current editors always submit a version.
+                drug.setDrugForm(form);
+                drugDao.merge(drug);
+            } else {
+                try {
+                    Long original = io.github.carlos_emr.carlos.managers.RxConcurrencyManager.originalVersion(request.getParameter("originalVersion"));
+                    if (form == null || form.length() > 50) throw new IllegalArgumentException();
+                    long version = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.RxConcurrencyManager.class)
+                            .updateForm(loggedInInfo.getLoggedInProviderNo(), drug.getDemographicId(), drug.getId(), original, form);
+                    drug.setDrugForm(form);
+                    drug.setRowVersion(version);
+                } catch (io.github.carlos_emr.carlos.managers.RxConcurrencyManager.Conflict conflict) {
+                    response.setStatus(HttpServletResponse.SC_CONFLICT);
+                    request.setAttribute("drugFormConflict", Boolean.TRUE);
+                    request.setAttribute("drugId", drug.getId());
+                    request.setAttribute("drugForm", form);
+                    request.setAttribute("drugFormVersion", request.getParameter("originalVersion"));
+                    return SUCCESS;
+                } catch (IllegalArgumentException invalid) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST); return NONE;
+                }
+            }
             request.setAttribute("drugFormUpdated", Boolean.TRUE);
         }
         request.setAttribute("drugId", drug.getId());
         request.setAttribute("drugForm", drug.getDrugForm());
+        request.setAttribute("drugFormVersion", drug.getRowVersion());
         return SUCCESS;
     }
 }

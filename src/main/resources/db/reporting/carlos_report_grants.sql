@@ -253,6 +253,7 @@ INSERT INTO carlos_report_tables (table_name, access, excluded_columns, reason) 
 ('facility_message', 'reportable', NULL, NULL),
 ('favorites', 'reportable', NULL, NULL),
 ('favoritesprivilege', 'reportable', NULL, NULL),
+('rx_submission_receipt', 'restricted', NULL, 'Opaque prescription submission identities and recovery state'),
 ('rx_favorite_group', 'reportable', NULL, NULL),
 ('rx_favorite_group_member', 'reportable', NULL, NULL),
 ('fax_config', 'restricted', NULL, 'Fax gateway accounts and passwords'),

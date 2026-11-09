@@ -44,6 +44,10 @@ public class DrugTo1 implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private Integer drugId;
+    private Long rowVersion;
+    public Long getRowVersion() { return rowVersion; }
+    public void setRowVersion(Long rowVersion) { this.rowVersion = rowVersion; }
+
 
     private String brandName;
 

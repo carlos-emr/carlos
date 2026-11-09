@@ -253,6 +253,20 @@ public class LogAction {
         executeAsync(oscarLog);
     }
 
+    /** Authoritative audit in the caller's transaction; a failed write must abort the clinical save. */
+    public static void addLogStrict(String providerNo, String action, String content, String contentId,
+            String ip, String demographicNo, String data) {
+        OscarLog entry = new OscarLog();
+        entry.setProviderNo(providerNo);
+        entry.setAction(action);
+        entry.setContent(content);
+        entry.setContentId(contentId);
+        entry.setIp(ip);
+        setDemographicIdIfNumeric(entry, demographicNo);
+        entry.setData(data);
+        getOscarLogDao().persist(entry);
+    }
+
     /**
      * This method will add a log entry in the same thread and can participate in the same transaction if one exists.
      */

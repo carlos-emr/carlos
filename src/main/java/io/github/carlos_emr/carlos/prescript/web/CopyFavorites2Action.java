@@ -31,7 +31,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.springframework.beans.BeanUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.dao.FavoritesDao;
@@ -212,15 +211,13 @@ public class CopyFavorites2Action extends ActionSupport {
             return failedOperation(e, "Favorites could not be validated. Nothing was copied.");
         }
         try {
-            for (Favorites favorite : selected) {
-                Favorites copy = new Favorites();
-                BeanUtils.copyProperties(favorite, copy);
-                copy.setProviderNo(currentProvider());
-                copy.setId(null);
-                favoritesDao.persist(copy);
-            }
+            SpringUtils.getBean(io.github.carlos_emr.carlos.managers.RxFavoriteCopyManager.class)
+                    .copy(source, currentProvider(), selected);
+        } catch (SecurityException denied) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
         } catch (RuntimeException e) {
-            return failedOperation(e, "Favorite copy did not complete. Some items may already have been copied; review your favorites before retrying.");
+            return failedOperation(e, "Favorite copy could not be confirmed. Review your favorites before retrying.");
         }
         request.setAttribute("copiedFavoritesCount", selected.size());
         return refresh();

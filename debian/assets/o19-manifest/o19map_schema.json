@@ -14483,7 +14483,8 @@
    "pharmacyId",
    "cds_currentness",
    "cds_dose_text",
-   "cds_projection_incomplete"
+   "cds_projection_incomplete",
+   "row_version"
   ],
   "dsGuidelineProviderMap": [
    "mapid",
@@ -22105,7 +22106,8 @@
    "textView",
    "rx_comments",
    "digital_signature_id",
-   "lastUpdateDate"
+   "lastUpdateDate",
+   "row_version"
   ],
   "preventions": [
    "id",
@@ -44499,7 +44501,8 @@
      "pharmacyId",
      "cds_currentness",
      "cds_dose_text",
-     "cds_projection_incomplete"
+     "cds_projection_incomplete",
+     "row_version"
     ],
     "dsGuidelineProviderMap": [
      "mapid",
@@ -56259,7 +56262,8 @@
      "textView",
      "rx_comments",
      "digital_signature_id",
-     "lastUpdateDate"
+     "lastUpdateDate",
+     "row_version"
     ],
     "preventions": [
      "id",
