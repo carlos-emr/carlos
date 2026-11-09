@@ -119,12 +119,21 @@ function initTicklerPickers() {
         // Flatpickr recognizes "today" before calling parseDate. Check raw text before any
         // commit event, including outside pointer presses (which precede blur).
         var invalidText = null;
+        var interactingWithPicker = false;
         function rejectInvalidText(event) {
             if (input.value && !parseTicklerValue(input.value, format)) {
-                invalidText = input.value;
                 // Stop Flatpickr's commit handler from clearing/reinterpreting raw input.
                 if (event) {
                     event.stopImmediatePropagation();
+                    // A pointer press inside the calendar blurs this input before
+                    // its arrow/day handler runs. Keep the picker open for correction.
+                    if (event.type === 'blur' && interactingWithPicker) {
+                        showError();
+                        return;
+                    }
+                }
+                invalidText = input.value;
+                if (event) {
                     if (event.type === 'keydown' && event.key === 'Enter') event.preventDefault();
                     // Closing explicitly also retires the popup after a refused Tab/Enter.
                     // Flatpickr's own commit handler would clear or reinterpret this text.
@@ -137,7 +146,8 @@ function initTicklerPickers() {
             if (event.key === 'Enter' || event.key === 'Tab') rejectInvalidText(event);
         }
         function rejectOnOutsidePress(event) {
-            if (input._flatpickr.calendarContainer.contains(event.target)) invalidText = null;
+            interactingWithPicker = input._flatpickr.calendarContainer.contains(event.target);
+            if (interactingWithPicker) invalidText = null;
             if (event.target !== input && !input._flatpickr.calendarContainer.contains(event.target)) {
                 // Let Flatpickr close its popup; onClose restores the refused text.
                 rejectInvalidText();
