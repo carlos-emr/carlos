@@ -75,7 +75,8 @@ is a passing checkpoint; later changes still require their own final-head checks
 At `a42feca0`, the complete installed CLI/browser proof passed again with WAR
 `7cce2bc8e3f37d73e32ee05528be21f8c810dd4380abbece2c53d4347250195c`.
 All 3,906 coordinated checks across 305 required suites passed with zero skips,
-and all five installed resource profiles passed, including scaling and 20 GiB.
+and all five installed importer resource profiles passed, including scaling and 20 GiB.
+Those profiles exercise import; they do not qualify export resource behavior.
 The full Java run had zero errors and one static migration-guard failure: its
 matcher did not recognize `WHERE EXISTS (...) AND NOT EXISTS (...)`. The actual
 migration's four native authorization/reapply cases passed. The candidate fixes
@@ -84,6 +85,32 @@ retirement and prescription-preview load binding have additional focused checks;
 final-head workflow results remain the release authority.
 
 
+At `ce2aa735`, all 3,909 coordinated checks across 305 required suites passed
+without skips. The [complete Java workflow](https://github.com/carlos-emr/carlos/actions/runs/42549472262)
+passed 39,371 checks across 3,008 report files, with zero failures or errors and
+315 visible optional-environment skips; its separate time-zone and font matrices
+also passed. The installed CLI/browser workflow passed with all fourteen native
+facts and four schema-valid mutants per transport, equal runtime compatibility,
+an unchanged chart and all 10,328 installed files verified. Its actual WAR SHA-256
+is `f9ff6661fdc7146eecd362d077597ce441ce8b1d4468c4fb2bdde19294610fba`.
+SonarCloud passed; the complete post-analysis report contained no security or
+reliability findings.
+
+Resource evidence has separate scopes. The five profiles in
+`cds-import-performance.yml` qualify the importer regression boundary. The new
+`cds-export-resources.yml` qualifies only the packaged export byte layer: a 256 MiB
+heap, a 20 GiB aggregate archive containing entries above 4 GiB, independent ZIP
+readers, real 65,537-entry ZIP64 count overflow, recipient decryption and physical
+32 MiB filesystem exhaustion/reserve refusal with private-file cleanup and
+recovery. This is separate from clinical readiness and query-scaling evidence.
+The exact current source compiled and the physical disk checks passed locally;
+the large run belongs on a fresh CI runner and remains pending at this source
+checkpoint. The final test fixtures capture the real prescription-preview
+listener, and Semgrep's 120-minute budget preserves its full scan and custom-rule
+steps. Scanner execution errors or absent SARIF now fail explicitly while the
+existing non-blocking findings policy stays intact. Current-head checks remain authoritative. CodeFactor still reports an
+obsolete critical function span; its available official refresh calls returned
+HTTP 403, and no failed check has been waived.
 
 All 305 reviewed coordinated suites passed at `b59628c7`, with no failures, errors
 or required skips, including the four real MariaDB permission-seed cases and the
@@ -939,7 +966,11 @@ There is no historical metadata simulation in that installed fixture. The expand
 checks. The pinned crosswalk is unchanged and all 25 crosswalk checks pass. Imported demographic reconciliation,
 other associated data, whole-source coverage and clinical publication remain unfinished.
 
-## Remaining implementation and acceptance gates
+## Historical implementation and acceptance checklist
+
+This checklist records the original acceptance boundaries. Current executed
+evidence and remaining checks are recorded above and in `cds-export-progress.json`;
+the historical component narratives below do not reset completed work.
 
 | Gate | Required evidence before release |
 | --- | --- |

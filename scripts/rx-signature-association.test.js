@@ -12,9 +12,19 @@ function setup() {
   const warning = { hidden: true };
   let disabled;
   let refreshes = 0;
+  const preview = {};
+  let previewLoad;
   const context = vm.createContext({ URL, Promise,
     window: { location: { href: 'https://127.0.0.1/carlos/rx/ViewScript2' } },
-    document: { getElementById: () => warning },
+    document: {
+      getElementById: id => id === 'preview' ? preview : warning,
+      addEventListener(type, listener, capture) {
+        assert.equal(type, 'load');
+        assert.equal(capture, true);
+        assert.equal(previewLoad, undefined, 'register the preview handler once');
+        previewLoad = listener;
+      }
+    },
     signatureAssociationSequence: 0, signatureAssociationQueue: Promise.resolve(),
     signatureAssociationPending: false, signatureAssociationFailed: false,
     isSignatureSaved: false, hasStoredSignature: false,
@@ -37,7 +47,9 @@ function setup() {
     vm.runInContext(jsp.slice(start, end).replace(/<%[\s\S]*?%>/g, '/carlos'), context);
   }
   const save = (id) => context.associateSavedSignature({ storedImageUrl: `/image?digitalSignatureId=${id}` }, '45');
-  return { context, requests, warning, save, disabled: () => disabled, refreshes: () => refreshes };
+  assert.equal(typeof previewLoad, 'function', 'the real preview load handler must be registered');
+  return { context, requests, warning, save, disabled: () => disabled, refreshes: () => refreshes,
+    reloadPreview: () => previewLoad({ target: preview }) };
 }
 
 test('fax remains locked until the signature association is explicitly confirmed', async () => {
@@ -88,8 +100,7 @@ test('preview reload reflects the pending signature save and unlocks after confi
   const button = { disabled: false, style: {} };
   s.context.frames.preview = { document: { getElementById: () => button } };
   s.context.setComment = () => {};
-  const onload = jsp.match(/<iframe id='preview'[^>]*onload="([^"]+)"/)[1];
-  vm.runInContext(onload, s.context);
+  s.reloadPreview();
   assert.equal(button.disabled, true);
   assert.equal(button.style.cursor, 'wait');
   s.requests[0].resolve(confirmed());
