@@ -126,7 +126,7 @@ public class printLabDaySheet2Action extends ActionSupport {
                 }
                 
                 ins = getClass().getResourceAsStream("/oscar/oscarReport/pageUtil/" + safeXmlStyleFile);
-                logger.debug("loading from : /oscar/oscarReport/pageUtil/" + safeXmlStyleFile + " " + ins);
+                logger.debug("Loading lab stylesheet {}", LogSafe.sanitize(safeXmlStyleFile));
             } catch (Exception ex1) {
                 MiscUtils.getLogger().error("Error", ex1);
             }

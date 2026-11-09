@@ -328,7 +328,39 @@
       "importConcurrencyChecks": 55,
       "allFocusedJavascriptChecksPassed": true,
       "bothNewChecksDetectOriginalBug": true,
-      "javaAndFinalInstalledChecks": "PENDING_CURRENT_HEAD_CI"
+      "javaAndFinalInstalledChecks": "PASSED_AT_4719E7DB"
+    },
+    "codeScanningRemediation": {
+      "verifiedBaseHead": "4719e7dba86df696b635fffa2711887c96481b10",
+      "baseInstalledWorkflow": 42563564207,
+      "baseInstalledStatus": "PASSED",
+      "baseInstalledWarSha256": "c25df6e1c2659a395679095f493440bd87310345d9c24e0d702a70769324e6a9",
+      "baseSonarAndCodeQlPassed": true,
+      "baseNativeAndResourceWorkflowsPassed": true,
+      "baseFullJavaTestsAndNonUtcDatesPassed": true,
+      "baseFontMatrixTimedOutInCombinedJob": true,
+      "allSixFontScenariosMovedToIndependentJob": true,
+      "fontJobTimeoutMinutes": 40,
+      "dcoConfirmationUsesExactRepositoryPhrase": true,
+      "peerAddressLogSinksSanitized": 7,
+      "jspPatientIdentityCanonicalInteger": true,
+      "finiteIdentifierSqlAndOwnedTestSourceAuditsDocumentedPerRule": true,
+      "noRulesDisabledOrFilesExcluded": true,
+      "strictSemgrepExecutionErrorsFail": true,
+      "semgrepPerRuleTimeoutSeconds": 30,
+      "localCustomRulesFindings": 0,
+      "localCustomRulesExecutionErrors": 0,
+      "localUpstreamAuditRules": 7,
+      "originalUpstreamFindingsReproduced": 12,
+      "remainingLocalUpstreamFindings": 0,
+      "localUpstreamExecutionErrors": 0,
+      "lifecycleRegressionTestsPassed": 80,
+      "cliQualificationGuardTestsPassed": 9,
+      "cliQualificationScenarioStatementsPreservedInOrder": true,
+      "cliGateMainComplexityBefore": 59,
+      "cliGateMainComplexityAfter": 16,
+      "currentHeadHostedValidation": "PENDING_AFTER_SCANNING_FIXES",
+      "allowlistedStylesheetLogSanitized": true
     }
   },
   "verifiedClinicalCheckpoint": {
@@ -373,7 +405,7 @@
     "Any missing clinical authorization, changed accepted policy or incompatible runtime"
   ],
   "remaining": [
-    "Complete CI and independent review after the browser inactivity-polling fix; the preceding pinned pair passed CLI, installed clinical and coordinated native workflows",
+    "Complete current-head CI and independent review after the scanning remediation and font-job separation; the preceding 4719e7db installed clinical, native, resource, Sonar and CodeQL checks passed",
     "Obtain fresh CodeFactor source analysis for the obsolete critical annotation; both available original-app refresh endpoints returned HTTP403",
     "Keep final-head DCO, PR readiness and evidence scopes aligned; CLI1.3.3 remains unpublished"
   ],

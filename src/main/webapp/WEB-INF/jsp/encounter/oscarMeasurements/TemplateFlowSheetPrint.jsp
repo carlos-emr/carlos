@@ -84,7 +84,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
 
 <%
-    String demographic_no = request.getParameter("demographic_no");
+    String demographic_no = Integer.toString(Integer.parseInt(request.getParameter("demographic_no")));
     String providerNo = (String) session.getAttribute("user");
     boolean printView = false;
     String date = UtilDateUtilities.getToday("yyyy-MM-dd");

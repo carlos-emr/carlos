@@ -90,6 +90,7 @@ def main() -> int:
         request = Request("https://api.github.com" + path, headers={"Authorization": "Bearer " + token,
                           "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"})
         try:
+            # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected -- Fixed https://api.github.com host; repository/SHA and all generated endpoint paths are validated above. No external URL is accepted.
             with urlopen(request, timeout=30) as response:
                 body = response.read(MAX_PAGE_BYTES + 1)
         except HTTPError as error:

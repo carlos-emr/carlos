@@ -13,6 +13,7 @@ import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.AfterEach;
@@ -45,6 +46,21 @@ import static org.mockito.Mockito.when;
 class BackupDownloadUnitTest extends CarlosUnitTestBase {
 
     private SecurityInfoManager securityInfoManager;
+
+    @Test void shouldKeepRejectedDownloadLogsOnOneLine_whenPeerAddressContainsControlCharacters() throws Exception {
+        var request = new MockHttpServletRequest("GET", "/servlet/BackupDownload");
+        request.addParameter("filename", "../rejected.txt");
+        request.setRemoteAddr("192.0.2.1\r\nforged-entry\u0085\u2028\u2029");
+        var response = new MockHttpServletResponse();
+        try (var capture = LogCapture.forLogger(BackupDownload.class)) {
+            new BackupDownload().service(request, response);
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(capture.messages()).anySatisfy(message -> {
+                assertThat(message).contains("BackupDownload rejected invalid filename", "192.0.2.1");
+                assertThat(message).doesNotContain("\r", "\n", "\u0085", "\u2028", "\u2029");
+            });
+        }
+    }
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     @TempDir private Path tempDir;
 

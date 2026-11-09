@@ -167,6 +167,113 @@ def assert_protected_reports(values: list[dict], path_from: Callable[[str], Path
             raise RuntimeError("protected report size/hash did not match its delivered receipt")
 
 
+def qualify_ordinary_and_replay(metadata, submit, invoke, fixture, common, runs, submissions, path_from) -> None:
+    dry = submit("dry-run", metadata["sources"]["dryrun"], "--dry-run")
+    if dry.get("state") != "DRY_RUN_COMPLETE" or dry.get("clinicalComplete") is not False or dry.get("committedUnits") != 0:
+        raise RuntimeError("preview was mislabeled as clinical completion")
+    if dry.get("resumeRequested") is not False or dry.get("maintenanceReleasePending") is not False \
+            or dry.get("maintenanceReleaseState") != "RELEASED" or dry.get("reportsDelivered") is not True \
+            or dry.get("cleanupComplete") is not True:
+        raise RuntimeError("preview report, cleanup or verified maintenance release was incomplete")
+    ordinary = submit("ordinary", metadata["sources"]["ordinary"])
+    assert_complete(ordinary)
+    recovered = result(invoke("submission-status", ["--status-submission", submissions["ordinary"], *common], {0}))
+    if recovered.get("runId") != runs["ordinary"]:
+        raise RuntimeError("submission lookup did not recover the original accepted run")
+    assert_complete(recovered)
+    unknown = invoke("unknown-submission", ["--status-submission", "unknown-submission", *common], {4})
+    if any(row.get("event") in {"ACCEPTED", "RESULT"} for row in unknown):
+        raise RuntimeError("unknown submission fabricated an accepted or terminal result")
+    counts = fixture("inspect", runs["ordinary"])
+    if counts.get("nativeTargets") != 1 or counts.get("holds") != 0 or counts.get("checkpoints") != ordinary["expectedUnits"]:
+        raise RuntimeError("native/checkpoint/hold evidence did not match the completion receipt")
+    before_noop = fixture("inspect", "fixture")
+    noop = submit("no-op", metadata["sources"]["ordinary"])
+    assert_complete(noop)
+    if noop.get("committedUnits") != 0 or noop.get("alreadyCompleteUnits") != noop.get("expectedUnits"):
+        raise RuntimeError("unchanged reimport did not reconcile as an explicit no-op")
+    if fixture("inspect", "fixture") != before_noop or fixture("inspect", runs["ordinary"]) != counts:
+        raise RuntimeError("unchanged no-op modified native counts or the original completion evidence")
+    resumed = result(invoke("completed-resume", ["--resume", runs["ordinary"], *common], {0}))
+    assert_complete(resumed)
+    for operation in ("status", "report"):
+        values = invoke("completed-" + operation, ["--" + operation, runs["ordinary"], *common], {0})
+        assert_complete(result(values))
+        if operation == "report":
+            assert_protected_reports(values, path_from)
+    invoke("unapproved-provider", ["--status", runs["ordinary"], "--provider", "T099"], {3})
+    complete = submit("all-categories", metadata["sources"]["allcategory"])
+    assert_complete(complete)
+    assert_category_occurrences(complete)
+    native = fixture("inspect", runs["all-categories"])
+    assert_native_projection(native)
+    alpha = submit("all-categories-alphanumeric", metadata["sources"]["allcategoryAlpha"],
+                   selected_provider=str(metadata["alphanumericProvider"]))
+    assert_complete(alpha)
+    if fixture("inspect", runs["all-categories-alphanumeric"]).get("preventionCreatorMatchesProvider") is not True:
+        raise RuntimeError("native prevention creator did not retain the authorized alphanumeric provider key")
+    directory = submit("directory", metadata["sources"]["directory"])
+    assert_complete(directory, 2)
+    archive = submit("zip", metadata["sources"]["archive"])
+    assert_complete(archive, 2)
+    archive_counts = fixture("inspect", runs["zip"])
+    if archive.get("committedUnits") != archive.get("expectedUnits") or archive_counts.get("nativeTargets") != 2 \
+            or archive_counts.get("checkpoints") != archive.get("expectedUnits"):
+        raise RuntimeError("initial ZIP import did not commit two new complete native patients")
+
+
+def qualify_interruption_and_resume(metadata, invoke, fixture, common, contract, runs, path_from) -> None:
+    invoke("interrupted", ["--input", str(path_from(metadata["sources"]["cancel"])), *common, *contract],
+           {130, 143, -signal.SIGTERM, 4}, interrupt=True)
+    invoke("cancel", ["--cancel", runs["interrupted"], *common], {4})
+    if fixture("inspect", runs["interrupted"]).get("cancelRequested") is not True:
+        raise RuntimeError("cancellation was not durably recorded on the partially committed import")
+    before_crash = fixture("inspect", runs["interrupted"])
+    crashed = invoke("interrupted-hard-resume", ["--resume", runs["interrupted"], *common], {137}, interrupt=True,
+                     resume_run=runs["interrupted"], minimum_checkpoints=before_crash["checkpoints"],
+                     minimum_notes=before_crash["nativeNotes"], hard_crash=True)
+    if any(row.get("event") == "RESULT" for row in crashed):
+        raise RuntimeError("hard-crashed engine falsely delivered a terminal success")
+    after_crash = fixture("inspect", runs["interrupted"])
+    if after_crash.get("cancelRequested") is not False or not 0 < after_crash.get("checkpoints", 0) < after_crash.get("expectedUnits", 0):
+        raise RuntimeError("hard crash did not preserve an uncancelled incomplete original run")
+    recovered = result(invoke("interrupted-resume", ["--resume", runs["interrupted"], *common], {0}))
+    assert_complete(recovered)
+    recovered_counts = fixture("inspect", runs["interrupted"])
+    if recovered_counts.get("nativeTargets") != 1 or recovered_counts.get("nativeNotes") != 256 \
+            or recovered_counts.get("checkpoints") != recovered.get("expectedUnits") or recovered_counts.get("holds") != 0:
+        raise RuntimeError("partial-import resume duplicated or omitted native units/patient or retained a hold")
+
+
+def qualify_course_refusals(metadata, submit, invoke, fixture, common, contract, runs, path_from) -> None:
+    course_options = ["--synthetic", "--course", str(metadata["courseId"]), "--timeshift", "7"]
+    if metadata.get("facilityId") is not None:
+        course_options += ["--facility", str(metadata["facilityId"])]
+    course = submit("course", metadata["sources"]["course"], *course_options)
+    assert_complete(course, 2)
+    course_counts = fixture("inspect", runs["course"])
+    if any(course_counts.get(key) != 2 for key in ("nativeTargets", "shiftedBirthDates",
+                                                  "shiftedMedicationDates", "shiftedAllergyDates", "shiftedNoteDates")):
+        raise RuntimeError("course import did not create exactly two independent copies with consistent clinical date shifts")
+    for control in ("missing-personal-program", "inactive-personal-program", "inactive-students", "inactive-course"):
+        before = fixture("inspect", "fixture")
+        fixture("control", metadata["metadataFile"], "reset")
+        fixture("control", metadata["metadataFile"], control)
+        if control == "inactive-course":
+            denied = invoke("course-" + control,
+                            ["--input", str(path_from(metadata["sources"]["course"])), *common, *contract, *course_options], {3})
+            if any(row.get("event") == "ACCEPTED" for row in denied):
+                raise RuntimeError("inactive course was accepted before its authorization refusal")
+        else:
+            refused = submit("course-" + control, metadata["sources"]["course"], *course_options, clean=False)
+            if refused.get("committedUnits") != 0 or refused.get("clinicalComplete") is not False:
+                raise RuntimeError("ineligible course imported clinical units or implied a real-chart fallback")
+        after = fixture("inspect", "fixture")
+        if after.get("totalNativePatients") != before.get("totalNativePatients"):
+            raise RuntimeError("refused course changed the native patient count")
+    fixture("control", metadata["metadataFile"], "reset")
+
+
 def main() -> None:
     args = validated_arguments()
     environment = {key: value for key, value in os.environ.items()
@@ -405,104 +512,9 @@ print(json.dumps({'signal':'SIGKILL','verifiedServiceUid':uid,'javaPid':pid,'pro
         return outcome
 
 
-    dry = submit("dry-run", metadata["sources"]["dryrun"], "--dry-run")
-    if dry.get("state") != "DRY_RUN_COMPLETE" or dry.get("clinicalComplete") is not False or dry.get("committedUnits") != 0:
-        raise RuntimeError("preview was mislabeled as clinical completion")
-    if dry.get("resumeRequested") is not False or dry.get("maintenanceReleasePending") is not False \
-            or dry.get("maintenanceReleaseState") != "RELEASED" or dry.get("reportsDelivered") is not True \
-            or dry.get("cleanupComplete") is not True:
-        raise RuntimeError("preview report, cleanup or verified maintenance release was incomplete")
-    ordinary = submit("ordinary", metadata["sources"]["ordinary"])
-    assert_complete(ordinary)
-    recovered = result(invoke("submission-status", ["--status-submission", submissions["ordinary"], *common], {0}))
-    if recovered.get("runId") != runs["ordinary"]:
-        raise RuntimeError("submission lookup did not recover the original accepted run")
-    assert_complete(recovered)
-    unknown = invoke("unknown-submission", ["--status-submission", "unknown-submission", *common], {4})
-    if any(row.get("event") in {"ACCEPTED", "RESULT"} for row in unknown):
-        raise RuntimeError("unknown submission fabricated an accepted or terminal result")
-    counts = fixture("inspect", runs["ordinary"])
-    if counts.get("nativeTargets") != 1 or counts.get("holds") != 0 or counts.get("checkpoints") != ordinary["expectedUnits"]:
-        raise RuntimeError("native/checkpoint/hold evidence did not match the completion receipt")
-    before_noop = fixture("inspect", "fixture")
-    noop = submit("no-op", metadata["sources"]["ordinary"])
-    assert_complete(noop)
-    if noop.get("committedUnits") != 0 or noop.get("alreadyCompleteUnits") != noop.get("expectedUnits"):
-        raise RuntimeError("unchanged reimport did not reconcile as an explicit no-op")
-    if fixture("inspect", "fixture") != before_noop or fixture("inspect", runs["ordinary"]) != counts:
-        raise RuntimeError("unchanged no-op modified native counts or the original completion evidence")
-    resumed = result(invoke("completed-resume", ["--resume", runs["ordinary"], *common], {0}))
-    assert_complete(resumed)
-    for operation in ("status", "report"):
-        values = invoke("completed-" + operation, ["--" + operation, runs["ordinary"], *common], {0})
-        assert_complete(result(values))
-        if operation == "report":
-            assert_protected_reports(values, path_from)
-    invoke("unapproved-provider", ["--status", runs["ordinary"], "--provider", "T099"], {3})
-    complete = submit("all-categories", metadata["sources"]["allcategory"])
-    assert_complete(complete)
-    assert_category_occurrences(complete)
-    native = fixture("inspect", runs["all-categories"])
-    assert_native_projection(native)
-    alpha = submit("all-categories-alphanumeric", metadata["sources"]["allcategoryAlpha"],
-                   selected_provider=str(metadata["alphanumericProvider"]))
-    assert_complete(alpha)
-    if fixture("inspect", runs["all-categories-alphanumeric"]).get("preventionCreatorMatchesProvider") is not True:
-        raise RuntimeError("native prevention creator did not retain the authorized alphanumeric provider key")
-    directory = submit("directory", metadata["sources"]["directory"])
-    assert_complete(directory, 2)
-    archive = submit("zip", metadata["sources"]["archive"])
-    assert_complete(archive, 2)
-    archive_counts = fixture("inspect", runs["zip"])
-    if archive.get("committedUnits") != archive.get("expectedUnits") or archive_counts.get("nativeTargets") != 2 \
-            or archive_counts.get("checkpoints") != archive.get("expectedUnits"):
-        raise RuntimeError("initial ZIP import did not commit two new complete native patients")
-    invoke("interrupted", ["--input", str(path_from(metadata["sources"]["cancel"])), *common, *contract],
-           {130, 143, -signal.SIGTERM, 4}, interrupt=True)
-    invoke("cancel", ["--cancel", runs["interrupted"], *common], {4})
-    if fixture("inspect", runs["interrupted"]).get("cancelRequested") is not True:
-        raise RuntimeError("cancellation was not durably recorded on the partially committed import")
-    before_crash = fixture("inspect", runs["interrupted"])
-    crashed = invoke("interrupted-hard-resume", ["--resume", runs["interrupted"], *common], {137}, interrupt=True,
-                     resume_run=runs["interrupted"], minimum_checkpoints=before_crash["checkpoints"],
-                     minimum_notes=before_crash["nativeNotes"], hard_crash=True)
-    if any(row.get("event") == "RESULT" for row in crashed):
-        raise RuntimeError("hard-crashed engine falsely delivered a terminal success")
-    after_crash = fixture("inspect", runs["interrupted"])
-    if after_crash.get("cancelRequested") is not False or not 0 < after_crash.get("checkpoints", 0) < after_crash.get("expectedUnits", 0):
-        raise RuntimeError("hard crash did not preserve an uncancelled incomplete original run")
-    recovered = result(invoke("interrupted-resume", ["--resume", runs["interrupted"], *common], {0}))
-    assert_complete(recovered)
-    recovered_counts = fixture("inspect", runs["interrupted"])
-    if recovered_counts.get("nativeTargets") != 1 or recovered_counts.get("nativeNotes") != 256 \
-            or recovered_counts.get("checkpoints") != recovered.get("expectedUnits") or recovered_counts.get("holds") != 0:
-        raise RuntimeError("partial-import resume duplicated or omitted native units/patient or retained a hold")
-    course_options = ["--synthetic", "--course", str(metadata["courseId"]), "--timeshift", "7"]
-    if metadata.get("facilityId") is not None:
-        course_options += ["--facility", str(metadata["facilityId"])]
-    course = submit("course", metadata["sources"]["course"], *course_options)
-    assert_complete(course, 2)
-    course_counts = fixture("inspect", runs["course"])
-    if any(course_counts.get(key) != 2 for key in ("nativeTargets", "shiftedBirthDates",
-                                                  "shiftedMedicationDates", "shiftedAllergyDates", "shiftedNoteDates")):
-        raise RuntimeError("course import did not create exactly two independent copies with consistent clinical date shifts")
-    for control in ("missing-personal-program", "inactive-personal-program", "inactive-students", "inactive-course"):
-        before = fixture("inspect", "fixture")
-        fixture("control", metadata["metadataFile"], "reset")
-        fixture("control", metadata["metadataFile"], control)
-        if control == "inactive-course":
-            denied = invoke("course-" + control,
-                            ["--input", str(path_from(metadata["sources"]["course"])), *common, *contract, *course_options], {3})
-            if any(row.get("event") == "ACCEPTED" for row in denied):
-                raise RuntimeError("inactive course was accepted before its authorization refusal")
-        else:
-            refused = submit("course-" + control, metadata["sources"]["course"], *course_options, clean=False)
-            if refused.get("committedUnits") != 0 or refused.get("clinicalComplete") is not False:
-                raise RuntimeError("ineligible course imported clinical units or implied a real-chart fallback")
-        after = fixture("inspect", "fixture")
-        if after.get("totalNativePatients") != before.get("totalNativePatients"):
-            raise RuntimeError("refused course changed the native patient count")
-    fixture("control", metadata["metadataFile"], "reset")
+    qualify_ordinary_and_replay(metadata, submit, invoke, fixture, common, runs, submissions, path_from)
+    qualify_interruption_and_resume(metadata, invoke, fixture, common, contract, runs, path_from)
+    qualify_course_refusals(metadata, submit, invoke, fixture, common, contract, runs, path_from)
     print(json.dumps({"gate": "installed-cds-cli-engine", "outcome": "PASS", "runs": runs,
                       "maxChildRssKiB": resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss,
                       "operatorEvidence": str(logs)}, separators=(",", ":")))

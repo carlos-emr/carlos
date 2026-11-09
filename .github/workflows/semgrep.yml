@@ -70,7 +70,7 @@ jobs:
           # Keep findings non-blocking, as before; execution errors and absent
           # evidence must not silently become a successful security scan.
           set +e
-          semgrep ci --sarif --output semgrep.sarif
+          semgrep ci --strict --timeout 30 --sarif --output semgrep.sarif
           status=$?
           set -e
           if [ "$status" -gt 1 ]; then
@@ -103,7 +103,7 @@ jobs:
         # 7 rules failed to parse, 8 unknown language).
         run: |
           set +e
-          semgrep scan --config .semgrep/ --sarif --output semgrep-carlos.sarif
+          semgrep scan --strict --timeout 30 --config .semgrep/ --sarif --output semgrep-carlos.sarif
           status=$?
           set -e
           if [ "$status" -gt 1 ]; then

@@ -70,6 +70,7 @@ public final class CdsExportInstalledFixture {
             String at = Arrays.stream(failure.getStackTrace())
                     .filter(f -> f.getClassName().equals(CdsExportInstalledFixture.class.getName()))
                     .map(f -> f.getMethodName() + ":" + f.getLineNumber()).findFirst().orElse("unknown");
+            // nosemgrep: java.lang.security.audit.active-debug-code-getstacktrace.active-debug-code-getstacktrace -- External disposable-CI helper emits only a fixed code, exception class and its own method/line; no message, value or full stack is rendered.
             System.err.println("CDS_EXPORT_INSTALLED_FIXTURE_FAILED:" + failure.getClass().getSimpleName() + ":" + at);
             System.exit(1);
         }

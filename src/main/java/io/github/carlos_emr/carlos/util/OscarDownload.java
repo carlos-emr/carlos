@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFileWriteExcept
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -78,7 +79,7 @@ public class OscarDownload extends GenericDownload {
                 return;
             }
             if (homepath == null || !ALLOWED_HOMEPATH_KEYS.contains(homepath)) {
-                log.warn("OscarDownload rejected invalid homepath key from {}", req.getRemoteAddr());
+                log.warn("OscarDownload rejected invalid homepath key from {}", LogSafe.sanitize(req.getRemoteAddr()));
                 res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download path key.");
                 return;
             }
@@ -93,9 +94,10 @@ public class OscarDownload extends GenericDownload {
             if (backupfilepath != null
                     && !backupfilepath.isEmpty()
                     && ((String) session.getAttribute("user")) != null) {
+                // nosemgrep: semgrep.carlos.httpservlet-path-traversal -- Directory comes from an authenticated server-side session under one of three allowlisted keys; client filenames are strictly validated and contained separately below.
                 File downloadDir = new File(backupfilepath).getCanonicalFile();
                 if (!downloadDir.isDirectory()) {
-                    log.warn("OscarDownload rejected non-directory path from {}", req.getRemoteAddr());
+                    log.warn("OscarDownload rejected non-directory path from {}", LogSafe.sanitize(req.getRemoteAddr()));
                     res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download directory.");
                     return;
                 }
@@ -127,7 +129,7 @@ public class OscarDownload extends GenericDownload {
         } catch (BillingFileWriteException e) {
             sendErrorForCaughtException(res, HttpServletResponse.SC_CONFLICT, e.reason().publicMessage());
         } catch (FileValidationException e) {
-            log.warn("OscarDownload rejected invalid filename from {}", req.getRemoteAddr());
+            log.warn("OscarDownload rejected invalid filename from {}", LogSafe.sanitize(req.getRemoteAddr()));
             sendErrorForCaughtException(res, HttpServletResponse.SC_BAD_REQUEST, "Invalid filename parameter.");
         } catch (IOException e) {
             throw e;

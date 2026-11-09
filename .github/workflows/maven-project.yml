@@ -204,9 +204,6 @@ jobs:
               -Dtest=DemographicBirthDayTimezoneUnitTest,DemographicBirthDayPropertyUnitTest,DemographicServiceEndpointTest,DemographicConverterUnitTest,SmartDateModuleRoundTripUnitTest,RestBirthDateMapperConfigurationUnitTest
           done
 
-      - name: Verify Rourke PDFs with alternate fonts and cache permissions
-        run: docker exec carlos-tomcat-dev bash scripts/check-rourke-fonts.sh
-
       - name: Prepare sanitized Java test reports
         if: always()
         run: |
@@ -266,6 +263,31 @@ jobs:
           path: ${{ runner.temp }}/carlos-ci-surefire-reports/
           if-no-files-found: warn
           retention-days: 14
+
+  report-fonts:
+    # The complete Java suite and six fresh-JVM font scenarios exceeded the
+    # shared 40-minute budget. Keep every scenario in an independent job.
+    name: Report font and cache matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref != '' && inputs.ref || github.sha }}
+          persist-credentials: false
+
+      - name: Start dev container (Maven cache restore-only)
+        uses: ./.github/actions/dev-container
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          maven-cache: restore
+
+      - name: Verify every report renderer with alternate fonts and cache permissions
+        run: docker exec carlos-tomcat-dev bash scripts/check-rourke-fonts.sh
 
       - name: Preserve synthetic Rourke rendering evidence
         if: always()

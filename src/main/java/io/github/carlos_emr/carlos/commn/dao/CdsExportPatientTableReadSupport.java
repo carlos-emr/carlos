@@ -496,6 +496,7 @@ public final class CdsExportPatientTableReadSupport {
     }
     static Query query(EntityManager em, String sql) {
         int timeout = queryTimeoutMillis();
+        // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string, java.lang.security.audit.sqli.jpa-sqli.jpa-sqli -- Package-owned callers use finite enum identifier plans; patient, keys, offsets and lengths are bound values. No client SQL enters this boundary.
         return em.createNativeQuery(sql, Object[].class).setFlushMode(FlushModeType.COMMIT)
                 .setHint("jakarta.persistence.query.timeout", timeout);
     }

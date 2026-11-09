@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import Mock
 
 SPEC = importlib.util.spec_from_file_location("cds_cli_engine", Path(__file__).with_name("run-cds-cli-engine.py"))
 ENGINE = importlib.util.module_from_spec(SPEC)
@@ -12,6 +13,38 @@ SPEC.loader.exec_module(ENGINE)
 
 
 class CliEvidenceContractTest(unittest.TestCase):
+    def test_preview_cannot_claim_clinical_success_before_ordinary_import(self):
+        submit, invoke, fixture = Mock(), Mock(), Mock()
+        submit.return_value = {"state": "COMPLETE", "clinicalComplete": True, "committedUnits": 1}
+        with self.assertRaisesRegex(RuntimeError, "preview was mislabeled"):
+            ENGINE.qualify_ordinary_and_replay({"sources": {"dryrun": "synthetic.xml"}},
+                                              submit, invoke, fixture, [], {}, {}, Path)
+        invoke.assert_not_called()
+        fixture.assert_not_called()
+
+    def test_hard_crash_cannot_deliver_a_terminal_result_or_start_recovery(self):
+        invoke = Mock(side_effect=[[], [], [{"event": "RESULT"}]])
+        fixture = Mock(side_effect=[{"cancelRequested": True}, {"checkpoints": 2, "nativeNotes": 1}])
+        with self.assertRaisesRegex(RuntimeError, "hard-crashed engine falsely delivered"):
+            ENGINE.qualify_interruption_and_resume({"sources": {"cancel": "synthetic.xml"}}, invoke, fixture,
+                                                  [], [], {"interrupted": "original-run"}, Path)
+        self.assertEqual(3, invoke.call_count)
+        self.assertEqual(2, fixture.call_count)
+
+    def test_course_shift_must_match_every_native_copy_before_refusal_controls(self):
+        complete = {"clinicalComplete": True, "discoveryComplete": True, "inventoryState": "SEALED",
+                    "pendingUnits": 0, "targetCopiesPlanned": 2, "reportsDelivered": True,
+                    "cleanupComplete": True, "resumeRequested": False, "maintenanceReleasePending": False,
+                    "maintenanceReleaseState": "RELEASED"}
+        fixture = Mock(return_value={"nativeTargets": 2, "shiftedBirthDates": 2, "shiftedMedicationDates": 2,
+                                     "shiftedAllergyDates": 2, "shiftedNoteDates": 1})
+        invoke = Mock()
+        with self.assertRaisesRegex(RuntimeError, "exactly two independent copies"):
+            ENGINE.qualify_course_refusals({"courseId": 1, "sources": {"course": "synthetic.xml"}},
+                                          Mock(return_value=complete), invoke, fixture, [], [], {"course": "course-run"}, Path)
+        invoke.assert_not_called()
+        fixture.assert_called_once_with("inspect", "course-run")
+
     def read(self, value):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "owned-evidence.log"

@@ -8,11 +8,14 @@ const fragment = fs.readFileSync(path.join(__dirname,'../src/main/webapp/WEB-INF
 // Extract the one known source block; this test does not filter or sanitize HTML.
 const scriptOpeningTag = '<script type="text/javascript">';
 const scriptStart = fragment.indexOf(scriptOpeningTag);
+// nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- Indexes the fixed checked-in JSP above; no external HTML is accepted or rendered.
 const scriptEnd = fragment.indexOf('</script>', scriptStart + scriptOpeningTag.length);
 assert.notEqual(scriptStart, -1, 'Expected the shared fragment script block');
 assert.ok(scriptEnd > scriptStart, 'Expected the shared fragment script closing marker');
+// nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- Source-structure assertion over that same fixed JSP, not a rendering sink.
 assert.equal(fragment.indexOf('<script', scriptStart + scriptOpeningTag.length), -1,
   'Expected exactly one shared fragment script block');
+// nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- Extracts executable test code only from the fixed repository source block whose boundaries were checked above.
 const script = fragment.slice(scriptStart + scriptOpeningTag.length, scriptEnd)
   .replace(/<%= Demographic\.[A-Z_]+ %>/g,'50')
   .replace('${carlos:forJavaScript(demographicCodePointLimitMessage)}','Maximum {0} characters.');

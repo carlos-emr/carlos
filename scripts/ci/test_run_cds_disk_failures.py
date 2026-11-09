@@ -136,6 +136,7 @@ class DiskFailureEvidenceTest(unittest.TestCase):
                     service_sample=sample,verify_java_identity=verify),
                'pwd':SimpleNamespace(getpwnam=lambda name:account),'source':Path('/synthetic/source.xml'),
                'metadata':{'provider':'999998'},'worker':worker,'worker_threads':observed,'result':{},'save':Mock()}
+        # nosemgrep: python.lang.security.audit.exec-detected.exec-detected -- Executes only the structurally checked loop from this checkout's fixed GATE module, with owned synthetic fixtures; no external code is accepted.
         exec(compile(ast.Module(body=loops,type_ignores=[]),GATE.__file__,'exec'),scope)
         return scope
 
