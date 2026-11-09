@@ -286,6 +286,23 @@
       ]
     },
     {
+      "name": "oauth-token-lifecycle",
+      "script": "scripts/oauth-token-lifecycle-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "notes": "#5724: exact finite-token epoch boundary, real consent and Administration client revocation, with independent live-client and browser-session controls. SQL stages three isolated clients; credentials are never logged.",
+      "fixtures": "Owned patient, three unique OAuth clients, real request/access tokens and nonces. Exact IDs retained across native deletion for verified token/nonce cleanup; normal application audit retained. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "ServiceClient"
+      ]
+    },
+    {
       "name": "oauth-rest-surfaces",
       "script": "scripts/oauth-rest-surfaces-playwright-checks.js",
       "tiers": [
@@ -1969,6 +1986,26 @@
       ]
     },
     {
+      "name": "lab-report-pagination",
+      "script": "scripts/lab-report-pagination-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_PDF_ARTIFACT_DIR",
+        "LAB_PDF_EXPECTED_NOTICE",
+        "CARLOS_INSTALLED_WEBAPP_DIR",
+        "CARLOS_INSTALLED_PROPERTIES_FILE"
+      ],
+      "notes": "#5733: sixty independently enumerated clinical rows with long unique comments, a separate control report, native Inbox/Print, exact-once order/values/units/ranges/flags, per-page identity/legal/footer/margins, word overlap and actual rendered ink. Offline controls reject dropped/duplicated rows and invisible text.",
+      "fixtures": "Two owned SQL-seeded received PATHL7 reports for one owned patient; this does not claim native upload coverage. Exact message/service ownership and routing/info cleanup are verified independently per report. Optional LAB_PDF_ARTIFACT_DIR retains synthetic PDF/expected-data/page images as intentional evidence; working files are removed."
+    },
+    {
       "name": "lab-pdf-footer",
       "script": "scripts/lab-pdf-footer-playwright-checks.js",
       "tiers": [
@@ -2406,6 +2443,30 @@
       "env": [
         "MESSENGER_DEMOGRAPHIC_NO",
         "MESSENGER_PROVIDER_NO"
+      ]
+    },
+    {
+      "name": "messenger-recipient-isolation",
+      "script": "scripts/messenger-recipient-isolation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "EXCLUSIVE",
+        "CARLOS_DISPOSABLE_HOST"
+      ],
+      "notes": "#5728/#5729: native overlapping groups plus a directly selected duplicate recipient, removed-member control, changed membership and legacy duplicate storage. Real sender/three recipient sessions verify exact delivery IDs and independent read/unread/archive/restore, immutable shared content/patient links and sender Sent copy.",
+      "fixtures": "Five owned clinician logins, two natively created groups, two natively sent patient-linked messages and one explicitly staged legacy duplicate membership. Exact owned message/group/contact cleanup is registered before native writes; unrelated group/member and clinical snapshots remain unchanged. Requires EXCLUSIVE=1 and CARLOS_DISPOSABLE_HOST=true. An initially absent singleton coordinator is pre-seeded with the run marker and removed only with matching ID/creator/timestamp; pre-existing coordinators are preserved exactly. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "messengerMembershipLock",
+        "groups_tbl",
+        "groupMembers_tbl",
+        "provider"
       ]
     },
     {
@@ -4335,6 +4396,27 @@
       "fixtures": "One open BC claim (billing and billingmaster) for the owned FAKE patient; the fee code and the diagnosis are existing BC reference rows picked by SQL, and neither search's own update is pressed, so nothing clinic-wide is written. Cleanup deletes the patient's billingmaster, billing_history, billingnote and billing rows and asserts them gone. BC installs only (billregion=BC)."
     },
     {
+      "name": "billing-bc-payment-boundaries",
+      "script": "scripts/billing-bc-receive-payment-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "#5736: exact-cent amount refusals, corrected partial payment, accepted overpayment/credit, control-invoice preservation and accounting reconciliation. The target has no refund checkbox; no refund flow is fabricated.",
+      "fixtures": "Owned BC bill and control invoice, private payment histories and an isolated five-digit billing provider. Owned financial rows and provider are removed and verified. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "envSet": {
+        "BC_PAYMENT_BOUNDARIES_ONLY": "true"
+      },
+      "mutates": [
+        "provider"
+      ]
+    },
+    {
       "name": "billing-bc-receive-payment",
       "script": "scripts/billing-bc-receive-payment-playwright-checks.js",
       "tiers": [
@@ -5292,6 +5374,24 @@
       "fixtures": "Owned FAKE- patient; one template created in the UI plus one seeded template, both marker-tagged; only those rows and the patient's immunizations rows are deleted."
     },
     {
+      "name": "report-by-template-tabs",
+      "script": "scripts/report-by-template-tabs-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [],
+      "notes": "#5725: two template schemas and four tabs sharing one context/login. Alternating native runs and actual CSV/XLS downloads prove per-instance parameters, values and cell types. Includes empty results and normal Back clear-session beacons and subsequent tab closure; beacons are never suppressed.",
+      "fixtures": "Two natively uploaded marker-owned templates and two owned synthetic patients. Native middle-click opens report instances from the Administration library. Clinical rows remain unchanged; exact owned templates/patient and scratch-download cleanup are verified. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "reportTemplates"
+      ]
+    },
+    {
       "name": "report-by-template",
       "script": "scripts/report-by-template-playwright-checks.js",
       "tiers": [
@@ -5627,6 +5727,27 @@
       ],
       "notes": "Fails at its last step on 2026.08: the Administration Lab Forwarding Rules page binds its provider selector to the wrong id, so no provider's rules can be loaded or saved.",
       "fixtures": "Logs in as a throwaway provider with its own OHIP number and an owned forward target; uploads an owned synthetic CML lab; owned rules, routing rows, labs and archived upload files removed."
+    },
+    {
+      "name": "lab-forwarding-multi-recipient",
+      "script": "scripts/lab-forwarding-multi-recipient-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "notes": "Native multi-recipient forwarding, source-wide New/Filed status, cancellation, selective removal and three independent CML uploads. No per-recipient status control exists on this target.",
+      "fixtures": "Owned source login, two recipients and a control provider; three unique CML uploads. Exact owned rules, type rows, routing, lab rows and upload archives are removed and verified. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "provider",
+        "incomingLabRules"
+      ]
     },
     {
       "name": "messenger-demographic-link",
@@ -6409,7 +6530,7 @@
         "BILLING_PRIVATE_CODE",
         "INVOICE_DIR"
       ],
-      "notes": "Fails at its last step on 2026.08: picking a payer address throws a JavaScript syntax error (double-encoded handler).",
+      "notes": "Native single-item invoice/payment/address lifecycle passes on current release target e0601ced004c (snapshot31); the earlier payer-handler failure no longer reproduces. Multi-item allocation is independently covered by billing-on-multi-item-payments.",
       "fixtures": "Owned private bill for an owned patient, its payments, an owned bill-to address and the invoice PDFs it prints under INVOICE_DIR; all removed."
     },
     {
@@ -7686,6 +7807,24 @@
       "fixtures": "Owned workflow patient, Palliative Care rows and marker-named form registrations, including eight aliases forcing the saved entry beyond the first six. All removed; registrations are clinic-wide, so run EXCLUSIVE=1."
     },
     {
+      "name": "billing-on-benefit-history",
+      "script": "scripts/billing-on-benefit-history-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "#5735: native mixed existing/new/unchanged SOB import, read-only and abandoned previews, method/CSRF refusals, append-only historical periods, unchanged historical claim, duplicate upload and code-admin reopening. Mixed malformed files are refused as a whole; the current UI provides file-level feedback only.",
+      "fixtures": "Four unused marker-owned fee codes (one with two previous periods), one historical owned claim and an untouched synthetic control. Exact fee/history/claim cleanup is registered before setup. No real codes or clinic-wide settings are changed. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "billingservice"
+      ]
+    },
+    {
       "name": "billing-on-gst-css-benefit",
       "script": "scripts/billing-on-gst-css-benefit-playwright-checks.js",
       "tiers": [
@@ -7895,6 +8034,26 @@
       ],
       "fixtures": "Seeds one marker-named eform row by SQL; edits it through Administration \u25b8 Manage eForms; cleanup deletes it and asserts it.",
       "notes": "Regression for #5637: an authorized multipart POST stores the edited template; GET and HEAD must answer application-origin 405 without changing it, and a multipart POST without its CSRF token must answer application-origin 403 without changing it."
+    },
+    {
+      "name": "contact-shared-directory",
+      "script": "scripts/contact-shared-directory-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "notes": "#5732: native directory creation, two patient associations, shared details, independent flags/cancellation and selective removal. Existing authorization and method probes remain separate.",
+      "fixtures": "Owned primary and secondary patients, native-created shared contact and unrelated control contact/patient. Exact owned links and contacts are removed and verified. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "Contact"
+      ],
+      "env": [
+        "EXCLUSIVE"
+      ]
     },
     {
       "name": "contact-editor",
@@ -18440,6 +18599,578 @@
       "env": [],
       "fixtures": "Owns the runWorkflow patient, a marker-named report with generated configuration/filter rows and a marker-named legacy billing header/detail and a synthetic provider/role; cleanup recovers generated identifiers by marker and asserts owned rows are gone. Must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "Verifies typed report field metadata and add/delete commits, provider role and PHCP counts, and authenticated CSV dispatch after JSP relocation."
+    },
+    {
+      "name": "allergy-partial-start-date",
+      "script": "scripts/allergy-partial-start-date-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned synthetic patient and imported year/year-month allergy precision; deletes and verifies owned allergy and partial_date rows.",
+      "notes": "Stored partial precision display and reaction-only amendment (#5796). Typed partial dates are outside the supported entry contract (#5576)."
+    },
+    {
+      "name": "admin-keygen-creation",
+      "script": "scripts/admin-api-keygen-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "envSet": {
+        "API_KEYGEN_CREATION_ONLY": "true"
+      },
+      "notes": "Independent native key creation, download/signature verification, manager reopen and duplicate refusal (#5707). Requires the installed CARLOS public key. No private keys are published.",
+      "fixtures": "Marker-owned seeded control and UI-created RSA key pairs; cleanup removes owned keys and read audits. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "publicKeys",
+        "ServiceClient"
+      ]
+    },
+    {
+      "name": "measurement-plot-semantics",
+      "script": "scripts/measurement-plot-semantics-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "assertsDatabase": true,
+      "env": [],
+      "fixtures": "Two owned synthetic patients and kg measurements; native selected/multi-delete archives. Exact clinical snapshots, ownership checks and verified cleanup. Requires tesseract with English data and lockfile-pinned pngjs.",
+      "notes": "Five irregular, out-of-order dates verified against OCR-calibrated axes and actual PNG series with a three-pixel tolerance; single/empty native behavior, deleted vertex and geometry sensitivity controls (#5716). The UI has no date-range controls. Weight units are shown in History as in kg; the graph labels its value axis Weight."
+    },
+    {
+      "name": "first-nations-roundtrip",
+      "script": "scripts/first-nations-roundtrip-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 480,
+      "assertsDatabase": true,
+      "env": [],
+      "fixtures": "Owned patient/control and exact demographic save-support cleanup. Requires actual FIRST_NATIONS_MODULE=true, showBandNumberOnly=false and one configured firstNationCommunity lookup with two distinct three-digit community values; no lookup configuration is changed by this check.",
+      "notes": "#5727 native valid status/community/family save/reopen, manual and cleared community after status revisit, optional Unicode edits/clears, band search after changes, unchanged unrelated values/control. Installed enabled-profile attempt currently fails on real browser ReferenceError and reopened flag (#5815); later steps remain unreached, with no pin or waiver."
+    },
+    {
+      "name": "lookup-list-isolation",
+      "script": "scripts/lookup-list-isolation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "assertsDatabase": true,
+      "env": [
+        "EXCLUSIVE"
+      ],
+      "mutates": [
+        "LookupListItem",
+        "consultationServices"
+      ],
+      "fixtures": "Native marker-owned items on all three shipped lists, owned provider/appointment/referral and directory fixtures. Native deactivation evicts caches before guarded SQL cleanup; unrelated lookup rows are compared in full. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5709: inventory in docs/testing/lookup-list-consumer-inventory.md; exact label/value/order/owner, empty and duplicate adds, consumer save/reopen, selective removal/cache isolation. Native UI has no edit/reorder/list-creation controls. Retains strict GET refusal for existing finding 58 (#3059), with explicit status and unchanged-state evidence; no new expected-failure pin."
+    },
+    {
+      "name": "decision-support-operators",
+      "script": "scripts/decision-support-operators-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 1200,
+      "assertsDatabase": true,
+      "env": [
+        "EXCLUSIVE",
+        "DS_OPERATOR_ARTIFACT_DIR"
+      ],
+      "mutates": [
+        "provider",
+        "dsGuidelines",
+        "dsGuidelineProviderMap"
+      ],
+      "fixtures": "Owned provider, two synthetic patients, fixed clinical records and 41 provider-scoped seeded definitions; no guideline authoring UI exists. Cleanup verifies exact owned mappings and preserves a provider if rule cleanup fails. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5718: age year/month/day boundaries, drugs/notes/billing/diagnosis/sex any/all/negative operators, native six-row expansion, alternating chart/list/per-condition detail, independent truth tables and SQL snapshots, native diagnosis resolution. Unsupported/dynamic-context families are inventoried separately. Synthetic JSON observations are retained; all mismatches remain fatal. Sex all/notall defect tracked as #5817; no new pin."
+    },
+    {
+      "name": "rx-same-severity-partners",
+      "script": "scripts/rx-same-severity-partners-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "assertsDatabase": true,
+      "env": [
+        "EXCLUSIVE"
+      ],
+      "mutates": [
+        "provider"
+      ],
+      "fixtures": "Owned clinician login/preferences and patient/current medication; staged catalog products and native discontinuation/patient override. Read-only validated DrugRef pairs, a noninteracting metformin control, and verified owned note/signature/support cleanup. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5734: ciprofloxacin has simultaneous moderate phenytoin/warfarin partners from current and staged sources. Exact JSON/marker/tooltip identities, selective removal/re-add, native current-medication discontinuation, no stale card IDs, thresholds and patient/provider overrides. Existing major/moderate/minor and refusal checks remain registered."
+    },
+    {
+      "name": "document-format-matrix",
+      "script": "scripts/document-format-matrix-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 1200,
+      "assertsDatabase": true,
+      "env": [
+        "EXCLUSIVE"
+      ],
+      "mutates": [
+        "provider"
+      ],
+      "fixtures": "Owned uploader login and patient documents; separate offered provider receives only newly owned Inbox DOC routing. Real installed upload limit, bounded synthetic PDF/image/text fixtures, original control snapshots and exact SQL/files/cache cleanup. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5730: actual eDoc and modern Inbox file contracts, independent stored/output bytes and MIME/page/creator/patient/routing metadata, empty/malformed/mismatched/case fixtures, and exact full-multipart limit minus one/at/plus one. Distinguishes opaque storage, client policy and transport-envelope refusal from content validation. Every mismatch remains fatal."
+    },
+    {
+      "name": "lab-version-ingestion",
+      "script": "scripts/lab-version-ingestion-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "assertsDatabase": true,
+      "env": [
+        "EXCLUSIVE",
+        "CARLOS_DISPOSABLE_VM",
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "mutates": [
+        "providerLabRoutingLock"
+      ],
+      "fixtures": "Owned patients and CML accessions created through the native HL7 uploader, with original/corrected/older timestamps and values, initial native acknowledgment, raw history and independent control snapshots. Shared upload fixture owns SQL/checksum/measurement/archive cleanup and restores original lock presence. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5726: changed same-accession messages are actually ingested; assert per-version routing/review and current/history chart/Inbox surfaces, out-of-order correction safety and byte-identical correction replay without extra effects. Final count/status ordering is recorded separately from clinical expectations; missing and unreached steps cannot pass."
+    },
+    {
+      "name": "eform-deployed-page-exclusion",
+      "script": "scripts/eform-deployed-page-exclusion-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 1200,
+      "assertsDatabase": true,
+      "env": [
+        "EXCLUSIVE",
+        "LAB_UPLOAD_JOURNAL_UNIT",
+        "LAB_UPLOAD_SERVER_LOG",
+        "EFORM_RENDER_TEMP_DIR"
+      ],
+      "mutates": [
+        "eform"
+      ],
+      "fixtures": "Three marker-owned eForm library templates and a synthetic patient; native new/saved downloads each save one owned revision per template. Reserves past existing legacy fdid references without deleting them. Verifies and removes only owned template/instance/value and downloaded-file fixtures. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5809: clean, form-wrapped and body-direct two-page layouts through native new and saved-instance PDF downloads. Poppler count/text/bounds and rendered ink enforce complete lower/right content, order and zero interstitial/blank pages; geometry is compared with the clean control. Requires the actual saved-eForm browser renderer and a readable server log with EFormBrowserPdfService INFO completion receipts; missing or disabled rendering cannot pass. The two log-source environment variables are alternatives."
+    },
+    {
+      "name": "tickler-stale-selection",
+      "script": "scripts/tickler-stale-selection-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "assertsDatabase": true,
+      "fixtures": "One synthetic patient, 59 marker-owned tasks across assignees/statuses and two default-size pages, exact child-row cleanup. Holds/disposes actual ListTicklers responses in the owned browser context; no shared preferences or fabricated successful responses.",
+      "notes": "#5810: preselected search/status/assignee/page changes, inert pending controls, current-page selection clearing, Clear All, out-of-order real list responses, and exact native Complete/Delete POST IDs, task rows/history and hidden/out-of-page sentinel preservation. Existing Deleted restrictions remain asserted."
+    },
+    {
+      "name": "oauth-web-callback",
+      "script": "scripts/oauth-web-callback-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "assertsDatabase": true,
+      "env": [
+        "EXPECT_OAUTH_MODE",
+        "EXCLUSIVE"
+      ],
+      "fixtures": "Owned registered OAuth client, request/access tokens/nonces and synthetic patient; actual ephemeral loopback callback receiver in the deployed browser namespace, with drained/verified shutdown. No receiver response reflects credentials. Exact owned SQL cleanup and immutable clinical controls. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5806: native consent/303 redirects for exact and extended callbacks, preserved query data and verifier exchange, provider/scope-bound signed reads and configured access mode; native Deny and denied exchange; application-origin host/scheme/lookalike-path refusals. Encoded query callback failure #5823 stays fatal, with refused authorization/exchange stages explicitly unreached. Existing oob and token-lifecycle checks remain registered.",
+      "mutates": [
+        "ServiceClient"
+      ]
+    },
+    {
+      "name": "report-query-by-example-budgets",
+      "script": "scripts/report-query-by-example-budgets-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "assertsDatabase": true,
+      "env": [
+        "CARLOS_DISPOSABLE_VM",
+        "QBE_REPORTING_USER",
+        "LAB_UPLOAD_JOURNAL_UNIT",
+        "LAB_UPLOAD_SERVER_LOG"
+      ],
+      "fixtures": "One marker-owned patient and 1201 demographicExt rows; successful query history scoped to provider/marker. Genuine bounded reporting-account cross-join timeout observed in MariaDB processlist, with no shared grants or configuration changed by the check. Cleanup refuses active queries or changed ownership and verifies exact SQL removal.",
+      "notes": "#5811: 999/1000/1001 row boundaries, independent encoded result-table character budget, real database timeout and same-composer recovery, exact successful-history semantics and private application audit metadata. Requires CARLOS_DISPOSABLE_VM=true, actual read-only reporting account (QBE_REPORTING_USER defaults to carlos_report), and a readable application INFO audit source via either log-source variable. Missing execution/receipts cannot pass."
+    },
+    {
+      "name": "appointment-slot-expiry",
+      "script": "scripts/appointment-slot-expiry-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "profile": "appointment-lock-expiry",
+      "timeoutSec": 600,
+      "env": [
+        "EXCLUSIVE"
+      ],
+      "notes": "#5737: 20-second supported lock profile; pauses the owned renderer JavaScript without unload, independently times the last accepted heartbeat, checks overlap/non-overlap, live renewals, stale-owner refusal/release and a real non-admin booking. Profile supervisor restores exact configuration bytes.",
+      "fixtures": "Three owned logins, owned patient and isolated owner schedule; exact owned monitor/booking/group cleanup, unchanged unrelated schedule. No SQL expiration or service restart during the scenario. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "provider",
+        "mygroup",
+        "PageMonitor"
+      ]
+    },
+    {
+      "name": "appointment-cut-recovery",
+      "script": "scripts/appointment-cut-recovery-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "EXCLUSIVE"
+      ],
+      "notes": "#5738: native Cut immediate full archive/audit, cancelled destination, invalid duration and corrected retry, repeated Paste without autosave, browser/session interruption, and Copy snapshot semantics across source edit/delete. Archive-only abandoned Cut is reported as an incomplete move; no undo policy is invented.",
+      "fixtures": "Owned patient/login/schedule, three source bookings and an unchanged control. Guards identities and dependent rows, removes only owned appointment/archive/monitor/group rows and verifies unrelated appointments unchanged. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "profile": "appointment-lock-expiry",
+      "mutates": [
+        "provider",
+        "mygroup",
+        "PageMonitor"
+      ]
+    },
+    {
+      "name": "lab-recall-delegate-delivery",
+      "script": "scripts/lab-recall-delegate-delivery-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "notes": "#5804: uses owned sender/delegate/control logins and the existing native Recall Settings/Recall workflow; sends the actual message, verifies one delivery and patient mapping, reads/reopens as the delegate, opens the assigned task and follows the exact lab link without resending or creating another task. Requires CARLOS_DISPOSABLE_HOST=true and EXCLUSIVE=1. Refreshes SQL fixture provider caches through an owned native profile save; after exact cleanup and browser shutdown, restarts only the explicitly disposable/exclusive application to discard cached deleted providers.",
+      "fixtures": "Owned patient, three owned accounts/local contact memberships, exact subject/body, native recall preferences, one synthetic routed PATHL7 lab and one linked task. Verified empty namespaces before writes; owned identity/recipient guards and post-cleanup verification; Messenger membership-coordinator baseline restored. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "provider",
+        "providersite",
+        "providerArchive",
+        "groupMembers_tbl",
+        "messengerMembershipLock"
+      ]
+    },
+    {
+      "name": "tickler-mrp-routing",
+      "script": "scripts/tickler-mrp-routing-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "notes": "#5812: native MRP preference, two owned patient/MRP pairs, actual task writes/recipient patient access, patient-free and changed-patient draft/assignee behavior, explicit manual assignment and missing/inactive MRP behavior. Semantic failures remain fatal while safe owned manual-recovery paths continue. Requires an active clinic and disposable/exclusive service management for fixture provider-cache retirement.",
+      "fixtures": "Four owned actors and two owned patients, separate unchanged control task; full known task/history cleanup, strict second-patient reference checks, original first-patient MRP restore, owned provider archive/property cleanup and post-browser application cache reset. Explicit taskTo precedence is also independently covered by lab-recall-delegate-delivery. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "provider",
+        "providersite",
+        "providerArchive",
+        "property:tickler_task_assignee"
+      ]
+    },
+    {
+      "name": "eform-image-zip-roundtrip",
+      "script": "scripts/eform-image-zip-roundtrip-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "assertsDatabase": true,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE",
+        "EFORM_IMAGE_DIR",
+        "EFORM_RENDER_TEMP_DIR"
+      ],
+      "mutates": [
+        "eform"
+      ],
+      "fixtures": "Owned template and patient instance, two marker-owned PNG assets, private downloaded archive/PDF and exact resource/SQL cleanup. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5808: export exact image-backed HTML/properties/assets, remove source rows/files, native import of actual downloaded bytes, native chart save/reopen and independently rendered PDF image regions. Verifies unrelated library rows and preexisting asset bytes remain unchanged. Requires local installed image/renderer stores and Poppler."
+    },
+    {
+      "name": "email-consent-transitions",
+      "script": "scripts/email-consent-transitions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "assertsDatabase": true,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "mutates": [
+        "emailConfig",
+        "eform"
+      ],
+      "fixtures": "Owned patient, local-only sender and SMTP sink, marker-owned eForm/revisions, exact patient consent/log/auxiliary cleanup. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5807: native Unknown/Opt-Out/Opt-In entry, denied and explicit Yes acknowledgment, actual SMTP/log attribution, second-context consent change with open opt-in composer, validation preserves pending text, fresh composers reflect changes, and restored opt-in sends once. Pins the current warning/composer-snapshot behavior explicitly; current send does not recheck consent. No new enforcement policy or configuration mutation."
+    },
+    {
+      "name": "billing-on-multi-item-payments",
+      "script": "scripts/billing-on-multi-item-payments-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 600,
+      "assertsDatabase": true,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "mutates": [
+        "provider",
+        "providersite"
+      ],
+      "fixtures": "Three independently priced owned invoice items, an unchanged control invoice, owned billing physician/clinic context and private downloaded PDFs; guarded exact supporting/financial cleanup. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5805: native Receive Payment allocations in three stages, leave a line untouched, complete one while another remains partial, then finish all; exact cent allocations, payment/header/extension/audit reconciliation, per-line form/details/history and actual displayed/printed totals. No claim that paid automatically changes status."
+    },
+    {
+      "name": "billing-on-ra-replay",
+      "script": "scripts/billing-on-ra-replay-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 900,
+      "assertsDatabase": true,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE",
+        "RA_DOCUMENT_DIR",
+        "RA_EDT_INBOX"
+      ],
+      "mutates": [
+        "provider",
+        "providersite"
+      ],
+      "fixtures": "Owned mixed submitted claims, untouched control, original and signed adjustment RA/header/detail files, exact guarded cleanup. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5719: retains existing native initial RA/report/error-report/reimport/settlement workflow, then same-RA replay, protected actual-settlement POST replay, subsequent -5.00 recovery with zero new invoiced fee, independent net balance/reports and adjustment settlement/reimport. OHIP RA statuses/accounting are verified separately from private payment tables; no external MOH/MCEDT calls."
+    },
+    {
+      "name": "incoming-mixed-pdf",
+      "script": "scripts/incoming-mixed-pdf-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "assertsDatabase": true,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE",
+        "INCOMINGDOCUMENT_DIR",
+        "INCOMINGDOCUMENT_RECYCLEBIN"
+      ],
+      "mutates": [
+        "property:incoming_document_default_queue",
+        "property:incoming_document_entry_mode",
+        "property:view_document_as"
+      ],
+      "fixtures": "Owned image-only and mixed-content queue PDFs, distinct MediaBox/CropBox/rotation and a link annotation; untouched queue/recycle/cache control hashes, exact preferences and guarded byte-matching file cleanup. Unacknowledged native edits retain durable recovery journals and all fixtures. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5731: real Incoming Docs image previews, extract page 2, rotate one/all pages and delete page 1. Independently render every output and compare identities/order/crops/relative rotation/pixels/annotation action, including reopened source/extracted/recycled outputs. No OCR. Original collision/cancellation/permission/stale/capacity coverage remains in incoming-pdf-extraction."
+    },
+    {
+      "name": "session-clinical-recovery",
+      "script": "scripts/session-clinical-recovery-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "assertsDatabase": true,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "fixtures": "Owned patient/control, two owned provider logins with exact program/profile cleanup, native saved note/eForm and a durably acknowledged private draft. Native requests are held before dispatch; unknown server outcomes retain private journals and all fixtures. Provider caches are retired by an explicit post-cleanup application restart. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5802: real out-of-band Logout, native expired autosave and saved-eForm submission, actual refusal and no unauthorized clinical write, truthful feedback, native heartbeat closure, same-account recovery and another account in the original browser context. Requires CARLOS_DISPOSABLE_HOST=true. Saved drafts and still-pending content are distinct; no new unauthenticated storage or recovery policy.",
+      "mutates": [
+        "provider"
+      ]
+    },
+    {
+      "name": "form-growth-clinical-geometry",
+      "script": "scripts/form-growth-clinical-geometry-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 1800,
+      "assertsDatabase": true,
+      "env": [
+        "EXCLUSIVE"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "fixtures": "Two owned infant charts with fixed birth dates and both sexes, independent in-range control measurements, exact owned Forms-menu registrations, native Rourke/Growth saves and repeated measurement fixtures. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5717: independent WHO grid calibration and pinned sex-specific reference PDFs, native form/measurement/combined-source geometry, age 0/23.95 months and irregular dates, exact duplicate-source behavior, two-point tolerance, reference-curve pixel comparison and exact owned/control cleanup. Retains the original Rourke/Growth output checks and original finding selectors. Requires pdftotext/pdfinfo/pdftoppm and the shipped reference assets."
+    },
+    {
+      "name": "demographic-merge-clinical-history",
+      "script": "scripts/demographic-merge-clinical-history-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 1200,
+      "assertsDatabase": true,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE",
+        "DOCUMENT_DIR"
+      ],
+      "fixtures": "Two owned source charts and a populated unrelated control; signed note revisions and SHA-256 signatures, prescriptions, allergies, measurements and stored PDFs. Exact clinical snapshots, inode/byte ownership and guarded child-first cleanup. Unknown native write acknowledgements retain all fixtures and private recovery journals. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5715: native baseline clinical modules, Administration Merge, head/tail record navigation, document union on the merged head, source ownership and signing/revision preservation, native Unmerge and independent clinical histories. Retains all original invalid-identifier/self/cycle/forged-head/GET controls. Requires CARLOS_DISPOSABLE_HOST=true and installed DOCUMENT_DIR."
+    },
+    {
+      "name": "eform-visual-widgets",
+      "script": "scripts/eform-visual-widgets-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "assertsDatabase": true,
+      "timeoutSec": 900,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE",
+        "EFORM_IMAGE_DIR",
+        "EFORM_RENDER_TEMP_DIR"
+      ],
+      "mutates": [
+        "eform"
+      ],
+      "fixtures": "One native editor-created template, owned patient/revisions and unrelated control, exact owned PNG and renderer PDFs. Unknown native writes retain all fixtures and private request journals. Complete unrelated template/image/control snapshots are preserved on success and failure. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5801: actual editor inventory, xBox defaults and native radio grouping, image selection and wet-signature placement/drawing/clear, independent persisted markup/value checks, native instance histories/reopen, actual PDF controls/image/signature/toolbar, native library-pencil Update of the same template and revised new-instance layout. #5826 remains a fatal product finding; no expected-failure pin. Requires Poppler and real installed image/renderer directories."
+    },
+    {
+      "name": "lab-qualified-results",
+      "script": "scripts/lab-qualified-results-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "assertsDatabase": true,
+      "timeoutSec": 900,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE",
+        "LAB_UPLOAD_DOCUMENT_STORE",
+        "LAB_QUALIFIED_ARTIFACT_DIR"
+      ],
+      "mutates": [
+        "providerLabRoutingLock"
+      ],
+      "fixtures": "Five native source labs and a separate owned patient/control, preclaimed unique accessions, exact message/measurement/routing/checksum/archive cleanup. Read-only allocator checks refuse dangling references; unknown submitted writes retain all fixtures and private journals. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5803: literal qualified/qualitative/numeric results across actual entry, stored HL7, native reports/history/grid/rows/visible tooltips, every offered Plot and actual PDFs. Independent printed-axis OCR and pixel geometry reject bound coercion; exact PDF columns preserve attribution. #5827/#5828 remain fatal with no expected-failure pin. Requires Poppler and English Tesseract."
     }
   ]
 }

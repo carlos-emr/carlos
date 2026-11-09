@@ -16,6 +16,22 @@ from package_lifecycle import CELL_ASSERTIONS, validate_config, validate_invento
 
 
 class PackageLifecycleTest(unittest.TestCase):
+    def test_fault_adapter_budget_includes_both_restarts_and_the_browser_suite(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('lifecycle_budget', Path(__file__).with_name('run-package-lifecycle-cell.py'))
+        cell = importlib.util.module_from_spec(spec); spec.loader.exec_module(cell)
+        budgets = []
+        with tempfile.TemporaryDirectory() as temporary, patch.object(cell, 'OUTPUT', Path(temporary)), \
+                patch.object(cell, 'run', side_effect=lambda command, *args, **kwargs: budgets.append((command, kwargs['timeout']))), \
+                patch.object(cell.gate, 'browser_results', return_value={'ready': True}):
+            for selection in (None, ['error-sanitization'], cell.BASELINE_READ_ONLY):
+                cell.smoke({'CARLOS_SUITE_PROVINCE': 'ON'}, 'budget', selection)
+        for command, seconds in budgets[:2]:
+            self.assertIn('scripts/ci/run-installed-error-sanitization.py', command)
+            self.assertGreaterEqual(seconds, 2 * (120 + 420) + 60 + 40 + 600)
+        self.assertNotIn('scripts/ci/run-installed-error-sanitization.py', budgets[2][0])
+        self.assertEqual(budgets[2][1], 600)
+
     def test_installer_wrapper_preserves_existing_files_and_rejects_symlinked_ancestors(self):
         import importlib.util
         spec = importlib.util.spec_from_file_location('lifecycle_wrapper', Path(__file__).with_name('run-package-lifecycle-cell.py'))
