@@ -68,7 +68,7 @@
     },
     "installedQualification": {
       "workflow": ".github/workflows/cds-export-installed.yml",
-      "status": "FINAL_RUNTIME_COMPATIBILITY_REQUALIFICATION_IN_PROGRESS",
+      "status": "PASSED_INSTALLED_CHECKPOINT_FINAL_HEAD_GATES_PENDING",
       "freshOwnedRuntime": true,
       "productionClassOverlays": false,
       "independentNativeFacts": 14,
@@ -95,7 +95,24 @@
         "finalLedgerRuntimeCompatibilityEqual": false,
         "currentCandidateQualificationSubstituted": false
       },
-      "effectiveRuntimeContract": "The CLI bootstrap sets its Java default zone to the configured clinical zone and uses a minimal C.UTF-8 locale. The owned Tomcat matches both; strict runtime compatibility equality remains mandatory."
+      "effectiveRuntimeContract": "The CLI bootstrap sets its Java default zone to the configured clinical zone and uses a minimal C.UTF-8 locale. The owned Tomcat matches both; strict runtime compatibility equality remains mandatory.",
+      "latestPassingCheckpoint": {
+        "head": "8a6248f160e0688feaea2f04bb1a50119895299c",
+        "workflowRun": 42540856434,
+        "status": "PASSED",
+        "warSha256": "3a9f54e906a9c778d354252056d572a17359f996b42b7ac1a74ae024d6300c1b",
+        "cliCommit": "9bd1a88d605c654243a55359adedb4d41c0e062e",
+        "bothTransportsReady": true,
+        "cliAndBrowserCompatibilityEqual": true,
+        "realReadyJobs": 2,
+        "importMetadataRows": 0,
+        "nativeChartUnchanged": true,
+        "installedFilesVerifiedBeforeAndAfter": 10327,
+        "rootDelegationTicketsRetired": true,
+        "independentNativeFactsPerTransport": 14,
+        "schemaValidClinicalMutantsDetectedPerTransport": 4,
+        "currentHeadRequalificationRequired": true
+      }
     },
     "permissionProposal": {
       "status": "APPLIED_AFTER_EXPLICIT_USER_APPROVAL",
@@ -181,7 +198,7 @@
     "Any missing clinical authorization, changed accepted policy or incompatible runtime"
   ],
   "remaining": [
-    "Complete the final installed CLI/browser runtime equality, native chart preservation, retired-ticket and unchanged-WAR assertions",
+    "Requalify the final head through the already passing complete installed CLI/browser workflow",
     "Pass the complete final-head Java, native, source-contract, security and five installed resource profiles",
     "Review every actionable external quality finding and retain complete diagnostic evidence",
     "Refresh the final-head DCO check and PR readiness from actual completed checks"

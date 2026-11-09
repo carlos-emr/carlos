@@ -32,7 +32,8 @@ jobs:
           REPORT_COMMIT: ${{ github.event.pull_request.head.sha }}
           REPORT_PATH: ${{ runner.temp }}/codefactor-findings.json
         run: python3 scripts/ci/report-codefactor-findings.py
-      - name: Preserve complete bounded diagnostics
+      - name: Preserve bounded diagnostics and completeness marker
+        if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: codefactor-findings

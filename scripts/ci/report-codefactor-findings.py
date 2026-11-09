@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
-"""Retain complete, bounded CodeFactor annotations without changing any check."""
+"""Retain bounded CodeFactor annotations with explicit completeness evidence."""
 from __future__ import annotations
 
 import hashlib
@@ -28,10 +28,12 @@ def collect(fetch, repository: str, commit: str, check: dict) -> dict:
         raise ValueError("Invalid completed CodeFactor check")
     annotations = []
     size = 0
+    incomplete = None
     for page in range(1, (expected + 99) // 100 + 1):
         batch = fetch(f"/repos/{repository}/check-runs/{identity}/annotations?per_page=100&page={page}")
-        if not isinstance(batch, list) or len(batch) != min(100, expected - len(annotations)):
-            raise ValueError("Incomplete CodeFactor annotations")
+        if not isinstance(batch, list) or len(batch) > 100:
+            raise ValueError("Invalid CodeFactor annotation page")
+        expected_page = min(100, expected - len(annotations))
         for item in batch:
             if not isinstance(item, dict):
                 raise ValueError("Invalid CodeFactor annotation")
@@ -43,15 +45,20 @@ def collect(fetch, repository: str, commit: str, check: dict) -> dict:
             if size > MAX_REPORT_BYTES:
                 raise ValueError("CodeFactor report exceeds bound")
             annotations.append(selected)
+        if len(batch) != expected_page:
+            incomplete = {"code": "INCOMPLETE_ANNOTATION_PAGE", "page": page,
+                          "expectedPageCount": expected_page, "receivedPageCount": len(batch)}
+            break
     current = fetch(f"/repos/{repository}/check-runs/{identity}")
     if (current.get("status") != "completed" or current.get("head_sha") != commit
             or current.get("output", {}).get("annotations_count") != expected
             or current.get("conclusion") != check.get("conclusion")):
-        raise ValueError("CodeFactor check changed while reading")
+        incomplete = {"code": "CHECK_CHANGED_DURING_READ"}
     digest = hashlib.sha256(json.dumps(annotations, sort_keys=True, separators=(",", ":"),
                                      ensure_ascii=True).encode("ascii")).hexdigest()
-    return {"protocol": 1, "complete": True, "commit": commit, "checkId": identity,
-            "conclusion": check.get("conclusion"), "annotationCount": expected,
+    return {"protocol": 1, "complete": incomplete is None, "commit": commit, "checkId": identity,
+            "conclusion": check.get("conclusion"), "annotationCount": len(annotations),
+            "declaredAnnotationCount": expected, "incomplete": incomplete,
             "annotationsSha256": digest, "annotations": annotations}
 
 
@@ -97,6 +104,8 @@ def main() -> int:
         selected = latest_completed_check(fetch, repository, commit)
         if selected is not None:
             analysis_commit, check = selected
+            print(json.dumps({"analysisCommit": analysis_commit, "checkId": check["id"],
+                              "declaredAnnotationCount": check["output"]["annotations_count"]}), flush=True)
             document = collect(fetch, repository, analysis_commit, check)
             document["requestedCommit"] = commit
             document["analysisMayPrecedeCurrentCommit"] = analysis_commit != commit
@@ -112,7 +121,7 @@ def main() -> int:
     output.write_bytes(payload)
     print(json.dumps({key: value for key, value in document.items() if key != "annotations"}))
     # The report is diagnostic; the original CodeFactor check remains authoritative.
-    return 0
+    return 0 if document["complete"] else 1
 
 
 if __name__ == "__main__":

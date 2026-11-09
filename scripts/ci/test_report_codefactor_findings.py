@@ -33,12 +33,22 @@ class CodeFactorReportTest(unittest.TestCase):
         self.assertEqual(64, len(result["annotationsSha256"]))
 
     def test_incomplete_last_page_is_not_reported_as_complete(self):
-        with self.assertRaisesRegex(ValueError, "Incomplete"):
-            REPORT.collect(lambda _: [], "owner/repo", COMMIT, self.check())
+        def fetch(path):
+            if "annotations?" not in path:
+                return self.check()
+            return [{"message": "Retained finding"}] * 100 if path.endswith("&page=1") else []
+
+        result = REPORT.collect(fetch, "owner/repo", COMMIT, self.check())
+        self.assertFalse(result["complete"])
+        self.assertEqual(100, result["annotationCount"])
+        self.assertEqual(101, result["declaredAnnotationCount"])
+        self.assertEqual(2, result["incomplete"]["page"])
+        self.assertEqual("Retained finding", result["annotations"][-1]["message"])
 
     def test_mutated_check_count_is_refused(self):
-        with self.assertRaisesRegex(ValueError, "changed"):
-            REPORT.collect(lambda _: self.check(1), "owner/repo", COMMIT, self.check(0))
+        result = REPORT.collect(lambda _: self.check(1), "owner/repo", COMMIT, self.check(0))
+        self.assertFalse(result["complete"])
+        self.assertEqual("CHECK_CHANGED_DURING_READ", result["incomplete"]["code"])
 
     def test_wrong_head_pending_and_excessive_counts_are_refused(self):
         for change in ({"head_sha": "b" * 40}, {"status": "in_progress"},

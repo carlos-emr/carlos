@@ -63,6 +63,16 @@ fixture now matches the CLI bootstrap's explicit clinical default time zone and
 minimal locale. Exact runtime equality, unchanged native chart/WAR and retired
 process tickets remain required final assertions.
 
+At `8a6248f1`, that complete installed workflow passed, including both real `READY`
+jobs, equal CLI/browser runtime compatibility, recipient decryption, all fourteen
+native facts and four mutation checks for each transport. The native chart was
+unchanged, no import metadata was created, root delegation tickets retired, and
+all 10,327 installed WAR files verified before and after. The actual WAR SHA-256
+was `3a9f54e906a9c778d354252056d572a17359f996b42b7ac1a74ae024d6300c1b`.
+The retained [workflow evidence](https://github.com/carlos-emr/carlos/actions/runs/42540856434)
+is a passing checkpoint; later changes still require their own final-head checks.
+
+
 All 305 reviewed coordinated suites passed at `b59628c7`, with no failures, errors
 or required skips, including the four real MariaDB permission-seed cases and the
 actual Struts action factory. The independent administrator `_cds_import` grant
