@@ -31,7 +31,7 @@ floor checker validates freshness before applying line, instruction, branch and
 required-refusal assertions. Freshness output explicitly says
 `coverageEvaluated: false`; it cannot replace that union result.
 
-A zero line floor on executable changed lines fails as
+A zero line floor on changed executable lines fails as
 `unreviewed-zero-floor`, even if a later run happens to cover those lines. A
 waiver requires a reason, a named reviewer, a concrete PR review/discussion
 permalink and the exact source blob reviewed. An issue link, boolean, blank

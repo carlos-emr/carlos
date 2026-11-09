@@ -28,6 +28,7 @@ on:
       - '.devcontainer/**'
       - '.github/workflows/db-schema-verify.yml'
       - 'scripts/ci/verify-flyway-baseline.sh'
+      - 'scripts/ci/download-flyway-cli.sh'
       - '.claude/**'
 
 # Read-only job: it checks out the repo and talks to a local docker container.
@@ -61,15 +62,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update && sudo apt-get install -y mariadb-client
-          # Keep the CLI aligned with flyway.version in pom.xml (also used by the Debian launcher).
-          FLYWAY_VERSION=13.12.0
-          # SHA256 published with the upstream GitHub release asset; update with the version.
-          FLYWAY_SHA256=e332704f4bbb16baba4ac565a822ccb24354003a284deaa11668c1be77013c34
-          curl -fsSL --retry 3 --retry-delay 2 --retry-max-time 180 \
-            --connect-timeout 15 --max-time 120 \
-            "https://github.com/flyway/flyway/releases/download/flyway-${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
-            -o /tmp/flyway.tgz
-          echo "${FLYWAY_SHA256}  /tmp/flyway.tgz" | sha256sum -c -
+          FLYWAY_VERSION=$(bash scripts/ci/download-flyway-cli.sh /tmp/flyway.tgz)
           tar xzf /tmp/flyway.tgz
           echo "$PWD/flyway-${FLYWAY_VERSION}" >> "$GITHUB_PATH"
 

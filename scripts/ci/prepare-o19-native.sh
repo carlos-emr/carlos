@@ -11,9 +11,7 @@ fi
 # A rerun gets a fresh private workspace; never reuse or delete an old socket.
 work=$(mktemp -d "$RUNNER_TEMP/carlos-o19-native.XXXXXXXX")
 mkdir "$work/socket"
-version=13.12.0
-curl -fsSL --retry 3 "https://github.com/flyway/flyway/releases/download/flyway-$version/flyway-commandline-$version-linux-x64.tar.gz" -o "$work/flyway.tgz"
-echo "e332704f4bbb16baba4ac565a822ccb24354003a284deaa11668c1be77013c34  $work/flyway.tgz" | sha256sum -c -
+version=$(bash scripts/ci/download-flyway-cli.sh "$work/flyway.tgz")
 tar xzf "$work/flyway.tgz" -C "$work"
 docker run -d --name carlos-o19-ci -p 127.0.0.1:13308:3306 \
   -e MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=1 \

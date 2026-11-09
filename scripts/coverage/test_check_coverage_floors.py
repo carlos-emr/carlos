@@ -4,12 +4,18 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
+from unittest import mock
 
 spec = importlib.util.spec_from_file_location('floors', Path(__file__).with_name('check-coverage-floors.py'))
 floors = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(floors)
+environment_spec = importlib.util.spec_from_file_location('coverage_git_environment',
+    Path(__file__).resolve().parents[1] / 'ci/git_environment.py')
+git_environment = importlib.util.module_from_spec(environment_spec)
+environment_spec.loader.exec_module(git_environment)
 
 
 class CoverageFloorsTest(unittest.TestCase):
@@ -122,6 +128,9 @@ class CoverageFloorsTest(unittest.TestCase):
 
 class CoverageFreshnessTest(unittest.TestCase):
     def setUp(self):
+        environment = mock.patch.dict(os.environ, git_environment.separate_checkout_environment(), clear=True)
+        environment.start()
+        self.addCleanup(environment.stop)
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
@@ -147,6 +156,20 @@ class CoverageFreshnessTest(unittest.TestCase):
     def git(self, *arguments):
         return subprocess.check_output(['git', '-c', 'user.name=Fixture',
             '-c', 'user.email=fixture@example.invalid', *arguments], text=True).strip()
+
+    def test_inherited_git_locations_cannot_modify_another_repository_during_pruning(self):
+        before = (self.git('rev-parse', 'HEAD'), (self.root / '.git/index').read_bytes(),
+                  (self.root / self.source).read_bytes(), self.git('reflog', '--all', '--format=%H'))
+        inherited = dict(os.environ, GIT_DIR=str(self.root / '.git'), GIT_WORK_TREE=str(self.root),
+                         GIT_INDEX_FILE=str(self.root / '.git/index'), GIT_COMMON_DIR=str(self.root / '.git'),
+                         GIT_OBJECT_DIRECTORY=str(self.root / '.git/objects'))
+        child = subprocess.run([sys.executable, '-m', 'unittest',
+            'test_check_coverage_floors.CoverageFreshnessTest.test_rewritten_merge_preserves_source_identity_even_without_the_original_commit'],
+            cwd=Path(__file__).resolve().parent, env=inherited, capture_output=True, text=True, timeout=30)
+        self.assertEqual(child.returncode, 0, child.stderr)
+        after = (self.git('rev-parse', 'HEAD'), (self.root / '.git/index').read_bytes(),
+                 (self.root / self.source).read_bytes(), self.git('reflog', '--all', '--format=%H'))
+        self.assertEqual(before, after)
 
     def test_test_only_commits_preserve_freshness_but_dirty_and_committed_java_changes_do_not(self):
         self.assertTrue(floors.check_freshness(self.policy, self.base)['ready'])
