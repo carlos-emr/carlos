@@ -19,7 +19,8 @@ permissions:
 
 concurrency:
   group: cds-export-resources-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: false
+  # A superseded PR artifact cannot qualify the current candidate.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   resources:

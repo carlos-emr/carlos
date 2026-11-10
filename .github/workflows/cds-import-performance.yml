@@ -29,9 +29,9 @@ permissions:
 
 concurrency:
   group: cds-import-performance-${{ github.event.pull_request.number || github.run_id }}
-  # Preserve running disk/scaling evidence; GitHub keeps only the latest pending
-  # candidate. Each retained proof still identifies its exact tested revision.
-  cancel-in-progress: false
+  # Qualify the current PR source/WAR instead of queueing behind obsolete proofs.
+  # Independently dispatched runs retain their unique run IDs and finish normally.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   installed-resource-profile:
