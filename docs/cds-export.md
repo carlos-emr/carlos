@@ -1756,3 +1756,31 @@ including real READY, independent status/submission recovery, exclusive delivery
 recipient decryption, fourteen expected native facts and four schema-valid mutants.
 The combined workflow then stopped at its test TLS/network startup before browser
 execution. That is a CLI checkpoint, not a passing browser qualification.
+
+Native prescriptions use a separate mapper beside the strict retained-source reconciler.
+Established dates, exact dose witnesses, supply, route, frequency, status and public prescriber
+fields have standard destinations. The complete captured `drugs` row, including SQL NULL versus
+empty text and IEEE dose witnesses, is also preserved in `CARLOS.Medication.Source.v1` under the
+pinned medication `ResidualInfo`. Unstructured strength remains exact `DrugDescription` and
+source context; it is never split into an invented amount/unit. An unlabelled native regional
+identifier stays explicitly unqualified source context and is not asserted as a Health Canada
+DIN. Native `OD` is daily; native duration weeks/months use the prescription calculator's exact
+7/30-day rules without multiplying refills. Unknown status and a false past-medication flag do
+not establish current treatment. Unbound import-provenance markers require review.
+
+`CARLOS.Medication.Archived.v1` carries archive state independently of clinical currentness. The
+receiving importer reads only that exact boolean marker, refuses malformed/duplicate values,
+and supplements existing historical archiving. The optional prepared flag is defaulted only
+after the original payload seal has been verified. Unknown residual context remains protected
+source, with the receiving importer's existing clinical-reconciliation diagnostics; this is
+not a claim that another vendor will interpret CARLOS extensions.
+
+The owning `PrescriptionDao` also captures printed script text, comments and reprint history,
+including scripts without remaining drug rows. Independent inventory accounts for every
+parent as `CARLOS.NativePrescription.v1` supporting clinical data. Select `NewCategory` with
+medications when such parents exist; excluding it refuses publication. Every nonzero drug
+script reference must resolve to a captured parent belonging to the same patient. Source
+signature identifiers remain non-executable context and actual signature payloads retain their
+separate source-catalogue gate. The complete-table source descriptor is generated with
+`python scripts/generate-cds-export-source-schema.py --table prescription`; both pinned physical
+profiles must agree, and the table ruling/ownership/mapping remain explicit review inputs.

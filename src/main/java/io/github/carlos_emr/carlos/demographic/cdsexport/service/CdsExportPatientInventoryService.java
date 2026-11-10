@@ -52,18 +52,21 @@ public class CdsExportPatientInventoryService {
     private final CdsExportHistoryInventoryService histories;
     private final CdsExportCareOccurrenceService care;
     private final CdsExportLaboratoryOccurrenceService laboratories;
+    private final CdsExportPrescriptionOccurrenceService prescriptions;
 
     public CdsExportPatientInventoryService(
             CdsExportRetainedIndexService indices,
             CdsExportNativeRowReceiptReader rows,
             CdsExportHistoryInventoryService histories,
             CdsExportCareOccurrenceService care,
-            CdsExportLaboratoryOccurrenceService laboratories) {
+            CdsExportLaboratoryOccurrenceService laboratories,
+            CdsExportPrescriptionOccurrenceService prescriptions) {
         this.indices = Objects.requireNonNull(indices);
         this.rows = Objects.requireNonNull(rows);
         this.histories = Objects.requireNonNull(histories);
         this.care = Objects.requireNonNull(care);
         this.laboratories = Objects.requireNonNull(laboratories);
+        this.prescriptions = Objects.requireNonNull(prescriptions);
     }
 
     public Inventory capture(
@@ -216,6 +219,17 @@ public class CdsExportPatientInventoryService {
                             CdsCategory.NEW_CATEGORY,
                             "hl7TextMessage",
                             laboratory.id()),
+                    budget);
+        }
+        for (var prescription :
+                prescriptions.sources(lease, patient, tables, source, bounds, control)) {
+            add(
+                    expected,
+                    nativeIdentity(
+                            patientKey,
+                            CdsCategory.NEW_CATEGORY,
+                            "prescription",
+                            prescription.fields().get("script_no")),
                     budget);
         }
         var mapper = new CdsExportRetainedFieldMapper();

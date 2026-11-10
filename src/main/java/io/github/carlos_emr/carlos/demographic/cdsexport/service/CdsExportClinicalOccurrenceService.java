@@ -513,20 +513,17 @@ public class CdsExportClinicalOccurrenceService {
                                         if (table.equals("drugs")) {
                                             if (importedUnit == null) {
                                                 var mapping =
-                                                        new CdsExportMedicationMapper()
+                                                        new CdsExportNativeMedicationMapper()
                                                                 .map(
                                                                         patient.patient(),
                                                                         row,
                                                                         dates,
                                                                         providers);
-                                                if (!mapping.nativeRowRepresentable()) review();
                                                 fields = mapping.fields();
                                                 content =
                                                         writer ->
-                                                                new CdsExportMedicationXmlWriter()
-                                                                        .write(
-                                                                                mapping.value(),
-                                                                                writer);
+                                                                new CdsExportNativeMedicationMapper()
+                                                                        .write(mapping, writer);
                                             } else {
                                                 var decision =
                                                         new CdsExportMedicationFieldReconciler()

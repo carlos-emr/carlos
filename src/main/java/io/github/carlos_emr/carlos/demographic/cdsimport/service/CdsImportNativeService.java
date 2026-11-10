@@ -185,7 +185,8 @@ public class CdsImportNativeService {
                         unit.unitKey(),
                         record.effectiveSha256(),
                         command,
-                        new CdsMedicationNativeDto(source, provider));
+                        new CdsMedicationNativeDto(
+                                source, provider, normalization.medicationArchived(record)));
             }
             case "AllergiesAndAdverseReactions" ->
                     preparation.store(
@@ -296,7 +297,11 @@ public class CdsImportNativeService {
                 temporalNotice(run, epoch, unit, "StartDate", source.start());
                 written =
                         medications.write(
-                                target, command.providerNo(), source, prepared.provider());
+                                target,
+                                command.providerNo(),
+                                source,
+                                prepared.provider(),
+                                prepared.archived());
             }
             case "AllergiesAndAdverseReactions" -> {
                 var source =

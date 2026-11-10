@@ -22,13 +22,12 @@
  * Toronto, Ontario, Canada
  * <p>
  * Modifications made by Magenta Health in 2024.
- 
+ *
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
-
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.Date;
@@ -36,13 +35,15 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Prescription;
 
-public interface PrescriptionDao extends AbstractDao<Prescription> {
+public interface PrescriptionDao extends AbstractDao<Prescription>, CdsExportPatientTableReadDao {
 
     public List<Prescription> findByDemographicId(Integer demographicId);
 
-    public List<Prescription> findByDemographicIdUpdatedAfterDate(Integer demographicId, Date afterThisDate);
+    public List<Prescription> findByDemographicIdUpdatedAfterDate(
+            Integer demographicId, Date afterThisDate);
 
-    public List<Prescription> findByDemographicIdUpdatedAfterDateExclusive(Integer demographicId, Date afterThisDate);
+    public List<Prescription> findByDemographicIdUpdatedAfterDateExclusive(
+            Integer demographicId, Date afterThisDate);
 
     public int updatePrescriptionsByScriptNo(Integer scriptNo, String comment);
 
@@ -55,8 +56,12 @@ public interface PrescriptionDao extends AbstractDao<Prescription> {
      */
     boolean hasExactComments(Integer scriptNo, String comment);
 
-    public List<Prescription> findByUpdateDate(Date updatedAfterThisDateExclusive, int itemsToReturn);
+    public List<Prescription> findByUpdateDate(
+            Date updatedAfterThisDateExclusive, int itemsToReturn);
 
-    public List<Prescription> findByProviderDemographicLastUpdateDate(String providerNo, Integer demographicId,
-                                                                      Date updatedAfterThisDateExclusive, int itemsToReturn);
+    public List<Prescription> findByProviderDemographicLastUpdateDate(
+            String providerNo,
+            Integer demographicId,
+            Date updatedAfterThisDateExclusive,
+            int itemsToReturn);
 }

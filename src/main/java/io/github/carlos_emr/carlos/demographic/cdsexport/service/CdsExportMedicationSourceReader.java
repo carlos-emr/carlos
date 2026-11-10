@@ -36,7 +36,15 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class CdsExportMedicationSourceReader extends CdsExportPatientTableSourceReader {
+    @Override
+    public Set<String> requiredTables() {
+        return Set.of("drugs", "prescription");
+    }
+
     public CdsExportMedicationSourceReader(@Qualifier("drugDao") DrugDao source) {
-        super(source, CdsExportPatientTableReadSupport.Plan.DRUGS, Set.of(CdsCategory.MEDICATIONS_AND_TREATMENTS));
+        super(
+                source,
+                CdsExportPatientTableReadSupport.Plan.DRUGS,
+                Set.of(CdsCategory.MEDICATIONS_AND_TREATMENTS));
     }
 }

@@ -53,6 +53,12 @@ public class CdsClinicalNormalizationService {
         this.fields = fields;
     }
 
+    /** Exact native archive state from the shared versioned carrier; unknown vendor content stays opaque. */
+    public boolean medicationArchived(CdsRecordDto record) throws IOException {
+        requireSection(record, "MedicationsAndTreatments");
+        return new CdsMedicationResidualReader(fields).read(record).archived();
+    }
+
     public CdsMedicationDto medication(CdsRecordDto record) throws IOException {
         return medication(record, null);
     }

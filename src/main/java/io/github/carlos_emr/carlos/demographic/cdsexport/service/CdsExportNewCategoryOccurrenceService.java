@@ -40,18 +40,21 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
     private final CdsExportCapturedTextRowsReader rows;
     private final CdsExportCareOccurrenceService care;
     private final CdsExportLaboratoryOccurrenceService laboratories;
+    private final CdsExportPrescriptionOccurrenceService prescriptions;
 
     public CdsExportNewCategoryOccurrenceService(
             CdsExportRetainedValuesService values,
             CdsExportRetainedReceiptVerificationService verification,
             CdsExportNativeCaptureService captures,
             CdsExportCareOccurrenceService care,
-            CdsExportLaboratoryOccurrenceService laboratories) {
+            CdsExportLaboratoryOccurrenceService laboratories,
+            CdsExportPrescriptionOccurrenceService prescriptions) {
         this.values = Objects.requireNonNull(values);
         this.verification = Objects.requireNonNull(verification);
         this.captures = Objects.requireNonNull(captures);
         this.care = Objects.requireNonNull(care);
         this.laboratories = Objects.requireNonNull(laboratories);
+        this.prescriptions = Objects.requireNonNull(prescriptions);
         rows = new CdsExportCapturedTextRowsReader(captures);
     }
 
@@ -305,6 +308,51 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                                         Set.of()));
                         control.authorizeCategory(
                                 patient.patient(), CdsCategory.LABORATORY_RESULTS, true);
+                        control.authorizeCategory(patient.patient(), category(), false);
+                        counts[0]++;
+                        counts[2]++;
+                    }
+                    for (var prescription :
+                            prescriptions.sources(
+                                    lease, patient, tables, source, bounds, control)) {
+                        var assessments =
+                                CdsExportPrescriptionOccurrenceService.assessments(prescription);
+                        new CdsExportNativeFieldAssessmentValidator()
+                                .requireRepresentable(
+                                        List.of(prescription),
+                                        assessments,
+                                        1_000_000,
+                                        control::checkpoint);
+                        var identity =
+                                new CdsExportIdentityDto(
+                                        patientKey,
+                                        category(),
+                                        CdsImportKeys.hash(
+                                                "carlos-native-occurrence-v1",
+                                                "prescription",
+                                                prescription.fields().get("script_no")));
+                        streams.requireActive();
+                        control.authorizeCategory(
+                                patient.patient(), CdsCategory.MEDICATIONS_AND_TREATMENTS, false);
+                        control.authorizeCategory(patient.patient(), category(), false);
+                        xml.emit(
+                                new CdsExportXmlComposer.Section(
+                                        identity,
+                                        body ->
+                                                CdsExportPrescriptionOccurrenceService.write(
+                                                        prescription, body)));
+                        output.accept(
+                                new CdsExportClinicalOccurrenceService.Receipt(
+                                        identity,
+                                        index.sourceManifestSha256(),
+                                        "prescription",
+                                        prescription.fields().get("script_no"),
+                                        null,
+                                        assessments,
+                                        Set.of(),
+                                        Set.of()));
+                        control.authorizeCategory(
+                                patient.patient(), CdsCategory.MEDICATIONS_AND_TREATMENTS, false);
                         control.authorizeCategory(patient.patient(), category(), false);
                         counts[0]++;
                         counts[2]++;

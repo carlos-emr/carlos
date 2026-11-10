@@ -171,7 +171,12 @@ final class CdsExportPatientPipelineFixture {
                         });
         inventories =
                 new CdsExportPatientInventoryService(
-                        indices, witnesses, historyInventory, careInventory, laboratoryInventory);
+                        indices,
+                        witnesses,
+                        historyInventory,
+                        careInventory,
+                        laboratoryInventory,
+                        mock(CdsExportPrescriptionOccurrenceService.class));
         when(demographics.append(
                         any(),
                         any(),

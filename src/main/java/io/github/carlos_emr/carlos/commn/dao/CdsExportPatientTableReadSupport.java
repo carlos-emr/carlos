@@ -482,6 +482,22 @@ public final class CdsExportPatientTableReadSupport {
                         "type",
                         "updatedatetime",
                         "urgency")),
+        PRESCRIPTIONS(
+                "prescription",
+                "script_no",
+                "demographic_no",
+                List.of(
+                        "date_prescribed",
+                        "date_printed",
+                        "dates_reprinted",
+                        "demographic_no",
+                        "digital_signature_id",
+                        "lastUpdateDate",
+                        "provider_no",
+                        "row_version",
+                        "rx_comments",
+                        "script_no",
+                        "textView")),
         DRUGS(
                 "drugs",
                 "drugid",
@@ -900,57 +916,73 @@ public final class CdsExportPatientTableReadSupport {
             if (this == DOCUMENT_LINKS)
                 return "d.`module`='demographic' and d.`module_id`=:patient";
             if (this == DOCUMENTS)
-                return "exists (select 1 from `ctl_document` c where c.`module`='demographic' and c.`module_id`=:patient and c.`document_no`=d.`document_no`)";
+                return "exists (select 1 from `ctl_document` c where c.`module`='demographic' and"
+                        + " c.`module_id`=:patient and c.`document_no`=d.`document_no`)";
             if (this == MEASUREMENTS_EXT)
-                return "exists (select 1 from `measurements` m where m.`demographicNo`=:patient and m.`id`=d.`measurement_id`)";
+                return "exists (select 1 from `measurements` m where m.`demographicNo`=:patient and"
+                        + " m.`id`=d.`measurement_id`)";
             if (this == MEASUREMENT_TYPES)
-                return "exists (select 1 from `measurements` m where m.`demographicNo`=:patient"
-                        + " and CAST(m.`type` AS BINARY)=CAST(d.`type` AS BINARY) and CAST(m.`measuringInstruction` AS BINARY)=CAST(d.`measuringInstruction` AS BINARY))";
+                return "exists (select 1 from `measurements` m where m.`demographicNo`=:patient and"
+                        + " CAST(m.`type` AS BINARY)=CAST(d.`type` AS BINARY) and"
+                        + " CAST(m.`measuringInstruction` AS"
+                        + " BINARY)=CAST(d.`measuringInstruction` AS BINARY))";
             if (this == LABORATORY_ROUTING)
                 return "d.`demographic_no`=:patient and d.`lab_type`='HL7'";
             if (this == LABORATORY_MESSAGES || this == LABORATORY_INFORMATION) {
                 String lab = this == LABORATORY_MESSAGES ? "d.`lab_id`" : "d.`lab_no`";
-                return "(exists (select 1 from `patientLabRouting` r where r.`lab_type`='HL7' and r.`demographic_no`=:patient and r.`lab_no`="
+                return "(exists (select 1 from `patientLabRouting` r where r.`lab_type`='HL7' and"
+                        + " r.`demographic_no`=:patient and r.`lab_no`="
                         + lab
-                        + ")"
-                        + " or exists (select 1 from `cds_laboratory_result` l where l.`demographicNo`=:patient and l.`nativeLabNo`="
+                        + ") or exists (select 1 from `cds_laboratory_result` l where"
+                        + " l.`demographicNo`=:patient and l.`nativeLabNo`="
                         + lab
                         + "))";
             }
             if (this == ISSUE_CATALOGUE)
-                return "exists (select 1 from `casemgmt_issue` i where i.`issue_id`=d.`issue_id` and i.`demographic_no`=:patient)";
+                return "exists (select 1 from `casemgmt_issue` i where i.`issue_id`=d.`issue_id`"
+                        + " and i.`demographic_no`=:patient)";
             if (this == CASE_NOTE_EXT)
-                return "exists (select 1 from `casemgmt_note` n where n.`note_id`=d.`note_id` and n.`demographic_no`=:patient)";
+                return "exists (select 1 from `casemgmt_note` n where n.`note_id`=d.`note_id` and"
+                        + " n.`demographic_no`=:patient)";
             // No activity/deletion filtering: historical associations remain captured and require
             // an explicit disposition.
             // Exact text reference matching avoids MySQL's permissive string-to-number coercion.
             if (this == CONTACT)
-                return "exists (select 1 from `DemographicContact` p where p.`demographicNo`=:patient"
-                        + " and p.`type`=2 and CAST(p.`contactId` AS BINARY)=CAST(CAST(d.`id` AS CHAR) AS BINARY))";
+                return "exists (select 1 from `DemographicContact` p where"
+                        + " p.`demographicNo`=:patient and p.`type`=2 and CAST(p.`contactId` AS"
+                        + " BINARY)=CAST(CAST(d.`id` AS CHAR) AS BINARY))";
             if (this == PHARMACY)
-                return "exists (select 1 from `demographicPharmacy` p where p.`demographic_no`=:patient and p.`pharmacyID`=d.`recordID`)";
+                return "exists (select 1 from `demographicPharmacy` p where"
+                        + " p.`demographic_no`=:patient and p.`pharmacyID`=d.`recordID`)";
             if (this == PREVENTIONS_FULL)
                 return "d.`demographic_no`=:patient and d.`id` in (:preventionIds)";
             if (this == PREVENTIONS_EXT)
-                return "exists (select 1 from `preventions` p where p.`demographic_no`=:patient and p.`id`=d.`prevention_id` and p.`id` in (:preventionIds))";
+                return "exists (select 1 from `preventions` p where p.`demographic_no`=:patient and"
+                        + " p.`id`=d.`prevention_id` and p.`id` in (:preventionIds))";
             if (this == PREVENTION_PRECISION)
-                return "d.`table_name`=4 and exists (select 1 from `preventions` p where p.`demographic_no`=:patient and p.`id`=d.`table_id` and p.`id` in (:preventionIds))";
+                return "d.`table_name`=4 and exists (select 1 from `preventions` p where"
+                        + " p.`demographic_no`=:patient and p.`id`=d.`table_id` and p.`id` in"
+                        + " (:preventionIds))";
             // Public vocabulary definitions are global; the caller must still hold an issued
             // positive patient scope.
             if (this == CVC_IMMUNIZATION || this == CVC_MAPPING) return ":patient > 0";
             if (this == DEMOGRAPHIC_MERGES)
                 return "(d.`demographic_no`=:patient or d.`merged_to`=:patient)";
             if (this == APPOINTMENT_STATUSES) {
-                return "(exists (select 1 from `appointment` a where a.`demographic_no`=:patient and a.`status`=d.`status`)"
-                        + " or exists (select 1 from `appointmentArchive` a where a.`demographic_no`=:patient and a.`status`=d.`status`))";
+                return "(exists (select 1 from `appointment` a where a.`demographic_no`=:patient"
+                        + " and a.`status`=d.`status`) or exists (select 1 from"
+                        + " `appointmentArchive` a where a.`demographic_no`=:patient and"
+                        + " a.`status`=d.`status`))";
             }
             if (this == PARTIAL_DATE_ALLERGIES
                     || this == PARTIAL_DATE_MEDICATIONS
                     || this == PARTIAL_DATE_ALLERGIES_AND_MEDICATIONS) {
                 String allergies =
-                        "(d.`table_name`=1 and exists (select 1 from `allergies` a where a.`allergyid`=d.`table_id` and a.`demographic_no`=:patient))";
+                        "(d.`table_name`=1 and exists (select 1 from `allergies` a where"
+                                + " a.`allergyid`=d.`table_id` and a.`demographic_no`=:patient))";
                 String medications =
-                        "(d.`table_name`=2 and exists (select 1 from `drugs` a where a.`drugid`=d.`table_id` and a.`demographic_no`=:patient))";
+                        "(d.`table_name`=2 and exists (select 1 from `drugs` a where"
+                                + " a.`drugid`=d.`table_id` and a.`demographic_no`=:patient))";
                 return this == PARTIAL_DATE_ALLERGIES
                         ? allergies
                         : this == PARTIAL_DATE_MEDICATIONS
@@ -960,21 +992,22 @@ public final class CdsExportPatientTableReadSupport {
             if (this == IMPORT_FIELDS)
                 return "d.`demographic_no`=:patient and d.`category` in (:categories)";
             if (this == IMPORT_RUNS)
-                return "exists (select 1 from `cds_import_patient` p where p.`run_id`=d.`id` and p.`target_demographic_no`=:patient)";
+                return "exists (select 1 from `cds_import_patient` p where p.`run_id`=d.`id` and"
+                        + " p.`target_demographic_no`=:patient)";
             if (this == IMPORT_UNITS)
                 return "d.`category` in (:categories) and " + importedPatient("d");
             if (this == IMPORT_FILES) {
-                return "exists (select 1 from `cds_import_file_reference` r join `cds_import_unit` u"
-                        + " on u.`run_id`=r.`run_id` and u.`unit_key`=r.`unit_key` where r.`file_id`=d.`id`"
-                        + " and u.`category` in (:categories) and "
+                return "exists (select 1 from `cds_import_file_reference` r join `cds_import_unit`"
+                        + " u on u.`run_id`=r.`run_id` and u.`unit_key`=r.`unit_key` where"
+                        + " r.`file_id`=d.`id` and u.`category` in (:categories) and "
                         + importedPatient("u")
                         + ")";
             }
             if (this == IMPORT_FILE_REFERENCES
                     || this == IMPORT_PREPARATIONS
                     || this == IMPORT_DEPENDENCIES) {
-                return "exists (select 1 from `cds_import_unit` u where u.`run_id`=d.`run_id` and u.`unit_key`=d.`unit_key`"
-                        + " and u.`category` in (:categories) and "
+                return "exists (select 1 from `cds_import_unit` u where u.`run_id`=d.`run_id` and"
+                        + " u.`unit_key`=d.`unit_key` and u.`category` in (:categories) and "
                         + importedPatient("u")
                         + ")";
             }
@@ -1049,12 +1082,12 @@ public final class CdsExportPatientTableReadSupport {
                 query(
                                 em,
                                 """
-                select 1,1 from ctl_document own
-                where own.module='demographic' and own.module_id=:patient
-                and (not exists (select 1 from document d where d.document_no=own.document_no)
-                or exists (select 1 from ctl_document other where other.module='demographic'
-                  and other.document_no=own.document_no and other.module_id<>:patient))
-                """)
+                                select 1,1 from ctl_document own
+                                where own.module='demographic' and own.module_id=:patient
+                                and (not exists (select 1 from document d where d.document_no=own.document_no)
+                                or exists (select 1 from ctl_document other where other.module='demographic'
+                                  and other.document_no=own.document_no and other.module_id<>:patient))
+                                """)
                         .setParameter("patient", patient)
                         .setMaxResults(1)
                         .getResultList();
@@ -1067,12 +1100,12 @@ public final class CdsExportPatientTableReadSupport {
                 query(
                                 em,
                                 """
-                select 1,1 from document d where exists (select 1 from ctl_document c
-                  where c.module='demographic' and c.module_id=:patient and c.document_no=d.document_no)
-                and (exists (select 1 from document_review r where r.document_no=d.document_no)
-                  or exists (select 1 from DocumentExtraReviewer r where r.documentNo=d.document_no)
-                  or exists (select 1 from document_storage s where s.documentNo=d.document_no))
-                """)
+                                select 1,1 from document d where exists (select 1 from ctl_document c
+                                  where c.module='demographic' and c.module_id=:patient and c.document_no=d.document_no)
+                                and (exists (select 1 from document_review r where r.document_no=d.document_no)
+                                  or exists (select 1 from DocumentExtraReviewer r where r.documentNo=d.document_no)
+                                  or exists (select 1 from document_storage s where s.documentNo=d.document_no))
+                                """)
                         .setParameter("patient", patient)
                         .setMaxResults(1)
                         .getResultList();
@@ -1087,11 +1120,11 @@ public final class CdsExportPatientTableReadSupport {
                 query(
                                 em,
                                 """
-                select 1,1 from document d where exists (select 1 from ctl_document c
-                  where c.module='demographic' and c.module_id=:patient and c.document_no=d.document_no)
-                and ((d.restrictToProgram is not null and d.restrictToProgram<>0)
-                  or (d.restrictToProgram is null and d.program_id is not null))
-                """)
+                                select 1,1 from document d where exists (select 1 from ctl_document c
+                                  where c.module='demographic' and c.module_id=:patient and c.document_no=d.document_no)
+                                and ((d.restrictToProgram is not null and d.restrictToProgram<>0)
+                                  or (d.restrictToProgram is null and d.program_id is not null))
+                                """)
                         .setParameter("patient", patient)
                         .setMaxResults(1)
                         .getResultList();
@@ -1109,9 +1142,9 @@ public final class CdsExportPatientTableReadSupport {
                 query(
                                 em,
                                 """
-                select 1,1 from measurements m join measurementsDeleted d on d.originalId=m.id
-                where (m.demographicNo=:patient or d.demographicNo=:patient) and m.demographicNo<>d.demographicNo
-                """)
+                                select 1,1 from measurements m join measurementsDeleted d on d.originalId=m.id
+                                where (m.demographicNo=:patient or d.demographicNo=:patient) and m.demographicNo<>d.demographicNo
+                                """)
                         .setParameter("patient", patient)
                         .setMaxResults(1)
                         .getResultList();
@@ -1154,9 +1187,9 @@ public final class CdsExportPatientTableReadSupport {
                 query(
                                 em,
                                 """
-                select 1,1 from patientLabRouting r where r.demographic_no=:patient
-                and (r.lab_type is null or CAST(r.lab_type AS BINARY)<>CAST('HL7' AS BINARY))
-                """)
+                                select 1,1 from patientLabRouting r where r.demographic_no=:patient
+                                and (r.lab_type is null or CAST(r.lab_type AS BINARY)<>CAST('HL7' AS BINARY))
+                                """)
                         .setParameter("patient", patient)
                         .setMaxResults(1)
                         .getResultList();
@@ -1166,12 +1199,15 @@ public final class CdsExportPatientTableReadSupport {
                     io.github.carlos_emr.carlos.demographic.cdsexport.support
                             .CdsExportReviewException.Reason.UNMAPPED_DATA);
         String selected =
-                "(exists (select 1 from patientLabRouting p where p.lab_type='HL7' and p.demographic_no=:patient and p.lab_no=r.lab_no)"
-                        + " or exists (select 1 from cds_laboratory_result l where l.demographicNo=:patient and l.nativeLabNo=r.lab_no))";
+                "(exists (select 1 from patientLabRouting p where p.lab_type='HL7' and"
+                    + " p.demographic_no=:patient and p.lab_no=r.lab_no) or exists (select 1 from"
+                    + " cds_laboratory_result l where l.demographicNo=:patient and"
+                    + " l.nativeLabNo=r.lab_no))";
         var shared =
                 query(
                                 em,
-                                "select 1,1 from patientLabRouting r where r.lab_type='HL7' and r.demographic_no<>:patient and "
+                                "select 1,1 from patientLabRouting r where r.lab_type='HL7' and"
+                                        + " r.demographic_no<>:patient and "
                                         + selected)
                         .setParameter("patient", patient)
                         .setMaxResults(1)
@@ -1180,17 +1216,19 @@ public final class CdsExportPatientTableReadSupport {
                 query(
                                 em,
                                 """
-                select 1,1 from patientLabRouting r where r.demographic_no=:patient and r.lab_type='HL7'
-                and (not exists (select 1 from hl7TextMessage m where m.lab_id=r.lab_no)
-                or (select count(*) from hl7TextInfo i where i.lab_no=r.lab_no)<>1)
-                """)
+                                select 1,1 from patientLabRouting r where r.demographic_no=:patient and r.lab_type='HL7'
+                                and (not exists (select 1 from hl7TextMessage m where m.lab_id=r.lab_no)
+                                or (select count(*) from hl7TextInfo i where i.lab_no=r.lab_no)<>1)
+                                """)
                         .setParameter("patient", patient)
                         .setMaxResults(1)
                         .getResultList();
         var duplicate =
                 query(
                                 em,
-                                "select 1,1 from patientLabRouting r where r.demographic_no=:patient and r.lab_type='HL7' group by r.lab_no having count(*)<>1")
+                                "select 1,1 from patientLabRouting r where"
+                                        + " r.demographic_no=:patient and r.lab_type='HL7' group by"
+                                        + " r.lab_no having count(*)<>1")
                         .setParameter("patient", patient)
                         .setMaxResults(1)
                         .getResultList();
@@ -1198,13 +1236,13 @@ public final class CdsExportPatientTableReadSupport {
                 query(
                                 em,
                                 """
-                select 1,1 from cds_laboratory_result l where l.demographicNo=:patient
-                and ((l.nativeLabNo is null and coalesce(l.sourceBlocked,'')<>'Y') or (l.nativeLabNo is not null
-                and (l.sourceBlocked='Y' or not exists (select 1 from hl7TextMessage m where m.lab_id=l.nativeLabNo)
-                or (select count(*) from hl7TextInfo i where i.lab_no=l.nativeLabNo)<>1
-                or (select count(*) from patientLabRouting r where r.lab_type='HL7' and r.demographic_no=:patient and r.lab_no=l.nativeLabNo)<>1
-                or exists (select 1 from cds_laboratory_result other where other.nativeLabNo=l.nativeLabNo and other.id<>l.id))))
-                """)
+                                select 1,1 from cds_laboratory_result l where l.demographicNo=:patient
+                                and ((l.nativeLabNo is null and coalesce(l.sourceBlocked,'')<>'Y') or (l.nativeLabNo is not null
+                                and (l.sourceBlocked='Y' or not exists (select 1 from hl7TextMessage m where m.lab_id=l.nativeLabNo)
+                                or (select count(*) from hl7TextInfo i where i.lab_no=l.nativeLabNo)<>1
+                                or (select count(*) from patientLabRouting r where r.lab_type='HL7' and r.demographic_no=:patient and r.lab_no=l.nativeLabNo)<>1
+                                or exists (select 1 from cds_laboratory_result other where other.nativeLabNo=l.nativeLabNo and other.id<>l.id))))
+                                """)
                         .setParameter("patient", patient)
                         .setMaxResults(1)
                         .getResultList();
@@ -1223,24 +1261,30 @@ public final class CdsExportPatientTableReadSupport {
                 rows(
                         query(
                                         em,
-                                        "select ENGINE,TABLE_NAME from information_schema.TABLES where TABLE_SCHEMA=DATABASE() "
-                                                + "and TABLE_NAME=:table and TABLE_TYPE='BASE TABLE'")
+                                        "select ENGINE,TABLE_NAME from information_schema.TABLES"
+                                            + " where TABLE_SCHEMA=DATABASE() and TABLE_NAME=:table"
+                                            + " and TABLE_TYPE='BASE TABLE'")
                                 .setParameter("table", plan.table)
                                 .setMaxResults(2));
         var columns =
                 rows(
                         query(
                                         em,
-                                        "select COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,CHARACTER_SET_NAME,COLLATION_NAME,"
-                                                + "NULLIF(GENERATION_EXPRESSION,'') from information_schema.COLUMNS where TABLE_SCHEMA=DATABASE() and TABLE_NAME=:table")
+                                        "select"
+                                            + " COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,CHARACTER_SET_NAME,COLLATION_NAME,NULLIF(GENERATION_EXPRESSION,'')"
+                                            + " from information_schema.COLUMNS where"
+                                            + " TABLE_SCHEMA=DATABASE() and TABLE_NAME=:table")
                                 .setParameter("table", plan.table)
                                 .setMaxResults(4097));
         var keys =
                 rows(
                         query(
                                         em,
-                                        "select COLUMN_NAME,ORDINAL_POSITION from information_schema.KEY_COLUMN_USAGE where TABLE_SCHEMA=DATABASE() "
-                                                + "and TABLE_NAME=:table and CONSTRAINT_NAME='PRIMARY' order by ORDINAL_POSITION")
+                                        "select COLUMN_NAME,ORDINAL_POSITION from"
+                                            + " information_schema.KEY_COLUMN_USAGE where"
+                                            + " TABLE_SCHEMA=DATABASE() and TABLE_NAME=:table and"
+                                            + " CONSTRAINT_NAME='PRIMARY' order by"
+                                            + " ORDINAL_POSITION")
                                 .setParameter("table", plan.table)
                                 .setMaxResults(17));
         if (engines.size() != 1 || columns.isEmpty() || columns.size() > 4096 || keys.size() > 16)
@@ -1272,8 +1316,11 @@ public final class CdsExportPatientTableReadSupport {
                 rows(
                         query(
                                         em,
-                                        "select count(*),1 from `preventions` d where d.`demographic_no`=:patient and "
-                                                + "((d.`restrictToProgram` is not null and d.`restrictToProgram`<>0) or (d.`restrictToProgram` is null and d.`programNo` is not null))")
+                                        "select count(*),1 from `preventions` d where"
+                                            + " d.`demographic_no`=:patient and"
+                                            + " ((d.`restrictToProgram` is not null and"
+                                            + " d.`restrictToProgram`<>0) or (d.`restrictToProgram`"
+                                            + " is null and d.`programNo` is not null))")
                                 .setParameter("patient", patient));
         if (found.size() != 1) invalid();
         return number(found.getFirst()[0]) != 0;
@@ -1289,7 +1336,9 @@ public final class CdsExportPatientTableReadSupport {
                 rows(
                         query(
                                         em,
-                                        "select count(*),1 from casemgmt_issue_notes l join casemgmt_note n on n.note_id=l.note_id where n.demographic_no=:patient")
+                                        "select count(*),1 from casemgmt_issue_notes l join"
+                                                + " casemgmt_note n on n.note_id=l.note_id where"
+                                                + " n.demographic_no=:patient")
                                 .setParameter("patient", patient));
         if (found.size() != 1) invalid();
         return number(found.getFirst()[0]);
@@ -1305,7 +1354,8 @@ public final class CdsExportPatientTableReadSupport {
         if (limit < 1 || limit > 32) invalid();
         requireLocalNoteIssueLinks(em, patient);
         String sql =
-                "select l.note_id,l.id from casemgmt_issue_notes l join casemgmt_note n on n.note_id=l.note_id where n.demographic_no=:patient";
+                "select l.note_id,l.id from casemgmt_issue_notes l join casemgmt_note n on"
+                        + " n.note_id=l.note_id where n.demographic_no=:patient";
         if (after != null) sql += " and (l.note_id>:note or (l.note_id=:note and l.id>:issue))";
         var query =
                 query(em, sql + " order by l.note_id,l.id")
@@ -1330,12 +1380,12 @@ public final class CdsExportPatientTableReadSupport {
                         query(
                                         em,
                                         """
-                select 1,1 from casemgmt_issue_notes l
-                left join casemgmt_note n on n.note_id=l.note_id
-                left join casemgmt_issue i on i.id=l.id
-                where (n.demographic_no=:patient or i.demographic_no=:patient)
-                and (n.demographic_no is null or n.demographic_no<>:patient or i.demographic_no is null or i.demographic_no<>:patient)
-                """)
+                                        select 1,1 from casemgmt_issue_notes l
+                                        left join casemgmt_note n on n.note_id=l.note_id
+                                        left join casemgmt_issue i on i.id=l.id
+                                        where (n.demographic_no=:patient or i.demographic_no=:patient)
+                                        and (n.demographic_no is null or n.demographic_no<>:patient or i.demographic_no is null or i.demographic_no<>:patient)
+                                        """)
                                 .setParameter("patient", patient)
                                 .setMaxResults(1));
         var duplicates =
@@ -1343,9 +1393,9 @@ public final class CdsExportPatientTableReadSupport {
                         query(
                                         em,
                                         """
-                select 1,1 from casemgmt_issue_notes l join casemgmt_note n on n.note_id=l.note_id
-                where n.demographic_no=:patient group by l.note_id,l.id having count(*)>1
-                """)
+                                        select 1,1 from casemgmt_issue_notes l join casemgmt_note n on n.note_id=l.note_id
+                                        where n.demographic_no=:patient group by l.note_id,l.id having count(*)>1
+                                        """)
                                 .setParameter("patient", patient)
                                 .setMaxResults(1));
         if (!foreign.isEmpty() || !duplicates.isEmpty())
@@ -1624,7 +1674,8 @@ public final class CdsExportPatientTableReadSupport {
         int timeout = queryTimeoutMillis();
         // Package-owned callers use finite enum identifier plans; patient, keys, offsets and
         // lengths are bound values. No client SQL enters this boundary.
-        // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string, java.lang.security.audit.sqli.jpa-sqli.jpa-sqli
+        // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string,
+        // java.lang.security.audit.sqli.jpa-sqli.jpa-sqli
         return em.createNativeQuery(sql, Object[].class)
                 .setFlushMode(FlushModeType.COMMIT)
                 .setHint("jakarta.persistence.query.timeout", timeout);

@@ -171,6 +171,8 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     CdsExportDemographicCustSourceReader.class,
     CdsExportAllergySourceReader.class,
     CdsExportMedicationSourceReader.class,
+    CdsExportPrescriptionSourceReader.class,
+    CdsExportPrescriptionOccurrenceService.class,
     CdsExportMedicationProjectionService.class,
     io.github.carlos_emr.carlos.commn.dao.PartialDateDaoImpl.class,
     CdsExportPartialDateSourceReader.class,
@@ -245,6 +247,11 @@ public class CdsExportCliSpringConfiguration {
     @Bean
     public io.github.carlos_emr.carlos.commn.dao.DrugDaoImpl drugDao() {
         return new io.github.carlos_emr.carlos.commn.dao.DrugDaoImpl();
+    }
+
+    @Bean
+    public io.github.carlos_emr.carlos.commn.dao.PrescriptionDaoImpl prescriptionDao() {
+        return new io.github.carlos_emr.carlos.commn.dao.PrescriptionDaoImpl();
     }
 
     @Bean

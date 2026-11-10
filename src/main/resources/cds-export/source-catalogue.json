@@ -411,7 +411,7 @@
     "pharmacyInfo": "MAPPED_SOURCE",
     "pmm_log": "REQUIRE_EMPTY",
     "prescribe": "REQUIRE_EMPTY",
-    "prescription": "REQUIRE_EMPTY",
+    "prescription": "MAPPED_SOURCE",
     "preventions": "MAPPED_SOURCE",
     "preventionsExt": "MAPPED_SOURCE",
     "professionalSpecialists": "REQUIRE_EMPTY",
@@ -548,6 +548,7 @@
     "MedicationsAndTreatments": [
       "drugs",
       "partial_date",
+      "prescription",
       "provider"
     ],
     "Immunizations": [
@@ -977,9 +978,6 @@
     "prescribe": [
       "demographic_no"
     ],
-    "prescription": [
-      "demographic_no"
-    ],
     "program_client_restriction": [
       "demographic_no"
     ],
@@ -1143,6 +1141,7 @@
     "teleplan_submission_link": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
     "vacancy": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
     "vacancy_template": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
-    "fileUploadCheck": "Upload deduplication and processing receipt only: uploader account, filename, optional legacy digest and upload clock. It contains no patient assignment, result or clinical payload. Patient laboratory messages, information and routing retain independent capture, structural membership, complete supporting context and refusal. Reviewed against FileUploadCheck and MessageUploader; this ruling does not exempt any laboratory body or clinical association."
+    "fileUploadCheck": "Upload deduplication and processing receipt only: uploader account, filename, optional legacy digest and upload clock. It contains no patient assignment, result or clinical payload. Patient laboratory messages, information and routing retain independent capture, structural membership, complete supporting context and refusal. Reviewed against FileUploadCheck and MessageUploader; this ruling does not exempt any laboratory body or clinical association.",
+    "prescription": "Patient-owned printed script history, comments and display text are captured through PrescriptionDao. Every parent is independently inventoried as supporting NewCategory; exclusion requires review. Every nonzero drug script relation must resolve to a captured parent with the same patient. Source digital signature identifiers are retained only as non-executable context; selected signature payloads remain separately gated."
   }
 }

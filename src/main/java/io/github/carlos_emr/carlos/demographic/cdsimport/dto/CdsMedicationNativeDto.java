@@ -22,7 +22,16 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.dto;
 
 /** Bounded source prescription and verified source-author association prepared before the clinical transaction. */
-public record CdsMedicationNativeDto(CdsMedicationDto source, CdsProviderMatchDto provider) {
+public record CdsMedicationNativeDto(
+        CdsMedicationDto source,
+        CdsProviderMatchDto provider,
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_DEFAULT)
+                boolean archived) {
+    public CdsMedicationNativeDto(CdsMedicationDto source, CdsProviderMatchDto provider) {
+        this(source, provider, false);
+    }
+
     @Override
     public String toString() {
         return "CdsMedicationNativeDto[protected]";

@@ -71,6 +71,18 @@ class CdsClinicalPersisterUnitTest {
     }
 
     @Test
+    void shouldPreserveNativeArchiveState_independentlyOfClinicalStatusAndCurrentness()
+            throws Exception {
+        var source = normalization.medication(medication(Map.of("PrescriptionStatus", "Active")));
+        var archived = medications.candidate(42, source, null, true);
+        assertThat(archived.isArchived()).isTrue();
+        assertThat(archived.getRxStatus()).isEqualTo("Active");
+        assertThat(archived.getCdsCurrentness()).isEqualTo("CURRENT");
+        assertThat(archived.getArchivedReason()).isEqualTo("cds:CARLOS.Medication.Archived.v1");
+        assertThat(medications.candidate(42, source, null, false).isArchived()).isFalse();
+    }
+
+    @Test
     void shouldKeepSourcePrescribingValues_whenDinIsOnlyRepresentative() throws Exception {
         Drug drug =
                 candidate(
@@ -417,8 +429,8 @@ class CdsClinicalPersisterUnitTest {
         java.nio.file.Files.writeString(
                 configured,
                 "<preventions><item name='Local booster' healthCanadaType='Tdap'"
-                    + " layout='injection'/><item name='OtherA' healthCanadaType=''"
-                    + " layout='injection'/></preventions>");
+                        + " layout='injection'/><item name='OtherA' healthCanadaType=''"
+                        + " layout='injection'/></preventions>");
         var mappings = mock(io.github.carlos_emr.carlos.commn.dao.CVCMappingDao.class);
         var vaccines = mock(io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao.class);
         var source =

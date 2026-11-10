@@ -124,6 +124,7 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
         context.registerBean(PersistenceAnnotationBeanPostProcessor.class);
         context.register(
                 DrugDaoImpl.class,
+                io.github.carlos_emr.carlos.commn.dao.PrescriptionDaoImpl.class,
                 PartialDateDaoImpl.class,
                 io.github.carlos_emr.carlos.PMmodule.dao.ProviderDaoImpl.class);
         context.refresh();
@@ -133,22 +134,30 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
         read.setTimeout(120);
         for (int n = 0; n < 35; n++)
             sql.update(
-                    "insert into drugs(drugid,demographic_no,provider_no,GCN_SEQNO,archived,prn,position,lastUpdateDate,dispenseInternal,customName,hide_from_drug_profile,takemin,takemax,comment) values(?,?,'',0,?,0,0,CURRENT_TIMESTAMP,0,?,1,NULL,NULL,?)",
+                    "insert into"
+                        + " drugs(drugid,demographic_no,provider_no,GCN_SEQNO,archived,prn,position,lastUpdateDate,dispenseInternal,customName,hide_from_drug_profile,takemin,takemax,comment)"
+                        + " values(?,?,'',0,?,0,0,CURRENT_TIMESTAMP,0,?,1,NULL,NULL,?)",
                     patient + n,
                     patient,
                     n % 2,
                     "Synthetic café 😀 " + n,
                     n == 0 ? null : n == 1 ? "" : "Synthetic note");
         sql.update(
-                "insert into drugs(drugid,demographic_no,provider_no,GCN_SEQNO,archived,prn,position,lastUpdateDate,dispenseInternal) values(?,?,'',0,0,0,0,CURRENT_TIMESTAMP,0)",
+                "insert into"
+                    + " drugs(drugid,demographic_no,provider_no,GCN_SEQNO,archived,prn,position,lastUpdateDate,dispenseInternal)"
+                    + " values(?,?,'',0,0,0,0,CURRENT_TIMESTAMP,0)",
                 patient + 40,
                 patient + 1);
         sql.update(
-                "insert into allergies(allergyid,demographic_no,DESCRIPTION,TYPECODE,archived,position,lastUpdateDate) values(?,?,'Synthetic allergy',0,0,0,CURRENT_TIMESTAMP)",
+                "insert into"
+                    + " allergies(allergyid,demographic_no,DESCRIPTION,TYPECODE,archived,position,lastUpdateDate)"
+                    + " values(?,?,'Synthetic allergy',0,0,0,CURRENT_TIMESTAMP)",
                 patient,
                 patient);
         sql.update(
-                "insert into allergies(allergyid,demographic_no,DESCRIPTION,TYPECODE,archived,position,lastUpdateDate) values(?,?,'Foreign synthetic allergy',0,0,0,CURRENT_TIMESTAMP)",
+                "insert into"
+                    + " allergies(allergyid,demographic_no,DESCRIPTION,TYPECODE,archived,position,lastUpdateDate)"
+                    + " values(?,?,'Foreign synthetic allergy',0,0,0,CURRENT_TIMESTAMP)",
                 patient + 40,
                 patient + 1);
         assertThat(
@@ -158,7 +167,9 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
                                 provider))
                 .isZero();
         sql.update(
-                "insert into provider(provider_no,first_name,last_name,ohip_no,comments,dob,status,lastUpdateDate) values(?,'Synthetic','Prescriber','001234','PRIVATE_PROVIDER_SENTINEL','1900-01-01','0',CURRENT_TIMESTAMP)",
+                "insert into"
+                    + " provider(provider_no,first_name,last_name,ohip_no,comments,dob,status,lastUpdateDate)"
+                    + " values(?,'Synthetic','Prescriber','001234','PRIVATE_PROVIDER_SENTINEL','1900-01-01','0',CURRENT_TIMESTAMP)",
                 provider);
         providerInserted = true;
         sql.update(
@@ -182,20 +193,23 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
                 sql.update(
                         "delete from partial_date where id between ? and ?", patient, patient + 6);
                 sql.update(
-                        "delete from allergies where allergyid in (?,?) and demographic_no in (?,?)",
+                        "delete from allergies where allergyid in (?,?) and demographic_no in"
+                            + " (?,?)",
                         patient,
                         patient + 40,
                         patient,
                         patient + 1);
                 sql.update(
-                        "delete from drugs where demographic_no in (?,?) and drugid between ? and ?",
+                        "delete from drugs where demographic_no in (?,?) and drugid between ? and"
+                            + " ?",
                         patient,
                         patient + 1,
                         patient,
                         patient + 40);
                 if (providerInserted)
                     sql.update(
-                            "delete from provider where provider_no=? and first_name='Synthetic' and last_name='Prescriber'",
+                            "delete from provider where provider_no=? and first_name='Synthetic'"
+                                + " and last_name='Prescriber'",
                             provider);
             }
         } finally {
@@ -204,6 +218,68 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
             } finally {
                 if (source != null) source.close();
             }
+        }
+    }
+
+    @Test
+    void shouldCaptureOnlyThePatientsCompletePrintedScriptHistory_withExactLargeComments()
+            throws Exception {
+        var prescriptions =
+                context.getBean(io.github.carlos_emr.carlos.commn.dao.PrescriptionDaoImpl.class);
+        String comment = "Native café 😀 parent\r\n".repeat(4096);
+        try {
+            sql.update(
+                    "INSERT INTO"
+                        + " prescription(script_no,provider_no,demographic_no,rx_comments,textView,lastUpdateDate)"
+                        + " VALUES(?,?,?,?,?,CURRENT_TIMESTAMP)",
+                    patient,
+                    provider,
+                    patient,
+                    comment,
+                    "Exact printed SIG");
+            sql.update(
+                    "INSERT INTO"
+                        + " prescription(script_no,provider_no,demographic_no,rx_comments,lastUpdateDate)"
+                        + " VALUES(?,?,?,?,CURRENT_TIMESTAMP)",
+                    patient + 1,
+                    provider,
+                    patient + 1,
+                    "Other patient");
+            read.executeWithoutResult(
+                    status -> {
+                        try {
+                            new CdsExportSourceSchemaValidator()
+                                    .verify(
+                                            prescriptions.readCdsExportSourceSchema(),
+                                            Set.copyOf(
+                                                    CdsExportPatientTableReadSupport.Plan
+                                                            .PRESCRIPTIONS
+                                                            .columns()));
+                        } catch (java.io.IOException invalid) {
+                            throw new java.io.UncheckedIOException(invalid);
+                        }
+                        assertThat(prescriptions.countCdsExportRows(patient)).isEqualTo(1);
+                        var page = prescriptions.findCdsExportRowsAfter(patient, null, 32);
+                        assertThat(page).hasSize(1);
+                        assertThat(page.getFirst().id()).isEqualTo(patient);
+                        assertThat(prescriptions.readCdsExportReceiptColumns()).hasSize(11);
+                        byte[] expected = comment.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                        assertThat(
+                                        prescriptions.readCdsExportValueChunk(
+                                                patient, patient, "rx_comments", 0, 4096))
+                                .isEqualTo(java.util.Arrays.copyOf(expected, 4096));
+                        assertThat(
+                                        prescriptions.readCdsExportValueChunk(
+                                                patient, patient + 1, "rx_comments", 0, 32))
+                                .isNull();
+                    });
+        } finally {
+            sql.update(
+                    "DELETE FROM prescription WHERE script_no IN (?,?) AND demographic_no IN (?,?)",
+                    patient,
+                    patient + 1,
+                    patient,
+                    patient + 1);
         }
     }
 
@@ -582,7 +658,8 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
                     try (var writer = source.getConnection();
                             var update =
                                     writer.prepareStatement(
-                                            "update drugs set special_instruction='Later native edit' where drugid=?")) {
+                                            "update drugs set special_instruction='Later native"
+                                                + " edit' where drugid=?")) {
                         update.setInt(1, patient);
                         assertThat(update.executeUpdate()).isEqualTo(1);
                     } catch (java.sql.SQLException failed) {
@@ -673,7 +750,8 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
 
     private void precision(int n, int owner, int parent, int field, String format) {
         sql.update(
-                "insert into partial_date(id,table_name,table_id,field_name,format) values(?,?,?,?,?)",
+                "insert into partial_date(id,table_name,table_id,field_name,format)"
+                    + " values(?,?,?,?,?)",
                 patient + n,
                 owner,
                 parent,

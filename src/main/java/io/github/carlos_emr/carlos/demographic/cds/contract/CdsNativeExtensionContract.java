@@ -42,6 +42,12 @@ public final class CdsNativeExtensionContract {
     /** PersonalHistory permits only residual fields, so its native narrative has an explicit carrier. */
     public static final String HISTORY_PERSONAL_NARRATIVE = "CARLOS.History.PersonalNarrative.v1";
 
+    /** Complete native prescription context; unqualified codes remain explicitly unqualified. */
+    public static final String MEDICATION_SOURCE_CONTEXT = "CARLOS.Medication.Source.v1";
+
+    /** Native archive state is independent of prescription status and clinical currentness. */
+    public static final String MEDICATION_ARCHIVED = "CARLOS.Medication.Archived.v1";
+
     public static final String BOOLEAN_TYPE = "boolean";
     public static final String STRING_TYPE = "string";
 

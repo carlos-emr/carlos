@@ -436,16 +436,21 @@ public final class CdsExportMedicationFieldReconciler {
                 flag(
                         source.treatmentType() != null && source.treatmentType().startsWith("PRN ")
                                 || "PRN".equals(source.frequency())));
-        boolean archived = source.currentness() == CdsMedicationDto.Currentness.HISTORICAL;
+        boolean historical = source.currentness() == CdsMedicationDto.Currentness.HISTORICAL;
+        boolean archived = prepared.archived() || historical;
         values.put("archived", flag(archived));
         values.put(
                 "archived_reason",
-                archived
+                historical
                         ? "cds:"
                                 + (source.prescriptionStatus() == null
                                         ? "PastMedications"
                                         : source.prescriptionStatus())
-                        : null);
+                        : prepared.archived()
+                                ? "cds:"
+                                        + io.github.carlos_emr.carlos.demographic.cds.contract
+                                                .CdsNativeExtensionContract.MEDICATION_ARCHIVED
+                                : null);
         values.put("dispense_interval", source.dispenseInterval());
         values.put("protocol", source.protocol());
         values.put("priorRxProtocol", source.priorPrescription());
