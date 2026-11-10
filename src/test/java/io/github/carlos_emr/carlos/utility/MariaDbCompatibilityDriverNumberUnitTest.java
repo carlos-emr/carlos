@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Answers;
 import org.mockito.MockedConstruction;
 
@@ -162,6 +163,30 @@ class MariaDbCompatibilityDriverNumberUnitTest {
         });
     }
 
+    @ParameterizedTest
+    @ValueSource(classes = {boolean.class, byte.class, short.class, int.class, long.class, float.class, double.class})
+    @DisplayName("should preserve SQL NULL objects even when the requested numeric class is primitive")
+    void shouldReturnNull_forPrimitiveClassObjectReads(Class<?> type) throws Exception {
+        withRows(rows -> {
+            assertThat(rows.getObject(NULL_BIT, type)).isNull();
+            assertThat(rows.wasNull()).isTrue();
+            assertThat(rows.getObject("nullBit", type)).isNull();
+            assertThat(rows.wasNull()).isTrue();
+            assertThat(rows.getObject(NULL_DOUBLE, type)).isNull();
+            assertThat(rows.wasNull()).isTrue();
+            assertThat(rows.getObject("nullDouble", type)).isNull();
+            assertThat(rows.wasNull()).isTrue();
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(classes = {char.class, void.class})
+    @DisplayName("should leave unsupported primitive object targets to the native driver's refusal")
+    void shouldPreserveNativeRefusals_forUnsupportedPrimitiveObjectTargets(Class<?> type) throws Exception {
+        withRows(rows -> assertThatThrownBy(() -> rows.getObject(TEXT, type))
+                .isInstanceOf(SQLException.class).hasMessage("Unsupported result conversion " + type.getName()));
+    }
+
     @Test
     void shouldLeaveOtherColumnsAndReadsToMariaDb_forTextAndStreams() throws Exception {
         withRows(rows -> {
@@ -231,23 +256,28 @@ class MariaDbCompatibilityDriverNumberUnitTest {
                     : types[column] == Types.VARCHAR ? String.class.getName() : Double.class.getName());
         }
         boolean[] lastNull = {false};
+        Map<String, Integer> columns = Map.of("d", DOUBLE, "t", TINY_FLAG,
+                "nullBit", NULL_BIT, "nullDouble", NULL_DOUBLE);
         return mock(ResultSet.class, invocation -> {
             String name = invocation.getMethod().getName();
             Object[] args = invocation.getArguments();
             switch (name) {
                 case "getMetaData": return metadata;
                 case "wasNull": return lastNull[0];
-                case "findColumn": return switch ((String) args[0]) {
-                    case "d" -> DOUBLE;
-                    case "t" -> TINY_FLAG;
-                    default -> 0;
-                };
+                case "findColumn": return columns.getOrDefault(args[0], 0);
                 case "close": return null;
                 default: break;
             }
-            if (args.length == 0 || !(args[0] instanceof Integer column)) return null;
+            if (args.length == 0) return null;
+            int column = args[0] instanceof Integer index ? index : columns.getOrDefault(args[0], 0);
             Object value = values.get(column);
             lastNull[0] = value == null;
+            if (name.equals("getObject") && args.length == 2 && args[1] instanceof Class<?> type) {
+                if (type == char.class || type == void.class) {
+                    throw new SQLException("Unsupported result conversion " + type.getName());
+                }
+                if (type.isPrimitive() && value == null) throw new SQLException("Cannot return null for primitive " + type.getName());
+            }
             return switch (name) {
                 case "getDouble" -> value == null ? 0.0d : ((Number) value).doubleValue();
                 case "getLong" -> value == null ? 0L : ((Number) value).longValue();

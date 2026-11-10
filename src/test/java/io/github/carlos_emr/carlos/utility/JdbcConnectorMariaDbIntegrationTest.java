@@ -476,11 +476,16 @@ class JdbcConnectorMariaDbIntegrationTest {
         }
         // The binary protocol decodes FLOAT as a float that Connector/J widened before printing.
         try (var source = source(legacy, "useServerPrepStmts=true"); var connection = source.getConnection();
-             var query = connection.prepareStatement("SELECT d, f, b1, b8 FROM number_probe WHERE id = ?")) {
+             var query = connection.prepareStatement("SELECT * FROM number_probe WHERE id = ?")) {
             query.setInt(1, 1);
             try (var rows = query.executeQuery()) {
                 assertThat(rows.next()).isTrue();
                 assertConnectorJServerPreparedNumberRow(rows);
+            }
+            query.setInt(1, 3);
+            try (var rows = query.executeQuery()) {
+                assertThat(rows.next()).isTrue();
+                assertConnectorJNullNumberRow(rows);
             }
             try (var flags = connection.prepareStatement("SELECT t1 FROM number_probe WHERE id >= ? ORDER BY id")) {
                 flags.setInt(1, 1);
@@ -515,6 +520,7 @@ class JdbcConnectorMariaDbIntegrationTest {
     }
 
     private static void assertConnectorJFirstNumberRow(ResultSet rows) throws SQLException {
+        assertConnectorJPrimitiveNumberObjects(rows);
         assertThat(rows.getString("d")).isEqualTo("100.0");
         assertThat(rows.getObject("d", String.class)).isEqualTo("100.0");
         assertThat(rows.getNString("d")).isEqualTo("100.0");
@@ -531,6 +537,16 @@ class JdbcConnectorMariaDbIntegrationTest {
         assertThat(rows.getFloat("b8")).isEqualTo(5.0f);
         assertThat(rows.getString("t1")).isEqualTo("1");
         assertThatThrownBy(() -> rows.getCharacterStream("d")).isInstanceOf(SQLException.class);
+    }
+
+    private static void assertConnectorJPrimitiveNumberObjects(ResultSet rows) throws SQLException {
+        assertThat(rows.getObject("b8", boolean.class)).isEqualTo(true);
+        assertThat(rows.getObject("b8", byte.class)).isEqualTo((byte) 5);
+        assertThat(rows.getObject("b8", short.class)).isEqualTo((short) 5);
+        assertThat(rows.getObject("b8", int.class)).isEqualTo(5);
+        assertThat(rows.getObject("b8", long.class)).isEqualTo(5L);
+        assertThat(rows.getObject("b8", float.class)).isEqualTo(5.0f);
+        assertThat(rows.getObject("b8", double.class)).isEqualTo(5.0d);
     }
 
     private static void assertConnectorJSecondNumberRow(ResultSet rows) throws SQLException {
@@ -553,9 +569,16 @@ class JdbcConnectorMariaDbIntegrationTest {
     }
 
     private static void assertConnectorJNullNumberRow(ResultSet rows) throws SQLException {
-        for (String column : new String[]{"d", "f", "dd", "b1", "b8", "b64"}) {
+        for (String column : new String[]{"d", "f", "dd", "b1", "b8", "b64", "t1"}) {
             assertThat(rows.getString(column)).as(column).isNull();
             assertThat(rows.wasNull()).as(column).isTrue();
+            for (Class<?> type : new Class<?>[]{boolean.class, byte.class, short.class, int.class,
+                    long.class, float.class, double.class}) {
+                assertThat(rows.getObject(column, type)).as(column + ": " + type).isNull();
+                assertThat(rows.wasNull()).isTrue();
+                assertThat(rows.getObject(rows.findColumn(column), type)).isNull();
+                assertThat(rows.wasNull()).isTrue();
+            }
             assertThat(rows.getObject(column)).as(column).isNull();
             assertThat(rows.wasNull()).as(column).isTrue();
         }

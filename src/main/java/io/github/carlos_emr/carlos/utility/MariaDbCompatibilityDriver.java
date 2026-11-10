@@ -138,6 +138,7 @@ public final class MariaDbCompatibilityDriver implements Driver {
                 return null;
             }
             if (target instanceof ResultSet rows) {
+                args = objectArguments(name, args);
                 Object adapted = resultOperation(method, args, rows);
                 if (adapted != NO_CONVERSION) return adapted;
             }
@@ -148,6 +149,28 @@ public final class MariaDbCompatibilityDriver implements Driver {
             Object result = invokeNative(method, args);
             // Native unwrap must satisfy the requested concrete type, not produce another proxy.
             return name.equals(UNWRAP) ? result : wrapResult(result, proxy);
+        }
+
+        /**
+         * getObject still returns a nullable object when its Class argument is primitive. Connector/J
+         * accepted the seven boxed numeric/Boolean equivalents; MariaDB otherwise refuses SQL NULL,
+         * and BIT conversions would incorrectly reuse primitive getters' zero-for-NULL behavior.
+         * Unsupported char/void targets retain the native driver's refusal.
+         */
+        private static Object[] objectArguments(String name, Object[] args) {
+            if (!name.equals(GET_OBJECT) || args.length != 2
+                    || !(args[1] instanceof Class<?> type) || !type.isPrimitive()) return args;
+            Class<?> boxed = switch (type.getName()) {
+                case "boolean" -> Boolean.class;
+                case "byte" -> Byte.class;
+                case "short" -> Short.class;
+                case "int" -> Integer.class;
+                case "long" -> Long.class;
+                case "float" -> Float.class;
+                case "double" -> Double.class;
+                default -> type;
+            };
+            return boxed == type ? args : new Object[]{args[0], boxed};
         }
 
         /** Preserves proxy identity, JDBC wrapper queries, and the owning compatibility objects. */

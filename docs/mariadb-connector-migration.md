@@ -58,6 +58,9 @@ loaders therefore print these columns as before. TINYINT(1), which both drivers
 report as BIT(1), keeps its sign. Its untyped `getObject` reads use the same
 numeric truth rule as `getBoolean`: positive values and `-1` are true, other
 non-positive values are false, and SQL NULL remains null.
+Typed `getObject` reads also keep SQL NULL as null when the requested numeric
+or Boolean class is primitive (for example `double.class`). Primitive getters
+such as `getDouble` still return zero with `wasNull()` set.
 
 These Connector/J behaviours are not reproduced, and nothing in CARLOS depends
 on them: `getBytes` on a numeric column (MariaDB refuses it), the deprecated
