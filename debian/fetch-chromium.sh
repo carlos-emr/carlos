@@ -16,7 +16,7 @@ chrome_sha="$2"
 driver_sha="$3"
 dest="$4"
 
-base="${CHROMIUM_BASE_URL:-https://commondatastorage.googleapis.com/chromium-browser-snapshots/Linux_x64}"
+base="${CHROMIUM_BASE_URL:-https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64}"
 
 for tool in curl unzip sha256sum; do
     command -v "$tool" >/dev/null 2>&1 || {

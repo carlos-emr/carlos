@@ -14,6 +14,31 @@ from junit_evidence import EvidenceError, display_literal
 
 
 class RequiredExecutionsTest(unittest.TestCase):
+    def test_permission_skips_require_a_real_covered_unprivileged_lane(self):
+        plan = gate.load_plan()
+        checks = {check['id']: check for check in plan['checks']}
+        lane_id = 'java-unprivileged-permission'
+        lane = checks[lane_id]
+        self.assertEqual(lane['command'], ['bash', 'scripts/check-ci-permission-test.sh'])
+        self.assertTrue(lane['requireCoverage'])
+        self.assertTrue(lane['requireClassIdentity'])
+        self.assertEqual(lane['environment'], {
+            'CARLOS_PERMISSION_REPORTS': '{run}/reports',
+            'CARLOS_PERMISSION_EXECUTION': '{run}/jacoco.exec',
+            'CARLOS_PERMISSION_COVERAGE': '{run}/coverage'})
+        cases = gate.read_json(gate.ROOT / 'scripts/ci/permission-cases.json')
+        self.assertEqual(lane['minimumCases'], len(cases))
+        for case in cases:
+            route = checks['java-all']['routedSkips'][case['classname']]
+            matches = [row for row in route['cases'] if isinstance(row, dict)
+                       and (row['name'], row.get('container', '')) == (case['name'], case['container'])]
+            self.assertEqual(len(matches), 1)
+            self.assertEqual(matches[0].get('check', route['check']), lane_id)
+            self.assertGreaterEqual(lane['requiredFamilies'][case['classname'].rsplit('.', 1)[-1]], 1)
+        for stream_id in ('T02', 'T03'):
+            stream = next(row for row in plan['workstreams'] if row['id'] == stream_id)
+            self.assertIn(lane_id, stream['requiredChecks'])
+
     def test_path_bindings_reject_non_object_entries(self):
         plan = gate.read_json(gate.DEFAULT_PLAN)
         with tempfile.TemporaryDirectory() as temporary:

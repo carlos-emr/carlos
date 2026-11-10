@@ -68,7 +68,10 @@
         "scripts/run-playwright-suite.js",
         "scripts/playwright-suite-manifest.test.js",
         "scripts/framingham-ukpds-calculator.test.js",
-        "scripts/nginx-rate-limit.test.js"
+        "scripts/nginx-rate-limit.test.js",
+        "scripts/check-ci-permission-test.sh",
+        "scripts/ci/permission-cases.json",
+        "scripts/ci/verify-h2-reports.py"
       ],
       "implementation": "Add an opt-in strict release mode and a Node result gate. Treat required SKIP, known-fail, unexpected-pass, TODO, cancellation, empty selection, missing structured result, timeout and cleanup failure as incomplete verification. Retain the existing diagnostic classifications.",
       "cases": "Exercise the outcome truth table using real child exit statuses and malformed/missing JUnit; cleanup failure overrides SKIP/known-fail; duplicate names, omitted shards and profile/province filters cannot hide checks.",
@@ -79,7 +82,8 @@
         "node-all",
         "java-all",
         "build",
-        "packaged-full"
+        "packaged-full",
+        "java-unprivileged-permission"
       ]
     },
     {
@@ -91,7 +95,10 @@
         "scripts/coverage/changed_line_audit.py",
         "scripts/coverage/test_changed_line_audit.py",
         ".github/workflows/maven-project.yml",
-        ".github/workflows/sonarcloud.yml"
+        ".github/workflows/sonarcloud.yml",
+        "scripts/check-ci-permission-test.sh",
+        "scripts/ci/permission-cases.json",
+        "scripts/ci/verify-h2-reports.py"
       ],
       "implementation": "Generate fresh JaCoCo reports in the authoritative test lane, collect changed-line instruction/branch misses, and enforce a reviewed diff coverage gate. Add source/SHA freshness checks and test-source-to-report discovery reconciliation. Keep Sonar failure-ignore analysis separate from the test verdict.",
       "cases": "Partially covered lines, unexecuted branches, missing classes, stale reports for the same filenames, new/removed/renamed tests, parameterized/nested/dynamic tests, empty reports and intentional non-executable changes.",
@@ -105,7 +112,8 @@
         "packaged-full",
         "coverage-ratchet",
         "jsp-compile",
-        "production-js-view-coverage"
+        "production-js-view-coverage",
+        "java-unprivileged-permission"
       ]
     },
     {
@@ -399,10 +407,11 @@
         "scripts/lab-qualified-results-playwright-checks.js",
         "scripts/lib/qualified-lab-oracle.js",
         "scripts/qualified-lab-oracle.test.js",
-        "docs/testing/lab-qualified-results-inventory.md"
+        "docs/testing/lab-qualified-results-inventory.md",
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultDataAcknowledgementCountUnitTest.java"
       ],
       "implementation": "Add native extension ambiguities and installed source-link authorization checks; retain the older-main timestamp/long measurement/import/routing regression sweep.",
-      "cases": "History, Health Tracker and flowsheets; null/duplicate/stale/invalid/overflow extension values; foreign-patient source lab; batched provenance query; older lab versions and merged patients; real HL7 observation/entry times at midnight/noon/23:59 and DST; long and partial results; missing public key. Native qualified/qualitative lab entry, exact stored HL7 and every report/history/grid/row/visible tooltip, offered Plot PNGs with independent printed-axis calibration and exact numeric controls, actual PDF clinical columns and unrelated-patient preservation. Bound-to-number coercion #5827 and shipped-filter literal/history loss #5828 remain fatal.",
+      "cases": "History, Health Tracker and flowsheets; null/duplicate/stale/invalid/overflow extension values; foreign-patient source lab; batched provenance query; older lab versions and merged patients; real HL7 observation/entry times at midnight/noon/23:59 and DST; long and partial results; missing public key. Native qualified/qualitative lab entry, exact stored HL7 and every report/history/grid/row/visible tooltip, offered Plot PNGs with independent printed-axis calibration and exact numeric controls, actual PDF clinical columns and unrelated-patient preservation. Bound-to-number coercion #5827 and shipped-filter literal/history loss #5828 remain fatal. Incomplete CML acknowledgement aggregates retain visible inbox rows with an explicit warning and disabled bulk selection; unrelated query errors propagate and existing JSON/XML count contracts remain unchanged.",
       "acceptance": "Exact clinical values and timestamps persist; links open only authorized source reports, remain deterministic under duplicate data, and add no per-reading query or false error storm.",
       "requiredChecks": [
         "evidence-self-tests",
@@ -415,7 +424,8 @@
         "java-native-flyway",
         "java-native-bc-flyway",
         "java-date-zones",
-        "manual-pathnet-patient-link"
+        "manual-pathnet-patient-link",
+        "packaged-native-pathnet"
       ]
     },
     {
@@ -723,7 +733,8 @@
         "o19-generator-python",
         "package-clean-reinstall",
         "package-main-upgrade",
-        "package-beta5-upgrade"
+        "package-beta5-upgrade",
+        "packaged-o19-migrated"
       ]
     },
     {
@@ -736,9 +747,12 @@
         "scripts/ci/run-installed-first-login.py",
         "scripts/ci/test_installed_first_login.py",
         "scripts/ci/run-package-lifecycle.py",
-        "scripts/ci/run-package-lifecycle-cell.py"
+        "scripts/ci/run-package-lifecycle-cell.py",
+        "scripts/ci/installed_o19_manifests.py",
+        "scripts/ci/test_installed_o19_manifests.py",
+        "scripts/ci/test_upgrade_manifest_contract.py"
       ],
-      "implementation": "Run real clean-install, predecessor-upgrade, reconfigure and data-preserving reinstall on the supported packaged OS; reconcile main-only host/MariaDB recovery fixes. Test both app and DrugRef locks and pinned carlos-ctl 1.3.0.",
+      "implementation": "Run real clean-install, predecessor-upgrade, reconfigure and data-preserving reinstall on the supported packaged OS; reconcile main-only host/MariaDB recovery fixes. Test both app and DrugRef locks and the separately pinned candidate CLI and unchanged published predecessor CLIs.",
       "cases": "Installed version/build identity; MariaDB system tables and existing clinical datadir; IPv4/IPv6 nginx default sites; ports in use; cert renewal, service user/modes/paths; paused import guard; dependency-lock enforcement; app/DrugRef startup; failed configure and recovery; published predecessor version layouts; no source-copied fixtures substituted for package files.",
       "acceptance": "Fresh install and supported upgrade/reinstall preserve data, configuration and keys, restore service correctly, and exercise the actual built .deb/WAR and pinned CLI.",
       "requiredChecks": [
@@ -893,7 +907,9 @@
         "packaged-profile-no-pin",
         "packaged-profile-private-consent",
         "manual-shared-outcomes-launch",
-        "browser-process-oracle"
+        "browser-process-oracle",
+        "packaged-profile-first-nations",
+        "packaged-profile-first-nations-encoding"
       ]
     },
     {
@@ -1200,7 +1216,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 330,
+      "minimumCases": 390,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1329,6 +1345,9 @@
         "test_installed_front_door.InstalledFrontDoorTest.test_redirect_may_not_follow_another_host_or_downgrade_tls",
         "test_installed_front_door.InstalledFrontDoorTest.test_two_complete_responses_are_required_and_certificate_errors_fail",
         "test_installed_front_door.InstalledFrontDoorTest.test_wall_clock_deadline_interrupts_a_slow_response_and_releases_the_timer",
+        "test_installed_o19_manifests.InstalledO19ManifestTest.test_current_packaged_headers_pass_the_real_command",
+        "test_installed_o19_manifests.InstalledO19ManifestTest.test_missing_corrupt_or_legacy_headers_cannot_qualify",
+        "test_installed_o19_manifests.InstalledO19ManifestTest.test_missing_manifests_return_failure_instead_of_silent_success",
         "test_installed_package_state.PackagePreservationTest.test_comparison_uses_control_versions_instead_of_normalized_asset_filenames",
         "test_installed_package_state.PackagePreservationTest.test_equal_row_counts_or_file_counts_cannot_hide_replaced_bytes_or_permissions",
         "test_installed_package_state.PackagePreservationTest.test_managed_asset_rule_does_not_hide_added_removed_or_changed_clinical_files",
@@ -1343,8 +1362,10 @@
         "test_installed_smoke_signals.InstalledSignalEvidenceTest.test_row_counts_alone_cannot_hide_changed_credentials_or_leftover_files",
         "test_installed_smoke_signals.InstalledSignalEvidenceTest.test_timeout_records_failure_and_stops_before_another_installed_audit",
         "test_lifecycle_baselines.LifecycleBaselineTest.test_a_second_tag_on_the_same_commit_cannot_replace_historical_qualification",
+        "test_lifecycle_baselines.LifecycleBaselineTest.test_candidate_cli_upgrade_keeps_both_published_predecessors_unchanged",
         "test_lifecycle_baselines.LifecycleBaselineTest.test_distinct_historical_migration_and_cli_predecessor_is_required",
         "test_lifecycle_baselines.LifecycleBaselineTest.test_incomplete_package_province_or_published_identity_cannot_qualify",
+        "test_lifecycle_baselines.LifecycleBaselineTest.test_missing_stale_or_malformed_candidate_cli_cannot_qualify",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_added_abstract_methods_enum_constants_and_overloads_require_client_review",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_automatic_provider_discovery_retains_both_known_historical_implementations",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_explicit_xml_provider_requires_the_observed_historical_implementation",
@@ -1371,6 +1392,7 @@
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_junit_display_class_names_bind_to_the_qualified_suite",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_malformed_entities_and_symlinks_are_refused",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_missing_required_family_in_each_lane_fails",
+        "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_native_case_families_cannot_be_omitted_or_substituted_in_any_lane",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_nested_name_collision_is_explicit_and_does_not_hide_a_failed_attempt",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_parenthesized_surefire_schema_suffixes_are_bound_to_the_filename",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_summary_omits_configuration_and_console_output",
@@ -1381,6 +1403,7 @@
         "test_node_case_inventory.NodeCaseInventoryTest.test_duplicate_invalid_or_missing_reviewed_cases_are_not_an_inventory",
         "test_node_case_inventory.NodeCaseInventoryTest.test_equal_counts_and_names_cannot_replace_a_required_generated_invocation",
         "test_node_case_inventory.NodeCaseInventoryTest.test_old_case_metadata_cannot_qualify_changed_test_source",
+        "test_package_lifecycle.PackageLifecycleTest.test_candidate_cli_pin_does_not_replace_either_predecessor_package",
         "test_package_lifecycle.PackageLifecycleTest.test_clean_cell_must_match_configured_package_even_with_identical_war_binding",
         "test_package_lifecycle.PackageLifecycleTest.test_failed_container_is_stopped_and_retained_and_uncertain_shutdown_cannot_pass",
         "test_package_lifecycle.PackageLifecycleTest.test_failed_result_retains_diagnosis_without_reading_unreconciled_private_files",
@@ -1504,6 +1527,14 @@
         "test_spotbugs_xml_to_sarif.SpotBugsXmlToSarifTest.test_malformed_xml_fails_without_upload_artifacts",
         "test_spotbugs_xml_to_sarif.SpotBugsXmlToSarifTest.test_no_findings_produces_an_empty_sarif_run_and_zero_metrics",
         "test_spotbugs_xml_to_sarif.SpotBugsXmlToSarifTest.test_only_locatable_security_findings_are_uploaded_and_counted",
+        "test_upgrade_manifest_contract.UpgradeManifestContractTest.test_boolean_string_float_and_missing_formats_cannot_qualify",
+        "test_upgrade_manifest_contract.UpgradeManifestContractTest.test_current_shipped_manifests_match_the_installed_cli_contract",
+        "test_upgrade_manifest_contract.UpgradeManifestContractTest.test_nonobject_malformed_and_missing_files_cannot_qualify",
+        "test_upgrade_manifest_contract.UpgradeManifestContractTest.test_schema_format_one_cannot_qualify_the_billing_helper_manifest",
+        "test_upgrade_manifest_contract.UpgradeManifestContractTest.test_schema_format_two_does_not_change_other_envelopes",
+        "test_upgrade_manifest_contract.UpgradeManifestContractTest.test_unknown_formats_cannot_qualify",
+        "test_upgrade_manifest_contract.UpgradeManifestContractTest.test_unknown_manifest_name_cannot_qualify",
+        "test_upgrade_manifest_contract.UpgradeManifestContractTest.test_wrong_or_missing_kind_cannot_substitute_another_manifest",
         "test_verify_release_evidence.DiscoveryTest.test_nested_parameterized_dynamic_and_missing_sources_are_reconciled",
         "test_verify_release_evidence.ReleaseEvidenceTest.test_binary_artifact_binding_is_rechecked_at_final_verification",
         "test_verify_release_evidence.ReleaseEvidenceTest.test_binary_comparison_requires_artifact_without_requiring_an_installed_server",
@@ -1560,7 +1591,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 21,
+      "minimumCases": 27,
       "runtimeConstraints": {
         "python": "3.14"
       }
@@ -1579,7 +1610,7 @@
         "{run}/node.json"
       ],
       "timeoutSeconds": 900,
-      "minimumCases": 7342,
+      "minimumCases": 7858,
       "requiresEnvironment": [
         "CARLOS_CTL_SRC"
       ],
@@ -1676,7 +1707,8 @@
         "AppointmentArchiveDateTimeContractUnitTest": 7,
         "PublishedXmlSchemaContractUnitTest": 28,
         "JaxbGeneratedSchemaUnitTest": 336,
-        "DemographicBirthDayTimezoneUnitTest": 27
+        "DemographicBirthDayTimezoneUnitTest": 27,
+        "LabResultDataAcknowledgementCountUnitTest": 10
       },
       "requireCoverage": true,
       "routedSkips": {
@@ -2716,6 +2748,195 @@
             }
           ]
         },
+        "io.github.carlos_emr.carlos.billings.ca.bc.service.LegacyBcTeleplanExportMariaDbIntegrationTest": {
+          "check": "java-native-bc-flyway",
+          "cases": [
+            {
+              "name": "shouldCommitCompleteFilesLogsAndStatuses_onceOnRetry",
+              "container": ""
+            },
+            {
+              "name": "shouldRollbackLogsAndStatuses_whenAllBatchNamesAreOccupied",
+              "container": ""
+            },
+            {
+              "name": "shouldReleaseDatabaseLock_afterGenerationFails",
+              "container": ""
+            },
+            {
+              "name": "shouldRefuseConcurrentGeneration_fromAnotherEntryPoint",
+              "container": ""
+            },
+            {
+              "name": "shouldSeparateBillingGroups_whenAllProvidersAreGenerated",
+              "container": ""
+            },
+            {
+              "name": "shouldUseTheActualClaimIdAndAmount_forWcbExport",
+              "container": ""
+            },
+            {
+              "name": "shouldKeepWcbClaimsPending_whenTheFormAndClaimFeeCodesDisagree",
+              "container": ""
+            },
+            {
+              "name": "shouldNotTreatAnOlderFilenameAsCommitEvidence_whenNewExportRollsBack",
+              "container": ""
+            },
+            {
+              "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[1]"
+                },
+                {
+                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[2]"
+                },
+                {
+                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[3]"
+                },
+                {
+                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[4]"
+                },
+                {
+                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[5]"
+                },
+                {
+                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[6]"
+                },
+                {
+                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[7]"
+                }
+              ]
+            },
+            {
+              "name": "shouldEncodeDecimalDollarsAsExactCents_andKeepTheActivityTotalConsistent(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldEncodeDecimalDollarsAsExactCents_andKeepTheActivityTotalConsistent(boolean)[1]"
+                },
+                {
+                  "name": "shouldEncodeDecimalDollarsAsExactCents_andKeepTheActivityTotalConsistent(boolean)[2]"
+                }
+              ]
+            },
+            {
+              "name": "shouldSkipPriorYearArtifacts_withoutOverwritingOrRequiringCurrentYearActivity(String)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldSkipPriorYearArtifacts_withoutOverwritingOrRequiringCurrentYearActivity(String)[1]"
+                },
+                {
+                  "name": "shouldSkipPriorYearArtifacts_withoutOverwritingOrRequiringCurrentYearActivity(String)[2]"
+                },
+                {
+                  "name": "shouldSkipPriorYearArtifacts_withoutOverwritingOrRequiringCurrentYearActivity(String)[3]"
+                }
+              ]
+            },
+            {
+              "name": "shouldReadTheSameProductionWcbLink_inBothExportEngines",
+              "container": ""
+            },
+            {
+              "name": "shouldListInvalidClaimsAndKeepSimulating_withoutMutatingBilling(String)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldListInvalidClaimsAndKeepSimulating_withoutMutatingBilling(String)[1]"
+                },
+                {
+                  "name": "shouldListInvalidClaimsAndKeepSimulating_withoutMutatingBilling(String)[2]"
+                },
+                {
+                  "name": "shouldListInvalidClaimsAndKeepSimulating_withoutMutatingBilling(String)[3]"
+                }
+              ]
+            },
+            {
+              "name": "shouldListWcbLinkProblemsInSimulation_withoutAbortingThePreview",
+              "container": ""
+            },
+            {
+              "name": "shouldExportAnAdditionalWcbFee_fromTheClaimWithoutDuplicatingFormNotes",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainLegacyInvoiceLinkedForms_whenNoClaimSideLinkWasStored",
+              "container": ""
+            },
+            {
+              "name": "shouldRefuseAmbiguousLegacyForms_withoutChoosingOneOrMarkingTheClaim",
+              "container": ""
+            },
+            {
+              "name": "shouldRefuseBrokenExplicitLinks_withoutFallingBackToAnUnrelatedLegacyForm",
+              "container": ""
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.commn.dao.EncounterFormDaoGroupedHistoryIntegrationTest": {
+          "check": "java-native-flyway",
+          "cases": [
+            {
+              "name": "shouldGroupPhysicalHistory_onTheNativeTable",
+              "container": ""
+            }
+          ]
+        },
+        "io.github.carlos_emr.CarlosPropertiesModernChartPersistenceUnitTest": {
+          "check": "java-unprivileged-permission",
+          "cases": [
+            {
+              "name": "shouldRefuseCutover_whenUnsafeSourceIsReadOnly",
+              "container": "",
+              "check": "java-unprivileged-permission"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtilsOutboxTimestampUnitTest": {
+          "check": "java-unprivileged-permission",
+          "cases": [
+            {
+              "name": "shouldCopyNothing_whenTheLastOpenCannotBeRecorded",
+              "container": "ActionUtils outbox staging window",
+              "check": "java-unprivileged-permission"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.managers.ApplicationTempPurgeJobUnitTest": {
+          "check": "java-unprivileged-permission",
+          "cases": [
+            {
+              "name": "shouldCountScanFailure_whenDirectoryUnreadable",
+              "container": "",
+              "check": "java-unprivileged-permission"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOutputLockUnitTest": {
+          "check": "java-unprivileged-permission",
+          "cases": [
+            {
+              "name": "shouldReportUnavailableOutputFolder_whenFolderIsReadOnly",
+              "container": "",
+              "check": "java-unprivileged-permission"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.decision.AntenatalRiskConfigServiceUnitTest": {
+          "check": "java-unprivileged-permission",
+          "cases": [
+            {
+              "name": "shouldRefuse_whenExistingConfigurationIsUnreadable",
+              "container": "Antenatal risk configuration service",
+              "check": "java-unprivileged-permission"
+            }
+          ]
+        },
         "io.github.carlos_emr.carlos.commn.dao.SoapTokenHousekeepingDaoIntegrationTest": {
           "check": "java-native-generated",
           "cases": [
@@ -2922,136 +3143,6 @@
             }
           ]
         },
-        "io.github.carlos_emr.carlos.billings.ca.bc.service.LegacyBcTeleplanExportMariaDbIntegrationTest": {
-          "check": "java-native-bc-flyway",
-          "cases": [
-            {
-              "name": "shouldCommitCompleteFilesLogsAndStatuses_onceOnRetry",
-              "container": ""
-            },
-            {
-              "name": "shouldRollbackLogsAndStatuses_whenAllBatchNamesAreOccupied",
-              "container": ""
-            },
-            {
-              "name": "shouldReleaseDatabaseLock_afterGenerationFails",
-              "container": ""
-            },
-            {
-              "name": "shouldRefuseConcurrentGeneration_fromAnotherEntryPoint",
-              "container": ""
-            },
-            {
-              "name": "shouldSeparateBillingGroups_whenAllProvidersAreGenerated",
-              "container": ""
-            },
-            {
-              "name": "shouldUseTheActualClaimIdAndAmount_forWcbExport",
-              "container": ""
-            },
-            {
-              "name": "shouldKeepWcbClaimsPending_whenTheFormAndClaimFeeCodesDisagree",
-              "container": ""
-            },
-            {
-              "name": "shouldNotTreatAnOlderFilenameAsCommitEvidence_whenNewExportRollsBack",
-              "container": ""
-            },
-            {
-              "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)",
-              "container": "",
-              "destinations": [
-                {
-                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[1]"
-                },
-                {
-                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[2]"
-                },
-                {
-                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[3]"
-                },
-                {
-                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[4]"
-                },
-                {
-                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[5]"
-                },
-                {
-                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[6]"
-                },
-                {
-                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[7]"
-                }
-              ]
-            },
-            {
-              "name": "shouldEncodeDecimalDollarsAsExactCents_andKeepTheActivityTotalConsistent(boolean)",
-              "container": "",
-              "destinations": [
-                {
-                  "name": "shouldEncodeDecimalDollarsAsExactCents_andKeepTheActivityTotalConsistent(boolean)[1]"
-                },
-                {
-                  "name": "shouldEncodeDecimalDollarsAsExactCents_andKeepTheActivityTotalConsistent(boolean)[2]"
-                }
-              ]
-            },
-            {
-              "name": "shouldSkipPriorYearArtifacts_withoutOverwritingOrRequiringCurrentYearActivity(String)",
-              "container": "",
-              "destinations": [
-                {
-                  "name": "shouldSkipPriorYearArtifacts_withoutOverwritingOrRequiringCurrentYearActivity(String)[1]"
-                },
-                {
-                  "name": "shouldSkipPriorYearArtifacts_withoutOverwritingOrRequiringCurrentYearActivity(String)[2]"
-                },
-                {
-                  "name": "shouldSkipPriorYearArtifacts_withoutOverwritingOrRequiringCurrentYearActivity(String)[3]"
-                }
-              ]
-            },
-            {
-              "name": "shouldReadTheSameProductionWcbLink_inBothExportEngines",
-              "container": ""
-            },
-            {
-              "name": "shouldListInvalidClaimsAndKeepSimulating_withoutMutatingBilling(String)",
-              "container": "",
-              "destinations": [
-                {
-                  "name": "shouldListInvalidClaimsAndKeepSimulating_withoutMutatingBilling(String)[1]"
-                },
-                {
-                  "name": "shouldListInvalidClaimsAndKeepSimulating_withoutMutatingBilling(String)[2]"
-                },
-                {
-                  "name": "shouldListInvalidClaimsAndKeepSimulating_withoutMutatingBilling(String)[3]"
-                }
-              ]
-            },
-            {
-              "name": "shouldListWcbLinkProblemsInSimulation_withoutAbortingThePreview",
-              "container": ""
-            },
-            {
-              "name": "shouldExportAnAdditionalWcbFee_fromTheClaimWithoutDuplicatingFormNotes",
-              "container": ""
-            },
-            {
-              "name": "shouldRetainLegacyInvoiceLinkedForms_whenNoClaimSideLinkWasStored",
-              "container": ""
-            },
-            {
-              "name": "shouldRefuseAmbiguousLegacyForms_withoutChoosingOneOrMarkingTheClaim",
-              "container": ""
-            },
-            {
-              "name": "shouldRefuseBrokenExplicitLinks_withoutFallingBackToAnUnrelatedLegacyForm",
-              "container": ""
-            }
-          ]
-        },
         "io.github.carlos_emr.carlos.webserv.rest.ReportingPatientListAuditMariaDbIntegrationTest": {
           "check": "java-native-generated",
           "cases": [
@@ -3153,7 +3244,7 @@
         "ProviderLabRoutingDaoIntegrationTest": 1,
         "BillingONCHeader1DaoIntegrationTest": 1,
         "LegacyLabUploadDaoIntegrationTest": 8,
-        "LabRoutingLookupDaoIntegrationTest": 5,
+        "LabRoutingLookupDaoIntegrationTest": 6,
         "MeasurementPatientMatchMariaDbIntegrationTest": 10,
         "BillingHistoryDaoIntegrationTest": 1,
         "LookupDaoIntegrationTest": 1,
@@ -3163,12 +3254,7 @@
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementIntegrationTest": 5,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
-        "RxSaveReceiptCommitIntegrationTest": 8,
-        "RxConcurrencyIntegrationTest": 6,
-        "RxFavoriteGroupIntegrationTest": 6,
-        "RxFavoriteCopyIntegrationTest": 1,
-        "RxRestPrescriptionRollbackIntegrationTest": 1,
-        "RxStrictAuditIntegrationTest": 1,
+        "EncounterFormDaoGroupedHistoryIntegrationTest": 1,
         "SoapTokenHousekeepingDaoIntegrationTest": 8,
         "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
         "ScheduleSyncMariaDbIntegrationTest": 9,
@@ -3176,7 +3262,13 @@
         "TicklerPatientAccessMariaDbIntegrationTest": 12,
         "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
         "AppointmentUpdateDaoIntegrationTest": 17,
-        "ReportingPatientListAuditMariaDbIntegrationTest": 4
+        "ReportingPatientListAuditMariaDbIntegrationTest": 4,
+        "RxSaveReceiptCommitIntegrationTest": 8,
+        "RxConcurrencyIntegrationTest": 6,
+        "RxFavoriteGroupIntegrationTest": 6,
+        "RxFavoriteCopyIntegrationTest": 1,
+        "RxRestPrescriptionRollbackIntegrationTest": 1,
+        "RxStrictAuditIntegrationTest": 1
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -3206,7 +3298,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest",
+        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -3230,13 +3322,14 @@
         "ProviderLabRoutingDaoIntegrationTest": 1,
         "BillingONCHeader1DaoIntegrationTest": 1,
         "LegacyLabUploadDaoIntegrationTest": 8,
-        "LabRoutingLookupDaoIntegrationTest": 5,
+        "LabRoutingLookupDaoIntegrationTest": 6,
         "LegacyLabNativeMariaDbIntegrationTest": 7,
         "ArchiveAuditTimestampIntegrationTest": 2,
         "Growth0To36FormPersistenceIntegrationTest": 19,
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementIntegrationTest": 5,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
+        "EncounterFormDaoGroupedHistoryIntegrationTest": 1,
         "SoapTokenHousekeepingDaoIntegrationTest": 8,
         "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
         "ScheduleSyncMariaDbIntegrationTest": 9,
@@ -3273,7 +3366,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,LegacyBcTeleplanExportMariaDbIntegrationTest",
+        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,LegacyBcTeleplanExportMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -3290,7 +3383,7 @@
         "DemographicMergeMariaDbIntegrationTest": 9,
         "CaseManagementNoteLockMariaDbIntegrationTest": 15,
         "ConsultationArchiveDaoIntegrationTest": 1,
-        "LabRoutingLookupDaoIntegrationTest": 5,
+        "LabRoutingLookupDaoIntegrationTest": 6,
         "LegacyLabNativeMariaDbIntegrationTest": 7,
         "ArchiveAuditTimestampIntegrationTest": 2,
         "FormXmlImportServiceIntegrationTest": 7,
@@ -3301,13 +3394,14 @@
         "Growth0To36FormPersistenceIntegrationTest": 19,
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
+        "LegacyBcTeleplanExportMariaDbIntegrationTest": 29,
+        "EncounterFormDaoGroupedHistoryIntegrationTest": 1,
         "SoapTokenHousekeepingDaoIntegrationTest": 8,
         "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
         "ScheduleSyncMariaDbIntegrationTest": 9,
         "RxPrescribeMariaDbIntegrationTest": 4,
         "TicklerPatientAccessMariaDbIntegrationTest": 12,
         "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
-        "LegacyBcTeleplanExportMariaDbIntegrationTest": 29,
         "ReportingPatientListAuditMariaDbIntegrationTest": 4
       },
       "requiresEnvironment": [
@@ -4302,7 +4396,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 289,
+      "minimumCases": 277,
       "requiresEnvironment": [
         "CARLOS_CTL_SRC",
         "CARLOS_TEST_MARIADB_SOCKET",
@@ -5590,6 +5684,192 @@
       }
     },
     {
+      "id": "java-unprivileged-permission",
+      "kind": "junit",
+      "profiles": [
+        "all"
+      ],
+      "repetitions": 1,
+      "command": [
+        "bash",
+        "scripts/check-ci-permission-test.sh"
+      ],
+      "environment": {
+        "CARLOS_PERMISSION_REPORTS": "{run}/reports",
+        "CARLOS_PERMISSION_EXECUTION": "{run}/jacoco.exec",
+        "CARLOS_PERMISSION_COVERAGE": "{run}/coverage"
+      },
+      "requiresExecutables": [
+        "bash",
+        "setpriv"
+      ],
+      "runtimeConstraints": {
+        "java": "25"
+      },
+      "minimumCases": 5,
+      "requiredFamilies": {
+        "CarlosPropertiesModernChartPersistenceUnitTest": 1,
+        "ActionUtilsOutboxTimestampUnitTest": 1,
+        "ApplicationTempPurgeJobUnitTest": 1,
+        "BillingOutputLockUnitTest": 1,
+        "AntenatalRiskConfigServiceUnitTest": 1
+      },
+      "requireCoverage": true,
+      "requireClassIdentity": true,
+      "timeoutSeconds": 300
+    },
+    {
+      "id": "packaged-native-pathnet",
+      "kind": "browser",
+      "profiles": [
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "pathnet-status",
+        "legacy-lab-display-pathnet"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 1800,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--profile",
+        "native-pathnet",
+        "--only",
+        "pathnet-status",
+        "--only",
+        "legacy-lab-display-pathnet",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true,
+      "propertyProfile": "native-pathnet"
+    },
+    {
+      "id": "packaged-o19-migrated",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "o19-migrated-smoke"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "O19_ADMIN_CREDENTIALS",
+        "O19_NATIVE_CLINICIAN_CREDENTIALS",
+        "O19_ARCHIVE_SCHEMA",
+        "O19_STATE_DIR"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 1800,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "o19-migrated-smoke",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
+    },
+    {
+      "id": "packaged-profile-first-nations",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--profile",
+        "first-nations",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "packaged": true,
+      "propertyProfile": "first-nations",
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST"
+      ],
+      "timeoutSeconds": 7200,
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "requireLockedChromium": true,
+      "selection": [
+        "first-nations-roundtrip"
+      ]
+    },
+    {
+      "id": "packaged-profile-first-nations-encoding",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--profile",
+        "first-nations-encoding",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "packaged": true,
+      "propertyProfile": "first-nations-encoding",
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST"
+      ],
+      "timeoutSeconds": 7200,
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "requireLockedChromium": true,
+      "selection": [
+        "first-nations-encoding"
+      ]
+    },
+    {
       "id": "native-xml-binary-contracts",
       "kind": "command",
       "profiles": [
@@ -6196,6 +6476,246 @@
         "T08"
       ]
     },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/service/LegacyBcTeleplanExportService.java": {
+      "reason": "Physical MariaDB covers complete files/logs/status commit, prior-year claim/report collisions and capacity exhaustion, the real WCB form save and claim-side link used by both exporters, additional WCB fees, simulation diagnostics, rollback, retry idempotence and the shared generation lock.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/service/LegacyBcTeleplanExportMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/service/LegacyTeleplanFilesUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T16"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/service/TeleplanExportErrors.java": {
+      "reason": "Both endpoint refusal tests and privacy regressions verify canonical operator messages, HTTP status, retained cause/stack diagnostics and removal of patient/SQL exception text.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/service/TeleplanExportErrorsUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/GenerateTeleplanFile2ActionUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/BcCompatibilityRoutesUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T16"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementEntry2Action.java": {
+      "reason": "Authorized revision reads and PDF first-byte disclosure require a patient-associated audit, with no clinical output after audit failure. Linked-group histories audit the authorized recipient. Remaining full lifecycle requirements are unchanged.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementNoteHistoryAccessUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementGroupNoteHistoryIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/casemgmt/web/ChartPrintReadAccessUnitTest.java",
+        "scripts/audit-log-chart-read-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T18"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/Hl7textResultsData.java": {
+      "reason": "CML source-derived completeness/date/correction ordering, historical-delivery measurement isolation, accepted literal spelling and Unicode extraction refusal; existing source/filter, clinical-state and cleanup acceptance remains required. Display-only incomplete-chain recovery is separate from strict mutation resolution.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/CmlCorrectedVersionUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/Hl7textResultsDataUnitTest.java",
+        "scripts/lab-version-ingestion-playwright-checks.js",
+        "scripts/lab-qualified-results-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T14",
+        "T28"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/parsers/CMLHandler.java": {
+      "reason": "Real parsed F/C observations count as complete without changing raw C status; native original/correction/out-of-order uploads validate source, current-version and measurement provenance.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/CmlCorrectedVersionUnitTest.java",
+        "scripts/lab-version-ingestion-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T14"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/DemographicManagerImpl.java": {
+      "reason": "Merged-demographic read audit identifies the requested patient; installed chart reads verify the patient-filtered access audit. Other manager acceptance and source-scope gaps are not waived.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/DemographicManagerUnitTest.java",
+        "scripts/audit-log-chart-read-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T39"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/PatientConsentManagerImpl.java": {
+      "reason": "Consent-read audit carries the structured patient identity and refuses silent audit loss before returning data; installed chart reads verify the patient-associated event.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/PatientConsentManagerUnitTest.java",
+        "scripts/audit-log-chart-read-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/lab/CA/ON/labValues.jsp": {
+      "reason": "Measurement-backed histories and grid visibly explain unfiled Pending without inventing observations or broadening the filter; actual reports/PDFs and all supported literal associations remain independently asserted.",
+      "tests": [
+        "scripts/lab-qualified-results-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full",
+        "jsp-compile"
+      ],
+      "workstreams": [
+        "T28",
+        "T40"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/lab/DisplayLabValue.jsp": {
+      "reason": "Measurement-backed histories and grid visibly explain unfiled Pending without inventing observations or broadening the filter; actual reports/PDFs and all supported literal associations remain independently asserted.",
+      "tests": [
+        "scripts/lab-qualified-results-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full",
+        "jsp-compile"
+      ],
+      "workstreams": [
+        "T28",
+        "T40"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/lab/CumulativeLabValues3.jsp": {
+      "reason": "Measurement-backed histories and grid visibly explain unfiled Pending without inventing observations or broadening the filter; actual reports/PDFs and all supported literal associations remain independently asserted.",
+      "tests": [
+        "scripts/lab-qualified-results-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full",
+        "jsp-compile"
+      ],
+      "workstreams": [
+        "T28",
+        "T40"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/gate/ViewLabDisplay2Action.java": {
+      "reason": "Authorize selected report reads, retain a warned read-only CML report when related source data cannot be parsed, and preserve strict mutation refusal.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/CmlCorrectedVersionUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/lab/gate/LabPatientReadSecurityUnitTest.java",
+        "scripts/lab-version-ingestion-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T14",
+        "T28"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplay.jsp": {
+      "reason": "Authorize selected report reads, retain a warned read-only CML report when related source data cannot be parsed, and preserve strict mutation refusal.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/CmlCorrectedVersionUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/lab/gate/LabPatientReadSecurityUnitTest.java",
+        "scripts/lab-version-ingestion-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T14",
+        "T28"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplayAjax.jsp": {
+      "reason": "Authorize selected report reads, retain a warned read-only CML report when related source data cannot be parsed, and preserve strict mutation refusal.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/CmlCorrectedVersionUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/lab/gate/LabPatientReadSecurityUnitTest.java",
+        "scripts/lab-version-ingestion-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T14",
+        "T28"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultData.java": {
+      "reason": "Keep authorized inbox reports readable when a related CML source prevents a verified acknowledgement aggregate; explain the missing history and withhold bulk selection. Preserve unrelated failures, strict mutations and existing wire properties.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultDataAcknowledgementCountUnitTest.java",
+        "scripts/lab-version-ingestion-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T14"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/web/inboxhub/InboxhubListMode.jsp": {
+      "reason": "Keep authorized inbox reports readable when a related CML source prevents a verified acknowledgement aggregate; explain the missing history and withhold bulk selection. Preserve unrelated failures, strict mutations and existing wire properties.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultDataAcknowledgementCountUnitTest.java",
+        "scripts/lab-version-ingestion-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T14"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/oscarMDS/Page.jsp": {
+      "reason": "Keep authorized inbox reports readable when a related CML source prevents a verified acknowledgement aggregate; explain the missing history and withhold bulk selection. Preserve unrelated failures, strict mutations and existing wire properties.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultDataAcknowledgementCountUnitTest.java",
+        "scripts/lab-version-ingestion-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T14"
+      ]
+    },
     "src/main/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePage.java": {
       "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
       "tests": [
@@ -6628,32 +7148,20 @@
         "T08"
       ]
     },
-    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/service/LegacyBcTeleplanExportService.java": {
-      "reason": "Physical MariaDB covers complete files/logs/status commit, prior-year claim/report collisions and capacity exhaustion, the real WCB form save and claim-side link used by both exporters, additional WCB fees, simulation diagnostics, rollback, retry idempotence and the shared generation lock.",
+    "scripts/deb-upgrade-verify.sh": {
+      "reason": "Verify the candidate CLI schema-format-2 envelope and format-1 companion manifests without accepting booleans, malformed JSON or wrong kinds; preserve all installed upgrade and data-retention checks.",
       "tests": [
-        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/service/LegacyBcTeleplanExportMariaDbIntegrationTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/service/LegacyTeleplanFilesUnitTest.java"
+        "scripts/ci/test_upgrade_manifest_contract.py",
+        "scripts/deb-upgrade-snapshot.test.js",
+        "scripts/ci/test_installed_o19_manifests.py"
       ],
       "checks": [
-        "java-all",
-        "java-native-bc-flyway"
+        "evidence-self-tests",
+        "node-all",
+        "installed-package-reinstall"
       ],
       "workstreams": [
-        "T16"
-      ]
-    },
-    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/service/TeleplanExportErrors.java": {
-      "reason": "Both endpoint refusal tests and privacy regressions verify canonical operator messages, HTTP status, retained cause/stack diagnostics and removal of patient/SQL exception text.",
-      "tests": [
-        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/service/TeleplanExportErrorsUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/GenerateTeleplanFile2ActionUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/BcCompatibilityRoutesUnitTest.java"
-      ],
-      "checks": [
-        "java-all"
-      ],
-      "workstreams": [
-        "T16"
+        "T26"
       ]
     }
   },

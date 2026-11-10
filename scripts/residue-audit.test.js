@@ -422,7 +422,7 @@ function runnerWith(checks, { argv = ['--residue-audit'], residueAudit, statuses
     return { status: statuses[args[0].split('/').pop().replace('-playwright-checks.js', '')] ?? 0 };
   };
   const out = { log: (line = '') => lines.push(line), error: (line) => lines.push(line) };
-  const code = main(argv, {}, out, {
+  const code = main(argv, {CARLOS_DISPOSABLE_HOST: 'true'}, out, {
     checks, run, readBuildIdentity: () => null, residueAudit: residueAudit && residueAudit(events),
   });
   return { code, text: lines.join('\n'), lines, events };

@@ -146,9 +146,7 @@
 
         }
 
-        document.getElementById('statusNum').addEventListener('focus', function () {
-            toggleFirstNationFields(true)
-        });
+        // The editable fields are already rendered; no global focus handler is required.
 
 
         document.getElementById('statusNum').addEventListener('blur', function () {

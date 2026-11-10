@@ -211,11 +211,11 @@
 
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
-    boolean taskToAvailable = false;
-    for (Provider candidate : providerDao.getActiveProviders()) {
-        if (candidate.getProviderNo().equals(taskTo)) { taskToAvailable = true; break; }
-    }
-    if (!taskToAvailable) taskTo = "";
+    List<Provider> activeTaskProviders = providerDao.getActiveProviders();
+    String requestedTaskAssignee = taskTo;
+    boolean unavailableTaskAssignee = activeTaskProviders.stream()
+            .noneMatch(provider -> Objects.equals(provider.getProviderNo(), requestedTaskAssignee));
+    if (unavailableTaskAssignee) taskTo = "";
 %>
 
 <%
@@ -646,14 +646,12 @@
                 CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMissingDate") %>' context="javaScriptBlock"/>');
                 valid = false;
             }
-            <% if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) { %>
             if (!document.serviceform.task_assigned_to ||
                     document.serviceform.task_assigned_to.options.length === 0 ||
                     document.serviceform.task_assigned_to.value === "") {
                 CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMustAssignProvider") %>' context="javaScriptBlock"/>');
                 valid = false;
             }
-            <% } %>
             return valid;
         }
 
@@ -853,6 +851,9 @@
                 <tr>
                     <td class="tickler-label"><span id="ticklerAssignedToLabel"><fmt:message key="tickler.ticklerAdd.assignTaskTo"/></span>:</td>
                     <td>
+                        <% if (unavailableTaskAssignee) { %>
+                        <div class="alert alert-warning" role="alert"><fmt:message key="tickler.ticklerAdd.msgMustAssignProvider"/></div>
+                        <% } %>
                         <% if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) { // multisite start ==========================================
                             SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
                             List<Site> sites = siteDao.getActiveSitesByProviderNo(user_no);
@@ -865,10 +866,10 @@
                             var _providers = [];
 
                             <%
-                            String taskToName = "";
+                            String taskToName = oscarBundle.getString("tickler.ticklerAdd.msgMustAssignProvider");
                             boolean taskToIsMRP = false;
 
-                            if(defaultTaskAssignee.equals("mrp")) {
+                            if(defaultTaskAssignee.equals("mrp") && demographic == null) {
                                 taskToName = "Preference set to MRP, attach a patient.";
                                 taskToIsMRP = true;
                             }
@@ -978,7 +979,7 @@
                                 String proLast = "";
                                 String proOHIP = "";
 
-                                for (Provider p : providerDao.getActiveProviders()) {
+                                for (Provider p : activeTaskProviders) {
 
                                     proFirst = p.getFirstName();
                                     proLast = p.getLastName();

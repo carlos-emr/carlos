@@ -114,6 +114,19 @@ async function callbackWorkflow(s,credentials) {
     h.assert(await page.locator('#scopeForm input[name="oauth_token"]').inputValue()===request.oauth_token,'Native consent names another request token');
     return page;
   }
+  await s.step('invalid initiation signature receives an authentication refusal without tokens or callback navigation',async()=>{
+    const before=counts(),received=receiver.requests.length;
+    const valid=sign('POST',initiate,null,{oauth_callback:registered});
+    const invalid=valid.replace(/oauth_signature="/,'oauth_signature="invalid');
+    h.assert(invalid!==valid,'Negative signature control did not change the signed request');
+    const response=await api.post(initiate,{headers:{Authorization:invalid},maxRedirects:0});
+    const status=response.status(),body=(await response.text()).trim(),location=response.headers().location;
+    await response.dispose();
+    h.assert(status===401&&body==='invalid_signature','Invalid initiation signature did not receive its protocol HTTP 401 refusal');
+    h.assert(!location&&!/oauth_token|oauth_verifier|oauth_token_secret/.test(body),'Invalid signature exposed credentials or redirected');
+    assert.deepEqual(counts(),before,'Invalid signature issued or removed credentials');
+    h.assert(receiver.requests.length===received,'Invalid signature navigated to the callback receiver');
+  });
   const tokens=[];
   for(const [label,callback] of [['exact',registered],['extended query',registered+'&context=owned-value'],
     ['encoded query',registered+'&context=owned%20callback%20%26%20value']]) {
