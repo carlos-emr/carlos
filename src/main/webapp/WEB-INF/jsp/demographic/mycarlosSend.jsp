@@ -7,12 +7,14 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
+<%-- The version query changes with the assets' bytes (MyCarlosSendAssets). --%>
+<c:set var="mycarlosSendVersion" value="<%= io.github.carlos_emr.carlos.integration.patientportal.web.MyCarlosSendAssets.version(application) %>"/>
 <html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
     <meta charset="UTF-8">
     <title><fmt:message key="mycarlos.delivery.title"/></title>
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
-    <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/share/css/mycarlos-send.css">
+    <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/share/css/mycarlos-send.css?v=${carlos:forUriComponent(mycarlosSendVersion)}">
 </head>
 <body>
 <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
@@ -74,6 +76,6 @@
         <span data-copy="sent"><fmt:message key="mycarlos.delivery.sent"/></span>
     </div>
 </main>
-<script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/demographic/mycarlos-send.js"></script>
+<script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/demographic/mycarlos-send.js?v=${carlos:forUriComponent(mycarlosSendVersion)}"></script>
 </body>
 </html>

@@ -33,6 +33,14 @@ class MyCarlosSendDialogJspRegressionTest {
     private static final Path INBOX_INDEX = Path.of("src/main/webapp/WEB-INF/jsp/oscarMDS/Index.jsp");
     private static final Path SEND_JS = Path.of("src/main/webapp/share/javascript/demographic/mycarlos-send.js");
     private static final Path DIALOG_JS = Path.of("src/main/webapp/share/javascript/demographic/mycarlos-send-dialog.js");
+    private static final Path STANDALONE = Path.of("src/main/webapp/WEB-INF/jsp/demographic/mycarlosSend.jsp");
+    /** The version query every reference to the dialog's scripts and stylesheet carries. */
+    private static final String VERSION = "?v=${carlos:forUriComponent(mycarlosSendVersion)}";
+    private static final String VERSION_SET = "<c:set var=\"mycarlosSendVersion\" value=\"<%= "
+            + "io.github.carlos_emr.carlos.integration.patientportal.web.MyCarlosSendAssets.version(application) %>\"/>";
+    /** A src or href naming one of the three assets, up to its closing quote. */
+    private static final Pattern ASSET_REFERENCE =
+            Pattern.compile("(?:src|href)=\"[^\"]*/share/(?:javascript/demographic/mycarlos-send(?:-dialog)?\\.js|css/mycarlos-send\\.css)[^\"]*\"");
     /** A URL-bearing or data attribute whose value starts with the JavaScript-string encoder. */
     private static final Pattern JS_ENCODER_IN_ATTRIBUTE =
             Pattern.compile("(src|href|action|data-[a-z-]+)=\"\\$\\{carlos:forJavaScript\\(");
@@ -91,10 +99,10 @@ class MyCarlosSendDialogJspRegressionTest {
     void shouldLoadDialogScripts_onBothInboxHosts() throws IOException {
         for (Path host : new Path[] {INBOX_LIST, INBOX_INDEX}) {
             String jsp = read(host);
-            assertThat(jsp).contains("/share/javascript/demographic/mycarlos-send.js\"></script>");
-            assertThat(jsp).contains("/share/javascript/demographic/mycarlos-send-dialog.js\"></script>");
+            assertThat(jsp).contains("/share/javascript/demographic/mycarlos-send.js" + VERSION + "\"></script>");
+            assertThat(jsp).contains("/share/javascript/demographic/mycarlos-send-dialog.js" + VERSION + "\"></script>");
             assertThat(jsp).contains("/share/javascript/csrfTokenFetch.js\"></script>");
-            assertThat(jsp).contains("/share/css/mycarlos-send.css\">");
+            assertThat(jsp).contains("/share/css/mycarlos-send.css" + VERSION + "\">");
         }
     }
 
@@ -118,6 +126,31 @@ class MyCarlosSendDialogJspRegressionTest {
         String dialog = read(DIALOG_JS);
         assertThat(dialog).contains("const CLOSE_WHILE_SENDING = false;");
         assertThat(Pattern.compile("CLOSE_WHILE_SENDING\\s*=").matcher(dialog).results().count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("should reference the dialog's scripts and stylesheet only with the build's version query")
+    void shouldVersionEveryAssetReference_onEveryHost() throws IOException {
+        // A browser kept the previous mycarlos-send.js after an upgrade (no Cache-Control on static
+        // files), so the dialog found no CarlosMyCarlosSend and the button opened a new tab instead.
+        for (Path host : new Path[] {DIALOG, SHOW_DOCUMENT, INBOX_LIST, INBOX_INDEX, STANDALONE}) {
+            String jsp = read(host);
+            var references = ASSET_REFERENCE.matcher(jsp).results().map(match -> match.group()).toList();
+            assertThat(references).as(host.toString()).isNotEmpty();
+            assertThat(references).as(host.toString()).allSatisfy(reference -> assertThat(reference).endsWith(VERSION + "\""));
+        }
+        // Each page sets the version before its first reference; showDocument.jsp's come after the
+        // fragment, which sets it.
+        for (Path host : new Path[] {DIALOG, INBOX_LIST, INBOX_INDEX, STANDALONE}) {
+            String jsp = read(host);
+            int set = jsp.indexOf(VERSION_SET);
+            assertThat(set).as(host.toString()).isNotNegative();
+            assertThat(set).as(host.toString()).isLessThan(jsp.indexOf(VERSION));
+        }
+        String page = read(SHOW_DOCUMENT);
+        int include = page.indexOf("<%@ include file=\"/WEB-INF/jsp/documentManager/mycarlosSendDialog.jspf\" %>");
+        assertThat(include).isNotNegative();
+        assertThat(include).isLessThan(page.indexOf(VERSION));
     }
 
     @Test

@@ -954,9 +954,10 @@
 <script type="text/javascript" src="showDocument.js"></script>
 <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/csrfTokenFetch.js"></script>
 <c:if test="${pageScope.mycarlosSendDialog}">
-    <%-- In the inbox, which does not run this page's scripts, the host pages load these too. --%>
-    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/demographic/mycarlos-send.js"></script>
-    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/demographic/mycarlos-send-dialog.js"></script>
+    <%-- In the inbox, which does not run this page's scripts, the host pages load these too. The version
+         query is set by mycarlosSendDialog.jspf above. --%>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/demographic/mycarlos-send.js?v=${carlos:forUriComponent(mycarlosSendVersion)}"></script>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/demographic/mycarlos-send-dialog.js?v=${carlos:forUriComponent(mycarlosSendVersion)}"></script>
 </c:if>
 <script type="text/javascript">
     /**

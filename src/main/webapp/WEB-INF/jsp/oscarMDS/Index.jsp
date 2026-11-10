@@ -401,10 +401,12 @@
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/documentManager/showDocument.js"></script>
     <%-- Send to myCarlos dialogs of the documents shown here (mycarlosSendDialog.jspf). Loaded here as in the inbox list; the scripts load once. --%>
-    <link rel="stylesheet" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/css/mycarlos-send.css">
+    <%-- The version query changes with the assets' bytes (MyCarlosSendAssets). --%>
+    <c:set var="mycarlosSendVersion" value="<%= io.github.carlos_emr.carlos.integration.patientportal.web.MyCarlosSendAssets.version(application) %>"/>
+    <link rel="stylesheet" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/css/mycarlos-send.css?v=${carlos:forUriComponent(mycarlosSendVersion)}">
     <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/csrfTokenFetch.js"></script>
-    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/demographic/mycarlos-send.js"></script>
-    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/demographic/mycarlos-send-dialog.js"></script>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/demographic/mycarlos-send.js?v=${carlos:forUriComponent(mycarlosSendVersion)}"></script>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/demographic/mycarlos-send-dialog.js?v=${carlos:forUriComponent(mycarlosSendVersion)}"></script>
 
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/hospitalReportManager/hrmActions.js"></script>
