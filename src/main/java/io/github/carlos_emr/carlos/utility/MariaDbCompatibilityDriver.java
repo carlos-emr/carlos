@@ -278,6 +278,8 @@ public final class MariaDbCompatibilityDriver implements Driver {
             int column = columnIndex(rows, args);
             ResultSetMetaData metadata = rows.getMetaData();
             int sqlType = metadata.getColumnType(column);
+            // transformedBitIsBoolean exposes TINYINT(1) as BOOLEAN; its object truth rule is identical.
+            if (sqlType == Types.BOOLEAN && requested == Object.class) return bitValue(rows, column, 1, requested);
             if (FLOATING_TYPES.contains(sqlType)) {
                 return requested == java.math.BigDecimal.class ? floatingDecimal(rows, column) : NO_CONVERSION;
             }

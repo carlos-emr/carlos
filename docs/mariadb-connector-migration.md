@@ -57,19 +57,21 @@ Template, Query by Example, fixed and clinical reports and the legacy form
 loaders therefore print these columns as before. TINYINT(1), which both drivers
 report as BIT(1), keeps its sign. Its untyped `getObject` reads use the same
 numeric truth rule as `getBoolean`: positive values and `-1` are true, other
-non-positive values are false, and SQL NULL remains null.
+non-positive values are false, and SQL NULL remains null. This also applies
+when `transformedBitIsBoolean=true` reports the column as BOOLEAN;
+`tinyInt1isBit=false` retains integer objects and signed numeric values.
 Typed `getObject` reads also keep SQL NULL as null when the requested numeric
 or Boolean class is primitive (for example `double.class`). Primitive getters
 such as `getDouble` still return zero with `wasNull()` set.
 
-These Connector/J behaviours are not reproduced, and nothing in CARLOS depends
-on them: `getBytes` on a numeric column (MariaDB refuses it), the deprecated
+These Connector/J behaviours are not reproduced: `getBytes` on a numeric
+column (MariaDB refuses it), the deprecated
 `getBigDecimal(column, scale)` rounding, `getNString` on a non-national column
 (MariaDB returns the text), out-of-range `getLong` and `getFloat` reads (MariaDB
 returns the type's limit, or infinity for `getFloat`, where Connector/J refused
 them), `getByte` on BIT columns wider than 8 bits, and some metadata details:
-FLOAT and DOUBLE scale, the display size of DECIMAL and INT columns, and the
-`INT` type name, which MariaDB reports as `INTEGER`.
+FLOAT and DOUBLE scale, integer precision, the display size of DECIMAL and INT
+columns, and the `INT` type name, which MariaDB reports as `INTEGER`.
 
 URL query settings are decoded once. MySQL connection properties retain
 precedence over URL query options, including after URL normalization. Native

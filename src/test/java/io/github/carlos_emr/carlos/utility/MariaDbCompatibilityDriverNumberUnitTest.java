@@ -113,16 +113,18 @@ class MariaDbCompatibilityDriverNumberUnitTest {
             nullValues = "NULL")
     @DisplayName("should use Connector/J's numeric truth rule for every TINYINT(1) object read")
     void shouldPreserveNumericTruth_whenTinyIntOneIsReadAsObject(Long value, Boolean expected) throws Exception {
-        withRows(value, rows -> {
-            assertThat(rows.getObject(TINY_FLAG)).isEqualTo(expected);
-            assertThat(rows.wasNull()).isEqualTo(value == null);
-            assertThat(rows.getObject("t")).isEqualTo(expected);
-            assertThat(rows.getObject(TINY_FLAG, Map.of())).isEqualTo(expected);
-            assertThat(rows.getObject(TINY_FLAG, Boolean.class)).isEqualTo(expected);
-            assertThat(rows.getBoolean(TINY_FLAG)).isEqualTo(Boolean.TRUE.equals(expected));
-            assertThat(rows.wasNull()).isEqualTo(value == null);
-            assertThat(rows.getString(TINY_FLAG)).isEqualTo(value == null ? null : value.toString());
-        });
+        for (int sqlType : new int[]{Types.BIT, Types.BOOLEAN}) {
+            withRows(value, sqlType, rows -> {
+                assertThat(rows.getObject(TINY_FLAG)).as("SQL type %s", sqlType).isEqualTo(expected);
+                assertThat(rows.wasNull()).isEqualTo(value == null);
+                assertThat(rows.getObject("t")).isEqualTo(expected);
+                assertThat(rows.getObject(TINY_FLAG, Map.of())).isEqualTo(expected);
+                assertThat(rows.getObject(TINY_FLAG, Boolean.class)).isEqualTo(expected);
+                assertThat(rows.getBoolean(TINY_FLAG)).isEqualTo(Boolean.TRUE.equals(expected));
+                assertThat(rows.wasNull()).isEqualTo(value == null);
+                assertThat(rows.getString(TINY_FLAG)).isEqualTo(value == null ? null : value.toString());
+            });
+        }
     }
 
     @Test
@@ -212,7 +214,11 @@ class MariaDbCompatibilityDriverNumberUnitTest {
     }
 
     private static void withRows(Long tinyFlag, RowsCheck check) throws Exception {
-        ResultSet nativeRows = scriptedRows(tinyFlag);
+        withRows(tinyFlag, Types.BIT, check);
+    }
+
+    private static void withRows(Long tinyFlag, int tinySqlType, RowsCheck check) throws Exception {
+        ResultSet nativeRows = scriptedRows(tinyFlag, tinySqlType);
         org.mariadb.jdbc.Statement nativeStatement = mock(org.mariadb.jdbc.Statement.class);
         when(nativeStatement.executeQuery(anyString())).thenReturn(nativeRows);
         org.mariadb.jdbc.Connection physical = mock(org.mariadb.jdbc.Connection.class, Answers.RETURNS_DEEP_STUBS);
@@ -231,7 +237,7 @@ class MariaDbCompatibilityDriverNumberUnitTest {
     }
 
     /** A result set that answers like MariaDB Connector/J 3.5.11 for one row of the probe columns. */
-    private static ResultSet scriptedRows(Long tinyFlag) throws SQLException {
+    private static ResultSet scriptedRows(Long tinyFlag, int tinySqlType) throws SQLException {
         Map<Integer, Object> values = new HashMap<>();
         values.put(DOUBLE, 100.0d);
         values.put(FLOAT, 1.0E7d);
@@ -245,15 +251,20 @@ class MariaDbCompatibilityDriverNumberUnitTest {
                 WIDE_BIT, "b'1000000000000000000000000000000000000000000000000000000000000000'", TINY_FLAG, String.valueOf(tinyFlag),
                 TEXT, "server text");
         ResultSetMetaData metadata = mock(ResultSetMetaData.class);
-        int[] types = {0, Types.DOUBLE, Types.REAL, Types.BIT, Types.BIT, Types.BIT, Types.VARCHAR, Types.BIT, Types.DOUBLE};
+        int[] types = {0, Types.DOUBLE, Types.REAL, Types.BIT, Types.BIT, tinySqlType, Types.VARCHAR, Types.BIT, Types.DOUBLE};
         int[] precisions = {0, 22, 12, 1, 64, 1, 255, 8, 22};
         String[] typeNames = {"", "DOUBLE", "FLOAT", "BIT", "BIT", "TINYINT", "VARCHAR", "BIT", "DOUBLE"};
         for (int column = 1; column < types.length; column++) {
             when(metadata.getColumnType(column)).thenReturn(types[column]);
             when(metadata.getPrecision(column)).thenReturn(precisions[column]);
             when(metadata.getColumnTypeName(column)).thenReturn(typeNames[column]);
-            when(metadata.getColumnClassName(column)).thenReturn(types[column] == Types.BIT ? byte[].class.getName()
-                    : types[column] == Types.VARCHAR ? String.class.getName() : Double.class.getName());
+            String columnClass = switch (types[column]) {
+                case Types.BIT -> byte[].class.getName();
+                case Types.BOOLEAN -> Boolean.class.getName();
+                case Types.VARCHAR -> String.class.getName();
+                default -> Double.class.getName();
+            };
+            when(metadata.getColumnClassName(column)).thenReturn(columnClass);
         }
         boolean[] lastNull = {false};
         Map<String, Integer> columns = Map.of("d", DOUBLE, "t", TINY_FLAG,
@@ -282,14 +293,23 @@ class MariaDbCompatibilityDriverNumberUnitTest {
                 case "getDouble" -> value == null ? 0.0d : ((Number) value).doubleValue();
                 case "getLong" -> value == null ? 0L : ((Number) value).longValue();
                 case "getString", "getNString" -> value == null ? null : serverText.get(column);
-                case "getObject" -> value instanceof Long bits && precisions[column] > 1
-                        ? java.nio.ByteBuffer.allocate(8).putLong(bits).array() : value;
-                case "getBigDecimal" -> value == null ? null
-                        : new BigDecimal(serverText.get(column)).setScale((Integer) args[1]);
+                case "getObject" -> nativeObject(value, types[column], precisions[column]);
+                case "getBigDecimal" -> {
+                    if (value == null) yield null;
+                    BigDecimal decimal = new BigDecimal(serverText.get(column));
+                    yield args.length == 2 ? decimal.setScale((Integer) args[1]) : decimal;
+                }
                 case "getCharacterStream" -> throw new SQLException("Data type DOUBLE cannot be decoded as Reader");
                 default -> null;
             };
         });
+    }
+
+    private static Object nativeObject(Object value, int sqlType, int precision) {
+        if (value == null) return null;
+        if (sqlType == Types.BOOLEAN) return ((Number) value).longValue() != 0;
+        if (value instanceof Long bits && precision > 1) return java.nio.ByteBuffer.allocate(8).putLong(bits).array();
+        return value;
     }
 
     @FunctionalInterface

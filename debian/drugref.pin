@@ -12,4 +12,4 @@
 # recoverable DPD replacement, missing-DIN lookup, SQL-date XML-RPC, and
 # EntityManager lifecycle fixes. Do not move the pin behind those changes.
 # Build from this full commit SHA; branch names are not reproducible.
-ref=448a04b726647fb156187411fa20084d8da46e9a
+ref=d4638a1dc1b5fdafdf31c0e8acec65e063364015

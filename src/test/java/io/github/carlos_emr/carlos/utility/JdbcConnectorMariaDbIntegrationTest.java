@@ -494,6 +494,39 @@ class JdbcConnectorMariaDbIntegrationTest {
                 }
             }
         }
+        assertConnectorJTinyIntMetadataModes(legacy);
+    }
+
+    /** Both metadata switches retain the same values and object classes as Connector/J. */
+    private void assertConnectorJTinyIntMetadataModes(boolean legacy) throws Exception {
+        for (boolean tinyBit : new boolean[]{false, true}) {
+            for (boolean transformed : new boolean[]{false, true}) {
+                for (boolean prepared : new boolean[]{false, true}) {
+                    String options = "tinyInt1isBit=" + tinyBit + "&transformedBitIsBoolean=" + transformed
+                            + "&useServerPrepStmts=" + prepared;
+                    try (var source = source(legacy, options); var connection = source.getConnection();
+                         var query = connection.prepareStatement("SELECT t1 FROM number_probe WHERE id >= ? ORDER BY id")) {
+                        query.setInt(1, 1);
+                        try (var rows = query.executeQuery()) {
+                            if (tinyBit) assertConnectorJTinyIntTruthValues(rows);
+                            else assertConnectorJTinyIntIntegerValues(rows);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static void assertConnectorJTinyIntIntegerValues(ResultSet rows) throws SQLException {
+        for (Integer expected : new Integer[]{1, -1, null, -128, -2, 0, 127}) {
+            assertThat(rows.next()).isTrue();
+            assertThat(rows.getObject(1)).isEqualTo(expected);
+            assertThat(rows.wasNull()).isEqualTo(expected == null);
+            assertThat(rows.getObject("t1")).isEqualTo(expected);
+            assertThat(rows.getObject(1, Map.of())).isEqualTo(expected);
+            assertThat(rows.getString(1)).isEqualTo(expected == null ? null : expected.toString());
+        }
+        assertThat(rows.next()).isFalse();
     }
 
     /** TINYINT(1) uses Connector/J's positive-or-negative-one truth rule, including untyped object reads. */
