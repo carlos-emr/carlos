@@ -56,6 +56,9 @@ async function workflow(s) {
   const cppIssueId = sql.value("SELECT issue_id FROM issue WHERE code='SocHistory'");
   h.assert(/^\d+$/.test(issueId) && /^\d+$/.test(cppIssueId), 'The catalog issue ids are not numbers');
 
+  let producerIssue;
+  let producerTemplate;
+
   // ---- Fixtures --------------------------------------------------------------------------------
   s.cleanup(() => {
     // The patient is owned by this run, so everything below is the run's, deleted by the patient key.
@@ -81,6 +84,8 @@ async function workflow(s) {
       + (SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM eChart WHERE demographicNo=${patient})`) === '0',
     'Owned chart notes, issues, links, summary, drafts or locks were not removed');
+    if (producerIssue) sql.execute(`DELETE FROM issue WHERE issue_id=${producerIssue}`);
+    if (producerTemplate) sql.execute(`DELETE FROM encountertemplate WHERE encountertemplate_name=${q(producerTemplate)}`);
   });
 
   // ---- Database helpers ------------------------------------------------------------------------
@@ -471,6 +476,87 @@ async function workflow(s) {
         h.assert(await reopenedChoice.isChecked() === resolved, 'Reopening did not retain the saved issue selection');
       }
     });
+    await s.step('status refresh and Save-time reconciliation preserve unsaved issue, encounter type and date changes in the stored revision', async () => {
+      for (const failStatus of [false, true]) {
+        const chart = await s.chart();
+        const oldId = notes.b;
+        const link = caseIssue(issueId, notes.a);
+        if (await chart.locator(`#n${oldId} textarea[name="caseNote_note"]`).count() === 0) {
+          await chart.locator(`#edit${oldId}`).click({timeout: TIMEOUT});
+        }
+        await noteField(chart).waitFor({state: 'visible', timeout: TIMEOUT});
+        await chart.waitForFunction(() => issueUpdatesPending === 0, null, {timeout: TIMEOUT});
+        if (!(await chart.locator('#noteIssues-resolved').isVisible())) {
+          await chart.locator('[aria-controls~="noteIssues-unresolved"]').click({timeout: TIMEOUT});
+        }
+        const checkbox = chart.locator(`#noteIssues input[data-issue-id="${link.id}"]`);
+        const desiredSelection = !(await checkbox.isChecked());
+        await checkbox.setChecked(desiredSelection);
+        const priorType = await chart.locator('select.encTypeCombo').inputValue();
+        const encounterType = priorType === 'telephone encounter with client' ? 'email encounter with client' : 'telephone encounter with client';
+        await chart.locator('input.encTypeCombo[id$="_combo"]').click({timeout: TIMEOUT});
+        await chart.locator(`div[id$="_options"] li[data-value="${encounterType}"]`).click({timeout: TIMEOUT});
+        const date = failStatus ? '08-Nov-2026 10:23' : '09-Nov-2026 09:21';
+        await chart.locator('#observationDate').evaluate((input, value) => {
+          input.value = value;
+          input.dispatchEvent(new Event('change', {bubbles: true}));
+        }, date);
+        const radio = checkbox.locator('..').locator(`input[name$=".issue.acute"][value="${!failStatus}"]`);
+        if (!(await radio.isVisible())) await checkbox.locator('..').locator('a').first().click({timeout: TIMEOUT});
+        let failedUrl;
+        const failUpdate = async route => {
+          if (chartSaveRequest('issueChange')(route.request())) {
+            failedUrl = route.request().url();
+            await route.fulfill({status: 503, contentType: 'text/plain', body: 'Synthetic owned status failure'});
+          } else await route.continue();
+        };
+        if (failStatus) await chart.route('**/CaseManagementEntry*', failUpdate);
+        try {
+          const dialogs = await h.withExpectedDialogs(chart, async () => {
+            await radio.check({timeout: TIMEOUT});
+            await chart.waitForFunction(() => issueUpdatesPending === 0, null, {timeout: TIMEOUT});
+          });
+          h.assert(dialogs.length === (failStatus ? 1 : 0), 'The status action reported an unexpected failure');
+        } finally {
+          if (failStatus) await chart.unroute('**/CaseManagementEntry*', failUpdate);
+        }
+        if (failStatus) {
+          const expected = s.recorder.badResponses.filter(entry => entry.status === 503 && entry.method === 'POST' && entry.url === failedUrl);
+          h.assert(expected.length === 1, 'The status failure did not record exactly one owned HTTP 503');
+          s.recorder.badResponses.splice(s.recorder.badResponses.indexOf(expected[0]), 1);
+          for (let i = s.recorder.consoleIssues.length - 1; i >= 0; i--) {
+            const entry = s.recorder.consoleIssues[i];
+            if (entry.type === 'error' && entry.location?.url === failedUrl
+                && /^Failed to load resource: the server responded with a status of 503 \(/.test(entry.text)) s.recorder.consoleIssues.splice(i, 1);
+          }
+        }
+        h.assert(await checkbox.isChecked() === desiredSelection, 'Status refresh reset the unsaved issue checkbox');
+        h.assert(await chart.locator('select.encTypeCombo').inputValue() === encounterType, 'Status refresh reset the unsaved encounter type');
+        h.assert(await chart.locator('#observationDate').inputValue() === date, 'Status refresh reset the unsaved date');
+        const uuid = sql.value(`SELECT uuid FROM casemgmt_note WHERE note_id=${oldId} AND demographic_no=${patient}`);
+        const dialogs = await h.withExpectedDialogs(chart, async () => {
+          await Promise.all([
+            chart.waitForResponse(response => chartSaveRequest('ajaxsave')(response.request()), {timeout: TIMEOUT}),
+            chart.locator(`#edit${notes.a}`).click({timeout: TIMEOUT}),
+          ]);
+        });
+        h.assert(dialogs.length === 1, 'The unsaved clinical changes did not request save confirmation');
+        await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient} AND uuid=${q(uuid)} AND note_id>${oldId}`, '1', 'Reconciliation did not create exactly one revision');
+        notes.b = sql.value(`SELECT MAX(note_id) FROM casemgmt_note WHERE demographic_no=${patient} AND uuid=${q(uuid)}`);
+        h.assert(sql.value(`SELECT encounter_type FROM casemgmt_note WHERE note_id=${notes.b} AND demographic_no=${patient}`) === encounterType,
+          'The stored revision lost the unsaved encounter type');
+        const expectedDate = failStatus ? '2026-11-08 10:23' : '2026-11-09 09:21';
+        h.assert(sql.value(`SELECT DATE_FORMAT(observation_date,'%Y-%m-%d %H:%i') FROM casemgmt_note WHERE note_id=${notes.b} AND demographic_no=${patient}`) === expectedDate,
+          'The stored revision lost the unsaved observation date');
+        h.assert((caseIssue(issueId, notes.b) !== null) === desiredSelection, 'The stored revision lost the unsaved association');
+        h.assert(sql.value(`SELECT encounter_type FROM casemgmt_note WHERE note_id=${oldId} AND demographic_no=${patient}`) === priorType,
+          'The status/reconciliation workflow rewrote historical clinical fields');
+      }
+      const chart = await s.chart();
+      await chart.locator(`#edit${notes.b}`).click({timeout: TIMEOUT});
+      await noteField(chart).waitFor({state: 'visible', timeout: TIMEOUT});
+      await chart.waitForFunction(() => issueUpdatesPending === 0, null, {timeout: TIMEOUT});
+    });
     await s.step('an encounter-type-only edit survives a failed full-chart refresh and retries without another revision', async () => {
       const chart = await s.chart();
       const oldId = notes.b;
@@ -498,7 +584,7 @@ async function workflow(s) {
             chart.waitForResponse(response => chartSaveRequest('edit')(response.request()) && response.status() === 503, {timeout: TIMEOUT}),
             // The current layout omits the old Quick/Full Chart toolbar link.
             // Execute its production entry point against the real save response.
-            chart.evaluate(() => viewFullChart(true)),
+            chart.locator('#quickChart').click({timeout: TIMEOUT}),
           ]);
         });
         h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Dirty chart navigation did not confirm saving once');
@@ -540,7 +626,7 @@ async function workflow(s) {
       const dialogs = await h.withExpectedDialogs(chart, async () => {
         await Promise.all([
           chart.waitForResponse(response => chartSaveRequest('edit')(response.request()) && response.status() === 200, {timeout: TIMEOUT}),
-          chart.evaluate(() => viewFullChart(true)),
+          chart.locator('#quickChart').click({timeout: TIMEOUT}),
         ]);
       });
       h.assert(dialogs.length === 0, 'Retrying the chart tried to save the acknowledged note again');
@@ -561,6 +647,48 @@ async function workflow(s) {
           s.recorder.consoleIssues.splice(i, 1);
         }
       }
+    });
+    await s.step('rendered JSP producers preserve hostile template names and CPP issue components through their JavaScript consumers', async () => {
+      let chart = await s.chart();
+      await leaveChart(chart);
+      producerTemplate = `${marker.slice(0, 16)} Patient's A&B + ü;<tag>`;
+      const templateBody = `${marker} encoded template body`;
+      sql.execute(`INSERT INTO encountertemplate (encountertemplate_name,createdatetime,encountertemplate_value,creator)
+        VALUES (${q(producerTemplate)},NOW(),${q(templateBody)},${q(s.provider)})`);
+      const description = `${marker} Patient's; Other Meds %20 <b>ü</b>`;
+      producerIssue = sql.value(`INSERT INTO issue (code,description,role,update_date,type,sortOrderId)
+        VALUES ('A;B %20',${q(description)},${q(issueRole)},NOW(),'custom',0); SELECT LAST_INSERT_ID()`);
+      h.assert(/^[1-9]\d*$/.test(producerIssue), 'The owned issue producer fixture was not created');
+      chart = await s.chart();
+      h.assert(await chart.evaluate(name => typeof autoCompleted[name] === 'function', producerTemplate),
+        'ChartNotesAjax.jsp truncated or changed the template registration');
+      const [templateResponse] = await Promise.all([
+        chart.waitForResponse(response => /\/encounter\/InsertTemplate(?:\?|$)/.test(response.url()), {timeout: TIMEOUT}),
+        ui.typeAutocomplete(chart, '#enTemplate', producerTemplate, {option: producerTemplate, timeout: TIMEOUT}),
+      ]);
+      h.assert(templateResponse.status() === 200, 'The encoded template consumer did not load the template');
+      h.assert(new URLSearchParams(templateResponse.request().postData()).get('templateName') === producerTemplate,
+        'The consumer did not submit the complete JSP-produced template name');
+      await chart.waitForFunction(body => document.querySelector('textarea[name="caseNote_note"]').value.includes(body), templateBody, {timeout: TIMEOUT});
+      // This test deliberately discards its own unsaved template insertion.
+      await noteField(chart).fill(await chart.evaluate(() => origCaseNote));
+      await chart.locator(CPP_PLUS).first().click({timeout: TIMEOUT});
+      await chart.locator(CPP_DIALOG).waitFor({state: 'visible', timeout: TIMEOUT});
+      const cppText = `${marker} producer CPP item`;
+      await chart.locator('#noteEditTxt').fill(cppText);
+      await ui.typeAutocomplete(chart, '#issueAutocompleteCPP', description, {option: description, timeout: TIMEOUT});
+      const arrived = chart.waitForResponse(response => /method=issueNoteSave/.test(response.url()) && response.request().method() === 'POST', {timeout: TIMEOUT});
+      await chart.locator(`${CPP_DIALOG} input[type="image"][title="Sign & Save"]`).click({timeout: TIMEOUT});
+      h.assert((await arrived).status() === 200, 'The owned CPP item did not save');
+      await chart.locator(CPP_DIALOG).waitFor({state: 'hidden', timeout: TIMEOUT});
+      await chart.waitForFunction(() => issueUpdatesPending === 0, null, {timeout: TIMEOUT});
+      const cppId = (await waitForNote(cppText, 'The producer CPP item was not stored')).id;
+      await chart.locator(`#listNote${cppId}`).click({timeout: TIMEOUT});
+      await chart.locator(CPP_DIALOG).waitFor({state: 'visible', timeout: TIMEOUT});
+      const choice = chart.locator(`#frmIssueNotes input[name="issue_id"][value="${producerIssue}"]`);
+      h.assert(await choice.count() === 1 && await choice.isChecked(), 'viewNotes.jsp lost the encoded issue association');
+      h.assert((await choice.locator('..').innerText()).includes(description), 'The CPP consumer changed delimiters, percent escapes or markup-like text');
+      h.assert(await choice.locator('..').locator('b').count() === 0, 'The CPP consumer interpreted the description as markup');
     });
     return;
   }

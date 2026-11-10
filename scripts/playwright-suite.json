@@ -12601,15 +12601,15 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 240,
+      "timeoutSec": 360,
       "env": [
         "ECHART_ISSUES_PIN"
       ],
       "mutates": [
         "log"
       ],
-      "notes": "Uses note Assign Issues on a new note and its latest revision, then changes only an existing unresolved/resolved checkbox and switches notes through the normal save confirmation. Reopening must retain the association and exact clinical text while prior revision associations remain unchanged. CPP selections must not alter the note form.",
-      "fixtures": "Owned FAKE patient with notes and issue associations created through the chart and CPP controls. Patient-scoped note, issue, extension, link, hash, draft, lock and legacy chart rows are removed after the run."
+      "notes": "Uses note Assign Issues on a new note and its latest revision, then changes only an existing unresolved/resolved checkbox and switches notes through the normal save confirmation. Reopening must retain the association and exact clinical text while prior revision associations remain unchanged. CPP selections must not alter the note form. Status changes and Save-time reconciliation must retain the pending checkbox, encounter type and observation date in the stored revision. The visible Quick/Full Chart button drives refresh recovery. Rendered JSP template and CPP producers must preserve hostile names and encoded issue components.",
+      "fixtures": "Owned FAKE patient with notes and issue associations created through the chart and CPP controls. Patient-scoped note, issue, extension, link, hash, draft, lock and legacy chart rows are removed after the run. An owned hostile-name encounter template and catalog issue exercise the rendered JSP producers and are deleted after the patient associations."
     },
     {
       "name": "echart-issues-filter-heading",

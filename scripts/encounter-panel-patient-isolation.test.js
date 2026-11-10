@@ -31,7 +31,7 @@ function harness(kind, patient, appointment) {
   const reloadField = {value: 'forms'};
   const editor = {value: 'Own draft', scrollHeight: 80, dispatchEvent(event) { events.push(event.type); }};
   const context = {
-    URL, Event, savingNoteError: 'Load failed', ctx: '/carlos', chartContext: '', location: new URL(`https://fixture.invalid/carlos/encounter?demographicNo=${patient}`),
+    URL, Event, savingNoteError: 'Save failed', chartLoadError: 'Load failed', ctx: '/carlos', chartContext: '', location: new URL(`https://fixture.invalid/carlos/encounter?demographicNo=${patient}`),
     // Legacy windows must use encounterConfig even when obsolete globals describe another chart.
     demographicNo: kind === 'legacy' ? '999' : patient,
     appointmentNo: kind === 'legacy' ? '999' : appointment,
