@@ -73,4 +73,76 @@ class Hl7SourceResultsUnitTest {
         assertThatThrownBy(() -> Hl7SourceResults.read(Set.of("12"), id -> "99", id -> handler()))
                 .isInstanceOf(IllegalStateException.class).hasMessage("Source version chain is unavailable");
     }
+
+    @Test
+    void shouldFallBackToTheServiceDate_whenTheObservationCarriesNoTime() {
+        MessageHandler undated = handler();
+        for (int obx = 0; obx < 4; obx++) when(undated.getTimeStamp(0, obx)).thenReturn("");
+        when(undated.getServiceDate()).thenReturn("2026-03-09 10:00:00");
+        var rows = Hl7SourceResults.read(Set.of("12"), id -> "12", id -> undated);
+        // An empty date drops the row from histories and fails the whole graph.
+        assertThat(rows).hasSize(2).allSatisfy(row -> assertThat(row).containsEntry("collDate", "2026-03-09 10:00:00"));
+    }
+
+    @Test
+    void shouldDateExcellerisResults_byTheSameObservationTimeTheirMeasurementsUse() {
+        var excelleris = mock(io.github.carlos_emr.carlos.lab.ca.all.parsers.PATHL7Handler.class);
+        when(excelleris.getOBRCount()).thenReturn(1);
+        when(excelleris.getOBXCount(0)).thenReturn(1);
+        when(excelleris.getOBXIdentifier(0, 0)).thenReturn("3007");
+        when(excelleris.getOBXResultStatus(0, 0)).thenReturn("F");
+        when(excelleris.getOBXResult(0, 0)).thenReturn("5.1");
+        when(excelleris.getTimeStamp(0, 0)).thenReturn("");
+        when(excelleris.getObservationDate(0)).thenReturn("2026-03-08 07:30:00");
+        var rows = Hl7SourceResults.read(Set.of("12"), id -> "12", id -> excelleris);
+        assertThat(rows).singleElement().satisfies(row -> assertThat(row).containsEntry("collDate", "2026-03-08 07:30:00"));
+    }
+
+    private MessageHandler other(String identifier) {
+        var h = mock(MessageHandler.class);
+        when(h.getOBRCount()).thenReturn(1);
+        when(h.getOBXCount(0)).thenReturn(1);
+        when(h.getOBXIdentifier(0, 0)).thenReturn(identifier);
+        when(h.getOBXResultStatus(0, 0)).thenReturn("F");
+        when(h.getOBXResult(0, 0)).thenReturn("4.0");
+        when(h.getTimeStamp(0, 0)).thenReturn("2026-03-11 09:00:00");
+        return h;
+    }
+
+    private static String unorderable(String id) {
+        if ("20".equals(id)) {
+            throw new io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision("synthetic conflict");
+        }
+        return id;
+    }
+
+    @Test
+    void shouldNotResolveAnUnrelatedChain_whenOneTestIsRequested() {
+        MessageHandler glucose = handler(), potassium = other("3220");
+        var rows = Hl7SourceResults.read(new LinkedHashSet<>(List.of("12", "20")), Set.of("3007"),
+                Hl7SourceResultsUnitTest::unorderable, id -> "20".equals(id) ? potassium : glucose);
+        // Report 20 does not carry the requested test, so its unorderable chain is not this history's concern.
+        assertThat(rows).hasSize(2).allSatisfy(row -> assertThat(row).containsEntry("lab_no", "12")
+                .containsEntry("identifier", "3007"));
+    }
+
+    @Test
+    void shouldStillRefuse_whenTheRequestedTestIsInTheUnorderableChain() {
+        MessageHandler glucose = handler(), potassium = other("3220");
+        assertThatThrownBy(() -> Hl7SourceResults.read(new LinkedHashSet<>(List.of("12", "20")), Set.of("3220"),
+                Hl7SourceResultsUnitTest::unorderable, id -> "20".equals(id) ? potassium : glucose))
+                .isInstanceOf(io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision.class);
+    }
+
+    @Test
+    void shouldParseEachReportOnce_whenOneTestIsRequested() {
+        @SuppressWarnings("unchecked") Function<String, MessageHandler> handlers = mock(Function.class);
+        MessageHandler glucose = handler(), potassium = other("3220");
+        when(handlers.apply("12")).thenReturn(glucose);
+        when(handlers.apply("20")).thenReturn(potassium);
+        var rows = Hl7SourceResults.read(new LinkedHashSet<>(List.of("12", "20")), Set.of("3007"), id -> id, handlers);
+        assertThat(rows).hasSize(2);
+        verify(handlers, times(1)).apply("12");
+        verify(handlers, times(1)).apply("20");
+    }
 }

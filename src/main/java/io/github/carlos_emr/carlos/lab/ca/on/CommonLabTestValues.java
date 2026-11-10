@@ -465,7 +465,8 @@ public class CommonLabTestValues {
             labList.addAll(labMap.values());
 
         } else if (labType != null && labType.equals("HL7")) {
-            for (Map<String, Serializable> row : Hl7SourceResults.read(demographicNo)) {
+            for (Map<String, Serializable> row : Hl7SourceResults.read(demographicNo,
+                    java.util.Collections.singleton(identCode))) {
                 if (Objects.equals(identCode, row.get("identifier"))) {
                     labList.add(row);
                 }
@@ -501,7 +502,7 @@ public class CommonLabTestValues {
     public static Map<String, List<Map<String, Serializable>>> findSourceValuesForTests(Integer patient, Set<String> identifiers) {
         Map<String, List<Map<String, Serializable>>> histories = new LinkedHashMap<>();
         for (String identifier : identifiers) histories.put(identifier, new ArrayList<>());
-        for (Map<String, Serializable> row : Hl7SourceResults.read(patient)) {
+        for (Map<String, Serializable> row : Hl7SourceResults.read(patient, identifiers)) {
             var history = histories.get(row.get("identifier"));
             if (history != null) history.add(row);
         }
@@ -557,8 +558,9 @@ public class CommonLabTestValues {
             row.put("lab_no", id);
             if (projected == null) {
                 row.put("result", literal);
-                row.put("date", Objects.toString(observation.get("collDate"), ""));
-                row.put("collDateDate", Objects.toString(observation.get("collDate"), ""));
+                String observed = gridTimestamp(Objects.toString(observation.get("collDate"), ""));
+                row.put("date", observed);
+                row.put("collDateDate", observed);
                 row.put("abn", gridFlag(observation.get("abn")));
             } else if (isOriginalOrLegacyLiteral(literal, (String) projected.get("result"))) {
                 row.put("result", literal); // Restore clinical case without changing the projected value.
@@ -583,6 +585,16 @@ public class CommonLabTestValues {
             justification = "Compare exact original or legacy server-locale lowercase clinical text solely for display; never authorize or merge source identities")
     private static boolean isOriginalOrLegacyLiteral(String literal, String projected) {
         return literal.equals(projected) || literal.toLowerCase(Locale.getDefault()).equals(projected);
+    }
+
+    /**
+     * A handler's observation time in the layout stored measurement rows use, which the grid
+     * sorts and labels its columns by. A partial time keeps its known part; an unknown or
+     * unreadable time stays empty rather than being given an invented value.
+     */
+    private static String gridTimestamp(String handlerTime) {
+        java.util.Date observed = io.github.carlos_emr.carlos.lab.ca.all.util.ObservationTime.parse(handlerTime);
+        return observed == null ? "" : new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(observed);
     }
 
     private static String gridFlag(Serializable flag) {

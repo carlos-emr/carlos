@@ -42,6 +42,19 @@ class CommonLabTestValuesUnitTest extends CarlosUnitTestBase {
         assertThat(mockedBeans).doesNotContainKey(MeasurementDao.class);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource(value = {
+            "2004-07-13|2004-07-13 00:00:00", "2026-01-03 09:15|2026-01-03 09:15:00",
+            "2026-01-03 09:15:42|2026-01-03 09:15:42", "''|''", "not a date|''"}, delimiter = '|')
+    void shouldGiveSourceOnlyRows_theGridTimestampLayout(String collected, String expected) {
+        // The cumulative page sorts and labels its columns by this layout; an unknown time stays unknown.
+        var raw = List.<Map<String, Serializable>>of(Map.of("lab_no", "200", "result", "Pending",
+                "collDate", collected, "identifier", "3007"));
+        assertThat(CommonLabTestValues.overlaySourceValues(List.of(), raw, Set.of("3007")))
+                .singleElement().satisfies(row -> assertThat(row).containsEntry("sourceOnly", true)
+                        .containsEntry("date", expected).containsEntry("collDateDate", expected));
+    }
+
     @Test
     void shouldRetainEverySourceLiteral_whenMappedObservationRepeatsInOneReport() {
         List<Map<String, Serializable>> raw = List.of(
@@ -79,7 +92,7 @@ class CommonLabTestValuesUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldDiscoverHistoryWithoutMeasurementReferences_whenFinalSourceLiteralWasNotProjected() {
         try (var source = mockStatic(Hl7SourceResults.class)) {
-            source.when(() -> Hl7SourceResults.read(17)).thenReturn(List.of(
+            source.when(() -> Hl7SourceResults.read(17, Set.of("3007"))).thenReturn(List.of(
                     Map.of("lab_no", "100", "result", "Pending", "collDate", "2026-01-02 09:00:00", "identifier", "3007"),
                     Map.of("lab_no", "101", "result", "Negative", "collDate", "2026-01-03 09:00:00", "identifier", "3007"),
                     Map.of("lab_no", "102", "result", "999", "collDate", "2026-01-04 09:00:00", "identifier", "other")));
