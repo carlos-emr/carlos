@@ -48,16 +48,17 @@ class CdsExportIndirectPatientScopeReadSupportUnitTest {
                         "create table CdsClientFormData(id int primary key,cdsClientFormId int)",
                         "create table document(document_no int primary key)",
                         "create table ctl_document(document_no int,module varchar(30),module_id"
-                            + " int)",
+                                + " int)",
                         "create table DocumentExtraReviewer(id int primary key,documentNo int)",
                         "create table HRMDocument(id int primary key)",
                         "create table HRMDocumentToDemographic(id int primary key,hrmDocumentId"
-                            + " varchar(20),demographicNo varchar(20))",
+                            + " varchar(20),demographicNo varchar(20),cds_patient_key decimal(20,0)"
+                            + " AS (CAST(demographicNo AS DECIMAL(20,0))))",
                         "create table HRMDocumentComment(id int primary key,hrmDocumentId int)",
                         "create table providerLabRouting(id int primary key,lab_no int,lab_type"
-                            + " char(3))",
+                                + " char(3))",
                         "create table patientLabRouting(id int primary key,lab_no int,lab_type"
-                            + " char(3),demographic_no int)",
+                                + " char(3),demographic_no int)",
                         "insert into demographic values(1),(2)")) execute(sql);
     }
 
@@ -117,7 +118,9 @@ class CdsExportIndirectPatientScopeReadSupportUnitTest {
     @Test
     void shouldIncludeNumericLegacyHrmAliases_andRefuseMissingPatientOwners() throws Exception {
         execute("insert into HRMDocument values(10)");
-        execute("insert into HRMDocumentToDemographic values(11,'00010','00002')");
+        execute(
+                "insert into HRMDocumentToDemographic(id,hrmDocumentId,demographicNo)"
+                    + " values(11,'00010','00002')");
         execute("insert into HRMDocumentComment values(12,10)");
         assertThat(blocked("HRMDocumentComment", 1)).isFalse();
         assertThat(blocked("HRMDocumentComment", 2)).isTrue();

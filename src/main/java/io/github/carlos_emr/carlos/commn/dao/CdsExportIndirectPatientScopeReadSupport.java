@@ -111,6 +111,10 @@ final class CdsExportIndirectPatientScopeReadSupport {
 
     private static String numeric(
             CdsExportSourceCatalogue.Profile profile, String table, String alias, String name) {
+        if (table.equals("HRMDocumentToDemographic") && name.equals("demographicNo")) {
+            if (!column(profile, table, "cds_patient_key").type().equals("decimal(20,0)")) review();
+            return alias + ".`cds_patient_key`";
+        }
         String type = column(profile, table, name).type();
         String expression = alias + ".`" + name + "`";
         if (type.startsWith("varchar(") || type.startsWith("char("))

@@ -622,7 +622,15 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
             shouldConservativelyRefuseLegacyNumericPatientAliases_withoutLoadingHospitalReportContent() {
         hospitalReportLink("0" + patient);
         for (String alias :
-                List.of("0" + patient, "+" + patient, patient + "suffix", " " + patient)) {
+                List.of(
+                        "0" + patient,
+                        "+" + patient,
+                        patient + "suffix",
+                        " " + patient,
+                        "\t" + patient,
+                        "\r\n+0" + patient + "x",
+                        patient + ".9",
+                        patient + "e2")) {
             sql.update(
                     "update HRMDocumentToDemographic set demographicNo=? where id=? and"
                             + " hrmDocumentId=?",
@@ -636,6 +644,41 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                                                     hospitalReports.requireCdsExportAbsent(
                                                             patient)))
                     .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        }
+    }
+
+    @Test
+    void shouldUseTheNumericPatientIndex_forLargeUnrelatedHospitalReportLinkSets() {
+        String owner = "perf" + patient;
+        try {
+            var batch = new java.util.ArrayList<Object[]>();
+            for (int n = 0; n < 20_000; n++)
+                batch.add(
+                        new Object[] {patient + n, owner, Integer.toString(patient + 50_000 + n)});
+            sql.batchUpdate(
+                    "INSERT INTO"
+                        + " HRMDocumentToDemographic(id,hrmDocumentId,demographicNo,timeAssigned)"
+                        + " VALUES(?,?,?,CURRENT_TIMESTAMP)",
+                    batch);
+            var plan =
+                    sql.queryForMap(
+                            "EXPLAIN SELECT 1,1 FROM HRMDocumentToDemographic d WHERE"
+                                + " d.cds_patient_key=? LIMIT 1",
+                            patient);
+            assertThat(plan.get("key")).isEqualTo("idx_cds_hrm_patient_key");
+            assertThat(plan.get("type")).isEqualTo("ref");
+            assertThat(((Number) plan.get("rows")).longValue()).isLessThanOrEqualTo(2);
+            for (int n = 0; n < 25; n++) {
+                int selected = patient + n;
+                read.executeWithoutResult(
+                        status -> hospitalReports.requireCdsExportAbsent(selected));
+            }
+        } finally {
+            sql.update(
+                    "DELETE FROM HRMDocumentToDemographic WHERE id>=? AND id<? AND hrmDocumentId=?",
+                    patient,
+                    patient + 20_000,
+                    owner);
         }
     }
 

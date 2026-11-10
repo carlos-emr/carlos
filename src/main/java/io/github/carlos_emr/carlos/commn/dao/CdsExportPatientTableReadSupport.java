@@ -49,7 +49,7 @@ public final class CdsExportPatientTableReadSupport {
                 "HRMDocumentToDemographic",
                 "id",
                 "demographicNo",
-                List.of("demographicNo", "hrmDocumentId", "id", "timeAssigned")),
+                List.of("cds_patient_key", "demographicNo", "hrmDocumentId", "id", "timeAssigned")),
         DOCUMENTS(
                 "document",
                 "document_no",
@@ -913,6 +913,7 @@ public final class CdsExportPatientTableReadSupport {
         }
 
         private String patientPredicate() {
+            if (this == HRM_REPORT_LINKS) return "d.`cds_patient_key`=:patient";
             if (this == DOCUMENT_LINKS)
                 return "d.`module`='demographic' and d.`module_id`=:patient";
             if (this == DOCUMENTS)
@@ -1674,7 +1675,8 @@ public final class CdsExportPatientTableReadSupport {
         int timeout = queryTimeoutMillis();
         // Package-owned callers use finite enum identifier plans; patient, keys, offsets and
         // lengths are bound values. No client SQL enters this boundary.
-        // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string,java.lang.security.audit.sqli.jpa-sqli.jpa-sqli
+        // nosemgrep:
+        // java.lang.security.audit.formatted-sql-string.formatted-sql-string,java.lang.security.audit.sqli.jpa-sqli.jpa-sqli
         return em.createNativeQuery(sql, Object[].class)
                 .setFlushMode(FlushModeType.COMMIT)
                 .setHint("jakarta.persistence.query.timeout", timeout);

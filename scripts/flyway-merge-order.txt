@@ -100,3 +100,4 @@ common/V1.0.59.38__cds_native_field_baselines.sql
 common/V1.0.59.39__cds_export_ledger.sql
 common/V1.0.59.40__cds_export_artifact_attempts.sql
 common/V1.0.59.41__seed_admin_cds_import_permission.sql
+common/V1.0.59.42__index_cds_hrm_patient_scope.sql

@@ -39,9 +39,11 @@ class CdsTargetReceiptMariaDbIntegrationTest {
         try (Connection connection = connection()) {
             connection.setNetworkTimeout(Runnable::run, 8000);
             try (var statement =
-                    io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard
-                            .prepareBinaryRead(connection, "SELECT SLEEP(?)")) {
-                // prepareBinaryRead already prepares parameter metadata. Connector/J must
+                    io.github.carlos_emr.carlos.demographic.cds.jdbc.CdsBinaryReads
+                            .prepareDriver(connection, "SELECT SLEEP(?)")) {
+                // The production admission guard correctly forbids SLEEP. This isolated
+                // driver-capability probe uses the same adapter on an owned connection.
+                // Its binary adapter already prepares parameter metadata. Connector/J must
                 // invalidate that preparation when the owning reader supplies its deadline.
                 assertThat(statement.getParameterMetaData().getParameterCount()).isEqualTo(1);
                 statement.setInt(1, 10);

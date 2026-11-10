@@ -55,7 +55,7 @@ public class HRMDocumentToDemographicDao extends AbstractDaoImpl<HRMDocumentToDe
     public void requireCdsExportAbsent(int patient) {
         if (patient < 1) throw new IllegalArgumentException("CDS_EXPORT_PATIENT_SCOPE_INVALID");
         var found = entityManager.createNativeQuery("select 1,1 from HRMDocumentToDemographic d "
-                + "where CAST(d.demographicNo AS UNSIGNED)=:patient")
+                + "where d.cds_patient_key=:patient")
                 .setParameter("patient", patient).setMaxResults(1).setHint("org.hibernate.timeout", 120).getResultList();
         if (!found.isEmpty()) throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException(
                 io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException.Reason.UNMAPPED_DATA);

@@ -44,7 +44,7 @@ public class CdsExportHospitalReportScopeSourceReader implements CdsExportNative
 
     @Override
     public Set<String> columns() {
-        return Set.of("demographicNo", "hrmDocumentId", "id", "timeAssigned");
+        return Set.of("cds_patient_key", "demographicNo", "hrmDocumentId", "id", "timeAssigned");
     }
 
     @Override

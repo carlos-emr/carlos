@@ -10,7 +10,8 @@ def verify_export_migration_reapply(repository: Path, query):
     folder = repository / 'database/mysql/migration/common'
     names = ('V1.0.59.38__cds_native_field_baselines.sql',
              'V1.0.59.39__cds_export_ledger.sql',
-             'V1.0.59.40__cds_export_artifact_attempts.sql')
+             'V1.0.59.40__cds_export_artifact_attempts.sql',
+             'V1.0.59.42__index_cds_hrm_patient_scope.sql')
     migrations = [folder.joinpath(name).read_text() for name in names]
     def first_statement(sql):
         # Semicolons in explanatory comments are not SQL statement boundaries.
@@ -60,9 +61,27 @@ def verify_export_migration_reapply(repository: Path, query):
         if execute("SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() "
                    "AND table_name='cds_export_run' AND index_name='idx_cds_export_history'") != ['3']:
             raise RuntimeError('Partial history-index DDL did not recover')
+        execute('CREATE TABLE HRMDocumentToDemographic (id INT PRIMARY KEY, demographicNo VARCHAR(20) NULL);'
+                "INSERT INTO HRMDocumentToDemographic VALUES (1,'00027suffix'),(2,'  +27suffix'),"
+                "(3,'garbage'),(4,NULL),(5,'99999999999999999999');")
+        original = execute('SELECT id,HEX(demographicNo) FROM HRMDocumentToDemographic ORDER BY id')
+        # Simulate the virtual column having committed before its index was created.
+        execute("ALTER TABLE HRMDocumentToDemographic ADD COLUMN cds_patient_key DECIMAL(20,0) "
+                "GENERATED ALWAYS AS (CAST(NULLIF(REGEXP_SUBSTR(demographicNo, "
+                "'^[[:space:]]*[+]?[0-9]+'), '') AS DECIMAL(20,0))) VIRTUAL")
+        execute(migrations[3]); execute(migrations[3])
+        if execute('SELECT id,HEX(demographicNo) FROM HRMDocumentToDemographic ORDER BY id') != original:
+            raise RuntimeError('HRM patient index replay changed a source owner')
+        if execute('SELECT id FROM HRMDocumentToDemographic WHERE cds_patient_key=27 ORDER BY id') != ['1', '2']:
+            raise RuntimeError('HRM patient index lost a numeric alias')
+        if execute("SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() "
+                   "AND table_name='HRMDocumentToDemographic' AND index_name='idx_cds_hrm_patient_key' "
+                   "AND column_name='cds_patient_key'") != ['1']:
+            raise RuntimeError('HRM patient index did not recover after partial DDL')
         return {'protocol': 1, 'status': 'PARTIAL_DDL_REPLAY_PASSED',
                 'nativeWitnessPreserved': True, 'existingAttemptPreserved': True,
                 'missingAttemptBackfilledOnce': True, 'explicitDenialPreserved': True,
+                'hrmSourceOwnersPreserved': True, 'hrmPatientIndexRecovered': True,
                 'migrations': {name: hashlib.sha256(folder.joinpath(name).read_bytes()).hexdigest() for name in names}}
     finally:
         query('DROP DATABASE ' + database)
