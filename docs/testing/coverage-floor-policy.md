@@ -147,3 +147,15 @@ comparison and report hashes are refreshed. Every other file floor and all
 refusal lines are retained. No floor is lowered and no waiver is added; the
 comparison-wide qualification requirements and 80 unreviewed zero floors from
 the preceding baseline remain.
+
+The `2766d0fffb89` checkpoint also retains SQL NULL for supported primitive-class
+`getObject` requests, while primitive getters still return zero plus `wasNull()`.
+Its clean Ubuntu 26.04/JDK 25 H2 run passes 36,087 actual cases with the same
+213 explicitly registered skips, zero failures/errors and 2,643 reports. All
+6,292 production class hashes match the separate 60-case adapter/physical
+MariaDB execution and the source-built packaged WAR. The original Connector/J
+9.6.0 jar agrees on all 80 additional typed-NULL observations in both protocols.
+The driver's floors rise again to 54.08/53.09/48.79 percent; only that row and
+the source/report provenance change. Other floors, refusal lines and the
+comparison-wide qualification requirements remain intact, with no lower floor
+or new waiver.
