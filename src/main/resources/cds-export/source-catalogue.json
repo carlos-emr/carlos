@@ -557,13 +557,15 @@
       "prevention_configuration",
       "CVCImmunization",
       "CVCMapping",
-      "preventions_scope"
+      "preventions_scope",
+      "clinical_timezone"
     ],
     "LaboratoryResults": [
       "cds_laboratory_result",
       "patientLabRouting",
       "hl7TextMessage",
-      "hl7TextInfo"
+      "hl7TextInfo",
+      "clinical_timezone"
     ],
     "Appointments": [
       "appointment",
@@ -578,7 +580,9 @@
       "native_document_files",
       "HRMDocumentToDemographic",
       "cds_import_file",
-      "cds_import_file_reference"
+      "cds_import_file_reference",
+      "clinical_timezone",
+      "provider"
     ],
     "CareElements": [
       "measurements",
@@ -593,7 +597,8 @@
       "casemgmt_issue",
       "casemgmt_issue_notes",
       "issue",
-      "provider"
+      "provider",
+      "clinical_timezone"
     ],
     "FamilyHistory": [
       "casemgmt_note",
@@ -601,7 +606,8 @@
       "casemgmt_issue",
       "casemgmt_issue_notes",
       "issue",
-      "provider"
+      "provider",
+      "clinical_timezone"
     ],
     "PastHealth": [
       "casemgmt_note",
@@ -609,7 +615,8 @@
       "casemgmt_issue",
       "casemgmt_issue_notes",
       "issue",
-      "provider"
+      "provider",
+      "clinical_timezone"
     ],
     "ProblemList": [
       "casemgmt_note",
@@ -617,7 +624,8 @@
       "casemgmt_issue",
       "casemgmt_issue_notes",
       "issue",
-      "provider"
+      "provider",
+      "clinical_timezone"
     ],
     "RiskFactors": [
       "casemgmt_note",
@@ -625,7 +633,8 @@
       "casemgmt_issue",
       "casemgmt_issue_notes",
       "issue",
-      "provider"
+      "provider",
+      "clinical_timezone"
     ],
     "AlertsAndSpecialNeeds": [
       "casemgmt_note",
@@ -633,7 +642,8 @@
       "casemgmt_issue",
       "casemgmt_issue_notes",
       "issue",
-      "provider"
+      "provider",
+      "clinical_timezone"
     ],
     "ClinicalNotes": [
       "casemgmt_note",
@@ -641,7 +651,8 @@
       "casemgmt_issue",
       "casemgmt_issue_notes",
       "issue",
-      "provider"
+      "provider",
+      "clinical_timezone"
     ]
   },
   "patientScopes": {

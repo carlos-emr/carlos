@@ -69,6 +69,45 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Tag("unit")
 @Tag("cds-export")
 class CdsExportNativeCaptureServiceUnitTest {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(
+            value = CdsCategory.class,
+            names = {
+                "PERSONAL_HISTORY",
+                "FAMILY_HISTORY",
+                "PAST_HEALTH",
+                "PROBLEM_LIST",
+                "RISK_FACTORS",
+                "ALERTS_AND_SPECIAL_NEEDS",
+                "CLINICAL_NOTES",
+                "REPORTS",
+                "LABORATORY_RESULTS",
+                "IMMUNIZATIONS",
+                "APPOINTMENTS"
+            })
+    void shouldProjectTheSharedZoneIntoOnlySelectedCategories_whenResolvingTheActualCaptureRecipe(
+            CdsCategory category) {
+        var command =
+                new CdsExportCommand(
+                        "zone-proof",
+                        "999998",
+                        null,
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        CdsExportCommand.Selection.SELECTED_PATIENTS,
+                        List.of(),
+                        List.of(27),
+                        Set.of(CdsCategory.DEMOGRAPHICS, category),
+                        "receiver",
+                        "audit");
+        var reader = new CdsExportClinicalZoneSourceReader("America/Toronto");
+        var projected = reader.forRequest(command);
+        assertThat(projected.categories()).containsExactly(category);
+        assertThat(reader.categories()).contains(CdsCategory.REPORTS, CdsCategory.APPOINTMENTS);
+        var capture =
+                new CdsExportNativeCaptureService(List.of(reader), factory, clock, transactions);
+        assertThat(capture.requiredTables(command)).containsExactly("clinical_timezone");
+    }
+
     @TempDir Path root;
     private static final int PATIENT = 27;
     private static final ObjectMapper JSON =

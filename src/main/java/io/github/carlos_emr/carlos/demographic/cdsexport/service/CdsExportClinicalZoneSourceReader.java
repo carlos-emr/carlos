@@ -38,15 +38,38 @@ public class CdsExportClinicalZoneSourceReader implements CdsExportNativeSourceR
     }
 
     private final ZoneSource configured;
+    private static final Set<CdsCategory> SUPPORTED = supported();
+    private final Set<CdsCategory> selected;
 
     @Autowired
     public CdsExportClinicalZoneSourceReader(CdsExportActivePlanService plans) {
-        this.configured = Objects.requireNonNull(plans)::zone;
+        this(Objects.requireNonNull(plans)::zone, SUPPORTED);
     }
 
     public CdsExportClinicalZoneSourceReader(String configured) {
         String value = configured == null ? "" : configured.trim();
         this.configured = () -> CdsExportClinicalZone.capture(value);
+        this.selected = SUPPORTED;
+    }
+
+    private CdsExportClinicalZoneSourceReader(ZoneSource configured, Set<CdsCategory> selected) {
+        this.configured = Objects.requireNonNull(configured);
+        this.selected = Set.copyOf(selected);
+        if (selected.isEmpty() || !SUPPORTED.containsAll(selected))
+            throw new IllegalArgumentException("CDS_EXPORT_CLINICAL_ZONE_SCOPE_INVALID");
+    }
+
+    @Override
+    public Set<CdsCategory> supportedCategories() {
+        return SUPPORTED;
+    }
+
+    @Override
+    public CdsExportNativeSourceReader forRequest(
+            io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand command) {
+        var categories = EnumSet.copyOf(SUPPORTED);
+        categories.retainAll(command.categories());
+        return new CdsExportClinicalZoneSourceReader(configured, categories);
     }
 
     @Override
@@ -61,6 +84,10 @@ public class CdsExportClinicalZoneSourceReader implements CdsExportNativeSourceR
 
     @Override
     public Set<CdsCategory> categories() {
+        return selected;
+    }
+
+    private static Set<CdsCategory> supported() {
         var categories = EnumSet.copyOf(CdsExportNoteSourceReader.CATEGORIES);
         categories.add(CdsCategory.APPOINTMENTS);
         categories.add(CdsCategory.IMMUNIZATIONS);
