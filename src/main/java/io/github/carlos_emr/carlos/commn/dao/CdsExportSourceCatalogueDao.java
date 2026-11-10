@@ -122,8 +122,12 @@ public class CdsExportSourceCatalogueDao {
             var disposition = catalogue.tables().get(table);
             if (disposition == CdsExportSourceCatalogue.Disposition.REQUIRE_EMPTY
                     || disposition == CdsExportSourceCatalogue.Disposition.ACCESS_CONTROL) {
-                var query =
-                        entityManager.createNativeQuery(presenceQuery(table, profile, catalogue));
+                String statement = presenceQuery(table, profile, catalogue);
+                // The private finite recipe uses only ASCII identifiers from the immutable,
+                // schema-qualified catalogue and compiled parent scopes. Patient data is bound
+                // below.
+                // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
+                var query = entityManager.createNativeQuery(statement);
                 if (catalogue.patientScopes().containsKey(table)
                         || CdsExportIndirectPatientScopeReadSupport.supports(table))
                     query.setParameter("patient", patient);
