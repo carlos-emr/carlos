@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "2f1f0aa62e91ff52238db12c92aa0d7ba06f42cbefb785ce7b27272735532e0a",
+ "migration_sha256": "090e96cc4510e8510d06db6978d7a3a145d4a425556af3169339f8e3423abd03",
  "province": "bc",
  "schema": {
   "checks": [
@@ -3906,7 +3906,7 @@
     "decimal(20,0)",
     "YES",
     "NULL",
-    "VIRTUAL GENERATED",
+    "VIRTUAL GENERATED, INVISIBLE",
     null,
     null,
     "cast(nullif(regexp_substr(`demographicNo`,'^[[:space:]]*[+]?[0-9]+'),'') as decimal(20,0))",
