@@ -67,14 +67,22 @@ public class Hl7PatientUnlinkService {
             int version = Integer.parseInt(value.trim());
             if (version == report) continue;
             var candidate = messages.find(version);
-            if (candidate == null) throw new IllegalStateException("Source version is unavailable");
-            if (!Objects.equals(message.getType(), candidate.getType())) continue;
-            MessageHandler previous = Factory.getHandler(Integer.toString(version));
-            if (previous == null) throw new IllegalStateException("Source version is unreadable");
-            if (!samePatient(incoming, previous) || !Objects.equals(normalized(incoming.getPatientLocation()),
-                    normalized(previous.getPatientLocation()))) continue;
+            if (candidate != null && !Objects.equals(message.getType(), candidate.getType())) continue;
+            MessageHandler previous = candidate == null ? null : Factory.getHandler(Integer.toString(version));
+            // A predecessor that can no longer be read must not reject the incoming report: the
+            // new result would never reach an inbox. Its identity cannot be compared, so an
+            // unmatch recorded on it is honoured (the report arrives unmatched and visible)
+            // and anything else about it is ignored.
+            if (previous != null && (!samePatient(incoming, previous) || !Objects.equals(
+                    normalized(incoming.getPatientLocation()), normalized(previous.getPatientLocation())))) continue;
             if (patients.findByLabNoAndLabType(version, "HL7").stream()
-                    .anyMatch(route -> PatientLabRoutingDao.UNMATCHED.equals(route.getDemographicNo()))) return true;
+                    .anyMatch(route -> PatientLabRoutingDao.UNMATCHED.equals(route.getDemographicNo()))) {
+                if (previous == null) {
+                    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
+                            "HL7 report filed unmatched: an unreadable earlier version of its chain was unmatched");
+                }
+                return true;
+            }
         }
         return false;
     }

@@ -44,6 +44,7 @@ class Hl7PatientUnlinkServiceUnitTest extends CarlosUnitTestBase {
     private MeasurementsDeletedDao deleted;
     private MeasurementsExtDao extensions;
     private OscarLogDao audit;
+    private Hl7TextMessageDao messages;
     private SecurityInfoManager security;
     private LoggedInInfo actor;
     private PatientLabRouting first, second;
@@ -63,7 +64,7 @@ class Hl7PatientUnlinkServiceUnitTest extends CarlosUnitTestBase {
         measurements = (MeasurementDao) mockedBeans.get(MeasurementDao.class);
         deleted = (MeasurementsDeletedDao) mockedBeans.get(MeasurementsDeletedDao.class);
         extensions = (MeasurementsExtDao) mockedBeans.get(MeasurementsExtDao.class);
-        var messages = (Hl7TextMessageDao) mockedBeans.get(Hl7TextMessageDao.class);
+        messages = (Hl7TextMessageDao) mockedBeans.get(Hl7TextMessageDao.class);
         var infoDao = (Hl7TextInfoDao) mockedBeans.get(Hl7TextInfoDao.class);
         providers = createAndRegisterMock(ProviderLabRoutingDao.class);
         security = createAndRegisterMock(SecurityInfoManager.class);
@@ -185,6 +186,26 @@ class Hl7PatientUnlinkServiceUnitTest extends CarlosUnitTestBase {
         handlers.when(() -> Factory.getHandler("11")).thenReturn(other);
         assertThat(service.hasUnmatchedVersion(12, handler)).isFalse();
         verifyNoInteractions(measurements, deleted, extensions, audit);
+    }
+
+    @Test void shouldNotRejectIngestion_whenAnOlderVersionCannotBeParsed() {
+        handlers.when(() -> Factory.getHandler("11")).thenReturn(null);
+        // An unreadable predecessor cannot be shown to be this patient, so it asserts nothing.
+        assertThat(service.hasUnmatchedVersion(12, handler)).isFalse();
+    }
+
+    @Test void shouldNotRejectIngestion_whenAnOlderVersionHasNoStoredMessage() {
+        when(messages.find(11)).thenReturn(null);
+        assertThat(service.hasUnmatchedVersion(12, handler)).isFalse();
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {true, false})
+    void shouldKeepLaterDeliveryUnmatched_whenAnUnreadableVersionWasUnmatched(boolean missingMessage) {
+        first.setDemographicNo(PatientLabRoutingDao.UNMATCHED);
+        if (missingMessage) when(messages.find(11)).thenReturn(null);
+        else handlers.when(() -> Factory.getHandler("11")).thenReturn(null);
+        // Its identity cannot be compared, so an unmatch on it is honoured, never overridden.
+        assertThat(service.hasUnmatchedVersion(12, handler)).isTrue();
     }
 
     @Test void shouldKeepCoordinationIdsNegative_whenQualifyingSources() {
