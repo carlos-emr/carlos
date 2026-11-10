@@ -64,12 +64,17 @@ EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
 
 `EXPECT_OAUTH_MODE` is an assertion, not a server configuration mechanism.
 The script refuses a non-scoped expectation, and the OAuth consent page must
-not show a legacy-mode warning. A run prints an endpoint-by-endpoint table after cleanup, including partial
-results if a request or assertion fails. It reports HTTP status, persisted
-read-after-write checks, scope refusals, `UNVERIFIED` activities not executed,
-and explicit `GAP` rows for unsupported operations. After the first failed
-assertion, dependent steps are not attempted; the table identifies the failure
-and all endpoints reached up to that point.
+not show a legacy-mode warning. A run prints an endpoint-by-endpoint table after
+cleanup, including HTTP status, persisted read-after-write checks, scope
+refusals, `UNVERIFIED` activities not executed, and explicit `GAP` rows for
+unsupported operations. Rx lookup-details and medication-list failures are
+recorded while unrelated workflows continue. A failure in a workflow with
+dependent steps stops those steps, and the script exits nonzero if any endpoint
+check failed.
+
+The Rx lookup details check requires a DrugRef service that supports both
+`get_drug_2` and `get_generic_name`; a successful search alone does not verify
+that details can be loaded.
 
 The check creates one uniquely marked synthetic demographic and BP
 measurement, one synthetic medication/prescription, one eForm template, and

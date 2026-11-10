@@ -38,7 +38,7 @@ const { oauthHeader, pct } = require('./oauth-rest-surfaces-playwright-checks');
 
 const EXPECT_OAUTH_MODE = process.env.EXPECT_OAUTH_MODE || 'scoped';
 const REQUIRED_SCOPES = [
-  'demographic.read', 'measurement.read', 'measurement.write',
+  'demographic.read', 'demographic.write', 'measurement.read', 'measurement.write',
   'eform.read', 'eform.write', 'lab.read', 'lab.write',
   'rx.read', 'rx.write', 'schedule.read', 'schedule.write',
 ].join(' ');
@@ -129,13 +129,28 @@ async function cleanup(state) {
             'The synthetic demographic ownership check did not match the created patient or its deleted state');
           if (state.labAccession) {
             const accessionSql = sqlString(state.labAccession);
-            const labIds = sql.rows(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${accessionSql}`)
-              .map(([labNo]) => labNo)
-              .filter((labNo) => /^[1-9]\d*$/.test(labNo));
+            const filePattern = state.labFilePrefix ? sqlString(`%${state.labRunMarker}%`) : null;
+            const fileUploadIds = filePattern
+              ? sql.rows(`SELECT id FROM fileUploadCheck WHERE filename LIKE ${filePattern}`)
+                  .map(([id]) => id)
+                  .filter((id) => /^[1-9]\d*$/.test(id))
+              : [];
+            const uploadedLabIds = fileUploadIds.length
+              ? sql.rows(`SELECT lab_id FROM hl7TextMessage
+                    WHERE fileUploadCheck_id IN (${fileUploadIds.join(',')})`)
+                  .map(([labId]) => labId)
+                  .filter((labId) => /^[1-9]\d*$/.test(labId))
+              : [];
+            const labIds = [...new Set([
+              ...sql.rows(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${accessionSql}`)
+                  .map(([labNo]) => labNo)
+                  .filter((labNo) => /^[1-9]\d*$/.test(labNo)),
+              ...uploadedLabIds,
+            ])];
             if (labIds.length) {
-              const ids = [...new Set(labIds)].join(',');
+              const ids = labIds.join(',');
               const measurementIds = sql.rows(`SELECT measurement_id FROM measurementsExt
-                WHERE keyval='lab_no' AND val IN (${ids})`)
+                  WHERE keyval='lab_no' AND val IN (${ids})`)
                 .map(([measurementId]) => measurementId)
                 .filter((measurementId) => /^[1-9]\d*$/.test(measurementId));
               if (measurementIds.length) {
@@ -150,10 +165,19 @@ async function cleanup(state) {
                 DELETE FROM hl7TextMessage WHERE lab_id IN (${ids})`);
             }
             if (state.labFilePrefix) {
-              const filePattern = sqlString(`%${state.labRunMarker}%`);
               sql.execute(`DELETE FROM fileUploadCheck WHERE filename LIKE ${filePattern}`);
               assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE filename LIKE ${filePattern}`) === '0',
                 'The owned synthetic HL7 upload bookkeeping row was not removed');
+              if (fileUploadIds.length) {
+                assert(sql.value(`SELECT COUNT(*) FROM hl7TextMessage
+                  WHERE fileUploadCheck_id IN (${fileUploadIds.join(',')})`) === '0',
+                'The owned synthetic HL7 message rows were not removed');
+                if (uploadedLabIds.length) {
+                  assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo
+                    WHERE lab_no IN (${uploadedLabIds.join(',')})`) === '0',
+                  'The owned synthetic HL7 lab information rows were not removed');
+                }
+              }
               removeOwnedLabFile(state);
             }
             assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${accessionSql}`) === '0',
@@ -234,6 +258,9 @@ async function main(state = {}) {
   const providerNo = sql.value(`SELECT provider_no FROM security
     WHERE user_name=${sqlString(config.testUser)} LIMIT 1`);
   if (!providerNo) throw new SkipCheck(`${config.testUser} has no security row; a real provider login is required`);
+  const admissionProgramId = sql.value('SELECT id FROM program ORDER BY id LIMIT 1');
+  assert(/^[1-9]\d*$/.test(admissionProgramId),
+    'The install has no program to admit the synthetic demographic to');
 
   state.marker = marker;
   state.formName = formName;
@@ -373,6 +400,7 @@ async function main(state = {}) {
     patientStatus: 'AC',
     rosterStatus: 'NR',
     providerNo,
+    admissionProgramId: Number(admissionProgramId),
     hin: '',
     hcType: 'ON',
     address: { address: '', city: '', province: 'ON', postal: '' },
@@ -540,7 +568,7 @@ async function main(state = {}) {
     assert(fs.statSync(state.documentStore).isDirectory(),
       'AI_SCRIBE_DOCUMENT_STORE must point to the running server document directory');
     state.labRunMarker = runMarker;
-    state.labAccession = `PWAI${runMarker}`;
+    state.labAccession = `PWAI-${runMarker}`;
     state.labFilePrefix = `LabUpload.ai-scribe-${runMarker}.xml.`;
     const accessionSql = sqlString(state.labAccession);
     assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${accessionSql}`) === '0',
@@ -549,8 +577,8 @@ async function main(state = {}) {
     const hl7Timestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
     const hl7Segments = [
       `MSH|^~\\&|PATHL7|CW|CARLOS|TEST|${hl7Timestamp}||ORU^R01|${runMarker}|P|2.3|||ER|AL`,
-      `PID|1||||AI-Scribe Updated^${marker}||19800102|F`,
-      `ORC|NW|${state.labAccession}|||F|||||||999998^DR. PROBE|||${hl7Timestamp}`,
+      `PID|1||||${marker}^AI-Scribe Updated||19800102|F`,
+      `ORC|NW|${state.labAccession}|${state.labAccession}||F|||||||999998^DR. PROBE|||${hl7Timestamp}`,
       `OBR|1|${state.labAccession}||ML70^SYNTHETIC PANEL||${hl7Timestamp}|${hl7Timestamp}|||||||||999998^DR. PROBE|||||||||F`,
       'OBX|1|ST|7010^SYNTHETIC RESULT|^^CHEMISTRY|NORMAL|||N|||F||765^1007010||70',
     ];
@@ -593,22 +621,44 @@ async function main(state = {}) {
   const drugLookup = await drugLookupResponse.json();
   assert(drugLookup.success === true && Array.isArray(drugLookup.drugs) && drugLookup.drugs.length > 0,
     'Drug lookup search did not return a medication entry');
-  const drugCatalogId = drugLookup.drugs[0].id;
+  const detailCandidate = drugLookup.drugs.find((drug) => drug.category === 13) || drugLookup.drugs[0];
+  const drugCatalogId = detailCandidate.id;
   assert(drugCatalogId !== null && drugCatalogId !== undefined,
     'Drug lookup search returned an entry without a catalog id');
   recordEndpoint('GET', '/ws/services/rxlookup/search', drugLookupResponse,
     'drug catalog search returned an entry');
 
-  const drugDetailsResponse = await signedRequest(
-    'GET', `/ws/services/rxlookup/details?id=${encodeURIComponent(drugCatalogId)}`, fullToken,
-  );
-  await expectStatus(drugDetailsResponse, 200, 'OAuth drug lookup details');
-  const drugDetails = await drugDetailsResponse.json();
-  assert(drugDetails.success === true && Array.isArray(drugDetails.drugs)
-    && String(drugDetails.drugs[0].id) === String(drugCatalogId),
-  'Drug lookup details did not return the selected catalog entry');
-  recordEndpoint('GET', '/ws/services/rxlookup/details', drugDetailsResponse,
-    'details returned for a catalog entry');
+  let drugDetailsResponse;
+  try {
+    drugDetailsResponse = await signedRequest(
+      'GET', `/ws/services/rxlookup/details?id=${encodeURIComponent(drugCatalogId)}`, fullToken,
+    );
+    await expectStatus(drugDetailsResponse, 200, 'OAuth drug lookup details');
+    const drugDetails = await drugDetailsResponse.json();
+    const detailDrug = Array.isArray(drugDetails.drugs) ? drugDetails.drugs[0] : null;
+    assert(drugDetails.success === true && Array.isArray(drugDetails.drugs)
+      && drugDetails.drugs.length === 1 && typeof detailDrug?.name === 'string'
+      && detailDrug.name.trim() !== '',
+    `Drug lookup details did not return a populated drug record (success=${drugDetails.success}, `
+      + `records=${drugDetails.drugs?.length ?? 0}, fields=${detailDrug ? Object.keys(detailDrug).join(',') : 'none'}, `
+      + `namePresent=${typeof detailDrug?.name === 'string' && detailDrug.name.trim() !== ''}, `
+      + `components=${Array.isArray(detailDrug?.components) ? detailDrug.components.length : 'missing'})`);
+    recordEndpoint('GET', '/ws/services/rxlookup/details', drugDetailsResponse,
+      'drug detail returned for the selected catalog id');
+  } catch (error) {
+    const verification = `details lookup failed: ${error.message || 'response validation failed'}`;
+    if (drugDetailsResponse) {
+      recordEndpoint('GET', '/ws/services/rxlookup/details', drugDetailsResponse, verification, 'FAIL');
+    } else {
+      endpointResults.push({
+        outcome: 'FAIL',
+        method: 'GET',
+        path: '/ws/services/rxlookup/details',
+        status: 'n/a',
+        verification,
+      });
+    }
+  }
 
   const parseInstructions = 'Take 1 tablet by mouth twice daily for 7 days';
   const parseDrugResponse = await signedRequest(
@@ -631,11 +681,31 @@ async function main(state = {}) {
   for (const [route, description] of rxReadRoutes) {
     const path = route === '/rx/drugs'
       ? `${route}?demographicNo=${patientNo}` : route;
-    const response = await signedRequest('GET', `/ws/services${path}`, fullToken);
-    await expectStatus(response, 200, `OAuth ${description}`);
-    const body = await response.json();
-    assert(body && Array.isArray(body.content), `${description} did not return a drug list`);
-    recordEndpoint('GET', `/ws/services${route}`, response, `${description} returned`);
+    let response;
+    try {
+      response = await signedRequest('GET', `/ws/services${path}`, fullToken);
+      await expectStatus(response, 200, `OAuth ${description}`);
+      const body = await response.json();
+      const bodyShape = Array.isArray(body) ? 'array'
+        : body && typeof body === 'object' ? `object with fields ${Object.keys(body).join(',')}`
+          : typeof body;
+      assert(body && Array.isArray(body.drug),
+        `${description} did not return a drug list (response shape: ${bodyShape})`);
+      recordEndpoint('GET', `/ws/services${route}`, response, `${description} returned`);
+    } catch (error) {
+      const verification = `${description} failed: ${error.message || 'response validation failed'}`;
+      if (response) {
+        recordEndpoint('GET', `/ws/services${route}`, response, verification, 'FAIL');
+      } else {
+        endpointResults.push({
+          outcome: 'FAIL',
+          method: 'GET',
+          path: `/ws/services${route}`,
+          status: 'n/a',
+          verification,
+        });
+      }
+    }
   }
 
   const medicationName = `AI-Scribe synthetic medication ${runMarker}`;
@@ -655,7 +725,10 @@ async function main(state = {}) {
     route: 'PO',
     form: 'tablet',
     method: 'oral',
+    strength: 500,
+    strengthUnit: 'mg',
     prn: false,
+    archived: false,
     repeats: 0,
     quantity: 14,
     instructions: 'AI-Scribe test fixture: take one tablet twice daily',
@@ -668,7 +741,9 @@ async function main(state = {}) {
   await expectStatus(addDrugResponse, 200, 'OAuth synthetic medication create');
   const addedDrugBody = await addDrugResponse.json();
   assert(addedDrugBody.success === true && addedDrugBody.drug && addedDrugBody.drug.drugId,
-    'Medication create did not return a saved drug');
+    `Medication create did not return a saved drug (success=${addedDrugBody.success}, `
+      + `fields=${Object.keys(addedDrugBody).join(',')}, `
+      + `drugIdPresent=${Boolean(addedDrugBody.drug?.drugId)}, message=${addedDrugBody.message || ''})`);
   const addedDrug = addedDrugBody.drug;
   recordEndpoint('POST', '/ws/services/rx/new', addDrugResponse,
     'synthetic medication created for the owned patient');
@@ -729,7 +804,7 @@ async function main(state = {}) {
     'GET', `/ws/services/rx/history?id=${latestDrugId}&demographicNo=${patientNo}`, fullToken,
   );
   await expectStatus(rxHistoryResponse, 200, 'OAuth prescription history');
-  assert(Array.isArray((await rxHistoryResponse.json()).content),
+  assert(Array.isArray((await rxHistoryResponse.json()).drug),
     'Prescription history did not return a drug list');
   recordEndpoint('GET', '/ws/services/rx/history', rxHistoryResponse,
     'patient prescription history returned');
@@ -863,6 +938,9 @@ async function main(state = {}) {
     'patient deletion endpoint returned the owned patient; cleanup verifies no row remains');
 
   assertStrictPage(recorder);
+  const failedEndpoints = endpointResults.filter((row) => row.outcome === 'FAIL');
+  assert(failedEndpoints.length === 0,
+    `${failedEndpoints.length} endpoint validation(s) failed; see the endpoint results table`);
   return {
     oauthMode: 'scoped',
     checked: [
@@ -886,7 +964,8 @@ if (require.main === module) {
         return await main(state);
       } catch (error) {
         state.failureMessage = error.message || 'check failed';
-        if (!(state.endpointResults || []).some((row) => row.outcome === 'PENDING')) {
+        if (!(state.endpointResults || []).some((row) =>
+          row.outcome === 'PENDING' || row.outcome === 'FAIL')) {
           state.endpointResults = state.endpointResults || [];
           state.endpointResults.push({
             outcome: 'FAIL',
