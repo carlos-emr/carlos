@@ -17,6 +17,8 @@
   "io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteSourceMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.commn.dao.CdsClientFormDaoIntegrationTest",
   "io.github.carlos_emr.carlos.commn.dao.CdsClientFormDataDaoIntegrationTest",
+  "io.github.carlos_emr.carlos.commn.dao.CdsExportIndirectPatientScopeMariaDbIntegrationTest",
+  "io.github.carlos_emr.carlos.commn.dao.CdsExportIndirectPatientScopeReadSupportUnitTest",
   "io.github.carlos_emr.carlos.commn.dao.CdsFormOptionDaoIntegrationTest",
   "io.github.carlos_emr.carlos.commn.dao.CdsHospitalisationDaysDaoIntegrationTest",
   "io.github.carlos_emr.carlos.commn.dao.CdsImportCoordinatorDaoUnitTest",

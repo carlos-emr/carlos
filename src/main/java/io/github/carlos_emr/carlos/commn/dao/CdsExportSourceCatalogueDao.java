@@ -124,7 +124,8 @@ public class CdsExportSourceCatalogueDao {
                     || disposition == CdsExportSourceCatalogue.Disposition.ACCESS_CONTROL) {
                 var query =
                         entityManager.createNativeQuery(presenceQuery(table, profile, catalogue));
-                if (catalogue.patientScopes().containsKey(table))
+                if (catalogue.patientScopes().containsKey(table)
+                        || CdsExportIndirectPatientScopeReadSupport.supports(table))
                     query.setParameter("patient", patient);
                 if (!query.setMaxResults(1)
                         .setHint("org.hibernate.timeout", 120)
@@ -163,6 +164,8 @@ public class CdsExportSourceCatalogueDao {
                 clauses.add(value + "=:patient");
             }
             query += " where (" + String.join(" or ", clauses) + ")";
+        } else if (CdsExportIndirectPatientScopeReadSupport.supports(table)) {
+            query += " where " + CdsExportIndirectPatientScopeReadSupport.predicate(table, profile);
         }
         var remainder = catalogue.clinicalRemainders().get(table);
         if (remainder != null) {
