@@ -41,6 +41,7 @@ import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import ca.uhn.hl7v2.HL7Exception;
+import io.github.carlos_emr.carlos.lab.ca.all.util.Hl7Utils;
 import ca.uhn.hl7v2.model.Segment;
 import ca.uhn.hl7v2.model.v23.datatype.XCN;
 import ca.uhn.hl7v2.model.v23.message.ORU_R01;
@@ -475,7 +476,7 @@ public class TRUENORTHHandler implements MessageHandler {
     }
 
     private String getFirstName(ORU_R01 msg) {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getGivenName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getGivenName().getValue()));
     }
 
     public String getLastName() {
@@ -483,7 +484,7 @@ public class TRUENORTHHandler implements MessageHandler {
     }
 
     private String getLastName(ORU_R01 msg) {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getFamilyName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getFamilyName().getValue()));
     }
 
     public String getDOB() {
@@ -522,7 +523,8 @@ public class TRUENORTHHandler implements MessageHandler {
     private String getHealthNum(ORU_R01 msg) {
         try {
             return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientIDInternalID(0).getID().getValue()));
-        } catch (HL7Exception e) {
+        } catch (RuntimeException e) {
+            Hl7Utils.rethrowUnlessHl7AccessFailure(e);
             logger.error("Could not get hin", e);
             return "";
         }

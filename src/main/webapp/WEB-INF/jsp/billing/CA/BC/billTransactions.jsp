@@ -72,7 +72,7 @@
                 item.setAmountReceived(item.getAmountReceived() * -1);
             }
         %>
-        <td><%=nf.format(item.getAmount())%>
+        <td><%=item.hasKnownAmount() ? nf.format(item.getAmount()) : "Unknown"%>
         </td>
         <td><%=item.getPaymentTypeDesc()%>
         </td>

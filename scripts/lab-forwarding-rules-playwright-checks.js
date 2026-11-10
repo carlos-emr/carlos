@@ -380,4 +380,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('lab-forwarding-rules', workflow, { openMaster: false });
-module.exports = { workflow, removeOwnedHl7Labs, removeArchiveFiles, archivesNamed, uploadFromInbox, LOCK_NOT_SHARED };
+module.exports = { unusedNumber, openInbox, openForwardingRules, confirmAndReload, workflow, removeOwnedHl7Labs, removeArchiveFiles, archivesNamed, uploadFromInbox, LOCK_NOT_SHARED };

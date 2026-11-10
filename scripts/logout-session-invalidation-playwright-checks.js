@@ -12,6 +12,9 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
+const { validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
@@ -28,29 +31,6 @@ const chromePath = process.env.CHROME_PATH || '';
 const testUser = requireEnv('TEST_USER');
 const testPassword = requireEnv('TEST_PASSWORD');
 const testPin = requireEnv('TEST_PIN');
-
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not embed a username or password');
-  }
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const octets = host.split('.');
-  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
-  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
-    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
-    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
-}
 
 function appUrl(appPath) {
   if (!appPath.startsWith('/') || appPath.startsWith('//')) {
@@ -111,7 +91,8 @@ async function assertLoggedOutPage(page, label) {
   assert(!/provider\/(providercontrol|ViewAppointmentAdminDay)/i.test(url), `${label} stayed on authenticated URL ${url}`);
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('logout-session-invalidation',async context=>{
+  await (async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -120,14 +101,17 @@ async function assertLoggedOutPage(page, label) {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
+  const browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
 
   try {
     const primary = await context.newPage();
+    cancellation?.throwIfCancelled();
     await login(primary);
+    cancellation?.throwIfCancelled();
 
     await safeGoto(primary, '/logoutPage', { waitUntil: 'domcontentloaded' });
+    cancellation?.throwIfCancelled();
     // logout.jsp auto-POSTs to /logout ~500ms after load, and Logout2Action
     // redirects /logout -> /index. The browser therefore SETTLES on /index (the
     // /logout POST is a transient 302, never a landing URL), so waiting for a
@@ -137,12 +121,18 @@ async function assertLoggedOutPage(page, label) {
       const p = url.pathname;
       return p === baseUrl.pathname + '/index' || p === baseUrl.pathname + '/logout';
     }, { timeout: 15000 });
+    cancellation?.throwIfCancelled();
     await assertLoggedOutPage(primary, 'logout action destination');
+    cancellation?.throwIfCancelled();
 
     const postLogoutPage = await context.newPage();
+    cancellation?.throwIfCancelled();
     await safeGoto(postLogoutPage, '/provider/providercontrol', { waitUntil: 'domcontentloaded' });
+    cancellation?.throwIfCancelled();
     await postLogoutPage.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertLoggedOutPage(postLogoutPage, 'post-logout protected navigation');
+    cancellation?.throwIfCancelled();
 
 
     console.log('PASS logout invalidated same-context session for future protected navigation');
@@ -150,7 +140,8 @@ async function assertLoggedOutPage(page, label) {
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
   }
-})().catch((error) => {
+})(context).catch((error) => {
   console.error(error && error.stack ? error.stack : error);
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

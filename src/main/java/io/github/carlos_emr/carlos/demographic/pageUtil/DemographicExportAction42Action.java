@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
@@ -434,6 +435,31 @@ public class DemographicExportAction42Action extends ActionSupport {
             list.add(demographicNo);
         }
 
+        try {
+            var projection = SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class);
+            for (String patient : list) projection.requireWholeChartSupported(Integer.parseInt(patient));
+        } catch (io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException unsupported) {
+            writeExportAuditLog(loggedInInfo, list.size(), "unsupported_structured_projection", "<unavailable>", null);
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            response.setContentType("text/plain;charset=UTF-8");
+            response.setHeader("Cache-Control", "no-store");
+            response.getWriter().write(unsupported.getMessage());
+            return NONE;
+        }
+
+        // This legacy export performs Date-only native prevention calculations. Refuse before
+        // creating an archive rather than inventing a day or publishing a partial package.
+        if (exImmunizations || exPastHealth) {
+            try {
+                for (String patient : list) PreventionData.requireExactDates(Integer.valueOf(patient));
+            } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException review) {
+                writeExportAuditLog(loggedInInfo, list.size(), "precision_review_required", "<unavailable>", null);
+                response.sendError(HttpServletResponse.SC_CONFLICT,
+                        "Prevention timing requires review before this legacy export can run.");
+                return NONE;
+            }
+        }
+
         String ffwd = "fail";
         boolean fileStreamed = false;
         String tmpDir = oscarProperties.getProperty("TMP_DIR") + File.separator + RandomStringUtils.random(8, true, false);
@@ -446,7 +472,7 @@ public class DemographicExportAction42Action extends ActionSupport {
             case CMS4:
                 File exportDirectory = createTemporaryExportDirectory(tmpDir);
                 if (exportDirectory == null) {
-                    logger.debug("Error! Cannot write to TMP_DIR - Check carlos.properties or dir permissions. (" + tmpDir + ")");
+                    logger.debug("Error! Cannot write to TMP_DIR - Check carlos.properties or dir permissions.");
                 } else {
                     XmlOptions options = new XmlOptions();
                     options.setSavePrettyPrint();
@@ -2126,7 +2152,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     f = validateExportDocument(edoc);
                                 } catch (SecurityException _) {
                                     exportError.add("Error! Document \"" + Encode.forHtml(edoc.getFileName()) + "\" path is invalid or outside the allowed directory. Skipping.");
-                                    logger.error("Path traversal attempt on document export: {}", Encode.forJava(edoc.getFilePath()));
+                                    logger.error("Path traversal attempt on document export");
                                     continue;
                                 }
                                 if (!f.exists()) {
@@ -2222,13 +2248,13 @@ public class DemographicExportAction42Action extends ActionSupport {
                                         hrmFile = resolveHrmReportFile(reportFile);
                                     } catch (SecurityException _) {
                                         exportError.add("Error! HRM report file '" + Encode.forHtml(reportFile) + "' is outside the allowed directory. HRM report not exported.");
-                                        logger.error("HRM report file path traversal attempt: {}", Encode.forJava(reportFile));
+                                        logger.error("HRM report file path traversal attempt");
                                         continue;
                                     }
 
                                     if (hrmFile == null) {
                                         exportError.add("Error! HRM report file '" + reportFile + "' does not exist! HRM report not exported.");
-                                        logger.error("Error! HRM report file '" + reportFile + "' does not exist! HRM report not exported.");
+                                        logger.error("HRM report file does not exist; report not exported");
                                         continue;
                                     }
 
@@ -2662,7 +2688,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                             files.add(validatedFile);
                             dirs.add(providerName);
                         } catch (Exception e) {
-                            logger.error("Error", e);
+                            logger.error("Error: {}", LogSafe.exceptionTrace(e));
                         }
                         // Guard: only write if a new file entry was successfully added above.
                         // Without this check, a validation failure would cause us to write
@@ -2676,7 +2702,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                             //omdCdsDoc.save(files.get(files.size()-1), options);
 
                         } catch (IOException ex) {
-                            logger.error("Error writing export file to directory", ex);
+                            logger.error("Error writing export file to directory: {}", LogSafe.exceptionTrace(ex));
                             // Remove the file entry that could not be written so the list stays consistent
                             if (!files.isEmpty()) {
                                 files.remove(files.size() - 1);
@@ -3876,7 +3902,7 @@ public class DemographicExportAction42Action extends ActionSupport {
             factory = XmlUtils.createSecureDocumentBuilderFactory();
             factory.setNamespaceAware(true);
         } catch (ParserConfigurationException e) {
-            logger.error("Failed to create secure XML parser factory", e);
+            logger.error("Failed to create secure XML parser factory: {}", LogSafe.exceptionTrace(e));
             return false;
         }
 
@@ -3890,14 +3916,14 @@ public class DemographicExportAction42Action extends ActionSupport {
                     "/omdDataMigration/",
                     ONTARIOMD_EXPORT_SCHEMA_IMPORTS));
         } catch (SAXException e) {
-            logger.error("Failed to create secure schema factory", e);
+            logger.error("Failed to create secure schema factory: {}", LogSafe.exceptionTrace(e));
             return false;
         }
         Schema schema = null;
         try {
             schema = xsdFactory.newSchema(url);
         } catch (SAXException e) {
-            logger.error("Parse exception", e);
+            logger.error("Parse exception: {}", LogSafe.exceptionTrace(e));
             return false;
         }
 
@@ -3905,7 +3931,7 @@ public class DemographicExportAction42Action extends ActionSupport {
         try {
             builder = factory.newDocumentBuilder();
         } catch (ParserConfigurationException e1) {
-            logger.error("Parse exception", e1);
+            logger.error("Parse exception: {}", LogSafe.exceptionTrace(e1));
             return false;
         }
 
@@ -3913,10 +3939,10 @@ public class DemographicExportAction42Action extends ActionSupport {
         try {
             doc = builder.parse(f);
         } catch (SAXException e) {
-            logger.error("Parse exception", e);
+            logger.error("Parse exception: {}", LogSafe.exceptionTrace(e));
             return false;
         } catch (IOException e) {
-            logger.error("Parse exception", e);
+            logger.error("Parse exception: {}", LogSafe.exceptionTrace(e));
             return false;
         }
 
@@ -3925,16 +3951,16 @@ public class DemographicExportAction42Action extends ActionSupport {
         try {
             validator = XmlUtils.createSecureValidator(schema); // nosemgrep: validator-xxe -- XXE protection applied by XmlUtils.createSecureValidator()
         } catch (SAXException e) {
-            logger.error("Failed to create secure validator", e);
+            logger.error("Failed to create secure validator: {}", LogSafe.exceptionTrace(e));
             return false;
         }
         try {
             validator.validate(new DOMSource(doc));
         } catch (SAXException e) {
-            logger.error("In file '" + f.getName() + "': " + e.getMessage());
+            logger.error("Failed to process demographic export file: {}", LogSafe.exceptionTrace(e));
             return false;
         } catch (IOException e) {
-            logger.error("In file '" + f.getName() + "': " + e.getMessage());
+            logger.error("Failed to process demographic export file: {}", LogSafe.exceptionTrace(e));
             return false;
         }
         return result;

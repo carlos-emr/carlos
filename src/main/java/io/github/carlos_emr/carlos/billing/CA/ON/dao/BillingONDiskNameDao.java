@@ -67,7 +67,19 @@ public class BillingONDiskNameDao extends AbstractDaoImpl<BillingONDiskName> {
         Query query = entityManager.createQuery(
                 "SELECT COUNT(b) FROM BillingONDiskName b WHERE b.ohipFilename = ?1");
         query.setParameter(1, ohipFilename);
-        return ((Number) query.getSingleResult()).longValue() > 0;
+        return ((Number) query.getSingleResult()).longValue() > 0
+                || BillingFilenameImportDao.isReserved(entityManager, ohipFilename);
+    }
+
+    /**
+     * Delegates exact original/allocated basename lookup for collision groups greater than one.
+     * An empty result retains ordinary file handling, including unchanged group-one imports.
+     *
+     * @param filename the exact {@code String} basename
+     * @return the matching {@code List<FileReview>}; empty when there is no collision evidence
+     */
+    public List<BillingFilenameImportDao.FileReview> importedFilenameReviews(String filename) {
+        return BillingFilenameImportDao.findFileReviews(entityManager, filename);
     }
 
     public BillingONDiskName findByGroupNo(String groupNo) {

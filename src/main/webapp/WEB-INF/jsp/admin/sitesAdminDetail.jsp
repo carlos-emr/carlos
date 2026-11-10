@@ -46,7 +46,7 @@
     }
 %>
 
-<%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <html>
     <head>

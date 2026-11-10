@@ -42,7 +42,7 @@ Parameters: id identifies the form row; the hidden association ID starts at zero
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -91,6 +91,7 @@ Parameters: id identifies the form row; the hidden association ID starts at zero
     <select name="contact_${carlos:forHtmlAttribute(param.id)}.consentToContact" id="contact_${carlos:forHtmlAttribute(param.id)}.consentToContact" title="Consent to Contact">
         <option value="1">Consent</option>
         <option value="0">No Consent</option>
+        <option value="">Unknown</option>
     </select>
 
     &nbsp;

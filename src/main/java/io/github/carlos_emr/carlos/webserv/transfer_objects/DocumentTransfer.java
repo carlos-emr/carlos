@@ -34,19 +34,15 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
-import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 
 public final class DocumentTransfer {
-    private static Logger logger = MiscUtils.getLogger();
 
     private Integer documentNo;
     private String doctype;
@@ -63,6 +59,8 @@ public final class DocumentTransfer {
     private Date updatedatetime;
     private char status;
     private String contenttype;
+    private Date contentdatetime;
+    private String cdsContentPrecision;
     private int public1;
     private Date observationdate;
     private String reviewer;
@@ -172,6 +170,8 @@ public final class DocumentTransfer {
         this.programId = programId;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getUpdatedatetime() {
         return (updatedatetime);
     }
@@ -196,6 +196,14 @@ public final class DocumentTransfer {
         this.contenttype = contenttype;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
+    public Date getContentdatetime() { return contentdatetime; }
+    public void setContentdatetime(Date value) { contentdatetime=value; }
+    /** Imported source precision; no timestamp is inferred for an absent source clock. */
+    public String getCdsContentPrecision() { return cdsContentPrecision; }
+    public void setCdsContentPrecision(String value) { cdsContentPrecision=value; }
+
     public int getPublic1() {
         return (public1);
     }
@@ -204,6 +212,8 @@ public final class DocumentTransfer {
         this.public1 = public1;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getObservationdate() {
         return (observationdate);
     }
@@ -220,6 +230,8 @@ public final class DocumentTransfer {
         this.reviewer = reviewer;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getReviewdatetime() {
         return (reviewdatetime);
     }
@@ -285,7 +297,12 @@ public final class DocumentTransfer {
             justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
                     "known CARLOS types; no user-controlled property name reaches the sink")
     public static DocumentTransfer toTransfer(Document document, CtlDocument ctlDocument) throws IOException {
+        return toTransfer(document, ctlDocument, true);
+    }
+
+    private static DocumentTransfer toTransfer(Document document, CtlDocument ctlDocument, boolean inline) throws IOException {
         if (document == null) return (null);
+        requireLegacyProjection(document);
 
         DocumentTransfer documentTransfer = new DocumentTransfer();
 
@@ -297,12 +314,15 @@ public final class DocumentTransfer {
             documentTransfer.setCtlStatus(ctlDocument.getStatus());
         }
 
-        documentTransfer.setFileContents(document.getDocumentFileContentsAsBytes());
+        if (inline) documentTransfer.setFileContents(document.getDocumentFileContentsAsBytes());
 
         return (documentTransfer);
     }
 
     public static DocumentTransfer[] getTransfers(LoggedInInfo loggedInInfo, List<Document> documents) {
+        boolean inline = io.github.carlos_emr.carlos.webserv.DocumentListProfile.current().inline();
+        // Refuse the whole selected page before allocating any file byte arrays.
+        for (Document document:documents) requireLegacyProjection(document);
         DocumentManager documentManager = SpringUtils.getBean(DocumentManager.class);
 
         ArrayList<DocumentTransfer> results = new ArrayList<DocumentTransfer>();
@@ -310,18 +330,28 @@ public final class DocumentTransfer {
         for (Document document : documents) {
             try {
                 CtlDocument ctlDocument = documentManager.getCtlDocumentByDocumentId(loggedInInfo, document.getId());
-                DocumentTransfer transfer = DocumentTransfer.toTransfer(document, ctlDocument);
+                DocumentTransfer transfer = DocumentTransfer.toTransfer(document, ctlDocument, inline);
                 results.add(transfer);
             } catch (IOException e) {
-                logger.error("Unexpected error", e);
+                // An unreadable item must never disappear from an apparently complete page.
+                throw new org.apache.cxf.binding.soap.SoapFault("Document content could not be read",
+                        org.apache.cxf.binding.soap.SoapFault.FAULT_CODE_SERVER);
             }
         }
 
         return (results.toArray(new DocumentTransfer[0]));
     }
 
+    private static void requireLegacyProjection(Document document) {
+        if (document != null && document.getCdsContentPrecision()!=null) {
+            throw new org.apache.cxf.binding.soap.SoapFault(
+                    new io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException().getMessage(),
+                    org.apache.cxf.binding.soap.SoapFault.FAULT_CODE_CLIENT);
+        }
+    }
+
     @Override
     public String toString() {
-        return (ReflectionToStringBuilder.toString(this));
+        return getClass().getSimpleName() + "[protected]";
     }
 }

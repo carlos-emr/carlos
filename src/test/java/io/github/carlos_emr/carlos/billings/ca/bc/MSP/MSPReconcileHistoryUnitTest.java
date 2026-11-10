@@ -21,8 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanC12Dao;
+import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanC12;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -30,12 +30,13 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.BillRecipientsDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.BillingHistoryDao;
@@ -43,12 +44,16 @@ import io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanS00Dao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS00;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows.BillRow;
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows.PaymentRow;
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows.PrivatePaymentRow;
 import io.github.carlos_emr.carlos.entities.MSPBill;
 import io.github.carlos_emr.carlos.entities.Provider;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -60,14 +65,13 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
     private BillingHistoryDao historyDao;
     private TeleplanS00Dao teleplanDao;
     private MSPReconcile reconcile;
-    private ResultSet rows;
-    private MockedStatic<LegacyJdbcQuery> jdbc;
+    private BillingmasterDAO billingmasterDao;
 
     @BeforeEach
     void setUp() throws Exception {
         createAndRegisterMock(BillRecipientsDao.class);
         createAndRegisterMock(BillingDao.class);
-        createAndRegisterMock(BillingmasterDAO.class);
+        billingmasterDao = createAndRegisterMock(BillingmasterDAO.class);
         historyDao = createAndRegisterMock(BillingHistoryDao.class);
         teleplanDao = createAndRegisterMock(TeleplanS00Dao.class);
         reconcile = spy(new MSPReconcile());
@@ -77,34 +81,205 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
         provider.setFirstName("Test");
         provider.setLastName("Provider");
         doReturn(provider).when(reconcile).getProvider(anyString(), anyInt());
-        rows = mock(ResultSet.class);
-        LegacyJdbcQuery.TrustedSql reportSql = LegacyJdbcQuery.trustedReportSelectSql("SELECT 1");
-        jdbc = mockStatic(LegacyJdbcQuery.class);
-        jdbc.when(() -> LegacyJdbcQuery.trustedReportSelectSql(anyString())).thenReturn(reportSql);
-        jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(
-                any(LegacyJdbcQuery.TrustedSql.class), any(Object[].class))).thenReturn(rows);
     }
 
-    @AfterEach
-    void closeJdbcMock() {
-        jdbc.close();
+    @ParameterizedTest
+    @ValueSource(doubles = {Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY})
+    void shouldRefuseUnknownPrivateBalances_beforeTreatingTheBillAsSettled(double paid) {
+        doReturn(paid).when(reconcile).getAmountPaid("41", MSPReconcile.BILLTYPE_PRI);
+        assertThatThrownBy(() -> reconcile.isPrivateBillItemOutstanding("41", 12.50))
+                .isInstanceOf(IllegalStateException.class).hasMessage("Private bill balance is unavailable");
+    }
+
+    @Test
+    void shouldRetainUnparsedZeroPayment_withoutAnAdjustmentInTheSummary() {
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao.class);
+        var reader = spy(new MSPReconcile(true));
+        doReturn(new Provider()).when(reader).getProvider(anyString(), anyInt());
+        when(billingmasterDao.findBcPayments(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean()))
+                .thenReturn(List.of(paymentRow("bad", "", "", ""), paymentRow("001250", "", "", "")));
+        var result = reader.getPayments("ALL", "ALL", "ALL", "", "", false, false, true, false, MSPReconcile.REP_PAYREF_SUM);
+        assertThat(result.list).hasSize(2);
+        MSPBill unknown = (MSPBill) result.list.getFirst();
+        assertThat(unknown.getAmount()).isEqualTo("0.00");
+        assertThat(unknown.getUnparsedAmounts()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldPreserveZeroOutputWithoutLoggingErrors_forSpacePaddedUnpaidAmounts() {
+        try (LogCapture logs = LogCapture.forLogger(MSPReconcile.class)) {
+            assertThat(MSPReconcile.convCurValue("       ")).isEqualTo("0");
+            assertThat(MSPReconcile.convCurValue("")).isEqualTo("0.0");
+            assertThat(MSPReconcile.convCurValue(null)).isEqualTo("0.0");
+            assertThat(MSPReconcile.convCurValue("000123M")).isEqualTo("-12.34");
+            assertThat(logs.events()).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldPropagatePersistenceFailure_whenLookupCannotReadDatabase() {
+        var dao = new BillingmasterDAO();
+        var persistence = mock(jakarta.persistence.EntityManager.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", persistence);
+        when(persistence.isJoinedToTransaction()).thenThrow(new jakarta.persistence.PersistenceException("synthetic patient detail"));
+        try (LogCapture logs = LogCapture.forLogger(BillingmasterDAO.class)) {
+            assertThatThrownBy(() -> dao.findBcPayments("ALL", "ALL", "missing", "", "", false, false, true, false))
+                    .isInstanceOf(jakarta.persistence.PersistenceException.class);
+            assertThat(logs.messages()).isEmpty();
+            assertThat(logs.events()).allSatisfy(event -> assertThat(event.getThrown()).isNull());
+        }
+    }
+
+    @Test
+    void shouldPreserveProviderValidationFailure_forLegacyPayments() {
+        when(billingmasterDao.findBcPayments(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean()))
+                .thenThrow(new BillingmasterDAO.MissingBcPaymentProviderException());
+        assertThatThrownBy(() -> reconcile.getPayments("ALL", "ALL", "missing", "", "", false, false, true, false))
+                .isInstanceOf(BillingmasterDAO.MissingBcPaymentProviderException.class)
+                .hasMessage("Provider must have ohip no!").hasNoCause();
+        var strict = new MSPReconcile(true);
+        assertThatThrownBy(() -> strict.getPayments("ALL", "ALL", "missing", "", "", false, false, true, false))
+                .isInstanceOf(BillingmasterDAO.MissingBcPaymentProviderException.class)
+                .hasMessage("Provider must have ohip no!").hasNoCause();
+    }
+
+    @Test
+    void shouldPropagateReadFailures_withoutPatientDetailsForAtomicExports() throws Exception {
+        var strict = new MSPReconcile(true);
+        when(billingmasterDao.findBcBills(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any()))
+                .thenThrow(new IllegalStateException("synthetic patient detail"));
+        when(billingmasterDao.findBcPayments(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean()))
+                .thenThrow(new IllegalStateException("synthetic patient detail"));
+        assertThatThrownBy(() -> strict.getBillsByType("ALL", "ALL", "ALL", "", "", false, false, false, false,
+                MSPReconcile.REP_ACCOUNT_REC)).isInstanceOf(IllegalStateException.class)
+                .hasMessage("Billing export data could not be read").hasCauseInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> strict.getPayments("ALL", "ALL", "ALL", "", "", false, false, true, false))
+                .isInstanceOf(IllegalStateException.class).hasMessage("Billing export data could not be read").hasCauseInstanceOf(RuntimeException.class);
     }
 
     private void reportRows(String... types) throws Exception {
-        int[] index = {-1};
-        when(rows.next()).thenAnswer(call -> ++index[0] < types.length);
-        when(rows.getString(anyString())).thenAnswer(call -> switch ((String) call.getArgument(0)) {
-            case "billingmaster_no", "billing_no" -> String.valueOf(41 + index[0]);
-            case "b.billingtype" -> types[index[0]];
-            case "billingstatus" -> "O";
-            case "bill_amount" -> "100.00";
-            case "b.provider_no", "apptProvider_no" -> "12345";
-            default -> "";
-        });
+        List<BillRow> bills = new ArrayList<>();
+        for (int i = 0; i < types.length; i++) {
+            bills.add(new BillRow(types[i], String.valueOf(41 + i), "", "", "", "", "O", "", "", "", String.valueOf(41 + i), "100.00", "", "", "", "", "", "", "", "", "12345", "12345", "", ""));
+        }
+        when(billingmasterDao.findBcBills(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any()))
+                .thenReturn(bills);
     }
 
     private MSPReconcile.BillSearch report(String type) {
         return reconcile.getBillsByType("all", "all", "all", "", "", false, false, false, false, type);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"REP_INVOICE", "REP_ACCOUNT_REC"})
+    void shouldRetainLegacyRows_whenCsvAmountsCannotBeCalculated(String type) throws Exception {
+        var csv = spy(new MSPReconcile(true));
+        doReturn(new Properties()).when(csv).currentC12Records();
+        doReturn("").when(csv).getS00String(anyString());
+        doReturn(new Provider()).when(csv).getProvider(anyString(), anyInt());
+        for (String amount : Arrays.asList(null, "", " ", "bad amount", "NaN", "1e309")) {
+            var malformed = new BillRow("Pri", "41", "1", "1", "FAKE-Patient", "", "O", "", "", "", "41",
+                    amount, "00100", "", null, "", "", "", "", "", "12345", "12345", "", "");
+            var valid = new BillRow("Pri", "42", "1", "1", "FAKE-Patient", "", "O", "", "", "", "42",
+                    "100.00", "00100", "", "20261001", "", "", "", "", "", "12345", "12345", "", "");
+            when(billingmasterDao.findBcBills(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any()))
+                    .thenReturn(List.of(malformed, valid));
+            var result = csv.getBillsByType("ALL", "ALL", "ALL", "", "", false, false, false, false, type);
+            assertThat(result.list).hasSize(2);
+            assertThat(((MSPBill) result.list.getFirst()).getAmount()).isEqualTo(amount);
+            assertThat(((MSPBill) result.list.getFirst()).getServiceDate()).isNull();
+            assertThat(((MSPBill) result.list.getFirst()).getAmtOwing()).isEmpty();
+            assertThat(((MSPBill) result.list.get(1)).getAmtOwing()).isEqualTo("100.0");
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"bad", "12.3", "1e3", "+123"})
+    void shouldRetainValidPaymentsAndAdjustments_whenTeleplanFieldsAreMalformed(String malformedAmount) throws Exception {
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao.class);
+        var csv = spy(new MSPReconcile(true));
+        Provider provider = new Provider(); provider.setFirstName("Test"); provider.setLastName("Provider");
+        doReturn(provider).when(csv).getProvider(anyString(), anyInt());
+        doReturn("Adjustment").when(csv).getAdjustmentCodeDesc(anyString());
+        when(billingmasterDao.findBcPayments(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean()))
+                .thenReturn(List.of(paymentRow(malformedAmount, "AA", "bad adjustment", "000225"),
+                        paymentRow("001250", "", "", ""), paymentRow("00050}", "", "", ""),
+                        paymentRow("", "AA", "000075", "")));
+
+        for (String type : List.of(MSPReconcile.REP_PAYREF, MSPReconcile.REP_PAYREF_SUM)) {
+            var result = csv.getPayments("ALL", "ALL", "ALL", "", "", false, false, true, false, type);
+            assertThat(result.list).hasSize(4);
+            var first = (MSPBill) result.list.getFirst();
+            if (MSPReconcile.REP_PAYREF.equals(type)) {
+                assertThat(first.getAmount()).isEqualTo("Unparsed Teleplan amount: " + malformedAmount);
+                assertThat(first.getType()).isEmpty();
+                var detail = new java.io.ByteArrayOutputStream();
+                io.github.carlos_emr.carlos.report.export.BcBillingCsv.write(detail,type,
+                        result.list.stream().map(MSPBill.class::cast).toList());
+                assertThat(detail.toString(java.nio.charset.StandardCharsets.UTF_8))
+                        .contains("Unparsed Teleplan amount: " + malformedAmount);
+                assertThat(first.getAdjustmentCodeAmt()).contains("bad adjustment", "2.25");
+                assertThat(((MSPBill) result.list.get(1)).getType()).isEqualTo("PMT");
+                assertThat(((MSPBill) result.list.get(2)).getType()).isEqualTo("RFD");
+            } else {
+                assertThat(first.getAmount()).isEqualTo("0.00");
+                assertThat(first.getAdjustmentCodeAmt()).isEqualTo("2.25");
+                var output = new java.io.ByteArrayOutputStream();
+                io.github.carlos_emr.carlos.report.export.BcBillingCsv.write(output, type,
+                        result.list.stream().map(MSPBill.class::cast).toList());
+                var rows = org.apache.commons.csv.CSVFormat.DEFAULT.parse(new java.io.StringReader(
+                        output.toString(java.nio.charset.StandardCharsets.UTF_8))).getRecords();
+                assertThat(rows.get(1).toList()).containsExactly("Cash", "7.50", "-5.00");
+                assertThat(rows.get(6).toList()).containsExactly("Electronic", "3.00", "0.00");
+                assertThat(rows.get(9).toList()).containsExactly("Total (known amounts only)", "10.50", "-5.00");
+            }
+        }
+    }
+
+    private PaymentRow paymentRow(String paid, String adjustment, String first, String second) {
+        return new PaymentRow("MSP", "20261101", "1", "1", "FAKE-Patient", paid, "41", "00000000", "1", "", "",
+                "12345", "12345", "12345", adjustment, first, second, "", "", "", "", "");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"REP_INVOICE", "REP_ACCOUNT_REC"})
+    void shouldRetainUnknownBalance_whenS00PaymentCannotBeDecoded(String type) throws Exception {
+        var csv = spy(new MSPReconcile(true));
+        doReturn(new Properties()).when(csv).currentC12Records();
+        doReturn("").when(csv).getS00String(anyString());
+        doReturn(new Provider()).when(csv).getProvider(anyString(), anyInt());
+        reportRows("MSP", "Pri");
+        for (String amount : List.of("bad", "12.3")) {
+            var payment = new TeleplanS00(); payment.setPaidAmount(amount);
+            when(teleplanDao.findByOfficeNumber("0000041")).thenReturn(List.of(payment));
+            var result = csv.getBillsByType("ALL", "ALL", "ALL", "", "", false, false, false, false, type);
+            assertThat(result.list).hasSize(2);
+            assertThat(((MSPBill) result.list.getFirst()).getAmtOwing()).isEmpty();
+            assertThat(((MSPBill) result.list.get(1)).getAmtOwing()).isEqualTo("100.0");
+        }
+        when(teleplanDao.findByOfficeNumber("0000041")).thenThrow(new jakarta.persistence.PersistenceException("synthetic read failure"));
+        assertThatThrownBy(() -> csv.getBillsByType("ALL", "ALL", "ALL", "", "", false, false, false, false, type))
+                .isInstanceOf(IllegalStateException.class).hasMessage("Billing export data could not be read").hasCauseInstanceOf(RuntimeException.class);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"bad"})
+    void shouldKeepPrivatePaymentExports_whenLegacyAmountsAreMissingOrMalformed(String amount) {
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao.class);
+        var csv = spy(new MSPReconcile(true));
+        Provider provider = new Provider(); provider.setFirstName("Test"); provider.setLastName("Provider");
+        doReturn(provider).when(csv).getProvider(anyString(), anyInt());
+        when(billingmasterDao.findBcPrivatePayments(any(), any(), any(), any(), any()))
+                .thenReturn(List.of(new PrivatePaymentRow("41", "Pri", "1", "FAKE-Patient", "00000000", "12345", "12345", "12345",
+                                amount, null, "1"),
+                        new PrivatePaymentRow("42", "Pri", "1", "FAKE-Patient", "20261101", "12345", "12345", "12345",
+                                "12.50", java.time.LocalDate.of(2026, 11, 1), "1")));
+        var result = csv.getPayments("ALL", "ALL", "ALL", "", "", false, false, false, false);
+        assertThat(result.list).hasSize(2);
+        assertThat(((MSPBill) result.list.getFirst()).getAmount()).isEqualTo(amount == null ? "" : amount);
+        assertThat(((MSPBill) result.list.getFirst()).getPaymentDate()).isEmpty();
+        assertThat(((MSPBill) result.list.get(1)).getAmount()).isEqualTo("12.50");
     }
 
     @Test
@@ -115,7 +290,6 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
         when(teleplanDao.findByOfficeNumber("0000042")).thenReturn(List.of(payment));
         when(historyDao.getTotalPaidFromHistoryByBillingMasterNos(Set.of(41, 42, 43)))
                 .thenAnswer(call -> {
-                    verify(rows).close();
                     return Map.of(41, 30.0, 42, 5.0);
                 });
 
@@ -127,7 +301,6 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
                 .containsExactly("70.0", "70.0", "100.0");
         verify(historyDao).getTotalPaidFromHistoryByBillingMasterNos(Set.of(41, 42, 43));
         verify(historyDao, never()).getTotalPaidFromHistory(anyInt(), anyBoolean());
-        verify(rows).close();
     }
 
     @Test
@@ -197,7 +370,6 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
         reportRows();
         assertThat(report(MSPReconcile.REP_INVOICE).list).isEmpty();
         verifyNoInteractions(historyDao);
-        verify(rows).close();
     }
 
     @Test
@@ -208,20 +380,21 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldCloseCursor_whenReadingFails() throws Exception {
-        when(rows.next()).thenThrow(new SQLException("Synthetic read failure"));
-        assertThat(report(MSPReconcile.REP_INVOICE).list).isEmpty();
-        verify(rows).close();
+    void shouldRefuseReport_whenDaoReadFails() throws Exception {
+        when(billingmasterDao.findBcBills(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any()))
+                .thenThrow(new IllegalStateException("Synthetic read failure"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> report(MSPReconcile.REP_INVOICE))
+                .isInstanceOf(IllegalStateException.class).hasMessage("Billing export data could not be read");
         verifyNoInteractions(historyDao);
     }
 
     @Test
-    void shouldCloseCursorBeforeEnrichment_whenTotalsFail() throws Exception {
+    void shouldRefuseReport_whenTotalsFail() throws Exception {
         reportRows("Pri");
         when(historyDao.getTotalPaidFromHistoryByBillingMasterNos(anyCollection()))
                 .thenThrow(new IllegalStateException("Synthetic aggregation failure"));
-        assertThat(report(MSPReconcile.REP_INVOICE).list).isEmpty();
-        verify(rows).close();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> report(MSPReconcile.REP_INVOICE))
+                .isInstanceOf(IllegalStateException.class).hasMessage("Billing export data could not be read");
     }
     @Test
     void shouldBatchPaidAndOwing_forLargeBulkSettleList() {
@@ -280,6 +453,21 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
         assertThat(reconcile.getAmountPaid("41", "Pri")).isEqualTo(30.0);
         verify(historyDao).getTotalPaidFromHistory(41, true);
         verify(historyDao, never()).getPaymentTotalsByBillingMasterNos(anyCollection());
+    }
+
+    @Test
+    void shouldKeepValidExplanationsAndCountBadFolios_withoutStubbingTheC12Reader() {
+        var dao = createAndRegisterMock(TeleplanC12Dao.class);
+        var valid = new TeleplanC12();
+        valid.setOfficeFolioClaimNo("0000041");
+        valid.setExp1("AA");
+        var invalid = new TeleplanC12();
+        invalid.setOfficeFolioClaimNo("bad");
+        var missing = new TeleplanC12();
+        when(dao.findCurrent()).thenReturn(java.util.List.of(valid, invalid, missing));
+        var reader = new MSPReconcile(true);
+        assertThat(reader.currentC12Records()).containsEntry("41", "AA ");
+        assertThat(reader.getSkippedC12Count()).isEqualTo(2);
     }
 
 }

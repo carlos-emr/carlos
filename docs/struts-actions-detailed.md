@@ -331,8 +331,8 @@ Clinical forms and data import functionality.
 | formBPMH | io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web.BpmhFormRetrieve2Action | Retrieves Best Possible Medication History forms |
 | form/formname | io.github.carlos_emr.carlos.form.Frm2Action | Generic form processor |
 | form/forwardshortcutname | io.github.carlos_emr.carlos.form.pageUtil.FormForward2Action | Forwards form shortcuts |
-| form/importLogDownload | io.github.carlos_emr.carlos.demographic.pageUtil.ImportLogDownload2Action | Downloads import logs |
-| form/importUpload | io.github.carlos_emr.carlos.demographic.pageUtil.ImportDemographicDataAction42Action | Uploads demographic import data |
+| form/importLogDownload | legacyCdsImportLog2Action | Expires retired temporary import-log links |
+| form/importUpload | viewCdsImport2Action | Opens the durable CDS import workflow |
 | form/RHPrevention | io.github.carlos_emr.carlos.form.pageUtil.FrmFormRHPrevention2Action | Manages reproductive health prevention forms |
 | form/select | io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action | Selects forms |
 | form/SetupForm | io.github.carlos_emr.carlos.form.pageUtil.FrmSetupForm2Action | Sets up new forms |

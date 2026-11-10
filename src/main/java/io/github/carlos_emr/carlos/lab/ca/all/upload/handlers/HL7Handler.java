@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 
@@ -35,16 +36,12 @@
  */
 package io.github.carlos_emr.carlos.lab.ca.all.upload.handlers;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 
-import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
@@ -62,16 +59,29 @@ public class HL7Handler implements MessageHandler {
         logger.info("NEW HL7Handler UPLOAD HANDLER instance just instantiated. ");
     }
 
+    /**
+     * Routes every message and rechecks only identities returned by this upload; any failure cleans the upload.
+     * @param loggedInInfo authenticated upload context
+     * @param serviceName legacy service label
+     * @param fileName uploaded message-file path
+     * @param fileId upload/checksum identity used for cleanup
+     * @param ipAddr legacy caller address
+     * @return success after all messages and rechecks succeed, or null after cleanup on failure
+     */
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
         logger.info("ABOUT TO PARSE!");
 
         int i = 0;
         try {
             ArrayList<String> messages = Utilities.separateMessages(fileName);
+            java.util.Set<Integer> createdIds = new java.util.LinkedHashSet<>();
             for (i = 0; i < messages.size(); i++) {
 
                 String msg = messages.get(i);
-                MessageUploader.routeReport(loggedInInfo, "", "HL7", msg, fileId); //Setting serviceName="" for now
+                var result = new io.github.carlos_emr.carlos.lab.ca.all.upload.RouteReportResults();
+                MessageUploader.routeReport(loggedInInfo, "", "HL7", msg, fileId, result);
+                if (result.segmentId <= 0) throw new IllegalStateException("Upload did not return a stored report identity");
+                createdIds.add(result.segmentId);
 
             }
 
@@ -80,7 +90,7 @@ public class HL7Handler implements MessageHandler {
             // by accession number their abnormal status must be updated to
             // reflect the
             // other labs that they are grouped with aswell
-            updateLabStatus(messages.size());
+            updateLabStatus(createdIds);
             logger.info("Parsed OK");
         } catch (Exception e) {
             MessageUploader.clean(fileId);
@@ -91,45 +101,40 @@ public class HL7Handler implements MessageHandler {
 
     }
 
-    // recheck the abnormal status of the last 'n' labs
-    private void updateLabStatus(int n) throws SQLException {
-        int limit = Math.max(n, 0);
-        String sql = "SELECT lab_no, result_status FROM hl7TextInfo ORDER BY lab_no DESC LIMIT ?";
-        String updateSql = "UPDATE LOW_PRIORITY hl7TextInfo SET result_status=? WHERE lab_no=?";
-        try (Connection c = LegacyJdbcQuery.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql);
-             PreparedStatement update = c.prepareStatement(updateSql)) {
-            ps.setInt(1, limit);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next() && limit > 0) {
+    /** Rechecks upload-owned identities only; missing data and database retrieval failures propagate to cleanup. */
+    static void updateLabStatus(java.util.Set<Integer> ids) {
+        if (ids.isEmpty()) return;
+        Hl7TextInfoDao dao = SpringUtils.getBean(Hl7TextInfoDao.class);
+        var messages = SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao.class);
+        for (Integer id : ids) {
+            updateLabStatus(id, dao, messages);
+        }
+    }
 
-                    // only recheck the result status if it is not already set to
-                    // abnormal
-                    if (!Misc.getString(rs, "result_status").equals("A")) {
+    /** Loads one uniquely identified report and updates its flag without masking retrieval or parsing failures. */
+    private static void updateLabStatus(Integer id, Hl7TextInfoDao dao,
+            io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao messages) {
+        if (id == null || id <= 0) throw new IllegalArgumentException("Invalid uploaded report identity");
+        var rows = dao.findByLabId(id);
+        if (rows.size() != 1) throw new IllegalStateException("Uploaded lab metadata is missing or ambiguous");
+        var lab = rows.getFirst();
+        if (lab.getResultStatus() != null && "A".equals(lab.getResultStatus().trim())) return;
+        // Database failures must propagate; the ID-based factory catches retrieval errors.
+        var stored = messages.find(id.intValue());
+        if (stored == null) throw new IllegalStateException("Uploaded lab content is missing");
+        io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler handler = Factory.getHandler(stored);
+        if (handler == null) throw new IllegalStateException("Uploaded lab content cannot be parsed for abnormal recheck");
+        if (isAbnormal(handler)) dao.updateResultStatusLowPriority(id, "A");
+    }
 
-                        io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler h = Factory.getHandler(Misc.getString(rs, "lab_no"));
-                        int i = 0;
-                        int j = 0;
-                        String resultStatus = "";
-                        while (resultStatus.isEmpty() && i < h.getOBRCount()) {
-                            j = 0;
-                            while (resultStatus.isEmpty() && j < h.getOBXCount(i)) {
-                                logger.info("obr({}) obx({}) abnormal ? : {}", i, j, h.getOBXAbnormalFlag(i, j));
-                                if (h.isOBXAbnormal(i, j)) {
-                                    resultStatus = "A";
-                                    update.setString(1, resultStatus);
-                                    update.setString(2, Misc.getString(rs, "lab_no"));
-                                    update.executeUpdate();
-                                }
-                                j++;
-                            }
-                            i++;
-                        }
-                    }
-                    limit--;
-                }
+    /** Scans stored observations, stopping at the first abnormal result. */
+    private static boolean isAbnormal(io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler handler) {
+        for (int obr = 0; obr < handler.getOBRCount(); obr++) {
+            for (int obx = 0; obx < handler.getOBXCount(obr); obx++) {
+                if (handler.isOBXAbnormal(obr, obx)) return true;
             }
         }
+        return false;
     }
 
 }

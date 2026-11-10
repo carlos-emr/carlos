@@ -286,7 +286,7 @@ public class BillingShortcutPg2Service {
     private void applyJspViewFieldsToBuilder(BillingShortcutPg2ViewModel.Builder b,
                                              HttpServletRequest request) {
         java.util.Properties providerBean;
-        Object beanObj = request.getSession().getAttribute("providerBean"); // nosemgrep: tainted-session-from-http-request -- providerBean is built post-auth from DAO-sourced active providers (see ImportDemographicDataAction42Action)
+        Object beanObj = request.getSession().getAttribute("providerBean"); // nosemgrep: tainted-session-from-http-request -- providerBean is built post-auth from DAO-sourced active providers
         providerBean = (beanObj instanceof java.util.Properties) ? (java.util.Properties) beanObj : new java.util.Properties();
 
         String xmlProvider = nullToEmpty(request.getParameter("xml_provider"));
@@ -310,7 +310,7 @@ public class BillingShortcutPg2Service {
         b.sliCode(sliCode).sliNotApplicable(sliNotApplicable);
 
         b.admissionDate(nullToEmpty(request.getParameter("xml_vdate")));
-        b.demographicName(nullToEmpty(request.getParameter("demographic_name")));
+        b.demographicName(nullToEmpty(io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.name(request)));
         b.dxCode(nullToEmpty(request.getParameter("dxCode")));
         b.rulePerc(nullToEmpty(request.getParameter("rulePerc")));
         b.referralDocName(nullToEmpty(request.getParameter("referralDocName")));
@@ -534,7 +534,7 @@ public class BillingShortcutPg2Service {
         b.setProviderNo(request.getParameter("xml_provider"));
         b.setAppointmentNo(parseRequiredInt("appointment_no", request.getParameter("appointment_no")));
         b.setOrganizationSpecCode(request.getParameter("ohip_version"));
-        b.setDemographicName(request.getParameter("demographic_name"));
+        b.setDemographicName(io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.requiredName(request));
         b.setHin(request.getParameter("hin"));
         b.setUpdateDate(new java.util.Date());
         b.setUpdateTime(new java.util.Date());
@@ -636,11 +636,7 @@ public class BillingShortcutPg2Service {
         url.append(request.getContextPath())
                 .append("/billing/CA/ON/billingShortcutPg1View?billRegion=&billForm=")
                 .append(URLEncoder.encode(hospitalView == null ? "" : hospitalView, StandardCharsets.UTF_8))
-                .append("&hotclick=&appointment_no=0&demographic_name=")
-                .append(URLEncoder.encode(demo.last, StandardCharsets.UTF_8))
-                .append("%2C")
-                .append(URLEncoder.encode(demo.first, StandardCharsets.UTF_8))
-                .append("&demographic_no=")
+                .append("&hotclick=&appointment_no=0&demographic_no=")
                 .append(URLEncoder.encode(nullToEmpty(request.getParameter("demographic_no")), StandardCharsets.UTF_8))
                 .append("&providerview=1&user_no=")
                 .append(URLEncoder.encode(nullToEmpty(userNo), StandardCharsets.UTF_8))

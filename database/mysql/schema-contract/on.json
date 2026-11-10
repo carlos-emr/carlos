@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "a879b4542a26aaf1e7f4cd5995402f33bc6f50c94ad2349b56d4ec313af42d9d",
+ "migration_sha256": "af0a2fdfc537d3c3b188320107186c0a91ec1177e804fbc217f8bad4bc056c61",
  "province": "on",
  "schema": {
   "checks": [
@@ -8,6 +8,31 @@
     "OceanSetting",
     "chk_ocean_setting_singleton",
     "`id` = 1"
+   ],
+   [
+    "billing_filename_import",
+    "billing_filename_file_status",
+    "`file_status` in ('unchanged','ambiguous','reconciled')"
+   ],
+   [
+    "billing_filename_import",
+    "billing_filename_group_size",
+    "`group_size` >= 1"
+   ],
+   [
+    "billing_filename_import",
+    "billing_filename_reason",
+    "`reason` in ('unchanged','collision')"
+   ],
+   [
+    "cds_import_preparation",
+    "payload",
+    "octet_length(`payload`) <= 1048576"
+   ],
+   [
+    "rx_submission_receipt",
+    "rx_submission_receipt_outcome",
+    "`outcome` = 'SAVED' and `prescription_id` is not null or `outcome` in ('PENDING','FAILED') and `prescription_id` is null"
    ]
   ],
   "columns": [
@@ -62,7 +87,7 @@
    [
     "AppDefinition",
     "config",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -134,7 +159,7 @@
    [
     "AppUser",
     "authenticationData",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -927,8 +952,8 @@
     "Consent",
     "deleted",
     "tinyint(1)",
-    "YES",
-    "NULL",
+    "NO",
+    "1",
     "",
     null,
     null,
@@ -963,8 +988,8 @@
     "Consent",
     "explicit",
     "tinyint(1)",
-    "YES",
-    "NULL",
+    "NO",
+    "0",
     "",
     null,
     null,
@@ -997,10 +1022,22 @@
    ],
    [
     "Consent",
-    "optout",
-    "tinyint(1)",
+    "live_demographic_no",
+    "int(11)",
     "YES",
     "NULL",
+    "STORED GENERATED",
+    null,
+    null,
+    "if(`deleted` = 0,`demographic_no`,NULL)",
+    11
+   ],
+   [
+    "Consent",
+    "optout",
+    "tinyint(1)",
+    "NO",
+    "1",
     "",
     null,
     null,
@@ -1013,6 +1050,126 @@
     "datetime",
     "YES",
     "NULL",
+    "",
+    null,
+    null,
+    null,
+    8
+   ],
+   [
+    "Consent_migration_audit",
+    "consent_id",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    2
+   ],
+   [
+    "Consent_migration_audit",
+    "id",
+    "bigint(20)",
+    "NO",
+    null,
+    "auto_increment",
+    null,
+    null,
+    null,
+    1
+   ],
+   [
+    "Consent_migration_audit",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    10
+   ],
+   [
+    "Consent_migration_audit",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'system'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    9
+   ],
+   [
+    "Consent_migration_audit",
+    "migration",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    3
+   ],
+   [
+    "Consent_migration_audit",
+    "prior_deleted",
+    "tinyint(1)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    7
+   ],
+   [
+    "Consent_migration_audit",
+    "prior_explicit",
+    "tinyint(1)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    5
+   ],
+   [
+    "Consent_migration_audit",
+    "prior_optout",
+    "tinyint(1)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    6
+   ],
+   [
+    "Consent_migration_audit",
+    "reason",
+    "varchar(32)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    4
+   ],
+   [
+    "Consent_migration_audit",
+    "recorded_at",
+    "datetime",
+    "NO",
+    "current_timestamp()",
     "",
     null,
     null,
@@ -1046,7 +1203,7 @@
    [
     "Contact",
     "cellPhone",
-    "varchar(30)",
+    "varchar(40)",
     "YES",
     "NULL",
     "",
@@ -1130,7 +1287,7 @@
    [
     "Contact",
     "firstName",
-    "varchar(100)",
+    "varchar(101)",
     "YES",
     "NULL",
     "",
@@ -1166,7 +1323,7 @@
    [
     "Contact",
     "note",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -1202,7 +1359,7 @@
    [
     "Contact",
     "residencePhone",
-    "varchar(30)",
+    "varchar(40)",
     "YES",
     "NULL",
     "",
@@ -1742,7 +1899,7 @@
    [
     "Department",
     "annotation",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -2342,7 +2499,7 @@
    [
     "Episode",
     "notes",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -2966,7 +3123,7 @@
    [
     "FlowSheetUserCreated",
     "topHTML",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -3002,7 +3159,7 @@
    [
     "Flowsheet",
     "content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -3578,7 +3735,7 @@
    [
     "HRMDocumentComment",
     "comment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -3902,7 +4059,7 @@
    [
     "HRMProviderConfidentialityStatement",
     "statement",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -4190,7 +4347,7 @@
    [
     "Institution",
     "annotation",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -5294,7 +5451,7 @@
    [
     "PreventionsLotNrs",
     "lotNr",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -6722,7 +6879,7 @@
    [
     "SystemMessage",
     "message",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -6842,7 +6999,7 @@
    [
     "admission",
     "admission_notes",
-    "varchar(4)",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -6938,7 +7095,7 @@
    [
     "admission",
     "discharge_notes",
-    "varchar(4)",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -7130,7 +7287,7 @@
    [
     "allergies",
     "DESCRIPTION",
-    "varchar(50)",
+    "varchar(120)",
     "NO",
     "''",
     "",
@@ -7334,7 +7491,7 @@
    [
     "allergies",
     "reaction",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -7742,7 +7899,7 @@
    [
     "appointment",
     "imported_status",
-    "varchar(20)",
+    "varchar(250)",
     "YES",
     "NULL",
     "",
@@ -7790,7 +7947,7 @@
    [
     "appointment",
     "notes",
-    "varchar(255)",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -8066,7 +8223,7 @@
    [
     "appointmentArchive",
     "imported_status",
-    "varchar(20)",
+    "varchar(250)",
     "YES",
     "NULL",
     "",
@@ -8114,7 +8271,7 @@
    [
     "appointmentArchive",
     "notes",
-    "varchar(255)",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -8774,7 +8931,7 @@
    [
     "billactivity",
     "htmlcontext",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -8822,7 +8979,7 @@
    [
     "billactivity",
     "ohipcontext",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -9038,7 +9195,7 @@
    [
     "billing",
     "content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -9170,7 +9327,7 @@
    [
     "billing",
     "total",
-    "varchar(6)",
+    "varchar(7)",
     "YES",
     "NULL",
     "",
@@ -9226,6 +9383,150 @@
     "utf8mb4_general_ci",
     null,
     19
+   ],
+   [
+    "billing_filename_import",
+    "file_sha256",
+    "char(64)",
+    "YES",
+    "NULL",
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    8
+   ],
+   [
+    "billing_filename_import",
+    "file_status",
+    "varchar(32)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    7
+   ],
+   [
+    "billing_filename_import",
+    "group_size",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    5
+   ],
+   [
+    "billing_filename_import",
+    "imported_filename",
+    "varchar(50)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    4
+   ],
+   [
+    "billing_filename_import",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    12
+   ],
+   [
+    "billing_filename_import",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    11
+   ],
+   [
+    "billing_filename_import",
+    "original_filename",
+    "varchar(50)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    3
+   ],
+   [
+    "billing_filename_import",
+    "reason",
+    "varchar(32)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    6
+   ],
+   [
+    "billing_filename_import",
+    "reconciled_at",
+    "datetime",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    10
+   ],
+   [
+    "billing_filename_import",
+    "reconciled_by",
+    "varchar(128)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    9
+   ],
+   [
+    "billing_filename_import",
+    "source_id",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    2
+   ],
+   [
+    "billing_filename_import",
+    "source_table",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    1
    ],
    [
     "billing_on_3rdPartyAddress",
@@ -9422,7 +9723,7 @@
    [
     "billing_on_cheader1",
     "comment1",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -11402,7 +11703,7 @@
    [
     "billing_on_repo",
     "content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -12458,7 +12759,7 @@
    [
     "billingservice",
     "description",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -12638,7 +12939,7 @@
    [
     "caisi_form",
     "surveyData",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -12734,7 +13035,7 @@
    [
     "caisi_form_data",
     "value",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -12818,7 +13119,7 @@
    [
     "caisi_form_data_tmpsave",
     "value",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -12998,7 +13299,7 @@
    [
     "casemgmt_cpp",
     "familyHistory",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -13022,7 +13323,7 @@
    [
     "casemgmt_cpp",
     "medicalHistory",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -13034,7 +13335,7 @@
    [
     "casemgmt_cpp",
     "ongoingConcerns",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -13058,7 +13359,7 @@
    [
     "casemgmt_cpp",
     "otherSupportSystems",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -13070,7 +13371,7 @@
    [
     "casemgmt_cpp",
     "pastMedications",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -13118,7 +13419,7 @@
    [
     "casemgmt_cpp",
     "reminders",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -13130,7 +13431,7 @@
    [
     "casemgmt_cpp",
     "socialHistory",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -13358,7 +13659,7 @@
    [
     "casemgmt_note",
     "history",
-    "mediumtext",
+    "longtext",
     "NO",
     null,
     "",
@@ -13442,7 +13743,7 @@
    [
     "casemgmt_note",
     "note",
-    "mediumtext",
+    "longtext",
     "NO",
     null,
     "",
@@ -13467,8 +13768,8 @@
     "casemgmt_note",
     "observation_date",
     "datetime",
-    "NO",
-    "'0000-00-00 00:00:00'",
+    "YES",
+    "NULL",
     "",
     null,
     null,
@@ -13646,7 +13947,7 @@
    [
     "casemgmt_note_ext",
     "value",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -13826,7 +14127,7 @@
    [
     "casemgmt_tmpsave",
     "note",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -13882,6 +14183,2718 @@
     null,
     null,
     6
+   ],
+   [
+    "cds_import_admission",
+    "id",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    5
+   ],
+   [
+    "cds_import_admission",
+    "maintenance_active",
+    "tinyint(1)",
+    "NO",
+    "0",
+    "",
+    null,
+    null,
+    null,
+    1
+   ],
+   [
+    "cds_import_admission",
+    "maintenance_connection_id",
+    "bigint(20)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    4
+   ],
+   [
+    "cds_import_admission",
+    "maintenance_generation",
+    "bigint(20)",
+    "NO",
+    "0",
+    "",
+    null,
+    null,
+    null,
+    2
+   ],
+   [
+    "cds_import_admission",
+    "maintenance_owner_token",
+    "varchar(36)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    3
+   ],
+   [
+    "cds_import_admission",
+    "owner_run_id",
+    "varchar(36)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    6
+   ],
+   [
+    "cds_import_admission",
+    "reserved_bytes",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    7
+   ],
+   [
+    "cds_import_checkpoint",
+    "committed_at",
+    "datetime(6)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    9
+   ],
+   [
+    "cds_import_checkpoint",
+    "first_run_id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    8
+   ],
+   [
+    "cds_import_checkpoint",
+    "id",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    1
+   ],
+   [
+    "cds_import_checkpoint",
+    "lineage_key",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    2
+   ],
+   [
+    "cds_import_checkpoint",
+    "options_digest",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    4
+   ],
+   [
+    "cds_import_checkpoint",
+    "ruleset_digest",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    5
+   ],
+   [
+    "cds_import_checkpoint",
+    "source_digest",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    3
+   ],
+   [
+    "cds_import_checkpoint",
+    "target_digest",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    7
+   ],
+   [
+    "cds_import_checkpoint",
+    "target_references",
+    "longtext",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    6
+   ],
+   [
+    "cds_import_dependency",
+    "depends_on_unit_key",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    4
+   ],
+   [
+    "cds_import_dependency",
+    "id",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    1
+   ],
+   [
+    "cds_import_dependency",
+    "run_id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    2
+   ],
+   [
+    "cds_import_dependency",
+    "unit_key",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    3
+   ],
+   [
+    "cds_import_diagnostic",
+    "blocking",
+    "tinyint(1)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    11
+   ],
+   [
+    "cds_import_diagnostic",
+    "code",
+    "varchar(96)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    6
+   ],
+   [
+    "cds_import_diagnostic",
+    "created_at",
+    "datetime(6)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    13
+   ],
+   [
+    "cds_import_diagnostic",
+    "id",
+    "bigint(20)",
+    "NO",
+    null,
+    "auto_increment",
+    null,
+    null,
+    null,
+    1
+   ],
+   [
+    "cds_import_diagnostic",
+    "patient_key",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    3
+   ],
+   [
+    "cds_import_diagnostic",
+    "protected_detail_location",
+    "varchar(1024)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    10
+   ],
+   [
+    "cds_import_diagnostic",
+    "resolved",
+    "tinyint(1)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    12
+   ],
+   [
+    "cds_import_diagnostic",
+    "run_id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    2
+   ],
+   [
+    "cds_import_diagnostic",
+    "safe_summary",
+    "varchar(2048)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    9
+   ],
+   [
+    "cds_import_diagnostic",
+    "severity",
+    "varchar(16)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    5
+   ],
+   [
+    "cds_import_diagnostic",
+    "source_path",
+    "varchar(2048)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    8
+   ],
+   [
+    "cds_import_diagnostic",
+    "stage",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    7
+   ],
+   [
+    "cds_import_diagnostic",
+    "unit_key",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    4
+   ],
+   [
+    "cds_import_event",
+    "created_at",
+    "datetime(6)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    9
+   ],
+   [
+    "cds_import_event",
+    "epoch",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    4
+   ],
+   [
+    "cds_import_event",
+    "event_type",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    5
+   ],
+   [
+    "cds_import_event",
+    "id",
+    "bigint(20)",
+    "NO",
+    null,
+    "auto_increment",
+    null,
+    null,
+    null,
+    1
+   ],
+   [
+    "cds_import_event",
+    "observation_context",
+    "varchar(1024)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    8
+   ],
+   [
+    "cds_import_event",
+    "operator",
+    "varchar(128)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    6
+   ],
+   [
+    "cds_import_event",
+    "provider_no",
+    "varchar(16)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    7
+   ],
+   [
+    "cds_import_event",
+    "run_id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    2
+   ],
+   [
+    "cds_import_event",
+    "unit_key",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    3
+   ],
+   [
+    "cds_import_field",
+    "category",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    7
+   ],
+   [
+    "cds_import_field",
+    "date_precision",
+    "varchar(32)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    11
+   ],
+   [
+    "cds_import_field",
+    "demographic_no",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    6
+   ],
+   [
+    "cds_import_field",
+    "id",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    2
+   ],
+   [
+    "cds_import_field",
+    "normalized_value",
+    "longtext",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    13
+   ],
+   [
+    "cds_import_field",
+    "occurrence",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    9
+   ],
+   [
+    "cds_import_field",
+    "original_value",
+    "longtext",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    12
+   ],
+   [
+    "cds_import_field",
+    "patient_key",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    4
+   ],
+   [
+    "cds_import_field",
+    "payload_digest",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    15
+   ],
+   [
+    "cds_import_field",
+    "payload_length",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    17
+   ],
+   [
+    "cds_import_field",
+    "payload_location",
+    "varchar(1024)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    14
+   ],
+   [
+    "cds_import_field",
+    "payload_offset",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    16
+   ],
+   [
+    "cds_import_field",
+    "run_id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    3
+   ],
+   [
+    "cds_import_field",
+    "source_namespace",
+    "varchar(250)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    1
+   ],
+   [
+    "cds_import_field",
+    "source_path",
+    "varchar(2048)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    8
+   ],
+   [
+    "cds_import_field",
+    "unit_key",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    5
+   ],
+   [
+    "cds_import_field",
+    "value_type",
+    "varchar(4608)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    10
+   ],
+   [
+    "cds_import_file",
+    "byte_length",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    6
+   ],
+   [
+    "cds_import_file",
+    "digest",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    5
+   ],
+   [
+    "cds_import_file",
+    "generation",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    8
+   ],
+   [
+    "cds_import_file",
+    "id",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    1
+   ],
+   [
+    "cds_import_file",
+    "location",
+    "varchar(1024)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    4
+   ],
+   [
+    "cds_import_file",
+    "location_key",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    3
+   ],
+   [
+    "cds_import_file",
+    "run_id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    2
+   ],
+   [
+    "cds_import_file",
+    "state",
+    "varchar(32)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    7
+   ],
+   [
+    "cds_import_file",
+    "verified_epoch",
+    "bigint(20)",
+    "NO",
+    "0",
+    "",
+    null,
+    null,
+    null,
+    9
+   ],
+   [
+    "cds_import_file_reference",
+    "file_id",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    4
+   ],
+   [
+    "cds_import_file_reference",
+    "id",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    1
+   ],
+   [
+    "cds_import_file_reference",
+    "run_id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    2
+   ],
+   [
+    "cds_import_file_reference",
+    "unit_key",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    3
+   ],
+   [
+    "cds_import_identity",
+    "birth_date",
+    "date",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    7
+   ],
+   [
+    "cds_import_identity",
+    "comparable",
+    "tinyint(1)",
+    "NO",
+    "1",
+    "",
+    null,
+    null,
+    null,
+    10
+   ],
+   [
+    "cds_import_identity",
+    "copy_key",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    4
+   ],
+   [
+    "cds_import_identity",
+    "first_name",
+    "varchar(50)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_uca1400_ai_ci",
+    null,
+    5
+   ],
+   [
+    "cds_import_identity",
+    "hin",
+    "varchar(20)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    8
+   ],
+   [
+    "cds_import_identity",
+    "id",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    1
+   ],
+   [
+    "cds_import_identity",
+    "issuer",
+    "varchar(5)",
+    "YES",
+    "NULL",
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    9
+   ],
+   [
+    "cds_import_identity",
+    "last_name",
+    "varchar(50)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_uca1400_ai_ci",
+    null,
+    6
+   ],
+   [
+    "cds_import_identity",
+    "patient_key",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    3
+   ],
+   [
+    "cds_import_identity",
+    "run_id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    2
+   ],
+   [
+    "cds_import_lineage",
+    "copy_key",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    4
+   ],
+   [
+    "cds_import_lineage",
+    "id",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    1
+   ],
+   [
+    "cds_import_lineage",
+    "options_digest",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    6
+   ],
+   [
+    "cds_import_lineage",
+    "ruleset_digest",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    7
+   ],
+   [
+    "cds_import_lineage",
+    "source_digest",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    5
+   ],
+   [
+    "cds_import_lineage",
+    "source_namespace",
+    "varchar(128)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    2
+   ],
+   [
+    "cds_import_lineage",
+    "source_patient_id",
+    "varchar(128)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    3
+   ],
+   [
+    "cds_import_lineage",
+    "target_demographic_no",
+    "int(11)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    8
+   ],
+   [
+    "cds_import_patient",
+    "copy_key",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    5
+   ],
+   [
+    "cds_import_patient",
+    "execution_digest",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    12
+   ],
+   [
+    "cds_import_patient",
+    "expected_units",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    11
+   ],
+   [
+    "cds_import_patient",
+    "held",
+    "tinyint(1)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    10
+   ],
+   [
+    "cds_import_patient",
+    "id",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    1
+   ],
+   [
+    "cds_import_patient",
+    "lineage_key",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    6
+   ],
+   [
+    "cds_import_patient",
+    "patient_key",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    3
+   ],
+   [
+    "cds_import_patient",
+    "run_id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    2
+   ],
+   [
+    "cds_import_patient",
+    "source_digest",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    7
+   ],
+   [
+    "cds_import_patient",
+    "source_patient_id",
+    "varchar(128)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    4
+   ],
+   [
+    "cds_import_patient",
+    "state",
+    "varchar(48)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    9
+   ],
+   [
+    "cds_import_patient",
+    "target_demographic_no",
+    "int(11)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    8
+   ],
+   [
+    "cds_import_preparation",
+    "digest",
+    "char(64)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    9
+   ],
+   [
+    "cds_import_preparation",
+    "id",
+    "char(64)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    1
+   ],
+   [
+    "cds_import_preparation",
+    "options_digest",
+    "char(64)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    5
+   ],
+   [
+    "cds_import_preparation",
+    "payload",
+    "mediumtext",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    8
+   ],
+   [
+    "cds_import_preparation",
+    "payload_type",
+    "varchar(250)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    7
+   ],
+   [
+    "cds_import_preparation",
+    "ruleset_digest",
+    "char(64)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    6
+   ],
+   [
+    "cds_import_preparation",
+    "run_id",
+    "char(36)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    2
+   ],
+   [
+    "cds_import_preparation",
+    "source_digest",
+    "char(64)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    4
+   ],
+   [
+    "cds_import_preparation",
+    "unit_key",
+    "char(64)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    3
+   ],
+   [
+    "cds_import_review",
+    "applied_at",
+    "timestamp(6)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    24
+   ],
+   [
+    "cds_import_review",
+    "category",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    23
+   ],
+   [
+    "cds_import_review",
+    "created_at",
+    "timestamp(6)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    13
+   ],
+   [
+    "cds_import_review",
+    "diagnostic_id",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    5
+   ],
+   [
+    "cds_import_review",
+    "id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    1
+   ],
+   [
+    "cds_import_review",
+    "kind",
+    "varchar(32)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    4
+   ],
+   [
+    "cds_import_review",
+    "manifest_location",
+    "varchar(1024)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    16
+   ],
+   [
+    "cds_import_review",
+    "manifest_sha256",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    17
+   ],
+   [
+    "cds_import_review",
+    "operator_name",
+    "varchar(128)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    10
+   ],
+   [
+    "cds_import_review",
+    "patient_key",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    6
+   ],
+   [
+    "cds_import_review",
+    "payload",
+    "mediumtext",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    14
+   ],
+   [
+    "cds_import_review",
+    "payload_sha256",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    15
+   ],
+   [
+    "cds_import_review",
+    "plan_bytes",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    20
+   ],
+   [
+    "cds_import_review",
+    "plan_location",
+    "varchar(1024)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    18
+   ],
+   [
+    "cds_import_review",
+    "plan_sha256",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    19
+   ],
+   [
+    "cds_import_review",
+    "provider_no",
+    "varchar(16)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    11
+   ],
+   [
+    "cds_import_review",
+    "revalidation_sha256",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    21
+   ],
+   [
+    "cds_import_review",
+    "review_reason",
+    "varchar(4000)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    27
+   ],
+   [
+    "cds_import_review",
+    "review_version",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    3
+   ],
+   [
+    "cds_import_review",
+    "reviewed_source_xpath",
+    "varchar(2048)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    26
+   ],
+   [
+    "cds_import_review",
+    "run_id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    2
+   ],
+   [
+    "cds_import_review",
+    "safe_error_code",
+    "varchar(96)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    25
+   ],
+   [
+    "cds_import_review",
+    "security_no",
+    "int(11)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    12
+   ],
+   [
+    "cds_import_review",
+    "source_key",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    7
+   ],
+   [
+    "cds_import_review",
+    "source_patient_id",
+    "varchar(128)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    22
+   ],
+   [
+    "cds_import_review",
+    "source_xml_sha256",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    8
+   ],
+   [
+    "cds_import_review",
+    "state",
+    "varchar(32)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    9
+   ],
+   [
+    "cds_import_run",
+    "cancel_requested",
+    "tinyint(1)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    26
+   ],
+   [
+    "cds_import_run",
+    "cleanup_state",
+    "varchar(48)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    5
+   ],
+   [
+    "cds_import_run",
+    "created_at",
+    "datetime(6)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    30
+   ],
+   [
+    "cds_import_run",
+    "discovered_files",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    9
+   ],
+   [
+    "cds_import_run",
+    "discovery_complete",
+    "tinyint(1)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    8
+   ],
+   [
+    "cds_import_run",
+    "dry_run",
+    "tinyint(1)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    3
+   ],
+   [
+    "cds_import_run",
+    "execution_digest",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    22
+   ],
+   [
+    "cds_import_run",
+    "expected_patients",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    23
+   ],
+   [
+    "cds_import_run",
+    "expected_units",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    24
+   ],
+   [
+    "cds_import_run",
+    "id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    1
+   ],
+   [
+    "cds_import_run",
+    "manifest_digest",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    21
+   ],
+   [
+    "cds_import_run",
+    "operator",
+    "varchar(128)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    12
+   ],
+   [
+    "cds_import_run",
+    "options_digest",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    17
+   ],
+   [
+    "cds_import_run",
+    "owner_epoch",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    25
+   ],
+   [
+    "cds_import_run",
+    "patient_xml_files",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    10
+   ],
+   [
+    "cds_import_run",
+    "profile",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    15
+   ],
+   [
+    "cds_import_run",
+    "provider_no",
+    "varchar(16)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    13
+   ],
+   [
+    "cds_import_run",
+    "report_digest",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    29
+   ],
+   [
+    "cds_import_run",
+    "report_generation",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    27
+   ],
+   [
+    "cds_import_run",
+    "report_location",
+    "varchar(1024)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    28
+   ],
+   [
+    "cds_import_run",
+    "report_state",
+    "varchar(48)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    4
+   ],
+   [
+    "cds_import_run",
+    "resume_requested",
+    "tinyint(1)",
+    "NO",
+    "0",
+    "",
+    null,
+    null,
+    null,
+    32
+   ],
+   [
+    "cds_import_run",
+    "review_version",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    7
+   ],
+   [
+    "cds_import_run",
+    "ruleset_digest",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    18
+   ],
+   [
+    "cds_import_run",
+    "safe_error_code",
+    "varchar(96)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    6
+   ],
+   [
+    "cds_import_run",
+    "snapshot_location",
+    "varchar(1024)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    19
+   ],
+   [
+    "cds_import_run",
+    "source_bytes",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    11
+   ],
+   [
+    "cds_import_run",
+    "source_digest",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    16
+   ],
+   [
+    "cds_import_run",
+    "source_namespace",
+    "varchar(128)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    14
+   ],
+   [
+    "cds_import_run",
+    "state",
+    "varchar(48)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    20
+   ],
+   [
+    "cds_import_run",
+    "submission_key",
+    "varchar(128)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    2
+   ],
+   [
+    "cds_import_run",
+    "updated_at",
+    "datetime(6)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    31
+   ],
+   [
+    "cds_import_unit",
+    "category",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    6
+   ],
+   [
+    "cds_import_unit",
+    "committed_at",
+    "datetime(6)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    13
+   ],
+   [
+    "cds_import_unit",
+    "id",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    1
+   ],
+   [
+    "cds_import_unit",
+    "lineage_key",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    5
+   ],
+   [
+    "cds_import_unit",
+    "ordinal",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    7
+   ],
+   [
+    "cds_import_unit",
+    "patient_key",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    3
+   ],
+   [
+    "cds_import_unit",
+    "run_id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    2
+   ],
+   [
+    "cds_import_unit",
+    "source_digest",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    8
+   ],
+   [
+    "cds_import_unit",
+    "spool_location",
+    "varchar(1024)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    9
+   ],
+   [
+    "cds_import_unit",
+    "state",
+    "varchar(48)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    10
+   ],
+   [
+    "cds_import_unit",
+    "target_digest",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    12
+   ],
+   [
+    "cds_import_unit",
+    "target_references",
+    "longtext",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    11
+   ],
+   [
+    "cds_import_unit",
+    "unit_key",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    4
+   ],
+   [
+    "cds_import_upload",
+    "chunk_count",
+    "bigint(20)",
+    "NO",
+    "0",
+    "",
+    null,
+    null,
+    null,
+    7
+   ],
+   [
+    "cds_import_upload",
+    "created_at",
+    "datetime(6)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    15
+   ],
+   [
+    "cds_import_upload",
+    "dry_run_id",
+    "varchar(36)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    13
+   ],
+   [
+    "cds_import_upload",
+    "expected_bytes",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    5
+   ],
+   [
+    "cds_import_upload",
+    "id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    1
+   ],
+   [
+    "cds_import_upload",
+    "manifest_digest",
+    "char(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    8
+   ],
+   [
+    "cds_import_upload",
+    "media_kind",
+    "varchar(8)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    4
+   ],
+   [
+    "cds_import_upload",
+    "operator_key",
+    "varchar(128)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    2
+   ],
+   [
+    "cds_import_upload",
+    "quota_released",
+    "bit(1)",
+    "NO",
+    "b'0'",
+    "",
+    null,
+    null,
+    null,
+    14
+   ],
+   [
+    "cds_import_upload",
+    "received_bytes",
+    "bigint(20)",
+    "NO",
+    "0",
+    "",
+    null,
+    null,
+    null,
+    6
+   ],
+   [
+    "cds_import_upload",
+    "run_id",
+    "varchar(36)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    12
+   ],
+   [
+    "cds_import_upload",
+    "snapshot_digest",
+    "char(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    9
+   ],
+   [
+    "cds_import_upload",
+    "source_name",
+    "varchar(1000)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    3
+   ],
+   [
+    "cds_import_upload",
+    "state",
+    "varchar(24)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    10
+   ],
+   [
+    "cds_import_upload",
+    "submission_key",
+    "varchar(128)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    11
+   ],
+   [
+    "cds_import_upload",
+    "updated_at",
+    "datetime(6)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    16
+   ],
+   [
+    "cds_import_upload",
+    "version",
+    "bigint(20)",
+    "NO",
+    "0",
+    "",
+    null,
+    null,
+    null,
+    17
+   ],
+   [
+    "cds_laboratory_result",
+    "abnormalFlag",
+    "varchar(50)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    16
+   ],
+   [
+    "cds_laboratory_result",
+    "accessionNumber",
+    "varchar(120)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    9
+   ],
+   [
+    "cds_laboratory_result",
+    "collectionDate",
+    "varchar(128)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    18
+   ],
+   [
+    "cds_laboratory_result",
+    "collectionPrecision",
+    "varchar(32)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    19
+   ],
+   [
+    "cds_laboratory_result",
+    "demographicNo",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    2
+   ],
+   [
+    "cds_laboratory_result",
+    "highLimit",
+    "varchar(1024)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    13
+   ],
+   [
+    "cds_laboratory_result",
+    "id",
+    "char(64)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    1
+   ],
+   [
+    "cds_laboratory_result",
+    "importedBy",
+    "varchar(16)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    26
+   ],
+   [
+    "cds_laboratory_result",
+    "informationFromLab",
+    "mediumtext",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    22
+   ],
+   [
+    "cds_laboratory_result",
+    "laboratoryName",
+    "varchar(120)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    5
+   ],
+   [
+    "cds_laboratory_result",
+    "lowLimit",
+    "varchar(1024)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    12
+   ],
+   [
+    "cds_laboratory_result",
+    "nativeLabNo",
+    "int(11)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    25
+   ],
+   [
+    "cds_laboratory_result",
+    "notesFromLab",
+    "mediumtext",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    23
+   ],
+   [
+    "cds_laboratory_result",
+    "physiciansNotes",
+    "mediumtext",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    24
+   ],
+   [
+    "cds_laboratory_result",
+    "referenceRange",
+    "varchar(1024)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    14
+   ],
+   [
+    "cds_laboratory_result",
+    "reportedTestName",
+    "varchar(120)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    6
+   ],
+   [
+    "cds_laboratory_result",
+    "requisitionDate",
+    "varchar(128)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    20
+   ],
+   [
+    "cds_laboratory_result",
+    "requisitionPrecision",
+    "varchar(32)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    21
+   ],
+   [
+    "cds_laboratory_result",
+    "resultStatus",
+    "varchar(20)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    15
+   ],
+   [
+    "cds_laboratory_result",
+    "resultValue",
+    "varchar(120)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    10
+   ],
+   [
+    "cds_laboratory_result",
+    "runId",
+    "char(36)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    3
+   ],
+   [
+    "cds_laboratory_result",
+    "sourceBlocked",
+    "char(1)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    17
+   ],
+   [
+    "cds_laboratory_result",
+    "sourcePath",
+    "varchar(2048)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    4
+   ],
+   [
+    "cds_laboratory_result",
+    "testCode",
+    "varchar(50)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    8
+   ],
+   [
+    "cds_laboratory_result",
+    "testName",
+    "varchar(120)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    7
+   ],
+   [
+    "cds_laboratory_result",
+    "unitOfMeasure",
+    "varchar(120)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_unicode_ci",
+    null,
+    11
    ],
    [
     "client_image",
@@ -13982,7 +16995,7 @@
    [
     "client_referral",
     "completion_notes",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -14006,7 +17019,7 @@
    [
     "client_referral",
     "notes",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -14018,7 +17031,7 @@
    [
     "client_referral",
     "present_problems",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -14162,7 +17175,7 @@
    [
     "clinic",
     "clinic_delim_fax",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -14174,7 +17187,7 @@
    [
     "clinic",
     "clinic_delim_phone",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -14354,7 +17367,7 @@
    [
     "clinic_nbr",
     "nbr_string",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -14678,7 +17691,7 @@
    [
     "consultationRequestExt",
     "value",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -14762,7 +17775,7 @@
    [
     "consultationRequestExtArchive",
     "value",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -14774,7 +17787,7 @@
    [
     "consultationRequests",
     "allergies",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -14822,7 +17835,7 @@
    [
     "consultationRequests",
     "clinicalInfo",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -14834,7 +17847,7 @@
    [
     "consultationRequests",
     "concurrentProblems",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -14846,7 +17859,7 @@
    [
     "consultationRequests",
     "currentMeds",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -14918,7 +17931,7 @@
    [
     "consultationRequests",
     "letterheadAddress",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -14990,7 +18003,7 @@
    [
     "consultationRequests",
     "reason",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -15110,7 +18123,7 @@
    [
     "consultationRequests",
     "statusText",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -15146,7 +18159,7 @@
    [
     "consultationRequestsArchive",
     "allergies",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -15194,7 +18207,7 @@
    [
     "consultationRequestsArchive",
     "clinicalInfo",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -15206,7 +18219,7 @@
    [
     "consultationRequestsArchive",
     "concurrentProblems",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -15218,7 +18231,7 @@
    [
     "consultationRequestsArchive",
     "currentMeds",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -15278,7 +18291,7 @@
    [
     "consultationRequestsArchive",
     "letterheadAddress",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -15350,7 +18363,7 @@
    [
     "consultationRequestsArchive",
     "reason",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -15470,7 +18483,7 @@
    [
     "consultationRequestsArchive",
     "statusText",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -15494,7 +18507,7 @@
    [
     "consultationResponse",
     "allergies",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -15518,7 +18531,7 @@
    [
     "consultationResponse",
     "appointmentNote",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -15542,7 +18555,7 @@
    [
     "consultationResponse",
     "clinicalInfo",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -15554,7 +18567,7 @@
    [
     "consultationResponse",
     "concurrentProblems",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -15566,7 +18579,7 @@
    [
     "consultationResponse",
     "currentMeds",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -15590,7 +18603,7 @@
    [
     "consultationResponse",
     "examination",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -15614,7 +18627,7 @@
    [
     "consultationResponse",
     "impression",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -15626,7 +18639,7 @@
    [
     "consultationResponse",
     "letterheadAddress",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -15674,7 +18687,7 @@
    [
     "consultationResponse",
     "plan",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -15710,7 +18723,7 @@
    [
     "consultationResponse",
     "referralReason",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -16334,7 +19347,7 @@
    [
     "cssStyles",
     "style",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -17174,7 +20187,7 @@
    [
     "default_issue",
     "issue_ids",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -17281,8 +20294,32 @@
    ],
    [
     "demographic",
+    "cds_identity_hin",
+    "varchar(20)",
+    "YES",
+    "NULL",
+    "STORED GENERATED",
+    "utf8mb4",
+    "utf8mb4_bin",
+    "case when char_length(replace(`hin`,' ','')) <= 20 then replace(`hin`,' ','') else NULL end",
+    59
+   ],
+   [
+    "demographic",
+    "cds_identity_issuer",
+    "varchar(5)",
+    "YES",
+    "NULL",
+    "STORED GENERATED",
+    "ascii",
+    "ascii_bin",
+    "case when cast(`hc_type` as char charset binary) in ('AB','BC','MB','NB','NL','NS','NT','NU','ON','PE','QC','SK','YT') then `hc_type` when cast(`hc_type` as char charset binary) in ('CA-AB','CA-BC','CA-MB','CA-NB','CA-NL','CA-NS','CA-NT','CA-NU','CA-ON','CA-PE','CA-QC','CA-SK','CA-YT') then substr(`hc_type`,4) when cast(`hc_type` as char charset binary) in ('US-AK','US-AL','US-AR','US-AZ','US-CA','US-CO','US-CT','US-CZ','US-DC','US-DE','US-FL','US-GA','US-GU','US-HI','US-IA','US-ID','US-IL','US-IN','US-KS','US-KY','US-LA','US-MA','US-MD','US-ME','US-MI','US-MN','US-MO','US-MS','US-MT','US-NC','US-ND','US-NE','US-NH','US-NJ','US-NM','US-NV','US-NY','US-OH','US-OK','US-OR','US-PA','US-PR','US-RI','US-SC','US-SD','US-TN','US-TX','US-UT','US-VA','US-VI','US-VT','US-WA','US-WI','US-WV','US-WY') then `hc_type` else NULL end",
+    60
+   ],
+   [
+    "demographic",
     "chart_no",
-    "varchar(10)",
+    "varchar(15)",
     "YES",
     "NULL",
     "",
@@ -17294,7 +20331,7 @@
    [
     "demographic",
     "children",
-    "varchar(1)",
+    "varchar(255)",
     "YES",
     "NULL",
     "",
@@ -17318,7 +20355,7 @@
    [
     "demographic",
     "city",
-    "varchar(50)",
+    "varchar(80)",
     "YES",
     "NULL",
     "",
@@ -17438,7 +20475,7 @@
    [
     "demographic",
     "first_name",
-    "varchar(30)",
+    "varchar(50)",
     "NO",
     "''",
     "",
@@ -17534,7 +20571,7 @@
    [
     "demographic",
     "last_name",
-    "varchar(30)",
+    "varchar(50)",
     "NO",
     "''",
     "",
@@ -17582,7 +20619,7 @@
    [
     "demographic",
     "newsletter",
-    "varchar(10)",
+    "varchar(32)",
     "YES",
     "NULL",
     "",
@@ -17606,7 +20643,7 @@
    [
     "demographic",
     "patient_status",
-    "varchar(20)",
+    "varchar(50)",
     "YES",
     "NULL",
     "",
@@ -17690,7 +20727,7 @@
    [
     "demographic",
     "previousAddress",
-    "varchar(60)",
+    "varchar(255)",
     "YES",
     "NULL",
     "",
@@ -17726,7 +20763,7 @@
    [
     "demographic",
     "provider_no",
-    "varchar(11)",
+    "varchar(250)",
     "YES",
     "NULL",
     "",
@@ -17762,7 +20799,7 @@
    [
     "demographic",
     "residentialCity",
-    "varchar(50)",
+    "varchar(80)",
     "YES",
     "NULL",
     "",
@@ -17882,7 +20919,7 @@
    [
     "demographic",
     "sourceOfIncome",
-    "varchar(1)",
+    "varchar(255)",
     "YES",
     "NULL",
     "",
@@ -17978,7 +21015,7 @@
    [
     "demographicArchive",
     "chart_no",
-    "varchar(10)",
+    "varchar(15)",
     "YES",
     "NULL",
     "",
@@ -18014,7 +21051,7 @@
    [
     "demographicArchive",
     "city",
-    "varchar(20)",
+    "varchar(80)",
     "YES",
     "NULL",
     "",
@@ -18050,7 +21087,7 @@
    [
     "demographicArchive",
     "date_of_birth",
-    "char(2)",
+    "varchar(2)",
     "YES",
     "NULL",
     "",
@@ -18122,7 +21159,7 @@
    [
     "demographicArchive",
     "first_name",
-    "varchar(30)",
+    "varchar(50)",
     "YES",
     "NULL",
     "",
@@ -18206,7 +21243,7 @@
    [
     "demographicArchive",
     "lastUpdateDate",
-    "date",
+    "datetime",
     "YES",
     "NULL",
     "",
@@ -18230,7 +21267,7 @@
    [
     "demographicArchive",
     "last_name",
-    "varchar(30)",
+    "varchar(50)",
     "YES",
     "NULL",
     "",
@@ -18254,7 +21291,7 @@
    [
     "demographicArchive",
     "month_of_birth",
-    "char(2)",
+    "varchar(2)",
     "YES",
     "NULL",
     "",
@@ -18302,7 +21339,7 @@
    [
     "demographicArchive",
     "patient_status",
-    "varchar(20)",
+    "varchar(50)",
     "YES",
     "NULL",
     "",
@@ -18458,7 +21495,7 @@
    [
     "demographicArchive",
     "residentialCity",
-    "varchar(50)",
+    "varchar(80)",
     "YES",
     "NULL",
     "",
@@ -18722,7 +21759,7 @@
    [
     "demographicExt",
     "value",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -18818,7 +21855,7 @@
    [
     "demographicExtArchive",
     "value",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -18938,7 +21975,7 @@
    [
     "demographicQueryFavourites",
     "demoIds",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -18998,7 +22035,7 @@
    [
     "demographicQueryFavourites",
     "patientStatus",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -19010,7 +22047,7 @@
    [
     "demographicQueryFavourites",
     "providerNo",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -19034,7 +22071,7 @@
    [
     "demographicQueryFavourites",
     "rosterStatus",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -19046,7 +22083,7 @@
    [
     "demographicQueryFavourites",
     "selects",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -19214,7 +22251,7 @@
    [
     "demographicaccessory",
     "content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -19238,7 +22275,7 @@
    [
     "demographiccust",
     "content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -19310,7 +22347,7 @@
    [
     "demographiccustArchive",
     "content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -19442,7 +22479,7 @@
    [
     "desannualreviewplan",
     "checklist_content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -19526,7 +22563,7 @@
    [
     "desannualreviewplan",
     "risk_content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -19538,7 +22575,7 @@
    [
     "desaprisk",
     "checklist_content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -19622,7 +22659,7 @@
    [
     "desaprisk",
     "risk_content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -19765,6 +22802,18 @@
    ],
    [
     "document",
+    "cds_content_precision",
+    "varchar(16)",
+    "YES",
+    "NULL",
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    28
+   ],
+   [
+    "document",
     "contentdatetime",
     "datetime",
     "YES",
@@ -19874,7 +22923,7 @@
    [
     "document",
     "docxml",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -20246,7 +23295,7 @@
    [
     "drugReason",
     "archivedReason",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -20282,7 +23331,7 @@
    [
     "drugReason",
     "comments",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -20449,8 +23498,44 @@
    ],
    [
     "drugs",
+    "cds_currentness",
+    "varchar(16)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    62
+   ],
+   [
+    "drugs",
+    "cds_dose_text",
+    "varchar(120)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    63
+   ],
+   [
+    "drugs",
+    "cds_projection_incomplete",
+    "tinyint(1)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    64
+   ],
+   [
+    "drugs",
     "comment",
-    "varchar(255)",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -20474,7 +23559,7 @@
    [
     "drugs",
     "customName",
-    "varchar(60)",
+    "varchar(120)",
     "YES",
     "NULL",
     "",
@@ -20558,7 +23643,7 @@
    [
     "drugs",
     "dosage",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -20570,7 +23655,7 @@
    [
     "drugs",
     "drug_form",
-    "varchar(50)",
+    "varchar(120)",
     "YES",
     "NULL",
     "",
@@ -20594,7 +23679,7 @@
    [
     "drugs",
     "duration",
-    "varchar(4)",
+    "varchar(1024)",
     "YES",
     "NULL",
     "",
@@ -20618,7 +23703,7 @@
    [
     "drugs",
     "eTreatmentType",
-    "varchar(20)",
+    "varchar(50)",
     "YES",
     "NULL",
     "",
@@ -20631,7 +23716,7 @@
     "drugs",
     "end_date",
     "date",
-    "NO",
+    "YES",
     "'0001-01-01'",
     "",
     null,
@@ -20642,7 +23727,7 @@
    [
     "drugs",
     "freqcode",
-    "varchar(6)",
+    "varchar(120)",
     "YES",
     "NULL",
     "",
@@ -20739,7 +23824,7 @@
     "drugs",
     "nosubs",
     "tinyint(1)",
-    "NO",
+    "YES",
     "0",
     "",
     null,
@@ -20750,7 +23835,7 @@
    [
     "drugs",
     "outside_provider_name",
-    "varchar(100)",
+    "varchar(101)",
     "YES",
     "NULL",
     "",
@@ -20882,7 +23967,7 @@
    [
     "drugs",
     "quantity",
-    "varchar(20)",
+    "varchar(1024)",
     "YES",
     "NULL",
     "",
@@ -20930,7 +24015,7 @@
    [
     "drugs",
     "repeat",
-    "tinyint(4)",
+    "int(11)",
     "YES",
     "NULL",
     "",
@@ -20942,7 +24027,7 @@
    [
     "drugs",
     "route",
-    "varchar(50)",
+    "varchar(120)",
     "YES",
     "'PO'",
     "",
@@ -20950,6 +24035,18 @@
     "utf8mb4_general_ci",
     null,
     30
+   ],
+   [
+    "drugs",
+    "row_version",
+    "bigint(20)",
+    "NO",
+    "0",
+    "",
+    null,
+    null,
+    null,
+    65
    ],
    [
     "drugs",
@@ -20967,7 +24064,7 @@
     "drugs",
     "rx_date",
     "date",
-    "NO",
+    "YES",
     "'0001-01-01'",
     "",
     null,
@@ -21002,7 +24099,7 @@
    [
     "drugs",
     "special",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -21014,7 +24111,7 @@
    [
     "drugs",
     "special_instruction",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -21062,7 +24159,7 @@
    [
     "drugs",
     "unit",
-    "varchar(5)",
+    "varchar(50)",
     "YES",
     "'tab'",
     "",
@@ -21074,7 +24171,7 @@
    [
     "drugs",
     "unitName",
-    "varchar(10)",
+    "varchar(50)",
     "YES",
     "NULL",
     "",
@@ -21254,7 +24351,7 @@
    [
     "dsGuidelines",
     "xml",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -21566,7 +24663,7 @@
    [
     "eChart",
     "encounter",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -21578,7 +24675,7 @@
    [
     "eChart",
     "familyHistory",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -21590,7 +24687,7 @@
    [
     "eChart",
     "medicalHistory",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -21602,7 +24699,7 @@
    [
     "eChart",
     "ongoingConcerns",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -21626,7 +24723,7 @@
    [
     "eChart",
     "reminders",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -21638,7 +24735,7 @@
    [
     "eChart",
     "socialHistory",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -21734,7 +24831,7 @@
    [
     "eform",
     "form_html",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -21902,7 +24999,7 @@
    [
     "eform_data",
     "form_data",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -22118,7 +25215,7 @@
    [
     "eform_values",
     "var_value",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -22538,7 +25635,7 @@
    [
     "encounter",
     "content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -22598,7 +25695,7 @@
    [
     "encounter",
     "encounterattachment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -22778,7 +25875,7 @@
    [
     "encountertemplate",
     "encountertemplate_value",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -22934,7 +26031,7 @@
    [
     "facility_message",
     "message",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -22970,7 +26067,7 @@
    [
     "favorites",
     "BN",
-    "varchar(30)",
+    "varchar(255)",
     "YES",
     "NULL",
     "",
@@ -23042,7 +26139,7 @@
    [
     "favorites",
     "dosage",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -23546,7 +26643,7 @@
    [
     "faxes",
     "document",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -23858,7 +26955,7 @@
    [
     "flowsheet_customization",
     "payload",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -24086,7 +27183,7 @@
    [
     "form",
     "content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -24446,7 +27543,7 @@
    [
     "formAdfV2",
     "actProblem",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -24554,7 +27651,7 @@
    [
     "formAdfV2",
     "courseOverYear",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -24710,7 +27807,7 @@
    [
     "formAdfV2",
     "inactProblem",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -24794,7 +27891,7 @@
    [
     "formAdfV2",
     "medications",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -24818,7 +27915,7 @@
    [
     "formAdfV2",
     "pertLabInvest",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -25262,7 +28359,7 @@
    [
     "formAlpha",
     "abuse",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -25298,7 +28395,7 @@
    [
     "formAlpha",
     "alcoholDrugAbuse",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -25346,7 +28443,7 @@
    [
     "formAlpha",
     "childAbuse",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -25358,7 +28455,7 @@
    [
     "formAlpha",
     "childDiscipline",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -25370,7 +28467,7 @@
    [
     "formAlpha",
     "comments",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -25382,7 +28479,7 @@
    [
     "formAlpha",
     "coupleRelationship",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -25406,7 +28503,7 @@
    [
     "formAlpha",
     "depression",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -25418,7 +28515,7 @@
    [
     "formAlpha",
     "feelingsRePregnancy",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -25478,7 +28575,7 @@
    [
     "formAlpha",
     "lifeEvents",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -25634,7 +28731,7 @@
    [
     "formAlpha",
     "prenatalCare",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -25658,7 +28755,7 @@
    [
     "formAlpha",
     "prenatalEducation",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -25706,7 +28803,7 @@
    [
     "formAlpha",
     "psychHistory",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -25742,7 +28839,7 @@
    [
     "formAlpha",
     "relationshipParents",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -25766,7 +28863,7 @@
    [
     "formAlpha",
     "selfEsteem",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -25778,7 +28875,7 @@
    [
     "formAlpha",
     "socialSupport",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -25814,7 +28911,7 @@
    [
     "formAlpha",
     "womanAbuse",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -25898,7 +28995,7 @@
    [
     "formAnnual",
     "assessment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -26006,7 +29103,7 @@
    [
     "formAnnual",
     "currentConcerns",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -26906,7 +30003,7 @@
    [
     "formAnnual",
     "physicalSigns",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -26918,7 +30015,7 @@
    [
     "formAnnual",
     "plan",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -28022,7 +31119,7 @@
    [
     "formAnnualV2",
     "examcns",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -28490,7 +31587,7 @@
    [
     "formAnnualV2",
     "impressionPlan",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -28886,7 +31983,7 @@
    [
     "formAnnualV2",
     "other",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -29414,7 +32511,7 @@
    [
     "formAnnualV2",
     "toDoCholesterol",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -29426,7 +32523,7 @@
    [
     "formAnnualV2",
     "toDoColorectal",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -29438,7 +32535,7 @@
    [
     "formAnnualV2",
     "toDoElderly",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -29450,7 +32547,7 @@
    [
     "formAnnualV2",
     "toDoImmunization",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -29462,7 +32559,7 @@
    [
     "formAnnualV2",
     "toDoMammogram",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -29474,7 +32571,7 @@
    [
     "formAnnualV2",
     "toDoObesity",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -29486,7 +32583,7 @@
    [
     "formAnnualV2",
     "toDoOsteoporosis",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -29498,7 +32595,7 @@
    [
     "formAnnualV2",
     "toDoPAPs",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -29510,7 +32607,7 @@
    [
     "formAnnualV2",
     "toDoProstateCancer",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -29522,7 +32619,7 @@
    [
     "formAnnualV2",
     "toDoSexualHealth",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -34706,7 +37803,7 @@
    [
     "formConsult",
     "comments",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -35798,7 +38895,7 @@
    [
     "formCounseling",
     "comments",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -36038,7 +39135,7 @@
    [
     "formDischargeSummary",
     "admissionNotes",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -36062,7 +39159,7 @@
    [
     "formDischargeSummary",
     "allergies",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -36086,7 +39183,7 @@
    [
     "formDischargeSummary",
     "briefSummary",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -36122,7 +39219,7 @@
    [
     "formDischargeSummary",
     "currentIssues",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -36206,7 +39303,7 @@
    [
     "formDischargeSummary",
     "dischargePlan",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -36374,7 +39471,7 @@
    [
     "formDischargeSummary",
     "notes",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -36458,7 +39555,7 @@
    [
     "formDischargeSummary",
     "prescriptionSummary",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -45014,7 +48111,7 @@
    [
     "formLabReq",
     "aci",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -45578,7 +48675,7 @@
    [
     "formLabReq",
     "otherTest",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -45854,7 +48951,7 @@
    [
     "formLabReq07",
     "aci",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -47306,7 +50403,7 @@
    [
     "formLabReq10",
     "aci",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -53450,7 +56547,7 @@
    [
     "formMMSE",
     "diagnosis",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -53654,7 +56751,7 @@
    [
     "formMMSE",
     "meds",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -53918,7 +57015,7 @@
    [
     "formMentalHealth",
     "a_assComments",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -54206,7 +57303,7 @@
    [
     "formMentalHealth",
     "o_outComments",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -54482,7 +57579,7 @@
    [
     "formMentalHealth",
     "r_refComments",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -54710,7 +57807,7 @@
    [
     "formMentalHealthForm1",
     "datetimeOfDetention",
-    "varchar(20)",
+    "varchar(50)",
     "YES",
     "NULL",
     "",
@@ -54758,7 +57855,7 @@
    [
     "formMentalHealthForm1",
     "facts",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -54770,7 +57867,7 @@
    [
     "formMentalHealthForm1",
     "facts2",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -54782,7 +57879,7 @@
    [
     "formMentalHealthForm1",
     "factsB",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -54950,7 +58047,7 @@
    [
     "formMentalHealthForm1",
     "observation",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -54962,7 +58059,7 @@
    [
     "formMentalHealthForm1",
     "observation2",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -54974,7 +58071,7 @@
    [
     "formMentalHealthForm1",
     "observationB",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -59486,7 +62583,7 @@
    [
     "formPositionHazard",
     "AdditionalNotes",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -60050,7 +63147,7 @@
    [
     "formPositionHazard",
     "Nanotechnology",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -60122,7 +63219,7 @@
    [
     "formPositionHazard",
     "OtherHumanBiohazard",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -60206,7 +63303,7 @@
    [
     "formPositionHazard",
     "ProcedureName",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -60326,7 +63423,7 @@
    [
     "formPositionHazard",
     "SubstanceForm",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -60650,7 +63747,7 @@
    [
     "formRhImmuneGlobulin",
     "allReactionsComment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -60686,7 +63783,7 @@
    [
     "formRhImmuneGlobulin",
     "comments",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -60698,7 +63795,7 @@
    [
     "formRhImmuneGlobulin",
     "curPregAntiDComment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -60758,7 +63855,7 @@
    [
     "formRhImmuneGlobulin",
     "curPregBleedingComment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -60842,7 +63939,7 @@
    [
     "formRhImmuneGlobulin",
     "curPregDueDateChangeComment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -60878,7 +63975,7 @@
    [
     "formRhImmuneGlobulin",
     "curPregProceduresComment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -61406,7 +64503,7 @@
    [
     "formRhImmuneGlobulin",
     "pmHisBlClDisordersComment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -61442,7 +64539,7 @@
    [
     "formRhImmuneGlobulin",
     "pmHisBlPlTransfusComment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -61634,7 +64731,7 @@
    [
     "formRourke",
     "c_birthRemarks",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -61718,7 +64815,7 @@
    [
     "formRourke",
     "c_riskFactors",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -62906,7 +66003,7 @@
    [
     "formRourke",
     "p1_pConcern1m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -62918,7 +66015,7 @@
    [
     "formRourke",
     "p1_pConcern1w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -62930,7 +66027,7 @@
    [
     "formRourke",
     "p1_pConcern2m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -62942,7 +66039,7 @@
    [
     "formRourke",
     "p1_pConcern2w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -64718,7 +67815,7 @@
    [
     "formRourke",
     "p2_pConcern12m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -64730,7 +67827,7 @@
    [
     "formRourke",
     "p2_pConcern4m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -64742,7 +67839,7 @@
    [
     "formRourke",
     "p2_pConcern6m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -64754,7 +67851,7 @@
    [
     "formRourke",
     "p2_pConcern9m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -66110,7 +69207,7 @@
    [
     "formRourke",
     "p3_pConcern18m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -66122,7 +69219,7 @@
    [
     "formRourke",
     "p3_pConcern2y",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -66134,7 +69231,7 @@
    [
     "formRourke",
     "p3_pConcern4y",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -66734,7 +69831,7 @@
    [
     "formRourke2006",
     "c_birthRemarks",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -66770,7 +69867,7 @@
    [
     "formRourke2006",
     "c_famHistory",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -66830,7 +69927,7 @@
    [
     "formRourke2006",
     "c_riskFactors",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -67082,7 +70179,7 @@
    [
     "formRourke2006",
     "p1_development1m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -67094,7 +70191,7 @@
    [
     "formRourke2006",
     "p1_development1w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -67106,7 +70203,7 @@
    [
     "formRourke2006",
     "p1_development2w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -67730,7 +70827,7 @@
    [
     "formRourke2006",
     "p1_pConcern1m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -67742,7 +70839,7 @@
    [
     "formRourke2006",
     "p1_pConcern1w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -67754,7 +70851,7 @@
    [
     "formRourke2006",
     "p1_pConcern2w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -67826,7 +70923,7 @@
    [
     "formRourke2006",
     "p1_problems1m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -67838,7 +70935,7 @@
    [
     "formRourke2006",
     "p1_problems1w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -67850,7 +70947,7 @@
    [
     "formRourke2006",
     "p1_problems2w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -68582,7 +71679,7 @@
    [
     "formRourke2006",
     "p2_development2m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -68594,7 +71691,7 @@
    [
     "formRourke2006",
     "p2_development4m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -68606,7 +71703,7 @@
    [
     "formRourke2006",
     "p2_development6m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -69386,7 +72483,7 @@
    [
     "formRourke2006",
     "p2_nutrition2m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -69398,7 +72495,7 @@
    [
     "formRourke2006",
     "p2_nutrition4m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -69410,7 +72507,7 @@
    [
     "formRourke2006",
     "p2_pConcern2m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -69422,7 +72519,7 @@
    [
     "formRourke2006",
     "p2_pConcern4m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -69434,7 +72531,7 @@
    [
     "formRourke2006",
     "p2_pConcern6m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -69542,7 +72639,7 @@
    [
     "formRourke2006",
     "p2_problems2m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -69554,7 +72651,7 @@
    [
     "formRourke2006",
     "p2_problems4m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -69566,7 +72663,7 @@
    [
     "formRourke2006",
     "p2_problems6m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -70418,7 +73515,7 @@
    [
     "formRourke2006",
     "p3_development12m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -70430,7 +73527,7 @@
    [
     "formRourke2006",
     "p3_development9m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -71102,7 +74199,7 @@
    [
     "formRourke2006",
     "p3_nutrition12m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -71114,7 +74211,7 @@
    [
     "formRourke2006",
     "p3_nutrition15m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -71126,7 +74223,7 @@
    [
     "formRourke2006",
     "p3_pConcern12m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -71138,7 +74235,7 @@
    [
     "formRourke2006",
     "p3_pConcern15m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -71150,7 +74247,7 @@
    [
     "formRourke2006",
     "p3_pConcern9m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -71306,7 +74403,7 @@
    [
     "formRourke2006",
     "p3_problems12m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -71318,7 +74415,7 @@
    [
     "formRourke2006",
     "p3_problems15m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -71330,7 +74427,7 @@
    [
     "formRourke2006",
     "p3_problems9m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -73226,7 +76323,7 @@
    [
     "formRourke2006",
     "p4_pConcern18m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -73238,7 +76335,7 @@
    [
     "formRourke2006",
     "p4_pConcern24m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -73250,7 +76347,7 @@
    [
     "formRourke2006",
     "p4_pConcern48m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -73430,7 +76527,7 @@
    [
     "formRourke2006",
     "p4_problems18m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -73442,7 +76539,7 @@
    [
     "formRourke2006",
     "p4_problems24m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -73454,7 +76551,7 @@
    [
     "formRourke2006",
     "p4_problems48m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -74282,7 +77379,7 @@
    [
     "formRourke2009",
     "c_birthRemarks",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -74318,7 +77415,7 @@
    [
     "formRourke2009",
     "c_famHistory",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -74390,7 +77487,7 @@
    [
     "formRourke2009",
     "c_riskFactors",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -74930,7 +78027,7 @@
    [
     "formRourke2009",
     "p1_development1m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -74942,7 +78039,7 @@
    [
     "formRourke2009",
     "p1_development1w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -74954,7 +78051,7 @@
    [
     "formRourke2009",
     "p1_development2w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -76106,7 +79203,7 @@
    [
     "formRourke2009",
     "p1_immunization1m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -76118,7 +79215,7 @@
    [
     "formRourke2009",
     "p1_immunization1w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -76130,7 +79227,7 @@
    [
     "formRourke2009",
     "p1_immunization2w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -76430,7 +79527,7 @@
    [
     "formRourke2009",
     "p1_pConcern1m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -76442,7 +79539,7 @@
    [
     "formRourke2009",
     "p1_pConcern1w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -76454,7 +79551,7 @@
    [
     "formRourke2009",
     "p1_pConcern2w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -76466,7 +79563,7 @@
    [
     "formRourke2009",
     "p1_pEducation",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -76514,7 +79611,7 @@
    [
     "formRourke2009",
     "p1_pNutrition1m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -76526,7 +79623,7 @@
    [
     "formRourke2009",
     "p1_pNutrition1w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -76538,7 +79635,7 @@
    [
     "formRourke2009",
     "p1_pNutrition2w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -76550,7 +79647,7 @@
    [
     "formRourke2009",
     "p1_pPhysical1m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -76562,7 +79659,7 @@
    [
     "formRourke2009",
     "p1_pPhysical1w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -76574,7 +79671,7 @@
    [
     "formRourke2009",
     "p1_pPhysical2w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -76658,7 +79755,7 @@
    [
     "formRourke2009",
     "p1_problems1m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -76670,7 +79767,7 @@
    [
     "formRourke2009",
     "p1_problems1w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -76682,7 +79779,7 @@
    [
     "formRourke2009",
     "p1_problems2w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -78170,7 +81267,7 @@
    [
     "formRourke2009",
     "p2_development2m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -78182,7 +81279,7 @@
    [
     "formRourke2009",
     "p2_development4m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -78194,7 +81291,7 @@
    [
     "formRourke2009",
     "p2_development6m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -78206,7 +81303,7 @@
    [
     "formRourke2009",
     "p2_education",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -79358,7 +82455,7 @@
    [
     "formRourke2009",
     "p2_immunization6m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -79814,7 +82911,7 @@
    [
     "formRourke2009",
     "p2_nutrition2m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -79826,7 +82923,7 @@
    [
     "formRourke2009",
     "p2_nutrition4m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -79838,7 +82935,7 @@
    [
     "formRourke2009",
     "p2_nutrition6m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -79850,7 +82947,7 @@
    [
     "formRourke2009",
     "p2_pConcern2m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -79862,7 +82959,7 @@
    [
     "formRourke2009",
     "p2_pConcern4m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -79874,7 +82971,7 @@
    [
     "formRourke2009",
     "p2_pConcern6m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -79994,7 +83091,7 @@
    [
     "formRourke2009",
     "p2_physical2m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -80006,7 +83103,7 @@
    [
     "formRourke2009",
     "p2_physical4m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -80018,7 +83115,7 @@
    [
     "formRourke2009",
     "p2_physical6m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -80066,7 +83163,7 @@
    [
     "formRourke2009",
     "p2_problems2m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -80078,7 +83175,7 @@
    [
     "formRourke2009",
     "p2_problems4m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -80090,7 +83187,7 @@
    [
     "formRourke2009",
     "p2_problems6m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -81830,7 +84927,7 @@
    [
     "formRourke2009",
     "p3_development12m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -81842,7 +84939,7 @@
    [
     "formRourke2009",
     "p3_development15m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -81854,7 +84951,7 @@
    [
     "formRourke2009",
     "p3_development9m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -81866,7 +84963,7 @@
    [
     "formRourke2009",
     "p3_education",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -83246,7 +86343,7 @@
    [
     "formRourke2009",
     "p3_nutrition12m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -83258,7 +86355,7 @@
    [
     "formRourke2009",
     "p3_nutrition15m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -83270,7 +86367,7 @@
    [
     "formRourke2009",
     "p3_nutrition9m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -83282,7 +86379,7 @@
    [
     "formRourke2009",
     "p3_pConcern12m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -83294,7 +86391,7 @@
    [
     "formRourke2009",
     "p3_pConcern15m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -83306,7 +86403,7 @@
    [
     "formRourke2009",
     "p3_pConcern9m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -83462,7 +86559,7 @@
    [
     "formRourke2009",
     "p3_physical12m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -83474,7 +86571,7 @@
    [
     "formRourke2009",
     "p3_physical15m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -83486,7 +86583,7 @@
    [
     "formRourke2009",
     "p3_physical9m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -83570,7 +86667,7 @@
    [
     "formRourke2009",
     "p3_problems12m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -83582,7 +86679,7 @@
    [
     "formRourke2009",
     "p3_problems15m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -83594,7 +86691,7 @@
    [
     "formRourke2009",
     "p3_problems9m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -85634,7 +88731,7 @@
    [
     "formRourke2009",
     "p4_development18m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -85646,7 +88743,7 @@
    [
     "formRourke2009",
     "p4_development24m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -85658,7 +88755,7 @@
    [
     "formRourke2009",
     "p4_development36m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -85670,7 +88767,7 @@
    [
     "formRourke2009",
     "p4_development48m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -85682,7 +88779,7 @@
    [
     "formRourke2009",
     "p4_development60m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -85802,7 +88899,7 @@
    [
     "formRourke2009",
     "p4_education18m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -85814,7 +88911,7 @@
    [
     "formRourke2009",
     "p4_education48m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -86846,7 +89943,7 @@
    [
     "formRourke2009",
     "p4_nippisingattained",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -87110,7 +90207,7 @@
    [
     "formRourke2009",
     "p4_nutrition18m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -87122,7 +90219,7 @@
    [
     "formRourke2009",
     "p4_nutrition24m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -87134,7 +90231,7 @@
    [
     "formRourke2009",
     "p4_nutrition48m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -87254,7 +90351,7 @@
    [
     "formRourke2009",
     "p4_pConcern18m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -87266,7 +90363,7 @@
    [
     "formRourke2009",
     "p4_pConcern24m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -87278,7 +90375,7 @@
    [
     "formRourke2009",
     "p4_pConcern48m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -87470,7 +90567,7 @@
    [
     "formRourke2009",
     "p4_physical18m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -87482,7 +90579,7 @@
    [
     "formRourke2009",
     "p4_physical24m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -87494,7 +90591,7 @@
    [
     "formRourke2009",
     "p4_physical48m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -87650,7 +90747,7 @@
    [
     "formRourke2009",
     "p4_problems18m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -87662,7 +90759,7 @@
    [
     "formRourke2009",
     "p4_problems24m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -87674,7 +90771,7 @@
    [
     "formRourke2009",
     "p4_problems48m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -100898,7 +103995,7 @@
    [
     "formSelfAssessment",
     "ADHD",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -100910,7 +104007,7 @@
    [
     "formSelfAssessment",
     "Academic",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -100922,7 +104019,7 @@
    [
     "formSelfAssessment",
     "AcademicPerformance",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -100946,7 +104043,7 @@
    [
     "formSelfAssessment",
     "Adopted",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -100958,7 +104055,7 @@
    [
     "formSelfAssessment",
     "AgesFather",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -100970,7 +104067,7 @@
    [
     "formSelfAssessment",
     "AgesMother",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -100982,7 +104079,7 @@
    [
     "formSelfAssessment",
     "AgesOthers",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -100994,7 +104091,7 @@
    [
     "formSelfAssessment",
     "AgesSiblings",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101006,7 +104103,7 @@
    [
     "formSelfAssessment",
     "Anxiety",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101018,7 +104115,7 @@
    [
     "formSelfAssessment",
     "Bipolar",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101030,7 +104127,7 @@
    [
     "formSelfAssessment",
     "Campus",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101042,7 +104139,7 @@
    [
     "formSelfAssessment",
     "CurrentMedications",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101054,7 +104151,7 @@
    [
     "formSelfAssessment",
     "CurrentMedicationsList",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101066,7 +104163,7 @@
    [
     "formSelfAssessment",
     "Depression",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101078,7 +104175,7 @@
    [
     "formSelfAssessment",
     "DrinkAlcohol",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101090,7 +104187,7 @@
    [
     "formSelfAssessment",
     "DrinkAlcoholMany",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101102,7 +104199,7 @@
    [
     "formSelfAssessment",
     "DrinkAlcoholWeekly",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101114,7 +104211,7 @@
    [
     "formSelfAssessment",
     "Eating",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101126,7 +104223,7 @@
    [
     "formSelfAssessment",
     "Esteem",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101138,7 +104235,7 @@
    [
     "formSelfAssessment",
     "Exercise",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101150,7 +104247,7 @@
    [
     "formSelfAssessment",
     "FamilyADHD",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101162,7 +104259,7 @@
    [
     "formSelfAssessment",
     "FamilyAlcohol",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101174,7 +104271,7 @@
    [
     "formSelfAssessment",
     "FamilyAnxiety",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101186,7 +104283,7 @@
    [
     "formSelfAssessment",
     "FamilyBipolar",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101198,7 +104295,7 @@
    [
     "formSelfAssessment",
     "FamilyDepression",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101210,7 +104307,7 @@
    [
     "formSelfAssessment",
     "FamilyDrugs",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101222,7 +104319,7 @@
    [
     "formSelfAssessment",
     "FamilyEating",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101234,7 +104331,7 @@
    [
     "formSelfAssessment",
     "FamilyEmotional",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101246,7 +104343,7 @@
    [
     "formSelfAssessment",
     "FamilyPhysical",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101258,7 +104355,7 @@
    [
     "formSelfAssessment",
     "FamilyPsychiatricOther",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101270,7 +104367,7 @@
    [
     "formSelfAssessment",
     "FamilyPsychosis",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101282,7 +104379,7 @@
    [
     "formSelfAssessment",
     "FamilySchizophrenia",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101294,7 +104391,7 @@
    [
     "formSelfAssessment",
     "FamilySexual",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101306,7 +104403,7 @@
    [
     "formSelfAssessment",
     "FamilySubstance",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101318,7 +104415,7 @@
    [
     "formSelfAssessment",
     "FamilySuicide",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101330,7 +104427,7 @@
    [
     "formSelfAssessment",
     "GeneralOther",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101342,7 +104439,7 @@
    [
     "formSelfAssessment",
     "Grief",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101354,7 +104451,7 @@
    [
     "formSelfAssessment",
     "Home",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101366,7 +104463,7 @@
    [
     "formSelfAssessment",
     "Hospitalizations",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101378,7 +104475,7 @@
    [
     "formSelfAssessment",
     "HospitalizationsOther",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101414,7 +104511,7 @@
    [
     "formSelfAssessment",
     "InRelationship",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101438,7 +104535,7 @@
    [
     "formSelfAssessment",
     "LivingSituationOther",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101450,7 +104547,7 @@
    [
     "formSelfAssessment",
     "Mania",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101462,7 +104559,7 @@
    [
     "formSelfAssessment",
     "Meals",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101474,7 +104571,7 @@
    [
     "formSelfAssessment",
     "Medicalillnesses",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101486,7 +104583,7 @@
    [
     "formSelfAssessment",
     "Obsessions",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101510,7 +104607,7 @@
    [
     "formSelfAssessment",
     "PastAlcohol",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101522,7 +104619,7 @@
    [
     "formSelfAssessment",
     "PastCounterMedications",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101534,7 +104631,7 @@
    [
     "formSelfAssessment",
     "PastCutting",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101546,7 +104643,7 @@
    [
     "formSelfAssessment",
     "PastGambling",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101558,7 +104655,7 @@
    [
     "formSelfAssessment",
     "PastLegal",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101570,7 +104667,7 @@
    [
     "formSelfAssessment",
     "PastPASTPSYCHIATRICOther",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101582,7 +104679,7 @@
    [
     "formSelfAssessment",
     "PastPSYCHIATRICTraumaEmotional",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101594,7 +104691,7 @@
    [
     "formSelfAssessment",
     "PastPSYCHIATRICTraumaPhysical",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101606,7 +104703,7 @@
    [
     "formSelfAssessment",
     "PastPSYCHIATRICTraumaSexual",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101618,7 +104715,7 @@
    [
     "formSelfAssessment",
     "PastPrescribedDrugs",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101630,7 +104727,7 @@
    [
     "formSelfAssessment",
     "PastReactionsMedication",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101642,7 +104739,7 @@
    [
     "formSelfAssessment",
     "PastReactionsMedicationList",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101654,7 +104751,7 @@
    [
     "formSelfAssessment",
     "PastStreetDrugs",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101666,7 +104763,7 @@
    [
     "formSelfAssessment",
     "PastSubstance",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101678,7 +104775,7 @@
    [
     "formSelfAssessment",
     "PastSuicideAttempts",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101690,7 +104787,7 @@
    [
     "formSelfAssessment",
     "PastSuicideMany",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101702,7 +104799,7 @@
    [
     "formSelfAssessment",
     "PastSuicideWhen",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101714,7 +104811,7 @@
    [
     "formSelfAssessment",
     "PastTobacco",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101726,7 +104823,7 @@
    [
     "formSelfAssessment",
     "Psychosis",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101738,7 +104835,7 @@
    [
     "formSelfAssessment",
     "ReasonsOther",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101750,7 +104847,7 @@
    [
     "formSelfAssessment",
     "Relationship",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101762,7 +104859,7 @@
    [
     "formSelfAssessment",
     "ReligiousAffiliation",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101774,7 +104871,7 @@
    [
     "formSelfAssessment",
     "Residence",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101786,7 +104883,7 @@
    [
     "formSelfAssessment",
     "Roommates",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101798,7 +104895,7 @@
    [
     "formSelfAssessment",
     "Sexual",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101810,7 +104907,7 @@
    [
     "formSelfAssessment",
     "SexualOrientation",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101822,7 +104919,7 @@
    [
     "formSelfAssessment",
     "SmokeQty",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101834,7 +104931,7 @@
    [
     "formSelfAssessment",
     "Smoker",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101846,7 +104943,7 @@
    [
     "formSelfAssessment",
     "StreetDrugs",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101858,7 +104955,7 @@
    [
     "formSelfAssessment",
     "Substance",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101870,7 +104967,7 @@
    [
     "formSelfAssessment",
     "Suicidal",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101882,7 +104979,7 @@
    [
     "formSelfAssessment",
     "Surgery",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101894,7 +104991,7 @@
    [
     "formSelfAssessment",
     "TraumaEmotional",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101906,7 +105003,7 @@
    [
     "formSelfAssessment",
     "TraumaPhysical",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101918,7 +105015,7 @@
    [
     "formSelfAssessment",
     "TraumaSexual",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -101978,7 +105075,7 @@
    [
     "formSelfAssessment",
     "helplessness",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -102026,7 +105123,7 @@
    [
     "formSelfAssessment",
     "psychiatricMedications",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -102038,7 +105135,7 @@
    [
     "formSelfAssessment",
     "psychiatricMedicationsList",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -102050,7 +105147,7 @@
    [
     "formSelfAssessment",
     "ptsd",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103490,7 +106587,7 @@
    [
     "formVTForm",
     "Assessment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -103634,7 +106731,7 @@
    [
     "formVTForm",
     "Diagnosis",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -104522,7 +107619,7 @@
    [
     "formVTForm",
     "Objective",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -104582,7 +107679,7 @@
    [
     "formVTForm",
     "Plan",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -104822,7 +107919,7 @@
    [
     "formVTForm",
     "Subjective",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -111014,7 +114111,7 @@
    [
     "health_safety",
     "message",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -111098,7 +114195,7 @@
    [
     "hl7TextInfo",
     "first_name",
-    "varchar(30)",
+    "varchar(50)",
     "YES",
     "NULL",
     "",
@@ -111110,7 +114207,7 @@
    [
     "hl7TextInfo",
     "health_no",
-    "varchar(12)",
+    "varchar(20)",
     "YES",
     "NULL",
     "",
@@ -111158,7 +114255,7 @@
    [
     "hl7TextInfo",
     "last_name",
-    "varchar(30)",
+    "varchar(50)",
     "YES",
     "NULL",
     "",
@@ -111350,7 +114447,7 @@
    [
     "hsfo2_patient",
     "EmrHCPId",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -111530,7 +114627,7 @@
    [
     "hsfo2_patient",
     "FName",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -111554,7 +114651,7 @@
    [
     "hsfo2_patient",
     "LName",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -111578,7 +114675,7 @@
    [
     "hsfo2_patient",
     "PharmacyLocation",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -111590,7 +114687,7 @@
    [
     "hsfo2_patient",
     "PharmacyName",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -111746,7 +114843,7 @@
    [
     "hsfo_recommit_schedule",
     "memo",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -111938,7 +115035,7 @@
    [
     "immunizations",
     "immunizations",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -112106,7 +115203,7 @@
    [
     "indicatorTemplate",
     "definition",
-    "tinytext",
+    "text",
     "YES",
     "NULL",
     "",
@@ -112202,7 +115299,7 @@
    [
     "indicatorTemplate",
     "notes",
-    "tinytext",
+    "text",
     "YES",
     "NULL",
     "",
@@ -112238,7 +115335,7 @@
    [
     "indicatorTemplate",
     "template",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -112466,7 +115563,7 @@
    [
     "labPatientPhysicianInfo",
     "comment1",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -112478,7 +115575,7 @@
    [
     "labPatientPhysicianInfo",
     "comment2",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -112898,7 +115995,7 @@
    [
     "labTestResults",
     "description",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -113102,7 +116199,7 @@
    [
     "log",
     "data",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -113210,7 +116307,7 @@
    [
     "log_letters",
     "log",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -115106,7 +118203,7 @@
    [
     "measurementTypeDeleted",
     "typeDisplayName",
-    "varchar(20)",
+    "varchar(255)",
     "NO",
     null,
     "",
@@ -115154,7 +118251,7 @@
    [
     "measurements",
     "dataField",
-    "varchar(255)",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -115262,7 +118359,7 @@
    [
     "measurementsDeleted",
     "dataField",
-    "varchar(255)",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -115418,7 +118515,7 @@
    [
     "measurementsExt",
     "val",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -115526,7 +118623,7 @@
    [
     "messagetbl",
     "attachment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -115550,7 +118647,7 @@
    [
     "messagetbl",
     "pdfattachment",
-    "blob",
+    "mediumblob",
     "YES",
     "NULL",
     "",
@@ -115598,7 +118695,7 @@
    [
     "messagetbl",
     "sentto",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -115634,7 +118731,7 @@
    [
     "messagetbl",
     "themessage",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -115838,7 +118935,7 @@
    [
     "oscarKeys",
     "privKey",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -115850,7 +118947,7 @@
    [
     "oscarKeys",
     "pubKey",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -116186,7 +119283,7 @@
    [
     "pharmacyInfo",
     "address",
-    "varchar(255)",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -116198,7 +119295,7 @@
    [
     "pharmacyInfo",
     "city",
-    "varchar(60)",
+    "varchar(255)",
     "YES",
     "NULL",
     "",
@@ -116246,7 +119343,7 @@
    [
     "pharmacyInfo",
     "notes",
-    "tinytext",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -116438,7 +119535,7 @@
    [
     "prescribe",
     "content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -116534,7 +119631,7 @@
    [
     "prescription",
     "dates_reprinted",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -116593,8 +119690,20 @@
    ],
    [
     "prescription",
+    "row_version",
+    "bigint(20)",
+    "NO",
+    "0",
+    "",
+    null,
+    null,
+    null,
+    11
+   ],
+   [
+    "prescription",
     "rx_comments",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -116618,7 +119727,7 @@
    [
     "prescription",
     "textView",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -116642,12 +119751,12 @@
    [
     "preventions",
     "creator",
-    "int(10)",
+    "varchar(16)",
     "YES",
     "NULL",
     "",
-    null,
-    null,
+    "ascii",
+    "ascii_bin",
     null,
     12
    ],
@@ -116858,7 +119967,7 @@
    [
     "preventionsExt",
     "val",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -116882,7 +119991,7 @@
    [
     "professionalSpecialists",
     "annotation",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -118406,7 +121515,7 @@
    [
     "property",
     "value",
-    "varchar(2000)",
+    "varchar(4000)",
     "YES",
     "NULL",
     "",
@@ -118442,7 +121551,7 @@
    [
     "provider",
     "comments",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -118778,7 +121887,7 @@
    [
     "providerArchive",
     "comments",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -118874,7 +121983,7 @@
    [
     "providerArchive",
     "lastUpdateDate",
-    "date",
+    "datetime",
     "YES",
     "NULL",
     "",
@@ -119462,7 +122571,7 @@
    [
     "publicKeys",
     "privateKey",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -119474,7 +122583,7 @@
    [
     "publicKeys",
     "pubKey",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -119858,7 +122967,7 @@
    [
     "raheader",
     "content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -120038,7 +123147,7 @@
    [
     "recyclebin",
     "table_content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -120182,7 +123291,7 @@
    [
     "relationships",
     "notes",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -120338,7 +123447,7 @@
    [
     "report",
     "notes",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -120650,7 +123759,7 @@
    [
     "reportFilter",
     "description",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -120674,7 +123783,7 @@
    [
     "reportFilter",
     "javascript",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -120854,7 +123963,7 @@
    [
     "reportTemplates",
     "templatedescription",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -120878,7 +123987,7 @@
    [
     "reportTemplates",
     "templatesql",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -120902,7 +124011,7 @@
    [
     "reportTemplates",
     "templatexml",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -121274,7 +124383,7 @@
    [
     "reporttemp",
     "address",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -121454,7 +124563,7 @@
    [
     "rschedule",
     "avail_hour",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -121570,6 +124679,234 @@
     "utf8mb4_general_ci",
     null,
     10
+   ],
+   [
+    "rx_favorite_group",
+    "id",
+    "int(11)",
+    "NO",
+    null,
+    "auto_increment",
+    null,
+    null,
+    null,
+    1
+   ],
+   [
+    "rx_favorite_group",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    6
+   ],
+   [
+    "rx_favorite_group",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'system'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    5
+   ],
+   [
+    "rx_favorite_group",
+    "name",
+    "varchar(80)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    3
+   ],
+   [
+    "rx_favorite_group",
+    "position",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    4
+   ],
+   [
+    "rx_favorite_group",
+    "provider_no",
+    "varchar(6)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    2
+   ],
+   [
+    "rx_favorite_group_member",
+    "favorite_id",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    2
+   ],
+   [
+    "rx_favorite_group_member",
+    "group_id",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    1
+   ],
+   [
+    "rx_favorite_group_member",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    4
+   ],
+   [
+    "rx_favorite_group_member",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'system'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    3
+   ],
+   [
+    "rx_submission_receipt",
+    "attempt_id",
+    "char(36)",
+    "YES",
+    "NULL",
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    6
+   ],
+   [
+    "rx_submission_receipt",
+    "created_at",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    9
+   ],
+   [
+    "rx_submission_receipt",
+    "demographic_no",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    3
+   ],
+   [
+    "rx_submission_receipt",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    8
+   ],
+   [
+    "rx_submission_receipt",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'system'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    7
+   ],
+   [
+    "rx_submission_receipt",
+    "outcome",
+    "varchar(7)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    5
+   ],
+   [
+    "rx_submission_receipt",
+    "prescription_id",
+    "int(11)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    4
+   ],
+   [
+    "rx_submission_receipt",
+    "provider_no",
+    "varchar(6)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    2
+   ],
+   [
+    "rx_submission_receipt",
+    "submission_hash",
+    "char(64)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    1
    ],
    [
     "scheduledate",
@@ -121742,7 +125079,7 @@
    [
     "scheduletemplate",
     "timecode",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -121874,7 +125211,7 @@
    [
     "scratch_pad",
     "scratch_text",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -122750,7 +126087,7 @@
    [
     "studydata",
     "content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -123074,7 +126411,7 @@
    [
     "survey",
     "surveyData",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -123314,7 +126651,7 @@
    [
     "table_modification",
     "resultSet",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -123398,7 +126735,7 @@
    [
     "tickler",
     "message",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -123554,7 +126891,7 @@
    [
     "tickler_comments",
     "message",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -124226,7 +127563,7 @@
    [
     "vacancy_client_match",
     "rejection_reason",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -124478,7 +127815,7 @@
    [
     "view",
     "value",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -125018,6 +128355,72 @@
     0,
     1,
     "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "Consent",
+    "uq_consent_live_type",
+    0,
+    1,
+    "live_demographic_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "Consent",
+    "uq_consent_live_type",
+    0,
+    2,
+    "consent_type_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "Consent_migration_audit",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "Consent_migration_audit",
+    "uq_consent_migration_reason",
+    0,
+    1,
+    "consent_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "Consent_migration_audit",
+    "uq_consent_migration_reason",
+    0,
+    2,
+    "migration",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "Consent_migration_audit",
+    "uq_consent_migration_reason",
+    0,
+    3,
+    "reason",
     "A",
     null,
     "BTREE",
@@ -126575,6 +129978,50 @@
     "NO"
    ],
    [
+    "billing_filename_import",
+    "PRIMARY",
+    0,
+    1,
+    "source_table",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "billing_filename_import",
+    "PRIMARY",
+    0,
+    2,
+    "source_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "billing_filename_import",
+    "imported_filename_lookup",
+    1,
+    1,
+    "imported_filename",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "billing_filename_import",
+    "original_filename_lookup",
+    1,
+    1,
+    "original_filename",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
     "billing_on_3rdPartyAddress",
     "PRIMARY",
     0,
@@ -127686,6 +131133,1348 @@
     "NO"
    ],
    [
+    "cds_import_admission",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_checkpoint",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_checkpoint",
+    "fk_cds_checkpoint_run",
+    1,
+    1,
+    "first_run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_checkpoint",
+    "idx_cds_checkpoint_lineage",
+    1,
+    1,
+    "lineage_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_dependency",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_dependency",
+    "idx_cds_dependency_target",
+    1,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_dependency",
+    "idx_cds_dependency_target",
+    1,
+    2,
+    "depends_on_unit_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_dependency",
+    "uq_cds_dependency",
+    0,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_dependency",
+    "uq_cds_dependency",
+    0,
+    2,
+    "unit_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_dependency",
+    "uq_cds_dependency",
+    0,
+    3,
+    "depends_on_unit_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_diagnostic",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_diagnostic",
+    "idx_cds_diagnostic_page",
+    1,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_diagnostic",
+    "idx_cds_diagnostic_page",
+    1,
+    2,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_diagnostic",
+    "idx_cds_diagnostic_review",
+    1,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_diagnostic",
+    "idx_cds_diagnostic_review",
+    1,
+    2,
+    "patient_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_diagnostic",
+    "idx_cds_diagnostic_review",
+    1,
+    3,
+    "blocking",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_diagnostic",
+    "idx_cds_diagnostic_review",
+    1,
+    4,
+    "resolved",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_event",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_event",
+    "idx_cds_event_page",
+    1,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_event",
+    "idx_cds_event_page",
+    1,
+    2,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_event",
+    "idx_cds_event_run_type_id",
+    1,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_event",
+    "idx_cds_event_run_type_id",
+    1,
+    2,
+    "event_type",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_event",
+    "idx_cds_event_run_type_id",
+    1,
+    3,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_field",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_field",
+    "idx_cds_field_category",
+    1,
+    1,
+    "demographic_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_field",
+    "idx_cds_field_category",
+    1,
+    2,
+    "category",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_field",
+    "idx_cds_field_category",
+    1,
+    3,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_field",
+    "idx_cds_field_unit",
+    1,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_field",
+    "idx_cds_field_unit",
+    1,
+    2,
+    "unit_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_file",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_file",
+    "fk_cds_file_run",
+    1,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_file",
+    "uq_cds_file_location",
+    0,
+    1,
+    "location_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_file_reference",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_file_reference",
+    "idx_cds_file_reference",
+    1,
+    1,
+    "file_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_file_reference",
+    "uq_cds_unit_file",
+    0,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_file_reference",
+    "uq_cds_unit_file",
+    0,
+    2,
+    "unit_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_file_reference",
+    "uq_cds_unit_file",
+    0,
+    3,
+    "file_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_identity",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_identity",
+    "idx_cds_identity_active_name",
+    1,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_identity",
+    "idx_cds_identity_active_name",
+    1,
+    2,
+    "copy_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_identity",
+    "idx_cds_identity_active_name",
+    1,
+    3,
+    "comparable",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_identity",
+    "idx_cds_identity_active_name",
+    1,
+    4,
+    "last_name",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_identity",
+    "idx_cds_identity_active_name",
+    1,
+    5,
+    "first_name",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_identity",
+    "idx_cds_identity_active_name",
+    1,
+    6,
+    "birth_date",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_identity",
+    "idx_cds_identity_authority",
+    1,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_identity",
+    "idx_cds_identity_authority",
+    1,
+    2,
+    "copy_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_identity",
+    "idx_cds_identity_authority",
+    1,
+    3,
+    "comparable",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_identity",
+    "idx_cds_identity_authority",
+    1,
+    4,
+    "hin",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_identity",
+    "idx_cds_identity_authority",
+    1,
+    5,
+    "issuer",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_identity",
+    "idx_cds_identity_hin",
+    1,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_identity",
+    "idx_cds_identity_hin",
+    1,
+    2,
+    "copy_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_identity",
+    "idx_cds_identity_hin",
+    1,
+    3,
+    "hin",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_identity",
+    "idx_cds_identity_name",
+    1,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_identity",
+    "idx_cds_identity_name",
+    1,
+    2,
+    "copy_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_identity",
+    "idx_cds_identity_name",
+    1,
+    3,
+    "last_name",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_identity",
+    "idx_cds_identity_name",
+    1,
+    4,
+    "first_name",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_identity",
+    "idx_cds_identity_name",
+    1,
+    5,
+    "birth_date",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_identity",
+    "uq_cds_identity_patient",
+    0,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_identity",
+    "uq_cds_identity_patient",
+    0,
+    2,
+    "patient_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_lineage",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_lineage",
+    "uq_cds_source_lineage",
+    0,
+    1,
+    "source_namespace",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_lineage",
+    "uq_cds_source_lineage",
+    0,
+    2,
+    "source_patient_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_lineage",
+    "uq_cds_source_lineage",
+    0,
+    3,
+    "copy_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_patient",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_patient",
+    "cds_patient_held_lookup",
+    1,
+    1,
+    "held",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_patient",
+    "cds_patient_held_lookup",
+    1,
+    2,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_patient",
+    "cds_patient_lineage_attempt",
+    1,
+    1,
+    "lineage_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_patient",
+    "cds_patient_lineage_attempt",
+    1,
+    2,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_patient",
+    "idx_cds_patient_target_hold",
+    1,
+    1,
+    "target_demographic_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_patient",
+    "idx_cds_patient_target_hold",
+    1,
+    2,
+    "held",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_patient",
+    "uq_cds_run_patient",
+    0,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_patient",
+    "uq_cds_run_patient",
+    0,
+    2,
+    "patient_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_preparation",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_preparation",
+    "cds_preparation_unit",
+    0,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_preparation",
+    "cds_preparation_unit",
+    0,
+    2,
+    "unit_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_review",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_review",
+    "cds_review_diagnostic_fk",
+    1,
+    1,
+    "diagnostic_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_review",
+    "cds_review_patient",
+    1,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_review",
+    "cds_review_patient",
+    1,
+    2,
+    "patient_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_review",
+    "cds_review_patient",
+    1,
+    3,
+    "review_version",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_review",
+    "cds_review_run_version",
+    0,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_review",
+    "cds_review_run_version",
+    0,
+    2,
+    "review_version",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_review",
+    "cds_review_source",
+    1,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_review",
+    "cds_review_source",
+    1,
+    2,
+    "source_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_review",
+    "cds_review_source",
+    1,
+    3,
+    "review_version",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_review",
+    "cds_review_source_patient",
+    1,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_review",
+    "cds_review_source_patient",
+    1,
+    2,
+    "source_patient_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_review",
+    "cds_review_source_patient",
+    1,
+    3,
+    "category",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_review",
+    "cds_review_source_patient",
+    1,
+    4,
+    "review_version",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_run",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_run",
+    "idx_cds_run_report_state_id",
+    1,
+    1,
+    "report_state",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_run",
+    "idx_cds_run_report_state_id",
+    1,
+    2,
+    "state",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_run",
+    "idx_cds_run_report_state_id",
+    1,
+    3,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_run",
+    "idx_cds_run_resume_requested",
+    1,
+    1,
+    "resume_requested",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_run",
+    "idx_cds_run_resume_requested",
+    1,
+    2,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_run",
+    "idx_cds_run_state",
+    1,
+    1,
+    "state",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_run",
+    "idx_cds_run_state",
+    1,
+    2,
+    "updated_at",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_run",
+    "idx_cds_run_state_id",
+    1,
+    1,
+    "state",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_run",
+    "idx_cds_run_state_id",
+    1,
+    2,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_run",
+    "uq_cds_submission",
+    0,
+    1,
+    "operator",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_run",
+    "uq_cds_submission",
+    0,
+    2,
+    "submission_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_unit",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_unit",
+    "idx_cds_units_patient",
+    1,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_unit",
+    "idx_cds_units_patient",
+    1,
+    2,
+    "patient_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_unit",
+    "idx_cds_units_patient",
+    1,
+    3,
+    "unit_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_unit",
+    "idx_cds_units_pending",
+    1,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_unit",
+    "idx_cds_units_pending",
+    1,
+    2,
+    "state",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_unit",
+    "idx_cds_units_pending",
+    1,
+    3,
+    "unit_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_unit",
+    "uq_cds_expected_unit",
+    0,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_unit",
+    "uq_cds_expected_unit",
+    0,
+    2,
+    "unit_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_upload",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_upload",
+    "idx_cds_upload_actual_run",
+    0,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_upload",
+    "idx_cds_upload_expiry",
+    1,
+    1,
+    "state",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_upload",
+    "idx_cds_upload_expiry",
+    1,
+    2,
+    "updated_at",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_upload",
+    "idx_cds_upload_owner_id",
+    1,
+    1,
+    "operator_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_upload",
+    "idx_cds_upload_owner_id",
+    1,
+    2,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_laboratory_result",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_laboratory_result",
+    "cds_lab_patient_restriction",
+    1,
+    1,
+    "demographicNo",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_laboratory_result",
+    "cds_lab_patient_restriction",
+    1,
+    2,
+    "sourceBlocked",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_laboratory_result",
+    "cds_lab_patient_restriction",
+    1,
+    3,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_laboratory_result",
+    "cds_lab_run",
+    1,
+    1,
+    "runId",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_laboratory_result",
+    "cds_lab_run",
+    1,
+    2,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
     "client_image",
     "PRIMARY",
     0,
@@ -128318,6 +133107,50 @@
     0,
     1,
     "demographic_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "demographic",
+    "cds_identity_authority_lookup",
+    1,
+    1,
+    "cds_identity_hin",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "demographic",
+    "cds_identity_authority_lookup",
+    1,
+    2,
+    "cds_identity_issuer",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "demographic",
+    "cds_identity_authority_lookup",
+    1,
+    3,
+    "demographic_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "demographic",
+    "cds_identity_hin_lookup",
+    1,
+    1,
+    "cds_identity_hin",
     "A",
     null,
     "BTREE",
@@ -131580,6 +136413,50 @@
     "NO"
    ],
    [
+    "partial_date",
+    "cds_partial_date_lookup",
+    1,
+    1,
+    "table_name",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "partial_date",
+    "cds_partial_date_lookup",
+    1,
+    2,
+    "field_name",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "partial_date",
+    "cds_partial_date_lookup",
+    1,
+    3,
+    "table_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "partial_date",
+    "cds_partial_date_lookup",
+    1,
+    4,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
     "patientLabRouting",
     "PRIMARY",
     0,
@@ -132222,6 +137099,94 @@
     "PRIMARY",
     0,
     1,
+    "provider_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "provider",
+    "cds_provider_cpso",
+    1,
+    1,
+    "practitionerNoType",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "provider",
+    "cds_provider_cpso",
+    1,
+    2,
+    "practitionerNo",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "provider",
+    "cds_provider_cpso",
+    1,
+    3,
+    "provider_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "provider",
+    "cds_provider_name",
+    1,
+    1,
+    "first_name",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "provider",
+    "cds_provider_name",
+    1,
+    2,
+    "last_name",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "provider",
+    "cds_provider_name",
+    1,
+    3,
+    "provider_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "provider",
+    "cds_provider_ohip",
+    1,
+    1,
+    "ohip_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "provider",
+    "cds_provider_ohip",
+    1,
+    2,
     "provider_no",
     "A",
     null,
@@ -132905,6 +137870,116 @@
     0,
     1,
     "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group",
+    "rx_favorite_group_owner_name",
+    0,
+    1,
+    "provider_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group",
+    "rx_favorite_group_owner_name",
+    0,
+    2,
+    "name",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group_member",
+    "PRIMARY",
+    0,
+    1,
+    "group_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group_member",
+    "PRIMARY",
+    0,
+    2,
+    "favorite_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_favorite",
+    1,
+    1,
+    "favorite_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    0,
+    1,
+    "submission_hash",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    0,
+    2,
+    "provider_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    0,
+    3,
+    "demographic_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_submission_receipt",
+    "rx_submission_receipt_prescription",
+    1,
+    1,
+    "prescription_id",
     "A",
     null,
     "BTREE",
@@ -133946,6 +139021,60 @@
     null
    ],
    [
+    "Consent",
+    "uq_consent_live_type",
+    1,
+    "live_demographic_no",
+    null,
+    null,
+    null
+   ],
+   [
+    "Consent",
+    "uq_consent_live_type",
+    2,
+    "consent_type_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "Consent_migration_audit",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "Consent_migration_audit",
+    "uq_consent_migration_reason",
+    1,
+    "consent_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "Consent_migration_audit",
+    "uq_consent_migration_reason",
+    2,
+    "migration",
+    null,
+    null,
+    null
+   ],
+   [
+    "Consent_migration_audit",
+    "uq_consent_migration_reason",
+    3,
+    "reason",
+    null,
+    null,
+    null
+   ],
+   [
     "Contact",
     "PRIMARY",
     1,
@@ -134711,6 +139840,24 @@
     null
    ],
    [
+    "billing_filename_import",
+    "PRIMARY",
+    1,
+    "source_table",
+    null,
+    null,
+    null
+   ],
+   [
+    "billing_filename_import",
+    "PRIMARY",
+    2,
+    "source_id",
+    null,
+    null,
+    null
+   ],
+   [
     "billing_on_3rdPartyAddress",
     "PRIMARY",
     1,
@@ -135090,6 +140237,537 @@
    ],
    [
     "casemgmt_tmpsave",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_admission",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_checkpoint",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_checkpoint",
+    "fk_cds_checkpoint_lineage",
+    1,
+    "lineage_key",
+    "$self",
+    "cds_import_lineage",
+    "id"
+   ],
+   [
+    "cds_import_checkpoint",
+    "fk_cds_checkpoint_run",
+    1,
+    "first_run_id",
+    "$self",
+    "cds_import_run",
+    "id"
+   ],
+   [
+    "cds_import_dependency",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_dependency",
+    "fk_cds_dependency_target",
+    1,
+    "run_id",
+    "$self",
+    "cds_import_unit",
+    "run_id"
+   ],
+   [
+    "cds_import_dependency",
+    "fk_cds_dependency_target",
+    2,
+    "depends_on_unit_key",
+    "$self",
+    "cds_import_unit",
+    "unit_key"
+   ],
+   [
+    "cds_import_dependency",
+    "fk_cds_dependency_unit",
+    1,
+    "run_id",
+    "$self",
+    "cds_import_unit",
+    "run_id"
+   ],
+   [
+    "cds_import_dependency",
+    "fk_cds_dependency_unit",
+    2,
+    "unit_key",
+    "$self",
+    "cds_import_unit",
+    "unit_key"
+   ],
+   [
+    "cds_import_dependency",
+    "uq_cds_dependency",
+    1,
+    "run_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_dependency",
+    "uq_cds_dependency",
+    2,
+    "unit_key",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_dependency",
+    "uq_cds_dependency",
+    3,
+    "depends_on_unit_key",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_diagnostic",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_diagnostic",
+    "fk_cds_diagnostic_run",
+    1,
+    "run_id",
+    "$self",
+    "cds_import_run",
+    "id"
+   ],
+   [
+    "cds_import_event",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_event",
+    "fk_cds_event_run",
+    1,
+    "run_id",
+    "$self",
+    "cds_import_run",
+    "id"
+   ],
+   [
+    "cds_import_field",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_field",
+    "fk_cds_field_unit",
+    1,
+    "run_id",
+    "$self",
+    "cds_import_unit",
+    "run_id"
+   ],
+   [
+    "cds_import_field",
+    "fk_cds_field_unit",
+    2,
+    "unit_key",
+    "$self",
+    "cds_import_unit",
+    "unit_key"
+   ],
+   [
+    "cds_import_file",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_file",
+    "fk_cds_file_run",
+    1,
+    "run_id",
+    "$self",
+    "cds_import_run",
+    "id"
+   ],
+   [
+    "cds_import_file",
+    "uq_cds_file_location",
+    1,
+    "location_key",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_file_reference",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_file_reference",
+    "fk_cds_file_reference_object",
+    1,
+    "file_id",
+    "$self",
+    "cds_import_file",
+    "id"
+   ],
+   [
+    "cds_import_file_reference",
+    "fk_cds_file_reference_unit",
+    1,
+    "run_id",
+    "$self",
+    "cds_import_unit",
+    "run_id"
+   ],
+   [
+    "cds_import_file_reference",
+    "fk_cds_file_reference_unit",
+    2,
+    "unit_key",
+    "$self",
+    "cds_import_unit",
+    "unit_key"
+   ],
+   [
+    "cds_import_file_reference",
+    "uq_cds_unit_file",
+    1,
+    "run_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_file_reference",
+    "uq_cds_unit_file",
+    2,
+    "unit_key",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_file_reference",
+    "uq_cds_unit_file",
+    3,
+    "file_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_identity",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_identity",
+    "uq_cds_identity_patient",
+    1,
+    "run_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_identity",
+    "uq_cds_identity_patient",
+    2,
+    "patient_key",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_lineage",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_lineage",
+    "uq_cds_source_lineage",
+    1,
+    "source_namespace",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_lineage",
+    "uq_cds_source_lineage",
+    2,
+    "source_patient_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_lineage",
+    "uq_cds_source_lineage",
+    3,
+    "copy_key",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_patient",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_patient",
+    "fk_cds_patient_run",
+    1,
+    "run_id",
+    "$self",
+    "cds_import_run",
+    "id"
+   ],
+   [
+    "cds_import_patient",
+    "uq_cds_run_patient",
+    1,
+    "run_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_patient",
+    "uq_cds_run_patient",
+    2,
+    "patient_key",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_preparation",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_preparation",
+    "cds_preparation_unit",
+    1,
+    "run_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_preparation",
+    "cds_preparation_unit",
+    2,
+    "unit_key",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_review",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_review",
+    "cds_review_diagnostic_fk",
+    1,
+    "diagnostic_id",
+    "$self",
+    "cds_import_diagnostic",
+    "id"
+   ],
+   [
+    "cds_import_review",
+    "cds_review_run_fk",
+    1,
+    "run_id",
+    "$self",
+    "cds_import_run",
+    "id"
+   ],
+   [
+    "cds_import_review",
+    "cds_review_run_version",
+    1,
+    "run_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_review",
+    "cds_review_run_version",
+    2,
+    "review_version",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_run",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_run",
+    "uq_cds_submission",
+    1,
+    "operator",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_run",
+    "uq_cds_submission",
+    2,
+    "submission_key",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_unit",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_unit",
+    "fk_cds_unit_patient",
+    1,
+    "run_id",
+    "$self",
+    "cds_import_patient",
+    "run_id"
+   ],
+   [
+    "cds_import_unit",
+    "fk_cds_unit_patient",
+    2,
+    "patient_key",
+    "$self",
+    "cds_import_patient",
+    "patient_key"
+   ],
+   [
+    "cds_import_unit",
+    "uq_cds_expected_unit",
+    1,
+    "run_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_unit",
+    "uq_cds_expected_unit",
+    2,
+    "unit_key",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_upload",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_import_upload",
+    "idx_cds_upload_actual_run",
+    1,
+    "run_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_laboratory_result",
     "PRIMARY",
     1,
     "id",
@@ -137726,6 +143404,96 @@
     null
    ],
    [
+    "rx_favorite_group",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group",
+    "rx_favorite_group_owner_name",
+    1,
+    "provider_no",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group",
+    "rx_favorite_group_owner_name",
+    2,
+    "name",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group_member",
+    "PRIMARY",
+    1,
+    "group_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group_member",
+    "PRIMARY",
+    2,
+    "favorite_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_favorite_fk",
+    1,
+    "favorite_id",
+    "$self",
+    "favorites",
+    "favoriteid"
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_group_fk",
+    1,
+    "group_id",
+    "$self",
+    "rx_favorite_group",
+    "id"
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    1,
+    "submission_hash",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    2,
+    "provider_no",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    3,
+    "demographic_no",
+    null,
+    null,
+    null
+   ],
+   [
     "scheduledate",
     "PRIMARY",
     1,
@@ -138238,6 +144006,104 @@
     "RESTRICT"
    ],
    [
+    "cds_import_checkpoint",
+    "fk_cds_checkpoint_lineage",
+    "cds_import_lineage",
+    "RESTRICT",
+    "RESTRICT"
+   ],
+   [
+    "cds_import_checkpoint",
+    "fk_cds_checkpoint_run",
+    "cds_import_run",
+    "RESTRICT",
+    "RESTRICT"
+   ],
+   [
+    "cds_import_dependency",
+    "fk_cds_dependency_target",
+    "cds_import_unit",
+    "RESTRICT",
+    "RESTRICT"
+   ],
+   [
+    "cds_import_dependency",
+    "fk_cds_dependency_unit",
+    "cds_import_unit",
+    "RESTRICT",
+    "RESTRICT"
+   ],
+   [
+    "cds_import_diagnostic",
+    "fk_cds_diagnostic_run",
+    "cds_import_run",
+    "RESTRICT",
+    "RESTRICT"
+   ],
+   [
+    "cds_import_event",
+    "fk_cds_event_run",
+    "cds_import_run",
+    "RESTRICT",
+    "RESTRICT"
+   ],
+   [
+    "cds_import_field",
+    "fk_cds_field_unit",
+    "cds_import_unit",
+    "RESTRICT",
+    "RESTRICT"
+   ],
+   [
+    "cds_import_file",
+    "fk_cds_file_run",
+    "cds_import_run",
+    "RESTRICT",
+    "RESTRICT"
+   ],
+   [
+    "cds_import_file_reference",
+    "fk_cds_file_reference_object",
+    "cds_import_file",
+    "RESTRICT",
+    "RESTRICT"
+   ],
+   [
+    "cds_import_file_reference",
+    "fk_cds_file_reference_unit",
+    "cds_import_unit",
+    "RESTRICT",
+    "RESTRICT"
+   ],
+   [
+    "cds_import_patient",
+    "fk_cds_patient_run",
+    "cds_import_run",
+    "RESTRICT",
+    "RESTRICT"
+   ],
+   [
+    "cds_import_review",
+    "cds_review_diagnostic_fk",
+    "cds_import_diagnostic",
+    "RESTRICT",
+    "RESTRICT"
+   ],
+   [
+    "cds_import_review",
+    "cds_review_run_fk",
+    "cds_import_run",
+    "RESTRICT",
+    "RESTRICT"
+   ],
+   [
+    "cds_import_unit",
+    "fk_cds_unit_patient",
+    "cds_import_patient",
+    "RESTRICT",
+    "RESTRICT"
+   ],
+   [
     "default_role_access",
     "FKhs2yix1qvq9oqmbwsj2w2xgmu",
     "access_type",
@@ -138376,6 +144242,20 @@
     "Facility",
     "RESTRICT",
     "RESTRICT"
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_favorite_fk",
+    "favorites",
+    "RESTRICT",
+    "CASCADE"
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_group_fk",
+    "rx_favorite_group",
+    "RESTRICT",
+    "CASCADE"
    ]
   ],
   "tables": [
@@ -138453,6 +144333,12 @@
    ],
    [
     "Consent",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "Consent_migration_audit",
     "InnoDB",
     "Dynamic",
     "utf8mb4_general_ci"
@@ -138926,6 +144812,12 @@
     "utf8mb4_general_ci"
    ],
    [
+    "billing_filename_import",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
     "billing_on_3rdPartyAddress",
     "InnoDB",
     "Dynamic",
@@ -139146,6 +145038,108 @@
     "InnoDB",
     "Dynamic",
     "utf8mb4_general_ci"
+   ],
+   [
+    "cds_import_admission",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_bin"
+   ],
+   [
+    "cds_import_checkpoint",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_bin"
+   ],
+   [
+    "cds_import_dependency",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_bin"
+   ],
+   [
+    "cds_import_diagnostic",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_bin"
+   ],
+   [
+    "cds_import_event",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_bin"
+   ],
+   [
+    "cds_import_field",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_bin"
+   ],
+   [
+    "cds_import_file",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_bin"
+   ],
+   [
+    "cds_import_file_reference",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_bin"
+   ],
+   [
+    "cds_import_identity",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_bin"
+   ],
+   [
+    "cds_import_lineage",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_bin"
+   ],
+   [
+    "cds_import_patient",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_bin"
+   ],
+   [
+    "cds_import_preparation",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_unicode_ci"
+   ],
+   [
+    "cds_import_review",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_bin"
+   ],
+   [
+    "cds_import_run",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_bin"
+   ],
+   [
+    "cds_import_unit",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_bin"
+   ],
+   [
+    "cds_import_upload",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_unicode_ci"
+   ],
+   [
+    "cds_laboratory_result",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_unicode_ci"
    ],
    [
     "client_image",
@@ -140745,6 +146739,24 @@
    ],
    [
     "rschedule",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "rx_favorite_group",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "rx_favorite_group_member",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "rx_submission_receipt",
     "InnoDB",
     "Dynamic",
     "utf8mb4_general_ci"

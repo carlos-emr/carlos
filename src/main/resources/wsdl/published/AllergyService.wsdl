@@ -1,0 +1,186 @@
+<?xml version='1.0' encoding='UTF-8'?><wsdl:definitions xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:tns="http://ws.oscarehr.org/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:ns1="http://schemas.xmlsoap.org/soap/http" name="AllergyWsService" targetNamespace="http://ws.oscarehr.org/">
+  <wsdl:types>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:ns0="http://ws.oscarehr.org/" targetNamespace="http://ws.oscarehr.org/">
+  <xsd:complexType name="getAllergiesByDemographicIdAfter">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="lastUpdate" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="demographicId" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAllergiesByDemographicIdAfterResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:allergyTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAllergiesByProgramProviderDemographicDate">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="arg1" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="arg2" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="arg3" type="xsd:dateTime"/>
+      <xsd:element name="arg4" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAllergiesByProgramProviderDemographicDateResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:allergyTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAllergiesUpdatedAfterDate">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:dateTime"/>
+      <xsd:element name="arg1" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAllergiesUpdatedAfterDateResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:allergyTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAllergy">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAllergyResponse">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="ns0:allergyTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="allergyTransfer">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="agccs" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="agcsp" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="ageOfOnset" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="demographicNo" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="description" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="entryDate" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="hicSeqno" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="hiclSeqno" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="id" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="lastUpdateDate" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="lifeStage" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="nonDrug" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="onsetOfReaction" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="providerNo" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="reaction" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="reactionType" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="regionalIdentifier" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="severityOfReaction" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="startDate" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="typeCode" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:element name="getAllergiesByDemographicIdAfter" type="ns0:getAllergiesByDemographicIdAfter"/>
+  <xsd:element name="getAllergiesByDemographicIdAfterResponse" type="ns0:getAllergiesByDemographicIdAfterResponse"/>
+  <xsd:element name="getAllergiesByProgramProviderDemographicDate" type="ns0:getAllergiesByProgramProviderDemographicDate"/>
+  <xsd:element name="getAllergiesByProgramProviderDemographicDateResponse" type="ns0:getAllergiesByProgramProviderDemographicDateResponse"/>
+  <xsd:element name="getAllergiesUpdatedAfterDate" type="ns0:getAllergiesUpdatedAfterDate"/>
+  <xsd:element name="getAllergiesUpdatedAfterDateResponse" type="ns0:getAllergiesUpdatedAfterDateResponse"/>
+  <xsd:element name="getAllergy" type="ns0:getAllergy"/>
+  <xsd:element name="getAllergyResponse" type="ns0:getAllergyResponse"/>
+</xsd:schema>
+  </wsdl:types>
+  <wsdl:message name="getAllergy">
+    <wsdl:part element="tns:getAllergy" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAllergiesUpdatedAfterDateResponse">
+    <wsdl:part element="tns:getAllergiesUpdatedAfterDateResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAllergiesUpdatedAfterDate">
+    <wsdl:part element="tns:getAllergiesUpdatedAfterDate" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAllergyResponse">
+    <wsdl:part element="tns:getAllergyResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAllergiesByDemographicIdAfterResponse">
+    <wsdl:part element="tns:getAllergiesByDemographicIdAfterResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAllergiesByProgramProviderDemographicDate">
+    <wsdl:part element="tns:getAllergiesByProgramProviderDemographicDate" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAllergiesByProgramProviderDemographicDateResponse">
+    <wsdl:part element="tns:getAllergiesByProgramProviderDemographicDateResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAllergiesByDemographicIdAfter">
+    <wsdl:part element="tns:getAllergiesByDemographicIdAfter" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:portType name="AllergyWs">
+    <wsdl:operation name="getAllergy">
+      <wsdl:input message="tns:getAllergy" name="getAllergy">
+    </wsdl:input>
+      <wsdl:output message="tns:getAllergyResponse" name="getAllergyResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAllergiesByDemographicIdAfter">
+      <wsdl:input message="tns:getAllergiesByDemographicIdAfter" name="getAllergiesByDemographicIdAfter">
+    </wsdl:input>
+      <wsdl:output message="tns:getAllergiesByDemographicIdAfterResponse" name="getAllergiesByDemographicIdAfterResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAllergiesUpdatedAfterDate">
+      <wsdl:input message="tns:getAllergiesUpdatedAfterDate" name="getAllergiesUpdatedAfterDate">
+    </wsdl:input>
+      <wsdl:output message="tns:getAllergiesUpdatedAfterDateResponse" name="getAllergiesUpdatedAfterDateResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAllergiesByProgramProviderDemographicDate">
+      <wsdl:input message="tns:getAllergiesByProgramProviderDemographicDate" name="getAllergiesByProgramProviderDemographicDate">
+    </wsdl:input>
+      <wsdl:output message="tns:getAllergiesByProgramProviderDemographicDateResponse" name="getAllergiesByProgramProviderDemographicDateResponse">
+    </wsdl:output>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="AllergyWsServiceSoapBinding" type="tns:AllergyWs">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="getAllergy">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getAllergy">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getAllergyResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAllergiesByDemographicIdAfter">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getAllergiesByDemographicIdAfter">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getAllergiesByDemographicIdAfterResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAllergiesUpdatedAfterDate">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getAllergiesUpdatedAfterDate">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getAllergiesUpdatedAfterDateResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAllergiesByProgramProviderDemographicDate">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getAllergiesByProgramProviderDemographicDate">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getAllergiesByProgramProviderDemographicDateResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="AllergyWsService">
+    <wsdl:port binding="tns:AllergyWsServiceSoapBinding" name="AllergyWsPort">
+      <soap:address location="http://127.0.0.1:18080/carlos/ws/AllergyService"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

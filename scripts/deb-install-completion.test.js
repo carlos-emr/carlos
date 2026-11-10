@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
+// Modifications by CARLOS Contributors, 2026.
 //
 // An install can provision nothing and still report success: every database
 // step in carlos-emr.postinst is non-fatal on purpose, so dpkg is never left
@@ -195,7 +196,7 @@ print("ok")
     /if \[ "\$\{PROVISION_LOCK_HELD\}" = 1 \] && \[ ! -e "\$\{DB_NAME_SENTINEL\}" \]; then/);
   // init-config rewrites carlos.properties and reloads nginx: shared state.
   assert.match(postinst,
-    /if \[ "\$\{PROVISION_LOCK_HELD\}" = 1 \]; then\n\s+carlos-ctl init-config/);
+    /if \[ "\$\{PROVISION_LOCK_HELD\}" = 1 \]; then\n[\s\S]*?carlos-ctl init-config/);
   assert.match(postinst, /if \[ "\$\{PROVISION_LOCK_HELD\}" = 0 \]; then/);
   // Only a MISSING flock(1) falls through to the pre-lock behavior; a lock file
   // that cannot be opened defers provisioning instead of running unserialized.
@@ -379,38 +380,150 @@ ${block}
 
 // Execute the shipped nginx decision block with isolated service commands.
 // A syntax or service failure must survive the earlier clear_incomplete call.
+test('postinst retires the default nginx symlink before init-config, under the provisioning lock', () => {
+  const start = postinst.indexOf('        [ -e /etc/nginx/sites-enabled/carlos-emr ]');
+  const end = postinst.indexOf('        unset CARLOS_CONFIGURE_FIRST_RUN', start);
+  assert.ok(start >= 0 && end > start);
+  for (const kind of ['symlink', 'dangling', 'regular', 'absent']) {
+    for (const locked of [0, 1]) {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-default-site-'));
+      try {
+        const target = path.join(root, 'stock-site');
+        const enabled = path.join(root, 'default');
+        fs.writeFileSync(target, 'listen [::]:80;\n');
+        if (kind === 'symlink') fs.symlinkSync(target, enabled);
+        if (kind === 'dangling') fs.symlinkSync(path.join(root, 'missing'), enabled);
+        if (kind === 'regular') fs.writeFileSync(enabled, 'operator site\n');
+        fs.writeFileSync(path.join(root, 'carlos-ctl'), `#!/bin/sh
+set -e
+[ "$1" = init-config ]
+[ "\${CARLOS_CONFIGURE_FIRST_RUN:-}" = 1 ]
+[ ! -L '${enabled}' ]
+echo rendered
+`, { mode: 0o755 });
+        const block = postinst.slice(start, end).replaceAll('/etc/nginx/sites-enabled', root);
+        const result = spawnSync('sh', ['-c', `set -eu
+PROVISION_LOCK_HELD=${locked}
+PATH='${root}':$PATH
+mark_incomplete() { echo incomplete; }
+${block}
+`], { encoding: 'utf8' });
+        assert.equal(result.status, 0, result.stdout + result.stderr);
+        assert.equal(result.stdout.includes('rendered'), locked === 1);
+        assert.ok(!result.stdout.includes('incomplete'), result.stdout);
+        assert.equal(fs.readFileSync(target, 'utf8'), 'listen [::]:80;\n');
+        if (kind === 'regular') assert.equal(fs.readFileSync(enabled, 'utf8'), 'operator site\n');
+        if (['symlink', 'dangling'].includes(kind)) {
+          const remaining = fs.lstatSync(enabled, { throwIfNoEntry: false });
+          assert.equal(Boolean(remaining), locked === 0);
+          if (remaining) assert.ok(remaining.isSymbolicLink());
+        }
+      } finally { fs.rmSync(root, { recursive: true, force: true }); }
+    }
+  }
+});
+
+test('certificate refresh starts inactive nginx without a failed reload and preserves reload recovery', () => {
+  const cert = read('debian', 'assets', 'bin', 'carlos-emr-cert');
+  const fn = cert.match(/reload_nginx\(\) \{[\s\S]*?\n\}/)[0]
+    .replaceAll('/run/systemd/system', '/tmp');
+  for (const [syntax, active, reload, start, restart, expectedRc, actions] of [
+    [0, 1, 0, 0, 0, 0, ['start']],
+    [0, 1, 0, 1, 0, 1, ['start']],
+    [0, 0, 0, 0, 0, 0, ['reload']],
+    [0, 0, 1, 0, 0, 0, ['reload', 'restart']],
+    [0, 0, 1, 0, 1, 1, ['reload', 'restart']],
+    [1, 0, 0, 0, 0, 1, []],
+    [1, 1, 0, 0, 0, 1, []],
+  ]) {
+    const result = spawnSync('bash', ['-c', `set -eu
+nginx() { return ${syntax}; }
+log() { :; }
+warn() { echo "$*" >&2; }
+systemctl() {
+  case "$1" in
+    is-active) return ${active} ;;
+    reload) echo service:reload; return ${reload} ;;
+    start) echo service:start; return ${start} ;;
+    restart) echo service:restart; return ${restart} ;;
+    *) exit 2 ;;
+  esac
+}
+${fn}
+reload_nginx
+`], { encoding: 'utf8' });
+    assert.equal(result.status, expectedRc, result.stderr);
+    assert.deepEqual(result.stdout.trim().split('\n').filter(Boolean), actions.map(a => `service:${a}`));
+  }
+});
+
 test('postinst records terminal nginx failures and accepts a successful rebind', () => {
   const start = postinst.indexOf('        if nginx -t >/dev/null 2>&1; then');
   assert.ok(start >= 0);
-  const end = postinst.indexOf('\n        ;;', start);
+  // Exercise nginx recovery alone. The subsequent mandatory chart migration
+  // has its own real-file/provisioning-lock coverage in test_modern_chart_cutover.py.
+  const end = postinst.indexOf('\n        # BEGIN MODERN_CHART_CUTOVER', start);
   assert.ok(end > start);
   const block = postinst.slice(start, end).replaceAll('/run/systemd/system', '/tmp');
-  for (const [syntax, reload, restart, bound, incomplete] of [
+  // How the step treats nginx by its state: running is RELOADED; failed (its
+  // own postinst could not bind port 80 on a beta2 fresh install), or down on
+  // a first install, or down after this run cleared a port conflict, is
+  // STARTED, because systemd refuses to reload a unit that is not running; an
+  // nginx an operator stopped before an UPGRADE stays stopped, untouched.
+  for (const [state, oldVersion, freed, action] of [
+    ['active', '2026.08.0~beta1', '', 'reload'],
+    ['failed', '2026.08.0~beta1', '', 'start'],
+    ['inactive', '', '', 'start'],
+    ['inactive', '2026.08.0~beta1', 'apache2.service ...', 'start'],
+    ['inactive', '2026.08.0~beta1', '', null],
+  ]) for (const [syntax, reload, restart, bound, incomplete] of [
     [1, 0, 0, 0, true], [0, 1, 0, 0, true],
     [0, 0, 1, 1, true], [0, 0, 0, 1, true],
     [0, 0, 0, 0, false], [0, 0, 0, 2, false],
     [0, 0, 0, 3, true], [0, 0, 0, 4, true],
   ]) {
     const script = `set -eu
+set -- configure ${oldVersion}
+FRONT_DOOR_FREED='${freed}'
 nginx() { return ${syntax}; }
-sd_invoke() { echo "service:$1"; if [ "$1" = reload ]; then return ${reload}; else return ${restart}; fi; }
+systemctl() { [ "$1" = is-active ] || return 1; echo ${state}; [ ${state} = active ]; }
+sd_invoke() { echo "service:$1"; if [ "$1" = reload ] || [ "$1" = start ]; then return ${reload}; else return ${restart}; fi; }
 calls=0
 front_door_listening() { calls=$((calls + 1)); if [ ${bound} = 2 ]; then [ "$calls" -gt 1 ]; elif [ ${bound} = 3 ]; then return 2; elif [ ${bound} = 4 ]; then if [ "$calls" -gt 1 ]; then return 2; else return 1; fi; else return ${bound}; fi; }
-mark_incomplete() { echo "incomplete:$1"; }
+front_door_blockers() { echo "apache2 (pid 9, apache2.service) is listening on *:80"; }
+mark_incomplete() { echo "incomplete:$1|\${2:-}"; }
 ${block}
 `;
     const result = spawnSync('sh', ['-c', script], { encoding: 'utf8' });
+    const context = JSON.stringify({ state, oldVersion, freed, syntax, reload, restart, bound, result });
     assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout.includes('incomplete:'), incomplete, JSON.stringify({ syntax, reload, restart, bound, result }));
+    if (action === null && !syntax) {
+      // Left as the operator left it: no service call, nothing owed.
+      assert.ok(!result.stdout.includes('service:'), context);
+      assert.ok(!result.stdout.includes('incomplete:'), context);
+      assert.match(result.stderr, /left stopped, as found/, context);
+      continue;
+    }
+    assert.equal(result.stdout.includes('incomplete:'), incomplete, context);
+    if (!syntax) {
+      assert.ok(result.stdout.includes(`service:${action}`), context);
+      assert.ok(!result.stdout.includes(action === 'start' ? 'service:reload' : 'service:start'), context);
+    }
     if (syntax || reload) assert.ok(!result.stdout.includes('service:restart'));
     if (bound === 2 || bound === 4) assert.ok(result.stdout.includes('service:restart'));
     if (bound === 3) assert.ok(!result.stdout.includes('service:restart'));
     if (bound === 3 || bound === 4) assert.match(result.stdout, /probe error/);
+    // A failed start, reload, restart or bind names what holds the ports in
+    // the recorded reason, not only "see journalctl".
+    if (!syntax && (reload || restart || bound === 1)) {
+      assert.match(result.stdout, /incomplete:[^|]*\|apache2 \(pid 9, apache2\.service\)/, context);
+    }
   }
 });
 
 test('postinst listener proof requires nginx ownership, both ports and the last configured address', () => {
-  const fn = postinst.match(/front_door_listening\(\) \{[\s\S]*?\n\}/)[0];
+  const fn = postinst.match(/configured_bind_ip\(\) \{[\s\S]*?\n\}/)[0] + '\n'
+    + postinst.match(/front_door_listening\(\) \{[\s\S]*?\n\}/)[0];
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-nginx-listeners-'));
   try {
     const envFile = path.join(root, 'env');
@@ -612,4 +725,81 @@ test('an import holding the lock defers like the import gate: no marker, no migr
   assert.match(drugref, /if \[ "\$\{provision_lock_rc\}" = 2 \]; then[\s\S]*?OSCAR 19 import is in progress[\s\S]*?exit 1/);
   assert.ok(drugref.indexOf('acquire_provision_lock || provision_lock_rc=$?') <
     drugref.indexOf('carlos-ctl db-users'));
+});
+
+test('configure removes only the stock nginx symlink before its first configuration test', () => {
+  const start = postinst.indexOf('        if [ "${PROVISION_LOCK_HELD}" = 1 ]; then\n            free_front_door "${2:-}"');
+  const end = postinst.indexOf('        unset CARLOS_CONFIGURE_FIRST_RUN', start);
+  assert.ok(start >= 0 && end > start);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-nginx-order-'));
+  try {
+    for (const [kind, locked, initStatus, incomplete] of [
+      ['symlink', true, 0, false],
+      ['file', true, 0, true],
+      ['absent', true, 1, true],
+      ['symlink', false, 0, false],
+    ]) {
+      const nginx = path.join(root, kind + '-' + locked + '-' + initStatus);
+      const enabled = path.join(nginx, 'sites-enabled');
+      fs.mkdirSync(enabled, {recursive: true});
+      const target = path.join(nginx, 'stock-conffile');
+      fs.writeFileSync(target, 'listen [::]:80 default_server;\n');
+      const defaultSite = path.join(enabled, 'default');
+      if (kind === 'symlink') fs.symlinkSync(target, defaultSite);
+      if (kind === 'file') fs.writeFileSync(defaultSite, 'administrator site\n');
+      const block = postinst.slice(start, end).replaceAll('/etc/nginx', nginx);
+      const bin = path.join(nginx, 'bin');
+      fs.mkdirSync(bin);
+      fs.writeFileSync(path.join(bin, 'carlos-ctl'), '#!/bin/sh\n'
+        + '[ "$1" = init-config ] || exit 2\n'
+        + 'printf "init-config\\n"\n'
+        + '[ ! -e "$CARLOS_TEST_DEFAULT_SITE" ] || exit 1\n'
+        + 'exit "$CARLOS_TEST_INIT_STATUS"\n', {mode: 0o755});
+      const script = 'set -e\nPROVISION_LOCK_HELD=' + (locked ? '1' : '0') + '\n'
+        + 'free_front_door() { :; }\n'
+        + 'mark_incomplete() { printf "incomplete\\n"; }\n'
+        + block;
+      const result = spawnSync('sh', ['-c', script], {
+        encoding: 'utf8',
+        env: {...process.env, PATH: bin + path.delimiter + process.env.PATH,
+          CARLOS_TEST_DEFAULT_SITE: defaultSite, CARLOS_TEST_INIT_STATUS: String(initStatus)},
+      });
+      assert.equal(result.stdout.includes('init-config'), locked);
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stdout.includes('incomplete'), incomplete, JSON.stringify({kind, locked, initStatus, result}));
+      assert.equal(fs.existsSync(defaultSite), kind === 'file' || (kind === 'symlink' && !locked));
+      assert.equal(fs.readFileSync(target, 'utf8'), 'listen [::]:80 default_server;\n');
+      if (kind === 'file') assert.equal(fs.readFileSync(defaultSite, 'utf8'), 'administrator site\n');
+    }
+  } finally { fs.rmSync(root, {recursive: true, force: true}); }
+});
+
+test('port conflict recovery requires an explicit true debconf answer', () => {
+  assert.match(read('debian', 'carlos-emr.templates'),
+    /Template: carlos-emr\/stop-port-conflicts\nType: boolean\nDefault: false\n/);
+  const fn = postinst.match(/free_front_door\(\) \{[\s\S]*?\n\}/)[0]
+    .replaceAll('/run/systemd/system', '/tmp');
+  for (const answer of ['false', 'true', '', 'unexpected', 'unavailable']) {
+    const get = answer === 'unavailable' ? 'return 1' : `RET='${answer}'`;
+    const result = spawnSync('sh', ['-c', `set -eu
+systemctl() { echo failed; }
+configured_bind_ip() { echo 127.0.0.1; }
+host_conflicts() {
+  if [ "$2" = --plan ]; then echo 'will-stop: apache2.service';
+  else echo 'stopped: apache2.service'; fi
+}
+db_subst() { :; }
+db_fset() { :; }
+db_input() { :; }
+db_go() { :; }
+db_get() { ${get}; }
+join_lines() { cat; }
+log_action() { :; }
+${fn}
+free_front_door ''
+printf '%s' "$FRONT_DOOR_FREED"
+`], {encoding: 'utf8'});
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.includes('apache2.service'), answer === 'true', answer);
+  }
 });

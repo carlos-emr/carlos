@@ -41,9 +41,9 @@
 %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="java.io.Serializable" %>
-<%@page import="org.w3c.dom.Document" %>
-<%@page import="io.github.carlos_emr.carlos.lab.ca.all.web.LabDisplayHelper" %>
+
+
+
 <%@ page
         import="java.util.*,io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
@@ -52,7 +52,7 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
@@ -212,6 +212,11 @@
             </tr>
             <tr>
                 <td>
+                    <% if (list == null || list.isEmpty()) { %>
+                    <p class="alert alert-info" data-carlos-lab-history-unavailable="true">
+                        <fmt:message key="lab.measurementHistory.unavailable"/>
+                    </p>
+                    <% } %>
                     <table name="tblDiscs" id="tblDiscs" class="table table-sm table-striped">
                         <thead>
                         <tr class="Field2">
@@ -256,7 +261,7 @@
                             </td>
                             <td><carlos:encode value='<%= String.valueOf(h.get("units")) %>' context="html"/>
                             </td>
-                            <td><carlos:encode value='<%= String.valueOf(h.get("collDate")) %>' context="html"/>
+                            <td><carlos:encode value='<%= java.util.Objects.toString(h.get("collDate"), "") %>' context="html"/>
                             </td>
                         </tr>
 

@@ -48,6 +48,12 @@ import io.github.carlos_emr.carlos.utility.password.PasswordHashHelper;
 @Entity
 @Table(name = "security")
 public class Security extends AbstractModel<Integer> {
+
+    /** Credential-bearing records must never dump their fields, even in debug logs. */
+    @Override
+    public String toString() {
+        return "Security[id=" + getId() + "]";
+    }
     private static Logger logger = MiscUtils.getLogger();
 
     @Id

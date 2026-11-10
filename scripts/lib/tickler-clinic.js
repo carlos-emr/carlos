@@ -6,6 +6,12 @@ async function selectTicklerAssignee(page, providerNo) {
   const assignee = page.locator('select[name="task_assigned_to"]');
   const clinic = page.locator('select#site');
   if (await clinic.count()) {
+    if (!await clinic.isVisible()) {
+      const change = page.locator('#nameWrapper a[onclick*="toggleWrappers"]');
+      if (await change.count() !== 1) throw new Error('Hidden Tickler clinic has no unique Change control');
+      await change.click();
+      await clinic.waitFor({state: 'visible'});
+    }
     const sites = await clinic.locator('option').evaluateAll(options =>
       options.map(option => option.value).filter(value => value && value !== 'none'));
     let found = false;

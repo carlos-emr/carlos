@@ -124,6 +124,20 @@ class RxWebServiceUnitTest {
         }
     }
 
+    @Test
+    void shouldPreserveLegacyVersionOmission_whenNoCxfOptInIsPresent() throws Exception {
+        var drugs = service.rxManager.getDrugs(null, 1, RxStatus.ALL);
+        drugs.get(0).setRowVersion(31L);
+        drugs.get(1).setRowVersion(32L);
+        var legacy = service.getAllDrugs(1).getContent();
+        assertThat(legacy).allSatisfy(drug -> assertThat(drug.getRowVersion()).isNull());
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(legacy)).doesNotContain("rowVersion");
+        var context = jakarta.xml.bind.JAXBContext.newInstance(DrugTo1.class);
+        var xml = new java.io.StringWriter();
+        context.createMarshaller().marshal(legacy.get(0), xml);
+        assertThat(xml.toString()).doesNotContain("rowVersion");
+    }
+
     private DrugTo1 createTestTransferObject() {
         DrugTo1 t = new DrugTo1();
         Date startDate = new Date();
@@ -399,6 +413,19 @@ class RxWebServiceUnitTest {
     class Prescribe {
 
         @Test
+        void shouldPreserveFailureResponse_afterTransactionalWriteFailure() {
+            service.rxManager = new MockRxManager(RxWebServiceUnitTest.this) {
+                @Override
+                public PrescriptionDrugs prescribe(LoggedInInfo info, List<Drug> drugs, Integer demoNo) {
+                    throw new io.github.carlos_emr.carlos.managers.PrescriptionWriteException();
+                }
+            };
+            PrescriptionResponse response = service.prescribe(List.of(createTestTransferObject()), 1);
+            assertThat(response.isSuccess()).isFalse();
+            assertThat(response.getMessage()).isEqualTo("Failed to prescribe drugs");
+        }
+
+        @Test
         @DisplayName("should succeed with single valid drug")
         void shouldSucceed_withSingleValidDrug() {
             List<DrugTo1> toPrescribe = new ArrayList<>();
@@ -669,6 +696,8 @@ class RxWebServiceUnitTest {
 
         TestableRxWebService() {
             super();
+            this.legacyProjection = org.mockito.Mockito.mock(
+                    io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class);
             this.rxManager = new MockRxManager(RxWebServiceUnitTest.this);
             this.drugConverter = new MockDrugConverter();
             this.securityInfoManager = new TestMockSecurityInfoManager();

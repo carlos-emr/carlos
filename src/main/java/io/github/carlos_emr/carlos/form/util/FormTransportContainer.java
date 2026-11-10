@@ -33,8 +33,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -47,12 +45,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.struts2.ActionContext;
 import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc.DocumentType;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 
 /**
  * @author denniswarren
@@ -183,7 +181,7 @@ public class FormTransportContainer {
     }
 
     public String toString() {
-        return ReflectionToStringBuilder.toString(this);
+        return getClass().getSimpleName() + "[protected]";
     }
 
     private static final class CapturingResponseWrapper extends HttpServletResponseWrapper {
@@ -454,23 +452,12 @@ public class FormTransportContainer {
             return stringWriter.toString() + decodeOutputBytes();
         }
 
-        private Charset resolveCharacterEncoding() {
-            String encoding = getCharacterEncoding();
-            if (encoding == null || encoding.isBlank()) {
-                return StandardCharsets.UTF_8;
-            }
-            try {
-                return Charset.forName(encoding);
-            } catch (IllegalArgumentException e) {
-                return StandardCharsets.UTF_8;
-            }
-        }
-
         private String decodeOutputBytes() {
             if (outputBytes.size() == 0) {
                 return "";
             }
-            return new String(outputBytes.toByteArray(), resolveCharacterEncoding());
+            // Shared fallback: a missing, blank, illegal or unsupported name decodes as UTF-8.
+            return new String(outputBytes.toByteArray(), RequestNegotiation.responseCharset(this));
         }
 
         private static String extractCharset(String contentType) {

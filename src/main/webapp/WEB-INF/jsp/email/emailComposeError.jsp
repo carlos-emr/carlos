@@ -1,0 +1,50 @@
+<%--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+    This software is published under the GPL GNU General Public License.
+
+--%>
+<%--
+    Purpose: Display eForm email-preparation failures (#4477).
+    Features: Confirm saved-form recovery and retry this window's restored draft.
+        Keep the page independent of the eForm viewer to avoid empty templates and broken relative links.
+    Parameters: errorMessage (String) request attribute containing the localized failure message.
+    Access control: Reached only through EmailCompose2Action's _email write privilege check.
+    @since 2026-11-04
+--%>
+<%@ page contentType="text/html; charset=UTF-8" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<% pageContext.setAttribute("composeLocale", LocaleUtils.resolveBundleLocale(request)); %>
+<fmt:setLocale value="${composeLocale}"/>
+<fmt:setBundle basename="oscarResources"/>
+<!DOCTYPE html>
+<html lang="${carlos:forHtmlAttribute(composeLocale.toLanguageTag())}">
+<head>
+    <meta charset="UTF-8">
+    <title><fmt:message key="email.compose.error.title"/></title>
+    <link rel="stylesheet" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/library/bootstrap/5.3.8/css/bootstrap.min.css">
+    <style>
+        body { padding: 2rem; }
+        .email-error-card { max-width: 640px; margin: 0 auto; }
+    </style>
+</head>
+<body>
+<div class="card email-error-card">
+    <div class="card-header bg-warning-subtle">
+        <h1 class="h5 mb-0"><fmt:message key="email.compose.error.title"/></h1>
+    </div>
+    <div class="card-body">
+        <p id="emailComposeErrorMessage" role="alert">${carlos:forHtmlContent(requestScope.errorMessage)}</p>
+        <p><fmt:message key="email.compose.error.saved"/></p>
+        <button id="retryEmailCompose" type="button" class="btn btn-primary" onclick="window.location.reload()">
+            <fmt:message key="email.compose.error.retry"/>
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="window.close()">
+            <fmt:message key="global.btnClose"/>
+        </button>
+    </div>
+</div>
+</body>
+</html>

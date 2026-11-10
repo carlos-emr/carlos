@@ -58,6 +58,8 @@ class EmailComposeManagerWiringUnitTest {
             beans.registerSingleton("userPropertyDAO", mock(UserPropertyDAO.class));
             beans.registerSingleton("demographicManager", mock(DemographicManager.class));
             beans.registerSingleton("documentAttachmentManager", mock(DocumentAttachmentManager.class));
+            beans.registerSingleton("attachmentOwnershipService",
+                    mock(io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService.class));
             beans.registerSingleton("formsManager", mock(FormsManager.class));
             beans.registerSingleton("patientConsentManager", mock(PatientConsentManager.class));
             beans.registerSingleton("nioFileManager", mock(NioFileManager.class));

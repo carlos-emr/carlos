@@ -49,6 +49,20 @@ public class DemographicConverter extends AbstractConverter<Demographic, Demogra
     private ProviderConverter providerConverter = new ProviderConverter();
 
 
+    /** Bulk patient selection retains clinical identity without health-card or SIN values. */
+    public DemographicTo1 getAsListTransferObject(LoggedInInfo actor, Demographic patient) {
+        DemographicTo1 result = getAsTransferObject(actor, patient);
+        result.setHin(null);
+        return result;
+    }
+
+    @Override
+    public List<DemographicTo1> getAllAsTransferObjects(LoggedInInfo actor, List<Demographic> patients) {
+        List<DemographicTo1> result = new ArrayList<>();
+        for (Demographic patient : patients) result.add(getAsListTransferObject(actor, patient));
+        return result;
+    }
+
     /**
      * Converts TO, excluding providers and extras.
      */
@@ -185,7 +199,6 @@ public class DemographicConverter extends AbstractConverter<Demographic, Demogra
         t.setChildren(d.getChildren());
         t.setSourceOfIncome(d.getSourceOfIncome());
         t.setCitizenship(d.getCitizenship());
-        t.setSin(d.getSin());
         t.setAnonymous(d.getAnonymous());
         t.setSpokenLanguage(d.getSpokenLanguage());
         t.setActiveCount(d.getActiveCount());

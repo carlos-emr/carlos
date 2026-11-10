@@ -50,7 +50,7 @@
 
 
 
-<%@ page import="java.util.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.managers.MeasurementManager" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 

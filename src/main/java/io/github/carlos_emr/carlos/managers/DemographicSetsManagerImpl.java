@@ -58,6 +58,11 @@ public class DemographicSetsManagerImpl implements DemographicSetsManager {
         return (demographicSetsDao.findSetNames());
     }
 
+    @Override
+    public List<DemographicSets> getByNamePage(LoggedInInfo actor, String name, int offset, int limit) {
+        return demographicSetsDao.findBySetNamePage(name, offset, limit);
+    }
+
     public List<DemographicSets> getByName(LoggedInInfo loggedInInfo, String setName) {
         return (demographicSetsDao.findBySetName(setName));
     }

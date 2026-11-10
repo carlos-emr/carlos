@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.integration.hl7.handlers;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -62,6 +64,7 @@ import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.integration.hl7.model.PatientId;
 import io.github.carlos_emr.carlos.integration.hl7.model.StaffId;
+import io.github.carlos_emr.carlos.utility.Hl7XmlMessageValidator;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -727,7 +730,11 @@ public class PhsStarHandler extends BasePhsStarHandler {
     public void init(String hl7Body) throws HL7Exception {
         Parser p = new GenericParser();
         p.setValidationContext(new NoValidation());
-        msg = p.parse(hl7Body.replaceAll("\n", "\r\n"));
+        String message = hl7Body.replace("\n", "\r\n");
+        // GenericParser also reads HL7 v2 XML. Refuse a DOCTYPE before HAPI sees it: HAPI 2.x no
+        // longer loads external entities or DTDs, but it still expands internal entities.
+        Hl7XmlMessageValidator.requireNoDocumentType(p, message);
+        msg = p.parse(message);
 
         t = new Terser(msg);
         String msgType = t.get("/MSH-9-1");
@@ -1263,7 +1270,7 @@ public class PhsStarHandler extends BasePhsStarHandler {
     private String readProgramMappingFile(String service, String patientType, String location) {
         String filename = CarlosProperties.getInstance().getProperty("phs_star.program_file");
         if (filename == null) {
-            logger.warn("Cannot lookup program. Config file not found - " + filename);
+            logger.warn("Cannot lookup program. Config file not found");
             return null;
         }
         InputStream is = null;
@@ -1277,7 +1284,7 @@ public class PhsStarHandler extends BasePhsStarHandler {
                 try {
                     doc = parser.build(is);
                 } catch (Exception e) {
-                    logger.error("Error", e);
+                    logger.error("Error: {}", LogSafe.exceptionTrace(e));
                     return null;
                 }
 
@@ -1298,13 +1305,13 @@ public class PhsStarHandler extends BasePhsStarHandler {
                 }
             }
         } catch (Exception e) {
-            logger.error("error", e);
+            logger.error("error: {}", LogSafe.exceptionTrace(e));
         } finally {
             if (is != null) {
                 try {
                     is.close();
                 } catch (IOException e) {
-                    logger.error("error", e);
+                    logger.error("error: {}", LogSafe.exceptionTrace(e));
                 }
             }
         }

@@ -26,6 +26,7 @@ import org.apache.struts2.ServletActionContext;
  * {@code _billing} {@code r} privilege before forwarding to the
  * JSP at its {@code /WEB-INF/jsp/} location. Created as part of the BC
  * billing migration to gate direct-access paths behind Struts2 actions.
+ * Returns 404 on non-BC deployments before rendering the BC statement view.
  *
  * @since 2026-04-13
  */
@@ -42,6 +43,7 @@ public final class ViewPrivateBillingStatement2Action extends ActionSupport {
      * @throws Exception if the underlying Struts framework signals an error
      * @since 2026-04-13
      */
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "Destination has a fixed local route and encoded provider query value; the complete destination is checked by RedirectValidationUtils before redirecting")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -51,6 +53,21 @@ public final class ViewPrivateBillingStatement2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        return SUCCESS;
+        if (!BcBillingRequestGuards.requireBcProvince(ServletActionContext.getResponse())) {
+            return NONE;
+        }
+
+        if (request.getAttribute("bills") != null) return SUCCESS;
+        String provider = request.getParameter("providerId");
+        String destination = request.getContextPath() + "/billing/CA/BC/reprocessBill?showPRIV=show";
+        if (provider != null && !provider.isBlank() && !"%".equals(provider)) {
+            destination += "&providerview=" + java.net.URLEncoder.encode(provider, java.nio.charset.StandardCharsets.UTF_8);
+        }
+        if (!io.github.carlos_emr.carlos.utility.RedirectValidationUtils.isValidRelativeRedirect(destination)) {
+            ServletActionContext.getResponse().sendError(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        ServletActionContext.getResponse().sendRedirect(destination);
+        return NONE;
     }
 }

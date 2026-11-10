@@ -63,7 +63,7 @@
 
 <!DOCTYPE HTML>
 <%@page import="java.nio.charset.StandardCharsets" %>
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarLogDao" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
@@ -73,7 +73,7 @@
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
@@ -101,12 +101,12 @@
 %>
 
 
-<%@ page import="java.util.*, java.sql.*, java.net.URLEncoder, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="java.util.*, java.net.URLEncoder, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>

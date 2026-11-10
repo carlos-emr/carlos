@@ -61,6 +61,9 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+const h = require('./lib/playwright-harness');
+const { validateCredentialBaseUrl: validateBaseUrl } = h;
+const legacyHarness = require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const {
   cleanupTicklerFixture,
@@ -71,14 +74,14 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING, shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
+const { NO_PLAYWRIGHT_SIGNAL_HANDLING, shouldIgnoreHttpsErrors } = h;
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
-const mysqlHost = process.env.MYSQL_HOST || 'db';
+const mysqlHost = require('./lib/playwright-harness').validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
@@ -96,29 +99,6 @@ const badResponses = [];
 const consoleIssues = [];
 // Set before the first tickler is created; until then the run owns no rows to clean.
 let linkIdFloor = null;
-
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not embed a username or password');
-  }
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const octets = host.split('.');
-  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
-  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
-    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
-    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
-}
 
 function appUrl(appPath, query = null) {
   if (!appPath.startsWith('/') || appPath.startsWith('//')) {
@@ -375,18 +355,10 @@ async function closeDialogIfOpen(page) {
   }
 }
 
-// Issue #3600: a finally does not run when the process is killed, which would leave
-// the synthetic ticklers (and the cleartext MySQL password file) behind. Both steps
-// are idempotent; the handler is removed once the normal finally has run them.
-const signalHandlers = installCleanupSignalHandlers(() => {
-  try {
-    cleanupTicklerRows();
-  } finally {
-    cleanupMysqlDefaultsFile();
-  }
-});
+let browser;
+let context;
 
-(async () => {
+async function main({cancellation}) {
   linkIdFloor = readNoteLinkFloor(sql);
 
   const launchOptions = {
@@ -398,82 +370,90 @@ const signalHandlers = installCleanupSignalHandlers(() => {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
-  const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
-  try {
-    const loginPage = await context.newPage();
-    wirePage(loginPage, 'login');
-    await login(loginPage);
-    await loginPage.close().catch(() => {});
+  browser = await chromium.launch(launchOptions);
+  await cancellation.throwIfCancelled();
+  h.recordBrowserVersion(browser);
+  context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+  await cancellation.throwIfCancelled();
+  const loginPage = await context.newPage();
+  wirePage(loginPage, 'login');
+  await login(loginPage);
+  await cancellation.throwIfCancelled();
+  await loginPage.close().catch(() => {});
 
-    const { id: ticklerAId, message: messageA } = await createNotelessTickler(context, 'A', 'note round-trip check');
-    const { id: ticklerBId, message: messageB } = await createNotelessTickler(context, 'B', 'stale-data leak check');
+  const { id: ticklerAId, message: messageA } = await createNotelessTickler(context, 'A', 'note round-trip check');
+  await cancellation.throwIfCancelled();
+  const { id: ticklerBId, message: messageB } = await createNotelessTickler(context, 'B', 'stale-data leak check');
+  await cancellation.throwIfCancelled();
 
-    const page = await context.newPage();
-    wirePage(page, 'tickler-main');
-    await openTicklerList(page);
+  const page = await context.newPage();
+  wirePage(page, 'tickler-main');
+  await openTicklerList(page);
+  await cancellation.throwIfCancelled();
 
-    // 1. Opening a fresh, noteless tickler's dialog for the first time must
-    //    not show the literal text "undefined" anywhere, and every field
-    //    must be blank (ticklerGetNote() returns {} for "no note yet").
-    await openNoteDialogForRow(page, messageA);
-    let snapshot = await readDialogFieldSnapshot(page);
-    assertNoLiteralUndefined(snapshot, 'tickler A first open (no note yet)');
-    assertBlankSnapshot(snapshot, 'tickler A first open (no note yet)');
+  // 1. Opening a fresh, noteless tickler's dialog for the first time must
+  //    not show the literal text "undefined" anywhere, and every field
+  //    must be blank (ticklerGetNote() returns {} for "no note yet").
+  await openNoteDialogForRow(page, messageA);
+  let snapshot = await readDialogFieldSnapshot(page);
+  assertNoLiteralUndefined(snapshot, 'tickler A first open (no note yet)');
+  assertBlankSnapshot(snapshot, 'tickler A first open (no note yet)');
 
-    // 2. Saving a first note must round-trip correctly: reopening shows the
-    //    saved text, a numeric noteId, and revision "1" - not "undefined"
-    //    and not a silently aborted save.
-    await saveDialogNote(page, firstNoteText);
-    await openNoteDialogForRow(page, messageA);
-    snapshot = await readDialogFieldSnapshot(page);
-    assertNoLiteralUndefined(snapshot, 'tickler A reopened after first save');
-    assert(snapshot.note === firstNoteText, `tickler A note did not round-trip: ${JSON.stringify(snapshot)}`);
-    assert(snapshot.revision === '1', `tickler A revision should be "1" after first save, got ${JSON.stringify(snapshot)}`);
-    assert(/^\d+$/.test(snapshot.noteId), `tickler A noteId should be numeric after first save, got ${JSON.stringify(snapshot)}`);
+  // 2. Saving a first note must round-trip correctly: reopening shows the
+  //    saved text, a numeric noteId, and revision "1" - not "undefined"
+  //    and not a silently aborted save.
+  await saveDialogNote(page, firstNoteText);
+  await cancellation.throwIfCancelled();
+  await openNoteDialogForRow(page, messageA);
+  snapshot = await readDialogFieldSnapshot(page);
+  assertNoLiteralUndefined(snapshot, 'tickler A reopened after first save');
+  assert(snapshot.note === firstNoteText, `tickler A note did not round-trip: ${JSON.stringify(snapshot)}`);
+  assert(snapshot.revision === '1', `tickler A revision should be "1" after first save, got ${JSON.stringify(snapshot)}`);
+  assert(/^\d+$/.test(snapshot.noteId), `tickler A noteId should be numeric after first save, got ${JSON.stringify(snapshot)}`);
 
-    // 3. Editing and re-saving must increment the revision to "2".
-    await saveDialogNote(page, secondNoteText);
-    await openNoteDialogForRow(page, messageA);
-    snapshot = await readDialogFieldSnapshot(page);
-    assertNoLiteralUndefined(snapshot, 'tickler A reopened after second save');
-    assert(snapshot.note === secondNoteText, `tickler A edited note did not round-trip: ${JSON.stringify(snapshot)}`);
-    assert(snapshot.revision === '2', `tickler A revision should be "2" after second save, got ${JSON.stringify(snapshot)}`);
+  // 3. Editing and re-saving must increment the revision to "2".
+  await saveDialogNote(page, secondNoteText);
+  await cancellation.throwIfCancelled();
+  await openNoteDialogForRow(page, messageA);
+  snapshot = await readDialogFieldSnapshot(page);
+  assertNoLiteralUndefined(snapshot, 'tickler A reopened after second save');
+  assert(snapshot.note === secondNoteText, `tickler A edited note did not round-trip: ${JSON.stringify(snapshot)}`);
+  assert(snapshot.revision === '2', `tickler A revision should be "2" after second save, got ${JSON.stringify(snapshot)}`);
 
-    // Close tickler A's dialog the way a user actually would (Cancel) before
-    // moving to a different row - the jQuery UI modal overlay blocks clicks
-    // on the rest of the page while a dialog is open, and the bug this test
-    // guards against is specifically about DOM state left behind after a
-    // close, not about interacting through an open modal.
-    await closeDialogIfOpen(page);
+  // Close tickler A's dialog the way a user actually would (Cancel) before
+  // moving to a different row - the jQuery UI modal overlay blocks clicks
+  // on the rest of the page while a dialog is open, and the bug this test
+  // guards against is specifically about DOM state left behind after a
+  // close, not about interacting through an open modal.
+  await closeDialogIfOpen(page);
 
-    // 4. THE KEY REGRESSION CHECK: opening tickler B's (still noteless)
-    //    dialog immediately afterward - same page, no reload - must not
-    //    leak tickler A's stale note/revision/noteId. This exercises the
-    //    shared resetTicklerNoteFields()/applyTicklerNoteFields() functions
-    //    both ticklerMain.jsp and ticklerDemoMain.jsp now depend on.
-    await openNoteDialogForRow(page, messageB);
-    snapshot = await readDialogFieldSnapshot(page);
-    assertNoLiteralUndefined(snapshot, 'tickler B open after tickler A had a note');
-    assertBlankSnapshot(snapshot, 'tickler B open after tickler A had a note (must not inherit tickler A data)');
+  // 4. THE KEY REGRESSION CHECK: opening tickler B's (still noteless)
+  //    dialog immediately afterward - same page, no reload - must not
+  //    leak tickler A's stale note/revision/noteId. This exercises the
+  //    shared resetTicklerNoteFields()/applyTicklerNoteFields() functions
+  //    both ticklerMain.jsp and ticklerDemoMain.jsp now depend on.
+  await openNoteDialogForRow(page, messageB);
+  snapshot = await readDialogFieldSnapshot(page);
+  assertNoLiteralUndefined(snapshot, 'tickler B open after tickler A had a note');
+  assertBlankSnapshot(snapshot, 'tickler B open after tickler A had a note (must not inherit tickler A data)');
 
-    await closeDialogIfOpen(page);
+  await closeDialogIfOpen(page);
 
-    assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
-    assert(consoleIssues.length === 0, `unexpected console issues: ${JSON.stringify(consoleIssues, null, 2)}`);
+  assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
+  assert(consoleIssues.length === 0, `unexpected console issues: ${JSON.stringify(consoleIssues, null, 2)}`);
 
-    console.log(`PASS tickler note dialog round-trip and stale-data checks for ticklers ${ticklerAId} and ${ticklerBId}`);
-  } finally {
-    await context.close().catch(() => {});
-    await browser.close().catch(() => {});
-    cleanupTicklerRows();
-    cleanupMysqlDefaultsFile();
-    // Last, so a signal arriving during cleanup still reaches the handler.
-    signalHandlers.dispose();
-  }
-})().catch((error) => {
-  signalHandlers.dispose();
-  cleanupMysqlDefaultsFile();
-  console.error(`FAIL tickler note dialog checks: ${error.stack || error.message}`);
-  process.exit(1);
+  console.log(`PASS tickler note dialog round-trip and stale-data checks for ticklers ${ticklerAId} and ${ticklerBId}`);
+}
+
+legacyHarness.runLegacyCheck('tickler-note-dialog', main, {
+  realSignalCheckpoints: true,
+  cleanup: () => legacyHarness.finishLegacyCleanup([
+    () => context && context.close(),
+    () => browser && browser.close(),
+    () => {
+      h.assert(!browser || !browser.isConnected(), 'Retaining note fixtures because browser shutdown is unconfirmed');
+      cleanupTicklerRows();
+    },
+    cleanupMysqlDefaultsFile,
+  ]),
 });

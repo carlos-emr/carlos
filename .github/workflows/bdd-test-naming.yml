@@ -55,7 +55,8 @@ permissions:
 jobs:
   bdd-test-naming:
     name: BDD Test Naming
-    runs-on: ubuntu-latest
+    # Keep validation on the Ubuntu 24.04 runner already used by Script Regressions.
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Checkout code

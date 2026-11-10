@@ -38,13 +38,11 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 
 import java.util.Arrays;
@@ -69,6 +67,13 @@ import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 @Transactional
 public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseManagementNoteDAO {
+
+    @Override
+    public int replaceUnassignedReporterRole(int roleId) {
+        if (roleId <= 0) throw new IllegalArgumentException("Invalid reporter role");
+        return entityManager().createNativeQuery("UPDATE casemgmt_note SET reporter_caisi_role=?1 WHERE reporter_caisi_role='0'")
+                .setParameter(1, roleId).executeUpdate();
+    }
 
     private static Logger log = MiscUtils.getLogger();
 
@@ -246,7 +251,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
             d = cal.getTime();
         }
 
-        String hql = "select distinct cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id = ?1 and cmn.demographic_no = ?2 and cmn.observation_date >= ?3  and cmn.id in (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.demographic_no = ?4 GROUP BY cmn2.uuid) ORDER BY cmn.observation_date asc";
+        String hql = "select distinct cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id = ?1 and cmn.demographic_no = ?2 and (cmn.observation_date >= ?3 or cmn.observation_date is null) and cmn.id in (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.demographic_no = ?4 GROUP BY cmn2.uuid) ORDER BY cmn.observation_date asc, cmn.id asc";
 
         @SuppressWarnings("unchecked")
         List<CaseManagementNote> result = (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), hql,
@@ -272,7 +277,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
             MiscUtils.getLogger().error("Error", e);
         }
 
-        String hql = "select distinct cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id in (:issueIds) and cmn.demographic_no = :demoNo and cmn.id in (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.observation_date >= :staleDate GROUP BY cmn2.uuid) ORDER BY cmn.observation_date asc";
+        String hql = "select distinct cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id in (:issueIds) and cmn.demographic_no = :demoNo and (cmn.observation_date >= :staleDate or cmn.observation_date is null) and cmn.id in (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.demographic_no = :demoNo GROUP BY cmn2.uuid) ORDER BY cmn.observation_date asc, cmn.id asc";
         Map<String, Object> params = new HashMap<>();
         params.put("issueIds", issueIdList);
         params.put("demoNo", demographic_no);
@@ -458,12 +463,8 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
 
         // Observation dates are sort keys, not note identities: distinct UUIDs can share one date.
         List<CaseManagementNote> sortedResults = new ArrayList<>(uniqueForUuid.size());
-        for (CaseManagementNote note : uniqueForUuid.values()) {
-            Objects.requireNonNull(note.getObservation_date(), "Missing note observation date");
-            sortedResults.add(note);
-        }
-        sortedResults.sort(Comparator.comparing(CaseManagementNote::getObservation_date)
-                .thenComparing(CaseManagementNote::getId));
+        sortedResults.addAll(uniqueForUuid.values());
+        sortedResults.sort(CaseManagementNote.observationDateComparator(true));
 
         return sortedResults;
     }

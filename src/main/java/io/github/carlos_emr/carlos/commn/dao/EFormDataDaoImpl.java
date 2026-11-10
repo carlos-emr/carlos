@@ -50,6 +50,22 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFormDataDao {
+
+    @Override
+    // S2077: requireSort accepts five fixed order clauses; patient/group/status are bound and the optional predicate is literal.
+    @SuppressWarnings("java:S2077")
+    public List<EFormListingRow> findLegacyPatientFormsInGroup(Boolean current, int demographicNo, String group, String sort) {
+        String order = EFormListingRow.requireSort(sort);
+        Query query = entityManager.createNativeQuery("SELECT f.fdid, f.fid, f.form_name, f.subject, NULL,"
+                + " CAST(f.form_date AS CHAR), CAST(f.form_time AS CHAR), f.roleType FROM eform_data f, eform_groups g"
+                + " WHERE f.fid=g.fid AND f.patient_independent=0 AND f.demographic_no=?1 AND g.group_name=?2"
+                + (current == null ? "" : " AND f.status=?3") + " ORDER BY " + order, Object[].class)
+                .setParameter(1, demographicNo).setParameter(2, group);
+        if (current != null) query.setParameter(3, current ? 1 : 0);
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = query.getResultList();
+        return rows.stream().map(EFormListingRow::from).toList();
+    }
     
     private static final Logger logger = MiscUtils.getLogger();
 

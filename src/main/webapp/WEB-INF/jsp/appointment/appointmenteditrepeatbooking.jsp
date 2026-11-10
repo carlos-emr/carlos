@@ -72,7 +72,7 @@
 --%>
 <%@ page import="java.sql.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
-<%@ page import="io.github.carlos_emr.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.appointment.service.RecurringAppointmentService" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>

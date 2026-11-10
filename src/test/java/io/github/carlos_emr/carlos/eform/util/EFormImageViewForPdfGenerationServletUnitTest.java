@@ -457,8 +457,8 @@ class EFormImageViewForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
     @DisplayName("should log redacted type-only diagnostics when the catch-all handles an unexpected error")
     void shouldRedactUnexpectedErrors_whenCatchAllLogs() throws Exception {
         // The exception message embeds a tokenized render URL, as container/machinery exceptions
-        // can. The catch-all must log type + redacted message only — attaching the raw throwable
-        // would re-emit a live render token into the logs.
+        // can. The catch-all retains diagnostic types/call sites and omits the
+        // message and original throwable, which could disclose the live render token.
         SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
         when(securityInfoManager.hasPrivilege(any(), eq("_eform"), eq(SecurityInfoManager.READ), isNull()))
                 .thenThrow(new RuntimeException("boom at http://127.0.0.1/x?renderToken=SECRETTOKENVALUE"));
@@ -474,8 +474,9 @@ class EFormImageViewForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             assertThat(logs.events()).noneMatch(event -> event.getThrown() != null);
-            assertThat(logs.messages()).anyMatch(message -> message.contains("type=java.lang.RuntimeException"));
-            assertThat(logs.messages()).noneMatch(message -> message.contains("SECRETTOKENVALUE"));
+            assertThat(logs.messages()).anyMatch(message -> message.contains("java.lang.RuntimeException")
+                    && message.contains("EFormImageViewForPdfGenerationServlet.enforceAssetReadPrivilege:"));
+            assertThat(String.join("\n", logs.messages())).doesNotContain("SECRETTOKENVALUE", "boom at", "http://127.0.0.1/x");
         }
     }
 

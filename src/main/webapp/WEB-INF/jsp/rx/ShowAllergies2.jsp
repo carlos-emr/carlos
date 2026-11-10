@@ -29,18 +29,19 @@
 
 --%>
 
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+
+
 <%@ page language="java" import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@page import="java.util.List" %>
@@ -511,6 +512,7 @@
 
     </head>
     <body>
+    <div><source:cdsSourceFields demographicNo="${pageScope.RxSessionBean.demographicNo}" category="AllergiesAndAdverseReactions"/></div>
     <%=WebUtils.popErrorAndInfoMessagesAsHtml(session)%>
 
     <table id="AutoNumber1">

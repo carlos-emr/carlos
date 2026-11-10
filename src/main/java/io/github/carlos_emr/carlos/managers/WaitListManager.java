@@ -23,9 +23,12 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 package io.github.carlos_emr.carlos.managers;
+
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -34,7 +37,6 @@ import java.util.Date;
 import java.util.Properties;
 
 import org.apache.logging.log4j.Logger;
-import org.apache.velocity.VelocityContext;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.Vacancy;
@@ -43,7 +45,6 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.VelocityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -102,7 +103,7 @@ public class WaitListManager {
                 if (is != null) is.close();
             }
         } catch (Exception e) {
-            logger.error("Error reading properties file : " + WAIT_LIST_EMAIL_PROPERTIES_FILE, e);
+            logger.error("Error reading properties file: {}", LogSafe.exceptionTrace(e));
         }
         return (p);
     }
@@ -204,42 +205,6 @@ public class WaitListManager {
     @Deprecated
     private void sendAdmissionNotification(String emailSubject, String emailTemplate, Program program, String notes, Date startDate, Date endDate, ArrayList<AdmissionDemographicPair> admissionDemographicPairs) {
         throw new UnsupportedOperationException("This method is no longer supported.");
-        // String temp = StringUtils.trimToNull(program.getEmailNotificationAddressesCsv());
-        // if (temp != null) {
-        // 	String fromAddress = waitListProperties.getProperty("from_address");
-
-        // 	VelocityContext velocityContext = getAdmissionVelocityContext(program, notes, startDate, endDate, admissionDemographicPairs);
-
-        // 	String mergedSubject = VelocityUtils.velocityEvaluate(velocityContext, emailSubject);
-        // 	String mergedBody = VelocityUtils.velocityEvaluate(velocityContext, emailTemplate);
-
-        // 	String[] splitEmailAddresses = temp.split(",");
-        // 	for (String emailAddress : splitEmailAddresses) {
-        // 		try {
-        // 			EmailUtilsOld.sendEmail(emailAddress, emailAddress, fromAddress, fromAddress, mergedSubject, mergedBody, null);
-        // 		} catch (EmailException e) {
-        // 			logger.error("Unexpected error.", e);
-        // 		}
-        // 	}
-        // }
-    }
-
-    protected static VelocityContext getAdmissionVelocityContext(Program program, String notes, Date startDate, Date endDate, ArrayList<AdmissionDemographicPair> admissionDemographicPairs) {
-        VelocityContext velocityContext = VelocityUtils.createVelocityContextWithTools();
-        velocityContext.put("program", program);
-        velocityContext.put("admissionDemographicPairs", admissionDemographicPairs);
-        if (notes != null) velocityContext.put("notes", notes);
-        if (startDate != null) velocityContext.put("startDate", startDate);
-        if (endDate != null) velocityContext.put("endDate", endDate);
-        return velocityContext;
-    }
-
-    protected static VelocityContext getVacancyVelocityContext(Vacancy vacancy, String notes, Date date) {
-        VelocityContext velocityContext = VelocityUtils.createVelocityContextWithTools();
-        velocityContext.put("vacancy", vacancy);
-        if (notes != null) velocityContext.put("notes", notes);
-        if (date != null) velocityContext.put("date", date);
-        return velocityContext;
     }
 
     /*
@@ -274,23 +239,5 @@ public class WaitListManager {
     @Deprecated
     private void sendVacancyNotification(String emailSubject, String emailTemplate, Vacancy vacancy, String notes, Date date) {
         throw new UnsupportedOperationException("This method is no longer supported.");
-        // String temp = StringUtils.trimToNull(vacancy.getEmailNotificationAddressesCsv());
-        // if (temp != null) {
-        // 	String fromAddress = waitListProperties.getProperty("from_address");
-
-        // 	VelocityContext velocityContext = getVacancyVelocityContext(vacancy, notes, date);
-
-        // 	String mergedSubject = VelocityUtils.velocityEvaluate(velocityContext, emailSubject);
-        // 	String mergedBody = VelocityUtils.velocityEvaluate(velocityContext, emailTemplate);
-
-        // 	String[] splitEmailAddresses = temp.split(",");
-        // 	for (String emailAddress : splitEmailAddresses) {
-        // 		try {
-        // 			EmailUtilsOld.sendEmail(emailAddress, emailAddress, fromAddress, fromAddress, mergedSubject, mergedBody, null);
-        // 		} catch (EmailException e) {
-        // 			logger.error("Unexpected error.", e);
-        // 		}
-        // 	}
-        // }
     }
 }

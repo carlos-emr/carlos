@@ -196,6 +196,10 @@ public class Hl7TextInfo extends AbstractModel<Integer> implements Serializable 
         this.reportStatus = StringUtils.trimToEmpty(reportStatus);
     }
 
+    /** Imported CDS text is whitespace-preserving; ordinary upload normalization remains unchanged. */
+    public void setImportedReportStatus(String value) { this.reportStatus=value==null?"":value; }
+    public void setImportedAccessionNumber(String value) { this.accessionNumber=value; }
+
     public String getAccessionNumber() {
         return accessionNumber;
     }

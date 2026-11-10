@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.webserv.oauth.util;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.webserv.oauth.OAuthScopes;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ServiceAccessToken;
@@ -357,6 +358,20 @@ class OAuthInterceptorScopeEnforcementUnitTest {
         Message message = new MessageImpl();
         message.put(AbstractHTTPDestination.HTTP_REQUEST, request);
         return message;
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"full", "restricted", "enforced"})
+    void shouldBlockSoapTokenRevocation_inEveryOauthAccessMode(String mode) {
+        if ("enforced".equals(mode)) enableEnforcement();
+        else legacyMode(mode);
+        var interceptor = interceptorWith(authenticatedTokenGranting("demographic.write provider.write"));
+        var request = servletRequest("DELETE", "/services/soapTokens");
+        Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(messageWith(request)), Fault.class);
+        assertThat(fault).isNotNull();
+        assertThat(fault.getStatusCode()).isEqualTo(403);
+        assertThat(fault.getCause()).hasMessage("blocked_endpoint");
+        assertThat(OAuthScopes.isKnownScope("soaptoken.write")).isFalse();
     }
 
     @Test

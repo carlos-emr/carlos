@@ -27,6 +27,8 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -43,13 +45,13 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.collections4.OrderedMapIterator;
 import org.apache.commons.collections4.map.ListOrderedMap;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 import org.kie.api.KieBase;
 import org.kie.api.runtime.KieSession;
+import io.github.carlos_emr.carlos.utility.ContentDigests;
 import io.github.carlos_emr.carlos.drools.DroolsCompilationException;
 import io.github.carlos_emr.carlos.drools.DroolsHelper;
 import io.github.carlos_emr.carlos.drools.RuleBaseFactory;
@@ -629,7 +631,7 @@ public class MeasurementFlowSheet {
                 if (measurementDirPath != null) {
                     File file = PathValidationUtils.validatePath(topHTMLFileName, new File(measurementDirPath));
                     if (file.isFile() && file.canRead()) {
-                        log.debug("Loading from file " + file.getName());
+                        log.debug("Loading configured measurement resource");
                         is = new FileInputStream(file);
                     }
                 }
@@ -649,7 +651,7 @@ public class MeasurementFlowSheet {
                     bReader.close();
                 }
             } catch (Exception e) {
-                log.error("Failed to load top HTML file for flowsheet: {}", topHTMLFileName, e);
+                log.error("Failed to load top HTML file for flowsheet: {}", LogSafe.exceptionTrace(e));
             }
         }
         return sb.toString();
@@ -679,7 +681,7 @@ public class MeasurementFlowSheet {
             if (measurementDirPath != null) {
                 File file = PathValidationUtils.validatePath(dsHTML, new File(measurementDirPath));
                 if (file.isFile() && file.canRead()) {
-                    log.debug("Loading from file " + file.getName());
+                    log.debug("Loading configured measurement resource");
                     is = new FileInputStream(file);
                 }
             }
@@ -700,7 +702,7 @@ public class MeasurementFlowSheet {
             }
 
         } catch (Exception e) {
-            log.error("Failed to load decision support HTML file: {}", dsHTML, e);
+            log.error("Failed to load decision support HTML file: {} {}", dsHTML, LogSafe.exceptionTrace(e));
         } finally {
             IOUtils.closeQuietly(is);
             IOUtils.closeQuietly(bReader);
@@ -778,7 +780,7 @@ public class MeasurementFlowSheet {
             } catch (Exception e) {
                 log.debug("LOADING EXEPTION");
 
-                log.error("Failed to compile programmatic rule base for flowsheet: {}", name, e);
+                log.error("Failed to compile programmatic rule base for flowsheet: {} {}", name, LogSafe.exceptionTrace(e));
             }
         }
     }
@@ -839,7 +841,7 @@ public class MeasurementFlowSheet {
             if (measurementDirPath != null) {
                 File file = PathValidationUtils.validatePath(string, new File(measurementDirPath));
                 if (file.isFile() && file.canRead()) {
-                    log.debug("Loading DRL from file: {}", file.getName());
+                    log.debug("Loading configured measurement rules");
                     try (FileInputStream fis = new FileInputStream(file)) {
                         drl = IOUtils.toString(fis, StandardCharsets.UTF_8);
                     }
@@ -853,13 +855,13 @@ public class MeasurementFlowSheet {
                     log.warn("DRL resource not found on classpath for flowsheet rule: {}", string);
                     return;
                 }
-                log.debug("loading from URL {}", url.getFile());
+                log.debug("Loading configured report resource");
                 drl = DroolsHelper.readDrl(url);
             }
             flowsheetRuleBase = compileFlowsheetRules(drl);
             ruleBase = flowsheetRuleBase;
         } catch (Exception e) {
-            log.error("Failed to load flowsheet rule base from DRL file: {}", string, e);
+            log.error("Failed to load flowsheet rule base from DRL file: {} {}", string, LogSafe.exceptionTrace(e));
         }
         rulesLoaded = (ruleBase != null);
     }
@@ -872,7 +874,7 @@ public class MeasurementFlowSheet {
      * @throws DroolsCompilationException if the DRL does not compile
      */
     private static KieBase compileFlowsheetRules(String drl) throws DroolsCompilationException {
-        String cacheKey = "MeasurementFlowSheet:" + DigestUtils.sha256Hex(drl);
+        String cacheKey = "MeasurementFlowSheet:" + ContentDigests.sha256Hex(drl);
         KieBase cached = RuleBaseFactory.getRuleBase(cacheKey);
         if (cached != null) {
             return cached;
@@ -997,7 +999,7 @@ public class MeasurementFlowSheet {
         } catch (Exception e) {
             log.debug("loadMeasurementRuleBase EXCEPTION");
 
-            log.error("Failed to compile TargetColour rule base for measurement", e);
+            log.error("Failed to compile TargetColour rule base for measurement: {}", LogSafe.exceptionTrace(e));
         }
         return measurementRuleBase;
 
@@ -1058,7 +1060,7 @@ public class MeasurementFlowSheet {
                 kieSession.insert(new MeasurementDSHelper(loggedInInfo, mdb));
                 kieSession.fireAllRules();
             } catch (Exception e) {
-                log.error("Failed to execute decision support rules for measurement type: {}", type, e);
+                log.error("Failed to execute decision support rules for measurement type: {} {}", type, LogSafe.exceptionTrace(e));
             } finally {
                 // Always dispose the session to release resources
                 kieSession.dispose();
@@ -1126,7 +1128,7 @@ public class MeasurementFlowSheet {
             kieSession.insert(mi);
             kieSession.fireAllRules();
         } catch (RuntimeException e) {
-            log.error("Failed to execute flowsheet decision support rules for flowsheet: {}", name, e);
+            log.error("Failed to execute flowsheet decision support rules for flowsheet: {} {}", name, LogSafe.exceptionTrace(e));
             throw e;
         }
     }

@@ -81,12 +81,12 @@
  */
 --%>
 
-<%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.send.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.util.*" %>
-<%@ page import="java.util.*, org.w3c.dom.*" %>
+
+<%@ page import="org.w3c.dom.*" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml" %>
-<%@ page import="io.github.carlos_emr.carlos.util.UtilXML" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachmentStaging" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

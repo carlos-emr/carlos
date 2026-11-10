@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  *
  * This software is published under the GPL GNU General Public License.
@@ -24,61 +25,27 @@ package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
+import static org.mockito.Mockito.*;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Date;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
+import java.util.*;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
-import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
-import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao;
-import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
-import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
-import io.github.carlos_emr.carlos.commn.model.Demographic;
-import io.github.carlos_emr.carlos.commn.model.Provider;
-import io.github.carlos_emr.carlos.consultation.dto.ConsultationListFilterDto;
-import io.github.carlos_emr.carlos.managers.ConsultationManager;
+import io.github.carlos_emr.carlos.commn.dao.*;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequestExt;
+import io.github.carlos_emr.carlos.consultation.dto.*;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 
-/**
- * Behaviour pinned here: a single imperfect legacy row must never blank the patient's whole
- * Consultations tab.
- *
- * <p>{@code ConsultationRequestDaoImpl.getConsults(Integer)} deliberately dropped its
- * {@code Demographic} and {@code Provider} existence joins so that consults whose ordering
- * provider is missing stop being silently filtered out of the chart. That widening only helps
- * if the caller tolerates the rows it now lets through: {@code estConsultationVecByDemographic}
- * shares one {@code try/catch} across its entire loop, so any unguarded dereference turns a
- * single bad row into an empty tab plus {@code verdict == false} — the exact symptom the widened
- * query was meant to cure.</p>
- */
+/** Consultation row formatting, access checks and bounded lookup regression tests. */
 @Tag("unit")
 @Tag("consultation")
-@DisplayName("EctViewConsultationRequestsUtil - demographic-scoped consult list")
+@DisplayName("Scalar consultation list rendering")
 class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
-
-    private static final String DEMO_NO = "42";
-    private static final Integer DEMO_ID = 42;
-
     @Test
     @DisplayName("should exclude missing and malformed patient identifiers from bulk ticklers")
     void shouldExcludeInvalidPatients_whenBuildingBulkTicklers() {
@@ -135,268 +102,158 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         return parameters;
     }
 
-    private ConsultationRequestDao consultationRequestDao;
-    private ConsultationRequestExtDao consultationRequestExtDao;
-    private ProviderDao providerDao;
-    private DemographicManager demographicManager;
-    private ConsultationManager consultationManager;
 
-    private LoggedInInfo loggedInInfo;
+    private ConsultationRequestDao requests;
+    private ConsultationRequestExtDao extensions;
+    private DemographicManager demographics;
+    private ProviderDao providers;
+    private LoggedInInfo info;
     private EctViewConsultationRequestsUtil util;
 
     @BeforeEach
     void setUp() {
-        consultationRequestDao = mock(ConsultationRequestDao.class);
-        consultationRequestExtDao = mock(ConsultationRequestExtDao.class);
-        providerDao = mock(ProviderDao.class);
-        demographicManager = mock(DemographicManager.class);
-        loggedInInfo = mock(LoggedInInfo.class);
-
-        registerMock(ConsultationRequestDao.class, consultationRequestDao);
-        registerMock(ConsultationRequestExtDao.class, consultationRequestExtDao);
-        registerMock(ProviderDao.class, providerDao);
-        registerMock(DemographicManager.class, demographicManager);
-        // Resolved by the util even on the serviceId==0 path, so it must be registered.
-        registerMock(ConsultationServiceDao.class, mock(ConsultationServiceDao.class));
-        // The inbox (by-team) path folds the extension rows through the manager.
-        consultationManager = mock(ConsultationManager.class);
-        when(consultationManager.getExtValuesAsMap(any())).thenReturn(Map.of());
-        registerMock(ConsultationManager.class, consultationManager);
-
-        // serviceId 0 routes the description and specialist lookups through the extensions table,
-        // keeping these tests off the ConsultationServices path they are not about.
-        when(consultationRequestExtDao.getConsultationRequestExtsByKey(anyInt(), anyString()))
-                .thenReturn("eReferral service");
-
+        requests = mock(ConsultationRequestDao.class);
+        extensions = mock(ConsultationRequestExtDao.class);
+        demographics = mock(DemographicManager.class);
+        providers = mock(ProviderDao.class);
+        info = mock(LoggedInInfo.class);
+        registerMock(ConsultationRequestDao.class, requests);
+        registerMock(ConsultationRequestExtDao.class, extensions);
+        registerMock(DemographicManager.class, demographics);
+        registerMock(ProviderDao.class, providers);
         util = new EctViewConsultationRequestsUtil();
     }
 
-    /**
-     * A real entity rather than a mock, matching the convention in the sibling consultation tests.
-     * {@code id} is JPA-generated with no setter, and the util calls {@code getId().toString()},
-     * so the identifier is supplied by overriding the getter.
-     */
-    private ConsultationRequest consultWithNoOrderingProvider() {
-        ConsultationRequest consult = new ConsultationRequest() {
-            @Override
-            public Integer getId() {
-                return 7;
-            }
-        };
-        consult.setServiceId(0);
-        consult.setDemographicId(DEMO_ID);
-        consult.setStatus("1");
-        consult.setUrgency(null);
-        // The row the widened query newly returns: no ordering provider at all.
-        consult.setProviderNo(null);
-        consult.setReferralDate(null);
-        return consult;
+    private ConsultationListFilterDto filter() {
+        return new ConsultationListFilterDto("team", true, null, null, "6", "1", "0", 0, 50, 8, "101");
+    }
+
+    private ConsultationListRow row(Integer id, Integer demographic, Integer service, String mrp, Integer specialist) {
+        // Other timezone tests may initialize the shared renderer before restoring
+        // the JVM default. Build this batching fixture in that renderer's zone.
+        java.util.Date appointmentDate = java.util.Date.from(java.time.LocalDate.of(2097, 3, 14)
+                .atStartOfDay(org.apache.commons.lang3.time.DateFormatUtils.ISO_DATE_FORMAT.getTimeZone().toZoneId())
+                .toInstant());
+        return new ConsultationListRow(id, "1", demographic, "alias", "201", service, service, null, specialist, " Smith ", null,
+                mrp, "Lovelace", "Ada", null, "site", "team", null,
+                appointmentDate, null, null, null);
     }
 
     @Test
-    @DisplayName("should retain the inbox row when service and demographic IDs are null")
-    void shouldRetainInboxRow_whenServiceAndDemographicIdsAreNull() throws Exception {
-        ConsultationRequest consult = consultWithNoOrderingProvider();
-        consult.setServiceId(null);
-        consult.setDemographicId(null);
-        stubInboxQuery(consult);
-
-        assertThat(util.estConsultationVecByTeam(loggedInInfo, null, false, null, null, null, null,
-                null, null, null)).isTrue();
-        assertThat(util.ids).containsExactly("7");
-        assertThat(util.demographicNo).containsExactly("");
-        assertThat(util.patient).containsExactly("");
-        assertThat(util.service).containsExactly("");
-        assertThat(util.vSpecialist).containsExactly("N/A");
+    void shouldBatchCalendarDates_whenDefaultZoneChangesAfterRendererInitialization() {
+        java.util.TimeZone rendererZone = org.apache.commons.lang3.time.DateFormatUtils.ISO_DATE_FORMAT.getTimeZone();
+        java.util.TimeZone previous = java.util.TimeZone.getDefault();
+        try {
+            java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone(
+                    rendererZone.getRawOffset() == 14 * 60 * 60 * 1000 ? "GMT-12:00" : "GMT+14:00"));
+            shouldBatchLookups_forManyRowsWithRepeatedPatientAndProvider();
+        } finally {
+            java.util.TimeZone.setDefault(previous);
+        }
     }
 
     @Test
-    @DisplayName("should retain the patient consultation row when the service ID is null")
-    void shouldRetainPatientRow_whenServiceIdIsNull() throws Exception {
-        ConsultationRequest consult = consultWithNoOrderingProvider();
-        consult.setServiceId(null);
-        when(consultationRequestDao.getConsults(DEMO_ID)).thenReturn(List.of(consult));
+    void shouldBatchLookups_forManyRowsWithRepeatedPatientAndProvider() {
+        when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(1, 42, 0, "101", null), row(2, 42, 0, "101", 8)));
+        when(demographics.getDemographicFormattedNames(info, Set.of(42))).thenReturn(Map.of(42, "Doe, Jane"));
+        ProviderSummaryDTO ordering = new ProviderSummaryDTO("201", "Order", "Pat", null, null, null);
+        when(providers.getProviderSummariesByIds(Set.of("201"))).thenReturn(Map.of("201", ordering));
+        ConsultationRequestExt service = new ConsultationRequestExt();
+        service.setRequestId(1); service.setKey("ereferral_service"); service.setValue("Cardiology");
+        ConsultationRequestExt specialist = new ConsultationRequestExt();
+        specialist.setRequestId(1); specialist.setKey("ereferral_doctor"); specialist.setValue("Referral doctor");
+        ConsultationRequestExt ref = new ConsultationRequestExt();
+        ref.setRequestId(1); ref.setKey("ereferral_ref"); ref.setValue(null);
+        when(extensions.getConsultationRequestExts(List.of(1, 2))).thenReturn(List.of(service, specialist, ref));
 
-        assertThat(util.estConsultationVecByDemographic(loggedInInfo, DEMO_NO)).isTrue();
+        assertThat(util.estConsultationVecByTeam(info, filter())).isTrue();
+        assertThat(util.ids).containsExactly("1", "2");
+        assertThat(util.patient).containsExactly("Doe, Jane (alias)", "Doe, Jane (alias)");
+        assertThat(util.provider).containsExactly("Lovelace, Ada", "Lovelace, Ada");
+        assertThat(util.providerNo).containsExactly("101", "101");
+        assertThat(util.service).containsExactly("Cardiology", "");
+        assertThat(util.vSpecialist).containsExactly("Referral doctor", "Smith");
+        assertThat(util.eReferral).containsExactly(true, false);
+        assertThat(util.apptDate).containsExactly("2097-03-14", "2097-03-14");
+        assertThat(util.date).containsExactly("", "");
+        assertThat(util.urgency).containsExactly("", "");
+        assertThat(util.followUpDate).containsExactly("N/A", "N/A");
+        assertThat(util.patientWillBook).containsExactly("false", "false");
+        assertThat(util.consultProvider).containsExactly(ordering, ordering);
+        verify(requests).getConsultationListRows(filter());
+        verify(demographics).getDemographicFormattedNames(info, Set.of(42));
+        verify(providers).getProviderSummariesByIds(Set.of("201"));
+        verify(extensions).getConsultationRequestExts(List.of(1, 2));
+        verifyNoMoreInteractions(requests, demographics, providers, extensions);
+    }
+
+    @Test
+    void shouldKeepOrphanedRows_whenRelatedRecordsAreMissing() {
+        when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(7, null, null, null, null), row(8, 42, null, null, null)));
+        assertThat(util.estConsultationVecByTeam(info, filter())).isTrue();
+        assertThat(util.ids).containsExactly("7", "8");
+        assertThat(util.demographicNo).containsExactly("", "42");
+        assertThat(util.patient).containsExactly("", "");
+        assertThat(util.provider).containsExactly("N/A", "N/A");
+        assertThat(util.providerNo).containsExactly("-1", "-1");
+        assertThat(util.service).containsExactly("", "");
+        assertThat(util.vSpecialist).containsExactly("N/A", "N/A");
+    }
+
+    @Test
+    void shouldKeepPatientChartFallbacks_whenServiceAndMrpAreMissing() {
+        when(requests.getConsultationListRows(42)).thenReturn(List.of(row(7, 42, null, null, null)));
+        assertThat(util.estConsultationVecByDemographic(info, "42")).isTrue();
         assertThat(util.ids).containsExactly("7");
         assertThat(util.service).containsExactly("unknown");
+        assertThat(util.provider).containsExactly("N/A");
         assertThat(util.vSpecialist).containsExactly("N/A");
     }
 
-    private Demographic demographicWithMrp(String providerNo) {
-        Demographic demographic = new Demographic();
-        demographic.setLastName("Doe");
-        demographic.setFirstName("Jane");
-        demographic.setProviderNo(providerNo);
-        return demographic;
+    @Test
+    void shouldPublishNoRows_whenPatientReadIsDenied() {
+        when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(7, 42, null, null, null)));
+        when(demographics.getDemographicFormattedNames(info, Set.of(42))).thenThrow(new SecurityException("denied"));
+        assertThat(util.estConsultationVecByTeam(info, filter())).isFalse();
+        assertThat(util.ids).isEmpty();
+        assertThat(util.patient).isEmpty();
+        verifyNoInteractions(providers, extensions);
     }
 
     @Test
-    @DisplayName("should still list the consult when the demographic's MRP no longer exists")
-    void shouldListConsult_whenMrpProviderRowWasDeleted() throws Exception {
-        // A non-empty providerNo pointing at a provider row that has since been removed. Guarding
-        // only the id (the old behaviour) walks straight into getProvider(...) returning null.
-        when(demographicManager.getDemographic(any(LoggedInInfo.class), eq(DEMO_ID)))
-                .thenReturn(demographicWithMrp("999"));
-        when(providerDao.getProvider("999")).thenReturn(null);
-        when(consultationRequestDao.getConsults(DEMO_ID))
-                .thenReturn(List.of(consultWithNoOrderingProvider()));
-
-        boolean verdict = util.estConsultationVecByDemographic(loggedInInfo, DEMO_NO);
-
-        assertThat(verdict).isTrue();
-        assertThat(util.ids).containsExactly("7");
-        // The row survives and degrades to "N/A" rather than taking the whole tab down with it.
-        assertThat(util.provider).containsExactly("N/A");
-        assertThat(util.patient).containsExactly("Doe, Jane");
-        assertThat(util.urgency).containsExactly("");
+    void shouldSkipAllLookups_whenPageIsEmpty() {
+        assertThat(util.estConsultationVecByTeam(info, filter())).isTrue();
+        assertThat(util.ids).isEmpty();
+        verifyNoInteractions(demographics, providers, extensions);
     }
 
     @Test
-    @DisplayName("should still list the consult when the demographic itself cannot be resolved")
-    void shouldListConsult_whenDemographicCannotBeResolved() throws Exception {
-        // getConsults no longer joins Demographic either, so an unresolvable demographic reaches
-        // the loop the same way a dangling provider does.
-        when(demographicManager.getDemographic(any(LoggedInInfo.class), eq(DEMO_ID)))
-                .thenReturn(null);
-        when(consultationRequestDao.getConsults(DEMO_ID))
-                .thenReturn(List.of(consultWithNoOrderingProvider()));
-
-        boolean verdict = util.estConsultationVecByDemographic(loggedInInfo, DEMO_NO);
-
-        assertThat(verdict).isTrue();
-        assertThat(util.ids).containsExactly("7");
-        assertThat(util.provider).containsExactly("N/A");
-        // Blank rather than a fabricated label: the name is genuinely unknown here.
-        assertThat(util.patient).containsExactly("");
+    void shouldPreserveFilters_forPositionalOverload() {
+        util.estConsultationVecByTeam(info, "team", true, null, null, "2", "1", "1", 10, 20);
+        verify(requests).getConsultationListRows(new ConsultationListFilterDto("team", true, null, null,
+                "2", "1", "1", 10, 20, null, null));
+    }
+    @Test
+    void shouldPreserveFirstAndLastExtensionSelection_forChartAndTeamLists() {
+        var row = row(7, 42, 0, null, null);
+        when(requests.getConsultationListRows(filter())).thenReturn(List.of(row));
+        when(requests.getConsultationListRows(42)).thenReturn(List.of(row));
+        var first = new ConsultationRequestExt();
+        first.setRequestId(7); first.setKey("ereferral_service"); first.setValue("First service");
+        var last = new ConsultationRequestExt();
+        last.setRequestId(7); last.setKey("ereferral_service"); last.setValue("Last service");
+        when(extensions.getConsultationRequestExts(List.of(7))).thenReturn(List.of(first, last));
+        assertThat(util.estConsultationVecByTeam(info, filter())).isTrue();
+        assertThat(util.service).containsExactly("Last service");
+        assertThat(util.estConsultationVecByDemographic(info, "42")).isTrue();
+        assertThat(util.service).containsExactly("First service");
     }
 
     @Test
-    @DisplayName("should render the MRP's formatted name when the provider record resolves")
-    void shouldRenderFormattedName_whenMrpResolves() throws Exception {
-        when(demographicManager.getDemographic(any(LoggedInInfo.class), eq(DEMO_ID)))
-                .thenReturn(demographicWithMrp("101"));
-
-        Provider mrp = new Provider();
-        mrp.setProviderNo("101");
-        mrp.setFirstName("Ada");
-        mrp.setLastName("Lovelace");
-        when(providerDao.getProvider("101")).thenReturn(mrp);
-        when(consultationRequestDao.getConsults(DEMO_ID))
-                .thenReturn(List.of(consultWithNoOrderingProvider()));
-
-        boolean verdict = util.estConsultationVecByDemographic(loggedInInfo, DEMO_NO);
-
-        assertThat(verdict).isTrue();
-        assertThat(util.provider).containsExactly("Lovelace, Ada");
-    }
-
-    /**
-     * The inbox (by-team) list shares the by-demographic contract: one imperfect row must
-     * degrade to "N/A"/blank, never take every consult on the page down with it. The
-     * unbounded-filter call is what ViewConsultationRequests.jsp issues for the default
-     * "Consultations" view.
-     */
-    private void stubInboxQuery(ConsultationRequest consult) {
-        // The positional overload now delegates to the filter-object query (issue #3976); the
-        // default view is the all-null filter with no consultant and no MRP.
-        when(consultationRequestDao.getConsults(new ConsultationListFilterDto(null, false, null, null, null, null,
-                null, null, null, null, null)))
-                .thenReturn(List.of(consult));
-    }
-
-    @Test
-    @DisplayName("should pass the consultant and MRP filters through to the list query")
-    void shouldPassConsultantAndMrpFilters_toListQuery() throws Exception {
-        Date start = new Date(0L);
-        ConsultationListFilterDto filter = new ConsultationListFilterDto("Cardio", true, start, null, "6", "1",
-                "0", 100, 50, 42, "101");
-        when(consultationRequestDao.getConsults(any(ConsultationListFilterDto.class)))
-                .thenReturn(List.of(consultWithNoOrderingProvider()));
-
-        boolean verdict = util.estConsultationVecByTeam(loggedInInfo, filter);
-
-        assertThat(verdict).isTrue();
-        assertThat(util.ids).containsExactly("7");
-        ArgumentCaptor<ConsultationListFilterDto> captor = ArgumentCaptor.forClass(ConsultationListFilterDto.class);
-        verify(consultationRequestDao).getConsults(captor.capture());
-        assertThat(captor.getValue()).isEqualTo(filter);
-        assertThat(captor.getValue().consultantId()).isEqualTo(42);
-        assertThat(captor.getValue().mrpProviderNo()).isEqualTo("101");
-    }
-
-    @Test
-    @DisplayName("should call the list query with no consultant or MRP filter from the positional overload")
-    void shouldOmitConsultantAndMrpFilters_forPositionalOverload() throws Exception {
-        when(consultationRequestDao.getConsults(any(ConsultationListFilterDto.class)))
-                .thenReturn(List.of());
-
-        util.estConsultationVecByTeam(loggedInInfo, "Cardio", true, null, null, "2", "1", "1", 10, 20);
-
-        ArgumentCaptor<ConsultationListFilterDto> captor = ArgumentCaptor.forClass(ConsultationListFilterDto.class);
-        verify(consultationRequestDao).getConsults(captor.capture());
-        assertThat(captor.getValue()).isEqualTo(new ConsultationListFilterDto("Cardio", true, null, null, "2", "1",
-                "1", 10, 20, null, null));
-    }
-
-    @Test
-    @DisplayName("should list the inbox consult when the demographic's MRP no longer exists")
-    void shouldListInboxConsult_whenMrpProviderRowWasDeleted() throws Exception {
-        when(demographicManager.getDemographic(any(LoggedInInfo.class), eq(DEMO_ID)))
-                .thenReturn(demographicWithMrp("999"));
-        when(providerDao.getProvider("999")).thenReturn(null);
-        stubInboxQuery(consultWithNoOrderingProvider());
-
-        boolean verdict = util.estConsultationVecByTeam(loggedInInfo, null, false, null, null, null, null,
-                null, null, null);
-
-        assertThat(verdict).isTrue();
-        assertThat(util.ids).containsExactly("7");
-        assertThat(util.provider).containsExactly("N/A");
-        assertThat(util.providerNo).containsExactly("-1");
-        assertThat(util.patient).containsExactly("Doe, Jane");
-        // A null referral date renders blank instead of NPE-ing the whole page.
-        assertThat(util.date).containsExactly("");
-        // A null urgency likewise renders as an empty label, rather than reaching
-        // the JSP as null and blanking the complete consultation inbox.
-        assertThat(util.urgency).containsExactly("");
-    }
-
-    @Test
-    @DisplayName("should list the inbox consult when the demographic itself cannot be resolved")
-    void shouldListInboxConsult_whenDemographicCannotBeResolved() throws Exception {
-        when(demographicManager.getDemographic(any(LoggedInInfo.class), eq(DEMO_ID)))
-                .thenReturn(null);
-        stubInboxQuery(consultWithNoOrderingProvider());
-
-        boolean verdict = util.estConsultationVecByTeam(loggedInInfo, null, false, null, null, null, null,
-                null, null, null);
-
-        assertThat(verdict).isTrue();
-        assertThat(util.ids).containsExactly("7");
-        assertThat(util.provider).containsExactly("N/A");
-        assertThat(util.patient).containsExactly("");
-        assertThat(util.demographicNo).containsExactly(DEMO_NO);
-    }
-
-    @Test
-    @DisplayName("should render the inbox MRP's formatted name when the provider record resolves")
-    void shouldRenderInboxFormattedName_whenMrpResolves() throws Exception {
-        when(demographicManager.getDemographic(any(LoggedInInfo.class), eq(DEMO_ID)))
-                .thenReturn(demographicWithMrp("101"));
-        Provider mrp = new Provider();
-        mrp.setProviderNo("101");
-        mrp.setFirstName("Ada");
-        mrp.setLastName("Lovelace");
-        when(providerDao.getProvider("101")).thenReturn(mrp);
-        stubInboxQuery(consultWithNoOrderingProvider());
-
-        boolean verdict = util.estConsultationVecByTeam(loggedInInfo, null, false, null, null, null, null,
-                null, null, null);
-
-        assertThat(verdict).isTrue();
-        assertThat(util.provider).containsExactly("Lovelace, Ada");
-        assertThat(util.providerNo).containsExactly("101");
+    void shouldRetainNullDescription_whenServiceRecordExists() {
+        when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(7, 42, 5, null, null)));
+        assertThat(util.estConsultationVecByTeam(info, filter())).isTrue();
+        assertThat(util.service).containsExactly((String) null);
     }
 
     @ParameterizedTest(name = "[{index}] last={0}, first={1} -> \"{2}\"")
@@ -413,15 +270,4 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         assertThat(
                 EctViewConsultationRequestsUtil.formatSpecialistName(last, first)).isEqualTo(expected);
     }
-    @Test
-    void shouldShowDateWithoutInventingTime_whenAppointmentTimeIsAbsent() {
-        ConsultationRequest consult = consultWithNoOrderingProvider();
-        consult.setAppointmentDate(java.sql.Date.valueOf("2097-03-14"));
-        consult.setAppointmentTime(null);
-        stubInboxQuery(consult);
-        assertThat(util.estConsultationVecByTeam(loggedInInfo, null, false, null, null, null, null,
-                null, null, null)).isTrue();
-        assertThat(util.apptDate).containsExactly("2097-03-14");
-    }
-
 }

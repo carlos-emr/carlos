@@ -33,8 +33,8 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
 
 <%

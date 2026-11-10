@@ -22,8 +22,10 @@
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.dao.EpisodeDao;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.daos.security.SecobjprivilegeDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.model.security.Secuserrole;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -43,6 +45,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockedConstruction;
@@ -52,6 +55,10 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.never;
@@ -92,6 +99,14 @@ class EncounterPanelPrivilegeRegressionUnitTest extends CarlosUnitTestBase {
         request.getSession().setAttribute("userrole", "doctor");
         request.getSession().setAttribute("user", "999998");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        Provider provider = new Provider();
+        provider.setProviderNo("999998");
+        provider.setFirstName("Synthetic");
+        provider.setLastName("Provider");
+        when(loggedInInfo.getLoggedInProvider()).thenReturn(provider);
+        Secuserrole role = new Secuserrole();
+        role.setRoleName("doctor");
+        when(securityInfoManager.getRoles(loggedInInfo)).thenReturn(List.of(role));
         when(securityInfoManager.isAllowedAccessToPatientRecord(org.mockito.ArgumentMatchers.eq(loggedInInfo),
                 org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
 
@@ -298,6 +313,40 @@ class EncounterPanelPrivilegeRegressionUnitTest extends CarlosUnitTestBase {
 
     private record PrivilegeStub(String objectName, Properties properties, Vector<String> roles) {
     }
+
+    @ParameterizedTest
+    @CsvSource({
+        "EctDisplayDecisionSupportAlerts2Action,global.decisionSupportAlerts",
+        "EctDisplayMeasurements2Action,encounter.Index.measurements",
+        "EctDisplayDx2Action,encounter.LeftNavBar.DxRegistry",
+        "EctDisplayDxAction,encounter.LeftNavBar.DxRegistry",
+        "EctDisplayIssues2Action,encounter.NavBar.unresolvedIssues",
+        "EctDisplayResolvedIssues2Action,encounter.NavBar.resolvedIssues"
+    })
+    void shouldResolveReviewedHeadingKey_whenEachChangedPanelBuildsItsHeading(String type, String key) throws Exception {
+        var panelType = Class.forName(getClass().getPackageName() + "." + type).asSubclass(EctDisplayAction.class);
+        var panel = mock(panelType, CALLS_REAL_METHODS);
+        panel.securityInfoManager = securityInfoManager;
+        doReturn(loggedInInfo).when(panel).getLoggedInInfo(request);
+        doReturn(ROLE_NAME).when(panel).getRoleNames(request);
+        when(securityInfoManager.hasPrivilege(org.mockito.ArgumentMatchers.eq(loggedInInfo),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq("r"),
+                org.mockito.ArgumentMatchers.isNull())).thenReturn(true);
+        var privilege = new Vector<Object>();
+        privilege.add(new Properties()); privilege.add(new Vector<>());
+        rolePrivilegeMock.when(() -> OscarRoleObjectPrivilege.getPrivilegeProp("_newCasemgmt.decisionSupportAlerts"))
+                .thenReturn(privilege);
+        rolePrivilegeMock.when(() -> OscarRoleObjectPrivilege.checkPrivilege(
+                org.mockito.ArgumentMatchers.eq(ROLE_NAME), org.mockito.ArgumentMatchers.any(Properties.class),
+                org.mockito.ArgumentMatchers.any(Vector.class))).thenReturn(true);
+        // Stop at the real translation boundary, before unrelated database population.
+        var observed = new HeadingObserved();
+        doThrow(observed).when(panel).getText(key);
+        assertThatThrownBy(() -> panel.getInfo(encounterSession(), request, new NavBarDisplayDAO())).isSameAs(observed);
+        verify(panel).getText(key);
+    }
+
+    private static final class HeadingObserved extends AssertionError { }
 
     private static final class RecordingDisplayAction extends EctDisplayAction {
 

@@ -4,17 +4,21 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const {EventEmitter}=require('node:events');
 const source = fs.readFileSync(path.join(__dirname, 'prescription-signature-playwright-checks.js'), 'utf8');
 
 for (const launchFails of [false, true]) {
   test(`signature check owns signal handling and releases it when ${launchFails ? 'launch' : 'context setup'} fails`, async () => {
     const events = [];
     let options;
+    const signalProcess=Object.assign(new EventEmitter(),{env:{PRESCRIPTION_SCRIPT_ID:'45'},exitCode:0});
     await vm.runInNewContext(source, {
       URL,
-      process: { env: { PRESCRIPTION_SCRIPT_ID: '45' }, exitCode: 0 },
+      process: signalProcess,
       console: { error() {}, log() {}, warn() {} },
       require(name) {
+        if (name === './lib/legacy-check') return {runLegacyCheck:(id,operation,options)=>require('./lib/legacy-check').runLegacyCheck(id,operation,{...options,processRef:signalProcess})};
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
         if (name === 'playwright') return { chromium: { async launch(value) {
           events.push('launch');
           options = value;
@@ -24,7 +28,9 @@ for (const launchFails of [false, true]) {
             async close() { events.push('close'); },
           };
         } } };
-        if (name === './lib/playwright-harness') return { shouldIgnoreHttpsErrors: () => true };
+        if (name === './lib/playwright-harness') return { shouldIgnoreHttpsErrors: () => true,
+          validateBaseUrl: raw => require('./lib/playwright-harness').validateBaseUrl(raw, {}),
+        };
         if (name === './graceful-signal-cancellation') return { createGracefulSignalCancellation() {
           events.push('register');
           return { throwIfCancelled() { events.push('check'); }, dispose() { events.push('dispose'); } };
@@ -82,4 +88,17 @@ test('the demo prescription audit write-back is attempted on its own, so a faile
   assert.match(finallyBlock, /if \(auditBefore\) \{\n\s+try \{\n\s+demoAudit\.restore\(auditSql, auditBefore\);/,
     'the write-back has a try of its own');
   assert.match(finallyBlock, /prescription-signature:audit-restore/, 'its failure is reported as a finding that fails the run');
+});
+
+test('signature preview request retains the configured patient and rejects a refused view before waiting for a frame',async()=>{
+  const start=source.indexOf('async function openPrescriptionView('),body=source.slice(start,source.indexOf('\n}',start)+2);
+  for(const status of [200,409]){
+    let requested,previewCalls=0;
+    const context={URLSearchParams,prescriptionScriptId:'45',prescriptionDemographicNo:'42',prescriptionPharmacyId:'',visited:[],
+      choosePrescriptionPatient:async()=>{},postReprintSession:async()=>{},gotoApp:async(page,url)=>{requested=new URL(url,'https://127.0.0.1');return{status:()=>status};},
+      assertNoErrorPage:async()=>{},waitForPreviewOrExplain:async()=>{previewCalls++;},previewFrame:async()=>{}};
+    vm.runInNewContext(body,context);const page={waitForLoadState:async()=>{}};
+    if(status===200)await context.openPrescriptionView(page,'preview');else await assert.rejects(context.openPrescriptionView(page,'preview'),/HTTP 409/);
+    assert.equal(requested.searchParams.get('demographicNo'),'42');assert.equal(requested.searchParams.get('scriptId'),'45');assert.equal(previewCalls,status===200?1:0);
+  }
 });

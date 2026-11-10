@@ -101,6 +101,11 @@ function readRiskInputs(ids) {
         }
         values[id] = value;
     }
+    if (values.cHDL !== undefined && values.cCholesterol !== undefined
+            && values.cHDL >= values.cCholesterol) {
+        RefuseRiskInput("cHDL", "Enter HDL cholesterol below the total cholesterol. Nothing has been calculated.");
+        return null;
+    }
     return values;
 }
 

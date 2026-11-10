@@ -28,7 +28,6 @@
  */
 package io.github.carlos_emr.carlos.commn.model.inbox;
 
-import com.twelvemonkeys.lang.StringUtil;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.lab.ca.on.HRMResultsData;
@@ -117,7 +116,7 @@ public class InboxResponse {
                 }
             }
             resultData.resultStatus = inboxItem.getResultStatus();
-            if (StringUtil.isNumber(inboxItem.getFinalResultsCount())) {
+            if (isNumericResultCount(inboxItem.getFinalResultsCount())) {
                 resultData.finalResultsCount = Integer.valueOf(inboxItem.getFinalResultsCount());
             }
             resultData.lastUpdateDate = inboxItem.getLastUpdateDate();
@@ -143,4 +142,17 @@ public class InboxResponse {
         }
         return resultDataList;
     }
+
+    /**
+     * Preserves TwelveMonkeys' digit/leading-minus predicate, including Unicode digits.
+     * A lone minus still reaches Integer.valueOf and throws, as it did before.
+     */
+    private static boolean isNumericResultCount(String value) {
+        if (StringUtils.isEmpty(value)) {
+            return false;
+        }
+        int start = value.charAt(0) == '-' ? 1 : 0;
+        return value.substring(start).chars().allMatch(Character::isDigit);
+    }
+
 }

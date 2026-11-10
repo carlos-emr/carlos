@@ -77,6 +77,7 @@
             <result name="close">/close.html</result>
         </action>
         <action name="tickler/DbTicklerAdd" class="io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerAdd2Action">
+            <result name="recipientRefused">/WEB-INF/jsp/tickler/ticklerRecipientRefused.jsp</result>
             <result name="success">/WEB-INF/jsp/tickler/dbTicklerAdd.jsp</result>
         </action>
         <action name="tickler/DbTicklerDemoMain" class="io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerDemoMain2Action"/>
@@ -193,10 +194,12 @@
         </action>
         <action name="tickler/EditTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action">
             <result name="close">/WEB-INF/jsp/tickler/ticklerEditSuccess.jsp</result>
+            <result name="attachmentsRefused">/WEB-INF/jsp/tickler/ticklerEditAttachmentsRefused.jsp</result>
             <result name="failure">/WEB-INF/jsp/error/failure.jsp</result>
             <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </action>
-        <action name="tickler/EditTicklerTextSuggest" class="io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action">
+        <action name="tickler/EditTicklerTextSuggest" class="io.github.carlos_emr.carlos.tickler.pageUtil.EditTicklerTextSuggest2Action">
+            <result name="failure">/WEB-INF/jsp/error/failure.jsp</result>
             <result name="close">/WEB-INF/jsp/common/closenreload.jsp</result>
             <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </action>

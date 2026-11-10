@@ -1,0 +1,357 @@
+# Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
+import copy
+import json
+import os
+import signal
+from pathlib import Path
+import tempfile
+import subprocess
+from types import SimpleNamespace
+import unittest
+from unittest.mock import patch
+
+import release_verification as gate
+from junit_evidence import EvidenceError
+from package_lifecycle import CELL_ASSERTIONS, validate_config, validate_inventory, require_checkout_playwright
+
+
+class PackageLifecycleTest(unittest.TestCase):
+    def test_candidate_cli_pin_does_not_replace_either_predecessor_package(self):
+        import importlib.util
+        from lifecycle_baselines import candidate_cli, required_baselines
+        spec = importlib.util.spec_from_file_location('lifecycle_cli_inputs', Path(__file__).with_name('run-package-lifecycle.py'))
+        host = importlib.util.module_from_spec(spec); spec.loader.exec_module(host)
+        pins = gate.read_json(gate.ROOT / 'docs/testing/release-2026.08-lifecycle-baselines.json')
+        baselines = required_baselines(pins); target = candidate_cli(pins)
+        packages = {'target': {'ctl': {'path': 'candidate-ctl.deb', 'sha256': target['sha256']}}}
+        for row in baselines:
+            packages[row['tag']] = {name: {'path': name + '.deb', 'sha256': next(
+                asset['sha256'] for asset in row['assets'] if asset['name'].startswith(prefix))}
+                for name, prefix in [('emr', 'carlos-emr_'), ('drugref', 'carlos-emr-drugref_'), ('ctl', 'carlos-ctl_')]}
+        config = {'packages': packages}
+        with patch.object(host, 'checked_file'):
+            host.package_inputs(config, baselines, target)
+            stale = copy.deepcopy(config)
+            stale['packages']['target']['ctl'] = copy.deepcopy(packages[baselines[0]['tag']]['ctl'])
+            with self.assertRaisesRegex(EvidenceError, 'target CLI'): host.package_inputs(stale, baselines, target)
+            replaced = copy.deepcopy(config)
+            replaced['packages'][baselines[0]['tag']]['ctl'] = copy.deepcopy(packages['target']['ctl'])
+            with self.assertRaisesRegex(EvidenceError, 'predecessor'): host.package_inputs(replaced, baselines, target)
+
+    def test_fault_adapter_budget_includes_both_restarts_and_the_browser_suite(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('lifecycle_budget', Path(__file__).with_name('run-package-lifecycle-cell.py'))
+        cell = importlib.util.module_from_spec(spec); spec.loader.exec_module(cell)
+        budgets = []
+        with tempfile.TemporaryDirectory() as temporary, patch.object(cell, 'OUTPUT', Path(temporary)), \
+                patch.object(cell, 'run', side_effect=lambda command, *args, **kwargs: budgets.append((command, kwargs['timeout']))), \
+                patch.object(cell.gate, 'browser_results', return_value={'ready': True}):
+            for selection in (None, ['error-sanitization'], cell.BASELINE_READ_ONLY):
+                cell.smoke({'CARLOS_SUITE_PROVINCE': 'ON'}, 'budget', selection)
+        for command, seconds in budgets[:2]:
+            self.assertEqual(command[:2], ['node', 'scripts/run-playwright-suite.js'])
+            self.assertNotIn('scripts/ci/run-installed-error-sanitization.py', command)
+            self.assertGreaterEqual(seconds, 2 * (120 + 420) + 60 + 40 + 600)
+        self.assertNotIn('scripts/ci/run-installed-error-sanitization.py', budgets[2][0])
+        self.assertEqual(budgets[2][1], 600)
+
+    def test_installer_wrapper_preserves_existing_files_and_rejects_symlinked_ancestors(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('lifecycle_wrapper', Path(__file__).with_name('run-package-lifecycle-cell.py'))
+        cell = importlib.util.module_from_spec(spec); spec.loader.exec_module(cell)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            for name, existing in [('created', False), ('existing', True)]:
+                wrapper = root / name / 'lib/install.sh'
+                if existing: wrapper.parent.mkdir(parents=True)
+                cell.write_installer_wrapper(wrapper, ['true'])
+                self.assertEqual(wrapper.stat().st_mode & 0o777, 0o700)
+                original = wrapper.read_bytes()
+                with self.assertRaisesRegex(EvidenceError, 'occupied'):
+                    cell.write_installer_wrapper(wrapper, ['false'])
+                self.assertEqual(wrapper.read_bytes(), original)
+            foreign = root / 'foreign'; foreign.mkdir()
+            sentinel = foreign / 'install.sh'; sentinel.write_text('FAKE unrelated wrapper')
+            linked = root / 'linked'; linked.symlink_to(foreign, target_is_directory=True)
+            for wrapper in (linked / 'install.sh', linked / 'new/lib/install.sh'):
+                with self.assertRaisesRegex(EvidenceError, 'parent'):
+                    cell.write_installer_wrapper(wrapper, ['false'])
+                self.assertEqual(sentinel.read_text(), 'FAKE unrelated wrapper')
+                self.assertEqual(list(foreign.iterdir()), [sentinel])
+            wrapper_link = root / 'install-link.sh'; wrapper_link.symlink_to(sentinel)
+            with self.assertRaisesRegex(EvidenceError, 'occupied'):
+                cell.write_installer_wrapper(wrapper_link, ['false'])
+            self.assertTrue(wrapper_link.is_symlink())
+            self.assertEqual(sentinel.read_text(), 'FAKE unrelated wrapper')
+
+    def test_read_only_selection_reaches_each_real_browser_check_in_both_provinces(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('lifecycle_selection', Path(__file__).with_name('run-package-lifecycle-cell.py'))
+        cell = importlib.util.module_from_spec(spec); spec.loader.exec_module(cell)
+        def list_actual_selection(command, *_args, **_kwargs):
+            listed = subprocess.run([*command, '--list'], cwd=gate.ROOT,
+                capture_output=True, text=True, timeout=15)
+            self.assertEqual(listed.returncode, 0, listed.stderr)
+            self.assertEqual({line.split()[0] for line in listed.stdout.splitlines()},
+                             set(cell.BASELINE_READ_ONLY))
+        with tempfile.TemporaryDirectory() as temporary, patch.object(cell, 'OUTPUT', Path(temporary)), \
+                patch.object(cell, 'run', side_effect=list_actual_selection), \
+                patch.object(cell.gate, 'browser_results', return_value={'ready': True}):
+            for province in ('ON', 'BC'):
+                with self.subTest(province=province):
+                    cell.smoke({'CARLOS_SUITE_PROVINCE': province}, 'client-before', cell.BASELINE_READ_ONLY)
+
+    def test_local_playwright_is_required_and_loadable_before_installation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / 'checkout'; root.mkdir()
+            packages = {'node_modules/' + name: {'version': '1.0.0'} for name in ('playwright', 'playwright-core')}
+            gate.write_json(root / 'package-lock.json', {'packages': packages})
+            global_modules = root.parent / 'node_modules'
+            for name in ('playwright', 'playwright-core'):
+                (global_modules / name).mkdir(parents=True)
+                gate.write_json(global_modules / name / 'package.json', {'version': '1.0.0'})
+            with patch('package_lifecycle.subprocess.run') as run:
+                with self.assertRaises(EvidenceError): require_checkout_playwright(root, gate.read_json)
+                run.assert_not_called()
+            for name in ('playwright', 'playwright-core'):
+                directory = root / 'node_modules' / name; directory.mkdir(parents=True)
+                gate.write_json(directory / 'package.json', {'version': '1.0.0'})
+                (directory / 'index.js').write_text('module.exports = {};')
+            gate.write_json(root / 'node_modules/playwright-core/browsers.json',
+                {'browsers': [{'name': 'chromium', 'browserVersion': '149.0.7827.55'}]})
+            require_checkout_playwright(root, gate.read_json)
+            (root / 'node_modules/playwright/index.js').write_text("require('./FAKE-missing-dependency');")
+            with self.assertRaisesRegex(EvidenceError, 'cannot load'):
+                require_checkout_playwright(root, gate.read_json)
+            (root / 'node_modules/playwright-core/package.json').write_text('{"version":"2.0.0"}')
+            with patch('package_lifecycle.subprocess.run') as run:
+                with self.assertRaisesRegex(EvidenceError, 'match its lock'):
+                    require_checkout_playwright(root, gate.read_json)
+                run.assert_not_called()
+
+    def test_clean_cell_must_match_configured_package_even_with_identical_war_binding(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); source, document = self.fixture(root)
+            row = next(row for row in document['cells'] if row['role'] == 'clean')
+            path = root / row['path']; cell = gate.read_json(path)
+            cell['initialDeployment']['packageSha256'] = '0' * 64
+            path.write_text(json.dumps(cell)); row['sha256'] = gate.digest(path)
+            with self.assertRaisesRegex(EvidenceError, 'installed candidate'):
+                self.validate(root, source, document)
+            document['targetPackageSha256'] = '0' * 64
+            with self.assertRaisesRegex(EvidenceError, 'target package'):
+                self.validate(root, source, document)
+    def test_independent_role_receipts_cannot_omit_another_required_global_baseline(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); source, document = self.fixture(root)
+            document['cells'] = [row for row in document['cells'] if row['role'] == 'main']
+            document['requestedRoles'] = ['main']
+            gate.write_json(root / 'selected-lifecycle.json', document)
+            # The normal lifecycle.json file is part of the installed-byte binding.
+            (root / 'lifecycle.json').write_text(json.dumps(document))
+            validate_inventory(document, source, 'ON', 'c' * 64, root, gate.read_json, gate.digest, ['main'], target_package_hash='d' * 64)
+            with self.assertRaises(EvidenceError):
+                validate_inventory(document, source, 'ON', 'c' * 64, root, gate.read_json, gate.digest, ['historical'], target_package_hash='d' * 64)
+            plan = gate.read_json(gate.DEFAULT_PLAN)
+            plan['checks'] = [row for row in plan['checks'] if row['id'] != 'package-beta5-upgrade']
+            path = root / 'plan.json'; path.write_text(json.dumps(plan))
+            with self.assertRaisesRegex(EvidenceError, 'independent clean/main/historical'):
+                gate.load_plan(path)
+            plan = gate.read_json(gate.DEFAULT_PLAN)
+            next(row for row in plan['checks'] if row['id'] == 'package-main-upgrade')['profiles'] = ['ON']
+            path.write_text(json.dumps(plan))
+            with self.assertRaisesRegex(EvidenceError, 'required on ON and BC'):
+                gate.load_plan(path)
+
+    def test_passing_read_only_clients_cannot_hide_a_clinical_value_change(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('lifecycle_cell', Path(__file__).with_name('run-package-lifecycle-cell.py'))
+        cell = importlib.util.module_from_spec(spec); spec.loader.exec_module(cell)
+        with tempfile.TemporaryDirectory() as temporary, patch.object(cell, 'OUTPUT', Path(temporary)), \
+                patch.object(cell, 'smoke'), patch.object(cell.state, 'stored_files', return_value={}), \
+                patch.object(cell.state, 'encryption_key', return_value='a' * 64), \
+                patch.object(cell.state, 'clinical_state', side_effect=[
+                    {'records': {'rows': 1, 'dataSha256': 'a' * 64}},
+                    {'records': {'rows': 1, 'dataSha256': 'b' * 64}}]):
+            with self.assertRaisesRegex(EvidenceError, 'Read-only package baseline changed'):
+                cell.read_only({}, 'synthetic-read-only')
+            self.assertTrue((Path(temporary) / 'private-synthetic-read-only-state.json').is_file())
+
+    def test_failed_result_retains_diagnosis_without_reading_unreconciled_private_files(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('lifecycle_inputs', Path(__file__).with_name('run-package-lifecycle.py'))
+        controller = importlib.util.module_from_spec(spec); spec.loader.exec_module(controller)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            private = root / 'private'; private.mkdir()
+            (private / 'unfinished.log').symlink_to('/unreadable-root-owned-log')
+            diagnosis = root / 'lifecycle-failure.json'
+            diagnosis.write_text('{"failureType":"ProcessGroupFailure","hostRequiresReconciliation":true}')
+            inputs = controller.retained_inputs(root, root / 'result.json', False)
+            self.assertEqual(inputs, [{'path': diagnosis.name, 'sha256': gate.digest(diagnosis)}])
+            self.assertTrue((private / 'unfinished.log').is_symlink())
+            with self.assertRaises(EvidenceError):
+                controller.retained_inputs(root, root / 'result.json', True)
+
+    def test_failed_container_is_stopped_and_retained_and_uncertain_shutdown_cannot_pass(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('lifecycle_stop', Path(__file__).with_name('run-package-lifecycle.py'))
+        controller = importlib.util.module_from_spec(spec); spec.loader.exec_module(controller)
+        for code, state, expected in [(0, 'false', True), (0, 'true', False), (1, 'false', False)]:
+            with self.subTest(code=code, state=state), patch.object(controller.subprocess, 'run',
+                    side_effect=[SimpleNamespace(returncode=code), SimpleNamespace(returncode=0, stdout=state)]) as run:
+                self.assertIs(controller.stop_failed_cell('owned-fixture'), expected)
+                self.assertEqual(run.call_args_list[0].args[0][-4:], ['stop', '--time', '30', 'owned-fixture'])
+                self.assertFalse(any('rm' in call.args[0] for call in run.call_args_list))
+        for failure in (PermissionError('synthetic'), subprocess.TimeoutExpired(['docker'], 45)):
+            with patch.object(controller.subprocess, 'run', side_effect=failure):
+                self.assertFalse(controller.stop_failed_cell('owned-fixture'))
+        previous = signal.getsignal(signal.SIGTERM)
+        with patch.object(controller, 'run_lifecycle', side_effect=lambda: os.kill(os.getpid(), signal.SIGTERM)):
+            with self.assertRaises(KeyboardInterrupt):
+                controller.main()
+        self.assertEqual(signal.getsignal(signal.SIGTERM), previous)
+
+    def test_local_daemon_selection_preserves_registry_config_and_runtime_proxy_defaults(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('lifecycle_host', Path(__file__).with_name('run-package-lifecycle.py'))
+        controller = importlib.util.module_from_spec(spec); spec.loader.exec_module(controller)
+        with patch.dict('os.environ', {'DOCKER_HOST': 'tcp://FAKE:2375', 'DOCKER_CONTEXT': 'FAKE',
+                'DOCKER_TLS_VERIFY': '1', 'DOCKER_CERT_PATH': '/FAKE', 'DOCKER_CONFIG': '/FAKE/registry-config',
+                'HTTPS_PROXY': 'http://FAKE-outer-proxy:8080'}, clear=True):
+            self.assertEqual(controller.docker_environment(), {'DOCKER_CONFIG': '/FAKE/registry-config',
+                'HTTPS_PROXY': 'http://FAKE-outer-proxy:8080'})
+
+    def fixture(self, root):
+        source = {'commit': 'a' * 40, 'tree': 'b' * 40, 'clean': True}
+        document = {'schemaVersion': 1, 'source': source, 'profile': 'ON', 'warSha256': 'c' * 64, 'targetPackageSha256': 'd' * 64, 'cells': []}
+        for role in ('clean', 'main', 'historical'):
+            cell = {'role': role, 'profile': 'ON', 'source': source, 'warSha256': 'c' * 64,
+                'failureType': None, 'assertions': dict.fromkeys(CELL_ASSERTIONS, True),
+                'dependencyContract': {'floor': '1.3.1', 'installedCli': '1.3.0', 'olderCliRefused': True,
+                    'compatibleCliResolved': True, 'statePreserved': True},
+                'initialDeployment': {'scope': 'installed-package-application', 'packageSha256': 'd' * 64,
+                    'contentSha256': 'e' * 64},
+                'candidateDeployment': {'scope': 'installed-package-application', 'warSha256': 'c' * 64,
+                    'contentSha256': 'f' * 64}}
+            if role != 'historical': cell['dependencyContract']['installedCli'] = '1.3.1'
+            if role in ('main', 'historical'):
+                pins = gate.read_json(gate.ROOT / 'docs/testing/release-2026.08-lifecycle-baselines.json')
+                baseline = pins if role == 'main' else pins['additionalSupportedBaselines'][0]
+                cell['initialDeployment']['packageSha256'] = next(a['sha256'] for a in baseline['assets'] if a['name'].startswith('carlos-emr_'))
+            path = root / (role + '.json'); gate.write_json(path, cell)
+            document['cells'].append({'role': role, 'path': path.name, 'sha256': gate.digest(path)})
+        (root / 'lifecycle.json').write_text(json.dumps(document))
+        return source, document
+
+    def validate(self, root, source, document):
+        (root / 'lifecycle.json').write_text(json.dumps(document))
+        return validate_inventory(document, source, 'ON', 'c' * 64, root, gate.read_json, gate.digest, target_package_hash='d' * 64)
+
+    def test_main_cannot_replace_the_distinct_historical_or_clean_cell(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); source, document = self.fixture(root)
+            self.assertEqual(self.validate(root, source, document)['scope'], 'orchestrated-package-lifecycle')
+            for roles in (document['cells'][:2], [document['cells'][0], document['cells'][1], document['cells'][1]]):
+                broken = copy.deepcopy(document); broken['cells'] = roles
+                with self.assertRaises(EvidenceError): self.validate(root, source, broken)
+
+    def test_green_cell_without_same_source_province_war_or_cleanup_cannot_qualify(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); source, document = self.fixture(root)
+            row = document['cells'][1]; path = root / row['path']; original = gate.read_json(path)
+            for name, value in [('source', {}), ('profile', 'BC'), ('warSha256', '0' * 64),
+                    ('failureType', 'TimeoutExpired'), ('candidateDeployment', {}), ('initialDeployment', {}),
+                    ('dependencyContract', {})]:
+                broken = dict(original); broken[name] = value; path.write_text(json.dumps(broken))
+                row['sha256'] = gate.digest(path)
+                with self.assertRaises(EvidenceError): self.validate(root, source, document)
+            for value in (False, 1, None):
+                broken = copy.deepcopy(original); broken['assertions']['clinical-cleanup-preserved'] = value
+                path.write_text(json.dumps(broken)); row['sha256'] = gate.digest(path)
+                with self.assertRaises(EvidenceError): self.validate(root, source, document)
+
+    def test_modified_or_linked_cell_is_rejected_even_when_summary_stays_green(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); source, document = self.fixture(root)
+            row = document['cells'][0]; path = root / row['path']
+            path.write_text(path.read_text() + '\n')
+            with self.assertRaises(EvidenceError): self.validate(root, source, document)
+            path.unlink(); path.symlink_to(root / 'main.json'); row['sha256'] = gate.digest(root / 'main.json')
+            with self.assertRaises(EvidenceError): self.validate(root, source, document)
+
+    def test_mutable_runtime_or_missing_drugref_cli_and_baselines_are_refused(self):
+        packages = {name: {'path': '/FAKE/' + name + '.deb', 'sha256': 'd' * 64}
+                    for name in ('emr', 'drugref', 'ctl')}
+        config = {'runtimeImage': 'sha256:' + 'a' * 64, 'caFile': '/FAKE/ca.pem',
+                  'browserDirectory': '/FAKE/browser', 'packages': {key: packages for key in
+                    ('target', '2026.08.0-beta6', '2026.08.0-beta5')}}
+        validate_config(config)
+        for name, value in [('runtimeImage', 'ubuntu:26.04'), ('caFile', 'relative'), ('packages', {'target': packages})]:
+            broken = copy.deepcopy(config); broken[name] = value
+            with self.assertRaises(EvidenceError): validate_config(broken)
+        for name in ('drugref', 'ctl'):
+            broken = copy.deepcopy(config); broken['packages']['2026.08.0-beta5'].pop(name)
+            with self.assertRaises(EvidenceError): validate_config(broken)
+
+    def test_host_collection_and_final_verification_require_lifecycle_byte_binding(self):
+        from test_verify_release_evidence import ReleaseEvidenceTest
+        helper = ReleaseEvidenceTest('test_clean_source_bound_control_is_ready')
+        helper.setUp(); self.addCleanup(helper.doCleanups)
+        producer = helper.root / 'lifecycle.py'
+        producer.write_text('''import sys,json,pathlib
+sys.path.insert(0,sys.argv[1])
+import release_verification as gate
+from package_lifecycle import CELL_ASSERTIONS
+directory=pathlib.Path(sys.argv[2]); artifact=pathlib.Path(sys.argv[3]); source=gate.source_identity(pathlib.Path.cwd())
+document={'schemaVersion':1,'source':source,'profile':'ON','warSha256':gate.digest(artifact),'targetPackageSha256':'d'*64,'cells':[]}
+for role in ['clean','main','historical']:
+ cell={'role':role,'profile':'ON','source':source,'warSha256':gate.digest(artifact),'failureType':None,
+  'assertions':dict.fromkeys(CELL_ASSERTIONS,True),
+  'dependencyContract':{'floor':'1.3.1','installedCli':'1.3.0','olderCliRefused':True,'compatibleCliResolved':True,'statePreserved':True},
+  'initialDeployment':{'scope':'installed-package-application','packageSha256':'d'*64,'contentSha256':'e'*64},
+  'candidateDeployment':{'scope':'installed-package-application','warSha256':gate.digest(artifact),'contentSha256':'f'*64}}
+ if role!='historical':cell['dependencyContract']['installedCli']='1.3.1'
+ if role in ['main','historical']:
+  pins=gate.read_json(gate.ROOT/'docs/testing/release-2026.08-lifecycle-baselines.json')
+  baseline=pins if role=='main' else pins['additionalSupportedBaselines'][0]
+  cell['initialDeployment']['packageSha256']=next(a['sha256'] for a in baseline['assets'] if a['name'].startswith('carlos-emr_'))
+ path=directory/(role+'.json');gate.write_json(path,cell)
+ document['cells'].append({'role':role,'path':path.name,'sha256':gate.digest(path)})
+gate.write_json(directory/'lifecycle.json',document)
+gate.write_json(directory/'lifecycle-result.json',{'schemaVersion':1,'assertions':{'complete-lifecycle-core':True},'inputs':[
+ {'path':p.name,'sha256':gate.digest(p)} for p in directory.glob('*.json')]})
+''')
+        check = {'id': 'lifecycle-core', 'kind': 'command', 'profiles': ['ON'], 'packaged': True,
+            'deploymentScope': 'orchestrated-package-lifecycle',
+            'command': [__import__('sys').executable, str(producer), str(Path(__file__).parent), '{run}', '{artifact}'],
+            'resultContract': {'file': 'lifecycle-result.json', 'assertions': ['complete-lifecycle-core']}}
+        helper.plan['checks'].append(check)
+        helper.plan['workstreams'][0]['requiredChecks'].append(check['id'])
+        helper.save_plan(); helper.commit(); helper.seed()
+        packages = {name: {'path': '/FAKE/' + name + '.deb', 'sha256': 'd' * 64}
+                    for name in ('emr', 'drugref', 'ctl')}
+        config = {'runtimeImage': 'sha256:' + 'a' * 64, 'caFile': '/FAKE/ca.pem',
+            'browserDirectory': '/FAKE/browser', 'packages': {key: packages for key in
+                ('target', '2026.08.0-beta6', '2026.08.0-beta5')}}
+        config_path = helper.base / 'config.json'; gate.write_json(config_path, config)
+        def collect():
+            with patch.dict(os.environ, {'CARLOS_PACKAGE_LIFECYCLE_CONFIG': str(config_path)}):
+                return gate.run_check(helper.plan_path, check['id'], helper.evidence, 'ON', 1,
+                                      artifact=helper.artifact, root=helper.root)
+        receipt = collect()
+        self.assertEqual(receipt['outcome'], 'PASS', receipt)
+        self.assertTrue(helper.verify()['releaseReady'])
+        receipt_path = helper.evidence / receipt['runId'] / 'receipt.json'
+        self.assertEqual(receipt['targetPackageSha256'], 'd' * 64)
+        receipt['targetPackageSha256'] = '0' * 64; receipt_path.write_text(json.dumps(receipt))
+        with self.assertRaisesRegex(EvidenceError, 'target package'): helper.verify()
+        receipt['targetPackageSha256'] = 'd' * 64
+        receipt['deployment']['warSha256'] = '0' * 64; receipt_path.write_text(json.dumps(receipt))
+        with self.assertRaisesRegex(EvidenceError, 'installed-byte binding'): helper.verify()
+
+        config['packages']['target']['emr']['sha256'] = '0' * 64
+        config_path.write_text(json.dumps(config))
+        refused = collect()
+        self.assertEqual(refused['outcome'], 'FAIL')
+        self.assertIn('target package', refused['reason'])

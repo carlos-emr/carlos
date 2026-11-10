@@ -20,6 +20,7 @@ const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
+const {fillComposeMessage, prepareComposePassword, assertDeliveredComposeBody} = require('./lib/email-compose-probe');
 
 const TIMEOUT = 30000;
 const TEMPLATE_HTML = '<html><head><title>Email fixture</title></head><body>'
@@ -217,22 +218,23 @@ async function workflow(s) {
     await modal.waitFor({state: 'hidden', timeout: TIMEOUT});
     await compose.locator('#senderEmailAddress').selectOption(configId);
     await compose.locator('#subjectEmail').fill(subject);
-    await compose.locator('#bodyEmail').fill(body);
-    await compose.locator('#emailPDFPassword').fill(`PW${hex}`);
-    await compose.locator('#emailPDFPasswordClue').fill(`${marker} clue`);
+    const contract = await fillComposeMessage(compose, body);
+    const protection = await prepareComposePassword(compose, `PW${hex}`, `${marker} clue`);
     await compose.locator('#doNotAddAsNoteOption').check();
     await Promise.all([compose.waitForURL(/\/email\/emailSendAction/, {timeout: TIMEOUT}), compose.locator('#btnSend').click()]);
+    return {...contract, ...protection, message: body};
   }
 
   const subject = `${marker} sent`;
   let sentLog;
+  let sentCompose;
   await s.step('the eForm composer offers the owned sender and only the valid patient address', async () => {
     const compose = await composeFromChart(`${marker} note sent`);
     const recipients = await compose.locator('input[type="hidden"][name="receiverEmailAddress"]').evaluateAll(inputs => inputs.map(input => input.value));
     h.assert(JSON.stringify(recipients) === JSON.stringify([recipient]), 'The composer would send to an address other than the valid patient address');
     h.assert(await compose.locator(`#senderEmailAddress option[value="${configId}"]`).count() === 1, 'The owned sender account is not offered');
     h.assert(await compose.locator('.attachmentName').count() === 1, 'The saved eForm is not attached');
-    await fillAndSend(compose, subject, `${marker} body line`);
+    sentCompose = await fillAndSend(compose, subject, `${marker} body line`);
     await compose.locator('#successMessage').waitFor({timeout: TIMEOUT});
     h.assert((await compose.locator('#successMessage').innerText()).includes(recipient), 'The confirmation does not name the recipient');
     await compose.waitForEvent('close', {timeout: TIMEOUT});
@@ -244,8 +246,7 @@ async function workflow(s) {
     h.assert(message.from === sender, 'The envelope sender is not the owned account');
     h.assert(JSON.stringify(message.rcpt) === JSON.stringify([recipient]), 'The envelope recipients are not exactly the valid patient address');
     h.assert(message.data.includes(`Subject: ${subject}`), 'The delivered subject differs from the composed subject');
-    h.assert(message.data.includes(`${marker} body line`) && message.data.includes(`${marker} clue`),
-      'The delivered body lacks the composed text or the password clue');
+    assertDeliveredComposeBody(message.data, sentCompose);
     h.assert(/Content-Type: application\/pdf/i.test(message.data), 'The delivered message carries no PDF attachment');
     h.assert(!message.data.includes(invalidRecipient), 'The invalid address appears in the delivered message');
   });
@@ -258,7 +259,7 @@ async function workflow(s) {
     sentLog = id;
     h.assert(config === configId && from === sender && to === recipient && status === 'SUCCESS' && type === 'EFORM'
       && logProvider === provider, 'The log row does not record the owned sender, recipient, SUCCESS and EFORM');
-    h.assert(encrypted === '1' && attachmentEncrypted === '1' && password === `PW${hex}`, 'The log row lost the encryption settings');
+    h.assert(encrypted === '1' && attachmentEncrypted === '1' && password === sentCompose.password, 'The log row lost the encryption settings');
     const fdid = sql.value(`SELECT fdid FROM eform_data WHERE demographic_no=${patient} AND fid=${fid} ORDER BY fdid LIMIT 1`);
     h.assert(/^[1-9]\d*$/.test(fdid || ''), 'Email did not save the eForm before composing');
     h.assert(sql.value(`SELECT CONCAT(documentType,'|',documentId) FROM emailAttachment WHERE logId=${id}`) === `EFORM|${fdid}`,
@@ -288,9 +289,10 @@ async function workflow(s) {
   let manager;
   const cards = () => manager.locator('#results .email-status-card');
   async function fetchEmails(status) {
-    const today = sql.value("SELECT DATE_FORMAT(CURDATE(),'%Y-%m-%d')");
-    for (const selector of ['#dateBegin', '#dateEnd']) {
-      await manager.locator(selector).fill(today);
+    const [dates] = sql.rows(`SELECT DATE_FORMAT(MIN(timestamp),'%Y-%m-%d'), DATE_FORMAT(MAX(timestamp),'%Y-%m-%d')
+      FROM emailLog WHERE id IN (${sentLog},${failedLog})`);
+    for (const [index, selector] of ['#dateBegin', '#dateEnd'].entries()) {
+      await manager.locator(selector).fill(dates[index]);
       await manager.locator(selector).press('Tab');
     }
     await manager.locator('#senderEmailAddress').selectOption(sender);
@@ -330,6 +332,17 @@ async function workflow(s) {
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Resolve did not ask for confirmation');
     await expectValue(sql, `SELECT status FROM emailLog WHERE id=${failedLog}`, 'RESOLVED',
       'Resolve showed RESOLVED but the log row is still FAILED');
+  });
+
+  await s.step('Resolved email stays RESOLVED after reloading Manage Emails', async () => {
+    await manager.goto(manager.url(), {waitUntil: 'domcontentloaded'});
+    await fetchEmails('RESOLVED');
+    h.assert(await cards().count() === 1 && await manager.locator(`#emailStatus${failedLog}`).count() === 1,
+      'The RESOLVED filter did not isolate the resolved row after reload');
+    h.assert((await manager.locator(`#emailStatus${failedLog}`).innerText()).trim() === 'RESOLVED',
+      'The reloaded card does not show the stored RESOLVED status');
+    h.assert(await manager.locator(`#btnResolve${failedLog}`).count() === 0,
+      'The reloaded resolved row still offers Resolve');
   });
 }
 

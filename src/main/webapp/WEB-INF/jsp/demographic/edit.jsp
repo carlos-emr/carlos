@@ -11,83 +11,84 @@
 
     @since 2026-04-04
 --%>
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@ page import="java.util.*" %>
-<%@ page import="java.net.*" %>
+
 <%@ page import="java.text.DecimalFormat" %>
-<%@ page import="java.nio.charset.StandardCharsets" %>
+
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.SxmlMisc" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.Gender" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.ISO36612" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.OtherIdManager" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.ContactDao" %>
+
+
+
+
+
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CountryCodeDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicContactDao" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicCustDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtArchiveDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.WaitingListDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Admission" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicArchive" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicExtArchive" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.CountryCode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicCust" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.LookupList" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.LookupListItem" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.WaitingListName" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicRelationship" %>
+
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.ProvinceNames" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicEditHelper" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+
+
+
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
+
 <%@ page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
-<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
+<%-- The shared demographic-field-length-limits.jspf static include declares carlos. --%>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve all variables from request attributes (set by DemographicEdit2Action) --%>
 <%
@@ -280,6 +281,7 @@
         <script defer src="${carlos:forHtmlAttribute(ctx)}/demographic/eligibilityDialog.js"></script>
         <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/check_hin.js"></script>
+        <%@ include file="/WEB-INF/jspf/demographic-field-length-limits.jspf" %>
 
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/popup.js"></script>
 
@@ -1027,6 +1029,7 @@
 
     <body onLoad="setfocus(); checkONReferralNo(); formatPhoneNum(); checkRosterStatus2();"
           topmargin="0" leftmargin="0" rightmargin="0" id="demographiceditdemographic">
+    <div><source:cdsSourceFields demographicNo="${requestScope.demographic_no}" category="Demographics"/></div>
     <!-- Bootstrap dismissible alert container -->
     <div id="carlos-alert-container" aria-live="polite"
          style="position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:9999;min-width:300px;max-width:600px;"></div>
@@ -1107,10 +1110,8 @@
                                     <%
                                     } else {
                                     %>
-                                    <c:set var="__encInvoiceLastName"><carlos:encode value='<%= StringUtils.defaultString(demographic.getLastName()) %>' context="uriComponent"/></c:set>
-                                    <c:set var="__encInvoiceFirstName"><carlos:encode value='<%= StringUtils.defaultString(demographic.getFirstName()) %>' context="uriComponent"/></c:set>
                                     <c:set var="__encInvoiceDemoNo"><carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="uriComponent"/></c:set>
-                                    <c:set var="__encInvoiceUrl" value="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill?lastName=${__encInvoiceLastName}&firstName=${__encInvoiceFirstName}&filterPatient=true&demographicNo=${__encInvoiceDemoNo}" />
+                                    <c:set var="__encInvoiceUrl" value="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill?filterPatient=true&demographicNo=${__encInvoiceDemoNo}" />
                                     <a href="${carlos:forHtmlAttribute(__encInvoiceUrl)}"
                                        onclick="popupPage(800,1000,this.href);return false;">
                                         <fmt:message key="demographic.demographiceditdemographic.msgInvoiceList"/></a>
@@ -1141,7 +1142,6 @@
                                         <c:param name="billForm" value='<%= oscarProps.getProperty("default_view") %>'/>
                                         <c:param name="hotclick" value=""/>
                                         <c:param name="appointment_no" value="0"/>
-                                        <c:param name="demographic_name" value='<%= demographic.getLastName() + "," + demographic.getFirstName() %>'/>
                                         <c:param name="demographic_no" value='<%= String.valueOf(demographic.getDemographicNo()) %>'/>
                                         <c:param name="providerview" value='<%= demographic.getProviderNo() %>'/>
                                         <c:param name="user_no" value='<%= curProvider_no %>'/>
@@ -1169,7 +1169,6 @@
                                         <c:param name="billForm" value='<%= oscarProps.getProperty("hospital_view", oscarProps.getProperty("default_view")) %>'/>
                                         <c:param name="hotclick" value=""/>
                                         <c:param name="appointment_no" value="0"/>
-                                        <c:param name="demographic_name" value='<%= demographic.getLastName() + "," + demographic.getFirstName() %>'/>
                                         <c:param name="demographic_no" value='<%= String.valueOf(demographic.getDemographicNo()) %>'/>
                                         <c:param name="providerview" value='<%= demographic.getProviderNo() %>'/>
                                         <c:param name="user_no" value='<%= curProvider_no %>'/>

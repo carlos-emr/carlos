@@ -30,7 +30,7 @@
  * Requires the deb-install env contract (docs/ui-tests/deb-install-validation.md §6):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN,
  *   MYSQL_HOST/USER/PASSWORD/DATABASE (to stage and restore the NULLs)
- * MYSQL_HOST must be localhost, 127.0.0.1 or ::1; this mutating fixture has no remote override.
+ * MYSQL_HOST must be loopback; this mutating fixture has no remote override.
  * Optional: CONSULT_NULLABLE_REQUEST_ID (default 2), CHROME_PATH,
  *   CONSULT_NULLABLE_SCREENSHOT_DIR (default /tmp).
  */
@@ -66,9 +66,8 @@ const config = {
 const requestId = process.env.CONSULT_NULLABLE_REQUEST_ID || '2';
 assert(/^\d+$/.test(requestId), `CONSULT_NULLABLE_REQUEST_ID must be numeric, got ${requestId}`);
 
-const mysqlHost = process.env.MYSQL_HOST || '127.0.0.1';
-assert(['localhost', '127.0.0.1', '::1'].includes(mysqlHost),
-  'Nullable consultation fixture requires a loopback MYSQL_HOST');
+// Retain this fixture's loopback-only contract through the shared target guard.
+const mysqlHost = require('./lib/playwright-harness').validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1', {});
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 assert(!/[\r\n]/.test(mysqlPassword), 'MYSQL_PASSWORD must not contain line breaks');
@@ -89,16 +88,19 @@ function cleanupMysqlDefaults() {
 }
 function sql(query) {
   assert(mysqlDefaults, 'MySQL defaults file has not been initialized');
+  const target = require('./lib/playwright-harness').validateMysqlHost(mysqlHost, {});
   return execFileSync('mysql', [
     `--defaults-extra-file=${mysqlDefaults.file}`,
-    '-h', mysqlHost, '-u', mysqlUser, mysqlDatabase, '-N', '-B', '-e', query,
+    '-h', target, '-u', mysqlUser, mysqlDatabase, '-N', '-B', '-e', query,
   ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000 }).trim();
 }
 function sqlValue(value) {
   return value === '' || value === 'NULL' ? 'NULL' : `'${value.replace(/'/g, "''")}'`;
 }
 
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('consultation-nullable-fields', async () => {
+  await (async () => {
   const cancellation = createGracefulSignalCancellation();
   const recorder = createRecorder();
   let browser;
@@ -261,3 +263,4 @@ function sqlValue(value) {
   console.error('Consultation nullable-fields cleanup failed');
   process.exitCode = process.exitCode || 1;
 });
+}, {existingSignalHandlers:true});

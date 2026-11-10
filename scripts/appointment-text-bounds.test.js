@@ -6,7 +6,7 @@ const {DatabaseSync}=require('node:sqlite');
 const root=process.env.APPOINTMENT_TEXT_SOURCE_ROOT||path.resolve(__dirname,'..');
 const repo=process.env.APPOINTMENT_TEXT_REPO_ROOT||root;
 const bounds=require(path.join(root,'src/main/webapp/js/appointmentTextBounds.js'));
-const fields=[['keyword',255],['reason',80],['notes',255],['resources',255]];
+const fields=[['keyword',255],['reason',80],['notes',32768],['resources',255]];
 const payload=n=>{const prefix="O'Bé中文😀&amp;\"\\%41+;";return prefix+'x'.repeat(n-Array.from(prefix).length-1)+'Z';};
 function form(mode='ADDAPPT',overrides={},originals={}){
  const messages=[],focused=[];const controls=Object.fromEntries(fields.map(([name])=>[name,{value:overrides[name]??'short',dataset:Object.hasOwn(originals,name)?{appointmentOriginal:originals[name]}:{},focus(){focused.push(name);}}]));
@@ -68,9 +68,9 @@ test('native Add search and group paths preserve their existing long search-inpu
   const onAdd=handler('addappointment.jsp','onAdd','setfocus',{document:{ADDAPPT:f.state},showJSAlert:()=>assert.fail('Search must not validate a persisted name'),calculateEndTime:()=>true});assert.equal(onAdd(),true);}
 });
 test('native edit receipt does not open or mutate inputs on refusal and corrected retry reserves exactly one receipt',()=>{
- const f=form('EDITAPPT',{notes:'N'.repeat(256)});let receipt=0,times=0;f.controls.printReceipt.value='1';
+ const f=form('EDITAPPT',{notes:'N'.repeat(32769)});let receipt=0,times=0;f.controls.printReceipt.value='1';
  const onSub=handler('editappointment.jsp','onSub','calculateEndTime',{document:{EDITAPPT:f.state},showJSAlert:text=>f.messages.push(text),calculateEndTime:()=>{times++;return true;},reserveAppointmentReceiptWindow:()=>{receipt++;},saveTemp:2});
- assert.equal(onSub(),false);assert.equal(receipt,0);assert.equal(times,0);assert.equal(f.controls.printReceipt.value,'');assert.equal(f.controls.notes.value,'N'.repeat(256));
+ assert.equal(onSub(),false);assert.equal(receipt,0);assert.equal(times,0);assert.equal(f.controls.printReceipt.value,'');assert.equal(f.controls.notes.value,'N'.repeat(32769));
  f.controls.notes.value='fixed';f.controls.printReceipt.value='1';assert.equal(onSub(),true);assert.equal(receipt,1);assert.equal(times,1);
 });
 test('native edit delete confirmation bypasses text validation and retains accept/cancel behavior',()=>{
@@ -204,4 +204,9 @@ test('full baseline61-character linked legal names fit the widened native UI wit
 
 test('the actual SQL COALESCE expression explicitly refuses a missing live or archive name column',()=>{
  for(const table of ['appointment','appointmentArchive'])assert.equal(metadataPlan(table,{missing:true}),"SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Missing "+table+".name column'");
+});
+
+test('native note editors retain every supplementary codepoint at the complete CDS32K boundary',()=>{
+ for(const file of ['addappointment.jsp','editappointment.jsp']){const jsp=readJsp(file);const start=jsp.indexOf('name="notes"');assert(start>=0);const field=jsp.slice(start,start+1000);assert(field.includes('maxlength="65536"'));assert(field.includes('data-max-codepoints="32768"'));}
+ for(const mode of ['ADDAPPT','EDITAPPT']){const value='😀'.repeat(32768),f=form(mode,{notes:value});assert.equal(f.validate(),true);assert.equal(f.controls.notes.value,value);f.controls.notes.value+='Z';assert.equal(f.validate(),false);assert.equal(f.controls.notes.value,value+'Z');}
 });

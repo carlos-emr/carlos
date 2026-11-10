@@ -26,20 +26,18 @@
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
-//This action generates the CSV and XLS files on request
+//This action generates the CSV and XLSX files on request
 
 
 package io.github.carlos_emr.carlos.report.reportByTemplate.actions;
 
 
 import jakarta.servlet.http.HttpServletRequest;
+import io.github.carlos_emr.carlos.report.SpreadsheetExport;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.report.reportByTemplate.SQLReporter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import org.apache.poi.hssf.usermodel.HSSFRow;
-import org.apache.poi.hssf.usermodel.HSSFSheet;
-import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -64,7 +62,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class GenerateOutFiles2Action extends ActionSupport {
-    private static final Pattern CANONICAL_DECIMAL = Pattern.compile("-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?");
+    private static final Pattern CANONICAL_DECIMAL = Pattern.compile("-?(?:0|[1-9]\\d*+)(?:\\.\\d++)?");
     private final SecurityInfoManager securityInfoManager;
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -118,7 +116,7 @@ public class GenerateOutFiles2Action extends ActionSupport {
             }
             MiscUtils.getLogger().debug("Generating Spread Sheet file for the 'report by template' module ..");
 
-            // Parse the POST'd CSV string into a 2-D array for POI cell population.
+            // Parse the POST'd CSV string into a 2-D array for spreadsheet cell population.
             String[][] data;
             try (CSVParser parser = CSVParser.parse(new StringReader(csv), CSVFormat.DEFAULT)) {
                 List<CSVRecord> records = parser.getRecords();
@@ -136,25 +134,22 @@ public class GenerateOutFiles2Action extends ActionSupport {
                 return NONE;
             }
 
-            response.setContentType("application/octet-stream");
-            response.setHeader("Content-Disposition", "attachment; filename=\"oscarReport.xls\"");
+            response.setContentType(SpreadsheetExport.CONTENT_TYPE);
+            response.setHeader("X-Content-Type-Options", "nosniff");
+            response.setHeader("Content-Disposition", "attachment; filename=\"oscarReport.xlsx\"");
 
-            // HSSFWorkbook is Closeable; try-with-resources ensures the in-memory workbook
-            // is released even if wb.write() throws.
-            try (HSSFWorkbook wb = new HSSFWorkbook()) {
-                HSSFSheet sheet = wb.createSheet("OSCAR_Report");
+            try {
+                Object[][] cells = new Object[data.length][];
                 for (int x = 0; x < data.length; x++) {
-                    HSSFRow row = sheet.createRow(x);
+                    cells[x] = new Object[data[x].length];
                     for (int y = 0; y < data[x].length; y++) {
-                        var cell = row.createCell(y);
                         Double numeric = x == 0 ? null : exactSpreadsheetNumber(data[x][y]);
-                        if (numeric == null) cell.setCellValue(data[x][y]);
-                        else cell.setCellValue(numeric);
+                        cells[x][y] = numeric == null ? data[x][y] : numeric;
                     }
                 }
-                wb.write(response.getOutputStream());
+                SpreadsheetExport.write(response.getOutputStream(), cells);
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error writing XLS", e);
+                MiscUtils.getLogger().error("Error writing XLSX", e);
                 setServerErrorIfPossible();
             }
             return NONE;
@@ -177,7 +172,7 @@ public class GenerateOutFiles2Action extends ActionSupport {
     }
 
     /**
-     * Guards both the CSV and XLS export paths against null or oversized payloads.
+     * Guards both the CSV and XLSX export paths against null or oversized payloads.
      *
      * <p>Size is measured in UTF-8 bytes rather than Java char count because the
      * server-side limit ({@link SQLReporter#MAX_CSV_EXPORT_LENGTH}) was set in bytes

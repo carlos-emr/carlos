@@ -33,9 +33,9 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.DateUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar"%>
-<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite"%>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
@@ -73,10 +73,13 @@
             font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
         }
 
+        html {
+            overscroll-behavior: none;
+        }
+
         :root *:not(h2):not(h4) {
             font-size: 12px;
             line-height: 1 !important;
-            overscroll-behavior: none;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }

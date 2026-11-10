@@ -40,6 +40,9 @@ import io.github.carlos_emr.carlos.commn.model.EChart;
 public interface EChartDao extends AbstractDao<EChart> {
     EChart getLatestChart(int demographicNo);
 
+    /** The legacy encounter view selects the largest ID, independently of chart timestamp. */
+    EChart getLatestChartById(int demographicNo);
+
     String saveEchart(CaseManagementNote note, CaseManagementCPP cpp, String userName, String lastStr);
 
     void updateEchartOngoing(CaseManagementCPP cpp);

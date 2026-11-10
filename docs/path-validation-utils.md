@@ -332,6 +332,15 @@ Run tests with:
 mvn -q -Dtest=PathValidationUtilsUnitTest,IncomingDocUtilPathValidationTest test
 ```
 
+## SonarCloud
+
+SonarCloud cannot be configured to treat these helpers as sanitizers, so a file whose untrusted
+path is already validated here may still get a `javasecurity:S2083` report. Fix the flow first; if
+the report is a false positive, exclude that one file as described in
+[`static-analysis-workflows.md`](static-analysis-workflows.md#sonarcloud-path-traversal-exclusions).
+Never exclude a package: until issue #5316 the POM did, and it hid a real traversal in
+`EFormPDFServlet`.
+
 ## CodeQL Model Pack (Static Analysis Integration)
 
 `PathValidationUtils` methods are registered as CodeQL sanitizers via a custom model

@@ -22,6 +22,32 @@ counts and controls below remain the historical results of this issue's original
 | Legacy navigation (`casemgmt/navigation.jsp`) | links from a session-wide copy of the bean; its messenger list named the session-wide `casemgmt_msgBeans` as a literal string, so every rendering stopped there with a 500 | links from the request's patient and entry; the messenger list shows that patient's own messages (with `_msg` read), encoded |
 | `messenger/generatePreviewPDF.jsp` (writer) | replaced the bean with a bare one | no longer touches it |
 
+The legacy print refusal contract retains the shared clinical gate's policy (#5448):
+an omitted patient reaches the print page's required-patient check and returns **400**;
+a supplied malformed, zero, overflowing or more-than-ten-digit patient ID is refused by
+`ViewClinical2Action` with **400**, before the print page runs. Conflicting patient
+aliases (or repeated parameters naming different patients) return **403**. The
+`echart-two-patient-isolation` workflow checks both print routes in both patient
+directions for each case, requires that neither patient's name appears in a refused
+response, and identifies the route and scope case if an assertion fails. The later
+immunization view checks follow the same shared-gate contract: missing patients
+return 400, invalid IDs return 400, and conflicting aliases return 403. Schedule mutation refusals retain
+their separate 400 contract.
+
+## Historical chart retrieval after the modern-only cutover
+
+The modern chart header offers **Historical legacy chart (read only)** to users with the
+existing report-read permission. The history route retains its report, patient demographic-read
+and record-restriction checks. Each listed revision opens the existing patient-scoped historical
+print route; both retained print routes load only the explicitly requested revision belonging to
+that patient. They label the content as a retained historical snapshot that excludes subsequent
+modern-chart updates. No legacy editor write is re-enabled.
+
+`EncounterPrintPatientIsolationUnitTest` checks that all six retained clinical fields can still
+be retrieved while the modern policy is active, and that foreign, missing and invalid revisions
+cannot disclose historical text. The installed two-patient check verifies each patient's own
+historical text after the other chart was entered, foreign-revision refusal and unchanged data.
+
 ## The legacy encounter editor
 
 `encounter/Index2.jsp` renders the editor only with the CAISI module (`caisi=on`) and only for an

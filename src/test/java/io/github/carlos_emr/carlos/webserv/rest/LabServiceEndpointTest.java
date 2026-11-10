@@ -17,6 +17,7 @@
  *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
@@ -62,6 +63,8 @@ class LabServiceEndpointTest extends CarlosRestTestBase {
 
     @Mock
     private LabManager mockLabManager;
+    @Mock
+    private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
 
     @Mock
     private SecurityInfoManager mockSecurityInfoManager;
@@ -70,6 +73,7 @@ class LabServiceEndpointTest extends CarlosRestTestBase {
     protected Object getServiceBean() {
         LabService service = new LabService();
         injectDependency(service, "labManager", mockLabManager);
+        injectDependency(service, "projections", projections);
         injectDependency(service, "securityInfoManager", mockSecurityInfoManager);
         return service;
     }
@@ -78,6 +82,17 @@ class LabServiceEndpointTest extends CarlosRestTestBase {
     void setUpSecurity() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(), any(), any()))
             .thenReturn(true);
+    }
+
+    @Test
+    void shouldReturnConflict_whenTypedLaboratoryResultsCannotBeProjected() {
+        when(mockLabManager.getHl7Messages(any(LoggedInInfo.class),eq(123),eq(0),eq(10))).thenReturn(List.of());
+        org.mockito.Mockito.doThrow(new jakarta.ws.rs.WebApplicationException(jakarta.ws.rs.core.Response.status(409)
+                .type("text/plain").entity("Structured projection requires review").build()))
+                .when(projections).requireRestSupported(123,java.util.Set.of("LaboratoryResults"));
+        var response=request().path("/labs/hl7LabsByDemographicNo").query("demographicNo",123).query("offset",0).query("limit",10).get();
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.readEntity(String.class)).contains("requires review");
     }
 
     private Hl7TextMessage createTestHl7Message() {

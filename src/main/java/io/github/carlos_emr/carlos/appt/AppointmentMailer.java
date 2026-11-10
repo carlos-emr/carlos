@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.appt;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.File;
@@ -163,23 +165,18 @@ public class AppointmentMailer implements MessageMailer {
                     int lineIndex = 0;
                     while ((strLine = bufreader.readLine()) != null) {
                         if (lineIndex < 2) {
-                            String[] msgConfig = strLine.split(":");
-                            if (msgConfig[0].equalsIgnoreCase("From")) {
-                                this.message.setFrom(msgConfig[1]);
-                            } else if (msgConfig[0].equalsIgnoreCase("Subject")) {
-                                this.message.setSubject(msgConfig[1]);
-                            }
+                            applyTemplateHeader(this.message, strLine);
                         } else {
                             this.msgTextTemplate.append(strLine).append("\n");
                         }
                         lineIndex++;
                     }
                 } catch (FileNotFoundException fnf) {
-                    logger.error("No Appointment Reminder Template found", fnf);
+                    logger.error("No Appointment Reminder Template found: {}", LogSafe.exceptionTrace(fnf));
                 } catch (IOException io) {
-                    logger.error("IOException occurred", io);
+                    logger.error("IOException occurred: {}", LogSafe.exceptionTrace(io));
                 } catch (SecurityException se) {
-                    logger.error("Invalid appointment reminder template path", se);
+                    logger.error("Invalid appointment reminder template path: {}", LogSafe.exceptionTrace(se));
                 } catch (AddressException addr) {
                     logger.error("Invalid appointment reminder recipient address");
                 } finally {
@@ -192,11 +189,26 @@ public class AppointmentMailer implements MessageMailer {
                             fstream.close();
                         }
                     } catch (IOException io) {
-                        logger.error("IOException occurred", io);
+                        logger.error("IOException occurred: {}", LogSafe.exceptionTrace(io));
                     }
                 }
             }
         }
+    }
+
+    /** Parse one template header without losing colons in the value or indexing a missing part. */
+    static void applyTemplateHeader(SimpleMailMessage target, String line) {
+        int separator = line.indexOf(':');
+        String key = separator < 0 ? line : line.substring(0, separator);
+        boolean from = io.github.carlos_emr.carlos.utility.AsciiStrings.equalsIgnoreCase("From", key);
+        boolean subject = io.github.carlos_emr.carlos.utility.AsciiStrings.equalsIgnoreCase("Subject", key);
+        if (!from && !subject) return;
+        if (separator < 0 || separator == line.length() - 1) {
+            throw new IllegalArgumentException("Invalid appointment reminder template header");
+        }
+        String value = line.substring(separator + 1);
+        if (from) target.setFrom(value);
+        else target.setSubject(value);
     }
 
     private void fillMessageText() {

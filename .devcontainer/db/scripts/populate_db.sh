@@ -27,7 +27,7 @@ FORWARD=$(for f in "${MIG}/common/"V*.sql "${MIG}/on/"V*.sql; do
     printf '%s\n' "$f"
   done \
   | awk -F'/V1\\.0\\.' '{ n=$2; sub(/__.*/,"",n); print n "\t" $0 }' \
-  | sort -n | cut -f2)
+  | LC_ALL=C sort -V | cut -f2)
 if [ -z "${FORWARD}" ]; then
   echo "No forward migrations (V1.0.3+) discovered under ${MIG}; loading genesis baseline only." >&2
 fi
@@ -35,7 +35,7 @@ fi
 # way instead of silently loading both files. The repo's migration hook blocks duplicates at
 # authoring time — this guards files that bypass the hook (plain git add, external tools).
 if [ -n "${FORWARD}" ]; then
-  DUP_VERSIONS=$(echo "${FORWARD}" | awk -F'/V1\\.0\\.' '{ n=$2; sub(/__.*/,"",n); print n }' | sort -n | uniq -d)
+  DUP_VERSIONS=$(echo "${FORWARD}" | awk -F'/V1\\.0\\.' '{ n=$2; sub(/__.*/,"",n); print n }' | LC_ALL=C sort -V | uniq -d)
   if [ -n "${DUP_VERSIONS}" ]; then
     echo "ERROR: duplicate forward migration version(s) across common+on: $(printf '%s\n' "${DUP_VERSIONS}" | sed 's/^/V1.0./')" >&2
     exit 1
@@ -93,13 +93,16 @@ $SQL carlos < /scripts/development.sql
 # EFormDocs rows predate lab_type (their INSERTs name the seven original columns,
 # so the reload leaves lab_type NULL), and the migration's inference UPDATE is
 # what resolves a demo lab attachment's source from patientLabRouting, exactly as
-# it does for legacy rows on an upgraded database.
+# it does for legacy rows on an upgraded database. The CDS care migration restores
+# its dedicated source-text validation and three semantic measurement types; the
+# snapshot otherwise erases those required reference rows after the full chain.
 echo 'Re-applying reference-data migrations undone by the demo snapshot...'
 for REF_MIGRATION in \
     "${MIG}/common/V1.0.32__add_nrtf_tuning_fork_measurement_type.sql" \
     "${MIG}/common/V1.0.33__aacp_provided_revised_reviewed_validation.sql" \
     "${MIG}/on/V1.0.34__add_oma_uninsured_service_fees.sql" \
-    "${MIG}/common/V1.0.43__consultation_eform_lab_sources.sql"; do
+    "${MIG}/common/V1.0.43__consultation_eform_lab_sources.sql" \
+    "${MIG}/common/V1.0.59.11__cds_contact_care_capacity.sql"; do
   $SQL carlos < "${REF_MIGRATION}"
 done
 # development.sql also truncate-reloads the security tables (secObjectName,

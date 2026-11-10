@@ -1,8 +1,8 @@
 {
- "format": 1,
+ "format": 2,
  "kind": "o19map-schema",
  "generator": "scripts/migration/o19/generate_manifests.py",
- "SCHEMA_MAP_VERSION": "o19map-5+9e7bc615",
+ "SCHEMA_MAP_VERSION": "o19map-7+81c32ac6",
  "O19_PROFILE": "on",
  "O19_SOURCE_COMMIT": "a7900d569d3faf741993e5e1da8c14021bbefede",
  "TABLES": {
@@ -94,8 +94,13 @@
     "last_entered_by",
     "consent_date",
     "optout_date",
-    "edit_date"
+    "edit_date",
+    "deleted"
    ],
+   "value_exprs": {
+    "optout": "COALESCE(s.`optout`, 1)",
+    "deleted": "COALESCE((SELECT r.`deleted` FROM {archive}.`Consent__live` r WHERE r.`id` = s.`id`), 1)"
+   },
    "fk_remap": {
     "consent_type_id": "consentType"
    }
@@ -1194,7 +1199,11 @@
     "status",
     "total",
     "timestamp"
-   ]
+   ],
+   "value_exprs": {
+    "ohipfilename": "(SELECT f.`imported_filename` FROM {archive}.`billing_on_diskname__filenames` f WHERE f.`row_id` = s.`id`)"
+   },
+   "billing_filename": "o19-billing-v1"
   },
   "billing_on_eareport": {
    "class": "copy",
@@ -1263,7 +1272,11 @@
     "status",
     "total",
     "timestamp"
-   ]
+   ],
+   "value_exprs": {
+    "htmlfilename": "(SELECT f.`imported_filename` FROM {archive}.`billing_on_filename__filenames` f WHERE f.`row_id` = s.`id`)"
+   },
+   "billing_filename": "o19-billing-v1"
   },
   "billing_on_header": {
    "class": "copy",
@@ -12677,7 +12690,8 @@
    "consent_date",
    "optout_date",
    "edit_date",
-   "deleted"
+   "deleted",
+   "live_demographic_no"
   ],
   "Contact": [
    "id",
@@ -14187,7 +14201,9 @@
    "pronoun",
    "pronounId",
    "gender",
-   "pref_name"
+   "pref_name",
+   "cds_identity_hin",
+   "cds_identity_issuer"
   ],
   "demographicArchive": [
    "id",
@@ -14389,7 +14405,8 @@
    "abnormal",
    "receivedDate",
    "report_media",
-   "sent_date_time"
+   "sent_date_time",
+   "cds_content_precision"
   ],
   "document_storage": [
    "id",
@@ -14471,7 +14488,11 @@
    "demographic_contact_id",
    "protocol",
    "priorRxProtocol",
-   "pharmacyId"
+   "pharmacyId",
+   "cds_currentness",
+   "cds_dose_text",
+   "cds_projection_incomplete",
+   "row_version"
   ],
   "dsGuidelineProviderMap": [
    "mapid",
@@ -22093,7 +22114,8 @@
    "textView",
    "rx_comments",
    "digital_signature_id",
-   "lastUpdateDate"
+   "lastUpdateDate",
+   "row_version"
   ],
   "preventions": [
    "id",
@@ -23404,7 +23426,6 @@
    "archived",
    "custom_instructions",
    "hide_cpp",
-   "nosubs",
    "prn",
    "start_date_unknown",
    "takemax",
@@ -24700,15 +24721,9 @@
    "reportgroup"
   ],
   "reportConfig": [
-   "order_no",
    "report_id"
   ],
   "reportFilter": [
-   "order_no",
-   "report_id",
-   "status"
-  ],
-  "reportItem": [
    "status"
   ],
   "reportTemplates": [
@@ -24759,7 +24774,7 @@
  },
  "PROFILES": {
   "bc": {
-   "SCHEMA_MAP_VERSION": "o19map-5+ccf44f43",
+   "SCHEMA_MAP_VERSION": "o19map-7+e44c15d5",
    "O19_PROFILE": "bc",
    "TABLES": {
     "AppDefinition": {
@@ -24850,8 +24865,13 @@
       "last_entered_by",
       "consent_date",
       "optout_date",
-      "edit_date"
+      "edit_date",
+      "deleted"
      ],
+     "value_exprs": {
+      "optout": "COALESCE(s.`optout`, 1)",
+      "deleted": "COALESCE((SELECT r.`deleted` FROM {archive}.`Consent__live` r WHERE r.`id` = s.`id`), 1)"
+     },
      "fk_remap": {
       "consent_type_id": "consentType"
      }
@@ -29605,13 +29625,9 @@
       "ar2_tweakW",
       "ar2_tweakE",
       "ar2_tweakA",
-      "ar2_tweakK"
-     ],
-     "dropped": {
-      "ar2_urineCStxt": {
-       "nondefault": "s.`ar2_urineCStxt` IS NOT NULL AND s.`ar2_urineCStxt` <> ''"
-      }
-     }
+      "ar2_tweakK",
+      "ar2_urineCStxt"
+     ]
     },
     "formBCAR2012": {
      "class": "copy",
@@ -42727,7 +42743,8 @@
      "consent_date",
      "optout_date",
      "edit_date",
-     "deleted"
+     "deleted",
+     "live_demographic_no"
     ],
     "Contact": [
      "id",
@@ -44202,7 +44219,9 @@
      "pronoun",
      "pronounId",
      "gender",
-     "pref_name"
+     "pref_name",
+     "cds_identity_hin",
+     "cds_identity_issuer"
     ],
     "demographicArchive": [
      "id",
@@ -44404,7 +44423,8 @@
      "abnormal",
      "receivedDate",
      "report_media",
-     "sent_date_time"
+     "sent_date_time",
+     "cds_content_precision"
     ],
     "document_storage": [
      "id",
@@ -44486,7 +44506,11 @@
      "demographic_contact_id",
      "protocol",
      "priorRxProtocol",
-     "pharmacyId"
+     "pharmacyId",
+     "cds_currentness",
+     "cds_dose_text",
+     "cds_projection_incomplete",
+     "row_version"
     ],
     "dsGuidelineProviderMap": [
      "mapid",
@@ -46700,7 +46724,8 @@
      "ar2_tweakW",
      "ar2_tweakE",
      "ar2_tweakA",
-     "ar2_tweakK"
+     "ar2_tweakK",
+     "ar2_urineCStxt"
     ],
     "formBCAR2012": [
      "ID",
@@ -56245,7 +56270,8 @@
      "textView",
      "rx_comments",
      "digital_signature_id",
-     "lastUpdateDate"
+     "lastUpdateDate",
+     "row_version"
     ],
     "preventions": [
      "id",
@@ -57624,7 +57650,6 @@
      "archived",
      "custom_instructions",
      "hide_cpp",
-     "nosubs",
      "prn",
      "start_date_unknown",
      "takemax",
@@ -58937,15 +58962,9 @@
      "reportgroup"
     ],
     "reportConfig": [
-     "order_no",
      "report_id"
     ],
     "reportFilter": [
-     "order_no",
-     "report_id",
-     "status"
-    ],
-    "reportItem": [
      "status"
     ],
     "reportTemplates": [

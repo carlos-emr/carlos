@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import ca.uhn.hl7v2.HL7Exception;
+import io.github.carlos_emr.carlos.lab.ca.all.util.Hl7Utils;
 import ca.uhn.hl7v2.model.Segment;
 import ca.uhn.hl7v2.model.v23.group.ORU_R01_ORDER_OBSERVATION;
 import ca.uhn.hl7v2.model.v23.group.ORU_R01_RESPONSE;
@@ -175,6 +176,8 @@ public class EpsilonHandler extends DefaultGenericHandler {
         // structured ORU_R01 does not have, so build them from the typed groups instead.
         super.msg = msg;
         terser = new Terser(msg);
+        // The inherited comment and NTE lookups read the segment names built here, not in super.init.
+        segmentNames = GenericSegmentNames.of(terser.getFinder().getRoot());
         obrGroups = new ArrayList<ArrayList<Segment>>();
         ORU_R01_RESPONSE response = msg.getRESPONSE();
         for (int i = 0; i < response.getORDER_OBSERVATIONReps(); i++) {
@@ -248,7 +251,8 @@ public class EpsilonHandler extends DefaultGenericHandler {
         try {
             return msg.getRESPONSE().getORDER_OBSERVATION(0).getOBR()
                     .getPriority().getValue();
-        } catch (HL7Exception e) {
+        } catch (RuntimeException e) {
+            Hl7Utils.rethrowUnlessHl7AccessFailure(e);
             return ("");
         }
     }

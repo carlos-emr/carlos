@@ -63,7 +63,7 @@ public class BillingDetailTo1 implements Serializable {
     private String apptProviderNo;
     private String asstProviderNo;
     private String creator;
-    private List<BillingONItem> billingItems;
+    private List<EmbeddedBillingONItemTo1> billingItems;
 
     public Integer getId() {
         return id;
@@ -257,11 +257,25 @@ public class BillingDetailTo1 implements Serializable {
         this.creator = creator;
     }
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @jakarta.xml.bind.annotation.XmlTransient
     public List<BillingONItem> getBillingItems() {
-        return billingItems;
+        return billingItems == null ? null : billingItems.stream()
+                .map(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots::billingItemDomain)
+                .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
     }
+    @com.fasterxml.jackson.annotation.JsonProperty("billingItems")
+    @jakarta.xml.bind.annotation.XmlElement(name="billingItems")
+    public List<EmbeddedBillingONItemTo1> getBillingItemSnapshots() { return billingItems; }
+    public void setBillingItemSnapshots(List<EmbeddedBillingONItemTo1> value) { billingItems = value; }
 
     public void setBillingItems(List<BillingONItem> billingItems) {
-        this.billingItems = billingItems;
+        if (billingItems == null) { this.billingItems = null; return; }
+        if (!org.hibernate.Hibernate.isInitialized(billingItems)) {
+            throw new io.github.carlos_emr.carlos.webserv.rest.conversion.ConversionException("Billing items are not initialized");
+        }
+        this.billingItems = billingItems.stream()
+                .map(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots::billingItem)
+                .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
     }
 }

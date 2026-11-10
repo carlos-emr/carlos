@@ -37,10 +37,40 @@ import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 
 public interface AppointmentStatusDao extends AbstractDao<AppointmentStatus> {
 
+    /**
+     * Returns every appointment status, active or not.
+     *
+     * <p>Served from the shared {@code appointmentStatuses} cache. Every call returns an unmodifiable list of
+     * new detached copies, so changing an element affects only the caller's copy, never another
+     * reader or the cache, and writes nothing to the database. Persist changes through
+     * {@code merge}/{@code saveEntity}, which evict the cache.</p>
+     *
+     * @return all statuses, as detached copies
+     */
     public List<AppointmentStatus> findAll();
 
+    /**
+     * Returns the active appointment statuses ordered by id.
+     *
+     * <p>Served from the shared {@code appointmentStatuses} cache. Every call returns an unmodifiable list of
+     * new detached copies, so changing an element affects only the caller's copy, never another
+     * reader or the cache, and writes nothing to the database. Persist changes through
+     * {@code merge}/{@code saveEntity}, which evict the cache.</p>
+     *
+     * @return the active statuses, as detached copies
+     */
     public List<AppointmentStatus> findActive();
 
+    /**
+     * Finds the status whose code starts with the first character of {@code status}.
+     *
+     * <p>Served from the shared {@code appointmentStatuses} cache. Every call returns a new
+     * detached copy, so changing it affects only the caller's copy and writes nothing.</p>
+     *
+     * @param status the status code; only its first character is matched
+     * @return a detached copy of the matching status, or {@code null} when {@code status} is
+     *         null/empty or nothing matches
+     */
     public AppointmentStatus findByStatus(String status);
 
     public void modifyStatus(int ID, String strDesc, String strColor);

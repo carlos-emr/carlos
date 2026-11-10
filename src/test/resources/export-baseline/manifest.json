@@ -1,0 +1,74 @@
+{
+  "source_commit": "112feaecb7b",
+  "locale": "en_CA",
+  "timezone": "UTC",
+  "synthetic_only": true,
+  "csv": {
+    "encoding": "UTF-8",
+    "line_endings": "LF",
+    "content_type": "application/csv",
+    "filename": "<REP_TYPE>.csv"
+  },
+  "xlsx": {
+    "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "filename": "dxResearchReport.xlsx"
+  },
+  "files": {
+    "csv_rep_mspremsum.csv": {
+      "rows": 14,
+      "column_counts": [
+        23
+      ],
+      "sha256": "f5721fccd11a10a65b532f8a36646271911cb866c0192121881dde0cbccff8c9"
+    },
+    "csv_rep_msprem.csv": {
+      "rows": 2,
+      "column_counts": [
+        10
+      ],
+      "sha256": "5e95016e5de3339d3cafb0edf4458437fed6f86521f92e841d38f5360004882c"
+    },
+    "csv_rep_payref.csv": {
+      "rows": 2,
+      "column_counts": [
+        11
+      ],
+      "sha256": "9e5799426ea16645b6724807707e68702c7a5462b4c571c41b9cc13e174b2d27"
+    },
+    "csv_rep_wo.csv": {
+      "rows": 2,
+      "column_counts": [
+        9
+      ],
+      "sha256": "517fe8363ee1f406c1f612d272081f742d54ccc2708c7d158695a50256353cd0"
+    },
+    "csv_rep_payref_sum.csv": {
+      "rows": 10,
+      "column_counts": [
+        4
+      ],
+      "sha256": "6123f31bb4fc11f1315387852a12784a68bbed6b60aa6c373799ff91ae90059a"
+    },
+    "csv_rep_account_rec.csv": {
+      "rows": 2,
+      "column_counts": [
+        9
+      ],
+      "sha256": "03cc23e717c6c255487e1190ed02cbd2b722981352285a5b7a48eb7f5ea0dc97"
+    },
+    "csv_rep_invoice.csv": {
+      "rows": 2,
+      "column_counts": [
+        10
+      ],
+      "sha256": "b416f0f65627fa9519628ac16b3b64049e718b39c1d504db54ca45bebdc4fd15"
+    },
+    "csv_rep_rej.csv": {
+      "rows": 10,
+      "column_counts": [
+        27
+      ],
+      "sha256": "199922cea8fb0665b6acd7cc23c0f6831bac38f8817940041d272db01b8f32e4"
+    }
+  }
+}

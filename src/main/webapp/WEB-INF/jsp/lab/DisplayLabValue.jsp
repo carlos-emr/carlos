@@ -30,8 +30,10 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -75,6 +77,11 @@
                <a href="">#</a--> <br/>
         </p>
     </div>
+    <% if (list.isEmpty()) { %>
+    <p class="alert alert-info" data-carlos-lab-history-unavailable="true">
+        <fmt:message key="lab.measurementHistory.unavailable"/>
+    </p>
+    <% } %>
     <%
         for (int k = 0; k < list.size(); k++) {
             HashMap hMap = (HashMap) list.get(k);
@@ -97,7 +104,7 @@
          class="preventionProcedure" id="preventionProcedure<%=""+k+""+ran%>"
          onclick="javascript:popup(660,960,'<carlos:encode value='<%= labDisplayLink %>' context="javaScriptAttribute"/>','labReport')">
         <p <%=r(hMap.get("abn"))%>><carlos:encode value='<%= String.valueOf(hMap.get("result")) %>' context="html"/>
-            &nbsp;&nbsp;&nbsp; <carlos:encode value='<%= String.valueOf(hMap.get("collDate")) %>' context="html"/>
+            &nbsp;&nbsp;&nbsp; <carlos:encode value='<%= java.util.Objects.toString(hMap.get("collDate"), "") %>' context="html"/>
         </p>
     </div>
     <%}%>

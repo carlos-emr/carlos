@@ -35,8 +35,7 @@ import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-
-import org.apache.commons.collections4.map.MultiValueMap;
+import java.util.Map;
 import org.owasp.encoder.Encode;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
@@ -87,7 +86,7 @@ public final class Cds4ReportUIBean {
         public HashMap<Integer, CdsClientForm> singleAdmissions = new HashMap<Integer, CdsClientForm>();
 
         // this is a map where key=0-10 representing each cohort bucket., value is a collection of CdsClientForms
-        public MultiValueMap singleAdmissionCohortBuckets = new MultiValueMap();
+        public Map<Integer, List<CdsClientForm>> singleAdmissionCohortBuckets = new HashMap<>();
 
         // key=clientId
         public HashMap<Integer, CdsClientForm> multipleAdmissionsLatestForms = new HashMap<Integer, CdsClientForm>();
@@ -95,7 +94,29 @@ public final class Cds4ReportUIBean {
         public ArrayList<CdsClientForm> multipleAdmissionsAllForms = new ArrayList<CdsClientForm>();
 
         // this is a map where key=0-10 representing each cohort bucket., value is a collection of CdsClientForms
-        public MultiValueMap multipleAdmissionCohortBuckets = new MultiValueMap();
+        public Map<Integer, List<CdsClientForm>> multipleAdmissionCohortBuckets = new HashMap<>();
+
+        /**
+         * Appends a form to a single-admission cohort, retaining duplicates and nulls.
+         * Creates the bucket on its first append.
+         *
+         * @param bucket int the cohort bucket key, conventionally 0 through 10
+         * @param form CdsClientForm the form to append; may be null
+         */
+        public void addSingleAdmissionToCohort(int bucket, CdsClientForm form) {
+            singleAdmissionCohortBuckets.computeIfAbsent(bucket, key -> new ArrayList<>()).add(form);
+        }
+
+        /**
+         * Appends a form to a multiple-admission cohort, retaining duplicates and nulls.
+         * Creates the bucket on its first append.
+         *
+         * @param bucket int the cohort bucket key, conventionally 0 through 10
+         * @param form CdsClientForm the form to append; may be null
+         */
+        public void addMultipleAdmissionToCohort(int bucket, CdsClientForm form) {
+            multipleAdmissionCohortBuckets.computeIfAbsent(bucket, key -> new ArrayList<>()).add(form);
+        }
 
         public void addUniqueCdsProgramFormToMultipleAdmissionsAllForms(CdsClientForm cdsClientForm) {
             for (CdsClientForm tempForm : multipleAdmissionsAllForms) {
@@ -233,7 +254,7 @@ public final class Cds4ReportUIBean {
         for (CdsClientForm form : singleMultiAdmissions.singleAdmissions.values()) {
             Admission admission = admissionMap.get(form.getAdmissionId());
             int bucket = getCohortBucket(admission);
-            singleMultiAdmissions.singleAdmissionCohortBuckets.put(bucket, form);
+            singleMultiAdmissions.addSingleAdmissionToCohort(bucket, form);
 
             logger.debug("cds form id=" + form.getId() + ", admission=" + admission.getId() + ", cohort bucket=" + bucket);
         }
@@ -242,7 +263,7 @@ public final class Cds4ReportUIBean {
         for (CdsClientForm form : singleMultiAdmissions.multipleAdmissionsAllForms) {
             Admission admission = admissionMap.get(form.getAdmissionId());
             int bucket = getCohortBucket(admission);
-            singleMultiAdmissions.multipleAdmissionCohortBuckets.put(bucket, form);
+            singleMultiAdmissions.addMultipleAdmissionToCohort(bucket, form);
 
             logger.debug("cds form id=" + form.getId() + ", admission=" + admission.getId() + ", cohort bucket=" + bucket);
         }
@@ -395,7 +416,7 @@ public final class Cds4ReportUIBean {
 
             for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
                 @SuppressWarnings("unchecked")
-                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i);
+                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.get(i);
                 dataRow[i + 1] = countAnonymous(bucket, false);
             }
         } else if ("007-02".equals(cdsFormOption.getCdsDataCategory())) {
@@ -403,7 +424,7 @@ public final class Cds4ReportUIBean {
 
             for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
                 @SuppressWarnings("unchecked")
-                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i);
+                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.get(i);
                 dataRow[i + 1] = countNoAdmission(bucket);
             }
         } else if ("007-03".equals(cdsFormOption.getCdsDataCategory())) {
@@ -411,7 +432,7 @@ public final class Cds4ReportUIBean {
 
             for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
                 @SuppressWarnings("unchecked")
-                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i);
+                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.get(i);
                 dataRow[i + 1] = countAnonymous(bucket, true);
             }
         } else if ("007-04".equals(cdsFormOption.getCdsDataCategory())) {
@@ -421,7 +442,7 @@ public final class Cds4ReportUIBean {
                 int size = 0;
 
                 @SuppressWarnings("unchecked")
-                Collection<CdsClientForm> bucket = singleMultiAdmissions.multipleAdmissionCohortBuckets.getCollection(i);
+                Collection<CdsClientForm> bucket = singleMultiAdmissions.multipleAdmissionCohortBuckets.get(i);
                 if (bucket != null) size = bucket.size();
                 else size = 0;
 
@@ -468,7 +489,7 @@ public final class Cds4ReportUIBean {
 
             for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
                 @SuppressWarnings("unchecked")
-                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i);
+                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.get(i);
                 dataRow[i + 1] = countWaitingForAssesment(bucket);
             }
         } else if ("07a-02".equals(cdsFormOption.getCdsDataCategory())) {
@@ -476,7 +497,7 @@ public final class Cds4ReportUIBean {
 
             for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
                 @SuppressWarnings("unchecked")
-                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i);
+                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.get(i);
                 dataRow[i + 1] = countDaysWaitingForAssesment(bucket);
             }
         } else if ("07a-03".equals(cdsFormOption.getCdsDataCategory())) {
@@ -484,7 +505,7 @@ public final class Cds4ReportUIBean {
 
             for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
                 @SuppressWarnings("unchecked")
-                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i);
+                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.get(i);
                 dataRow[i + 1] = countWaitingForService(bucket);
             }
         } else if ("07a-04".equals(cdsFormOption.getCdsDataCategory())) {
@@ -492,7 +513,7 @@ public final class Cds4ReportUIBean {
 
             for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
                 @SuppressWarnings("unchecked")
-                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i);
+                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.get(i);
                 dataRow[i + 1] = countDaysWaitingForService(bucket);
             }
         } else {
@@ -590,7 +611,7 @@ public final class Cds4ReportUIBean {
         // get cohort numbers
         for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
             @SuppressWarnings("unchecked")
-            Collection<CdsClientForm> cdsForms = singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i);
+            Collection<CdsClientForm> cdsForms = singleMultiAdmissions.singleAdmissionCohortBuckets.get(i);
             dataRow[i + 1] = getAnswerCounts(cdsFormOption.getCdsDataCategory(), cdsForms);
         }
 
@@ -641,7 +662,7 @@ public final class Cds4ReportUIBean {
             // get cohort numbers
             for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
                 @SuppressWarnings("unchecked")
-                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i);
+                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.get(i);
                 dataRow[i + 1] = get009MultipleAdmissionCountByNoAge(bucket);
             }
 
@@ -665,7 +686,7 @@ public final class Cds4ReportUIBean {
             // get cohorts
             for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
                 @SuppressWarnings("unchecked")
-                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i);
+                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.get(i);
                 dataRow[i + 1] = getMultipleAdmissionCountByAvgAge(bucket);
             }
 
@@ -685,7 +706,7 @@ public final class Cds4ReportUIBean {
         // get cohort numbers
         for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
             @SuppressWarnings("unchecked")
-            Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i);
+            Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.get(i);
             dataRow[i + 1] = get009MultipleAdmissionCountByAge(bucket, startAge, endAge);
         }
 
@@ -745,7 +766,7 @@ public final class Cds4ReportUIBean {
     private void populateCohortCountsByMinMaxAge(int[] dataRow, MinMax minMax) {
         for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
             @SuppressWarnings("unchecked")
-            Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i);
+            Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.get(i);
             dataRow[i + 1] = getMultipleAdmissionCountByMinMaxAge(minMax, bucket);
         }
     }
@@ -779,7 +800,7 @@ public final class Cds4ReportUIBean {
         // get cohort numbers
         for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
             @SuppressWarnings("unchecked")
-            Collection<CdsClientForm> cdsForms = singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i);
+            Collection<CdsClientForm> cdsForms = singleMultiAdmissions.singleAdmissionCohortBuckets.get(i);
             dataRow[i + 1] = getAnswerCounts(cdsFormOption.getCdsDataCategory(), cdsForms);
         }
 
@@ -797,7 +818,7 @@ public final class Cds4ReportUIBean {
         // get cohort numbers
         for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
             @SuppressWarnings("unchecked")
-            Collection<CdsClientForm> cdsForms = getOnlyNewAdmissionDuringReportPeriod(singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i));
+            Collection<CdsClientForm> cdsForms = getOnlyNewAdmissionDuringReportPeriod(singleMultiAdmissions.singleAdmissionCohortBuckets.get(i));
             dataRow[i + 1] = getAnswerCounts(cdsFormOption.getCdsDataCategory(), cdsForms);
         }
 
@@ -833,7 +854,7 @@ public final class Cds4ReportUIBean {
             // get cohort numbers
             for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
                 @SuppressWarnings("unchecked")
-                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i);
+                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.get(i);
                 AccumulatorMap<Integer> singleAdmissionHospitalisations = getCdsHospitalisationAdmissionCount2YearsBeforeProgramAdmission(bucket);
                 dataRow[i + 1] = singleAdmissionHospitalisations.countInstancesOfValue(0);
             }
@@ -849,7 +870,7 @@ public final class Cds4ReportUIBean {
             // get cohort numbers
             for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
                 @SuppressWarnings("unchecked")
-                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i);
+                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.get(i);
                 AccumulatorMap<Integer> singleAdmissionHospitalisations = getCdsHospitalisationAdmissionCount2YearsBeforeProgramAdmission(bucket);
                 dataRow[i + 1] = singleAdmissionHospitalisations.getTotalOfAllValues();
             }
@@ -864,7 +885,7 @@ public final class Cds4ReportUIBean {
             // get cohort numbers
             for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
                 @SuppressWarnings("unchecked")
-                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i);
+                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.get(i);
                 dataRow[i + 1] = getCdsHospitalisationDaysCount2YearsBeforeProgramAdmission(bucket);
             }
 
@@ -915,7 +936,7 @@ public final class Cds4ReportUIBean {
         // get cohort numbers
         for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
             @SuppressWarnings("unchecked")
-            Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i);
+            Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.get(i);
             dataRow[i + 1] = get020QuestionAvgScalarAnswers(question, bucket);
         }
 
@@ -962,7 +983,7 @@ public final class Cds4ReportUIBean {
             // get cohort numbers
             for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
                 @SuppressWarnings("unchecked")
-                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i);
+                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.get(i);
                 AccumulatorMap<Integer> singleAdmissionHospitalisations = getCdsHospitalisationAdmissionCountDuringProgramAdmission(bucket);
                 dataRow[i + 1] = singleAdmissionHospitalisations.countInstancesOfValue(0);
             }
@@ -978,7 +999,7 @@ public final class Cds4ReportUIBean {
             // get cohort numbers
             for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
                 @SuppressWarnings("unchecked")
-                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i);
+                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.get(i);
                 AccumulatorMap<Integer> singleAdmissionHospitalisations = getCdsHospitalisationAdmissionCountDuringProgramAdmission(bucket);
                 dataRow[i + 1] = singleAdmissionHospitalisations.getTotalOfAllValues();
             }
@@ -993,7 +1014,7 @@ public final class Cds4ReportUIBean {
             // get cohort numbers
             for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
                 @SuppressWarnings("unchecked")
-                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i);
+                Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.get(i);
                 dataRow[i + 1] = getCdsHospitalisationDaysCountDuringProgramAdmission(bucket);
             }
 
@@ -1035,7 +1056,7 @@ public final class Cds4ReportUIBean {
         // get cohort numbers
         for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
             @SuppressWarnings("unchecked")
-            Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i);
+            Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.get(i);
             dataRow[i + 1] = countRefusedHospitalisationInfo(bucket);
         }
 
@@ -1221,7 +1242,7 @@ public final class Cds4ReportUIBean {
         // get cohort numbers
         for (int i = 0; i < NUMBER_OF_COHORT_BUCKETS; i++) {
             @SuppressWarnings("unchecked")
-            Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.getCollection(i);
+            Collection<CdsClientForm> bucket = singleMultiAdmissions.singleAdmissionCohortBuckets.get(i);
             dataRow[i + 1] = getCdsHospitalisationDaysCountDuringPeriod(bucket, year);
         }
 

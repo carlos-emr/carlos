@@ -30,7 +30,6 @@ import io.github.carlos_emr.carlos.documentManager.annotation.DocumentPatientLin
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -209,12 +208,12 @@ public class FaxDocument2Action extends ActionSupport {
             docPath = Paths.get(filePath);
             PathValidationUtils.validateExistingPath(docPath.toFile(), documentDir);
         } catch (java.nio.file.InvalidPathException | SecurityException e) {
-            logger.error("Document path rejected for docId={}: {}", docId, LogSafe.sanitize(filePath, 1024));
+            logger.error("Document path rejected for docId={}", docId);
             return INVALID_PATH_MESSAGE;
         }
 
         if (!Files.exists(docPath) || !Files.isRegularFile(docPath)) {
-            logger.error("Document file not found on disk for docId={}: {}", docId, LogSafe.sanitize(filePath, 1024));
+            logger.error("Document file not found on disk for docId={}", docId);
             return "Document file is not available on the server.";
         }
 

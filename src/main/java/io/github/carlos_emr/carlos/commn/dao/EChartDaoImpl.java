@@ -67,6 +67,12 @@ public class EChartDaoImpl extends AbstractDaoImpl<EChart> implements EChartDao 
         return null;
     }
 
+    @Override
+    public EChart getLatestChartById(int demographicNo) {
+        return entityManager.createQuery("from EChart c where c.demographicNo = :patient order by c.id desc", EChart.class)
+                .setParameter("patient", demographicNo).setMaxResults(1).getResultStream().findFirst().orElse(null);
+    }
+
     public String saveEchart(CaseManagementNote note, CaseManagementCPP cpp, String userName, String lastStr) {
         String demoNo = note.getDemographic_no();
         String sql = "select e from EChart e where e.demographicNo=?1 order by e.id";

@@ -601,7 +601,7 @@ async function checkCumulativeValues(context) {
   }
 }
 
-(async () => {
+require('./lib/legacy-check').runLegacyCheck('lab-acknowledge',async({cancellation})=>{
   initMysqlDefaults();
   let browser = null;
   let context = null;
@@ -618,11 +618,12 @@ async function checkCumulativeValues(context) {
     seedEarlierAcknowledgement();
     seedQueueLink();
 
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({...getLaunchOptions(config.chromePath),...require('./lib/playwright-harness').NO_PLAYWRIGHT_SIGNAL_HANDLING});
     context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
 
     await login(context, config, recorder);
 
+    cancellation.throwIfCancelled();
     const inboxhub = await openInboxhubFromSchedule(context);
     pass(`the schedule Inbox link opens the Inboxhub for provider ${providerNo}`);
 
@@ -641,9 +642,11 @@ async function checkCumulativeValues(context) {
       `the READ audit named lab(s) ${JSON.stringify(auditedSegments)} but the page rendered lab ${segmentId}`);
     pass(`the READ audit names the rendered lab ${segmentId}`);
 
+    cancellation.throwIfCancelled();
     const pdf = await checkLabPdf(popup, token);
     pass(`the lab PDF print returns ${pdf.length} real PDF bytes`);
 
+    cancellation.throwIfCancelled();
     const acknowledged = await acknowledgeLab(popup);
     pass(`acknowledging lab ${segmentId} persisted routing status ${acknowledged.status}`);
     assert(JSON.stringify(earlierReviewSnapshot()) === JSON.stringify(olderAcknowledgement),
@@ -701,6 +704,7 @@ async function checkCumulativeValues(context) {
         + ' dates; the showLatest received-date assertion had nothing to run against');
     }
 
+    cancellation.throwIfCancelled();
     const cumulative = await checkCumulativeValues(context);
     assert(cumulative.length > 0, 'the cumulative lab values page rendered nothing');
     pass(`cumulative lab values render for demographic ${demographicNo}`);
@@ -724,4 +728,4 @@ async function checkCumulativeValues(context) {
       cleanupMysqlDefaults();
     }
   }
-})();
+});

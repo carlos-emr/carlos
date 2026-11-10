@@ -106,6 +106,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class FaxImporter {
 
+    private final FaxPollBackoff pollBackoff;
+
     /**
      * Resolved once per instance rather than once per class. CarlosProperties remains a read-once
      * singleton (property changes still require a Tomcat restart), so behaviour is unchanged in
@@ -154,12 +156,20 @@ public class FaxImporter {
     FaxImporter(FaxConfigDao faxConfigDao, FaxJobDao faxJobDao, QueueDocumentLinkDao queueDocumentLinkDao,
             ProviderLabRoutingDao providerLabRoutingDao, FaxProviderClientFactory faxProviderClientFactory,
             String documentDir) {
+        this(faxConfigDao, faxJobDao, queueDocumentLinkDao, providerLabRoutingDao, faxProviderClientFactory,
+                documentDir, java.time.Clock.systemUTC());
+    }
+
+    FaxImporter(FaxConfigDao faxConfigDao, FaxJobDao faxJobDao, QueueDocumentLinkDao queueDocumentLinkDao,
+            ProviderLabRoutingDao providerLabRoutingDao, FaxProviderClientFactory faxProviderClientFactory,
+            String documentDir, java.time.Clock clock) {
         this.faxConfigDao = faxConfigDao;
         this.faxJobDao = faxJobDao;
         this.queueDocumentLinkDao = queueDocumentLinkDao;
         this.providerLabRoutingDao = providerLabRoutingDao;
         this.faxProviderClientFactory = faxProviderClientFactory;
         this.documentDir = documentDir;
+        this.pollBackoff = new FaxPollBackoff(clock);
     }
 
     /**
@@ -225,7 +235,7 @@ public class FaxImporter {
      *
      * @since 2014-08-29
      */
-    public void poll() {
+    public synchronized void poll() {
 
         if (!initialized) {
             if (!pollInitializationWarningLogged) {
@@ -240,6 +250,9 @@ public class FaxImporter {
         log.info("CHECKING REMOTE FOR INCOMING FAXES");
 
         List<FaxConfig> faxConfigList = faxConfigDao.findAll(null, null);
+        pollBackoff.retainAccounts(faxConfigList.stream()
+                .filter(fc -> fc.isActive() && fc.isDownload())
+                .map(FaxConfig::getId).collect(java.util.stream.Collectors.toSet()));
 
         if (faxConfigList.isEmpty()) {
             log.warn("No fax accounts configured - scheduler running but nothing to poll");
@@ -260,14 +273,26 @@ public class FaxImporter {
         }
 
         for (FaxConfig faxConfig : faxConfigList) {
-            if (!faxConfig.isActive() || !faxConfig.isDownload()) {
+            if (!faxConfig.isActive() || !faxConfig.isDownload() || !pollBackoff.isDue(faxConfig.getId())) {
                 continue;
             }
 
+            FaxProviderClient providerClient;
+            List<FaxJob> faxList;
             try {
-                FaxProviderClient providerClient = faxProviderClientFactory.getClient(faxConfig);
-                List<FaxJob> faxList = providerClient.listInboundFaxes(faxConfig);
+                providerClient = faxProviderClientFactory.getClient(faxConfig);
+                faxList = providerClient.listInboundFaxes(faxConfig);
+            } catch (FaxProviderException | RuntimeException e) {
+                recordPollFailure(faxConfig, e);
+                continue;
+            }
+            if (pollBackoff.recovered(faxConfig.getId())) {
+                log.warn("Inbound fax polling recovered for account {} ({})", faxConfig.getId(), faxConfig.getProviderType());
+            }
 
+            // Only account setup/listing failures back off the account. A local document failure
+            // must not delay the next provider poll or turn a healthy connection into an outage.
+            try {
                 for (FaxJob receivedFax : faxList) {
 
                     receivedFax.setDirection(FaxJob.Direction.IN);
@@ -402,13 +427,6 @@ public class FaxImporter {
                     saveFaxJob(new FaxJob(receivedFax));
                 }
 
-            } catch (FaxProviderException e) {
-                log.error("Fax provider error for account {} ({}, HTTP {}, type={})",
-                        faxConfig.getId(), faxConfig.getProviderType(), e.getHttpStatus(), e.getClass().getSimpleName());
-            } catch (IllegalStateException e) {
-                log.error("Credential decryption failed for fax account {} ({}) - re-enter password in "
-                        + "Administration > Faxes > Configure Fax. Skipping this account ({}).",
-                        faxConfig.getId(), faxConfig.getProviderType(), e.getClass().getSimpleName());
             } catch (RuntimeException e) {
                 log.error("Unexpected error processing faxes for account {} ({}) - continuing with next account ({})",
                         faxConfig.getId(), faxConfig.getProviderType(), e.getClass().getSimpleName());
@@ -416,6 +434,34 @@ public class FaxImporter {
         }
 
     }
+
+    private void recordPollFailure(FaxConfig faxConfig, Exception failure) {
+        if (pollBackoff.failed(faxConfig.getId())) {
+            String httpStatus = failure instanceof FaxProviderException providerFailure && providerFailure.getHttpStatus() > 0
+                    ? Integer.toString(providerFailure.getHttpStatus()) : "n/a";
+            log.warn("Inbound fax polling failed for account {} ({}, HTTP {}, type={}); retries will back off up to one hour. "
+                            + "Check credentials and configuration in Administration > Faxes > Configure Fax.",
+                    faxConfig.getId(), faxConfig.getProviderType(), httpStatus, failure.getClass().getSimpleName());
+        }
+    }
+
+    /**
+     * Returns failing inbound accounts for the privileged fax administration view. Resets on application restart.
+     *
+     * @return immutable {@code Map<Integer, PollingFailure>} keyed by persisted fax account ID
+     */
+    public Map<Integer, PollingFailure> getPollingFailures() {
+        return pollBackoff.snapshot();
+    }
+
+    /**
+     * Safe operational metadata; never contains credentials or provider response text.
+     *
+     * @param attempts int number of consecutive failed polls
+     * @param firstFailure Instant when the current failure streak began
+     * @param nextRetry Instant at or after which the next poll may be attempted
+     */
+    public record PollingFailure(int attempts, java.time.Instant firstFailure, java.time.Instant nextRetry) { }
 
     /**
      * Saves a downloaded fax to the incoming directory (quarantine) with validation.

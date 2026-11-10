@@ -102,6 +102,22 @@ public class DemographicCust extends AbstractModel<Integer> {
         this.notes = notes;
     }
 
+    /** Legacy unotes is plain-text framing, not an XML document; nested tag text is clinical content. */
+    public static String wrapPatientNotes(String value) {
+        return "<unotes>" + (value == null ? "" : value) + "</unotes>";
+    }
+
+    /** Read the complete outer frame so a literal closing tag in the note never truncates it. */
+    public static String patientNotesText(String stored) {
+        if (stored == null) return "";
+        if (stored.startsWith("<unotes>") && stored.endsWith("</unotes>"))
+            return stored.substring(8, stored.length() - 9);
+        int first = stored.indexOf("<unotes>");
+        int last = first < 0 ? -1 : stored.indexOf("</unotes>", first + 8);
+        if (first >= 0 && last >= first + 8) return stored.substring(first + 8, last);
+        return stored;
+    }
+
     public void setId(Integer id) {
         this.id = id;
     }

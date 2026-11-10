@@ -27,13 +27,14 @@ import java.util.List;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -48,6 +49,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.AppointmentManager;
 import io.github.carlos_emr.carlos.managers.ScheduleManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.AppointmentTo1;
@@ -71,8 +73,7 @@ import static org.mockito.Mockito.when;
 /**
  * Unit tests for {@link ScheduleService}.
  *
- * <p>Focuses on the `saveSearchConfig` error-handling paths added for the
- * appointment-search hardening change.</p>
+ * <p>Covers schedule validation, authorization, and error-handling paths.</p>
  *
  * @since 2026-04-20
  */
@@ -115,6 +116,52 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         // Lenient: some tests exercise paths that short-circuit before the privilege check
         // (e.g. findUnknownFilter) or override the stub. Strict-by-default would fail those.
         lenient().when(securityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("w"), any())).thenReturn(true);
+    }
+
+    @Test
+    void shouldRejectMissingAppointmentIds_beforeCallingManager() {
+        assertThatThrownBy(() -> service.getAppointment(null)).isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        assertThatThrownBy(() -> service.getAppointment(new AppointmentTo1()))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(appointmentManager);
+    }
+
+    @Test
+    void shouldReturnNotFound_whenAppointmentDoesNotExist() {
+        AppointmentTo1 request = new AppointmentTo1();
+        request.setId(123);
+        assertThatThrownBy(() -> service.getAppointment(request))
+                .isInstanceOf(jakarta.ws.rs.NotFoundException.class);
+    }
+
+    @Test
+    void shouldReturnNotFound_whenSearchConfigurationDoesNotExist() {
+        assertThat(service.saveSearchConfig(123, new SearchConfigTo1()).getStatus()).isEqualTo(404);
+        verify(appointmentSearchDao, never()).persist(any());
+    }
+
+    @Test
+    void shouldRejectImpossibleDay_beforeQueryingAppointments() {
+        assertThatThrownBy(() -> service.getAppointmentsForDay("1", "2026-02-30"))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(scheduleManager);
+    }
+
+    @Test
+    @DisplayName("should preserve the manager's HTTP response when appointment count dates are invalid")
+    void shouldPreserveHttpResponse_whenAppointmentCountDatesAreInvalid() {
+        WebApplicationException badRequest = new WebApplicationException(Response.status(Response.Status.BAD_REQUEST)
+                .entity("Path parameter has the wrong format").header("X-Validation", "date-format").build());
+        when(scheduleManager.listProviderAppointmentCounts(loggedInInfo, "not-a-date", "2026-11-30"))
+                .thenThrow(badRequest);
+
+        // Use a separate logger so parallel endpoint tests cannot pollute this capture.
+        service.logger = LogManager.getLogger(getClass().getName() + ".invalidAppointmentCountDates");
+        try (LogCapture logs = LogCapture.forLogger(service.logger.getName())) {
+            assertThatThrownBy(() -> service.listProviderAppointmentCounts("not-a-date", "2026-11-30"))
+                    .isSameAs(badRequest);
+            assertThat(logs.events()).noneMatch(event -> event.getLevel().isMoreSpecificThan(Level.ERROR));
+        }
     }
 
     @Test
@@ -282,10 +329,17 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         existing.setCreator("origCreator");
         existing.setCreatorSecurityId(7);
         existing.setReason("old reason");
-        when(appointmentManager.getAppointment(any(), eq(42))).thenReturn(existing);
+        when(scheduleManager.updateAppointment(eq(loggedInInfo), eq(42), eq("original-version"), any()))
+                .thenAnswer(call -> {
+                    java.util.function.Consumer<Appointment> edit = call.getArgument(3);
+                    edit.accept(existing);
+                    existing.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
+                    return existing;
+                });
 
         AppointmentTo1 hostile = new AppointmentTo1();
         hostile.setId(42);
+        hostile.setEditVersion("original-version");
         hostile.setReason("new reason");
         hostile.setCreator("hacker");
         hostile.setCreatorSecurityId(999);
@@ -294,9 +348,9 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
 
         service.updateAppointment(hostile);
 
-        ArgumentCaptor<Appointment> captor = ArgumentCaptor.forClass(Appointment.class);
-        verify(scheduleManager).updateAppointment(eq(loggedInInfo), captor.capture());
-        Appointment saved = captor.getValue();
+        verify(scheduleManager).updateAppointment(eq(loggedInInfo), eq(42), eq("original-version"), any());
+        verifyNoInteractions(appointmentManager);
+        Appointment saved = existing;
 
         assertThat(saved.getReason()).isEqualTo("new reason");
         assertThat(saved.getCreateDateTime()).isEqualTo(originalCreate);
@@ -316,23 +370,150 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
                 .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
                         .isEqualTo(Response.Status.BAD_REQUEST.getStatusCode()));
 
-        verify(scheduleManager, never()).updateAppointment(any(), any());
+        verifyNoInteractions(scheduleManager, appointmentManager);
     }
 
     @Test
     @DisplayName("should respond not found when the appointment to update does not exist")
     void shouldRespondNotFound_whenAppointmentMissing() {
-        when(appointmentManager.getAppointment(any(), eq(404))).thenReturn(null);
+        registerMock(DemographicDao.class, Mockito.mock(DemographicDao.class));
+        registerMock(ProviderDao.class, Mockito.mock(ProviderDao.class));
+        when(scheduleManager.updateAppointment(any(), eq(404), eq("read-version"), any()))
+                .thenThrow(new io.github.carlos_emr.carlos.managers.AppointmentUpdateException(
+                        io.github.carlos_emr.carlos.managers.AppointmentUpdateException.Reason.NOT_FOUND));
 
         AppointmentTo1 to = new AppointmentTo1();
         to.setId(404);
+        to.setEditVersion("read-version");
 
         assertThatThrownBy(() -> service.updateAppointment(to))
                 .isInstanceOf(WebApplicationException.class)
                 .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
                         .isEqualTo(Response.Status.NOT_FOUND.getStatusCode()));
 
-        verify(scheduleManager, never()).updateAppointment(any(), any());
+        verify(scheduleManager).updateAppointment(eq(loggedInInfo), eq(404), eq("read-version"), any());
+        verifyNoInteractions(appointmentManager);
+    }
+
+    @Test
+    void shouldReturnStableConflict_whenSharedServiceRejectsStaleVersion() {
+        AppointmentTo1 to = new AppointmentTo1();
+        registerMock(DemographicDao.class, Mockito.mock(DemographicDao.class));
+        registerMock(ProviderDao.class, Mockito.mock(ProviderDao.class));
+        to.setId(42);
+        to.setEditVersion("stale");
+        when(scheduleManager.updateAppointment(any(), eq(42), eq("stale"), any()))
+                .thenThrow(new io.github.carlos_emr.carlos.managers.AppointmentUpdateException(
+                        io.github.carlos_emr.carlos.managers.AppointmentUpdateException.Reason.STALE_VERSION));
+        assertThatThrownBy(() -> service.updateAppointment(to))
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> {
+                    Response response = ((WebApplicationException) e).getResponse();
+                    assertThat(response.getStatus()).isEqualTo(409);
+                    assertThat(((java.util.Map<?, ?>) response.getEntity()).get("code"))
+                            .isEqualTo("APPOINTMENT_STALE_VERSION");
+                });
+        verifyNoInteractions(appointmentManager);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", "unknown", "guarded,legacy-echo"})
+    void shouldRejectUnknownWriteMode_beforeCallingTheUpdateManager(String mode) {
+        var headers = Mockito.mock(jakarta.ws.rs.core.HttpHeaders.class);
+        when(headers.getRequestHeader(ScheduleService.APPOINTMENT_WRITE_MODE_HEADER)).thenReturn(List.of(mode));
+        injectDependency(service, "httpHeaders", headers);
+        var submitted = new AppointmentTo1();
+        submitted.setEditVersion("read-token");
+        assertThatThrownBy(() -> service.updateAppointmentUrgency(42, submitted))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(scheduleManager);
+    }
+
+    @Test
+    void shouldRequireAToken_whenGuardedModeIsExplicit() {
+        var headers = Mockito.mock(jakarta.ws.rs.core.HttpHeaders.class);
+        when(headers.getRequestHeader(ScheduleService.APPOINTMENT_WRITE_MODE_HEADER)).thenReturn(List.of("guarded"));
+        injectDependency(service, "httpHeaders", headers);
+        assertThatThrownBy(() -> service.updateAppointmentUrgency(42, new AppointmentTo1()))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(scheduleManager);
+    }
+
+    @Test
+    void shouldRejectDuplicateWriteModes_withoutSilentlyDisablingProtection() {
+        var headers = Mockito.mock(jakarta.ws.rs.core.HttpHeaders.class);
+        when(headers.getRequestHeader(ScheduleService.APPOINTMENT_WRITE_MODE_HEADER))
+                .thenReturn(List.of("guarded", "legacy-echo"));
+        injectDependency(service, "httpHeaders", headers);
+        var submitted = new AppointmentTo1();
+        submitted.setEditVersion("read-token");
+        assertThatThrownBy(() -> service.updateAppointmentUrgency(42, submitted))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(scheduleManager);
+    }
+
+    /** Pins the response token returned to an unchanged legacy client after a successful write. */
+    @Test
+    void shouldReturnUpdatedAppointment_whenEditVersionIsMissing() {
+        registerMock(DemographicDao.class, Mockito.mock(DemographicDao.class));
+        registerMock(ProviderDao.class, Mockito.mock(ProviderDao.class));
+        AppointmentTo1 to = new AppointmentTo1();
+        to.setId(42);
+        Appointment updated = new Appointment();
+        updated.setId(42);
+        updated.setUpdateDateTime(new Date(2000));
+        when(scheduleManager.updateAppointment(any(), eq(42), isNull(), any()))
+                .thenReturn(updated);
+        assertThat(service.updateAppointment(to).getAppointment().getEditVersion()).isEqualTo("2000");
+        verifyNoInteractions(appointmentManager);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"Status", "Type", "Urgency"})
+    void shouldApplyOnlyNamedField_whenVersionedPartialEditSucceeds(String field) {
+        registerMock(DemographicDao.class, Mockito.mock(DemographicDao.class));
+        registerMock(ProviderDao.class, Mockito.mock(ProviderDao.class));
+        Appointment current = new Appointment();
+        current.setId(42);
+        current.setStatus("old-status");
+        current.setType("old-type");
+        current.setUrgency("old-urgency");
+        current.setReason("preserved");
+        current.setCreator("server-creator");
+        current.setLastUpdateUser("server-updater");
+        current.setUpdateDateTime(new Date(123000));
+        when(scheduleManager.updateAppointment(eq(loggedInInfo), eq(42), eq("123000"), any()))
+                .thenAnswer(call -> {
+                    java.util.function.Consumer<Appointment> edit = call.getArgument(3);
+                    edit.accept(current);
+                    return current;
+                });
+        AppointmentTo1 submitted = new AppointmentTo1();
+        submitted.setId(999); // Path identity controls a partial edit.
+        submitted.setEditVersion("123000");
+        submitted.setStatus("new");
+        submitted.setType("new");
+        submitted.setUrgency("new");
+        submitted.setReason("over-posted");
+        submitted.setCreator("over-posted");
+        submitted.setLastUpdateUser("over-posted");
+
+        var response = switch (field) {
+            case "Status" -> service.updateAppointmentStatus(42, submitted);
+            case "Type" -> service.updateAppointmentType(42, submitted);
+            case "Urgency" -> service.updateAppointmentUrgency(42, submitted);
+            default -> throw new AssertionError(field);
+        };
+
+        assertThat(current.getId()).isEqualTo(42);
+        assertThat(current.getStatus()).isEqualTo("Status".equals(field) ? "new" : "old-status");
+        assertThat(current.getType()).isEqualTo("Type".equals(field) ? "new" : "old-type");
+        assertThat(current.getUrgency()).isEqualTo("Urgency".equals(field) ? "new" : "old-urgency");
+        assertThat(current.getReason()).isEqualTo("preserved");
+        assertThat(current.getCreator()).isEqualTo("server-creator");
+        assertThat(current.getLastUpdateUser()).isEqualTo("server-updater");
+        assertThat(response.getAppointment().getEditVersion()).isEqualTo("123000");
+        verifyNoInteractions(appointmentManager);
     }
 
     @Test
@@ -343,6 +524,6 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
                 .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
                         .isEqualTo(Response.Status.BAD_REQUEST.getStatusCode()));
 
-        verify(appointmentManager, never()).updateAppointmentUrgency(any(), anyInt(), any());
+        verifyNoInteractions(scheduleManager, appointmentManager);
     }
 }

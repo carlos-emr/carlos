@@ -32,6 +32,10 @@
 
     @since 2026-04-21
 --%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources" var="demographicFieldLimitsBundle"/>
+<fmt:message key="admin.securityupdate.msgMaximumCharacters" bundle="${demographicFieldLimitsBundle}" var="demographicCodePointLimitMessage"/>
 <script type="text/javascript">
     function applyDemographicFieldLengthLimits() {
         var fieldLengthLimits = {
@@ -39,6 +43,8 @@
             first_name: <%= Demographic.FIRST_NAME_MAX_LENGTH %>,
             middleNames: <%= Demographic.MIDDLE_NAMES_MAX_LENGTH %>,
             nameUsed: <%= Demographic.ALIAS_MAX_LENGTH %>,
+            pronouns: <%= Demographic.PRONOUN_MAX_LENGTH %>,
+            gender: <%= Demographic.GENDER_MAX_LENGTH %>,
             address: <%= Demographic.ADDRESS_MAX_LENGTH %>,
             city: <%= Demographic.CITY_MAX_LENGTH %>,
             year_of_birth: <%= Demographic.YEAR_OF_BIRTH_MAX_LENGTH %>,
@@ -64,7 +70,26 @@
 
             var fields = document.querySelectorAll('input[name="' + fieldName + '"], textarea[name="' + fieldName + '"]');
             for (var i = 0; i < fields.length; i++) {
-                fields[i].setAttribute('maxlength', fieldLengthLimits[fieldName]);
+                var maximum = fieldLengthLimits[fieldName];
+                if (fieldName === 'first_name' || fieldName === 'last_name' || fieldName === 'pronouns' || fieldName === 'gender') {
+                    // HTML counts UTF-16 units; native VARCHAR/XSD values count Unicode code points.
+                    fields[i].setAttribute('maxlength', maximum * 2);
+                    fields[i].setAttribute('data-max-codepoints', maximum);
+                    (function (field, limit) {
+                        function validateFieldLength() {
+                            var valid = Array.from(field.value || '').length <= limit;
+                            field.setCustomValidity(valid ? '' : '${carlos:forJavaScript(demographicCodePointLimitMessage)}'.replace('{0}', limit));
+                            return valid;
+                        }
+                        field.addEventListener('input', validateFieldLength);
+                        if (field.form) field.form.addEventListener('submit', function (event) {
+                            if (!validateFieldLength()) { event.preventDefault(); field.reportValidity(); }
+                        });
+                        validateFieldLength();
+                    })(fields[i], maximum);
+                } else {
+                    fields[i].setAttribute('maxlength', maximum);
+                }
             }
         }
     }
