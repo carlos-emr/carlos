@@ -2529,6 +2529,20 @@
               ]
             },
             {
+              "name": "shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
               "name": "shouldConnectAndApplyConnectorJYesNo_forLegacyBooleanOptions",
               "container": ""
             }
@@ -3131,7 +3145,7 @@
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
         "DemographicMergeMariaDbIntegrationTest": 9,
-        "JdbcConnectorMariaDbIntegrationTest": 33,
+        "JdbcConnectorMariaDbIntegrationTest": 35,
         "BilledProviderReportDaoIntegrationTest": 2,
         "MariaDbDaoHarnessIntegrationTest": 1,
         "MeasurementDaoIntegrationTest": 1,

@@ -57,7 +57,7 @@ class RequiredExecutionsTest(unittest.TestCase):
         source = checks['java-all']['routedSkips']['io.github.carlos_emr.carlos.utility.JdbcConnectorMariaDbIntegrationTest']
         self.assertEqual(source['check'], 'java-native-generated')
         parameterized = [case for case in source['cases'] if case['name'].endswith('(boolean)')]
-        self.assertEqual(len(parameterized), 16)
+        self.assertEqual(len(parameterized), 17)
         for case in parameterized:
             self.assertEqual([row['name'] for row in case['destinations']],
                              [case['name'] + '[1]', case['name'] + '[2]'])

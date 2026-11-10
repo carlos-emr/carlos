@@ -45,6 +45,27 @@ DATETIME object types, timezone handling, checkbox metadata and
 `ROUND` applies only to genuinely zero values. Report streaming requests are
 translated to MariaDB's positive fetch-size convention.
 
+FLOAT, REAL and DOUBLE columns read as text keep Connector/J's form, the
+printed Java double: `100.0`, `1.0E7`, and through server-prepared statements
+`1.100000023841858` for a FLOAT holding 1.1. MariaDB would return the server's
+text (`100`, `10000000`, `1.1`). Their `getBigDecimal` keeps the same scale
+(`100.0`). BIT columns read as text keep their signed number (`1`, `5`) rather
+than MariaDB's `b'101'` and `b''`; BIT(1) reads as a `Boolean` object, BIT
+metadata names `java.lang.Boolean`, and BIT values convert to `double`, `float`
+and `BigDecimal` as unsigned numbers, as Connector/J did (#5968). Report by
+Template, Query by Example, fixed and clinical reports and the legacy form
+loaders therefore print these columns as before. TINYINT(1), which both drivers
+report as BIT(1), keeps its sign.
+
+These Connector/J behaviours are not reproduced, and nothing in CARLOS depends
+on them: `getBytes` on a numeric column (MariaDB refuses it), the deprecated
+`getBigDecimal(column, scale)` rounding, `getNString` on a non-national column
+(MariaDB returns the text), out-of-range `getLong` and `getFloat` reads (MariaDB
+returns the type's limit, or infinity for `getFloat`, where Connector/J refused
+them), `getByte` on BIT columns wider than 8 bits, and some metadata details:
+FLOAT and DOUBLE scale, the display size of DECIMAL and INT columns, and the
+`INT` type name, which MariaDB reports as `INTEGER`.
+
 URL query settings are decoded once. MySQL connection properties retain
 precedence over URL query options, including after URL normalization. Native
 MariaDB URLs retain their opposite precedence: URL options override connection
