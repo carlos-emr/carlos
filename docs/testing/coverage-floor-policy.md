@@ -106,3 +106,16 @@ retained floors. The wider currentMain comparison still refuses 80 unreviewed
 zero floors and misses 36 line, 44 instruction and 32 branch assertions.
 These are retained failures; no waiver or lower threshold is introduced.
 The complete same-source native-lane coverage union remains required.
+
+The `dd7321db79ee` PR #6102 merged-source refresh uses Debian 13 and Temurin
+25.0.3. Its complete H2 run records 35,947 actual cases: 35,736 passes,
+211 explicit routed/prerequisite skips, and zero failures or errors. The
+source-bound baseline now covers 727 files and the same six nonexecutable
+exclusions, retaining higher historical metrics for 56 files and all required
+ZIP refusal lines. The 80 unreviewed zero floors remain explicit, with no new
+waivers. Source freshness does not qualify the required native-lane union.
+
+The baseline records the fresh JaCoCo XML hash and a test-report inventory
+hash: SHA-256 of compact, key-sorted JSON mapping each Surefire XML filename to
+the SHA-256 of its unchanged bytes. Counts use the repository's Surefire reader,
+which validates nested-container header collisions and counts every testcase.
