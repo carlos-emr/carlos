@@ -2,10 +2,15 @@
 package io.github.carlos_emr.carlos.casemgmt.web;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
+import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManagerImpl;
 import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean;
 import io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao;
+import io.github.carlos_emr.carlos.commn.dao.EChartDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.CaseManagementTmpSave;
 import io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock;
@@ -34,12 +39,14 @@ import org.springframework.web.context.WebApplicationContext;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
@@ -65,6 +72,7 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
     private static final String OTHER_PROVIDER = "999997";
     private static final String CACHE_KEY = "casemgmtNoteLock" + PATIENT;
     private static final String ORIGINAL_TEXT = "FAKE original note text";
+    private static final String REVISED_TEXT = "FAKE revised note text";
 
     /** The ways the editor picks the note it opens, with the note id its lock is for. */
     enum OpenPath {
@@ -209,6 +217,65 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
         assertThat(form().getCaseNote().getId()).isNull();
         verify(locks, never()).persist(any());
         assertThat(theirs.isLocked()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should keep an old note's original text in the saved history when it is opened by GET, then saved")
+    void shouldKeepTheOriginalTextInTheSavedHistory_whenAnOldNoteOpenedByGetIsSaved() throws Exception {
+        open("GET", OpenPath.SAVED_NOTE);
+        CaseManagementEntryFormBean opened = form();
+        assertThat(opened.getCaseNote().getHistory()).isEqualTo(ORIGINAL_TEXT);
+
+        // Struts' session map writes the form through to the HTTP session, and the classic editor's
+        // page-load POST (method=isNoteEdited) takes this session's lock on the note.
+        session.setAttribute("caseManagementEntryForm" + PATIENT, opened);
+        CasemgmtNoteLock taken = lock(5001L, PROVIDER, session.getId());
+        taken.setId(10L);
+        session.setAttribute(CACHE_KEY, taken);
+        when(locks.find(10L)).thenReturn(taken);
+        when(security.hasPrivilege(login, "_eChart", "w", PATIENT)).thenReturn(true);
+        when(security.hasPrivilege(login, "_casemgmt.notes", "w", PATIENT)).thenReturn(true);
+        CaseManagementNote stored = opened.getCaseNote().copyForRevision();
+        stored.setId(6001L);
+        ArgumentCaptor<CaseManagementNote> handedOver = ArgumentCaptor.forClass(CaseManagementNote.class);
+        when(manager.saveCaseManagementNote(any(), handedOver.capture(), any(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any(), any())).thenReturn(stored);
+
+        MockHttpServletRequest save = new MockHttpServletRequest("POST", "/carlos/CaseManagementEntry");
+        save.setContextPath("/carlos");
+        save.setSession(session);
+        save.setParameter("demographicNo", PATIENT);
+        save.setParameter("from", "casemgmt");
+        save.setParameter("nId", "5001");
+        save.setParameter("noteId", "5001");
+        save.setParameter("noteTxt", REVISED_TEXT);
+        save.setParameter("numIssues", "0");
+        CaseManagementEntry2Action saver = action(save);
+        injectDependency(saver, "casemgmtNoteLockDao", locks);
+        WebApplicationContext springContext = mock(WebApplicationContext.class);
+        when(springContext.getBean(ProgramManager.class)).thenReturn(mock(ProgramManager.class));
+        when(springContext.getBean(AdmissionManager.class)).thenReturn(mock(AdmissionManager.class));
+        doReturn(springContext).when(saver).getSpringContext();
+        doReturn(REVISED_TEXT).when(saver).getCaseNote_note();
+        doReturn("Note saved").when(saver).getText("note.saved");
+        doNothing().when(saver).addActionMessage(anyString());
+        try (var props = mockStatic(CarlosProperties.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(saver.save()).isEqualTo("view");
+        }
+
+        CaseManagementNote revision = handedOver.getValue();
+        assertThat(revision.getHistory()).isEqualTo(ORIGINAL_TEXT);
+        // The manager's own history step, run on the revision the action handed over.
+        CaseManagementNoteDAO notes = mock(CaseManagementNoteDAO.class);
+        EChartDao charts = mock(EChartDao.class);
+        when(charts.saveEchart(any(CaseManagementNote.class), any(), anyString(), any())).thenReturn("");
+        CaseManagementManagerImpl real = new CaseManagementManagerImpl();
+        injectDependency(real, "caseManagementNoteDAO", notes);
+        injectDependency(real, "eChartDao", charts);
+        real.saveNote(null, revision, PROVIDER, "FAKE Doctor", null, "doctor");
+        verify(notes).saveNote(revision);
+        assertThat(revision.getHistory()).startsWith(REVISED_TEXT).contains(ORIGINAL_TEXT);
     }
 
     private void open(String httpMethod, OpenPath path) throws Exception {
