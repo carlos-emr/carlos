@@ -17,9 +17,10 @@
  * local-transport tests cannot verify the OAuth handshake, scope enforcement,
  * database persistence, or deployed routing.
  *
- * The check owns one synthetic patient, one BP measurement, one eForm template,
- * OAuth clients, and their issued credentials. Cleanup removes only rows keyed
- * by the unique run markers, including when a request fails part-way through.
+ * The check owns one synthetic patient, one BP measurement, one synthetic
+ * medication/prescription, one eForm template, OAuth clients, and their issued
+ * credentials. Cleanup removes only rows keyed by the unique run markers,
+ * including when a request fails part-way through.
  *
  * REST currently reads measurements but has no REST write route. The scoped
  * PUT probe below requires measurement.write and asserts that CXF rejects the
@@ -27,6 +28,8 @@
  * The eForm REST API manages templates, not completed patient eForm instances.
  */
 const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
 const {
   SkipCheck, assert, assertNotErrorPage, assertStrictPage, createRecorder, createSqlRunner, insertId,
   launchBrowser, login, newContext, readConfig, runCheck, sqlString, wireStrictPage,
@@ -34,7 +37,11 @@ const {
 const { oauthHeader, pct } = require('./oauth-rest-surfaces-playwright-checks');
 
 const EXPECT_OAUTH_MODE = process.env.EXPECT_OAUTH_MODE || 'scoped';
-const REQUIRED_SCOPES = 'demographic.read demographic.write measurement.read measurement.write eform.read eform.write';
+const REQUIRED_SCOPES = [
+  'demographic.read', 'measurement.read', 'measurement.write',
+  'eform.read', 'eform.write', 'lab.read', 'lab.write',
+  'rx.read', 'rx.write', 'schedule.read', 'schedule.write',
+].join(' ');
 const LIMITED_SCOPES = 'demographic.read measurement.read';
 
 function formFields(body) {
@@ -81,7 +88,23 @@ function printEndpointResults(results) {
   console.log(line({ outcome: 'RESULT', endpoint: 'ENDPOINT', http: 'HTTP', verification: 'VERIFICATION' }));
   console.log(rows.map(line).join('\n'));
   console.log(`\n${rows.filter((row) => row.outcome === 'PASS').length} passed; `
-    + `${rows.filter((row) => row.outcome === 'GAP').length} capability gaps.`);
+    + `${rows.filter((row) => row.outcome === 'GAP').length} capability gaps; `
+    + `${rows.filter((row) => row.outcome === 'UNVERIFIED').length} workflows unverified; `
+    + `${rows.filter((row) => row.outcome === 'FAIL').length} failed.`);
+}
+
+function removeOwnedLabFile(state) {
+  if (!state.documentStore || !state.labFilePrefix) return;
+  const root = fs.realpathSync(state.documentStore);
+  const ownedFiles = () => fs.readdirSync(root)
+    .filter((name) => name.startsWith(state.labFilePrefix)
+      && /^LabUpload\.ai-scribe-[A-Fa-f0-9]+\.xml\.\d+$/.test(name));
+  for (const name of ownedFiles()) {
+    const file = path.join(root, name);
+    assert(fs.lstatSync(file).isFile(), `Refusing to remove non-file lab artifact ${name}`);
+    fs.unlinkSync(file);
+  }
+  assert(ownedFiles().length === 0, 'The owned synthetic HL7 upload file was not removed');
 }
 
 async function cleanup(state) {
@@ -94,14 +117,53 @@ async function cleanup(state) {
       if (marker && providerNo) {
         const markerSql = sqlString(marker);
         const providerSql = sqlString(providerNo);
-        const patient = sql.value(`SELECT demographic_no FROM demographic
-          WHERE last_name=${markerSql} AND provider_no=${providerSql}`);
+        const patient = state.patientNo || sql.value(`SELECT demographic_no FROM demographic
+          WHERE last_name=${markerSql} AND first_name IN ('AI-Scribe','AI-Scribe Updated')
+            AND provider_no=${providerSql}`);
         if (patient) {
           const id = sqlId(patient, 'owned synthetic demographic id');
-          assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${id}
-            AND last_name=${markerSql} AND provider_no=${providerSql}`) === '1',
-          'The synthetic demographic ownership check did not match exactly one row');
-          sql.execute(`DELETE FROM measurementsExt WHERE measurement_id IN
+          const ownedRows = sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${id}
+            AND last_name=${markerSql} AND first_name IN ('AI-Scribe','AI-Scribe Updated')
+            AND provider_no=${providerSql}`);
+          assert(ownedRows === '1' || (state.demographicDeleted && ownedRows === '0'),
+            'The synthetic demographic ownership check did not match the created patient or its deleted state');
+          if (state.labAccession) {
+            const accessionSql = sqlString(state.labAccession);
+            const labIds = sql.rows(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${accessionSql}`)
+              .map(([labNo]) => labNo)
+              .filter((labNo) => /^[1-9]\d*$/.test(labNo));
+            if (labIds.length) {
+              const ids = [...new Set(labIds)].join(',');
+              const measurementIds = sql.rows(`SELECT measurement_id FROM measurementsExt
+                WHERE keyval='lab_no' AND val IN (${ids})`)
+                .map(([measurementId]) => measurementId)
+                .filter((measurementId) => /^[1-9]\d*$/.test(measurementId));
+              if (measurementIds.length) {
+                const measurementList = [...new Set(measurementIds)].join(',');
+                sql.execute(`DELETE FROM measurementsExt WHERE measurement_id IN (${measurementList});
+                  DELETE FROM measurements WHERE id IN (${measurementList})`);
+              }
+              sql.execute(`DELETE FROM providerLabRoutingLock WHERE lab_no IN (${ids});
+                DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${ids});
+                DELETE FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${ids});
+                DELETE FROM hl7TextInfo WHERE lab_no IN (${ids});
+                DELETE FROM hl7TextMessage WHERE lab_id IN (${ids})`);
+            }
+            if (state.labFilePrefix) {
+              const filePattern = sqlString(`%${state.labRunMarker}%`);
+              sql.execute(`DELETE FROM fileUploadCheck WHERE filename LIKE ${filePattern}`);
+              assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE filename LIKE ${filePattern}`) === '0',
+                'The owned synthetic HL7 upload bookkeeping row was not removed');
+              removeOwnedLabFile(state);
+            }
+            assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${accessionSql}`) === '0',
+              'The owned synthetic HL7 lab rows were not removed');
+          }
+          sql.execute(`DELETE FROM drugReason WHERE demographicNo=${id};
+            DELETE FROM drugs WHERE demographic_no=${id};
+            DELETE FROM prescription WHERE demographic_no=${id};
+            DELETE FROM DigitalSignature WHERE demographicId=${id} AND ModuleType='PRESCRIPTION';
+            DELETE FROM measurementsExt WHERE measurement_id IN
               (SELECT id FROM measurements WHERE demographicNo=${id});
             DELETE FROM measurements WHERE demographicNo=${id};
             DELETE FROM demographicExtArchive WHERE demographic_no=${id};
@@ -113,9 +175,13 @@ async function cleanup(state) {
             DELETE FROM DemographicContact WHERE demographicNo=${id};
             DELETE FROM demographicPharmacy WHERE demographic_no=${id};
             DELETE FROM demographic WHERE demographic_no=${id} AND last_name=${markerSql}
-              AND provider_no=${providerSql}`);
+              AND first_name IN ('AI-Scribe','AI-Scribe Updated') AND provider_no=${providerSql}`);
           assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${id}`) === '0',
             'The owned synthetic demographic was not removed');
+          assert(sql.value(`SELECT (SELECT COUNT(*) FROM drugs WHERE demographic_no=${id})
+              + (SELECT COUNT(*) FROM prescription WHERE demographic_no=${id})
+              + (SELECT COUNT(*) FROM measurements WHERE demographicNo=${id})`) === '0',
+          'Owned clinical test rows remain after cleanup');
         }
       }
     } finally {
@@ -157,6 +223,11 @@ async function main(state = {}) {
   const app = (path) => `${config.baseUrl}${path}`;
   const runMarker = crypto.randomUUID().replace(/-/g, '');
   const marker = `PWAI${runMarker.slice(0, 12)}`;
+  const today = new Date();
+  const isoDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const nextIsoDate = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
   const formName = `PW AI-Scribe ${runMarker}`;
   const consumerKey = crypto.randomBytes(12).toString('hex');
   const consumerSecret = crypto.randomBytes(24).toString('hex');
@@ -168,21 +239,6 @@ async function main(state = {}) {
   state.formName = formName;
   state.providerNo = providerNo;
   state.consumerKey = consumerKey;
-  const patientNo = insertId(sql, `INSERT INTO demographic
-      (last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,
-       provider_no,hc_type,province,roster_status,hin,lastUpdateDate,patient_status_date)
-    VALUES (${sqlString(marker)},'AI-Scribe','1980','01','02','F','AC',${sqlString(providerNo)},
-      'ON','ON','NR','',NOW(),'2026-01-01')`,
-  'AI-Scribe synthetic demographic');
-  state.patientNo = patientNo;
-  const measurementComment = `AI-Scribe OAuth measurement ${runMarker}`;
-  sql.execute(`INSERT INTO measurements
-      (type,demographicNo,providerNo,dataField,measuringInstruction,comments,dateObserved,dateEntered)
-    VALUES ('BP',${patientNo},${sqlString(providerNo)},'121/79','',${sqlString(measurementComment)},NOW(),NOW())`);
-  const measurementId = sql.value(`SELECT id FROM measurements
-    WHERE demographicNo=${patientNo} AND type='BP' AND comments=${sqlString(measurementComment)}`);
-  sqlId(measurementId, 'AI-Scribe measurement fixture id');
-
   insertId(sql, `INSERT INTO ServiceClient(name,clientKey,clientSecret,uri,lifetime)
       VALUES(${sqlString(`PW AI-Scribe ${runMarker}`)},${sqlString(consumerKey)},
         ${sqlString(consumerSecret)},'oob',3600)`,
@@ -190,8 +246,16 @@ async function main(state = {}) {
 
   const recorder = createRecorder();
   const endpointResults = [];
+  const endpointRecords = new WeakMap();
+  state.endpointResults = endpointResults;
+  state.resultsPrinted = false;
   const recordEndpoint = (method, path, response, verification, outcome = 'PASS') => {
-    endpointResults.push({ outcome, method, path, status: response.status(), verification });
+    const row = endpointRecords.get(response);
+    if (row) {
+      Object.assign(row, { outcome, path, status: response.status(), verification });
+    } else {
+      endpointResults.push({ outcome, method, path, status: response.status(), verification });
+    }
   };
   state.browser = await launchBrowser(config);
   const anonContext = await newContext(state.browser, config);
@@ -259,7 +323,7 @@ async function main(state = {}) {
 
   const fullToken = await authorize(REQUIRED_SCOPES);
   const limitedToken = await authorize(LIMITED_SCOPES);
-  const signedRequest = (method, path, token, body) => {
+  const signedRequest = async (method, path, token, body) => {
     const url = app(path);
     const headers = {
       Accept: 'application/json',
@@ -273,7 +337,24 @@ async function main(state = {}) {
       headers['Content-Type'] = 'application/json';
       options.data = JSON.stringify(body);
     }
-    return anon.fetch(url, options);
+    const result = {
+      outcome: 'PENDING',
+      method,
+      path: new URL(url).pathname,
+      status: 'n/a',
+      verification: 'request sent; response assertions pending',
+    };
+    endpointResults.push(result);
+    try {
+      const response = await anon.fetch(url, options);
+      result.status = response.status();
+      endpointRecords.set(response, result);
+      return response;
+    } catch (error) {
+      result.outcome = 'FAIL';
+      result.verification = `request failed: ${error.message}`;
+      throw error;
+    }
   };
 
   const infoResponse = await signedRequest('GET', '/ws/services/oauth/info', fullToken);
@@ -281,6 +362,63 @@ async function main(state = {}) {
   assert(String((await infoResponse.json()).login) === String(providerNo),
     'The OAuth token is not bound to the provider who approved it');
   recordEndpoint('GET', '/ws/services/oauth/info', infoResponse, 'signed token identity verified');
+
+  const createDemographicResponse = await signedRequest('POST', '/ws/services/demographics/', fullToken, {
+    firstName: 'AI-Scribe',
+    lastName: marker,
+    dobYear: '1980',
+    dobMonth: '01',
+    dobDay: '02',
+    sex: 'F',
+    patientStatus: 'AC',
+    rosterStatus: 'NR',
+    providerNo,
+    hin: '',
+    hcType: 'ON',
+    address: { address: '', city: '', province: 'ON', postal: '' },
+    previousAddress: { address: '', city: '', province: 'ON', postal: '' },
+  });
+  await expectStatus(createDemographicResponse, 200, 'OAuth synthetic demographic create');
+  const createdDemographic = await createDemographicResponse.json();
+  const patientNo = sqlId(createdDemographic.demographicNo, 'created synthetic demographic id');
+  assert(createdDemographic.firstName === 'AI-Scribe' && createdDemographic.lastName === marker,
+    'Demographic create did not return the uniquely owned synthetic record');
+  state.patientNo = patientNo;
+  recordEndpoint('POST', '/ws/services/demographics/', createDemographicResponse,
+    'synthetic patient created through the REST API');
+
+  const measurementComment = `AI-Scribe OAuth measurement ${runMarker}`;
+  sql.execute(`INSERT INTO measurements
+      (type,demographicNo,providerNo,dataField,measuringInstruction,comments,dateObserved,dateEntered)
+    VALUES ('BP',${patientNo},${sqlString(providerNo)},'121/79','',${sqlString(measurementComment)},NOW(),NOW())`);
+  const measurementId = sql.value(`SELECT id FROM measurements
+    WHERE demographicNo=${patientNo} AND type='BP' AND comments=${sqlString(measurementComment)}`);
+  sqlId(measurementId, 'AI-Scribe measurement fixture id');
+
+  const allDemographicsResponse = await signedRequest(
+    'GET', '/ws/services/demographics/?offset=0&limit=2', fullToken,
+  );
+  await expectStatus(allDemographicsResponse, 200, 'OAuth paginated demographic list');
+  const allDemographics = await allDemographicsResponse.json();
+  const demographicPage = allDemographics.Item || allDemographics.content || [];
+  assert(Array.isArray(demographicPage) && Number(allDemographics.total) >= 1,
+    'Paginated demographic list did not return a result page');
+  recordEndpoint('GET', '/ws/services/demographics/', allDemographicsResponse,
+    'paginated patient-list response returned');
+
+  const searchOffset = Number(sql.value(`SELECT COUNT(*) FROM demographic
+    WHERE demographic_no < ${patientNo} AND patient_status <> 'DE'`));
+  const patientPageResponse = await signedRequest(
+    'GET', `/ws/services/demographics/?offset=${searchOffset}&limit=1`, fullToken,
+  );
+  await expectStatus(patientPageResponse, 200, 'OAuth demographic page containing the synthetic patient');
+  const patientPage = await patientPageResponse.json();
+  const patientItems = patientPage.Item || patientPage.content || [];
+  assert(Array.isArray(patientItems)
+    && patientItems.some((item) => String(item.demographicNo) === patientNo),
+  'Paginated demographic list did not include the synthetic patient at its calculated offset');
+  recordEndpoint('GET', '/ws/services/demographics/', patientPageResponse,
+    'synthetic patient returned at the matching pagination offset');
 
   const demographicPath = `/ws/services/demographics/${patientNo}`;
   const demographicResponse = await signedRequest('GET', demographicPath, fullToken);
@@ -290,6 +428,50 @@ async function main(state = {}) {
     'OAuth demographic fetch did not return the owned synthetic record');
   recordEndpoint('GET', '/ws/services/demographics/{demographicNo}', demographicResponse,
     'owned synthetic demographic returned');
+
+  const basicDemographicResponse = await signedRequest(
+    'GET', `/ws/services/demographics/basic/${patientNo}`, fullToken,
+  );
+  await expectStatus(basicDemographicResponse, 200, 'OAuth basic demographic fetch');
+  const basicDemographic = await basicDemographicResponse.json();
+  assert(String(basicDemographic.demographicNo) === patientNo && basicDemographic.lastName === marker,
+    'Basic demographic fetch did not return the synthetic patient');
+  recordEndpoint('GET', '/ws/services/demographics/basic/{dataId}', basicDemographicResponse,
+    'basic profile returned');
+
+  const demographicSummaryResponse = await signedRequest(
+    'GET', `/ws/services/demographics/summary/${patientNo}`, fullToken,
+  );
+  await expectStatus(demographicSummaryResponse, 200, 'OAuth demographic summary fetch');
+  const demographicSummary = await demographicSummaryResponse.json();
+  assert(String(demographicSummary.demographicNo) === patientNo
+    && demographicSummary.lastName === marker,
+  'Demographic summary did not return the synthetic patient');
+  recordEndpoint('GET', '/ws/services/demographics/summary/{demographicNo}', demographicSummaryResponse,
+    'short demographic summary returned');
+
+  const quickSearchResponse = await signedRequest(
+    'GET', `/ws/services/demographics/quickSearch?query=${encodeURIComponent(marker)}`, fullToken,
+  );
+  await expectStatus(quickSearchResponse, 200, 'OAuth demographic quick search');
+  const quickSearch = await quickSearchResponse.json();
+  assert(Array.isArray(quickSearch.content)
+    && quickSearch.content.some((item) => String(item.demographicNo) === patientNo),
+  'Name quick search did not return the synthetic patient');
+  recordEndpoint('GET', '/ws/services/demographics/quickSearch', quickSearchResponse,
+    'quickSearch finds the synthetic patient by last name');
+
+  const demographicSearchResponse = await signedRequest(
+    'POST', '/ws/services/demographics/search?startIndex=0&itemsToReturn=10', fullToken,
+    { type: 'Name', term: marker, active: true },
+  );
+  await expectStatus(demographicSearchResponse, 200, 'OAuth demographic search request');
+  const demographicSearch = await demographicSearchResponse.json();
+  assert(Array.isArray(demographicSearch.content)
+    && demographicSearch.content.some((item) => String(item.demographicNo) === patientNo),
+  'Structured demographic search did not return the synthetic patient');
+  recordEndpoint('POST', '/ws/services/demographics/search', demographicSearchResponse,
+    'structured name search finds the synthetic patient');
 
   demographic.firstName = 'AI-Scribe Updated';
   const updateResponse = await signedRequest('PUT', '/ws/services/demographics/', fullToken, demographic);
@@ -325,6 +507,278 @@ async function main(state = {}) {
   'OAuth measurement fetch did not return the owned BP fixture');
   recordEndpoint('POST', '/ws/services/measurements/{demographicNo}', measurementsResponse,
     'owned BP measurement returned');
+
+  const labReadResponse = await signedRequest(
+    'GET', `/ws/services/labs/hl7LabsByDemographicNo?demographicNo=${patientNo}&offset=0&limit=10`, fullToken,
+  );
+  await expectStatus(labReadResponse, 200, 'OAuth HL7 lab read');
+  const labRead = await labReadResponse.json();
+  assert(labRead && Array.isArray(labRead.messages),
+    'HL7 lab read did not return a message list');
+  recordEndpoint('GET', '/ws/services/labs/hl7LabsByDemographicNo', labReadResponse,
+    'patient lab message list returned');
+
+  const invalidLabUploadResponse = await signedRequest(
+    'POST', '/ws/services/labs/hl7LabUpload', fullToken,
+    { fileName: `${marker}.hl7`, type: 'PHS', base64EncodedeMessage: '' },
+  );
+  await expectStatus(invalidLabUploadResponse, 400, 'OAuth HL7 lab upload validation');
+  recordEndpoint('POST', '/ws/services/labs/hl7LabUpload', invalidLabUploadResponse,
+    'malformed upload rejected before import');
+
+  const documentStore = process.env.AI_SCRIBE_DOCUMENT_STORE;
+  if (!documentStore) {
+    endpointResults.push({
+      outcome: 'UNVERIFIED',
+      method: 'POST',
+      path: '/ws/services/labs/hl7LabUpload',
+      status: 'not run',
+      verification: 'valid HL7 import requires AI_SCRIBE_DOCUMENT_STORE so cleanup can remove its archived file',
+    });
+  } else {
+    state.documentStore = fs.realpathSync(documentStore);
+    assert(fs.statSync(state.documentStore).isDirectory(),
+      'AI_SCRIBE_DOCUMENT_STORE must point to the running server document directory');
+    state.labRunMarker = runMarker;
+    state.labAccession = `PWAI${runMarker}`;
+    state.labFilePrefix = `LabUpload.ai-scribe-${runMarker}.xml.`;
+    const accessionSql = sqlString(state.labAccession);
+    assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${accessionSql}`) === '0',
+      'The synthetic lab accession already exists');
+
+    const hl7Timestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
+    const hl7Segments = [
+      `MSH|^~\\&|PATHL7|CW|CARLOS|TEST|${hl7Timestamp}||ORU^R01|${runMarker}|P|2.3|||ER|AL`,
+      `PID|1||||AI-Scribe Updated^${marker}||19800102|F`,
+      `ORC|NW|${state.labAccession}|||F|||||||999998^DR. PROBE|||${hl7Timestamp}`,
+      `OBR|1|${state.labAccession}||ML70^SYNTHETIC PANEL||${hl7Timestamp}|${hl7Timestamp}|||||||||999998^DR. PROBE|||||||||F`,
+      'OBX|1|ST|7010^SYNTHETIC RESULT|^^CHEMISTRY|NORMAL|||N|||F||765^1007010||70',
+    ];
+    const escapeXml = (text) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const hl7Xml = `<messages><message>${hl7Segments.map(escapeXml).join('&#13;')}</message></messages>`;
+    const labFileName = `ai-scribe-${runMarker}.xml`;
+    const uploadLabResponse = await signedRequest(
+      'POST', '/ws/services/labs/hl7LabUpload', fullToken,
+      {
+        fileName: labFileName,
+        type: 'PATHL7',
+        base64EncodedeMessage: Buffer.from(hl7Xml, 'utf8').toString('base64'),
+      },
+    );
+    await expectStatus(uploadLabResponse, 200, 'OAuth synthetic HL7 lab upload');
+    const uploadedLab = await uploadLabResponse.json();
+    assert(uploadedLab && uploadedLab.fileName, 'HL7 lab upload did not return its saved file name');
+    const labNo = sqlId(sql.value(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${accessionSql}`),
+      'stored synthetic HL7 lab id');
+    recordEndpoint('POST', '/ws/services/labs/hl7LabUpload', uploadLabResponse,
+      `synthetic PATHL7 result persisted as lab ${labNo}`);
+
+    const importedLabReadResponse = await signedRequest(
+      'GET', `/ws/services/labs/hl7LabsByDemographicNo?demographicNo=${patientNo}&offset=0&limit=10`,
+      fullToken,
+    );
+    await expectStatus(importedLabReadResponse, 200, 'OAuth synthetic HL7 lab read-after-upload');
+    const importedLabRead = await importedLabReadResponse.json();
+    assert(Array.isArray(importedLabRead.messages)
+      && importedLabRead.messages.some((message) => String(message.id) === labNo),
+    'The uploaded synthetic lab was not returned for the owned patient');
+    recordEndpoint('GET', '/ws/services/labs/hl7LabsByDemographicNo', importedLabReadResponse,
+      'uploaded synthetic result is linked to and retrievable for the owned patient');
+  }
+
+  const drugLookupResponse = await signedRequest(
+    'GET', `/ws/services/rxlookup/search?string=${encodeURIComponent('acetaminophen')}`, fullToken,
+  );
+  await expectStatus(drugLookupResponse, 200, 'OAuth drug lookup search');
+  const drugLookup = await drugLookupResponse.json();
+  assert(drugLookup.success === true && Array.isArray(drugLookup.drugs) && drugLookup.drugs.length > 0,
+    'Drug lookup search did not return a medication entry');
+  const drugCatalogId = drugLookup.drugs[0].id;
+  assert(drugCatalogId !== null && drugCatalogId !== undefined,
+    'Drug lookup search returned an entry without a catalog id');
+  recordEndpoint('GET', '/ws/services/rxlookup/search', drugLookupResponse,
+    'drug catalog search returned an entry');
+
+  const drugDetailsResponse = await signedRequest(
+    'GET', `/ws/services/rxlookup/details?id=${encodeURIComponent(drugCatalogId)}`, fullToken,
+  );
+  await expectStatus(drugDetailsResponse, 200, 'OAuth drug lookup details');
+  const drugDetails = await drugDetailsResponse.json();
+  assert(drugDetails.success === true && Array.isArray(drugDetails.drugs)
+    && String(drugDetails.drugs[0].id) === String(drugCatalogId),
+  'Drug lookup details did not return the selected catalog entry');
+  recordEndpoint('GET', '/ws/services/rxlookup/details', drugDetailsResponse,
+    'details returned for a catalog entry');
+
+  const parseInstructions = 'Take 1 tablet by mouth twice daily for 7 days';
+  const parseDrugResponse = await signedRequest(
+    'POST', `/ws/services/rxlookup/parse?input=${encodeURIComponent(parseInstructions)}`, fullToken,
+  );
+  await expectStatus(parseDrugResponse, 200, 'OAuth prescription instruction parsing');
+  const parsedDrug = await parseDrugResponse.json();
+  assert(parsedDrug.drug && parsedDrug.drug.duration === 7,
+    'Instruction parsing did not extract the seven-day duration');
+  recordEndpoint('POST', '/ws/services/rxlookup/parse', parseDrugResponse,
+    'prescription instructions parsed into drug fields');
+
+  const rxReadRoutes = [
+    ['/rx/drugs', 'all drugs'],
+    [`/rx/drugs/all/${patientNo}`, 'all-drugs view'],
+    [`/rx/drugs/current/${patientNo}`, 'current-drugs view'],
+    [`/rx/drugs/longterm/${patientNo}`, 'long-term-drugs view'],
+    [`/rx/drugs/archived/${patientNo}`, 'archived-drugs view'],
+  ];
+  for (const [route, description] of rxReadRoutes) {
+    const path = route === '/rx/drugs'
+      ? `${route}?demographicNo=${patientNo}` : route;
+    const response = await signedRequest('GET', `/ws/services${path}`, fullToken);
+    await expectStatus(response, 200, `OAuth ${description}`);
+    const body = await response.json();
+    assert(body && Array.isArray(body.content), `${description} did not return a drug list`);
+    recordEndpoint('GET', `/ws/services${route}`, response, `${description} returned`);
+  }
+
+  const medicationName = `AI-Scribe synthetic medication ${runMarker}`;
+  const medication = {
+    customName: medicationName,
+    genericName: medicationName,
+    demographicNo: Number(patientNo),
+    providerNo,
+    takeMin: 1,
+    takeMax: 1,
+    rxDate: isoDate,
+    writtenDate: isoDate,
+    endDate: nextIsoDate,
+    frequency: 'BID',
+    duration: 7,
+    durationUnit: 'D',
+    route: 'PO',
+    form: 'tablet',
+    method: 'oral',
+    prn: false,
+    repeats: 0,
+    quantity: 14,
+    instructions: 'AI-Scribe test fixture: take one tablet twice daily',
+    longTerm: false,
+    noSubstitutions: false,
+  };
+  const addDrugResponse = await signedRequest(
+    'POST', `/ws/services/rx/new?demographicNo=${patientNo}`, fullToken, medication,
+  );
+  await expectStatus(addDrugResponse, 200, 'OAuth synthetic medication create');
+  const addedDrugBody = await addDrugResponse.json();
+  assert(addedDrugBody.success === true && addedDrugBody.drug && addedDrugBody.drug.drugId,
+    'Medication create did not return a saved drug');
+  const addedDrug = addedDrugBody.drug;
+  recordEndpoint('POST', '/ws/services/rx/new', addDrugResponse,
+    'synthetic medication created for the owned patient');
+
+  const represcribeResponse = await signedRequest(
+    'POST', `/ws/services/rx/drug/${addedDrug.drugId}`, fullToken, {},
+  );
+  await expectStatus(represcribeResponse, 200, 'OAuth pre-prescribe/represcribe lookup');
+  const represcribed = await represcribeResponse.json();
+  assert(represcribed.success === true && String(represcribed.drug.drugId) === String(addedDrug.drugId),
+    'Pre-prescribe endpoint did not return the saved synthetic medication');
+  recordEndpoint('POST', '/ws/services/rx/drug/{drugId}', represcribeResponse,
+    'prescribing candidate returned without changing the saved medication');
+
+  const updatedMedication = {
+    ...addedDrug,
+    instructions: 'AI-Scribe test fixture: updated to one tablet once daily',
+    frequency: 'OD',
+  };
+  const updateDrugResponse = await signedRequest(
+    'POST', `/ws/services/rx/update?demographicNo=${patientNo}`, fullToken, updatedMedication,
+  );
+  await expectStatus(updateDrugResponse, 200, 'OAuth synthetic medication update');
+  const updatedDrugBody = await updateDrugResponse.json();
+  assert(updatedDrugBody.success === true && updatedDrugBody.drug
+    && String(updatedDrugBody.drug.drugId) !== String(addedDrug.drugId),
+  'Medication update did not return the replacement drug row');
+  const updatedMedicationRow = updatedDrugBody.drug;
+  recordEndpoint('POST', '/ws/services/rx/update', updateDrugResponse,
+    'updated medication saved as a replacement row');
+
+  const prescribeResponse = await signedRequest(
+    'POST', `/ws/services/rx/prescribe?demographicNo=${patientNo}`, fullToken, [updatedMedicationRow],
+  );
+  await expectStatus(prescribeResponse, 200, 'OAuth prescription create');
+  const prescriptionResult = await prescribeResponse.json();
+  assert(prescriptionResult.success === true && prescriptionResult.prescription
+    && Array.isArray(prescriptionResult.drugs) && prescriptionResult.drugs.length === 1,
+  'Prescription create did not return the prescription and its drug');
+  const prescribedDrug = prescriptionResult.drugs[0];
+  const latestDrugId = sqlId(prescribedDrug.drugId, 'prescribed synthetic drug id');
+  recordEndpoint('POST', '/ws/services/rx/prescribe', prescribeResponse,
+    'prescription created for the synthetic patient');
+
+  const discontinueResponse = await signedRequest(
+    'POST',
+    `/ws/services/rx/discontinue?drugId=${latestDrugId}&demographicNo=${patientNo}&reason=other`,
+    fullToken,
+  );
+  await expectStatus(discontinueResponse, 200, 'OAuth synthetic medication discontinue');
+  const discontinueResult = await discontinueResponse.json();
+  assert(discontinueResult.status === 'SUCCESS',
+    'Medication discontinue did not return a success response');
+  recordEndpoint('POST', '/ws/services/rx/discontinue', discontinueResponse,
+    'synthetic medication discontinued');
+
+  const rxHistoryResponse = await signedRequest(
+    'GET', `/ws/services/rx/history?id=${latestDrugId}&demographicNo=${patientNo}`, fullToken,
+  );
+  await expectStatus(rxHistoryResponse, 200, 'OAuth prescription history');
+  assert(Array.isArray((await rxHistoryResponse.json()).content),
+    'Prescription history did not return a drug list');
+  recordEndpoint('GET', '/ws/services/rx/history', rxHistoryResponse,
+    'patient prescription history returned');
+
+  const prescriptionsResponse = await signedRequest(
+    'GET', `/ws/services/rx/prescriptions?demographicNo=${patientNo}`, fullToken,
+  );
+  await expectStatus(prescriptionsResponse, 200, 'OAuth prescriptions list');
+  assert(Array.isArray(await prescriptionsResponse.json()),
+    'Prescriptions endpoint did not return a list');
+  recordEndpoint('GET', '/ws/services/rx/prescriptions', prescriptionsResponse,
+    'patient prescription list returned');
+
+  const scheduleRoutes = [
+    ['/schedule/day/today', 'daily appointment list'],
+    ['/schedule/statuses', 'appointment statuses'],
+  ];
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
+  scheduleRoutes.push(
+    [`/schedule/fetchMonthly/${providerNo}/${year}/${month}`, 'monthly appointment list'],
+    [`/schedule/fetchProviderAppts/${providerNo}/${isoDate}/${isoDate}`, 'provider appointment list for period'],
+    [`/schedule/fetchDays/${isoDate}/${isoDate}/${providerNo}`, 'appointments by period and provider'],
+  );
+  for (const [path, description] of scheduleRoutes) {
+    const response = await signedRequest('GET', `/ws/services${path}`, fullToken);
+    await expectStatus(response, 200, `OAuth ${description}`);
+    await response.json();
+    recordEndpoint('GET', `/ws/services${path}`, response, `${description} returned`);
+  }
+
+  const existingAppointmentsResponse = await signedRequest(
+    'POST', `/ws/services/schedule/${patientNo}/appointmentHistory`, fullToken, {},
+  );
+  await expectStatus(existingAppointmentsResponse, 200, 'OAuth existing appointments for synthetic patient');
+  assert(Array.isArray((await existingAppointmentsResponse.json()).appointments),
+    'Existing appointments response did not contain an appointment list');
+  recordEndpoint('POST', '/ws/services/schedule/{demographicNo}/appointmentHistory',
+    existingAppointmentsResponse, 'patient appointment history returned');
+
+  const availabilityResponse = await signedRequest(
+    'GET',
+    `/ws/services/schedule/${isoDate}/${providerNo}/09%3A00/09%3A30/checkProvAvali`,
+    fullToken,
+  );
+  assert([404, 405].includes(availabilityResponse.status()),
+    `Provider-availability route should be unavailable, got HTTP ${availabilityResponse.status()}`);
+  recordEndpoint('GET', '/ws/services/schedule/{date}/{provider}/{start}/{end}/checkProvAvali',
+    availabilityResponse, 'availability operation is commented out and not routed', 'GAP');
 
   const eformsResponse = await signedRequest('GET', '/ws/services/eforms/', fullToken);
   const eforms = await expectSuccessJson(eformsResponse, 'OAuth eForm listing');
@@ -396,7 +850,18 @@ async function main(state = {}) {
   recordEndpoint('PUT', '/ws/services/measurements/{demographicNo}', unsupportedMeasurementWrite,
     'REST measurement update is not implemented, even with measurement.write', 'GAP');
 
-  printEndpointResults(endpointResults);
+  const deleteDemographicResponse = await signedRequest(
+    'DELETE', demographicPath, fullToken,
+  );
+  await expectStatus(deleteDemographicResponse, 200, 'OAuth synthetic demographic delete');
+  const deletedDemographic = await deleteDemographicResponse.json();
+  assert(String(deletedDemographic.demographicNo) === patientNo
+    && deletedDemographic.lastName === marker,
+  'Demographic delete did not identify the owned synthetic patient');
+  state.demographicDeleted = true;
+  recordEndpoint('DELETE', '/ws/services/demographics/{dataId}', deleteDemographicResponse,
+    'patient deletion endpoint returned the owned patient; cleanup verifies no row remains');
+
   assertStrictPage(recorder);
   return {
     oauthMode: 'scoped',
@@ -414,7 +879,54 @@ async function main(state = {}) {
 
 if (require.main === module) {
   const state = {};
-  runCheck({ name: 'ai-scribe-oauth-api', run: () => main(state), cleanup: () => cleanup(state) });
+  runCheck({
+    name: 'ai-scribe-oauth-api',
+    run: async () => {
+      try {
+        return await main(state);
+      } catch (error) {
+        state.failureMessage = error.message || 'check failed';
+        if (!(state.endpointResults || []).some((row) => row.outcome === 'PENDING')) {
+          state.endpointResults = state.endpointResults || [];
+          state.endpointResults.push({
+            outcome: 'FAIL',
+            method: 'RUN',
+            path: 'acceptance workflow',
+            status: 'n/a',
+            verification: state.failureMessage,
+          });
+        }
+        throw error;
+      }
+    },
+    cleanup: async () => {
+      try {
+        await cleanup(state);
+      } catch (error) {
+        state.endpointResults = state.endpointResults || [];
+        state.endpointResults.push({
+          outcome: 'FAIL',
+          method: 'CLEANUP',
+          path: 'owned synthetic fixtures',
+          status: 'n/a',
+          verification: error.message || 'cleanup failed',
+        });
+        throw error;
+      } finally {
+        const results = state.endpointResults || [];
+        for (const row of results) {
+          if (row.outcome === 'PENDING') {
+            row.outcome = 'FAIL';
+            row.verification = `request returned; validation incomplete after: ${state.failureMessage || 'check ended'}`;
+          }
+        }
+        if (!state.resultsPrinted) {
+          printEndpointResults(results);
+          state.resultsPrinted = true;
+        }
+      }
+    },
+  });
 }
 
 module.exports = { main, cleanup };
