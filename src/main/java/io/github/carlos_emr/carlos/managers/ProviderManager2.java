@@ -473,6 +473,8 @@ public class ProviderManager2 {
     }
 
     public void updateProviderSettings(LoggedInInfo loggedInInfo, String providerNo, ProviderSettings settings) {
+        String warningPeriod = io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod
+                .normalized(settings.getConsultationTimePeriodWarning());
 
         ProviderPreference pp = providerPreferenceDao.find(providerNo);
         if (pp == null) {
@@ -559,7 +561,7 @@ public class ProviderManager2 {
         p = getMappedOrNewProperty(map, "default_sex", providerNo);
         p.setValue(settings.getDefaultSex());
         p = getMappedOrNewProperty(map, "consultation_time_period_warning", providerNo);
-        p.setValue(settings.getConsultationTimePeriodWarning());
+        p.setValue(warningPeriod);
         p = getMappedOrNewProperty(map, "consultation_team_warning", providerNo);
         p.setValue(settings.getConsultationTeamWarning());
         p = getMappedOrNewProperty(map, "consultation_req_paste_fmt", providerNo);

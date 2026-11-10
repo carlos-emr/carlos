@@ -447,7 +447,14 @@ window.carlosChartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.c
             closeWithoutSaveMsg = "<fmt:message key="encounter.closeWithoutSave.msg"/>";
             pickIssueMsg = "<fmt:message key="encounter.pickIssue.msg"/>";
             assignIssueMsg = "<fmt:message key="encounter.assign.title"/>";
-            updateIssueError = "<fmt:message key="encounter.updateIssueError.msg"/>";
+            <fmt:message key="encounter.updateIssueError.msg" var="updateIssueErrorText"/>
+            updateIssueError = "${carlos:forJavaScriptBlock(updateIssueErrorText)}";
+            <fmt:message key="encounter.issueSaveError.msg" var="issueSaveErrorText"/>
+            issueSaveError = "${carlos:forJavaScriptBlock(issueSaveErrorText)}";
+            <fmt:message key="encounter.cppSaveError.msg" var="cppSaveErrorText"/>
+            cppSaveError = "${carlos:forJavaScriptBlock(cppSaveErrorText)}";
+            <fmt:message key="encounter.chartLoadError.msg" var="chartLoadErrorText"/>
+            chartLoadError = "${carlos:forJavaScriptBlock(chartLoadErrorText)}";
             <fmt:message key="encounter.issueSidebarRefreshError.msg" var="issueSidebarRefreshErrorText"/>
             issueSidebarRefreshError = "${carlos:forJavaScriptBlock(issueSidebarRefreshErrorText)}";
             unsavedNoteMsg = "<fmt:message key="encounter.unsavedNote.msg"/>";

@@ -847,7 +847,10 @@
                             int countback = 0;
 
                             if (up != null && up.getValue() != null && !up.getValue().trim().equals("")) {
-                                timeperiod = up.getValue();
+                                if (io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod.isValid(up.getValue())) {
+                                    timeperiod = up.getValue();
+                                    countback = -Integer.parseInt(timeperiod.trim());
+                                }
                             }
 
                             for (int i = 0; i < Math.min(limit, theRequests.ids.size()); i++) {
@@ -889,29 +892,15 @@
                                 overdue = false;
 
                                 if (timeperiod != null) {
-                                    try {
-                                        if (!io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod.isValid(timeperiod)) {
-                                            throw new NumberFormatException("Invalid consultation warning period");
-                                        }
-                                        countback = Integer.parseInt(timeperiod.trim());
-                                    } catch (NumberFormatException e) {
-                                        timeperiod = null; // fall through to default logic below
-                                    }
-                                }
-                                if (timeperiod != null) {
-                                    countback = countback * -1;
-
                                     if ((status.equals("1") || status.equals("2") || status.equals("3")) && dateGreaterThan(date, Calendar.MONTH, countback)) {
                                         overdue = true;
                                     }
                                 } else {
-                                    countback = -7;  //7 days
-                                    if ((status.equals("1") || status.equals("3")) && dateGreaterThan(date, Calendar.DAY_OF_YEAR, countback)) {
+                                    if ((status.equals("1") || status.equals("3")) && dateGreaterThan(date, Calendar.DAY_OF_YEAR, -7)) {
                                         overdue = true;
                                     }
 
-                                    countback = -30;  //30 days
-                                    if (status.equals("2") && dateGreaterThan(date, Calendar.DAY_OF_YEAR, countback)) {
+                                    if (status.equals("2") && dateGreaterThan(date, Calendar.DAY_OF_YEAR, -30)) {
                                         overdue = true;
                                     }
                                 }

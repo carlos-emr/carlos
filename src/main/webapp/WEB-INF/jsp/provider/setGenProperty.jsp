@@ -98,7 +98,7 @@
 
     <body class="BodyStyle" vlink="#0000FF">
 <c:if test="${not empty preferenceValidationError}">
-    <div role="alert" class="error"><c:out value="${preferenceValidationError}"/></div>
+    <div role="alert" class="error">${carlos:forHtmlContent(preferenceValidationError)}</div>
 </c:if>
 
     <table class="MainTable" id="scrollNumber1" name="encounterTable">

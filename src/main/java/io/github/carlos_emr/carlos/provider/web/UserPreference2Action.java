@@ -131,6 +131,12 @@ public class UserPreference2Action extends ActionSupport {
         for (UserProperty up : userProperties) {
             prefs.put(up.getName(), up.getValue());
         }
+        // This field is shared with the schedule and REST preferences. Prefer its
+        // canonical key while retaining old prefixed values until the next save.
+        if (prefs.containsKey(UserProperty.CONSULTATION_TIME_PERIOD_WARNING)) {
+            prefs.put("pref." + UserProperty.CONSULTATION_TIME_PERIOD_WARNING,
+                    prefs.get(UserProperty.CONSULTATION_TIME_PERIOD_WARNING));
+        }
         request.setAttribute("prefs", prefs);
         return "form";
     }
@@ -141,7 +147,6 @@ public class UserPreference2Action extends ActionSupport {
 
         String warning = request.getParameter("pref." + UserProperty.CONSULTATION_TIME_PERIOD_WARNING);
         if (!io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod.isValid(warning)) {
-            addActionError(getText("provider.consultationWarning.invalid"));
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             form();
             @SuppressWarnings("unchecked")
@@ -183,14 +188,16 @@ public class UserPreference2Action extends ActionSupport {
                 value = sb.toString();
             }
 
-            UserProperty up = userPropertyDao.getProp(providerNo, key);
+            String storageKey = key.equals("pref." + UserProperty.CONSULTATION_TIME_PERIOD_WARNING)
+                    ? UserProperty.CONSULTATION_TIME_PERIOD_WARNING : key;
+            UserProperty up = userPropertyDao.getProp(providerNo, storageKey);
             if (up != null) {
                 up.setValue(value);
                 userPropertyDao.saveProp(up);
             } else {
                 up = new UserProperty();
                 up.setProviderNo(providerNo);
-                up.setName(key);
+                up.setName(storageKey);
                 up.setValue(value);
                 userPropertyDao.saveProp(up);
             }
@@ -224,7 +231,8 @@ public class UserPreference2Action extends ActionSupport {
         if (val == null) {
             val = new String();
         }
-        return "name=\"" + key + "\" value=\"" + val + "\"";
+        return "name=\"" + io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(key)
+                + "\" value=\"" + io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(val) + "\"";
     }
 
     public static String getSelect(Map<String, String> prefs, String key) {

@@ -1457,7 +1457,7 @@ function updateCPPNote() {
                     complete(false);
                     $('showEditNote').style.display = 'block';
                     if ($('channel')) $('channel').style.visibility = 'hidden';
-                    alert(updateIssueError + " " + request.status);
+                    alert(cppSaveError + " " + request.status);
                 }
             }
         );
@@ -1465,7 +1465,7 @@ function updateCPPNote() {
         if (complete) complete(false);
         $('showEditNote').style.display = 'block';
         if ($('channel')) $('channel').style.visibility = 'hidden';
-        alert(updateIssueError);
+        alert(cppSaveError);
         console.error("updateCPPNote error:", e);
     }
     return false;
@@ -1520,7 +1520,7 @@ function updateCPPNote() {
             panel.appendChild(error);
         }
         // Keep the existing editor and its recoverable text in the DOM.
-        error.textContent = savingNoteError + " " + status;
+        error.textContent = chartLoadError + " " + status;
     }
 
     /*
@@ -1906,6 +1906,15 @@ function updateCPPNote() {
         return true;
     }
 
+    function notePrintButton(id) {
+        if (!/^\d+$/.test(String(id))) return '';
+        var selected = noteIsQeued(id) >= 0;
+        return "<button type='button' title='Print' id='print" + id
+            + "' aria-label='Toggle Print Note' aria-pressed='" + selected
+            + "' onclick='togglePrint(this.id.substr(5), event)' style='float:right; margin-right:5px; border:0; padding:0; background:transparent; cursor:pointer; line-height:0;'>"
+            + "<img alt='' src='" + ctx + "/encounter/graphics/" + (selected ? "printerGreen.png" : "printer.png") + "'></button>";
+    }
+
     function finishChangeToView(id, saving, tmp) {
         noteIssuesChanged = false;
         // The save response can rename the note container to its new database ID.
@@ -1996,7 +2005,7 @@ function updateCPPNote() {
 
             var printImg = "print" + nId;
             var img = "<img title='Minimize Display' id='quitImg" + nId + "' onclick='minView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/triangle_up.gif'>";
-            var printimg = "<img title='Print' id='" + printImg + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/printer.png'>";
+            var printimg = notePrintButton(nId);
             var input = "<div id='txt" + nId + "'>" + tmp + "<\/div>";
 
             var func;
@@ -2072,7 +2081,7 @@ function updateCPPNote() {
         var imgId = "quitImg" + newId;
         var printId = "print" + newId;
         var img = "<img title='Minimize Display' id='" + imgId + "' onclick='minView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/triangle_up.gif'/>";
-        var printimg = "<img title='Print' id='" + printId + "' alt='Toggle Print Note' onclick='togglePrint(" + newId + ", event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/printer.png'>";
+        var printimg = notePrintButton(newId);
         if ($(printId) != null) {
             Element.remove(printId);
         }
@@ -2534,7 +2543,7 @@ function updateCPPNote() {
 
         var input = createNoteTextarea(caseNote, payload, true);
         $(txt).insertBefore(input, $(txt).firstChild);
-        var printimg = "<div class='tool-button print-button'><button type='button' title='Print' id='print" + nId + "' aria-label='Toggle Print Note' aria-pressed='false' onclick='togglePrint(this.id.substr(5), event)' style='float:right; margin-right:5px; border:0; padding:0; background:transparent; cursor:pointer; line-height:0;'><img alt='' src='" + ctx + "/encounter/graphics/printer.png'></button></div>";
+        var printimg = "<div class='tool-button print-button'>" + notePrintButton(nId) + "</div>";
 
         var strNid = "" + nId;
         if (strNid.substr(0, 1) != "0") {
@@ -2801,7 +2810,7 @@ function updateCPPNote() {
                     if (refreshedIssueControl) refreshedIssueControl.value = selectedLegacyIssue;
                 },
                 onFailure: function (request) {
-                    $("notCPP").update("Error: " + request.status);
+                    showChartLoadError("notCPP", request.status);
                 }
             }
         );
@@ -3393,6 +3402,9 @@ function updateCPPNote() {
     var ajaxRequest;
     var updateIssueError;
     var issueSidebarRefreshError;
+    var issueSaveError;
+    var cppSaveError;
+    var chartLoadError;
     var issueUpdatesPending = 0;
     var issueUpdateFailed = false;
     var issueRefreshQueue = [];
@@ -3439,11 +3451,11 @@ function updateCPPNote() {
             // intent dropped by the failed operation.
             var editor = $(caseNote);
             if (!editor || !editor.parentNode) {
-                alert(updateIssueError);
+                alert(issueSaveError);
                 return true;
             }
             queuedNoteSave = {editor: caseNote, save: save};
-            ajaxUpdateIssues('edit', 'sig' + editor.parentNode.id.substr(1), true);
+            ajaxUpdateIssues('edit', 'sig' + editor.parentNode.id.substr(1), true, null, issueSaveError);
             return true;
         }
         return false;
@@ -3486,7 +3498,11 @@ function updateCPPNote() {
         issueRefreshQueue.shift()();
     }
 
-    function ajaxUpdateIssues(method, div, preserveSelections, complete) {
+    function ajaxUpdateIssues(method, div, preserveSelections, complete, failureMessage) {
+        // Mutations refresh the current editor; opening a different note must not
+        // inherit the previous note's selections. Explicit edit refreshes opt in.
+        if (preserveSelections == null) preserveSelections = method !== 'edit';
+        failureMessage = failureMessage || updateIssueError;
         if (noteSwitchSavePending) {
             if (complete) complete(false);
             alert(noteSavingMessage);
@@ -3511,7 +3527,11 @@ function updateCPPNote() {
 
                 var url = chartActionUrl("/CaseManagementEntry");
                 var p = Form.serialize(frm);
+                if (preserveSelections && method === 'edit') p += '&preserveIssueEditor=true&forceNote=true';
                 var selectedIssues;
+                var editorFields;
+                var originalDate;
+                var issuesChanged;
                 var captured = true;
                 ajaxRequest = CarlosAjax.updater({success: div}, url, {
                     evalScripts: true, postBody: p,
@@ -3521,13 +3541,18 @@ function updateCPPNote() {
                     onSuccess: function () {
                         if (!preserveSelections) return;
                         try {
+                            originalDate = origObservationDate;
+                            issuesChanged = noteIssuesChanged;
+                            editorFields = Array.from(frm.querySelectorAll(
+                                '.encTypeCombo, input[id$="_combo"], #observationDate, #hourOfEncounterTime, #minuteOfEncounterTime, #hourOfEncTransportationTime, #minuteOfEncTransportationTime'
+                            )).map(function (control) { return {id: control.id, value: control.value}; });
                             selectedIssues = new Map();
                             frm.querySelectorAll('input[type="checkbox"][data-issue-id]').forEach(function (checkbox) {
                                 selectedIssues.set(checkbox.getAttribute('data-issue-id'), checkbox.checked);
                             });
                         } catch (e) {
                             captured = false;
-                            alert(updateIssueError);
+                            alert(failureMessage);
                         }
                     },
                     // onComplete runs after the updater installs the new issue fields.
@@ -3540,23 +3565,39 @@ function updateCPPNote() {
                                         if (selectedIssues.has(id)) checkbox.checked = selectedIssues.get(id);
                                     });
                                 }
+                                if (editorFields) {
+                                    editorFields.forEach(function (field) {
+                                        var control = $(field.id);
+                                        if (!control) return;
+                                        // Custom encounter types need their option retained as well.
+                                        if (control.tagName === 'SELECT' && !Array.from(control.options).some(function (option) { return option.value === field.value; })) {
+                                            var option = document.createElement('option');
+                                            option.value = field.value;
+                                            option.text = field.value;
+                                            control.add(option);
+                                        }
+                                        control.value = field.value;
+                                    });
+                                    origObservationDate = originalDate;
+                                    noteIssuesChanged = issuesChanged;
+                                }
                                 onIssueUpdate(refreshed);
                             } else {
-                                if (captured && response.status >= 200 && response.status < 300) alert(updateIssueError);
+                                if (captured && response.status >= 200 && response.status < 300) alert(failureMessage);
                                 refreshed(false);
                             }
                         } catch (e) {
                             refreshed(false);
-                            alert(updateIssueError);
+                            alert(failureMessage);
                         }
                     },
                     onFailure: function (response) {
-                        alert(response.status + " " + updateIssueError);
+                        alert(response.status + " " + failureMessage);
                     }
                 });
             } catch (e) {
                 refreshed(false);
-                alert(updateIssueError);
+                alert(failureMessage);
             }
         });
         runNextIssueRefresh();
@@ -3578,7 +3619,13 @@ function updateCPPNote() {
         var succeeded = true;
         modules.forEach(function (id) {
             var action = id === 'resolvedIssues' ? 'displayResolvedIssues' : 'displayIssues';
-            var reloadUrl = ctx + "/encounter/" + action + "?demographicNo=" + encodeURIComponent(demographicNo) + "&cmd=" + id;
+            var module = $(id);
+            var stored = module.querySelector ? module.querySelector('input[name="reloadUrl"]') : null;
+            var colour = typeof Colour === 'undefined' ? '' : Colour[id];
+            var baseUrl = stored && stored.value ? stored.value : ctx + "/encounter/" + action + "?hC=" + encodeURIComponent(colour || '');
+            var reloadUrl = baseUrl + (baseUrl.indexOf('?') < 0 ? '?' : '&')
+                + 'demographicNo=' + encodeURIComponent(demographicNo) + '&cmd=' + id
+                + '&numToDisplay=6&reloadURL=' + encodeURIComponent(baseUrl);
             loadDiv(id, reloadUrl, 0, function (ok) {
                 succeeded = succeeded && ok;
                 if (--pending === 0) {
@@ -4456,7 +4503,6 @@ function autoSave() {
             var nId = parent.substr(1);
             var tmp = $(caseNote).value;
             var sig = 'sig' + nId;
-            //assignNoteAjax('save','list',programId,demographicNo);
             saving = true;
             ajaxSaveNote(sig, nId, tmp);
             //cancel updating of issues
@@ -4548,7 +4594,7 @@ function autoSave() {
                 }
                 var printImg = "print" + nId;
                 var img = "<img title='Minimize Display' id='quitImg" + nId + "' onclick='minView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/triangle_up.gif'>";
-                var printimg = "<img title='Print' id='" + printImg + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/printer.png'>";
+                var printimg = notePrintButton(nId);
                 var input = "<div id='txt" + nId + "'>" + tmp + "<\/div>";
 
                 var func;
@@ -4591,102 +4637,6 @@ function autoSave() {
                 jQuery(this).prop("checked", true);
         });
     }
-
-    function assignNoteAjax(method, chain, programId, demographicNo) {
-
-        var noteStr;
-        noteStr = $F(caseNote);
-        /*
-    if( noteStr.replace(/^\s+|\s+$/g,"").length == 0 ) {
-        alert("Please enter a note before saving");
-        return false;
-    }
-    */
-
-        if ($("observationDate") != undefined && $("observationDate").value.length > 0 && !validDate()) {
-            alert(pastObservationDateError);
-            return false;
-        }
-
-        if (caisiEnabled) {
-            if (requireIssue && !issueIsAssigned()) {
-                alert(assignIssueError);
-                return false;
-            }
-            /* the observationDate could be the default one as today.
-        if( requireObsDate && $("observationDate").value.length == 0 ) {
-            alert(assignObservationDateError);
-            return false;
-        }
-*/
-            if ($("encTypeSelect0") != null && $("encTypeSelect0").options[$("encTypeSelect0").selectedIndex].value.length == 0) {
-                alert(assignEncTypeError);
-                return false;
-            }
-            if (document.getElementById("hourOfEncTransportationTime") != null) {
-                if (isNaN(document.getElementById("hourOfEncTransportationTime").value) ||
-                    isNaN(document.getElementById("minuteOfEncTransportationTime").value)) {
-                    alert(encTimeError);
-                    return false;
-                }
-                if (!isNaN(document.getElementById("minuteOfEncTransportationTime").value) &&
-                    parseInt(document.getElementById("minuteOfEncTransportationTime").value) > 59) {
-                    alert(encMinError);
-                    return false;
-                }
-            }
-            if (document.getElementById("hourOfEncounterTime") != null) {
-                if (isNaN(document.getElementById("hourOfEncounterTime").value) ||
-                    isNaN(document.getElementById("minuteOfEncounterTime").value)) {
-                    alert(encTimeError);
-                    return false;
-                }
-                if (!isNaN(document.getElementById("minuteOfEncounterTime").value) &&
-                    parseInt(document.getElementById("minuteOfEncounterTime").value) > 59) {
-                    alert(encMinError);
-                    return false;
-                }
-            }
-        }
-        document.forms["caseManagementEntryForm"].method.value = method;
-        document.forms["caseManagementEntryForm"].ajax.value = false;
-        document.forms["caseManagementEntryForm"].chain.value = chain;
-        document.forms["caseManagementEntryForm"].includeIssue.value = "off";
-
-        var caseMgtEntryfrm = document.forms["caseManagementEntryForm"];
-
-
-        var params = Form.serialize(caseMgtEntryfrm);
-        params += "&ajaxview=ajaxView&fullChart=" + fullChart;
-
-        var url = chartActionUrl("/CaseManagementEntry");
-
-        destroyNoteIssueAutocomplete();
-        $("notCPP").update("Loading...");
-
-        CarlosAjax.request(
-            url,
-            {
-                method: 'post',
-                postBody: params,
-                evalScripts: true,
-                onSuccess: function (request) {
-                    $("notCPP").update(request.responseText);
-                    var qc = $("quickChart");
-                    if (fullChart == "true") {
-                        if (qc) { qc.textContent = quickChartMsg; qc.onclick = function () { return viewFullChart(false); } }
-                    } else {
-                        if (qc) { qc.textContent = fullChartMsg; qc.onclick = function () { return viewFullChart(true); } }
-                    }
-                },
-                onFailure: function (request) {
-                    showChartLoadError("notCPP", request.status);
-                }
-            }
-        );
-
-    }
-
 
     function doStudentParticipationCheck(demographicNo) {
         var checked = jQuery("#studentParticipationConsentCheck").is(':checked');

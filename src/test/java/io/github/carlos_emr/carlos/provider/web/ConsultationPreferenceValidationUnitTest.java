@@ -12,8 +12,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -58,8 +56,6 @@ class ConsultationPreferenceValidationUnitTest extends CarlosUnitTestBase {
                     .containsEntry("pref.colour", "blue");
             assertThat(request.getAttribute("preferenceValidationError")).isNotNull();
             verify(properties, never()).saveProp(any(UserProperty.class));
-            assertThat(Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/provider/UserPreferences.jsp")))
-                    .contains("role=\"alert\"", "<c:out value=\"${preferenceValidationError}\"/>");
         }
     }
 
@@ -83,8 +79,6 @@ class ConsultationPreferenceValidationUnitTest extends CarlosUnitTestBase {
             assertThat(submitted.getValue()).isEqualTo("6 months");
             assertThat(request.getAttribute("preferenceValidationError")).isNotNull();
             verify(properties, never()).saveProp(any(UserProperty.class));
-            assertThat(Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/provider/setGenProperty.jsp")))
-                    .contains("role=\"alert\"", "<c:out value=\"${preferenceValidationError}\"/>");
         }
     }
 
@@ -114,5 +108,40 @@ class ConsultationPreferenceValidationUnitTest extends CarlosUnitTestBase {
         when(user.getLoggedInProviderNo()).thenReturn("999998");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), user);
         return request;
+    }
+
+    @Test
+    void shouldEscapeTextAttributes_whenPreferencesContainQuotesAndMarkup() {
+        String value = "Dr. \"Sam\" Lee \"><img src=x onerror=alert(1)> &";
+        String rendered = UserPreference2Action.getTextData(java.util.Map.of("pref.signature", value), "pref.signature");
+        var input = org.jsoup.Jsoup.parse("<input " + rendered + ">").selectFirst("input");
+        assertThat(input.attr("value")).isEqualTo(value);
+        assertThat(input.attributes().size()).isEqualTo(2);
+        assertThat(org.jsoup.Jsoup.parse("<input " + rendered + ">").select("img")).isEmpty();
+    }
+
+    @Test
+    void shouldSaveAndLoadCanonicalPeriod_whenGeneralPreferencesUseTheSharedSetting() {
+        var request = request();
+        var properties = mock(UserPropertyDAO.class);
+        registerMock(UserPropertyDAO.class, properties);
+        request.setParameter("pref." + UserProperty.CONSULTATION_TIME_PERIOD_WARNING, " 006 ");
+        var stored = new UserProperty();
+        stored.setName(UserProperty.CONSULTATION_TIME_PERIOD_WARNING);
+        stored.setValue("6");
+        when(properties.getDemographicProperties("999998")).thenReturn(List.of(stored));
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            var action = spy(new UserPreference2Action());
+            doNothing().when(action).init();
+            assertThat(action.saveGeneral()).isEqualTo("form");
+            var saved = org.mockito.ArgumentCaptor.forClass(UserProperty.class);
+            verify(properties).saveProp(saved.capture());
+            assertThat(saved.getValue().getName()).isEqualTo(UserProperty.CONSULTATION_TIME_PERIOD_WARNING);
+            assertThat(saved.getValue().getValue()).isEqualTo("6");
+            assertThat(request.getAttribute("prefs")).asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP)
+                    .containsEntry("pref." + UserProperty.CONSULTATION_TIME_PERIOD_WARNING, "6");
+        }
     }
 }

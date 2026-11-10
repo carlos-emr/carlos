@@ -63,6 +63,7 @@ class ViewReportEChartHistory2ActionUnitTest extends CarlosUnitTestBase {
 
     private static final String PATIENT = "123";
 
+    private io.github.carlos_emr.carlos.commn.dao.EChartDao charts;
     private SecurityInfoManager security;
     private LoggedInInfo login;
     private MockedStatic<ServletActionContext> servletActionContext;
@@ -72,7 +73,7 @@ class ViewReportEChartHistory2ActionUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
-        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.EChartDao.class);
+        charts = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.EChartDao.class);
         security = createAndRegisterMock(SecurityInfoManager.class);
         login = mock(LoggedInInfo.class);
         when(security.hasPrivilege(any(LoggedInInfo.class), eq("_report"), eq("r"), isNull())).thenReturn(true);
@@ -153,5 +154,31 @@ class ViewReportEChartHistory2ActionUnitTest extends CarlosUnitTestBase {
         ActionSupport gate = (ActionSupport) Class.forName(action.group(1)).getDeclaredConstructor().newInstance();
 
         assertThatThrownBy(gate::execute).isInstanceOf(SecurityException.class);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"limit1,-1", "limit1,abc", "limit1,2147483647", "limit1,9999999999", "limit2,abc", "limit2,0", "limit2,101"})
+    void shouldRefusePaginationBeforeQuery_whenPageParametersAreInvalid(String parameter, String value) throws Exception {
+        request.setParameter(parameter, value);
+        assertThat(new ViewReportEChartHistory2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        org.mockito.Mockito.verifyNoInteractions(charts);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void shouldBoundHistoryAndDetectNextPage_whenFetchingAnExtraRow(boolean hasNext) throws Exception {
+        request.setParameter("limit1", "20");
+        request.setParameter("limit2", "2");
+        var first = new io.github.carlos_emr.carlos.commn.model.EChart();
+        var second = new io.github.carlos_emr.carlos.commn.model.EChart();
+        var extra = new io.github.carlos_emr.carlos.commn.model.EChart();
+        when(charts.getChartsForDemographic(123, 20, 3)).thenReturn(hasNext ? java.util.List.of(first, second, extra) : java.util.List.of(first, second));
+        assertThat(new ViewReportEChartHistory2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("historyRows")).isEqualTo(java.util.List.of(first, second));
+        assertThat(request.getAttribute("historyHasNext")).isEqualTo(hasNext);
+        assertThat(request.getAttribute("historyOffset")).isEqualTo(20);
+        assertThat(request.getAttribute("historyPageSize")).isEqualTo(2);
+        org.mockito.Mockito.verify(charts).getChartsForDemographic(123, 20, 3);
     }
 }

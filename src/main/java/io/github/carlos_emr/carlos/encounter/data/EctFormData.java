@@ -161,7 +161,7 @@ public class EctFormData {
         Integer demographicNo = parseDemographicNo(demoNo);
         if (demographicNo == null) return forms;
 
-        for (EncounterFormDao.HistoryRow row : encounterFormDao().findPatientHistory(trustedTable, demographicNo.toString(), true)) {
+        for (EncounterFormDao.HistoryRow row : patientHistory(trustedTable, demographicNo, true)) {
             PatientForm form = "form".equals(trustedTable)
                     ? new PatientForm(formName, row.id(), row.demographicNo(), row.created(), row.edited())
                     : new PatientForm(formName, row.id(), row.demographicNo(), row.created(), row.edited(), jsp);
@@ -204,13 +204,22 @@ public class EctFormData {
         Integer demographicNo = parseDemographicNo(demoNo);
         if (demographicNo == null) return forms;
 
-        for (EncounterFormDao.HistoryRow row : encounterFormDao().findPatientHistory(trustedTable, demographicNo.toString(), false)) {
+        for (EncounterFormDao.HistoryRow row : patientHistory(trustedTable, demographicNo, false)) {
             PatientForm form = new PatientForm(formName, row.id(), row.demographicNo(), row.created(), row.edited());
             form.setTable(trustedTable);
             forms.add(form);
         }
 
         return (forms);
+    }
+
+    private static List<EncounterFormDao.HistoryRow> patientHistory(String table, int patient, boolean grouped) {
+        try {
+            return encounterFormDao().findPatientHistory(table, Integer.toString(patient), grouped);
+        } catch (EncounterFormDao.UnknownTableException unknown) {
+            logger.warn("Rejected unregistered encounter form table: {}", LogSafe.sanitize(table));
+            return List.of();
+        }
     }
 
     private static Integer parseDemographicNo(String demoNo) {

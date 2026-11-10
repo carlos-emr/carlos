@@ -326,6 +326,7 @@
                 </fieldset>
             </c:if>
         </div>        
+        <button type="button" id="quickChart" onclick="return viewFullChart(fullChart !== 'true');"><fmt:message key="encounter.fullChart.msg"/></button>
         <button type="button" id="notesFilterToggle" aria-controls="filter" aria-expanded="false"
                 onclick="return showFilter();"><fmt:message key="encounter.Filter.title"/></button>
         <div id="filter" style="display:none;margin-top: 5px; margin-left: 5px;margin-right: 5px;">

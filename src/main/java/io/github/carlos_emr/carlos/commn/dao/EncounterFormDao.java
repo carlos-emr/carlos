@@ -39,6 +39,13 @@ import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 
 public interface EncounterFormDao extends AbstractDao<EncounterForm> {
 
+    /** A form identifier is invalid or absent from the registry; no history SQL was executed. */
+    final class UnknownTableException extends IllegalArgumentException {
+        public UnknownTableException() {
+            super("Unknown encounter form table");
+        }
+    }
+
     /** Scalar history from an approved, registry-owned physical form table. */
     record HistoryRow(int id, int demographicNo, Date created, Date edited) { }
 

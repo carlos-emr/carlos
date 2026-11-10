@@ -48,6 +48,9 @@ public final class ViewReportEChartHistory2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);
 
+    private final io.github.carlos_emr.carlos.commn.dao.EChartDao eChartDao =
+            SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.EChartDao.class);
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
@@ -91,12 +94,12 @@ public final class ViewReportEChartHistory2Action extends ActionSupport {
         try {
             offset = pageNumber(request.getParameter("limit1"), 0);
             size = pageNumber(request.getParameter("limit2"), 10);
-            if (size < 1 || size > 100) throw new NumberFormatException();
+            if (size < 1 || size > 100 || offset > Integer.MAX_VALUE - size - 1) throw new NumberFormatException();
         } catch (NumberFormatException _) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid historical chart page");
             return NONE;
         }
-        var rows = SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.EChartDao.class)
+        var rows = eChartDao
                 .getChartsForDemographic(patient, offset, size + 1);
         request.setAttribute("historyRows", rows.stream().limit(size).toList());
         request.setAttribute("historyHasNext", rows.size() > size);

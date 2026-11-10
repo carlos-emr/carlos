@@ -53,18 +53,13 @@
 
     String demographic_no = request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "0";
     String deepcolor = "#CCCCFF", weakcolor = "#EEEEFF";
-    int historyOffset = (Integer) request.getAttribute("historyOffset");
-    int historyPageSize = (Integer) request.getAttribute("historyPageSize");
+    int historyOffset = request.getAttribute("historyOffset") instanceof Integer value ? value : 0;
+    int historyPageSize = request.getAttribute("historyPageSize") instanceof Integer value ? value : 10;
 %>
 <%@ page import="java.lang.*, io.github.carlos_emr.carlos.providers.data.*"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.EChartDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.EChart" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
-<%
-    EChartDao eChartDao = SpringUtils.getBean(EChartDao.class);
-%>
 
 <html>
 <head>
@@ -121,12 +116,9 @@
         String splitectsize = request.getParameter("splitectsize") != null ? request.getParameter("splitectsize") : "-";
         String bgcolor = null;
 
-        String[] param = new String[1];
-        param[0] = demographic_no;
-        int[] itemp1 = new int[2];
 
 
-        for (EChart eChart : (java.util.List<EChart>) request.getAttribute("historyRows")) {
+        for (EChart eChart : request.getAttribute("historyRows") == null ? java.util.List.<EChart>of() : (java.util.List<EChart>) request.getAttribute("historyRows")) {
 
             //bodd = bodd?false:true;
             nItems++;

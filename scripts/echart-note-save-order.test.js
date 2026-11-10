@@ -251,13 +251,13 @@ function durationTeardown(values) {
   const events = [];
   const context = {
     document: {getElementById: get, createTextNode: value => ({nodeType: 3, textContent: value})},
-    $: get, $F: id => get(id).value, caseNote: editor.id, ctx: '/carlos', editLabel: 'Edit', largeNote: () => false,
+    $: get, $F: id => get(id).value, caseNote: editor.id, ctx: '/carlos', editLabel: 'Edit', largeNote: () => false, noteIsQeued: () => -1,
     noteIssuesChanged: true, autoSaveTimer: 41, clearTimeout: id => events.push(['clear timer', id]),
     removeLock: id => events.push(['release lock', String(id).match(/\d+/)[0]]), deleteAutoSave: () => events.push(['delete draft']),
     jQuery: () => ({off() {}}), destroyNoteIssueAutocomplete() {}, monitorCaseNote() {}, getActiveText() {},
     Element: {remove(id) { delete fields[id]; }, stopObserving() {}},
   };
-  const from = source.indexOf('    function finishChangeToView(');
+  const from = source.indexOf('    function notePrintButton(');
   const to = source.indexOf('    function escapeNoteText(', from);
   assert.ok(from >= 0 && to > from, 'successful note teardown source exists');
   vm.createContext(context); vm.runInContext(source.slice(from, to), context);
@@ -412,8 +412,9 @@ test('a fresh checklist button opens its AJAX-replaced controls even when the pr
 test('the editable note Print control follows its committed revision after an acknowledgement renames its id', () => {
   const calls = [];
   const context = {nId: '101', ctx: '/carlos', event: {}, control: {id: 'print202'},
-    togglePrint: (id, event) => calls.push(String(id))};
+    togglePrint: (id, event) => calls.push(String(id)), noteIsQeued: () => -1};
   vm.createContext(context);
+  vm.runInContext(source.slice(source.indexOf('    function notePrintButton('), source.indexOf('    function finishChangeToView(')), context);
   const start = source.indexOf('        var printimg =', source.indexOf('    function editNote('));
   vm.runInContext(source.slice(start, source.indexOf('\n', start)), context);
   const handler = context.printimg.match(/onclick='([^']+)'/)[1];

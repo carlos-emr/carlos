@@ -303,12 +303,32 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
 
     record Fixture(CaseManagementEntry2Action action,CaseManagementManager manager,CaseManagementEntryFormBean form) {}
 
+    @Test
+    void shouldUseAuthenticatedDefaultProgram_whenLegacyEditorHasNoCapturedProgram() {
+        var fixture = diagnosisFixture();
+        var request = (MockHttpServletRequest) fixture.action.request;
+        request.getSession().removeAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.class.getName() + ".101");
+        var programs = mock(io.github.carlos_emr.carlos.encounter.data.EctProgramManager.class);
+        when(programs.getProgramBeans("999998", null)).thenReturn(List.of(new io.github.carlos_emr.carlos.util.LabelValueBean("Default", "23")));
+        when(programs.getDefaultProgramId("999998")).thenReturn(23);
+        var context = mock(org.springframework.web.context.WebApplicationContext.class);
+        when(context.getBean("ectProgramManager")).thenReturn(programs);
+        request.getServletContext().setAttribute(org.springframework.web.context.WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, context);
+        var issue = fixture.form.getIssueCheckList().get(0).getIssue();
+        doReturn(true).when(issue).isWriteAccess("999998", 23);
+        fixture.action.setNewIssueCheckList(null);
+        assertThat(fixture.action.submitChangeDiagnosis()).isEqualTo("view");
+        verify(issue).isWriteAccess("999998", 23);
+        verify(issue, never()).isWriteAccess("999998", 0);
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
     void shouldPersistDiagnosisReplacement_whenCurrentIssueWriteIsAllowed(boolean ajax) {
         var fixture = diagnosisFixture();
         var replacement = new io.github.carlos_emr.carlos.casemgmt.model.Issue();
         replacement.setId(52L);
+        replacement.setRole("nurse");
         replacement.setDescription("Replacement diagnosis");
         replacement.setCode("R52");
         when(fixture.manager.getIssue("52")).thenReturn(replacement);
@@ -341,10 +361,21 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
 
     private Fixture diagnosisFixture() {
         var fixture = issueFixture(true);
+        var memberships = createAndRegisterMock(io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO.class);
+        var access = createAndRegisterMock(io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO.class);
+        createAndRegisterMock(io.github.carlos_emr.carlos.casemgmt.dao.RoleProgramAccessDAO.class);
+        var role = new io.github.carlos_emr.carlos.model.security.Secrole();
+        role.setId(22L);
+        role.setRoleName("nurse");
+        var membership = new io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider();
+        membership.setRole(role);
+        when(memberships.getProgramProviderByProviderProgramId("999998", 0L)).thenReturn(List.of(membership));
+        when(access.getAccessListByProgramId(0L)).thenReturn(List.of());
         fixture.form.setCaseNote(new CaseManagementNote());
         fixture.form.getIssueCheckList().get(0).setChecked("on");
         var original = new io.github.carlos_emr.carlos.casemgmt.model.Issue();
         original.setDescription("Original diagnosis");
+        original.setRole("nurse");
         fixture.form.getIssueCheckList().get(0).getIssue().setIssue(original);
         fixture.action.setIssueCheckList(fixture.form.getIssueCheckList());
         var selected = new CheckIssueBoxBean();
@@ -387,4 +418,41 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         return new Fixture(action,manager,form);
     }
 
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void shouldRefuseUnwritableReplacementBeforeMutation_whenOnlyTheCurrentRoleIsAllowed(boolean ajax) {
+        var fixture = diagnosisFixture();
+        var original = fixture.form.getIssueCheckList().get(0).getIssue();
+        var diagnosis = original.getIssue();
+        var replacement = new io.github.carlos_emr.carlos.casemgmt.model.Issue();
+        replacement.setId(52L);
+        replacement.setRole("doctor");
+        when(fixture.manager.getIssue("52")).thenReturn(replacement);
+        assertThatThrownBy(() -> { if (ajax) fixture.action.ajaxChangeDiagnosis(); else fixture.action.submitChangeDiagnosis(); })
+                .isInstanceOf(SecurityException.class);
+        assertThat(original.getIssue()).isSameAs(diagnosis);
+        assertThat(fixture.form.getIssueCheckList().get(0).getIssue()).isSameAs(original);
+        verify(fixture.manager, never()).saveCaseIssue(any());
+        verify(fixture.manager, never()).changeIssueInCPP(any(), any(), any());
+    }
+
+    @Test
+    void shouldRejectMissingSessionNoteBeforeMutation_whenChangingDiagnosisViaAjax() {
+        var fixture = diagnosisFixture();
+        fixture.form.setCaseNote(null);
+        assertThat(fixture.action.ajaxChangeDiagnosis()).isEqualTo("none");
+        assertThat(fixture.action.response.getStatus()).isEqualTo(400);
+        verify(fixture.manager, never()).saveCaseIssue(any());
+    }
+
+    @Test
+    void shouldIgnoreMissingAndSparseSelections_whenNoReplacementWasSelected() {
+        var fixture = diagnosisFixture();
+        for (CheckIssueBoxBean[] choices : new CheckIssueBoxBean[][]{null, {null}}) {
+            fixture.action.setNewIssueCheckList(choices);
+            assertThat(fixture.action.submitChangeDiagnosis()).isEqualTo("view");
+        }
+        verify(fixture.manager, never()).saveCaseIssue(any());
+    }
 }

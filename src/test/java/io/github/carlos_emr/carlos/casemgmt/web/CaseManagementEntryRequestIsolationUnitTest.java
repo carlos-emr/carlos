@@ -797,6 +797,21 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         assertThat(form.getCaseNote().getProgram_no()).isEqualTo("22");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void shouldPreserveDraftOnlyForCurrentEditorReconciliation_whenRefreshingNewNoteIssues(boolean preserve) throws Exception {
+        var request = request("101");
+        request.setParameter("note_edit", "new");
+        request.setParameter("preserveIssueEditor", Boolean.toString(preserve));
+        try (var props = mockStatic(CarlosProperties.class);
+             var views = mockConstruction(CaseManagementView2Action.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(action(request).edit()).isEqualTo("view");
+        }
+        if (preserve) verify(manager, never()).deleteTmpSave(any(), any(), any());
+        else verify(manager).deleteTmpSave(eq("999998"), eq("101"), any());
+    }
+
     private EditedNote edit(String patient, boolean explicitNew, String encounterType, String appointment) throws Exception {
         MockHttpServletRequest request = request(patient);
         if (explicitNew) request.setParameter("note_edit", "new");

@@ -192,3 +192,18 @@ and pressed state; opening an already queued note reflects its current selection
 Editor cleanup removes the native control as well as old images.
 The installed recovery workflow verifies both keyboard activation keys after the
 acknowledgement renames the control.
+
+## Remaining legacy assets
+
+`encounter/includes/*.jspf` and `encounter/js/encounter.js` are no longer served
+by `Index2.jsp`. Their remaining source-contract tests preserve historical
+encoding and revision contracts while complete legacy retirement is tracked
+under #5599. They are not evidence of a reachable legacy editor. The modern
+Quick/Full Chart button now exposes the chart recovery workflow; sort/filter
+failures retain the rendered chart and show a load-specific error.
+
+Consultation warning periods are calendar months. The schedule alert now
+applies the configured offset once (previously twice); explicit settings may
+therefore flag referrals sooner. Blank retains the default, malformed stored
+values use the reader fallback, and invalid submissions reject the entire
+preference save before any setting is changed.

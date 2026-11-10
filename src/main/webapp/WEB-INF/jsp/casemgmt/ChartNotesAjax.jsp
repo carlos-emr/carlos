@@ -432,10 +432,11 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 savedNoteId =<%=note.getNoteId()%>;
             </script>
             <div class='tool-button print-button'>
-                <img title="<fmt:message key="encounter.print.title"/>" id='print<%=globalNoteId%>'
-                     alt="<fmt:message key="encounter.togglePrintNote.title"/>"
-                     onclick="togglePrint(<%=globalNoteId%>, event)" style='float: right; margin-right: 5px;'
-                     src='<%=ctx %>/encounter/graphics/printer.png'/>
+                <button type="button" title="<fmt:message key="encounter.print.title"/>" id='print<%=globalNoteId%>'
+                    aria-label="<fmt:message key="encounter.togglePrintNote.title"/>" aria-pressed="false"
+                    onclick="togglePrint(this.id.substr(5), event)" style="float:right; margin-right:5px; border:0; padding:0; background:transparent; cursor:pointer; line-height:0;">
+                <img alt="" src='<%=ctx %>/encounter/graphics/printer.png'/>
+            </button>
             </div>
             <textarea tabindex="7" cols="84" rows="10"
                       class="txtArea boxsizingBorder <%= note.isSigned() ? "" : "unsigned-textarea"%>" wrap="soft"
@@ -481,11 +482,11 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 if (!note.isDocument() && !note.isCpp() && !note.isEformData() && !note.isEncounterForm() && !note.isInvoice() && !note.isEmailNote()) {
 
             %>
-            <img title="<fmt:message key="encounter.print.title"/>" id='print<%=globalNoteId%>'
-                 alt="<fmt:message key="encounter.togglePrintNote.title"/>"
-                 onclick="togglePrint('<%=globalNoteId%>'   , event)"
-                 style='float: right; margin-right: 5px; margin-top: 2px;'
-                 src='<%=ctx %>/encounter/graphics/printer.png'/>
+            <button type="button" title="<fmt:message key="encounter.print.title"/>" id='print<%=globalNoteId%>'
+                    aria-label="<fmt:message key="encounter.togglePrintNote.title"/>" aria-pressed="false"
+                    onclick="togglePrint(this.id.substr(5), event)" style="float:right; margin-right:5px; border:0; padding:0; background:transparent; cursor:pointer; line-height:0;">
+                <img alt="" src='<%=ctx %>/encounter/graphics/printer.png'/>
+            </button>
             <%
                 }
 
@@ -1003,9 +1004,6 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     noteIssuesChanged = false;
 
 <%
-    int MaxLen = 20;
-    int TruncLen = 17;
-    String ellipses = "...";
     // Template names are not patient data; a bean that never set up an encounter carries none.
     List<String> templateNames = bean.templateNames != null ? bean.templateNames : List.of();
     for (int j = 0; j < templateNames.size(); j++) {

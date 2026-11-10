@@ -24,4 +24,25 @@ class EctFormDataRegistryBoundaryUnitTest extends CarlosUnitTestBase {
         assertThat(EctFormData.getPatientFormsAsArrayList("123", "Form", "form;DROP TABLE demographic")).isEmpty();
         verifyNoInteractions(dao);
     }
+
+    @Test
+    void shouldReturnEmptyHistoryAndNoShortcut_whenTheDaoRejectsAnUnknownTable() {
+        EncounterFormDao dao = createAndRegisterMock(EncounterFormDao.class);
+        when(dao.findPatientHistory(eq("formUnregistered"), eq("123"), anyBoolean()))
+                .thenThrow(new EncounterFormDao.UnknownTableException());
+        assertThat(EctFormData.getPatientFormsAsArrayList("123", "Form", "formUnregistered")).isEmpty();
+        assertThat(EctFormData.getGroupedPatientFormsAsArrayList("123", "Form", "formUnregistered", "form.jsp")).isEmpty();
+        assertThat(EctFormData.getShortcutLatestPatientForm("123", "formUnregistered")).isNull();
+        verify(dao, never()).findByFormTable(anyString());
+    }
+
+    @Test
+    void shouldPropagateOtherFailures_whenHistoryHasAnUnrelatedInvalidArgument() {
+        EncounterFormDao dao = createAndRegisterMock(EncounterFormDao.class);
+        when(dao.findPatientHistory(anyString(), anyString(), anyBoolean()))
+                .thenThrow(new IllegalArgumentException("unrelated failure"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                EctFormData.getPatientFormsAsArrayList("123", "Form", "formBPMH"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("unrelated failure");
+    }
 }

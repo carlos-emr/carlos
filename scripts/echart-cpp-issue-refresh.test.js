@@ -34,6 +34,7 @@ function harness(checked = [true], issueChange = '') {
   fields.frmIssueNotes = cppForm;
   const context = {
     caseNote: 'caseNote_note01', demographicNo: '123', ctx: '/carlos', chartContext: '',
+    origObservationDate: 'original date', noteIssuesChanged: false,
     savingNoteError: 'save failed', CONTROL_CHAR_PATTERN_2: /unused/,
     sanitizeElementByPattern: () => {},
     document: { createElement: () => ({setAttribute() {}}), forms: { frmIssueNotes: cppForm, caseManagementEntryForm: { method: {}, ajax: {}, querySelectorAll: () => [] } } },
@@ -57,6 +58,9 @@ function harness(checked = [true], issueChange = '') {
     vm.runInContext(source.slice(start, end), context);
   }
   context.updateIssueError = 'issue refresh failed';
+  context.issueSaveError = 'save refused; retry Save';
+  context.cppSaveError = 'CPP save failed; retry CPP Save';
+  context.chartLoadError = 'chart load failed';
   context.issueSidebarRefreshError = 'sidebar refresh failed; saving remains available';
   return { context, requests, updates, fields, alerts, errors };
 }
@@ -111,7 +115,7 @@ test('a failed CPP save restores the editor without requesting issue refreshes',
   assert.equal(h.fields.channel.style.visibility, 'hidden');
   assert.equal(h.requests.length, 1);
   assert.equal(h.updates.length, 0);
-  assert.deepEqual(h.alerts, ['issue refresh failed 500']);
+  assert.deepEqual(h.alerts, ['CPP save failed; retry CPP Save 500']);
   assert.deepEqual(h.errors, []);
 });
 
@@ -302,7 +306,7 @@ for (const rendering of ['success', 'throws', 'missing target']) {
       assert.equal(xhrs.length, 2, 'failed note rendering cannot advance to a successful sidebar completion');
       assert.equal(h.context.issueUpdateFailed, true);
       assert.equal(h.context.deferNoteSaveUntilIssues(() => saves++), true);
-      assert.deepEqual(h.alerts, ['issue refresh failed', 'issue refresh failed']);
+      assert.deepEqual(h.alerts, ['issue refresh failed', 'save refused; retry Save']);
     }
     assert.equal(h.context.issueUpdatesPending, 0);
     assert.equal(h.context.issueRefreshPending, false);
@@ -395,3 +399,51 @@ for (const intent of ['Save', 'Sign & Save']) {
     assert.equal(h.context.issueUpdatesPending, 0);
   });
 }
+
+for (const method of ['issueChange', 'makeIssue', 'issueDelete', 'edit']) {
+  test(`${method} preserves unsaved clinical fields and issue selections through rendering before a queued save`, () => {
+    const h = harness();
+    delete h.fields.unresolvedIssues;
+    const checkbox = (id, checked) => ({checked, getAttribute: () => id});
+    let boxes = [checkbox('41', true), checkbox('42', false)];
+    const values = {encTypeSelect101: 'custom telephone', encTypeSelect101_combo: 'custom telephone',
+      observationDate: '09-Nov-2026 10:23', hourOfEncounterTime: '1', minuteOfEncounterTime: '25',
+      hourOfEncTransportationTime: '0', minuteOfEncTransportationTime: '15'};
+    for (const [id, value] of Object.entries(values)) h.fields[id] = {id, value};
+    const form = h.context.document.forms.caseManagementEntryForm;
+    form.querySelectorAll = selector => selector.includes('data-issue-id') ? boxes : Object.keys(values).map(id => h.fields[id]);
+    h.context.noteIssuesChanged = true;
+    h.context.origObservationDate = '08-Nov-2026 09:00';
+    h.context.ajaxUpdateIssues(method, 'sig101', method === 'edit' ? true : undefined);
+    let saved;
+    h.context.deferNoteSaveUntilIssues(() => {
+      saved = {boxes: boxes.map(box => box.checked), fields: Object.fromEntries(Object.keys(values).map(id => [id, h.fields[id].value]))};
+    });
+    h.updates[0].options.onSuccess({status: 200});
+    // Simulate the server-rendered fragment restoring the stored values and
+    // resetting the date baseline, as the actual JSP does.
+    boxes = [checkbox('42', true), checkbox('43', true), checkbox('41', false)];
+    Object.keys(values).forEach(id => { h.fields[id] = {id, value: 'stored'}; });
+    h.context.origObservationDate = 'stored';
+    h.updates[0].options.onComplete({status: 200, updateSucceeded: true});
+    assert.deepEqual(saved, {boxes: [false, true, true], fields: values});
+    assert.equal(h.context.origObservationDate, '08-Nov-2026 09:00');
+    assert.equal(h.context.noteIssuesChanged, true);
+    if (method === 'edit') {
+      const body = new URLSearchParams(h.updates[0].options.postBody);
+      assert.equal(body.get('preserveIssueEditor'), 'true');
+      assert.equal(body.get('forceNote'), 'true');
+    }
+    assert.deepEqual(h.alerts, []);
+  });
+}
+
+test('sidebar refresh retains the stored module colour and collapsed display limit', () => {
+  const h = harness();
+  h.fields.unresolvedIssues.querySelector = () => ({value: '/carlos/encounter/displayIssues?hC=aabbcc'});
+  h.context.onIssueUpdate(() => {});
+  const url = new URL(h.requests[0].url, 'https://fixture.invalid');
+  assert.equal(url.searchParams.get('hC'), 'aabbcc');
+  assert.equal(url.searchParams.get('numToDisplay'), '6');
+  assert.equal(url.searchParams.get('reloadURL'), '/carlos/encounter/displayIssues?hC=aabbcc');
+});
