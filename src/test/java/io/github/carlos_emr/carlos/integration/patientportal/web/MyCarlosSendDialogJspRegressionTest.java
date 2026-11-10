@@ -61,6 +61,9 @@ class MyCarlosSendDialogJspRegressionTest {
         String dialog = read(DIALOG);
         assertThat(dialog).contains("aria-labelledby=\"mycarlos-send-title-${carlos:forHtmlAttribute(mycarlosSendDoc)}\"");
         assertThat(dialog).contains("<h2 id=\"mycarlos-send-title-${carlos:forHtmlAttribute(mycarlosSendDoc)}\">");
+        // Described by the document's title, so a screen reader says which document is being sent.
+        assertThat(dialog).contains("aria-describedby=\"mycarlos-send-document-${carlos:forHtmlAttribute(mycarlosSendDoc)}\"");
+        assertThat(dialog).contains("<p class=\"document-title\" id=\"mycarlos-send-document-${carlos:forHtmlAttribute(mycarlosSendDoc)}\"");
         var ids = Pattern.compile("\\bid=\"([^\"]*)\"").matcher(dialog);
         int count = 0;
         while (ids.find()) {

@@ -21,12 +21,14 @@
 <link rel="stylesheet" href="${carlos:forHtmlAttribute(mycarlosSendCtx)}/share/css/mycarlos-send.css">
 <dialog class="mycarlos-send mycarlos-send-dialog" id="mycarlos-send-dialog-${carlos:forHtmlAttribute(mycarlosSendDoc)}"
         aria-labelledby="mycarlos-send-title-${carlos:forHtmlAttribute(mycarlosSendDoc)}"
+        aria-describedby="mycarlos-send-document-${carlos:forHtmlAttribute(mycarlosSendDoc)}"
         data-context="${carlos:forHtmlAttribute(mycarlosSendCtx)}"
         data-patient="${carlos:forHtmlAttribute(pageScope.mycarlosSendPatient)}"
         data-document="${carlos:forHtmlAttribute(mycarlosSendDoc)}">
     <header>
         <h2 id="mycarlos-send-title-${carlos:forHtmlAttribute(mycarlosSendDoc)}"><fmt:message key="mycarlos.delivery.title"/></h2>
-        <p class="document-title" data-mycarlos-part="document-title"></p>
+        <%-- Which document is being sent: read out with the dialog's name. --%>
+        <p class="document-title" id="mycarlos-send-document-${carlos:forHtmlAttribute(mycarlosSendDoc)}" data-mycarlos-part="document-title"></p>
         <p><fmt:message key="mycarlos.delivery.serviceDate"/>: <span data-mycarlos-part="service-date"></span></p>
     </header>
     <p><fmt:message key="mycarlos.delivery.description"/></p>
