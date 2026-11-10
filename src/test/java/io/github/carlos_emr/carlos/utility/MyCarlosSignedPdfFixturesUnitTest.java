@@ -221,7 +221,13 @@ class MyCarlosSignedPdfFixturesUnitTest {
         JsonNode entry = documents().filter(d -> d.get("name").asText().equals("signed-email-encrypted.pdf")).findFirst().orElseThrow();
         byte[] pdf = Base64.getDecoder().decode(entry.get("pdf_b64").asText());
 
-        assertThatThrownBy(() -> Loader.loadPDF(pdf).close()).isInstanceOf(IOException.class);
+        assertThatThrownBy(() -> {
+            try (PDDocument _ = Loader.loadPDF(pdf)) {
+                // A successful open must fail before cleanup: a close error cannot prove
+                // that opening the encrypted fixture without its password was refused.
+                throw new AssertionError("Encrypted fixture opened without its password");
+            }
+        }).isInstanceOf(IOException.class);
         assertThat(new String(pdf, StandardCharsets.ISO_8859_1)).doesNotContain("FAKE-Jones");
     }
 
@@ -240,7 +246,7 @@ class MyCarlosSignedPdfFixturesUnitTest {
             node.fieldNames().forEachRemaining(claims::add);
             return claims.equals(List.of("clinic_id", "clinic_name", "document", "document_id", "issued_at", "kid",
                     "patient", "provider_name", "recipient_id", "typ", "v", "version"));
-        } catch (IOException e) {
+        } catch (IOException _) {
             return false;
         }
     }
@@ -310,7 +316,7 @@ class MyCarlosSignedPdfFixturesUnitTest {
                 try {
                     valid = signer.verify(new JcaSimpleSignerInfoVerifierBuilder()
                             .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(certificate));
-                } catch (CMSException e) {
+                } catch (CMSException _) {
                     valid = false;
                 }
                 byte[] contents = signature.getContents(pdf);

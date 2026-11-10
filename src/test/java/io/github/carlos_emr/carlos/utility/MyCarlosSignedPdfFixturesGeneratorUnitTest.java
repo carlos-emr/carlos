@@ -95,7 +95,7 @@ class MyCarlosSignedPdfFixturesGeneratorUnitTest {
             return "{\"complete\":true}\n";
         }, (complete, destination) -> {
             staged.set(complete);
-            assertThat(complete.getParent()).isEqualTo(out.getParent());
+            assertThat(complete).hasParentRaw(out.getParent());
             assertThat(Files.readString(complete)).isEqualTo("{\"complete\":true}\n");
             assertThat(Files.readString(destination)).isEqualTo("{\"previous\":true}\n");
             throw new AtomicMoveNotSupportedException("staging", "destination", "unsupported filesystem");
