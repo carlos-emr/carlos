@@ -317,6 +317,7 @@ public class FluReport implements PreventionReport {
     private static final String LETTER1 = "L1";
     private static final String PHONE1 = "P1";
 
+    /** Chooses the seasonal recall contact from recorded follow-ups without fetching unused source-lab links. */
     private String letterProcessing(PreventionReportDisplay prd, Date cuttoffDate) {
         if (prd != null) {
             if ("No Info".equals(prd.state) || "due".equals(prd.state) || "Overdue".equals(prd.state)) {

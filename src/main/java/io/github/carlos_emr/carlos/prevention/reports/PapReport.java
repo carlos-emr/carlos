@@ -275,6 +275,7 @@ public class PapReport implements PreventionReport {
     private static final String LETTER2 = "L2";
     private static final String PHONE1 = "P1";
 
+    /** Chooses the next screening recall contact from follow-up values and dates; source-lab links are unused. */
     private String letterProcessing(PreventionReportDisplay prd, String measurementType, Date asofDate) {
         if (prd != null) {
             if (prd.state.equals("No Info") || prd.state.equals("due") || prd.state.equals("Overdue")) {

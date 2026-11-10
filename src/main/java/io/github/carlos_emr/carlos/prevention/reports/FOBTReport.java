@@ -279,6 +279,7 @@ public class FOBTReport implements PreventionReport {
     private static final String PHONE1 = "P1";
     private static final String CALLFU = "Follow Up";
 
+    /** Applies the existing screening recall schedule using follow-up values and dates; lab source links are unused. */
     private String letterProcessing(PreventionReportDisplay prd, String measurementType, Date asofDate, Date prevDate) {
         if (prd != null) {
             boolean inclUpToDate = false;

@@ -224,6 +224,10 @@ public class CategoryData {
      */
     public int getHRMDocumentCountForUnmatched() throws SQLException { return count(Operation.HRM_UNMATCHED, null); }
 
+    /**
+     * Replaces the request's counts and patient summaries and invalidates optional lazy lab aggregates.
+     * @throws SQLException if a required population query fails
+     */
     public void populateCountsAndPatients() throws SQLException {
         populated = false;
         abnormalCount = null;

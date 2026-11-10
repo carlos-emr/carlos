@@ -488,6 +488,7 @@ public class ReportBuilder {
     private final String LETTER2 = "L2";
     private final String PHONE1 = "P1";
 
+    /** Updates the suggested recall contact from prior contact measurements; source-lab links are not report inputs. */
     private String letterProcessing(ReportItem item, String measurementType, Date asofDate) {
         if (item != null) {
             if (item.getState().equals("No Info") || item.getState().equals("due") || item.getState().equals("Overdue")) {

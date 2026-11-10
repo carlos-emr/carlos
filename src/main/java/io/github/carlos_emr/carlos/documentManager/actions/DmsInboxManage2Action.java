@@ -210,6 +210,10 @@ public class DmsInboxManage2Action extends ActionSupport {
         return "doclabPreview";
     }
 
+    /**
+     * Builds scoped inbox counts and patient summaries for an authenticated index request.
+     * @return the index view, the existing error view for invalid dates/query failures, or NONE after logout
+     */
     public String prepareForIndexPage() {
         HttpSession session = request.getSession();
         if (redirectUnauthenticated(session)) {
@@ -292,11 +296,15 @@ public class DmsInboxManage2Action extends ActionSupport {
             request.setAttribute("categoryData", cData);
 
             return "dms_index";
-        } catch (SQLException e) {
+        } catch (SQLException | java.time.format.DateTimeParseException e) {
             return "error";
         }
     }
 
+    /**
+     * Loads inbox report rows using strict calendar bounds and preserves each selected HL7 review identity.
+     * @return the content view, the error view for an invalid date, or NONE after logout
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision.")
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -348,23 +356,15 @@ public class DmsInboxManage2Action extends ActionSupport {
 
         Date startDate = null;
         Date endDate = null;
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-
-        //Tries to convert the start date to a Date object, if it fails then sets the date to null so it doesn't pass other checks
         try {
-            startDate = sdf.parse(startDateStr);
-        } catch (Exception e) {
-            startDate = null;
-        }
-        //Tries to convert the end date to a Date object, if it fails then sets the date to null so it doesn't pass other checks
-        try {
-            endDate = sdf.parse(endDateStr);
+            var start = io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.parseDateBound(startDateStr);
+            var end = io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.parseDateBound(endDateStr);
             // A local calendar day can span 23 or 25 hours at daylight-saving transitions.
             ZoneId clinicZone = ZoneId.systemDefault();
-            endDate = Date.from(endDate.toInstant().atZone(clinicZone).toLocalDate()
-                    .plusDays(1).atStartOfDay(clinicZone).toInstant().minusMillis(1));
-        } catch (Exception e) {
-            endDate = null;
+            startDate = start == null ? null : Date.from(start.atStartOfDay(clinicZone).toInstant());
+            endDate = end == null ? null : Date.from(end.plusDays(1).atStartOfDay(clinicZone).toInstant().minusMillis(1));
+        } catch (java.time.format.DateTimeParseException e) {
+            return "error";
         }
 
         logger.debug("Got dates: {}-{} out of {}-{}", LogSafe.sanitizeObject(startDate), LogSafe.sanitizeObject(endDate),
@@ -973,6 +973,7 @@ public class DmsInboxManage2Action extends ActionSupport {
         return retained;
     }
 
+    /** Legacy non-HL7 sources group a shared accession only within four calendar months; unknown dates stay separate. */
     private static boolean sameLegacyReportPeriod(LabResultData first, LabResultData second) {
         Date firstDate = first.getDateObj();
         Date secondDate = second.getDateObj();

@@ -81,6 +81,11 @@ public class MeasurementDSHelper {
 
     }
 
+    /**
+     * Selects the first measurement in the handler's existing order without loading unused lab provenance.
+     * @param measurementType measurement type to select
+     * @return true when a measurement was selected
+     */
     public boolean setMeasurement(String measurementType) {
         boolean setM = false;
         log.debug("demo " + this.demographic_no + " type " + measurementType);
@@ -95,6 +100,13 @@ public class MeasurementDSHelper {
         return setM;
     }
 
+    /**
+     * Selects a measurement within the existing observation-date window without reading lab provenance.
+     * @param measurementType measurement type to select
+     * @param startDate start of the observation window
+     * @param endDate end of the observation window
+     * @return true when a measurement was selected
+     */
     public boolean setMeasurement(String measurementType, Date startDate, Date endDate) {
         boolean setM = false;
         log.debug("demo " + this.demographic_no + " type " + measurementType);

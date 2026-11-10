@@ -271,6 +271,7 @@ public class MammogramReport implements PreventionReport {
     private static final String PHONE1 = "P1";
     private static final String CALLFU = "Follow Up";
 
+    /** Applies the existing mammogram recall schedule from follow-up values and dates, without lab provenance. */
     private String letterProcessing(PreventionReportDisplay prd, String measurementType, Date asofDate, Date prevDate) {
         if (prd != null) {
             boolean inclUpToDate = false;

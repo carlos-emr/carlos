@@ -23,6 +23,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * Verifies upload-owned abnormal rechecks and HL7Handler.parse orchestration and cleanup.
+ * @since 2026-11-09
+ */
 @Tag("unit")
 @Isolated("Initializes legacy upload dependency caches")
 class HL7UploadOwnershipUnitTest extends CarlosUnitTestBase {

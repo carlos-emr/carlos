@@ -304,6 +304,11 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         return dataset;
     }
 
+    /**
+     * Accepts a complete finite signed ASCII decimal without extracting numbers from clinical qualifiers or text.
+     * @param result source measurement literal
+     * @return the trimmed decimal, or null if it cannot safely represent a plotted numeric value
+     */
     static String numericResult(String result) {
         if (StringUtils.isEmpty(result)) {
             return null;

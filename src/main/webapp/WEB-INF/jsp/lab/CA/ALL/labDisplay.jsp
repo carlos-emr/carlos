@@ -802,7 +802,10 @@ input[id^='acklabel_']{
             return confirm('${carlos:forJavaScript(msgAckUnmatched)}');
         }
 
+        /** Submits one unlink per report at a time, retaining failed reasons and separating success from refresh errors. */
         function unlinkDemographic(labNo) {
+            var inFlight = unlinkDemographic.inFlight || (unlinkDemographic.inFlight = new Set());
+            if (inFlight.has(String(labNo))) return false;
             var reasons = unlinkDemographic.reasons || (unlinkDemographic.reasons = Object.create(null));
             var reason = reasons[String(labNo)] || "Incorrect demographic";
             reason = prompt('${carlos:forJavaScript(msgUnlink)}', reason);
@@ -815,11 +818,12 @@ input[id^='acklabel_']{
             reasons[String(labNo)] = reason;
             var urlStr = '<%=request.getContextPath()%>' + "/lab/CA/ALL/UnlinkDemographic";
             var dataStr = "reason=" + encodeURIComponent(reason) + "&labNo=" + encodeURIComponent(labNo) + "&CSRF-TOKEN=" + encodeURIComponent(getCsrfToken());
-            fetch(urlStr, {
+            inFlight.add(String(labNo));
+            Promise.resolve().then(function() { return fetch(urlStr, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                 body: dataStr
-            })
+            }); })
             .then(function(response) {
                 return response.json().then(function(data) {
                     if (!response.ok || data.success !== true) {
@@ -853,6 +857,9 @@ input[id^='acklabel_']{
             .catch(function(error) {
                 console.error('Failed to unlink demographic:', error);
                 alert('The unlink could not be confirmed. Your reason is retained on this page for retry. Refreshing will clear the reason.');
+            })
+            .finally(function() {
+                inFlight.delete(String(labNo));
             });
         }
 

@@ -5,7 +5,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const jsp = fs.readFileSync('src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplay.jsp', 'utf8');
-const source = jsp.slice(jsp.indexOf('        function unlinkDemographic(labNo)'), jsp.indexOf('        function addComment('));
+const start = jsp.indexOf('        function unlinkDemographic(labNo)');
+const end = jsp.indexOf('        function addComment(');
+assert.ok(start >= 0 && end > start, 'unlinkDemographic markers missing or out of order in labDisplay.jsp');
+const source = jsp.slice(start, end);
 
 function fixture() {
   const prompts = [], answers = [], alerts = [], requests = [];
@@ -91,5 +94,33 @@ for (const target of ['opener', 'report', 'both']) {
     assert.equal(f.alerts.length, 1);
     assert.match(f.alerts[0], /^The lab was unlinked\./);
     assert.doesNotMatch(f.alerts[0], /could not be confirmed|reason is retained/);
+  });
+}
+
+for (const success of [false, true]) {
+  test(`overlapping unlink requests are scoped by report and released after ${success ? 'success' : 'failure'}`, async () => {
+    const f = fixture(), pending = new Map(), originalFetch = f.context.fetch;
+    f.context.fetch = (url, options) => {
+      f.requests.push(options);
+      return new Promise(resolve => pending.set(new URLSearchParams(options.body).get('labNo'), resolve));
+    };
+    await f.unlink(17, 'first reason');
+    f.context.unlinkDemographic('17');
+    await new Promise(setImmediate);
+    assert.equal(f.requests.length, 1);
+    assert.equal(f.prompts.length, 1);
+    await f.unlink(23, 'other report');
+    assert.equal(f.requests.length, 2);
+    pending.get('17')({ok: true, json: async () => ({success})});
+    await new Promise(setImmediate);
+    assert.equal(f.context.unlinkDemographic.inFlight.has('17'), false);
+    assert.equal(f.context.unlinkDemographic.inFlight.has('23'), true);
+    f.context.fetch = originalFetch;
+    await f.unlink(17, 'retry reason');
+    assert.equal(f.requests.length, 3);
+    assert.equal(f.prompts.at(-1), success ? 'Incorrect demographic' : 'first reason');
+    pending.get('23')({ok: true, json: async () => ({success: false})});
+    await new Promise(setImmediate);
+    assert.equal(f.context.unlinkDemographic.inFlight.size, 0);
   });
 }
