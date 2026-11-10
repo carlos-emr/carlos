@@ -663,11 +663,11 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
             var plan =
                     sql.queryForMap(
                             "EXPLAIN SELECT 1,1 FROM HRMDocumentToDemographic d WHERE"
-                                + " d.cds_patient_key=? LIMIT 1",
+                                    + " d.cds_patient_key=? LIMIT 1",
                             patient);
             assertThat(plan.get("key")).isEqualTo("idx_cds_hrm_patient_key");
             assertThat(plan.get("type")).isEqualTo("ref");
-            assertThat(((Number) plan.get("rows")).longValue()).isLessThanOrEqualTo(2);
+            assertThat(Long.parseLong(plan.get("rows").toString())).isLessThanOrEqualTo(2);
             for (int n = 0; n < 25; n++) {
                 int selected = patient + n;
                 read.executeWithoutResult(
@@ -732,6 +732,47 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
         assertThatThrownBy(catalogue::readSourceSchema)
                 .isInstanceOf(
                         org.springframework.transaction.IllegalTransactionStateException.class);
+    }
+
+    @Test
+    void shouldAllowReviewedProviderPreferencesAndReportDefinitions_withoutReadingTheirContents() {
+        try {
+            sql.update(
+                    "INSERT INTO quickListUser(id,providerNo,quickListName,lastUsed)"
+                        + " VALUES(?,'989875','owned',CURRENT_TIMESTAMP)",
+                    patient);
+            sql.update(
+                    "INSERT INTO provider_default_program(id,provider_no,program_id,signnote)"
+                        + " VALUES(?,'989875',17,0)",
+                    patient);
+            sql.update(
+                    "INSERT INTO"
+                        + " reportTemplates(templateid,templatetitle,templatedescription,templatesql,templatexml)"
+                        + " VALUES(?,'Owned definition','Owned definition','SELECT"
+                        + " private_definition_sentinel','<template/>')",
+                    patient);
+            sql.update("INSERT INTO messengerMembershipLock(id) VALUES(?)", patient);
+            stableLegacy(
+                    () ->
+                            read.executeWithoutResult(
+                                    status ->
+                                            catalogue.requireUnclassifiedSourcesEmpty(
+                                                    patient, () -> {})));
+        } finally {
+            sql.update(
+                    "DELETE FROM quickListUser WHERE id=? AND providerNo='989875' AND"
+                        + " quickListName='owned'",
+                    patient);
+            sql.update(
+                    "DELETE FROM provider_default_program WHERE id=? AND provider_no='989875' AND"
+                        + " program_id=17",
+                    patient);
+            sql.update(
+                    "DELETE FROM reportTemplates WHERE templateid=? AND templatetitle='Owned"
+                        + " definition'",
+                    patient);
+            sql.update("DELETE FROM messengerMembershipLock WHERE id=?", patient);
+        }
     }
 
     @Test
