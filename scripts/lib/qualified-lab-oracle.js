@@ -27,14 +27,25 @@ function verifyGeometry({points,x,y},observations){
   assert(points.every(point=>segments.some(([a,b])=>distance(point,a,b)<=6)),'Native lab graph contains an undeclared numeric projection or another patient');
   return {numericPoints:expected.length,tolerancePixels:6,redPixels:points.length};
 }
+function printedDateAxis(candidates){
+  // A date printed beside a low observation can OCR as a bare year too. Use
+  // the common axis-text row so that label cannot crop a valid plotted point.
+  let dates=[];
+  for(const candidate of candidates){
+    const row=candidates.filter(item=>Math.abs(item.word.y-candidate.word.y)<=2);
+    if(row.length>dates.length)dates=row;
+  }
+  assert(dates.length>=3&&dates.length>=candidates.length*0.8,
+    'Native printed lab date ticks do not establish an unambiguous axis row');
+  return dates;
+}
 function inspectPlot(bytes){
   const png=PNG.sync.read(bytes,{checkCRC:true});assert.equal(png.width,1000);assert.equal(png.height,600);
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'qualified-lab-plot-'));
   let tsv;try{const file=path.join(dir,'native.png');fs.writeFileSync(file,bytes,{mode:0o600});tsv=execFileSync('tesseract',[file,'stdout','-l','eng','--psm','11','tsv'],{encoding:'utf8',timeout:30000,maxBuffer:2*1024*1024,stdio:['ignore','pipe','pipe']});}finally{fs.rmSync(dir,{recursive:true,force:true});}
   const words=tsv.trim().split('\n').slice(1).map(line=>line.split('\t')).filter(row=>row[0]==='5'&&row[11]?.trim()).map(row=>({x:+row[6],y:+row[7],w:+row[8],h:+row[9],text:row.slice(11).join('\t').trim()}));
   const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const dates=words.map(word=>({word,match:/^(?:(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{4})|(\d{4}))$/.exec(word.text)})).filter(row=>row.match&&row.word.y>400);
-  assert(dates.length>=3,'Native printed lab date ticks cannot calibrate the plot');
+  const dates=printedDateAxis(words.map(word=>({word,match:/^(?:(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{4})|(\d{4}))$/.exec(word.text)})).filter(row=>row.match&&row.word.y>400));
   const baseline=Math.min(...dates.map(row=>row.word.y));
   let ticks=words.filter(word=>word.x+word.w<80&&word.y+word.h/2<baseline-8&&/^-?\d+(?:\.\d+)?$/.test(word.text));
   assert(ticks.length>=3,'Native lab value ticks are unreadable');
@@ -81,4 +92,4 @@ function assertPdfWords(words,{tests,date}){
   }
 }
 function assertPdf(bytes,expected){const graph=require('./pdf-graph');assert.equal(graph.pageCount(bytes),1,'Known five-row lab fixture was clipped or repaginated');const words=graph.pageWords(bytes,1).words;assertPdfWords(words,expected);const text=words.map(word=>word.text).join('');assert(text.includes(expected.marker)&&!text.includes(expected.controlMarker)&&!text.includes('999.37'),'PDF changed the patient or disclosed its control');}
-module.exports={assertMessage,inspectPlot,verifyGeometry,assertPdfWords,assertPdf,assertNoNumericPoints};
+module.exports={assertMessage,inspectPlot,verifyGeometry,printedDateAxis,assertPdfWords,assertPdf,assertNoNumericPoints};

@@ -37,7 +37,7 @@ remain in [#6118](https://github.com/carlos-emr/carlos/issues/6118) and
   for zero, small decimals and large values. Labels use Java HALF_EVEN formatting and
   server locale/date conventions without changing plotted values.
 - Pending the qualified-result decision, `<5`, `>100` and a single number with a unit
-  retain the existing numeric plotting policy. An anchored parser rejects titres,
+  retain the existing numeric plotting policy. A bounded left-to-right parser rejects titres,
   dates, exponents, ranges, malformed grouping and multi-number text instead of joining
   their digits. No excluded-result count or exclusion band is drawn.
 - Collection times accept typed dates, explicit offsets, offset-free fractions through

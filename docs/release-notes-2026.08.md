@@ -8,7 +8,7 @@ Graph failures return explicit 422, 500 or 503 responses; embedded lab and medic
 graphs provide a visible retry control.
 
 Qualified bounds such as `<5` continue to plot as 5 pending the clinical decision in
-[#6118](https://github.com/carlos-emr/carlos/issues/6118). The parser now accepts one
+[#6118](https://github.com/carlos-emr/carlos/issues/6118). The parser reads left to right in one pass. It accepts one
 number with supported qualifiers/units and rejects titres, dates, exponents, ranges
 and malformed grouping, preventing digit groups from being joined into a different
 value. Stored results and source reports remain available unchanged.

@@ -1,7 +1,20 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {assertMessage,verifyGeometry}=require('./lib/qualified-lab-oracle');
+const {assertMessage,verifyGeometry,printedDateAxis}=require('./lib/qualified-lab-oracle');
+const dateTicks=Array.from({length:17},(_,index)=>({word:{text:String(2016+index),y:539+index%2},match:[String(2016+index)]}));
+test('a year in a plotted observation label cannot crop the low numeric control',()=>{
+  const dataLabel={word:{text:'2026',y:511},match:['2026']};
+  const actual=printedDateAxis([...dateTicks,dataLabel]);
+  assert.deepEqual(actual,dateTicks);
+  assert(Math.min(...actual.map(item=>item.word.y))-8>527,'The observed low control must remain in the red-pixel scan');
+});
+test('date-axis selection retains printed ticks with small OCR box-height differences',()=>
+  assert.deepEqual(printedDateAxis(dateTicks),dateTicks));
+test('ambiguous or insufficient printed date rows refuse calibration',()=>{
+  assert.throws(()=>printedDateAxis([...dateTicks.slice(0,3),...dateTicks.slice(0,3).map(item=>({...item,word:{...item.word,y:511}}))]));
+  assert.throws(()=>printedDateAxis(dateTicks.slice(0,2)));
+});
 const marker='FAKE-PW0123456789abcdef',expected={marker,accession:'QLORACLE',date:'2021-01-01',tests:[{code:'2010',name:'HEMOGLOBIN',value:'<0.1',unit:'g/L',low:'120',high:'160',flag:'A'}]};
 const lines=['MSH|^~\\&|SYNTHETIC','PID|1||||'+marker+'^Workflow','ORC|RE|QLORACLE','OBX|1|FT|2010^HEMOGLOBIN^|GENERAL|<0.1|g/L|120 - 160|A|||F|||20210101090000'];
 const encode=rows=>Buffer.from(rows.join('\r'),'utf8').toString('base64');

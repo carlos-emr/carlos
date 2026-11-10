@@ -132,7 +132,7 @@ class MeasurementGraphAction22ActionUnitTest extends CarlosUnitTestBase {
     @CsvSource({"<0.1,0.1", ">100,100", "<=5,5", ">=10,10", "≤5,5", "≥10,10",
             "5 mmol/L,5", "5%,5", "'1,234',1234", "+5.2,5.2", "H 7.4,7.4", "2+,2",
             "l  3.1,3.1", "< 5,5", "H >= 60 mL/min,60", "5 µmol/L,5", "'12,345,678',12345678",
-            "'1,234.5 g/L',1234.5", "3 +,3", "-.5,-.5", "5.,5."})
+            "'1,234.5 g/L',1234.5", "3 +,3", "-.5,-.5", "5.,5.", "5 𐐀/L,5"})
     @DisplayName("should plot the number in a qualified result, as OSCAR 19 does")
     void shouldPlotTheNumberOfAQualifiedResult_inNumericSeries(String value, String plotted) {
         assertThat(MeasurementGraphAction22Action.numericResult(value)).isEqualTo(plotted);
@@ -141,8 +141,8 @@ class MeasurementGraphAction22ActionUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @ValueSource(strings = {"Negative", "Pending", "NaN", "Infinity", "+", "-", ".", "+.", "5..2", "3-5",
             "1:160", "1:40", "12abc34", "2026/10/09", "1e3", "1e-3", "120/80", "0,500", "01,234", "1,23",
-            "h5", "H", "H <", "<<5", "= 5", "1,2345", "1234,567", "'1,234,'", "5 /L", "5++", "5 mg (repeat)",
-            "4.5 (repeat)", "5 mg 2"})
+            "h5", "H", "H <", "<<5", "= 5", "1,2345", "1234,567", "1,234,", "5 /L", "5++", "5 mg (repeat)",
+            "4.5 (repeat)", "5 mg 2", "\u20035", "\u0661 mg", "5 mg\tL"})
     @org.junit.jupiter.params.provider.NullAndEmptySource
     @DisplayName("should leave out a result that holds no single number")
     void shouldExcludeResultsWithoutOneNumber_fromNumericSeries(String value) {

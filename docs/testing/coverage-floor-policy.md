@@ -145,3 +145,16 @@ All 6,301 production class hashes match the clean source-built WAR. All 27 PR Ja
 paths meet their retained floors without lowering a threshold or adding a waiver.
 The wider comparison still has 190 unmet assertions; complete release native-union
 qualification and the existing zero-floor review requirements remain outstanding.
+
+The regex-free follow-up uses the same production Java tree as `277e8dc36a002ff90ba60ed048f2e0a3722e2c99`
+(`46d0eea64b355073d44ab1584a6b4634bbb381bf`). Its independent Ubuntu 26.04 /
+OpenJDK 25.0.5.0.3 execution records 36,020 cases: 35,814 passes, 206 exact
+registered routed/prerequisite skips, and zero failures/errors. All five required
+permission cases pass separately. The actual validation commit is recorded in
+`baselineTestRunCommit`; its production and test sources match the qualified
+source/test trees. Unicode unit letters, ASCII-only whitespace/digit behavior and
+a trailing grouping comma have maintained regression coverage. All 6,301 tested
+production classes match the clean source-built WAR. All 27 PR Java paths meet
+the retained floors; no threshold, required refusal line or waiver is weakened.
+The wider comparison retains its 190 unmet assertions and 80 unreviewed zero
+floors pending complete release native-union qualification.
