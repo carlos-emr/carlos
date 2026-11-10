@@ -119,6 +119,9 @@ class CdsExportPatientInventoryServiceUnitTest {
                 List.of(
                         new CdsExportRetainedIndexDto.Reference(
                                 "casemgmt_note", "11", CdsExportPatientPipelineFixture.HASH)));
+        when(f.historyInventory.plan(any(), any(), anySet(), any(), any(), any(), any()))
+                .thenReturn(List.of(new CdsExportHistoryOccurrenceService.Occurrence(
+                        CdsCategory.CLINICAL_NOTES, "retained", 11)));
         assertThat(capture(f).identities()).hasSize(2);
     }
 

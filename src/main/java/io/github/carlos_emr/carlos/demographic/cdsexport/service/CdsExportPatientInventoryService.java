@@ -49,11 +49,14 @@ public class CdsExportPatientInventoryService {
             Set.of(CdsCategory.REPORTS, CdsCategory.CARE_ELEMENTS, CdsCategory.NEW_CATEGORY);
     private final CdsExportRetainedIndexService indices;
     private final CdsExportNativeRowReceiptReader rows;
+    private final CdsExportHistoryInventoryService histories;
 
     public CdsExportPatientInventoryService(
-            CdsExportRetainedIndexService indices, CdsExportNativeRowReceiptReader rows) {
+            CdsExportRetainedIndexService indices, CdsExportNativeRowReceiptReader rows,
+            CdsExportHistoryInventoryService histories) {
         this.indices = Objects.requireNonNull(indices);
         this.rows = Objects.requireNonNull(rows);
+        this.histories = Objects.requireNonNull(histories);
     }
 
     public Inventory capture(
@@ -84,7 +87,6 @@ public class CdsExportPatientInventoryService {
         if (!index.sourceManifestSha256().equals(source.manifest().plaintextSha256())) invalid();
         var expected = new TreeSet<CdsExportIdentityDto>();
         var notes = new HashSet<String>();
-        var classifiedNotes = new HashSet<String>();
         var sourceFields = new HashSet<String>();
         var budget = new Budget(bounds.indexRows(), bounds.indexBytes());
         var actual =
@@ -128,18 +130,19 @@ public class CdsExportPatientInventoryService {
                                 category,
                                 CdsImportKeys.hash("carlos-retained-occurrence-v1", address)),
                         budget);
-            } else if (CdsExportNoteSourceReader.CATEGORIES.contains(category)) {
-                var references =
-                        index.references().getOrDefault(address, List.of()).stream()
-                                .filter(ref -> ref.table().equals("casemgmt_note"))
-                                .toList();
-                if (references.size() != 1 || !notes.contains(references.getFirst().id())) review();
-                String id = references.getFirst().id();
-                if (!classifiedNotes.add(id)) review();
-                add(expected, nativeIdentity(patientKey, category, "casemgmt_note", id), budget);
             }
         }
-        if (!notes.equals(classifiedNotes)) review();
+        if (!Collections.disjoint(lease.document().command().categories(), CdsExportNoteSourceReader.CATEGORIES)) {
+            var classified = new HashSet<String>();
+            for (var occurrence : histories.plan(lease, patient, tables, source, index, bounds, control)) {
+                if (!lease.document().command().categories().contains(occurrence.category())) invalid();
+                for (long id : occurrence.revisions())
+                    if (!classified.add(Long.toString(id))) invalid();
+                add(expected, nativeIdentity(patientKey, occurrence.category(), occurrence.table(),
+                        occurrence.nativeId()), budget);
+            }
+            if (!notes.equals(classified)) review();
+        } else if (!notes.isEmpty()) invalid();
         var mapper = new CdsExportRetainedFieldMapper();
         for (var row : index.tables().getOrDefault("cds_import_field", Map.of()).values()) {
             control.checkpoint();

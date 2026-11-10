@@ -42,8 +42,13 @@ async function main() {
         await page.locator('#facilityId').fill('');
         await page.locator('#selection').selectOption('SELECTED_PATIENTS');
         await page.locator('#patientNos').fill(String(options.patient));
-        const categories = page.locator('.export-category:not([value="Demographics"])');
-        for (let i = 0; i < await categories.count(); i++) await categories.nth(i).uncheck();
+        const wanted = new Set(['Demographics', 'PersonalHistory', 'FamilyHistory', 'PastHealth',
+            'ProblemList', 'RiskFactors', 'AlertsAndSpecialNeeds', 'ClinicalNotes']);
+        const categories = page.locator('.export-category');
+        for (let i = 0; i < await categories.count(); i++) {
+            const category = categories.nth(i);
+            await category.setChecked(wanted.has(await category.inputValue()));
+        }
         await page.locator('#recipientId').fill('native');
         await page.locator('#auditPlanId').fill('native');
         const key = await page.locator('#submissionKey').inputValue();
