@@ -72,7 +72,10 @@ jobs:
       - name: Install MariaDB client and Flyway CLI
         run: |
           set -euo pipefail
-          sudo apt-get update && sudo apt-get install -y mariadb-client
+          sudo python3 scripts/ci/prepare-ubuntu-apt.py
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 \
+            -o Acquire::https::Timeout=30 -o APT::Update::Error-Mode=any update
+          sudo apt-get install -y mariadb-client
           bash scripts/ci/fetch-flyway.sh "$RUNNER_TEMP/flyway" /tmp/flyway.tgz
           echo "$RUNNER_TEMP/flyway" >> "$GITHUB_PATH"
 
