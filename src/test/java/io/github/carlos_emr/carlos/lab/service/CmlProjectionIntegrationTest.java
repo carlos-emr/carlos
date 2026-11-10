@@ -283,6 +283,37 @@ class CmlProjectionIntegrationTest extends CarlosTestBase {
         service.apply(second,preview.fingerprint(),actor,"127.0.0.1");
         assertThat(active()).extracting(Measurement::getDataField).containsExactlyInAnyOrder("12.7","9.2");
     }
+    @org.junit.jupiter.params.ParameterizedTest
+    // dummy.hl7 is a field-name template with incomplete MSH-2 encoding characters; no handler parses it.
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"AJ19819", "CC63171", "CC63208", "CT71691", "HT05038"})
+    void shouldFileRealCmlReports_withDateOnlyTimesAndLongComments(String sample) throws Exception {
+        // The repository's real CML layout: no OBR-22 or OBX-14, a date-only OBR-7, and NTE
+        // comments longer than a measurement holds. The synthetic fixtures above have none of these.
+        // Split the file exactly as the CML upload handler does, from a temporary document directory.
+        var documents=java.nio.file.Files.createTempDirectory("cml-sample");
+        String documentDir=CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        List<String> bodies;
+        try {
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR",documents.toString());
+            var file=java.nio.file.Files.copy(java.nio.file.Path.of("src","test","resources","labs","HL7-CML",sample+".hl7"),
+                    documents.resolve(sample+".hl7"));
+            bodies=io.github.carlos_emr.carlos.lab.ca.all.util.Utilities.separateMessages(file.toString());
+        } finally {
+            if(documentDir==null)CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+            else CarlosProperties.getInstance().setProperty("DOCUMENT_DIR",documentDir);
+            try(var paths=java.nio.file.Files.walk(documents)){paths.sorted(Comparator.reverseOrder()).forEach(path->path.toFile().delete());}
+        }
+        assertThat(bodies).isNotEmpty();
+        for(String body:bodies) {
+            int report=tx.execute(status->{Hl7ChainLocks.lock("CML",accession);int id=addBody(body,"F",0);
+                service.reconcile(id,patient);patients.persist(new PatientLabRouting(id,"HL7",patient));return id;});
+            var status=service.status(report,actor);
+            assertThat(status.reason()).as(sample).isEqualTo(CmlProjectionService.Reason.READY);
+            assertThat(status.isChangeNeeded()).as(sample).isFalse();
+        }
+        assertThat(active()).as(sample).isNotEmpty().allSatisfy(row->assertThat(Objects.toString(row.getComments(),""))
+                .hasSizeLessThanOrEqualTo(Measurement.COMMENTS_MAX_LENGTH));
+    }
     @Test void shouldNameTheSecurityObject_whenAdminWriteIsMissing() {
         int report=ingest("20260310080000","F","7010=5.1");
         when(security.hasPrivilege(actor,"_admin","w",null)).thenReturn(false);
