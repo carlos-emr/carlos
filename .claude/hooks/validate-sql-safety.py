@@ -688,7 +688,7 @@ def check_sql_injection_patterns(content: str) -> list[str]:
     format_pattern = rf'String\s*\.\s*format\s*\(\s*"[^";]*{sql_keywords}'
     formatted_shape = (
         r'(?:SELECT\b[^";]*\bFROM\b|INSERT\s+INTO\b|UPDATE\s+\w+\s+SET\b'
-        r'|DELETE\s+FROM\b|WHERE\s+\w+\s*(?:=|<|>|!=|<>|\bLIKE\b|\bIN\b))'
+        r'|DELETE\s+FROM\b|WHERE\s+\w+(?:\.\w+)?\s*(?:=|<|>|!=|<>|\bLIKE\b|\bIN\b))'
     )
     formatted_pattern = rf'"[^";]*{formatted_shape}[^";]*"\s*\.\s*formatted\s*\(\s*(?!\))'
 
@@ -711,7 +711,10 @@ def check_sql_injection_patterns(content: str) -> list[str]:
         r'\.\s*append\s*\(\s*"'
         rf'(?=[^"]*(?:{sandwich_evidence}))'
         r'[^"]*\'"\s*\)\s*\.\s*append\s*\(\s*'
-        r"(?![\s\"\d)])(?!'(?:[^'\\]|\\.)'\s*\))"
+        # Only a complete literal (.append("abc") or .append(0)) is constant.
+        # A literal opening a concatenation (.append("prefix" + name)) is not.
+        r'(?![\s)])(?!"[^"]*"\s*\))(?!\d+\s*\))'
+        r"(?!'(?:[^'\\]|\\.)'\s*\))"
     )
 
     # Pattern 4: executeQuery/executeUpdate with concatenation
@@ -799,7 +802,7 @@ def check_sql_injection_patterns(content: str) -> list[str]:
         # "ALL OR NONE = " + count or " OR count = " + count is not treated as SQL.
         # Only the statement's raw operand decides, so placeholders still allowlist.
         (r'(?:[=(,+;{]|\breturn)\s*"\s*(?:AND|OR)\s+(?:\w+\.\w+|\w+_\w+)\s*'
-         r'(?:<>|!=|<=|>=|=|<|>|\bLIKE\b|\bIN\b)\s*"?\s*\+(?![+=])',
+         r'(?:<>|!=|<=|>=|=|<|>|\bLIKE\b|\bIN\b)\s*[(\']?\s*"?\s*\+(?![+=])',
          "SQL predicate built with string concatenation", False),
     ]
 

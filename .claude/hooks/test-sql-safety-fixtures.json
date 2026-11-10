@@ -705,5 +705,89 @@
         "content": "public class D {\n void f(String date) {\n  String m = date + \"; parsed from a yyyy-MM-dd value\";\n  log(m);\n }\n}"
       }
     }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-issue6123-1: .formatted() WHERE predicate with a qualified (alias.column) name",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/QueryDao.java",
+        "content": "public class QueryDao {\n void f(String name) {\n  String q = \"WHERE d.last_name = '%s'\".formatted(name);\n  run(q);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-issue6123-2: append with a literal-prefixed concatenated argument",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/QueryDao.java",
+        "content": "public class QueryDao {\n void f(String name) {\n  StringBuilder sql = new StringBuilder();\n  sql.append(\" AND last_name = '\").append(\"prefix\" + name).append(\"'\");\n  run(sql);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-issue6123-3: append with a digit-led concatenated argument",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/QueryDao.java",
+        "content": "public class QueryDao {\n void f(String name) {\n  StringBuilder sql = new StringBuilder();\n  sql.append(\" AND last_name = '\").append(1 + name).append(\"'\");\n  run(sql);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-issue6123-4: keyword-less predicate with an IN ( operand",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/QueryDao.java",
+        "content": "public class QueryDao {\n void f(String name) {\n  String f = \" AND d.demographic_no IN (\" + ids + \")\";\n  run(f);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-issue6123-5: keyword-less predicate with a LIKE quote operand",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/QueryDao.java",
+        "content": "public class QueryDao {\n void f(String name) {\n  String f = \" AND p.last_name LIKE '\" + n + \"%'\";\n  run(f);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-issue6123-1: append of a complete literal after a SQL quote",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/QueryDao.java",
+        "content": "public class QueryDao {\n void f(String name) {\n  StringBuilder sql = new StringBuilder();\n  sql.append(\" AND last_name = '\").append(\"abc\").append(\"'\");\n  run(sql);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-issue6123-2: append of a constant zero after a SQL quote",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/QueryDao.java",
+        "content": "public class QueryDao {\n void f(String name) {\n  StringBuilder sql = new StringBuilder();\n  sql.append(\" AND last_name = '\").append(0).append(\"'\");\n  run(sql);\n }\n}"
+      }
+    }
   }
 ]
