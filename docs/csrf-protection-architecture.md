@@ -27,7 +27,7 @@ plus one request wrapper instantiated internally by the validation filter.
 **Class**: `io.github.carlos_emr.carlos.app.CsrfGuardScriptInjectionFilter`
 
 Auto-injects `<script src="contextPath/csrfguard"></script>` into HTML JSP responses before
-`</head>`. The filter mapping is intentionally limited to `FORWARD` dispatches so injection
+`</head>` (or before `</body>` when the page has no `</head>`). The filter mapping is intentionally limited to `FORWARD` dispatches so injection
 happens at the JSP render layer without wrapping the top-level Struts `REQUEST` response.
 Do not re-add `REQUEST` dispatch unless the Struts/JSP wrapper interaction has been retested;
 double-wrapping has previously produced blank schedule pages even when the Struts action itself
@@ -48,6 +48,16 @@ completed successfully.
 - The response already contains a `/csrfguard` script reference (idempotency)
 - The response used `getOutputStream()` instead of `getWriter()`
 - The response was committed by `sendRedirect()` or `sendError()` during downstream processing
+- The response contains neither `</head>` nor `</body>`. It is treated as a fragment that a
+  parent page (which already has the client) inserts into itself, and is served unchanged.
+
+**A page loaded as its own document must be a full document.** A JSP opened in a popup, a new
+tab or an iframe (every Administration panel page loads in `#dynamic-content iframe`) gets the
+client only if it renders `</head>` or `</body>`. Left as a bare fragment, its classic POST form
+carries no `CSRF-TOKEN` and `CarlosCsrfGuardFilter` refuses every submit with 403: the CAISI
+Issue Editor's add form did exactly this (#6078). Render `<html><head>…</head><body>…</body>`,
+or include `/WEB-INF/jspf/csrf-token.jspf` inside the form. `CaisicoreJspCsrfTokenRegressionUnitTest`
+pushes each `caisicore` page with a POST form through the real filter to pin this.
 
 **Operational invariant:** CSRF validation still runs on protected Struts POST requests through
 `CarlosCsrfGuardFilter`. The `FORWARD`-only script-injection mapping changes where the client

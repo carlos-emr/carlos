@@ -25,6 +25,22 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    CAISI Issue Editor: add-issue form (Administration > CAISI > Issue Editor > Add Issue).
+
+    Rendered by IssueAdmin2Action (route issueAdmin) as its "edit" result, both for
+    method=edit and when a save is refused for a duplicate code. The form POSTs
+    method=save (or method=cancel) back to issueAdmin.
+
+    This page MUST stay a full HTML document (<head> and <body>). The page is loaded
+    as its own document in the Administration panel's iframe, and
+    CsrfGuardScriptInjectionFilter only adds the CSRFGuard client before </head> or
+    </body>; a response with neither is treated as a fragment and gets nothing. Without
+    the client the form posts no CSRF-TOKEN and CSRFGuard refuses every save (#6078).
+    CaisicoreJspCsrfTokenRegressionUnitTest pins this.
+
+    @since 2006-11-30
+--%>
 
 
 <%@ include file="/taglibs.jsp" %>
@@ -43,7 +59,13 @@
     }
 %>
 
-<title>MyIssues ~ Issue Details</title>
+<!DOCTYPE html>
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
+<head>
+    <title>MyIssues ~ Issue Details</title>
+    <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
+</head>
+<body>
 <p>Please fill in issue's information below:</p>
 <!-- form action="/issueAdmin" focus="issueAdmin.code" onsubmit="return validateIssueAdminForm(this)" -->
 <form action="${pageContext.request.contextPath}/issueAdmin" method="post" focus="issueAdmin.code">
@@ -53,6 +75,7 @@
 
     <div style="color: red">
     <%@ include file="/WEB-INF/jsp/caisicore/messages.jsp" %>
+    </div>
 
     <table>
         <tr>
@@ -99,6 +122,9 @@
        </c:if>
        	--> <input type="submit" name="submit" value="Cancel" class="button" onclick="this.form.method.value='cancel'"/>
             </td>
+        </tr>
     </table>
 </form>
 <!-- html:javascript formName="issueAdminForm"/ -->
+</body>
+</html>
