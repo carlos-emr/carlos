@@ -2,7 +2,7 @@
 <%--
 Purpose: Preview and apply a reviewed CML measurement projection repair.
 Features: Patient authorization, read-only preview, exact stale-plan rejection and transactional audit.
-Parameters: reportNo (positive CML report ID), fingerprint (preview token on POST only).
+Parameters: operation (preview or apply, POST only), reportNo (positive CML report ID), fingerprint (preview token for apply).
 @since 2026-11-09
 --%>
 <%@ page contentType="text/html; charset=UTF-8" %>
@@ -17,7 +17,8 @@ Parameters: reportNo (positive CML report ID), fingerprint (preview token on POS
 <p><fmt:message key="clinical.cml.repairIntro"/></p>
 <c:if test="${not empty repairError}"><p role="alert"><fmt:message key="${repairError}"/></p></c:if>
 <c:if test="${repairApplied}"><p role="status"><fmt:message key="clinical.cml.applied"/></p></c:if>
-<form method="get" action="${pageContext.request.contextPath}/admin/CmlProjectionRepair">
+<%-- Posted although read-only: the method guard refuses any GET that names an operation. --%>
+<form method="post" action="${pageContext.request.contextPath}/admin/CmlProjectionRepair">
 <input type="hidden" name="operation" value="preview">
 <label><fmt:message key="clinical.cml.report"/>
 <input name="reportNo" type="number" min="1" max="2147483647" required value="${carlos:forHtmlAttribute(reportNo)}"></label>

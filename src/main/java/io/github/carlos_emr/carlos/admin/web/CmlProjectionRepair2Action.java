@@ -8,6 +8,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.*;
 
 /** Admin preview/apply UI. Preview never changes clinical rows; apply requires its exact fingerprint.
+ * Both are posted; a GET only opens the page.
  * @since 2026-11-09
  */
 public final class CmlProjectionRepair2Action extends ActionSupport {
@@ -21,11 +22,13 @@ public final class CmlProjectionRepair2Action extends ActionSupport {
         }
         String operation = request.getParameter("operation");
         if (operation == null) return SUCCESS;
-        if (!"preview".equals(operation) && !APPLY.equals(operation)) { response.sendError(400); return NONE; }
-        if (request.getParameterValues("operation").length != 1) { response.sendError(400); return NONE; }
-        if (APPLY.equals(operation) && !"POST".equals(request.getMethod())) {
+        // HttpMethodGuardFilter keys on the parameter's presence, not its value, so every request
+        // that names an operation is a POST. Preview stays read-only; only opening the page is a GET.
+        if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST"); response.sendError(405); return NONE;
         }
+        if (!"preview".equals(operation) && !APPLY.equals(operation)) { response.sendError(400); return NONE; }
+        if (request.getParameterValues("operation").length != 1) { response.sendError(400); return NONE; }
         String[] values = request.getParameterValues("reportNo");
         int report;
         try {

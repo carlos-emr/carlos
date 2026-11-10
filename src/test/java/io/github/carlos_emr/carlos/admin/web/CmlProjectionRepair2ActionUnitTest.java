@@ -41,12 +41,22 @@ class CmlProjectionRepair2ActionUnitTest extends CarlosUnitTestBase {
         new CmlProjectionRepair2Action().execute();assertThat(response.getStatus()).isEqualTo(405);
         assertThat(response.getHeader("Allow")).isEqualTo("POST");verifyNoInteractions(service);
     }
+    @Test void shouldRefuseGetPreview_becauseEveryNamedOperationIsPosted() throws Exception {
+        request.setMethod("GET");request.setParameter("operation","preview");request.setParameter("reportNo","17");
+        new CmlProjectionRepair2Action().execute();assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");verifyNoInteractions(service);
+    }
+    @Test void shouldOpenThePage_whenAGetNamesNoOperation() throws Exception {
+        request.setMethod("GET");
+        assertThat(new CmlProjectionRepair2Action().execute()).isEqualTo("success");
+        assertThat(response.getStatus()).isEqualTo(200);verifyNoInteractions(service);
+    }
     @Test void shouldRefuseDuplicateSourceIds_beforePreview() throws Exception {
-        request.setParameter("operation","preview");request.setParameter("reportNo",new String[]{"17","18"});
+        request.setMethod("POST");request.setParameter("operation","preview");request.setParameter("reportNo",new String[]{"17","18"});
         new CmlProjectionRepair2Action().execute();assertThat(response.getStatus()).isEqualTo(400);verifyNoInteractions(service);
     }
     @Test void shouldPreviewOnly_whenTheOperatorHasNotAppliedThePlan() throws Exception {
-        request.setParameter("operation","preview");request.setParameter("reportNo","17");
+        request.setMethod("POST");request.setParameter("operation","preview");request.setParameter("reportNo","17");
         var plan=new CmlProjectionService.Summary("a".repeat(64),CmlProjectionService.Reason.READY,1,0,false);
         when(service.preview(17,null)).thenReturn(plan);
         assertThat(new CmlProjectionRepair2Action().execute()).isEqualTo("success");
