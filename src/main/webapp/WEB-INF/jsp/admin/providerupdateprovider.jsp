@@ -470,13 +470,18 @@
 
                                     if (ll != null) {
                                         for (LookupListItem llItem : ll.getItems()) {
+                                            boolean currentType = llItem.getValue() != null && llItem.getValue().equals(provider.getPractitionerNoType());
+                                            boolean activeType = Boolean.TRUE.equals(llItem.isActive());
+                                            // Preserve this provider's stored retired identity on unrelated edits.
+                                            // Other retired identities are never offered as new choices.
+                                            if (!activeType && !currentType) continue;
                                             String selected = "";
-                                            if (llItem.getValue() != null && llItem.getValue().equals(provider.getPractitionerNoType())) {
+                                            if (currentType) {
                                                 selected = " selected=\"selected\" ";
                                             }
                                 %>
 
-                                <option value="<carlos:encode value='<%= llItem.getValue() == null ? "" : llItem.getValue() %>' context="htmlAttribute"/>" <%=selected %>><carlos:encode value='<%= llItem.getLabel() == null ? "" : llItem.getLabel() %>' context="html"/>
+                                <option data-retired="<%= !activeType %>" value="<carlos:encode value='<%= llItem.getValue() == null ? "" : llItem.getValue() %>' context="htmlAttribute"/>" <%=selected %>><carlos:encode value='<%= llItem.getLabel() == null ? "" : llItem.getLabel() %>' context="html"/><% if (!activeType) { %> (<fmt:message key="admin.provider.formStatusInactive"/>)<% } %>
                                 </option>
                                 <%
                                     }

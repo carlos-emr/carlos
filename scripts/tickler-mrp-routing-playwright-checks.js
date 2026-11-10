@@ -120,6 +120,7 @@ async function workflow(s) {
     const list=await popup(chart,masterRecordLink(chart,'/tickler/ViewTicklerMain').first(),'MRP-patient-task-list');
     const page=await popup(list,list.locator('input.btn-primary[onclick*="/tickler/ViewAddTickler"]').first(),'MRP-task-composer');
     multisite=await page.locator('select#site').count()>0;
+    if(s.requireMultisite)h.assert(await page.locator('select#site').count()===1,'Multisite MRP acceptance requires the actual clinic selector');
     views.set(page,{chart,list});return page;
   }
   const field=page=>page.locator('form[name="serviceform"] input[name="demographic_no"]').last();
@@ -168,7 +169,8 @@ async function workflow(s) {
     await waitForTicklerTable(list);
     await Promise.all([list.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/tickler/ListTicklers')&&
       new URL(response.url()).searchParams.get('search[value]')===marker),list.locator('#ticklerResults_filter input[type="search"]').fill(marker)]);
-    if(await list.locator('select#site').count())await list.locator('select#site').selectOption(site);
+    const clinic=list.locator('select#site');
+    if(await clinic.count())await clinic.selectOption(site);
     await list.locator('#assignedTo').selectOption(actor.fixture.providerNo);
     const [response]=await Promise.all([list.waitForResponse(answer=>new URL(answer.url()).pathname.endsWith('/tickler/ListTicklers')&&
       new URL(answer.url()).searchParams.get('assignee')===actor.fixture.providerNo),list.locator('#formSubmitBtn').click()]);
@@ -405,7 +407,8 @@ async function workflow(s) {
   owner();
   require('./lib/workflow-findings').throwFindings(findings);
 }
-if(require.main===module)runWorkflow(NAME,workflow,{openMaster:false,preflightConfig:()=>{
+function preflightConfig(){
   if(process.env.CARLOS_DISPOSABLE_HOST!=='true'||process.env.EXCLUSIVE!=='1')throw new h.SkipCheck('Requires CARLOS_DISPOSABLE_HOST=true and EXCLUSIVE=1 for owned MRP fixtures/cache retirement');
-}});
-module.exports={workflow};
+}
+if(require.main===module)runWorkflow(NAME,workflow,{openMaster:false,preflightConfig});
+module.exports={workflow,preflightConfig};

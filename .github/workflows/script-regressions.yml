@@ -95,7 +95,15 @@ jobs:
             sudo apt-get install -y --no-install-recommends poppler-utils
           fi
       - name: Run all script regressions
-        run: npm run test:scripts
+        run: node scripts/run-node-release-tests.js --output target/node-ci-results.json
+      - name: Preserve strict Node outcomes
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: strict-node-outcomes
+          path: target/node-ci-results.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Test SQL safety hook precision and injection blocking
         run: bash .claude/hooks/test-sql-safety-hook.sh
       # Both checks use only the standard-library Python supplied by the runner.

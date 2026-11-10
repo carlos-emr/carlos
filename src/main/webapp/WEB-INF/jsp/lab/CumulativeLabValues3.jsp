@@ -256,6 +256,9 @@
 </div>
 
 <div class="table-responsive">
+    <p class="alert alert-info" data-carlos-lab-grid-scope="measurements">
+        <fmt:message key="lab.measurementGrid.scope"/>
+    </p>
     <table id="cumulativeLabTable" class="table table-sm table-bordered table-hover">
         <thead class="table-light">
             <tr>
