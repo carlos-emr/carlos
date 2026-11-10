@@ -79,10 +79,11 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
     private static final Logger log = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    // Components have distinct delimiters; possessive repeats prevent whitespace/unit backtracking.
     private static final java.util.regex.Pattern PLOT_NUMBER = java.util.regex.Pattern.compile(
-            "\\s*(?:[HLhl]\\s+)?(?:<=|>=|<|>|≤|≥)?\\s*"
-            + "([+-]?(?:(?:[1-9][0-9]{0,2}(?:,[0-9]{3})+|[0-9]+)(?:\\.[0-9]*)?|\\.[0-9]+))"
-            + "\\s*(?:[\\p{L}%µμ][\\p{L}%µμ/ ]*|\\+)?\\s*");
+            "\\s*+(?:[HLhl]\\s++)?(?:<=|>=|<|>|≤|≥)?\\s*+"
+            + "([+-]?(?:(?:[1-9][0-9]{0,2}(?:,[0-9]{3})++|[0-9]++)(?:\\.[0-9]*+)?|\\.[0-9]++))"
+            + "\\s*+(?:[\\p{L}%µμ][\\p{L}%µμ/ ]*+|\\+)?\\s*+");
     private static final String WHITE = "#ffffff";
     private static final String VALUE_DATE_LABEL = "{1} \n {2}";
     private static final String SYSTOLIC = "Systolic";

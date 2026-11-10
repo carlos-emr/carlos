@@ -157,4 +157,18 @@ class MeasurementGraphAction22ActionUnitTest extends CarlosUnitTestBase {
         assertThat(MeasurementGraphAction22Action.numericResult("1".repeat(10000))).isNull();
         assertThat(MeasurementGraphAction22Action.numericResult("9".repeat(400))).isNull();
     }
+
+    @Test
+    void shouldHandleNearLimitWhitespace_withoutBacktrackingOrChangingQualifiedValues() {
+        org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(java.time.Duration.ofSeconds(2), () -> {
+            String spaces = " ".repeat(1000);
+            assertThat(MeasurementGraphAction22Action.numericResult(spaces + "!")).isNull();
+            assertThat(MeasurementGraphAction22Action.numericResult(".0" + spaces + "!")).isNull();
+            assertThat(MeasurementGraphAction22Action.numericResult(".0 mmol" + spaces + "!")).isNull();
+            assertThat(MeasurementGraphAction22Action.numericResult(spaces + "5")).isEqualTo("5");
+            assertThat(MeasurementGraphAction22Action.numericResult("5 mmol" + spaces)).isEqualTo("5");
+            assertThat(MeasurementGraphAction22Action.numericResult(" \tH \t<= \t+1,234.5 \tmmol/L \n"))
+                    .isEqualTo("1234.5");
+        });
+    }
 }
