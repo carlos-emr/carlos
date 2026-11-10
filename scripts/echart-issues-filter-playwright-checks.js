@@ -624,9 +624,11 @@ async function workflow(s) {
       } finally {
         await chart.unroute('**/CaseManagementEntry*', failChart);
       }
+      let retryParameters;
       const dialogs = await h.withExpectedDialogs(chart, async () => {
         await Promise.all([
-          chart.waitForResponse(response => chartSaveRequest('edit')(response.request()) && response.status() === 200, {timeout: TIMEOUT}),
+          chart.waitForResponse(response => chartSaveRequest('edit')(response.request()) && response.status() === 200, {timeout: TIMEOUT})
+            .then(response => { retryParameters = new URLSearchParams(response.request().postData()); return response; }),
           chart.locator('#quickChart').click({timeout: TIMEOUT}),
         ]);
       });
@@ -641,8 +643,10 @@ async function workflow(s) {
         'Chart retry did not load the expected patient');
       await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}
         AND uuid=${q(uuid)} AND note_id>${oldId}`, '1', 'Chart retry duplicated the saved revision');
-      await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${patient} AND note_id=${notes.b}`,
-        '0', 'Chart retry retained the saved editor lock after opening a replacement');
+      const currentEditor = await chart.evaluate(() => document.forms.caseManagementEntryForm.noteId.value);
+      const remainingLocks = sql.rows(`SELECT note_id FROM casemgmt_note_lock WHERE demographic_no=${patient}`).map(([id]) => id);
+      h.assert(remainingLocks.every(id => id === currentEditor),
+        `Chart retry retained stale locks: current=${currentEditor}, locks=${remainingLocks.join(',')}, previous=${retryParameters.get('previousNoteId')}`);
       // Consume only the single response deliberately injected by this step.
       // All other HTTP, console, script and cleanup failures remain strict.
       const expected = s.recorder.badResponses.filter(entry => entry.status === 503 && entry.method === 'POST' && entry.url === failedUrl);

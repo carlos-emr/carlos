@@ -216,7 +216,7 @@ public class EctFormData {
     private static List<EncounterFormDao.HistoryRow> patientHistory(String table, int patient, boolean grouped) {
         try {
             return encounterFormDao().findPatientHistory(table, Integer.toString(patient), grouped);
-        } catch (EncounterFormDao.UnknownTableException unknown) {
+        } catch (io.github.carlos_emr.carlos.commn.dao.UnknownEncounterFormTableException _) {
             logger.warn("Rejected unregistered encounter form table: {}", LogSafe.sanitize(table));
             return List.of();
         }

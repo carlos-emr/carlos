@@ -472,6 +472,8 @@ public class ProviderManager2 {
         }
     }
 
+    // Retain the public manager signature used by provider settings clients.
+    @SuppressWarnings("java:S1172")
     public void updateProviderSettings(LoggedInInfo loggedInInfo, String providerNo, ProviderSettings settings) {
         String warningPeriod = io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod
                 .normalized(settings.getConsultationTimePeriodWarning());

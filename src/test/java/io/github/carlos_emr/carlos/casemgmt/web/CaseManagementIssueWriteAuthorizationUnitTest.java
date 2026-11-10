@@ -429,7 +429,9 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         replacement.setId(52L);
         replacement.setRole("doctor");
         when(fixture.manager.getIssue("52")).thenReturn(replacement);
-        assertThatThrownBy(() -> { if (ajax) fixture.action.ajaxChangeDiagnosis(); else fixture.action.submitChangeDiagnosis(); })
+        org.assertj.core.api.ThrowableAssert.ThrowingCallable change = ajax
+                ? fixture.action::ajaxChangeDiagnosis : fixture.action::submitChangeDiagnosis;
+        assertThatThrownBy(change)
                 .isInstanceOf(SecurityException.class);
         assertThat(original.getIssue()).isSameAs(diagnosis);
         assertThat(fixture.form.getIssueCheckList().get(0).getIssue()).isSameAs(original);

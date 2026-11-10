@@ -423,7 +423,7 @@ test('the editable note Print control follows its committed revision after an ac
   vm.runInContext(`(function(event) { ${handler}; }).call(control, event);`, context);
   assert.deepEqual(calls, ['202']);
   assert.ok(context.printimg.includes("<button type='button'"));
-  assert.ok(context.printimg.includes("aria-label='Toggle Print Note'"));
+  assert.ok(context.printimg.includes("alt='Toggle Print Note'"), 'the image supplies the native button accessible name');
   assert.doesNotMatch(context.printimg, /role='button'|onkeydown=/, 'native buttons provide keyboard activation');
 });
 

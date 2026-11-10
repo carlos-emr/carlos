@@ -374,7 +374,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         request.setParameter("filter_providers", "200");
         request.setParameter("issues", "73");
         try (var props = mockStatic(CarlosProperties.class);
-             var views = mockConstruction(CaseManagementView2Action.class)) {
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
             assertThat(action(request).edit()).isEqualTo("view");
         }
@@ -409,7 +409,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.remember(first, "11");
         first.setParameter("note_edit", "new");
         try (var props = mockStatic(CarlosProperties.class);
-             var views = mockConstruction(CaseManagementView2Action.class)) {
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
             assertThat(action(first).edit()).isEqualTo("view");
         }
@@ -421,7 +421,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.remember(second, "22");
         second.setParameter("note_edit", "new");
         try (var props = mockStatic(CarlosProperties.class);
-             var views = mockConstruction(CaseManagementView2Action.class)) {
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
             assertThat(action(second).edit()).isEqualTo("view");
         }
@@ -673,7 +673,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         when(manager.filterNotes(login, "999998", List.of(original), expectedProgram)).thenReturn(List.of(original));
 
         try (var props = mockStatic(CarlosProperties.class);
-             var views = mockConstruction(CaseManagementView2Action.class)) {
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
             assertThat(action(request).edit()).isEqualTo("view");
         }
@@ -724,7 +724,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
             when(locks.findByNoteDemo(101, 501L)).thenReturn(otherLock);
         }
         try (var props = mockStatic(CarlosProperties.class);
-             var views = mockConstruction(CaseManagementView2Action.class)) {
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
             var entry = action(request);
             assertThat(entry.edit()).isEqualTo(refresh && locked ? "none" : "view");
@@ -796,7 +796,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         when(manager.filterNotes(login, "999998", List.of(original), "11")).thenReturn(List.of(original));
 
         try (var props = mockStatic(CarlosProperties.class);
-             var views = mockConstruction(CaseManagementView2Action.class)) {
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
             assertThat(action(request).edit()).isEqualTo("view");
         }
@@ -814,7 +814,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         request.setParameter("note_edit", "new");
         request.setParameter("preserveIssueEditor", Boolean.toString(preserve));
         try (var props = mockStatic(CarlosProperties.class);
-             var views = mockConstruction(CaseManagementView2Action.class)) {
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
             assertThat(action(request).edit()).isEqualTo("view");
         }
@@ -827,7 +827,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         var request = request("101");
         request.setParameter("previousNoteId", "501");
         try (var props = mockStatic(CarlosProperties.class);
-             var views = mockConstruction(CaseManagementView2Action.class)) {
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
             assertThat(action(request).edit()).isEqualTo("view");
         }
@@ -845,7 +845,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         var request = request("101");
         if (!"absent".equals(previous)) request.setParameter("previousNoteId", previous);
         try (var props = mockStatic(CarlosProperties.class);
-             var views = mockConstruction(CaseManagementView2Action.class)) {
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
             assertThat(action(request).edit()).isEqualTo("view");
         }
@@ -864,7 +864,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         when(locks.findByNoteDemo(101, 0L)).thenReturn(other);
         var entry = action(request);
         try (var props = mockStatic(CarlosProperties.class);
-             var views = mockConstruction(CaseManagementView2Action.class)) {
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
             assertThat(entry.edit()).isEqualTo("none");
         }
@@ -885,7 +885,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         other.setSessionId("another-session");
         when(locks.findByNoteDemo(101, 0L)).thenReturn(other);
         try (var props = mockStatic(CarlosProperties.class);
-             var views = mockConstruction(CaseManagementView2Action.class)) {
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
             assertThat(action(request).edit()).isEqualTo("view");
         }
@@ -916,9 +916,10 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         when(locks.removeForSession("999998", 101, 501L, session.getId()))
                 .thenThrow(new IllegalStateException("lock database unavailable"));
         try (var props = mockStatic(CarlosProperties.class);
-             var views = mockConstruction(CaseManagementView2Action.class)) {
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
-            assertThatThrownBy(() -> action(request).edit())
+            var entry = action(request);
+            assertThatThrownBy(entry::edit)
                     .isInstanceOf(IllegalStateException.class).hasMessage("lock database unavailable");
         }
         assertThat(forms).isEmpty();
@@ -930,7 +931,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         if (encounterType != null) request.setParameter("encType", encounterType);
         if (appointment != null) request.setParameter("appointmentNo", appointment);
         try (var props = mockStatic(CarlosProperties.class);
-             var views = mockConstruction(CaseManagementView2Action.class)) {
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
             assertThat(action(request).edit()).isEqualTo("view");
         }

@@ -32,7 +32,7 @@ class ConsultationPreferenceValidationUnitTest extends CarlosUnitTestBase {
                 mock(io.github.carlos_emr.carlos.commn.dao.SecurityDao.class));
     }
     @Test
-    void shouldRetainSubmittedPreferencesAndShowError_whenGeneralPeriodIsInvalid() throws Exception {
+    void shouldRetainSubmittedPreferencesAndShowError_whenGeneralPeriodIsInvalid() {
         var request = request();
         var response = new MockHttpServletResponse();
         var properties = mock(UserPropertyDAO.class);
@@ -60,7 +60,7 @@ class ConsultationPreferenceValidationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRetainSubmittedPopupValueAndShowError_whenPeriodIsInvalid() throws Exception {
+    void shouldRetainSubmittedPopupValueAndShowError_whenPeriodIsInvalid() {
         var request = request();
         var response = new MockHttpServletResponse();
         var properties = mock(UserPropertyDAO.class);

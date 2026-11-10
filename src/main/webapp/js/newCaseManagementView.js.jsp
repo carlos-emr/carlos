@@ -1913,10 +1913,11 @@ function updateCPPNote() {
     function notePrintButton(id) {
         if (!/^\d+$/.test(String(id))) return '';
         var selected = noteIsQeued(id) >= 0;
+        var pressed = selected ? "aria-pressed='true'" : "aria-pressed='false'";
         return "<button type='button' title='Print' id='print" + id
-            + "' aria-label='Toggle Print Note' aria-pressed='" + selected
-            + "' onclick='togglePrint(this.id.substr(5), event)' style='float:right; margin-right:5px; border:0; padding:0; background:transparent; cursor:pointer; line-height:0;'>"
-            + "<img alt='' src='" + ctx + "/encounter/graphics/" + (selected ? "printerGreen.png" : "printer.png") + "'></button>";
+            + "' " + pressed
+            + " onclick='togglePrint(this.id.substr(5), event)' style='float:right; margin-right:5px; border:0; padding:0; background:transparent; cursor:pointer; line-height:0;'>"
+            + "<img alt='Toggle Print Note' src='" + ctx + "/encounter/graphics/" + (selected ? "printerGreen.png" : "printer.png") + "'></button>";
     }
 
     function finishChangeToView(id, saving, tmp) {

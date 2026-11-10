@@ -56,6 +56,7 @@ import java.util.*;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class UserPreference2Action extends ActionSupport {
+    private static final String VALUE_ATTRIBUTE_START = "\" value=\"";
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -232,7 +233,7 @@ public class UserPreference2Action extends ActionSupport {
             val = new String();
         }
         return "name=\"" + io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(key)
-                + "\" value=\"" + io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(val) + "\"";
+                + VALUE_ATTRIBUTE_START + io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(val) + "\"";
     }
 
     public static String getSelect(Map<String, String> prefs, String key) {
@@ -495,7 +496,7 @@ public class UserPreference2Action extends ActionSupport {
                 }
             }
             sb.append("<input name=\"pref.").append(UserProperty.ENCOUNTER_FORM_NAME)
-                    .append("\" value=\"").append(SafeEncode.forHtmlAttribute(lvb.getValue()))
+                    .append(VALUE_ATTRIBUTE_START).append(SafeEncode.forHtmlAttribute(lvb.getValue()))
                     .append("\" type=\"checkbox\" ").append(checked)
                     .append("/>").append(SafeEncode.forHtmlContent(lvb.getLabel())).append("\n");
             sb.append("<br/>\n");
@@ -532,7 +533,7 @@ public class UserPreference2Action extends ActionSupport {
                 }
             }
             sb.append("<input name=\"pref.").append(UserProperty.EFORM_NAME)
-                    .append("\" value=\"").append(SafeEncode.forHtmlAttribute(lvb.getValue()))
+                    .append(VALUE_ATTRIBUTE_START).append(SafeEncode.forHtmlAttribute(lvb.getValue()))
                     .append("\" type=\"checkbox\" ").append(checked)
                     .append("/>").append(SafeEncode.forHtmlContent(lvb.getLabel())).append("\n");
             sb.append("<br/>\n");

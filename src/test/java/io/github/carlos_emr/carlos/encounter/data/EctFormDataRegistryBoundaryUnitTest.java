@@ -29,7 +29,7 @@ class EctFormDataRegistryBoundaryUnitTest extends CarlosUnitTestBase {
     void shouldReturnEmptyHistoryAndNoShortcut_whenTheDaoRejectsAnUnknownTable() {
         EncounterFormDao dao = createAndRegisterMock(EncounterFormDao.class);
         when(dao.findPatientHistory(eq("formUnregistered"), eq("123"), anyBoolean()))
-                .thenThrow(new EncounterFormDao.UnknownTableException());
+                .thenThrow(new io.github.carlos_emr.carlos.commn.dao.UnknownEncounterFormTableException());
         assertThat(EctFormData.getPatientFormsAsArrayList("123", "Form", "formUnregistered")).isEmpty();
         assertThat(EctFormData.getGroupedPatientFormsAsArrayList("123", "Form", "formUnregistered", "form.jsp")).isEmpty();
         assertThat(EctFormData.getShortcutLatestPatientForm("123", "formUnregistered")).isNull();

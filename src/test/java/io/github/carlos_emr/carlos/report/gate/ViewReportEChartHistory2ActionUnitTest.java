@@ -51,6 +51,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 /**
  * ECHART HISTORY lists one patient's eChart entries, so its gate must honour that patient's record
@@ -179,6 +180,6 @@ class ViewReportEChartHistory2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("historyHasNext")).isEqualTo(hasNext);
         assertThat(request.getAttribute("historyOffset")).isEqualTo(20);
         assertThat(request.getAttribute("historyPageSize")).isEqualTo(2);
-        org.mockito.Mockito.verify(charts).getChartsForDemographic(123, 20, 3);
+        verify(charts).getChartsForDemographic(123, 20, 3);
     }
 }

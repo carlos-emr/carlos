@@ -432,11 +432,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 savedNoteId =<%=note.getNoteId()%>;
             </script>
             <div class='tool-button print-button'>
-                <button type="button" title="<fmt:message key="encounter.print.title"/>" id='print<%=globalNoteId%>'
-                    aria-label="<fmt:message key="encounter.togglePrintNote.title"/>" aria-pressed="false"
-                    onclick="togglePrint(this.id.substr(5), event)" style="float:right; margin-right:5px; border:0; padding:0; background:transparent; cursor:pointer; line-height:0;">
-                <img alt="" src='<%=ctx %>/encounter/graphics/printer.png'/>
-            </button>
+                <%@ include file="/WEB-INF/jsp/casemgmt/notePrintControl.jspf" %>
             </div>
             <textarea tabindex="7" cols="84" rows="10"
                       class="txtArea boxsizingBorder <%= note.isSigned() ? "" : "unsigned-textarea"%>" wrap="soft"
@@ -482,11 +478,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 if (!note.isDocument() && !note.isCpp() && !note.isEformData() && !note.isEncounterForm() && !note.isInvoice() && !note.isEmailNote()) {
 
             %>
-            <button type="button" title="<fmt:message key="encounter.print.title"/>" id='print<%=globalNoteId%>'
-                    aria-label="<fmt:message key="encounter.togglePrintNote.title"/>" aria-pressed="false"
-                    onclick="togglePrint(this.id.substr(5), event)" style="float:right; margin-right:5px; border:0; padding:0; background:transparent; cursor:pointer; line-height:0;">
-                <img alt="" src='<%=ctx %>/encounter/graphics/printer.png'/>
-            </button>
+            <%@ include file="/WEB-INF/jsp/casemgmt/notePrintControl.jspf" %>
             <%
                 }
 

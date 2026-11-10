@@ -485,7 +485,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (previousNote != null) {
             try {
                 previousNoteId = Long.valueOf(previousNote);
-            } catch (NumberFormatException invalidPreviousNote) {
+            } catch (NumberFormatException _) {
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 return NONE;
             }
@@ -3037,17 +3037,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         CaseManagementIssue currentIssue = requireCurrentIssueWriteAccess(oldList.get(index).getIssue(), demono);
 
-        CheckIssueBoxBean[] issueList = this.getNewIssueCheckList();
-        CheckIssueBoxBean substitution = null;
+        CheckIssueBoxBean substitution = selectedDiagnosis();
         String origIssueDesc = null;
         String newIssueDesc = null;
-        // find the checked issue
-        for (CheckIssueBoxBean curr : issueList == null ? new CheckIssueBoxBean[0] : issueList) {
-            if (curr != null && curr.isChecked() && curr.getIssue() != null) {
-                substitution = curr;
-                break;
-            }
-        }
 
         if (substitution != null) {
             Issue oldIssue = currentIssue.getIssue();
@@ -3078,6 +3070,16 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             this.caseManagementMgr.changeIssueInCPP(demono, origIssueDesc, newIssueDesc);
 
         return "view";
+    }
+
+    /** Finds the first selected diagnosis while tolerating missing and sparse form selections. */
+    private CheckIssueBoxBean selectedDiagnosis() {
+        CheckIssueBoxBean[] choices = getNewIssueCheckList();
+        if (choices == null) return null;
+        for (CheckIssueBoxBean choice : choices) {
+            if (choice != null && choice.isChecked() && choice.getIssue() != null) return choice;
+        }
+        return null;
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
