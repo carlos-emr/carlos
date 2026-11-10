@@ -79,11 +79,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
     private static final Logger log = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    // Components have distinct delimiters; possessive repeats prevent whitespace/unit backtracking.
-    private static final java.util.regex.Pattern PLOT_NUMBER = java.util.regex.Pattern.compile(
-            "\\s*+(?:[HLhl]\\s++)?(?:<=|>=|<|>|≤|≥)?\\s*+"
-            + "([+-]?(?:(?:[1-9][0-9]{0,2}(?:,[0-9]{3})++|[0-9]++)(?:\\.[0-9]*+)?|\\.[0-9]++))"
-            + "\\s*+(?:[\\p{L}%µμ][\\p{L}%µμ/ ]*+|\\+)?\\s*+");
     private static final String WHITE = "#ffffff";
     private static final String VALUE_DATE_LABEL = "{1} \n {2}";
     private static final String SYSTOLIC = "Systolic";
@@ -317,9 +312,11 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
     /**
      * Reads one finite decimal, retaining the existing bound/unit policy pending #6118:
-     * {@code <5} plots as 5. An anchored match prevents unrelated digit groups (titres, dates,
-     * fractions or exponents) being joined into a different clinical number. Grouping commas
-     * must form unambiguous thousands groups. Overlong values cannot exhaust the renderer.
+     * {@code <5} plots as 5. The whole value must read as an optional {@code H}/{@code L} flag,
+     * an optional comparator, one number and an optional unit or trailing {@code +}, so
+     * unrelated digit groups (titres, dates, fractions or exponents) are never joined into a
+     * different clinical number. Grouping commas must form unambiguous thousands groups.
+     * Overlong values cannot exhaust the renderer.
      *
      * @param result stored measurement or lab result
      * @return the number to plot, or null when the result holds no single finite number
@@ -328,11 +325,90 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         if (StringUtils.isEmpty(result) || result.length() > 1024) {
             return null;
         }
-        var match = PLOT_NUMBER.matcher(result);
-        if (!match.matches()) return null;
-        String numeric = match.group(1).replace(",", "");
+        // Read left to right in one pass rather than with a regular expression: the optional
+        // whitespace runs around each part make a pattern backtrack on a long value.
+        int start = skipWhitespace(result, 0);
+        if (start < result.length() && "HLhl".indexOf(result.charAt(start)) >= 0) {
+            int afterFlag = skipWhitespace(result, start + 1);
+            if (afterFlag == start + 1) {
+                return null;
+            }
+            start = afterFlag;
+        }
+        start = skipWhitespace(result, skipComparator(result, start));
+        int end = numberEnd(result, start);
+        if (end < 0 || !onlyUnitFollows(result, end)) {
+            return null;
+        }
+        String numeric = result.substring(start, end).replace(",", "");
         if (numeric.startsWith("+")) numeric = numeric.substring(1);
         return Double.isFinite(Double.parseDouble(numeric)) ? numeric : null;
+    }
+
+    private static int skipWhitespace(String text, int from) {
+        int at = from;
+        while (at < text.length() && " \t\n\u000B\f\r".indexOf(text.charAt(at)) >= 0) {
+            at++;
+        }
+        return at;
+    }
+
+    private static int skipDigits(String text, int from) {
+        int at = from;
+        while (at < text.length() && text.charAt(at) >= '0' && text.charAt(at) <= '9') {
+            at++;
+        }
+        return at;
+    }
+
+    private static int skipComparator(String text, int from) {
+        if (text.startsWith("<=", from) || text.startsWith(">=", from)) {
+            return from + 2;
+        }
+        return from < text.length() && "<>≤≥".indexOf(text.charAt(from)) >= 0 ? from + 1 : from;
+    }
+
+    /**
+     * @return the index after the signed decimal that starts at {@code from}, or -1 when none
+     *         starts there
+     */
+    private static int numberEnd(String text, int from) {
+        int whole = from < text.length() && "+-".indexOf(text.charAt(from)) >= 0 ? from + 1 : from;
+        int at = skipDigits(text, whole);
+        boolean hasWhole = at > whole;
+        if (hasWhole && at - whole <= 3 && text.charAt(whole) != '0') {
+            // 1,234 is one number; 0,500 and 1,23 are not, and stay unplotted.
+            while (at + 3 < text.length() && text.charAt(at) == ',' && skipDigits(text, at + 1) >= at + 4) {
+                at += 4;
+            }
+        }
+        if (at < text.length() && text.charAt(at) == '.') {
+            int fraction = skipDigits(text, at + 1);
+            return hasWhole || fraction > at + 1 ? fraction : -1;
+        }
+        return hasWhole ? at : -1;
+    }
+
+    /** A unit such as {@code mmol/L} or {@code %}, or the {@code +} of a graded result. */
+    private static boolean onlyUnitFollows(String text, int from) {
+        int at = skipWhitespace(text, from);
+        if (at < text.length() && text.charAt(at) == '+') {
+            at++;
+        } else if (at < text.length() && startsUnit(text.codePointAt(at))) {
+            while (at < text.length()) {
+                int character = text.codePointAt(at);
+                if (!startsUnit(character) && character != '/' && character != ' ') {
+                    break;
+                }
+                at += Character.charCount(character);
+            }
+        }
+        return skipWhitespace(text, at) == text.length();
+    }
+
+    private static boolean startsUnit(int character) {
+        // The micro sign and Greek mu of µmol/L are letters.
+        return Character.isLetter(character) || character == '%';
     }
 
     private List<ReferenceRange> measurementReferenceRanges(List<EctMeasurementsDataBean> measurements, String typeIdName) {
