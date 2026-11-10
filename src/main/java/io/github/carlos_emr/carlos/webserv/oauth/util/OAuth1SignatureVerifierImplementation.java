@@ -119,11 +119,12 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
         // --- 4) Collect ALL signature params ---
         final java.util.List<NameValue> all = new java.util.ArrayList<>();
 
-        // a) oauth_* from header (percent-decoded once)
+        // The parser has already decoded header values; servlet parameters are decoded too.
+        // Internal URI escapes (for example a callback's %26) are part of the signed value.
         for (Map.Entry<String, String> e : oauth.entrySet()) {
             String k = e.getKey();
             if ("oauth_signature".equals(k) || "realm".equalsIgnoreCase(k)) continue;
-            all.add(new NameValue(k, pctDecode(e.getValue())));
+            all.add(new NameValue(k, e.getValue()));
         }
 
         // b) Query string
@@ -164,9 +165,8 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
                 pct(cfg.getConsumerSecret()) + '&' + pct(tokenSecret == null ? "" : tokenSecret);
         final String computed = base64(hmacSha1(baseString, signingKey));
 
-        // --- 7) Compare (percent-decode first)
-        final String incoming = pctDecode(incomingSig);
-        if (!constantTimeEquals(incoming, computed)) {
+        // --- 7) Compare the already decoded signature.
+        if (!constantTimeEquals(incomingSig, computed)) {
             throw new IllegalArgumentException("Invalid OAuth1 signature");
         }
 
@@ -186,8 +186,7 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
         }
         // Always enforced (no null-guard) so replay protection cannot silently
         // fail open if the dependency is ever unset.
-        dataProvider.consumeNonce(pctDecode(consumerKey),
-                token == null ? null : pctDecode(token), pctDecode(nonce),
+        dataProvider.consumeNonce(consumerKey, token, nonce,
                 ts, 2L * ALLOWED_SKEW_SECONDS);
 
         return token; // unchanged contract
@@ -245,8 +244,8 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
         return r == 0 && a.length() == b.length();
     }
 
-    // Signature normalization and replay-key canonicalization share this decoder.
-    // Keep their UTF-8 interpretation identical while retaining literal '+' semantics.
+    // Raw non-OAuth query parameters require strict UTF-8 decoding and retain literal +.
+    // Parsed OAuth protocol fields bypass this helper because they are already decoded.
     private static String pctDecode(String s) {
         if (s == null || s.isEmpty()) return s;
         StringBuilder out = new StringBuilder(s.length());

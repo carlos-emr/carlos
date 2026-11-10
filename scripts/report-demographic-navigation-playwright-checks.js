@@ -577,7 +577,9 @@ async function checkBackButtonDirectEntryFallback(context) {
 // the saved-query row and the cleartext MySQL password file behind. Idempotent.
 const signalHandlers = installCleanupSignalHandlers(cleanupSavedQueryRow);
 
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('report-demographic-navigation', async () => {
+  await (async () => {
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -621,5 +623,6 @@ const signalHandlers = installCleanupSignalHandlers(cleanupSavedQueryRow);
 })().catch((error) => {
   console.error('FAIL demographic report navigation Playwright check');
   console.error(error.stack || error.message);
-  process.exit(1);
+  process.exitCode = 1;
 });
+}, {existingSignalHandlers:true});

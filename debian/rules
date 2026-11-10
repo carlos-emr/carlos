@@ -135,6 +135,7 @@ override_dh_auto_build:
 	# the known duplicates; this also covers a prebuilt CARLOS_WAR and any
 	# library that shades its own copy of org.apache.commons.logging.
 	python3 $(CURDIR)/debian/check-war-commons-logging.py $(BUILDDIR)/carlos.war
+	python3 $(CURDIR)/debian/check-war-jaxb.py $(BUILDDIR)/carlos.war
 	python3 scripts/test-o19-input-lifecycle.py
 ifeq ($(SKIP_DRUGREF),)
 	set -e; \

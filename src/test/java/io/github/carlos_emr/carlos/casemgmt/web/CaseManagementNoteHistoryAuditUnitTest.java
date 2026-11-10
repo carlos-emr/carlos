@@ -170,7 +170,9 @@ class CaseManagementNoteHistoryAuditUnitTest extends CarlosUnitTestBase {
         verify(security).hasPrivilege(user, "_casemgmt.notes", "r", "999");
         verify(security, never()).hasPrivilege(user, "_casemgmt.notes", "r", "101");
         verify(manager).getDemoName("999");
-        logActionMock.verifyNoInteractions();
+        logActionMock.verify(() -> LogAction.addLogStrict(user, LogConst.READ,
+                LogConst.CON_CME_NOTE, "501", "999", null));
+        logActionMock.verifyNoMoreInteractions();
     }
 
     @Test

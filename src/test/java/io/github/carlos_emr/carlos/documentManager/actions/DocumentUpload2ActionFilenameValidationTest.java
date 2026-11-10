@@ -246,6 +246,28 @@ class DocumentUpload2ActionFilenameValidationTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldReportLostIncomingSource_withoutPublishingOrReplacingExistingFiles() throws Exception {
+        DocumentUpload2Action action = incomingDocsAction("FAKE-PRIVATE-NAME.pdf");
+        tempDestinationDirectory = Files.createTempDirectory("incoming-failure-target").toFile();
+        tempDestinationFile = tempDestinationDirectory.toPath().resolve("existing.pdf").toFile();
+        Files.writeString(tempDestinationFile.toPath(), "SYNTHETIC prior scan");
+        try (MockedStatic<IncomingDocUtil> incoming = mockStatic(IncomingDocUtil.class);
+                LogCapture logs = LogCapture.forLogger(DocumentUpload2Action.class)) {
+            incoming.when(() -> IncomingDocUtil.getAndCreateIncomingDocumentFilePath("1", null)).thenAnswer(call -> {
+                Files.delete(tempUploadFile.toPath()); // a temp-cleanup race after the initial validation
+                return tempDestinationDirectory.getPath();
+            });
+            assertThat(action.executeUpload()).isNull();
+            assertThat(response.getContentAsString()).contains("Failed to write file").doesNotContain("\"size\"");
+            assertThat(tempDestinationDirectory.toPath().resolve("FAKE-PRIVATE-NAME.pdf")).doesNotExist();
+            assertThat(Files.readString(tempDestinationFile.toPath())).isEqualTo("SYNTHETIC prior scan");
+            assertThat(tempUploadFile).doesNotExist();
+            assertThat(logs.messages().toString()).contains("Error writing file to incoming docs")
+                    .doesNotContain("FAKE-PRIVATE-NAME", tempUploadFile.getPath(), tempDestinationDirectory.getPath());
+        }
+    }
+
+    @Test
     void shouldDenyIncomingDestinationBeforeCreatingQueueOrPublishingUpload() throws Exception {
         DocumentUpload2Action action = incomingDocsAction("report.pdf");
         request.setParameter("queue", "2");

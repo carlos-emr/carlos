@@ -1076,7 +1076,9 @@ async function runChecks(context, cancellation) {
   }
 }
 
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('rx-fax-record-binding', async () => {
+  await (async () => {
   const cancellation = createGracefulSignalCancellation({ graceMs: faxRoundTripTimeoutMs + 60000 });
   let browser;
   let exitCode = 0;
@@ -1125,5 +1127,6 @@ async function runChecks(context, cancellation) {
   } else if (!cancellation.exitCode) {
     console.log('PASS: identity, header (date, clinic, reprint), one-character line and notes are bound to the prescription record; the clinic header renders on its own lines');
   }
-  process.exit(cancellation.exitCode || exitCode);
+  process.exitCode = cancellation.exitCode || exitCode;
 })();
+}, {existingSignalHandlers:true});

@@ -446,4 +446,7 @@ async function main() {
         if (browser) await browser.close();
     }
 }
-main().catch(error => { console.error(error); process.exitCode = 1; });
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('chart-draw', async () => {
+  await main().catch(error => { console.error(error); process.exitCode = 1; });
+});

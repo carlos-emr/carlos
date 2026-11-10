@@ -163,6 +163,7 @@ public class DemographicWs extends AbstractWs {
         }
         if (lastUpdate == null) throw new IllegalArgumentException("lastUpdate is required");
         ConsentType consentType = patientConsentManager.getProviderSpecificConsent(loggedInInfo);
+        if (consentType == null) return new Integer[0];
         List<Consent> consents = patientConsentManager.getConsentsByTypeAndEditDate(loggedInInfo, consentType, lastUpdate.getTime());
         var uniqueIds = new java.util.LinkedHashSet<Integer>();
         for (Consent consent : consents) uniqueIds.add(consent.getDemographicNo());

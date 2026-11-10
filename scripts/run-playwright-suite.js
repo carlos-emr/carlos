@@ -228,9 +228,17 @@ function selectChecks(checks, options) {
  * deployment someone else is using. So the opt-in is required for a non-local
  * BASE_URL whatever is selected, and assertsDatabase only sharpens the message.
  */
+function isStandaloneOnly(check) {
+  return check.tiers?.length === 1 && check.tiers[0] === 'standalone'
+    && !check.assertsDatabase && !mutatesOf([check]).length;
+}
+
 function assertSafeTarget(checks, env) {
-  if (!checks.length) {
+  if (!checks.length || checks.every(isStandaloneOnly)) {
     return;
+  }
+  if (env.CARLOS_DISPOSABLE_HOST !== 'true') {
+    throw new Error('CARLOS_DISPOSABLE_HOST=true is required for every live CARLOS suite, including loopback targets');
   }
   // THE DATABASE TARGET IS A SEPARATE QUESTION FROM THE WEB TARGET, and it is
   // the more dangerous one: eleven checks in this suite still read MYSQL_HOST
@@ -751,8 +759,7 @@ function main(argv = process.argv.slice(2), env = process.env, out = console, de
   const results = [];
   // The standalone tier renders repository fixtures without an application.
   // Mixed tiers and any declared database/mutation work still require deployment identity.
-  const deploymentRequired = selected.some(check => check.tiers.length !== 1
-    || check.tiers[0] !== 'standalone' || check.assertsDatabase || mutatesOf([check]).length);
+  const deploymentRequired = selected.some(check => !isStandaloneOnly(check));
   try {
     const identityBefore = deploymentRequired ? probeIdentity(env) : null;
     if (options.strictRelease && deploymentRequired && !identityBefore) {

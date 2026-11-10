@@ -34,12 +34,13 @@ const { createGracefulSignalCancellation } = require('./graceful-signal-cancella
 for (const [signal, exitCode] of [['SIGINT', 130], ['SIGTERM', 143]]) {
   test(`stamp ${signal} waits for submitted work before closing browser and credentials`, async () => {
     const source = fs.readFileSync(path.join(__dirname, 'rx-fax-signature-stamp-playwright-checks.js'), 'utf8');
-    const main = source.slice(source.lastIndexOf('(async () => {'));
+    const main = source.slice(source.lastIndexOf("const legacyHarness = require('./lib/legacy-check');"));
     const signalProcess = Object.assign(new EventEmitter(), { exitCode: 0, exit() { throw new Error('Immediate process exit'); } });
     const events = [];
     let release, options;
     const submitted = new Promise(resolve => { release = resolve; });
     const operation = vm.runInNewContext(main, {
+      require:name=>{assert.equal(name,'./lib/legacy-check');return {runLegacyCheck:(id,operation,options)=>require('./lib/legacy-check').runLegacyCheck(id,operation,{...options,processRef:signalProcess})};},
       createGracefulSignalCancellation: () => createGracefulSignalCancellation({ signalProcess }),
       shouldIgnoreHttpsErrors: () => true,
       process: signalProcess, chromePath: '', baseUrl: new URL('https://localhost/carlos'),

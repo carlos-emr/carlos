@@ -945,8 +945,9 @@ value="<%= h.get("name")%>"/>
                     hider = "style=\"display:none;\"";
                 }
             }
-            if (hdata.get("prevention_date_info") instanceof io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO dateInfo
-                    && !dateInfo.isExact()) {
+            Object preventionDateInfo = hdata.get("prevention_date_info");
+            if (preventionDateInfo instanceof io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO
+                    && !((io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO) preventionDateInfo).isExact()) {
                 hider = ""; // Uncertain timing cannot be excluded by a date range or a latest-only limit.
             }
     %>

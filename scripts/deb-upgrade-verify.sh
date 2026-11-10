@@ -394,12 +394,11 @@ if [ "$EXPECT_SPLIT" = 1 ]; then
   [ -f /usr/lib/carlos-ctl/carlos_ctl/cli.py ] && ok "the CLI package is under /usr/lib/carlos-ctl" || bad "/usr/lib/carlos-ctl/carlos_ctl/cli.py missing"
   [ ! -e /usr/lib/carlos-emr/carlos_ctl ] && [ ! -e /usr/lib/carlos-emr/carlos-ctl ] && ok "nothing of the pre-split CLI copy remains under /usr/lib/carlos-emr" || bad "pre-split CLI copy still present: $(ls -d /usr/lib/carlos-emr/carlos_ctl /usr/lib/carlos-emr/carlos-ctl 2>/dev/null | tr '\n' ' ')"
   [ ! -e /usr/lib/carlos-emr/carlos_ctl/__pycache__ ] && ok "no orphaned bytecode cache under /usr/lib/carlos-emr" || bad "orphaned /usr/lib/carlos-emr/carlos_ctl/__pycache__"
-  mf_ok=1
-  for m in o19map_schema o19map_props o19_preflight; do
-    f=/usr/share/carlos-emr/o19-manifest/$m.json
-    { [ -f "$f" ] && python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if d.get("format")==1 else 1)' "$f"; } || { mf_ok=0; bad "manifest $f missing or not format 1"; }
-  done
-  [ "$mf_ok" = 1 ] && ok "the three OSCAR 19 manifests ship with carlos-emr at format 1"
+  if python3 "$HERE/ci/installed_o19_manifests.py" /usr/share/carlos-emr/o19-manifest; then
+    ok "OSCAR 19 manifests match schema format 2 and props/preflight format 1"
+  else
+    bad "installed OSCAR 19 manifest kinds or formats differ from the shipped CLI contract"
+  fi
   grep -qFx "  carlos-emr $(g "$POST" pkg.carlos-emr)" "$CHECK_LOG" && ok "check names the carlos-emr version" || bad "check does not name carlos-emr $(g "$POST" pkg.carlos-emr)"
   grep -qFx "  carlos-ctl $ctlv" "$CHECK_LOG" && ok "check names the carlos-ctl version" || bad "check does not name carlos-ctl $ctlv"
   grep -q '^ExecStart=/usr/sbin/carlos-ctl finish-install --boot$' /usr/lib/systemd/system/carlos-emr-provision.service 2>/dev/null && ok "carlos-emr-provision.service starts /usr/sbin/carlos-ctl" || bad "carlos-emr-provision.service ExecStart: $(grep ^ExecStart= /usr/lib/systemd/system/carlos-emr-provision.service 2>/dev/null)"

@@ -20,8 +20,12 @@ class H2ReportEvidenceTest(unittest.TestCase):
         self.root = Path(temporary.name)
         plan = self.root / 'docs/testing/release-2026.08-verification.json'
         plan.parent.mkdir(parents=True)
+        routes = {'example.Native': {'check': 'native', 'cases': ['required']}}
+        for row in GATE.PERMISSION_CASES:
+            routes[row['classname']] = {'check': GATE.PERMISSION_CHECK, 'cases': [
+                {'name': row['name'], 'container': row['container']}]}
         plan.write_text(json.dumps({'checks': [{'id': 'java-all', 'minimumCases': 2,
-            'routedSkips': {'example.Native': {'check': 'native', 'cases': ['required']}}}]}))
+            'routedSkips': routes}, {'id': GATE.PERMISSION_CHECK}]}))
         self.reports = self.root / 'h2'
         self.permission = self.root / 'permission'
         self.reports.mkdir()
@@ -75,8 +79,8 @@ class H2ReportEvidenceTest(unittest.TestCase):
     def test_other_routed_cases_in_a_permission_class_are_preserved(self):
         plan = self.root / 'docs/testing/release-2026.08-verification.json'
         original = json.loads(plan.read_text())
-        original['checks'][0]['routedSkips'][GATE.PERMISSION_CLASS] = {
-            'check': 'separate-native-lane', 'cases': [{'name': 'independentNativeCase'}]}
+        original['checks'][0]['routedSkips'][GATE.PERMISSION_CLASS]['cases'].append(
+            {'name': 'independentNativeCase', 'check': 'separate-native-lane'})
         plan.write_text(json.dumps(original))
         self.report(self.reports, GATE.PERMISSION_CLASS,
                     [(GATE.PERMISSION_CASE, 'skipped'), ('independentNativeCase', 'skipped')])
@@ -91,14 +95,32 @@ class H2ReportEvidenceTest(unittest.TestCase):
         paths = [call.args[0] for call in read.call_args_list]
         self.assertEqual(len(paths), len(set(paths)))
 
-    def test_absent_routed_skips_can_be_initialized_without_waiving_any_other_skip(self):
+    def test_missing_permission_routes_are_refused_instead_of_silently_invented(self):
         plan = self.root / 'docs/testing/release-2026.08-verification.json'
         data = json.loads(plan.read_text())
         del data['checks'][0]['routedSkips']
         plan.write_text(json.dumps(data))
         (self.reports / 'TEST-example.Native.xml').unlink()
-        self.assertTrue(GATE.verify(self.reports, self.permission)['ready'])
-        self.report(self.reports, 'example.Other', [('unrouted', 'skipped')])
+        with self.assertRaisesRegex(EvidenceError, 'registered release-plan route'):
+            GATE.verify(self.reports, self.permission)
+
+    def test_each_permission_route_requires_the_exact_case_and_registered_destination(self):
+        plan = self.root / 'docs/testing/release-2026.08-verification.json'
+        original = json.loads(plan.read_text())
+        for row in GATE.PERMISSION_CASES:
+            for defect in ('missing', 'wrong-container', 'wrong-check', 'duplicate'):
+                data = json.loads(json.dumps(original))
+                route = data['checks'][0]['routedSkips'][row['classname']]
+                if defect == 'missing': route['cases'] = []
+                elif defect == 'wrong-container': route['cases'][0]['container'] += ' replaced'
+                elif defect == 'wrong-check': route['check'] = 'unregistered'
+                else: route['cases'] *= 2
+                plan.write_text(json.dumps(data))
+                with self.subTest(case=row['name'], defect=defect), self.assertRaises(EvidenceError):
+                    GATE.verify(self.reports, self.permission)
+        data = json.loads(json.dumps(original))
+        data['checks'].pop()
+        plan.write_text(json.dumps(data))
         with self.assertRaises(EvidenceError):
             GATE.verify(self.reports, self.permission)
 

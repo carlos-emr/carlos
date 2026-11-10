@@ -47,10 +47,19 @@ Independent assertions accumulate in a fatal final verdict so one product
 finding cannot conceal the other reports, graphs, PDFs and clinical-state
 checks. [#5827](https://github.com/carlos-emr/carlos/issues/5827) records invented
 numeric plot points from qualified bounds. [#5828](https://github.com/carlos-emr/carlos/issues/5828)
-records lowercased `Negative` and the missing `Pending` measurement/history
-under the shipped `HL7_LAB_MEASUREMENT_FILTER`. The latter is a product contract
-gap; this test-only change does not broaden the filter. Raw source messages,
-reports and PDFs remain independently checked. Neither finding has a failure pin.
+records lowercased `Negative` and the missing `Pending` measurement/history.
+The supported contract preserves original spelling for accepted measurement
+values without changing the shipped `HL7_LAB_MEASUREMENT_FILTER` selection or
+extraction. The final-status `Pending` literal remains unfiled. Its native value
+history and Row Display must visibly explain that reported results may be
+available only in the original report; the grid must explain its measurement
+scope and must not invent a `Pending` measurement row. These are explicit
+unsupported-view assertions, not skipped literal assertions or failure waivers.
+All raw source associations and actual reports/PDFs still require the exact
+`Pending` literal with Final status, independently of interim OBX status. Other
+supported numeric, qualified and qualitative histories retain exact assertions.
+The notices are available in all five shipped languages. Neither finding has a
+failure pin, and no clinical measurement filter is broadened.
 
 Exact owned and unrelated clinical/message/metadata/routing snapshots must stay
 unchanged through all reads. Native entry/plot/print requests use durable

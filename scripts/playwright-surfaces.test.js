@@ -96,15 +96,16 @@ test('a non-local BASE_URL is refused even when nothing asserts the database', (
   // records through the UI with assertsDatabase false.
   const readOnlyLooking = [{ name: 'surface-audit:report-index', assertsDatabase: false }];
   assert.throws(
-    () => assertSafeTarget(readOnlyLooking, { BASE_URL: 'https://carlos.example.org/carlos' }),
+    () => assertSafeTarget(readOnlyLooking, { CARLOS_DISPOSABLE_HOST: 'true', BASE_URL: 'https://carlos.example.org/carlos' }),
     /ALLOW_NON_LOCAL_BASE_URL/,
   );
 });
 
-test('a local BASE_URL needs no opt-in, and an explicit opt-in is honoured', () => {
+test('a disposable local BASE_URL and explicit remote opt-in are honoured', () => {
   const checks = [{ name: 'x', assertsDatabase: true }];
-  assert.doesNotThrow(() => assertSafeTarget(checks, { BASE_URL: 'http://127.0.0.1:8080/carlos' }));
+  assert.doesNotThrow(() => assertSafeTarget(checks, { CARLOS_DISPOSABLE_HOST: 'true', BASE_URL: 'http://127.0.0.1:8080/carlos' }));
   assert.doesNotThrow(() => assertSafeTarget(checks, {
+    CARLOS_DISPOSABLE_HOST: 'true',
     BASE_URL: 'https://carlos.example.org/carlos',
     ALLOW_NON_LOCAL_BASE_URL: 'true',
   }));
@@ -120,7 +121,7 @@ test('the deployment fingerprint is a validator, not an HTTP status', () => {
     'Content-Length: 1406',
     '',
   ].join('\r\n');
-  const identity = readBuildIdentity({ BASE_URL: 'http://127.0.0.1:8080/carlos' },
+  const identity = readBuildIdentity({ CARLOS_DISPOSABLE_HOST: 'true', BASE_URL: 'http://127.0.0.1:8080/carlos' },
     () => ({ status: 0, stdout: headers }));
   assert.notEqual(identity, '200');
   assert.match(identity, /1756713600000/);
@@ -128,7 +129,7 @@ test('the deployment fingerprint is a validator, not an HTTP status', () => {
 });
 
 test('the fingerprint is null rather than a guess when it cannot be read', () => {
-  const args = { BASE_URL: 'http://127.0.0.1:8080/carlos' };
+  const args = { CARLOS_DISPOSABLE_HOST: 'true', BASE_URL: 'http://127.0.0.1:8080/carlos' };
   assert.equal(readBuildIdentity(args, () => ({ status: 7, stdout: '' })), null);
   assert.equal(readBuildIdentity(args, () => ({ status: 0, stdout: 'HTTP/1.1 404\r\n\r\n' })), null);
   assert.equal(readBuildIdentity(args, () => ({ status: 0, stdout: 'HTTP/1.1 200\r\n\r\n' })), null);
@@ -154,6 +155,7 @@ test('the runner refuses a remote MYSQL_HOST even when BASE_URL is local', () =>
   // with a remote database would otherwise seed, update and delete rows there.
   assert.throws(
     () => assertSafeTarget([{ name: 'x', assertsDatabase: false }], {
+    CARLOS_DISPOSABLE_HOST: 'true',
       BASE_URL: 'http://127.0.0.1:8080/carlos',
       MYSQL_HOST: 'db.example.org',
     }),
@@ -161,11 +163,13 @@ test('the runner refuses a remote MYSQL_HOST even when BASE_URL is local', () =>
   );
   // The existing opt-in still works, and an unset MYSQL_HOST is not invented.
   assert.doesNotThrow(() => assertSafeTarget([{ name: 'x', assertsDatabase: false }], {
+    CARLOS_DISPOSABLE_HOST: 'true',
     BASE_URL: 'http://127.0.0.1:8080/carlos',
     MYSQL_HOST: 'db.example.org',
     ALLOW_NON_LOCAL_MYSQL_HOST: 'true',
   }));
   assert.doesNotThrow(() => assertSafeTarget([{ name: 'x', assertsDatabase: false }], {
+    CARLOS_DISPOSABLE_HOST: 'true',
     BASE_URL: 'http://127.0.0.1:8080/carlos',
   }));
 });
@@ -189,7 +193,7 @@ test('certificate verification is waived for the build probe on loopback and pri
   const headers = 'HTTP/1.1 200\r\nETag: "abc"\r\n\r\n';
   const flagsFor = (base) => {
     let seen = null;
-    readBuildIdentity({ BASE_URL: base }, (command, args) => {
+    readBuildIdentity({ CARLOS_DISPOSABLE_HOST: 'true', BASE_URL: base }, (command, args) => {
       seen = args[0];
       return { status: 0, stdout: headers };
     });
@@ -206,7 +210,7 @@ test('certificate verification is waived for the build probe on loopback and pri
 
 test('an unparseable BASE_URL disables the build probe rather than guessing', () => {
   let called = false;
-  const identity = readBuildIdentity({ BASE_URL: 'not a url' }, () => {
+  const identity = readBuildIdentity({ CARLOS_DISPOSABLE_HOST: 'true', BASE_URL: 'not a url' }, () => {
     called = true;
     return { status: 0, stdout: 'HTTP/1.1 200\r\nETag: "abc"\r\n\r\n' };
   });
@@ -223,7 +227,7 @@ test('each check runs against the environment the target gate validated', () => 
   let childEnv = null;
   runOne(
     { name: 'probe', script: 'scripts/probe-playwright-checks.js', timeoutSec: 5 },
-    { env: { BASE_URL: 'http://gated.test/carlos', MYSQL_HOST: '127.0.0.1' } },
+    { env: { CARLOS_DISPOSABLE_HOST: 'true', BASE_URL: 'http://gated.test/carlos', MYSQL_HOST: '127.0.0.1' } },
     (command, args, spawnOptions) => { childEnv = spawnOptions.env; return { status: 0 }; },
   );
   assert.equal(childEnv.BASE_URL, 'http://gated.test/carlos');
@@ -236,7 +240,7 @@ test('an envSet entry still overrides the inherited environment', () => {
   let childEnv = null;
   runOne(
     { name: 'surface-audit:inbox', script: 'scripts/surface-audit-playwright-checks.js', timeoutSec: 5, envSet: { SURFACE: 'inbox' } },
-    { env: { BASE_URL: 'http://gated.test/carlos', SURFACE: 'report' } },
+    { env: { CARLOS_DISPOSABLE_HOST: 'true', BASE_URL: 'http://gated.test/carlos', SURFACE: 'report' } },
     (command, args, spawnOptions) => { childEnv = spawnOptions.env; return { status: 0 }; },
   );
   assert.equal(childEnv.SURFACE, 'inbox');
@@ -415,4 +419,13 @@ test('one failed module is not masked by all the successful modules', async () =
 test('an old page without actual loader state cannot pass on populated link counts', async () => {
   const page = fakeChartPage({ leftNavBar: 80, rightNavBar: 70, stateMissing: true });
   await assert.rejects(() => waitForNavbars(page, 20), /never finished loading: loader not started/);
+});
+
+test('a loopback target requires an affirmative disposable marker before mutation', () => {
+  for (const marker of [undefined, '', 'false', 'TRUE', '1']) {
+    assert.throws(() => assertSafeTarget([{name: 'clinical-write'}], {
+      BASE_URL: 'https://127.0.0.1/carlos', CARLOS_DISPOSABLE_HOST: marker,
+      ALLOW_NON_LOCAL_BASE_URL: 'true',
+    }), /CARLOS_DISPOSABLE_HOST/);
+  }
 });

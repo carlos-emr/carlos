@@ -41,6 +41,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.providers.data.*" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
@@ -384,8 +385,9 @@
                                     LookupList ll = lookupListManager.findLookupListByName(LoggedInInfo.getLoggedInInfoFromSession(request), "practitionerNoType");
                                     if (ll != null) {
                                         for (LookupListItem llItem : ll.getItems()) {
+                                            if (!Boolean.TRUE.equals(llItem.isActive())) continue;
                                 %>
-                                <option value="<%=llItem.getValue()%>"><%=llItem.getLabel()%>
+                                <option value="<carlos:encode value='<%= llItem.getValue() == null ? "" : llItem.getValue() %>' context="htmlAttribute"/>"><carlos:encode value='<%= llItem.getLabel() == null ? "" : llItem.getLabel() %>' context="html"/>
                                 </option>
                                 <%
                                         }

@@ -320,7 +320,7 @@
                                     disabled = "disabled";
                                 };
                             --%>
-                            <input type="checkbox" name="flaggedLabs" value="<%=segmentID + ":" + result.labType%>">
+                            <input type="checkbox" name="flaggedLabs" value="<%=segmentID + ":" + result.labType%>" <%= result.isMultipleAckCountUnavailable() ? "disabled" : "" %>>
                             <input type="hidden" name="labType<%=segmentID+result.labType%>"
                                    value="<%=result.labType%>"/>
                             <input type="hidden" name="ackStatus" value="<%= result.isMatchedToPatient() %>"/>
@@ -412,6 +412,9 @@
                             <% int multiLabCount = result.getMultipleAckCount(); %>
                             <%= result.getAckCount() %>&#160<% if (multiLabCount >= 0) { %>
                             (<%= result.getMultipleAckCount() %>)<%}%>
+                            <% if (result.isMultipleAckCountUnavailable()) { %>
+                            <span class="text-warning" role="alert" data-carlos-cml-count-warning="unavailable"><fmt:message key="cml.versionChain.unavailable"/></span>
+                            <% } %>
                         </td>
                     </tr>
                     <% }

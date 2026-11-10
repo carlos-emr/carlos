@@ -70,6 +70,40 @@ test('add validation reports all current failures and drops corrected failures o
   s.context.validate(s.form);
   assert.deepEqual(s.messages(), ['tickler.ticklerAdd.msgMustAssignProvider']);
 });
+for(const multisite of [false,true])test(`Add Tickler refuses an unselected assignee with guidance (multisite=${multisite})`,()=>{
+  const s=setup(pages[0],multisite);
+  s.form.xml_appointment_date.value='2026-03-04';
+  s.form.task_assigned_to.value='';
+  assert.equal(s.context.validateDemoNo(),false);
+  assert.deepEqual(s.messages(),['tickler.ticklerAdd.msgMustAssignProvider']);
+  s.context.CarlosTicklerValidation.reset();
+  s.form.task_assigned_to.value='999998';
+  assert.equal(s.context.validateDemoNo(),true);
+  assert.deepEqual(s.messages(),[]);
+});
+test('native patient search carries the current Tickler draft through repeated attachment and patient changes',()=>{
+  const searchMatch=pages[0].source.match(/<form name="ADDAPPT"[\s\S]*?<\/form>/);
+  assert.ok(searchMatch,'Native Tickler patient search must contain the ADDAPPT form');
+  const search=searchMatch[0];
+  const submitMatch=search.match(/onsubmit="([^"]+)"/);
+  assert.ok(submitMatch,'Native Tickler patient search must carry the draft in its submit handler');
+  const submit=submitMatch[1];
+  assert.match(search,/<input type="hidden" name="ticklerMessage"/);
+  const source={ticklerMessage:{value:''},xml_appointment_date:{value:'2026-03-04'},priority:{value:'High'}};
+  const destination={ticklerMessage:{value:'old draft'},ticklerDraftDate:{value:''},ticklerDraftPriority:{value:''}};
+  const form={elements:{namedItem:name=>destination[name]}};
+  const prepare=pages[0].source.match(/(^[ \t]*)function prepareTicklerPatientSearch\(searchForm\) \{[\s\S]*?^\1\}/m);
+  assert.ok(prepare,'Native patient search must execute the complete production draft transport');
+  const context=vm.createContext({document:{forms:{namedItem(name){assert.equal(name,'serviceform');return {elements:{namedItem:field=>source[field]}};}}},
+    CarlosTicklerValidation:{show(){assert.fail('A complete draft must remain submittable');}},i18nDraftSearchUnavailable:'Unavailable draft'});
+  vm.runInContext(prepare[0],context);
+  const submitDraft=vm.runInContext('(function(){'+submit+'})',context);
+  for(const draft of ['Unsaved H&P + "quotes" <tag>\nsecond line','Changed patient: é & %26','']){
+    source.ticklerMessage.value=draft;
+    assert.equal(submitDraft.call(form),true);
+    assert.deepEqual(Object.values(destination).map(field=>field.value),Object.values(source).map(field=>field.value));
+  }
+});
 test('shared rendering keeps hostile message text inert and resetting hides and empties the alert', () => {
   const s = setup(pages[0]);
   const message = '<img src=x onerror="bad()"> & </script>';

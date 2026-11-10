@@ -3,7 +3,7 @@ import copy
 import json
 from pathlib import Path
 import unittest
-from lifecycle_baselines import required_baselines, select_baseline
+from lifecycle_baselines import candidate_cli, required_baselines, select_baseline
 from junit_evidence import EvidenceError
 
 
@@ -20,6 +20,25 @@ class LifecycleBaselineTest(unittest.TestCase):
             broken = copy.deepcopy(document); broken['additionalSupportedBaselines'] = invalid
             with self.assertRaises(EvidenceError): required_baselines(broken)
         with self.assertRaises(EvidenceError): select_baseline(document, 'unreviewed')
+
+    def test_candidate_cli_upgrade_keeps_both_published_predecessors_unchanged(self):
+        document = self.document()
+        self.assertEqual(candidate_cli(document)['version'], '1.3.2')
+        self.assertEqual([row['cliVersion'] for row in required_baselines(document)], ['1.3.1', '1.3.0'])
+        predecessor = next(row for row in document['assets'] if row['name'].startswith('carlos-ctl_'))
+        self.assertNotEqual(candidate_cli(document)['sha256'], predecessor['sha256'])
+
+    def test_missing_stale_or_malformed_candidate_cli_cannot_qualify(self):
+        document = self.document()
+        for value in (None, {}, []):
+            broken = copy.deepcopy(document); broken['candidateCli'] = value
+            with self.assertRaises(EvidenceError): required_baselines(broken)
+        for field, value in [('tag', '1.3.1'), ('version', '1.3.1'), ('name', 'carlos-ctl_1.3.1_all.deb'),
+                ('sha256', 'unverified'), ('bytes', True), ('bytes', 0),
+                ('url', 'https://example.invalid/unreviewed.deb')]:
+            with self.subTest(field=field, value=value):
+                broken = copy.deepcopy(document); broken['candidateCli'][field] = value
+                with self.assertRaises(EvidenceError): candidate_cli(broken)
 
     def test_a_second_tag_on_the_same_commit_cannot_replace_historical_qualification(self):
         document = self.document()

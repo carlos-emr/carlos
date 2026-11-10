@@ -1174,7 +1174,7 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "BC"
       ],
       "timeoutSec": 120,
       "env": [
@@ -1182,7 +1182,8 @@
         "PATHNET_JOURNAL_UNIT"
       ],
       "fixtures": "Owned synthetic patient and four legacy BCP reports (final, preliminary, mixed F/P and mixed F/I); requires BC tables, server PATHNET_LABS=yes and the same explicit environment opt-in. Set PATHNET_JOURNAL_UNIT=carlos-emr.service on a packaged install to require a readable journal cursor and reject factory warnings/errors from this check's requests (#5189).",
-      "notes": "Exercise the real PathNet patient projection and final/partial classification; remove owned routing and lab rows. Last, the regression check for app-findings-log.md finding 165 (fixed, #4552): a report with both an F and a P result is listed as Partial, not Final (the report status aggregate used to be the alphabetical MIN of its OBR statuses). BC-only: it ends SKIP on an Ontario install (the hl7_* tables exist only on a schema the BC migrations built) (issue #4439)."
+      "notes": "Exercise the real PathNet patient projection and final/partial classification; remove owned routing and lab rows. Last, the regression check for app-findings-log.md finding 165 (fixed, #4552): a report with both an F and a P result is listed as Partial, not Final (the report status aggregate used to be the alphabetical MIN of its OBR statuses). BC-only: it ends SKIP on an Ontario install (the hl7_* tables exist only on a schema the BC migrations built) (issue #4439).",
+      "profile": "native-pathnet"
     },
     {
       "name": "echart-new-patient-notes",
@@ -1694,11 +1695,11 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 300,
+      "timeoutSec": 1600,
       "env": [
         "ERROR_SANITIZATION_SCREENSHOT_DIR"
       ],
-      "notes": "Former error probes must return controlled HTTP 400 through the packaged front door. Deterministic HTML and /ws 5xx body replacement is covered by ResponseSanitizationFilterTomcatIntegrationTest using test-only embedded Tomcat servlets."
+      "notes": "Controlled HTTP 400 refusals and deterministic HTML, /ws and ERROR-dispatch 500 bodies through the packaged front door. Only this check temporarily installs fault routes on a disposable systemd container; it restores the exact descriptor and removes its classes before exiting. The timeout includes setup, two bounded service restarts and restoration."
     },
     {
       "name": "fax-configure",
@@ -1742,7 +1743,8 @@
         "FIRST_NATIONS_DEMOGRAPHIC_NO",
         "FIRST_NATIONS_SCREENSHOT_DIR",
         "RESET_PASSWORD"
-      ]
+      ],
+      "profile": "first-nations-encoding"
     },
     {
       "name": "flowsheet-admin",
@@ -2551,7 +2553,11 @@
         "O19_NATIVE_CLINICIAN_CREDENTIALS",
         "O19_REQUIRE_NATIVE_AUTH"
       ],
-      "fixtures": "Needs an actual import-o19 target and its break-glass credentials. Native-auth proof uses a private0600O19_NATIVE_CLINICIAN_CREDENTIALS file plus O19_REQUIRE_NATIVE_AUTH=true; it leaves genuine resets intact. Execute directly against the installed reviewed packages; the optional rehearsal/ui-smoke.sh builds a separate scratch WAR."
+      "fixtures": "Needs an actual import-o19 target and its break-glass credentials. Native-auth proof uses a private0600O19_NATIVE_CLINICIAN_CREDENTIALS file plus O19_REQUIRE_NATIVE_AUTH=true; it leaves genuine resets intact. Execute directly against the installed reviewed packages; the optional rehearsal/ui-smoke.sh builds a separate scratch WAR.",
+      "manual": true,
+      "envSet": {
+        "O19_REQUIRE_NATIVE_AUTH": "true"
+      }
     },
     {
       "name": "patient-list-by-appointment-export",
@@ -11112,11 +11118,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owned synthetic patient and one note saved through the chart, read back through the rev link and the Note Search history URL; cleanup deletes the note rows and the audit rows scoped to the patient or the note id and asserts them gone.",
-      "notes": "Expected to FAIL at the step 'the read/CME note row of the Note Search history view names the patient (demographic_no)' (finding 141): CaseManagementEntry method=history (the History icon of Note Search and the Case Management view) hands LogAction the note's audit string where it expects the demographic number, so its read/CME note row has no demographic_no and the note text goes to the application log (deb-server-log-phi-scan.sh reports it as log.LogAction). The step before it opens that view for the saved note and proves the row exists and names the note, so a missing row or page fails there, as failed-elsewhere. Behind that pin the check's LAST step 'every expectation of the read path held' still fails, on three audit gaps logged as findings 206 (the E-Chart rev link, method=notehistory, writes no audit row), 207 (the Print icon, method=print, a full-chart PDF, writes no audit row) and 208 (the manager-layer rows about the patient, PatientConsentManager.getAllConsentsByDemographic and DemographicManager.getMergedDemographics, carry no demographic_no). That step is not reached while 141 stands, so the day 141 is fixed this run turns failed-elsewhere until 206-208 are fixed or pinned by entries of their own.",
-      "expectedFailure": {
-        "finding": 141,
-        "step": "the read/CME note row of the Note Search history view names the patient (demographic_no)"
-      }
+      "notes": "The current packaged history-row assertion passes (finding 141 retired after a native installed retake). Findings 206–208 now have production repairs and passing ON/BC installed CI retakes. Revision reads, exactly one patient/provider-identified chart-print event with no free-text data, and structured patient IDs remain mandatory assertions. No expected-failure pin or waiver is introduced."
     },
     {
       "name": "audit-log-chart-note-history",
@@ -12837,7 +12839,7 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "BC"
       ],
       "timeoutSec": 240,
       "env": [],
@@ -12846,7 +12848,8 @@
         "finding": 195,
         "step": "PathNet display shows the lab's values and its patient"
       },
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name; no master record is opened), a throwaway provider login that is the Forward recipient (lib/throwaway-login-fixture.js), and one PathNet lab seeded by SQL under a random 10-digit number verified unoccupied (hl7_message / hl7_msh / hl7_pid / hl7_orc / hl7_obr / hl7_obx, plus patientLabRouting and providerLabRouting rows). Cleanup removes exactly those rows by key after proving the lab header still carries the run's marker, together with the providerLabRoutingLock row and the audit rows the pages wrote for the owned lab number, and asserts them gone. Forward, once it reaches ReportReassign, rewrites the test login's forwarding favourites from what the page posts; they are snapshotted and restored, so it must not run concurrently with detached-delete-forward-favourites, inbox-file-forward or another check that creates favourites (live wrapper: EXCLUSIVE=1). No clinic-wide state is changed."
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name; no master record is opened), a throwaway provider login that is the Forward recipient (lib/throwaway-login-fixture.js), and one PathNet lab seeded by SQL under a random 10-digit number verified unoccupied (hl7_message / hl7_msh / hl7_pid / hl7_orc / hl7_obr / hl7_obx, plus patientLabRouting and providerLabRouting rows). Cleanup removes exactly those rows by key after proving the lab header still carries the run's marker, together with the providerLabRoutingLock row and the audit rows the pages wrote for the owned lab number, and asserts them gone. Forward, once it reaches ReportReassign, rewrites the test login's forwarding favourites from what the page posts; they are snapshotted and restored, so it must not run concurrently with detached-delete-forward-favourites, inbox-file-forward or another check that creates favourites (live wrapper: EXCLUSIVE=1). No clinic-wide state is changed.",
+      "profile": "native-pathnet"
     },
     {
       "name": "lab-forward-picker",
@@ -18722,7 +18725,8 @@
       "assertsDatabase": true,
       "env": [],
       "fixtures": "Owned patient/control and exact demographic save-support cleanup. Requires actual FIRST_NATIONS_MODULE=true, showBandNumberOnly=false and one configured firstNationCommunity lookup with two distinct three-digit community values; no lookup configuration is changed by this check.",
-      "notes": "#5727 native valid status/community/family save/reopen, manual and cleared community after status revisit, optional Unicode edits/clears, band search after changes, unchanged unrelated values/control. Installed enabled-profile attempt currently fails on real browser ReferenceError and reopened flag (#5815); later steps remain unreached, with no pin or waiver."
+      "notes": "#5727 native valid status/community/family save/reopen, manual and cleared community after status revisit, optional Unicode edits/clears, band search after changes, unchanged unrelated values/control. The #5815 focus-handler/request-value repair passed current ON/BC enabled-profile retakes; no expected-failure pin.",
+      "profile": "first-nations"
     },
     {
       "name": "lookup-list-isolation",
@@ -18766,7 +18770,7 @@
         "dsGuidelineProviderMap"
       ],
       "fixtures": "Owned provider, two synthetic patients, fixed clinical records and 41 provider-scoped seeded definitions; no guideline authoring UI exists. Cleanup verifies exact owned mappings and preserves a provider if rule cleanup fails. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "#5718: age year/month/day boundaries, drugs/notes/billing/diagnosis/sex any/all/negative operators, native six-row expansion, alternating chart/list/per-condition detail, independent truth tables and SQL snapshots, native diagnosis resolution. Unsupported/dynamic-context families are inventoried separately. Synthetic JSON observations are retained; all mismatches remain fatal. Sex all/notall defect tracked as #5817; no new pin."
+      "notes": "#5718: age year/month/day boundaries, drugs/notes/billing/diagnosis/sex any/all/negative operators, native six-row expansion, alternating chart/list/per-condition detail, independent truth tables and SQL snapshots, native diagnosis resolution. Unsupported/dynamic-context families are inventoried separately. Synthetic JSON observations are retained; all mismatches remain fatal. The #5817 sex all/notall repair passed the current ON native operator retake; no expected-failure pin."
     },
     {
       "name": "rx-same-severity-partners",
@@ -19001,8 +19005,35 @@
         "providersite",
         "site",
         "providerArchive",
+        "providerbillcenter",
         "property:tickler_task_assignee"
       ]
+    },
+    {
+      "name": "tickler-mrp-routing-multisite",
+      "script": "scripts/tickler-mrp-routing-multisite-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "notes": "Required multisite variant of #5812. Reuses every native MRP/draft/recipient/cleanup control and additionally requires the actual clinic selector in the composer.",
+      "fixtures": "Four owned actors and two owned patients, separate unchanged control task; full known task/history cleanup, strict second-patient reference checks, original first-patient MRP restore, owned provider archive/property cleanup and post-browser application cache reset. Explicit taskTo precedence is also independently covered by lab-recall-delegate-delivery. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "provider",
+        "providersite",
+        "providerArchive",
+        "providerbillcenter",
+        "property:tickler_task_assignee"
+      ],
+      "profile": "multisite"
     },
     {
       "name": "eform-image-zip-roundtrip",
@@ -19201,7 +19232,7 @@
         "eform"
       ],
       "fixtures": "One native editor-created template, owned patient/revisions and unrelated control, exact owned PNG and renderer PDFs. Unknown native writes retain all fixtures and private request journals. Complete unrelated template/image/control snapshots are preserved on success and failure. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "#5801: actual editor inventory, xBox defaults and native radio grouping, image selection and wet-signature placement/drawing/clear, independent persisted markup/value checks, native instance histories/reopen, actual PDF controls/image/signature/toolbar, native library-pencil Update of the same template and revised new-instance layout. #5826 remains a fatal product finding; no expected-failure pin. Requires Poppler and real installed image/renderer directories."
+      "notes": "#5801: actual editor inventory, xBox defaults and native radio grouping, image selection and wet-signature placement/drawing/clear, independent persisted markup/value checks, native instance histories/reopen, actual PDF controls/image/signature/toolbar, native library-pencil Update of the same template and revised new-instance layout. The #5826 blank-rendering repair passed current ON/BC persisted-clear and PDF retakes while preserving legacy nonblank-only value rows; no expected-failure pin. Requires Poppler and real installed image/renderer directories."
     },
     {
       "name": "lab-qualified-results",

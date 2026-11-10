@@ -42,9 +42,9 @@ class FixedJasperReportDaoIntegrationTest extends CarlosTestBase {
             try (var template = getClass().getResourceAsStream("/oscar/oscarReport/pageUtil/" + name);
                  var baseline = getClass().getResourceAsStream("/jasper-5692-baseline/" + name)) {
                 var parameters = new java.util.HashMap<String, Object>(Map.of("input_date", "2025-03-01"));
-                var actual = JasperFillManager.fillReport(JasperCompileManager.compileReport(template), parameters,
+                var actual = JasperFillManager.fillReport(compileAtFixedTime(template), parameters,
                         FixedJasperDataSources.daySheet(rows));
-                var original = JasperCompileManager.compileReport(baseline);
+                var original = compileAtFixedTime(baseline);
                 var expected = entityManager.unwrap(org.hibernate.Session.class).doReturningWork(connection -> {
                     try { return JasperFillManager.fillReport(original, new java.util.HashMap<>(Map.<String, Object>of("input_date", "2025-03-01")), connection); }
                     catch (net.sf.jasperreports.engine.JRException ex) { throw new java.sql.SQLException(ex); }
@@ -84,5 +84,16 @@ class FixedJasperReportDaoIntegrationTest extends CarlosTestBase {
         try (var pdf = org.apache.pdfbox.Loader.loadPDF(JasperExportManager.exportReportToPdf(print))) {
             return new org.apache.pdfbox.text.PDFTextStripper().getText(pdf);
         }
+    }
+
+    private static net.sf.jasperreports.engine.JasperReport compileAtFixedTime(java.io.InputStream template) throws Exception {
+        // Both templates print the current minute. Their independent fills can cross a minute
+        // boundary; fix only that expression so all report content and layout remain compared.
+        String xml = new String(template.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        String clock = "<![CDATA[new Date()]]>";
+        assertThat(xml.split(java.util.regex.Pattern.quote(clock), -1)).hasSize(2);
+        return JasperCompileManager.compileReport(new java.io.ByteArrayInputStream(
+                xml.replace(clock, "<![CDATA[new java.util.Date(1740787200000L)]]>")
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8)));
     }
 }

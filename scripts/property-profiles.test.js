@@ -56,7 +56,7 @@ test('suite rejects invalid property-profile selections and unsafe targets befor
   for(const [selection,env,diagnostic] of [
     [['--only','definitely-misspelled-check'],{},/Unknown.*definitely-misspelled-check/i],
     [['--only','appointment-email-option','--skip','appointment-email-option'],{},/No checks matched/],
-    [['--only','appointment-email-option'],{BASE_URL:'https://unapproved.invalid/carlos'},/non-loopback BASE_URL/],
+    [['--only','appointment-email-option'],{BASE_URL:'https://unapproved.invalid/carlos',CARLOS_DISPOSABLE_HOST:'true'},/non-loopback BASE_URL/],
   ]) {
     const result=spawnSync(process.execPath,[cli,'--profile','appointment-options',...selection],{encoding:'utf8',env:{...process.env,BASE_URL:'https://127.0.0.1/carlos',MYSQL_HOST:'localhost',CARLOS_DISPOSABLE_HOST:'',ALLOW_NON_LOCAL_BASE_URL:'',ALLOW_NON_LOCAL_MYSQL_HOST:'',CARLOS_PROPERTY_PROFILE_ACTIVE:'',...env}});
     assert.equal(result.status,1,result.stderr);assert.match(result.stderr,diagnostic);
@@ -69,7 +69,7 @@ test('active profile environment marker cannot bypass the private inherited hand
   await assert.rejects(verifyActiveProfile('address-lock',{env:{CARLOS_PROPERTY_PROFILE_ACTIVE:'address-lock'},file:'/unreadable/should-not-be-opened'}),/private parent handoff/);
 });
 
-test('strict profile CLI completes its internal preflight before requesting the disposable host', () => {
+test('strict profile CLI refuses an unmarked host before entering profile execution', () => {
   const {spawnSync} = require('node:child_process');
   const cli = path.join(__dirname, 'run-playwright-suite.js');
   const result = spawnSync(process.execPath, [cli, '--strict-release', '--profile', 'appointment-options',
@@ -77,8 +77,8 @@ test('strict profile CLI completes its internal preflight before requesting the 
       BASE_URL: 'https://127.0.0.1/carlos', MYSQL_HOST: 'localhost', CARLOS_DISPOSABLE_HOST: '',
       CARLOS_PROPERTY_PROFILE_ACTIVE: '', CARLOS_PROFILE_READINESS_SECONDS: '120'}});
   assert.equal(result.status, 1);
-  assert.match(result.stdout, /Would run 1 check/);
-  assert.match(result.stderr, /Property profiles require CARLOS_DISPOSABLE_HOST=true/);
+  assert.equal(result.stdout, '');
+  assert.match(result.stderr, /CARLOS_DISPOSABLE_HOST=true/);
   assert.doesNotMatch(result.stderr, /does not permit --dry-run/);
 });
 test('profile readiness budget is validated before any configuration mutation',async t=>{

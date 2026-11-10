@@ -273,7 +273,9 @@ public class CMLHandler implements MessageHandler {
         for (int i=0; i < obrCount; i++){
             obxCount = getOBXCount(i);
             for (int j=0; j < obxCount; j++){
-                if (getOBXResultStatus(i, j).equals("Final"))
+                String status = getOBXResultStatus(i, j);
+                // HL7 C amends a final result; it is complete, not a preliminary observation.
+                if ("Final".equals(status) || "C".equals(status) || "c".equals(status))
                     count++;
             }
         }

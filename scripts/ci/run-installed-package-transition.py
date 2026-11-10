@@ -16,7 +16,7 @@ import uuid
 import installed_package_state as state
 import release_verification as gate
 from junit_evidence import EvidenceError
-from lifecycle_baselines import select_baseline
+from lifecycle_baselines import candidate_cli, select_baseline
 from release_deployment import attest, attest_package, local_target, package_contents
 from process_group import ProcessGroupFailure, run_process_group
 
@@ -91,12 +91,13 @@ def main():
         if args.baseline_tag and args.mode != 'upgrade':
             raise EvidenceError('Predecessor selection applies only to an upgrade')
         selected = select_baseline(pins, args.baseline_tag)
-        ctl_pin = next(row for row in pins['assets'] if row['name'].startswith('carlos-ctl_'))
+        ctl_pin = candidate_cli(pins)
         if (not pinned(args.emr, args.emr_sha256) or not pinned(args.drugref, args.drugref_sha256)
                 or not pinned(args.ctl, ctl_pin['sha256'])
                 or package_field(args.emr, 'Package') != 'carlos-emr'
                 or package_field(args.drugref, 'Package') != 'carlos-emr-drugref'
-                or package_field(args.ctl, 'Package') != 'carlos-ctl'):
+                or package_field(args.ctl, 'Package') != 'carlos-ctl'
+                or package_field(args.ctl, 'Version') != ctl_pin['version']):
             raise EvidenceError('Package transition inputs do not match their named pins')
         version = package_field(args.emr, 'Version')
         prior_version = installed_version('carlos-emr')
@@ -136,8 +137,9 @@ def main():
         environment = {**os.environ, 'ADMIN_USER': os.environ.get('TEST_USER', 'carlosdoc')}
         pre = directory / 'baseline-before.txt'
         fields = baseline(pre, environment)
-        if fields.get('cfg.province', '').lower() != args.profile.lower() or fields.get('admin.forceReset') != '0':
-            raise EvidenceError('Predecessor has the wrong province or has not completed first login')
+        if (fields.get('cfg.province', '').lower() != args.profile.lower()
+                or fields.get('admin.forceReset') != '0' or fields.get('service.active') != 'active'):
+            raise EvidenceError('Predecessor has the wrong province, is stopped or has not completed first login')
         inputs.append(pre)
         owner = pwd.getpwnam('carlos')
         canary = Path('/var/lib/carlos-emr/CarlosDocument/carlos/document') / ('FAKE-5700-transition-' + uuid.uuid4().hex + '.txt')

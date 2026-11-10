@@ -1,6 +1,7 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 """Curated distinct main and historical package baselines for release 2026.08."""
 import re
+from pathlib import Path
 from junit_evidence import EvidenceError
 
 REQUIRED_TAGS = {'2026.08.0-beta6', '2026.08.0-beta5'}
@@ -11,9 +12,29 @@ def matches(pattern, value):
     return isinstance(value, str) and re.fullmatch(pattern, value) is not None
 
 
+def candidate_cli(document):
+    """Keep the shipped CLI independent of unchanged published predecessors."""
+    pin = Path(__file__).resolve().parents[2] / 'debian/carlos-ctl.pin'
+    tags = re.findall(r'^tag=(.+)$', pin.read_text(), re.M)
+    row = document.get('candidateCli') if isinstance(document, dict) else None
+    if (len(tags) != 1 or not matches(r'[0-9][0-9A-Za-z.+\-]*', tags[0])
+            or not isinstance(row, dict)
+            or set(row) != {'tag', 'version', 'name', 'bytes', 'sha256', 'url'}):
+        raise EvidenceError('Candidate CLI requires its separate reviewed published pin')
+    tag = tags[0]
+    name = 'carlos-ctl_' + tag.replace('-', '.') + '_all.deb'
+    if (row['tag'] != tag or row['version'] != tag.replace('-', '~') or row['name'] != name
+            or not matches(r'[0-9a-f]{64}', row['sha256'])
+            or type(row['bytes']) is not int or row['bytes'] <= 0
+            or row['url'] != 'https://github.com/carlos-emr/carlos-ctl/releases/download/' + tag + '/' + name):
+        raise EvidenceError('Candidate CLI differs from its shipped version or exact published identity')
+    return row
+
+
 def required_baselines(document):
     if not isinstance(document, dict):
         raise EvidenceError('Lifecycle baseline document must be an object')
+    candidate_cli(document)
     additional = document.get('additionalSupportedBaselines')
     if not isinstance(additional, list):
         raise EvidenceError('Distinct historical lifecycle baseline is required')

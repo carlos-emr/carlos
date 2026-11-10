@@ -16,6 +16,28 @@ from package_lifecycle import CELL_ASSERTIONS, validate_config, validate_invento
 
 
 class PackageLifecycleTest(unittest.TestCase):
+    def test_candidate_cli_pin_does_not_replace_either_predecessor_package(self):
+        import importlib.util
+        from lifecycle_baselines import candidate_cli, required_baselines
+        spec = importlib.util.spec_from_file_location('lifecycle_cli_inputs', Path(__file__).with_name('run-package-lifecycle.py'))
+        host = importlib.util.module_from_spec(spec); spec.loader.exec_module(host)
+        pins = gate.read_json(gate.ROOT / 'docs/testing/release-2026.08-lifecycle-baselines.json')
+        baselines = required_baselines(pins); target = candidate_cli(pins)
+        packages = {'target': {'ctl': {'path': 'candidate-ctl.deb', 'sha256': target['sha256']}}}
+        for row in baselines:
+            packages[row['tag']] = {name: {'path': name + '.deb', 'sha256': next(
+                asset['sha256'] for asset in row['assets'] if asset['name'].startswith(prefix))}
+                for name, prefix in [('emr', 'carlos-emr_'), ('drugref', 'carlos-emr-drugref_'), ('ctl', 'carlos-ctl_')]}
+        config = {'packages': packages}
+        with patch.object(host, 'checked_file'):
+            host.package_inputs(config, baselines, target)
+            stale = copy.deepcopy(config)
+            stale['packages']['target']['ctl'] = copy.deepcopy(packages[baselines[0]['tag']]['ctl'])
+            with self.assertRaisesRegex(EvidenceError, 'target CLI'): host.package_inputs(stale, baselines, target)
+            replaced = copy.deepcopy(config)
+            replaced['packages'][baselines[0]['tag']]['ctl'] = copy.deepcopy(packages['target']['ctl'])
+            with self.assertRaisesRegex(EvidenceError, 'predecessor'): host.package_inputs(replaced, baselines, target)
+
     def test_fault_adapter_budget_includes_both_restarts_and_the_browser_suite(self):
         import importlib.util
         spec = importlib.util.spec_from_file_location('lifecycle_budget', Path(__file__).with_name('run-package-lifecycle-cell.py'))
@@ -27,7 +49,8 @@ class PackageLifecycleTest(unittest.TestCase):
             for selection in (None, ['error-sanitization'], cell.BASELINE_READ_ONLY):
                 cell.smoke({'CARLOS_SUITE_PROVINCE': 'ON'}, 'budget', selection)
         for command, seconds in budgets[:2]:
-            self.assertIn('scripts/ci/run-installed-error-sanitization.py', command)
+            self.assertEqual(command[:2], ['node', 'scripts/run-playwright-suite.js'])
+            self.assertNotIn('scripts/ci/run-installed-error-sanitization.py', command)
             self.assertGreaterEqual(seconds, 2 * (120 + 420) + 60 + 40 + 600)
         self.assertNotIn('scripts/ci/run-installed-error-sanitization.py', budgets[2][0])
         self.assertEqual(budgets[2][1], 600)

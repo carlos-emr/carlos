@@ -446,15 +446,15 @@ public class DSDemographicAccess {
     }
 
 
-    //makes no sense, but for consistency...
+    // ListOperator all is conjunction, including when candidates are mutually exclusive.
     public boolean isSexAll(String sexStatements) throws DecisionSupportException {
         List<DSValue> statements = DSValue.createDSValues(sexStatements);
         for (DSValue statement : statements) {
-            if (isSex(statement)) {
-                return true;
+            if (!isSex(statement)) {
+                return false;
             }
         }
-        return false;
+        return true;
     }
 
     public boolean isSexNot(String sexStatement) throws DecisionSupportException {

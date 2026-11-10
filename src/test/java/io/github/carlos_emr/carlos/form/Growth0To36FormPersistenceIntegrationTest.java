@@ -109,6 +109,10 @@ class Growth0To36FormPersistenceIntegrationTest extends CarlosTestBase {
         Properties loaded = service.load(actor, patient, id);
         assertLegacyProperties(id, loaded);
         assertThat(loaded.getProperty("patientName")).isEqualTo(values.getProperty("patientName"));
+        for (String field : new String[]{"recordNo", "motherStature", "fatherStature", "gestationalAge", "edc"}) {
+            assertThat(loaded.getProperty(field)).as("submitted Growth header %s", field)
+                    .isEqualTo(values.getProperty(field));
+        }
         for (int slot = 1; slot <= 20; slot++) {
             assertThat(loaded.getProperty("date_" + slot)).isEqualTo("2024/02/29");
             for (String field : new String[]{"age", "weight", "length", "headCirc", "comment"}) {

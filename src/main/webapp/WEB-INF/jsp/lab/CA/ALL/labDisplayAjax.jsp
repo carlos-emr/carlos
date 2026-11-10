@@ -156,7 +156,9 @@
         }
     }
 
-    String multiLabId = Hl7textResultsData.getMatchingLabs(segmentID);
+    Hl7textResultsData.DisplayLabVersions displayVersions = Hl7textResultsData.getMatchingLabsForDisplay(segmentID);
+    String multiLabId = displayVersions.labIds();
+    boolean cmlVersionChainUnavailable = !displayVersions.reliable();
 
     MessageHandler handler = Factory.getHandler(segmentID);
     // Inline preview of PDFs embedded in HL7 ED results (#3977): read the lab display
@@ -389,6 +391,10 @@
     };
 </script>
 <div id="labdoc_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>">
+    <% if (cmlVersionChainUnavailable) { %>
+    <div class="alert alert-warning" role="alert" data-carlos-cml-chain="unavailable"><fmt:message key="cml.versionChain.unavailable"/></div>
+    <fieldset disabled style="border:0;margin:0;padding:0;">
+    <% } %>
     <!-- form forwarding of the lab -->
     <form name="reassignForm_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>" method="post">
         <input type="hidden" name="flaggedLabs" value="<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>"/>
@@ -1388,4 +1394,5 @@ bgcolor="#003399">
         </table>
     </form>
 
+    <% if (cmlVersionChainUnavailable) { %></fieldset><% } %>
 </div>

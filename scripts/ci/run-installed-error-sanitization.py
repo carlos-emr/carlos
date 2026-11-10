@@ -135,8 +135,8 @@ def main():
     args = parser.parse_args()
     command = args.command[1:] if args.command[:1] == ['--'] else args.command
     command = command or ['node', 'scripts/error-sanitization-playwright-checks.js']
-    if command[:2] not in (['node', 'scripts/error-sanitization-playwright-checks.js'], ['node', 'scripts/run-playwright-suite.js']):
-        raise RuntimeError('Fault adapter only wraps the registered browser check or suite')
+    if command != ['node', 'scripts/error-sanitization-playwright-checks.js']:
+        raise RuntimeError('Fault adapter only wraps the registered error browser check')
     if os.environ.get('CARLOS_DISPOSABLE_HOST') != 'true' or os.geteuid() != 0:
         raise RuntimeError('Fault installation requires root inside the explicit disposable package test environment')
     if not Path('/run/systemd/container').is_file():
@@ -157,7 +157,7 @@ def main():
                     before_restarts = subprocess.check_output(['systemctl', 'show', 'carlos-emr', '-p', 'NRestarts', '--value'], timeout=20)
                     from process_group import run_process_group
                     result = run_process_group(command, cwd=ROOT,
-                        env={**os.environ, 'ERROR_SANITIZATION_FAULT_TOKEN': token}, timeout=36000, grace=10, track_descendants=True)
+                        env={**os.environ, 'ERROR_SANITIZATION_FAULT_TOKEN': token}, timeout=300, grace=10, track_descendants=True)
                     check_interrupted()
                     after_restarts = subprocess.check_output(['systemctl', 'show', 'carlos-emr', '-p', 'NRestarts', '--value'], timeout=20)
                     if before_restarts != after_restarts:

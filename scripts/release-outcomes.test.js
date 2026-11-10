@@ -65,7 +65,7 @@ test('a complete strict run returns zero and writes compatible JUnit', t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-strict-release-'));
   t.after(() => fs.rmSync(directory, {recursive: true, force: true}));
   const output = path.join(directory, 'results.xml');
-  const result = suite.main(['--strict-release', '--junit', output], {}, quiet, {
+  const result = suite.main(['--strict-release', '--junit', output], {CARLOS_DISPOSABLE_HOST: 'true'}, quiet, {
     checks: [check], readBuildIdentity: () => 'controlled-deployment',
     run: (_binary, _args, options) => {
       fs.writeFileSync(options.env.RESULT_JSON, JSON.stringify({outcome: 'PASS'}));

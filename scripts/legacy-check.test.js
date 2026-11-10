@@ -2,6 +2,15 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {spawn}=require('node:child_process');
+test('incompatible legacy signal modes fail before starting operations or installing handlers',()=>{
+  const {runLegacyCheck}=require('./lib/legacy-check');
+  const before=['SIGINT','SIGTERM'].map(signal=>process.listenerCount(signal));
+  let started=false;
+  assert.throws(()=>runLegacyCheck('invalid-modes',()=>{started=true;},
+    {existingSignalHandlers:true,realSignalCheckpoints:true}),/cannot use real signal checkpoints/);
+  assert.equal(started,false);
+  assert.deepEqual(['SIGINT','SIGTERM'].map(signal=>process.listenerCount(signal)),before);
+});
 async function run(t,{signal,result,selfSignal}={}) {
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-legacy-check-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
   const child=spawn(process.execPath,[path.join(__dirname,'fixtures/legacy-check/worker.cjs')],
@@ -53,4 +62,33 @@ for(const [signal,code] of [['SIGINT',130],['SIGTERM',143]])test(`${signal} deli
  assert(!fs.existsSync(path.join(result.dir,'continued')));
  const record=JSON.parse(fs.readFileSync(path.join(result.dir,'result.json'),'utf8'));
  assert.equal(record.outcome,'FAIL');assert.equal(record.detail,'interrupted');
+});
+
+for(const [signal,code] of [['SIGINT',130],['SIGTERM',143]])test(`legacy observer retains ${signal} without replacing existing cleanup handlers`,()=>{
+ const {EventEmitter}=require('node:events');
+ const {observeLegacySignals}=require('./lib/legacy-check');
+ const signalProcess=new EventEmitter();let existingCalls=0;
+ const existing=()=>{existingCalls++;};signalProcess.on(signal,existing);
+ const observer=observeLegacySignals({signalProcess});
+ signalProcess.emit(signal);signalProcess.emit(signal);
+ assert.equal(existingCalls,2);assert.equal(observer.exitCode,code);
+ assert.throws(()=>observer.throwIfCancelled(),error=>observer.isCancellation(error));
+ observer.dispose();assert.deepEqual(signalProcess.listeners(signal),[existing]);
+ assert.equal(signalProcess.listenerCount(signal==='SIGINT'?'SIGTERM':'SIGINT'),0);
+});
+
+for(const [signal,code] of [['SIGINT',130],['SIGTERM',143]])test(`legacy observer records ${signal} delivered after the operation returns and disposes only its own handlers`,async()=>{
+ const {EventEmitter}=require('node:events');
+ const {runLegacyCheck}=require('./lib/legacy-check');
+ const processRef=new EventEmitter();processRef.env={};
+ let returned=false,cleaned=false,existingCalls=0;
+ const existing=()=>{existingCalls++;};processRef.on(signal,existing);
+ const result=await runLegacyCheck('late-observer-signal',()=>{
+   queueMicrotask(()=>{assert.equal(returned,true);processRef.emit(signal);});
+   returned=true;
+ },{existingSignalHandlers:true,processRef,cleanup:()=>{cleaned=true;}});
+ assert.equal(result.outcome,'FAIL');assert.equal(result.detail,'interrupted');
+ assert.equal(processRef.exitCode,code);assert.equal(cleaned,true);assert.equal(existingCalls,1);
+ assert.deepEqual(processRef.listeners(signal),[existing]);
+ assert.equal(processRef.listenerCount(signal==='SIGINT'?'SIGTERM':'SIGINT'),0);
 });

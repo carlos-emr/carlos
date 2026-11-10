@@ -2,7 +2,6 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 """Reject failed/empty H2 runs and skips without an exact release-plan route."""
 import argparse
-from copy import deepcopy
 import json
 from pathlib import Path
 import sys
@@ -14,24 +13,22 @@ ROOT = Path(__file__).resolve().parents[2]
 PERMISSION_CLASS = 'io.github.carlos_emr.CarlosPropertiesModernChartPersistenceUnitTest'
 PERMISSION_CASE = 'shouldRefuseCutover_whenUnsafeSourceIsReadOnly'
 PERMISSION_CASES = json.loads(Path(__file__).with_name('permission-cases.json').read_text())
+PERMISSION_CHECK = 'java-unprivileged-permission'
 
 
 def verify(reports, permission_reports):
     """Require routed H2 skips and the exact passing permission executions."""
     plan = json.loads((ROOT / 'docs/testing/release-2026.08-verification.json').read_text())
-    check = deepcopy(next(row for row in plan['checks'] if row['id'] == 'java-all'))
+    check = next(row for row in plan['checks'] if row['id'] == 'java-all')
     # Every exact root-sensitive skip must pass in the separate lane. Other
     # skipped methods, including new assumptions, still fail this gate.
     for row in PERMISSION_CASES:
-        route = check.setdefault('routedSkips', {}).setdefault(row['classname'], {
-            'check': 'ci-unprivileged-permission', 'cases': []})
-        # A class may also contain independently routed native/environment cases.
-        # Give only the permission method its own destination, preserving others.
-        identity = (row['name'], row['container'])
-        route['cases'] = [case for case in route['cases'] if
-            ((case, '') if isinstance(case, str) else (case['name'], case.get('container', ''))) != identity]
-        route['cases'].append({'name': row['name'], 'container': row['container'],
-                               'check': 'ci-unprivileged-permission'})
+        route = check.get('routedSkips', {}).get(row['classname'], {})
+        matches = [case for case in route.get('cases', []) if isinstance(case, dict)
+                   and (case.get('name'), case.get('container', '')) == (row['name'], row['container'])]
+        if (len(matches) != 1 or matches[0].get('check', route.get('check')) != PERMISSION_CHECK
+                or not any(lane['id'] == PERMISSION_CHECK for lane in plan['checks'])):
+            raise EvidenceError('Permission skip has no exact registered release-plan route')
     summary = junit_results(reports, check)
     if not summary['ready']:
         raise EvidenceError('H2 run failed, lost required coverage, or contains unrouted skips')

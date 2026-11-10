@@ -244,7 +244,9 @@ async function recordAllergy(page, marker, cancellation) {
   });
 }
 
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('allergy-rx-alert', async () => {
+  await (async () => {
   const recorder = createRecorder();
   const cancellation = createGracefulSignalCancellation();
   let browser;
@@ -625,3 +627,4 @@ async function recordAllergy(page, marker, cancellation) {
     }
   }
 })();
+}, {existingSignalHandlers:true});

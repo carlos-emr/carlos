@@ -14,12 +14,13 @@ for (const [error, expectedCode, expectedStatus] of [
 ]) {
   test(`Rx PDF preflight reports ${expectedStatus} and cleans up without starting a browser`, async () => {
     const source = fs.readFileSync(path.join(__dirname, 'rx-fax-record-binding-playwright-checks.js'), 'utf8');
-    const main = source.slice(source.lastIndexOf('(async () => {'));
+    const main = source.slice(source.lastIndexOf("const legacyHarness = require('./lib/legacy-check');"));
     const output = [];
-    let code, cleaned = false, summary;
-    const signalProcess = Object.assign(new EventEmitter(), { env: {}, exit(value) { code = value; } });
+    let cleaned = false, summary;
+    const signalProcess = Object.assign(new EventEmitter(), { env: {}, exit() { assert.fail('Immediate exit bypasses structured completion'); } });
     await vm.runInNewContext(main, {
       SkipCheck, process: signalProcess, faxRoundTripTimeoutMs: 1000,
+      require:name=>{assert.equal(name,'./lib/legacy-check');return {runLegacyCheck:(id,operation,options)=>require('./lib/legacy-check').runLegacyCheck(id,operation,{...options,processRef:signalProcess})};},
       createGracefulSignalCancellation: () => createGracefulSignalCancellation({ signalProcess }),
       pdf: { requirePoppler() { throw error; } },
       chromium: { launch() { assert.fail('Preflight failure must prevent browser launch'); } },
@@ -30,7 +31,7 @@ for (const [error, expectedCode, expectedStatus] of [
       fs: { writeFileSync(_file, body) { summary = JSON.parse(body); } },
       console: { log: value => output.push(value), error: value => output.push(value) },
     });
-    assert.equal(code, expectedCode);
+    assert.equal(signalProcess.exitCode, expectedCode);
     assert.equal(cleaned, true);
     assert.ok(output.some(line => line.startsWith(expectedStatus)));
     assert.ok(output.every(line => !line.startsWith('PASS:')));

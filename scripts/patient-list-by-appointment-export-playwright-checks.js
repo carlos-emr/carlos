@@ -457,7 +457,9 @@ function prepareFixture() {
   return release;
 }
 
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('patient-list-by-appointment-export', async () => {
+  await (async () => {
   const cleanupFixture = prepareFixture();
   // Playwright's own SIGINT/SIGTERM handling closes Chromium; it is switched off only
   // when the fixture's handler is installed to run cleanup first.
@@ -540,9 +542,11 @@ function prepareFixture() {
 })().catch((error) => {
   if (error instanceof SkipCheck) {
     console.log(`SKIP patient-list-by-appointment-export -- ${error.message}`);
-    process.exit(EXIT_SKIP);
+    process.exitCode = EXIT_SKIP;
+    return;
   }
   console.error('FAIL CARLOS EMR patient list by appointment time export Playwright check');
   console.error(error.stack || error.message);
-  process.exit(1);
+  process.exitCode = 1;
 });
+}, {existingSignalHandlers:true});

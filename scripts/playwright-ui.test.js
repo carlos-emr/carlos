@@ -11,7 +11,8 @@ function eventPage(text = 'Working page') {
     url: () => 'https://carlos.test/carlos/page',
     waitForLoadState: async () => {},
     waitForURL: async () => {},
-    locator: () => ({ innerText: async () => text }),
+    locator: () => ({ innerText: async () => text,
+      allTextContents: async () => /^HTTP Status/.test(text) ? [text] : [] }),
   });
   const frame = {};
   page.mainFrame = () => frame;
@@ -518,7 +519,7 @@ for (const helper of [clickOpensPopup, clickOpensPopupOrNavigates]) {
       await new Promise(resolve => setImmediate(resolve));
       navigated = true;
     };
-    popup.locator = () => ({innerText: async () => navigated ? 'Loaded chart' : ''});
+    popup.locator = () => ({innerText: async () => navigated ? 'Loaded chart' : '', allTextContents: async () => []});
     await helper(opener, control(async () => context.emit('page', popup)), {context});
     assert.equal(navigated, true);
   });
