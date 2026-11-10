@@ -143,6 +143,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
         if (!url.matches("jdbc:mariadb://[^/]+/cds_ledger_test(?:\\?.*)?"))
             throw new IllegalArgumentException(
                     "A dedicated disposable cds_ledger_test schema is required");
+        var observedSql = new java.util.ArrayList<String>();
         AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext();
         ctx.register(Config.class);
         ctx.registerBean(
@@ -194,7 +195,16 @@ class CdsImportLedgerMariaDbIntegrationTest {
                                     "hibernate.show_sql",
                                     "false",
                                     "hibernate.jdbc.time_zone",
-                                    "UTC"));
+                                    "UTC",
+                                    "hibernate.session_factory.statement_inspector",
+                                    (org.hibernate.resource.jdbc.spi.StatementInspector)
+                                            statement -> {
+                                                if (statement
+                                                        .toLowerCase(java.util.Locale.ROOT)
+                                                        .contains("from cds_import_unit"))
+                                                    observedSql.add(statement);
+                                                return statement;
+                                            }));
                     return emf;
                 });
         ctx.registerBean(
@@ -243,6 +253,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
                     sql.queryForObject("select @@innodb_snapshot_isolation", Integer.class) == 1,
                     "snapshot isolation enabled");
             Job job = job("p" + UUID.randomUUID().toString().substring(0, 8), false);
+            verifyMetadataPagesExcludeNativeWitnesses(job, observedSql);
             expect(
                     "MANIFEST_ALREADY_SEALED",
                     () ->
@@ -428,7 +439,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
             check(
                     sql.queryForObject(
                                     "select owner_run_id from cds_import_admission where"
-                                        + " id='global'",
+                                            + " id='global'",
                                     String.class)
                             == null,
                     "completed job released clinical admission before report diagnostics");
@@ -447,7 +458,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
                                     reportEvidence)
                             == 1,
                     "post-admission report cause and protected handle persist under operational"
-                        + " epoch ownership");
+                            + " epoch ownership");
             expect(
                     "OWNER_FENCED",
                     () ->
@@ -473,7 +484,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
                             && ((Number) ledger.summary(job.id).get("committedUnits")).longValue()
                                     == 2,
                     "reporting diagnostics never change clinical completion, native rows,"
-                        + " checkpoints or occurrence counts");
+                            + " checkpoints or occurrence counts");
 
             reports.select(job.id, job.epoch, 0, C, "/opaque/report-v1", A);
             expect(
@@ -651,7 +662,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
                 countNative() == before
                         && sql.queryForObject(
                                         "select native_baseline from cds_import_unit where run_id=?"
-                                            + " and unit_key=?",
+                                                + " and unit_key=?",
                                         String.class,
                                         job.id,
                                         job.first)
@@ -672,7 +683,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
                         .equals(
                                 sql.queryForObject(
                                         "select native_baseline from cds_import_checkpoint where"
-                                            + " id=?",
+                                                + " id=?",
                                         String.class,
                                         job.first)),
                 "checkpoint stores exact original field witness document");
@@ -681,7 +692,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
                         .equals(
                                 sql.queryForObject(
                                         "select native_baseline from cds_import_unit where run_id=?"
-                                            + " and unit_key=?",
+                                                + " and unit_key=?",
                                         String.class,
                                         job.id,
                                         job.first)),
@@ -711,7 +722,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
                 legacy.nativeBaseline() == null
                         && sql.queryForObject(
                                         "select native_baseline from cds_import_checkpoint where"
-                                            + " id=?",
+                                                + " id=?",
                                         String.class,
                                         job.second)
                                 == null,
@@ -831,7 +842,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
             check(
                     countNative() == before,
                     "actual native write rolls back when the following field read exhausts the"
-                        + " attempt");
+                            + " attempt");
             check(
                     sql.queryForObject(
                                     "select count(*) from cds_import_checkpoint where id=?",
@@ -1052,7 +1063,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
                             && ledger.status(id).ownerEpoch() == originalEpoch
                             && "RUNNING".equals(ledger.status(id).state()),
                     "active Resume does not clear cancellation/state/epoch before both physical"
-                        + " proofs");
+                            + " proofs");
             check(
                     Boolean.TRUE.equals(ledger.summary(id).get("resumeRequested"))
                             && ledger.pendingResumeEvent(id) > 0,
@@ -1071,7 +1082,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
                     ledger.status(id).ownerEpoch() == originalEpoch
                             && ledger.ownsAdmission(id, originalEpoch),
                     "lost coordinator with a live maintenance owner cannot fence/release its unit"
-                        + " owner");
+                            + " owner");
             ledger.cancel(id);
             check(
                     ledger.pendingResumeEvent(id) == 0
@@ -1085,7 +1096,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
                             && countNative() == before + 1
                             && ledger.isHeld(job.target),
                     "later Cancel wins after actual dead-owner acquisition without replaying"
-                        + " unknown commit");
+                            + " unknown commit");
             org.mockito.Mockito.verify(nativeRecords, org.mockito.Mockito.never())
                     .write(
                             org.mockito.ArgumentMatchers.anyString(),
@@ -1124,18 +1135,18 @@ class CdsImportLedgerMariaDbIntegrationTest {
                             && ledger.isHeld(job.target)
                             && countNative() == before + 1,
                     "incompatible policy refuses only the current intent before epoch or clinical"
-                        + " changes");
+                            + " changes");
             long refusals =
                     sql.queryForObject(
                             "select count(*) from cds_import_diagnostic where run_id=? and"
-                                + " code='RESUME_INTENT_REFUSED'",
+                                    + " code='RESUME_INTENT_REFUSED'",
                             Long.class,
                             id);
             incompatible.execute(id);
             check(
                     sql.queryForObject(
                                     "select count(*) from cds_import_diagnostic where run_id=? and"
-                                        + " code='RESUME_INTENT_REFUSED'",
+                                            + " code='RESUME_INTENT_REFUSED'",
                                     Long.class,
                                     id)
                             == refusals,
@@ -1173,12 +1184,12 @@ class CdsImportLedgerMariaDbIntegrationTest {
                         ledger.pendingResumeEvent(id) > 0
                                 && Boolean.TRUE.equals(ledger.summary(id).get("resumeRequested")),
                         "preparation commit cannot consume recovery routing before its phase"
-                            + " starts");
+                                + " starts");
             }
             check(
                     ledger.pending("", 16).stream().anyMatch(value -> id.equals(value.id())),
                     "restart discovers stopped DELIVERED work immediately after preparation"
-                        + " ownership commit");
+                            + " ownership commit");
             var interrupted = org.mockito.Mockito.spy(ledger);
             var phaseStop =
                     new AssertionError("Synthetic process stop immediately after RUNNING commit");
@@ -1222,7 +1233,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
             check(
                     countNative() == before + 1 && ledger.isHeld(job.target),
                     "process stop after phase commit adds no clinical row and preserves the partial"
-                        + " hold");
+                            + " hold");
             var completed = new java.util.concurrent.CountDownLatch(1);
             org.mockito.Mockito.doAnswer(
                             call -> {
@@ -1285,7 +1296,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
                 check(
                         completed.await(30, java.util.concurrent.TimeUnit.SECONDS),
                         "fresh default dispatcher resumes the committed RUNNING phase without a new"
-                            + " Resume or in-memory queue");
+                                + " Resume or in-memory queue");
             }
             check(
                     "COMPLETE".equals(ledger.status(id).state()),
@@ -1309,16 +1320,16 @@ class CdsImportLedgerMariaDbIntegrationTest {
                                                     && value.blocking()
                                                     && !value.resolved()),
                     "old incompatible-policy stop retires only after exact accepted policy and all"
-                        + " receipts reconcile");
+                            + " receipts reconcile");
             check(
                     sql.queryForObject(
                                     "select count(*) from cds_import_event where run_id=? and"
-                                        + " event_type='RESUME_INTENT_SATISFIED_BY_COMPLETION'",
+                                            + " event_type='RESUME_INTENT_SATISFIED_BY_COMPLETION'",
                                     Long.class,
                                     id)
                             == 1,
                     "healthy old worker satisfies a new active Resume by exact natural completion"
-                        + " without clinical replay");
+                            + " without clinical replay");
             expect(
                     "OWNER_FENCED",
                     () ->
@@ -1487,14 +1498,14 @@ class CdsImportLedgerMariaDbIntegrationTest {
                         && summaryCount(mixed, "targetCopiesPlanned") == 2
                         && summaryCount(mixed, "identifiedPatients") == 2,
                 "grouped patient outcomes count distinct source identity separately from target"
-                    + " copies");
+                        + " copies");
         check(
                 summaryCount(mixed, "plannedUnits") == 6
                         && summaryCount(mixed, "committedUnits") == 2
                         && summaryCount(mixed, "alreadyCompleteUnits") == 1
                         && summaryCount(mixed, "pendingUnits") == 2,
                 "global pending counts only EXPECTED while unknown unit states remain in total"
-                    + " inventory");
+                        + " inventory");
         var category = (Map<?, ?>) ((List<?>) mixed.get("categories")).getFirst();
         check(
                 "ClinicalNotes".equals(category.get("category"))
@@ -1521,7 +1532,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
                         && summaryCount(sealed, "expectedUnits") == 6
                         && summaryCount(sealed, "pendingUnits") == 6,
                 "sealing publishes exact expected inventory without changing grouped pending"
-                    + " totals");
+                        + " totals");
         check(
                 summaryCount(sealed, "sourcePatients") == 1
                         && summaryCount(sealed, "sourceBytes") == 123
@@ -1532,8 +1543,8 @@ class CdsImportLedgerMariaDbIntegrationTest {
                         && summaryCount(sealed, "alreadyCompleteUnits") == 0
                         && sql.queryForObject(
                                         "select count(*) from cds_import_checkpoint c join"
-                                            + " cds_import_unit u on u.unit_key=c.id where"
-                                            + " u.run_id=?",
+                                                + " cds_import_unit u on u.unit_key=c.id where"
+                                                + " u.run_id=?",
                                         Long.class,
                                         id)
                                 == 0,
@@ -1581,6 +1592,51 @@ class CdsImportLedgerMariaDbIntegrationTest {
 
     static long summaryCount(Map<?, ?> summary, String field) {
         return ((Number) summary.get(field)).longValue();
+    }
+
+    static void verifyMetadataPagesExcludeNativeWitnesses(
+            Job job, java.util.List<String> statements) {
+        check(
+                sql.queryForObject(
+                                "SELECT COUNT(*) FROM cds_import_unit WHERE run_id=? AND"
+                                    + " native_baseline IS NOT NULL",
+                                Long.class,
+                                job.id)
+                        == 0,
+                "new owned units have no original witness to replace");
+        try {
+            sql.update(
+                    "UPDATE cds_import_unit SET native_baseline=REPEAT('SYNTHETIC_WITNESS_',200000)"
+                        + " WHERE run_id=?",
+                    job.id);
+            statements.clear();
+            var all = ledger.units(job.id, null, "", 200);
+            var selected = ledger.units(job.id, job.patient, "", 200);
+            check(
+                    all.size() == 2 && all.equals(selected),
+                    "metadata projection retains exact unit pages");
+            check(
+                    all.stream()
+                            .map(CdsImportUnitDto::unitKey)
+                            .sorted()
+                            .toList()
+                            .equals(
+                                    java.util.stream.Stream.of(job.first, job.second)
+                                            .sorted()
+                                            .toList()),
+                    "metadata projection preserves both planned unit identities");
+            check(
+                    statements.size() == 2
+                            && statements.stream()
+                                    .noneMatch(
+                                            statement ->
+                                                    statement
+                                                            .toLowerCase(java.util.Locale.ROOT)
+                                                            .contains("native_baseline")),
+                    "actual unit metadata SELECTs never fetch native witness documents");
+        } finally {
+            sql.update("UPDATE cds_import_unit SET native_baseline=NULL WHERE run_id=?", job.id);
+        }
     }
 
     static void verifyDryRun() {
@@ -1876,7 +1932,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
         check(
                 sql.queryForObject(
                                 "select count(*) from cds_import_event where run_id=? and"
-                                    + " event_type='CANCEL_REQUESTED'",
+                                        + " event_type='CANCEL_REQUESTED'",
                                 Long.class,
                                 id)
                         == 0,
@@ -2158,7 +2214,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
         check(
                 "PLANNED".equals(ledger.planPatient(next, epoch, patient, source, copy, B).state()),
                 "approved conflict row becomes an eligible administrative plan only after canonical"
-                    + " CAS");
+                        + " CAS");
         ledger.release(next, epoch);
         String unit = CdsImportKeys.hash(source, "old-unit");
         long obsolete = ledger.claimPlanning(old);
