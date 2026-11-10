@@ -141,6 +141,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeFieldAssessmentValidatorUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeHistoryMapperUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativePreventionDateMapperUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeReportMapperUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNewCategoryOccurrenceServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteIssueLinkReceiptUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteRevisionInventoryServiceUnitTest",

@@ -127,15 +127,49 @@ def care_equal(record, patient: int) -> bool:
         "comments": "Deleted native measurement comment café 😀"}.items())
 
 
+def report_expected() -> dict[str, str]:
+    return {
+        "c:Media": "Download", "c:Format": "Binary", "c:FileExtensionAndVersion": "txt",
+        "c:Class": "Consultant Report", "c:SubClass": "consult",
+        "c:EventDateTime/d:FullDateTime": "2026-07-09T14:35:00-04:00",
+        "c:ReceivedDateTime/d:FullDateTime": "2026-07-10T12:30:00-04:00",
+        "c:SourceAuthorPhysician/c:AuthorFreeText": "Dr. Native Source Author",
+        "c:SourceFacility": "Native consultation clinic",
+        "c:ReportReviewed/c:Name/d:FirstName": "Synthetic",
+        "c:ReportReviewed/c:Name/d:LastName": "Native Export",
+        "c:ReportReviewed/c:ReviewingOHIPPhysicianId": "999891",
+        "c:ReportReviewed/c:DateTimeReportReviewed/d:FullDate": "2026-07-11",
+    }
+
+
+def report_equal(record) -> bool:
+    reports = record.findall("c:Reports", NS)
+    if len(reports) != 1:
+        return False
+    report = reports[0]
+    if any(len(report.findall(path, NS)) != 1 or report.find(path, NS).text != value
+           for path, value in report_expected().items()):
+        return False
+    notes = report.find("c:Notes", NS).text
+    prefix = "[CARLOS native report source context]\n"
+    if not notes.startswith(prefix):
+        return False
+    context = json.loads(notes[len(prefix):])
+    return (context.get("version") == 1
+            and context["document"]["docdesc"] == "Native consultation description café 😀"
+            and context["document"]["reviewdatetime"] == "2026-07-11 12:30:00"
+            and context["publicReviewer"]["lastName"] == "Native Export")
+
+
 def clinically_equal(root, patient: int) -> bool:
     if root.tag != "{cds}OmdCds" or len(root.findall("./c:PatientRecord", NS)) != 1:
         return False
     record = root.find("./c:PatientRecord", NS)
     categories = ["Demographics", "PersonalHistory", "FamilyHistory", "PastHealth", "ProblemList",
-                  "RiskFactors", "ClinicalNotes"] + ["CareElements"] * 3 + ["AlertsAndSpecialNeeds"] + ["NewCategory"] * 5
+                  "RiskFactors", "ClinicalNotes", "Reports"] + ["CareElements"] * 3 + ["AlertsAndSpecialNeeds"] + ["NewCategory"] * 5
     if [item.tag for item in record] != ["{cds}" + name for name in categories]:
         return False
-    return history_equal(record) and care_equal(record, patient) and all(len(root.findall(BASE + path, NS)) == 1 and root.find(BASE + path, NS).text == value
+    return history_equal(record) and report_equal(record) and care_equal(record, patient) and all(len(root.findall(BASE + path, NS)) == 1 and root.find(BASE + path, NS).text == value
                for path, value in expected(patient).items())
 
 
@@ -161,8 +195,8 @@ def main() -> int:
     with zipfile.ZipFile(args.archive) as archive:
         members = archive.infolist()
         names = [member.filename for member in members]
-        if len(names) != 3 or len(set(name.casefold() for name in names)) != len(names):
-            raise RuntimeError("Exactly one patient and two supporting members required")
+        if len(names) != 4 or len(set(name.casefold() for name in names)) != len(names):
+            raise RuntimeError("Exactly one patient, one report and two supporting members required")
         for member in members:
             name = PurePosixPath(member.filename)
             if name.is_absolute() or ".." in name.parts or "\\" in member.filename or member.is_dir() or member.file_size > (1 << 20):
@@ -173,7 +207,13 @@ def main() -> int:
         if len(xml_members) != 1:
             raise RuntimeError("Exactly one XML patient required")
         xml_bytes = archive.read(xml_members[0])
+        report_members = [name for name in names if name.startswith("Reports/")]
+        if (len(report_members) != 1 or not report_members[0].endswith(".txt")
+                or archive.read(report_members[0]) != "Native consultation report café 😀\nIndependent attachment bytes\n".encode("utf-8")):
+            raise RuntimeError("Independent native report attachment bytes differ")
     root = SAFE_XML.fromstring(xml_bytes)
+    if root.find("./c:PatientRecord/c:Reports/c:FilePath", NS).text != report_members[0]:
+        raise RuntimeError("Native report path differs from its exact attachment member")
     if not clinically_equal(root, patient):
         raise RuntimeError("Independent native clinical expectations differ")
     with tempfile.TemporaryDirectory(prefix="cds-independent-oracle-", dir=args.proof.parent) as work:
@@ -190,6 +230,7 @@ def main() -> int:
             ("../c:CareElements/c:Weight/d:Weight", "71"),
             ("../c:ClinicalNotes/c:MyClinicalNotesContent", "Edited native clinical note café 😀"),
             ("../c:FamilyHistory/c:ResidualInfo/d:DataElement[d:Name='CARLOS.History.Archived.v1']/d:Content", "false"),
+            ("../c:Reports/c:SourceAuthorPhysician/c:AuthorFreeText", "Wrong author"),
         )
         detected = 0
         for index, (path, replacement) in enumerate(mutations):
@@ -205,12 +246,12 @@ def main() -> int:
                 raise RuntimeError("Independent oracle missed a schema-valid clinical mutation")
             detected += 1
     args.proof.write_text(json.dumps({
-        "protocol": 1, "status": "PASSED", "independentExpectedFacts": len(expected(patient)) + len(history_expected()),
+        "protocol": 1, "status": "PASSED", "independentExpectedFacts": len(expected(patient)) + len(history_expected()) + len(report_expected()),
         "schemaValidClinicalMutantsDetected": detected, "zipMembers": len(names), "patientXmlMembers": 1,
         "pinnedSchemaValid": True, "plaintextZipSha256": hashlib.sha256(args.archive.read_bytes()).hexdigest(),
         "patientXmlSha256": hashlib.sha256(xml_bytes).hexdigest()
     }, sort_keys=True, indent=2))
-    print("PASS independent native clinical oracle:", len(expected(patient)) + len(history_expected()), "facts and", detected, "schema-valid mutants")
+    print("PASS independent native clinical oracle:", len(expected(patient)) + len(history_expected()) + len(report_expected()), "facts and", detected, "schema-valid mutants")
     return 0
 
 

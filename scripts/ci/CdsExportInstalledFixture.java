@@ -185,6 +185,7 @@ public final class CdsExportInstalledFixture {
                     "<unotes>" + NOTE + "</unotes>");
             nativeHistory(db, patient);
             nativeCare(db, patient);
+            nativeReport(db, patient);
             db.commit();
             writePrivate(
                     PRIVATE.resolve("fixture.json"),
@@ -380,6 +381,16 @@ public final class CdsExportInstalledFixture {
     }
 
     /** The native chart deliberately has no CDS import parent or retained fields. */
+    private static void nativeReport(Connection db, int patient) throws Exception {
+        writePrivate(ROOT.resolve("documents/native-report.txt"),
+                "Native consultation report café 😀\nIndependent attachment bytes\n".getBytes(StandardCharsets.UTF_8), true);
+        update(db, "INSERT INTO document(doctype,docdesc,docxml,docfilename,doccreator,responsible,source,sourceFacility,observationdate,contentdatetime,receivedDate,reviewer,reviewdatetime,status,restrictToProgram,contenttype)"
+                + " VALUES('consult',?,'','native-report.txt',?,?,'Dr. Native Source Author','Native consultation clinic','2026-07-09','2026-07-09 14:35:00','2026-07-10 12:30:00',?,'2026-07-11 12:30:00','A',0,'text/plain; charset=UTF-8')",
+                "Native consultation description café 😀", PROVIDER, PROVIDER, PROVIDER);
+        int document = (int) count(db, "SELECT LAST_INSERT_ID()");
+        update(db, "INSERT INTO ctl_document(module,module_id,document_no,status) VALUES('demographic',?,?,'A')", patient, document);
+    }
+
     private static void nativeCare(Connection db,int patient) throws Exception {
         for(var entry:List.of(new String[]{"WT","70.000","kg"},new String[]{"HT","175","cm"},
                 new String[]{"BP","120/80","mmHg"},new String[]{"TEMP","37.1","C"})) {
@@ -487,6 +498,10 @@ public final class CdsExportInstalledFixture {
         if(count(db,"SELECT COUNT(*) FROM measurements WHERE demographicNo=?",patient)!=4
                 || count(db,"SELECT COUNT(*) FROM measurementsDeleted WHERE demographicNo=?",patient)!=1)
             throw new IllegalStateException("Native observations changed");
+        if (count(db,"SELECT COUNT(*) FROM document d JOIN ctl_document c ON c.document_no=d.document_no WHERE c.module='demographic' AND c.module_id=? AND d.docfilename='native-report.txt' AND d.status='A'",patient)!=1
+                || !Files.readString(ROOT.resolve("documents/native-report.txt"), StandardCharsets.UTF_8)
+                        .equals("Native consultation report café 😀\nIndependent attachment bytes\n"))
+            throw new IllegalStateException("Native report changed");
         System.out.println(
                 JSON.writeValueAsString(
                         Map.of(
