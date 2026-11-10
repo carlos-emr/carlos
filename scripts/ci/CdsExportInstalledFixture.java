@@ -385,7 +385,7 @@ public final class CdsExportInstalledFixture {
                 true);
     }
 
-    private static void nativeReadGrant(Connection db) throws SQLException {
+    private static void nativeReadGrant(Connection db) throws Exception {
         update(db, "INSERT INTO secObjPrivilege(roleUserGroup,objectName,privilege,priority,provider_no)"
                 + " VALUES(?,'_lab_sensitive','r',0,?)", PROVIDER, PROVIDER);
     }
