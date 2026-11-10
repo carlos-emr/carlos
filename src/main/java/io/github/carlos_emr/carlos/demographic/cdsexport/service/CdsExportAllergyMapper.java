@@ -131,7 +131,7 @@ public final class CdsExportAllergyMapper {
                 .contains(java.util.Objects.toString(source.raw("severity_of_reaction"), "")))
             source.set(
                     "severity_of_reaction",
-                    Outcome.ABSENT,
+                    Outcome.OPERATIONAL,
                     "Severity",
                     "NATIVE_SEVERITY_UNKNOWN_NO_ASSERTION");
         if ("3".equals(source.raw("severity_of_reaction")))
@@ -163,7 +163,7 @@ public final class CdsExportAllergyMapper {
         if ("4".equals(source.raw("onset_of_reaction")))
             source.set(
                     "onset_of_reaction",
-                    Outcome.ABSENT,
+                    Outcome.OPERATIONAL,
                     "ResidualInfo/" + CdsNativeExtensionContract.ALLERGY_ONSET_OF_REACTION,
                     "NATIVE_ONSET_UNKNOWN_NO_ASSERTION");
         // All other populated coding/author fields retain their initial explicit

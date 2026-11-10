@@ -181,7 +181,7 @@ class CdsExportAllergyMapperUnitTest {
         assertThat(unknown.nativeRowRepresentable()).isTrue();
         assertThat(unknown.value().severity()).isNull();
         assertThat(unknown.fields().get(key("severity_of_reaction")).outcome())
-                .isEqualTo(Outcome.ABSENT);
+                .isEqualTo(Outcome.OPERATIONAL);
     }
 
     @Test
@@ -208,6 +208,8 @@ class CdsExportAllergyMapperUnitTest {
         assertThat(result.nativeRowRepresentable()).isTrue();
         assertThat(result.value().severity()).isNull();
         assertThat(result.value().onsetOfReaction()).isNull();
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(List.of(allergy(fields)), result.fields(), 1000, () -> {});
     }
 
     @Test
