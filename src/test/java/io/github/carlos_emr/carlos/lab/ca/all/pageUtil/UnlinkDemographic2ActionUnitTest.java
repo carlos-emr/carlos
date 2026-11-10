@@ -64,6 +64,14 @@ class UnlinkDemographic2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(409);
         assertThat(response.getContentAsString()).doesNotContain("\"success\":true");
     }
+    @Test void shouldAnswerUnprocessable_whenTheChainCannotBeUnlinkedTogether() throws Exception {
+        when(service.unlink(456, version, "incorrect match", actor, "127.0.0.1"))
+                .thenThrow(new Hl7PatientUnlinkService.ChainNotUnlinkable());
+        new UnlinkDemographic2Action().execute();
+        // Distinct from 409: the page must not tell the user to refresh and retry.
+        assertThat(response.getStatus()).isEqualTo(422);
+        assertThat(response.getContentAsString()).doesNotContain("\"success\":true");
+    }
     @Test void shouldNotClaimSuccessOrExposeClinicalErrors_whenTransactionFails() throws Exception {
         when(service.unlink(456, version, "incorrect match", actor, "127.0.0.1"))
                 .thenThrow(new IllegalStateException("PRIVATE-SYNTHETIC-RESULT"));

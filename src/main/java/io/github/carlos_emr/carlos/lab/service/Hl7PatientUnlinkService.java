@@ -101,6 +101,9 @@ public class Hl7PatientUnlinkService {
         if (!fingerprint(versions, routes).equals(expectedVersion)) throw new StaleMatch();
         var owners = routes.stream().map(PatientLabRouting::getDemographicNo)
                 .filter(id -> id != null && id > 0).collect(Collectors.toSet());
+        // The fingerprint is current here, so versions matched to different patients are not a
+        // stale page: no refresh makes them one chain.
+        if (owners.size() > 1) throw new ChainNotUnlinkable();
         if (owners.size() != 1 || routes.stream().noneMatch(row -> row.getLabNo() == report
                 && row.getDemographicNo() != null && row.getDemographicNo() > 0)) throw new StaleMatch();
         int patient = owners.iterator().next();
@@ -176,7 +179,7 @@ public class Hl7PatientUnlinkService {
                     || selected == null || candidate == null
                     || !Objects.equals(normalized(selected.getPatientLocation()), normalized(candidate.getPatientLocation()))
                     || id != report && !samePatient(selected, candidate)) {
-                throw new IllegalStateException("Source chain identity is ambiguous");
+                throw new ChainNotUnlinkable();
             }
         }
         return versions;
@@ -210,6 +213,15 @@ public class Hl7PatientUnlinkService {
     }
 
     private static long time(Date date) { return date == null ? Long.MIN_VALUE : date.getTime(); }
+
+    /**
+     * The report's versions cannot be unlinked together: they do not agree on the patient or on
+     * the source. Unlike {@link StaleMatch}, refreshing the report does not change this.
+     */
+    public static final class ChainNotUnlinkable extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+        public ChainNotUnlinkable() { super("The report's versions cannot be unlinked together."); }
+    }
 
     public static final class StaleMatch extends RuntimeException {
         private static final long serialVersionUID = 1L;

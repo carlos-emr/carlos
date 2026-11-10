@@ -77,6 +77,18 @@ class LabDisplayJspRegressionTest {
     }
 
     @Test
+    @DisplayName("should tell the user a chain cannot be unlinked together instead of asking for a refresh")
+    void shouldExplainUnlinkableChains_withoutAskingForARefreshInLabDisplay() throws IOException {
+        String jsp = Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8);
+        // Rendering: the service's refusal is kept apart from "the match version is unavailable".
+        assertThat(jsp).contains("catch (io.github.carlos_emr.carlos.lab.service.Hl7PatientUnlinkService.ChainNotUnlinkable");
+        assertThat(jsp).contains("<fmt:message key=\"lab.unlink.chainReview\" var=\"msgUnlinkChainReview\"/>");
+        // Posting: 422 is that refusal; 409 remains the stale page.
+        assertThat(jsp).contains("response.status === 422 ? 'chain'");
+        assertThat(jsp).contains("error.message === 'chain' ? '${carlos:forJavaScript(msgUnlinkChainReview)}'");
+    }
+
+    @Test
     @DisplayName("should show the CML revision review notice whether or not a print failed")
     void shouldRenderCmlRevisionNotice_outsidePrintErrorBlockInAjaxLabDisplay() throws IOException {
         String jsp = Files.readString(LAB_DISPLAY_AJAX_JSP, StandardCharsets.UTF_8);

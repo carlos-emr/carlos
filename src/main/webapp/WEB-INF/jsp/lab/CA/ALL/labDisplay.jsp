@@ -388,10 +388,14 @@
 request.setAttribute("duplicateOfLab", duplicateOfLab);
 request.setAttribute("missingTests", missingTests);
 String unlinkMatchVersion = "";
+boolean unlinkChainBlocked = false;
 if (isLinkedToDemographic && StringUtils.isNumeric(segmentID) && Integer.parseInt(segmentID) > 0) {
     try {
         unlinkMatchVersion = SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.Hl7PatientUnlinkService.class)
                 .version(Integer.parseInt(segmentID));
+    } catch (io.github.carlos_emr.carlos.lab.service.Hl7PatientUnlinkService.ChainNotUnlinkable blockedChain) {
+        // The versions do not agree on patient or source. Say so; a refresh cannot change it.
+        unlinkChainBlocked = true;
     } catch (RuntimeException unavailableMatch) {
         // Reads stay read-only. An ambiguous chain can be viewed but cannot be unlinked.
         MiscUtils.getLogger().warn("HL7 unlink context unavailable: {}", unavailableMatch.getClass().getSimpleName());
@@ -479,6 +483,7 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
         <fmt:message key="oscarMDS.segmentDisplay.msgUnlink" var="msgUnlink"/>
         <fmt:message key="lab.unlink.refreshRequired" var="msgUnlinkRefreshRequired"/>
         <fmt:message key="lab.unlink.notConfirmed" var="msgUnlinkNotConfirmed"/>
+        <fmt:message key="lab.unlink.chainReview" var="msgUnlinkChainReview"/>
 
     </script>
 
@@ -835,6 +840,10 @@ input[id^='acklabel_']{
 
         function unlinkDemographic(labNo) {
             var matchVersion = '<carlos:encode value='<%= unlinkMatchVersion %>' context="javaScriptBlock"/>';
+            if (<%= unlinkChainBlocked %>) {
+                alert('${carlos:forJavaScript(msgUnlinkChainReview)}');
+                return false;
+            }
             if (!matchVersion) {
                 alert('${carlos:forJavaScript(msgUnlinkRefreshRequired)}');
                 return false;
@@ -856,7 +865,7 @@ input[id^='acklabel_']{
                 body: dataStr
             })
             .then(function(response) {
-                if (!response.ok) throw new Error(response.status === 409 ? 'stale' : 'failed');
+                if (!response.ok) throw new Error(response.status === 422 ? 'chain' : response.status === 409 ? 'stale' : 'failed');
                 return response.json();
             })
             .then(function(data) {
@@ -868,7 +877,8 @@ input[id^='acklabel_']{
                 } else throw new Error('failed');
             })
             .catch(function(error) {
-                alert(error.message === 'stale' ? '${carlos:forJavaScript(msgUnlinkRefreshRequired)}'
+                alert(error.message === 'chain' ? '${carlos:forJavaScript(msgUnlinkChainReview)}'
+                    : error.message === 'stale' ? '${carlos:forJavaScript(msgUnlinkRefreshRequired)}'
                     : '${carlos:forJavaScript(msgUnlinkNotConfirmed)}');
             });
         }

@@ -168,7 +168,17 @@ class Hl7PatientUnlinkServiceUnitTest extends CarlosUnitTestBase {
         when(other.getLastName()).thenReturn("PATIENT"); when(other.getDOB()).thenReturn("1980-01-02");
         when(other.getPatientLocation()).thenReturn("CML");
         handlers.when(() -> Factory.getHandler("12")).thenReturn(other);
-        assertThatThrownBy(() -> service.version(11)).isInstanceOf(IllegalStateException.class);
+        // Not a stale page: refreshing cannot make these versions one chain.
+        assertThatThrownBy(() -> service.version(11)).isInstanceOf(Hl7PatientUnlinkService.ChainNotUnlinkable.class);
+        verifyNoInteractions(measurements, deleted, extensions, audit);
+    }
+
+    @Test void shouldExplainThatTheChainCannotBeUnlinked_whenItsVersionsBelongToDifferentPatients() {
+        second.setDemographicNo(99);
+        String version = service.version(11); // current, so this is not a stale page
+        assertThatThrownBy(() -> service.unlink(11, version, "incorrect patient", actor, "127.0.0.1"))
+                .isInstanceOf(Hl7PatientUnlinkService.ChainNotUnlinkable.class);
+        assertThat(jdbc.queryForObject("select count(*) from writes", Integer.class)).isZero();
         verifyNoInteractions(measurements, deleted, extensions, audit);
     }
 

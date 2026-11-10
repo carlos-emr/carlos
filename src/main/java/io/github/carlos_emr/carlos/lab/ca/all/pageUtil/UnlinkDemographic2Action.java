@@ -86,6 +86,9 @@ public class UnlinkDemographic2Action extends ActionSupport {
             MAPPER.writeValue(response.getWriter(), result);
         } catch (Hl7PatientUnlinkService.StaleMatch stale) {
             response.sendError(HttpServletResponse.SC_CONFLICT, stale.getMessage());
+        } catch (Hl7PatientUnlinkService.ChainNotUnlinkable blocked) {
+            // Not 409: the page tells a 409 to refresh and retry, which cannot help here.
+            response.sendError(422, blocked.getMessage());
         } catch (IllegalArgumentException invalid) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
         } catch (SecurityException denied) {
