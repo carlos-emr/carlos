@@ -9,7 +9,7 @@ const {Element, FakeDocument, sendRoot, load, tick, delivery, state} = require('
 const MINTED = delivery(500).deliveryId;
 const SCRIPTS = ['mycarlos-send.js', 'mycarlos-send-dialog.js'];
 
-function page({documents = ['44'], scripts = SCRIPTS, context = '/FAKE'} = {}) {
+function page({documents = ['44'], scripts = SCRIPTS, context = '/FAKE', globals = {}} = {}) {
     const document = new FakeDocument();
     const dialogs = {};
     const openers = {};
@@ -24,7 +24,7 @@ function page({documents = ['44'], scripts = SCRIPTS, context = '/FAKE'} = {}) {
     // The page's token, as CSRFGuard puts in the document page's own forms.
     const pageToken = new Element(document, 'input'); pageToken.name = 'CSRF-TOKEN'; pageToken.value = 'FAKE-CSRF';
     document.pageInputs.push(pageToken);
-    const {window, calls} = load(document, {scripts});
+    const {window, calls} = load(document, {scripts, globals});
     return {document, dialogs, openers, window, calls};
 }
 
@@ -175,6 +175,25 @@ test('a send that hears nothing back ends at its deadline: the error shows, Clos
     assert.equal(parts.message.textContent, 'sent');
     assert.equal(root.pressEscape({focusInside: false}), true);
     assert.equal(root.open, false);
+});
+
+test('a browser without AbortSignal.timeout or abort reasons still ends a stalled send at its deadline', async () => {
+    // As Safari 15: an AbortController whose signal carries no reason, and no AbortSignal.timeout.
+    class OldAbortController {
+        constructor() { this.signal = new EventTarget(); this.signal.aborted = false; }
+        abort() { this.signal.aborted = true; this.signal.dispatchEvent(new Event('abort')); }
+    }
+    const view = page({scripts: [shortDeadline('mycarlos-send.js'), 'mycarlos-send-dialog.js'],
+        globals: {AbortSignal: class AbortSignal {}, AbortController: OldAbortController}});
+    const {root, parts} = view.dialogs['44'];
+    await openRead(view);
+    parts.form.dispatch('submit'); await tick();
+    assert.equal(view.calls[1].options.signal instanceof EventTarget, true, 'the send carries the timer deadline');
+    assert.equal(root.pressEscape({focusInside: false}), false, 'held while the send runs');
+    await pause(60); await tick();
+    assert.equal(parts.message.textContent, 'error');
+    assert.equal(parts.close.disabled, false);
+    assert.equal(root.pressEscape({focusInside: false}), true);
 });
 
 test('a dialog the page removed while sending no longer holds Esc on the page', async () => {

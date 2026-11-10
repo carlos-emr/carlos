@@ -26,18 +26,26 @@
     // timeout reuses its operation id, so it cannot queue a second copy.
     const REQUEST_TIMEOUT_MS = 120000;
 
-    // One deadline for a whole request (token wait, fetch and reply), where the browser has one.
+    // One deadline for a whole request (token wait, fetch and reply). Browsers without
+    // AbortSignal.timeout (Safari before 16, which has <dialog> from 15.4) get a timer instead.
     function deadline() {
-        return typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
-            ? AbortSignal.timeout(REQUEST_TIMEOUT_MS) : null;
+        if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+            return AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+        }
+        if (typeof AbortController !== 'function') return null;
+        const controller = new AbortController();
+        setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+        return controller.signal;
     }
 
-    // A wait that ends with the deadline's reason when the deadline passes first.
+    // A wait that ends with the deadline's reason when the deadline passes first. (An older browser
+    // gives an aborted signal no reason.)
     function within(signal, promise) {
         if (!signal) return promise;
+        const stop = () => signal.reason || new Error('timeout');
         return Promise.race([promise, new Promise((resolve, reject) => {
-            if (signal.aborted) reject(signal.reason);
-            else signal.addEventListener('abort', () => reject(signal.reason), {once: true});
+            if (signal.aborted) reject(stop());
+            else signal.addEventListener('abort', () => reject(stop()), {once: true});
         })]);
     }
 
@@ -206,7 +214,7 @@
                     : retry ? copy.retried
                     : operation === 'send' ? (copy.sent || '') : '';
             } catch (failure) {
-                message.textContent = failure.userMessage || copy.error;
+                message.textContent = (failure && failure.userMessage) || copy.error;
             } finally {
                 busy = false;
                 updateButtons();

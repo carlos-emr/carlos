@@ -120,11 +120,12 @@ function sendRoot(document, {dialog = false, data = {}, rows = [], devices = [],
 }
 
 /** Runs the shipped scripts against `document`; fetch calls wait until the test answers them. */
-function load(document, {scripts = ['mycarlos-send.js'], origin = 'https://localhost'} = {}) {
+function load(document, {scripts = ['mycarlos-send.js'], origin = 'https://localhost', globals = {}} = {}) {
     const calls = [];
     const window = {location: {origin, href: origin + '/FAKE/demographic/PortalDelivery?demographicNo=6001&documentId=44'},
         history: {replaced: [], replaceState(state, title, url) { this.replaced.push(String(url)); }}, csrfTokenReady: Promise.resolve()};
-    const context = {URL, URLSearchParams, Date, console, Promise, AbortSignal, document, window,
+    // `globals` replaces browser globals, as for a browser that lacks one.
+    const context = {URL, URLSearchParams, Date, console, Promise, AbortSignal, AbortController, setTimeout, document, window, ...globals,
         fetch: async (url, options) => {
             const call = {url, options}; calls.push(call);
             return new Promise((resolve, reject) => {
@@ -132,7 +133,8 @@ function load(document, {scripts = ['mycarlos-send.js'], origin = 'https://local
                 call.reject = reject;
                 // As a browser's fetch does, a request whose signal aborts fails with the signal's reason.
                 const signal = options && options.signal;
-                if (signal) signal.addEventListener('abort', () => reject(signal.reason), {once: true});
+                if (signal) signal.addEventListener('abort',
+                    () => reject(signal.reason || new DOMException('The operation was aborted.', 'AbortError')), {once: true});
             });
         }};
     vm.createContext(context);
