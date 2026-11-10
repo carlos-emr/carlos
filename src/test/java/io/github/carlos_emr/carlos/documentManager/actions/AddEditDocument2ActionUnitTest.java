@@ -94,6 +94,8 @@ import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -395,7 +397,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(saved.getValue().getReviewDateTime()).isEqualTo(
                     io.github.carlos_emr.carlos.util.UtilDateUtilities.DateToString(
                             stored.getReviewdatetime(), EDocUtil.REVIEW_DATETIME_FORMAT));
-            org.mockito.Mockito.verify(reviewers).persist(argThat((io.github.carlos_emr.carlos.commn.model.DocumentExtraReviewer review) ->
+            verify(reviewers).persist(argThat((io.github.carlos_emr.carlos.commn.model.DocumentExtraReviewer review) ->
                     review.getDocumentNo() == 123 && "999998".equals(review.getReviewerProviderNo())
                             && review.getReviewDateTime() != null));
             logActionMock.verify(() -> LogAction.addLog(eq("999998"), eq(LogConst.REVIEWED), eq(LogConst.CON_DOCUMENT),
@@ -422,9 +424,9 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
             var saved = org.mockito.ArgumentCaptor.forClass(EDoc.class);
             documents.verify(() -> EDocUtil.editDocumentSQL(saved.capture(), eq(true)));
             assertThat(saved.getValue().getReviewerId()).isEqualTo(stored.getReviewer());
-            org.mockito.Mockito.verify(reviewers, org.mockito.Mockito.never()).persist(any());
+            verify(reviewers, never()).persist(any());
             logActionMock.verify(() -> LogAction.addLog(any(String.class), eq(LogConst.REVIEWED), any(String.class),
-                    any(String.class), any(String.class)), org.mockito.Mockito.never());
+                    any(String.class), any(String.class)), never());
             logActionMock.verify(() -> LogAction.addLog(eq("999998"), eq(LogConst.UPDATE), eq(LogConst.CON_DOCUMENT),
                     eq("123"), any(String.class)));
         }
@@ -441,7 +443,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
             documents.verify(() -> EDocUtil.editDocumentSQL(any(EDoc.class), eq(false)));
             org.mockito.Mockito.verifyNoInteractions(reviewers);
             logActionMock.verify(() -> LogAction.addLog(any(String.class), eq(LogConst.REVIEWED), any(String.class),
-                    any(String.class), any(String.class)), org.mockito.Mockito.never());
+                    any(String.class), any(String.class)), never());
         }
     }
 
@@ -461,7 +463,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
                     new Hashtable<>(java.util.Map.of("documentmissing", "dms.error.documentMissing")));
             assertThat(request.getAttribute("editDocumentNo")).isEqualTo("123");
             documents.verify(() -> EDocUtil.editDocumentSQL(any(EDoc.class), org.mockito.ArgumentMatchers.anyBoolean()),
-                    org.mockito.Mockito.never());
+                    never());
             org.mockito.Mockito.verifyNoInteractions(reviewers);
             logActionMock.verifyNoInteractions();
             assertThat(transactions.rolledBack).isTrue();
@@ -482,7 +484,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
                     .thenThrow(new IllegalStateException("synthetic database failure"));
             assertThat(withContentUpdatesDisabled(action::execute2)).isEqualTo("failEdit");
             // The extra-reviewer row was written inside the transaction that rolled back.
-            org.mockito.Mockito.verify(reviewers).persist(any());
+            verify(reviewers).persist(any());
             assertThat(transactions.rolledBack).isTrue();
             assertThat(transactions.committed).isFalse();
             logActionMock.verifyNoInteractions();
