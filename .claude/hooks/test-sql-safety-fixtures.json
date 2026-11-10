@@ -684,6 +684,18 @@
   },
   {
     "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-csv-1: non-SQL CSV row built with quote-separated values (ReportEvaluator.getCSV shape) stays allowed",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/ReportEvaluator.java",
+        "content": "public class R {\n //TODO:HACK for now! replace with something more flexible\n public String getCSV() {\n  String csv = null;\n  if (denominator.hasReplaceableValues()) {\n   String providerNo = (String) denominator.getReplaceableValues().get(\"provider_no\");\n   csv = \"'\" + getProviderStringName(providerNo) + \"','\" + getNumeratorCount() + \"','\" + getDenominatorCount() + \"','\" + getPercentageInt() + \"'\";\n  } else {\n   csv = \"'\" + getNumeratorCount() + \"','\" + getDenominatorCount() + \"','\" + getPercentageInt() + \"'\";\n  }\n  return csv;\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
     "description": "FP-issue6085-10: non-SQL warning builder with variable appends (CarlosProperties shape) stays allowed",
     "expected_exit": 0,
     "payload": {

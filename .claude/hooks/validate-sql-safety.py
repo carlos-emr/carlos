@@ -752,9 +752,11 @@ def check_sql_injection_patterns(content: str) -> list[str]:
         (create_query_concat2, "createQuery() with string concatenation", False),
         (table_concat, "Table name concatenation in SQL", False),
         (where_concat, "WHERE clause concatenation in SQL", False),
-        # Quote-sandwich is never allowlistable: a raw variable embedded
-        # between SQL quotes is injectable regardless of any parameter
-        # placeholders or class metadata elsewhere in the statement.
+        # Quote-sandwich is never allowlistable: once a statement is shown to
+        # be SQL, a raw variable embedded between SQL quotes is injectable
+        # regardless of any parameter placeholders or class metadata elsewhere
+        # in the statement. It is gated on SQL evidence (checked in the loop
+        # below), so non-SQL CSV building is not flagged.
         (quote_sandwich, "Value embedded between SQL quotes (injection)", True),
     ]
 
@@ -767,6 +769,13 @@ def check_sql_injection_patterns(content: str) -> list[str]:
 
             # Get the full statement containing this match
             statement = get_statement_containing(content, match.start(), match.end())
+
+            # Quote-sandwich without SQL evidence in its statement is non-SQL
+            # text (e.g. a CSV row of quoted values). The gate reuses the
+            # append-sandwich evidence: a SQL clause keyword, an AND/OR
+            # predicate, or a comparison right before the quote.
+            if pattern == quote_sandwich and not re.search(sandwich_evidence, statement, re.IGNORECASE):
+                continue
 
             # Skip if match is a safe pattern (never for always-unsafe patterns)
             if not always_unsafe and is_safe_pattern(match_text, statement, content):
