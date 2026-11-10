@@ -728,7 +728,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
             }
 
-        } catch (StoredDocumentMissingException e) {
+        } catch (StoredDocumentMissingException _) {
             // The document was removed by someone else; say so rather than re-render a silent form.
             errors.put("documentmissing", "dms.error.documentMissing");
             request.setAttribute("docerrors", errors);
@@ -802,38 +802,45 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             if (stored == null) {
                 throw new StoredDocumentMissingException();
             }
-            ReviewOutcome outcome = ReviewOutcome.NONE;
-            if (reviewRequested) {
-                Date now = new Date();
-                String storedReviewer = stored.getReviewer();
-                if (!filled(storedReviewer)) {
-                    newDoc.setReviewerId(actor);
-                    newDoc.setReviewDateTime(UtilDateUtilities.DateToString(now, EDocUtil.REVIEW_DATETIME_FORMAT));
-                    outcome = ReviewOutcome.FIRST;
-                } else {
-                    // Keep the first review exactly as stored.
-                    newDoc.setReviewerId(storedReviewer);
-                    newDoc.setReviewDateTime(stored.getReviewdatetime() == null ? ""
-                            : UtilDateUtilities.DateToString(stored.getReviewdatetime(), EDocUtil.REVIEW_DATETIME_FORMAT));
-                    DocumentExtraReviewerDao extraReviewers = SpringUtils.getBean(DocumentExtraReviewerDao.class);
-                    boolean alreadyReviewed = storedReviewer.equals(actor) || extraReviewers.findByDocumentNo(documentNo).stream()
-                            .anyMatch(existing -> Objects.equals(actor, existing.getReviewerProviderNo()));
-                    if (alreadyReviewed) {
-                        outcome = ReviewOutcome.ALREADY_REVIEWED;
-                    } else {
-                        DocumentExtraReviewer additional = new DocumentExtraReviewer();
-                        additional.setDocumentNo(documentNo);
-                        additional.setReviewDateTime(now);
-                        // A review attests to the authenticated actor, never a hidden form field.
-                        additional.setReviewerProviderNo(actor);
-                        extraReviewers.persist(additional);
-                        outcome = ReviewOutcome.ADDITIONAL;
-                    }
-                }
-            }
+            ReviewOutcome outcome = reviewRequested ? recordReview(stored, documentNo, newDoc, actor) : ReviewOutcome.NONE;
             EDocUtil.editDocumentSQL(newDoc, reviewRequested);
             return outcome;
         });
+    }
+
+    /**
+     * Records the actor's review against the stored row that {@link #saveStoredEdit} holds locked,
+     * and sets the reviewer fields {@code newDoc} will store. Runs inside that transaction.
+     *
+     * @return {@link ReviewOutcome#FIRST} when the stored reviewer was blank,
+     *         {@link ReviewOutcome#ADDITIONAL} when an extra-reviewer row was added, or
+     *         {@link ReviewOutcome#ALREADY_REVIEWED} when the actor had already reviewed it
+     */
+    private ReviewOutcome recordReview(Document stored, Integer documentNo, EDoc newDoc, String actor) {
+        Date now = new Date();
+        String storedReviewer = stored.getReviewer();
+        if (!filled(storedReviewer)) {
+            newDoc.setReviewerId(actor);
+            newDoc.setReviewDateTime(UtilDateUtilities.DateToString(now, EDocUtil.REVIEW_DATETIME_FORMAT));
+            return ReviewOutcome.FIRST;
+        }
+        // Keep the first review exactly as stored.
+        newDoc.setReviewerId(storedReviewer);
+        newDoc.setReviewDateTime(stored.getReviewdatetime() == null ? ""
+                : UtilDateUtilities.DateToString(stored.getReviewdatetime(), EDocUtil.REVIEW_DATETIME_FORMAT));
+        DocumentExtraReviewerDao extraReviewers = SpringUtils.getBean(DocumentExtraReviewerDao.class);
+        boolean alreadyReviewed = storedReviewer.equals(actor) || extraReviewers.findByDocumentNo(documentNo).stream()
+                .anyMatch(existing -> Objects.equals(actor, existing.getReviewerProviderNo()));
+        if (alreadyReviewed) {
+            return ReviewOutcome.ALREADY_REVIEWED;
+        }
+        DocumentExtraReviewer additional = new DocumentExtraReviewer();
+        additional.setDocumentNo(documentNo);
+        additional.setReviewDateTime(now);
+        // A review attests to the authenticated actor, never a hidden form field.
+        additional.setReviewerProviderNo(actor);
+        extraReviewers.persist(additional);
+        return ReviewOutcome.ADDITIONAL;
     }
 
     /**
