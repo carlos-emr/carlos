@@ -173,6 +173,17 @@ async function workflow(s) {
     h.assert(await rowsFor(dialog, id).count() === 1, 'the retried copy is listed more than once');
     h.assert(s.sql.value(`SELECT COUNT(*) FROM mycarlos_delivery_outbox WHERE delivery_id=${h.sqlString(id)}`) === '1',
       'the retry queued a second copy');
+    // The reply this step dropped on purpose leaves one failed request, and the console line the
+    // browser writes for it. They are this step's own doing, not a page fault: take out exactly
+    // those (and require the failed request, so the drop is known to have happened). Anything else
+    // stays for the strict check after the step.
+    const dropped = entry => /\/demographic\/PortalDelivery$/.test(entry.url || (entry.location && entry.location.url) || '')
+      && /ERR_FAILED/.test(entry.errorText || entry.text || '');
+    const failure = s.recorder.requestFailures.findIndex(dropped);
+    h.assert(failure >= 0, 'the dropped reply left no failed request');
+    s.recorder.requestFailures.splice(failure, 1);
+    const line = s.recorder.consoleIssues.findIndex(dropped);
+    if (line >= 0) s.recorder.consoleIssues.splice(line, 1);
     await button(dialog, 'Close').click();
     await other.page.close();
   });
