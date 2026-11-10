@@ -13905,7 +13905,7 @@
       "env": [
         "DOCUMENT_DIR"
       ],
-      "notes": "Clicks Reviewed in a stored document's Edit popup after the stored review changed under it (issue #6081): a review another user's Update cleared, a first review another provider made, and a document deleted after the popup opened. The server decides first versus additional review from the stored row under its lock; the deleted document re-renders the popup with dms.error.documentMissing. SCREENSHOT_DIR receives one evidence screenshot per case.",
+      "notes": "Clicks Reviewed in a stored document's Edit popup after the stored review changed under it (issue #6081): a review another user's Update cleared, a first review another provider made, and a document deleted while the save waits for its row (a second database session holds the row lock, deletes the row and commits). The server decides first versus additional review from the stored row under its lock; the deleted document re-renders the popup with dms.error.documentMissing. SCREENSHOT_DIR receives one evidence screenshot per case.",
       "fixtures": "Owns a patient and three PDF documents (rows and files); a second active provider from the install is used only as a stored reviewer value. Extra-reviewer rows, documents, links and files are removed."
     },
     {
