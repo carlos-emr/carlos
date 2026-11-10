@@ -148,3 +148,19 @@ unreviewed zero floors. Those and unmet historical assertions remain subject to
 the coverage gate.
 No waiver or lower threshold is introduced. This CDS evidence does not replace
 the complete release-lane union required for release coverage acceptance.
+
+The `d074b11dd9a4` checkpoint includes the literal metadata projections, explicit
+CLI prescription DAO binding and exact routes for the additional native cases.
+Its complete H2 run records 38,437 cases across 2,856 suites, with 387 explicitly
+routed/prerequisite skips and no failures or errors. Export passes 2,417 cases
+across 198 suites, import 1,189 across 94 and shared 392 across 30, each without
+skips or failures. The five permission-sensitive cases also pass as an actual
+unprivileged user at `c49ad841853f`, whose Java source and test trees are identical.
+All 7,047 compiled production classes match individually across these builds.
+
+The measured union records all five execution hashes. It retains the same
+1,292 floors and nine exclusions, all required refusal lines and 190 higher
+historical metric assertions. Source freshness passes; 92 files without measured
+line coverage, 88 unreviewed zero floors and unmet historical assertions remain
+explicit. These overlapping executions are not unique-test sums, and this
+checkpoint adds no waiver or lower threshold.

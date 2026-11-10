@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "ecbe014aab5ab9715e0b4152367ca86df8fe3cf9",
-  "comparisonSha256": "447397f346332bab07345784305e1b234d1f9365ecb866c0f537f2284b185fea",
-  "baselineCommit": "3528ac5aea962ece28e11a1196239fdc02f5b476",
-  "baselineSourceTree": "ecbe014aab5ab9715e0b4152367ca86df8fe3cf9",
-  "baselineReportSha256": "f9333eea3d4fcf976629bbb3514e710685a6d46d8ca204ba469ecc4acc4187e1",
-  "baselineLane": "Passing JDK 25 H2 execution and all three passing native CDS shards at 3528ac5aea962ece28e11a1196239fdc02f5b476; 7,047 production class files individually byte-identical. H2 routed/prerequisite skips remain explicit. These overlapping executions are not unique-test sums. Higher historical floors and refusal lines retained; this refresh is not a complete all-release-lane coverage acceptance or a zero-floor waiver.",
+  "sourceTree": "467a793c4e2f573adee94b154e4f5c1880148871",
+  "comparisonSha256": "c01fc8bdfec524df7ffadeab597b4125fb3fcbc2d14e2dad41aea4616cac2087",
+  "baselineCommit": "d074b11dd9a48c130c10771d40fc6c2b14ee6500",
+  "baselineSourceTree": "467a793c4e2f573adee94b154e4f5c1880148871",
+  "baselineReportSha256": "2b7367ae85cbe128a4d16e785a8af563464b2113a3ff3bc5c5eee7d39a305007",
+  "baselineLane": "Passing JDK 25 H2 execution and all three passing native CDS shards at d074b11dd9a48c130c10771d40fc6c2b14ee6500; 7,047 production class files individually byte-identical. H2 routed/prerequisite skips remain explicit. These overlapping executions are not unique-test sums. Higher historical floors and refusal lines retained; this refresh is not a complete all-release-lane coverage acceptance or a zero-floor waiver.",
   "baselineTestCounts": {
-    "tests": 38436,
-    "skipped": 386,
+    "tests": 38437,
+    "skipped": 387,
     "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "15e24196653d285f8ec5a1d2d651ab29225cb93f00c6352c7acbce4018e48b82",
+  "baselineTestReportsSha256": "8b97150c0b7c5b0ac301087c6e93a2a89061d23b024b5c10566c09eed88afa34",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -871,7 +871,7 @@
       "lines": 98.67172675521822,
       "instructions": 98.78132904115888,
       "branches": 79.71428571428571,
-      "sourceBlob": "490fedf0e92680d457923be6be1e70948337e9ed"
+      "sourceBlob": "6b78f85d9d5f472af1c51647d5ebee5d861c4f46"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsExportPreventionDataReadDao.java": {
       "lines": 100.0,
@@ -991,7 +991,7 @@
       "lines": 89.0625,
       "instructions": 87.55186721991701,
       "branches": 100.0,
-      "sourceBlob": "61a1349f8c8510fced9cc6583b5e53197710edb7"
+      "sourceBlob": "de143badf0c3bcaf4474078555c87efce93f83c8"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsLaboratoryResultDao.java": {
       "lines": 100.0,
@@ -2317,7 +2317,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "5a80cd94697d4defe39422b4a934f5f1cd29a345"
+      "sourceBlob": "04d12d1710d25ef81960c1e80ec95b35f70dba96"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/cli/CdsExportSpringRuntime.java": {
       "lines": 0.0,
@@ -3919,7 +3919,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "272de76aa025e26104bd0c44abfb14a8e3d81e9a"
+      "sourceBlob": "23c9e32f6a7f04d6018018d11e77e14703ac38c2"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPreventionAccessService.java": {
       "lines": 100.0,
@@ -7836,63 +7836,76 @@
   "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
   "baselineAdditionalExecution": {
     "direction": "export",
-    "tests": 2416,
     "suites": 198,
+    "sourceCommit": "d074b11dd9a48c130c10771d40fc6c2b14ee6500",
+    "tests": 2417,
     "skipped": 0,
     "failures": 0,
-    "errors": 0,
-    "sourceCommit": "3528ac5aea962ece28e11a1196239fdc02f5b476"
+    "errors": 0
   },
-  "baselineProductionClassManifestSha256": "dd64fa492bf9627b2d5e75bad4e5c03f70714d189b1e9230c3f8058f179ea6b4",
+  "baselineProductionClassManifestSha256": "f664232cf39e9b6569dcc9645f26e50cf18fa0636f42332ea9d4c880ad319551",
   "baselineCoverageInputs": [
     {
       "lane": "java-all",
-      "sourceCommit": "3528ac5aea962ece28e11a1196239fdc02f5b476",
-      "executionSha256": "251ed25e88f2683077131dac9663881a6e7daecc2f3118b6bc9555ae849ab3e7"
+      "sourceCommit": "d074b11dd9a48c130c10771d40fc6c2b14ee6500",
+      "executionSha256": "021df7fa6c23d858ac113722faf62ef3a5c938121cc315b5a1099be387057712"
     },
     {
       "lane": "java-cds-transfer-export",
-      "sourceCommit": "3528ac5aea962ece28e11a1196239fdc02f5b476",
-      "executionSha256": "619497ed1a6a658947b338fd2ea076665cd9bdb00981f2c1fd8b2f1a02cdadb1"
+      "sourceCommit": "d074b11dd9a48c130c10771d40fc6c2b14ee6500",
+      "executionSha256": "10146767fd9b6828a21ab57fa12a462d7ff9869d4ed9a9cb3d74876fb1e79dce"
     },
     {
       "lane": "java-cds-transfer-import",
-      "sourceCommit": "3528ac5aea962ece28e11a1196239fdc02f5b476",
-      "executionSha256": "5a932259e7e870cd199aa12a12188fab32c8daca34da07a5fa1c5b49ce776951"
+      "sourceCommit": "d074b11dd9a48c130c10771d40fc6c2b14ee6500",
+      "executionSha256": "6e82713687c526554862fdde3407d8308a9e52748119527dc9e5610e18cbbcb7"
     },
     {
       "lane": "java-cds-transfer-shared",
-      "sourceCommit": "3528ac5aea962ece28e11a1196239fdc02f5b476",
-      "executionSha256": "18672714fb1c9f5c050c787bcee58bade2886c970caa82ba98b9bb49d7a2c5df"
+      "sourceCommit": "d074b11dd9a48c130c10771d40fc6c2b14ee6500",
+      "executionSha256": "e1cceb564dbaf83799e1635625081fd2b94a56b7b1e3bd17df2694e997b12404"
+    },
+    {
+      "lane": "java-unprivileged-permission",
+      "sourceCommit": "c49ad841853fc99bcc9fc7f333c72f0fcc1028bd",
+      "executionSha256": "3560fc0dc5a2b4103ecdab2b8b46d49aee822c273d089d3ddccd118999e96311"
     }
   ],
   "baselineAdditionalExecutions": [
     {
       "direction": "export",
-      "tests": 2416,
       "suites": 198,
+      "sourceCommit": "d074b11dd9a48c130c10771d40fc6c2b14ee6500",
+      "tests": 2417,
       "skipped": 0,
       "failures": 0,
-      "errors": 0,
-      "sourceCommit": "3528ac5aea962ece28e11a1196239fdc02f5b476"
+      "errors": 0
     },
     {
       "direction": "import",
-      "tests": 1189,
       "suites": 94,
+      "sourceCommit": "d074b11dd9a48c130c10771d40fc6c2b14ee6500",
+      "tests": 1189,
       "skipped": 0,
       "failures": 0,
-      "errors": 0,
-      "sourceCommit": "3528ac5aea962ece28e11a1196239fdc02f5b476"
+      "errors": 0
     },
     {
       "direction": "shared",
-      "tests": 392,
       "suites": 30,
+      "sourceCommit": "d074b11dd9a48c130c10771d40fc6c2b14ee6500",
+      "tests": 392,
       "skipped": 0,
       "failures": 0,
-      "errors": 0,
-      "sourceCommit": "3528ac5aea962ece28e11a1196239fdc02f5b476"
+      "errors": 0
     }
-  ]
+  ],
+  "baselinePermissionExecution": {
+    "sourceCommit": "c49ad841853fc99bcc9fc7f333c72f0fcc1028bd",
+    "suites": 5,
+    "tests": 5,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  }
 }
