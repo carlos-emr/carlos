@@ -585,6 +585,7 @@ public class CdsExportDemographicOccurrenceService {
         other.add(CdsCategory.MEDICATIONS_AND_TREATMENTS);
         other.add(CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS);
         other.add(CdsCategory.APPOINTMENTS);
+        other.add(CdsCategory.REPORTS);
         if (Collections.disjoint(selected, other)) return rows;
         if (rows.get("demographic").size() != 1) scope();
         var references = new HashSet<String>();

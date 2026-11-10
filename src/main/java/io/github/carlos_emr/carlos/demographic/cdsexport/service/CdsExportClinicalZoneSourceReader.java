@@ -64,6 +64,7 @@ public class CdsExportClinicalZoneSourceReader implements CdsExportNativeSourceR
         var categories = EnumSet.copyOf(CdsExportNoteSourceReader.CATEGORIES);
         categories.add(CdsCategory.APPOINTMENTS);
         categories.add(CdsCategory.IMMUNIZATIONS);
+        categories.add(CdsCategory.REPORTS);
         return Set.copyOf(categories);
     }
 

@@ -208,7 +208,7 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
         var attachments = new ArrayList<CdsExportStagedFileDto>();
         boolean complete = false;
         Throwable primary = null;
-        long[] totals = {0, 0};
+        long[] totals = {0, 0, 0};
         try {
             values.withValues(
                     lease,
@@ -238,6 +238,38 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                         var owned = new HashSet<String>();
                         var consumed = new HashSet<String>();
                         var usedFiles = new HashSet<Integer>();
+                        var importedDocuments = new HashSet<String>();
+                        for (String address : index.appliedUnits())
+                            for (var reference :
+                                    index.references().getOrDefault(address, List.of()))
+                                if (reference.table().equals("document"))
+                                    importedDocuments.add(reference.id());
+                        boolean hasNative =
+                                files.keySet().stream()
+                                        .anyMatch(
+                                                id ->
+                                                        !importedDocuments.contains(
+                                                                Integer.toString(id)));
+                        var providers =
+                                hasNative
+                                        ? new CdsExportPublicProviderReader(captures)
+                                                .read(
+                                                        lease, patient, tables, source, bounds,
+                                                        control)
+                                        : Map.<String, CdsExportCapturedTextRowDto>of();
+                        var zone =
+                                hasNative
+                                        ? new CdsExportClinicalZoneService(captures)
+                                                .read(
+                                                        lease,
+                                                        patient,
+                                                        tables,
+                                                        source,
+                                                        bounds.fields(),
+                                                        bounds.bytes(),
+                                                        control)
+                                                .zone()
+                                        : null;
                         for (var unit :
                                 index.tables().getOrDefault("cds_import_unit", Map.of()).values()) {
                             if (!category().wireName().equals(unit.fields().get("category")))
@@ -469,6 +501,114 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                             totals[0]++;
                             totals[1] = Math.addExact(totals[1], all.size());
                         }
+                        for (var file : files.values()) {
+                            if (usedFiles.contains(file.document())) continue;
+                            String documentId = Integer.toString(file.document());
+                            if (importedDocuments.contains(documentId)) review();
+                            var document = current.get(key("document", documentId));
+                            var link =
+                                    current.get(
+                                            key(
+                                                    "ctl_document",
+                                                    patient.patient() + "_" + documentId));
+                            if (document == null
+                                    || link == null
+                                    || !owned.add(key("document", documentId))
+                                    || !owned.add(
+                                            key(
+                                                    "ctl_document",
+                                                    patient.patient() + "_" + documentId)))
+                                invalid();
+                            String extension = nativeExtension(file.filename());
+                            String relative =
+                                    "Reports/"
+                                            + CdsImportKeys.hash(
+                                                    "cds-export-native-report-file-v1",
+                                                    patientKey,
+                                                    documentId)
+                                            + "."
+                                            + extension;
+                            var mapped =
+                                    new CdsExportNativeReportMapper()
+                                            .map(
+                                                    patient.patient(),
+                                                    document,
+                                                    link,
+                                                    relative,
+                                                    extension,
+                                                    providers,
+                                                    zone);
+                            new CdsExportNativeFieldAssessmentValidator()
+                                    .requireRepresentable(
+                                            mapped.rows(),
+                                            mapped.fields(),
+                                            1_000_000,
+                                            control::checkpoint);
+                            if (file.content().bytes() < 1) review();
+                            control.authorizeCategory(patient.patient(), category(), false);
+                            var copied =
+                                    store.stage(
+                                            "REPORT_ATTACHMENT",
+                                            outputBytes -> {
+                                                try (var input =
+                                                        new CdsExportAuthenticatedRangeInputStream(
+                                                                store.open(
+                                                                        source.capture().values()),
+                                                                file.content().offset(),
+                                                                file.content().bytes(),
+                                                                file.content().sha256(),
+                                                                control::checkpoint,
+                                                                () ->
+                                                                        control.authorizeCategory(
+                                                                                patient.patient(),
+                                                                                category(),
+                                                                                false))) {
+                                                    transfer(
+                                                            input,
+                                                            outputBytes,
+                                                            control::checkpoint);
+                                                }
+                                            });
+                            attachments.add(copied);
+                            if (copied.plaintextBytes() != file.content().bytes()
+                                    || !copied.plaintextSha256().equals(file.content().sha256()))
+                                invalid();
+                            var identity =
+                                    new CdsExportIdentityDto(
+                                            patientKey,
+                                            category(),
+                                            CdsImportKeys.hash(
+                                                    "carlos-native-occurrence-v1",
+                                                    "document",
+                                                    documentId));
+                            var assessments = new LinkedHashMap<>(mapped.fields());
+                            assessFile(file, "referenced", assessments);
+                            streams.requireActive();
+                            control.authorizeCategory(patient.patient(), category(), false);
+                            output.attachment(
+                                    identity, new CdsExportPackageMemberDto(relative, copied));
+                            xml.emit(
+                                    new CdsExportXmlComposer.Section(
+                                            identity,
+                                            body ->
+                                                    new CdsExportNativeReportMapper()
+                                                            .write(mapped, body)));
+                            streams.requireActive();
+                            control.authorizeCategory(patient.patient(), category(), false);
+                            output.accept(
+                                    new CdsExportClinicalOccurrenceService.Receipt(
+                                            identity,
+                                            index.sourceManifestSha256(),
+                                            "document",
+                                            documentId,
+                                            null,
+                                            assessments,
+                                            Set.of(),
+                                            Set.of()));
+                            if (!usedFiles.add(file.document())) invalid();
+                            totals[0]++;
+                            totals[2]++;
+                        }
                         var expectedSource = new HashSet<String>();
                         for (var field : retained)
                             if (field.category() == category()) expectedSource.add(field.id());
@@ -486,8 +626,8 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                     source.manifest().plaintextSha256(),
                     category(),
                     totals[0],
-                    totals[0],
-                    0,
+                    totals[0] - totals[2],
+                    totals[2],
                     totals[1]);
         } catch (IOException | RuntimeException | Error failure) {
             primary = failure;
@@ -695,6 +835,14 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
 
     private static void invalid() throws IOException {
         throw new IOException("CDS_EXPORT_REPORT_OCCURRENCE_INVALID");
+    }
+
+    private static String nativeExtension(String filename) {
+        int dot = filename.lastIndexOf('.');
+        String extension = dot < 0 ? "" : filename.substring(dot + 1).toLowerCase(Locale.ROOT);
+        if (!Set.of("pdf", "txt", "rtf", "doc", "docx", "jpg", "jpeg", "png", "tif", "tiff", "bmp")
+                .contains(extension)) review();
+        return extension;
     }
 
     private static void review() {

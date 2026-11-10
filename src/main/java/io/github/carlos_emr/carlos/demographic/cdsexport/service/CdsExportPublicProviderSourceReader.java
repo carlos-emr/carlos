@@ -48,6 +48,7 @@ public class CdsExportPublicProviderSourceReader implements CdsExportNativeSourc
                         CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS,
                         CdsCategory.APPOINTMENTS,
                         CdsCategory.MEDICATIONS_AND_TREATMENTS));
+        categories.add(CdsCategory.REPORTS);
         return Set.copyOf(categories);
     }
 
@@ -85,9 +86,12 @@ public class CdsExportPublicProviderSourceReader implements CdsExportNativeSourc
 
     @Override
     public Set<String> requiredTables() {
-        return java.util.Collections.disjoint(selected, CdsExportNoteSourceReader.CATEGORIES)
-                ? Set.of()
-                : Set.of("casemgmt_note");
+        var required = new java.util.HashSet<String>();
+        if (!java.util.Collections.disjoint(selected, CdsExportNoteSourceReader.CATEGORIES))
+            required.add("casemgmt_note");
+        if (selected.contains(CdsCategory.REPORTS))
+            required.addAll(Set.of("document", "ctl_document"));
+        return Set.copyOf(required);
     }
 
     @Override

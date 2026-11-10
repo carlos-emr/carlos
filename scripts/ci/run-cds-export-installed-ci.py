@@ -40,6 +40,9 @@ def main() -> int:
     parser.add_argument("--cli-source", type=Path, required=True)
     parser.add_argument("--playwright-module", type=Path, required=True)
     parser.add_argument("--build-container", default="carlos-tomcat-dev")
+    parser.add_argument("--container-workspace", default="/workspace")
+    parser.add_argument("--maven", default="mvn")
+    parser.add_argument("--maven-repository")
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[2]
     nonce = uuid.uuid4().hex
@@ -93,7 +96,7 @@ def main() -> int:
                     + [
                         "exec",
                         "--workdir",
-                        "/workspace",
+                        args.container_workspace,
                         args.build_container,
                         *command,
                     ],
@@ -164,7 +167,10 @@ def main() -> int:
             )
             execute(docker + ["build", "-t", image, str(context)])
             stage("BUILD_AND_FREEZE_CANDIDATE_WAR")
-            build(["mvn", "-B", "-DskipTests", "package"])
+            maven = [args.maven, "-B"]
+            if args.maven_repository:
+                maven.append("-Dmaven.repo.local=" + args.maven_repository)
+            build(maven + ["-DskipTests", "package"])
             wars = list((repo / "target").glob("carlos-*.war"))
             if len(wars) != 1 or wars[0].is_symlink():
                 raise RuntimeError("One exact packaged WAR required")
@@ -420,8 +426,7 @@ print(json.dumps({'verified':True,'files':len(expected),'warSha256':manifest['wa
             fixture = read_json(PRIVATE + "/fixture.json")
             cli = ["carlos-ctl", "cds-export", "--provider", fixture["provider"]]
             stage("ACTUAL_ROOT_DELEGATED_CLINICAL_CLI")
-            submitted = json_result(
-                run(
+            submitted_result = run(
                     cli
                     + [
                         "--patients-file",
@@ -429,7 +434,7 @@ print(json.dumps({'verified':True,'files':len(expected),'warSha256':manifest['wa
                         "--profile",
                         "omd-5.2",
                         "--categories",
-                        "Demographics,PersonalHistory,FamilyHistory,PastHealth,ProblemList,RiskFactors,AlertsAndSpecialNeeds,ClinicalNotes,CareElements,NewCategory",
+                        "Demographics,PersonalHistory,FamilyHistory,PastHealth,ProblemList,RiskFactors,AlertsAndSpecialNeeds,ClinicalNotes,Reports,CareElements,NewCategory",
                         "--recipient",
                         "native",
                         "--audit-plan",
@@ -437,12 +442,19 @@ print(json.dumps({'verified':True,'files':len(expected),'warSha256':manifest['wa
                         "--submission-key",
                         "owned-native-cli-" + nonce,
                     ],
-                    capture=True,
+                    capture=True, check=False,
                 )
-            )
+            submitted = json_result(submitted_result)
+            # The CLI protocol is PHI-free, but publish only the fixed terminal state and code.
+            status["cliTerminal"] = {
+                key: submitted.get(key) for key in
+                ("state", "safeCode", "complete", "processedPatients", "blockedPatients")
+            }
+            save()
             cli_run = submitted.get("runId")
             if (
-                submitted.get("state") != "READY"
+                submitted_result.returncode != 0
+                or submitted.get("state") != "READY"
                 or submitted.get("complete") is not True
                 or not cli_run
             ):

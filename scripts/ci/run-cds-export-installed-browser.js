@@ -43,7 +43,7 @@ async function main() {
         await page.locator('#selection').selectOption('SELECTED_PATIENTS');
         await page.locator('#patientNos').fill(String(options.patient));
         const wanted = new Set(['Demographics', 'PersonalHistory', 'FamilyHistory', 'PastHealth',
-            'ProblemList', 'RiskFactors', 'AlertsAndSpecialNeeds', 'ClinicalNotes', 'CareElements', 'NewCategory']);
+            'ProblemList', 'RiskFactors', 'AlertsAndSpecialNeeds', 'ClinicalNotes', 'Reports', 'CareElements', 'NewCategory']);
         const categories = page.locator('.export-category');
         for (let i = 0; i < await categories.count(); i++) {
             const category = categories.nth(i);

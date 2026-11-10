@@ -91,6 +91,7 @@ public class CdsExportPatientInventoryService {
         if (!index.sourceManifestSha256().equals(source.manifest().plaintextSha256())) invalid();
         var expected = new TreeSet<CdsExportIdentityDto>();
         var notes = new HashSet<String>();
+        var documents = new HashSet<String>();
         var sourceFields = new HashSet<String>();
         var budget = new Budget(bounds.indexRows(), bounds.indexBytes());
         var actual =
@@ -112,6 +113,9 @@ public class CdsExportPatientInventoryService {
                                         expected,
                                         nativeIdentity(patientKey, category, row.table(), row.id()),
                                         budget);
+                            } else if (row.table().equals("document")) {
+                                if (!documents.add(row.id())) invalid();
+                                budget.add();
                             } else if (row.table().equals("casemgmt_note")) {
                                 if (!notes.add(row.id())) invalid();
                                 budget.add();
@@ -135,6 +139,16 @@ public class CdsExportPatientInventoryService {
                                 CdsImportKeys.hash("carlos-retained-occurrence-v1", address)),
                         budget);
             }
+        }
+        for (String address : index.appliedUnits())
+            for (var reference : index.references().getOrDefault(address, List.of()))
+                if (reference.table().equals("document")) documents.remove(reference.id());
+        for (String document : documents) {
+            if (!lease.document().command().categories().contains(CdsCategory.REPORTS)) invalid();
+            add(
+                    expected,
+                    nativeIdentity(patientKey, CdsCategory.REPORTS, "document", document),
+                    budget);
         }
         if (!Collections.disjoint(
                 lease.document().command().categories(), CdsExportNoteSourceReader.CATEGORIES)) {

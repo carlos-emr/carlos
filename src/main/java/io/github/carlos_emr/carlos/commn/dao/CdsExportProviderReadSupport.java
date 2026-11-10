@@ -133,6 +133,7 @@ public final class CdsExportProviderReadSupport {
                         "AllergiesAndAdverseReactions",
                         "Appointments",
                         "MedicationsAndTreatments"));
+        supported.add("Reports");
         if (patient < 1
                 || categories == null
                 || categories.isEmpty()
@@ -142,24 +143,35 @@ public final class CdsExportProviderReadSupport {
         var selected = new ArrayList<String>();
         if (categories.contains("Demographics"))
             selected.add(
-                    "(exists (select 1 from demographic p where p.demographic_no=:patient"
-                            + " and (p.provider_no=d.provider_no or p.roster_enrolled_to=d.provider_no))"
-                            + " or exists (select 1 from demographicArchive p where p.demographic_no=:patient"
-                            + " and (p.provider_no=d.provider_no or p.roster_enrolled_to=d.provider_no)))");
+                    "(exists (select 1 from demographic p where p.demographic_no=:patient and"
+                        + " (p.provider_no=d.provider_no or p.roster_enrolled_to=d.provider_no)) or"
+                        + " exists (select 1 from demographicArchive p where"
+                        + " p.demographic_no=:patient and (p.provider_no=d.provider_no or"
+                        + " p.roster_enrolled_to=d.provider_no)))");
         if (categories.contains("AllergiesAndAdverseReactions"))
             selected.add(
-                    "exists (select 1 from allergies a where a.demographic_no=:patient and a.providerNo=d.provider_no)");
+                    "exists (select 1 from allergies a where a.demographic_no=:patient and"
+                            + " a.providerNo=d.provider_no)");
         if (categories.contains("Appointments"))
             selected.add(
-                    "(exists (select 1 from appointment a where a.demographic_no=:patient and a.provider_no=d.provider_no)"
-                            + " or exists (select 1 from appointmentArchive a where a.demographic_no=:patient and a.provider_no=d.provider_no))");
+                    "(exists (select 1 from appointment a where a.demographic_no=:patient and"
+                            + " a.provider_no=d.provider_no) or exists (select 1 from"
+                            + " appointmentArchive a where a.demographic_no=:patient and"
+                            + " a.provider_no=d.provider_no))");
         if (categories.contains("MedicationsAndTreatments"))
             selected.add(
-                    "exists (select 1 from drugs a where a.demographic_no=:patient and a.provider_no=d.provider_no)");
+                    "exists (select 1 from drugs a where a.demographic_no=:patient and"
+                            + " a.provider_no=d.provider_no)");
         if (categories.containsAll(HISTORY))
             selected.add(
-                    "exists (select 1 from casemgmt_note n where n.demographic_no=:patient"
-                            + " and (n.provider_no=d.provider_no or n.signing_provider_no=d.provider_no))");
+                    "exists (select 1 from casemgmt_note n where n.demographic_no=:patient and"
+                        + " (n.provider_no=d.provider_no or n.signing_provider_no=d.provider_no))");
+        if (categories.contains("Reports"))
+            selected.add(
+                    "exists (select 1 from document r join ctl_document c on"
+                            + " c.document_no=r.document_no where c.module='demographic' and"
+                            + " CAST(c.module_id AS DECIMAL(65,0))=:patient and"
+                            + " r.reviewer=d.provider_no)");
         // Native collation matches are captured as candidates; the mapper must still prove exact
         // raw reference identity.
         return "(d.provider_no<>'' and (" + String.join(" or ", selected) + "))";

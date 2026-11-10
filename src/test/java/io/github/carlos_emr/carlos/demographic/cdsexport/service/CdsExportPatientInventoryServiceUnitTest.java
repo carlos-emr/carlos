@@ -216,4 +216,26 @@ class CdsExportPatientInventoryServiceUnitTest {
                                         List.of())));
         assertThatThrownBy(() -> capture(f)).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }
+
+    @Test
+    void
+            shouldInventoryNativeReportsWithoutImportMetadata_andAvoidDuplicatingImportedRepresentations()
+                    throws Exception {
+        var f = fixture(CdsCategory.REPORTS);
+        f.nativeRows.add(
+                new CdsExportNativeRowReceiptDto(
+                        "document", "91", "91", CdsExportPatientPipelineFixture.HASH));
+        assertThat(capture(f).identities()).hasSize(2);
+        f.unit(
+                CdsCategory.REPORTS,
+                "d".repeat(64),
+                List.of(
+                        new CdsExportRetainedIndexDto.Reference(
+                                "document", "91", CdsExportPatientPipelineFixture.HASH)));
+        assertThat(capture(f).identities()).hasSize(2);
+        assertThat(
+                        capture(f).identities().stream()
+                                .filter(i -> i.category() == CdsCategory.REPORTS))
+                .hasSize(1);
+    }
 }
