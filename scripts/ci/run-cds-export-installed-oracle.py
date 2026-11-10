@@ -8,6 +8,7 @@ import copy
 import hashlib
 import json
 from pathlib import Path, PurePosixPath
+import re
 import subprocess
 import tempfile
 import zipfile
@@ -354,20 +355,11 @@ def schema_valid(path: Path, schema: Path) -> bool:
     return result.returncode == 0
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--archive", type=Path, required=True)
-    parser.add_argument("--fixture", type=Path, required=True)
-    parser.add_argument("--proof", type=Path, required=True)
-    parser.add_argument("--schema", type=Path, required=True)
-    args = parser.parse_args()
-    if args.archive.is_symlink() or not args.archive.is_file() or args.archive.stat().st_size > (2 << 20):
+def read_native_archive(path: Path):
+    """Resolve each report beside its patient XML, as the transfer package requires."""
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > (2 << 20):
         raise RuntimeError("Bounded owned archive required")
-    fixture = json.loads(args.fixture.read_text())
-    patient = fixture["patient"]
-    if type(patient) is not int or patient < 1:
-        raise RuntimeError("Expected patient identity required")
-    with zipfile.ZipFile(args.archive) as archive:
+    with zipfile.ZipFile(path) as archive:
         members = archive.infolist()
         names = [member.filename for member in members]
         if len(names) != 4 or len(set(name.casefold() for name in names)) != len(names):
@@ -382,13 +374,26 @@ def main() -> int:
         if len(xml_members) != 1:
             raise RuntimeError("Exactly one XML patient required")
         xml_bytes = archive.read(xml_members[0])
-        report_members = [name for name in names if name.startswith("Reports/")]
-        if (len(report_members) != 1 or not report_members[0].endswith(".txt")
-                or archive.read(report_members[0]) != "Native consultation report café 😀\nIndependent attachment bytes\n".encode("utf-8")):
+        root = SAFE_XML.fromstring(xml_bytes)
+        references = root.findall("./c:PatientRecord/c:Reports/c:FilePath", NS)
+        if (len(references) != 1 or not re.fullmatch(
+                r"Reports/[0-9a-f]{64}\.txt", references[0].text or "")):
+            raise RuntimeError("Native report relative path differs")
+        report_member = (PurePosixPath(xml_members[0]).parent / references[0].text).as_posix()
+        if set(names) != {"ReadMe.txt", "ExportEventLog.csv", xml_members[0], report_member}:
+            raise RuntimeError("Native report attachment is not beside its patient XML")
+        if archive.read(report_member) != "Native consultation report café 😀\nIndependent attachment bytes\n".encode("utf-8"):
             raise RuntimeError("Independent native report attachment bytes differ")
-    root = SAFE_XML.fromstring(xml_bytes)
-    if root.find("./c:PatientRecord/c:Reports/c:FilePath", NS).text != report_members[0]:
-        raise RuntimeError("Native report path differs from its exact attachment member")
+    return root, names, xml_bytes
+
+
+def qualify(args) -> int:
+    root, names, xml_bytes = read_native_archive(args.archive)
+    fixture = json.loads(args.fixture.read_text())
+    patient = fixture["patient"]
+    if type(patient) is not int or patient < 1:
+        raise RuntimeError("Expected patient identity required")
+    args.proof.write_text(json.dumps({"protocol": 1, "status": "RUNNING", "stage": "CLINICAL_FACTS"}))
     if not clinically_equal(root, patient):
         args.proof.write_text(json.dumps({
             "protocol": 1, "status": "FAILED", "reason": "CLINICAL_EXPECTATIONS_DIFFER",
@@ -399,6 +404,7 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="cds-independent-oracle-", dir=args.proof.parent) as work:
         xml_path = Path(work) / "patient.xml"
         xml_path.write_bytes(xml_bytes)
+        args.proof.write_text(json.dumps({"protocol": 1, "status": "RUNNING", "stage": "PINNED_SCHEMA"}))
         if not schema_valid(xml_path, args.schema):
             raise RuntimeError("Pinned OntarioMD schema validation failed")
         mutations = (
@@ -421,6 +427,8 @@ def main() -> int:
         )
         detected = 0
         for index, (path, replacement) in enumerate(mutations):
+            args.proof.write_text(json.dumps({"protocol": 1, "status": "RUNNING",
+                "stage": "SCHEMA_VALID_MUTATION", "mutationIndex": index + 1}))
             mutant = copy.deepcopy(root)
             target = (mutant.find("./c:PatientRecord/" + path[3:], NS) if path.startswith("../")
                       else mutant.find(BASE + path, NS))
@@ -440,6 +448,26 @@ def main() -> int:
     }, sort_keys=True, indent=2))
     print("PASS independent native clinical oracle:", len(expected(patient)) + len(history_expected()) + len(report_expected()) + sum(map(len, laboratory_expected())) + sum(map(len, medication_expected())), "facts and", detected, "schema-valid mutants")
     return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--archive", type=Path, required=True)
+    parser.add_argument("--fixture", type=Path, required=True)
+    parser.add_argument("--proof", type=Path, required=True)
+    parser.add_argument("--schema", type=Path, required=True)
+    args = parser.parse_args()
+    args.proof.write_text(json.dumps({"protocol": 1, "status": "RUNNING", "stage": "ARCHIVE_CONTRACT"}))
+    try:
+        return qualify(args)
+    except Exception:
+        # The phase and fixed failure code are public. Exception messages, paths,
+        # XML, patient values and source-provided names stay out of the receipt.
+        proof = json.loads(args.proof.read_text())
+        proof.update(status="FAILED", reason="ORACLE_EXECUTION_FAILED")
+        args.proof.write_text(json.dumps(proof, sort_keys=True, indent=2))
+        print("FAIL independent native oracle; see value-free phase proof")
+        return 1
 
 
 if __name__ == "__main__":
