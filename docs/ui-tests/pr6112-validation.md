@@ -66,16 +66,16 @@ without the CARLOS key, then as `oscar`, then again.
 ## Other checks on the same install
 
 - `lab-upload-signed-feed`, the other user of the CARLOS key pair: **PASS**, no residue.
-- `--tier smoke`: 8 passed and 4 failed on the first run, and the residue audit flagged
-  `measurementType` +63 and `validations` +14 rows (clinical measurement types seeded
-  during the eChart checks).
-  - Every one of the 4 failures was a 503 from `demographic/portalBookingPrompt`: no
-    patient portal is configured on a disposable install.
-  - With the `_portal.booking_prompt` grants restricted, as in
-    [PR #5598](pr5598-validation.md), `appointment-lifecycle`, `browser-surface` and
-    `echart` pass.
-  - `document-upload` still fails on every run: an eChart left-navigation document link
-    never becomes visible.
+- `--tier smoke`, first run: 8 passed, 5 failed.
+  - `appointment-lifecycle`, `browser-surface` and `echart` failed on 503s from
+    `demographic/portalBookingPrompt`: no patient portal is configured on a disposable
+    install. With the `_portal.booking_prompt` grants restricted, as in
+    [PR #5598](pr5598-validation.md), all three pass.
+  - `document-upload` failed for a different reason: an eChart left-navigation document
+    link never becomes visible. It fails the same way on every run, with or without the
+    portal grants.
+  - The fifth failure is the residue audit: `measurementType` +63 and `validations` +14
+    rows. `echart` run on its own adds exactly these rows (clinical measurement types).
 - The built WAR differs from one built from `develop` only in `KeyPairGen` (plus its two
   nested types), `createKey.jsp` and `buildNumber.properties`, compared entry by entry by
   CRC. So the `document-upload` failure and the residue do not come from this change.
