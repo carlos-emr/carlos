@@ -62,10 +62,25 @@ class TestPackagedTargetSchemaColumns(unittest.TestCase):
         # The pinned upstream checkout is unavailable in normal CI. The target side
         # is local, so a new common/province migration must never leave the packaged
         # importer's destination-column metadata silently stale.
+        """Check all native columns independently, then the shipped copy inventory."""
         generator = load_generator()
         for province in generator.PROVINCES:
             with self.subTest(province=province):
                 schema = generator.load_schema(generator.carlos_schema_files(province))
+                physical = json.loads((generator.REPO_ROOT / "database/mysql/schema-contract" /
+                                       (province + ".json")).read_text())
+                physical_columns = {}
+                for row in physical["schema"]["columns"]:
+                    physical_columns.setdefault(row[0], set()).add(row[1])
+                discrepancies = {}
+                for table in set(schema.tables) | set(physical_columns):
+                    parsed = set(schema.tables.get(table, {}))
+                    actual = physical_columns.get(table, set())
+                    if parsed != actual:
+                        discrepancies[table] = {"missing": sorted(actual - parsed),
+                                                "unexpected": sorted(parsed - actual)}
+                self.assertFalse(discrepancies,
+                                 "Native schema inventory differs: " + repr(discrepancies))
                 profile = profile_data(province)
                 copied_tables = sorted(table for table, entry in profile["TABLES"].items()
                                        if entry["class"] in ("copy", "merge"))
@@ -109,6 +124,18 @@ class TestSchemaManifest(unittest.TestCase):
         cls.seed_row_counts = data["SEED_ROW_COUNTS"]
         cls.schema_map_version = data["SCHEMA_MAP_VERSION"]
         cls.stock_role_names = data["STOCK_ROLE_NAMES"]
+
+    def test_oauth_access_tokens_remain_live_with_their_original_credentials(self):
+        entry = self.tables["ServiceAccessToken"]
+        self.assertEqual(entry["class"], "copy")
+        for name in ("id", "clientId", "tokenId", "tokenSecret", "issued", "lifetime", "providerNo", "scopes"):
+            self.assertIn(name, entry["cols"])
+        self.assertNotIn("value_exprs", entry)
+        self.assertNotIn("charset_scan", entry)
+        self.assertIn("ServiceAccessToken", o19map_schema.CREDENTIAL_TABLES)
+        self.assertIn("lifetime", self.tables["ServiceClient"]["cols"])
+        for name in ("SecurityToken", "ServiceRequestToken"):
+            self.assertEqual(self.tables[name]["class"], "archive")
 
     def test_every_table_classified_once_with_valid_class(self):
         for table, entry in self.tables.items():
@@ -519,46 +546,48 @@ class TestPreflightDriftLock(unittest.TestCase):
             self.assertEqual(version, schema["SCHEMA_MAP_VERSION"])
             self._assert_all_profiles(self._load_preflight(path), schema)
 
-    def test_previous_program_coercion_token_cannot_resume_an_import(self):
+    def test_previous_program_and_token_policies_cannot_resume_an_import(self):
+        """Reject prior mappings whose program or credential decisions differ."""
         from carlos_ctl import o19import
         schema = o19manifest.load("o19map-schema")
         for profile in [schema] + list(schema["PROFILES"].values()):
             current = profile["SCHEMA_MAP_VERSION"]
             with self.subTest(province=profile["O19_PROFILE"]):
-                self.assertEqual(current.split("+", 1)[0], "o19map-4")
-                previous = "o19map-3+" + current.split("+", 1)[1]
-                state = {"inputs": {"schema_map_version": previous},
-                         "phases": {"etl": {"status": "done"}}}
-                refusal = o19import.manifest_change_refusal(state, current)
-                self.assertIn(previous, refusal)
-                self.assertIn(current, refusal)
-                self.assertIn("reinstall the carlos-emr package version", refusal)
-                state["inputs"]["schema_map_version"] = current
-                self.assertIsNone(o19import.manifest_change_refusal(state, current))
+                self.assertEqual(current.split("+", 1)[0], "o19map-7")
+                for previous_base in ("o19map-3", "o19map-4", "o19map-5", "o19map-6"):
+                    previous = previous_base + "+" + current.split("+", 1)[1]
+                    state = {"inputs": {"schema_map_version": previous},
+                             "phases": {"etl": {"status": "done"}}}
+                    refusal = o19import.manifest_change_refusal(state, current)
+                    self.assertIn(previous, refusal)
+                    self.assertIn(current, refusal)
+                    self.assertIn("reinstall the carlos-emr package version", refusal)
+                    state["inputs"]["schema_map_version"] = current
+                    self.assertIsNone(o19import.manifest_change_refusal(state, current))
 
-                with tempfile.TemporaryDirectory() as directory:
-                    progress = {"tables": {"program": {"done": True}},
-                                "dump_sha256": "same-fixture-dump",
-                                "schema_map_version": previous}
-                    o19etl.save_progress(directory, progress)
-                    ledger = Path(o19etl.progress_path(directory))
-                    before = ledger.read_bytes()
-                    self.assertEqual(o19etl.load_progress(
-                        directory, "same-fixture-dump", previous), progress)
-                    error = io.StringIO()
-                    with contextlib.redirect_stderr(error), \
-                            self.assertRaises(SystemExit) as caught:
-                        o19etl.load_progress(directory, "same-fixture-dump", current)
-                    self.assertEqual(caught.exception.code, 1)
-                    self.assertIn(previous, error.getvalue())
-                    self.assertIn(current, error.getvalue())
-                    self.assertIn("restore the pre-import snapshot", error.getvalue())
-                    self.assertEqual(ledger.read_bytes(), before)
+                    with tempfile.TemporaryDirectory() as directory:
+                        progress = {"tables": {"program": {"done": True}},
+                                    "dump_sha256": "same-fixture-dump",
+                                    "schema_map_version": previous}
+                        o19etl.save_progress(directory, progress)
+                        ledger = Path(o19etl.progress_path(directory))
+                        before = ledger.read_bytes()
+                        self.assertEqual(o19etl.load_progress(
+                            directory, "same-fixture-dump", previous), progress)
+                        error = io.StringIO()
+                        with contextlib.redirect_stderr(error), \
+                                self.assertRaises(SystemExit) as caught:
+                            o19etl.load_progress(directory, "same-fixture-dump", current)
+                        self.assertEqual(caught.exception.code, 1)
+                        self.assertIn(previous, error.getvalue())
+                        self.assertIn(current, error.getvalue())
+                        self.assertIn("restore the pre-import snapshot", error.getvalue())
+                        self.assertEqual(ledger.read_bytes(), before)
 
-                    progress["schema_map_version"] = current
-                    o19etl.save_progress(directory, progress)
-                    self.assertEqual(o19etl.load_progress(
-                        directory, "same-fixture-dump", current), progress)
+                        progress["schema_map_version"] = current
+                        o19etl.save_progress(directory, progress)
+                        self.assertEqual(o19etl.load_progress(
+                            directory, "same-fixture-dump", current), progress)
 
 
 class TestPropsManifest(unittest.TestCase):
@@ -1092,6 +1121,10 @@ for _province in sorted(o19map_schema.PROFILES):
              "__doc__": "{0} against the {1!r} profile."
                         .format(_base.__name__, _province)})
 
+
+# unittest discovers class aliases too, including underscored loop variables.
+# Keep each inherited ON/BC case once instead of rerunning the final base.
+del _base
 
 if __name__ == "__main__":
     unittest.main()

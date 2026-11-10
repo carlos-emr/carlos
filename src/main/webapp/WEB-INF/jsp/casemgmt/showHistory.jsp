@@ -38,11 +38,11 @@
 
     @since 2026-08-13
 --%>
-<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
+
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -58,7 +58,7 @@
 %>
 
 <%@ page
-        import="org.springframework.web.context.*,org.springframework.web.context.support.*, io.github.carlos_emr.carlos.PMmodule.service.ProviderManager, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
+        import="org.springframework.web.context.*, org.springframework.web.context.support.*, io.github.carlos_emr.carlos.PMmodule.service.ProviderManager" %>
 <%
     WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(getServletContext());
     ProviderManager pMgr = (ProviderManager) ctx.getBean(ProviderManager.class);
@@ -99,10 +99,11 @@
                 </c:if>
     
                 <c:if test="${note.signed != true}">
-                    Saved by
-                    ${carlos:forHtml(note.provider.formattedName)}:
+                    <fmt:message key="casemgmt.showHistory.recordedProvider"/>:
+                    ${carlos:forHtml(note.provider.formattedName)}
                 </c:if>
-    
+
+                <br /><fmt:message key="casemgmt.showHistory.nativeRevisionTime"/>:
                 <fmt:formatDate value="${note.update_date}" pattern="dd-MMM-yyyy H:mm" />
             </div>
             <%-- In-place edits retain earlier versions in history, not separate note rows.

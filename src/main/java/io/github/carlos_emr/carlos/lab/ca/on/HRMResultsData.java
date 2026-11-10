@@ -17,7 +17,6 @@ package io.github.carlos_emr.carlos.lab.ca.on;
 
 import java.util.*;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMReport;
@@ -144,9 +143,14 @@ public class HRMResultsData {
         // the key = SendingFacility+':'+ReportNumber+':'+DeliverToUserID as per HRM spec can be used to signify duplicate report
         HashMap<String, LabResultData> labResults = new HashMap<String, LabResultData>();
         HashMap<String, HRMReport> labReports = new HashMap<String, HRMReport>();
+        Set<Integer> seenDocumentIds = new HashSet<>();
 
         for (HRMDocumentToProvider hrmDocResult : hrmDocResultsProvider) {
             Integer id = hrmDocResult.getHrmDocumentId();
+            // A report can have several provider routes; only distinct documents are versions.
+            if (!seenDocumentIds.add(id)) {
+                continue;
+            }
             LabResultData lbData = new LabResultData(LabResultData.HRM);
 
             List<HRMDocument> hrmDocument = hrmDocumentDao.findById(id);
@@ -219,12 +223,7 @@ public class HRMResultsData {
 
         }
 
-        if (logger.isDebugEnabled()) {
-            for (LabResultData temp : labResults.values()) {
-                logger.debug("------------------");
-                logger.debug(ReflectionToStringBuilder.toString(temp));
-            }
-        }
+        logger.debug("HRM result count: {}", labResults.size());
 
         return labResults.values();
     }

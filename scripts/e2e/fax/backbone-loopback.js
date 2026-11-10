@@ -16,6 +16,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { cfg } = require('./lib');
+const {runCheck}=require('../../lib/playwright-harness');
 
 // MARIADB may be a multi-word launcher (e.g. "sudo mariadb"); split into argv
 // so nothing is ever parsed by a shell. execFileSync takes an argv array — no
@@ -58,7 +59,7 @@ function stage(content, dest, mode = '0644') {
   }
 }
 
-async function main() {
+async function main({cancellation}) {
   const c = cfg();
   const faxNo = c.srfax.faxNumber;
   const loopbackDial = process.env.SRFAX_LOOPBACK_DIAL || ('1' + faxNo);
@@ -87,7 +88,7 @@ async function main() {
   // Wait for the scheduler (60s poll) to send it via the real SRFax API.
   let sent = false;
   for (let i = 0; i < 10 && !sent; i++) {
-    sh('sleep', ['15']);
+    await new Promise(resolve=>setTimeout(resolve,15000));cancellation.throwIfCancelled();
     const st = sql(`SELECT status FROM faxes WHERE id=${id}`);
     const job = sql(`SELECT COALESCE(jobId,'') FROM faxes WHERE id=${id}`);
     console.log(`  t+${(i + 1) * 15}s status=${st} jobId=${job || '(none)'}`);
@@ -100,7 +101,7 @@ async function main() {
   console.log('waiting for the inbound loopback copy to import (several minutes)...');
   let imported = false;
   for (let i = 0; i < 40 && !imported; i++) {
-    sh('sleep', ['15']);
+    await new Promise(resolve=>setTimeout(resolve,15000));cancellation.throwIfCancelled();
     const inCount = parseInt(sql(`SELECT COUNT(*) FROM faxes WHERE direction='IN'`), 10) || 0;
     if (inCount > before) {
       const unclaimed = parseInt(sql(`SELECT COUNT(*) FROM providerLabRouting WHERE provider_no='0' AND status='N'`), 10) || 0;
@@ -112,4 +113,4 @@ async function main() {
   console.log('BACKBONE LOOPBACK: PASS');
 }
 
-main().catch((e) => { console.error('BACKBONE LOOPBACK: FAIL —', e.message); process.exit(1); });
+runCheck({name:'fax-backbone-loopback',run:main});

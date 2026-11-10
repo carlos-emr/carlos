@@ -54,18 +54,20 @@
     @since 2001-01-01 (original OSCAR/McMaster); CARLOS fork maintained 2026+
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib prefix="s" uri="/struts-tags" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="oscarRx.renal.unavailable" var="msg_renalUnavailable"/>
+<fmt:message key="oscarRx.draftReviewRequired" var="msg_rxDraftReviewRequired"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
-<%@page import="io.github.carlos_emr.CarlosProperties,io.github.carlos_emr.carlos.log.*" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@page import="java.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -271,7 +273,10 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <fmt:message key="SearchDrug.js.saveWarning"               var="msg_saveWarning"/>
         <fmt:message key="SearchDrug.js.savePrompt"                var="msg_savePrompt"/>
         <fmt:message key="SearchDrug.js.saveRefused"               var="msg_saveRefused"/>
-        <fmt:message key="SearchDrug.js.saveIncomplete"            var="msg_saveIncomplete"/>
+        <fmt:message key="oscarRx.stagedSourceChanged" var="msg_sourceChanged"/>
+        <fmt:message key="oscarRx.saveAlreadySaved" var="msg_saveAlreadySaved"/>
+<fmt:message key="SearchDrug.js.saveIncomplete"            var="msg_saveIncomplete"/>
+        <fmt:message key="SearchDrug.js.saveUncertain"             var="msg_saveUncertain"/>
         <fmt:message key="SearchDrug.js.discontinueIncomplete"     var="msg_discontinueIncomplete"/>
         <fmt:message key="SearchDrug.js.staleDraft"                var="msg_staleDraft"/>
         <fmt:message key="SearchDrug.js.removeRefused"             var="msg_removeRefused"/>
@@ -319,7 +324,10 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
                 saveWarning: '${carlos:forJavaScript(msg_saveWarning)}',
                 savePrompt: '${carlos:forJavaScript(msg_savePrompt)}',
                 saveRefused: '${carlos:forJavaScript(msg_saveRefused)}',
+                sourceChanged: '${carlos:forJavaScript(msg_sourceChanged)}',
+                alreadySaved: '${carlos:forJavaScript(msg_saveAlreadySaved)}',
                 saveIncomplete: '${carlos:forJavaScript(msg_saveIncomplete)}',
+                saveUncertain: '${carlos:forJavaScript(msg_saveUncertain)}',
                 discontinueIncomplete: '${carlos:forJavaScript(msg_discontinueIncomplete)}',
                 staleDraft: '${carlos:forJavaScript(msg_staleDraft)}',
                 removeRefused: '${carlos:forJavaScript(msg_removeRefused)}',
@@ -885,7 +893,7 @@ function renderRxStage() {
 
                                                 <div id="prescriptionStageSet" style="display:none">
 
-                                                    <div id="interactingDrugErrorMsg" role="status" style="display:none;color:#856404;font-weight:bold;"></div>
+                                                    <output id="interactingDrugErrorMsg" style="display:none;color:#856404;font-weight:bold;"></output>
 
                                                     <div id="rxText"></div>
                                                         <%-- Prescriptions are staged here via the prescribe.jsp widget --%>
@@ -1918,11 +1926,13 @@ function openSavedPrescriptionPreview(transport) {
         saved = null;
     }
     if (!saved || !/^[1-9]\d*$/.test(String(saved.scriptId))) {
-        alert(jsMsg.previewUnavailable);
+        reportRefusedSave(transport);
         return;
     }
+    refreshDrugProfile();
     // Only the window whose save succeeded receives the new card versions. Another window's
     // stale form remains invalid; Edit Rx in this window can submit its acknowledged version.
+    rxSaveNeedsReconciliation = false;
     if (saved.draftRevisions) {
         Object.keys(saved.draftRevisions).forEach(function(key) {
             if (!/^[0-9]+$/.test(key)) return;
@@ -2837,10 +2847,38 @@ function updateQty(element){
     }
 
          function getRenalDosingInformation(divId,atcCode){
+               var panel = document.getElementById(divId);
+               if (!panel) return;
+               var requestNumber = (panel.renalDosingRequest || 0) + 1;
+               panel.renalDosingRequest = requestNumber;
                var url = "<%= request.getContextPath() %>/rx/ViewRenalDosing";
                var ran_number=Math.round(Math.random()*1000000);
-               var params = "demographicNo=<%=demoNo%>&atcCode="+encodeURIComponent(atcCode)+"&divId="+divId+"&rand="+ran_number;
-               CarlosAjax.updater(divId,url, {method:'get',parameters:params,insertion: 'bottom'});
+               var params = "demographicNo=<%=demoNo%>&atcCode="+encodeURIComponent(atcCode)+"&divId="+encodeURIComponent(divId)+"&rand="+ran_number;
+               CarlosAjax.request(url, {method:'get',parameters:params,onComplete:function(transport) {
+                   // A slow earlier response must not replace more recently requested guidance.
+                   if (panel.renalDosingRequest === requestNumber && document.getElementById(divId) === panel) {
+                       if (transport.status === 200 && transport.responseJSON
+                               && transport.responseJSON.renalState === 'no-guidance') {
+                           panel.innerHTML = '';
+                           return;
+                       }
+                       var renderable = false;
+                       if ((transport.status >= 200 && transport.status < 300) || transport.status === 400) {
+                           var fragment = document.createElement('template');
+                           fragment.innerHTML = transport.responseText || '';
+                           renderable = !!fragment.content.querySelector('[data-renal-dosing-panel]');
+                       }
+                       if (renderable) {
+                           panel.innerHTML = transport.responseText;
+                       } else {
+                           // Clear stale guidance, including on an initial failure, and keep a retry.
+                           panel.innerHTML = '<div data-renal-dosing-unavailable><details open><summary>${carlos:forJavaScript(msg_renalUnavailable)}</summary><h3>Dosing Information <small><button type="button" class="btn btn-link">Refresh</button></small></h3><output>N/A</output></details></div>';
+                           panel.querySelector('button').onclick = function() {
+                               getRenalDosingInformation(divId, atcCode);
+                           };
+                       }
+                   }
+               }});
          }
          function getLUC(divId,randomId,din){
              var url = ctx + "/rx/ViewLimitedUseCode";
@@ -3078,8 +3116,6 @@ function updateQty(element){
         {method: 'post',postBody:data,synchronous:true,
           requestHeaders: { 'Accept': 'application/json' },
             onSuccess:function(transport){
-
-                refreshDrugProfile();
                 const hasDrugs = jQuery("[id^='drugName_']").length > 0;
                 if (hasDrugs) {
                     openSavedPrescriptionPreview(transport);
@@ -3127,6 +3163,7 @@ function updateQty(element){
                     reportRefusedSave(transport);
                     return;
                 }
+                rxSaveNeedsReconciliation = false;
                 refreshDrugProfile();
                 clearStashDisplay();
             },
@@ -3135,13 +3172,69 @@ function updateQty(element){
     }
 
     /**
-     * Tells the prescriber a save did not happen. updateSaveAllDrugs answers 409 when the request
-     * does not name the patient of an open Rx window (per-patient Rx state, #3875).
+     * Error codes updateSaveAllDrugs sends with a 5xx status only when it refuses a save before
+     * writing anything. Any other 5xx may follow a commit (#5686).
+     */
+    var RX_SAVE_PRE_WRITE_ERRORS = ['RX_DRAFT_VALIDATION_FAILED'];
+    var rxSaveNeedsReconciliation = false;
+
+    /**
+     * Whether a save the server did not confirm may still have committed (#5686). Only a refusal
+     * proves nothing was written, so only a refusal may be reported as NOT saved:
+     * - a 4xx: the action, a filter (login, CSRFGuard, method guard), the WAF or the proxy refused
+     *   the request before the action wrote anything;
+     * - a 5xx naming one of RX_SAVE_PRE_WRITE_ERRORS;
+     * - a 2xx from another page: a login or facility-selection redirect, followed by the XHR,
+     *   means the request never reached the save action.
+     * Everything else may follow a commit, and a retry can then issue a duplicate prescription:
+     * no response at all (status 0: a lost or aborted reply, a timeout, a network failure), any
+     * other 5xx (the action can fail after its transaction commits, and a proxy can time out while
+     * Tomcat completes the save) and a 2xx from the save action without the saved script id.
      *
-     * @param {Object} transport the CarlosAjax transport of the failed request
+     * @param {Object} transport the CarlosAjax transport of the request, or nothing
+     * @return {boolean} true when the prescriber must check the medication profile before retrying
+     */
+    function isUncertainSaveOutcome(transport) {
+        var status = transport ? Number(transport.status) : 0;
+        if (!(status > 0)) return true;
+        if (status >= 400 && status < 500) return false;
+        if (status >= 500) {
+            var error = transport.responseJSON ? transport.responseJSON.error : null;
+            return RX_SAVE_PRE_WRITE_ERRORS.indexOf(error) === -1;
+        }
+        var landed = String(transport.responseURL || '').split(/[?#]/)[0];
+        return !(status < 300 && landed && !/\/rx\/WriteScript$/.test(landed));
+    }
+
+    /**
+     * Tells the prescriber a save was not confirmed. A definite refusal says the prescription was
+     * NOT saved: updateSaveAllDrugs answers 409 when the request does not name the patient of an
+     * open Rx window (per-patient Rx state, #3875). An outcome that may follow a commit says so
+     * instead and reloads the medication profile to check against (#5686).
+     *
+     * @param {Object} transport the CarlosAjax transport of the failed or unconfirmed request
      */
     function reportRefusedSave(transport) {
-        if (transport && transport.responseJSON && transport.responseJSON.error === 'INCOMPLETE_RX_SAVE') {
+        if (transport && transport.responseJSON && transport.responseJSON.error === 'RX_DRAFT_REVIEW_REQUIRED') {
+            rxSaveNeedsReconciliation = false;
+            alert('${carlos:forJavaScript(msg_rxDraftReviewRequired)}');
+            location.reload();
+        } else if (transport && transport.responseJSON && transport.responseJSON.error === 'RX_ALREADY_SAVED') {
+            alert(jsMsg.alreadySaved);
+            rxSaveNeedsReconciliation = false;
+            refreshDrugProfile();
+        } else if (rxSaveNeedsReconciliation) {
+            // A later CSRF/login/stale refusal cannot establish the outcome of the earlier attempt.
+            alert(jsMsg.saveUncertain);
+            refreshDrugProfile();
+        } else if (transport && transport.responseJSON && transport.responseJSON.error === 'RX_SOURCE_CHANGED') {
+            alert(jsMsg.sourceChanged);
+            refreshDrugProfile();
+        } else if (transport && transport.responseJSON && transport.responseJSON.error === 'RX_SAVE_OUTCOME_UNKNOWN') {
+            rxSaveNeedsReconciliation = true;
+            alert(jsMsg.saveUncertain);
+            refreshDrugProfile();
+        } else if (transport && transport.responseJSON && transport.responseJSON.error === 'INCOMPLETE_RX_SAVE') {
             alert(jsMsg.saveIncomplete);
         } else if (transport && transport.status === 409 && transport.responseJSON
                 && transport.responseJSON.error === 'STALE_RX_STASH') {
@@ -3164,6 +3257,14 @@ function updateQty(element){
             }).first();
             alert(RxInputValidation.format(jsMsg.dateNotOnCalendar, badDate.length ? badDate.val() : ''));
             if (badDate.length) badDate.focus();
+        } else if (isUncertainSaveOutcome(transport)) {
+            // The staged cards stay as they are: an unsaved draft must survive, and the server
+            // refuses a replay of cards a committed save consumed. The profile is reloaded after
+            // the alert, which blocks the page, so it shows what the server now holds.
+            var status = transport ? Number(transport.status) : 0;
+            rxSaveNeedsReconciliation = true;
+            alert(jsMsg.saveUncertain + (status > 0 ? ' (HTTP ' + status + ')' : ''));
+            refreshDrugProfile();
         } else {
             alert(jsMsg.saveRefused + ' (HTTP ' + (transport ? transport.status : '?') + ')');
         }

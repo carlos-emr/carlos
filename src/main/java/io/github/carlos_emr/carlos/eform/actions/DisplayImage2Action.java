@@ -46,7 +46,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.io.IOUtils;
 import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -186,7 +185,7 @@ public class DisplayImage2Action extends ActionSupport {
                 if (SEEDED_EDITOR_ASSETS.contains(fileName)) {
                     return serveBundledEditorAsset(fileName);
                 }
-                logger.debug("Rich Text Letter template not found: {}", LogSafe.sanitize(fileName));
+                logger.debug("Rich Text Letter template not found");
                 response.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return NONE;
             }
@@ -198,7 +197,7 @@ public class DisplayImage2Action extends ActionSupport {
             if (VACCINE_BRANDS_FILE.equals(fileName) && !validatedFile.exists()) {
                 return serveBundledVaccineCatalogue();
             }
-            logger.debug("eForm asset not found: {}", LogSafe.sanitize(fileName));
+            logger.debug("eForm asset not found");
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return NONE;
         }
@@ -206,11 +205,11 @@ public class DisplayImage2Action extends ActionSupport {
         try {
             data = process(validatedFile, fileName);
         } catch (FileNotFoundException e) {
-            logger.debug("eForm asset disappeared before streaming: {}", LogSafe.sanitize(fileName));
+            logger.debug("eForm asset disappeared before streaming");
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return NONE;
         } catch (IllegalArgumentException e) {
-            logger.debug("eForm asset request rejected (unsupported type): {}", LogSafe.sanitize(fileName));
+            logger.debug("eForm asset request rejected (unsupported type)");
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
             return NONE;
         }
@@ -225,10 +224,10 @@ public class DisplayImage2Action extends ActionSupport {
             }
             response.setContentType(contentType);
             OutputStream outputStream = response.getOutputStream();
-            IOUtils.copy(stream, outputStream);
+            stream.transferTo(outputStream);
             return NONE;
         } catch (IOException | IllegalStateException e) {
-            logger.error("Error streaming eform image to response", e);
+            logger.error("Error streaming eform image to response: {}", LogSafe.exceptionTrace(e));
             if (!response.isCommitted()) {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             }
@@ -251,7 +250,7 @@ public class DisplayImage2Action extends ActionSupport {
             }
             response.setHeader("X-Content-Type-Options", "nosniff");
             response.setContentType("application/json");
-            IOUtils.copy(stream, response.getOutputStream());
+            stream.transferTo(response.getOutputStream());
         }
         return NONE;
     }
@@ -277,7 +276,7 @@ public class DisplayImage2Action extends ActionSupport {
                 HtmlResponse.writeStoredHtml(response, contentType, stream);
             } else {
                 response.setContentType(contentType);
-                IOUtils.copy(stream, response.getOutputStream());
+                stream.transferTo(response.getOutputStream());
             }
         }
         return NONE;
@@ -296,7 +295,7 @@ public class DisplayImage2Action extends ActionSupport {
         response.setHeader("X-Content-Type-Options", "nosniff");
         try (InputStream stream = request.getServletContext().getResourceAsStream(BUNDLED_EDITOR_ASSETS_PATH + fileName)) {
             if (stream == null) {
-                logger.debug("Bundled eForm editor asset missing from WAR: {}", LogSafe.sanitize(fileName));
+                logger.debug("Bundled eForm editor asset missing from WAR");
                 response.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return NONE;
             }
@@ -304,7 +303,7 @@ public class DisplayImage2Action extends ActionSupport {
                 HtmlResponse.writeStoredHtml(response, contentType, stream);
             } else {
                 response.setContentType(contentType);
-                IOUtils.copy(stream, response.getOutputStream());
+                stream.transferTo(response.getOutputStream());
             }
         }
         return NONE;
@@ -330,7 +329,7 @@ public class DisplayImage2Action extends ActionSupport {
 
     private void validateRequestedFileName(String fileName) {
         if (!fileName.equals(FilenameUtils.getName(fileName))) {
-            logger.warn("Path traversal attempt in imagefile parameter: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.warn("Path traversal attempt in imagefile parameter"); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             throw new SecurityException("Path traversal detected in imagefile parameter");
         }
     }

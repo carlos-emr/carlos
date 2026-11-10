@@ -140,27 +140,8 @@ const { PROSE_CORPUS } = require('./lib/clinical-prose-corpus');
  * the fixture-teardown guards in edoc-schedule-navigation and assign-role.
  */
 function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  // Credentials in the URL would travel into Playwright navigations and can
-  // surface in request or failure logging, so reject them outright.
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not contain embedded credentials');
-  }
-
-  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
-  if (!isLoopback(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}: this check overwrites clinical free text and files `
-      + 'consultation requests. Set ALLOW_NON_LOCAL_BASE_URL=true only for a disposable test install');
-  }
-  // The login sends TEST_USER and TEST_PASSWORD. Off this machine that has to be
-  // over TLS; the opt-in above covers the target, not a cleartext hop to it.
-  if (!isLoopback(host) && parsed.protocol !== 'https:') {
-    throw new Error(`Refusing plain-http BASE_URL to non-loopback host ${host}: the login would send credentials in cleartext`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
+  // Delegate host/protocol/credential rules; this legacy caller retains its return shape.
+  const parsed = require('./lib/playwright-harness').validateCredentialBaseUrl(rawBaseUrl);
   return parsed;
 }
 
@@ -276,6 +257,10 @@ const WORKFLOWS = [
     // no reqId attribute, so ConsultationFormRequest.jsp always renders the
     // new-request form — `Submit` is the branch that actually stores the prose.
     overrides: () => ({ service: consultationServiceId, submission: 'Submit Consultation Request' }),
+    // A save names an active consultant or is refused with the form's error alert (#5073), and the
+    // captured body has none: the clinician picks one after the page loads. The replay takes the first
+    // consultant the page's own directory offers (see chooseConsultant()).
+    chooseConsultant: true,
     // Guard the assumption above rather than trusting it. If a future change makes
     // this URL render an existing request, `Submit` would file a duplicate instead
     // of measuring this save — the replay would still reach the WAF, but it would
@@ -363,7 +348,7 @@ async function captureForm(page, formName) {
  * phrase the captured body goes back unchanged, which is how the demographic
  * workflow restores what it overwrote.
  */
-async function replay(page, workflow, entries, phrase) {
+async function replay(page, workflow, entries, phrase, chosen = {}) {
   return page.evaluate(async ({ pairs, action, fields, text, overrides }) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the page function is a literal; the arguments are the form body this same page just rendered plus constants from this file, structured-cloned rather than interpolated into page script
     const body = new URLSearchParams();
     const replaced = new Set(text === null ? [] : fields);
@@ -407,15 +392,39 @@ async function replay(page, workflow, entries, phrase) {
     action: new URL(appUrlForPage(workflow.action)).pathname,
     fields: workflow.fields,
     text: phrase === null ? null : `${phrase.text} ${RUN_STAMP}`,
-    overrides: workflow.overrides(),
+    overrides: { ...workflow.overrides(), ...chosen },
   });
+}
+
+/**
+ * The consultant a clinician would pick on this render: the first entry of the active directory the
+ * page loads for its picker (allSpecialistsData, from ConsultationLookup2Action getAllSpecialists).
+ * The save refuses a request without an active consultant (#5073), so without one every replay came
+ * back as the form with its error alert and the check measured that refusal instead of the WAF.
+ *
+ * Installs with ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS=true post a contact on the patient's
+ * own care team instead, which the owned patient does not have; that is reported, not guessed at.
+ */
+async function chooseConsultant(page, workflow) {
+  const picker = await page.locator('#specialistInput').count();
+  assert(picker > 0, `${workflow.name}: the form shows no consultant directory picker (#specialistInput), so this `
+    + 'install lists the patient\'s care team instead (ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS=true); '
+    + 'the owned patient has no team contact, so no consultant can be chosen and every save would be refused');
+  const specId = await page.waitForFunction(() => {
+    const directory = typeof allSpecialistsData === 'undefined' ? [] : allSpecialistsData;
+    const first = directory.find((entry) => /^[1-9]\d*$/.test(String(entry && entry.specId)));
+    return first ? String(first.specId) : null;
+  }, null, { timeout: 30000 }).then((handle) => handle.jsonValue(), () => null);
+  assert(specId, `${workflow.name}: the page's consultant directory listed no active consultant within 30s, `
+    + 'so a save could only be refused');
+  return { specialist: specId };
 }
 
 function appUrlForPage(appPath) {
   return appUrl(appPath);
 }
 
-async function runWorkflow(context, workflow) {
+async function runWorkflow(context, workflow, cancellation) {
   const page = await context.newPage();
   wirePage(page, workflow.name);
   // Opens the workflow's page and waits until its form is there with its CSRF token populated.
@@ -446,6 +455,7 @@ async function runWorkflow(context, workflow) {
       // unchanged, and the page re-opened, so the body the replays carry holds the ids of rows that exist and they UPDATE.
       const primed = await captureForm(page, workflow.formName);
       assert(primed && primed.length, `${workflow.name}: form ${workflow.formName} was not on the page, so it could not be primed`);
+      cancellation?.throwIfCancelled();
       const status = await replay(page, workflow, primed, null);
       assert(status === 200 || status === 'redirect',
         `${workflow.name}: the priming save of the unchanged form answered ${status}, so the replays would measure a broken save`);
@@ -473,6 +483,8 @@ async function runWorkflow(context, workflow) {
         + 'so this run would not measure what the check claims');
     }
 
+    const chosen = workflow.chooseConsultant ? await chooseConsultant(page, workflow) : {};
+
     // Put back what the replays overwrote, where the route updates in place, and
     // do it on the failure path as well: a replay that throws after an earlier
     // phrase saved would otherwise leave the record holding that phrase. The
@@ -483,8 +495,9 @@ async function runWorkflow(context, workflow) {
     let restoreFailure = null;
     try {
       for (const phrase of PROSE_CORPUS) {
+        cancellation?.throwIfCancelled();
         replayStarted = true;
-        const status = await replay(page, workflow, entries, phrase);
+        const status = await replay(page, workflow, entries, phrase, chosen);
         saveResults.push({
           workflow: workflow.name, phrase: phrase.label, crs: phrase.crs, status,
         });
@@ -525,8 +538,8 @@ function removeFixturePatient(sql, patient, marker) {
 }
 
 /** Both workflows and the assertions on their results, on the owned patient main() created. */
-async function runFreeTextChecks() {
-  browser = await chromium.launch(chromePath ? { executablePath: chromePath } : {});
+async function runFreeTextChecks(cancellation) {
+  browser = await chromium.launch({...h.NO_PLAYWRIGHT_SIGNAL_HANDLING,...(chromePath ? { executablePath: chromePath } : {})});
   // Certificate verification is only relaxed for loopback, where the packaged
   // install serves its own self-signed cert. A target opted in with
   // ALLOW_NON_LOCAL_BASE_URL must still prove its certificate, because this
@@ -541,10 +554,12 @@ async function runFreeTextChecks() {
   try {
     await login(context);
     // Before the first write: refuse a patient that does not look like test data.
+    cancellation?.throwIfCancelled();
     await verifySyntheticPatient(context);
 
     for (const workflow of WORKFLOWS) {
-      await runWorkflow(context, workflow);
+      cancellation?.throwIfCancelled();
+      await runWorkflow(context, workflow, cancellation);
     }
 
     const blocked = saveResults.filter((result) => result.status === 403);
@@ -567,9 +582,9 @@ async function runFreeTextChecks() {
 
     const wafBlocked = badResponses.filter((entry) => entry.status === 403);
     assert(wafBlocked.length === 0,
-      `a request carrying clinical free text was rejected with HTTP 403: ${JSON.stringify(wafBlocked, null, 2)}`);
+      `a request carrying clinical free text was rejected with HTTP 403: ${h.withoutQueryStrings(JSON.stringify(wafBlocked, null, 2))}`);
 
-    assert(badResponses.length === 0, `unexpected HTTP errors or dialogs: ${JSON.stringify(badResponses, null, 2)}`);
+    assert(badResponses.length === 0, `unexpected HTTP errors or dialogs: ${h.withoutQueryStrings(JSON.stringify(badResponses, null, 2))}`);
 
     if (expectFrontDoor && !frontDoorObserved) {
       throw new Error('EXPECT_FRONT_DOOR is set but no response carried an nginx Server header; the run did not go through the packaged front door');
@@ -589,7 +604,8 @@ async function runFreeTextChecks() {
   }
 }
 
-(async () => {
+require('./lib/legacy-check').runLegacyCheck('clinical-freetext',async({cancellation})=>{
+  try {
   // The owned patient both workflows run on, created before anything else is written (never a demo patient).
   const sql = h.createSqlRunner(h.readConfig().mysql);
   const ownedMarker = newOwnedMarker();
@@ -597,24 +613,25 @@ async function runFreeTextChecks() {
     const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
     assert(provider, 'The configured test login has no provider');
     demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
-    await runFreeTextChecks();
+    await runFreeTextChecks(cancellation);
   } finally {
     try {
-      // A browser that will not close must not skip the patient's removal below.
-      if (browser) await browser.close().catch(() => {});
+      // Remove owned rows only after the browser confirms shutdown.
+      if (browser) await browser.close();
       if (demographicNo !== null) removeFixturePatient(sql, demographicNo, ownedMarker);
     } finally {
       sql.dispose();
     }
   }
-})().catch((error) => {
+  }catch(error){
   console.error('FAIL clinical free-text Playwright check');
-  console.error(error.stack || error.message);
+  console.error(h.withoutQueryStrings(error.stack || error.message));
   if (saveResults.length) {
-    console.error(`Save results: ${JSON.stringify(saveResults, null, 2)}`);
+    console.error(`Save results: ${h.withoutQueryStrings(JSON.stringify(saveResults, null, 2))}`);
   }
   if (badResponses.length) {
-    console.error(`HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
+    console.error(`HTTP errors: ${h.withoutQueryStrings(JSON.stringify(badResponses, null, 2))}`);
   }
-  process.exit(1);
+  throw require('./lib/legacy-check').sanitizedError(error,cancellation.isCancellation);
+  }
 });

@@ -46,8 +46,11 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
-import jakarta.persistence.Query;
 import jakarta.persistence.TypedQuery;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Root;
 import org.hibernate.annotations.NotFound;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -71,6 +74,8 @@ import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.RETURNS_SELF;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -193,12 +198,20 @@ class TicklerLazyFetchMigrationUnitTest extends CarlosUnitTestBase {
     @DisplayName("should fetch provider columns only for list provider expansion")
     void shouldFetchProviderColumnsOnly_forListProviderExpansion() {
         EntityManager entityManager = mock(EntityManager.class);
-        Query query = mock(Query.class);
+        CriteriaBuilder builder = mock(CriteriaBuilder.class, RETURNS_DEEP_STUBS);
+        CriteriaQuery<Tickler> criteria = mock(CriteriaQuery.class, RETURNS_SELF);
+        Root<Tickler> root = mock(Root.class);
+        TypedQuery<Tickler> query = mock(TypedQuery.class);
         TicklerDaoImpl ticklerDao = new TicklerDaoImpl();
         CustomFilter filter = new CustomFilter();
-        filter.setStatus("A");
+        filter.setStartDate(null);
+        filter.setEndDate(null);
+        filter.setStatus("Z");
         ReflectionTestUtils.setField(ticklerDao, "entityManager", entityManager);
-        when(entityManager.createQuery(contains("left join fetch t.provider"))).thenReturn(query);
+        when(entityManager.getCriteriaBuilder()).thenReturn(builder);
+        when(builder.createQuery(Tickler.class)).thenReturn(criteria);
+        when(criteria.from(Tickler.class)).thenReturn(root);
+        when(entityManager.createQuery(criteria)).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of());
         boolean includeComments = true;
         boolean includeUpdates = true;
@@ -207,13 +220,12 @@ class TicklerLazyFetchMigrationUnitTest extends CarlosUnitTestBase {
 
         ticklerDao.getTicklers(filter, 0, 25, includeComments, includeUpdates, includeProvider, includeAssignee);
 
-        ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
-        verify(entityManager).createQuery(queryCaptor.capture());
-        assertThat(queryCaptor.getValue())
-                .contains("left join fetch t.provider")
-                .contains("left join fetch t.assignee")
-                .doesNotContain("left join fetch t.comments")
-                .doesNotContain("left join fetch t.updates");
+        verify(root).fetch("provider", JoinType.LEFT);
+        verify(root).fetch("assignee", JoinType.LEFT);
+        verify(root, never()).fetch(eq("comments"), any(JoinType.class));
+        verify(root, never()).fetch(eq("updates"), any(JoinType.class));
+        verify(query).setFirstResult(0);
+        verify(query).setMaxResults(25);
     }
 
     @Test

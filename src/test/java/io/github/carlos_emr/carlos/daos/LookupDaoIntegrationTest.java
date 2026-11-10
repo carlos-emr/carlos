@@ -27,11 +27,12 @@ import io.github.carlos_emr.carlos.model.LookupCodeValue;
 import io.github.carlos_emr.carlos.model.LookupTableDefValue;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -1406,74 +1407,6 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
     }
 
     // =========================================================================
-    // runProcedure tests
-    // =========================================================================
-
-    /** H2 aliases exercise actual JDBC CallableStatement execution and parameter binding. */
-    @Nested
-    @DisplayName("runProcedure")
-    class RunProcedureTests {
-        @Autowired
-        @org.springframework.beans.factory.annotation.Qualifier("dataSource")
-        private javax.sql.DataSource procedureDataSource;
-
-        @BeforeEach
-        void createProcedureFixtures() throws SQLException {
-            procedureCalls.clear();
-            try (var connection = procedureDataSource.getConnection(); var statement = connection.createStatement()) {
-                statement.execute("CREATE ALIAS IF NOT EXISTS promotion_proc_params FOR "
-                        + "'io.github.carlos_emr.carlos.daos.LookupDaoIntegrationTest.recordProcedureParameters'");
-                statement.execute("CREATE ALIAS IF NOT EXISTS promotion_proc_empty FOR "
-                        + "'io.github.carlos_emr.carlos.daos.LookupDaoIntegrationTest.recordProcedureWithoutParameters'");
-            }
-        }
-
-        @AfterEach
-        void dropProcedureFixtures() throws SQLException {
-            try (var connection = procedureDataSource.getConnection(); var statement = connection.createStatement()) {
-                statement.execute("DROP ALIAS IF EXISTS promotion_proc_params");
-                statement.execute("DROP ALIAS IF EXISTS promotion_proc_empty");
-            }
-            procedureCalls.clear();
-        }
-
-        @Test
-        @Tag("query")
-        @DisplayName("should execute stored routine with bound string parameters")
-        void shouldCallStoredProcedure_viaDbPreparedHandler() throws SQLException {
-            lookupDao.runProcedure("promotion_proc_params", new String[]{"O'Brien", "?, 'quoted'"});
-            assertThat(procedureCalls).containsExactly("O'Brien", "?, 'quoted'");
-        }
-
-        @Test
-        @Tag("query")
-        void shouldHandleNullParams_inStoredProcedureCall() throws SQLException {
-            lookupDao.runProcedure("promotion_proc_empty", null);
-            assertThat(procedureCalls).containsExactly("called");
-        }
-
-        @Test
-        @Tag("query")
-        void shouldHandleEmptyParams_inStoredProcedureCall() throws SQLException {
-            lookupDao.runProcedure("promotion_proc_empty", new String[]{});
-            assertThat(procedureCalls).containsExactly("called");
-        }
-    }
-
-    private static final List<String> procedureCalls = new java.util.ArrayList<>();
-
-    /** SQL alias target, invoked by the real H2 JDBC driver. */
-    public static void recordProcedureParameters(String first, String second) {
-        procedureCalls.add(first);
-        procedureCalls.add(second);
-    }
-
-    /** SQL alias target for the no-argument JDBC call form. */
-    public static void recordProcedureWithoutParameters() {
-        procedureCalls.add("called");
-    }
-
-    // =========================================================================
     // getCountOfActiveClient tests
     // =========================================================================
 
@@ -1497,6 +1430,37 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
     @Nested
     @DisplayName("getCountOfActiveClient")
     class GetCountOfActiveClientTests {
+
+        @ParameterizedTest
+        @ValueSource(strings = {"FAKE_5399", "FAKE%5399", "FAKE!5399", "FAKE\\5399", "FAKE'5399"})
+        void shouldCountOnlyLiteralOrganization_whenCodeContainsSqlMetacharacters(String orgCode) throws SQLException {
+            String decoy = orgCode.replaceAll("[_%!\\\\']", "X");
+            hibernateTemplate.execute(session -> {
+                io.github.carlos_emr.carlos.test.support.IntegrationTestSeedService.ensureProviderExists(session, "999001");
+                io.github.carlos_emr.carlos.test.support.IntegrationTestSeedService.ensureDemographicExists(session, 9145399);
+                for (String csv : List.of(orgCode, decoy)) {
+                    var program = new io.github.carlos_emr.carlos.PMmodule.model.Program();
+                    program.setName("FAKE organization fixture");
+                    program.setType(io.github.carlos_emr.carlos.PMmodule.model.Program.COMMUNITY_TYPE);
+                    session.persist(program);
+                    session.flush();
+                    var admission = new io.github.carlos_emr.carlos.commn.model.Admission();
+                    admission.setProgramId(program.getId());
+                    admission.setClientId(9145399);
+                    admission.setProviderNo("999001");
+                    admission.setAdmissionStatus(io.github.carlos_emr.carlos.commons.KeyConstants.INTAKE_STATUS_ADMITTED);
+                    admission.setAdmissionDate(new java.util.Date());
+                    admission.setAdmissionNotes("FAKE literal-match fixture");
+                    session.persist(admission);
+                    session.createNativeQuery("INSERT INTO lst_orgcd (code, codeCsv) VALUES (:code, :csv)")
+                            .setParameter("code", "P" + program.getId()).setParameter("csv", csv + ",").executeUpdate();
+                }
+                session.flush();
+                return null;
+            });
+            assertThat(lookupDao.getCountOfActiveClient(orgCode)).isEqualTo(1);
+            assertThat(lookupDao.getCountOfActiveClient(orgCode + "missing")).isZero();
+        }
 
         @Test
         @Tag("aggregate")
@@ -1669,7 +1633,8 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             // Given - insert a category record and a table referencing it
             hibernateTemplate.execute(session -> {
                 session.createNativeQuery(
-                    "MERGE INTO lst_field_category (id, description) KEY(id) VALUES (:id, :desc)")
+                    "INSERT INTO lst_field_category (id, description) VALUES (:id, :desc) "
+                            + "ON DUPLICATE KEY UPDATE description=VALUES(description)")
                     .setParameter("id", "MED")
                     .setParameter("desc", "Medical Records")
                     .executeUpdate();

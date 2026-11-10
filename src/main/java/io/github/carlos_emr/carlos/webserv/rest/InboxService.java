@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -60,6 +61,17 @@ public class InboxService extends AbstractServiceImpl {
     @Autowired
     private InboxManager inboxManager;
 
+    /**
+     * Lists the logged-in provider's new (unacknowledged) inbox items: the first page of 20 labs
+     * and documents, mixed, as the Inbox's "all" view selects them.
+     *
+     * <p>Each item's {@code discipline} is a document's type, in full, or a lab's discipline
+     * display string; it is empty for a document saved without a type (#5685). The response's
+     * {@code total} counts every new item routed to the provider, not just this page.</p>
+     *
+     * @param limit echoed in the response; it does not cap the page, which is always the first 20
+     * @return the page of items with the provider's total count of new items
+     */
     @GET
     @Path("/mine")
     @Produces("application/json")
@@ -91,7 +103,8 @@ public class InboxService extends AbstractServiceImpl {
             String segmentID = result.getSegmentID();
 
 
-            String discipline = result.isDocument() ? result.description == null ? "" : result.description : result.getDisciplineDisplayString();
+            // A document's discipline is its type, shown in full (#5685); a lab's is its display string.
+            String discipline = result.isDocument() ? Objects.toString(result.getDiscipline(), "") : result.getDisciplineDisplayString();
             String status = ((result.isReportCancelled()) ? "Cancelled" : result.isFinal() ? "Final" : "Partial");
 
             inboxItem.setId(Integer.parseInt(segmentID));
@@ -101,7 +114,7 @@ public class InboxService extends AbstractServiceImpl {
             inboxItem.setDateReceived(result.getDateTime() + (result.isDocument() ? " / " + result.lastUpdateDate : ""));
             inboxItem.setPriority(result.getPriority());
             inboxItem.setStatus(status);
-            inboxItem.setHin(result.getHealthNumber());
+            // Health-card identifiers belong to an authorized patient detail flow, not queue listings.
 
             responseItems.add(inboxItem);
 

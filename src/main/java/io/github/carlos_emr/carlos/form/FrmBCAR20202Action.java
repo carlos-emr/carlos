@@ -39,7 +39,6 @@ import net.sf.jasperreports.export.SimpleExporterInput;
 import net.sf.jasperreports.export.SimpleOutputStreamExporterOutput;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.PrintResourceLogDao;
 import io.github.carlos_emr.carlos.commn.model.PrintResourceLog;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -47,11 +46,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.commn.dao.forms.FormBCAR2020Dao;
-import io.github.carlos_emr.carlos.commn.dao.forms.FormBCAR2020DataDao;
-import io.github.carlos_emr.carlos.commn.dao.forms.FormBCAR2020TextDao;
 import io.github.carlos_emr.carlos.form.model.FormBCAR2020;
-import io.github.carlos_emr.carlos.form.model.FormBCAR2020Data;
-import io.github.carlos_emr.carlos.form.model.FormBCAR2020Text;
 import io.github.carlos_emr.carlos.form.util.LanguageUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -60,14 +55,12 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -77,15 +70,12 @@ public class FrmBCAR20202Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
     private FormBCAR2020Dao bcar2020Dao = SpringUtils.getBean(FormBCAR2020Dao.class);
-    private FormBCAR2020DataDao bcar2020DataDao = SpringUtils.getBean(FormBCAR2020DataDao.class);
-    private FormBCAR2020TextDao bcar2020TextDao = SpringUtils.getBean(FormBCAR2020TextDao.class);
+    private BCAR2020FormSaveService formSaveService = SpringUtils.getBean(BCAR2020FormSaveService.class);
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final Logger logger = MiscUtils.getLogger();
     private final String RECORD_NAME = "BCAR2020";
-    private SimpleDateFormat formDateFormat = new SimpleDateFormat("yyyy/MM/dd");
 
     public FrmBCAR20202Action() {
     }
@@ -129,111 +119,18 @@ public class FrmBCAR20202Action extends ActionSupport {
 
     /** Stores a new version of the form from the request and returns the application path of the next page. */
     private String persistForm() throws Exception {
-        FrmBCAR2020Record bcar2020Record = (FrmBCAR2020Record) (new FrmRecordFactory()).factory(RECORD_NAME);
-
         int formId = StringUtils.isNotEmpty(request.getParameter("formId")) ? Integer.parseInt(request.getParameter("formId")) : 0;
         int demographicNo = StringUtils.isNotEmpty(request.getParameter("demographicNo")) ? Integer.parseInt(request.getParameter("demographicNo")) : 0;
-        // Stored as the signed-in provider's form, never a provider number taken from the request.
-        String providerNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
-        Integer page = StringUtils.isNotEmpty(request.getParameter("pageNo")) ? Integer.parseInt(request.getParameter("pageNo")) : 1;
-        Integer forwardTo = StringUtils.isNotEmpty(request.getParameter("forwardTo")) ? Integer.parseInt(request.getParameter("forwardTo")) : page;
-        // A save copies the earlier version's rows into the new one, so that version must be this patient's.
-        requirePatientRights(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo, "w");
-        FrmBCAR2020Record.requireFormOfPatient(bcar2020Dao, formId, demographicNo);
-
-        List<FormBCAR2020Data> currentRecords = bcar2020DataDao.findFields(formId);
-        List<FormBCAR2020Text> currentTextRecords = bcar2020TextDao.findFields(formId);
-        List<FormBCAR2020Data> addRecords = new ArrayList<>();
-        List<FormBCAR2020Text> addTextRecords = new ArrayList<>();
-
-        Map<String, String> currentValues = getMappedRecords(currentRecords);
-        currentValues.putAll(getMappedTextRecords(currentTextRecords));
-
-        List<FormBCAR2020Data> persistRecords = new ArrayList<>();
-        List<FormBCAR2020Text> persistTextRecords = new ArrayList<>();
-        Set<String> keys = request.getParameterMap().keySet();
-
-        FormBCAR2020 formBCAR2020 = new FormBCAR2020();
-        formBCAR2020.setDemographicNo(demographicNo);
-        formBCAR2020.setProviderNo(providerNo);
-        formBCAR2020.setFormCreated(new Date());
-
-        bcar2020Dao.persist(formBCAR2020);
-        formId = formBCAR2020.getId();
-
-        // copy all current values to new form
-        for (FormBCAR2020Data rec : currentRecords) {
-            if ((rec.getPageNo() == null || !rec.getPageNo().equals(page)) || StringUtils.trimToNull(request.getParameter(rec.getField())) != null) {
-                rec.setFormId(formId);
-                addRecords.add(rec);
-            }
+        int page = StringUtils.isNotEmpty(request.getParameter("pageNo")) ? Integer.parseInt(request.getParameter("pageNo")) : 1;
+        int forwardTo = StringUtils.isNotEmpty(request.getParameter("forwardTo")) ? Integer.parseInt(request.getParameter("forwardTo")) : page;
+        Map<String, String> values = new HashMap<>();
+        for (String key : request.getParameterMap().keySet()) {
+            values.put(key, request.getParameter(key));
         }
-        for (FormBCAR2020Text rec : currentTextRecords) {
-            if ((rec.getPageNo() == null || !rec.getPageNo().equals(page)) || StringUtils.trimToNull(request.getParameter(rec.getField())) != null) {
-                rec.setFormId(formId);
-                addTextRecords.add(rec);
-            }
-        }
-
-        for (String key : keys) {
-            if (key.contains("mt_")) {
-                // Multi text field type (this gets stored in a different table due to the size requirements
-                String value = StringUtils.trimToNull(request.getParameter(key));
-                // If the field is a global field (exists on all pages), set the page number to 0
-                Integer setPage = bcar2020Record.isGlobalField(key) ? 0 : page;
-
-                if (currentValues.get(setPage + "_" + key) != null) {
-                    FormBCAR2020Text record = getTextRecordByKey(addTextRecords, key);
-
-                    if (record != null) {
-                        if (value != null && !value.equals(currentValues.get(setPage + "_" + key))) {
-                            record.setValue(value);
-                        } else if (value == null) {
-                            record.setValue("");
-                        }
-                    }
-
-                } else if (currentValues.get(setPage + "_" + key) == null && value != null) {
-                    addTextRecords.add(new FormBCAR2020Text(formId, providerNo, setPage, key, value));
-                }
-            } else if (key.contains("_")) {
-                String value = StringUtils.trimToNull(request.getParameter(key));
-                // If the field is a global field (exists on all pages), set the page number to 0
-                Integer setPage = bcar2020Record.isGlobalField(key) ? 0 : page;
-
-                if (currentValues.get(setPage + "_" + key) != null) {
-                    FormBCAR2020Data record = getRecordByKey(addRecords, key);
-
-                    if (record != null) {
-                        if (value != null && !value.equals(currentValues.get(setPage + "_" + key))) {
-                            value = ((key.startsWith("c_") && value.equals("checked")) || value.equals("on")) ? "X" : value;
-                            record.setValue(value);
-                        } else if (value == null) {
-                            record.setValue("");
-                        }
-                    }
-
-                } else if (currentValues.get(setPage + "_" + key) == null && value != null) {
-                    value = ((key.startsWith("c_") && value.equals("checked")) || value.equals("on")) ? "X" : value;
-
-                    addRecords.add(new FormBCAR2020Data(formId, providerNo, setPage, key, value));
-                }
-            }
-        }
-
-        for (FormBCAR2020Data rec : addRecords) {
-            persistRecords.add(rec);
-        }
-
-        bcar2020DataDao.batchPersistAtomically(persistRecords, 50);
-
-        for (FormBCAR2020Text rec : addTextRecords) {
-            persistTextRecords.add(rec);
-        }
-
-        bcar2020TextDao.batchPersistAtomically(persistTextRecords, 50);
-
-        return pageRoute(forwardTo) + "?demographic_no=" + demographicNo + "&formId=" + formId + "&provNo=" + providerNo;
+        FormBCAR2020 saved = formSaveService.saveVersion(LoggedInInfo.getLoggedInInfoFromSession(request),
+                formId, demographicNo, page, values);
+        return pageRoute(forwardTo) + "?demographic_no=" + demographicNo + "&formId=" + saved.getId()
+                + "&provNo=" + saved.getProviderNo();
     }
 
     public String print() {
@@ -332,51 +229,4 @@ public class FrmBCAR20202Action extends ActionSupport {
         }
     }
 
-    private FormBCAR2020Data getRecordByKey(List<FormBCAR2020Data> records, String key) {
-        FormBCAR2020Data record = null;
-
-        for (FormBCAR2020Data rec : records) {
-            if (rec.getField().equals(key)) {
-                record = rec;
-            }
-        }
-
-        return record;
-    }
-
-    private Map<String, String> getMappedRecords(List<FormBCAR2020Data> records) {
-        Map<String, String> recordMap = new HashMap<String, String>();
-
-        if (records != null) {
-            for (FormBCAR2020Data record : records) {
-                recordMap.put(record.getPageNo() + "_" + record.getField(), record.getValue());
-            }
-        }
-
-        return recordMap;
-    }
-
-    private FormBCAR2020Text getTextRecordByKey(List<FormBCAR2020Text> records, String key) {
-        FormBCAR2020Text record = null;
-
-        for (FormBCAR2020Text rec : records) {
-            if (rec.getField().equals(key)) {
-                record = rec;
-            }
-        }
-
-        return record;
-    }
-
-    private Map<String, String> getMappedTextRecords(List<FormBCAR2020Text> records) {
-        Map<String, String> recordMap = new HashMap<String, String>();
-
-        if (records != null) {
-            for (FormBCAR2020Text record : records) {
-                recordMap.put(record.getPageNo() + "_" + record.getField(), record.getValue());
-            }
-        }
-
-        return recordMap;
-    }
 }

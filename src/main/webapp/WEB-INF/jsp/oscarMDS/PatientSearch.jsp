@@ -33,11 +33,12 @@
     @see io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action
 
 --%>
-<%@ page import="java.util.*, java.sql.*" %>
-<%@ page import="io.github.carlos_emr.carlos.db.LegacyJdbcQuery" %>
-<%@ page import="io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.Misc" %>
+<%@ page import="java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler" %>
 <%@ page import="org.slf4j.Logger, org.slf4j.LoggerFactory" %>
@@ -158,107 +159,42 @@
             }
         }
 
-        String regularexp = "like";
-        String fieldname;
-        boolean isNameByLastAndFirst = false;
-
-        if ("search_address".equals(p_searchMode)) {
-            fieldname = "address";
-        } else if ("search_phone".equals(p_searchMode)) {
-            fieldname = "phone";
-        } else if ("search_hin".equals(p_searchMode)) {
-            fieldname = "hin";
-        } else if ("search_dob".equals(p_searchMode)) {
-            fieldname = "year_of_birth " + regularexp + " ? and month_of_birth " + regularexp + " ? and date_of_birth";
-        } else if ("search_chart_no".equals(p_searchMode)) {
-            fieldname = "chart_no";
-        } else { // search_name (default)
-            String kwtrim = p_keyword.trim();
-            if (kwtrim.indexOf(",") < 0 || kwtrim.indexOf(",") == kwtrim.length() - 1) {
-                fieldname = "last_name";
-            } else {
-                isNameByLastAndFirst = true;
-                fieldname = "last_name " + regularexp + " ? and first_name";
-            }
-        }
-
-        // Merged non-head records are excluded by the NOT EXISTS subquery so no per-row
-        // getHead() call is needed. LIMIT/OFFSET push pagination to the database engine.
-        String sql = "select demographic_no,first_name,last_name,roster_status,patient_status,sex,"
-            + "chart_no,year_of_birth,month_of_birth,date_of_birth,provider_no "
-            + "from demographic "
-            + "where " + fieldname + " " + regularexp + " ? "
-            + "and not exists (select 1 from demographic_merged dm "
-            + "  where dm.demographic_no = demographic.demographic_no and dm.deleted = 0) "
-            + safeOrderby + " limit ? offset ?";
-
-        try (Connection dbConn = LegacyJdbcQuery.getConnection();
-             PreparedStatement ps = dbConn.prepareStatement(sql)) {
-            int pidx = 1;
-            if ("search_dob".equals(p_searchMode)) {
-                String yearStr = "" + MyDateFormat.getYearFromStandardDate(p_keyword) + "%";
-                String monStr  = "" + MyDateFormat.getMonthFromStandardDate(p_keyword) + "%";
-                String dayStr  = "" + MyDateFormat.getDayFromStandardDate(p_keyword) + "%";
-                if (monStr.length() == 2) monStr = "0" + monStr; // zero-pad single-digit month
-                if (dayStr.length() == 2) dayStr = "0" + dayStr; // zero-pad single-digit day
-                ps.setString(pidx++, yearStr);
-                ps.setString(pidx++, monStr);
-                ps.setString(pidx++, dayStr);
-            } else if ("search_name".equals(p_searchMode)) {
-                String kw = p_keyword + "%";
-                if (kw.indexOf(",") < 0) {
-                    ps.setString(pidx++, kw);
-                } else {
-                    int commaIdx = kw.indexOf(",");
-                    if (isNameByLastAndFirst) {
-                        ps.setString(pidx++, kw.substring(0, commaIdx).trim() + "%");
-                        ps.setString(pidx++, kw.substring(commaIdx + 1).trim() + "%");
-                    } else {
-                        ps.setString(pidx++, kw.substring(0, commaIdx).trim() + "%");
-                    }
-                }
-            } else {
-                ps.setString(pidx++, p_keyword + "%");
-            }
-            ps.setInt(pidx++, parsedLimit2);
-            ps.setInt(pidx,   parsedLimit1);
-
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
+        try {
+            for (DemographicDao.LabPatientChoice patient : SpringUtils.getBean(DemographicDao.class)
+                    .findLabPatientChoices(p_searchMode, p_keyword, safeOrderby.substring("order by ".length()), parsedLimit1, parsedLimit2)) {
                     nItems++;
                     int age = 0;
-                    String monthStr = Misc.getString(rs, "month_of_birth");
+                    String monthStr = patient.month();
                     if (!monthStr.isEmpty()) {
                         try {
-                            int bYear  = Integer.parseInt(Misc.getString(rs, "year_of_birth"));
+                            int bYear  = Integer.parseInt(patient.year());
                             int bMonth = Integer.parseInt(monthStr);
-                            int bDay   = Integer.parseInt(Misc.getString(rs, "date_of_birth"));
+                            int bDay   = Integer.parseInt(patient.day());
                             age = curYear - bYear;
                             if (curMonth < bMonth || (curMonth == bMonth && curDay < bDay)) age--;
                         } catch (NumberFormatException e2) {}
                     }
 
-                    String demoNo = Misc.getString(rs, "demographic_no");
-                    String dob = Misc.getString(rs, "year_of_birth") + "-"
-                        + Misc.getString(rs, "month_of_birth") + "-"
-                        + Misc.getString(rs, "date_of_birth");
+                    String demoNo = patient.id();
+                    String dob = patient.year() + "-"
+                        + patient.month() + "-"
+                        + patient.day();
 
-                    String pNo = Misc.getString(rs, "provider_no");
+                    String pNo = patient.providerNo();
                     Map<String,String> row = new LinkedHashMap<>();
                     row.put("demoNo",       demoNo);
-                    row.put("lastName",     Misc.toUpperLowerCase(Misc.getString(rs, "last_name")));
-                    row.put("firstName",    Misc.toUpperLowerCase(Misc.getString(rs, "first_name")));
+                    row.put("lastName",     Misc.toUpperLowerCase(patient.lastName()));
+                    row.put("firstName",    Misc.toUpperLowerCase(patient.firstName()));
                     row.put("age",          String.valueOf(age));
-                    row.put("rosterStatus", Misc.getString(rs, "roster_status"));
-                    row.put("patientStatus",Misc.getString(rs, "patient_status"));
-                    row.put("sex",          Misc.getString(rs, "sex"));
+                    row.put("rosterStatus", patient.rosterStatus());
+                    row.put("patientStatus",patient.patientStatus());
+                    row.put("sex",          patient.sex());
                     row.put("dob",          dob);
                     row.put("providerName", providerBean.getProperty(pNo, ""));
                     patientRows.add(row);
-                }
             }
-        } catch (SQLException e) {
-            logger.error("Database error during patient search", e);
+        } catch (jakarta.persistence.PersistenceException | org.springframework.dao.DataAccessException | org.springframework.transaction.TransactionException e) {
+            logger.error("Database error during patient search (causeType={})", e.getClass().getName());
             request.setAttribute("searchUnavailable", true);
             request.setAttribute("searchErrorMessage", "oscarMDS.patientSearch.errorDatabase");
         } catch (NumberFormatException e) {

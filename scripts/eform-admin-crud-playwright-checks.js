@@ -253,7 +253,9 @@ async function libraryRow(page, name) {
   return page.locator('#eformTbl tbody tr', { hasText: name });
 }
 
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('eform-admin-crud', async () => {
+  await (async () => {
   const recorder = createRecorder();
   // Launched inside the try so a launch failure still reaches the finally that
   // disposes the SQL runner's 0600 option file (it holds the DB password).
@@ -691,3 +693,4 @@ async function libraryRow(page, name) {
     }
   }
 })();
+}, {existingSignalHandlers:true});

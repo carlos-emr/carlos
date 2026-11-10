@@ -132,6 +132,7 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
      */
     @BeforeEach
     void setUp() {
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(),eq(TEST_DEMO_NO))).thenReturn(true);
         // Register mocks for SpringUtils
         registerMock(OscarAppointmentDao.class, mockOscarAppointmentDao);
         registerMock(AppointmentArchiveDao.class, mockAppointmentArchiveDao);
@@ -363,6 +364,31 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
         }
     }
 
+    @Test
+    @Tag("update")
+    void shouldRejectVersionedEdit_whenWritePrivilegeIsMissing() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("w"), isNull()))
+                .thenReturn(false);
+        assertThatThrownBy(() -> scheduleManager.updateAppointment(mockLoggedInInfo, 77, "123", row -> {
+            throw new AssertionError("Unauthorized edit callback ran");
+        })).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(mockOscarAppointmentDao, mockAppointmentArchiveDao);
+    }
+
+    @Test
+    @Tag("update")
+    void shouldRejectStaleVersion_beforeArchivingOrApplyingChanges() {
+        Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
+        current.setUpdateDateTime(new Date(2000));
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(current);
+        assertThatThrownBy(() -> scheduleManager.updateAppointment(mockLoggedInInfo, 77, "1000", row -> {
+            throw new AssertionError("Stale edit callback ran");
+        })).isInstanceOf(AppointmentUpdateException.class);
+        verifyNoInteractions(mockAppointmentArchiveDao);
+        verify(mockOscarAppointmentDao, never()).merge(any());
+        verify(mockOscarAppointmentDao, never()).flush();
+    }
+
     // -----------------------------------------------------------------------
     // getAppointmentsForPatient
     // -----------------------------------------------------------------------
@@ -440,8 +466,8 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
                 createTestAppointment(1, TEST_PROVIDER, new Date()),
                 createTestAppointment(2, TEST_PROVIDER, new Date()));
 
-            when(mockOscarAppointmentDao.findByProgramProviderDemographicDate(
-                eq(programId), eq(TEST_PROVIDER), eq(demographicId), any(Date.class), eq(itemsToReturn)))
+            when(mockOscarAppointmentDao.findByProgramProviderDemographicDateAndId(
+                eq(programId), eq(TEST_PROVIDER), eq(demographicId), any(Date.class), eq(Integer.MAX_VALUE), eq(itemsToReturn+1)))
                 .thenReturn(expected);
 
             // When
@@ -450,8 +476,8 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
 
             // Then
             assertThat(result).hasSize(2);
-            verify(mockOscarAppointmentDao).findByProgramProviderDemographicDate(
-                programId, TEST_PROVIDER, demographicId, afterDate.getTime(), itemsToReturn);
+            verify(mockOscarAppointmentDao).findByProgramProviderDemographicDateAndId(
+                programId, TEST_PROVIDER, demographicId, afterDate.getTime(), Integer.MAX_VALUE, itemsToReturn+1);
         }
     }
 
@@ -637,11 +663,11 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
         @DisplayName("should return appointments without filtering when privileged")
         void shouldReturnAppointments_withoutFiltering_whenPrivileged() {
             // Given
-            Date afterDate = new Date();
+            Date afterDate = new Date(0);
             List<Appointment> expected = Collections.singletonList(
                 createTestAppointment(1, TEST_PROVIDER, new Date()));
 
-            when(mockOscarAppointmentDao.findByUpdateDate(afterDate, 10)).thenReturn(expected);
+            when(mockOscarAppointmentDao.findByUpdateDateAndId(afterDate, Integer.MAX_VALUE, 11)).thenReturn(expected);
             when(mockSecurityInfoManager.hasPrivilege(
                 eq(mockLoggedInInfo), eq("_appointment.UpdatedAfterDate"), eq("x"), isNull()))
                 .thenReturn(true);
@@ -659,14 +685,16 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
         @DisplayName("should filter by consent when privilege is missing")
         void shouldFilterByConsent_whenPrivilegeIsMissing() {
             // Given
-            Date afterDate = new Date();
+            Date afterDate = new Date(0);
             List<Appointment> appointments = new ArrayList<>();
             appointments.add(createTestAppointment(1, TEST_PROVIDER, new Date()));
 
-            when(mockOscarAppointmentDao.findByUpdateDate(afterDate, 10)).thenReturn(appointments);
+            when(mockOscarAppointmentDao.findByUpdateDateAndId(afterDate, Integer.MAX_VALUE, 11)).thenReturn(appointments);
             when(mockSecurityInfoManager.hasPrivilege(
                 eq(mockLoggedInInfo), eq("_appointment.UpdatedAfterDate"), eq("x"), isNull()))
                 .thenReturn(false);
+
+            when(mockPatientConsentManager.filterProviderSpecificConsent(any(), anyList())).thenAnswer(call -> call.getArgument(1));
 
             // When
             scheduleManager.getAppointmentUpdatedAfterDate(mockLoggedInInfo, afterDate, 10);
@@ -756,11 +784,13 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
         @DisplayName("should return archives updated after specified date")
         void shouldReturnArchives_updatedAfterSpecifiedDate() {
             // Given
-            Date afterDate = new Date();
+            Date afterDate = new Date(0);
             AppointmentArchive archive = new AppointmentArchive();
+            org.springframework.test.util.ReflectionTestUtils.setField(archive,"id",1);
+            archive.setUpdateDateTime(new Date(1000));
             List<AppointmentArchive> expected = Collections.singletonList(archive);
 
-            when(mockAppointmentArchiveDao.findByUpdateDate(afterDate, 25))
+            when(mockAppointmentArchiveDao.findByUpdateDateAndId(afterDate, Integer.MAX_VALUE, 26))
                 .thenReturn(expected);
 
             // When
@@ -769,7 +799,7 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
 
             // Then
             assertThat(result).hasSize(1);
-            verify(mockAppointmentArchiveDao).findByUpdateDate(afterDate, 25);
+            verify(mockAppointmentArchiveDao).findByUpdateDateAndId(afterDate, Integer.MAX_VALUE, 26);
         }
     }
 

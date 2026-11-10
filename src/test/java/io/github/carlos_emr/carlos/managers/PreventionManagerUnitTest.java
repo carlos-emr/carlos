@@ -933,7 +933,7 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
 
         @Test
         @DisplayName("should return empty list when no preventions exist for demographic")
-        void shouldReturnEmptyList_whenNoPreventionsExist() {
+        void shouldReturnEmptyImmunizations_whenNoPreventionsExist() {
             // Given
             when(mockPreventionDao.findUniqueByDemographicId(TEST_DEMO_NO))
                 .thenReturn(Collections.emptyList());

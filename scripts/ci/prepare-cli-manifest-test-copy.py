@@ -104,8 +104,8 @@ def main():
                        CARLOS_CTL_O19_MANIFEST_DIR=str(
                            carlos / "debian/assets/o19-manifest"))
     subprocess.run(
-        [sys.executable, "-c", "from carlos_ctl import o19import; import sys; "
-         "raise SystemExit(o19import.cmd_o19_preflight(sys.argv[1:]))",
+        [sys.executable, "-c", ("from carlos_ctl import o19import; import sys; "
+                + "raise SystemExit(o19import.cmd_o19_preflight(sys.argv[1:]))"),
          "--write-standalone", str(destination / MODULE)],
         cwd=destination, env=environment, check=True)
     # The public exporter emits a 0644 standalone artifact. This copy is a

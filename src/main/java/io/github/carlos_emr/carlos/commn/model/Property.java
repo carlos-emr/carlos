@@ -57,6 +57,7 @@ public class Property extends AbstractModel<Integer> implements Serializable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
     private String name;
+    @Column(length = 4000)
     private String value;
 
     @Column(name = "provider_no")

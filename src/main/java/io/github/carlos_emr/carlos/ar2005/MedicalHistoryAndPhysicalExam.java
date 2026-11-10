@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -404,64 +402,6 @@ public interface MedicalHistoryAndPhysicalExam extends XmlObject
          */
         public static MedicalHistoryAndPhysicalExam parse(final Node node, final XmlOptions options) throws XmlException {
             return (MedicalHistoryAndPhysicalExam)XmlBeans.getContextTypeLoader().parse(node, MedicalHistoryAndPhysicalExam.type, options);
-        }
-
-        /**
-         * Parses XML from XMLInputStream into MedicalHistoryAndPhysicalExam object with schema validation.
-         *
-         * @deprecated XMLInputStream is deprecated in Apache XMLBeans; use XMLStreamReader-based methods instead
-         * @param xis XMLInputStream containing XML data
-         * @return MedicalHistoryAndPhysicalExam parsed and validated object
-         * @throws XmlException if XML is malformed or fails schema validation
-         * @throws XMLStreamException if stream processing error occurs
-         */
-        @Deprecated
-        public static MedicalHistoryAndPhysicalExam parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (MedicalHistoryAndPhysicalExam)XmlBeans.getContextTypeLoader().parse(xis, MedicalHistoryAndPhysicalExam.type, (XmlOptions)null);
-        }
-
-        /**
-         * Parses XML from XMLInputStream into MedicalHistoryAndPhysicalExam object with custom options.
-         *
-         * @deprecated XMLInputStream is deprecated in Apache XMLBeans; use XMLStreamReader-based methods instead
-         * @param xis XMLInputStream containing XML data
-         * @param options XmlOptions for controlling parsing behavior
-         * @return MedicalHistoryAndPhysicalExam parsed and validated object
-         * @throws XmlException if XML is malformed or fails schema validation
-         * @throws XMLStreamException if stream processing error occurs
-         */
-        @Deprecated
-        public static MedicalHistoryAndPhysicalExam parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (MedicalHistoryAndPhysicalExam)XmlBeans.getContextTypeLoader().parse(xis, MedicalHistoryAndPhysicalExam.type, options);
-        }
-
-        /**
-         * Creates a validating XMLInputStream wrapper for schema validation.
-         *
-         * @deprecated XMLInputStream is deprecated in Apache XMLBeans; use XMLStreamReader-based validation instead
-         * @param xis XMLInputStream to wrap with validation
-         * @return XMLInputStream validating stream wrapper
-         * @throws XmlException if validation setup fails
-         * @throws XMLStreamException if stream processing error occurs
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, MedicalHistoryAndPhysicalExam.type, (XmlOptions)null);
-        }
-
-        /**
-         * Creates a validating XMLInputStream wrapper for schema validation with custom options.
-         *
-         * @deprecated XMLInputStream is deprecated in Apache XMLBeans; use XMLStreamReader-based validation instead
-         * @param xis XMLInputStream to wrap with validation
-         * @param options XmlOptions for controlling validation behavior
-         * @return XMLInputStream validating stream wrapper
-         * @throws XmlException if validation setup fails
-         * @throws XMLStreamException if stream processing error occurs
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, MedicalHistoryAndPhysicalExam.type, options);
         }
 
         /**

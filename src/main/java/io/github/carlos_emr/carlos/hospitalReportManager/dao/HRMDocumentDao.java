@@ -10,6 +10,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026: pin ordinary admission across HRM repair filesystem work.
  */
 
 package io.github.carlos_emr.carlos.hospitalReportManager.dao;
@@ -47,6 +48,20 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
 
     public HRMDocumentDao() {
         super(HRMDocument.class);
+    }
+
+    /** Always executes clinical SQL in the caller's transaction; never resolves from an entity/query cache. */
+    public String reportFileForRepair(int id) {
+        List<String> rows = entityManager.createNativeQuery("SELECT reportFile FROM HRMDocument WHERE id=:id", String.class)
+                .setParameter("id", id).setHint("org.hibernate.cacheable", false)
+                .setHint("jakarta.persistence.query.timeout", 3000).getResultList();
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /** An empty clinical result still takes the shared admission lock before the repair completion marker. */
+    public void requireRepairAdmission() {
+        entityManager.createNativeQuery("SELECT id FROM HRMDocument ORDER BY id LIMIT 1", Integer.class)
+                .setHint("org.hibernate.cacheable", false).setHint("jakarta.persistence.query.timeout", 3000).getResultList();
     }
 
     /** Holds the report row until the surrounding mutation transaction completes. */

@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -827,64 +825,6 @@ public interface DiscussionTopicsType extends XmlObject
          */
         public static DiscussionTopicsType parse(final Node node, final XmlOptions options) throws XmlException {
             return (DiscussionTopicsType)XmlBeans.getContextTypeLoader().parse(node, DiscussionTopicsType.type, options);
-        }
-
-        /**
-         * Parses XML from an XMLInputStream into a DiscussionTopicsType instance.
-         *
-         * @param xis XMLInputStream the XML input stream to parse from
-         * @return DiscussionTopicsType the parsed instance
-         * @throws XmlException if the XML is invalid or cannot be parsed
-         * @throws XMLStreamException if an error occurs while processing the stream
-         * @deprecated XMLInputStream is deprecated, use InputStream or XMLStreamReader instead
-         */
-        @Deprecated
-        public static DiscussionTopicsType parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (DiscussionTopicsType)XmlBeans.getContextTypeLoader().parse(xis, DiscussionTopicsType.type, (XmlOptions)null);
-        }
-
-        /**
-         * Parses XML from an XMLInputStream into a DiscussionTopicsType instance with specified options.
-         *
-         * @param xis XMLInputStream the XML input stream to parse from
-         * @param options XmlOptions the XML options to use when parsing
-         * @return DiscussionTopicsType the parsed instance
-         * @throws XmlException if the XML is invalid or cannot be parsed
-         * @throws XMLStreamException if an error occurs while processing the stream
-         * @deprecated XMLInputStream is deprecated, use InputStream or XMLStreamReader instead
-         */
-        @Deprecated
-        public static DiscussionTopicsType parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (DiscussionTopicsType)XmlBeans.getContextTypeLoader().parse(xis, DiscussionTopicsType.type, options);
-        }
-
-        /**
-         * Creates a validating XMLInputStream from an existing XMLInputStream.
-         *
-         * @param xis XMLInputStream the XML input stream to wrap with validation
-         * @return XMLInputStream a validating XML input stream
-         * @throws XmlException if the XML is invalid or cannot be validated
-         * @throws XMLStreamException if an error occurs while processing the stream
-         * @deprecated XMLInputStream is deprecated, use InputStream or XMLStreamReader instead
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, DiscussionTopicsType.type, (XmlOptions)null);
-        }
-
-        /**
-         * Creates a validating XMLInputStream from an existing XMLInputStream with specified options.
-         *
-         * @param xis XMLInputStream the XML input stream to wrap with validation
-         * @param options XmlOptions the XML options to use when validating
-         * @return XMLInputStream a validating XML input stream
-         * @throws XmlException if the XML is invalid or cannot be validated
-         * @throws XMLStreamException if an error occurs while processing the stream
-         * @deprecated XMLInputStream is deprecated, use InputStream or XMLStreamReader instead
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, DiscussionTopicsType.type, options);
         }
 
         /**

@@ -156,6 +156,53 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldPreserveUnknownEncounterDate_whenExistingImportedNoteIsSavedWithBlankDate() throws Exception {
+        note.setObservation_date(null);
+        action.setObservation_date("");
+        when(manager.saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any(), any())).thenAnswer(call -> {
+            CaseManagementNote draft = call.getArgument(1);
+            assertThat(draft.getObservation_date()).isNull();
+            CaseManagementNote saved = draft.copyForRevision();
+            saved.setId(600L);
+            return saved;
+        });
+
+        assertThat(action.save()).isEqualTo("view");
+        assertThat(form.getCaseNote().getObservation_date()).isNull();
+        assertThat(NoteObservationDate.format(form.getCaseNote().getObservation_date())).isEmpty();
+    }
+
+    @Test
+    void shouldPreserveUnknownEncounterDate_whenCompactImportedNoteIsSavedWithBlankDate() throws Exception {
+        note.setObservation_date(null);
+        request.setParameter("obsDate", "");
+        when(manager.saveCompactNoteRevision(any(), any(), anyList(), any())).thenAnswer(call -> {
+            CaseManagementNote draft = call.getArgument(1);
+            assertThat(draft.getObservation_date()).isNull();
+            CaseManagementNote saved = draft.copyForRevision();
+            saved.setId(600L);
+            return new CaseManagementManager.CompactSaveResult(saved, call.getArgument(2));
+        });
+
+        assertThat(action.ajaxsave()).isEqualTo("issueList_ajax");
+        assertThat(form.getCaseNote().getObservation_date()).isNull();
+    }
+
+    @Test
+    void shouldPreserveUnknownEncounterDate_whenExistingImportedCppNoteIsRevised() throws Exception {
+        prepareCppSave();
+        note.setObservation_date(null);
+        when(manager.saveCppNoteRevision(any(), any(), any(), any(), any())).thenThrow(snapshotConflict());
+
+        assertThat(action.issueNoteSave()).isNull();
+
+        ArgumentCaptor<CaseManagementNote> submitted = ArgumentCaptor.forClass(CaseManagementNote.class);
+        verify(manager).saveCppNoteRevision(submitted.capture(), any(), any(), any(), any());
+        assertThat(submitted.getValue().getObservation_date()).isNull();
+    }
+
+    @Test
     void shouldKeepDraftAndLock_whenAjaxSaveHasWrappedSnapshotConflict() throws Exception {
         when(manager.saveCompactNoteRevision(any(), any(), anyList(), any())).thenThrow(snapshotConflict());
         assertThat(action.ajaxsave()).isNull();
@@ -364,6 +411,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         assertThat(form.getCaseNote().getProgram_no()).isEqualTo("7");
         assertThat(form.getCaseNote().getNote()).isEqualTo("Unsaved draft");
         assertThat(note.getNote()).isEqualTo("Original");
+        assertThat(form.getCaseNote().getObservation_date()).isNotNull();
         verify(manager, never()).getNote(anyString());
         verify(manager).saveCompactNoteRevision(any(), any(), anyList(), eq("7"));
     }
@@ -1060,5 +1108,6 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(form.getCaseNote().getId()).isEqualTo(600L);
         assertThat(form.getCaseNote().getNote()).isEqualTo("Unsaved draft");
+        assertThat(form.getCaseNote().getObservation_date()).isNotNull();
     }
 }

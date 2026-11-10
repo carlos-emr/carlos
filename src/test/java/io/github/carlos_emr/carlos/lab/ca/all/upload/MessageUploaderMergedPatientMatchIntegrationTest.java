@@ -144,10 +144,16 @@ class MessageUploaderMergedPatientMatchIntegrationTest extends CarlosTestBase {
 
     /** Routes one synthetic lab for the HIN and returns the demographic numbers it was routed to. */
     private List<Integer> routedDemographics(String hin, int fileId) throws Exception {
-        MessageUploader.routeReport(AuthUtils.initLoginContext(), "synthetic", null, lab(hin, "ACC" + fileId), fileId);
+        RouteReportResults stored = new RouteReportResults();
+        MessageUploader.routeReport(AuthUtils.initLoginContext(), "synthetic", null, lab(hin, "ACC" + fileId), fileId, stored);
         em.flush();
-        List<PatientLabRouting> routes = em.createQuery("select r from PatientLabRouting r where r.labType = 'HL7'",
-                PatientLabRouting.class).getResultList();
+        // A positive lab number keeps the "stays unrouted" cases from passing on an empty lookup.
+        assertThat(stored.segmentId).isPositive();
+        // Only this upload's routings: other tests in the same surefire fork can leave committed HL7
+        // routings in the shared H2 database, and those are not routes of this message.
+        List<PatientLabRouting> routes = em.createQuery(
+                "select r from PatientLabRouting r where r.labType = 'HL7' and r.labNo = :lab", PatientLabRouting.class)
+                .setParameter("lab", stored.segmentId).getResultList();
         return routes.stream().map(PatientLabRouting::getDemographicNo).toList();
     }
 

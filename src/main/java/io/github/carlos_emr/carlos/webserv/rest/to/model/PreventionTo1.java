@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 import java.util.Date;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO;
 
 public class PreventionTo1 {
 
@@ -41,6 +42,7 @@ public class PreventionTo1 {
     private Date creationDate = new Date();
     @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date preventionDate;
+    private PreventionDateDTO preventionDateInfo;
 
     private String providerNo;
     private String preventionType;
@@ -71,6 +73,9 @@ public class PreventionTo1 {
     public void setPreventionDate(Date preventionDate) {
         this.preventionDate = preventionDate;
     }
+
+    public PreventionDateDTO getPreventionDateInfo() { return preventionDateInfo; }
+    public void setPreventionDateInfo(PreventionDateDTO value) { preventionDateInfo = value; }
 
     public String getProviderNo() {
         return providerNo;
@@ -154,6 +159,19 @@ public class PreventionTo1 {
 
     public Date getCreationDate() {
         return creationDate;
+    }
+
+    /** Copies the single stored refusal discriminator without boolean setters overwriting it. */
+    public void applyClinicalState(boolean deleted, int refusalStatus, boolean never,
+            Date creationDate, Date lastUpdateDate) {
+        if (refusalStatus < 0 || refusalStatus > 3) {
+            throw new IllegalArgumentException("Unknown prevention status");
+        }
+        setDeleted(deleted);
+        refused = (char) ('0' + refusalStatus);
+        setNever(never);
+        this.creationDate = creationDate;
+        this.lastUpdateDate = lastUpdateDate;
     }
 
     protected void autoSetUpdateTime() {

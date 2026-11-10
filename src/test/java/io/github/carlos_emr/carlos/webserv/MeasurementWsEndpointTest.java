@@ -17,6 +17,7 @@
  *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 package io.github.carlos_emr.carlos.webserv;
 
@@ -65,12 +66,26 @@ class MeasurementWsEndpointTest extends CarlosSoapTestBase {
     @Mock
     private MeasurementManager measurementManager;
 
+    @Mock
+    private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
+
     private MeasurementWs ws;
 
     @Override
     protected Object getServiceBean() {
         ws = new MeasurementWs();
+        injectDependency(ws,"projections",projections);
         return ws;
+    }
+
+    @Test
+    void shouldFaultInsteadOfReturningEmptySubset_whenStructuredSourceCannotBeProjected() {
+        when(measurementManager.getMeasurementByDemographicIdAfter(any(LoggedInInfo.class),eq(123),any(java.util.Date.class))).thenReturn(java.util.List.of());
+        org.mockito.Mockito.doThrow(new org.apache.cxf.binding.soap.SoapFault("Structured projection requires review",
+                org.apache.cxf.binding.soap.SoapFault.FAULT_CODE_CLIENT))
+                .when(projections).requireSoapSupported(123,java.util.Set.of("CareElements"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(()->createClient(MeasurementWs.class).getMeasurementsByDemographicIdAfter(java.util.Calendar.getInstance(),123))
+                .hasMessageContaining("Structured projection requires review");
     }
 
     @Override
@@ -93,6 +108,7 @@ class MeasurementWsEndpointTest extends CarlosSoapTestBase {
         @DisplayName("should return measurement transfer when found")
         void shouldReturnMeasurementTransfer_whenFound() {
             Measurement measurement = new Measurement();
+            measurement.setDemographicId(123);
             measurement.setType("BP");
             when(measurementManager.getMeasurement(any(LoggedInInfo.class), eq(25))).thenReturn(measurement);
 
@@ -158,6 +174,7 @@ class MeasurementWsEndpointTest extends CarlosSoapTestBase {
         void shouldReturnMeasurements_createdAfterDate() {
             List<Measurement> measurements = new ArrayList<>();
             Measurement m = new Measurement();
+            m.setDemographicId(123);
             m.setType("BP");
             measurements.add(m);
             when(measurementManager.getCreatedAfterDate(any(LoggedInInfo.class), any(Date.class), anyInt()))

@@ -43,6 +43,20 @@ import org.springframework.stereotype.Repository;
 public class PreventionMergedDemographicDaoImpl extends PreventionDaoImpl implements PreventionMergedDemographicDao {
 
     @Override
+    public boolean hasUncertainPreventionDates(Integer demographicId) {
+        if (demographicId == null) return super.hasUncertainPreventionDates(null);
+        if (super.hasUncertainPreventionDates(demographicId)) return true;
+        MergedDemographicTemplate<Boolean> template = new MergedDemographicTemplate<Boolean>() {
+            @Override
+            protected List<Boolean> findById(Integer id) {
+                return PreventionMergedDemographicDaoImpl.super.hasUncertainPreventionDates(id)
+                        ? List.of(Boolean.TRUE) : List.of();
+            }
+        };
+        return !template.findMerged(demographicId, new java.util.ArrayList<>()).isEmpty();
+    }
+
+    @Override
     public List<Prevention> findByDemographicId(Integer demographicId) {
         List<Prevention> result = super.findByDemographicId(demographicId);
         MergedDemographicTemplate<Prevention> template = new MergedDemographicTemplate<Prevention>() {

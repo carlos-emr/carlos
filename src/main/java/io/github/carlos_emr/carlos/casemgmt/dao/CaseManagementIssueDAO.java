@@ -45,6 +45,19 @@ public interface CaseManagementIssueDAO {
 
     public List<CaseManagementIssue> getIssuesByDemographicOrderActive(Integer demographic_no, Boolean resolved);
 
+    /**
+     * Finds issues linked to a note, optionally filtered by resolution state.
+     * Results are ordered by resolution state, with unresolved issues first;
+     * ordering within each state is unspecified.
+     *
+     * @param noteId Integer identifier of the note; must not be null
+     * @param resolved Boolean resolution state to match, or null to return issues
+     *                 without filtering by resolution
+     * @return non-null {@code List<CaseManagementIssue>} of matching issues, or an
+     *         empty list if the note does not exist or has no matching linked issues
+     * @throws IllegalArgumentException if noteId is null
+     * @throws org.springframework.dao.DataAccessException if persistence access fails
+     */
     public List<CaseManagementIssue> getIssuesByNote(Integer noteId, Boolean resolved);
 
     public Issue getIssueByCmnId(Integer cmnIssueId);
@@ -58,6 +71,15 @@ public interface CaseManagementIssueDAO {
      * @return CaseManagementIssue the matching row, or null if the identifier is absent
      */
     public CaseManagementIssue findById(Long id);
+
+    /**
+     * Finds at most two patient issues without collapsing duplicate catalogue associations.
+     *
+     * @param demographicNo patient demographic number
+     * @param issueId catalogue issue identifier
+     * @return zero, one or two matching patient issues, ordered by identifier
+     */
+    List<CaseManagementIssue> findCandidatesByDemographicAndIssue(int demographicNo, Long issueId);
 
     public CaseManagementIssue getIssuebyIssueCode(String demo, String issueCode);
 

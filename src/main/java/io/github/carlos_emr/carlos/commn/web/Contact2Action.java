@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: retain unknown contact consent through edits.
  */
 
 
@@ -275,6 +276,11 @@ public class Contact2Action extends ActionSupport {
         }
     }
 
+    /** Missing or explicitly unknown consent never becomes a new permission on form submission. */
+    static Boolean parseConsentToContact(String value) {
+        return ContactConsentParser.parse(value);
+    }
+
     private void saveContactRows(String prefix, int count, int demographicNo, LoggedInInfo loggedInInfo,
                                  Map<Integer, String> reciprocalRoles) {
         String category = PERSONAL_CONTACT_PREFIX.equals(prefix)
@@ -284,7 +290,7 @@ public class Contact2Action extends ActionSupport {
             String associationId = request.getParameter(field + ".id");
             String contactId = request.getParameter(field + CONTACT_ID_SUFFIX);
             if (associationId == null || StringUtils.isBlank(contactId) || "0".equals(contactId)) continue;
-            boolean consent = !"0".equals(request.getParameter(field + ".consentToContact"));
+            Boolean consent = parseConsentToContact(request.getParameter(field + ".consentToContact"));
             boolean active = !"0".equals(request.getParameter(field + ".active"));
             linkContactToDemographic(contactId, Integer.parseInt(associationId), demographicNo,
                     request.getParameter(field + CONTACT_ROLE_SUFFIX),
@@ -432,6 +438,7 @@ public class Contact2Action extends ActionSupport {
         if (existing != null) requireContactCategory(existing, category);
         String contactId = request.getParameter(field + CONTACT_ID_SUFFIX);
         if (StringUtils.isNotBlank(contactId) && !"0".equals(contactId)) {
+            parseConsentToContact(request.getParameter(field + ".consentToContact"));
             // provider_no is a string namespace (for example T099); the other
             // association namespaces use positive numeric identifiers.
             int type = effectiveContactType(field, existing);
@@ -760,7 +767,7 @@ public class Contact2Action extends ActionSupport {
                 contactType = demographicContact.getType();
                 ec = demographicContact.getEc();
                 sdm = demographicContact.getSdm();
-                consentToContact = demographicContact.isConsentToContact();
+                consentToContact = demographicContact.getConsentToContact();
                 active = demographicContact.isActive();
             } else {
                 // this is an indicator that this contact is being edited before

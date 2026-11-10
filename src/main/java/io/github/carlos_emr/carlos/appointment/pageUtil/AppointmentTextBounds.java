@@ -11,9 +11,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import org.apache.struts2.ActionSupport;
 
-/** The four native booking text fields and their existing utf8mb4 column capacities. */
+/** Native booking text contract; notes retain the complete CDS 32K clinical field in MEDIUMTEXT storage. */
 final class AppointmentTextBounds {
     static final String RETRY = "appointmentTextRetry";
+    static final int NOTES_MAX_CODEPOINTS = 32768;
 
     record Values(String name, String reason, String notes, String resources) { }
     record Violation(String labelKey, int maximum, boolean invalidUnicode) { }
@@ -40,7 +41,7 @@ final class AppointmentTextBounds {
     static Violation validate(Values values, Appointment previous) {
         Violation failure = check(values.name(), previous == null ? null : previous.getName(), 255, "Appointment.formName", false);
         if (failure == null) failure = check(values.reason(), previous == null ? null : previous.getReason(), 80, "Appointment.formReason", true);
-        if (failure == null) failure = check(values.notes(), previous == null ? null : previous.getNotes(), 255, "Appointment.formNotes", true);
+        if (failure == null) failure = check(values.notes(), previous == null ? null : previous.getNotes(), NOTES_MAX_CODEPOINTS, "Appointment.formNotes", true);
         if (failure == null) failure = check(values.resources(), previous == null ? null : previous.getResources(), 255, "Appointment.formResources", false);
         return failure;
     }
@@ -63,7 +64,7 @@ final class AppointmentTextBounds {
         return logical.codePointCount(0, logical.length()) > maximum ? new Violation(labelKey, maximum, false) : null;
     }
 
-    // FindSecBugs XSS_SERVLET: the text/plain refusal is fixed text plus a code-defined column bound (80 or 255); no request data is written.
+    // FindSecBugs XSS_SERVLET: the text/plain refusal is fixed text plus a code-defined column bound (80, 255 or 32768); no request data is written.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "fixed text/plain refusal; only a code-defined column bound is interpolated, no request data")
     static String refuse(HttpServletRequest request, HttpServletResponse response, Violation violation) throws IOException {
         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);

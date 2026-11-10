@@ -61,7 +61,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page
         import="java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.providers.data.ProviderData, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao" %>
@@ -70,7 +70,7 @@
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
-<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+
 <%
     DocumentExtraReviewerDao documentExtraReviewerDao = SpringUtils.getBean(DocumentExtraReviewerDao.class);
     List<DocumentExtraReviewer> extraReviewers = new ArrayList<DocumentExtraReviewer>();
@@ -119,7 +119,7 @@
         formdata.setSourceFacility(currentDoc.getSourceFacility());
         formdata.setReviewerId(currentDoc.getReviewerId());
         formdata.setReviewDateTime(currentDoc.getReviewDateTime());
-        formdata.setContentDateTime(UtilDateUtilities.DateToString(currentDoc.getContentDateTime(), EDocUtil.CONTENT_DATETIME_FORMAT));
+        formdata.setContentDateTime(currentDoc.getContentDateTimeDisplay(EDocUtil.CONTENT_DATETIME_FORMAT));
         formdata.setRestrictToProgram(currentDoc.isRestrictToProgram());
         lastUpdate = currentDoc.getDateTimeStamp();
         fileName = currentDoc.getFileName();

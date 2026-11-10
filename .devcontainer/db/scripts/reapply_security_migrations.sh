@@ -20,7 +20,7 @@ for f in "${MIG}/common/"V*.sql "${MIG}/on/"V*.sql; do
   printf '%s\n' "$f"
 done \
   | awk -F'/V1\\.0\\.' '{ n=$2; sub(/__.*/,"",n); print n "\t" $0 }' \
-  | sort -n | cut -f2 \
+  | LC_ALL=C sort -V | cut -f2 \
   | while IFS= read -r f; do
       if grep -qE 'secObjectName|secObjPrivilege|secPrivilege|secRole|secUserRole' "$f"; then
         echo "  re-applying $(basename "$f")"

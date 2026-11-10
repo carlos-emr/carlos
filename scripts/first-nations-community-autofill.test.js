@@ -59,8 +59,9 @@ function render({ savedStatusNumber = '', savedCommunity = '' } = {}) {
     querySelector: selector => byName[(selector.match(/\[name='([^']+)'\]/) || [])[1]] || null,
     addEventListener: (type, fn) => { if (type === 'DOMContentLoaded') ready = fn; },
   };
-  vm.runInNewContext(pageScript(), { document, toggleFirstNationFields() {} });
+  vm.runInNewContext(pageScript(), { document });
   ready();
+  byId.statusNum.fire('focus');
   return byId;
 }
 

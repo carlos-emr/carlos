@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.eform.data.EForm;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -101,7 +102,7 @@ class EFormExportZipExportUnitTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"Well Baby 0/6 months", "Well Baby 0\\6 months", "../evil", "C:\\forms", "Ça \"va\" Łódź", "line\r\nbreak", "Clinic*?<>|Form"})
+    @ValueSource(strings = {"Well Baby 0/6 months", "Well Baby 0\\6 months", "../evil", "C:\\forms", "Ça \"va\" Łódź", "line\r\nbreak", "Clinic*?<>|Form", "Clinic .", "Clinic   ", "Clinic..", "Clinic ~"})
     void shouldPreserveOriginalMetadata_whenDisplayTitleNeedsSafeExportName(String name) throws Exception {
         Map<String, byte[]> archive = entries(eform(name, "form.html", "<p>Zoë Ł</p>"));
         assertThat(archive).hasSize(2);
@@ -120,6 +121,15 @@ class EFormExportZipExportUnitTest {
     void shouldGenerateSafeHtmlFilename_whenStoredFilenameMissing() throws Exception {
         Map<String, byte[]> archive = entries(eform("Well Baby 0/6 months", null, "<p>test</p>"));
         assertThat(archive).containsKeys("WellBaby0_6months/eform.properties", "WellBaby0_6months/WellBaby0_6months.html");
+    }
+
+    @Test
+    @Timeout(5)
+    void shouldBoundExportName_whenLongInteriorWhitespacePrecedesText() {
+        // A suffix-search regex retries the long interior run at every space.
+        // Bounding can itself expose a trailing run, which must normalize too.
+        assertThat(EFormExportZip.exportNameComponent("a" + " ".repeat(100000) + "b"))
+                .isEqualTo("a_");
     }
 
     @Test

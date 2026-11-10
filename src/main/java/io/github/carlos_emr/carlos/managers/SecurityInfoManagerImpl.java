@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -32,6 +33,7 @@
 package io.github.carlos_emr.carlos.managers;
 
 import java.util.*;
+import java.util.function.Function;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
@@ -126,69 +128,124 @@ public class SecurityInfoManagerImpl implements SecurityInfoManager {
         return evaluatePrivilege(loggedInInfo, objectName, privilege, demographicNo, false);
     }
 
-    // The caller selects only whether an existing NORIGHTS decision marks the session.
+    // Existing shared privilege evaluator; locale-safe hardening tracked in #2496.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Existing shared privilege evaluator; locale-safe hardening tracked in #2496")
     private boolean evaluatePrivilege(LoggedInInfo loggedInInfo, String objectName, String privilege,
                                       String demographicNo, boolean markAccountLocked) {
         try {
-            List<String> roleNameLs = new ArrayList<>();
-            for (Secuserrole role : getRoles(loggedInInfo)) {
-                roleNameLs.add(role.getRoleName());
-            }
-            roleNameLs.add(loggedInInfo.getLoggedInProviderNo());
-            String roleNames = StringUtils.join(roleNameLs, ",");
-
-            boolean noMatchingRoleToSpecificPatient = true;
-            List<Object> v = null;
-            if (demographicNo != null) {
-                v = OscarRoleObjectPrivilege.getPrivilegeProp(objectName + "$" + demographicNo);
-                List<String> roleInObj = (List<String>) v.get(1);
-
-                for (String objRole : roleInObj) {
-                    String trimmedObjRole = StringUtils.trim(objRole);
-                    boolean matchedRole = Arrays.stream(roleNames.split(","))
-                        .map(StringUtils::trim)
-                        .anyMatch(roleName -> Strings.CI.equals(roleName, trimmedObjRole));
-                    if (matchedRole) {
-                        noMatchingRoleToSpecificPatient = false;
-                        break;
-                    }
-                }
-            }
-
-            if (noMatchingRoleToSpecificPatient) {
-                v = OscarRoleObjectPrivilege.getPrivilegeProp(objectName);
-            }
-
-            if (!noMatchingRoleToSpecificPatient && OscarRoleObjectPrivilege.checkPrivilege(roleNames,
-                    (Properties) v.get(0), (List<String>) v.get(1), (List<String>) v.get(2), NORIGHTS)) {
-                if (markAccountLocked) {
-                    HttpSession returnSession = loggedInInfo.getSession();
-                    // nosemgrep: tainted-session-from-http-request -- value is hardcoded boolean true, not user input
-                    returnSession.setAttribute("accountLocked", true);
-                    loggedInInfo.setSession(returnSession);
-                }
-            } else if (OscarRoleObjectPrivilege.checkPrivilege(roleNames, (Properties) v.get(0),
-                    (List<String>) v.get(1), (List<String>) v.get(2), "x")) {
-                return true;
-            } else if (OscarRoleObjectPrivilege.checkPrivilege(roleNames, (Properties) v.get(0),
-                    (List<String>) v.get(1), (List<String>) v.get(2), WRITE)) {
-                return ((READ + UPDATE + WRITE).contains(privilege));
-            } else if (OscarRoleObjectPrivilege.checkPrivilege(roleNames, (Properties) v.get(0),
-                    (List<String>) v.get(1), (List<String>) v.get(2), UPDATE)) {
-                return ((READ + UPDATE).contains(privilege));
-            } else if (OscarRoleObjectPrivilege.checkPrivilege(roleNames, (Properties) v.get(0),
-                    (List<String>) v.get(1), (List<String>) v.get(2), READ)) {
-                return (READ.equals(privilege));
-            } else if (OscarRoleObjectPrivilege.checkPrivilege(roleNames, (Properties) v.get(0),
-                    (List<String>) v.get(1), (List<String>) v.get(2), DELETE)) {
-                return (DELETE.equals(privilege));
-            }
+            return evaluatePrivilege(loggedInInfo, objectName, privilege, demographicNo, markAccountLocked,
+                    roleNames(loggedInInfo), OscarRoleObjectPrivilege::getPrivilegeProp);
 
         } catch (PatientDirectiveException ex) {
             throw (ex);
         } catch (Exception ex) {
             MiscUtils.getLogger().error("Error checking privileges", ex);
+        }
+
+        return false;
+    }
+
+    private String roleNames(LoggedInInfo loggedInInfo) {
+        List<String> names = new ArrayList<>();
+        for (Secuserrole role : getRoles(loggedInInfo)) names.add(role.getRoleName());
+        names.add(loggedInInfo.getLoggedInProviderNo());
+        return StringUtils.join(names, ",");
+    }
+
+    /** Uses the same patient policy and session effects with one operation-local role/privilege snapshot. */
+    @Override
+    public boolean hasDemographicReadPrivileges(LoggedInInfo loggedInInfo, Collection<Integer> demographicNos) {
+        if (demographicNos.isEmpty()) return true;
+        try {
+            Set<Integer> ids = new LinkedHashSet<>(demographicNos);
+            String roles = roleNames(loggedInInfo);
+            List<String> objects = new ArrayList<>();
+            objects.add("_demographic");
+            for (Integer id : ids) objects.add("_demographic$" + Objects.requireNonNull(id));
+            Map<String, Vector<Object>> privileges = OscarRoleObjectPrivilege.getPrivilegeProps(objects);
+            for (Integer id : ids) {
+                if (!evaluatePrivilege(loggedInInfo, "_demographic", READ, id.toString(), true,
+                        roles, privileges::get)) return false;
+            }
+            return true;
+        } catch (PatientDirectiveException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            MiscUtils.getLogger().error("Error checking privileges", ex);
+            return false;
+        }
+    }
+
+    /** One operation-local policy snapshot; list discovery must not lock the user's session. */
+    @Override
+    public Set<Integer> getReadableDemographicIds(LoggedInInfo info, Collection<Integer> demographicNos) {
+        Set<Integer> result = new LinkedHashSet<>();
+        if (demographicNos.isEmpty()) return result;
+        Set<Integer> ids = new LinkedHashSet<>(demographicNos);
+        String roles = roleNames(info);
+        List<String> objects = new ArrayList<>();
+        objects.add("_demographic");
+        for (Integer id : ids) objects.add("_demographic$" + Objects.requireNonNull(id));
+        Map<String, Vector<Object>> privileges = OscarRoleObjectPrivilege.getPrivilegeProps(objects);
+        for (Integer id : ids) {
+            if (evaluatePrivilege(info, "_demographic", READ, id.toString(), false, roles, privileges::get)) {
+                result.add(id);
+            }
+        }
+        return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    // Shared privilege policy; locale-safe hardening tracked in #2496.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Shared privilege policy; locale-safe hardening tracked in #2496")
+    private boolean evaluatePrivilege(LoggedInInfo loggedInInfo, String objectName, String privilege,
+                                      String demographicNo, boolean markAccountLocked, String roleNames,
+                                      Function<String, ? extends List<Object>> privilegeLookup) {
+        boolean noMatchingRoleToSpecificPatient = true;
+        List<Object> v = null;
+        if (demographicNo != null) {
+            v = privilegeLookup.apply(objectName + "$" + demographicNo);
+            List<String> roleInObj = (List<String>) v.get(1);
+
+            for (String objRole : roleInObj) {
+                String trimmedObjRole = StringUtils.trim(objRole);
+                boolean matchedRole = Arrays.stream(roleNames.split(","))
+                    .map(StringUtils::trim)
+                    .anyMatch(roleName -> Strings.CI.equals(roleName, trimmedObjRole));
+                if (matchedRole) {
+                    noMatchingRoleToSpecificPatient = false;
+                    break;
+                }
+            }
+        }
+
+        if (noMatchingRoleToSpecificPatient) {
+            v = privilegeLookup.apply(objectName);
+        }
+
+        if (!noMatchingRoleToSpecificPatient && OscarRoleObjectPrivilege.checkPrivilege(roleNames,
+                (Properties) v.get(0), (List<String>) v.get(1), (List<String>) v.get(2), NORIGHTS)) {
+            if (markAccountLocked) {
+                HttpSession returnSession = loggedInInfo.getSession();
+                // nosemgrep: tainted-session-from-http-request -- value is hardcoded boolean true, not user input
+                returnSession.setAttribute("accountLocked", true);
+                loggedInInfo.setSession(returnSession);
+            }
+        } else if (OscarRoleObjectPrivilege.checkPrivilege(roleNames, (Properties) v.get(0),
+                (List<String>) v.get(1), (List<String>) v.get(2), "x")) {
+            return true;
+        } else if (OscarRoleObjectPrivilege.checkPrivilege(roleNames, (Properties) v.get(0),
+                (List<String>) v.get(1), (List<String>) v.get(2), WRITE)) {
+            return ((READ + UPDATE + WRITE).contains(privilege));
+        } else if (OscarRoleObjectPrivilege.checkPrivilege(roleNames, (Properties) v.get(0),
+                (List<String>) v.get(1), (List<String>) v.get(2), UPDATE)) {
+            return ((READ + UPDATE).contains(privilege));
+        } else if (OscarRoleObjectPrivilege.checkPrivilege(roleNames, (Properties) v.get(0),
+                (List<String>) v.get(1), (List<String>) v.get(2), READ)) {
+            return (READ.equals(privilege));
+        } else if (OscarRoleObjectPrivilege.checkPrivilege(roleNames, (Properties) v.get(0),
+                (List<String>) v.get(1), (List<String>) v.get(2), DELETE)) {
+            return (DELETE.equals(privilege));
         }
 
         return false;

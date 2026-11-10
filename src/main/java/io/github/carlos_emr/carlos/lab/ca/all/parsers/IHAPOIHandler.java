@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.lab.ca.all.parsers;
 import java.util.HashMap;
 
 import ca.uhn.hl7v2.HL7Exception;
+import io.github.carlos_emr.carlos.lab.ca.all.util.Hl7Utils;
 import ca.uhn.hl7v2.model.Message;
 import ca.uhn.hl7v2.model.v23.segment.MSH;
 import ca.uhn.hl7v2.parser.Parser;
@@ -145,14 +146,16 @@ public class IHAPOIHandler extends MEDITECHHandler implements MessageHandler {
 
         try {
             accession = getString(msg.getRESPONSE().getORDER_OBSERVATION().getOBR().getPlacerOrderNumber(0).getEntityIdentifier().getValue());
-        } catch (HL7Exception e) {
+        } catch (RuntimeException e) {
+            Hl7Utils.rethrowUnlessHl7AccessFailure(e);
             // do nothing. Lab may not display correctly with out accession.
         }
         try {
             if (accession == null || accession.isEmpty()) {
                 accession = getString(msg.getRESPONSE().getORDER_OBSERVATION().getORC().getPlacerOrderNumber(0).getEntityIdentifier().getValue());
             }
-        } catch (HL7Exception e) {
+        } catch (RuntimeException e) {
+            Hl7Utils.rethrowUnlessHl7AccessFailure(e);
             // do nothing. Lab may not display correctly with out accession.
         }
 

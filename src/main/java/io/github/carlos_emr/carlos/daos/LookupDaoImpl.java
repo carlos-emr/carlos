@@ -48,8 +48,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.db.DBPreparedHandlerParam;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 import io.github.carlos_emr.carlos.commons.KeyConstants;
 import io.github.carlos_emr.carlos.model.FieldDefValue;
@@ -108,7 +106,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         if (tableDef == null)
             return (new ArrayList<LookupCodeValue>());
         List fields = LoadFieldDefList(tableId);
-        DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[100];
+        Object[] params = new Object[100];
         String fieldNames[] = new String[17];
         String sSQL1 = "";
         String tableName = validateSqlIdentifier(tableDef.getTableName());
@@ -150,11 +148,11 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         int i = 0;
         if (activeFieldExists && activeOnly) {
             sSQL += " and " + fieldNames[2] + "=?";
-            params[i++] = new DBPreparedHandlerParam(1);
+            params[i++] = 1;
         }
         if (!Utility.IsEmpty(parentCode)) {
             sSQL += " and " + fieldNames[4] + "=?";
-            params[i++] = new DBPreparedHandlerParam(parentCode);
+            params[i++] = parentCode;
         }
         if (!Utility.IsEmpty(code)) {
             // org table is different from other tables
@@ -162,29 +160,29 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
                 sSQL += " and " + fieldNames[0] + " like ('%'||";
                 String[] codes = code.split(",");
                 sSQL += "?";
-                params[i++] = new DBPreparedHandlerParam(codes[0]);
+                params[i++] = codes[0];
                 for (int k = 1; k < codes.length; k++) {
                     sSQL += ",?";
-                    params[i++] = new DBPreparedHandlerParam(codes[k]);
+                    params[i++] = codes[k];
                 }
                 sSQL += ")";
             } else {
                 sSQL += " and " + fieldNames[0] + " in (";
                 String[] codes = code.split(",");
                 sSQL += "?";
-                params[i++] = new DBPreparedHandlerParam(codes[0]);
+                params[i++] = codes[0];
                 for (int k = 1; k < codes.length; k++) {
                     if (codes[k].equals(""))
                         continue;
                     sSQL += ",?";
-                    params[i++] = new DBPreparedHandlerParam(codes[k]);
+                    params[i++] = codes[k];
                 }
                 sSQL += ")";
             }
         }
         if (!Utility.IsEmpty(codeDesc)) {
             sSQL += " and upper(" + fieldNames[1] + ") like ?";
-            params[i++] = new DBPreparedHandlerParam("%" + codeDesc.toUpperCase() + "%");
+            params[i++] = "%" + codeDesc.toUpperCase() + "%";
         }
 
         if (tableDef.isTree()) {
@@ -617,7 +615,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         String tableName = validateSqlIdentifier(tableDef.getTableName());
         String idFieldVal = "";
 
-        DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[fieldDefList.size()];
+        Object[] params = new Object[fieldDefList.size()];
         String phs = "";
         String sql = "insert into  " + tableName + "(";
         for (int i = 0; i < fieldDefList.size(); i++) {
@@ -633,13 +631,12 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
                 }
             }
             if ("S".equals(fdv.getFieldType())) {
-                params[i] = new DBPreparedHandlerParam(fdv.getVal());
+                params[i] = fdv.getVal();
             } else if ("D".equals(fdv.getFieldType())) {
                 // for last update date Using calendar Instance
-                params[i] = new DBPreparedHandlerParam(
-                        new java.sql.Date(MyDateFormat.getCalendarwithTime(fdv.getVal()).getTime().getTime()));
+                params[i] = new java.sql.Date(MyDateFormat.getCalendarwithTime(fdv.getVal()).getTime().getTime());
             } else {
-                params[i] = new DBPreparedHandlerParam(Integer.valueOf(fdv.getVal()).intValue());
+                params[i] = Integer.valueOf(fdv.getVal());
             }
         }
         sql = sql.substring(0, sql.length() - 1);
@@ -662,7 +659,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         String idFieldName = "";
         String idFieldVal = "";
 
-        DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[fieldDefList.size() + 1];
+        Object[] params = new Object[fieldDefList.size() + 1];
         String sql = "update " + tableName + " set ";
         for (int i = 0; i < fieldDefList.size(); i++) {
             FieldDefValue fdv = (FieldDefValue) fieldDefList.get(i);
@@ -674,17 +671,15 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
 
             sql += fieldSql + "=?,";
             if ("S".equals(fdv.getFieldType())) {
-                params[i] = new DBPreparedHandlerParam(fdv.getVal());
+                params[i] = fdv.getVal();
             } else if ("D".equals(fdv.getFieldType())) {
                 if (fdv.isEditable()) {
-                    params[i] = new DBPreparedHandlerParam(
-                            new java.sql.Date(MyDateFormat.getCalendar(fdv.getVal()).getTime().getTime()));
+                    params[i] = new java.sql.Date(MyDateFormat.getCalendar(fdv.getVal()).getTime().getTime());
                 } else {
-                    params[i] = new DBPreparedHandlerParam(
-                            new java.sql.Date(MyDateFormat.getCalendarwithTime(fdv.getVal()).getTime().getTime()));
+                    params[i] = new java.sql.Date(MyDateFormat.getCalendarwithTime(fdv.getVal()).getTime().getTime());
                 }
             } else {
-                params[i] = new DBPreparedHandlerParam(Integer.valueOf(fdv.getVal()).intValue());
+                params[i] = Integer.valueOf(fdv.getVal());
             }
         }
         sql = sql.substring(0, sql.length() - 1);
@@ -878,29 +873,21 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
     }
 
     @Override
-    public void runProcedure(String procName, String[] params) throws SQLException {
-        LegacyJdbcQuery.procExecute(procName, params);
-    }
-
-    @Override
     public int getCountOfActiveClient(String orgCd) throws SQLException {
         // Parameterized queries eliminate the SQL injection risk from orgCd.
         // CONCAT() is the correct MySQL/MariaDB string concatenation function;
         // the original code used '||' which is Oracle-style and acts as logical OR in MySQL.
         //
-        // The LIKE expression uses an explicit {@code ESCAPE '\'} clause so that the
-        // backslash-escaping of '%' / '_' below is honoured regardless of the target
-        // dialect's default escape character or SQL mode (e.g. MySQL
-        // {@code NO_BACKSLASH_ESCAPES}). Without the explicit clause, dialects that
-        // don't default to backslash would treat the escape characters as literals.
+        // A non-backslash escape is portable across MySQL/MariaDB SQL modes.
+        // Backslash string literals vary with NO_BACKSLASH_ESCAPES.
         String sql = "select count(*) from admission where admission_status = :status and CONCAT('P', program_id) in ("
-                + " select code from lst_orgcd where codecsv like :pattern escape '\\')";
+                + " select code from lst_orgcd where codecsv like :pattern escape '!')";
         String sql1 = "select count(*) from program_queue where CONCAT('P', program_id) in ("
-                + " select code from lst_orgcd where codecsv like :pattern escape '\\')";
+                + " select code from lst_orgcd where codecsv like :pattern escape '!')";
 
         // Escape LIKE special characters in orgCd to prevent unexpected wildcard expansion.
-        // Must stay in sync with the {@code ESCAPE '\'} clause in the SQL above.
-        String escapedOrgCd = orgCd.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+        // Escape the marker first, then LIKE's wildcard characters.
+        String escapedOrgCd = orgCd.replace("!", "!!").replace("%", "!%").replace("_", "!_");
         String likePattern = "%" + escapedOrgCd + ",%";
 
         Number count = (Number) entityManager().createNativeQuery(sql)
@@ -922,7 +909,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         this.providerDao = providerDao;
     }
 
-    private int queryExecuteUpdate(String preparedSQL, DBPreparedHandlerParam[] params) {
+    private int queryExecuteUpdate(String preparedSQL, Object[] params) {
         Query query = entityManager().createNativeQuery(preparedSQL); // nosemgrep: hibernate-sqli -- identifiers in preparedSQL validated by validateSqlIdentifier at call sites; values bound below
         for (int i = 0; i < params.length; i++) {
             bindParam(query, i + 1, params[i]);
@@ -930,29 +917,19 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         return query.executeUpdate();
     }
 
-    /**
-     * Binds a {@link DBPreparedHandlerParam} typed value to a JPA {@link Query} at a
-     * 1-based position, preserving the type-aware dispatch the legacy
-     * prepared-query binding performed (String / int / Date / Timestamp).
-     *
-     * @param query the JPA query to bind on
-     * @param position 1-based positional parameter index
-     * @param param the typed parameter (may be null)
-     */
-    private static void bindParam(Query query, int position, DBPreparedHandlerParam param) {
+    /** Binds the Java value contract used by lookup fields, including explicitly typed null strings. */
+    private static void bindParam(Query query, int position, Object param) {
         NativeQuery<?> nativeQuery = query.unwrap(NativeQuery.class);
-        if (param == null) {
-            // Explicit type hint avoids Hibernate "could not determine type" errors
-            // when binding a bare null to a native-query positional parameter.
-            nativeQuery.setParameter(position, (String) null, StandardBasicTypes.STRING);
-        } else if (DBPreparedHandlerParam.PARAM_STRING.equals(param.getParamType())) {
-            nativeQuery.setParameter(position, param.getStringValue(), StandardBasicTypes.STRING);
-        } else if (DBPreparedHandlerParam.PARAM_DATE.equals(param.getParamType())) {
-            nativeQuery.setParameter(position, param.getDateValue(), StandardBasicTypes.DATE);
-        } else if (DBPreparedHandlerParam.PARAM_INT.equals(param.getParamType())) {
-            nativeQuery.setParameter(position, param.getIntValue(), StandardBasicTypes.INTEGER);
-        } else if (DBPreparedHandlerParam.PARAM_TIMESTAMP.equals(param.getParamType())) {
-            nativeQuery.setParameter(position, param.getTimestampValue(), StandardBasicTypes.TIMESTAMP);
+        if (param == null || param instanceof String) {
+            nativeQuery.setParameter(position, (String) param, StandardBasicTypes.STRING);
+        } else if (param instanceof java.sql.Timestamp timestamp) {
+            nativeQuery.setParameter(position, timestamp, StandardBasicTypes.TIMESTAMP);
+        } else if (param instanceof java.sql.Date date) {
+            nativeQuery.setParameter(position, date, StandardBasicTypes.DATE);
+        } else if (param instanceof Integer integer) {
+            nativeQuery.setParameter(position, integer, StandardBasicTypes.INTEGER);
+        } else {
+            throw new IllegalArgumentException("Unsupported lookup parameter type");
         }
     }
 

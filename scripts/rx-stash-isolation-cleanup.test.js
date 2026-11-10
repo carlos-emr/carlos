@@ -5,7 +5,7 @@ const { clearOwnedPrescriptionRows } = require('./rx-stash-patient-isolation-pla
 
 const marker = 'FAKE-PW0123456789abcdef';
 
-test('isolation cleanup removes detached prescription signatures after their owned prescription rows', () => {
+test('isolation cleanup removes owned receipts and detached signatures after ownership is checked', () => {
   const mutations = [];
   const sql = {
     value(query) {
@@ -17,6 +17,7 @@ test('isolation cleanup removes detached prescription signatures after their own
   };
   clearOwnedPrescriptionRows(sql, '42', marker);
   assert.equal(mutations.length, 2);
+  assert.match(mutations[0], /DELETE FROM rx_submission_receipt WHERE demographic_no=42/);
   assert.match(mutations[0], /DELETE FROM prescription/);
   assert.match(mutations[0], /DELETE FROM drugs/);
   assert.ok(mutations[0].includes(marker));

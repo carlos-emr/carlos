@@ -60,11 +60,17 @@ class AllergyServiceEndpointTest extends CarlosRestTestBase {
 
     @Mock
     private AllergyManager mockAllergyManager;
+    @Mock
+    private io.github.carlos_emr.carlos.commn.dao.PartialDateDao partialDates;
 
     @Override
     protected Object getServiceBean() {
         AllergyService service = new AllergyService();
+        injectDependency(service, "legacyProjection", org.mockito.Mockito.mock(
+                io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class));
         injectDependency(service, "allergyManager", mockAllergyManager);
+        injectDependency(service, "dates",
+                new io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService(partialDates));
         return service;
     }
 
@@ -75,6 +81,19 @@ class AllergyServiceEndpointTest extends CarlosRestTestBase {
         allergy.setArchived(false);
         allergy.setDemographicNo(123);
         return allergy;
+    }
+
+    @Test
+    void shouldKeepLegacyAnchorPayload_forNativePartialDateAllergy() {
+        Allergy source = createTestAllergy(42, "Synthetic allergy");
+        source.setStartDate(java.sql.Date.valueOf("2020-01-01"));
+        when(partialDates.getFormat(1, 42, 1)).thenReturn("YYYY");
+        when(mockAllergyManager.getActiveAllergies(any(LoggedInInfo.class), eq(123))).thenReturn(List.of(source));
+        Response response = request().path("/allergies/active").query("demographicNo", 123).get();
+        assertThat(response.getStatus()).isEqualTo(200);
+        AllergyResponse payload = response.readEntity(AllergyResponse.class);
+        assertThat(payload.getAllergies()).singleElement()
+                .satisfies(row -> assertThat(row.getStartDate()).isEqualTo(java.sql.Date.valueOf("2020-01-01")));
     }
 
     /** Tests for GET /allergies/active endpoint. */

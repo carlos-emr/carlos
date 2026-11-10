@@ -67,7 +67,9 @@ public class ServiceSpecialistsDaoIntegrationTest extends CarlosTestBase {
      * Creates a ProfessionalSpecialist record with the given ID to satisfy FK constraints.
      */
     private void ensureSpecialistExists(int specId) {
-        String sql = "MERGE INTO professionalSpecialists (specId, fName, lName, deleted, hideFromView) KEY(specId) VALUES (?, 'Test', 'Specialist', false, false)";
+        String sql = "INSERT INTO professionalSpecialists (specId, fName, lName, deleted, hideFromView) "
+                + "VALUES (?, 'Test', 'Specialist', false, false) ON DUPLICATE KEY UPDATE "
+                + "fName=VALUES(fName), lName=VALUES(lName), deleted=VALUES(deleted), hideFromView=VALUES(hideFromView)";
         entityManager.createNativeQuery(sql)
                 .setParameter(1, specId)
                 .executeUpdate();
@@ -79,7 +81,8 @@ public class ServiceSpecialistsDaoIntegrationTest extends CarlosTestBase {
      * from serviceSpecialists.serviceId to consultationServices.serviceId.
      */
     private void ensureConsultationServiceExists(int serviceId) {
-        String sql = "MERGE INTO consultationServices (serviceId, serviceDesc, active) KEY(serviceId) VALUES (?, 'Test Service', '1')";
+        String sql = "INSERT INTO consultationServices (serviceId, serviceDesc, active) VALUES (?, 'Test Service', '1') "
+                + "ON DUPLICATE KEY UPDATE serviceDesc=VALUES(serviceDesc), active=VALUES(active)";
         entityManager.createNativeQuery(sql)
                 .setParameter(1, serviceId)
                 .executeUpdate();

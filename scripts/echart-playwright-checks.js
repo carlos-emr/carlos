@@ -46,7 +46,9 @@
  *      cancel path and leaves no casemgmt_tmpsave row;
  *   6. the saved item archives from its editor (the cut icon), leaves the list, and its
  *      current revision is stored archived;
- *   7. (EXPECT_FRONT_DOOR=true) at least one response carried the nginx Server header.
+ *   7. an encounter Save clicked before a CPP response waits for both issue refreshes,
+ *      then persists the pending encounter assignment;
+ *   8. (EXPECT_FRONT_DOOR=true) at least one response carried the nginx Server header.
  *
  * Defaults are for the local devcontainer; the database is reached with MYSQL_*:
  *   node scripts/echart-playwright-checks.js
@@ -367,6 +369,12 @@ function isScoredTextAutosaveResponse(response) {
   return note.includes(CLINICAL_TEXT_THE_WAF_SCORES);
 }
 
+/**
+ * Exercise the owned patient's eChart pagination, issue assignment and CPP saves.
+ * Register fixture cleanup before writing and require persisted encounter links.
+ * @param {object} s Authenticated workflow session with its owned patient and SQL boundary.
+ * @returns {Promise<void>} Resolves after the UI and database assertions and lock release.
+ */
 async function workflow(s) {
   const { sql, patient, provider, marker, config } = s;
   const screenshotDir = process.env.ECHART_SCREENSHOT_DIR || config.screenshotDir || '/tmp';
@@ -451,8 +459,13 @@ async function workflow(s) {
 
   let pendingIssueId;
   await s.step('an issue assigned to the encounter remains pending before the CPP save', async () => {
+    // This workflow checks assignment and persistence. Enter the complete query
+    // in one input update: slow per-key typing can start superseded searches
+    // whose intentional XHR cancellations fail the strict page audit under load.
+    // Keep all request-failure assertions; still pick the rendered suggestion
+    // and require the widget to populate its hidden id.
     const picked = await ui.typeAutocomplete(echart, '#issueAutocomplete', 'Safety', {
-      option: 'Safety', hidden: '#newIssueId', timeout: 15000,
+      option: 'Safety', hidden: '#newIssueId', timeout: 15000, inputMode: 'fill',
     });
     const [assigned] = await Promise.all([
       echart.waitForResponse(response => isCaseManagementEntryPost(response, 'makeIssue')),
@@ -545,6 +558,87 @@ async function workflow(s) {
         AND NOT EXISTS (SELECT 1 FROM casemgmt_note newer
           WHERE newer.uuid=casemgmt_note.uuid AND newer.note_id>casemgmt_note.note_id)`, '1/1',
     'Archiving the Social History item did not leave exactly one archived current revision for the owned patient');
+  });
+
+  await s.step('an encounter Save waits for the pending CPP response and both issue refreshes', async () => {
+    const encounterText = `${marker} queued encounter save`;
+    await seedEncounterNoteText(echart, encounterText);
+    await echart.locator(`#noteIssues input[data-issue-id="${pendingIssueId}"]`).check();
+    await echart.locator("#divR1I1 a[title='Add Item']").first().click();
+    await echart.locator('#noteEditTxt').fill(`${marker} barrier CPP`);
+
+    // Hold real server responses at each boundary, so this ordering is independent
+    // of server speed. Every request still traverses the packaged nginx/WAF front door.
+    const gates = ['issueNoteSave', 'edit', 'unresolvedIssues'].map(method => {
+      let arrived; let release;
+      return { method, arrived: new Promise(resolve => { arrived = resolve; }),
+        released: new Promise(resolve => { release = resolve; }), arrive: () => arrived(), release: () => release() };
+    });
+    const waitForGate = async gate => {
+      let timer;
+      try {
+        await Promise.race([gate.arrived, new Promise((resolve, reject) => {
+          timer = setTimeout(() => reject(new Error(`Timed out waiting for ${gate.method}`)), 30000);
+        })]);
+      } finally { clearTimeout(timer); }
+    };
+    const pendingRoutes = new Set();
+    const matcher = url => /\/(CaseManagementEntry|encounter\/displayIssues)$/.test(url.pathname);
+    const handleResponse = async route => {
+      const request = route.request();
+      const requestUrl = new URL(request.url());
+      const method = new URLSearchParams(request.postData() || '').get('method')
+        || requestUrl.searchParams.get('method') || requestUrl.searchParams.get('cmd');
+      const gate = gates.find(g => g.method === method && !g.used);
+      if (!gate) return route.continue();
+      gate.used = true;
+      const response = await route.fetch();
+      gate.arrive();
+      await gate.released;
+      await route.fulfill({ response });
+    };
+    const handler = route => {
+      const pending = handleResponse(route);
+      pendingRoutes.add(pending);
+      pending.then(() => pendingRoutes.delete(pending), () => pendingRoutes.delete(pending));
+      return pending;
+    };
+    let encounterSaves = 0;
+    const observe = request => {
+      if (request.method() === 'POST' && new URLSearchParams(request.postData() || '').get('method') === 'save') encounterSaves++;
+    };
+    echart.on('request', observe);
+    await echart.route(matcher, handler);
+    try {
+      await echart.locator("#frmIssueNotes input[type='image'][src*='note-save.png']").click();
+      await waitForGate(gates[0]);
+      await echart.locator('#saveImg').click();
+      assert(await echart.evaluate(() => queuedNoteSave !== null && issueUpdatesPending > 0),
+        'Save did not queue behind the CPP request');
+      assert(encounterSaves === 0, 'encounter Save started before the CPP response');
+      gates[0].release();
+      await waitForGate(gates[1]);
+      assert(encounterSaves === 0, 'encounter Save started before the note issue refresh');
+      gates[1].release();
+      await waitForGate(gates[2]);
+      assert(encounterSaves === 0, 'encounter Save started before Unresolved Issues finished');
+      const savedResponse = echart.waitForResponse(response => isCaseManagementEntryPost(response, 'save'));
+      gates[2].release();
+      assert((await savedResponse).ok(), 'the queued encounter Save failed');
+      await echart.waitForFunction(() => !noteSwitchSavePending && issueUpdatesPending === 0);
+      assert(encounterSaves === 1, 'the queued encounter Save did not submit exactly once');
+      await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_issue_notes link
+        JOIN casemgmt_note note ON note.note_id=link.note_id
+        WHERE note.demographic_no=${patient} AND LOCATE(${q(encounterText)}, note.note)>0
+          AND link.id=${pendingIssueId}`, '1', 'the queued Save lost the pending encounter assignment');
+    } finally {
+      gates.forEach(gate => gate.release());
+      // Keep interception registered until every released handler has finished.
+      // Unregistering first can cause Playwright to drop other in-flight routes.
+      while (pendingRoutes.size) await Promise.allSettled(Array.from(pendingRoutes));
+      await echart.unroute(matcher, handler);
+      echart.off('request', observe);
+    }
   });
 
   await s.step('the run went through the packaged front door when one is expected', async () => {

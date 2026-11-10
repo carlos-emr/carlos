@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -121,27 +119,6 @@ public interface NormalAbnormalNullType extends XmlObject
         public static NormalAbnormalNullType parse(final Node node, final XmlOptions options) throws XmlException {
             return (NormalAbnormalNullType)XmlBeans.getContextTypeLoader().parse(node, NormalAbnormalNullType.type, options);
         }
-        
-        @Deprecated
-        public static NormalAbnormalNullType parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (NormalAbnormalNullType)XmlBeans.getContextTypeLoader().parse(xis, NormalAbnormalNullType.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static NormalAbnormalNullType parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (NormalAbnormalNullType)XmlBeans.getContextTypeLoader().parse(xis, NormalAbnormalNullType.type, options);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, NormalAbnormalNullType.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, NormalAbnormalNullType.type, options);
-        }
-        
         private Factory() {
         }
     }

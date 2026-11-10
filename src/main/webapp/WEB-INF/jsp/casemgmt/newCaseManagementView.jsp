@@ -29,44 +29,53 @@
 --%>
 
 
-<%@page import="io.github.carlos_emr.Misc" %>
-<%@page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
+
+
 <%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
-<%@taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@page import="java.util.Enumeration" %>
-<%@page import="io.github.carlos_emr.carlos.encounter.pageUtil.NavBarDisplayDAO" %>
-<%@page import="java.util.Arrays,java.util.Properties,java.util.List,java.util.Set,java.util.ArrayList,java.util.Enumeration,java.util.HashSet,java.util.Iterator,java.text.SimpleDateFormat,java.util.Calendar,java.util.Date,java.text.ParseException" %>
-<%@page import="org.owasp.encoder.Encode" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty,io.github.carlos_emr.carlos.casemgmt.model.*,io.github.carlos_emr.carlos.casemgmt.service.* " %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.model.*" %>
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
+
+
+
+<%@page import="java.util.Properties" %>
+
+
+
+
 <%@page import="io.github.carlos_emr.carlos.commn.model.*" %>
-<%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
-<%@page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
-<%@page import="org.springframework.web.context.WebApplicationContext" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour" %>
-<%@page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="com.quatro.dao.security.*,io.github.carlos_emr.carlos.model.security.Secrole" %>
-<%@page import="io.github.carlos_emr.carlos.utility.EncounterUtil" %>
-<%@page import="org.apache.cxf.common.i18n.UncheckedException" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction" %>
+
+
+
+
+
+
+
+
+
+
+
+
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
+
+
+
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayNonNote" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterTemplateDao" %>
+
+
+
+
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.CheckBoxBean" %>
+
 
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
+
+<fmt:setBundle basename="cdsImportMessages" var="cdsSourceLabels"/>
+<div class="cds-chart-source-links">
+    <fmt:message key="sourceClinicalNotes" bundle="${cdsSourceLabels}"/>: <source:cdsSourceFields demographicNo="${not empty requestScope.demographicNo ? requestScope.demographicNo : param.demographicNo}" category="ClinicalNotes"/>
+    — <fmt:message key="sourceAdditionalCategories" bundle="${cdsSourceLabels}"/>: <source:cdsSourceFields demographicNo="${not empty requestScope.demographicNo ? requestScope.demographicNo : param.demographicNo}" category="NewCategory"/>
+</div>
+
+<p class="cds-note-source-timing"><fmt:message key="sourceClinicalNotesTimingHelp" bundle="${cdsSourceLabels}"/></p>
 
 <div id="cppBoxes">
     <div id="divR1">

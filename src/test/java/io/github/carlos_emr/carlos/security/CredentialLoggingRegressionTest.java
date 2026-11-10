@@ -44,20 +44,30 @@ class CredentialLoggingRegressionTest {
         assertThat(loginWs)
                 .doesNotContain("logger.debug(\"Login attempt : p =\" + password)");
         assertThat(tokenValidator)
-                .contains("logger.debug(\"userIdString=\" + usernameToken.getName())")
+                .contains("logger.debug(\"SOAP username-token authentication attempt\")")
+                .doesNotContain("logger.debug(\"userIdString=\" + usernameToken.getName())")
                 .doesNotContain("logger.debug(\"password=\" + usernameToken.getPassword())");
     }
 
     @Test
     @DisplayName("OAuth token parsing should not log token XML or secrets")
-    void shouldNotLogTokenXmlOrSecrets_forOauthTokenParsing() throws IOException {
+    void shouldNotLogTokenXmlOrSecrets_forOauthTokenParsing() throws Exception {
         String oauthConfig = readSource("app/AppOAuth1Config.java");
 
         assertThat(oauthConfig)
-                .contains("logger.debug(\"token XML length: {}\", str == null ? 0 : str.length())")
-                .contains("logger.debug(node.getNodeName())")
                 .doesNotContain("logger.debug(\"token === \" + str)")
+                .doesNotContain("logger.debug(\"token XML length:")
+                .doesNotContain("logger.debug(node.getNodeName())")
                 .doesNotContain("logger.error(node.getNodeName())");
+        String token = java.util.UUID.randomUUID().toString();
+        String secret = java.util.UUID.randomUUID().toString();
+        String xml = io.github.carlos_emr.carlos.app.AppOAuth1Config.getTokenXML(token, secret);
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(
+                io.github.carlos_emr.carlos.app.AppOAuth1Config.class)) {
+            assertThat(io.github.carlos_emr.carlos.app.AppOAuth1Config.getKeySecret(xml))
+                    .containsEntry("key", token).containsEntry("secret", secret);
+            assertThat(String.join("\n", logs.messages())).doesNotContain(token, secret, xml);
+        }
     }
 
     @Test

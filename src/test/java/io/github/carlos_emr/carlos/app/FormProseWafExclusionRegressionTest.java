@@ -22,6 +22,9 @@ package io.github.carlos_emr.carlos.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -392,37 +395,59 @@ class FormProseWafExclusionRegressionTest {
         return groups;
     }
 
-    private static String render(Map<List<String>, List<String>> groups) {
+    private static String render(Map<List<String>, List<String>> groups) throws IOException {
+        JsonNode inventory = new ObjectMapper().readTree(Files.readString(resolveProjectPath(
+                Path.of("scripts", "waf", "rourke-prose-rule-ids.json")), StandardCharsets.UTF_8));
+        Map<Integer, List<Integer>> rourkeRulesByLevel = new TreeMap<>();
+        List<Integer> allIds = new ArrayList<>();
+        for (int level = 1; level <= 4; level++) {
+            List<Integer> ids = new ArrayList<>();
+            inventory.get("rules_by_paranoia_level").get(String.valueOf(level))
+                    .forEach(id -> ids.add(id.intValue()));
+            rourkeRulesByLevel.put(level, ids);
+            allIds.addAll(ids);
+        }
+        assertThat(allIds).hasSize(98).doesNotHaveDuplicates();
         StringBuilder out = new StringBuilder();
         int ruleId = FIRST_RULE_ID;
         for (Map.Entry<List<String>, List<String>> e : groups.entrySet()) {
             String route = e.getKey().get(0);
             String formClass = e.getKey().get(1);
-            boolean keyed = !formClass.isEmpty();
-            int phase = keyed ? 2 : 1;
-            out.append("SecRule REQUEST_URI \"@rx ^").append(route).append("(?:[;?]|$)\" \\\n")
-                    .append("    \"id:").append(ruleId).append(",phase:").append(phase).append(",pass,nolog,chain\"\n")
-                    .append("    SecRule REQUEST_METHOD \"@streq POST\" \\\n");
-            String indent;
-            if (keyed) {
-                out.append("        \"chain\"\n")
-                        .append("        SecRule ARGS:form_class \"@streq ").append(formClass).append("\" \\\n")
-                        .append("            \"t:none,\\\n");
-                indent = "            ";
-            } else {
-                out.append("        \"t:none,\\\n");
-                indent = "        ";
-            }
-            List<String> ctl = new ArrayList<>();
-            for (String name : e.getValue()) {
-                for (String tag : CONTENT_ATTACK_TAGS) {
-                    ctl.add(indent + "ctl:ruleRemoveTargetByTag=" + tag + ";ARGS:" + name);
+            boolean rourke = "Rourke2020".equals(formClass);
+            for (int level = rourke ? 1 : 0; level <= (rourke ? 4 : 0); level++) {
+                boolean keyed = !formClass.isEmpty();
+                int phase = keyed ? 2 : 1;
+                out.append("SecRule REQUEST_URI \"@rx ^").append(route).append("(?:[;?]|$)\" \\\n")
+                        .append("    \"id:").append(ruleId).append(",phase:").append(phase).append(",pass,nolog,chain\"\n")
+                        .append("    SecRule REQUEST_METHOD \"@streq POST\" \\\n");
+                String indent = keyed ? "            " : "        ";
+                if (keyed) {
+                    out.append("        \"chain\"\n")
+                            .append("        SecRule ARGS:form_class \"@streq ").append(formClass).append("\" \\\n");
+                    if (rourke) {
+                        out.append("            \"chain\"\n")
+                                .append("            SecRule TX:executing_paranoia_level \"@ge ").append(level).append("\" \\\n");
+                        indent += "    ";
+                    }
                 }
+                out.append(indent).append("\"t:none,\\\n");
+                List<String> ctl = new ArrayList<>();
+                for (String name : e.getValue()) {
+                    if (rourke) {
+                        for (int id : rourkeRulesByLevel.get(level)) {
+                            ctl.add(indent + "ctl:ruleRemoveTargetById=" + id + ";ARGS:" + name);
+                        }
+                    } else {
+                        for (String tag : CONTENT_ATTACK_TAGS) {
+                            ctl.add(indent + "ctl:ruleRemoveTargetByTag=" + tag + ";ARGS:" + name);
+                        }
+                    }
+                }
+                for (int i = 0; i < ctl.size(); i++) {
+                    out.append(ctl.get(i)).append(i < ctl.size() - 1 ? ",\\\n" : "\"\n");
+                }
+                ruleId++;
             }
-            for (int i = 0; i < ctl.size(); i++) {
-                out.append(ctl.get(i)).append(i < ctl.size() - 1 ? ",\\\n" : "\"\n");
-            }
-            ruleId++;
         }
         return out.toString().stripTrailing();
     }

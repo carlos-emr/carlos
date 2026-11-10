@@ -26,11 +26,12 @@
   for dynamic output rendered by the page.
 --%>
 <!DOCTYPE html>
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -55,16 +56,16 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
-<%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
@@ -436,10 +437,13 @@
         </script>
 
         <style>
+            html {
+                overscroll-behavior: none;
+            }
+
             :root *:not(h2) {
                 font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
                 font-size: 12px;
-                overscroll-behavior: none;
                 -webkit-font-smoothing: antialiased;
                 -moz-osx-font-smoothing: grayscale;
             }
@@ -475,6 +479,7 @@
         </h2>
 
         <div id="docListAlertContainer"></div>
+        <c:if test="${requestScope.normalizedFunction eq 'demographic' or param.function eq 'demographic' or requestScope.function eq 'demographic'}"><div><source:cdsSourceFields demographicNo="${not empty requestScope.functionid ? requestScope.functionid : param.functionid}" category="Reports"/></div></c:if>
 
         <% if ("demographic".equals(module)) { %>
         <oscar:nameage demographicNo="<%= moduleid %>"/>
@@ -681,7 +686,7 @@
                                 </td>
                                 <td><carlos:encode value='<%= curdoc.getObservationDate() %>' context="html"/>
                                 </td>
-                                <td><%=curdoc.getContentDateTime()%>
+                                <td><carlos:encode value='<%=curdoc.getContentDateTimeDisplay()%>' context="html"/>
                                 </td>
 
                                 <td style="text-align: right;">

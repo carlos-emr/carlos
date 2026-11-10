@@ -568,8 +568,9 @@
 
         function calcBMI(w, h) {
             let b = '';
-
-            if (!isNaN(parseFloat(w)) && !isNaN(parseFloat(h)) && h !== "" && w !== "") {
+            w = parseFloat(w);
+            h = parseFloat(h);
+            if (!isNaN(w) && !isNaN(h)) {
                 if (h > 0) {
                     b = (w / Math.pow(h / 100, 2)).toFixed(1);
                     const bmiInput = document.getElementById('row-BMI')?.querySelectorAll('td')[2]?.querySelector('input');

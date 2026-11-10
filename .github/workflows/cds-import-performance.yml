@@ -1,0 +1,116 @@
+# Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later.
+name: CDS installed resource contracts
+
+on:
+  pull_request:
+    branches: [main, develop, experimental, 'release/*', 'staging/*', 'hotfix/*']
+    paths:
+      - 'src/main/**'
+      - 'src/test/java/**/cdsimport/**'
+      - 'src/test/resources/demographic/cds-import-*.xml'
+      - 'src/test/resources/demographic/cds-performance-proof-shape.json'
+      - 'database/mysql/migration/**'
+      - 'scripts/ci/*cds*performance*'
+      - 'scripts/ci/*cds*disk*'
+      - 'scripts/ci/cds_war_manifest.py'
+      - 'scripts/ci/test_cds_war_manifest.py'
+      - 'scripts/ci/run-cds-container-recovery.py'
+      - 'scripts/ci/test_cds_container_recovery.py'
+      - 'scripts/ci/CdsImportMariaDbBootstrap.java'
+      - 'scripts/ci/CdsWorkloadValidator.java'
+      - 'scripts/ci/cds-performance-runtime.Dockerfile'
+      - 'debian/carlos-ctl.pin'
+      - 'pom.xml'
+      - '.github/workflows/cds-import-performance.yml'
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: cds-import-performance-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  installed-resource-profile:
+    name: Installed CDS ${{ matrix.profile }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [scaling, aggregate20, zip64, disk-reserve, disk-enospc]
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify bounded WAR content evidence tooling
+        run: python3 scripts/ci/test_cds_war_manifest.py
+      - name: Free unused SDKs only on the job's ephemeral hosted runner
+        run: |
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          test "$RUNNER_OS" = Linux
+          # aggregate20 needs 50 GiB free AFTER the images, WAR and exploded
+          # webapp exist. The hosted image's other SDKs left only ~30 GiB even
+          # after removing Android/.NET/GHC. Java and CLI tooling run in Docker;
+          # subsequent host steps need only system Python, Git and Docker.
+          # Remove the unused Go/Rust/Azure SDKs too: 72 GiB runner images otherwise
+          # fall below that prerequisite after the Java images and WAR are staged.
+          # LLVM, Julia and packaged PowerShell also live outside those SDK paths.
+          # Hosted images also include AWS/pipx/R tools and browser binaries.
+          # These are unused here and can leave aggregate20 below 50 GiB even
+          # after the SDK cleanup; preserve the storage prerequisite itself.
+          # All compilation and application execution below take place in Docker.
+          df -h "$GITHUB_WORKSPACE"
+          sudo rm -rf -- /usr/local/lib/android /opt/ghc /usr/share/dotnet \
+            /opt/hostedtoolcache /usr/local/.ghcup /usr/local/share/boost \
+            /usr/local/share/powershell /usr/local/share/chromium \
+            /usr/share/swift /usr/share/miniconda /usr/lib/jvm \
+            /usr/local/go /usr/local/share/vcpkg /opt/az /usr/share/az \
+            /home/runner/.rustup /home/runner/.cargo /opt/microsoft/powershell \
+            /usr/local/aws-cli /usr/local/aws-sam-cli /opt/pipx /usr/local/pipx \
+            /usr/local/lib/R /usr/lib/R /opt/google/chrome /opt/microsoft/msedge \
+            /usr/lib/firefox /usr/lib/chromium /opt/selenium
+          sudo find /usr/lib -maxdepth 1 -type d -name 'llvm-[0-9]*' -exec rm -rf -- {} +
+          sudo find /usr/local -maxdepth 1 -type d -name 'julia[0-9]*' -exec rm -rf -- {} +
+          docker image prune --all --force
+          df -h "$GITHUB_WORKSPACE"
+      - name: Resolve exact paired CLI source
+        id: cli
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, re
+          rows = dict(line.split('=',1) for line in pathlib.Path('debian/carlos-ctl.pin').read_text().splitlines()
+                      if line and not line.startswith('#'))
+          ref = rows.get('fallback','')
+          if not re.fullmatch(r'[0-9a-f]{40}',ref):
+              raise SystemExit('This installed candidate gate requires an exact pinned companion source commit')
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:
+              output.write('ref='+ref+'\n')
+          PY
+      - name: Checkout paired CLI
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: carlos-emr/carlos-ctl
+          ref: ${{ steps.cli.outputs.ref }}
+          path: target/cds-ctl-source
+          persist-credentials: false
+      - name: Start Java25 build container
+        uses: ./.github/actions/dev-container
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          maven-cache: restore
+      - name: Build and verify the actual installed resource profile
+        run: >-
+          python3 scripts/ci/run-cds-performance-ci.py
+          --profile '${{ matrix.profile }}'
+          --cli-source target/cds-ctl-source
+      - name: Preserve bounded sanitized resource and prerequisite evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cds-installed-${{ matrix.profile }}-evidence
+          path: target/cds-performance-*/public/*
+          if-no-files-found: error
+          retention-days: 14

@@ -76,7 +76,7 @@ public class MammogramReport implements PreventionReport {
             Integer demo = Integer.valueOf(fieldList.get(0));
 
             //search   prevention_date prevention_type  deleted   refused
-            ArrayList<Map<String, Object>> prevs = PreventionData.getPreventionData(loggedInInfo, "MAM", demo);
+            ArrayList<Map<String, Object>> prevs = PreventionData.getExactPreventionData(loggedInInfo, "MAM", demo);
 
             ArrayList<Map<String, Object>> noFutureItems = removeFutureItems(prevs, asofDate);
             PreventionReportDisplay prd = new PreventionReportDisplay();
@@ -271,6 +271,7 @@ public class MammogramReport implements PreventionReport {
     private static final String PHONE1 = "P1";
     private static final String CALLFU = "Follow Up";
 
+    /** Applies the existing mammogram recall schedule from follow-up values and dates, without lab provenance. */
     private String letterProcessing(PreventionReportDisplay prd, String measurementType, Date asofDate, Date prevDate) {
         if (prd != null) {
             boolean inclUpToDate = false;
@@ -287,7 +288,7 @@ public class MammogramReport implements PreventionReport {
                 }
             }
             if (prd.state.equals("No Info") || prd.state.equals("due") || prd.state.equals("Overdue") || inclUpToDate) {
-                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType);
+                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType, false);
                 Collection<EctMeasurementsDataBean> followupData = measurementDataHandler.getMeasurementsDataVector();
 
                 if (followupData.size() == 0) {
@@ -354,7 +355,7 @@ public class MammogramReport implements PreventionReport {
                     return prd.nextSuggestedProcedure;
                 }
             } else if (prd.state.equals("Refused")) {
-                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType);
+                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType, false);
                 Collection<EctMeasurementsDataBean> followupData = measurementDataHandler.getMeasurementsDataVector();
 
                 if (followupData.size() > 0) {
@@ -368,7 +369,7 @@ public class MammogramReport implements PreventionReport {
             } else if (prd.state.equals("Pending")) {
                 prd.nextSuggestedProcedure = CALLFU;
             } else if (prd.state.equals("Up to date")) {
-                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType);
+                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType, false);
                 Collection<EctMeasurementsDataBean> followupData = measurementDataHandler.getMeasurementsDataVector();
                 if (followupData.size() > 0) {
                     EctMeasurementsDataBean measurementData = followupData.iterator().next();

@@ -1,0 +1,213 @@
+# CDS clinical normalization and native writes
+
+This is the implemented clinical component contract for the import engine. It does not establish whole-import conformance or release readiness. The coordinator must preserve every source leaf in the corresponding category's protected, separately addressable additional data and reconcile those fields before reporting completion. A native-row receipt alone is insufficient.
+
+`CdsClinicalNormalizationService` reads a bounded occurrence using `CdsFieldParser`. It returns immutable medication, allergy or immunization data without clinical writes or catalogue enrichment. `CdsMedicationPersister`, `CdsAllergyPersister` and `CdsImmunizationPersister` require the caller's real transaction, write native rows and precision/extension rows in that transaction, and return exact table/ID receipts. The owning unit must add its strict audit, field dispositions and source checkpoint before committing.
+
+## Data access and framework integration
+
+The importer composes CARLOS's existing entities and participating DAOs. Category services own the historical interpretation, normalized preparation and source-to-target references. The unit executor owns the transaction that includes native writes, strict audit, evidence and checkpoint. DAO methods join that transaction; independent batch commits, UI actions and request-dependent managers are unsuitable for this boundary.
+
+| Clinical data | Participating persistence operations |
+| --- | --- |
+| New demographics and related rows | `DemographicDao.persistImportedDemographic`, `DemographicCustDao`, `DemographicExtDao`, `AdmissionDao` |
+| Notes and history | `CaseManagementNoteDAO.saveNote`, `CaseManagementIssueDAO.saveIssue`, bounded two-candidate issue/catalogue lookups |
+| Appointments | `OscarAppointmentDao` |
+| Professional contacts and pharmacies | `ProfessionalContactDao`, `DemographicContactDao`, `PharmacyInfoDao`, `DemographicPharmacyDao` |
+| Documents and patient associations | `DocumentDao`, `CtlDocumentDao` |
+| Native laboratory projection | `Hl7TextMessageDao`, `Hl7TextInfoDao`, `PatientLabRoutingDao` |
+| Allergies, medications, immunizations, measurements and contacts | Their existing CARLOS DAOs, including the related partial-date, extension and association DAOs |
+
+The explicit demographic import operation requires the caller's transaction and a new patient identity. It preserves JPA entity callbacks and generated identifiers while suppressing registration events and outbound A04 generation under the migration side-effect policy. Ordinary demographic save behavior retains its existing contract. Prepared related rows use the existing DAO's participating persistence operations. The importer retains its durable audit and checkpoint in the same unit.
+
+Existing API behavior determines reuse. Normal note managers may create revisions or signatures; pharmacy convenience methods can reorder associations; lab upload handlers can independently commit or deduplicate content; document helpers can materialize complete byte arrays or rewrite dates and authors. The importer therefore keeps its bounded preparation, publication and reviewed historical mappings while composing the suitable existing DAO operations. It preserves unknown consent, original precision, explicit UUIDs, immutable HL7 message insertion and model lifecycle callbacks.
+
+Read APIs must also preserve current authorization, issuer-aware identity and bounded candidate counts. Cached program membership, eager directory graphs, active-only identity matching and unbounded lists are unsuitable replacements for the importer's fresh scalar and bounded projections. Provider/security reads and facility membership use appropriate existing DAOs; the small facility primary-key read retains its dedicated path to avoid importing an unrelated cache subsystem into the CLI. The CLI explicitly wires only the required DAO implementations and canonical case-management bean names.
+
+New DAOs serve import bookkeeping and reviewed data-model extensions, including `CdsLaboratoryResult` for structured laboratory meaning and sensitivity that the legacy projection cannot fully express. Physical JDBC remains confined to operations requiring its actual connection: admission and ownership controls, metadata pins, and bounded native-row receipt hashing. These operations preserve parameter binding, fixed catalogues, timeouts and resource ownership. Native receipt hashing keeps full byte verification while avoiding large-value materialization.
+
+These boundaries require the final real-database transaction, rollback, callback, reader and installed-command tests. Focused component results alone do not establish release acceptance.
+
+## Coded clinical meanings
+
+Recognizing an ASCII vocabulary token uses ASCII case folding. Clinical text, original XML, logical corrections and source-field values retain their Unicode content. Unicode lookalikes or case expansions must not turn an unrecognized value into a native clinical assertion.
+
+`CdsLaboratoryMeaning` owns the shared native-inbox and message-adapter recognition of `F`/`Final` and `I`. Their ASCII case variants retain the existing Final/Pending behavior. Other statuses, including dotted/dotless-I lookalikes, remain literal source statuses and do not acquire a final count or a fabricated Pending label. Abnormal-flag handling keeps its existing independent vocabulary.
+
+Spoken-language lookup applies ASCII case folding to the lookup key only, then uses the existing CARLOS language dictionary. Its effective entries and duplicate-key behavior remain unchanged. Values such as `ıta`, `ßa` and `ſlo` cannot expand into recognized ISO keys. An unrecognized value keeps the existing `CDS_SPOKEN_LANGUAGE_SOURCE_ONLY` warning and complete source representation; no new language or field-length rule is inferred.
+
+## Temporal meaning
+
+`CdsTemporal` interprets the actual YearOnly, YearMonth, FullDate and FullDateTime branches strictly. Year/month values retain their interval and original precision; optional absence remains unknown. Storage anchors are synthetic and require the existing `partial_date` YYYY/YYYY-MM metadata in the same unit. No UNKNOWN tag is introduced. Exact January 1 remains exact unless explicit partial metadata says otherwise.
+
+Offsets retain their lexical value and instant. Clinical date-only values retain their calendar date. The XML Schema midnight spelling 24:00:00 is interpreted as the following midnight with the original lexical value retained. Import admission requires an explicitly configured, valid `cds.import.clinicalZone`; an empty value refuses with `IMPORT_CLINICAL_ZONE_REQUIRED`. The clinic zone must agree with the instance calendar. A gap or overlap for a local timestamp requires review instead of an arbitrary DST choice. The supported native calendar is years 1–9999; malformed, conflicting or unrepresentable temporal values produce a stable review/error code and do not enter malformed native rows.
+
+Calendar-only values use a strict native civil-date anchor, including dates before the legacy Gregorian-calendar cutover. That anchor supplies no clinical clock or instant. A midnight DST gap can use the first valid clock on the same date; a wholly skipped day or a cutover day that the native reader would normalize into another date requires review. Full dates retain full-date precision; year/month metadata remains mandatory for partial dates. A changed storage anchor carries `CDS_CALENDAR_STORAGE_ANCHOR_NORMALIZED` rather than silently changing the source meaning.
+
+Exact local/offset timestamps follow a different path: the actual instant must survive both the forward and reverse native Calendar/DATETIME representation. For example, an explicit first-fold `01:30-04:00` cannot be stored as an unqualified `01:30` that the native reader returns as `01:30-05:00`. Unrepresentable required projections stop complete preflight with `CDS_NATIVE_DATE_REQUIRES_REVIEW` or `CDS_NATIVE_TIMESTAMP_REQUIRES_REVIEW` before clinical writes. Optional note/report timing and appointment projections retain their complete source with visible source-only diagnostics. A valid source timestamp is not malformed XML and must not be changed to force a native projection.
+
+The native immunization `DATETIME(0)` projection floors an exact timestamp to whole seconds and reports `CDS_IMMUNIZATION_SUBSECOND_PRECISION_RETAINED_IN_SOURCE`; the full source fraction and offset remain retained. This prevents an adopted fractional-rounding SQL mode from moving a near-midnight event into the following day. The real MySQL 9.6/MariaDB 11.8 storage probe accepts civil years 0001 and 0999, so the implementation introduces no blanket year-1000 minimum. Physical ORM, source-field, report and installed-candidate verification remain separate release gates.
+
+Medication/allergy DATE destinations do not carry a source timestamp's full time/offset. The original leaf and its precision must remain available in the corresponding category data. Unknown-date immunizations remain valid native historical records with a null date; RefusedFlag remains an independent required assertion. `docs/cds-prevention-date-contract.md` describes the precision-aware native readers and legacy protocol safeguards.
+
+## Medication destinations
+
+| Source concept | Native destination and rule |
+| --- | --- |
+| DrugName/DIN | Source name in custom/brand name as appropriate and source DIN in regional identifier; no DrugRef substitution/enrichment overwrites these values |
+| Strength amount/unit | Native strength display in `Drug.dosage`; original components remain separate category fields |
+| Dose/unit | Exact raw dose in `cds_dose_text`, unit fields and source-literal SIG; legacy float endpoints are populated only when the complete decimal/range is exactly representable |
+| Frequency/form/route | Independent native fields; no substring extraction or invented route |
+| Initial/refill duration | Independent numeric-day values; never derive treatment end/currentness from dispense duration |
+| Quantity/refill quantity/repeats | Independent values with strict numeric/target-range checking; overflow or non-core textual values require review, never leading-number truncation |
+| Written/start dates | Separate native dates and existing partial metadata; absent dates stay null rather than import time |
+| LongTerm/Past/Compliance | Nullable independent source indicators |
+| Substitution/authority | Nullable independent source indicators; NonAuthoritativeIndicator accepts its own Y/y/N/n vocabulary, not the Boolean alternatives of another field |
+| TreatmentType/PrescriptionStatus | Raw source values preserved separately; PRN long-term and short-term remain distinct |
+| Currentness | Nullable `cds_currentness`: CURRENT, HISTORICAL, SUSPENDED, NEW or UNKNOWN for imported rows; null for untouched native rows |
+| Provider Notes | Exact provider-only text in `Drug.comment`; never concatenated into special/SIG or pharmacy instructions |
+| Pharmacy instructions | `special_instruction`, separate from provider Notes |
+| Original prescriber | Truthful external name/OHIP; an unresolved local provider reference is empty and never replaced with the importing clinician |
+| Import actor/time | Owning unit's audit and native creation/creator metadata, separate from source clinical authorship/time |
+| Description, source prescription/reference IDs, residuals and other leaves | Corresponding protected category fields with their exact source meaning and visible disposition; not a successful generic Notes fallback |
+
+CT035 Active maps to CURRENT; New and Suspended remain distinct; Aborted/Completed/Obsolete/Nullified are historical. Missing lifecycle status is UNKNOWN unless an explicit PastMedications assertion establishes history. Missing start date never establishes past status. Definite conflicts such as Active plus PastMedications=Y require review. Only known historical rows are archived; UNKNOWN/NEW/SUSPENDED are not silently turned into completed/discontinued prescriptions.
+
+The native current-only queries and unique current-medication content exclude non-current imported states while retaining their rows in full history/export queries and the category view. Later clinical archival overrides an imported CURRENT assertion. Existing native rows with null CDS metadata keep their established selection behavior.
+
+The legacy prescription bridge carries currentness, exact dose and nullable indicators rather than erasing them. Automatic renewal refuses unresolved imported currentness, substitution, authority or unstructured dose with `CDS_MEDICATION_RECONCILIATION_REQUIRED_BEFORE_RENEWAL`. An authorized clinician must review the source and make an explicit new prescribing decision; import itself does not prescribe or establish dispensing authority. The established renewal policy for ordinary native prescriptions is unchanged. Remaining clinical/API consumers must either read these representations safely or explicitly refuse unsupported imported precision; the release gate cannot rely solely on additional source storage.
+
+## Allergy and immunization destinations
+
+Allergy AL and AR are retained literally; AR does not establish intolerance or side-effect subtype. Agent property DR/ND/UK is independent from severity. No representative product/class is invented from a missing DrugRef mapping. Native severity NO maps to the native No Reaction code, independently of unknown severity. Source reaction, agent/code, onset/recorded precision and history remain separate. Source Notes/code-system/residual values require the corresponding category fields and review evidence.
+
+Immunization RefusedFlag N/false/0 asserts administration; Y/true/1 asserts refusal. Missing required flag is not administration. Optional absent/partial date is preserved with its timing uncertainty. Source manufacturer uses the native extension key `manufacture`; lot, route, site, dose, comments, instructions, code/system and original date/precision use their separate fields. No importing provider is attributed as the administering clinician. Creator/audit identifies the importing actor.
+
+## Evidence and remaining release obligations
+
+The focused clinical tests exercise all seven lifecycle states, absence versus explicit negative indicators, contradictory flags, representative DIN/source preservation, fractions/ranges and overflow, private Notes versus prescription output, source-author separation, optional unknown immunization date, true calendar/offset/DST semantics, January 1, Unicode capacities and failure propagation. Native DAO regressions cover current-only selection, full history retention and nullable imported indicators/dates.
+
+The isolated Java25 run is useful component evidence, not proof of physical transaction participation, database/filesystem crash recovery, clinical UI/category completeness, production schema compatibility or installed integration authorization. Required native capacities are part of the forward migration; test both real upgraded MariaDB storage and the exact final candidate. New/remaining legacy readers and external clients must pass the full mapping/consumer and compatibility gates before import admission is enabled.
+
+## Legacy medication consumer safeguards
+
+The existing Date/float-based REST DrugTo1 and SOAP/integrator DrugTransfer shapes cannot carry imported currentness, text dose, partial dates and unknown prescribing flags. They explicitly refuse imported medication projections rather than returning anchors, zero dose or asserted negative flags. REST returns HTTP 409 with `CDS_MEDICATION_PRECISION_AWARE_REVIEW_REQUIRED`; SOAP callers receive an explicit fault. Native records with null CDS metadata retain their protocol behavior. The protected imported-medication category/source representation must be available and authorized before activating imports for a deployment using these clients.
+
+The legacy RecordUx medication summary (`/fullSummary/meds`) also refuses imported medication categories with HTTP 409 and the same finite code plus the protected source-view path. This check runs before the unique-current list can omit unknown/source-only occurrences; other summary categories keep their existing behavior. Imported CURRENT rows with unknown end dates cannot cause a null-date failure, and partial start-date anchors are never emitted through its Date-only shape.
+
+The prescription bridge preserves imported nullable refill quantity and refill duration independently in both native loading paths and in later native synchronization. Its outline labels an absent companion `Unknown`, keeps an explicitly supplied zero distinct, and retains a known substitution restriction alongside refill information. CPP keeps the complete imported outline rather than stripping at literal `Qty:` text; ordinary native defaults and presentation remain unchanged. Legacy saves of a CDS row also retain its existing nullable treatment end; dispense duration and refills cannot fabricate discontinuation. A deliberate new clinician renewal clears source provenance and retains the native end-date calculation. Conversion/current-history/sync, actual Save, actual CPP and actual PDF regressions exercise these boundaries.
+
+The old Rx manager replacement and prescribe routes also inspect the persisted source before any write; omitting CDS metadata from an incoming legacy DTO cannot erase imported uncertainty or create executable prescribing authority. All five existing web renewal forms preflight clinical uncertainty before altering the draft. Mixed bulk selections refuse the complete attempt before staging any candidate, preserve prior drafts and source-ID selections, and return actionable HTTP 409. An unrelated unexpected legacy staging exception now returns failure rather than the legacy success result.
+
+The static medication history view keeps unknown dates sortable without null failures, shows the external source prescriber truthfully, and labels imported lifecycle/nullable authority/substitution separately. The detailed medication view encodes imported text as text, shows exact raw dose, displays unknown source flags explicitly and keeps provider-only Notes separate from pharmacy instructions. Browser and installed integration execution on the final candidate, remaining direct SQL/Date-only readers, and the complete category view remain release obligations.
+
+## Native medication/allergy date reads
+
+`CdsTemporalReadService` and `CdsTemporalNativeDateDto` read explicit native `partial_date` metadata for medication start and allergy onset/recorded dates, including records predating import. They retain year/month intervals, exact January 1 and unknown timing distinctly, refuse unsupported precision tags and preserve established exact-date view formats. Case-management medication and allergy date columns and the medication/allergy PDF print paths use these labels rather than formatting anchors.
+
+The measurement form medication prefill and optional CPP medication start-date preference use the same explicit start-date metadata (`DRUGS_STARTDATE`, independently of prescription written date). Imported year/month/unknown dates display as `YYYY`, `YYYY-MM` or `Unknown`; an exact January 1 remains exact. Missing precision metadata for a flagged incomplete date refuses rather than guessing from an anchor. Form prefill retains the stored source instruction text instead of substituting a legacy numeric dose fallback. Untouched native prescription display formats remain unchanged.
+
+The additive JSON `/allergies/active/precision?demographicNo=…` uses the existing patient-authorized AllergyManager path, retains every record, emits explicit start/recorded date information, and populates the legacy Date fields only for exact native dates. It also carries raw AL/AR and nullable agent-property meaning. The original `/allergies/active` and SOAP AllergyTransfer refuse partial date anchors explicitly; optional unknown dates keep their established null Date representation. REST partial refusal is HTTP 409 with the precision path.
+
+The focused native-date tests cover exact January 1 versus an explicitly partial year/month, leap intervals, unknown timing, invalid tag refusal, unchanged exact-date label format, all-record JSON round trip with AR/unknown agent property, legacy REST/SOAP partial refusal and exact Date compatibility. The component run reaches 197 passing tests with zero skipped, including existing native medication and allergy transfer regressions. Full source/endpoint/database and browser/PDF verification remains separate.
+
+The shared consumer inventory covers `EctDisplayRx2Action`, `EctDisplayAllergy2Action`, `FrmSetupForm2Action`, medication graph tasks, `RxSummary`, `PdfRecordPrinter`, `OmpO09Builder`, and lightweight Drug/Allergy DTO projections. Those changes use explicit date precision or refuse a legacy projection when its shape omits imported meaning. The finite projection inventory and installed-consumer admission policy are maintained with the consumer safeguards; native additional fields alone never establish consumer safety.
+
+## Synthetic teaching copies
+
+Command-aware clinical normalization shifts medication written/start, allergy onset/recorded and immunization dates consistently with the explicitly authorized synthetic-copy command. Direct date/dateTime wire leaves are recognized as well as structured date-choice branches; a direct AppointmentDate/Care Date is not silently treated as absent. Full dates and timestamps shift by calendar days while preserving source lexical text, source offsets and wall-clock components. `CdsTemporalDto.appliedShiftDays` exposes the applied transformation for the owning unit's atomic normalization diagnostic. Original protected source leaves remain unchanged.
+
+Unknown dates remain unknown. A nonzero shift of a partial year/month requires review because the resulting arbitrary interval cannot truthfully use native YYYY/YYYY-MM metadata. The code does not turn its earliest day into an exact event or pretend a shifted January-through-December interval remains the source year. Double application and target calendar overflow refuse explicitly. Seven synthetic-copy regression cases pass; the integrated clinical suite now has 204 passing tests, zero skipped. The orchestration must use the command-aware normalization and typed persister overloads, and persist each applied-shift diagnostic in the native unit transaction.
+
+## Source-provider resolution
+
+`CdsProviderResolver` matches source OHIP billing identifiers and source CPSO identifiers in their distinct native issuer fields. Native CPSO identity requires `practitionerNoType=CPSO`; arbitrary practitioner numbers are not equivalent. Each DAO query uses binary exact equality and returns at most two local IDs, sufficient to distinguish unique and ambiguous outcomes without loading a directory. Inactive historical providers remain eligible source-author references. System-provider rows are excluded.
+
+Both identifiers, when supplied, must uniquely identify the same local provider. An unmatched, duplicate or conflicting identifier never falls back to a name. The existing opt-in name option permits only a unique exact first/last name when no strong identifier was supplied; no fuzzy spelling, prefix removal or importing-provider fallback occurs. The result is source-author attribution only and never supplies a signature, prescription authority or acknowledgement. Medication normalization retains source first/last names independently, and the typed persister accepts an explicit resolved match while preserving original external names/OHIP values and nullable authority. Legitimate alphanumeric local provider keys are retained.
+
+The provider and native-attribution tests and the real DAO additions exercise binary exactness, leading zeros, CPSO issuer separation, historical inactive rows and the two-candidate limit; those database tests still require the integrated MariaDB tier.
+
+## Contact and Care Elements strategies
+
+The focused `CdsContactImportService` and `CdsCareImportService` follow the category service interface. They normalize source occurrences before the clinical transaction and store bounded immutable prepared DTOs through `CdsNativePreparationService`, keyed by the effective source identity including reviewed corrections. The clinical writer loads that DTO and returns exact native IDs; it never scans an unbounded source field manifest while holding patient locks. Original parent occurrences retain accounting and source fields; native helper units do not count as additional source clinical occurrences.
+
+Contact purposes are streamed into bounded explicit EC/SDM flags and one native role. Plain text never grants a coded authority. Distinct multiple purposes display a source-details marker; every purpose remains separately addressable in the original category. Repeated identical phones can share one native slot; distinct phones competing for that slot, unsupported component layouts, or components beyond native capacity leave that slot unfilled with a visible source-details warning. No legitimate phone or arbitrary purpose count is permanently classified as malformed. Structured NANP components are combined only by the shared exact component policy. Exchange is never reinterpreted as an extension.
+
+Contact consent remains nullable because the source supplies no consent assertion. Readers permit contact only for an explicit true; the web form retains an Unknown option and preserves custom/source-reference roles on an unrelated edit. The association creator and native row timestamps describe the import operation, not source authorship or a source clinical time. Migration 1.0.59.11 widens only required contact and measurement storage while retaining adopted metadata and wider custom columns.
+
+The thirteen Care Elements map to native measurements with original dates, fixed source units, source type/code, and explicit precision metadata. An exam-performed assertion never becomes a normal exam result. Collaborative goals remain text, including empty text, and never become Yes/No. Unbounded goals use a bounded native source-reference marker with the complete value retained in the category. Approved logical corrections are applied before deciding native capacity. Nonquantitative or unrepresentable numeric text uses a dedicated text measurement with a blocking clinical review diagnostic; it never enters a numeric graph as an invented number.
+
+Migration 1.0.59.26 widens `measurementsDeleted.dataField` to match the live
+measurement's `MEDIUMTEXT` capacity. Native measurement deletion and HL7 replacement
+therefore preserve the complete value in their archive copy. The forward change preserves
+existing charset, collation, defaults, nullability and comments and retains a larger adopted type.
+
+Reserved source-text measurement types require their exact purpose and dedicated unconstrained text validation. A colliding local type or numeric validator is an explicit configuration failure, not permission to overwrite local configuration. Date-only care observations use the explicitly configured clinic zone as a storage anchor and carry `FULL_DATE` metadata; the source supplies no observation clock or provider. Legacy projections that cannot carry category or date meaning are guarded separately.
+
+Native Boolean Care destinations use `Yes`/`No`, because the established recommendation consumer and smoking clinical report recognize the full native spelling. Original source indicators remain separate and the normalization is reported explicitly. The regression invokes the real existing recommendation consumer, so accepting a validator's shorter `Y` spelling cannot silently turn an affirmative source assertion into a negative clinical rule result.
+
+## Bounded medication projection and reconciliation
+
+Strength amount and unit are unbounded tokens in the wire contract. Each native preparation read has a 32768-codepoint budget. When both components fit, their complete combined strength is retained; there is no second arbitrary 32768-character combined limit. If either component exceeds that budget, the native strength explicitly says `[Source strength: see imported medication details]`, with a warning and the full separately addressable source components retained by the source category. A prefix is never presented as the clinical strength.
+
+Migration 1.0.59.18 adds nullable `cds_projection_incomplete`. Null retains untouched native behavior. New imports set true for a source-only strength or missing prescribing-critical name, strength, dose/unit, route, frequency, quantity or refill count. False describes those particular native prescribing fields being present and within capacity; it is not a declaration that every source field fits a legacy DTO or that clinical reconciliation has occurred. Imported renewal requires this flag to be exactly false as well as current status, known source substitution/authority, an authoritative source, and a fully representable structured dose. A true or missing flag cannot silently permit renewal. The flag survives both Rx bridge conversions, native population and `Drug(Prescription)`; legacy updates cannot erase it through an incomplete input DTO. An explicit new clinical prescribing decision is separate from source history.
+
+The native medication outline includes the source name/DIN label, complete strength or explicit source reference, then the independent dose/unit/route/frequency. Private source Notes remain off pharmacy output. The static history view exposes the reconciliation requirement.
+
+## Provider lookup capacity and Unicode
+
+Migration 1.0.59.16 adds three nonunique covering indexes for source OHIP, issued CPSO and exact name lookup. Existing indexes with those names must match the complete required shape; an incompatible custom index is an explicit upgrade failure before changing the directory. The same migration preserves two 50-character external name components plus their separator in a 101-character destination while retaining wider adopted storage and column metadata.
+
+An ordinary equality prefilter retains index use. Exact-name prefilter parameters are converted to each actual name-column character set, whose server metadata is bounded, validated and cached for the DAO's deployment lifetime. Both names are then converted to UTF8 and compared as binary values. Consequently an accented name in an adopted Latin1 directory still matches its exact Unicode source; case, accents and whitespace are never folded or trimmed. A source name unrepresentable in the adopted character set yields no candidate rather than an illegal-collation import failure or a lossy match. Source names always remain bound parameters.
+
+Standalone real MariaDB/Hibernate cases cover, after the forward migrations: complete 65,537-character strength and 32768-emoji private Notes, 101-character source author and unknown dates/author; Contact name/extension/nullable-consent round trip; Care text beyond the old 255-character capacity and date metadata; the real reserved-type HQL validation; and the actual ProviderDAO query against a connection-local Latin1 directory, including unsupported characters. Synthetic native DML is rolled back and rollback removal checked. Separate real migration fixtures prove metadata preservation, index reuse/idempotence, wrong-index rejection and NULL/false/true medication flags. These results establish component storage and consumer behavior, not whole-import recovery or production deployment conformance.
+
+
+## Patient identity authority
+
+Native HIN identity is the exact identifier plus canonical issuing authority and birth date. The thirteen Canadian authority codes and their known aliases normalize to the same provincial/territorial identity. The same numeric HIN from two different known authorities does not collide, including during a streaming source scan. Missing or unrecognized target authority remains a conservative conflict; neither patient names nor an arbitrary first candidate resolve it. Duplicate existing candidates from the same authority remain a review conflict. Optional source HIN falls back to explicit reviewed name/birth-date handling rather than automatic matching. Canonical replay verifies the same authority policy and cannot turn a synthetic teaching-copy identity into a real-chart match.
+
+The durable scan registry uses indexed authority-aware identity keys and a bounded 200-row cleanup page. Its first-seen registration replaces one marker inode per patient. Declined or schema-invalid patients remain counted and deduplicated but cannot poison the active comparable-identity collision set. Seven real Hibernate/MariaDB identity cases pass with rollback checked, including a two-province identical-HIN dataset, new and merge resolution, replay, and unknown authority conflicts.
+
+## Report representations and clinical timing
+
+The native report writer loads a bounded prepared DTO and creates separately receipted native documents for each supplied representation. The source category retains every original declaration and source field. Source physician first/last names may supply a bounded native external-author display; the importing actor never becomes the author, reviewer, or acknowledging clinician.
+
+Document publication promotes the fully verified inode to `0640` before installing its exclusive
+hard link, so the configured shared document-store group can read it. Original source files,
+unverified partials and ownership journals use `0600`; private publication directories use `0700`.
+A lost registration acknowledgement retains the exact published inode and its private journal.
+Installed qualification verifies both document hashes and the shared-group permission contract.
+
+Binary media sanity reads at most sixteen header bytes. It recognizes PDF, PNG, JPEG and TIFF without building a document/image tree. A known declaration with a conflicting header becomes an opaque native document with a visible review warning. A versioned or unknown declaration with a recognized header uses that header with an explicit warning. Unrecognized bytes remain intact and opaque. Header sanity does not establish that a full PDF or image is renderable; original bytes remain available for reconciliation.
+
+XML text has parser-established UTF8 encoding. External or decoded text is validated by an incremental strict UTF8 decoder, with bounded buffers and no conversion or whole-report materialization. A BOM or explicit UTF8 declaration supplies encoding evidence only after validation. Valid UTF8 with unspecified source encoding receives an explicit inference/review warning; invalid or unsupported encoding remains opaque with its complete original bytes. Contradictory format/media declarations are retained and warned about. I/O, changed-length, resource-close, cancellation, deadline and ownership failures propagate as failures rather than media warnings. External reads participate in the same durable bounded checkpoint control as the parser and publication stage.
+
+Event, received and sent temporal values remain independent. Native timestamp destinations receive only exact source timestamps, with an explicit whole-second projection and a source-precision warning for fractions. A full date without a clock remains a date and never receives an invented timestamp. Received-date clock/offset detail remains in the source category with a warning about that native DATE destination. Year, month and unknown event timing carry the insert-only native CDS content-precision marker; an import-time callback must not replace missing clinical timing. The ordinary untouched-native timestamp fallback remains separate. The operational page-count cache starts at zero, meaning not yet counted.
+
+## Frozen preparation and resume semantics
+
+The ruleset digest hashes actual deployed importer/native class bytes, nested helper classes and finite mapping resources, including the pinned schemas, laboratory routing descriptor and canonical spoken-language table. It also hashes the actual local JAR bytes of the XML parser, Jackson modules, HL7 parser/model, ORM/JPA, Spring transaction/ORM/JDBC and relevant framework helpers, SQL parser, connection pool, JDBC driver, Guava ASCII code helpers and conversion helpers. Version labels alone are insufficient evidence. Filesystem locations, filenames, modification times, source patient files and credentials do not enter the digest.
+
+The actual Java module image (bounded to 512 MiB), Java/VM identity, default general/format/display locales, default time zone and the complete bounded public zone rules/version set are also included. A single reusable 64 KiB buffer hashes artifact bytes. A complete success is cached once per class loader; an operational calculation failure remains a coded retryable failure and does not poison static class initialization. Cached use verifies that process locale/time-zone defaults remain unchanged and periodically verifies the actual rule set.
+
+Resuming after clinical writes deliberately requires the same frozen application/dependency artifacts and Java runtime image. Web and installed CLI execution must use the same deployed candidate image and configured clinical/JDBC zones. A changed digest blocks unsafe continuation; upgrading a partially written import requires an explicit supported compatibility/migration decision. Replacing a source file or silently accepting a dependency/runtime change cannot re-use stale prepared values.
+
+
+The report-media, preparation and runtime-identity cases cover a synthetic 64 GiB binary source inspected within the fixed header budget, a streamed 20 MiB text source, multibyte boundaries, media/encoding warnings, I/O/close/length failures, ownership loss before publication, whole-second report projection, retry after fingerprint failure, and locale/time-zone mutation refusal. Actual native report storage, the final whole application/runtime-origin fingerprint parity, and installed complete import verification remain required integrated gates.
+
+
+Physical referenced-file verification now uses the same scoped coordinator, epoch, admission, cancellation and deadline controls before and after writes. Every bounded 64 KiB read checks interruption and elapsed budget; durable owner/admission/cancel polling uses elapsed time rather than a sixteen-megabyte threshold, so a slow small file cannot evade it. No verification I/O runs inside a clinical unit transaction. Eight deterministic seven-byte-read regressions cover these failures, exact digest proof and proof refusal; the focused component suite now passes 301 tests with zero skipped.
+
+
+The default-calendar fingerprint also includes its trusted JDK implementation and actual rule evidence, distinguishing equal timezone IDs with different offsets or transition rules. Arbitrary TimeZone subclasses are refused. Import admission checks the actual legacy Calendar rules against the ID-derived canonical zone as well as the required clinic zone; an overridden `UTC` object with a nonzero offset cannot enter native writes. A trusted fixed-offset SimpleTimeZone is accepted only for identical fixed zone rules; a custom DST/history approximation is refused.
+
+
+Clinical note source creation clocks remain separate from native revision time. `CaseManagementNote.create_date` is a formula over the first native revision's `update_date`, not a writable source-created column. The importer therefore leaves that formula intact, writes the actual import/revision time to `update_date`, and emits `CDS_NOTE_CREATED_TIME_RETAINED_IN_SOURCE` whenever a source creation value exists. This warning is bounded once per occurrence, including notes with many participants; no participant or source creation time is arbitrarily chosen. Full timestamps, offsets, partial values and their indexed participant paths remain visible in the protected **Clinical notes → CDS source fields** context already linked from both native chart layouts. Native observation and revision headers retain their distinct meanings; a native revision clock is never presented as source creation.
+
+
+Native note observation DATETIME(0) values explicitly floor the instant to whole seconds, including pre-epoch values. A nonzero source fraction emits `CDS_NOTE_SUBSECOND_PRECISION_RETAINED_IN_SOURCE`; the exact original fraction and offset remain in ClinicalNotes source fields. This prevents an adopted SQL fractional-rounding mode from moving a near-midnight observation into the following day. Source-created metadata is not repurposed as a native revision clock.
+
+A full date without a clock supplies a note observation storage anchor on that day in the configured clinic zone. This applies to `ClinicalNotes.EventDateTime`, `FamilyHistory.StartDate`, `PastHealth.OnsetOrEventDate` (or `ProcedureDate` when onset is absent), `ProblemList.OnsetDate`, `RiskFactors.StartDate` and `AlertsAndSpecialNeeds.DateActive`. It does not assert a source clock. The note's receipted `casemgmt_note_ext` rows retain `cdsDatePrecision`, `cdsDateOriginal` and `cdsDateField`. Partial and missing dates remain unknown as observation timestamps; the issue-code reader sorts them after known dates without dropping notes. Independent end/resolution dates remain in their source fields.
+
+Immunization type selection uses the configured `PREVENTION_ITEMS` injection entries' `healthCanadaType`, including native CVC preference and generic-entry overrides, with `OtherA` for an unmapped or absent type. The source product name is retained as `preventionsExt.cdsName`; it is not used as a native prevention key. The bounded configuration is loaded during preflight and reused during writes. An unreadable configuration or missing fallback refuses with `IMMUNIZATION_PREVENTION_CONFIG_UNAVAILABLE`. The bundled prevention catalogue participates in the deployed ruleset fingerprint.

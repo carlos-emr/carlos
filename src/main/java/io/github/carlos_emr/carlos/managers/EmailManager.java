@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
@@ -223,24 +224,30 @@ public class EmailManager {
      * @param emailLogId Integer the unique identifier of the email log entry to update
      * @param emailStatus EmailStatus the new status to set (SUCCESS, FAILED, RESOLVED, etc.)
      * @param errorMessage String the error message to store, empty string if no error
-     * @return EmailLog the updated email log entry with new status and timestamp
-     * @throws RuntimeException if user lacks _email WRITE privilege
+     * @return EmailLog the updated transport log, or the refreshed stored state after resolution;
+     *         null if the log is missing
+     * @throws SecurityException if user lacks _email WRITE privilege
+     * @throws NullPointerException if emailStatus is null and the log exists
      */
     public EmailLog updateEmailStatus(LoggedInInfo loggedInInfo, Integer emailLogId, EmailStatus emailStatus, String errorMessage) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new SecurityException("missing required sec object (_email)");
         }
 
         EmailLog emailLog = emailLogDao.find(emailLogId);
+        if (emailLog == null) {
+            return null;
+        }
         return updateEmailStatus(loggedInInfo, emailLog, emailStatus, errorMessage);
     }
 
     /**
      * Updates the status of an email log entry with new status and error message.
      *
-     * This method updates the email log status in both the database and the in-memory object.
-     * The timestamp is updated to the current time for status changes, but preserved when
-     * resolving an issue (RESOLVED status) to maintain the original send time.
+     * Transport updates change the email log status in both the database and the supplied in-memory object.
+     * The timestamp is updated to the current time for status changes, but left untouched when
+     * resolving an issue (RESOLVED status) to preserve the latest stored send time.
+     * Resolution returns refreshed stored state rather than mutating an earlier snapshot.
      *
      * Common status values:
      * - SUCCESS: Email sent successfully
@@ -251,17 +258,23 @@ public class EmailManager {
      * @param emailLog EmailLog the email log entry to update
      * @param emailStatus EmailStatus the new status to set
      * @param errorMessage String the error message to store, empty string if no error
-     * @return EmailLog the updated email log entry with new status and timestamp
-     * @throws RuntimeException if user lacks _email WRITE privilege
+     * @return EmailLog the updated transport log, or the refreshed stored state after resolution;
+     *         null if the log disappeared before resolution
+     * @throws SecurityException if user lacks _email WRITE privilege
+     * @throws NullPointerException if emailStatus is null
      */
     public EmailLog updateEmailStatus(LoggedInInfo loggedInInfo, EmailLog emailLog, EmailStatus emailStatus, String errorMessage) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required security object (_email)");
+            throw new SecurityException("missing required sec object (_email)");
         }
 
-        Date newTimestamp = (!emailStatus.equals(EmailStatus.RESOLVED)) ? new Date() : emailLog.getTimestamp();
+        Objects.requireNonNull(emailStatus, "emailStatus");
+        Date newTimestamp = emailStatus == EmailStatus.RESOLVED ? null : new Date();
 
         emailLogDao.updateEmailStatus(emailLog.getId(), emailStatus, errorMessage, newTimestamp);
+        if (emailStatus == EmailStatus.RESOLVED) {
+            return emailLogDao.findFresh(emailLog.getId());
+        }
 
         // Update object in memory so caller still has the right values
         emailLog.setStatus(emailStatus);
@@ -506,14 +519,19 @@ public class EmailManager {
      *
      * @param emailData EmailData containing the encrypted message text
      * @return EmailAttachment a new attachment with the message PDF, or null if message is empty
+     * @throws EmailSendingException if the message cannot be converted to PDF
      */
-    private EmailAttachment createMessageAttachment(EmailData emailData) {
+    private EmailAttachment createMessageAttachment(EmailData emailData) throws EmailSendingException {
         if (StringUtils.isNullOrEmpty(emailData.getEncryptedMessage())) {
             return null;
         }
         String htmlSafeMessage = Encode.forHtmlContent(emailData.getEncryptedMessage()).replace("\n", "<br>");
         emailData.setEncryptedMessage(htmlSafeMessage);
         Path encryptedMessagePDF = ConvertToEdoc.saveAsTempPDF(emailData);
+        if (encryptedMessagePDF == null) {
+            // saveAsTempPDF returns null when the conversion fails. This message is stored in the email log, so it names no content.
+            throw new EmailSendingException("Encrypted message could not be converted to PDF");
+        }
         EmailAttachment emailAttachment = new EmailAttachment("message.pdf", encryptedMessagePDF.toString(), DocumentType.DOC, -1);
         return emailAttachment;
     }

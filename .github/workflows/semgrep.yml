@@ -46,8 +46,9 @@ permissions:
 jobs:
   semgrep:
     name: Semgrep SAST Analysis
-    runs-on: ubuntu-latest
-    timeout-minutes: ${{ github.event_name == 'pull_request' && 20 || 90 }}
+    runs-on: ubuntu-24.04
+    # Full Cloud scans can take 89 minutes; leave time for custom rules and SARIF uploads.
+    timeout-minutes: ${{ github.event_name == 'pull_request' && 20 || 120 }}
     container:
       image: semgrep/semgrep@sha256:7810f1d7884974ab6dda7bef8f4a2c8e165ea2142fd8260515d380e4f1407263
     env:
@@ -55,7 +56,7 @@ jobs:
     if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
@@ -102,6 +103,14 @@ jobs:
             exit 1
           fi
 
+      - name: Prevent reflective object methods in application code
+        run: |
+          for fixture in src/test/semgrep/reflective-diagnostics-carlos.*; do
+            semgrep --test --config .semgrep/reflective-diagnostics-carlos.yml "$fixture"
+          done
+          # This lexical gate must also inspect large application sources.
+          semgrep scan --error --max-target-bytes 0 --config .semgrep/reflective-diagnostics-carlos.yml src/main
+
       - name: Filter suppressed Semgrep SARIF results
         if: always() && steps.run_semgrep.outcome != 'skipped' && hashFiles('semgrep.sarif') != ''
         run: python3 scripts/filter_suppressed_sarif.py semgrep.sarif
@@ -124,13 +133,13 @@ jobs:
           echo "Configure repository secret SEMGREP_APP_TOKEN to enable this check."
 
       - name: Upload SARIF to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@0daab03d71ff584ef619d027a3fd9146679c5d84
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
         with:
           sarif_file: semgrep.sarif
         if: always() && steps.run_semgrep.outcome != 'skipped' && hashFiles('semgrep.sarif') != ''
 
       - name: Upload CARLOS Semgrep SARIF to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@0daab03d71ff584ef619d027a3fd9146679c5d84
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
         with:
           sarif_file: semgrep-carlos.sarif
           category: semgrep-carlos

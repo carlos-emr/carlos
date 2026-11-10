@@ -1,4 +1,4 @@
-FROM tomcat:11.0.24-jdk25-temurin@sha256:6d673ad42da6498f05755cae67f85f2128bdfd88943c9bdb22e0965f8d4c3182
+FROM tomcat:11.0.27-jdk25-temurin@sha256:5f639b0943621fabc57de055c8789a2813692f3b25322379900ffac00958baea
 
 # bash with pipefail, not the default /bin/sh (dash), for EVERY RUN below.
 #
@@ -13,6 +13,13 @@ FROM tomcat:11.0.24-jdk25-temurin@sha256:6d673ad42da6498f05755cae67f85f2128bdfd8
 # With pipefail the pipeline fails at the curl, at the line that is actually wrong. Several other
 # steps here use the same `curl | ...` shape and were masked the same way.
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Compose selects amd64 for the browser/driver pair, including on Apple Silicon.
+# Fail direct native ARM64 builds before downloading tools with misleading path errors.
+RUN test "$(dpkg --print-architecture)" = amd64 || { \
+      echo "ERROR: the CARLOS development browser requires linux/amd64; build with --platform=linux/amd64 or use .devcontainer/docker-compose.yml." >&2; \
+      exit 1; \
+    }
 
 # Set environment variables for Tomcat
 ENV CATALINA_HOME /usr/local/tomcat
@@ -29,7 +36,7 @@ ENV JPDA_ADDRESS=8000
 ENV JPDA_TRANSPORT=dt_socket
 
 # Copy Tomcat installation from the official Tomcat image
-COPY --from=tomcat:11.0.24-jdk25-temurin@sha256:6d673ad42da6498f05755cae67f85f2128bdfd88943c9bdb22e0965f8d4c3182 /usr/local/tomcat $CATALINA_HOME
+COPY --from=tomcat:11.0.27-jdk25-temurin@sha256:5f639b0943621fabc57de055c8789a2813692f3b25322379900ffac00958baea /usr/local/tomcat $CATALINA_HOME
 
 # Labels
 LABEL author="CARLOS EMR Project" \
@@ -100,8 +107,7 @@ RUN /usr/local/bin/apt-install \
 # .tar.gz, not .tar.xz: extracting xz needs the `xz` binary, which is not in this base image's
 # default package set. A dry run of these exact commands failed on "xz: Cannot exec" — gzip is
 # always present, so the gz tarball removes a dependency rather than adding one to apt.
-# The archive is selected from the Docker build target architecture so native ARM64 builds
-# (e.g. Apple Silicon) get arm64 binaries instead of failing on x64 executables.
+# Keep the Node archive selection tied to the Docker build target architecture.
 ENV NODE_VERSION=22.22.1
 ENV NODE_SHA256_X64=07c8aafa60644fb81adefa1ee7da860eb1920851ffdc9a37020ab0be47fbc10e
 ENV NODE_SHA256_ARM64=1d1690e9aba47e887a275abc6d8f7317e571a0700deaef493f768377e99155f5
@@ -160,7 +166,7 @@ ARG CODEX_CLI_VERSION=0.142.2
 # Retry the npm fetch because CI occasionally hits transient ECONNRESET errors.
 RUN for attempt in 1 2 3; do         npm install -g "@openai/codex@${CODEX_CLI_VERSION}" && break;         if [ "$attempt" -eq 3 ]; then exit 1; fi;         echo "Retrying @openai/codex install after transient npm failure (attempt $attempt)...";         sleep 5;     done &&     echo "✅ OpenAI Codex CLI installed: $(codex --version)"
 
-ARG PLAYWRIGHT_VERSION=1.60.0
+ARG PLAYWRIGHT_VERSION=1.61.1
 
 # Install Playwright globally first to ensure it's available.
 # Keep this in sync with package.json, .mcp.json, and .devcontainer/PLAYWRIGHT_SETUP.md.
@@ -168,14 +174,46 @@ RUN npm install -g "playwright@${PLAYWRIGHT_VERSION}" && \
     echo "✅ Playwright CLI installed: $(playwright --version)"
 
 # Install Playwright browsers (Chromium, Firefox) with system dependencies
-# Note: Chrome excluded - no ARM64 Linux builds (breaks Apple Silicon). Chromium is equivalent.
-# Version 1.60.0 uses the current Playwright browser bundles and Ubuntu 24.04 t64 package names.
+# The CARLOS service uses amd64 so Playwright's Chrome for Testing and chromedriver match.
+# Playwright 1.61+ supports the Ubuntu 26.04 base and its browser dependencies.
 RUN playwright install --with-deps chromium firefox && \
     echo "✅ Playwright browsers installed (Chromium, Firefox)"
 
-# Install pipx and Aider AI coding assistant
+# chromedriver for the eForm PDF and measurement-chart renderer. CARLOS connects to a RUNNING
+# chromedriver over loopback (eform_pdf_browser_service_url, default 127.0.0.1:9515) and no longer
+# ships Selenium Manager to fetch one, so the devcontainer installs the driver that matches the
+# Chrome for Testing build Playwright installed above (same version, same CDN) and `server start`
+# runs it beside Tomcat. The browser path is config/shared/volumes/carlos.properties
+# (eform_pdf_browser_chromium_path); keep its chromium-<revision> in step with PLAYWRIGHT_VERSION.
+# The driver is pinned by version and SHA-256 like the Node archive above; Playwright 1.61.1 installs
+# Chrome for Testing 149.0.7827.55. A Playwright bump fails here until both pins are updated.
+ARG CHROMEDRIVER_VERSION=149.0.7827.55
+ARG CHROMEDRIVER_SHA256=8684a9cb079391352021e93e6ddb2f2afa66feb327526f7c3ed316b5b1028aaf
+RUN set -eu; \
+    chrome="$(ls -d /root/.cache/ms-playwright/chromium-*/chrome-linux64/chrome | head -n 1)"; \
+    version="$("$chrome" --version | grep -oE '[0-9]+(\.[0-9]+){3}')"; \
+    if [ "$version" != "$CHROMEDRIVER_VERSION" ]; then \
+      echo "ERROR: Playwright installed Chrome for Testing ${version}; set CHROMEDRIVER_VERSION and CHROMEDRIVER_SHA256 for it." >&2; \
+      exit 1; \
+    fi; \
+    curl -fsSLo /tmp/chromedriver.zip "https://storage.googleapis.com/chrome-for-testing-public/${version}/linux64/chromedriver-linux64.zip"; \
+    echo "${CHROMEDRIVER_SHA256}  /tmp/chromedriver.zip" | sha256sum -c -; \
+    python3 -c "import zipfile; zipfile.ZipFile('/tmp/chromedriver.zip').extractall('/tmp/chromedriver')"; \
+    install -m 0755 /tmp/chromedriver/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver; \
+    rm -rf /tmp/chromedriver /tmp/chromedriver.zip; \
+    case "$(chromedriver --version)" in \
+      "ChromeDriver ${version} "*) echo "✅ chromedriver ${version} installed" ;; \
+      *) echo "ERROR: chromedriver does not match Chrome for Testing ${version}: $(chromedriver --version)" >&2; exit 1 ;; \
+    esac
+
+# Aider requires Python <3.13; Ubuntu 26.04 supplies Python 3.14. Let uv
+# provide an isolated Python 3.12 instead of pip selecting an obsolete Aider.
+ARG UV_VERSION=0.13.6
+ARG AIDER_VERSION=0.86.2
 RUN /usr/local/bin/apt-install pipx && \
-    pipx install aider-chat && \
+    pipx install "uv==${UV_VERSION}" && \
+    uv tool install --python 3.12 "aider-chat==${AIDER_VERSION}" && \
+    aider --version && \
     pipx ensurepath
 
 # Install Postfix for mail testing with default values
@@ -210,7 +248,7 @@ RUN mkdir -p /usr/local/tomcat/webapps/ROOT
 # NOTE: DrugRef2 runs in a separate container (see .devcontainer/drugref/).
 # It is a separate container because it is a separate webapp with its own
 # lifecycle, NOT because it needs a different JDK: since the Java 25 migration
-# both images are built from the same tomcat:11.0.24-jdk25-temurin base.
+# both images are built from the same tomcat:11.0.27-jdk25-temurin base.
 # DrugRef's own sources still COMPILE at a Java 21 language level, which is a
 # floor on its pom, not a constraint on the runtime here.
 

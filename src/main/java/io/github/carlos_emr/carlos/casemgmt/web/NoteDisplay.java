@@ -64,19 +64,16 @@ public interface NoteDisplay {
         }
     };
 
-    public static Comparator<NoteDisplay> noteObservationDateComparator = new Comparator<NoteDisplay>() {
-        public int compare(NoteDisplay note1, NoteDisplay note2) {
-            if (note1 == null || note2 == null) {
-                return 0;
-            }
+    public static Comparator<NoteDisplay> noteObservationDateComparator = observationDateComparator(false);
 
-            if (note2.getObservationDate() == null || note1.getObservationDate() == null) {
-                return 0;
-            }
-
-            return note2.getObservationDate().compareTo(note1.getObservationDate());
-        }
-    };
+    /** Keep unknown source dates last for both sort directions and give merged note IDs stable ties. */
+    static Comparator<NoteDisplay> observationDateComparator(boolean ascending) {
+        Comparator<Date> dates = ascending ? Comparator.naturalOrder() : Comparator.reverseOrder();
+        return Comparator.nullsLast(Comparator.comparing(NoteDisplay::getObservationDate,
+                        Comparator.nullsLast(dates))
+                .thenComparing(NoteDisplay::getNoteId, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(NoteDisplay::getUuid, Comparator.nullsLast(Comparator.naturalOrder())));
+    }
 
     public Integer getNoteId();
 

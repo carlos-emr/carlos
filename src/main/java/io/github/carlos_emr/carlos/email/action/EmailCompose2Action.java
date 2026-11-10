@@ -47,7 +47,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  *   <li>Validates patient email consent status before sending</li>
  *   <li>Retrieves and validates recipient email addresses</li>
  *   <li>Sanitizes attachment filenames for security</li>
- *   <li>Validates numeric form ID (fid) parameters to prevent injection attacks</li>
+ *   <li>Validates the numeric form ID (fid) from the staged draft to prevent injection attacks</li>
  * </ul>
  *
  * Healthcare Context:
@@ -66,8 +66,8 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  *
  * Security Considerations:
  * <ul>
- *   <li>Validates fid parameter to ensure numeric format (prevents injection)</li>
- *   <li>Uses log-safe sanitization for invalid fid values in logs</li>
+ *   <li>Validates the staged draft's fid to ensure numeric format (prevents injection)</li>
+ *   <li>Uses log-safe sanitization for invalid staged fid values in logs</li>
  *   <li>Generates patient-specific PDF passwords based on demographic information</li>
  *   <li>Sanitizes attachment filenames through EmailComposeManager</li>
  *   <li>Session cleanup prevents information leakage across requests</li>
@@ -164,8 +164,7 @@ public class EmailCompose2Action extends ActionSupport {
      * Request Parameters:
      * <ul>
      *   <li>draft (String) - the one-time key of the draft the eForm save staged</li>
-     *   <li>fid (String, optional) - read by the eForm error page this may forward to; the compose
-     *       itself uses the template id carried by the draft</li>
+     *   <li>The template id and saved eForm id come from the staged draft, not URL parameters.</li>
      * </ul>
      *
      * Request Attributes Set:
@@ -193,8 +192,8 @@ public class EmailCompose2Action extends ActionSupport {
      *
      * Security Features:
      * <ul>
-     *   <li>Validates fid parameter with regex pattern to ensure numeric format only</li>
-     *   <li>Logs warnings for invalid fid values using OWASP-encoded output</li>
+     *   <li>Validates the staged draft's fid with a regex to ensure numeric format only</li>
+     *   <li>Logs warnings for invalid staged fid values using log-safe sanitization</li>
      *   <li>Generates patient-specific PDF passwords: YYYYMMDD (DOB) + 10-digit HIN</li>
      *   <li>Sanitizes all attachment filenames to prevent path traversal attacks</li>
      *   <li>Verifies patient email consent before allowing composition</li>
@@ -203,7 +202,9 @@ public class EmailCompose2Action extends ActionSupport {
      *
      * Error Handling:
      * If PDF generation fails for any attachment (eForm, document, lab, form, HRM), the method
-     * returns the "eFormError" result with a descriptive error message. This prevents incomplete
+     * returns the "eFormError" result to a dedicated email error page with a descriptive message.
+     * It does not forward to the eForm viewer, which would render a blank template under /email/.
+     * The restored draft lets the page retry the same compose URL. This prevents incomplete
      * emails from being composed when required attachments cannot be generated. Without a usable
      * draft for the request's key, it returns {@link #DRAFT_EXPIRED_RESULT} with HTTP 410.
      *
@@ -259,7 +260,7 @@ public class EmailCompose2Action extends ActionSupport {
 
         // Validate the draft's fid is numeric if provided
         if (fid != null && !fid.matches("\\d+")) {
-            logger.warn("Invalid (non-numeric) fid parameter received; ignoring it");
+            logger.warn("Invalid (non-numeric) draft fid received; ignoring it");
             fid = null;
         }
 

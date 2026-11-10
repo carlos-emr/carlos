@@ -116,6 +116,18 @@ async function workflow(s) {
     h.assert(await ratio.inputValue() === '0.49', `WHtR was not recalculated: ${await ratio.inputValue()}`);
   });
 
+  await s.step('a manually entered ratio survives missing inputs and a later valid waist recalculates it', async () => {
+    const waist = valueInput(entry, 'WAIS');
+    const ratio = valueInput(entry, ratioCode);
+    await ratio.fill('0.50');
+    await waist.fill('');
+    await waist.blur();
+    h.assert(await ratio.inputValue() === '0.50', 'Clearing the waist erased a manually entered WHtR');
+    await waist.fill('86.4');
+    await waist.blur();
+    h.assert(await ratio.inputValue() === '0.49', 'A valid waist did not replace the manual ratio with its calculation');
+  });
+
   await s.step('Submit stores the height, the waist and their ratio for the patient', async () => {
     // The observation date the form submits (a UTC calendar date), not the database's CURDATE(),
     // which differs from it for part of every day in Canadian time zones.

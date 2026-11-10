@@ -14,7 +14,7 @@
 %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
          import="java.util.*, io.github.carlos_emr.carlos.report.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.login.*" %>
+
 
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
 <%@ page import="java.util.ResourceBundle" %>

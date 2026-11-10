@@ -574,10 +574,10 @@ creator's complete derivation options — `--skip-documents` with `--accept no-d
 `--accept unverified-bundle` to open a bundle whose SHA-256 was never
 conveyed (a recorded sign-off, never a default), `--accept
 carry-credentials` when the dump holds live OAuth consumer secrets or
-signing keys (`ServiceClient`, `oscarKeys`, `publicKeys` rows are copied
+signing keys (`ServiceClient`, `ServiceAccessToken`, `oscarKeys`, `publicKeys` rows are copied
 verbatim and keep working against the migrated system — the preflight
 reports it as blocker B9 and the ETL pre-checks refuse without the
-sign-off; rotate or verify them before go-live), and
+sign-off; verify integration continuity before go-live), and
 `--statement-timeout SECONDS` to bound every SQL statement of the import,
 the staged restore's own client included (MariaDB `max_statement_time`; a
 sparse or crafted dump cannot then hold one statement forever; 0, the
@@ -828,6 +828,109 @@ report-runner templates, OLIS preferences. The preflight report enumerates
 exactly which of these hold rows for a given clinic — that list is the
 clinic's sign-off.
 
+## Historical Ontario billing filenames (beta7)
+
+Use **carlos-ctl 1.3.2** with **2026.08.0-beta7** or the coordinated later
+package pair. The schema manifest uses format 2 and the ETL uses contract 4;
+older CLIs reject this manifest before copying.
+
+OSCAR 19 can hold distinct submissions from different years under one OHIP
+or HTML filename. CARLOS requires those names to be unique. The importer
+checks both `billing_on_diskname.ohipfilename` and
+`billing_on_filename.htmlfilename` using the target's comparisons, including
+case, accents and trailing spaces. NULL remains NULL. Every submission, ID,
+relationship, timestamp and original filename is retained.
+The two columns share one file namespace: a basename used by just one row
+in each table is also ambiguous, even without duplicates within either table.
+
+Every member of a colliding group receives a deterministic name such as
+`o19-claim-2021-42-0.claim` or `o19-html-2021-73-0.html`. These are historical
+import identifiers, not newly submitted MOH filenames. Allocation reserves
+all original names, including names resembling these generated candidates.
+An old file named by several submissions cannot establish which submission
+it belongs to, so no row is assigned that file automatically. Original
+files included in the restored tree stay preserved; missing source files
+and external/custom `HOME_DIR` files
+still require the operator's existing transfer/reconciliation procedure.
+
+The mappings are retained at `o19_archive.billing_on_diskname__filenames`
+and `o19_archive.billing_on_filename__filenames`, exported as CSV, and
+mirrored in the live `billing_filename_import` table included in normal
+database backups. P4, P7 and cleanup verify the original values and mapping
+against staging. The report gives counts; root-only
+`billing-files-details.txt` inventories the affected row IDs, names and files
+in the standard `billing/download` directory. A passing database verification
+does not assert that ambiguous or overwritten historical files were recovered.
+The update-audit fields record `carlos-ctl/import-o19` and the row's import
+time. A later reconciliation records its own administrator and update time.
+
+CARLOS refuses ambiguous historical downloads and regeneration with fixed
+reconciliation guidance. A missing renamed file is not treated as an empty
+claim selection. Original shared names remain blocked and reserved even
+after a particular renamed submission is reconciled.
+Audited downloads verify a private temporary snapshot and serve those exact
+bytes, so concurrent regeneration cannot replace the content after verification.
+The snapshot is removed when the response stream closes; large files are streamed
+through disk without loading the whole submission into memory.
+
+For each affected submission, a billing administrator must identify its
+actual file from the clinic's retained evidence, place it under the exact
+`imported_filename` in the configured `HOME_DIR`, and verify its contents.
+Do not copy one surviving shared file to every renamed submission. If the
+file cannot be identified, retain the evidence and leave the row ambiguous.
+Record an established association through the privileged database interface:
+
+```sql
+UPDATE billing_filename_import
+SET file_status = 'reconciled',
+    file_sha256 = '<lowercase SHA-256 of the verified file>',
+    reconciled_by = '<billing administrator>',
+    reconciled_at = UTC_TIMESTAMP(),
+    lastUpdateUser = '<billing administrator>',
+    lastUpdateDate = CURRENT_TIMESTAMP
+WHERE source_table = 'billing_on_diskname'
+  AND source_id = <verified source row ID>
+  AND imported_filename = '<exact allocated filename>'
+  AND file_status IN ('ambiguous', 'reconciled');
+```
+
+Reconcile the HTML companion separately under `source_table =
+'billing_on_filename'`. Record the review in the clinic's technical handoff
+and take the normal post-import backup. CARLOS checks the reviewer, date,
+regular file and SHA-256 before serving or using a reconciled file. If the
+file subsequently changes, including through deliberate regeneration, review
+the new output and update its recorded digest before downloading it. A shared
+original basename is never a substitute for the allocated row's verified file.
+
+### Recovering a beta6 import stopped at ERROR 1062
+
+The beta6 error's generic `--resume` suggestion does not install this changed
+import contract. Once copying has begun, package replacement and cross-contract
+resume are deliberately refused. Keep the original encrypted bundle, passfile,
+digest and private diagnostics. Use this sequence on the rehearsal host first:
+
+1. Stop CARLOS and restore the exact **pre-import** database, documents and
+   import-state snapshot using the backup runbook. Verify that they describe
+   the pre-import installation before retiring any failed-run evidence.
+2. Preserve the failed workspace in a uniquely named, private rollback
+   directory. A restore does not delete later-created `etl-progress.json`
+   or document files. Reconcile those leftovers against the restored snapshot;
+   do not use the failed workspace's checkpoints for a fresh import.
+3. After the restored database is verified, retire disposable `o19_import`
+   and `o19_archive` schemas belonging to the discarded run. Preserve any
+   archive export first. The canonical `billing_filename_import` table must
+   be empty on a fresh target; its rows also identify a prior import. Restore
+   the pristine target rather than clearing clinical rows to pass this gate.
+4. Install the matched beta7/1.3.2 packages and complete the normal schema
+   upgrade. Package locks and the pristine-target checks remain enforced.
+5. Start a **fresh** import from the unchanged original bundle, repeating
+   the original admin user and accepted conditions. Review P7 and the billing
+   file inventory before clinical use. Same-version interrupted copies can
+   subsequently use their original command with `--resume`.
+
+An untouched pre-copy run retains the supported verified upgrade/rebind path;
+the additive billing audit migration does not permit a partial-copy bypass.
+
 ## Troubleshooting
 
 - *"the import runs ONLY on a stock initial deploy"* — the target holds
@@ -937,6 +1040,14 @@ clinic's sign-off.
   expression, so the assessment does not ask and reports
   `charset-b8-unmeasured` instead — a `go` there is silent about that one
   class, never a clearance of it.
+  The scoped ISO-8859-1 `drugs.special` extension is implemented in
+  [carlos-ctl #18](https://github.com/carlos-emr/carlos-ctl/pull/18), pending a
+  published CLI release and the CARLOS dependency/pin update. With that fixed
+  version, the two reviewed en-dash / less-than-or-equal sequences use the
+  existing `--accept charset-repair`; remaining corruption still blocks.
+  `charset-exact-unmeasured` explicitly discloses source engines that cannot
+  evaluate the full guarded candidate. Preflight stays read-only. Regenerate
+  its standalone file after upgrading and rerun assessment before exporting.
 - *the dump uses collation(s) unavailable on this server* — the OSCAR 19
   server had collations this MariaDB lacks. Re-take the dump on a server
   whose collations match, or install them.
@@ -952,7 +1063,7 @@ clinic's sign-off.
   (its verdict was recorded before the first write).
 - *the dump carries live credentials* — `ServiceClient` / `oscarKeys` /
   `publicKeys` rows; acknowledge with `--accept carry-credentials` (the
-  preflight lists it as B9) and rotate or verify them before go-live.
+  preflight lists it as B9) and verify the integrations before go-live.
 - *non-numeric value(s) in a column CARLOS stores as a number* — the copy
   would store 0 for them under the import's `sql_mode=''`; curate a
   `value_exprs` entry or fix the values in the source.
@@ -1056,3 +1167,9 @@ clinic's sign-off.
   `state.json` from before the staging restore; the next invocation says so
   and names the `mv` above, rather than starting the import over on top of
   a ledger that describes the run just discarded.
+
+OAuth access tokens retain their original credentials and expiry, including O19
+non-expiring grants. Preflight blocks grants without their original client or
+provider; credential acknowledgement cannot override that ownership check.
+Review the [OAuth continuity and cutover checks](oauth-o19-compatibility.md)
+before go-live; token preservation does not require displaying tokens in the UI.

@@ -84,7 +84,8 @@ the shipped manifests. For verification, add `--check` to generation.
 
 Outputs (generated — never hand-edit): `debian/assets/o19-manifest/
 o19map_schema.json`, `o19map_props.json`, `o19_preflight.json` (each with
-`"format": 1`, which the CLI's loader checks) and, with `--ctl-src`, the
+schema `"format": 2` and properties/preflight `"format": 1`, which the
+CLI's loader checks) and, with `--ctl-src`, the
 marker-delimited data block in the CLI's `o19_preflight.py`. Any O19 table
 the overlays don't classify is emitted as
 class `unknown`, which `test_manifest_integrity.py` refuses — classify it in
@@ -106,6 +107,16 @@ those so a baseline-skipped key cannot flip behaviour silently), and
 `BUNDLE_KEY_RENAMES` targets `overrides_props.BUNDLE_PREFIX_RENAMES` asks for.
 A declared bundle prefix that matches no O19 key, or that still resolves in the
 CARLOS bundle, fails generation.
+
+The exact `drugs.special` regression in `verify_sql_semantics.py` uses the
+isolated synthetic `fixtures/drug-special.sql` oracle. It requires the fixed
+CLI from [carlos-ctl #18](https://github.com/carlos-emr/carlos-ctl/pull/18);
+until that package is published, select the reviewed checkout through
+`CARLOS_CTL_SRC`. Capable CLIs run this check automatically; the pinned 1.2.1
+CLI prints an explicit skip while the existing checks still run. Add
+`--require-exact-special-repair` to make a missing capability fail, including
+when validating the fixed CLI for release. The fixture is
+loaded only into the verifier's disposable schemas, never a clinic database.
 
 ## Verifying the DDL parse
 

@@ -36,15 +36,16 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 
+@jakarta.xml.bind.annotation.XmlType(propOrder={"appointmentDate", "consultantSnapshot", "demographicSnapshot", "id", "lastFollowUp", "mrpSnapshot", "referralDate", "serviceName", "status", "teamName", "urgency"})
 public class ConsultationRequestSearchResult {
 
     private Integer id;
-    private Demographic demographic;
+    private EmbeddedDemographicTo1 demographic;
     private String serviceName;
-    private ProfessionalSpecialist consultant;
+    private EmbeddedProfessionalSpecialistTo1 consultant;
     private String teamName;
     private String status;
-    private Provider mrp;
+    private EmbeddedProviderTo1 mrp;
     @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date appointmentDate;
     private Date lastFollowUp;
@@ -59,12 +60,18 @@ public class ConsultationRequestSearchResult {
         this.id = id;
     }
 
-    public Demographic getDemographic() {
-        return demographic;
-    }
+    /** Detached Java compatibility view; the wire uses the dedicated snapshot below. */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @jakarta.xml.bind.annotation.XmlTransient
+    public Demographic getDemographic() { return io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.demographicDomain(demographic); }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("demographic")
+    @jakarta.xml.bind.annotation.XmlElement(name="demographic")
+    public EmbeddedDemographicTo1 getDemographicSnapshot() { return demographic; }
+    public void setDemographicSnapshot(EmbeddedDemographicTo1 value) { demographic = value; }
 
     public void setDemographic(Demographic demographic) {
-        this.demographic = demographic;
+        this.demographic = io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.demographic(null, demographic);
     }
 
     public String getServiceName() {
@@ -123,19 +130,31 @@ public class ConsultationRequestSearchResult {
         this.urgency = urgency;
     }
 
-    public ProfessionalSpecialist getConsultant() {
-        return consultant;
-    }
+    /** Detached Java compatibility view; the wire uses the dedicated snapshot below. */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @jakarta.xml.bind.annotation.XmlTransient
+    public ProfessionalSpecialist getConsultant() { return io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.professionalSpecialistDomain(consultant); }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("consultant")
+    @jakarta.xml.bind.annotation.XmlElement(name="consultant")
+    public EmbeddedProfessionalSpecialistTo1 getConsultantSnapshot() { return consultant; }
+    public void setConsultantSnapshot(EmbeddedProfessionalSpecialistTo1 value) { consultant = value; }
 
     public void setConsultant(ProfessionalSpecialist consultant) {
-        this.consultant = consultant;
+        this.consultant = io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.professionalSpecialist(null, consultant);
     }
 
-    public Provider getMrp() {
-        return mrp;
-    }
+    /** Detached Java compatibility view; the wire uses the dedicated snapshot below. */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @jakarta.xml.bind.annotation.XmlTransient
+    public Provider getMrp() { return io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.providerDomain(mrp); }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("mrp")
+    @jakarta.xml.bind.annotation.XmlElement(name="mrp")
+    public EmbeddedProviderTo1 getMrpSnapshot() { return mrp; }
+    public void setMrpSnapshot(EmbeddedProviderTo1 value) { mrp = value; }
 
     public void setMrp(Provider mrp) {
-        this.mrp = mrp;
+        this.mrp = io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.provider(null, mrp);
     }
 }

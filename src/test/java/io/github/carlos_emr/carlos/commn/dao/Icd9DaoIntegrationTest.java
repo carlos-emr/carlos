@@ -65,7 +65,8 @@ public class Icd9DaoIntegrationTest extends CarlosTestBase {
      */
     private Icd9 createIcd9(String code, String description) {
         entityManager.createNativeQuery(
-                "MERGE INTO Icd9Synonym (id, dxCode, patientFriendly) KEY(dxCode) VALUES (?, ?, ?)")
+                "INSERT INTO Icd9Synonym (id, dxCode, patientFriendly) VALUES (?, ?, ?) "
+                        + "ON DUPLICATE KEY UPDATE id=VALUES(id), patientFriendly=VALUES(patientFriendly)")
                 .setParameter(1, synonymIdCounter++)
                 .setParameter(2, code)
                 .setParameter(3, description)

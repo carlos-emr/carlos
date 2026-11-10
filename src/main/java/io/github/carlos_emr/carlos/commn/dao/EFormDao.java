@@ -37,6 +37,8 @@ import io.github.carlos_emr.carlos.commn.model.EForm;
 
 public interface EFormDao extends AbstractDao<EForm> {
 
+    List<EFormListingRow> findLibraryInGroup(Boolean current, String group, String sort);
+
     public enum EFormSortOrder {
         DATE, NAME, SUBJECT, FILE_NAME;
     }

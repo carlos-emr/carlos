@@ -52,8 +52,8 @@
 %>
 
 
-<%@ page import="java.util.*,io.github.carlos_emr.carlos.report.reportByTemplate.*" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ page import="java.util.*" %>
+
 
 <%@ page import="java.io.InputStream" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>

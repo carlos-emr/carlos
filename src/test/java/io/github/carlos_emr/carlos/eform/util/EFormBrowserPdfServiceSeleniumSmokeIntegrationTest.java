@@ -25,6 +25,7 @@ package io.github.carlos_emr.carlos.eform.util;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,32 +38,43 @@ import java.util.Map;
 
 import com.sun.net.httpserver.HttpServer;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.openqa.selenium.WebDriverException;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.chromium.HasCdp;
+
+import io.github.carlos_emr.carlos.test.browser.SmokeDriverService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * End-to-end fidelity smoke: serves the repo's realistic eForm test-pattern fixture over a
- * loopback HTTP server (same origin semantics as production) and drives the full Selenium native
+ * loopback HTTP server (same origin semantics as production) and drives the full JDK-driven native
  * print path — print-media emulation, stabilization, page-geometry measurement, {@code @page}
  * sizing, and {@code Page.printToPDF} — then asserts the result is a multi-page PDF whose page
  * count matches the authored {@code pageN} divs and that carries a real text layer (the raster
  * path this replaced produced image-only pages with zero extractable text).
  *
- * <p>Skips cleanly when no Chromium binary or matching chromedriver is available, so CI hosts
- * without a browser stay green while browser-equipped environments verify the real pipeline.</p>
+ * <p>Opt-in integration suite. Point it at a chromedriver with either CARLOS_SMOKE_DRIVER_URL (a
+ * running local service) or CARLOS_SMOKE_CHROMEDRIVER (a chromedriver binary the suite starts on a
+ * free loopback port and stops afterwards; see {@link SmokeDriverService}), and set
+ * CARLOS_SMOKE_CHROMIUM to the matching browser. Without a driver the tests skip; the release plan
+ * routes those skips from {@code java-all} to its {@code java-browser-pdf} lane, which matches them
+ * by this class's display name. The legacy class name is retained for existing operator commands;
+ * the transport is the JDK.</p>
  */
-@DisplayName("EFormBrowserPdfService Selenium smoke test")
+@DisplayName("EFormBrowserPdfService browser smoke test")
 @Tag("integration")
 @Tag("eform")
 class EFormBrowserPdfServiceSeleniumSmokeIntegrationTest {
+
+    private static final SmokeDriverService DRIVER_SERVICE = new SmokeDriverService();
+
+    @AfterAll
+    static void stopDriverService() {
+        DRIVER_SERVICE.close();
+    }
 
     @Test
     @DisplayName("should render the eForm test-pattern fixture to a PDF with headless Chromium")
@@ -83,19 +95,17 @@ class EFormBrowserPdfServiceSeleniumSmokeIntegrationTest {
         });
         server.start();
 
-        ChromeDriver driver = null;
+        RenderBrowser driver = null;
         Path tempDir = Files.createTempDirectory("eform-selenium-smoke-");
         try {
             String allowedOrigin = "http://127.0.0.1:" + server.getAddress().getPort();
-            ChromeOptions options = EFormBrowserPdfService.buildChromeOptions(chromiumBinary, true, allowedOrigin);
+            BrowserOptions options = EFormBrowserPdfService.buildBrowserOptions(chromiumBinary, true, allowedOrigin);
             driver = startDriverOrSkip(options);
-            driver.manage().timeouts()
-                    .pageLoadTimeout(Duration.ofSeconds(30))
-                    .scriptTimeout(Duration.ofSeconds(30));
+            driver.setTimeouts(Duration.ofSeconds(30), Duration.ofSeconds(30));
 
             // Emulate PRINT media before settling so the page is measured and printed in the same
             // layout Page.printToPDF will emit (mirrors EFormBrowserPdfService.renderWithSlot).
-            HasCdp cdp = driver;
+            RenderBrowser cdp = driver;
             cdp.executeCdpCommand("Emulation.setEmulatedMedia", Map.of("media", "print"));
 
             driver.get("http://127.0.0.1:" + server.getAddress().getPort() + "/test-pattern.html");
@@ -183,13 +193,13 @@ class EFormBrowserPdfServiceSeleniumSmokeIntegrationTest {
         });
         server.start();
 
-        ChromeDriver driver = null;
+        RenderBrowser driver = null;
         Path tempDir = Files.createTempDirectory("eform-selenium-freeflow-");
         try {
             String allowedOrigin = "http://127.0.0.1:" + server.getAddress().getPort();
-            driver = startDriverOrSkip(EFormBrowserPdfService.buildChromeOptions(chromiumBinary, true, allowedOrigin));
-            driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30)).scriptTimeout(Duration.ofSeconds(30));
-            HasCdp cdp = driver;
+            driver = startDriverOrSkip(EFormBrowserPdfService.buildBrowserOptions(chromiumBinary, true, allowedOrigin));
+            driver.setTimeouts(Duration.ofSeconds(30), Duration.ofSeconds(30));
+            RenderBrowser cdp = driver;
             cdp.executeCdpCommand("Emulation.setEmulatedMedia", Map.of("media", "print"));
 
             driver.get(allowedOrigin + "/letter.html");
@@ -265,11 +275,11 @@ class EFormBrowserPdfServiceSeleniumSmokeIntegrationTest {
         });
         server.start();
 
-        ChromeDriver driver = null;
+        RenderBrowser driver = null;
         try {
             String allowedOrigin = "http://127.0.0.1:" + server.getAddress().getPort();
-            driver = startDriverOrSkip(EFormBrowserPdfService.buildChromeOptions(chromiumBinary, true, allowedOrigin));
-            driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30)).scriptTimeout(Duration.ofSeconds(30));
+            driver = startDriverOrSkip(EFormBrowserPdfService.buildBrowserOptions(chromiumBinary, true, allowedOrigin));
+            driver.setTimeouts(Duration.ofSeconds(30), Duration.ofSeconds(30));
             driver.get(allowedOrigin + "/probe.html");
             Thread.sleep(1000);
 
@@ -294,38 +304,12 @@ class EFormBrowserPdfServiceSeleniumSmokeIntegrationTest {
         }
     }
 
-    private static ChromeDriver startDriverOrSkip(ChromeOptions options) {
-        try {
-            // Same per-command client timeouts as production createDriver, so the smoke run
-            // exercises the bounded-connection configuration against a real chromedriver.
-            return new ChromeDriver(options, EFormBrowserPdfService.rendererClientConfig());
-        } catch (WebDriverException e) {
-            // Skip ONLY when chromedriver itself is genuinely unobtainable (offline host, Selenium
-            // Manager can't resolve/download a matching driver). findChromiumBinary() already
-            // guarantees a real Chromium binary exists, so a browser that starts then crashes, is
-            // missing shared libraries ("...libnss3.so: No such file"), or is a stale wrapper
-            // ("cannot find Chrome binary") is a renderer regression and must FAIL, not become a
-            // green skip. Classification is by exception TYPE only — see below for why matching on
-            // the message cannot work.
-            // The substring fallback above described an invariant Selenium does not honour, so it is
-            // gone. WebDriverException.getMessage() does not return the raw message: it calls
-            // createMessage(), which appends getAdditionalInformation(), and
-            // RemoteWebDriver.populateWebDriverException adds
-            // "Driver info: org.openqa.selenium.chrome.ChromeDriver" to EVERY session-creation
-            // failure. Lower-cased, that contains "chromedriver" — so the discriminator always
-            // passed, the classification collapsed to the OR-group, and a stale wrapper reporting
-            // "unknown error: cannot find Chrome binary" (the exact case the old comment said must
-            // FAIL) became a green skip while production aborts startup for the same condition.
-            //
-            // NoSuchDriverException is Selenium Manager's precise "could not obtain a driver" signal
-            // and needs no message parsing. A broken browser is not that exception, so it now fails.
-            boolean driverUnavailable = e instanceof org.openqa.selenium.remote.NoSuchDriverException;
-            if (driverUnavailable) {
-                assumeTrue(false, "chromedriver unavailable: " + e.getMessage());
-                throw new IllegalStateException("unreachable");
-            }
-            throw e;
-        }
+    private static RenderBrowser startDriverOrSkip(BrowserOptions options) {
+        // A configured driver that fails to start throws here: only an unconfigured one skips.
+        String service = DRIVER_SERVICE.endpointOrNull();
+        assumeTrue(service != null, "set " + SmokeDriverService.DRIVER_URL_ENV + " to a running local "
+                + "chromedriver or " + SmokeDriverService.DRIVER_BINARY_ENV + " to a chromedriver binary");
+        return new RenderBrowser(URI.create(service), options.asMap());
     }
 
     private static String findChromiumBinary() throws IOException {

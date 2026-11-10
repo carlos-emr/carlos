@@ -14,11 +14,11 @@ const PAGE = path.join(__dirname, '..', 'src', 'main', 'webapp', 'WEB-INF', 'jsp
 
 test('the BC bill form falls back to an installed billing form when no setting names one', () => {
   const src = fs.readFileSync(PAGE, 'utf8');
-  const fallback = /if \(bean\.getBillForm\(\) == null \|\| !billform\.serviceExists\(bean\.getBillForm\(\)\)\) \{\s*BillingFormData\.BillingForm\[\] installedForms = billform\.getFormList\(\);\s*if \(installedForms\.length > 0\) \{\s*bean\.setBillForm\(installedForms\[0\]\.getFormCode\(\)\);/;
-  assert.match(src, fallback);
-  // It runs after every setting has had its say, and before anything reads the chosen form.
-  const at = src.search(fallback);
-  assert.ok(at > src.indexOf('bean.setBillForm(defaultBillingForm);'), 'the fallback runs before the configured defaults');
+  // Main already centralizes the same fallback in BillingFormData; keep that tested resolver.
+  const selection = 'bean.setBillForm(billform.resolveBillingForm(defaultBillingForm));';
+  assert.ok(src.includes(selection), 'the page must resolve its preference against installed billing forms');
+  const at = src.indexOf(selection);
+  assert.ok(at > src.indexOf('defaultBillingForm = bean.getBillForm();'), 'resolve after the bill overrides defaults');
   assert.ok(at < src.indexOf('bean.getBillRegion(), new Date()), demo);'), 'the code table is read before the fallback');
 });
 

@@ -39,7 +39,7 @@ const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const { scratchDir, saveDownload, requirePoppler, squash } = require('./lib/export-content-helpers');
 const { pageText } = require('./lib/pdf-graph');
 const { formsAfterSelection } = require('./billing-bc-wcb-links-playwright-checks');
-const { encounterForms } = require('./lib/encounter-form-list');
+const { encounterForms, formListAsSeen } = require('./lib/encounter-form-list');
 
 const BCAR2020 = 'BC-AR 2020';
 const BCAR2012 = 'BC-AR 2012';
@@ -337,6 +337,8 @@ async function workflow(s) {
     const expected = added.length ? formsAfterSelection(before, shownNamesBefore) : before;
     h.assert(JSON.stringify(encounterForms(s.sql)) === JSON.stringify(expected),
       'Removing the forms did not preserve exactly the original visible form menu');
+    h.assert(formListAsSeen(encounterForms(s.sql)) === formListAsSeen(before),
+      'Removing the forms did not leave the form list as it was (the shown forms and their order)');
   });
 }
 

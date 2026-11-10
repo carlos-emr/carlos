@@ -48,14 +48,13 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillRecipient;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingHistoryDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO.MissingBcPaymentProviderException;
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows.*;
 
 import java.beans.BeanInfo;
 import java.beans.Introspector;
 import java.beans.PropertyDescriptor;
 import java.math.BigDecimal;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -68,64 +67,154 @@ public class MSPReconcile {
     private BillingmasterDAO billingmasterDao = SpringUtils.getBean(BillingmasterDAO.class);
 
     //Accounting Report Types
-    public static final String REP_INVOICE = "REP_INVOICE";
-    public static final String REP_PAYREF = "REP_PAYREF";
-    public static final String REP_PAYREF_SUM = "REP_PAYREF_SUM";
+    public static final String REP_INVOICE = BcBillingConstants.REP_INVOICE;
+    public static final String REP_PAYREF = BcBillingConstants.REP_PAYREF;
+    public static final String REP_PAYREF_SUM = BcBillingConstants.REP_PAYREF_SUM;
     //	public static final String REP_PAYREF_GST = "REP_PAYREF_GST";
 //	public static final String REP_PAYREF_SUM_GST = "REP_PAYREF_SUM_GST";
 //	public static final String REP_GST_SUM = "REP_GST_SUM";
 //	public static final String REP_GST_SUM_SPLIT = "REP_GST_SUM_SPLIT";
-    public static final String REP_ACCOUNT_REC = "REP_ACCOUNT_REC";
-    public static final String REP_REJ = "REP_REJ";
-    public static final String REP_WO = "REP_WO";
-    public static final String REP_MSPREM = "REP_MSPREM";
-    public static final String REP_MSPREM_NEW = "REP_MSPREM_NEW";
-    public static final String REP_MSPREMSUM = "REP_MSPREMSUM";
-    public static final String REP_MSPREMSUM_PRACTSUM = "REP_MSPREMSUM_PRACTSUM";
-    public static final String REP_MSPREMSUM_S23 = "REP_MSPREMSUM_S23";
+    public static final String REP_ACCOUNT_REC = BcBillingConstants.REP_ACCOUNT_REC;
+    public static final String REP_REJ = BcBillingConstants.REP_REJ;
+    public static final String REP_WO = BcBillingConstants.REP_WO;
+    public static final String REP_MSPREM = BcBillingConstants.REP_MSPREM;
+    public static final String REP_MSPREM_NEW = BcBillingConstants.REP_MSPREM_NEW;
+    public static final String REP_MSPREMSUM = BcBillingConstants.REP_MSPREMSUM;
+    public static final String REP_MSPREMSUM_PRACTSUM = BcBillingConstants.REP_MSPREMSUM_PRACTSUM;
+    public static final String REP_MSPREMSUM_S23 = BcBillingConstants.REP_MSPREMSUM_S23;
 
     //MSP Bill Status Types
-    public static final String REJECTED = "R";
-    public static final String NOTSUBMITTED = "O";
-    public static final String SUBMITTED = "B";
-    public static final String SETTLED = "S";
-    public static final String DELETED = "D";
-    public static final String HELD = "Z";
-    public static final String DATACENTERCHANGED = "C";
-    public static final String PAIDWITHEXP = "E";
-    public static final String REFUSED = "F";
-    public static final String BADDEBT = "X";
-    public static final String WCB = "W";
-    public static final String CAPITATED = "H";
-    public static final String DONOTBILL = "N";
-    public static final String BILLPATIENT = "P";
-    public static final String COLLECTION = "T";
-    public static final String PAIDPRIVATE = "A";
+    public static final String REJECTED = BcBillingConstants.REJECTED;
+    public static final String NOTSUBMITTED = BcBillingConstants.NOTSUBMITTED;
+    public static final String SUBMITTED = BcBillingConstants.SUBMITTED;
+    public static final String SETTLED = BcBillingConstants.SETTLED;
+    public static final String DELETED = BcBillingConstants.DELETED;
+    public static final String HELD = BcBillingConstants.HELD;
+    public static final String DATACENTERCHANGED = BcBillingConstants.DATACENTERCHANGED;
+    public static final String PAIDWITHEXP = BcBillingConstants.PAIDWITHEXP;
+    public static final String REFUSED = BcBillingConstants.REFUSED;
+    public static final String BADDEBT = BcBillingConstants.BADDEBT;
+    public static final String WCB = BcBillingConstants.WCB;
+    public static final String CAPITATED = BcBillingConstants.CAPITATED;
+    public static final String DONOTBILL = BcBillingConstants.DONOTBILL;
+    public static final String BILLPATIENT = BcBillingConstants.BILLPATIENT;
+    public static final String COLLECTION = BcBillingConstants.COLLECTION;
+    public static final String PAIDPRIVATE = BcBillingConstants.PAIDPRIVATE;
 
     private static Properties negValues = new Properties();
-    public static final String BILLTYPE_PRI = "Pri";
-    public static final String BILLTYPE_MSP = "MSP";
-    public static final String BILLTYPE_ICBC = "ICBC";
-    public static final String BILLTYPE_WCB = "WCB";
+    public static final String BILLTYPE_PRI = BcBillingConstants.BILLTYPE_PRI;
+    public static final String BILLTYPE_MSP = BcBillingConstants.BILLTYPE_MSP;
+    public static final String BILLTYPE_ICBC = BcBillingConstants.BILLTYPE_ICBC;
+    public static final String BILLTYPE_WCB = BcBillingConstants.BILLTYPE_WCB;
 
-    public static final String PAYTYPE_CASH = "1";
-    public static final String PAYTYPE_CHEQUE = "2";
-    public static final String PAYTYPE_VISA = "3";
-    public static final String PAYTYPE_MC = "4";
-    public static final String PAYTYPE_AMEX = "5";
-    public static final String PAYTYPE_ELECTRONIC = "6";
-    public static final String PAYTYPE_DEBIT = "7";
-    public static final String PAYTYPE_OTHER = "8";
-    public static final String PAYTYPE_NA = "9";
+    public static final String PAYTYPE_CASH = BcBillingConstants.PAYTYPE_CASH;
+    public static final String PAYTYPE_CHEQUE = BcBillingConstants.PAYTYPE_CHEQUE;
+    public static final String PAYTYPE_VISA = BcBillingConstants.PAYTYPE_VISA;
+    public static final String PAYTYPE_MC = BcBillingConstants.PAYTYPE_MC;
+    public static final String PAYTYPE_AMEX = BcBillingConstants.PAYTYPE_AMEX;
+    public static final String PAYTYPE_ELECTRONIC = BcBillingConstants.PAYTYPE_ELECTRONIC;
+    public static final String PAYTYPE_DEBIT = BcBillingConstants.PAYTYPE_DEBIT;
+    public static final String PAYTYPE_OTHER = BcBillingConstants.PAYTYPE_OTHER;
+    public static final String PAYTYPE_NA = BcBillingConstants.PAYTYPE_NA;
     /**
      * Not truly a type of payment
      **/
-    public static final String PAYTYPE_IA = "10";
+    public static final String PAYTYPE_IA = BcBillingConstants.PAYTYPE_IA;
 
-    public static final String DATE_FORMAT = "yyyyMMdd";
+    public static final String DATE_FORMAT = BcBillingConstants.DATE_FORMAT;
     private SimpleDateFormat fmt = null;
     private BeanUtilHlp beanut = new BeanUtilHlp();
     private BillingHistoryDAO dao = new BillingHistoryDAO();
+
+    private boolean failOnReadError;
+
+    /** Strict mode is used by atomic spreadsheet downloads; legacy PDF callers retain their contract. */
+    public MSPReconcile(boolean failOnReadError) {
+        this();
+        this.failOnReadError = failOnReadError;
+        if (failOnReadError) fmt = new SimpleDateFormat(DATE_FORMAT, Locale.CANADA);
+    }
+
+    private void reportReadFailure(Exception exception) {
+        // A report must never look complete after a read has failed. Values and SQL stay out of logs.
+        throw new IllegalStateException("Billing export data could not be read", exception);
+    }
+
+    private String convertReportAmount(String value) {
+        return failOnReadError
+                ? io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode(value)
+                : convCurValue(value);
+    }
+
+    /**
+     * Decodes Teleplan cents while keeping corrupt fields out of summary arithmetic.
+     *
+     * @param value String encoded cents from one payment row
+     * @param summary boolean whether malformed input contributes zero instead of visible source text
+     * @return String decoded dollars, or the report-specific malformed-field representation
+     */
+    private String csvPaymentAmount(String value, boolean summary, MSPBill bill) {
+        if (value == null || value.isBlank()) bill.recordUnparsedAmount();
+        try {
+            return convertReportAmount(value);
+        } catch (NumberFormatException invalid) {
+            if (!failOnReadError) throw invalid;
+            bill.recordUnparsedAmount();
+            // A rejected wire value may still parse as decimal dollars (12.3, 1e3).
+            // Preserve its source text with a diagnostic so downstream totals cannot reinterpret it.
+            return summary ? "0.00" : "Unparsed Teleplan amount: " + value;
+        }
+    }
+
+    /**
+     * Sums usable adjustment components without hiding malformed source text in detail exports.
+     *
+     * @param row PaymentRow containing seven encoded adjustment components
+     * @param summary boolean whether to return the known subtotal even when a component is invalid
+     * @return String dollar total, or all decoded/raw components separated by a vertical bar
+     */
+    private String csvAdjustmentAmount(PaymentRow row, boolean summary, MSPBill bill) {
+        String[] components = {row.tAja1(), row.tAja2(), row.tAja3(), row.tAja4(), row.tAja5(), row.tAja6(), row.tAja7()};
+        BigDecimal total = BigDecimal.ZERO;
+        List<String> details = new ArrayList<>();
+        boolean malformed = false;
+        for (String value : components) {
+            try {
+                String amount = convertReportAmount(value);
+                total = total.add(new BigDecimal(amount));
+                details.add(amount);
+            } catch (NumberFormatException | ArithmeticException invalid) {
+                malformed = true;
+                bill.recordUnparsedAmount();
+                details.add(value == null ? "" : value);
+            }
+        }
+        // Detail shows every component when a total is unavailable; summary keeps the known subtotal.
+        return summary || !malformed ? total.toPlainString() : String.join(" | ", details);
+    }
+
+    /**
+     * Classifies usable payments and retains unknown amounts for later CSV reconciliation.
+     *
+     * @param bill MSPBill whose payment type is populated; null amounts become empty text
+     * @return boolean true for unknown/nonzero payments or zero payments carrying adjustments
+     */
+    private boolean keepCsvPayment(MSPBill bill) {
+        if (bill.amount == null) bill.amount = "";
+        BigDecimal amount = io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary.knownAmount(bill.amount);
+        if (amount == null) {
+            // Rejected scientific notation must not be reparsed as money downstream.
+            if (bill.amount.indexOf('e') >= 0 || bill.amount.indexOf('E') >= 0) {
+                if (!bill.amount.startsWith("Unparsed ")) bill.amount = "Unparsed billing amount: " + bill.amount;
+            }
+            if (bill.getUnparsedAmounts() == 0) bill.recordUnparsedAmount();
+            bill.type = "";
+            return true;
+        }
+        int sign = amount.signum();
+        bill.type = sign > 0 ? "PMT" : sign < 0 ? "RFD" : "";
+        return sign != 0 || !bill.adjustmentCode.isEmpty() || bill.getUnparsedAmounts() > 0;
+    }
 
     public MSPReconcile() {
         initTeleplanMonetarySuffixes();
@@ -285,7 +374,11 @@ public class MSPReconcile {
         return map;
     }
 
+    private int skippedC12Count;
+    public int getSkippedC12Count() { return skippedC12Count; }
+
     public Properties currentC12Records() {
+        skippedC12Count = 0;
         Properties p = new Properties();
         TeleplanC12Dao dao = SpringUtils.getBean(TeleplanC12Dao.class);
 
@@ -298,10 +391,10 @@ public class MSPReconcile {
                 String s = Integer.toString(i);
                 p.put(s, def);
             } catch (NumberFormatException intEx) {
-                MiscUtils.getLogger().error("Error", intEx);
-                MiscUtils.getLogger().debug("Had trouble Parsing int from " + tc.getOfficeFolioClaimNo());
+                skippedC12Count++;
             }
         }
+        if (skippedC12Count > 0) MiscUtils.getLogger().warn("Skipped {} C12 explanations with invalid claim identifiers", skippedC12Count);
         return p;
     }
 
@@ -318,7 +411,7 @@ public class MSPReconcile {
     private String createCorrectionsString(String[] exp) {
         String retval = "";
         for (int i = 0; i < exp.length; i++) {
-            if (exp[i].length() != 0) {
+            if (exp[i] != null && !exp[i].isEmpty()) {
                 retval += exp[i] + " ";
             }
         }
@@ -720,7 +813,7 @@ public class MSPReconcile {
             String seq = t.getDataSeq();
 
             for (int i = 0; i < exp.length; i++) {
-                if (exp[i].length() != 0) {
+                if (exp[i] != null && !exp[i].isEmpty()) {
                     retval.add(seq + "&nbsp;&nbsp;" + exp[i] + "&nbsp;&nbsp;" + p.getProperty(exp[i], ""));
                 }
             }
@@ -795,7 +888,7 @@ public class MSPReconcile {
         TeleplanS00Dao dao = SpringUtils.getBean(TeleplanS00Dao.class);
         for (TeleplanS00 s : dao.findByOfficeNumber(forwardZero(billingmaster_no, 7))) {
             //this line fixes a bug where the amounts weren't calculating negative values
-            String strAmount = convCurValue(s.getPaidAmount());
+            String strAmount = convertReportAmount(s.getPaidAmount());
             double amount = Double.valueOf(strAmount).doubleValue();
             retval += amount;
         }
@@ -825,7 +918,7 @@ public class MSPReconcile {
             String seq = s.getDataSeq();
 
             for (int i = 0; i < exp.length; i++) {
-                if (exp[i].length() != 0) {
+                if (exp[i] != null && !exp[i].isEmpty()) {
                     retval.add(seq + "&nbsp;&nbsp;" + exp[i] + "&nbsp;&nbsp;" + p.getProperty(exp[i], ""));
                 }
             }
@@ -1142,19 +1235,8 @@ public class MSPReconcile {
         BillSearch billSearch = new BillSearch();
         HashMap<String, Vector<String>> rejDetails = null;
         boolean skipBill = false;
-        List<Object> criteriaParams = new ArrayList<>();
-        String criteriaQry = createCriteriaString(account, payeeNo, providerNo, startDate, endDate, excludeWCB, excludeMSP, excludePrivate, exludeICBC, type, "", criteriaParams);
-        Properties c12 = new Properties();
-        String orderByClause = "order by billingstatus";
+        Properties c12 = REP_INVOICE.equals(type) ? currentC12Records() : new Properties();
 
-        if (REP_ACCOUNT_REC.equals(type)) {
-            orderByClause = "order by bs.sortOrder, bm.paymentMethod, b.demographic_name, bm.service_date";
-        } else if (MSPReconcile.REP_INVOICE.equals(type)) {
-            orderByClause = "order by b.provider_no, bt.sortOrder, bm.service_date, b.demographic_name";
-            c12 = currentC12Records();
-        }
-        String p = "select provider.first_name, provider.last_name, b.billingtype, b.update_date, bm.billingmaster_no, b.billing_no, " + " b.demographic_name, b.demographic_no, bm.billing_unit, bm.billing_code, bm.bill_amount, bm.billingstatus, bm.mva_claim_code, bm.service_location," + " bm.phn, bm.service_end_time, service_start_time, bm.service_to_day, bm.service_date, bm.oin_sex_code, b.dob, dx_code1, b.provider_no, apptProvider_no, bt.sortOrder "
-                + " from demographic, provider, billing as b left join billingtypes bt on b.billingtype = bt.billingtype, billingmaster as bm left join billingstatus_types bs on bm.billingstatus = bs.billingstatus" + " where bm.billing_no=b.billing_no " + " and b.provider_no = provider.provider_no " + " and demographic.demographic_no = b.demographic_no " + criteriaQry + " " + orderByClause;
 
         if (type.equals(REP_REJ)) {
             rejDetails = this.getRejectionDetails();
@@ -1165,43 +1247,36 @@ public class MSPReconcile {
         billSearch.justBillingMaster = new ArrayList<String>();
 
         List<MSPBill> bills = new ArrayList<>();
-        MiscUtils.getLogger().debug("p=" + p);
         try {
-            // Close the report cursor before loading totals and enriching its rows. The managed
-            // ResultSet also owns the JDBC statement and connection.
-            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
-                    LegacyJdbcQuery.trustedReportSelectSql(p), criteriaParams.toArray())) {
-
-                while (rs.next()) {
+            for (BillRow row : billingmasterDao.findBcBills(account, payeeNo, providerNo, startDate, endDate, excludeWCB, excludeMSP, excludePrivate, exludeICBC, type)) {
                     MSPBill b = new MSPBill();
-                    b.billingtype = rs.getString("b.billingtype");
-                    b.billing_no = rs.getString("billing_no");
-                    b.demoNo = rs.getString("demographic_no");
-                    b.billingUnit = rs.getString("billing_unit");
-                    b.demoName = rs.getString("demographic_name");
-                    b.apptDate = rs.getString("update_date");
-                    b.reason = rs.getString("billingstatus");
-                    b.serviceEndTime = rs.getString("service_end_time");
-                    b.serviceStartTime = rs.getString("service_start_time");
-                    b.serviceToDate = rs.getString("service_to_day");
+                    b.billingtype = row.billingtype();
+                    b.billing_no = row.billingNo();
+                    b.demoNo = row.demographicNo();
+                    b.billingUnit = row.billingUnit();
+                    b.demoName = row.demographicName();
+                    b.apptDate = row.updateDate();
+                    b.reason = row.billingstatus();
+                    b.serviceEndTime = row.serviceEndTime();
+                    b.serviceStartTime = row.serviceStartTime();
+                    b.serviceToDate = row.serviceToDay();
                     b.status = b.reason;
-                    b.billMasterNo = rs.getString("billingmaster_no");
-                    b.amount = rs.getString("bill_amount");
-                    b.code = rs.getString("billing_code");
-                    b.dx1 = rs.getString("dx_code1");
-                    b.serviceDate = rs.getString("service_date").equals("") ? "00000000" : rs.getString("service_date");
-                    b.mvaCode = rs.getString("mva_claim_code");
-                    b.hin = rs.getString("phn");
-                    b.serviceLocation = rs.getString("service_location");
-                    b.demoDOB = rs.getString("dob");
-                    b.demoSex = rs.getString("oin_sex_code");
-                    b.apptDoctorNo = rs.getString("apptProvider_no");
-                    b.accountNo = rs.getString("b.provider_no");
-                    b.updateDate = rs.getString("update_date");
-                    b.providerFirstName = rs.getString("first_name");
-                    b.providerLastName = rs.getString("last_name");
+                    b.billMasterNo = row.billingmasterNo();
+                    b.amount = row.billAmount();
+                    b.code = row.billingCode();
+                    b.dx1 = row.dxCode1();
+                    b.serviceDate = "".equals(row.serviceDate()) ? "00000000" : row.serviceDate();
+                    b.mvaCode = row.mvaClaimCode();
+                    b.hin = row.phn();
+                    b.serviceLocation = row.serviceLocation();
+                    b.demoDOB = row.dob();
+                    b.demoSex = row.oinSexCode();
+                    b.apptDoctorNo = row.apptProviderNo();
+                    b.accountNo = row.providerNo();
+                    b.updateDate = row.updateDate();
+                    b.providerFirstName = row.firstName();
+                    b.providerLastName = row.lastName();
                     bills.add(b);
-                }
             }
 
             Map<Integer, Double> paidTotals = Collections.emptyMap();
@@ -1214,7 +1289,13 @@ public class MSPReconcile {
                 paidTotals = historyDao.getTotalPaidFromHistoryByBillingMasterNos(billingMasterNos);
             }
 
+            java.util.Map<String, BillingmasterDAO.PatientPhones> reportPhones = REP_REJ.equals(type)
+                    ? billingmasterDao.findReportPhones(bills.stream().map(bill -> bill.demoNo).toList()) : java.util.Map.of();
+            // Match legacy clinic-local service-day aging: deployments configure the server time zone.
+            // Capture one date so every row uses the same boundary even across midnight.
+            java.time.LocalDate reportDate = java.time.LocalDate.now(java.time.ZoneId.systemDefault());
             for (MSPBill b : bills) {
+                b.setServiceDateRange(MSPBill.ageRange(b.serviceDate, reportDate));
                 String expStr = getS00String(b.billMasterNo);
                 b.expString = "".equals(expStr) ? expStr : "(" + expStr + ")";
                 b.reason = this.getStatusDesc(b.reason);
@@ -1225,12 +1306,11 @@ public class MSPReconcile {
 
                 // WCB SECTION ---------------------------------------------------------
                 if (b.isWCB()) {
-                    String wcbQry = "select bill_amount, w_feeitem, w_icd9 from wcb where billing_no = ?";
-                    String[] wcbRow = SqlUtils.getRow(wcbQry, b.billing_no);
+                    WcbRow wcbRow = billingmasterDao.findBcWcb(b.billing_no);
                     if (wcbRow != null) {
-                        b.amount = wcbRow[0];
-                        b.code = wcbRow[1];
-                        b.dx1 = wcbRow[2];
+                        b.amount = wcbRow.amount();
+                        b.code = wcbRow.feeItem();
+                        b.dx1 = wcbRow.diagnosis();
                     }
                 }
                 // REJECTED SECTION ---------------------------------------------------------
@@ -1255,19 +1335,25 @@ public class MSPReconcile {
                         }
                     }
 
-                    try (ResultSet rsDemo = LegacyJdbcQuery.getPreparedResultSet(
-                            "select phone, phone2 from demographic where demographic_no = ?", b.demoNo)) {
-                        if (rsDemo.next()) {
-                            b.demoPhone = rsDemo.getString("phone");
-                            b.demoPhone2 = rsDemo.getString("phone2");
-                        }
+                    var phone = reportPhones.get(b.demoNo);
+                    if (phone != null) {
+                        b.demoPhone = phone.phone();
+                        b.demoPhone2 = phone.phone2();
                     }
                 } else if (MSPReconcile.REP_INVOICE.equals(type)) {
-                    double dblAmtOwing = this.getAmountOwing(b.billMasterNo, b.amount, b.billingtype,
-                            paidTotals.getOrDefault(ConversionUtils.fromIntString(b.billMasterNo), 0.0));
-                    b.amtOwing = String.valueOf(dblAmtOwing);
+                    b.amtOwing = "";
+                    if (canCalculateReportBalance(b.amount)) {
+                        try {
+                            double dblAmtOwing = this.getAmountOwing(b.billMasterNo, b.amount, b.billingtype,
+                                    paidTotals.getOrDefault(ConversionUtils.fromIntString(b.billMasterNo), 0.0));
+                            b.amtOwing = String.valueOf(dblAmtOwing);
+                        } catch (NumberFormatException | ArithmeticException invalid) {
+                            if (!failOnReadError) throw invalid;
+                            // An unreadable payment makes the balance unknown, not an unpaid bill.
+                        }
+                    }
                     //append the explanatory code to end of reason field
-                    String expString = c12.getProperty(b.billing_no) != null ? c12.getProperty(b.billing_no) : "";
+                    String expString = c12.getProperty(b.billMasterNo) != null ? c12.getProperty(b.billMasterNo) : "";
                     b.reason += " " + expString;
                     if ("E".equals(b.status)) {
                         b.adjustmentCode = b.expString;
@@ -1282,10 +1368,18 @@ public class MSPReconcile {
                  * we need to get the difference between what was billed and what was paid
                  **/
                 if (type.equals(MSPReconcile.REP_ACCOUNT_REC)) {
-                    double dblAmtOwing = this.getAmountOwing(b.billMasterNo, b.amount, b.billingtype,
-                            paidTotals.getOrDefault(ConversionUtils.fromIntString(b.billMasterNo), 0.0));
-                    b.amtOwing = String.valueOf(dblAmtOwing);
-                    skipBill = Double.valueOf(b.amtOwing).doubleValue() == 0.0;
+                    b.amtOwing = "";
+                    if (canCalculateReportBalance(b.amount)) {
+                        try {
+                            double dblAmtOwing = this.getAmountOwing(b.billMasterNo, b.amount, b.billingtype,
+                                    paidTotals.getOrDefault(ConversionUtils.fromIntString(b.billMasterNo), 0.0));
+                            b.amtOwing = String.valueOf(dblAmtOwing);
+                            skipBill = dblAmtOwing == 0.0;
+                        } catch (NumberFormatException | ArithmeticException invalid) {
+                            if (!failOnReadError) throw invalid;
+                            // Keep the claim; an unknown balance cannot establish that it is settled.
+                        }
+                    }
                 }
 
                 if (!skipBill) {
@@ -1297,9 +1391,27 @@ public class MSPReconcile {
                 }
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            reportReadFailure(e);
         }
         return billSearch;
+    }
+
+    /**
+     * Protects CSV balance arithmetic from missing, malformed or non-finite billed values.
+     *
+     * @param amount String billed decimal dollars
+     * @return boolean true for legacy PDF callers, or when CSV can use the double-based calculation
+     */
+    private boolean canCalculateReportBalance(String amount) {
+        if (!failOnReadError) return true;
+        if (amount == null || amount.isBlank()) return false;
+        try {
+            return Double.isFinite(new BigDecimal(amount).doubleValue());
+        } catch (NumberFormatException invalid) {
+            // CSV retains the source amount, but cannot infer a balance or call the bill settled.
+            // Database/payment-read failures still propagate through reportReadFailure.
+            return false;
+        }
     }
 
     /**
@@ -1339,6 +1451,8 @@ public class MSPReconcile {
                                  double totalPaidFromHistory) {
         amountBilled = (amountBilled != null && !amountBilled.equals("")) ? amountBilled : "0.0";
         double dbltBilled = Double.valueOf(amountBilled).doubleValue();
+        if (!Double.isFinite(dbltBilled) || !Double.isFinite(totalPaidFromHistory))
+            throw new NumberFormatException("Billing balance is unavailable");
         double totalPaidFromS00 = 0.0;
         if (!MSPReconcile.BILLTYPE_PRI.equalsIgnoreCase(billingType)) {
             //bills of type msp, icbc, wcb
@@ -1346,21 +1460,22 @@ public class MSPReconcile {
             for (TeleplanS00 s : dao.findByOfficeNumber(forwardZero(billingMasterNo, 7))) {
                 if ("HS".equals(s.getExp1())) {
                     totalPaidFromS00 = Double.parseDouble(amountBilled);
-                    log.debug("Bill has HS setting the totalPaid to amountBilled  " + amountBilled);
+                    if (!failOnReadError) log.debug("Bill has HS setting the totalPaid to amountBilled  " + amountBilled);
                     break;
                 }
                 String paidAmount = s.getPaidAmount();
-                paidAmount = MSPReconcile.convCurValue(paidAmount);
+                paidAmount = convertReportAmount(paidAmount);
                 Double dblAmtPaid = Double.valueOf(paidAmount);
                 totalPaidFromS00 += dblAmtPaid.doubleValue();
-                log.debug("paidAmount " + paidAmount);
+                if (!failOnReadError) log.debug("paidAmount " + paidAmount);
             }
         }
-        log.debug("amtPaid = totalPaidFromHistory + totalPaidFromS00; " + totalPaidFromHistory + "+" + totalPaidFromS00);
+        if (!failOnReadError) log.debug("amtPaid = totalPaidFromHistory + totalPaidFromS00; " + totalPaidFromHistory + "+" + totalPaidFromS00);
         double amtPaid = totalPaidFromHistory + totalPaidFromS00;
-        log.debug("amtPaid " + amtPaid);
+        if (!failOnReadError) log.debug("amtPaid " + amtPaid);
         double dblAmountOwing = amtPaid < 0 ? dbltBilled + amtPaid : dbltBilled - amtPaid;
         dblAmountOwing = UtilMisc.toCurrencyDouble(dblAmountOwing);
+        if (!Double.isFinite(dblAmountOwing)) throw new NumberFormatException("Billing balance is unavailable");
         return dblAmountOwing;
     }
 
@@ -1408,75 +1523,97 @@ public class MSPReconcile {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public MSPReconcile.BillSearch getPayments(String account, String payeeNo, String providerNo, String startDate, String endDate, boolean excludeWCB, boolean excludeMSP, boolean excludePrivate, boolean exludeICBC) {
+        return getPayments(account, payeeNo, providerNo, startDate, endDate, excludeWCB, excludeMSP, excludePrivate, exludeICBC, REP_PAYREF);
+    }
+
+    /**
+     * Reads payment rows for a detail or summary report. CSV summaries sum usable adjustment
+     * components; detail rows retain malformed component text so it can be reconciled.
+     *
+     * @param account String account filter
+     * @param payeeNo String payee filter
+     * @param providerNo String provider filter
+     * @param startDate String inclusive payment-date lower bound
+     * @param endDate String inclusive payment-date upper bound
+     * @param excludeWCB boolean whether to exclude WCB bills
+     * @param excludeMSP boolean whether to exclude MSP bills
+     * @param excludePrivate boolean whether to exclude private bills
+     * @param exludeICBC boolean whether to exclude ICBC bills
+     * @param reportType String REP_PAYREF or REP_PAYREF_SUM
+     * @return BillSearch payment rows in report order
+     * @throws MissingBcPaymentProviderException if a provider lookup fails in legacy PDF mode
+     * @throws IllegalStateException if strict CSV mode cannot read billing data
+     */
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal billing type; not a security decision")
+    public MSPReconcile.BillSearch getPayments(String account, String payeeNo, String providerNo, String startDate, String endDate,
+            boolean excludeWCB, boolean excludeMSP, boolean excludePrivate, boolean exludeICBC, String reportType) {
         BillSearch billSearch = new BillSearch();
-        List<Object> criteriaParams = new ArrayList<>();
-        String criteriaQry = createCriteriaString(account, payeeNo, providerNo, UtilMisc.replace(startDate, "-", ""), UtilMisc.replace(endDate, "-", ""), excludeWCB, excludeMSP, excludePrivate, exludeICBC, MSPReconcile.REP_PAYREF, "", criteriaParams);
-        String p = "SELECT teleplanS00.t_payment, b.billingtype, b.demographic_name, apptProvider_no, provider_no, payee_no, b.demographic_no, teleplanS00.t_paidamt, t_exp1, t_exp2, t_dataseq, bm.service_date, bm.paymentMethod, teleplanS00.t_ajc1," + " teleplanS00.t_aja1, teleplanS00.t_aja2, teleplanS00.t_aja3, teleplanS00.t_aja4, teleplanS00.t_aja5, teleplanS00.t_aja6, teleplanS00.t_aja7, bm.billingmaster_no, teleplanS00.t_practitionerno"
-                + " FROM teleplanS00 left join billingmaster as bm on teleplanS00.t_officeno = bm.billingmaster_no, billing as b" + " where b.billing_no = bm.billing_no" + criteriaQry + " and bm.billingstatus != 'D'" + " order by t_payment";
+
 
         billSearch.list = new ArrayList<Object>();
         billSearch.count = 0;
         billSearch.justBillingMaster = new ArrayList<String>();
 
-        ResultSet rs = null;
         try {
 
-            rs = LegacyJdbcQuery.getPreparedResultSet(
-                    LegacyJdbcQuery.trustedReportSelectSql(p), criteriaParams.toArray());
-            while (rs.next()) {
+            for (PaymentRow row : billingmasterDao.findBcPayments(account, payeeNo, providerNo, startDate, endDate, excludeWCB, excludeMSP, excludePrivate, exludeICBC)) {
                 MSPBill b = new MSPBill();
-                b.billingtype = rs.getString("b.billingtype");
-                b.paymentDate = rs.getString("t_payment");
-                b.paymentMethod = rs.getString("paymentMethod");
+                b.billingtype = row.billingtype();
+                b.paymentDate = row.tPayment();
+                b.paymentMethod = row.paymentMethod();
                 b.setPaymentMethodName(this.getPaymentMethodDesc(b.paymentMethod));
-                b.demoNo = rs.getString("demographic_no");
-                b.demoName = rs.getString("demographic_name");
+                b.demoNo = row.demographicNo();
+                b.demoName = row.demographicName();
 
                 if (!MSPReconcile.BILLTYPE_PRI.equalsIgnoreCase(b.billingtype)) {
-                    b.amount = MSPReconcile.convCurValue(rs.getString("t_paidamt"));
+                    b.amount = csvPaymentAmount(row.tPaidamt(), REP_PAYREF_SUM.equals(reportType), b);
                 } else {
-                    b.amount = String.valueOf(getAmountPaid(rs.getString("bm.billingmaster_no"), MSPReconcile.BILLTYPE_PRI));
-                    if (!StringUtils.isNumeric(b.amount)) {
+                    b.amount = String.valueOf(getAmountPaid(row.billingmasterNo(), MSPReconcile.BILLTYPE_PRI));
+                    if (!failOnReadError && !StringUtils.isNumeric(b.amount)) {
                         throw new RuntimeException("Amount not a number");
-                        //     b.amount = this.convCurValue(rs.getString("t_paidamt"));
+                        //     b.amount = this.convCurValue(row.tPaidamt());
                     }
                 }
                 b.status = b.reason;
-                b.serviceDate = rs.getString("service_date");
-                b.seqNum = rs.getString("t_dataseq");
-                b.exp1 = rs.getString("t_exp1");
-                b.exp2 = rs.getString("t_exp2");
-                b.apptDoctorNo = rs.getString("t_practitionerno");
-                b.userno = rs.getString("provider_no");
-                b.payeeNo = rs.getString("payee_no");
-                b.adjustmentCode = rs.getString("teleplanS00.t_ajc1");
+                b.serviceDate = row.serviceDate();
+                b.seqNum = row.tDataseq();
+                b.exp1 = row.tExp1();
+                b.exp2 = row.tExp2();
+                b.apptDoctorNo = row.tPractitionerno();
+                b.userno = row.providerNo();
+                b.payeeNo = row.payeeNo();
+                b.adjustmentCode = row.tAjc1();
 
                 //should be empty string if there is no adjustment
                 b.adjustmentCodeAmt = "";
                 b.adjustmentCode = b.adjustmentCode == null ? "" : b.adjustmentCode;
                 b.adjustmentCodeDesc = "";
                 if (!"".equals(b.adjustmentCode)) {
-                    String adjCode1amt1Str = convCurValue(rs.getString("teleplanS00.t_aja1"));
-                    String adjCode1amt2Str = convCurValue(rs.getString("teleplanS00.t_aja2"));
-                    String adjCode1amt3Str = convCurValue(rs.getString("teleplanS00.t_aja3"));
-                    String adjCode1amt4Str = convCurValue(rs.getString("teleplanS00.t_aja4"));
-                    String adjCode1amt5Str = convCurValue(rs.getString("teleplanS00.t_aja5"));
-                    String adjCode1amt6Str = convCurValue(rs.getString("teleplanS00.t_aja6"));
-                    String adjCode1amt7Str = convCurValue(rs.getString("teleplanS00.t_aja7"));
+                    if (failOnReadError) {
+                        b.adjustmentCodeAmt = csvAdjustmentAmount(row, REP_PAYREF_SUM.equals(reportType), b);
+                    } else {
+                        String adjCode1amt1Str = convertReportAmount(row.tAja1());
+                        String adjCode1amt2Str = convertReportAmount(row.tAja2());
+                        String adjCode1amt3Str = convertReportAmount(row.tAja3());
+                        String adjCode1amt4Str = convertReportAmount(row.tAja4());
+                        String adjCode1amt5Str = convertReportAmount(row.tAja5());
+                        String adjCode1amt6Str = convertReportAmount(row.tAja6());
+                        String adjCode1amt7Str = convertReportAmount(row.tAja7());
 
-                    double adjCode1amt1 = Double.parseDouble(adjCode1amt1Str);
-                    double adjCode1amt2 = Double.parseDouble(adjCode1amt2Str);
-                    double adjCode1amt3 = Double.parseDouble(adjCode1amt3Str);
-                    double adjCode1amt4 = Double.parseDouble(adjCode1amt4Str);
-                    double adjCode1amt5 = Double.parseDouble(adjCode1amt5Str);
-                    double adjCode1amt6 = Double.parseDouble(adjCode1amt6Str);
-                    double adjCode1amt7 = Double.parseDouble(adjCode1amt7Str);
+                        double adjCode1amt1 = Double.parseDouble(adjCode1amt1Str);
+                        double adjCode1amt2 = Double.parseDouble(adjCode1amt2Str);
+                        double adjCode1amt3 = Double.parseDouble(adjCode1amt3Str);
+                        double adjCode1amt4 = Double.parseDouble(adjCode1amt4Str);
+                        double adjCode1amt5 = Double.parseDouble(adjCode1amt5Str);
+                        double adjCode1amt6 = Double.parseDouble(adjCode1amt6Str);
+                        double adjCode1amt7 = Double.parseDouble(adjCode1amt7Str);
 
-                    String adjCodeAmt = String.valueOf(adjCode1amt1 + adjCode1amt2 + adjCode1amt3 + adjCode1amt4 + adjCode1amt5 + adjCode1amt6 + adjCode1amt7);
-                    b.adjustmentCodeAmt = adjCodeAmt;
+                        String adjCodeAmt = String.valueOf(adjCode1amt1 + adjCode1amt2 + adjCode1amt3 + adjCode1amt4 + adjCode1amt5 + adjCode1amt6 + adjCode1amt7);
+                        b.adjustmentCodeAmt = adjCodeAmt;
+                    }
                     b.adjustmentCodeDesc = getAdjustmentCodeDesc(b.adjustmentCode) + "(" + b.adjustmentCode + ")";
                     if (b.adjustmentCodeDesc.equals("")) {
-                        MiscUtils.getLogger().debug("no description for b.adjustmentCode:" + b.adjustmentCode);
+                        if (!failOnReadError) MiscUtils.getLogger().debug("no description for b.adjustmentCode:" + b.adjustmentCode);
                     }
                 }
 
@@ -1485,6 +1622,15 @@ public class MSPReconcile {
                 b.payeeName = this.getProvider(b.payeeNo, 1).getInitials();
                 b.provName = this.getProvider(b.apptDoctorNo, 1).getInitials();
 
+                if (failOnReadError) {
+                    // Preserve malformed rows and zero payments with adjustments. Summary formatting
+                    // treats unusable payment amounts as zero without discarding valid adjustments.
+                    if (!keepCsvPayment(b)) continue;
+                    billSearch.justBillingMaster.add(b.billMasterNo);
+                    billSearch.list.add(b);
+                    billSearch.count++;
+                    continue;
+                }
                 double dblAmount = Double.valueOf(b.amount).doubleValue();
                 /**
                  * @todo Get rid of hard coded strings
@@ -1499,22 +1645,17 @@ public class MSPReconcile {
                     billSearch.count++;
                 }
             }
+        } catch (MissingBcPaymentProviderException e) {
+            throw e;
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        } finally {
-            try {
-                if (rs != null) {
-                    rs.close();
-                }
-            } catch (SQLException ex) {
-                MiscUtils.getLogger().error("Error", ex);
-            }
-
+            reportReadFailure(e);
         }
 
         //Now we need to get the Private Payments
         if (!excludePrivate) {
-            MSPReconcile.BillSearch privatePayments = getPrivatePayments(account, payeeNo, providerNo, startDate, endDate, true);
+            MSPReconcile.BillSearch privatePayments = failOnReadError
+                    ? getPrivatePayments(account, payeeNo, providerNo, startDate, endDate)
+                    : getPrivatePayments(account, payeeNo, providerNo, startDate, endDate, true);
             List<Object> privatePaymentsList = privatePayments.list;
             if (privatePaymentsList != null && !privatePaymentsList.isEmpty()) {
                 billSearch.list.addAll(privatePaymentsList);
@@ -1539,28 +1680,22 @@ public class MSPReconcile {
 
         endDate = UtilMisc.replace(endDate, "-", "");
         BillSearch billSearch = new BillSearch();
-        List<Object> criteriaParams = new ArrayList<>();
-        String criteriaQry = createCriteriaString(account, payeeNo, providerNo, startDate, endDate, true, true, false, true, "", "creation_date", criteriaParams);
-        String p = "SELECT b.billingtype, bm.billingmaster_no, b.demographic_no, b.demographic_name, bm.service_date, b.apptProvider_no, b.provider_no, bm.payee_no," + " bh.creation_date, bh.amount_received, payment_type_id" + " FROM billing_history bh left join billingmaster bm on bh.billingmaster_no = bm.billingmaster_no, billing b" + " where bm.billing_no = b.billing_no " + " and bh.payment_type_id != " + MSPReconcile.PAYTYPE_IA + " " + criteriaQry + " and bm.billingstatus != '" + MSPReconcile.DELETED + "'";
-        MiscUtils.getLogger().debug(p);
+
         billSearch.list = new ArrayList<Object>();
 
-        ResultSet rs = null;
         try {
 
-            rs = LegacyJdbcQuery.getPreparedResultSet(
-                    LegacyJdbcQuery.trustedReportSelectSql(p), criteriaParams.toArray());
-            while (rs.next()) {
+            for (PrivatePaymentRow row : billingmasterDao.findBcPrivatePayments(account, payeeNo, providerNo, startDate, endDate)) {
                 MSPBill b = new MSPBill();
-                b.billMasterNo = rs.getString("bm.billingmaster_no");
-                b.billingtype = rs.getString("b.billingtype");
-                b.demoNo = rs.getString("demographic_no");
-                b.demoName = rs.getString("demographic_name");
+                b.billMasterNo = row.billingmasterNo();
+                b.billingtype = row.billingtype();
+                b.demoNo = row.demographicNo();
+                b.demoName = row.demographicName();
                 b.status = b.reason;
-                b.serviceDate = rs.getString("service_date");
-                b.apptDoctorNo = rs.getString("apptProvider_no");
-                b.userno = rs.getString("provider_no");
-                b.payeeNo = rs.getString("payee_no");
+                b.serviceDate = row.serviceDate();
+                b.apptDoctorNo = row.apptProviderNo();
+                b.userno = row.providerNo();
+                b.payeeNo = row.payeeNo();
 
                 Provider actProv = this.getProvider(b.userno, 0);
                 b.accountName = actProv.getFullName();
@@ -1569,10 +1704,14 @@ public class MSPReconcile {
                 b.payeeName = this.getProvider(b.payeeNo, 1).getInitials();
                 b.provName = this.getProvider(b.apptDoctorNo, 0).getInitials();
 
-                b.amount = rs.getString("amount_received");
-                b.paymentDate = this.fmt.format(rs.getDate("creation_date"));
-                b.paymentMethod = rs.getString("payment_type_id");
+                b.amount = row.amountReceived();
+                b.paymentDate = failOnReadError && row.creationDate() == null ? "" : this.fmt.format(java.sql.Date.valueOf(row.creationDate()));
+                b.paymentMethod = row.paymentTypeId();
                 b.setPaymentMethodName(this.getPaymentMethodDesc(b.paymentMethod));
+                if (failOnReadError) {
+                    if (keepCsvPayment(b)) billSearch.list.add(b);
+                    continue;
+                }
                 double dblAmount = UtilMisc.safeParseDouble(b.amount);
                 b.type = dblAmount > 0 ? "PMT" : "RFD";
                 if (dblAmount != 0) {
@@ -1580,16 +1719,7 @@ public class MSPReconcile {
                 }
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        } finally {
-            try {
-                if (rs != null) {
-                    rs.close();
-                }
-            } catch (SQLException ex) {
-                MiscUtils.getLogger().error("Error", ex);
-            }
-
+            reportReadFailure(e);
         }
         return billSearch;
     }
@@ -1605,28 +1735,21 @@ public class MSPReconcile {
 
         endDate = UtilMisc.replace(endDate, "-", "");
         BillSearch billSearch = new BillSearch();
-        List<Object> criteriaParams = new ArrayList<>();
-        String criteriaQry = createCriteriaString(account, payeeNo, providerNo, startDate, endDate, true, true, false, true, "", "creation_date", criteriaParams);
-        String p = "SELECT b.billingtype, bm.billingmaster_no, b.demographic_no, b.demographic_name, bm.service_date, b.apptProvider_no, b.provider_no, bm.payee_no," + " bh.creation_date, bh.amount_received, payment_type_id" + " FROM billing_history bh left join billingmaster bm on bh.billingmaster_no = bm.billingmaster_no, billing b" + " where bm.billing_no = b.billing_no " + " and bh.payment_type_id != " + MSPReconcile.PAYTYPE_IA + " " + criteriaQry + " and bm.billingstatus != '" + MSPReconcile.DELETED + "'";
-        MiscUtils.getLogger().debug(p);
         billSearch.list = new ArrayList<Object>();
 
-        ResultSet rs = null;
         try {
 
-            rs = LegacyJdbcQuery.getPreparedResultSet(
-                    LegacyJdbcQuery.trustedReportSelectSql(p), criteriaParams.toArray());
-            while (rs.next()) {
+            for (PrivatePaymentRow row : billingmasterDao.findBcPrivatePayments(account, payeeNo, providerNo, startDate, endDate)) {
                 MSPBill b = new MSPBill();
-                b.billMasterNo = rs.getString("bm.billingmaster_no");
-                b.billingtype = rs.getString("b.billingtype");
-                b.demoNo = rs.getString("demographic_no");
-                b.demoName = rs.getString("demographic_name");
+                b.billMasterNo = row.billingmasterNo();
+                b.billingtype = row.billingtype();
+                b.demoNo = row.demographicNo();
+                b.demoName = row.demographicName();
                 b.status = b.reason;
-                b.serviceDate = rs.getString("service_date");
-                b.apptDoctorNo = rs.getString("apptProvider_no");
-                b.userno = rs.getString("provider_no");
-                b.payeeNo = rs.getString("payee_no");
+                b.serviceDate = row.serviceDate();
+                b.apptDoctorNo = row.apptProviderNo();
+                b.userno = row.providerNo();
+                b.payeeNo = row.payeeNo();
 
                 Provider actProv = this.getProvider(b.userno, 0);
                 b.accountName = actProv.getFullName();
@@ -1635,17 +1758,18 @@ public class MSPReconcile {
                 b.payeeName = this.getProvider(b.payeeNo, 1).getInitials();
                 b.provName = this.getProvider(b.apptDoctorNo, 0).getInitials();
 
-                double amountReceived = Double.parseDouble(rs.getString("amount_received"));
-//				double billAmount = Double.parseDouble(rs.getString("bill_amount"));
-//				double gst = Double.parseDouble(rs.getString("gst"));
+                double amountReceived = Double.parseDouble(row.amountReceived());
+//				double billAmount = Double.parseDouble(row.billAmount());
+//				double gst = Double.parseDouble(row.gst());
                 b.amount = "" + amountReceived;
 
 //				b.setGst(new BigDecimal(billAmount == 0 ? 0 : (amountReceived * (gst / billAmount))).setScale(2, RoundingMode.HALF_UP).toString());
-//				b.setGstNo(rs.getString("gst_no"));
+//				b.setGstNo(row.gstNo());
 
-                b.paymentDate = this.fmt.format(rs.getDate("creation_date"));
-                b.paymentMethod = rs.getString("payment_type_id");
+                b.paymentDate = this.fmt.format(java.sql.Date.valueOf(row.creationDate()));
+                b.paymentMethod = row.paymentTypeId();
                 b.setPaymentMethodName(this.getPaymentMethodDesc(b.paymentMethod));
+                if (failOnReadError) new BigDecimal(b.amount);
                 double dblAmount = UtilMisc.safeParseDouble(b.amount);
                 b.type = dblAmount > 0 ? "PMT" : "RFD";
                 if (dblAmount != 0) {
@@ -1653,16 +1777,7 @@ public class MSPReconcile {
                 }
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        } finally {
-            try {
-                if (rs != null) {
-                    rs.close();
-                }
-            } catch (SQLException ex) {
-                MiscUtils.getLogger().error("Error", ex);
-            }
-
+            reportReadFailure(e);
         }
         return billSearch;
     }
@@ -1680,96 +1795,6 @@ public class MSPReconcile {
             return bpt.getPaymentType();
         }
         return "";
-    }
-
-    /**
-     * Creates an SQL fragment that is used as the criteria(WHERE Clause) in the retrieval
-     * of MSP Bills
-     *
-     * @param account         String
-     * @param payeeNo         String
-     * @param providerNo      String
-     * @param startDate       String
-     * @param endDate         String
-     * @param excludeWCB      boolean
-     * @param excludeMSP      boolean
-     * @param excludePrivate  boolean
-     * @param exludeICBC      boolean
-     * @param repType         String
-     * @param dateFieldOption String
-     * @return String
-     */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private String createCriteriaString(String account, String payeeNo, String providerNo, String startDate, String endDate, boolean excludeWCB, boolean excludeMSP, boolean excludePrivate, boolean exludeICBC, String repType, String dateFieldOption, List<Object> criteriaParams) {
-        String criteriaQry = "";
-        String dateField = MSPReconcile.REP_PAYREF.equals(repType) ? "t_payment" : "service_date";
-
-        //This class in need of significant refactoring, (especially this gawd-aweful section which was extracted from the getBills method purely to avoid code duplication
-
-        if ("creation_date".equals(dateFieldOption)) {
-            dateField = "creation_date";
-        }
-        if (providerNo != null && !providerNo.trim().equalsIgnoreCase("all")) {
-            if (MSPReconcile.REP_PAYREF.equals(repType)) {
-                String[] row = SqlUtils.getRow("select ohip_no from provider where provider_no = ?", providerNo);
-                if (row != null && row.length > 0) {
-                    String ohip_no = row[0];
-                    criteriaQry += " and t_practitionerno = ?";
-                    criteriaParams.add(ohip_no);
-                } else {
-                    throw new RuntimeException("Provider must have ohip no!");
-                }
-            } else {
-                criteriaQry += " and b.apptProvider_no = ?";
-                criteriaParams.add(providerNo);
-            }
-        }
-
-        if (payeeNo != null && !payeeNo.trim().equalsIgnoreCase("all")) {
-            criteriaQry += " and bm.payee_no LIKE ?";
-            criteriaParams.add(payeeNo);
-        }
-        if (account != null && !account.trim().equalsIgnoreCase("all")) {
-            criteriaQry += " and b.provider_no LIKE ?";
-            criteriaParams.add(account);
-        }
-        if (startDate != null && !startDate.trim().equalsIgnoreCase("")) {
-            criteriaQry += " and ( to_days(" + dateField + ") >= to_days(?)) ";
-            criteriaParams.add(startDate);
-        }
-
-        if (endDate != null && !endDate.trim().equalsIgnoreCase("")) {
-            criteriaQry += " and ( to_days(" + dateField + ") <= to_days(?)) ";
-            criteriaParams.add(endDate);
-        }
-        //put this crap in a Map and use an 'in' clause instead
-        if (excludeWCB) {
-            criteriaQry += " and b.billingType != 'WCB' ";
-        }
-
-        if (excludeMSP) {
-            criteriaQry += " and b.billingType != 'MSP' ";
-        }
-
-        if (excludePrivate) {
-            criteriaQry += " and b.billingType != 'Pri' ";
-        }
-
-        if (exludeICBC) {
-            criteriaQry += " and b.billingType != 'ICBC' ";
-        }
-
-        if (repType.equals(MSPReconcile.REP_REJ)) {
-            criteriaQry += " and bm.billingstatus = '" + MSPReconcile.REJECTED + "'";
-        } else if (repType.equals(MSPReconcile.REP_INVOICE)) {
-            criteriaQry += " and bm.billingstatus != '" + MSPReconcile.DELETED + "'";
-        } else if (repType.equals(MSPReconcile.REP_ACCOUNT_REC)) {
-            criteriaQry += " and bm.billingstatus not in('" + MSPReconcile.DELETED + "','" + MSPReconcile.BADDEBT + "')";
-        } else if (repType.equals(MSPReconcile.REP_WO)) {
-            criteriaQry += " and bm.billingstatus = '" + MSPReconcile.BADDEBT + "'";
-        }
-        return criteriaQry;
     }
 
     /**
@@ -1839,86 +1864,13 @@ public class MSPReconcile {
     }
 
     /**
-     * Returns a String value representing an SQL query used in the rertrieval of MSP remittance data.
+     * Returns detached MSP remittance rows for the specified payee and S21 remittance.
      *
      * @param payeeNo String
-     * @return ResultSet
+     * @return detached remittance rows
      */
-    public ResultSet getMSPRemittanceQuery(String payeeNo, String s21Id) {
-        MiscUtils.getLogger().debug(new java.util.Date() + ":MSPReconcile.getMSPRemittanceQuery(payeeNo, s21Id)");
-        String qry = "SELECT billing_code, provider.first_name, provider.last_name, t_practitionerno, t_s00type, billingmaster.service_date as 't_servicedate', t_payment," + "t_datacenter, billing.demographic_name, billing.demographic_no, teleplanS00.t_paidamt, t_exp1, t_exp2, t_exp3, t_exp4, t_exp5, t_exp6, t_dataseq " + " from teleplanS00, billing, billingmaster, provider " + " where teleplanS00.t_officeno = billingmaster.billingmaster_no " + " and teleplanS00.s21_id = ?"
-                + " and billingmaster.billing_no = billing.billing_no " + " and provider.ohip_no= teleplanS00.t_practitionerno " + " and teleplanS00.t_practitionerno NOT LIKE '' and teleplanS00.t_payeeno LIKE ? order by provider.first_name, t_servicedate, billing.demographic_name";
-
-        ResultSet rs = null;
-        try {
-
-            rs = LegacyJdbcQuery.getPreparedResultSet(qry, s21Id, payeeNo);
-        } catch (SQLException ex) {
-            MiscUtils.getLogger().error("Error", ex);
-        }
-        return rs;
-    }
-
-    /**
-     * Returns a ResultSet containing remittance information for the specified S21 and payee number (including any adjustments)
-     *
-     * @param payeeNo String
-     * @param s21Id   String
-     * @return ResultSet
-     */
-    public ResultSet getAdjustmentsMSPRemittanceQuery(String payeeNo, String s21Id) {
-        MiscUtils.getLogger().debug(new java.util.Date() + ":MSPReconcile.getAdjustmentsMSPRemittanceQuery(payeeNo, s21Id)");
-
-        String qry = "SELECT b.billing_no, bm.billingmaster_no, bm.billing_code, p.first_name, p.last_name, ts00.t_practitionerno, ts00.t_s00type, ts00.t_msprcddate, bm.service_date, ts00.t_payment, ts00.t_datacenter, b.demographic_name, b.demographic_no, \n" +
-                "IF(t_paidamt/100>bm.bill_amount, \"+\", IF(t_paidamt/100<bm.bill_amount, \"-\", \"\")) as differential, ts00.t_paidamt, bm.bill_amount, \n" +
-                "ts00.t_exp1, ts00.t_exp2, ts00.t_exp3, ts00.t_exp4, ts00.t_exp5, ts00.t_exp6, ts00.t_dataseq, \n" +
-                "t_ajc1, t_aja1, t_ajc2, t_aja2, t_ajc3, t_aja3, t_ajc4, t_aja4, t_ajc5, t_aja5, t_ajc6, t_aja6, t_ajc7, t_aja7\n" +
-                "\n" +
-                "from teleplanS00 ts00\n" +
-                "join billingmaster bm on ts00.t_officeno = bm.billingmaster_no\n" +
-                "join billing b on bm.billing_no = b.billing_no\n" +
-                "join provider p on p.ohip_no= ts00.t_practitionerno\n" +
-                "where ts00.s21_id = ?\n" +
-                "and ts00.t_practitionerno != '' \n" +
-                "and ts00.t_payeeno = ?\n" +
-                "order by p.first_name, bm.service_date, b.demographic_name;";
-
-        ResultSet rs = null;
-        try {
-
-            rs = LegacyJdbcQuery.getPreparedResultSet(qry, s21Id, payeeNo);
-        } catch (SQLException ex) {
-            MiscUtils.getLogger().error("Error", ex);
-        }
-        return rs;
-    }
-
-    /**
-     * Returns a boolean whether there is a record of a teleplan_submission_link matching on billingmaster_no, submission/received date and datacenter_no
-     *
-     * @param billingmasterNo String
-     * @param receivedDate    String
-     * @param dataCenterNo    String
-     * @return boolean
-     */
-    public boolean hasMatchingBillingRecord(String billingmasterNo, String receivedDate, String dataCenterNo) {
-        MiscUtils.getLogger().debug(new java.util.Date() + ":MSPReconcile.hasMatchingBillingRecord(String billingmasterNo, String receivedDate, String dataCenterNo)");
-
-        String qry = "SELECT tsl.id \n" +
-                "FROM teleplan_submission_link tsl \n" +
-                "JOIN billingmaster bm on bm.billingmaster_no = tsl.billingmaster_no\n" +
-                "JOIN billactivity ba on ba.id = tsl.bill_activity_id\n" +
-                "WHERE tsl.billingmaster_no = ?\n" +
-                "AND bm.datacenter = ?\n" +
-                "AND ba.sentdate like ?";
-
-        boolean hasResults = false;
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(qry, billingmasterNo, dataCenterNo, receivedDate)) {
-            hasResults = rs.next();
-        } catch (SQLException ex) {
-            MiscUtils.getLogger().error("Error", ex);
-        }
-        return hasResults;
+    public List<RemittanceRow> getMSPRemittanceQuery(String payeeNo, String s21Id) {
+        return billingmasterDao.findBcRemittance(payeeNo, s21Id);
     }
 
     /**
@@ -2008,9 +1960,9 @@ public class MSPReconcile {
             s21.setPaymentDate(t.getPayment());
             s21.setPayeeNo(t.getPayeeNo());
             s21.setPayeeName(t.getPayeeName());
-            s21.setAmtBilled(MSPReconcile.convCurValue(t.getAmountBilled()));
-            s21.setAmtPaid(MSPReconcile.convCurValue(t.getAmountPaid()));
-            s21.setCheque(MSPReconcile.convCurValue(t.getCheque()));
+            s21.setAmtBilled(convertReportAmount(t.getAmountBilled()));
+            s21.setAmtPaid(convertReportAmount(t.getAmountPaid()));
+            s21.setCheque(convertReportAmount(t.getCheque()));
         }
 
         return s21;
@@ -2030,6 +1982,8 @@ public class MSPReconcile {
         if (value == null || value.equals("")) {
             return "0.0";
         }
+        // Teleplan pads unpaid amounts with spaces; preserve the legacy zero fallback without an error.
+        if (value.isBlank()) return "0";
         try {
             boolean isNeg = false;
             String ret = value;
@@ -2083,6 +2037,9 @@ public class MSPReconcile {
      */
     public boolean isPrivateBillItemOutstanding(String billingmaster_no, double amount) {
         double amountPaid = Double.valueOf(getAmountPaid(billingmaster_no, BILLTYPE_PRI)).doubleValue();
+        if (!Double.isFinite(amountPaid) || !Double.isFinite(amount)) {
+            throw new IllegalStateException("Private bill balance is unavailable");
+        }
         return amountPaid < amount;
     }
 

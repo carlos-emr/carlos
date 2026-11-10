@@ -8,6 +8,9 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
+import io.github.carlos_emr.carlos.commn.model.Prevention;
+import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
+import io.github.carlos_emr.carlos.prevention.PreventionDateService;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -17,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
 
 /**
  * Prints an encounter through the real {@link CaseManagementPrintPdf} and checks that clinic,
@@ -51,8 +55,18 @@ class CaseManagementPrintPdfUnicodeUnitTest extends CarlosUnitTestBase {
         note.setObservation_date(new Date(1_790_000_000_000L));
 
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        CaseManagementPrintPdf pdf = new CaseManagementPrintPdf(request, output);
+        PartialDateDao partialDates = mock(PartialDateDao.class);
+        when(partialDates.getFormat(4, 41, 7)).thenReturn("YYYY");
+        Prevention partial = new Prevention();
+        org.springframework.test.util.ReflectionTestUtils.setField(partial, "id", 41);
+        partial.setPreventionType("Td");
+        partial.setPreventionDate(java.sql.Date.valueOf("2019-01-01"));
+        Prevention unknown = new Prevention();
+        unknown.setPreventionType("MMR");
+        CaseManagementPrintPdf pdf = new CaseManagementPrintPdf(request, output,
+                () -> new PreventionDateService(partialDates));
         pdf.printDocHeaderFooter();
+        pdf.printPreventions(List.of(partial, unknown));
         pdf.printAllergies(List.of(allergy));
         pdf.printNotes(List.of(note));
         pdf.finish();
@@ -65,6 +79,8 @@ class CaseManagementPrintPdfUnicodeUnitTest extends CarlosUnitTestBase {
             }
             assertThat(new PDFTextStripper().getText(document)).contains("FAKE-诊所 Łukasz", "FAKE 1 北京路",
                     "FAKE-陈, 小明", "Dr FAKE-김민준", "FAKE-페니실린", "FAKE-じんましん", "FAKE-复诊 ≥5 mmol/L");
+            assertThat(new PDFTextStripper().getText(document)).contains("2019 - Td", "Unknown - MMR")
+                    .doesNotContain("01-Jan-2019");
         }
     }
 }

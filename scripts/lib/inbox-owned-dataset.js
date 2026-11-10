@@ -1,5 +1,6 @@
 /**
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * Modifications by CARLOS Contributors, 2026.
  *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -119,15 +120,18 @@ async function prepareInboxDataset(s, mode, dependencies = {}) {
   if (mode === 'filters') {
     const prepareProgram = dependencies.prepareProgram || require('./incoming-filing-program-fixture').prepareIncomingFilingProgram;
     const createDocument = dependencies.createDocument || require('./stored-document-mutation-fixture').createStoredDocumentFixture;
-    let document, attempted = false;
+    let document, documentCleanupRegistered = false, documentCleanupComplete = false;
     const {program} = prepareProgram({...s, cleanup(callback) {
       s.cleanup(() => {
-        h.assert(!attempted || document?.isCleaned(), 'Retain Inbox admission while owned document cleanup is incomplete');
+        h.assert(!documentCleanupRegistered || documentCleanupComplete,
+          'Retain Inbox admission while owned document cleanup is incomplete');
         return callback();
       });
     }});
-    attempted = true;
-    document = createDocument(s, program);
+    document = createDocument({...s, cleanup(callback) {
+      s.cleanup(async () => { await callback(); documentCleanupComplete = true; });
+      documentCleanupRegistered = true;
+    }}, program);
     // workflow-session closes the browser before unwinding callbacks in reverse order.
     s.cleanup(() => document.closeAfterDrain());
     const identity = `DOC:${document.sourceId}`;

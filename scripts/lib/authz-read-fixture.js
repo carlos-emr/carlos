@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+// Modifications by CARLOS Contributors, 2026.
 'use strict';
 /*
  * Role-matrix fixture for the authz-read-* checks ("does a read route serve data to a
@@ -11,7 +12,8 @@
  * Every row it writes carries a provider number drawn from 800000-899999 and the run marker
  * as the provider's last name; cleanup deletes by those owned keys only and asserts they are
  * gone, including the rows the application itself writes for the login (audit `log`,
- * provider_facility, ProviderPreference*, property, program_provider, providersite).
+ * provider_facility, ProviderPreference*, property, program_provider, provider_default_program,
+ * providersite).
  *
  * Patient locks follow the convention of hrm-report-print-download-playwright-checks.js: a
  * `secObjPrivilege` row (roleUserGroup = the login's provider number, objectName =
@@ -42,7 +44,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { assert, sqlString, SkipCheck } = require('./playwright-harness');
 
-const PROVIDER_LINKED_TABLES = ['provider_facility', 'program_provider', 'providersite', 'property', 'secUserRole'];
+const PROVIDER_LINKED_TABLES = ['provider_facility', 'program_provider', 'provider_default_program',
+  'providersite', 'property', 'secUserRole'];
 const PROVIDER_PREFERENCE_TABLES = ['ProviderPreferenceAppointmentScreenEForm', 'ProviderPreferenceAppointmentScreenForm',
   'ProviderPreferenceAppointmentScreenQuickLink', 'ProviderPreference'];
 
@@ -52,8 +55,7 @@ const PROVIDER_PREFERENCE_TABLES = ['ProviderPreferenceAppointmentScreenEForm', 
  * and nothing more. It holds no sec object a clinical, billing or administrative write needs.
  *
  * Nothing is added for the login itself: a login with no sec object at all signs in through the
- * form and lands on the schedule (authz-read-role-matrix proves it with er_clerk, which the
- * seed leaves without a single secObjPrivilege row), and providercontrol needs `_appointment` r,
+ * form and lands on the schedule's deliberate 403 page. providercontrol needs `_appointment` r,
  * which `w` already includes (OscarRoleObjectPrivilege's r < u < w hierarchy).
  */
 const WRITE_RESTRICTED_PRIVILEGES = Object.freeze({ _demographic: 'r', _appointment: 'w', _eChart: 'r' });
@@ -63,6 +65,9 @@ const PRIVILEGE_VALUE = /^[ruwdxo]$/;
 const OBJECT_NAME = /^_[A-Za-z0-9_.]{1,60}$/;
 
 /**
+ * Create isolated authorization identities and remove their provider-owned rows on cleanup.
+ * Program defaults are inherited only when a caller explicitly requests that policy context.
+ *
  * @param sql the session's createSqlRunner result
  * @param marker the run marker (`FAKE-PW<16 hex>`)
  * @param provider provider_no of the shared test login (lastUpdateUser, orgcd source)
@@ -207,7 +212,7 @@ function authzReadFixture({ sql, marker, provider, testUser }) {
 
     /**
      * Create a login holding exactly one seeded role.
-     * @return {username, providerNo, role}; sign in with config.testPassword / config.testPin.
+     * @return {username, providerNo, role, scheduleAccess}; sign in with config.testPassword / config.testPin.
      */
     addLogin(roleName) {
       assert(sql.value(`SELECT COUNT(*) FROM security WHERE user_name=${sqlString(testUser)}`) === '1',
@@ -219,7 +224,22 @@ function authzReadFixture({ sql, marker, provider, testUser }) {
       assert(sql.value(`SELECT COUNT(*) FROM security WHERE user_name=${sqlString(username)}`) === '0',
         'A security row already carries this run\'s authz-read username');
       const providerNo = unusedProviderNo();
-      const login = { username, providerNo, role: roleName };
+      // A login holds exactly one role. Match the gate's r/u/w hierarchy and
+      // legacy "only" prefixes, so signIn can validate (and narrowly excuse)
+      // the schedule's expected 403 centrally for every restricted fixture.
+      const scheduleAccess = sql.rows(`SELECT privilege FROM secObjPrivilege
+        WHERE roleUserGroup=${sqlString(roleName)} AND objectName='_appointment'`)
+        .some(row => {
+          // OscarRoleObjectPrivilege checks tokens in order: an "only" token
+          // stops even when it denies read access. A later w must not override od.
+          for (const token of String(row[0]).split('|')) {
+            const right = token.trim().toLowerCase();
+            if (/^(?:o)?[ruwx]$/.test(right)) return true;
+            if (right.length > 1 && right.startsWith('o')) return false;
+          }
+          return false;
+        });
+      const login = { username, providerNo, role: roleName, scheduleAccess };
       // Registered before the first INSERT so cleanup() covers a half-built login.
       logins.push(login);
       const p = sqlString(providerNo);
@@ -247,9 +267,11 @@ function authzReadFixture({ sql, marker, provider, testUser }) {
      * sets up staff (PMmodule Staff). Program membership is not a sec object, but the chart files
      * every note under the provider's program (EctProgram.getProgram), and a provider in no
      * program has its note save fail for that reason before any authorization question is asked.
-     * removeLogin() deletes the rows (program_provider is a provider-linked table).
+     * With copyDefaults, also preserve the shared login's default program and signing setting:
+     * the first membership can carry a different reporter role and note-read policy (#5355).
+     * removeLogin() deletes both provider-linked tables, including after a partial setup.
      */
-    joinTestLoginPrograms(login) {
+    joinTestLoginPrograms(login, { copyDefaults = false } = {}) {
       assert(logins.includes(login), 'joinTestLoginPrograms needs a login created by this fixture');
       const p = sqlString(login.providerNo);
       sql.execute(`INSERT INTO program_provider (program_id, provider_no, role_id, team_id)
@@ -257,6 +279,16 @@ function authzReadFixture({ sql, marker, provider, testUser }) {
       const joined = sql.value(`SELECT COUNT(*) FROM program_provider WHERE provider_no=${p}`);
       assert(joined === sql.value(`SELECT COUNT(*) FROM program_provider WHERE provider_no=${sqlString(provider)}`),
         'The login did not join exactly the test login\'s programs');
+      if (copyDefaults) {
+        const defaults = owner => sql.rows(`SELECT program_id,signnote FROM provider_default_program
+          WHERE provider_no=? ORDER BY program_id,signnote`, [owner]);
+        const expectedDefaults = defaults(provider);
+        assert(expectedDefaults.length > 0, 'The test login has no default program to inherit');
+        sql.execute(`INSERT INTO provider_default_program (provider_no, program_id, signnote)
+          SELECT ?, program_id, signnote FROM provider_default_program WHERE provider_no=?`, [login.providerNo, provider]);
+        assert(JSON.stringify(defaults(login.providerNo)) === JSON.stringify(expectedDefaults),
+          'The login did not inherit exactly the test login\'s default programs');
+      }
       return Number(joined);
     },
 
@@ -426,7 +458,7 @@ function seedPatientDomains({ sql, demo, tag, provider, register, documentStore 
     VALUES (${p},${d},CURDATE(),DATE_ADD(CURDATE(),INTERVAL 30 DAY),CURDATE(),${T('rx')},${T('rx')},0,0,NOW(),0,0); SELECT LAST_INSERT_ID()`));
   ids.prev = track('preventions', 'id', sql.value(`INSERT INTO preventions
     (demographic_no,creation_date,prevention_date,provider_no,provider_name,prevention_type,deleted,refused,never,creator,lastUpdateDate)
-    VALUES (${d},NOW(),CURDATE(),${p},${T('prev')},'Flu','0','0','0',${p},NOW()); SELECT LAST_INSERT_ID()`));
+    VALUES (${d},NOW(),CURDATE(),${p},${T('prev')},'Inf','0','0','0',${p},NOW()); SELECT LAST_INSERT_ID()`));
   ids.meas = track('measurements', 'id', sql.value(`INSERT INTO measurements
     (type,demographicNo,providerNo,dataField,measuringInstruction,comments,dateObserved,dateEntered)
     VALUES ('WT',${d},${p},'77','kg',${T('meas')},NOW(),NOW()); SELECT LAST_INSERT_ID()`));

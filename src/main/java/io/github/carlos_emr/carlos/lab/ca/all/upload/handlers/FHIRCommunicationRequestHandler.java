@@ -29,6 +29,8 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.upload.handlers;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import org.openpdf.text.pdf.PdfReader;
 
 import ca.uhn.fhir.context.FhirContext;
@@ -39,9 +41,12 @@ import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileReader;
-import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
@@ -56,7 +61,6 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -95,7 +99,11 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
     protected static Logger logger = MiscUtils.getLogger();
     private static FhirContext fhirContext = FhirContext.forDstu3();
     private ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) SpringUtils.getBean(ProviderInboxRoutingDao.class);
-    private static SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+    /*
+     * Immutable, so safe to share between concurrent uploads; the shared SimpleDateFormat it
+     * replaced could file one upload under another's date (issue #5301).
+     */
+    private static final DateTimeFormatter OBSERVATION_DATE = DateTimeFormatter.ofPattern("uuuu-MM-dd", Locale.ROOT);
 
 
     /**
@@ -132,11 +140,11 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             try {
                 targetFile = PathValidationUtils.validateExistingPath(fileName, baseDir);
             } catch (SecurityException e) {
-                logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                logger.error("Path traversal attempt detected");
                 return null;
             }
             if (!targetFile.exists() || !targetFile.isFile()) {
-                logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                logger.error("File does not exist or is not a regular file");
                 return null;
             }
             
@@ -148,7 +156,13 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             List<Reference> refs = communicationRequest.getRecipient();
             Reference patient = communicationRequest.getSubject();
 
-            Date createDate = communicationRequest.getAuthoredOn();
+            // The document is filed under the clinic's date of authoredOn. Without one there is no
+            // date to file it under: refuse it before its PDF is written.
+            String observationDate = observationDate(communicationRequest.getAuthoredOn(), ZoneId.systemDefault());
+            if (observationDate == null) {
+                logger.error("CommunicationRequest has no authoredOn date; not creating a document record");
+                return null;
+            }
             Attachment attachment = communicationRequest.getPayloadFirstRep().getContentAttachment();
             String title = attachment.getTitle();
             String docType = "";
@@ -182,7 +196,7 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
                     providerNo,
                     "",
                     'A',
-                    sdf.format(createDate),
+                    observationDate,
                     "", "", "demographic",
                     patient.getReference().substring("Patient/".length()), false);
 
@@ -203,13 +217,29 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             LogAction.addLog(providerNo, LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, ipAddr, "", "DocUpload.FHIRCommunicationRequest");
 
         } catch (Exception e) {
-            logger.error("error parsing Document Reference Document", e);
+            logger.error("error parsing Document Reference Document: {}", LogSafe.exceptionTrace(e));
             return null;
         } finally {
             IOUtils.closeQuietly(in);
         }
 
         return "success";
+    }
+
+    /**
+     * The clinic's calendar date of a CommunicationRequest's {@code authoredOn} instant, as the
+     * {@code yyyy-MM-dd} observation date its document is filed under.
+     *
+     * @param authoredOn Date the request's authoredOn instant; may be {@code null}
+     * @param clinicZone ZoneId the clinic's zone
+     * @return String the date text, or {@code null} when {@code authoredOn} is {@code null}
+     */
+    static String observationDate(Date authoredOn, ZoneId clinicZone) {
+        if (authoredOn == null) {
+            return null;
+        }
+        // The epoch milliseconds rather than toInstant(), which a java.sql.Date refuses.
+        return OBSERVATION_DATE.format(Instant.ofEpochMilli(authoredOn.getTime()).atZone(clinicZone));
     }
 
     /**

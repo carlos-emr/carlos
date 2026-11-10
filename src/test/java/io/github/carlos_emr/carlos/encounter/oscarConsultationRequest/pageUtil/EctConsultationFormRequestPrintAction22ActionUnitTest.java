@@ -28,16 +28,21 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.HashMap;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -69,6 +74,9 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
+import io.github.carlos_emr.carlos.hospitalReportManager.HRMPDFCreator;
+import io.github.carlos_emr.carlos.managers.NioFileManager;
+import io.github.carlos_emr.carlos.managers.NioFileManagerImpl;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -82,6 +90,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
@@ -138,6 +149,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(ConsultationManager.class, consultationManager);
         registerMock(FaxManager.class, faxManager);
+        registerMock(NioFileManager.class, new NioFileManagerImpl());
         // CommonLabResultData resolves these DAOs in its static initializer; register them so the
         // class can initialize when Mockito instruments it for mocked construction below.
         patientLabRoutingDao = mock(PatientLabRoutingDao.class);
@@ -218,6 +230,91 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 31, 32, 33, 1025})
+    @SuppressWarnings("unchecked")
+    void shouldPreserveExactPdfBytes_whenBuffersHaveUnusedCapacity(int length) throws Exception {
+        byte[] payload = new byte[length];
+        for (int index = 0; index < length; index++) {
+            payload[index] = (byte) (index * 31 + length);
+        }
+        consultationPdfCreatorConstruction.close();
+        consultationPdfCreatorConstruction = mockConstruction(ConsultationPDFCreator.class, (creator, context) ->
+                doAnswer(invocation -> {
+                    ((OutputStream) context.arguments().get(1)).write(payload);
+                    return null;
+                }).when(creator).printPdf(any()));
+
+        EDoc image = mock(EDoc.class);
+        when(image.getDocId()).thenReturn("10");
+        when(image.isPrintable()).thenReturn(true);
+        when(image.isImage()).thenReturn(true);
+        eDocUtilMock.when(() -> EDocUtil.listDocs(any(), eq("1"), eq("42"), anyBoolean()))
+                .thenReturn(new ArrayList<>(List.of(image)));
+        when(ctlDocumentDao.findDocumentNosForDemographic(eq(1), anyCollection())).thenReturn(List.of(10));
+        commonLabResultDataConstruction.close();
+        LabResultData lab = new LabResultData(LabResultData.HL7TEXT);
+        lab.setSegmentID("30");
+        commonLabResultDataConstruction = mockConstruction(CommonLabResultData.class, (data, context) ->
+                when(data.populateLabResultsData(any(), eq("1"), eq("42"), anyBoolean()))
+                        .thenReturn(new ArrayList<>(List.of(lab))));
+        when(patientLabRoutingDao.findLabNosForDemographic(eq(1), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                .thenReturn(List.of(30));
+        HashMap<String, Object> hrm = new HashMap<>();
+        hrm.put("id", 7);
+        when(consultationManager.getAttachedHRMDocuments(loggedInInfo, "1", "42"))
+                .thenReturn(new ArrayList<>(List.of(hrm)));
+
+        List<Path> labFiles = new ArrayList<>();
+        NioFileManager fileManager = spy(new NioFileManagerImpl());
+        doAnswer(invocation -> {
+            Path file = (Path) invocation.callRealMethod();
+            labFiles.add(file);
+            return file;
+        }).when(fileManager).saveTempFile(eq("consultationLab"), any(ByteArrayOutputStream.class));
+        registerMock(NioFileManager.class, fileManager);
+        try (MockedConstruction<ImagePDFCreator> images = mockConstruction(ImagePDFCreator.class, (creator, context) ->
+                     doAnswer(invocation -> {
+                         ((OutputStream) context.arguments().get(1)).write(payload);
+                         return null;
+                     }).when(creator).printPdf());
+             MockedConstruction<LabPDFCreator> labs = mockConstruction(LabPDFCreator.class, (creator, context) ->
+                     doAnswer(invocation -> {
+                         Path labFile = invocation.getArgument(0, java.io.File.class).toPath();
+                         if (Files.getFileStore(labFile).supportsFileAttributeView("posix")) {
+                             assertThat(Files.getPosixFilePermissions(labFile.getParent())).isEqualTo(
+                                     java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+                         }
+                         invocation.getArgument(1, OutputStream.class).write(payload);
+                         return null;
+                     }).when(creator).addEmbeddedDocuments(any(), any()));
+             MockedConstruction<HRMPDFCreator> hrms = mockConstruction(HRMPDFCreator.class, (creator, context) ->
+                     doAnswer(invocation -> {
+                         ((OutputStream) context.arguments().getFirst()).write(payload);
+                         return null;
+                     }).when(creator).printPdf());
+             MockedStatic<ConcatPDF> concat = mockStatic(ConcatPDF.class)) {
+            concat.when(() -> ConcatPDF.concat(any(List.class), any(OutputStream.class))).thenAnswer(invocation -> {
+                List<Object> streams = invocation.getArgument(0);
+                assertThat(streams).hasSize(4);
+                for (Object stream : streams) {
+                    assertThat(((InputStream) stream).readAllBytes()).containsExactly(payload);
+                }
+                invocation.getArgument(1, OutputStream.class).write(payload);
+                return 0;
+            });
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getContentAsByteArray()).containsExactly(payload);
+            assertThat(images.constructed()).hasSize(1);
+            assertThat(labs.constructed()).hasSize(1);
+            assertThat(hrms.constructed()).hasSize(1);
+            assertThat(labFiles).hasSize(1);
+            assertThat(labFiles.getFirst()).doesNotExist();
+            assertThat(labFiles.getFirst().getParent()).doesNotExist();
+        }
+    }
+
     @Test
     @DisplayName("should return NONE after a successful print whose bytes were already streamed")
     void shouldReturnNone_afterSuccessfulPrintStreaming() throws Exception {
@@ -265,6 +362,36 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
                 assertThat(result).isEqualTo(ActionSupport.NONE);
                 assertThat(request.getAttribute("printError")).isNull();
             }
+        } finally {
+            Files.deleteIfExists(attachedForm);
+        }
+    }
+
+    @Test
+    void shouldStreamOmissionNoticeBeforeAttachments_whenStoredFormAndHrmAreUnavailable() throws Exception {
+        var formRow = new io.github.carlos_emr.carlos.commn.model.ConsultDocs(42, 701, "F", "999998");
+        var hrmRow = new io.github.carlos_emr.carlos.commn.model.ConsultDocs(42, 801, "H", "999998");
+        when(consultationManager.getAttachedDocumentsByType(loggedInInfo, 42, "F")).thenReturn(List.of(formRow));
+        when(consultationManager.getAttachedDocumentsByType(loggedInInfo, 42, "H")).thenReturn(List.of(hrmRow));
+        Path attachedForm = createRenderedPdf();
+        EFormData eform = mock(EFormData.class);
+        when(eform.getId()).thenReturn(7);
+        when(eform.getDemographicId()).thenReturn(1);
+        when(consultationManager.getAttachedEForms("42")).thenReturn(List.of(eform));
+        when(faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.EFORM, 7, 1)).thenReturn(attachedForm);
+        try (MockedStatic<ConcatPDF> concat = mockStatic(ConcatPDF.class)) {
+            concat.when(() -> ConcatPDF.concat(org.mockito.ArgumentMatchers.<List<Object>>any(), any(java.io.OutputStream.class))).thenAnswer(invocation -> {
+                List<?> parts = invocation.getArgument(0);
+                assertThat(parts).hasSize(3);
+                try (var notice = org.apache.pdfbox.Loader.loadPDF(((InputStream) parts.get(1)).readAllBytes())) {
+                    String text = new org.apache.pdfbox.text.PDFTextStripper().getText(notice);
+                    assertThat(text).contains("Attachments not included", "clinical form", "An attachment is unavailable")
+                            .doesNotContain("701", "801", "HRM");
+                }
+                return 0;
+            });
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getContentType()).isEqualTo("application/pdf");
         } finally {
             Files.deleteIfExists(attachedForm);
         }
@@ -425,6 +552,113 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         } finally {
             Files.deleteIfExists(ownForm);
         }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @ValueSource(strings = {"success", "render", "embed"})
+    @DisplayName("should protect and remove managed lab PDFs after successful or failed rendering")
+    void shouldRemoveManagedLabPdf_whenRenderingCompletesOrFails(String outcome) throws Exception {
+        Path temporaryRoot = Path.of(System.getProperty("java.io.tmpdir"));
+        List<Path> staged = new ArrayList<>();
+        try {
+            NioFileManager fileManager = spy(new NioFileManagerImpl());
+            doAnswer(invocation -> {
+                Path file = (Path) invocation.callRealMethod();
+                staged.add(file);
+                assertThat(file).startsWith(temporaryRoot);
+                if (file.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+                    assertThat(Files.getPosixFilePermissions(file.getParent())).isEqualTo(
+                            java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+                }
+                return file;
+            }).when(fileManager).saveTempFile(eq("consultationLab"), any(ByteArrayOutputStream.class));
+            registerMock(NioFileManager.class, fileManager);
+            listOwnedHl7Lab();
+            try (MockedStatic<ConcatPDF> concat = mockStatic(ConcatPDF.class);
+                 MockedConstruction<LabPDFCreator> creators = mockConstruction(LabPDFCreator.class, (creator, context) -> {
+                         doAnswer(invocation -> {
+                             assertThat(staged.getFirst()).exists();
+                             if (outcome.equals("render")) throw new IOException("synthetic lab render failure");
+                             return null;
+                         }).when(creator).printPdf();
+                         doAnswer(invocation -> {
+                             assertThat(staged.getFirst()).exists();
+                             if (outcome.equals("embed")) throw new IOException("synthetic lab embed failure");
+                             return null;
+                         }).when(creator).addEmbeddedDocuments(any(), any());
+                 })) {
+                assertThat(action.execute()).isEqualTo(outcome.equals("success") ? ActionSupport.NONE : "error");
+                assertThat(request.getAttribute("printError")).isEqualTo(outcome.equals("success") ? null : Boolean.TRUE);
+                assertThat(creators.constructed()).hasSize(1);
+                assertThat(staged).hasSize(1);
+                assertThat(staged.getFirst()).doesNotExist();
+                assertThat(staged.getFirst().getParent()).doesNotExist();
+            }
+        } finally {
+            for (Path file : staged) {
+                Files.deleteIfExists(file);
+                Files.deleteIfExists(file.getParent());
+            }
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @CsvSource({"false, IOException", "true, IOException", "false, SecurityException", "true, SecurityException"})
+    @DisplayName("should preserve the render result and attempt both deletions when cleanup fails")
+    void shouldPreserveRenderResult_whenLabCleanupFails(boolean renderFails, String cleanupType) throws Exception {
+        Path labPdf = new NioFileManagerImpl().saveTempFile("consultationLab", new ByteArrayOutputStream());
+        NioFileManager fileManager = mock(NioFileManager.class);
+        when(fileManager.saveTempFile(eq("consultationLab"), any(ByteArrayOutputStream.class))).thenReturn(labPdf);
+        registerMock(NioFileManager.class, fileManager);
+        listOwnedHl7Lab();
+        String primaryMessage = "synthetic primary lab failure";
+        try (LogCapture logs = LogCapture.forLogger(EctConsultationFormRequestPrintAction22Action.class);
+             MockedStatic<ConcatPDF> concat = mockStatic(ConcatPDF.class);
+             MockedStatic<Files> files = mockStatic(Files.class, invocation -> {
+                 if (invocation.getMethod().getName().equals("deleteIfExists")) {
+                     if (cleanupType.equals("SecurityException")) {
+                         throw new SecurityException("sensitive patient path");
+                     }
+                     throw new IOException("sensitive patient path");
+                 }
+                 return invocation.callRealMethod();
+             });
+             MockedConstruction<LabPDFCreator> creators = mockConstruction(LabPDFCreator.class, (creator, context) ->
+                     doAnswer(invocation -> {
+                         if (renderFails) throw new IOException(primaryMessage);
+                         return null;
+                     }).when(creator).printPdf())) {
+            assertThat(action.execute()).isEqualTo(renderFails ? "error" : ActionSupport.NONE);
+            files.verify(() -> Files.deleteIfExists(labPdf));
+            files.verify(() -> Files.deleteIfExists(labPdf.getParent()));
+            assertThat(logs.events()).filteredOn(event -> event.getLevel() == org.apache.logging.log4j.Level.WARN)
+                    .hasSize(2).allSatisfy(event -> {
+                        assertThat(event.getMessage().getFormattedMessage()).isIn(
+                                "Failed to remove consultation lab temporary file (" + cleanupType + ")",
+                                "Failed to remove consultation lab temporary directory (" + cleanupType + ")");
+                        assertThat(event.getThrown()).isNull();
+                    });
+            if (renderFails) {
+                assertThat(logs.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(org.apache.logging.log4j.Level.ERROR);
+                    assertThat(event.getThrown()).isInstanceOf(IOException.class).hasMessage(primaryMessage);
+                });
+            }
+        } finally {
+            Files.deleteIfExists(labPdf);
+            Files.deleteIfExists(labPdf.getParent());
+        }
+    }
+
+    private void listOwnedHl7Lab() {
+        commonLabResultDataConstruction.close();
+        LabResultData lab = new LabResultData(LabResultData.HL7TEXT);
+        lab.setSegmentID("30");
+        commonLabResultDataConstruction = mockConstruction(CommonLabResultData.class, (data, context) ->
+                when(data.populateLabResultsData(any(), eq("1"), eq("42"), anyBoolean()))
+                        .thenReturn(new ArrayList<>(List.of(lab))));
+        when(patientLabRoutingDao.findLabNosForDemographic(eq(1), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                .thenReturn(List.of(30));
     }
 
     @Test

@@ -40,44 +40,99 @@ import jakarta.persistence.Query;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 import io.github.carlos_emr.carlos.config.CacheConfig;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus> implements AppointmentStatusDao {
+    private static final String ALL_KEY = "all";
+    private static final String ACTIVE_KEY = "active";
+    private static final String STATUS_KEY_PREFIX = "status:";
 
-    public AppointmentStatusDaoImpl() {
+    /*
+     * Reads use CacheManager directly instead of @Cacheable so the cache holds private copies
+     * and every read, hit or miss, returns fresh copies (issue #5304). @Cacheable would hand
+     * every caller the same cached entity instances, so one caller's change would be seen by
+     * all readers until the cache expired. Keys, bounds (CacheConfig) and the transaction-aware
+     * put/evict behaviour are unchanged; every write still evicts through the @CacheEvict
+     * overrides below.
+     */
+    private final CacheManager cacheManager;
+
+    /**
+     * @param cacheManager the application's transaction-aware cache manager ({@code CacheConfig}),
+     *                     which must define the {@code appointmentStatuses} cache
+     */
+    @Autowired
+    public AppointmentStatusDaoImpl(CacheManager cacheManager) {
         super(AppointmentStatus.class);
+        this.cacheManager = cacheManager;
     }
 
-    @Cacheable(value = CacheConfig.APPOINTMENT_STATUSES, key = "'all'")
+    /**
+     * Returns every appointment status, active or not.
+     *
+     * @return an unmodifiable list of detached copies; changing an element affects only this
+     *         caller's copy and writes nothing to the database
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<AppointmentStatus> findAll() {
+        List<AppointmentStatus> cached = getCachedList(ALL_KEY);
+        if (cached != null) {
+            return copyStatuses(cached);
+        }
+
         Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName());
-        return Collections.unmodifiableList(new ArrayList<>(query.getResultList()));
+        List<AppointmentStatus> results = query.getResultList();
+
+        cache().put(ALL_KEY, copyStatuses(results));
+        return copyStatuses(results);
     }
 
-    @Cacheable(value = CacheConfig.APPOINTMENT_STATUSES, key = "'active'")
+    /**
+     * Returns the active appointment statuses ordered by id.
+     *
+     * @return an unmodifiable list of detached copies; changing an element affects only this
+     *         caller's copy and writes nothing to the database
+     */
     @Override
     public List<AppointmentStatus> findActive() {
+        List<AppointmentStatus> cached = getCachedList(ACTIVE_KEY);
+        if (cached != null) {
+            return copyStatuses(cached);
+        }
+
         Query q = entityManager.createQuery("select a from AppointmentStatus a where a.active=?1 order by a.id");
         q.setParameter(1, 1);
 
         @SuppressWarnings("unchecked")
         List<AppointmentStatus> results = q.getResultList();
 
-        return Collections.unmodifiableList(new ArrayList<>(results));
+        cache().put(ACTIVE_KEY, copyStatuses(results));
+        return copyStatuses(results);
     }
 
-    @Cacheable(value = CacheConfig.APPOINTMENT_STATUSES, key = "'status:' + #status",
-               condition = "#status != null && !#status.isEmpty()",
-               unless = "#result == null")
+    /**
+     * Finds the status whose code starts with the first character of {@code status}.
+     *
+     * @param status the status code; only its first character is matched
+     * @return a detached copy of the matching status, or {@code null} when {@code status} is
+     *         null/empty or nothing matches (a miss is not cached)
+     */
     @Override
     public AppointmentStatus findByStatus(String status) {
         if (status == null || status.length() == 0) {
             return null;
+        }
+
+        String cacheKey = STATUS_KEY_PREFIX + status;
+        AppointmentStatus cached = getCachedStatus(cacheKey);
+        if (cached != null) {
+            return AppointmentStatus.copyOf(cached);
         }
 
         Query q = entityManager.createQuery("select a from AppointmentStatus a where a.status like ?1");
@@ -88,11 +143,42 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
 
         for (AppointmentStatus r : results) {
             if (r.getStatus() != null && r.getStatus().length() > 0 && r.getStatus().charAt(0) == status.charAt(0)) {
-                return r;
+                cache().put(cacheKey, AppointmentStatus.copyOf(r));
+                return AppointmentStatus.copyOf(r);
             }
         }
 
         return null;
+    }
+
+    private Cache cache() {
+        Cache cache = cacheManager.getCache(CacheConfig.APPOINTMENT_STATUSES);
+        if (cache == null) {
+            throw new IllegalStateException("Cache not configured: " + CacheConfig.APPOINTMENT_STATUSES);
+        }
+        return cache;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<AppointmentStatus> getCachedList(String key) {
+        Cache.ValueWrapper wrapper = cache().get(key);
+        return wrapper == null ? null : (List<AppointmentStatus>) wrapper.get();
+    }
+
+    private AppointmentStatus getCachedStatus(String key) {
+        Cache.ValueWrapper wrapper = cache().get(key);
+        return wrapper == null ? null : (AppointmentStatus) wrapper.get();
+    }
+
+    /*
+     * Unmodifiable, as these lists always were; the elements are new copies on every call.
+     */
+    private static List<AppointmentStatus> copyStatuses(List<AppointmentStatus> source) {
+        List<AppointmentStatus> copies = new ArrayList<>(source.size());
+        for (AppointmentStatus appointmentStatus : source) {
+            copies.add(AppointmentStatus.copyOf(appointmentStatus));
+        }
+        return Collections.unmodifiableList(copies);
     }
 
     @CacheEvict(value = CacheConfig.APPOINTMENT_STATUSES, allEntries = true)

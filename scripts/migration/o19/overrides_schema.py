@@ -40,9 +40,17 @@ ran those updates they surface through preflight's unknown-table flow (B2,
 archive-by-default).
 """
 
-# Nullable Program flags no longer need primitive coercion during import.
+# Consent value expressions now retire undecided records and duplicate history.
 # Refuse resuming a partially applied import under the previous conversion rules.
-SCHEMA_MAP_VERSION = "o19map-4"
+SCHEMA_MAP_VERSION = "o19map-7"
+
+# Every colliding member receives a new name: an old shared file cannot be
+# assigned to a particular submission from its basename alone. CLI 1.3.2
+# builds and independently verifies these helpers and the live audit.
+BILLING_FILENAME_RULES = {
+    "billing_on_diskname": "o19-billing-v1",
+    "billing_on_filename": "o19-billing-v1",
+}
 
 #: Provinces the import verb will actually RUN, as opposed to provinces
 #: the package carries a profile for (generate_manifests.PROVINCES).
@@ -275,15 +283,19 @@ FK_REMAP = {
 
 # --- shared tables that must NOT copy ---------------------------------------
 
-# Bearer/OAuth tokens issued by the OSCAR 19 install. Copying them would let
-# every token that was live on the old server authenticate against CARLOS;
-# they are archived for the record and never restored into the live schema
-# (integrations re-authorize after the migration).
-ARCHIVE_SHARED = {"SecurityToken", "ServiceAccessToken", "ServiceRequestToken"}
+# Preserve established OAuth 1.0a grants across a clinic migration. Browser/security
+# sessions and unfinished authorization handshakes still stay in the archive.
+ARCHIVE_SHARED = {"SecurityToken", "ServiceRequestToken"}
 
-# Copied verbatim, but they ARE credentials: the ETL report names them under
-# a rotate/verify advisory (OAuth consumer secrets, signing key pairs).
-CREDENTIAL_TABLES = ["ServiceClient", "oscarKeys", "publicKeys"]
+# Copied verbatim, including access-token secrets. The existing carry-credentials
+# acknowledgement covers these; migration does not rotate or renew credentials.
+CREDENTIAL_TABLES = ["ServiceClient", "ServiceAccessToken", "oscarKeys", "publicKeys"]
+
+# The pinned early O19 tree predates the configurable client lifetime column.
+# Later O19 clinics have it: include it in the manifest so effective_entry copies
+# their setting, rather than treating it as a vendor column to archive. The CLI
+# supplies -1 ONLY when this column is absent (the early O19 issuance behavior).
+SOURCE_OPTIONAL_COLUMNS = {"ServiceClient": {"lifetime"}}
 
 # The claim header P7 aggregates by fiscal year, per province. It is the
 # money check -- the one verification an operator's accountant will ask
@@ -330,6 +342,8 @@ CLAIM_HEADER_TABLE = {
 #   where the CARLOS schema has no such table and the clinic's rows must
 #   be preserved.
 PROVINCE_SCOPED = {
+    "billing_on_diskname": "on",
+    "billing_on_filename": "on",
     # live in the CARLOS BC schema; removed from the Ontario one
     "formBCAR2007": "on",
     # Ontario billing and lab stacks: no BC install carries them
@@ -687,13 +701,15 @@ NOT_RENAMES = {
     # itself was ruled on when it was added to B3_COLUMNS.
     ("document", "fileSignature"): (
         "curated B3 drop; CARLOS's abnormal/report_media/sent_date_time "
-        "are additions",
-        ("abnormal", "report_media", "sent_date_time")),
+        "and CDS source content-precision metadata are additions, not file signatures",
+        ("abnormal", "report_media", "sent_date_time", "cds_content_precision")),
     ("drugs", "dispensingUnits"): (
         "curated B3 drop; CARLOS's demographic_contact_id/protocol/"
-        "priorRxProtocol/pharmacyId are additions",
+        "priorRxProtocol/pharmacyId and CDS currentness, exact dose text and "
+        "projection-completeness metadata and the native optimistic-lock counter "
+        "are additions, not dispensing units",
         ("demographic_contact_id", "protocol", "priorRxProtocol",
-         "pharmacyId")),
+         "pharmacyId", "cds_currentness", "cds_dose_text", "cds_projection_incomplete", "row_version")),
 
     # The eRx module CARLOS removed. CARLOS's defaultBillingLocation and
     # defaultSliCode are unrelated additions.
@@ -827,6 +843,21 @@ CARLOSDOC_SEED_DELETES = [
 # synthesizes for them (SQL over the staging row alias `s`). The ETL
 # pre-check aborts naming any such column that lacks an entry here.
 VALUE_EXPRS = {
+    "billing_on_diskname": {
+        "ohipfilename": "(SELECT f.`imported_filename` FROM {archive}.`billing_on_diskname__filenames` f WHERE f.`row_id` = s.`id`)",
+    },
+    "billing_on_filename": {
+        "htmlfilename": "(SELECT f.`imported_filename` FROM {archive}.`billing_on_filename__filenames` f WHERE f.`row_id` = s.`id`)",
+    },
+    # The CLI builds this helper from the actual source flags and remapped
+    # consent type before copying. Keep deleted history and retire undecided
+    # and surplus live records; never turn a missing decision into consent.
+    "Consent": {
+        "optout": "COALESCE(s.`optout`, 1)",
+        "deleted": "COALESCE((SELECT r.`deleted` FROM "
+                   "{archive}.`Consent__live` r "
+                   "WHERE r.`id` = s.`id`), 1)",
+    },
     # uid groups pharmacy record revisions in CARLOS; each imported O19
     # pharmacy heads its own group.
     "pharmacyInfo": {"uid": "s.`recordID`"},

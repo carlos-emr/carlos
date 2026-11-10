@@ -94,10 +94,16 @@ class RestAuthorizationExceptionMapperUnitTest {
 
     @ParameterizedTest(name = "{0} server {1}")
     @CsvSource({"spring_ws.xml, /rs", "applicationContextREST.xml, /services"})
-    @DisplayName("should register both mappers on each REST surface")
-    void shouldRegisterBothMappers_onEachRestSurface(String config, String address) throws Exception {
-        assertThat(providerClasses(config, address)).doesNotHaveDuplicates().contains(
-                SecurityExceptionMapper.class.getName(), AccessDeniedExceptionMapper.class.getName());
+    @DisplayName("should register application mappers on each REST surface")
+    void shouldRegisterApplicationMappers_onEachRestSurface(String config, String address) throws Exception {
+        assertThat(providerClasses(config, address)).doesNotHaveDuplicates()
+                .doesNotContain(SecurityExceptionMapper.class.getName(), AccessDeniedExceptionMapper.class.getName()).contains(
+                io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.SecurityExceptionMapper.class.getName(),
+                io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.AccessDeniedExceptionMapper.class.getName(),
+                io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.PatientDirectiveExceptionMapper.class.getName(),
+                io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.IllegalArgumentExceptionMapper.class.getName(),
+                io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.ConversionExceptionMapper.class.getName(),
+                io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.GeneralExceptionMapper.class.getName());
     }
 
     /** Bean classes declared inside the {@code jaxrs:providers} of the server at {@code address}. */
@@ -128,5 +134,13 @@ class RestAuthorizationExceptionMapperUnitTest {
             return classes;
         }
         throw new AssertionError("no jaxrs:server with address " + address + " in " + config);
+    }
+    @org.junit.jupiter.api.Test
+    void shouldRegisterOnlyRxConflictMapper_onBothRestSurfaces() throws Exception {
+        for (String file : java.util.List.of("applicationContextREST.xml", "spring_ws.xml")) {
+            String xml = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/resources", file));
+            org.assertj.core.api.Assertions.assertThat(xml).contains("RxConcurrencyExceptionMapper")
+                    .doesNotContain("RxOptimisticLockExceptionMapper", "RxJpaOptimisticLockExceptionMapper");
+        }
     }
 }

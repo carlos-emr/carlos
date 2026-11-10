@@ -32,7 +32,7 @@ const ui = require('./lib/playwright-ui');
 const bc = require('./lib/bc-billing-fixture');
 const { runWorkflow } = require('./lib/workflow-session');
 const { withProviderCleanup } = require('./billing-bc-simulation-encoding-playwright-checks');
-const { encounterForms } = require('./lib/encounter-form-list');
+const { encounterForms, formListAsSeen } = require('./lib/encounter-form-list');
 
 const TIMEOUT = 30000;
 const WCB_FORM = 'BC-WCB';
@@ -325,6 +325,8 @@ async function runScenario(s) {
     const expected = shownBefore ? before : formsAfterSelection(before, shownNamesBefore);
     h.assert(JSON.stringify(encounterForms(sql)) === JSON.stringify(expected),
       'Removing BC-WCB did not persist exactly the original visible menu with distinct positions');
+    h.assert(formListAsSeen(encounterForms(sql)) === formListAsSeen(before),
+      'Removing BC-WCB did not leave the form list as it was (the shown forms and their order)');
   });
 }
 

@@ -27,6 +27,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: add exact bounded source-provider lookups.
  */
 
 package io.github.carlos_emr.carlos.PMmodule.dao;
@@ -40,8 +41,13 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.logging.log4j.Logger;
+import org.hibernate.dialect.H2Dialect;
+import org.hibernate.dialect.MariaDBDialect;
+import org.hibernate.dialect.MySQLDialect;
+import org.hibernate.engine.spi.SessionFactoryImplementor;
 import jakarta.persistence.Query;
 import jakarta.persistence.TypedQuery;
 import io.github.carlos_emr.carlos.commn.NativeSql;
@@ -580,6 +586,96 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
         List<Provider> providers = (List<Provider>) JpqlQueryHelper.find(entityManager(), sSQL, team);
 
         return providers;
+    }
+
+    @Override
+    @NativeSql({"provider"})
+    public List<String> findCdsProviderNosByOhip(String ohipNo) {
+        var query = cdsUsesMysqlTextSemantics()
+                ? entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
+                        + "and ohip_no=:value and CAST(ohip_no AS BINARY) = CAST(:value AS BINARY) order by provider_no", String.class)
+                : entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
+                        + "and ohip_no=:value and STRINGTOUTF8(ohip_no)=STRINGTOUTF8(:value) order by provider_no", String.class);
+        return query
+                .setParameter("value", ohipNo).setMaxResults(2).getResultList();
+    }
+
+    @Override
+    @NativeSql({"provider"})
+    public List<String> findCdsProviderNosByCpso(String cpsoNo) {
+        var query = cdsUsesMysqlTextSemantics()
+                ? entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
+                        + "and practitionerNoType='CPSO' and practitionerNo=:value "
+                        + "and CAST(practitionerNoType AS BINARY) = CAST('CPSO' AS BINARY) and CAST(practitionerNo AS BINARY) = CAST(:value AS BINARY) order by provider_no", String.class)
+                : entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
+                        + "and practitionerNoType='CPSO' and practitionerNo=:value "
+                        + "and STRINGTOUTF8(practitionerNoType)=STRINGTOUTF8('CPSO') "
+                        + "and STRINGTOUTF8(practitionerNo)=STRINGTOUTF8(:value) order by provider_no", String.class);
+        return query
+                .setParameter("value", cpsoNo).setMaxResults(2).getResultList();
+    }
+
+    @Override
+    @NativeSql({"provider"})
+    @SuppressFBWarnings(value = "SQL_INJECTION_JPA", justification = "Only server-owned charset identifiers validated by cdsNameCharsets enter SQL structure; source names remain bound parameters")
+    // Charset identifiers come only from bounded schema metadata validated as [A-Za-z0-9_]{1,64}; names are bound values.
+    @SuppressWarnings("java:S2077")
+    public List<String> findCdsProviderNosByExactName(String firstName, String lastName) {
+        if (!cdsUsesMysqlTextSemantics()) {
+            // H2 stores Unicode strings directly; UTF8 bytes retain case, accents and trailing spaces.
+            return entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
+                    + "and first_name=:first and last_name=:last "
+                    + "and STRINGTOUTF8(first_name)=STRINGTOUTF8(:first) "
+                    + "and STRINGTOUTF8(last_name)=STRINGTOUTF8(:last) order by provider_no", String.class)
+                    .setParameter("first", firstName).setParameter("last", lastName).setMaxResults(2).getResultList();
+        }
+        CdsNameCharsets charsets = cdsNameCharsets();
+        return entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
+                + "and first_name=CONVERT(:first USING " + charsets.first() + ") "
+                + "and last_name=CONVERT(:last USING " + charsets.last() + ") "
+                + "and CAST(CONVERT(first_name USING utf8mb4) AS BINARY) = CAST(CONVERT(:first USING utf8mb4) AS BINARY) "
+                + "and CAST(CONVERT(last_name USING utf8mb4) AS BINARY) = CAST(CONVERT(:last USING utf8mb4) AS BINARY) "
+                + "order by provider_no", String.class)
+                .setParameter("first", firstName).setParameter("last", lastName).setMaxResults(2).getResultList();
+    }
+
+    /** Database semantics come from the real persistence factory, never an import/test option. */
+    private boolean cdsUsesMysqlTextSemantics() {
+        var dialect = entityManager().getEntityManagerFactory().unwrap(SessionFactoryImplementor.class)
+                .getJdbcServices().getDialect();
+        if (dialect instanceof MySQLDialect || dialect instanceof MariaDBDialect) return true;
+        if (dialect instanceof H2Dialect) return false;
+        throw new IllegalStateException("Unsupported database dialect for exact CDS provider matching");
+    }
+
+    private record CdsNameCharsets(String first, String last) { }
+    private final AtomicReference<CdsNameCharsets> cdsNameCharsets = new AtomicReference<>();
+
+    /** Deployment schema metadata is bounded and immutable for the lifetime of this DAO. */
+    private CdsNameCharsets cdsNameCharsets() {
+        CdsNameCharsets result = cdsNameCharsets.get();
+        if (result != null) return result;
+        synchronized (this) {
+            result = cdsNameCharsets.get();
+            if (result != null) return result;
+            List<?> metadata = entityManager().createNativeQuery("select COLUMN_NAME,CHARACTER_SET_NAME "
+                    + "from information_schema.COLUMNS where TABLE_SCHEMA=DATABASE() and TABLE_NAME='provider' "
+                    + "and COLUMN_NAME in ('first_name','last_name')").setMaxResults(3).getResultList();
+            String first = null, last = null;
+            for (Object item : metadata) {
+                Object[] row = (Object[]) item;
+                String name = row[0].toString(), charset = row[1] == null ? "" : row[1].toString();
+                // Only server-owned charset identifiers enter SQL structure; source names remain bound values.
+                if (!charset.matches("[A-Za-z0-9_]{1,64}")) throw new IllegalStateException("Unsupported provider name character set");
+                if (name.equals("first_name") && first == null) first = charset;
+                else if (name.equals("last_name") && last == null) last = charset;
+                else throw new IllegalStateException("Ambiguous provider name column metadata");
+            }
+            if (metadata.size() != 2 || first == null || last == null) throw new IllegalStateException("Missing provider name column metadata");
+            result = new CdsNameCharsets(first, last);
+            cdsNameCharsets.set(result);
+            return result;
+        }
     }
 
     @Override

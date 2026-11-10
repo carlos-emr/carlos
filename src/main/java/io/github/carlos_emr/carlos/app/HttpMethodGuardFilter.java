@@ -107,6 +107,7 @@ public class HttpMethodGuardFilter implements Filter {
      * mapped to non-matching URL action names.</p>
      */
     private static final Set<String> MUTATOR_ACTION_NAMES = Set.of(
+            "editform",               // HtmlEdit2Action saves eForm templates; its view is efmformmanageredit.
             "billingaddcode",         // BillingAddCode2Action (starts with "billing", not "add")
             // reprocessBill (BC) is dual-purpose too: GET opens Bill Status or a bill's adjust page,
             // which is how every menu, list and Edit link reaches them. BillingReProcessBill2Action
@@ -171,6 +172,7 @@ public class HttpMethodGuardFilter implements Filter {
      * bare GET (opening the page, filtering a list) still passes.</p>
      */
     public static final Map<String, Set<String>> MUTATION_INTENT_PARAMS_BY_ROUTE = Map.of(
+            "/rx/favoriteGroups", Set.of("command"),
             // providerPrivilege.jsp: submit=Add|Delete writes a privilege row, buttonUpdate merges one.
             "/admin/ProviderPrivilege", Set.of("submit", "buttonUpdate"),
             // providerRole.jsp: submit (a localized Add or Delete), buttonUpdate and

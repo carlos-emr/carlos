@@ -74,7 +74,7 @@ public class PapReport implements PreventionReport {
             ArrayList<String> fieldList = (ArrayList<String>) list.get(i);
             Integer demo = Integer.valueOf(fieldList.get(0));
             //search   prevention_date prevention_type  deleted   refused
-            ArrayList<Map<String, Object>> prevs = PreventionData.getPreventionData(loggedInInfo, "PAP", demo);
+            ArrayList<Map<String, Object>> prevs = PreventionData.getExactPreventionData(loggedInInfo, "PAP", demo);
 
             ArrayList<Map<String, Object>> noFutureItems = removeFutureItems(prevs, asofDate);
             PreventionReportDisplay prd = new PreventionReportDisplay();
@@ -275,10 +275,11 @@ public class PapReport implements PreventionReport {
     private static final String LETTER2 = "L2";
     private static final String PHONE1 = "P1";
 
+    /** Chooses the next screening recall contact from follow-up values and dates; source-lab links are unused. */
     private String letterProcessing(PreventionReportDisplay prd, String measurementType, Date asofDate) {
         if (prd != null) {
             if (prd.state.equals("No Info") || prd.state.equals("due") || prd.state.equals("Overdue")) {
-                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType);
+                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType, false);
                 Collection followupData = measurementDataHandler.getMeasurementsDataVector();
 
                 if (followupData.size() == 0) {
@@ -344,7 +345,7 @@ public class PapReport implements PreventionReport {
                     return prd.nextSuggestedProcedure;
                 }
             } else if (prd.state.equals("Refused")) {
-                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType);
+                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType, false);
                 Collection followupData = measurementDataHandler.getMeasurementsDataVector();
                 if (followupData.size() > 0) {
                     EctMeasurementsDataBean measurementData = (EctMeasurementsDataBean) followupData.iterator().next();
@@ -355,7 +356,7 @@ public class PapReport implements PreventionReport {
             } else if (prd.state.equals("Ineligible")) {
                 prd.nextSuggestedProcedure = "----";
             } else if (prd.state.equals("Up to date")) {
-                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType);
+                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType, false);
                 Collection followupData = measurementDataHandler.getMeasurementsDataVector();
                 if (followupData.size() > 0) {
                     EctMeasurementsDataBean measurementData = (EctMeasurementsDataBean) followupData.iterator().next();

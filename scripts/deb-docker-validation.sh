@@ -1,5 +1,6 @@
 #!/bin/bash
 # Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+# Modifications by CARLOS Contributors, 2026.
 #
 # This software is published under the GPL GNU General Public License.
 # This program is free software; you can redistribute it and/or
@@ -38,6 +39,7 @@
 # Usage:
 #   CARLOS_DISPOSABLE_HOST=true DEBS_DIR=/path/to/debs scripts/deb-docker-validation.sh up
 #   CARLOS_DISPOSABLE_HOST=true scripts/deb-docker-validation.sh suite --tier smoke
+#   CARLOS_DISPOSABLE_HOST=true DEBS_DIR=/path/to/new/debs scripts/deb-docker-validation.sh upgrade 2026.08.0-beta2
 #   CARLOS_DISPOSABLE_HOST=true scripts/deb-docker-validation.sh audit
 #   CARLOS_DISPOSABLE_HOST=true scripts/deb-docker-validation.sh profile legacy-teleplan
 #   CARLOS_DISPOSABLE_HOST=true scripts/deb-docker-validation.sh suite --profile legacy-teleplan
@@ -48,11 +50,18 @@
 #   up            build the image, start the container, install the debs,
 #                 require `carlos-ctl check` to pass, stage the fixtures,
 #                 perform the first-login reset and write /root/suite-env.sh
-#   suite [ARGS]  run scripts/run-playwright-suite.js ARGS in the container,
-#                 limited to the installed province unless ARGS name one
-#                 (default: --tier smoke); fails if carlos-emr restarted
-#                 during the run; the JUnit report is copied to LOG_DIR
+#   suite [ARGS]  run strict, residue-audited qualification in the container
+#                 through the installed-error fault adapter (two extra restarts
+#                 and a temporary web.xml change); default: --tier smoke.
+#                 Adds --strict-release --residue-audit; --skip/--dry-run are
+#                 refused, and SKIP/known-fail/unexpected-pass fail the run.
+#                 Uses the installed province unless ARGS name one; copies
+#                 JUnit to LOG_DIR. Checks NRestarts except for managed profiles.
+#                 For diagnostics, invoke run-playwright-suite.js directly.
 #   audit [ARGS]  run scripts/deb-server-log-audit.sh ARGS in the container
+#   upgrade TAG   install the published TAG package set in a fresh container,
+#                 retain UI-created clinical canaries through the local package
+#                 upgrade, verify PRE/POST, then run smoke and read-only core
 #   profile NAME  switch the install to a configuration some checks need and
 #                 restart it: legacy-teleplan (BC, NEW_BC_TELEPLAN=no, for
 #                 `suite --profile legacy-teleplan`) or default (put back the
@@ -76,13 +85,15 @@
 #   CONTAINER           container name (default carlos-deb-validation)
 #   IMAGE               image tag (default carlos-deb-validation:26.04)
 #   BASE_IMAGE          default ubuntu:26.04
-#   PLAYWRIGHT_VERSION  default 1.60.0 (runbook section 5; do not run
+#   PLAYWRIGHT_VERSION  default 1.61.1 (runbook section 5; do not run
 #                       `playwright install`: the package ships Chromium)
+#   AXE_CORE_VERSION    default 4.14.0 (accessibility-smoke prerequisite)
 #   BUILD_PROXY         optional http(s) proxy URL for apt and npm while
 #                       building the image and installing packages
 #   BUILD_CA_BUNDLE     optional PEM bundle to trust for that proxy
 #   APT_FORCE_HTTPS     true rewrites the image's apt sources to https://
 #                       (for an egress proxy that only tunnels CONNECT)
+#   CONTAINER_NETWORK   host (default) or bridge; bridge publishes no host ports
 #   CONTAINER_CPUS      optional --cpus limit for the container (on a host that
 #                       also builds, so the browser checks are not starved)
 #   LOG_DIR             host directory for logs and reports
@@ -97,11 +108,16 @@ RESET_PASSWORD="${RESET_PASSWORD:-Carlos2026!Verify}"
 CONTAINER="${CONTAINER:-carlos-deb-validation}"
 IMAGE="${IMAGE:-carlos-deb-validation:26.04}"
 BASE_IMAGE="${BASE_IMAGE:-ubuntu:26.04}"
-PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:-1.60.0}"
+PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:-1.61.1}"
+# Match the repository's exact dependency; a floating install changes the audit rules.
+AXE_CORE_VERSION="4.14.0"
+ENTITIES_VERSION="4.5.0"
+PNGJS_VERSION="7.0.0"
 BUILD_PROXY="${BUILD_PROXY:-}"
 BUILD_CA_BUNDLE="${BUILD_CA_BUNDLE:-}"
 APT_FORCE_HTTPS="${APT_FORCE_HTTPS:-false}"
 CONTAINER_CPUS="${CONTAINER_CPUS:-}"
+CONTAINER_NETWORK="${CONTAINER_NETWORK:-host}"
 LOG_DIR="${LOG_DIR:-$REPO_ROOT/target/deb-docker-validation}"
 CGROUP_ROOT="${CGROUP_ROOT:-/sys/fs/cgroup}"
 
@@ -112,6 +128,7 @@ usage() { sed -n '/^# Usage:/,/^set -euo pipefail/p' "${BASH_SOURCE[0]}" | sed '
 
 case "$CARLOS_PROVINCE" in on|bc|other) ;; *) die "CARLOS_PROVINCE must be on, bc or other (got '$CARLOS_PROVINCE')" ;; esac
 case "$INSTALL_DEMO_DATA" in true|false) ;; *) die "INSTALL_DEMO_DATA must be true or false" ;; esac
+case "$CONTAINER_NETWORK" in host|bridge) ;; *) die "CONTAINER_NETWORK must be host or bridge" ;; esac
 # Both values are written into shell text that runs as root in the container
 # (and RESET_PASSWORD into /root/suite-env.sh), so refuse anything that quoting
 # could not carry through unchanged.
@@ -120,6 +137,9 @@ case "$RESET_PASSWORD" in
 esac
 [ -z "$BUILD_PROXY" ] || [[ "$BUILD_PROXY" =~ ^https?://[A-Za-z0-9._:-]+/?$ ]] \
   || die "BUILD_PROXY must be a plain http(s)://host:port URL"
+if [ "$CONTAINER_NETWORK" = bridge ] && [[ "${BUILD_PROXY,,}" =~ ^https?://(localhost|127\.[0-9.]+)(:|/|$) ]]; then
+  die "Bridge containers need a BUILD_PROXY address reachable from the container; host loopback is not reachable"
+fi
 
 # The debconf answers of runbook section 3. reset-seed-admin stays true: the
 # validation must prove a fresh install replaces the published seed credential
@@ -172,25 +192,27 @@ build_image() {
     [ -r "$BUILD_CA_BUNDLE" ] || die "BUILD_CA_BUNDLE is not readable: $BUILD_CA_BUNDLE"
     cp "$BUILD_CA_BUNDLE" "$ctx/extra-ca.crt"
   else
-    : > "$ctx/extra-ca.crt"
+    cp /etc/ssl/certs/ca-certificates.crt "$ctx/extra-ca.crt"
   fi
   cat > "$ctx/Dockerfile" <<'EOF'
+# syntax=docker/dockerfile:1
 ARG BASE_IMAGE=ubuntu:26.04
 FROM ${BASE_IMAGE}
 ARG BUILD_PROXY=
 ARG APT_FORCE_HTTPS=false
 ARG PLAYWRIGHT_VERSION
-COPY extra-ca.crt /usr/local/share/ca-certificates/carlos-validation-extra-ca.crt
-RUN set -e; \
+ARG AXE_CORE_VERSION
+ARG ENTITIES_VERSION
+ARG PNGJS_VERSION
+RUN --mount=type=secret,id=validation_ca,required=true,mode=0444 set -e; \
     if [ "$APT_FORCE_HTTPS" = true ]; then sed -i 's#http://#https://#g' /etc/apt/sources.list.d/*.sources; fi; \
     if [ -n "$BUILD_PROXY" ]; then printf 'Acquire::http::Proxy "%s";\nAcquire::https::Proxy "%s";\n' "$BUILD_PROXY" "$BUILD_PROXY" > /etc/apt/apt.conf.d/99carlos-validation-proxy; fi; \
-    if [ -s /usr/local/share/ca-certificates/carlos-validation-extra-ca.crt ]; then \
-      printf 'Acquire::https::CaInfo "/usr/local/share/ca-certificates/carlos-validation-extra-ca.crt";\n' > /etc/apt/apt.conf.d/98carlos-validation-ca; \
-    else rm -f /usr/local/share/ca-certificates/carlos-validation-extra-ca.crt; fi; \
-    apt-get update; \
+    printf 'Acquire::https::CaInfo "/run/secrets/validation_ca";\n' > /etc/apt/apt.conf.d/98carlos-validation-ca; \
+    apt-get -o APT::Update::Error-Mode=any update; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       ca-certificates systemd systemd-sysv dbus iproute2 procps curl \
-      nodejs npm poppler-utils gnupg libxml2-utils; \
+      nodejs npm poppler-utils tesseract-ocr tesseract-ocr-eng fonts-liberation gnupg libxml2-utils \
+      python3 python3-defusedxml openjdk-25-jdk-headless; \
     update-ca-certificates; \
     rm -f /etc/apt/apt.conf.d/98carlos-validation-ca; \
     rm -rf /var/lib/apt/lists/*; \
@@ -199,16 +221,17 @@ RUN set -e; \
       getty@tty1.service console-getty.service systemd-networkd-wait-online.service; \
     cd /root && npm init -y >/dev/null; \
     if [ -n "$BUILD_PROXY" ]; then export HTTPS_PROXY="$BUILD_PROXY"; fi; \
-    export NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt; \
-    npm install --save-exact --no-audit --no-fund "playwright@${PLAYWRIGHT_VERSION}"
+    export NODE_EXTRA_CA_CERTS=/run/secrets/validation_ca; \
+    npm install --save-exact --no-audit --no-fund "playwright@${PLAYWRIGHT_VERSION}" "axe-core@${AXE_CORE_VERSION}" "entities@${ENTITIES_VERSION}" "pngjs@${PNGJS_VERSION}"
 ENV container=docker
 STOPSIGNAL SIGRTMIN+3
 CMD ["/sbin/init"]
 EOF
   say "building image $IMAGE from $BASE_IMAGE"
-  docker build --network host -t "$IMAGE" \
+  docker build --network host --secret "id=validation_ca,src=$ctx/extra-ca.crt" -t "$IMAGE" \
     --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg BUILD_PROXY="$BUILD_PROXY" \
-    --build-arg APT_FORCE_HTTPS="$APT_FORCE_HTTPS" --build-arg PLAYWRIGHT_VERSION="$PLAYWRIGHT_VERSION" \
+    --build-arg APT_FORCE_HTTPS="$APT_FORCE_HTTPS" --build-arg PLAYWRIGHT_VERSION="$PLAYWRIGHT_VERSION" --build-arg AXE_CORE_VERSION="$AXE_CORE_VERSION" \
+    --build-arg ENTITIES_VERSION="$ENTITIES_VERSION" --build-arg PNGJS_VERSION="$PNGJS_VERSION" \
     "$ctx" >"$LOG_DIR/image-build.log" 2>&1 || { rm -rf "$ctx"; die "image build failed; see $LOG_DIR/image-build.log"; }
   rm -rf "$ctx"
 }
@@ -223,6 +246,10 @@ find_one_deb() {
 
 cmd_up() {
   require_disposable
+  if [ -n "$BUILD_CA_BUNDLE" ]; then
+    [ -f "$BUILD_CA_BUNDLE" ] && [ -r "$BUILD_CA_BUNDLE" ] || die "BUILD_CA_BUNDLE must be a readable file"
+    BUILD_CA_BUNDLE="$(realpath -- "$BUILD_CA_BUNDLE")"
+  fi
   [ -n "${DEBS_DIR:-}" ] && [ -d "$DEBS_DIR" ] || die "DEBS_DIR must name the directory holding the .debs"
   DEBS_DIR="$(cd "$DEBS_DIR" && pwd)"
   local emr drugref ctl port
@@ -237,17 +264,22 @@ cmd_up() {
   # decided before the port probe, so it does not depend on what else this host
   # happens to be listening on.
   cgroup_args=$(cgroup_run_args) || exit 1
+  if [ "$CONTAINER_NETWORK" = host ]; then
   for port in 80 443 3306 18080 9515; do
     if ss -Hltn "sport = :$port" 2>/dev/null | grep -q .; then die "port $port is already in use on this host"; fi
   done
+  fi
   [ -n "$CONTAINER_CPUS" ] && extra+=(--cpus "$CONTAINER_CPUS")
   build_image
 
   say "starting $CONTAINER (cgroup mode: $(cgroup_mode))"
+  local validation_ca="${BUILD_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}"
   # shellcheck disable=SC2086 # cgroup_args is a deliberate word list
-  docker run -d --name "$CONTAINER" --hostname "$CONTAINER" --privileged --network host \
+  docker run -d --name "$CONTAINER" --hostname "$CONTAINER" --privileged --network "$CONTAINER_NETWORK" \
     $cgroup_args "${extra[@]}" --tmpfs /run --tmpfs /run/lock \
-    -v "$REPO_ROOT:/root/carlos:ro" -v "$DEBS_DIR:/debs:ro" "$IMAGE" >/dev/null
+    -v "$REPO_ROOT:/root/carlos:ro" -v "$DEBS_DIR:/debs:ro" \
+    -v "$validation_ca:/run/carlos-validation-ca.pem:ro" \
+    -e NODE_EXTRA_CA_CERTS=/run/carlos-validation-ca.pem -e CURL_CA_BUNDLE=/run/carlos-validation-ca.pem "$IMAGE" >/dev/null
   local state="" i
   for i in $(seq 1 60); do
     state=$(docker exec "$CONTAINER" systemctl is-system-running 2>/dev/null || true)
@@ -255,6 +287,9 @@ cmd_up() {
     sleep 2
   done
   case "$state" in running|degraded) ;; *) die "systemd did not come up in $CONTAINER (state '${state:-none}')" ;; esac
+
+  docker exec -e CARLOS_DISPOSABLE_HOST=true "$CONTAINER" \
+    bash /root/carlos/scripts/ci/prepare-container-securityfs.sh
 
   preseed | docker exec -i "$CONTAINER" debconf-set-selections
   say "installing $emr, $drugref and $ctl (log: $LOG_DIR/install.log)"
@@ -264,7 +299,8 @@ cmd_up() {
       if [ -n '$BUILD_PROXY' ]; then
         printf 'Acquire::http::Proxy \"%s\";\nAcquire::https::Proxy \"%s\";\n' '$BUILD_PROXY' '$BUILD_PROXY' > /etc/apt/apt.conf.d/99carlos-validation-proxy
       fi
-      apt-get update
+      printf 'Acquire::https::CaInfo \"/run/carlos-validation-ca.pem\";\\n' > /etc/apt/apt.conf.d/98carlos-validation-ca
+      apt-get -o APT::Update::Error-Mode=any update
       apt-get install -y --no-remove /debs/$emr /debs/$drugref /debs/$ctl" >"$LOG_DIR/install.log" 2>&1; then
     die "apt-get install failed; see $LOG_DIR/install.log"
   fi
@@ -312,6 +348,10 @@ stage_fixtures() {
   in_container "
     set -e
     P=/etc/carlos-emr/carlos.properties
+    # Browser/PDF fixtures snapshot a real renderer store before their first render.
+    # The production renderer creates this lazily; prepare the disposable fixture.
+    install -d -o carlos -g carlos -m 0750 /var/lib/carlos-emr/catalina/work/carlos
+    install -d -o carlos -g carlos -m 0700 /var/lib/carlos-emr/catalina/work/carlos/eform-browser-pdf-temp
     for d in /var/lib/carlos-emr/CarlosDocument/carlos/eform/images /var/lib/carlos-emr/CarlosDocument/eform/images; do
       install -d -o carlos -g carlos -m 0750 \"\$d\"
       install -o carlos -g carlos -m 0640 /root/carlos/release/4422-84v9-1.png \"\$d/consult_sig_999998.png\"
@@ -411,6 +451,8 @@ export EDOC_NAV_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/documen
 export LAB_UPLOAD_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/document
 # lab-upload-signed-feed requires the server log; lab-upload-rollback reads it when named (runbook section 6).
 export LAB_UPLOAD_JOURNAL_UNIT=carlos-emr
+install -d -m 700 /tmp/carlos-lab-rollback-faults
+export LAB_ROLLBACK_FAULT_ARTIFACT_DIR=/tmp/carlos-lab-rollback-faults
 export PRESCRIPTION_SCRIPT_ID=45 PRESCRIPTION_DEMOGRAPHIC_NO=1
 export CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_REQUEST_ID=1 CONSULT_STAMP_PROVIDER_NO=999998
 export CONSULT_APPLICATION_TEMP_DIR=/var/lib/carlos-emr/catalina/temp/carlos-temp
@@ -434,13 +476,14 @@ export INCOMINGDOCUMENT_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/incomingdo
 export OHIP_DISK_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/billing/download
 export INVOICE_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/billing/invoices
 export ONEDT_INBOX=/var/lib/carlos-emr/CarlosDocument/carlos/onEDTDocs/inbox
+export ONEDT_ARCHIVE=/var/lib/carlos-emr/CarlosDocument/carlos/onEDTDocs/archive
 export RA_EDT_INBOX=/var/lib/carlos-emr/CarlosDocument/carlos/onEDTDocs/inbox
 export EFORM_IMAGE_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/eform/images
 export SCREENSHOT_DIR=/tmp/carlos-shots ARTIFACT_DIR=/tmp/carlos-artifacts
 # The package ships ALLOW_UPDATE_DOCUMENT_CONTENT=true.
 export STORED_DOCUMENT_EXPECT_CONTENT_UPDATES=true
 # This container is disposable: checks that change clinic-wide settings may run.
-export CARLOS_DISPOSABLE_VM=true CARLOS_LOG_JOURNAL_UNIT=carlos-emr.service
+export CARLOS_DISPOSABLE_VM=true EXCLUSIVE=1 CARLOS_LOG_JOURNAL_UNIT=carlos-emr.service
 # stage_fixtures enabled this in the disposable install and restarted CARLOS.
 export CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true
 # The installed province: 'suite' passes it as --province unless one is given.
@@ -471,13 +514,22 @@ cmd_suite() {
   require_disposable
   mkdir -p "$LOG_DIR"
   [ "$#" -gt 0 ] || set -- --tier smoke
+  # Packaged validation is qualification: missing prerequisites and known-fail
+  # pins must remain failures. Local diagnostics can invoke the runner directly.
+  set -- "$@" --strict-release --residue-audit
   # The run must match the configuration the install is in: an install left in a
-  # profile skips the checks that profile cannot run, and a skip passes.
+  # profile may skip checks it cannot run; strict qualification rejects those skips.
   local active requested='' prev='' arg
   active=$(active_profile)
   for arg in "$@"; do [ "$prev" = --profile ] && requested=$arg; prev=$arg; done
+  local managed=false
+  case "$requested" in address-lock|no-pin|multisite|caisi-admin|legacy-contacts|private-consent|appointment-options|appointment-lock-expiry|native-pathnet|first-nations|first-nations-encoding) managed=true ;; esac
+  if [ "$managed" = true ]; then
+    [ -z "$active" ] || die "restore the manual profile before running an automatic profile"
+  else
   [ "${active:-default}" = "${requested:-default}" ] \
     || die "the install is in profile '${active:-default}' but the run asks for '${requested:-default}': run 'suite --profile ${active:-default}' or 'profile ${requested:-default}' first"
+  fi
   # Select only checks for the installed province (and province-neutral ones),
   # unless the caller chose a province.
   local province
@@ -490,17 +542,79 @@ cmd_suite() {
   quoted=$(printf '%q ' "$@")
   stamp=$(date -u +%Y%m%dT%H%M%SZ)
   before=$(in_container 'systemctl show carlos-emr -p NRestarts --value')
-  in_container ". /root/suite-env.sh; node scripts/run-playwright-suite.js $quoted --junit /root/suite-$stamp.xml" \
+  in_container ". /root/suite-env.sh; CARLOS_DISPOSABLE_HOST=true node scripts/run-playwright-suite.js $quoted --junit /root/suite-$stamp.xml" \
     2>&1 | tee "$LOG_DIR/suite-$stamp.log" || rc=$?
-  docker cp "$CONTAINER:/root/suite-$stamp.xml" "$LOG_DIR/" >/dev/null 2>&1 || true
+  docker cp "$CONTAINER:/root/suite-$stamp.xml" "$LOG_DIR/" >/dev/null 2>&1 || {
+    echo "FAIL required suite JUnit report could not be retained" >&2
+    rc=1
+  }
   after=$(in_container 'systemctl show carlos-emr -p NRestarts --value')
   # A browser failure can be the first symptom of the JVM being killed and
   # restarted; a run that tested two processes must not finish green.
-  if [ "$before" != "$after" ]; then
+  if [ "$managed" = false ] && [ "$before" != "$after" ]; then
     echo "FAIL carlos-emr restarted during the suite ($before -> $after)"
     rc=1
   fi
   return "$rc"
+}
+
+# Only the package identity changes here: passwords, patient IDs and store paths
+# from provisioning must survive the upgrade unchanged.
+refresh_suite_build_identity() {
+  in_container '
+    python3 - <<"PYBUILD"
+from pathlib import Path
+import shlex
+props = dict(line.split("=", 1) for line in Path("/usr/share/carlos-emr/webapp/carlos/WEB-INF/classes/carlos-build.properties").read_text().splitlines() if "=" in line and not line.startswith("#"))
+version = props["build.version"]
+tag = version + " (" + props["build.job"] + " " + props["build.number"] + ")"
+path = Path("/root/suite-env.sh")
+lines = [line for line in path.read_text().splitlines() if not line.startswith(("export RX_EXPECTED_BUILD_TAG=", "export EXPECTED_BUILD_VERSION="))]
+lines += ["export RX_EXPECTED_BUILD_TAG=" + shlex.quote(tag), "export EXPECTED_BUILD_VERSION=" + shlex.quote(version)]
+path.write_text("\n".join(lines) + "\n")
+PYBUILD
+  '
+}
+
+cmd_upgrade() {
+  require_disposable
+  local from="${1:-}" target_dir target_emr target_drugref target_ctl previous rc=0
+  if ! [[ "$#" == 1 && "$from" =~ ^2026\.08\.[0-9]+(-[A-Za-z0-9.]+)?$ ]]; then
+    printf '%s\n' 'upgrade requires exactly one from-version release tag (for example 2026.08.0-beta2)' >&2
+    return 2
+  fi
+  [ -n "${DEBS_DIR:-}" ] && [ -d "$DEBS_DIR" ] || die 'DEBS_DIR must name the directory holding the target .debs'
+  target_dir="$(cd "$DEBS_DIR" && pwd)"
+  target_emr=$(find_one_deb 'carlos-emr_*_amd64.deb')
+  target_drugref=$(find_one_deb 'carlos-emr-drugref_*_all.deb')
+  target_ctl=$(find_one_deb 'carlos-ctl_*_all.deb')
+  mkdir -p "$LOG_DIR"
+  previous="$LOG_DIR/from-$from"
+  python3 "$REPO_ROOT/scripts/lib/deb-release-assets.py" "$from" "$previous"
+  DEBS_DIR="$previous" cmd_up
+  docker exec "$CONTAINER" mkdir -m 0700 /root/upgrade-target
+  local package
+  for package in "$target_emr" "$target_drugref" "$target_ctl"; do
+    docker cp "$target_dir/$package" "$CONTAINER:/root/upgrade-target/$package" >/dev/null
+  done
+  # This process owns the canaries from creation until final cleanup, including
+  # failure and signals. No keep-fixtures switch can leave ordinary checks dirty.
+  in_container '. /root/suite-env.sh; CARLOS_DISPOSABLE_HOST=true node scripts/deb-upgrade-canaries.js' \
+    >"$LOG_DIR/upgrade-canaries.log" 2>&1 || rc=$?
+  local artifact
+  for artifact in upgrade-before.txt upgrade-after.txt upgrade.log; do
+    docker cp "$CONTAINER:/root/$artifact" "$LOG_DIR/$artifact" >/dev/null 2>&1 || true
+  done
+  [[ $rc == 0 ]] || die "upgrade canaries or verification failed; see $LOG_DIR/upgrade-canaries.log"
+  refresh_suite_build_identity
+  cmd_suite --tier smoke --residue-audit
+  # Core readers do not create clinical rows; compare their installation
+  # snapshots as well as checking their UI assertions and fixture residue.
+  in_container '. /root/suite-env.sh; scripts/deb-upgrade-baseline.sh > /root/readers-before.txt'
+  cmd_suite --only retired-view-aliases --only el-jstl-pages --only legacy-calculator-bookmarks --residue-audit
+  in_container '. /root/suite-env.sh; scripts/deb-upgrade-baseline.sh > /root/readers-after.txt; diff -u /root/readers-before.txt /root/readers-after.txt' \
+    >"$LOG_DIR/upgrade-readers-diff.log" 2>&1 || die 'read-only core checks changed the installation baseline'
+  say "upgrade $from -> local target: canaries, verifier, smoke and read-only core passed"
 }
 
 cmd_audit() {
@@ -576,6 +690,7 @@ main() {
   [ "$#" -gt 0 ] && shift
   case "$cmd" in
     up) cmd_up ;;
+    upgrade) cmd_upgrade "$@" ;;
     suite) cmd_suite "$@" ;;
     audit) cmd_audit "$@" ;;
     profile) cmd_profile "$@" ;;

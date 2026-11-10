@@ -51,14 +51,60 @@ test('should pass bash syntax checking', () => {
   assert.equal(spawnSync('bash', ['-n', SCRIPT]).status, 0);
 });
 
+test('image installs the lockfile-pinned axe-core beside Playwright', t => {
+  const box = sandbox(t);
+  const debs = path.join(box.dir, 'debs'), cgroups = path.join(box.dir, 'cgroups');
+  fs.mkdirSync(debs); fs.mkdirSync(cgroups);
+  fs.writeFileSync(path.join(cgroups, 'cgroup.controllers'), 'cpu memory');
+  for (const name of ['carlos-emr_1_amd64.deb', 'carlos-emr-drugref_1_all.deb', 'carlos-ctl_1_all.deb']) {
+    fs.writeFileSync(path.join(debs, name), '');
+  }
+  const captured = path.join(box.dir, 'Dockerfile');
+  fs.writeFileSync(path.join(box.dir, 'bin/docker'), `#!/bin/sh
+echo "$*" >> '${box.calls}'
+if [ "$1" = build ]; then
+  for context do :; done
+  cp "$context/Dockerfile" '${captured}'
+fi
+exit 1
+`, {mode:0o755});
+  const r = run(['up'], {...box.env, CARLOS_DISPOSABLE_HOST:'true', DEBS_DIR:debs,
+    CGROUP_ROOT:cgroups, CONTAINER_NETWORK:'bridge', AXE_CORE_VERSION:'', PLAYWRIGHT_VERSION:'', BUILD_CA_BUNDLE:''});
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /image build failed/);
+  const dockerfile = fs.readFileSync(captured, 'utf8');
+  assert.match(dockerfile, /npm install --save-exact[^\n]+"playwright@\$\{PLAYWRIGHT_VERSION\}" "axe-core@\$\{AXE_CORE_VERSION\}"/);
+  const driver = require('../package-lock.json').packages['node_modules/playwright'].version;
+  assert.equal(require('../package.json').devDependencies.playwright, driver);
+  assert.ok(fs.readFileSync(box.calls, 'utf8').includes(`--build-arg PLAYWRIGHT_VERSION=${driver}`));
+  const pin = require('../package-lock.json').packages['node_modules/axe-core'].version;
+  assert.ok(fs.readFileSync(box.calls, 'utf8').includes(`--build-arg AXE_CORE_VERSION=${pin}`));
+  const png = require('../package-lock.json').packages['node_modules/pngjs'].version;
+  assert.equal(require('../package.json').devDependencies.pngjs, png);
+  assert.ok(fs.readFileSync(box.calls, 'utf8').includes(`--build-arg PNGJS_VERSION=${png}`));
+  assert.match(dockerfile, /"pngjs@\$\{PNGJS_VERSION\}"/);
+  assert.match(dockerfile, /tesseract-ocr tesseract-ocr-eng/);
+});
+
 test('should refuse every container command without CARLOS_DISPOSABLE_HOST=true and never call docker', (t) => {
   const box = sandbox(t);
-  for (const command of ['up', 'suite', 'audit', 'down']) {
+  for (const command of ['up', 'suite', 'audit', 'down', 'upgrade']) {
     const r = run([command], { ...box.env, CARLOS_DISPOSABLE_HOST: '' });
     assert.equal(r.status, 1, `${command}: ${r.stdout}${r.stderr}`);
     assert.match(r.stderr, /refusing to run: set CARLOS_DISPOSABLE_HOST=true/);
   }
   assert.equal(fs.existsSync(box.calls), false, 'docker was called before the guard refused');
+});
+
+test('upgrade rejects missing, ambiguous or malformed release versions before Docker or downloads', t => {
+  const box=sandbox(t),env={...box.env,CARLOS_DISPOSABLE_HOST:'true'};
+  for(const args of [[],[''],['../2026.08.0-beta2'],['2026.08.0-beta2','extra'],['2026.09.0-beta1']]) {
+    const result=run(['upgrade',...args],env);
+    assert.equal(result.status,2);assert.match(result.stderr,/exactly one from-version release tag/);
+  }
+  const result=run(['upgrade','2026.08.0-beta2'],{...env,DEBS_DIR:''});
+  assert.equal(result.status,1);assert.match(result.stderr,/DEBS_DIR/);
+  assert.equal(fs.existsSync(box.calls),false,'Invalid upgrade input reached Docker');
 });
 
 test('should preseed the runbook answers for the selected province', (t) => {
@@ -295,4 +341,135 @@ test('should refuse a suite run that does not match the profile the install is i
   assert.equal(r.status, 1);
   assert.match(r.stderr, /the install is in profile 'legacy-teleplan' but the run asks for 'default'/);
   assert.equal(fs.existsSync(box.calls), false, 'the suite ran although the install is in another profile');
+});
+
+test('unsupported container networks are refused before Docker',t=>{
+  const box=sandbox(t),result=run(['up'],{...box.env,CARLOS_DISPOSABLE_HOST:'true',CONTAINER_NETWORK:'public-network'});
+  assert.equal(result.status,1);assert.match(result.stderr,/CONTAINER_NETWORK must be host or bridge/);assert.equal(fs.existsSync(box.calls),false);
+});
+
+test('bridge setup refuses bare, ported and slash-terminated loopback proxies before Docker',t=>{
+  const box=sandbox(t);
+  for(const proxy of ['http://localhost','https://LOCALHOST','http://127.0.0.1','http://127.1',
+    'http://localhost:8080','http://127.0.0.1/']) {
+    const result=run(['up'],{...box.env,CARLOS_DISPOSABLE_HOST:'true',CONTAINER_NETWORK:'bridge',BUILD_PROXY:proxy});
+    assert.equal(result.status,1);assert.match(result.stderr,/Bridge containers need a BUILD_PROXY address reachable/);
+  }
+  assert(!fs.existsSync(box.calls));
+  const remote=run(['print-preseed'],{...box.env,CONTAINER_NETWORK:'bridge',BUILD_PROXY:'http://localhost.example.invalid'});
+  assert.equal(remote.status,0,remote.stderr);
+});
+
+test('relative CA bundles with spaces reach docker run as absolute bind sources',t=>{
+  const box=sandbox(t),debs=path.join(box.dir,'debs'),cgroups=path.join(box.dir,'cgroups');
+  fs.mkdirSync(debs);fs.mkdirSync(cgroups);fs.writeFileSync(path.join(cgroups,'cgroup.controllers'),'cpu memory');
+  for(const name of ['carlos-emr_1_amd64.deb','carlos-emr-drugref_1_all.deb','carlos-ctl_1_all.deb'])fs.writeFileSync(path.join(debs,name),'');
+  const relative='trust files/proxy bundle.pem';fs.mkdirSync(path.join(box.dir,'trust files'));
+  fs.writeFileSync(path.join(box.dir,relative),'synthetic trust bundle');
+  fs.writeFileSync(path.join(box.dir,'bin','docker'),`#!${process.execPath}\nconst fs=require('node:fs');const args=process.argv.slice(2);
+if(args[0]==='inspect')process.exit(1);if(args[0]==='build')process.exit(0);
+if(args[0]==='run'){fs.writeFileSync(${JSON.stringify(box.calls)},JSON.stringify(args));process.exit(7);}process.exit(9);\n`,{mode:0o755});
+  const result=spawnSync('bash',[SCRIPT,'up'],{cwd:box.dir,encoding:'utf8',env:{...box.env,CARLOS_DISPOSABLE_HOST:'true',
+    DEBS_DIR:debs,CGROUP_ROOT:cgroups,CONTAINER_NETWORK:'bridge',BUILD_PROXY:'http://proxy:8080',BUILD_CA_BUNDLE:relative}});
+  assert.equal(result.status,7,result.stdout+result.stderr);
+  const args=JSON.parse(fs.readFileSync(box.calls,'utf8'));
+  assert(args.includes(`${fs.realpathSync(path.join(box.dir,relative))}:/run/carlos-validation-ca.pem:ro`));
+});
+test('upgrade refreshes only build identity and preserves provisioned credentials and fixtures',t=>{
+  const box=sandbox(t),environment=path.join(box.dir,'suite-env.sh'),properties=path.join(box.dir,'build.properties');
+  const original="export TEST_PASSWORD='owned-password'\nexport CONSULT_DEMO_NO=42\nexport DOCUMENT_DIR='/owned/store'\nexport RX_EXPECTED_BUILD_TAG='beta2 (old 1)' EXPECTED_BUILD_VERSION='beta2'\n";
+  fs.writeFileSync(environment,original,{mode:0o600});
+  fs.writeFileSync(properties,"build.version=beta3\nbuild.job=review's job\nbuild.number=42\n");
+  const source=fs.readFileSync(SCRIPT,'utf8');
+  let helper=source.slice(source.indexOf('\nrefresh_suite_build_identity() {'),source.indexOf('\ncmd_upgrade() {'));
+  helper=helper.replaceAll('/root/suite-env.sh',environment).replaceAll('/usr/share/carlos-emr/webapp/carlos/WEB-INF/classes/carlos-build.properties',properties);
+  const result=spawnSync('bash',['-ec',`in_container() { bash -ec "$1"; }\n${helper}\nrefresh_suite_build_identity\nrefresh_suite_build_identity\n. "$1"\nprintf '%s\\n' "$RX_EXPECTED_BUILD_TAG" "$EXPECTED_BUILD_VERSION" "$TEST_PASSWORD" "$CONSULT_DEMO_NO" "$DOCUMENT_DIR"`,'refresh',environment],{encoding:'utf8',env:box.env});
+  assert.equal(result.status,0,result.stderr);
+  assert.equal(result.stdout,"beta3 (review's job 42)\nbeta3\nowned-password\n42\n/owned/store\n");
+  const after=fs.readFileSync(environment,'utf8');assert(after.startsWith(original.split('export RX_EXPECTED')[0]));
+  assert.equal((after.match(/^export RX_EXPECTED_BUILD_TAG=/gm)||[]).length,1);
+  assert.equal(fs.statSync(environment).mode&0o777,0o600);
+  const upgrade=source.slice(source.indexOf('\ncmd_upgrade() {'),source.indexOf('\ncmd_audit() {'));
+  assert(upgrade.indexOf('refresh_suite_build_identity')>upgrade.indexOf('upgrade-canaries.js'));
+  assert(upgrade.indexOf('refresh_suite_build_identity')<upgrade.indexOf('cmd_suite --tier smoke'));
+});
+
+test('packaged suites enforce strict outcomes and fail when the required report cannot be retained', t => {
+  const box = sandbox(t);
+  const docker = path.join(box.dir, 'bin/docker');
+  for (const copyStatus of [0, 1]) {
+    fs.writeFileSync(docker, `#!/bin/sh
+printf '%s\\n' "$*" >> '${box.calls}'
+if [ "$1" = cp ]; then exit ${copyStatus}; fi
+case "$*" in *NRestarts*) echo 0;; esac
+exit 0
+`, {mode:0o755});
+    fs.writeFileSync(box.calls, '');
+    const result = run(['suite', '--only', 'demographic-cds-import'], { ...box.env, CARLOS_DISPOSABLE_HOST:'true' });
+    assert.equal(result.status, copyStatus, result.stdout + result.stderr);
+    const suiteCall = fs.readFileSync(box.calls, 'utf8').split('\n').find(line => line.includes('node scripts/run-playwright-suite.js'));
+    assert.ok(suiteCall);
+    assert.match(suiteCall, /CARLOS_DISPOSABLE_HOST=true node scripts\/run-playwright-suite\.js/);
+    assert.doesNotMatch(suiteCall, /run-installed-error-sanitization/);
+    assert.match(suiteCall, /--strict-release/);
+    assert.match(suiteCall, /--residue-audit/);
+    if (copyStatus) assert.match(result.stdout + result.stderr, /JUnit report could not be retained/);
+  }
+});
+
+test('every automatic property profile reaches the supervised Node runner on the default install',t=>{
+  const box=sandbox(t);
+  fs.writeFileSync(path.join(box.dir,'bin/docker'),`#!/bin/sh
+printf '%s\\n' "$*" >> '${box.calls}'
+case "$*" in *NRestarts*) echo 0;; esac
+exit 0
+`,{mode:0o755});
+  for(const profile of Object.keys(require('./lib/property-profiles').PROFILES)) {
+    fs.writeFileSync(box.calls,'');
+    const result=run(['suite','--profile',profile],{...box.env,CARLOS_DISPOSABLE_HOST:'true'});
+    assert.equal(result.status,0,profile+': '+result.stdout+result.stderr);
+    assert.match(fs.readFileSync(box.calls,'utf8'),new RegExp('node scripts/run-playwright-suite\\.js --profile '+profile));
+  }
+});
+
+function securityfsFixture(t,{enabled='Y',restricted='1',mounted=false,visible=true,mountFails=false,disposable=true}={}){
+  const box=sandbox(t),root=path.join(box.dir,'security fs'),aa=path.join(box.dir,'enabled'),restriction=path.join(box.dir,'restricted');
+  fs.mkdirSync(root);fs.writeFileSync(aa,enabled);fs.writeFileSync(restriction,restricted);
+  const policy=path.join(root,'apparmor','profiles');
+  const expose=()=>{fs.mkdirSync(path.dirname(policy),{recursive:true});fs.writeFileSync(policy,'carlos-emr-chromium (unconfined)\n');};
+  if(mounted&&visible)expose();
+  const mountCalls=path.join(box.dir,'mount-calls');
+  fs.writeFileSync(path.join(box.dir,'bin','mountpoint'),'#!/bin/sh\nexit '+(mounted?'0':'1')+'\n',{mode:0o755});
+  fs.writeFileSync(path.join(box.dir,'bin','mount'),`#!/bin/sh
+printf '%s\\n' "$*" >> '${mountCalls}'
+${mountFails?'exit 1':visible?`mkdir -p '${path.dirname(policy)}'\nprintf '%s\\n' 'carlos-emr-chromium (unconfined)' > '${policy}'`:'exit 0'}
+`,{mode:0o755});
+  const source=fs.readFileSync(path.join(__dirname,'ci/prepare-container-securityfs.sh'),'utf8')
+    .replace('enabled_path=/sys/module/apparmor/parameters/enabled',`enabled_path='${aa}'`)
+    .replace('restriction_path=/proc/sys/kernel/apparmor_restrict_unprivileged_userns',`restriction_path='${restriction}'`)
+    .replace('security_root=/sys/kernel/security',`security_root='${root}'`);
+  const result=spawnSync('bash',['-c',source],{encoding:'utf8',env:{...box.env,CARLOS_DISPOSABLE_HOST:disposable?'true':''}});
+  return {result,calls:fs.existsSync(mountCalls)?fs.readFileSync(mountCalls,'utf8'):'',root};
+}
+test('restricted AppArmor container exposes securityfs for the shipped browser profile',t=>{
+  const {result,calls,root}=securityfsFixture(t);assert.equal(result.status,0,result.stderr);
+  assert.equal(calls,`-t securityfs securityfs ${root}\n`);
+});
+test('visible securityfs requires no second mount',t=>{
+  const {result,calls}=securityfsFixture(t,{mounted:true});assert.equal(result.status,0,result.stderr);assert.equal(calls,'');
+});
+test('an unavailable policy interface or a failed mount blocks qualification',t=>{
+  for(const options of [{visible:false},{mounted:true,visible:false},{mountFails:true}]){
+    const context=JSON.stringify(options);
+    const {result}=securityfsFixture(t,options);assert.notEqual(result.status,0,context);
+    assert.match(result.stderr,options.mountFails?/Cannot mount securityfs/:/AppArmor policy interface is unavailable/,context);
+  }
+});
+test('unrestricted or disabled AppArmor requires no kernel interface change',t=>{
+  for(const options of [{enabled:'N'},{restricted:'0'}]){
+    const {result,calls}=securityfsFixture(t,options);assert.equal(result.status,0,result.stderr);assert.equal(calls,'');
+  }
+});
+test('securityfs preparation refuses a target without the disposable declaration',t=>{
+  const {result,calls}=securityfsFixture(t,{disposable:false});assert.notEqual(result.status,0);assert.equal(calls,'');
 });

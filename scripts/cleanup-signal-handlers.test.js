@@ -68,9 +68,9 @@ test('a failing cleanup is reported on stderr and the process still exits with t
 // are deliberately absent: they use the cooperative graceful-signal-cancellation
 // helper, which waits for an in-flight write to settle before cleaning up.
 const ADOPTERS = [
-  'add-login-account', 'demographic-add', 'document-upload', 'echart-new-patient-notes',
-  'eform-admin-crud', 'login', 'report-demographic-navigation', 'rx-preview-pharmacy', 'tickler-crud',
-  'tickler-note-dialog', 'flowsheet-admin', 'flu-billing-report', 'rx-fax-reprint-represcribe',
+  'add-login-account', 'demographic-add', 'echart-new-patient-notes',
+  'eform-admin-crud', 'report-demographic-navigation', 'rx-preview-pharmacy',
+  'flowsheet-admin', 'flu-billing-report', 'rx-fax-reprint-represcribe',
 ];
 
 for (const name of ADOPTERS) {
@@ -81,5 +81,16 @@ for (const name of ADOPTERS) {
       "must stop Playwright's own SIGINT/SIGTERM handler, which exits before cleanup finishes");
     assert.doesNotMatch(source, /process\.(on|once)\(\s*signal|for \(const signal of \['SIGINT'/,
       'must not hand-roll a second handler');
+  });
+}
+
+for (const name of ['document-upload', 'login', 'tickler-crud', 'tickler-note-dialog']) {
+  test(`${name} uses cooperative structured completion and defers restoration until writes settle`, () => {
+    const source = fs.readFileSync(path.join(__dirname, `${name}-playwright-checks.js`), 'utf8');
+    assert.match(source, /legacyHarness\.runLegacyCheck\(/);
+    assert.match(source, /cancellation/);
+    assert.match(source, /recordBrowserVersion\(browser\)/);
+    assert.doesNotMatch(source, /installCleanupSignalHandlers\(/);
+    assert.doesNotMatch(source, /process\.exit\(/);
   });
 }

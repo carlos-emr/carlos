@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * Modifications by CARLOS Contributors, 2026.
  *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -14,6 +15,10 @@
 const assert = require('node:assert/strict');
 
 const MAX_DOCUMENT_ID = 2147483647;
+// ProviderLabRoutingDao.PROVIDER_LINKING_RULES_LOCK (Integer.MIN_VALUE) is
+// a global coordination lock, never a document identity. Keep the exception
+// scoped to this exact table/column/value; every other negative key still fails.
+const PROVIDER_LINKING_RULES_LOCK = '-2147483648';
 function identifier(value) {
   assert(typeof value === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(value), 'Unfamiliar document reference identifier');
   return '`' + value + '`';
@@ -38,7 +43,10 @@ function documentReferenceColumns(sql) {
     assert(Array.isArray(row) && row.length === 3 && ['0', '1'].includes(row[2]), 'Document reference provenance is unavailable');
     identifier(row[0]); identifier(row[1]);
   }
-  return references;
+  // RemoteDataLog.documentId identifies remote resources (server:type:id), not
+  // document.document_no; retain declared FKs even if their name matches.
+  return references.filter(([table, column, declared]) => !(declared === '0'
+    && table.toLowerCase() === 'remotedatalog' && column.toLowerCase() === 'documentid'));
 }
 
 /** Read-only allocation plan. Even preexisting dangling references keep their identities. */
@@ -52,8 +60,9 @@ function planDocumentFixtureId(sql) {
   add('document', 'document_no');
   add('providerLabRouting', 'lab_no', "lab_type='DOC'");
   add('patientLabRouting', 'lab_no', "lab_type='DOC'");
-  // This table has no lab_type discriminator, so all existing lock identities count.
-  add('providerLabRoutingLock', 'lab_no');
+  // There is no lab_type discriminator. Reserve every real identity, excluding
+  // only the application's global sentinel before both validation and unsigned MAX.
+  add('providerLabRoutingLock', 'lab_no', `BINARY CAST(lab_no AS CHAR) <> '${PROVIDER_LINKING_RULES_LOCK}'`);
   add('casemgmt_note_link', 'table_id', 'table_name=5');
   let maximumReference = 0;
   const references = [];
@@ -63,7 +72,7 @@ function planDocumentFixtureId(sql) {
     // MySQL's lossy numeric coercion of values such as '22-other'.
     const invalid = sql.value(`SELECT COUNT(*) FROM ${from} WHERE (${where}) AND ${target} IS NOT NULL
       AND CAST(${target} AS CHAR) NOT REGEXP '^[0-9]+$'`);
-    assert.equal(invalid, '0', 'Unfamiliar document reference value');
+    assert.equal(invalid, '0', `Unfamiliar document reference value in ${table}.${column} (${where}); ${invalid} invalid row(s); no fixture allocated`);
     const maximum = integer(sql.value(`SELECT COALESCE(MAX(CAST(${target} AS UNSIGNED)),0) FROM ${from} WHERE ${where}`),
       'document reference maximum', true);
     maximumReference = Math.max(maximumReference, maximum);
@@ -81,4 +90,4 @@ function assertSplitFixtureId(sourceId, splitId) {
     'Split reused an identity at or below the reserved source range');
 }
 
-module.exports = {MAX_DOCUMENT_ID, documentReferenceColumns, planDocumentFixtureId, assertSplitFixtureId};
+module.exports = {MAX_DOCUMENT_ID, PROVIDER_LINKING_RULES_LOCK, documentReferenceColumns, planDocumentFixtureId, assertSplitFixtureId};

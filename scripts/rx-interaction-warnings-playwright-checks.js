@@ -299,4 +299,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('rx-interaction-warnings', workflow, { openPatient: true });
-module.exports = { workflow };
+module.exports = { workflow, drugRefPair, interactionCheck, cardFor, shownMarkers, assertMarkers };

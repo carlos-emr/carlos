@@ -30,26 +30,31 @@ class PreventionDataExtensionLookupUnitTest extends CarlosUnitTestBase {
     private static final String CLINICAL_MARKER = "SYNTHETIC-CLINICAL-LOT-REASON";
     private final PreventionDao preventionDao = mock(PreventionDao.class);
     private final PreventionExtDao extensionDao = mock(PreventionExtDao.class);
+    private final PartialDateDao partialDateDao = mock(PartialDateDao.class);
     private Object originalPreventionDao;
     private Object originalExtensionDao;
+    private Object originalPartialDateDao;
 
     @BeforeEach
     void setUpLookups() {
         registerMock(PreventionDao.class, preventionDao);
         registerMock(PreventionExtDao.class, extensionDao);
-        registerMock(PartialDateDao.class, mock(PartialDateDao.class));
+        registerMock(PartialDateDao.class, partialDateDao);
         DHIRSubmissionManager dhir = createAndRegisterMock(DHIRSubmissionManager.class);
         when(dhir.findByPreventionId(anyInt())).thenReturn(List.of());
         originalPreventionDao = ReflectionTestUtils.getField(PreventionData.class, "preventionDao");
         originalExtensionDao = ReflectionTestUtils.getField(PreventionData.class, "preventionExtDao");
+        originalPartialDateDao = ReflectionTestUtils.getField(PreventionData.class, "partialDateDao");
         ReflectionTestUtils.setField(PreventionData.class, "preventionDao", preventionDao);
         ReflectionTestUtils.setField(PreventionData.class, "preventionExtDao", extensionDao);
+        ReflectionTestUtils.setField(PreventionData.class, "partialDateDao", partialDateDao);
     }
 
     @AfterEach
     void restoreLookups() {
         ReflectionTestUtils.setField(PreventionData.class, "preventionDao", originalPreventionDao);
         ReflectionTestUtils.setField(PreventionData.class, "preventionExtDao", originalExtensionDao);
+        ReflectionTestUtils.setField(PreventionData.class, "partialDateDao", originalPartialDateDao);
     }
 
     @Test
@@ -61,8 +66,8 @@ class PreventionDataExtensionLookupUnitTest extends CarlosUnitTestBase {
                 field(41, "lot", CLINICAL_MARKER), field(41, "dose", "300"),
                 field(41, "reason", "antepartum"), field(41, "name", "synthetic product")));
 
-        // This is the reflection-based text the previous implementation passed into Integer.valueOf.
-        assertThat(injection.toString()).contains(CLINICAL_MARKER);
+        // Diagnostic text is deliberately nonnumeric and must never be parsed as an identifier.
+        assertThat(injection.toString()).isEqualTo("Prevention[id=41]").doesNotContain(CLINICAL_MARKER);
         try (MockedStatic<ProviderData> providers = mockStatic(ProviderData.class);
                 LogCapture logs = LogCapture.forLogger(PreventionData.class)) {
             assertThat(PreventionData.getPreventionDataFromExt("workflowId", "17"))

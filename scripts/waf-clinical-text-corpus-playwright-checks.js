@@ -54,6 +54,23 @@
  * tickler, and the rows each save writes (found by the patient and by an id watermark taken before the
  * corpus is sent). Cleanup deletes them by key and asserts they are gone. No clinic-wide state is changed.
  */
+// Native AJAX Save replaces the editor: wait for that exact DOM transition.
+async function awaitNativeChartSave(chart,operation) {
+  const previous=await chart.locator('#caseManagementEntryForm').elementHandle();
+  h.assert(previous,'The native chart editor is absent before Save');
+  try {
+    const captured=await operation();
+    h.assert(captured.response,'The native Save has no response');
+    const finished=await captured.response.finished();
+    if(captured.response.status()>=400)return captured;
+    h.assert(finished===null,'The native Save response did not finish');
+    await chart.waitForFunction(element=>!element.isConnected,previous,{timeout:30000});
+    await chart.locator('#caseManagementEntryForm textarea[name="caseNote_note"]').first().waitFor({state:'visible',timeout:30000});
+    await chart.waitForLoadState('networkidle');
+    return captured;
+  } finally {await previous.dispose();}
+}
+
 const { randomUUID } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload, openFormsMenu } = require('./lib/playwright-ui');
@@ -64,7 +81,8 @@ const boundary = require('./lib/boundary-values');
 const fam = require('./lib/mutation-families');
 const tickler = require('./lib/concurrency-tickler');
 const { captureRequest, multipartFields, replayParams, takeKnownNoise } = require('./lib/get-reject-probe');
-const { createLabRoutingFixture } = require('./lib/lab-routing-fixture');
+const { createOwnedLab } = require('./lib/owned-lab');
+const { LOCK_NOT_SHARED } = require('./lab-forwarding-rules-playwright-checks');
 const pdfs = require('./lib/stored-pdf-documents');
 const billing = require('./billing-on-invoice-third-party-playwright-checks');
 const rep = require('./lib/mutation-replay');
@@ -843,8 +861,10 @@ function rows(s, ctx) {
     family.aim = async (captured) => {
       // Prevention's token is issued by the server and bound to this form.
       // Reload the captured form to obtain a new intent; reusing the control's
-      // completed token correctly returns its old result without another write.
-      const formUrl = new URL(captured.headers.referer);
+      // completed token correctly returns its old result without another write. The form's address is
+      // the page that sent the save: the front door's Referrer-Policy: no-referrer leaves no Referer.
+      h.assert(captured.frameUrl, 'the capture did not record the prevention form that sent the save');
+      const formUrl = new URL(captured.frameUrl);
       h.assert(formUrl.origin === baseUrl.origin && formUrl.pathname === pathOf('prevention/ViewAddPreventionData')
         && formUrl.searchParams.get('demographic_no') === String(patient), 'the prevention form does not target the owned patient');
       const response = await s.context.request.get(formUrl.toString(), { maxRedirects: 0, failOnStatusCode: false });
@@ -936,11 +956,14 @@ function rows(s, ctx) {
       drive: 'replay: real UI (Inbox ▸ lab ▸ Acknowledge ▸ comment prompt), then the captured POST',
       fields,
       prepare() {
-        lab = s.sql.rows(labCandidates())[0][0];
-        h.assert(/^[1-9]\d*$/.test(lab), 'the lab fixture id is invalid');
-        const routing = createLabRoutingFixture((query) => s.sql.execute(query), (query) => s.sql.rows(query), s.provider, [lab]);
-        s.cleanup(() => routing.cleanup());
-        routing.prepare();
+        const template = s.sql.rows(labCandidates())[0]?.[0];
+        if(!template)throw new h.SkipCheck('The install has no routed HL7 lab template to clone');
+        h.assert(/^[1-9]\d*$/.test(template), 'the lab template id is invalid');
+        const owned = createOwnedLab({sql:query=>s.sql.value(query),sqlRows:query=>s.sql.rows(query),lockNotShared:LOCK_NOT_SHARED});
+        s.cleanup(()=>owned.removeOwnedLab());
+        lab=owned.cloneLab(template);
+        s.sql.execute(`UPDATE patientLabRouting SET demographic_no=${patient} WHERE lab_no=${lab} AND lab_type='HL7';
+          INSERT INTO providerLabRouting(provider_no,lab_no,status,comment,lab_type) VALUES(${q(s.provider)},${lab},'N',${q(marker+'-LS-OWNED')},'HL7')`);
       },
       async control() {
         let nav;
@@ -1001,14 +1024,25 @@ function rows(s, ctx) {
     return row;
   };
 
-  all['chart-note'] = () => familyRow(s, ctx, {
-    key: 'chart-note', ...FACTS['chart-note'],
-    drive: 'replay: real UI (E-Chart ▸ note box ▸ Save), then the captured POST',
-    // A second save from the same chart window edits the note the first one made, in place.
-    family: fam.chartNoteSave(s), table: 'casemgmt_note', idColumn: 'note_id', scope: owned, inPlace: true,
-    fields: [{ name: 'caseNote_note', column: 'note' }],
-    cleanup: () => removeNotes(s),
-  });
+  all['chart-note'] = () => {
+    const family=fam.chartNoteSave(s);
+    const row=familyRow(s,ctx,{
+      key:'chart-note',...FACTS['chart-note'],
+      drive:'typed: native chart Save for the control, then a fresh native editor and Save for the corpus',
+      family,table:'casemgmt_note',idColumn:'note_id',scope:owned,inPlace:true,
+      fields:[{name:'caseNote_note',column:'note'}],cleanup:()=>removeNotes(s),
+    });
+    const control=row.control.bind(row);
+    row.control=async()=>awaitNativeChartSave(await s.chart(),control);
+    row.send=async values=>{
+      // The control's native AJAX Save already rendered a fresh editor.
+      // Type the corpus there instead of replaying a stale body or reloading it.
+      const chart=await s.chart();
+      const captured=await awaitNativeChartSave(chart,()=>family.perform('CORPUS',{text:values.caseNote_note}));
+      h.assert(captured.response,'The native corpus Save has no response');return captured.response;
+    };
+    return row;
+  };
 
   all['eform-letter'] = () => {
     // The Rich Text Letter is the one eForm field the packaged WAF knows is prose (Letter, rule 1045): the
@@ -1203,7 +1237,7 @@ async function workflow(s) {
   };
   const available = rows(s, ctx);
   const built = selectedKeys().map((key) => available[key]());
-  const failures = [];
+  const failures = [],skips=[];
   const clipped = [];
   let ticklerRow = null;
   for (const row of built) if (row.early) row.early();
@@ -1223,6 +1257,7 @@ async function workflow(s) {
     const keep = Object.fromEntries(['pageErrors', 'consoleIssues', 'requestFailures', 'badResponses', 'unexpectedDialogs']
       .map((key) => [key, s.recorder[key].length]));
     try { await s.step(label, body); return true; } catch (error) {
+      if(error instanceof h.SkipCheck){skips.push(error);console.log(`  SKIP ${label}: ${error.message}`);return false;}
       const own = !judged || error instanceof RowFailure;
       failures.push({ label: own ? label : `${label} -- the drive failed before the corpus could be judged`, error });
       console.error(`  FAIL ${label}: ${error.message}`);
@@ -1335,12 +1370,17 @@ async function workflow(s) {
 
   for (const note of clipped) console.log(`  NOTE ${note}`);
   assertFrontDoor();
+  finishRows(failures,skips);
+}
+
+function finishRows(failures,skips=[]) {
   if (failures.length) {
     // One failed row keeps its own step label, so a manifest expectedFailure can pin it; several failed
     // rows are a different problem and must not hide behind one pin.
     const message = `${failures.length} route row(s) failed: ${failures.map((failure) => `[${failure.label}] ${failure.error.message}`).join(' || ')}`;
     throw h.markFailedStep(new Error(message), failures.length === 1 ? failures[0].label : `${failures.length} route rows failed`);
   }
+  if(skips.length)throw skips[0];
 }
 
 /** Before any fixture exists: a piece of the install a selected row needs that is missing SKIPs the whole check. */
@@ -1349,4 +1389,4 @@ async function preflight({ sql }) {
 }
 
 if (require.main === module) runWorkflow('waf-clinical-text-corpus', workflow, { openPatient: true, preflight });
-module.exports = { PREREQUISITES, workflow, rtlPlainText };
+module.exports = { PREREQUISITES, workflow, rtlPlainText,finishRows,awaitNativeChartSave };

@@ -37,5 +37,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.ReportTableFieldCaption;
 
 public interface ReportTableFieldCaptionDao extends AbstractDao<ReportTableFieldCaption> {
+    /** Captions for one form table, in stable identifier order. */
+    List<ReportTableFieldCaption> findByTableName(String tableName);
     List<ReportTableFieldCaption> findByTableNameAndName(String tableName, String name);
 }

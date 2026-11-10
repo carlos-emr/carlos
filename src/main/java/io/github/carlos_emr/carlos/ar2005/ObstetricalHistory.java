@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -100,27 +98,6 @@ public interface ObstetricalHistory extends XmlObject
         public static ObstetricalHistory parse(final Node node, final XmlOptions options) throws XmlException {
             return (ObstetricalHistory)XmlBeans.getContextTypeLoader().parse(node, ObstetricalHistory.type, options);
         }
-        
-        @Deprecated
-        public static ObstetricalHistory parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (ObstetricalHistory)XmlBeans.getContextTypeLoader().parse(xis, ObstetricalHistory.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static ObstetricalHistory parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (ObstetricalHistory)XmlBeans.getContextTypeLoader().parse(xis, ObstetricalHistory.type, options);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, ObstetricalHistory.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, ObstetricalHistory.type, options);
-        }
-        
         private Factory() {
         }
     }

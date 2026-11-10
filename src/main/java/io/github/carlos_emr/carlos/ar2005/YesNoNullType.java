@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -121,27 +119,6 @@ public interface YesNoNullType extends XmlObject
         public static YesNoNullType parse(final Node node, final XmlOptions options) throws XmlException {
             return (YesNoNullType)XmlBeans.getContextTypeLoader().parse(node, YesNoNullType.type, options);
         }
-        
-        @Deprecated
-        public static YesNoNullType parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (YesNoNullType)XmlBeans.getContextTypeLoader().parse(xis, YesNoNullType.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static YesNoNullType parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (YesNoNullType)XmlBeans.getContextTypeLoader().parse(xis, YesNoNullType.type, options);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, YesNoNullType.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, YesNoNullType.type, options);
-        }
-        
         private Factory() {
         }
     }

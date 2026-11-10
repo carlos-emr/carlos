@@ -186,7 +186,7 @@ public class EdtClientBuilderConfig {
 	}
 
 	/**
-	 * Returns whether logging is required for the service client.
+	 * Returns whether payload-free transport diagnostics are enabled for the service client.
 	 * 
 	 * @return {@code true} if logging is enabled, {@code false} otherwise
 	 */
@@ -195,7 +195,8 @@ public class EdtClientBuilderConfig {
 	}
 
 	/**
-	 * Sets whether logging is required for the service client.
+	 * Enables fixed transport events and numeric HTTP status diagnostics. SOAP content,
+	 * credentials, headers and attachment identifiers are never included.
 	 * 
 	 * @param loggingRequired {@code true} to enable logging, {@code false} to disable
 	 */

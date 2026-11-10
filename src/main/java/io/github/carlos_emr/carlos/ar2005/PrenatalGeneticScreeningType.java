@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -513,79 +511,6 @@ public interface PrenatalGeneticScreeningType extends XmlObject
          */
         public static PrenatalGeneticScreeningType parse(final Node node, final XmlOptions options) throws XmlException {
             return (PrenatalGeneticScreeningType)XmlBeans.getContextTypeLoader().parse(node, PrenatalGeneticScreeningType.type, options);
-        }
-
-        /**
-         * Parses XML content from an XMLInputStream into a PrenatalGeneticScreeningType instance with default options.
-         * <p>
-         * This method deserializes XML content from an XMLBeans-specific input stream.
-         * </p>
-         *
-         * @param xis XMLInputStream the XML input stream to parse
-         * @return PrenatalGeneticScreeningType the parsed instance
-         * @throws XmlException if the XML is malformed or does not match the expected schema
-         * @throws XMLStreamException if an error occurs during XML stream processing
-         * @deprecated XMLInputStream is deprecated in XMLBeans; use alternative parsing methods
-         */
-        @Deprecated
-        public static PrenatalGeneticScreeningType parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (PrenatalGeneticScreeningType)XmlBeans.getContextTypeLoader().parse(xis, PrenatalGeneticScreeningType.type, (XmlOptions)null);
-        }
-
-        /**
-         * Parses XML content from an XMLInputStream into a PrenatalGeneticScreeningType instance with custom XML options.
-         * <p>
-         * This method allows specifying XMLBeans options to control validation, error handling,
-         * and other parsing behaviors when reading from an XMLBeans-specific input stream.
-         * </p>
-         *
-         * @param xis XMLInputStream the XML input stream to parse
-         * @param options XmlOptions the XML processing options to use during parsing
-         * @return PrenatalGeneticScreeningType the parsed instance
-         * @throws XmlException if the XML is malformed or does not match the expected schema
-         * @throws XMLStreamException if an error occurs during XML stream processing
-         * @deprecated XMLInputStream is deprecated in XMLBeans; use alternative parsing methods
-         */
-        @Deprecated
-        public static PrenatalGeneticScreeningType parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (PrenatalGeneticScreeningType)XmlBeans.getContextTypeLoader().parse(xis, PrenatalGeneticScreeningType.type, options);
-        }
-
-        /**
-         * Creates a validating XMLInputStream wrapper with default options.
-         * <p>
-         * This method wraps an XMLInputStream with schema validation capabilities to ensure
-         * the XML content conforms to the PrenatalGeneticScreeningType schema.
-         * </p>
-         *
-         * @param xis XMLInputStream the XML input stream to wrap with validation
-         * @return XMLInputStream a validating XML input stream
-         * @throws XmlException if validation setup fails or the XML is invalid
-         * @throws XMLStreamException if an error occurs during XML stream processing
-         * @deprecated XMLInputStream is deprecated in XMLBeans; use alternative parsing methods with validation options
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, PrenatalGeneticScreeningType.type, (XmlOptions)null);
-        }
-
-        /**
-         * Creates a validating XMLInputStream wrapper with custom XML options.
-         * <p>
-         * This method wraps an XMLInputStream with schema validation capabilities, allowing custom
-         * validation and error handling options to be specified.
-         * </p>
-         *
-         * @param xis XMLInputStream the XML input stream to wrap with validation
-         * @param options XmlOptions the XML processing options to control validation behavior
-         * @return XMLInputStream a validating XML input stream
-         * @throws XmlException if validation setup fails or the XML is invalid
-         * @throws XMLStreamException if an error occurs during XML stream processing
-         * @deprecated XMLInputStream is deprecated in XMLBeans; use alternative parsing methods with validation options
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, PrenatalGeneticScreeningType.type, options);
         }
 
         /**

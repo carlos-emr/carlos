@@ -105,6 +105,9 @@ class UploadActionBindingSecurityUnitTest {
 
     private static Stream<String> nonMultipartUploadActionSources() {
         return Stream.of(
+                // Authenticated CSRF-protected bounded application/octet-stream chunks, not multipart.
+                // Owned spool paths/filenames and quotas are enforced by CdsUploadService; no file setters.
+                "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/CdsUpload2Action.java",
                 // Raw Base64/request-stream signature upload; validates its generated temp path.
                 "src/main/java/io/github/carlos_emr/carlos/signature/action/SaveSignatureUpload2Action.java",
                 // MCEDT session submitter; actual mailbox file upload is the sibling mailbox action.
@@ -121,8 +124,6 @@ class UploadActionBindingSecurityUnitTest {
     private static Stream<BindingMethod> uploadBindingMethods() {
         return Stream.of(
                 binding("io.github.carlos_emr.carlos.admin.web.ManageFlowsheetsUpload2Action", "withUploadedFiles", List.class),
-                binding("io.github.carlos_emr.carlos.demographic.pageUtil.ImportDemographicDataAction42Action", "setImportFile", File.class),
-                binding("io.github.carlos_emr.carlos.demographic.pageUtil.ImportDemographicDataAction42Action", "setImportFileFileName", String.class),
                 binding("io.github.carlos_emr.carlos.eform.upload.HtmlUpload2Action", "setFormHtml", File.class),
                 binding("io.github.carlos_emr.carlos.eform.upload.HtmlUpload2Action", "setFormHtmlContentType", String.class),
                 binding("io.github.carlos_emr.carlos.eform.upload.HtmlUpload2Action", "setFormHtmlFileName", String.class),

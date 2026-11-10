@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.LegacyXmlBeans;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
@@ -72,7 +73,7 @@ class CdsEmbeddedLabDocumentUnitTest extends CarlosUnitTestBase {
             .getBytes(StandardCharsets.US_ASCII);
 
     private static Reports newReport() {
-        return OmdCdsDocument.Factory.newInstance().addNewOmdCds().addNewPatientRecord().addNewReports();
+        return LegacyXmlBeans.newInstance(OmdCdsDocument.class, OmdCdsDocument.type).addNewOmdCds().addNewPatientRecord().addNewReports();
     }
 
     private static Map<String, String> lab(String payload) {

@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -452,64 +450,6 @@ public interface PsychosocialType extends XmlObject
             return (PsychosocialType)XmlBeans.getContextTypeLoader().parse(node, PsychosocialType.type, options);
         }
         
-        /**
-         * Parses XML from a legacy XMLInputStream into a PsychosocialType instance.
-         *
-         * @param xis XMLInputStream the XML input stream (deprecated API)
-         * @return PsychosocialType the parsed instance
-         * @throws XmlException if the XML is malformed or doesn't match the schema
-         * @throws XMLStreamException if there is an error processing the XML stream
-         * @deprecated Use {@link #parse(InputStream)} or {@link #parse(XMLStreamReader)} instead
-         */
-        @Deprecated
-        public static PsychosocialType parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (PsychosocialType)XmlBeans.getContextTypeLoader().parse(xis, PsychosocialType.type, (XmlOptions)null);
-        }
-
-        /**
-         * Parses XML from a legacy XMLInputStream into a PsychosocialType instance with custom options.
-         *
-         * @param xis XMLInputStream the XML input stream (deprecated API)
-         * @param options XmlOptions the XML parsing and validation options to apply
-         * @return PsychosocialType the parsed instance
-         * @throws XmlException if the XML is malformed or doesn't match the schema
-         * @throws XMLStreamException if there is an error processing the XML stream
-         * @deprecated Use {@link #parse(InputStream, XmlOptions)} or {@link #parse(XMLStreamReader, XmlOptions)} instead
-         */
-        @Deprecated
-        public static PsychosocialType parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (PsychosocialType)XmlBeans.getContextTypeLoader().parse(xis, PsychosocialType.type, options);
-        }
-
-        /**
-         * Creates a validating XMLInputStream wrapper for schema validation.
-         *
-         * @param xis XMLInputStream the XML input stream to wrap with validation (deprecated API)
-         * @return XMLInputStream a validating wrapper around the input stream
-         * @throws XmlException if there is an error setting up validation
-         * @throws XMLStreamException if there is an error processing the XML stream
-         * @deprecated Use modern StAX-based validation approaches instead
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, PsychosocialType.type, (XmlOptions)null);
-        }
-
-        /**
-         * Creates a validating XMLInputStream wrapper for schema validation with custom options.
-         *
-         * @param xis XMLInputStream the XML input stream to wrap with validation (deprecated API)
-         * @param options XmlOptions the XML parsing and validation options to apply
-         * @return XMLInputStream a validating wrapper around the input stream
-         * @throws XmlException if there is an error setting up validation
-         * @throws XMLStreamException if there is an error processing the XML stream
-         * @deprecated Use modern StAX-based validation approaches instead
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, PsychosocialType.type, options);
-        }
-
         /**
          * Private constructor to prevent instantiation of the factory class.
          *

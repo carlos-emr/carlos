@@ -78,10 +78,10 @@ public class FOBTReport implements PreventionReport {
             Integer demo = Integer.valueOf(fieldList.get(0));
 
             //search   prevention_date prevention_type  deleted   refused
-            ArrayList<Map<String, Object>> prevs = PreventionData.getPreventionData(loggedInInfo, "FOBT", demo);
+            ArrayList<Map<String, Object>> prevs = PreventionData.getExactPreventionData(loggedInInfo, "FOBT", demo);
 
             ArrayList<Map<String, Object>> noFutureItems = removeFutureItems(prevs, asofDate);
-            ArrayList<Map<String, Object>> colonoscopys = PreventionData.getPreventionData(loggedInInfo, "COLONOSCOPY", demo);
+            ArrayList<Map<String, Object>> colonoscopys = PreventionData.getExactPreventionData(loggedInInfo, "COLONOSCOPY", demo);
 
             PreventionReportDisplay prd = new PreventionReportDisplay();
             prd.demographicNo = demo;
@@ -279,6 +279,7 @@ public class FOBTReport implements PreventionReport {
     private static final String PHONE1 = "P1";
     private static final String CALLFU = "Follow Up";
 
+    /** Applies the existing screening recall schedule using follow-up values and dates; lab source links are unused. */
     private String letterProcessing(PreventionReportDisplay prd, String measurementType, Date asofDate, Date prevDate) {
         if (prd != null) {
             boolean inclUpToDate = false;
@@ -296,7 +297,7 @@ public class FOBTReport implements PreventionReport {
             }
 
             if (prd.state.equals("No Info") || prd.state.equals("due") || prd.state.equals("Overdue") || inclUpToDate) {
-                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType);
+                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType, false);
                 Collection<EctMeasurementsDataBean> followupData = measurementDataHandler.getMeasurementsDataVector();
 
                 if (followupData.size() == 0) {

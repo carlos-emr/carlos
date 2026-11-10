@@ -395,13 +395,13 @@ async function checkGroupNoteFullView(s, { fixture }) {
       const linkBefore = sql.rows(`SELECT id,noteId,demographicNo,anonymous,active,created FROM GroupNoteLink WHERE id=${linkId}`);
       h.assert(linkBefore.length === 1 && linkBefore[0][4] === '1', 'The owned group link is not active');
       const inactive = linkBefore.map(row => [...row]); inactive[0][4] = '0';
-      sql.execute(`UPDATE GroupNoteLink SET active=0 WHERE id=${linkId} AND noteId=${shared.id}
+      sql.execute(`UPDATE GroupNoteLink SET active=0,created=${q(linkBefore[0][5])} WHERE id=${linkId} AND noteId=${shared.id}
         AND demographicNo=${patients[0].id} AND active=1`);
       try { denied(await apiRead(reader, shared, { token: chartToken })); }
       finally {
         h.assert(JSON.stringify(sql.rows(`SELECT id,noteId,demographicNo,anonymous,active,created FROM GroupNoteLink WHERE id=${linkId}`))
           === JSON.stringify(inactive), 'Group link drifted; refusing to overwrite it during restoration');
-        sql.execute(`UPDATE GroupNoteLink SET active=1 WHERE id=${linkId} AND noteId=${shared.id}
+        sql.execute(`UPDATE GroupNoteLink SET active=1,created=${q(linkBefore[0][5])} WHERE id=${linkId} AND noteId=${shared.id}
           AND demographicNo=${patients[0].id} AND active=0`);
       }
       h.assert(JSON.stringify(snapshot()) === JSON.stringify(before), 'Group-link restoration changed unrelated state');
