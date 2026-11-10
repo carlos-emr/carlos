@@ -45,7 +45,7 @@ class ReportEvaluatorUnitTest extends CarlosUnitTestBase {
         when(numerator.evaluate(login, "101")).thenReturn(true);
         var measurement = mock(EctMeasurementsDataBean.class);
         try (var construction = mockConstruction(EctMeasurementsDataBeanHandler.class, (mock, context) -> {
-            assertThat(context.arguments()).isEqualTo(List.of(101, "FAKE-LOINC"));
+            assertThat(context.arguments()).isEqualTo(List.of(101, "FAKE-LOINC", false));
             when(mock.getMeasurementsDataVector()).thenReturn(new Vector<>(List.of(measurement)));
         })) {
             var evaluator = new ReportEvaluator();

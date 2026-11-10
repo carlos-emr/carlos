@@ -72,10 +72,12 @@ class LegacyLabUploadDaoIntegrationTest extends CarlosTestBase {
     private int cmlPatient;
     private int cmlReport;
 
+    private String doctorNumber = "000000";
+
     private String content() {
         return "A^70^20261105^12:00^1^1^0^\n"
                 + String.join("^", "B", marker, "1", "20261105", "Synthetic", "Fixture", "F", "",
-                        "20000101", "F", "000000", "Synthetic", "", "", "", "", "", "", "", "", "", "05 NOV 26", "")
+                        "20000101", "F", doctorNumber, "Synthetic", "", "", "", "", "", "", "", "", "", "05 NOV 26", "")
                 + "\nC^Chemistry^^^Synthetic test^A^1^9^mmol/L^10^70^Y^\n";
     }
 
@@ -125,6 +127,36 @@ class LegacyLabUploadDaoIntegrationTest extends CarlosTestBase {
         assertThat(independentCount("SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='CML' AND lab_no=?", Integer.toString(cmlPatient))).isZero();
         // A retry must be accepted, proving that no orphan checksum survived rollback.
         assertThat(upload(false)).isEqualTo(FileUploadCheck.StoreOutcome.STORED);
+    }
+
+    @Test
+    void shouldKeepMissingIdentifiersUnmatched_withOnePlausibleBlankHinPatient() throws Exception {
+        createMatchedPatient();
+        new TransactionTemplate(transactions).executeWithoutResult(status -> em.createNativeQuery(
+                "UPDATE demographic SET hin='',last_name='Fixture' WHERE demographic_no=?1")
+                .setParameter(1, matchedPatient).executeUpdate());
+        doctorNumber = "";
+        assertThat(upload(false)).isEqualTo(FileUploadCheck.StoreOutcome.STORED);
+        assertThat(independentCount("SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='CML' AND lab_no=? AND demographic_no=0",
+                Integer.toString(cmlPatient))).isEqualTo(1);
+        assertThat(independentCount("SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='CML' AND lab_no=? AND provider_no='0'",
+                Integer.toString(cmlPatient))).isEqualTo(1);
+        assertThat(independentCount("SELECT COUNT(*) FROM fileUploadCheck WHERE filename=?", filename)).isEqualTo(1);
+    }
+
+    @Test
+    void shouldRejectWholeFile_whenSecondPatientRecordIsMalformed() throws Exception {
+        String malformed = content() + "B^truncated^\n";
+        assertThatThrownBy(() -> FileUploadCheck.storeIfNew(filename,
+                () -> new ByteArrayInputStream(malformed.getBytes(StandardCharsets.UTF_8)), "999998", checksum -> {
+                    ABCDParser parser = new ABCDParser();
+                    parser.parse(new BufferedReader(new StringReader(malformed)));
+                    parser.save();
+                    return true;
+                })).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("CML B record must contain exactly 22 fields");
+        assertThat(independentCount("SELECT COUNT(*) FROM fileUploadCheck WHERE filename=?", filename)).isZero();
+        assertThat(independentCount("SELECT COUNT(*) FROM labPatientPhysicianInfo WHERE accession_num=?", marker)).isZero();
     }
 
     private int hl7Segment;

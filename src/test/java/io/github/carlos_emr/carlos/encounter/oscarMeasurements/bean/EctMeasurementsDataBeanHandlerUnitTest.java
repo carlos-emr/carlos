@@ -183,6 +183,30 @@ class EctMeasurementsDataBeanHandlerUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldPreserveReportReading_withoutLoadingSourceProvenance() {
+        MeasurementTypes catalog = mock(MeasurementTypes.class);
+        EctMeasurementTypesBean type = mock(EctMeasurementTypesBean.class);
+        when(catalog.getByType("A1C")).thenReturn(type);
+        when(type.getValidation()).thenReturn("1");
+        ValidationsDao validations = mock(ValidationsDao.class);
+        registerMock(ValidationsDao.class, validations);
+        registerMock(ProviderDao.class, mock(ProviderDao.class));
+        Validations validation = new Validations();
+        validation.setName("A1C");
+        Object[] row = reading(7);
+        when(validations.findValidationsBy(3, "A1C", 1))
+                .thenReturn(Collections.singletonList(new Object[] {validation, row[0]}));
+        try (var catalogAccess = mockStatic(MeasurementTypes.class)) {
+            catalogAccess.when(MeasurementTypes::getInstance).thenReturn(catalog);
+            var readings = new EctMeasurementsDataBeanHandler(3, "A1C", false).getMeasurementsDataVector();
+            assertThat(readings).hasSize(1);
+            assertThat(readings).extracting(EctMeasurementsDataBean::getDataField).containsExactly("Yes");
+            assertThat(readings).extracting(EctMeasurementsDataBean::getSourceLabNo).containsExactly((Integer) null);
+            verifyNoInteractions(extensions);
+        }
+    }
+
     private static Object[] reading(int id) {
         Object[] r = row("reviewed", new Date(0));
         Measurement measurement = (Measurement) r[0];

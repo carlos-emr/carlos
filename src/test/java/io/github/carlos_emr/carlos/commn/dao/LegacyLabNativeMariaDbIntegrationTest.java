@@ -68,10 +68,10 @@ class LegacyLabNativeMariaDbIntegrationTest extends CarlosTestBase {
                     .setParameter(1, provider).setParameter(2, id).setParameter(3, index == 2 ? "A" : "N").executeUpdate();
         }
         var filter = new InboxCategoryDao.Filter("", "", "", false, true, provider, "N", "all", null, null);
-        assertThat(inbox.count(filter, InboxCategoryDao.Operation.LAB_UNMATCHED, null).total()).isEqualTo(1);
+        assertThat(inbox.count(filter, InboxCategoryDao.Operation.LAB_UNMATCHED, null).total()).isEqualTo(2);
         assertThat(inbox.count(filter, InboxCategoryDao.Operation.ABNORMAL, null).total()).isEqualTo(2);
         var all = new InboxCategoryDao.Filter("", "", "", false, true, provider, "", "all", null, null);
-        assertThat(inbox.count(all, InboxCategoryDao.Operation.LAB_UNMATCHED, null).total()).isEqualTo(2);
+        assertThat(inbox.count(all, InboxCategoryDao.Operation.LAB_UNMATCHED, null).total()).isEqualTo(3);
     }
 
     @Test

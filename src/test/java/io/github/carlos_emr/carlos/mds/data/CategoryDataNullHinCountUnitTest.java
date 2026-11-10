@@ -145,6 +145,55 @@ class CategoryDataNullHinCountUnitTest extends CarlosUnitTestBase {
         assertThat(data.getPatientList()).isEmpty();
     }
 
+    @Test
+    void shouldCountReportsOnce_acrossProvidersVersionsAndAccessions() throws SQLException {
+        insert("INSERT INTO hl7TextInfo (lab_no,result_status,accessionNum) VALUES (23,'A','another')");
+        insert("INSERT INTO patientLabRouting (demographic_no,lab_no,lab_type) VALUES (?,23,'HL7')", PATIENT);
+        for (String provider : new String[] {PROVIDER, "111111", "222222"}) {
+            insert("INSERT INTO providerLabRouting (provider_no,lab_no,status,lab_type) VALUES (?,23,'N','HL7')", provider);
+            if (!provider.equals(PROVIDER)) insert("INSERT INTO providerLabRouting (provider_no,lab_no,status,lab_type) VALUES (?,21,'N','HL7')", provider);
+        }
+        CategoryData data = new CategoryData("Synthetic", "Nohin", "", true, false, "-1", "N", "all", null, null);
+        assertThat(data.getLabCountForPatientSearch()).isEqualTo(3);
+        assertThat(data.getPatientList()).filteredOn(row -> row.getId() == PATIENT)
+                .extracting(PatientInfo::getLabCount).containsExactly(2);
+    }
+
+    @Test
+    void shouldCountReportIdentities_whenAccessionsMissing() throws SQLException {
+        for (int id = 30; id < 34; id++) {
+            insert("INSERT INTO hl7TextInfo (lab_no,result_status,accessionNum) VALUES (?,'A',?)", id, id < 32 ? "" : null);
+            insert("INSERT INTO providerLabRouting (provider_no,lab_no,status,lab_type) VALUES (?,?,'N','HL7')", PROVIDER, id);
+        }
+        assertThat(search("").getLabCountForUnmatched()).isEqualTo(4);
+    }
+
+    @Test
+    void shouldIncludeDateOnlyStart_withWholeEndDayBounds() throws SQLException {
+        insert("UPDATE hl7TextInfo SET obr_date=? WHERE lab_no=21", "2026-01-01");
+        insert("UPDATE hl7TextInfo SET obr_date=? WHERE lab_no=22", "2026-01-01 23:59:59");
+        CategoryData data = new CategoryData("Synthetic", "Nohin", "", true, true, PROVIDER,
+                "N", "all", "2026-01-01", "2026-01-01");
+        assertThat(data.getLabCountForPatientSearch()).isEqualTo(2);
+        insert("UPDATE hl7TextInfo SET obr_date=? WHERE lab_no=22", "2026-01-02");
+        assertThat(data.getLabCountForPatientSearch()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldScopeAbnormalCounts_byDatesAndDistinctReportsIncludingNullNormalStatus() throws SQLException {
+        insert("UPDATE hl7TextInfo SET obr_date=?,result_status=NULL WHERE lab_no=21", "2026-01-01");
+        insert("UPDATE hl7TextInfo SET obr_date=? WHERE lab_no=22", "2025-12-31");
+        insert("INSERT INTO providerLabRouting (provider_no,lab_no,status,lab_type) VALUES ('111111',21,'N','HL7')");
+        CategoryData data = new CategoryData("Synthetic", "Nohin", "", true, false, "-1",
+                "N", "all", "2026-01-01", "2026-01-01");
+        assertThat(data.getLabCountForPatientSearch()).isEqualTo(1);
+        assertThat(data.getAbnormalCount(true)).isZero();
+        assertThat(data.getAbnormalCount(false)).isEqualTo(1);
+        insert("UPDATE hl7TextInfo SET result_status='A' WHERE lab_no=21");
+        assertThat(data.getAbnormalCount(true)).isEqualTo(1);
+        assertThat(data.getAbnormalCount(false)).isZero();
+    }
+
     private static CategoryData search(String hin) {
         return new CategoryData("Synthetic", "Nohin", hin, true, true, PROVIDER, "N", "all", null, null);
     }

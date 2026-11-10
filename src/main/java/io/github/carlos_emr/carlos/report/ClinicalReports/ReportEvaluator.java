@@ -119,7 +119,7 @@ public class ReportEvaluator {
                     String key = field.getKey();
                     String val = field.getValue();
 
-                    EctMeasurementsDataBeanHandler ect = new EctMeasurementsDataBeanHandler(Integer.valueOf(demo), val);
+                    EctMeasurementsDataBeanHandler ect = new EctMeasurementsDataBeanHandler(Integer.valueOf(demo), val, false);
                     Collection<EctMeasurementsDataBean> v = ect.getMeasurementsDataVector();
                     //Execute for the value and attach it to the key in the hashtable
                     //Object obj =

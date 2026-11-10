@@ -370,7 +370,27 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @CsvSource({"2026-03-08,2026-03-09T03:59:59.999Z", "2026-11-01,2026-11-02T04:59:59.999Z",
+    @CsvSource({"startDate,garbage", "endDate,garbage", "startDate,2026-02-30", "endDate,2026-02-30",
+            "startDate,2026-01-05abc", "endDate,2026-01-05abc"})
+    void shouldReturnErrorForBothFrames_whenDateBoundIsInvalid(String bound, String value) {
+        request.getSession().setAttribute("userrole", "doctor");
+        request.getSession().setAttribute("user", "991820");
+        request.setParameter(bound, value);
+        registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
+        var preferences = mock(io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao.class);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class,
+                new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao(preferences));
+        var inbox = mock(InboxResultsDao.class);
+        registerMock(InboxResultsDao.class, inbox);
+        var action = new DmsInboxManage2Action();
+        assertThat(action.prepareForIndexPage()).isEqualTo("error");
+        assertThat(action.prepareForContentPage()).isEqualTo("error");
+        verifyNoInteractions(preferences, inbox);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"2026-03-08,2026-03-09T03:59:59.999Z", "2026-3-8,2026-03-09T03:59:59.999Z",
+            "2026-11-01,2026-11-02T04:59:59.999Z",
             "2026-03-10,2026-03-11T03:59:59.999Z"})
     void shouldPassCompleteLocalEndDate_whenDaylightSavingChanges(String selectedDate, String expectedInstant) {
         TimeZone original = TimeZone.getDefault();
