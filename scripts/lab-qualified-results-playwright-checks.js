@@ -100,7 +100,9 @@ async function workflow(s){
         const response=await s.context.request.get(h.appUrl(s.config.baseUrl,'/lab/CA/ON/ViewLabValues')+'?'+params);
         try{
           const unmatched=demo===null||['','0','null','undefined'].includes(demo);
-          h.assert(response.status()===(unmatched?200:400),'History returned an unexpected status for an absent/invalid patient');
+          // The packaged WAF can refuse an overflowing identity before the action's 400 gate.
+          h.assert(unmatched?response.status()===200:[400,403].includes(response.status()),
+            'History returned HTTP '+response.status()+' for synthetic demo '+JSON.stringify(demo));
           const body=await response.text();
           if(unmatched)h.assert(body.includes('The demographic number is not valid'),'Unmatched history lost its established recovery message');
           h.assert(!body.includes('id="tblDiscs"'),'An absent/invalid patient returned clinical history');
