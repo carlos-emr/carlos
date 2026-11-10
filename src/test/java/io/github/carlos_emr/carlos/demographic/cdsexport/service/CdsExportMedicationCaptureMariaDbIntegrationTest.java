@@ -268,12 +268,18 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
                                         prescriptions.readCdsExportValueChunk(
                                                 patient, patient, "rx_comments", 0, 4096))
                                 .isEqualTo(java.util.Arrays.copyOf(expected, 4096));
-                        assertThatThrownBy(
-                                        () ->
-                                                prescriptions.readCdsExportValueChunk(
-                                                        patient, patient + 1, "rx_comments", 0, 32))
-                                .isInstanceOf(IllegalStateException.class);
                     });
+            assertThatThrownBy(
+                            () ->
+                                    read.executeWithoutResult(
+                                            status ->
+                                                    prescriptions.readCdsExportValueChunk(
+                                                            patient,
+                                                            patient + 1,
+                                                            "rx_comments",
+                                                            0,
+                                                            32)))
+                    .hasMessage("CDS_EXPORT_NATIVE_SOURCE_INVALID");
         } finally {
             sql.update(
                     "DELETE FROM prescription WHERE script_no IN (?,?) AND demographic_no IN (?,?)",

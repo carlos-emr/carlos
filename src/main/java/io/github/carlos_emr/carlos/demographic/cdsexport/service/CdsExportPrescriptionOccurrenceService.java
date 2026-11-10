@@ -72,6 +72,10 @@ public class CdsExportPrescriptionOccurrenceService {
             throws IOException {
         if (!tables.contains("prescription")) return List.of();
         patient.require(lease);
+        if (!tables.equals(source.capture().tables().keySet())
+                || !lease.runId().equals(source.capture().runId())
+                || lease.epoch() != source.capture().epoch()
+                || patient.patient() != source.capture().patient()) invalid();
         control.authorizeCategory(patient.patient(), CdsCategory.MEDICATIONS_AND_TREATMENTS, false);
         var parents = read(lease, patient, tables, source, bounds, control, "prescription");
         var drugs = read(lease, patient, tables, source, bounds, control, "drugs");
