@@ -32,6 +32,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -122,19 +123,27 @@ class MeasurementGraphAction22ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"<0.1", ">100", "<=5", "Negative", "Pending", "1:160", "12abc34", "5 mmol/L", "5%", "1,234", "NaN", "Infinity", "2026/10/09", "+", "-", ".", "+.", "5..2", "1e3", "0x1p2", "１２"})
-    void shouldExcludeNonExactNumbers_fromNumericSeries(String value) {
+    @CsvSource({"<0.1,0.1", ">100,100", "<=5,5", "5 mmol/L,5", "5%,5", "'1,234',1234", "+5.2,5.2", "H 7.4,7.4"})
+    @DisplayName("should plot the number in a qualified result, as OSCAR 19 does")
+    void shouldPlotTheNumberOfAQualifiedResult_inNumericSeries(String value, String plotted) {
+        assertThat(MeasurementGraphAction22Action.numericResult(value)).isEqualTo(plotted);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Negative", "Pending", "NaN", "Infinity", "+", "-", ".", "+.", "5..2", "3-5"})
+    @DisplayName("should leave out a result that holds no single number")
+    void shouldExcludeResultsWithoutOneNumber_fromNumericSeries(String value) {
         assertThat(MeasurementGraphAction22Action.numericResult(value)).isNull();
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"0", "-5.2", "+5.2", ".5", "5.", "137", "145", "5.7"})
-    void shouldPreserveExactFiniteNumbers_inNumericSeries(String value) {
+    @ValueSource(strings = {"0", "-5.2", ".5", "137", "145", "5.7"})
+    void shouldPreservePlainNumbers_inNumericSeries(String value) {
         assertThat(MeasurementGraphAction22Action.numericResult("  " + value + "  ")).isEqualTo(value);
     }
 
     @Test
-    void shouldRejectLongMalformedAndOverflowValues_withoutBacktracking() {
+    void shouldExcludeLongMalformedAndOverflowValues_fromNumericSeries() {
         assertThat(MeasurementGraphAction22Action.numericResult("1".repeat(1000000) + "x")).isNull();
         assertThat(MeasurementGraphAction22Action.numericResult("1".repeat(10000))).isNull();
     }
