@@ -130,6 +130,7 @@ public class CdsHistoryPersister {
         Consumer<CdsClinicalDiagnosticDto> notice =
                 n -> warnings.putIfAbsent(n.code() + "/" + n.field(), n);
         String contentPath = CONTENT.get(record.section());
+        var nativeState = new CdsHistoryResidualReader(fields).read(record);
         CdsFieldDto[] descriptor = {null};
         String[] participant = {null};
         boolean[] repeated = {false};
@@ -157,6 +158,11 @@ public class CdsHistoryPersister {
                         else if (!participant[0].equals(group)) repeated[0] = true;
                     }
                 });
+        if (descriptor[0] == null && nativeState.personalNarrative() != null)
+            descriptor[0] = nativeState.personalNarrative();
+        if (nativeState.archived())
+            notice.accept(new CdsClinicalDiagnosticDto(
+                    "CDS_HISTORY_ARCHIVE_STATE_VENDOR_EXTENSION", "ResidualInfo"));
         long limit = configuration.number("cds.import.native.maxNoteBytes", 262144);
         if (limit > 393216) throw new CdsImportException("NATIVE_NOTE_LIMIT_CONFIGURATION_INVALID");
         String content;
@@ -190,7 +196,7 @@ public class CdsHistoryPersister {
                                 + " substituted.]";
                 notice.accept(
                         new CdsClinicalDiagnosticDto(
-                                "CDS_NOTE_COMPLETE_TEXT_SOURCE_VIEW", contentPath));
+                                "CDS_NOTE_COMPLETE_TEXT_SOURCE_VIEW", contentPath == null ? "ResidualInfo" : contentPath));
             } else content = logical;
         }
         Long observation = null, created = null;
@@ -247,7 +253,7 @@ public class CdsHistoryPersister {
                         author,
                         observationDate,
                         observationField,
-                        List.copyOf(warnings.values())));
+                        List.copyOf(warnings.values()), nativeState.archived()));
     }
 
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
@@ -275,6 +281,7 @@ public class CdsHistoryPersister {
         note.setProviderNo(source.providerNo() == null ? "" : source.providerNo());
         note.setSigning_provider_no("");
         note.setSigned(false);
+        note.setArchived(source.archived());
         // create_date is a native revision Formula, not a source-created storage column.
         // Exact source creation values/precision remain in the ClinicalNotes source category.
         note.setObservation_date(

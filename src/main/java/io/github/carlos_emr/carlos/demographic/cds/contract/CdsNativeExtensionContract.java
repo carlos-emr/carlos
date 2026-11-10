@@ -36,6 +36,12 @@ public final class CdsNativeExtensionContract {
     /** An ATC class is not a DIN and cannot be written in the standard allergy Code. */
     public static final String ALLERGY_ATC = "CARLOS.Allergy.Atc.v1";
 
+    /** CPP categories have no standard record-archive field; this is independent of problem resolution. */
+    public static final String HISTORY_ARCHIVED = "CARLOS.History.Archived.v1";
+
+    /** PersonalHistory permits only residual fields, so its native narrative has an explicit carrier. */
+    public static final String HISTORY_PERSONAL_NARRATIVE = "CARLOS.History.PersonalNarrative.v1";
+
     public static final String BOOLEAN_TYPE = "boolean";
     public static final String STRING_TYPE = "string";
 
