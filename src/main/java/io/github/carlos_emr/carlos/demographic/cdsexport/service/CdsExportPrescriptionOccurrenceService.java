@@ -169,7 +169,7 @@ public class CdsExportPrescriptionOccurrenceService {
     }
 
     public static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assessments(
-            CdsExportCapturedTextRowDto row) {
+            Source source) {
         var result = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
         for (var row : source.rows()) {
             var state = new CdsExportNativeFieldAssessments(row, result);
