@@ -23,7 +23,7 @@
     "coreBase": "0f73961b38044095f2d191afde32630c3291c6b2",
     "upgradeSqlBaseline": "ef69eea17a4cc3fb288b26327471fce1e20dcd8f",
     "releaseSqlUnchangedSinceUpgradeBaseline": true,
-    "cliHead": "f37dd60917da6bb2ca578dd2bac2cc1109246fc9",
+    "cliHead": "3f4c2c34e6227ea856d2cba64340987a24a115b7",
     "cliVersion": "1.3.4",
     "coreIntendedTarget": "release/2026.08",
     "cliIntendedTarget": "release/2026.08",

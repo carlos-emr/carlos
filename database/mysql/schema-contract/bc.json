@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "f7228fa1dc4ffb5d8408fe08d3633e27e683219be0acfcfa624b45169ed51658",
+ "migration_sha256": "f2dc566b500fd0fcce57346e8144195a7565c38ce0db90068e82a93b324fd3b6",
  "province": "bc",
  "schema": {
   "checks": [
@@ -183603,6 +183603,39 @@
     "PRIMARY",
     0,
     1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_run",
+    "idx_cds_export_history",
+    1,
+    1,
+    "operator",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_run",
+    "idx_cds_export_history",
+    1,
+    2,
+    "created_at",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_run",
+    "idx_cds_export_history",
+    1,
+    3,
     "id",
     "A",
     null,
