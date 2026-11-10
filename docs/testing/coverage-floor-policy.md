@@ -106,3 +106,12 @@ retained floors. The wider currentMain comparison still refuses 80 unreviewed
 zero floors and misses 36 line, 44 instruction and 32 branch assertions.
 These are retained failures; no waiver or lower threshold is introduced.
 The complete same-source native-lane coverage union remains required.
+
+The PR #6103 review refresh at `b1bc12cefdd` records a complete Ubuntu 26.04 /
+OpenJDK 25.0.5 H2 run: 35,938 test cases, 212 explicitly routed/prerequisite
+skips, zero failures and zero errors. Its source-bound baseline has 716 floors
+and retains 56 higher historical measurements plus every required refusal line.
+The native form-table guard passes both MariaDB cases separately without skips.
+The 80 existing unreviewed zero floors remain refused; no waiver or lower
+threshold is introduced. This refresh establishes source freshness, and does
+not replace the full same-class native-lane union required for release coverage.
