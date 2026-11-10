@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "e7d8a333e971c2586e4c14d2f5f0d5024e49d81b",
-  "comparisonSha256": "74f58959df6e614defeb4fb561649b0b3cf4c74ca0c6c351dd34d8825664e23d",
-  "baselineCommit": "1980fc9b3321dce877d6298e5981c320a66c46d0",
-  "baselineSourceTree": "e7d8a333e971c2586e4c14d2f5f0d5024e49d81b",
-  "baselineReportSha256": "1e9533c9644a07ed1c9863ab7f9f86ee46a355adeb130abcc3986d23874a6d5f",
+  "sourceTree": "552046cdebc8fc7924fd29a3e3fbbbdf66e57ffd",
+  "comparisonSha256": "4ab99c69da28f2bddd19e6896ddb5c5d1ae5bb05c9098750cef180d949cb58fc",
+  "baselineCommit": "6b679afc365952e0d38d8636e3d6e80633021950",
+  "baselineSourceTree": "552046cdebc8fc7924fd29a3e3fbbbdf66e57ffd",
+  "baselineReportSha256": "977259135f27d0a99d4805812d7bdc3cff861c219d25e33da7ffd44e6948d33f",
   "baselineLane": "Candidate Ubuntu 26.04/JDK 25 H2 baseline. Routed/prerequisite skips remain explicit. Previous higher floors and refusal lines are retained; native-lane union qualification and zero-floor review remain required.",
   "baselineTestCounts": {
-    "tests": 35894,
-    "skipped": 211,
+    "tests": 36087,
+    "skipped": 213,
     "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "aa3442b5306d8dc45b83bd5b8c1b6ff67d4fcd045eb1737cbf6cbdad024dc1be",
+  "baselineTestReportsSha256": "a7f4bde86e9d5f1716c5bd56991ffafcfb8be27d18db3e25bd83973d54e68035",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -3454,16 +3454,16 @@
       "sourceBlob": "3da5836aab13fc921b8265500eb6006a13b97df5"
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java": {
-      "lines": 3.2934131736526946,
-      "instructions": 2.4664647338814367,
-      "branches": 1.2468827930174564,
-      "sourceBlob": "7d8ef1cd172c62ed4f65f62a1065943e832aae47"
+      "lines": 54.19847328244275,
+      "instructions": 53.31850203930293,
+      "branches": 49.0,
+      "sourceBlob": "8af5b76285c51d866d6c1ff6a366770c5483b2eb"
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibility.java": {
-      "lines": 95.36082474226804,
-      "instructions": 96.24122263527468,
-      "branches": 88.33746898263027,
-      "sourceBlob": "9675b8102a4db0c5ef691e65ab84f51841fc9e66"
+      "lines": 97.77227722772277,
+      "instructions": 98.1378763866878,
+      "branches": 90.45346062052506,
+      "sourceBlob": "55e2943698e2296e8640d465854260abf11582a2"
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbPreferredTlsPlugin.java": {
       "lines": 92.7536231884058,

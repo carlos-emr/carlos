@@ -42,6 +42,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -415,6 +416,217 @@ class JdbcConnectorMariaDbIntegrationTest {
         } finally {
             TimeZone.setDefault(previous);
         }
+    }
+
+    @Test
+    void shouldConnectAndApplyConnectorJYesNo_forLegacyBooleanOptions() throws Exception {
+        // #5969: these Connector/J spellings failed every MariaDB connection before translation.
+        try (var source = source(true, "allowPublicKeyRetrieval=yes&useServerPrepStmts=YES&cachePrepStmts=No"
+                + "&tcpKeepAlive=Yes&allowMultiQueries=yes&useAffectedRows=no&yearIsDateType=NO");
+             var connection = source.getConnection(); var statement = connection.createStatement()) {
+            var configuration = connection.unwrap(org.mariadb.jdbc.Connection.class).getContext().getConf();
+            assertThat(configuration.allowPublicKeyRetrieval()).isTrue();
+            assertThat(configuration.useServerPrepStmts()).isTrue();
+            assertThat(configuration.cachePrepStmts()).isFalse();
+            assertThat(configuration.tcpKeepAlive()).isTrue();
+            assertThat(configuration.allowMultiQueries()).isTrue();
+            assertThat(configuration.useAffectedRows()).isFalse();
+            assertThat(configuration.yearIsDateType()).isFalse();
+            statement.execute("CREATE TABLE yes_no_probe(id INT PRIMARY KEY, label VARCHAR(10))");
+            // allowMultiQueries=yes: one statement string carries two inserts.
+            statement.execute("INSERT INTO yes_no_probe VALUES (1, 'same'); INSERT INTO yes_no_probe VALUES (2, 'same')");
+            // useAffectedRows=no keeps Connector/J's found-rows count for a row that does not change.
+            assertThat(statement.executeUpdate("UPDATE yes_no_probe SET label='same' WHERE id=1")).isEqualTo(1);
+            try (var count = connection.prepareStatement("SELECT COUNT(*) FROM yes_no_probe WHERE label=?")) {
+                count.setString(1, "same");
+                try (var rows = count.executeQuery()) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getInt(1)).isEqualTo(2);
+                }
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean legacy) throws Exception {
+        // #5968: expected values were read from the same rows through MySQL Connector/J 9.6.0. Reports,
+        // Query by Example and legacy form loaders print these columns through getString.
+        try (var source = source(legacy, ""); var connection = source.getConnection();
+             var statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE number_probe(id INT PRIMARY KEY, d DOUBLE, f FLOAT, dd DOUBLE(10,2), "
+                    + "b1 BIT(1), b8 BIT(8), b64 BIT(64), t1 TINYINT(1))");
+            statement.execute("INSERT INTO number_probe VALUES (1, 100, 1.1, 1.5, b'1', 5, 3, 1), "
+                    + "(2, 1.0E7, 16777217, 0, b'0', 0, b'1" + "0".repeat(63) + "', -1), "
+                    + "(3, NULL, NULL, NULL, NULL, NULL, NULL, NULL)");
+            statement.execute("INSERT INTO number_probe(id, t1) VALUES (4, -128), (5, -2), (6, 0), (7, 127)");
+            try (var rows = statement.executeQuery("SELECT * FROM number_probe WHERE id <= 3 ORDER BY id")) {
+                assertConnectorJColumnClasses(rows);
+                assertThat(rows.next()).isTrue();
+                assertConnectorJFirstNumberRow(rows);
+                assertThat(rows.next()).isTrue();
+                assertConnectorJSecondNumberRow(rows);
+                assertThat(rows.next()).isTrue();
+                assertConnectorJNullNumberRow(rows);
+                assertThat(rows.next()).isFalse();
+            }
+            try (var rows = statement.executeQuery("SELECT t1 FROM number_probe ORDER BY id")) {
+                assertConnectorJTinyIntTruthValues(rows);
+            }
+        }
+        // The binary protocol decodes FLOAT as a float that Connector/J widened before printing.
+        try (var source = source(legacy, "useServerPrepStmts=true"); var connection = source.getConnection();
+             var query = connection.prepareStatement("SELECT * FROM number_probe WHERE id = ?")) {
+            query.setInt(1, 1);
+            try (var rows = query.executeQuery()) {
+                assertThat(rows.next()).isTrue();
+                assertConnectorJServerPreparedNumberRow(rows);
+            }
+            query.setInt(1, 3);
+            try (var rows = query.executeQuery()) {
+                assertThat(rows.next()).isTrue();
+                assertConnectorJNullNumberRow(rows);
+            }
+            try (var flags = connection.prepareStatement("SELECT t1 FROM number_probe WHERE id >= ? ORDER BY id")) {
+                flags.setInt(1, 1);
+                try (var rows = flags.executeQuery()) {
+                    assertConnectorJTinyIntTruthValues(rows);
+                }
+            }
+        }
+        assertConnectorJTinyIntMetadataModes(legacy);
+    }
+
+    /** Both metadata switches retain the same values and object classes as Connector/J. */
+    private void assertConnectorJTinyIntMetadataModes(boolean legacy) throws Exception {
+        for (boolean tinyBit : new boolean[]{false, true}) {
+            for (boolean transformed : new boolean[]{false, true}) {
+                for (boolean prepared : new boolean[]{false, true}) {
+                    String options = "tinyInt1isBit=" + tinyBit + "&transformedBitIsBoolean=" + transformed
+                            + "&useServerPrepStmts=" + prepared;
+                    try (var source = source(legacy, options); var connection = source.getConnection();
+                         var query = connection.prepareStatement("SELECT t1 FROM number_probe WHERE id >= ? ORDER BY id")) {
+                        query.setInt(1, 1);
+                        try (var rows = query.executeQuery()) {
+                            if (tinyBit) assertConnectorJTinyIntTruthValues(rows);
+                            else assertConnectorJTinyIntIntegerValues(rows);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static void assertConnectorJTinyIntIntegerValues(ResultSet rows) throws SQLException {
+        for (Integer expected : new Integer[]{1, -1, null, -128, -2, 0, 127}) {
+            assertThat(rows.next()).isTrue();
+            assertThat(rows.getObject(1)).isEqualTo(expected);
+            assertThat(rows.wasNull()).isEqualTo(expected == null);
+            assertThat(rows.getObject("t1")).isEqualTo(expected);
+            assertThat(rows.getObject(1, Map.of())).isEqualTo(expected);
+            assertThat(rows.getString(1)).isEqualTo(expected == null ? null : expected.toString());
+        }
+        assertThat(rows.next()).isFalse();
+    }
+
+    /** TINYINT(1) uses Connector/J's positive-or-negative-one truth rule, including untyped object reads. */
+    private static void assertConnectorJTinyIntTruthValues(ResultSet rows) throws SQLException {
+        for (Boolean expected : new Boolean[]{true, true, null, false, false, false, true}) {
+            assertThat(rows.next()).isTrue();
+            assertThat(rows.getObject(1)).isEqualTo(expected);
+            assertThat(rows.wasNull()).isEqualTo(expected == null);
+            assertThat(rows.getObject("t1")).isEqualTo(expected);
+            assertThat(rows.getObject(1, Map.of())).isEqualTo(expected);
+            assertThat(rows.getObject("t1", Boolean.class)).isEqualTo(expected);
+            assertThat(rows.getBoolean(1)).isEqualTo(Boolean.TRUE.equals(expected));
+            assertThat(rows.wasNull()).isEqualTo(expected == null);
+        }
+        assertThat(rows.next()).isFalse();
+    }
+
+    /** Connector/J reported java.lang.Boolean for every BIT width. */
+    private static void assertConnectorJColumnClasses(ResultSet rows) throws SQLException {
+        var metadata = rows.getMetaData();
+        assertThat(metadata.getColumnClassName(rows.findColumn("b1"))).isEqualTo(Boolean.class.getName());
+        assertThat(metadata.getColumnClassName(rows.findColumn("b8"))).isEqualTo(Boolean.class.getName());
+        assertThat(metadata.getColumnClassName(rows.findColumn("d"))).isEqualTo(Double.class.getName());
+    }
+
+    private static void assertConnectorJFirstNumberRow(ResultSet rows) throws SQLException {
+        assertConnectorJPrimitiveNumberObjects(rows);
+        assertThat(rows.getString("d")).isEqualTo("100.0");
+        assertThat(rows.getObject("d", String.class)).isEqualTo("100.0");
+        assertThat(rows.getNString("d")).isEqualTo("100.0");
+        assertThat(rows.getString("f")).isEqualTo("1.1");
+        assertThat(rows.getString("dd")).isEqualTo("1.5");
+        assertThat(rows.getBigDecimal("d")).hasToString("100.0");
+        assertThat(rows.getObject("dd", java.math.BigDecimal.class)).hasToString("1.5");
+        assertThat(rows.getString("b1")).isEqualTo("1");
+        assertThat(rows.getObject("b1")).isEqualTo(Boolean.TRUE);
+        assertThat(rows.getString("b8")).isEqualTo("5");
+        assertThat(rows.getObject("b8")).isEqualTo(new byte[]{5});
+        assertThat(rows.getDouble("b8")).isEqualTo(5.0d);
+        assertThat(rows.getObject("b8", Double.class)).isEqualTo(5.0d);
+        assertThat(rows.getFloat("b8")).isEqualTo(5.0f);
+        assertThat(rows.getString("t1")).isEqualTo("1");
+        assertThatThrownBy(() -> rows.getCharacterStream("d")).isInstanceOf(SQLException.class);
+    }
+
+    private static void assertConnectorJPrimitiveNumberObjects(ResultSet rows) throws SQLException {
+        assertThat(rows.getObject("b8", boolean.class)).isEqualTo(true);
+        assertThat(rows.getObject("b8", byte.class)).isEqualTo((byte) 5);
+        assertThat(rows.getObject("b8", short.class)).isEqualTo((short) 5);
+        assertThat(rows.getObject("b8", int.class)).isEqualTo(5);
+        assertThat(rows.getObject("b8", long.class)).isEqualTo(5L);
+        assertThat(rows.getObject("b8", float.class)).isEqualTo(5.0f);
+        assertThat(rows.getObject("b8", double.class)).isEqualTo(5.0d);
+    }
+
+    private static void assertConnectorJSecondNumberRow(ResultSet rows) throws SQLException {
+        assertThat(rows.getString("d")).isEqualTo("1.0E7");
+        assertThat(rows.getBigDecimal("d")).hasToString("1.0E+7");
+        assertThat(rows.getString("f")).isEqualTo("1.67772E7");
+        assertThat(rows.getString("dd")).isEqualTo("0.0");
+        assertThat(rows.getString("b1")).isEqualTo("0");
+        assertThat(rows.getObject("b1")).isEqualTo(Boolean.FALSE);
+        assertThat(rows.getString("b8")).isEqualTo("0");
+        // Connector/J printed a BIT's signed long but converted it to numbers as unsigned.
+        assertThat(rows.getString("b64")).isEqualTo("-9223372036854775808");
+        assertThat(rows.getLong("b64")).isEqualTo(Long.MIN_VALUE);
+        assertThat(rows.getDouble("b64")).isEqualTo(9.223372036854776E18d);
+        assertThat(rows.getBigDecimal("b64")).hasToString("9223372036854775808");
+        // TINYINT(1) is reported as BIT(1) too and keeps its sign.
+        assertThat(rows.getString("t1")).isEqualTo("-1");
+        assertThat(rows.getDouble("t1")).isEqualTo(-1.0d);
+        assertThat(rows.getObject("t1")).isEqualTo(Boolean.TRUE);
+    }
+
+    private static void assertConnectorJNullNumberRow(ResultSet rows) throws SQLException {
+        for (String column : new String[]{"d", "f", "dd", "b1", "b8", "b64", "t1"}) {
+            assertThat(rows.getString(column)).as(column).isNull();
+            assertThat(rows.wasNull()).as(column).isTrue();
+            for (Class<?> type : new Class<?>[]{boolean.class, byte.class, short.class, int.class,
+                    long.class, float.class, double.class}) {
+                assertThat(rows.getObject(column, type)).as(column + ": " + type).isNull();
+                assertThat(rows.wasNull()).isTrue();
+                assertThat(rows.getObject(rows.findColumn(column), type)).isNull();
+                assertThat(rows.wasNull()).isTrue();
+            }
+            assertThat(rows.getObject(column)).as(column).isNull();
+            assertThat(rows.wasNull()).as(column).isTrue();
+        }
+        assertThat(rows.getBigDecimal("d")).isNull();
+        assertThat(rows.getDouble("b8")).isZero();
+        assertThat(rows.wasNull()).isTrue();
+        assertThat(rows.getObject("b8", Double.class)).isNull();
+    }
+
+    private static void assertConnectorJServerPreparedNumberRow(ResultSet rows) throws SQLException {
+        assertThat(rows.getString("d")).isEqualTo("100.0");
+        assertThat(rows.getString("f")).isEqualTo("1.100000023841858");
+        assertThat(rows.getString("b1")).isEqualTo("1");
+        assertThat(rows.getObject("b1")).isEqualTo(Boolean.TRUE);
+        assertThat(rows.getString("b8")).isEqualTo("5");
     }
 
     @ParameterizedTest

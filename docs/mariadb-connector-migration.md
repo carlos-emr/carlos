@@ -45,6 +45,34 @@ DATETIME object types, timezone handling, checkbox metadata and
 `ROUND` applies only to genuinely zero values. Report streaming requests are
 translated to MariaDB's positive fetch-size convention.
 
+FLOAT, REAL and DOUBLE columns read as text keep Connector/J's form, the
+printed Java double: `100.0`, `1.0E7`, and through server-prepared statements
+`1.100000023841858` for a FLOAT holding 1.1. MariaDB would return the server's
+text (`100`, `10000000`, `1.1`). Their `getBigDecimal` keeps the same scale
+(`100.0`). BIT columns read as text keep their signed number (`1`, `5`) rather
+than MariaDB's `b'101'` and `b''`; BIT(1) reads as a `Boolean` object, BIT
+metadata names `java.lang.Boolean`, and BIT values convert to `double`, `float`
+and `BigDecimal` as unsigned numbers, as Connector/J did (#5968). Report by
+Template, Query by Example, fixed and clinical reports and the legacy form
+loaders therefore print these columns as before. TINYINT(1), which both drivers
+report as BIT(1), keeps its sign. Its untyped `getObject` reads use the same
+numeric truth rule as `getBoolean`: positive values and `-1` are true, other
+non-positive values are false, and SQL NULL remains null. This also applies
+when `transformedBitIsBoolean=true` reports the column as BOOLEAN;
+`tinyInt1isBit=false` retains integer objects and signed numeric values.
+Typed `getObject` reads also keep SQL NULL as null when the requested numeric
+or Boolean class is primitive (for example `double.class`). Primitive getters
+such as `getDouble` still return zero with `wasNull()` set.
+
+These Connector/J behaviours are not reproduced: `getBytes` on a numeric
+column (MariaDB refuses it), the deprecated
+`getBigDecimal(column, scale)` rounding, `getNString` on a non-national column
+(MariaDB returns the text), out-of-range `getLong` and `getFloat` reads (MariaDB
+returns the type's limit, or infinity for `getFloat`, where Connector/J refused
+them), `getByte` on BIT columns wider than 8 bits, and some metadata details:
+FLOAT and DOUBLE scale, integer precision, the display size of DECIMAL and INT
+columns, and the `INT` type name, which MariaDB reports as `INTEGER`.
+
 URL query settings are decoded once. MySQL connection properties retain
 precedence over URL query options, including after URL normalization. Native
 MariaDB URLs retain their opposite precedence: URL options override connection
@@ -84,6 +112,22 @@ Connections without TLS options retain the application's existing PREFERRED
 default, which negotiates TLS when available without certificate verification.
 Native system-store fallback and LOCAL INFILE flags retain MariaDB's Boolean
 tokens, including an empty value for true; unsupported `yes`/`no` values fail.
+MySQL-style configuration (`jdbc:mysql:` URLs, with their connection properties
+and address descriptors) keeps MySQL Connector/J's `yes` and `no` spellings, in
+any letter case, for every MariaDB connection option backed by a Boolean
+setting: they become `true` and `false` (#5969). This includes options the
+adapter does not otherwise translate, such as `allowPublicKeyRetrieval`,
+`useServerPrepStmts`, `cachePrepStmts`, `useCompression`, `allowMultiQueries`,
+`useAffectedRows`, `tcpKeepAlive`, `useLocalSessionState`, `yearIsDateType`,
+`createDatabaseIfNotExist` and `nullCatalogMeansCurrent`. The option list is
+read from the shipped MariaDB driver, so a connector upgrade cannot leave a new
+Boolean option out. As in Connector/J, these option names match without regard
+to case and the later source wins: the adapter keeps one spelling per option,
+so a connection property overrides a differently spelled URL option rather than
+leaving MariaDB to choose between them. For options the adapter does not check
+itself, other values reach MariaDB unchanged: it accepts `true`, `false`, `1`,
+`0` or an empty value and refuses anything else with an error naming the
+option. Native `jdbc:mariadb:` URLs do not get this translation.
 LOCAL INFILE remains disabled unless explicitly enabled. MariaDB always uses
 Unicode and INFORMATION_SCHEMA metadata; the former
 `useInformationSchema` setting is accepted but no longer selects an implementation.

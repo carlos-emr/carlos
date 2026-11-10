@@ -3,9 +3,13 @@
 # legacy driver/URL configuration, temporal and alias metadata behavior,
 # DPD recovery, and orderly pool/driver shutdown. It is paired with
 # debian/drugref-dependencies-lock.json and the staged-WAR JDBC contract.
+# It also keeps Connector/J's yes/no values for every MariaDB Boolean option
+# in jdbc:mysql: configuration (#5969) and Connector/J's text for floating
+# and BIT columns (#5968), on top of the MariaDB migration (93775a0,
+# carlos-emr/drugref2026#18).
 #
 # It descends from master 57c8642 and retains the earlier allergy safety,
 # recoverable DPD replacement, missing-DIN lookup, SQL-date XML-RPC, and
 # EntityManager lifecycle fixes. Do not move the pin behind those changes.
 # Build from this full commit SHA; branch names are not reproducible.
-ref=93775a045670d5d6b90238ce1dbc551d174ed788
+ref=d4638a1dc1b5fdafdf31c0e8acec65e063364015

@@ -106,3 +106,71 @@ retained floors. The wider currentMain comparison still refuses 80 unreviewed
 zero floors and misses 36 line, 44 instruction and 32 branch assertions.
 These are retained failures; no waiver or lower threshold is introduced.
 The complete same-source native-lane coverage union remains required.
+
+The `f69b87ad0ff0` refresh is PR #6113 (#5969, #5968), merged with release
+`38cfc10c0ae7` (#6100). It changes the source blobs of
+`MariaDbCompatibilityDriver.java` and `MariaDbJdbcCompatibility.java` only.
+Every other floor and exclusion is unchanged. Its evidence is CI run
+42762907938 ("Check Carlos EMR", `tests` job) for that head. The PR merge ref
+it checked out has the same tree as `f69b87ad0ff0`. The H2 run records 35,937
+cases with 218 explicit routed/prerequisite skips and zero failures or errors.
+`baselineReportSha256` is the SHA-256 of that run's
+`target/site/jacoco/jacoco.xml` (artifact `java-coverage-42762907938-1`).
+`baselineTestReportsSha256` is the SHA-256 over the 2,649
+`TEST-*.xml` reports of artifact `java-test-reports`, taken in sorted filename
+order as one `<name>\0<sha256 hex of file>\n` line per report.
+The driver's changed-line floors rise from 3.29/2.47/1.25 to 48.02/47.62/40.97
+(lines/instructions/branches). That is because `MariaDbCompatibilityDriverNumberUnitTest` now runs the
+#5968 conversions in the H2 lane. Previously only the physical-MariaDB test
+exercised them. `MariaDbJdbcCompatibility.java` rises from 95.36/96.24/88.34 to
+97.77/98.14/90.45. No floor was lowered and no waiver was added. Both changed
+files meet their floors in this report. The wider currentMain comparison in
+this run still refuses 80 unreviewed zero floors and misses 37 line,
+45 instruction and 33 branch assertions, all in other files. The same misses
+appear in the CI run of `0e86503` without the new tests. That run also
+missed all three of the driver's previous floors, which the new tests cover.
+These remain open release failures; the complete same-source native-lane union is
+still required.
+
+The `2255c1b31db3` review refresh fixes TINYINT(1) object reads for negative
+values other than -1 and adds the corresponding numeric-truth boundary cases.
+Its clean Ubuntu 26.04/JDK 25 H2 execution records 36,078 actual test cases,
+213 explicitly routed/prerequisite skips and zero failures/errors. Counts use
+the individual `testcase` elements: Surefire's nested-container header counters
+collapse some equal method names. The release evidence parser accepts every
+retained identity and skip route across the 2,643 reports. Their digest uses
+the same sorted filename/NUL/file-SHA-256 protocol described above.
+All 6,292 production class hashes match the separate 35-case physical MariaDB
+execution. The driver's floors rise to 51.72/51.34/45.40 percent
+(lines/instructions/branches); its source blob and the baseline's source,
+comparison and report hashes are refreshed. Every other file floor and all
+refusal lines are retained. No floor is lowered and no waiver is added; the
+comparison-wide qualification requirements and 80 unreviewed zero floors from
+the preceding baseline remain.
+
+The `2766d0fffb89` checkpoint also retains SQL NULL for supported primitive-class
+`getObject` requests, while primitive getters still return zero plus `wasNull()`.
+Its clean Ubuntu 26.04/JDK 25 H2 run passes 36,087 actual cases with the same
+213 explicitly registered skips, zero failures/errors and 2,643 reports. All
+6,292 production class hashes match the separate 60-case adapter/physical
+MariaDB execution and the source-built packaged WAR. The original Connector/J
+9.6.0 jar agrees on all 80 additional typed-NULL observations in both protocols.
+The driver's floors rise again to 54.08/53.09/48.79 percent; only that row and
+the source/report provenance change. Other floors, refusal lines and the
+comparison-wide qualification requirements remain intact, with no lower floor
+or new waiver.
+
+The `6b679afc3659` checkpoint extends the same TINYINT(1) truth rule to
+`transformedBitIsBoolean=true`. The seven boundary/NULL unit cases exercise
+both BIT and BOOLEAN metadata, and the physical cases exercise all four
+`tinyInt1isBit`/`transformedBitIsBoolean` combinations in both protocols,
+including the integer-object controls. The original Connector/J 9.6.0 oracle
+agrees throughout that configuration matrix. Its clean Ubuntu 26.04/JDK 25
+H2 execution again passes 36,087 actual cases, with 213 explicitly registered
+skips, zero failures/errors and 2,643 reports accepted by the release evidence
+parser. All 6,292 production class hashes match the separate 60-case
+adapter/physical MariaDB execution and the source-built packaged WAR. The
+driver's floors rise to 54.20/53.32/49.00 percent; its source blob and the
+source/report provenance are refreshed. Every other floor and refusal line
+is retained, including the comparison-wide qualification requirements and
+80 unreviewed zero floors. No floor is lowered and no waiver is added.
