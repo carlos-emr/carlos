@@ -23,7 +23,9 @@
     "coreBase": "ef69eea17a4cc3fb288b26327471fce1e20dcd8f",
     "cliHead": "cdc1302ca58df9b5de9f25a6e92b808fa95882ea",
     "coreIntendedTarget": "release/2026.08",
-    "cliIntendedTarget": "main",
+    "cliIntendedTarget": "release/2026.08",
+    "cliReleaseBase": "84adfc5c237d4a536300a9d7e74e19599df23dcc",
+    "cliImportProtocol": "schema manifest format 2 / ETL contract 4; newer main format 3 / ETL contract 6 is excluded from this release pair",
     "modernImporterPresentInRelease": true,
     "releaseSqlUnchanged": 87,
     "newMigrations": [

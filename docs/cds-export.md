@@ -23,6 +23,26 @@ protocol while retaining its server-prepared statement class. Unsupported driver
 inspection or text results fail explicitly. Required tests cover actual float bits,
 text-result refusal, statement ownership and bypass attempts.
 
+The companion CLI PR also targets `release/2026.08`, starting at its compatible
+`84adfc5c237d4a536300a9d7e74e19599df23dcc` baseline. Its pinned runtime remains
+`cdc1302ca58df9b5de9f25a6e92b808fa95882ea`, with schema manifest format 2 and
+ETL contract 4. CLI main has advanced to format 3 / ETL 6 for a newer application
+line; those changes are not part of this release pair.
+
+| Release migration | Purpose | Earlier unpublished develop numbering |
+| --- | --- | --- |
+| `V1.0.59.38` | Nullable native field witnesses; no clinical backfill | `V1.0.82` |
+| `V1.0.59.39` | Independent export run/event ledger and authorization | `V1.0.83` |
+| `V1.0.59.40` | Artifact publication attempts | `V1.0.84` |
+| `V1.0.59.41` | Approved independent administrator import grant, preserving explicit decisions | `V1.0.85` |
+
+The earlier `V1.0.86` consent forward-merge repair does not apply to the retained
+release history and is excluded. The release catalogue contains 510 rulings for
+457 ON and 490 BC physical tables. Its appointment tables do not contain
+develop's `locationCode`; unknown future columns still require explicit review.
+All importer receipts, recorded fingerprints and released migration bytes remain
+unchanged. Both directions retain separate authorization and admission.
+
 For deployment, browser/CLI operation, recipient decryption and support arrangements,
 start with the [operator guide](cds-export-operator-guide.md).
 
@@ -45,6 +65,16 @@ require explicit review; they cannot produce a truncated or partial migration th
 is labelled complete. The source catalogue classifies every physical ON/BC table;
 unreviewed sources must be empty. Native-only history, unsupported historical
 carriers and other unqualified clinical representations remain review cases.
+
+## Historical implementation and qualification log
+
+Everything below records earlier checkpoints, including work originally based
+on develop. References to pending implementation, approval decisions, migration
+numbers, source counts or nullable appointment locations describe those recorded
+checkpoints. They do not override the release contract above, the current
+[implementation progress](cds-export-progress.json), or the requirement-to-code
+references in the [standards review](cds-export-spec-review.json). Only required
+evidence bound to the exact current source and WAR qualifies a release artifact.
 
 The exact source-catalogue WAR passed independent native-chart and genuine
 sixteen-category-import checks without application-class overlays or restamping
@@ -186,7 +216,7 @@ matching the existing billing-table disposition. All previous 516 source rulings
 remain unchanged; the current catalogue has 517 rulings (464 ON and 497 BC tables).
 No original CDS import metadata is rebound or rewritten.
 
-## Current verification checkpoint
+## Historical verification checkpoint
 
 At `0ca658cf`, all 301 coordinated suites passed: 2,234 export, 1,160 import
 and 379 shared checks, with no errors, failures or skips. Later import/export
@@ -216,7 +246,7 @@ in the coordinated inventory. No exemption, weakened security gate or successful
 readiness claim substitutes for that unresolved decision. DCO attestation and
 external quality checks also remain outstanding.
 
-## Baseline and integration
+## Original baseline and integration
 
 The implementation worktree starts at `release/2026.08` commit
 `b96e367945befe66eb333fe19aa1630aa9d10647`, which includes the modern importer.
