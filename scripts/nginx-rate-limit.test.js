@@ -9,13 +9,9 @@ const path = require('node:path');
 /*
  * Which packaged nginx location serves a URL, and does it carry a limit_req?
  *
- * debian/assets/nginx/carlos-emr.conf rate-limits only the credential surfaces: the human login
- * routes and /ws/LoginService plus the two unauthenticated OAuth legs. Everything else falls
- * through to `location /`, which has no limit. Finding 172 records that /ws/services (the OAuth
- * data API, live since #4415) is in that unthrottled remainder although every rejected call
- * writes a synchronous audit row, so an anonymous client can turn a flood of bad calls into
- * database writes. The file's own comment still says the rest of /ws "must not be throttled";
- * the finding is that this no longer holds once the data API is reachable.
+ * Finding 172 originally exposed an unthrottled /ws/services data API. The release
+ * now ships the limit. Keep its configuration regression active; the installed
+ * oauth-ws-rate-limit browser check proves HTTP throttling and bounded audit writes.
  *
  * A text search for "limit_req" cannot answer the question, because the directive is attached to
  * a location and nginx picks the location by its own precedence rules. So this reads the
@@ -201,9 +197,11 @@ test('shouldLeaveOrdinaryApplicationTraffic_unthrottled', () => {
   }
 });
 
-test('shouldRateLimitWsServices_atTheFrontDoor', { todo: 'finding 172' }, () => {
+test('shouldConfigureWsServicesRateLimits_forEveryProxyingServer', () => {
   for (const uri of ['/carlos/ws/services', '/carlos/ws/services/oauth/info', '/carlos/ws/services/demographics']) {
-    for (const { location, limits } of limitsFor(uri)) {
+    const routes = limitsFor(uri);
+    assert.ok(routes.length > 0, `${uri} must be checked on an actual proxying server`);
+    for (const { location, limits } of routes) {
       assert.ok(limits.length > 0,
         `${uri} is served by nginx location "${location.modifier} ${location.pattern}" which has no limit_req; `
         + 'every rejected /ws/services call writes a synchronous audit row (OAuthInterceptor.auditAuthFailure), '

@@ -39,7 +39,6 @@ import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 import jakarta.persistence.Transient;
 
-import org.apache.commons.lang3.builder.ToStringBuilder;
 
 /*
  * Author: Dennis Warren
@@ -218,6 +217,6 @@ public class FormBPMH extends AbstractModel<Integer> {
 
     @Override
     public String toString() {
-        return ToStringBuilder.reflectionToString(this);
+        return super.toString();
     }
 }

@@ -39,7 +39,6 @@ package io.github.carlos_emr.carlos.integration.fhir.model;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.hl7.fhir.dstu3.model.BaseResource;
 import org.hl7.fhir.dstu3.model.MessageHeader.MessageDestinationComponent;
 import io.github.carlos_emr.carlos.integration.fhir.resources.constants.FhirDestination;
@@ -138,6 +137,6 @@ public final class Destination {
     }
 
     public String toString() {
-        return ReflectionToStringBuilder.toString(this);
+        return getClass().getSimpleName() + "[protected]";
     }
 }

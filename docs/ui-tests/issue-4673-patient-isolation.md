@@ -24,14 +24,29 @@ counts and controls below remain the historical results of this issue's original
 
 The legacy print refusal contract retains the shared clinical gate's policy (#5448):
 an omitted patient reaches the print page's required-patient check and returns **400**;
-a supplied malformed, zero or conflicting patient scope is refused by
-`ViewClinical2Action` with **403**, before the print page runs. The
+a supplied malformed, zero, overflowing or more-than-ten-digit patient ID is refused by
+`ViewClinical2Action` with **400**, before the print page runs. Conflicting patient
+aliases (or repeated parameters naming different patients) return **403**. The
 `echart-two-patient-isolation` workflow checks both print routes in both patient
 directions for each case, requires that neither patient's name appears in a refused
 response, and identifies the route and scope case if an assertion fails. The later
 immunization view checks follow the same shared-gate contract: missing patients
-return 400 and conflicting aliases return 403. Schedule mutation refusals retain
+return 400, invalid IDs return 400, and conflicting aliases return 403. Schedule mutation refusals retain
 their separate 400 contract.
+
+## Historical chart retrieval after the modern-only cutover
+
+The modern chart header offers **Historical legacy chart (read only)** to users with the
+existing report-read permission. The history route retains its report, patient demographic-read
+and record-restriction checks. Each listed revision opens the existing patient-scoped historical
+print route; both retained print routes load only the explicitly requested revision belonging to
+that patient. They label the content as a retained historical snapshot that excludes subsequent
+modern-chart updates. No legacy editor write is re-enabled.
+
+`EncounterPrintPatientIsolationUnitTest` checks that all six retained clinical fields can still
+be retrieved while the modern policy is active, and that foreign, missing and invalid revisions
+cannot disclose historical text. The installed two-patient check verifies each patient's own
+historical text after the other chart was entered, foreign-revision refusal and unchanged data.
 
 ## The legacy encounter editor
 

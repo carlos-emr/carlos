@@ -3,16 +3,75 @@
 """Native gate evidence must be complete, non-skipping and safe to publish."""
 import importlib.util
 import io
+import os
+import sys
 from contextlib import redirect_stdout
 from pathlib import Path
 import tempfile
+import subprocess
 import unittest
+from unittest.mock import patch
+from git_environment import separate_checkout_environment
 from defusedxml.common import DefusedXmlException
 
 MODULE_PATH = Path(__file__).with_name('run-cds-native-tier.py')
 SPEC = importlib.util.spec_from_file_location('cds_native_tier', MODULE_PATH)
 NATIVE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(NATIVE)
+
+
+class NativeSourceTest(unittest.TestCase):
+    def test_fresh_compilation_rejects_evidence_in_host_or_container_outputs_before_writing(self):
+        from compiled_classes import OUTPUTS
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name in OUTPUTS:
+                for container in (False, True):
+                    with self.subTest(name=name, container=container):
+                        output = root / ('safe' if container else 'target/' + name) / 'evidence'
+                        output.mkdir(parents=True, exist_ok=True)
+                        retained = output / 'retained'; retained.write_bytes(b'preserve this evidence')
+                        mapped = '/build/target/' + name + '/evidence' if container else '/build/safe'
+                        with patch.object(NATIVE, '__file__', str(root / 'scripts/ci/run-cds-native-tier.py')), \
+                                patch.object(sys, 'argv', ['native', '--fresh-classes', '--evidence-output', str(output),
+                                    '--container-workspace', '/build', '--container-evidence-output', mapped]), \
+                                patch.object(NATIVE.subprocess, 'run') as execute:
+                            with self.assertRaisesRegex(ValueError, 'Evidence cannot'):
+                                NATIVE.main()
+                            execute.assert_not_called()
+                        self.assertEqual(retained.read_bytes(), b'preserve this evidence')
+                        self.assertFalse((output / 'private').exists())
+
+    def test_ci_maven_cache_is_ignored_but_untracked_source_and_tracked_edits_are_not(self):
+        import release_verification as gate
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch.dict(os.environ, separate_checkout_environment(), clear=True):
+            root = Path(temporary)
+            def git(*args):
+                return subprocess.check_output(['git', '-c', 'user.name=Fixture',
+                    '-c', 'user.email=fixture@example.invalid', *args], cwd=root, text=True).strip()
+            git('init', '-q')
+            (root / '.gitignore').write_bytes((gate.ROOT / '.gitignore').read_bytes())
+            source = root / 'Required.java'
+            source.write_text('class Required {}\n')
+            git('add', '.')
+            git('commit', '-qm', 'candidate')
+            cache = root / '.m2-cache/repository/example/fixture.jar'
+            cache.parent.mkdir(parents=True)
+            cache.write_bytes(b'fake build cache')
+            self.assertTrue(gate.source_identity(root)['clean'])
+            untracked = root / 'Additional.java'
+            untracked.write_text('class Additional {}\n')
+            self.assertFalse(gate.source_identity(root)['clean'])
+            untracked.unlink()
+            source.write_text('class Changed {}\n')
+            self.assertFalse(gate.source_identity(root)['clean'])
+            # Gitignore cannot conceal an edited tracked file, even in the cache.
+            git('add', '-f', str(cache.relative_to(root)))
+            git('add', 'Required.java')
+            git('commit', '-qm', 'tracked cache fixture')
+            cache.write_bytes(b'changed tracked bytes')
+            self.assertFalse(gate.source_identity(root)['clean'])
 
 
 class NativeEvidenceTest(unittest.TestCase):
@@ -105,6 +164,32 @@ class NativeEvidenceTest(unittest.TestCase):
                     total, incomplete = NATIVE.collect_reports((simple,), self.source, self.output)
                 self.assertEqual(len(names), total)
                 self.assertEqual(expected, not incomplete)
+
+
+
+class NativeReadinessTest(unittest.TestCase):
+    def test_temporary_unix_listener_cannot_establish_native_readiness(self):
+        with self.assertRaisesRegex(RuntimeError, 'final TCP listener'):
+            NATIVE.wait_for_database(['mariadb'], lambda *a, **k: None, None)
+
+    def test_final_tcp_listener_is_retried_until_it_accepts_queries(self):
+        from types import SimpleNamespace
+        calls = []
+        def run(command, _log, **kwargs):
+            calls.append(command)
+            return SimpleNamespace(returncode=0 if len(calls) == 3 else 1)
+        NATIVE.wait_for_database(['mariadb', '--protocol=TCP', '--host=127.0.0.1'],
+                                 run, None, monotonic=lambda: 0, sleep=lambda _: None)
+        self.assertEqual(len(calls), 3)
+        self.assertTrue(all('--protocol=TCP' in command for command in calls))
+
+    def test_missing_final_listener_fails_at_the_deadline(self):
+        from types import SimpleNamespace
+        times = iter([0, 91])
+        with self.assertRaisesRegex(RuntimeError, 'did not become ready'):
+            NATIVE.wait_for_database(['mariadb', '--protocol=TCP', '--host=127.0.0.1'],
+                lambda *a, **k: SimpleNamespace(returncode=1), None,
+                monotonic=lambda: next(times), sleep=lambda _: None)
 
 
 if __name__ == '__main__':

@@ -44,7 +44,7 @@
 -->
 
 
-<%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="java.util.Calendar" %>

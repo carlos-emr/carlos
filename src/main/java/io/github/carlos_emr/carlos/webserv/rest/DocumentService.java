@@ -73,6 +73,39 @@ public class DocumentService extends AbstractServiceImpl {
     @Autowired
     private SecurityInfoManager securityInfoManager;
 
+    /** Explicit content retrieval, streamed with bounded memory after role and patient checks. */
+    @jakarta.ws.rs.GET
+    @Path("/{id}/content")
+    @Produces(MediaType.APPLICATION_OCTET_STREAM)
+    public Response getContent(@jakarta.ws.rs.PathParam("id") Integer id) throws IOException {
+        LoggedInInfo actor = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(actor, "_edoc", SecurityInfoManager.READ, "")) {
+            throw new jakarta.ws.rs.ForbiddenException();
+        }
+        if (id == null || id <= 0) throw new jakarta.ws.rs.BadRequestException("Invalid document identifier");
+        Document document = documentManager.getDocument(actor, id);
+        if (document == null) throw new jakarta.ws.rs.NotFoundException();
+        // A first ctl_document row cannot authorize bytes shared by other charts.
+        // Reuse the stored-owner policy, including DOC routes, programs, queues
+        // and supported unassigned sentinels, before resolving any file path.
+        io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse
+                .requireStoredDocumentReadAccess(securityInfoManager, actor, id);
+        java.nio.file.Path path = io.github.carlos_emr.carlos.utility.PathValidationUtils
+                .validateExistingDocumentPath(document.getDocumentFileFullPath()).toPath();
+        if (!java.nio.file.Files.isRegularFile(path) || !java.nio.file.Files.isReadable(path)) {
+            throw new IOException("Document content is unavailable");
+        }
+        jakarta.ws.rs.core.StreamingOutput content = output -> {
+            try (var input = java.nio.file.Files.newInputStream(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                input.transferTo(output);
+            }
+        };
+        return Response.ok(content, MediaType.APPLICATION_OCTET_STREAM)
+                .header("Content-Disposition", "attachment")
+                .header("Cache-Control", "no-store")
+                .header("X-Content-Type-Options", "nosniff").build();
+    }
+
     @POST
     @Path("/saveDocumentToDemographic")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -146,7 +179,7 @@ public class DocumentService extends AbstractServiceImpl {
             if (isFileValidationFailure(e)) {
                 return responseForFileValidation();
             }
-            logger.error("Document could not be saved: {}", LogSafe.sanitize(documentTo1.getFileName()), e);
+            logger.error("Document could not be saved: {}", LogSafe.exceptionTrace(e));
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(null, "Failed", "The document could not be saved.")).build();
         }
 

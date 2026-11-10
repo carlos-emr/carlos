@@ -76,6 +76,24 @@ class ImageRenderingServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRejectPrivateSignatureTraversal_withoutLoggingItsValue() throws Exception {
+        ImageRenderingServlet servlet = new ImageRenderingServlet();
+        servlet.init(new MockServletConfig(new MockServletContext()));
+        var request = new MockHttpServletRequest("GET", "/imageRenderingServlet");
+        request.addParameter("source", ImageRenderingServlet.Source.signature_preview.name());
+        request.addParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, "../FAKE-PRIVATE-PATIENT");
+        request.getSession().setAttribute(SessionConstants.LOGGED_IN_PROVIDER, new Provider());
+        var response = new MockHttpServletResponse();
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(ImageRenderingServlet.class)) {
+            servlet.doGet(request, response);
+            assertThat(response.getStatus()).isEqualTo(404);
+            assertThat(logs.events()).isNotEmpty();
+            assertThat(String.join("\n", logs.messages())).doesNotContain("FAKE-PRIVATE-PATIENT");
+            assertThat(logs.events()).allSatisfy(event -> assertThat(event.getThrown()).isNull());
+        }
+    }
+
+    @Test
     @DisplayName("detects common signature image formats by magic bytes")
     void shouldDetectCommonSignatureImageTypes() {
         assertThat(ImageRenderingServlet.detectImageType(PNG_BYTES)).isEqualTo("png");

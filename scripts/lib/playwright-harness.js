@@ -591,7 +591,7 @@ function navigationCancellation(entry) {
 }
 
 /**
- * Snapshot pending loads before a navigation, including same-address reloads.
+ * Track pending loads across a navigation, including same-address reloads.
  * A later URL comparison alone cannot distinguish a load the browser abandoned
  * from a request that failed independently before the test left the page.
  */
@@ -631,6 +631,17 @@ function trackPendingNavigationRequests(page) {
       operation.documentRequest = request;
       navigations.add(operation);
       documentNavigations.set(request, operation);
+    } else if (frame) {
+      // The old document can start another polling/resource load while its
+      // replacement response is pending. It still belongs to that document.
+      // Candidate membership alone is not an exemption: response readiness is
+      // frozen at failure and replacement must be confirmed. A pre-response
+      // application abort stays fatal even after a later commit.
+      for (const operation of navigations) {
+        if (!operation.replacingDocument || !belongsTo(frame, operation.frame)) continue;
+        if (!candidates.has(request)) candidates.set(request, new Set());
+        candidates.get(request).add(operation);
+      }
     }
     pending.set(request, frame);
   });
@@ -1281,8 +1292,15 @@ async function gotoApp(page, baseUrl, appPath, waitUntil = 'domcontentloaded') {
 }
 
 async function assertNotErrorPage(page, label, options = {}) {
-  const text = await page.locator('body').innerText({ timeout: 10000 }).catch(() => '');
-  assert(!/CARLOS has encountered an unexpected error|HTTP Status 500|Exception Report|Whitelabel Error Page/i.test(text), `${label} rendered an error page`);
+  const text = await page.locator('body').innerText({ timeout: 10000 });
+  assert(!/CARLOS has encountered an unexpected error|Exception Report|Whitelabel Error Page/i.test(text), `${label} rendered an error page`);
+  // A chart can quote an HTTP status in clinical prose. Tomcat error pages put
+  // their status in the title or heading, which distinguishes the actual page.
+  const headings = await page.locator('title, h1, h2').allTextContents();
+  assert(!headings.some(heading => /^\s*HTTP Status\s*:?\s*[45]\d\d\b/i.test(heading)),
+    `${label} rendered an error page`);
+  assert(!/(?:^|\n)\s*An error occurred\s*(?:\n|$)/i.test(text)
+    || !/Reference ID\s*:/i.test(text), `${label} rendered a sanitized error page`);
   if (!text.trim() && options.allowPdf && await page.locator('embed[type="application/pdf"], link[href^="chrome-extension://"][href$="/pdf_embedder.css"]').count() > 0) {
     // Chromium's native PDF viewer (embed or extension-backed) has no body
     // text. Accept it only after the

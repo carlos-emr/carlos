@@ -127,14 +127,18 @@ public class ReportingService extends AbstractServiceImpl {
     @GET
     @Path("/demographicSets/demographicSet/{name}")
     @Produces("application/json")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public AbstractSearchResponse<DemographicSets> getDemographicSetByName(@PathParam("name") String name) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_REPORT, "r", null)) {
             throw new SecurityException("missing required sec object (" + SECOBJ_REPORT + ")");
         }
         AbstractSearchResponse<DemographicSets> response = new AbstractSearchResponse<DemographicSets>();
 
-        response.setContent(demographicSetsManager.getByName(getLoggedInInfo(), name));
-        response.setTotal(response.getContent().size());
+        var permitted = authorizedDemographicSet(name);
+        response.setContent(permitted.rows());
+        response.setTotal(permitted.total());
 
         return (response);
     }
@@ -143,6 +147,11 @@ public class ReportingService extends AbstractServiceImpl {
     @Path("/demographicSets/patientList")
     @Produces("application/json")
     @Consumes("application/json")
+    // Name enrichment may synchronously audit a health-care-team lookup when
+    // the patient has no MRP. Keep that audit in this request's transaction.
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class,
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public PatientListApptBean getAsPatientList(JsonNode json) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_REPORT, "r", null)) {
             throw new SecurityException("missing required sec object (" + SECOBJ_REPORT + ")");
@@ -152,7 +161,7 @@ public class ReportingService extends AbstractServiceImpl {
 
         if (json.has("name") && json.get("name").asText().length() > 0) {
 
-            for (DemographicSets demographicSet : demographicSetsManager.getByName(getLoggedInInfo(), json.get("name").asText())) {
+            for (DemographicSets demographicSet : authorizedDemographicSet(json.get("name").asText()).rows()) {
                 PatientListApptItemBean item = new PatientListApptItemBean();
                 item.setDemographicNo(demographicSet.getDemographicNo());
                 item.setName(demographicManager.getDemographicFormattedName(getLoggedInInfo(), item.getDemographicNo()));
@@ -161,6 +170,13 @@ public class ReportingService extends AbstractServiceImpl {
         }
 
         return (response);
+    }
+
+    private io.github.carlos_emr.carlos.webserv.rest.util.PatientApiPages.Page<DemographicSets> authorizedDemographicSet(String name) {
+        return io.github.carlos_emr.carlos.webserv.rest.util.PatientApiPages.read(
+                getLoggedInInfo(), securityInfoManager, SECOBJ_REPORT, 0, 0,
+                (offset, limit) -> demographicSetsManager.getByNamePage(getLoggedInInfo(), name, offset, limit),
+                DemographicSets::getDemographicNo, DemographicSets::getId, "_demographic");
     }
 
     /**
@@ -354,13 +370,17 @@ public class ReportingService extends AbstractServiceImpl {
             if (!pr.isActive()) {
                 report.setActive(false);
             }
+        } catch (jakarta.ws.rs.WebApplicationException response) {
+            throw response;
         } catch (Exception e) {
-            logger.error("Error running prevention report id={}", id, e);
+            logger.error("Error running prevention report id={} trace={}", id,
+                    io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(e));
+            return jakarta.ws.rs.core.Response.status(500).entity("{\"Error\":\"Error building report\"}").build();
         }
 
         if (report == null) {
             logger.warn("Prevention report build returned no result id={}", id);
-            return jakarta.ws.rs.core.Response.status(268)
+            return jakarta.ws.rs.core.Response.status(500)
                     .entity("{\"Error\":\"Error building report\"}").build();
         }
         return jakarta.ws.rs.core.Response.ok(report).build();
@@ -386,7 +406,7 @@ public class ReportingService extends AbstractServiceImpl {
         String reportJson = pr.getJson();
         if (reportJson == null) {
             logger.warn("Prevention report has no JSON payload id={}", id);
-            return jakarta.ws.rs.core.Response.status(268)
+            return jakarta.ws.rs.core.Response.status(500)
                     .entity("{\"Error\":\"Error get Search Config\"}").build();
         }
         ObjectMapper mapper = OBJECT_MAPPER;
@@ -401,10 +421,11 @@ public class ReportingService extends AbstractServiceImpl {
             // non-Jackson failure here (null JSON) is guarded above, and readValue(String, Class)
             // reports parse/mapping problems as JsonProcessingException, so a broad catch would
             // only mask unrelated runtime bugs.
-            logger.error("Error parsing prevention report JSON id={}", id, e);
+            logger.error("Error parsing prevention report JSON id={} trace={}", id,
+                    io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(e));
         }
 
-        return jakarta.ws.rs.core.Response.status(268).entity("{\"Error\":\"Error get Search Config\"}").build();
+        return jakarta.ws.rs.core.Response.status(500).entity("{\"Error\":\"Error get Search Config\"}").build();
     }
 
     @POST

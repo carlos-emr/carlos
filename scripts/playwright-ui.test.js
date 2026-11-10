@@ -2,15 +2,17 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const { EventEmitter } = require('node:events');
-const { clickOpensPopup, clickDownloadsOrOpens, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
+const { clickOpensPopup, clickDownloadsOrOpens, clickOpensPopupOrNavigates, typeAutocomplete } = require('./lib/playwright-ui');
 const { createRecorder, wireStrictPage, assertStrictPage } = require('./lib/playwright-harness');
+const { workflow: echartWorkflow } = require('./echart-playwright-checks');
 
 function eventPage(text = 'Working page') {
   const page = Object.assign(new EventEmitter(), {
     url: () => 'https://carlos.test/carlos/page',
     waitForLoadState: async () => {},
     waitForURL: async () => {},
-    locator: () => ({ innerText: async () => text }),
+    locator: () => ({ innerText: async () => text,
+      allTextContents: async () => /^HTTP Status/.test(text) ? [text] : [] }),
   });
   const frame = {};
   page.mainFrame = () => frame;
@@ -22,6 +24,79 @@ function noOutcomeListeners(page, context, navigationListeners = 0) {
   assert.equal(page.listenerCount('framenavigated'), navigationListeners);
   assert.equal(page.listenerCount('download'), 0);
 }
+
+for (const inputMode of [undefined, 'fill']) {
+  for (const bindsId of [true, false]) {
+    test(`autocomplete ${inputMode || 'type'} mode requires the selected widget id (bound: ${bindsId})`, async () => {
+      let value = 'old query';
+      let hidden = 'stale id';
+      const updates = [];
+      let picked = false;
+      const input = {
+        click: async () => {},
+        fill: async text => { value = text; hidden = ''; updates.push(text); },
+        type: async text => {
+          assert.equal(inputMode, undefined, 'complete-query mode must not send intermediate keystrokes');
+          for (const letter of text) { value += letter; updates.push(value); }
+        },
+      };
+      const suggestion = {
+        waitFor: async () => { assert.equal(value, 'Safety'); },
+        click: async () => { picked = true; if (bindsId) hidden = '41'; },
+      };
+      const menu = { locator: () => ({ first: () => suggestion }) };
+      const page = { locator: selector => selector === '#query' ? input
+        : selector === '#id' ? { inputValue: async () => hidden } : menu };
+      const result = typeAutocomplete(page, '#query', 'Safety', { inputMode, option: 'Safety', hidden: '#id' });
+      if (bindsId) assert.equal(await result, '41');
+      else await assert.rejects(result, /did not populate #id/);
+      assert.equal(picked, true, 'the rendered suggestion must be selected');
+      assert.deepEqual(updates, inputMode === 'fill' ? ['', 'Safety'] : ['', 'S', 'Sa', 'Saf', 'Safe', 'Safet', 'Safety']);
+    });
+  }
+}
+
+test('the eChart caller enters Safety in exactly one nonempty autocomplete update', async () => {
+  const updates = [];
+  let value = 'old query';
+  let hidden = 'stale id';
+  let picked = false;
+  const input = {
+    click: async () => {},
+    fill: async text => { value = text; hidden = ''; updates.push(text); },
+    type: async text => {
+      for (const letter of text) { value += letter; updates.push(value); }
+    },
+  };
+  const suggestion = {
+    waitFor: async () => { assert.equal(value, 'Safety'); },
+    click: async () => { picked = true; hidden = '41'; },
+  };
+  const menu = { locator: () => ({ first: () => suggestion }) };
+  const selected = new Error('stop after the real caller selects its suggestion');
+  const page = {
+    locator: selector => selector === '#issueAutocomplete' ? input
+      : selector === '#newIssueId' ? { inputValue: async () => hidden } : menu,
+    waitForResponse: () => { throw selected; },
+  };
+  let assignmentSteps = 0;
+  const fixtureValues = ['1', '2', '45', '0'];
+  await assert.rejects(echartWorkflow({
+    sql: { value: () => fixtureValues.shift(), execute: () => {} },
+    patient: '100', provider: '200', marker: 'owned-test-patient', config: {},
+    cleanup: () => {}, context: new EventEmitter(), chart: async () => page,
+    step: async (label, action) => {
+      if (label === 'an issue assigned to the encounter remains pending before the CPP save') {
+        assignmentSteps++;
+        await action();
+      }
+    },
+  }), error => error === selected);
+  assert.equal(assignmentSteps, 1);
+  assert.equal(picked, true, 'the caller must select the rendered suggestion');
+  assert.equal(hidden, '41', 'the widget must replace the stale hidden id');
+  assert.deepEqual(updates.filter(Boolean), ['Safety']);
+});
 
 for (const navigates of [true, false]) {
   test(`a popup URL is read after navigation (navigation succeeds: ${navigates})`, async () => {
@@ -444,7 +519,7 @@ for (const helper of [clickOpensPopup, clickOpensPopupOrNavigates]) {
       await new Promise(resolve => setImmediate(resolve));
       navigated = true;
     };
-    popup.locator = () => ({innerText: async () => navigated ? 'Loaded chart' : ''});
+    popup.locator = () => ({innerText: async () => navigated ? 'Loaded chart' : '', allTextContents: async () => []});
     await helper(opener, control(async () => context.emit('page', popup)), {context});
     assert.equal(navigated, true);
   });

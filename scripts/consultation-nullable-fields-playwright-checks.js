@@ -98,7 +98,9 @@ function sqlValue(value) {
   return value === '' || value === 'NULL' ? 'NULL' : `'${value.replace(/'/g, "''")}'`;
 }
 
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('consultation-nullable-fields', async () => {
+  await (async () => {
   const cancellation = createGracefulSignalCancellation();
   const recorder = createRecorder();
   let browser;
@@ -261,3 +263,4 @@ function sqlValue(value) {
   console.error('Consultation nullable-fields cleanup failed');
   process.exitCode = process.exitCode || 1;
 });
+}, {existingSignalHandlers:true});

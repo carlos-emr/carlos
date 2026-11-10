@@ -18,6 +18,7 @@ function load(name, overrides={}, {entry=false, sandbox={}}={}) {
   function req(id) {
     if (id === './uncertain-server-writes') return require('./lib/uncertain-server-writes');
     if (id === './lib/authenticated-probe') return require('./lib/authenticated-probe');
+    if (id === './graceful-signal-cancellation') return require('./graceful-signal-cancellation');
     if(Object.hasOwn(overrides,id))return overrides[id];
     if(id==='./lib/playwright-harness'||id==='./playwright-harness')return h;
     if(id.startsWith('node:'))return require(id);

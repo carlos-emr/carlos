@@ -50,7 +50,7 @@ class RxSummaryUnitTest {
         assertThatThrownBy(() -> summary.getSummary(user,11,"meds")).isInstanceOfSatisfying(WebApplicationException.class,failure -> {
             assertThat(failure.getResponse().getStatus()).isEqualTo(409);
             assertThat(failure.getResponse().getEntity().toString())
-                    .contains(CdsMedicationCompatibilityException.CODE,"/form/cdsSourceFields?demographicNo=11&category=MedicationsAndTreatments")
+                    .contains(CdsMedicationCompatibilityException.CODE,"/demographic/cdsSourceFields?demographicNo=11&category=MedicationsAndTreatments")
                     .doesNotContain("2024-01-01");
             assertThat(failure.getResponse().getHeaderString("Cache-Control")).isEqualTo("no-store");
         });

@@ -119,6 +119,21 @@ public class DemographicMergedDaoIntegrationTest extends CarlosTestBase {
         assertThat(entity.getId()).isNotNull();
     }
 
+    @Test
+    void shouldFindOnlyActivePairLinks_withStableOrderAndRetainedHistory() throws Exception {
+        var old = createMerged(demoId2, demoId1, 1);
+        var active = createMerged(demoId2, demoId1, 0);
+        createMerged(demoId1, demoId2, 0);
+        assertThat(dao.findActiveByParentAndChildIds(demoId1, demoId2))
+                .extracting(DemographicMerged::getId).containsExactly(active.getId());
+        assertThat(dao.findByParentAndChildIds(demoId1, demoId2))
+                .extracting(DemographicMerged::getId).containsExactlyInAnyOrder(old.getId(), active.getId());
+        active.setDeleted(1);
+        dao.merge(active);
+        hibernateTemplate.flush();
+        assertThat(dao.findActiveByParentAndChildIds(demoId1, demoId2)).isEmpty();
+    }
+
     @Nested
     @DisplayName("findCurrentByMergedTo")
     class FindCurrentByMergedTo {

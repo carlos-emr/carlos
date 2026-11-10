@@ -3,7 +3,7 @@ package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.LogTeleplanTxDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.LogTeleplanTx;
-import io.github.carlos_emr.carlos.billings.MSP.ExtractBean;
+import io.github.carlos_emr.carlos.billings.ca.bc.MSP.ExtractBean;
 import io.github.carlos_emr.carlos.billings.ca.bc.service.BcBillingService;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
@@ -73,9 +73,9 @@ class BcBillingDaoTransactionIntegrationTest extends CarlosTestBase {
     }
 
     private ExtractBean extract(boolean fail) {
-        return new ExtractBean() {
+        ExtractBean extract = new ExtractBean() {
             @Override
-            public void buildExtract() {
+            public void dbQuery() {
                 LogTeleplanTx log = new LogTeleplanTx();
                 log.setClaim(new byte[]{1, 2, 3});
                 logDao.persist(log);
@@ -92,10 +92,12 @@ class BcBillingDaoTransactionIntegrationTest extends CarlosTestBase {
             }
 
             @Override
-            public void publishExtract() {
+            public void writeHtml(String html) {
                 published = true;
             }
         };
+        extract.seteFlag("1");
+        return extract;
     }
 
     @Test
@@ -110,10 +112,10 @@ class BcBillingDaoTransactionIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldCommitGeneratedLogAndBothStatuses_whenExtractCompletes() {
+    void shouldCommitGeneratedLogAndBothStatuses_withoutPublishingHtml() {
         service.generateExtract(extract(false));
         assertCommittedState("B", 1);
-        assertThat(published).isTrue();
+        assertThat(published).isFalse();
     }
 
     @Test

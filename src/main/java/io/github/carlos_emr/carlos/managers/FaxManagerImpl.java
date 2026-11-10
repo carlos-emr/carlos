@@ -219,13 +219,11 @@ public class FaxManagerImpl implements FaxManager {
         try {
             path = Paths.get(filePath);
         } catch (java.nio.file.InvalidPathException e) {
-            logger.error("renderDocument: malformed file path for documentNo={}: {}", documentNo,
-                    LogSafe.sanitize(filePath, 1024));
+            logger.error("renderDocument: malformed file path for documentNo={}", documentNo);
             return null;
         }
         if (!Files.exists(path) || !Files.isRegularFile(path)) {
-            logger.error("renderDocument: file not found on disk for documentNo={}: {}", documentNo,
-                    LogSafe.sanitize(filePath, 1024));
+            logger.error("renderDocument: file not found on disk for documentNo={}", documentNo);
             return null;
         }
 
@@ -237,8 +235,7 @@ public class FaxManagerImpl implements FaxManager {
         } catch (SecurityException e) {
             // File not in document dir, check if it's in allowed temp directories
             if (!PathValidationUtils.isInAllowedTempDirectory(path.toFile())) {
-                logger.error("renderDocument: path validation failed for documentNo={}: {}", documentNo,
-                        LogSafe.sanitize(filePath, 1024));
+                logger.error("renderDocument: path validation failed for documentNo={}", documentNo);
                 return null;
             }
         }
@@ -845,8 +842,7 @@ public class FaxManagerImpl implements FaxManager {
             // No source PDF on disk means no preview can be generated; surface it rather than returning
             // a silent null the caller may render as a broken image. The basename (a server-generated
             // temp/document name, not PHI) is what lets a busy system correlate this with its request.
-            logger.warn("Fax preview source is missing; no preview image generated (file {}, page {})", // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                    LogSafe.sanitize(filePath == null ? null : filePath.getFileName().toString()), pageNumber);
+            logger.warn("Fax preview source is missing; no preview image generated (page {})", pageNumber);
         }
         return outfile;
     }
@@ -1289,7 +1285,7 @@ public class FaxManagerImpl implements FaxManager {
 
         // Check for path traversal patterns
         if (filePath.contains("..") || filePath.contains("~")) {
-            logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.error("Path traversal attempt detected"); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             throw new SecurityException("Invalid file path detected: path traversal patterns not allowed");
         }
 
@@ -1339,7 +1335,7 @@ public class FaxManagerImpl implements FaxManager {
 
         // Ensure the file exists and is a regular file
         if (!Files.exists(resolvedPath) || !Files.isRegularFile(resolvedPath)) {
-            logger.error("File not found or is not a regular file: {}", LogSafe.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.error("File not found or is not a regular file"); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             throw new IOException("File not found or is not a regular file");
         }
 

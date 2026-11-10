@@ -32,13 +32,13 @@
 <%
     String user_no = (String) session.getAttribute("user");
 %>
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" %>
+<%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Billingreferral" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingreferralDao" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>

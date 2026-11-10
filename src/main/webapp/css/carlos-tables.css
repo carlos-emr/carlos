@@ -1,0 +1,24 @@
+/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+/*
+ * Shared rules for the JSTL tables that replaced displaytag (#5472). Sort links, the paging
+ * banner (span.pagebanner, span.pagelinks) and empty-list text use displaytag's own markup and
+ * take their look from each page's stylesheets, as before, so nothing here styles them.
+ */
+/* Match the former cellspacing/cellpadding hints without overriding a page's own cell styles. */
+:where(table.carlos-table-spaced, table.carlos-table-history) { border-spacing: 2px; }
+:where(table.carlos-table-spaced > thead > tr > th,
+       table.carlos-table-spaced > tbody > tr > td) { padding: 3px; }
+:where(table.carlos-table-history > thead > tr > th,
+       table.carlos-table-history > tbody > tr > td) { padding: 9px; }
+/* Accessible name for a row's selection checkbox; never visible. */
+.table-selection-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}

@@ -44,7 +44,7 @@
     }
 %>
 
-<%@ page import="java.sql.*, java.util.*,java.net.*, io.github.carlos_emr.MyDateFormat" %>
+<%@ page import="java.util.*" %>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>

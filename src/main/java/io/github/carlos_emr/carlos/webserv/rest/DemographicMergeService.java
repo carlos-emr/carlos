@@ -121,7 +121,11 @@ public class DemographicMergeService extends AbstractServiceImpl {
         }
         List<Integer> children = new ArrayList<Integer>();
         children.add(childId);
-        demographicManager.unmergeDemographics(getLoggedInInfo(), parentId, children);
+        try {
+            demographicManager.unmergeDemographics(getLoggedInInfo(), parentId, children);
+        } catch (io.github.carlos_emr.carlos.managers.DemographicMergeConflictException conflict) {
+            throw new jakarta.ws.rs.ClientErrorException("No active demographic merge link exists", 409);
+        }
     }
 
 }

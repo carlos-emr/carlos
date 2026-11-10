@@ -39,7 +39,7 @@
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean, io.github.carlos_emr.carlos.commn.model.Facility" %>
-<%@page import="org.owasp.encoder.Encode" %>
+
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>

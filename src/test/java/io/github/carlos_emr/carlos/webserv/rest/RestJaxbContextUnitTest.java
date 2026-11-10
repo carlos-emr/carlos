@@ -95,7 +95,7 @@ class RestJaxbContextUnitTest extends CarlosUnitTestBase {
         }
         assertThat(services).contains(AllergyService.class, DemographicService.class, ProviderService.class);
         var bus = new ExtensionManagerBus();
-        var factory = selectedBeans("spring_ws.xml", "jaxb");
+        var factory = selectedBeans("spring_ws.xml", "jaxb", "strictXmlValidationHandler");
         try {
             var model = new JAXRSServiceFactoryBean();
             model.setBus(bus);
@@ -177,6 +177,9 @@ class RestJaxbContextUnitTest extends CarlosUnitTestBase {
         var factory = selectedBeans(resource, id);
         try {
             ObjectMapper mapper = factory.getBean(id, ObjectMapper.class);
+            if ("applicationContextREST.xml".equals(resource)) {
+                assertThat(mapper.getRegisteredModuleIds()).contains("SmartDateModule");
+            }
             for (String expected : JSON_DATES) {
                 var date = mapper.readValue(expected, CdsTemporalNativeDateDto.class);
                 assertThat(mapper.writeValueAsString(date)).isEqualTo(expected);
@@ -228,12 +231,28 @@ class RestJaxbContextUnitTest extends CarlosUnitTestBase {
         Set<String> selected = Set.of(ids);
         for (Node child = root.getFirstChild(); child != null; ) {
             Node next = child.getNextSibling();
-            if (!(child instanceof Element element && "bean".equals(element.getLocalName())
-                    && selected.contains(element.getAttribute("id")))) root.removeChild(child);
+            boolean keep = false;
+            if (child instanceof Element element && "bean".equals(element.getLocalName())) {
+                keep = selected.contains(element.getAttribute("id"))
+                        || (selected.contains("oauthJacksonObjectMapper")
+                            && "smartDateModule".equals(element.getAttribute("id")));
+                if ("org.springframework.beans.factory.config.MethodInvokingFactoryBean"
+                        .equals(element.getAttribute("class"))) {
+                    var properties = element.getElementsByTagNameNS(
+                            "http://www.springframework.org/schema/beans", "property");
+                    for (int i = 0; i < properties.getLength(); i++) {
+                        var property = (Element) properties.item(i);
+                        keep |= "targetObject".equals(property.getAttribute("name"))
+                                && selected.contains(property.getAttribute("ref"));
+                    }
+                }
+            }
+            if (!keep) root.removeChild(child);
             child = next;
         }
         var factory = new DefaultListableBeanFactory();
         new XmlBeanDefinitionReader(factory).registerBeanDefinitions(document, new ClassPathResource(resource));
+        factory.preInstantiateSingletons();
         return factory;
     }
 }

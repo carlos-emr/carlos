@@ -84,14 +84,15 @@ public interface ScheduleManager {
     public void updateAppointment(LoggedInInfo loggedInInfo, Appointment appointment);
 
     /**
-     * Validates the client's read version before archiving and editing the locked current row.
+     * Archives and edits the locked current row, validating the client's read version when supplied.
+     * Missing or blank versions preserve legacy last-writer-wins behavior.
      *
      * @param loggedInInfo LoggedInInfo the authenticated caller
      * @param appointmentId Integer the appointment_no of the row to edit
-     * @param expectedVersion String the editVersion token the client read; must not be blank
+     * @param expectedVersion String the editVersion token the client read; null or blank for a legacy unconditional edit
      * @param edit Consumer&lt;Appointment&gt; callback that applies editable fields to the locked row
      * @return Appointment the updated appointment, carrying its next editVersion
-     * @throws AppointmentUpdateException when the version is missing or stale, or the row does not exist
+     * @throws AppointmentUpdateException when a supplied version is stale, or the row does not exist
      * @throws SecurityException when the caller lacks the _appointment write privilege
      */
     Appointment updateAppointment(LoggedInInfo loggedInInfo, Integer appointmentId,
@@ -114,5 +115,17 @@ public interface ScheduleManager {
     public List<Object[]> listProviderAppointmentCounts(LoggedInInfo loggedInInfo, String sDateStr, String eDateStr);
 
     public boolean removeIfDoubleBooked(LoggedInInfo loggedInInfo, Calendar startTime, Calendar endTime, String providerNo, Appointment appointment);
+
+    /** Explicit timestamp/ID sync; defaults preserve extension linkage and refuse unsupported semantics. */
+    default AppointmentUpdatePage<Appointment> getAppointmentUpdatedPage(LoggedInInfo actor, Date after, int afterId, int limit) {
+        throw new UnsupportedOperationException("Schedule keyset sync is not supported by this manager");
+    }
+    default AppointmentUpdatePage<AppointmentArchive> getAppointmentArchiveUpdatedPage(LoggedInInfo actor, Date after, int afterId, int limit) {
+        throw new UnsupportedOperationException("Archive keyset sync is not supported by this manager");
+    }
+    default AppointmentUpdatePage<Appointment> getAppointmentsByProgramProviderDemographicPage(LoggedInInfo actor,
+            Integer programId, String providerNo, Integer demographicId, Date after, int afterId, int limit) {
+        throw new UnsupportedOperationException("Filtered keyset sync is not supported by this manager");
+    }
 
 }

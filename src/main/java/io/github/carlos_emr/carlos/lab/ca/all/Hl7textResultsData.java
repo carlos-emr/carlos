@@ -153,6 +153,13 @@ public class Hl7textResultsData {
             k++;
         }
 
+        if (k == matchingLabs.length) {
+            throw new IllegalStateException("The incoming lab is absent from its resolved version chain");
+        }
+        // Historical deliveries retain their raw report/routing, but must never replace
+        // the active measurements of the clinically current version.
+        if (k != matchingLabs.length - 1) return;
+
         if (k != 0) {
             List<MeasurementsDeleted> measurementsDeletedList = new ArrayList<>();
             List<Measurement> measurementsToRemove = new ArrayList<>();
@@ -266,12 +273,20 @@ public class Hl7textResultsData {
                 // <br />) would otherwise reach the filter with a leading space and be filed with it, or, for a word
                 // result such as "<br />negative", not at all.
                 trimmed = StringUtils.trimToEmpty(trimmed.replaceAll("\\<br\\s?/?\\>", ""));
-                Matcher matcher = pattern.matcher(trimmed.toLowerCase());
+                String folded = trimmed.toLowerCase(java.util.Locale.ROOT);
+                Matcher matcher = pattern.matcher(folded);
                 Measurement m = new Measurement();
 
                 if (matcher.find()) {
                     // The match, not the whole result, is the value filed: the filter both selects and extracts.
-                    String value = matcher.group();
+                    String value = originalResultMatch(trimmed, folded, matcher);
+                    if (value == null) {
+                        if (logger.isWarnEnabled()) {
+                            logger.warn("Result filter split a Unicode case mapping; not filed as a measurement (lab {}, OBX {}-{})",
+                                    LogSafe.sanitize(lab_no), i, j);
+                        }
+                        continue;
+                    }
                     // measurements.dataField holds 255 characters. The packaged install (MariaDB sql_mode="", and
                     // jdbcCompliantTruncation=false in the JDBC URL) would cut a longer value to fit without an error,
                     // and a strict server would roll back the whole lab. The lab report keeps the full result, so such
@@ -426,6 +441,23 @@ public class Hl7textResultsData {
         measurementsExtDao.batchPersistAtomically(measurementsExts, 50);
     }
 
+    /** Preserve source spelling while keeping the filter's existing lowercase selection/extraction. */
+    private static String originalResultMatch(String original, String folded, Matcher match) {
+        if (original.length() == folded.length()) return original.substring(match.start(), match.end());
+        int foldedOffset = 0;
+        int start = -1;
+        int offset = 0;
+        while (offset <= original.length()) {
+            if (foldedOffset == match.start()) start = offset;
+            if (foldedOffset == match.end()) return start < 0 ? null : original.substring(start, offset);
+            if (offset == original.length() || foldedOffset > match.end()) break;
+            String codePoint = new String(Character.toChars(original.codePointAt(offset)));
+            foldedOffset += codePoint.toLowerCase(java.util.Locale.ROOT).length();
+            offset += codePoint.length();
+        }
+        return null;
+    }
+
     public static String getMatchingLabs_CLS(String lab_no) {
         String ret = "";
         Hl7TextInfo self = null;
@@ -469,6 +501,32 @@ public class Hl7textResultsData {
         return sb.toString();
     }
 
+    /** Missing CML source evidence prevents chain-dependent writes, but not viewing the selected report. */
+    public static final class IncompleteCmlVersionChainException extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+
+        private IncompleteCmlVersionChainException(String message) {
+            super(message);
+        }
+    }
+
+    /** A display fallback never certifies the complete chain for a mutation. */
+    public record DisplayLabVersions(String labIds, boolean reliable) { }
+
+    /**
+     * Retains the selected report when a related CML source is unavailable.
+     * Callers must explain the incomplete history and disable mutation controls.
+     * Database failures and invalid source identifiers still propagate.
+     */
+    public static DisplayLabVersions getMatchingLabsForDisplay(String labNo) {
+        try {
+            return new DisplayLabVersions(getMatchingLabs(labNo), true);
+        } catch (IncompleteCmlVersionChainException incomplete) {
+            logger.warn("CML version chain is incomplete; only the selected report may be displayed read-only");
+            return new DisplayLabVersions(labNo, false);
+        }
+    }
+
     public static String getMatchingLabs(String lab_no) {
         String ret = "";
         int monthsBetween = 0;
@@ -477,6 +535,13 @@ public class Hl7textResultsData {
         if (hl7Msg != null && "CLS".equals(hl7Msg.getType())) {
             return getMatchingLabs_CLS(lab_no);
         }
+
+        boolean cml = hl7Msg != null && "CML".equals(hl7Msg.getType());
+        List<Hl7TextInfo> cmlVersions = new ArrayList<>();
+        java.util.Map<Integer, Integer> completedCounts = new java.util.HashMap<>();
+        java.util.Map<Integer, Date> observationDates = new java.util.HashMap<>();
+        java.util.Set<Integer> correctedVersions = new java.util.HashSet<>();
+        java.util.Set<Integer> seenVersions = new java.util.HashSet<>();
 
         for (Object[] o : hl7TxtInfoDao.findByLabIdViaMagic(ConversionUtils.fromIntString(lab_no))) {
             Hl7TextInfo a = (Hl7TextInfo) o[0];
@@ -502,11 +567,44 @@ public class Hl7textResultsData {
             logger.debug("lab_no: " + labNo + " lab: " + lab_no);
 
             if (monthsBetween < 4) {
-                if (ret.equals("")) ret = "" + labNo;
-                else ret = ret + "," + labNo;
+                if (cml) {
+                    if (!seenVersions.add(labNo)) continue;
+                    Hl7TextMessage version = labNo == Integer.parseInt(lab_no)
+                            ? hl7Msg : hl7TxtMsgDao.find(labNo);
+                    if (version == null) throw new IncompleteCmlVersionChainException("A CML version has no stored source message");
+                    if ("CML".equals(version.getType())) {
+                        MessageHandler parser = Factory.getHandler(version);
+                        if (parser == null) throw new IncompleteCmlVersionChainException("A stored CML version cannot be parsed");
+                        // Derive completeness from the source so corrections stored before the
+                        // C-status counter fix do not remain permanently below an original F.
+                        completedCounts.put(labNo, parser.getOBXFinalResultCount());
+                        observationDates.put(labNo, dateA);
+                        for (int obr = 0; obr < parser.getOBRCount(); obr++) {
+                            for (int obx = 0; obx < parser.getOBXCount(obr); obx++) {
+                                String status = parser.getOBXResultStatus(obr, obx);
+                                if ("C".equals(status) || "c".equals(status)) correctedVersions.add(labNo);
+                            }
+                        }
+                        cmlVersions.add(a);
+                    }
+                } else {
+                    if (ret.equals("")) ret = "" + labNo;
+                    else ret = ret + "," + labNo;
+                }
             }
         }
 
+        if (cml) {
+            cmlVersions.sort(java.util.Comparator
+                    .comparingInt((Hl7TextInfo info) -> completedCounts.get(info.getLabNumber()))
+                    .thenComparing(info -> observationDates.get(info.getLabNumber()))
+                    // A late resend of an original F must not displace its correction
+                    // when both messages describe the same observation time.
+                    .thenComparing(info -> correctedVersions.contains(info.getLabNumber()))
+                    .thenComparingInt(Hl7TextInfo::getLabNumber));
+            ret = cmlVersions.stream().map(info -> Integer.toString(info.getLabNumber()))
+                    .collect(java.util.stream.Collectors.joining(","));
+        }
         if (ret.equals("")) return (lab_no);
         else return (ret);
     }

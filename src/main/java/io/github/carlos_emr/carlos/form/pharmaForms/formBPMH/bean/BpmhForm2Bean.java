@@ -29,7 +29,6 @@
 
 package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean;
 
-import org.apache.commons.lang3.builder.ToStringBuilder;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicCust;
@@ -54,6 +53,8 @@ import java.util.List;
 @XmlAccessorType(XmlAccessType.FIELD)
 public class BpmhForm2Bean implements Serializable {
 
+    // Formatting machinery is not form data; binding it produced invalid <2DigitYearStart> XML.
+    @jakarta.xml.bind.annotation.XmlTransient
     private final SimpleDateFormat formatter = new SimpleDateFormat("MM-dd-yyyy");
 
     private Date formDate;
@@ -263,6 +264,6 @@ public class BpmhForm2Bean implements Serializable {
 
     @Override
     public String toString() {
-        return ToStringBuilder.reflectionToString(this);
+        return getClass().getSimpleName() + "[protected]";
     }
 }

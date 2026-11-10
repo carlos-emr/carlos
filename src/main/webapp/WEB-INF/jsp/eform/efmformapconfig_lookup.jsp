@@ -13,7 +13,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page import="java.io.*, java.util.*, io.github.carlos_emr.carlos.eform.*, io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.EFormUtil"
+<%@ page import="java.util.*, io.github.carlos_emr.carlos.eform.*, io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.EFormUtil"
 %>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.DatabaseAP" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.EForm" %>
@@ -24,9 +24,9 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.ParameterizedSql" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     // Security: require _eform read privilege (consistent with all other eForm endpoints)

@@ -131,9 +131,10 @@ for (const invalid of [true, false]) {
       restorePharmacy(ids) {assert.equal(ids, null); events.push('restore');},
       cleanupOwnedWorkflow: async value => {assert.equal(value.browser, null); events.push('owned cleanup');},
       cleanupMysqlDefaults() {events.push('defaults cleanup');}, sql() {},
-      buildFailureDetails: () => ({}), process: {exitCode: 0}, console: {error() {}, warn() {}},
+      buildFailureDetails: () => ({}), process: Object.assign(new (require('node:events').EventEmitter)(),{env:{},exitCode:0}), console: {error() {}, warn() {}},
       installCleanupSignalHandlers: () => ({dispose() {}}),
     };
+    context.require=name=>{assert.equal(name,'./lib/legacy-check');return {runLegacyCheck:(id,operation,options)=>require('./lib/legacy-check').runLegacyCheck(id,operation,{...options,processRef:context.process})};};
     await vm.runInNewContext(pharmacyEntry, context);
     assert.equal(context.process.exitCode, 1);
     assert.deepEqual(events, ['defaults', 'resolve', ...(invalid ? [] : ['launch']), 'restore', 'owned cleanup', 'defaults cleanup']);

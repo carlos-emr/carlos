@@ -28,6 +28,8 @@
 
 package io.github.carlos_emr.carlos.managers;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -101,7 +103,7 @@ public class WaitListManager {
                 if (is != null) is.close();
             }
         } catch (Exception e) {
-            logger.error("Error reading properties file : " + WAIT_LIST_EMAIL_PROPERTIES_FILE, e);
+            logger.error("Error reading properties file: {}", LogSafe.exceptionTrace(e));
         }
         return (p);
     }

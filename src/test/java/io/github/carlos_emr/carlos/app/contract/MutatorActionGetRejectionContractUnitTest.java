@@ -343,6 +343,8 @@ class MutatorActionGetRejectionContractUnitTest {
             Arguments.of("io.github.carlos_emr.carlos.messenger.pageUtil.MsgAdjustAttachments2Action",
                     "_msg", "w"),
             // --- tickler ---
+            Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.EditTicklerTextSuggest2Action",
+                    "_tickler", "u"),
             Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerAdd2Action",
                     "_tickler", "w"),
             // Both dispatches (editTickler, suggested-text maintenance) mutate; the verb is
@@ -461,6 +463,9 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // Lookup management permits reads; order/add/remove require POST. See LookupListManager2ActionUnitTest.
+        "io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteGroups2Action",
         // Demographic report favourites and patient sets (#4225) are POST-only;
         // report display/run/load remain GET-compatible. Focused RptDemographicReport2ActionUnitTest.
         "io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Action",
@@ -614,6 +619,8 @@ class MutatorActionGetRejectionContractUnitTest {
         // GET/HEAD and PUT/PATCH/DELETE alike); getFaxSchedularStatus/getPendingIncomingFaxes
         // stay verb-open (see ConfigureFax2ActionUnitTest).
         "io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action",
+        // Email: only method=setResolved mutates; covered by ManageEmails2ActionUnitTest.
+        "io.github.carlos_emr.carlos.email.admin.ManageEmails2Action",
         // Security/MFA: execute() renders a view on a bare GET; only the method=resetMfa dispatch
         // (a privileged reset of another account's MFA) is POST-only (see MfaActions2ActionUnitTest).
         "io.github.carlos_emr.carlos.security.MfaActions2Action",
@@ -734,6 +741,8 @@ class MutatorActionGetRejectionContractUnitTest {
      * manifests above and participates in discovery drift checks.
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
+        "io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteGroups2Action",
         "io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action",
         "io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfigDeleteImmuSet2Action",
         // The form package is not in IN_SCOPE_PACKAGE_PREFIXES; its legacy form dispatcher registers here.
@@ -801,6 +810,7 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.fax.action.Fax2Action",
         "io.github.carlos_emr.carlos.fax.admin.ManageFaxes2Action",
         "io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action",
+        "io.github.carlos_emr.carlos.email.admin.ManageEmails2Action",
         // providers slice: ProEditPhoneNum2Action persists the provider's rxPhone; the providers
         // package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly here.
         "io.github.carlos_emr.carlos.providers.pageUtil.ProEditPhoneNum2Action",
@@ -954,6 +964,7 @@ class MutatorActionGetRejectionContractUnitTest {
      * needs an entry here, or {@link #filterListedWriteParameters()} fails.
      */
     private static final Map<String, String[]> FILTER_LISTED_ROUTE_PRIVILEGES = Map.of(
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteGroups2Action", new String[]{"_rx", "u"},
         "io.github.carlos_emr.carlos.admin.web.ProviderPrivilege2Action", new String[]{"_admin", "w"},
         "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action", new String[]{"_admin", "r"},
         "io.github.carlos_emr.carlos.messenger.pageUtil.MsgHandleMessages2Action", new String[]{"_msg", "r"},

@@ -45,7 +45,9 @@ import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequestArchive;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequestExt;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequestExtArchive;
 import io.github.carlos_emr.carlos.commn.model.ConsultationResponse;
 import io.github.carlos_emr.carlos.commn.model.ConsultationServices;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -65,6 +67,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationRequestSearchResult;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationResponseSearchResult;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
+import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationAttachmentsNotIncluded;
+import java.util.Locale;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -73,6 +77,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.MockedStatic;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -703,6 +708,74 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
                 // Then
                 assertThat(result).extracting(map -> (Integer) map.get("id")).containsExactly(128, 5);
             }
+        }
+
+        @Test
+        void shouldReuseStoredRelationships_withPreloadedPanelData() {
+            when(mockConsultDocsDao.findByRequestIdDocType(TEST_REQUEST_ID, ConsultDocs.DOCTYPE_FORM))
+                    .thenReturn(List.of(
+                            new ConsultDocs(TEST_REQUEST_ID, 120, ConsultDocs.DOCTYPE_FORM, TEST_PROVIDER_NO),
+                            new ConsultDocs(TEST_REQUEST_ID, 130, ConsultDocs.DOCTYPE_FORM, TEST_PROVIDER_NO),
+                            new ConsultDocs(TEST_REQUEST_ID, 140, ConsultDocs.DOCTYPE_FORM, TEST_PROVIDER_NO)));
+            when(mockConsultDocsDao.findByRequestIdDocType(TEST_REQUEST_ID, ConsultDocs.DOCTYPE_HRM))
+                    .thenReturn(List.of(
+                            new ConsultDocs(TEST_REQUEST_ID, 128, ConsultDocs.DOCTYPE_HRM, TEST_PROVIDER_NO),
+                            new ConsultDocs(TEST_REQUEST_ID, 5, ConsultDocs.DOCTYPE_HRM, TEST_PROVIDER_NO),
+                            new ConsultDocs(TEST_REQUEST_ID, 6, ConsultDocs.DOCTYPE_HRM, TEST_PROVIDER_NO)));
+            when(mockFormsManager.getEncounterFormsbyDemographicNumber(mockLoggedInInfo, TEST_DEMOGRAPHIC_NO, true, true))
+                    .thenReturn(List.of(
+                            new EctFormData.PatientForm("Form 130", 130, TEST_DEMOGRAPHIC_NO, new Date(), new Date()),
+                            new EctFormData.PatientForm("Form 999", 999, TEST_DEMOGRAPHIC_NO, new Date(), new Date()),
+                            new EctFormData.PatientForm("Form 120", 120, TEST_DEMOGRAPHIC_NO, new Date(), new Date())));
+            try (MockedStatic<HRMUtil> hrmUtilMock = Mockito.mockStatic(HRMUtil.class)) {
+                hrmUtilMock.when(() -> HRMUtil.listHRMDocuments(mockLoggedInInfo, "report_date", false,
+                        TEST_DEMOGRAPHIC_NO.toString(), false))
+                        .thenReturn(new ArrayList<>(List.of(createHrmDocument(5), createHrmDocument(999), createHrmDocument(128))));
+
+                List<ConsultDocs> storedForms = consultationManager.getAttachedDocumentsByType(
+                        mockLoggedInInfo, TEST_REQUEST_ID, ConsultDocs.DOCTYPE_FORM);
+                List<ConsultDocs> storedHrms = consultationManager.getAttachedDocumentsByType(
+                        mockLoggedInInfo, TEST_REQUEST_ID, ConsultDocs.DOCTYPE_HRM);
+                List<EctFormData.PatientForm> forms = consultationManager.getAttachedForms(
+                        mockLoggedInInfo, TEST_REQUEST_ID, TEST_DEMOGRAPHIC_NO, storedForms);
+                var hrms = consultationManager.getAttachedHRMDocuments(
+                        mockLoggedInInfo, TEST_DEMOGRAPHIC_NO.toString(), TEST_REQUEST_ID.toString(), storedHrms);
+
+                assertThat(forms).extracting(EctFormData.PatientForm::getFormId).containsExactly("120", "130");
+                assertThat(hrms).extracting(row -> (Integer) row.get("id")).containsExactly(128, 5);
+                assertThat(ConsultationAttachmentsNotIncluded.describe(storedForms, storedHrms, forms, hrms, Locale.ENGLISH))
+                        .containsExactly("An attached clinical form is unavailable and has not been included.",
+                                "An attachment is unavailable and has not been included.");
+                verify(mockConsultDocsDao).findByRequestIdDocType(TEST_REQUEST_ID, ConsultDocs.DOCTYPE_FORM);
+                verify(mockConsultDocsDao).findByRequestIdDocType(TEST_REQUEST_ID, ConsultDocs.DOCTYPE_HRM);
+                Mockito.verifyNoMoreInteractions(mockConsultDocsDao);
+            }
+        }
+
+        @Test
+        void shouldOmitPreloadedForms_whenFormReadIsDenied() {
+            when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_form", SecurityInfoManager.READ,
+                    TEST_DEMOGRAPHIC_NO.toString())).thenReturn(false);
+            List<ConsultDocs> stored = List.of(new ConsultDocs(TEST_REQUEST_ID, 120, ConsultDocs.DOCTYPE_FORM, TEST_PROVIDER_NO));
+
+            assertThat(consultationManager.getAttachedForms(mockLoggedInInfo, TEST_REQUEST_ID, TEST_DEMOGRAPHIC_NO, stored)).isEmpty();
+            Mockito.verifyNoInteractions(mockFormsManager, mockConsultDocsDao);
+        }
+
+        @Test
+        void shouldUseExistingLoaders_whenAlternateManagersDoNotOverrideNewMethods() {
+            ConsultationManager alternateManager = Mockito.mock(ConsultationManager.class, Mockito.CALLS_REAL_METHODS);
+            List<EctFormData.PatientForm> forms = List.of(new EctFormData.PatientForm(
+                    "Form 120", 120, TEST_DEMOGRAPHIC_NO, new Date(), new Date()));
+            ArrayList<HashMap<String, ? extends Object>> hrms = new ArrayList<>(List.of(createHrmDocument(128)));
+            Mockito.doReturn(forms).when(alternateManager).getAttachedForms(mockLoggedInInfo, TEST_REQUEST_ID, TEST_DEMOGRAPHIC_NO);
+            Mockito.doReturn(hrms).when(alternateManager).getAttachedHRMDocuments(
+                    mockLoggedInInfo, TEST_DEMOGRAPHIC_NO.toString(), TEST_REQUEST_ID.toString());
+
+            assertThat(alternateManager.getAttachedForms(mockLoggedInInfo, TEST_REQUEST_ID, TEST_DEMOGRAPHIC_NO, List.of()))
+                    .isEqualTo(forms);
+            assertThat(alternateManager.getAttachedHRMDocuments(mockLoggedInInfo, TEST_DEMOGRAPHIC_NO.toString(),
+                    TEST_REQUEST_ID.toString(), List.of())).isEqualTo(hrms);
         }
 
         /**
@@ -1388,6 +1461,37 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
     @DisplayName("Archive Consultation Request")
     @Tag("update")
     class ArchiveConsultationRequest {
+
+        @Test
+        @DisplayName("should preserve long imported text when archiving consultation and extensions")
+        void shouldPreserveLongImportedText_whenArchivingConsultationAndExtensions() {
+            String text = "é".repeat(40_000);
+            ConsultationRequest request = createRequestWithId(TEST_REQUEST_ID);
+            request.setAllergies(text);
+            request.setClinicalInfo(text);
+            request.setConcurrentProblems(text);
+            request.setCurrentMeds(text);
+            request.setLetterheadAddress(text);
+            request.setReasonForReferral(text);
+            request.setStatusText(text);
+            when(mockConsultRequestDao.find(TEST_REQUEST_ID)).thenReturn(request);
+            when(mockConsultationRequestExtDao.getConsultationRequestExts(TEST_REQUEST_ID))
+                .thenReturn(Collections.singletonList(createExt(1, TEST_REQUEST_ID, "legacyText", text)));
+
+            consultationManager.archiveConsultationRequest(TEST_REQUEST_ID);
+
+            ArgumentCaptor<ConsultationRequestArchive> archived = ArgumentCaptor.forClass(ConsultationRequestArchive.class);
+            verify(mockConsultationRequestArchiveDao).persist(archived.capture());
+            assertThat(archived.getValue())
+                .extracting(ConsultationRequestArchive::getAllergies, ConsultationRequestArchive::getClinicalInfo,
+                    ConsultationRequestArchive::getConcurrentProblems, ConsultationRequestArchive::getCurrentMeds,
+                    ConsultationRequestArchive::getLetterheadAddress, ConsultationRequestArchive::getReasonForReferral,
+                    ConsultationRequestArchive::getStatusText)
+                .containsExactly(text, text, text, text, text, text, text);
+            ArgumentCaptor<ConsultationRequestExtArchive> extension = ArgumentCaptor.forClass(ConsultationRequestExtArchive.class);
+            verify(mockConsultationRequestExtArchiveDao).persist(extension.capture());
+            assertThat(extension.getValue().getValue()).isEqualTo(text);
+        }
 
         @Test
         @DisplayName("should persist archive copy when request exists")

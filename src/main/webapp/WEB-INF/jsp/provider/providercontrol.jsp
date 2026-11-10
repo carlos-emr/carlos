@@ -40,7 +40,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>

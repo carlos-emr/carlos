@@ -101,7 +101,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             try {
                 docFile = PathValidationUtils.validateUpload(docFile);
             } catch (SecurityException e) {
-                logger.error("Invalid upload source - potential path traversal: {}", LogSafe.sanitize(docFile.getPath()));
+                logger.error("Invalid upload source - potential path traversal");
                 map.put("error", "Invalid file upload");
                 docFile = null; // Treat as if no file was uploaded
             }
@@ -208,7 +208,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 // write file to local dir
                 writeLocalFile(docFile, fileName);
                 newDoc.setContentType(this.filedataContentType);
-                if (fileName.endsWith(".PDF") || fileName.endsWith(".pdf")) {
+                if (fileName.toLowerCase(java.util.Locale.ROOT).endsWith(".pdf")) {
                     newDoc.setContentType("application/pdf");
                     // get number of pages when document is a PDF
                     numberOfPages = countNumOfPages(filePath);
@@ -222,7 +222,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 // the document store with no row pointing at it. That is litter rather
                 // than a patient record, but it is why a retry inside the same second can
                 // come back as a name collision.
-                logger.error("Failed to store uploaded document", e);
+                logger.error("Failed to store uploaded document: {}", LogSafe.exceptionTrace(e));
                 map.put("error", props.getString("dms.addDocument.errorNoWrite"));
             }
 
@@ -370,7 +370,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             // collision without attaching the exception to a log event.
             throw e;
         } catch (Exception e) {
-            logger.error("Error writing local file", e);
+            logger.error("Error writing local file: {}", LogSafe.exceptionTrace(e));
             throw e;
         }
     }
@@ -399,7 +399,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         } catch (FileAlreadyExistsException e) {
             return WriteToIncomingDocsResult.ALREADY_EXISTS;
         } catch (IOException | SecurityException e) {
-            logger.error("Error writing file to incoming docs", e);
+            logger.error("Error writing file to incoming docs: {}", LogSafe.exceptionTrace(e));
             return WriteToIncomingDocsResult.FAILED;
         }
 

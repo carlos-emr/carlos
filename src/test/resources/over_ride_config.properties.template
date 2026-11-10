@@ -29,3 +29,14 @@ db_host=db
 # scanning the eform.util package never tries to start a browser in the test JVM (where Chromium is
 # neither configured nor available). Production/dev deployments default to "required" (hard gate).
 eform_pdf_browser_startup_check=off
+
+# Enabled production integrations require qualification before live traffic.
+# See docs/production-integration-overrides.md for current defaults and acceptance.
+# Review email.host/email.port and persisted EmailConfig provider/transport settings.
+# Review ws_endpoint_url_base (FHIR sender identity) and drugref_url.
+# Review hcv.service.url, hcv.keystore.user, hcv.keystore.pass,
+# hcv.service.clientKeystore.properties and the deployed TOMCAT_KEYSTORE_FILE.
+# Provision secrets outside version control; examples are not production credentials.
+
+# Browser SOAP-token revocation requires the trusted public origin (no path).
+# soap.token.revoke.origin=https://clinic.example

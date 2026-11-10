@@ -119,6 +119,35 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRejectMissingAppointmentIds_beforeCallingManager() {
+        assertThatThrownBy(() -> service.getAppointment(null)).isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        assertThatThrownBy(() -> service.getAppointment(new AppointmentTo1()))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(appointmentManager);
+    }
+
+    @Test
+    void shouldReturnNotFound_whenAppointmentDoesNotExist() {
+        AppointmentTo1 request = new AppointmentTo1();
+        request.setId(123);
+        assertThatThrownBy(() -> service.getAppointment(request))
+                .isInstanceOf(jakarta.ws.rs.NotFoundException.class);
+    }
+
+    @Test
+    void shouldReturnNotFound_whenSearchConfigurationDoesNotExist() {
+        assertThat(service.saveSearchConfig(123, new SearchConfigTo1()).getStatus()).isEqualTo(404);
+        verify(appointmentSearchDao, never()).persist(any());
+    }
+
+    @Test
+    void shouldRejectImpossibleDay_beforeQueryingAppointments() {
+        assertThatThrownBy(() -> service.getAppointmentsForDay("1", "2026-02-30"))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(scheduleManager);
+    }
+
+    @Test
     @DisplayName("should preserve the manager's HTTP response when appointment count dates are invalid")
     void shouldPreserveHttpResponse_whenAppointmentCountDatesAreInvalid() {
         WebApplicationException badRequest = new WebApplicationException(Response.status(Response.Status.BAD_REQUEST)
@@ -387,18 +416,56 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(appointmentManager);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", "unknown", "guarded,legacy-echo"})
+    void shouldRejectUnknownWriteMode_beforeCallingTheUpdateManager(String mode) {
+        var headers = Mockito.mock(jakarta.ws.rs.core.HttpHeaders.class);
+        when(headers.getRequestHeader(ScheduleService.APPOINTMENT_WRITE_MODE_HEADER)).thenReturn(List.of(mode));
+        injectDependency(service, "httpHeaders", headers);
+        var submitted = new AppointmentTo1();
+        submitted.setEditVersion("read-token");
+        assertThatThrownBy(() -> service.updateAppointmentUrgency(42, submitted))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(scheduleManager);
+    }
+
     @Test
-    void shouldReturnBadRequest_whenEditVersionIsMissing() {
+    void shouldRequireAToken_whenGuardedModeIsExplicit() {
+        var headers = Mockito.mock(jakarta.ws.rs.core.HttpHeaders.class);
+        when(headers.getRequestHeader(ScheduleService.APPOINTMENT_WRITE_MODE_HEADER)).thenReturn(List.of("guarded"));
+        injectDependency(service, "httpHeaders", headers);
+        assertThatThrownBy(() -> service.updateAppointmentUrgency(42, new AppointmentTo1()))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(scheduleManager);
+    }
+
+    @Test
+    void shouldRejectDuplicateWriteModes_withoutSilentlyDisablingProtection() {
+        var headers = Mockito.mock(jakarta.ws.rs.core.HttpHeaders.class);
+        when(headers.getRequestHeader(ScheduleService.APPOINTMENT_WRITE_MODE_HEADER))
+                .thenReturn(List.of("guarded", "legacy-echo"));
+        injectDependency(service, "httpHeaders", headers);
+        var submitted = new AppointmentTo1();
+        submitted.setEditVersion("read-token");
+        assertThatThrownBy(() -> service.updateAppointmentUrgency(42, submitted))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(scheduleManager);
+    }
+
+    /** Pins the response token returned to an unchanged legacy client after a successful write. */
+    @Test
+    void shouldReturnUpdatedAppointment_whenEditVersionIsMissing() {
         registerMock(DemographicDao.class, Mockito.mock(DemographicDao.class));
         registerMock(ProviderDao.class, Mockito.mock(ProviderDao.class));
         AppointmentTo1 to = new AppointmentTo1();
         to.setId(42);
+        Appointment updated = new Appointment();
+        updated.setId(42);
+        updated.setUpdateDateTime(new Date(2000));
         when(scheduleManager.updateAppointment(any(), eq(42), isNull(), any()))
-                .thenThrow(new io.github.carlos_emr.carlos.managers.AppointmentUpdateException(
-                        io.github.carlos_emr.carlos.managers.AppointmentUpdateException.Reason.MISSING_VERSION));
-        assertThatThrownBy(() -> service.updateAppointment(to))
-                .isInstanceOf(WebApplicationException.class)
-                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus()).isEqualTo(400));
+                .thenReturn(updated);
+        assertThat(service.updateAppointment(to).getAppointment().getEditVersion()).isEqualTo("2000");
+        verifyNoInteractions(appointmentManager);
     }
 
     @org.junit.jupiter.params.ParameterizedTest

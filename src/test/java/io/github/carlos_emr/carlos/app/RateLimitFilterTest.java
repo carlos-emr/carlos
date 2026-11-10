@@ -946,4 +946,20 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
             assertThat(counter.isStale(fakeNow.get())).isFalse();
         }
     }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"true,false","false,false","true,true","false,true"})
+    void shouldRetainRateDecisions_withoutLoggingPrivateRequestOrConfiguredFilePaths(boolean enforce, boolean pathTier) throws Exception {
+        String privatePath = "/documents/PRIVATE_patient_report.pdf";
+        if (pathTier) initFilterWithPaths(enforce,100,60,privatePath+"=1/60");
+        else initFilter(enforce,1,60);
+        when(request.getRequestURI()).thenReturn("/carlos"+privatePath);
+        try (var capture = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger("waf.ratelimit")) {
+            filter.doFilter(request,response,chain); filter.doFilter(request,response,chain);
+            assertThat(capture.messages()).anyMatch(message -> message.contains(enforce ? "RATE BLOCK" : "RATE DETECT"));
+            assertThat(String.join("\n",capture.messages())).doesNotContain("PRIVATE_patient_report", ".pdf", privatePath);
+        }
+        if (enforce) verify(response).sendError(429,"Too Many Requests");
+        verify(chain,org.mockito.Mockito.times(enforce ? 1 : 2)).doFilter(request,response);
+    }
+
 }

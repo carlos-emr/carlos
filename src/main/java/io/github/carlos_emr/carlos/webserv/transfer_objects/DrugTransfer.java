@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsMedicationCo
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 
+@jakarta.xml.bind.annotation.XmlAccessorOrder(jakarta.xml.bind.annotation.XmlAccessOrder.ALPHABETICAL)
 public class DrugTransfer {
 
     private Integer id;
@@ -123,6 +124,8 @@ public class DrugTransfer {
         this.demographicId = demographicId;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getRxDate() {
         return (rxDate);
     }
@@ -131,6 +134,8 @@ public class DrugTransfer {
         this.rxDate = rxDate;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getEndDate() {
         return (endDate);
     }
@@ -139,6 +144,8 @@ public class DrugTransfer {
         this.endDate = endDate;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getWrittenDate() {
         return (writtenDate);
     }
@@ -227,6 +234,8 @@ public class DrugTransfer {
         this.repeat = repeat;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getLastRefillDate() {
         return (lastRefillDate);
     }
@@ -283,6 +292,8 @@ public class DrugTransfer {
         this.archivedReason = archivedReason;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getArchivedDate() {
         return (archivedDate);
     }
@@ -355,6 +366,8 @@ public class DrugTransfer {
         this.drugForm = drugForm;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getCreateDate() {
         return (createDate);
     }
@@ -451,6 +464,8 @@ public class DrugTransfer {
         this.nonAuthoritative = nonAuthoritative;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getPickupDateTime() {
         return (pickupDateTime);
     }
@@ -547,6 +562,8 @@ public class DrugTransfer {
         this.priorRxProtocol = priorRxProtocol;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getLastUpdateDate() {
         return (lastUpdateDate);
     }

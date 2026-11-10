@@ -40,11 +40,13 @@ function assertMergeDialogs(dialogs, outcomeText, label) {
   `${label}: expected the merge confirm followed by the "${outcomeText}" alert, saw ${JSON.stringify(texts)}`);
 }
 
-async function workflow(s) {
+async function workflow(s, {prepare, afterMerge, afterUnmerge, beforeCleanup} = {}) {
   const {sql, marker, provider, context, recorder} = s;
+  for(const hook of [prepare,afterMerge,afterUnmerge,beforeCleanup])h.assert(hook===undefined||typeof hook==='function','Invalid merge acceptance observer');
   const ids = [];
   const missingIds = [];
-  s.cleanup(() => {
+  s.cleanup(async () => {
+    if(beforeCleanup)await beforeCleanup();
     // A committed insert whose LAST_INSERT_ID() reply was lost still carries the per-run
     // marker as its last name, so recover owned patients by marker as well as by id.
     for (const [id] of sql.rows('SELECT demographic_no FROM demographic WHERE last_name=?', [marker])) {
@@ -86,6 +88,8 @@ async function workflow(s) {
   const dup = seed('Duplicate');
   h.assert(/^[1-9]\d*$/.test(dup), 'The duplicate patient fixture was not created');
   ids.push(dup);
+  const patients={head,duplicate:dup};
+  if(prepare)await prepare(patients);
   const owned = 'demographic_no IN (?,?) OR merged_to IN (?,?)';
   const ownedParams = [head, dup, head, dup];
   const mergeRows = () => sql.value(`SELECT COUNT(*) FROM demographic_merged WHERE ${owned}`, ownedParams);
@@ -188,6 +192,7 @@ async function workflow(s) {
       AND objectName=?`, [`_eChart$${dup}`]) === '|or|', 'The merge did not grant the merged chart read privilege');
   });
 
+  if(afterMerge)await afterMerge(patients);
   await s.step('the merged record is shown as a tail of its head on the merge search and the Master Record', async () => {
     await search();
     h.assert(await rows().count() === 2, 'The merge search lost a record after the merge');
@@ -211,6 +216,8 @@ async function workflow(s) {
     const shown = (await results.locator('a[title="Master Demographic File"]').allTextContents())
       .map(text => text.trim()).filter(text => ids.includes(text));
     h.assert(shown.length === 1 && shown[0] === head, 'The patient search did not collapse the merged pair to its head record');
+    await results.waitForLoadState('networkidle');
+    await results.close();
   });
 
   await s.step('a crafted POST that would create a merge cycle is refused without a row (#3880)', async () => {
@@ -264,6 +271,7 @@ async function workflow(s) {
     }
   });
 
+  if(afterUnmerge)await afterUnmerge(patients);
   await s.step('merging a record with itself is refused and writes nothing', async () => {
     const before = mergeRows();
     await rowFor('Primary').locator('input[name="records"]').check();

@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "50c0ab928789098dd8c8bb56688ef011fcde7014adb9cbbe9ec0111c362c6480",
+ "migration_sha256": "af0a2fdfc537d3c3b188320107186c0a91ec1177e804fbc217f8bad4bc056c61",
  "province": "on",
  "schema": {
   "checks": [
@@ -10,9 +10,29 @@
     "`id` = 1"
    ],
    [
+    "billing_filename_import",
+    "billing_filename_file_status",
+    "`file_status` in ('unchanged','ambiguous','reconciled')"
+   ],
+   [
+    "billing_filename_import",
+    "billing_filename_group_size",
+    "`group_size` >= 1"
+   ],
+   [
+    "billing_filename_import",
+    "billing_filename_reason",
+    "`reason` in ('unchanged','collision')"
+   ],
+   [
     "cds_import_preparation",
     "payload",
     "octet_length(`payload`) <= 1048576"
+   ],
+   [
+    "rx_submission_receipt",
+    "rx_submission_receipt_outcome",
+    "`outcome` = 'SAVED' and `prescription_id` is not null or `outcome` in ('PENDING','FAILED') and `prescription_id` is null"
    ]
   ],
   "columns": [
@@ -67,7 +87,7 @@
    [
     "AppDefinition",
     "config",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -139,7 +159,7 @@
    [
     "AppUser",
     "authenticationData",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -932,8 +952,8 @@
     "Consent",
     "deleted",
     "tinyint(1)",
-    "YES",
-    "NULL",
+    "NO",
+    "1",
     "",
     null,
     null,
@@ -968,8 +988,8 @@
     "Consent",
     "explicit",
     "tinyint(1)",
-    "YES",
-    "NULL",
+    "NO",
+    "0",
     "",
     null,
     null,
@@ -1002,10 +1022,22 @@
    ],
    [
     "Consent",
-    "optout",
-    "tinyint(1)",
+    "live_demographic_no",
+    "int(11)",
     "YES",
     "NULL",
+    "STORED GENERATED",
+    null,
+    null,
+    "if(`deleted` = 0,`demographic_no`,NULL)",
+    11
+   ],
+   [
+    "Consent",
+    "optout",
+    "tinyint(1)",
+    "NO",
+    "1",
     "",
     null,
     null,
@@ -1018,6 +1050,126 @@
     "datetime",
     "YES",
     "NULL",
+    "",
+    null,
+    null,
+    null,
+    8
+   ],
+   [
+    "Consent_migration_audit",
+    "consent_id",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    2
+   ],
+   [
+    "Consent_migration_audit",
+    "id",
+    "bigint(20)",
+    "NO",
+    null,
+    "auto_increment",
+    null,
+    null,
+    null,
+    1
+   ],
+   [
+    "Consent_migration_audit",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    10
+   ],
+   [
+    "Consent_migration_audit",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'system'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    9
+   ],
+   [
+    "Consent_migration_audit",
+    "migration",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    3
+   ],
+   [
+    "Consent_migration_audit",
+    "prior_deleted",
+    "tinyint(1)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    7
+   ],
+   [
+    "Consent_migration_audit",
+    "prior_explicit",
+    "tinyint(1)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    5
+   ],
+   [
+    "Consent_migration_audit",
+    "prior_optout",
+    "tinyint(1)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    6
+   ],
+   [
+    "Consent_migration_audit",
+    "reason",
+    "varchar(32)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    4
+   ],
+   [
+    "Consent_migration_audit",
+    "recorded_at",
+    "datetime",
+    "NO",
+    "current_timestamp()",
     "",
     null,
     null,
@@ -1171,7 +1323,7 @@
    [
     "Contact",
     "note",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -1747,7 +1899,7 @@
    [
     "Department",
     "annotation",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -2347,7 +2499,7 @@
    [
     "Episode",
     "notes",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -2971,7 +3123,7 @@
    [
     "FlowSheetUserCreated",
     "topHTML",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -3007,7 +3159,7 @@
    [
     "Flowsheet",
     "content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -3583,7 +3735,7 @@
    [
     "HRMDocumentComment",
     "comment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -3907,7 +4059,7 @@
    [
     "HRMProviderConfidentialityStatement",
     "statement",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -4195,7 +4347,7 @@
    [
     "Institution",
     "annotation",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -5299,7 +5451,7 @@
    [
     "PreventionsLotNrs",
     "lotNr",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -6727,7 +6879,7 @@
    [
     "SystemMessage",
     "message",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -6847,7 +6999,7 @@
    [
     "admission",
     "admission_notes",
-    "varchar(4)",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -6943,7 +7095,7 @@
    [
     "admission",
     "discharge_notes",
-    "varchar(4)",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -7339,7 +7491,7 @@
    [
     "allergies",
     "reaction",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -8779,7 +8931,7 @@
    [
     "billactivity",
     "htmlcontext",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -8827,7 +8979,7 @@
    [
     "billactivity",
     "ohipcontext",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -9043,7 +9195,7 @@
    [
     "billing",
     "content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -9175,7 +9327,7 @@
    [
     "billing",
     "total",
-    "varchar(6)",
+    "varchar(7)",
     "YES",
     "NULL",
     "",
@@ -9231,6 +9383,150 @@
     "utf8mb4_general_ci",
     null,
     19
+   ],
+   [
+    "billing_filename_import",
+    "file_sha256",
+    "char(64)",
+    "YES",
+    "NULL",
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    8
+   ],
+   [
+    "billing_filename_import",
+    "file_status",
+    "varchar(32)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    7
+   ],
+   [
+    "billing_filename_import",
+    "group_size",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    5
+   ],
+   [
+    "billing_filename_import",
+    "imported_filename",
+    "varchar(50)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    4
+   ],
+   [
+    "billing_filename_import",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    12
+   ],
+   [
+    "billing_filename_import",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    11
+   ],
+   [
+    "billing_filename_import",
+    "original_filename",
+    "varchar(50)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    3
+   ],
+   [
+    "billing_filename_import",
+    "reason",
+    "varchar(32)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    6
+   ],
+   [
+    "billing_filename_import",
+    "reconciled_at",
+    "datetime",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    10
+   ],
+   [
+    "billing_filename_import",
+    "reconciled_by",
+    "varchar(128)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    9
+   ],
+   [
+    "billing_filename_import",
+    "source_id",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    2
+   ],
+   [
+    "billing_filename_import",
+    "source_table",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    1
    ],
    [
     "billing_on_3rdPartyAddress",
@@ -9427,7 +9723,7 @@
    [
     "billing_on_cheader1",
     "comment1",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -11407,7 +11703,7 @@
    [
     "billing_on_repo",
     "content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -12463,7 +12759,7 @@
    [
     "billingservice",
     "description",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -12643,7 +12939,7 @@
    [
     "caisi_form",
     "surveyData",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -12739,7 +13035,7 @@
    [
     "caisi_form_data",
     "value",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -12823,7 +13119,7 @@
    [
     "caisi_form_data_tmpsave",
     "value",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -13003,7 +13299,7 @@
    [
     "casemgmt_cpp",
     "familyHistory",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -13027,7 +13323,7 @@
    [
     "casemgmt_cpp",
     "medicalHistory",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -13039,7 +13335,7 @@
    [
     "casemgmt_cpp",
     "ongoingConcerns",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -13063,7 +13359,7 @@
    [
     "casemgmt_cpp",
     "otherSupportSystems",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -13075,7 +13371,7 @@
    [
     "casemgmt_cpp",
     "pastMedications",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -13123,7 +13419,7 @@
    [
     "casemgmt_cpp",
     "reminders",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -13135,7 +13431,7 @@
    [
     "casemgmt_cpp",
     "socialHistory",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -13363,7 +13659,7 @@
    [
     "casemgmt_note",
     "history",
-    "mediumtext",
+    "longtext",
     "NO",
     null,
     "",
@@ -13447,7 +13743,7 @@
    [
     "casemgmt_note",
     "note",
-    "mediumtext",
+    "longtext",
     "NO",
     null,
     "",
@@ -13651,7 +13947,7 @@
    [
     "casemgmt_note_ext",
     "value",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -13831,7 +14127,7 @@
    [
     "casemgmt_tmpsave",
     "note",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -16699,7 +16995,7 @@
    [
     "client_referral",
     "completion_notes",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -16723,7 +17019,7 @@
    [
     "client_referral",
     "notes",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -16735,7 +17031,7 @@
    [
     "client_referral",
     "present_problems",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -16879,7 +17175,7 @@
    [
     "clinic",
     "clinic_delim_fax",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -16891,7 +17187,7 @@
    [
     "clinic",
     "clinic_delim_phone",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -17071,7 +17367,7 @@
    [
     "clinic_nbr",
     "nbr_string",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -17395,7 +17691,7 @@
    [
     "consultationRequestExt",
     "value",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -17479,7 +17775,7 @@
    [
     "consultationRequestExtArchive",
     "value",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -17491,7 +17787,7 @@
    [
     "consultationRequests",
     "allergies",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -17539,7 +17835,7 @@
    [
     "consultationRequests",
     "clinicalInfo",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -17551,7 +17847,7 @@
    [
     "consultationRequests",
     "concurrentProblems",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -17563,7 +17859,7 @@
    [
     "consultationRequests",
     "currentMeds",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -17635,7 +17931,7 @@
    [
     "consultationRequests",
     "letterheadAddress",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -17707,7 +18003,7 @@
    [
     "consultationRequests",
     "reason",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -17827,7 +18123,7 @@
    [
     "consultationRequests",
     "statusText",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -17863,7 +18159,7 @@
    [
     "consultationRequestsArchive",
     "allergies",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -17911,7 +18207,7 @@
    [
     "consultationRequestsArchive",
     "clinicalInfo",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -17923,7 +18219,7 @@
    [
     "consultationRequestsArchive",
     "concurrentProblems",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -17935,7 +18231,7 @@
    [
     "consultationRequestsArchive",
     "currentMeds",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -17995,7 +18291,7 @@
    [
     "consultationRequestsArchive",
     "letterheadAddress",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -18067,7 +18363,7 @@
    [
     "consultationRequestsArchive",
     "reason",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -18187,7 +18483,7 @@
    [
     "consultationRequestsArchive",
     "statusText",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -18211,7 +18507,7 @@
    [
     "consultationResponse",
     "allergies",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -18235,7 +18531,7 @@
    [
     "consultationResponse",
     "appointmentNote",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -18259,7 +18555,7 @@
    [
     "consultationResponse",
     "clinicalInfo",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -18271,7 +18567,7 @@
    [
     "consultationResponse",
     "concurrentProblems",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -18283,7 +18579,7 @@
    [
     "consultationResponse",
     "currentMeds",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -18307,7 +18603,7 @@
    [
     "consultationResponse",
     "examination",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -18331,7 +18627,7 @@
    [
     "consultationResponse",
     "impression",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -18343,7 +18639,7 @@
    [
     "consultationResponse",
     "letterheadAddress",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -18391,7 +18687,7 @@
    [
     "consultationResponse",
     "plan",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -18427,7 +18723,7 @@
    [
     "consultationResponse",
     "referralReason",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -19051,7 +19347,7 @@
    [
     "cssStyles",
     "style",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -19891,7 +20187,7 @@
    [
     "default_issue",
     "issue_ids",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -20035,7 +20331,7 @@
    [
     "demographic",
     "children",
-    "varchar(1)",
+    "varchar(255)",
     "YES",
     "NULL",
     "",
@@ -20323,7 +20619,7 @@
    [
     "demographic",
     "newsletter",
-    "varchar(10)",
+    "varchar(32)",
     "YES",
     "NULL",
     "",
@@ -20431,7 +20727,7 @@
    [
     "demographic",
     "previousAddress",
-    "varchar(60)",
+    "varchar(255)",
     "YES",
     "NULL",
     "",
@@ -20467,7 +20763,7 @@
    [
     "demographic",
     "provider_no",
-    "varchar(11)",
+    "varchar(250)",
     "YES",
     "NULL",
     "",
@@ -20623,7 +20919,7 @@
    [
     "demographic",
     "sourceOfIncome",
-    "varchar(1)",
+    "varchar(255)",
     "YES",
     "NULL",
     "",
@@ -20791,7 +21087,7 @@
    [
     "demographicArchive",
     "date_of_birth",
-    "char(2)",
+    "varchar(2)",
     "YES",
     "NULL",
     "",
@@ -20947,7 +21243,7 @@
    [
     "demographicArchive",
     "lastUpdateDate",
-    "date",
+    "datetime",
     "YES",
     "NULL",
     "",
@@ -20995,7 +21291,7 @@
    [
     "demographicArchive",
     "month_of_birth",
-    "char(2)",
+    "varchar(2)",
     "YES",
     "NULL",
     "",
@@ -21463,7 +21759,7 @@
    [
     "demographicExt",
     "value",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -21559,7 +21855,7 @@
    [
     "demographicExtArchive",
     "value",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -21679,7 +21975,7 @@
    [
     "demographicQueryFavourites",
     "demoIds",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -21739,7 +22035,7 @@
    [
     "demographicQueryFavourites",
     "patientStatus",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -21751,7 +22047,7 @@
    [
     "demographicQueryFavourites",
     "providerNo",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -21775,7 +22071,7 @@
    [
     "demographicQueryFavourites",
     "rosterStatus",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -21787,7 +22083,7 @@
    [
     "demographicQueryFavourites",
     "selects",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -21955,7 +22251,7 @@
    [
     "demographicaccessory",
     "content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -21979,7 +22275,7 @@
    [
     "demographiccust",
     "content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -22051,7 +22347,7 @@
    [
     "demographiccustArchive",
     "content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -22183,7 +22479,7 @@
    [
     "desannualreviewplan",
     "checklist_content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -22267,7 +22563,7 @@
    [
     "desannualreviewplan",
     "risk_content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -22279,7 +22575,7 @@
    [
     "desaprisk",
     "checklist_content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -22363,7 +22659,7 @@
    [
     "desaprisk",
     "risk_content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -22627,7 +22923,7 @@
    [
     "document",
     "docxml",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -22999,7 +23295,7 @@
    [
     "drugReason",
     "archivedReason",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -23035,7 +23331,7 @@
    [
     "drugReason",
     "comments",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -23742,6 +24038,18 @@
    ],
    [
     "drugs",
+    "row_version",
+    "bigint(20)",
+    "NO",
+    "0",
+    "",
+    null,
+    null,
+    null,
+    65
+   ],
+   [
+    "drugs",
     "rxStatus",
     "varchar(20)",
     "YES",
@@ -24043,7 +24351,7 @@
    [
     "dsGuidelines",
     "xml",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -24355,7 +24663,7 @@
    [
     "eChart",
     "encounter",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -24367,7 +24675,7 @@
    [
     "eChart",
     "familyHistory",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -24379,7 +24687,7 @@
    [
     "eChart",
     "medicalHistory",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -24391,7 +24699,7 @@
    [
     "eChart",
     "ongoingConcerns",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -24415,7 +24723,7 @@
    [
     "eChart",
     "reminders",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -24427,7 +24735,7 @@
    [
     "eChart",
     "socialHistory",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -24523,7 +24831,7 @@
    [
     "eform",
     "form_html",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -24691,7 +24999,7 @@
    [
     "eform_data",
     "form_data",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -24907,7 +25215,7 @@
    [
     "eform_values",
     "var_value",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -25327,7 +25635,7 @@
    [
     "encounter",
     "content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -25387,7 +25695,7 @@
    [
     "encounter",
     "encounterattachment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -25567,7 +25875,7 @@
    [
     "encountertemplate",
     "encountertemplate_value",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -25723,7 +26031,7 @@
    [
     "facility_message",
     "message",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -25759,7 +26067,7 @@
    [
     "favorites",
     "BN",
-    "varchar(30)",
+    "varchar(255)",
     "YES",
     "NULL",
     "",
@@ -25831,7 +26139,7 @@
    [
     "favorites",
     "dosage",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -26335,7 +26643,7 @@
    [
     "faxes",
     "document",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -26647,7 +26955,7 @@
    [
     "flowsheet_customization",
     "payload",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -26875,7 +27183,7 @@
    [
     "form",
     "content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -27235,7 +27543,7 @@
    [
     "formAdfV2",
     "actProblem",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -27343,7 +27651,7 @@
    [
     "formAdfV2",
     "courseOverYear",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -27499,7 +27807,7 @@
    [
     "formAdfV2",
     "inactProblem",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -27583,7 +27891,7 @@
    [
     "formAdfV2",
     "medications",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -27607,7 +27915,7 @@
    [
     "formAdfV2",
     "pertLabInvest",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -28051,7 +28359,7 @@
    [
     "formAlpha",
     "abuse",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -28087,7 +28395,7 @@
    [
     "formAlpha",
     "alcoholDrugAbuse",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -28135,7 +28443,7 @@
    [
     "formAlpha",
     "childAbuse",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -28147,7 +28455,7 @@
    [
     "formAlpha",
     "childDiscipline",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -28159,7 +28467,7 @@
    [
     "formAlpha",
     "comments",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -28171,7 +28479,7 @@
    [
     "formAlpha",
     "coupleRelationship",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -28195,7 +28503,7 @@
    [
     "formAlpha",
     "depression",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -28207,7 +28515,7 @@
    [
     "formAlpha",
     "feelingsRePregnancy",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -28267,7 +28575,7 @@
    [
     "formAlpha",
     "lifeEvents",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -28423,7 +28731,7 @@
    [
     "formAlpha",
     "prenatalCare",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -28447,7 +28755,7 @@
    [
     "formAlpha",
     "prenatalEducation",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -28495,7 +28803,7 @@
    [
     "formAlpha",
     "psychHistory",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -28531,7 +28839,7 @@
    [
     "formAlpha",
     "relationshipParents",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -28555,7 +28863,7 @@
    [
     "formAlpha",
     "selfEsteem",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -28567,7 +28875,7 @@
    [
     "formAlpha",
     "socialSupport",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -28603,7 +28911,7 @@
    [
     "formAlpha",
     "womanAbuse",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -28687,7 +28995,7 @@
    [
     "formAnnual",
     "assessment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -28795,7 +29103,7 @@
    [
     "formAnnual",
     "currentConcerns",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -29695,7 +30003,7 @@
    [
     "formAnnual",
     "physicalSigns",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -29707,7 +30015,7 @@
    [
     "formAnnual",
     "plan",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -30811,7 +31119,7 @@
    [
     "formAnnualV2",
     "examcns",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -31279,7 +31587,7 @@
    [
     "formAnnualV2",
     "impressionPlan",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -31675,7 +31983,7 @@
    [
     "formAnnualV2",
     "other",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -32203,7 +32511,7 @@
    [
     "formAnnualV2",
     "toDoCholesterol",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -32215,7 +32523,7 @@
    [
     "formAnnualV2",
     "toDoColorectal",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -32227,7 +32535,7 @@
    [
     "formAnnualV2",
     "toDoElderly",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -32239,7 +32547,7 @@
    [
     "formAnnualV2",
     "toDoImmunization",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -32251,7 +32559,7 @@
    [
     "formAnnualV2",
     "toDoMammogram",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -32263,7 +32571,7 @@
    [
     "formAnnualV2",
     "toDoObesity",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -32275,7 +32583,7 @@
    [
     "formAnnualV2",
     "toDoOsteoporosis",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -32287,7 +32595,7 @@
    [
     "formAnnualV2",
     "toDoPAPs",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -32299,7 +32607,7 @@
    [
     "formAnnualV2",
     "toDoProstateCancer",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -32311,7 +32619,7 @@
    [
     "formAnnualV2",
     "toDoSexualHealth",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -37495,7 +37803,7 @@
    [
     "formConsult",
     "comments",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -38587,7 +38895,7 @@
    [
     "formCounseling",
     "comments",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -38827,7 +39135,7 @@
    [
     "formDischargeSummary",
     "admissionNotes",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -38851,7 +39159,7 @@
    [
     "formDischargeSummary",
     "allergies",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -38875,7 +39183,7 @@
    [
     "formDischargeSummary",
     "briefSummary",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -38911,7 +39219,7 @@
    [
     "formDischargeSummary",
     "currentIssues",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -38995,7 +39303,7 @@
    [
     "formDischargeSummary",
     "dischargePlan",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -39163,7 +39471,7 @@
    [
     "formDischargeSummary",
     "notes",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -39247,7 +39555,7 @@
    [
     "formDischargeSummary",
     "prescriptionSummary",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -47803,7 +48111,7 @@
    [
     "formLabReq",
     "aci",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -48367,7 +48675,7 @@
    [
     "formLabReq",
     "otherTest",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -48643,7 +48951,7 @@
    [
     "formLabReq07",
     "aci",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -50095,7 +50403,7 @@
    [
     "formLabReq10",
     "aci",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -56239,7 +56547,7 @@
    [
     "formMMSE",
     "diagnosis",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -56443,7 +56751,7 @@
    [
     "formMMSE",
     "meds",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -56707,7 +57015,7 @@
    [
     "formMentalHealth",
     "a_assComments",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -56995,7 +57303,7 @@
    [
     "formMentalHealth",
     "o_outComments",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -57271,7 +57579,7 @@
    [
     "formMentalHealth",
     "r_refComments",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -57499,7 +57807,7 @@
    [
     "formMentalHealthForm1",
     "datetimeOfDetention",
-    "varchar(20)",
+    "varchar(50)",
     "YES",
     "NULL",
     "",
@@ -57547,7 +57855,7 @@
    [
     "formMentalHealthForm1",
     "facts",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -57559,7 +57867,7 @@
    [
     "formMentalHealthForm1",
     "facts2",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -57571,7 +57879,7 @@
    [
     "formMentalHealthForm1",
     "factsB",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -57739,7 +58047,7 @@
    [
     "formMentalHealthForm1",
     "observation",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -57751,7 +58059,7 @@
    [
     "formMentalHealthForm1",
     "observation2",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -57763,7 +58071,7 @@
    [
     "formMentalHealthForm1",
     "observationB",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -62275,7 +62583,7 @@
    [
     "formPositionHazard",
     "AdditionalNotes",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -62839,7 +63147,7 @@
    [
     "formPositionHazard",
     "Nanotechnology",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -62911,7 +63219,7 @@
    [
     "formPositionHazard",
     "OtherHumanBiohazard",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -62995,7 +63303,7 @@
    [
     "formPositionHazard",
     "ProcedureName",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -63115,7 +63423,7 @@
    [
     "formPositionHazard",
     "SubstanceForm",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -63439,7 +63747,7 @@
    [
     "formRhImmuneGlobulin",
     "allReactionsComment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -63475,7 +63783,7 @@
    [
     "formRhImmuneGlobulin",
     "comments",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -63487,7 +63795,7 @@
    [
     "formRhImmuneGlobulin",
     "curPregAntiDComment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -63547,7 +63855,7 @@
    [
     "formRhImmuneGlobulin",
     "curPregBleedingComment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -63631,7 +63939,7 @@
    [
     "formRhImmuneGlobulin",
     "curPregDueDateChangeComment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -63667,7 +63975,7 @@
    [
     "formRhImmuneGlobulin",
     "curPregProceduresComment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -64195,7 +64503,7 @@
    [
     "formRhImmuneGlobulin",
     "pmHisBlClDisordersComment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -64231,7 +64539,7 @@
    [
     "formRhImmuneGlobulin",
     "pmHisBlPlTransfusComment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -64423,7 +64731,7 @@
    [
     "formRourke",
     "c_birthRemarks",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -64507,7 +64815,7 @@
    [
     "formRourke",
     "c_riskFactors",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -65695,7 +66003,7 @@
    [
     "formRourke",
     "p1_pConcern1m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -65707,7 +66015,7 @@
    [
     "formRourke",
     "p1_pConcern1w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -65719,7 +66027,7 @@
    [
     "formRourke",
     "p1_pConcern2m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -65731,7 +66039,7 @@
    [
     "formRourke",
     "p1_pConcern2w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -67507,7 +67815,7 @@
    [
     "formRourke",
     "p2_pConcern12m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -67519,7 +67827,7 @@
    [
     "formRourke",
     "p2_pConcern4m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -67531,7 +67839,7 @@
    [
     "formRourke",
     "p2_pConcern6m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -67543,7 +67851,7 @@
    [
     "formRourke",
     "p2_pConcern9m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -68899,7 +69207,7 @@
    [
     "formRourke",
     "p3_pConcern18m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -68911,7 +69219,7 @@
    [
     "formRourke",
     "p3_pConcern2y",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -68923,7 +69231,7 @@
    [
     "formRourke",
     "p3_pConcern4y",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -69523,7 +69831,7 @@
    [
     "formRourke2006",
     "c_birthRemarks",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -69559,7 +69867,7 @@
    [
     "formRourke2006",
     "c_famHistory",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -69619,7 +69927,7 @@
    [
     "formRourke2006",
     "c_riskFactors",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -69871,7 +70179,7 @@
    [
     "formRourke2006",
     "p1_development1m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -69883,7 +70191,7 @@
    [
     "formRourke2006",
     "p1_development1w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -69895,7 +70203,7 @@
    [
     "formRourke2006",
     "p1_development2w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -70519,7 +70827,7 @@
    [
     "formRourke2006",
     "p1_pConcern1m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -70531,7 +70839,7 @@
    [
     "formRourke2006",
     "p1_pConcern1w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -70543,7 +70851,7 @@
    [
     "formRourke2006",
     "p1_pConcern2w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -70615,7 +70923,7 @@
    [
     "formRourke2006",
     "p1_problems1m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -70627,7 +70935,7 @@
    [
     "formRourke2006",
     "p1_problems1w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -70639,7 +70947,7 @@
    [
     "formRourke2006",
     "p1_problems2w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -71371,7 +71679,7 @@
    [
     "formRourke2006",
     "p2_development2m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -71383,7 +71691,7 @@
    [
     "formRourke2006",
     "p2_development4m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -71395,7 +71703,7 @@
    [
     "formRourke2006",
     "p2_development6m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -72175,7 +72483,7 @@
    [
     "formRourke2006",
     "p2_nutrition2m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -72187,7 +72495,7 @@
    [
     "formRourke2006",
     "p2_nutrition4m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -72199,7 +72507,7 @@
    [
     "formRourke2006",
     "p2_pConcern2m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -72211,7 +72519,7 @@
    [
     "formRourke2006",
     "p2_pConcern4m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -72223,7 +72531,7 @@
    [
     "formRourke2006",
     "p2_pConcern6m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -72331,7 +72639,7 @@
    [
     "formRourke2006",
     "p2_problems2m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -72343,7 +72651,7 @@
    [
     "formRourke2006",
     "p2_problems4m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -72355,7 +72663,7 @@
    [
     "formRourke2006",
     "p2_problems6m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -73207,7 +73515,7 @@
    [
     "formRourke2006",
     "p3_development12m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -73219,7 +73527,7 @@
    [
     "formRourke2006",
     "p3_development9m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -73891,7 +74199,7 @@
    [
     "formRourke2006",
     "p3_nutrition12m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -73903,7 +74211,7 @@
    [
     "formRourke2006",
     "p3_nutrition15m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -73915,7 +74223,7 @@
    [
     "formRourke2006",
     "p3_pConcern12m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -73927,7 +74235,7 @@
    [
     "formRourke2006",
     "p3_pConcern15m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -73939,7 +74247,7 @@
    [
     "formRourke2006",
     "p3_pConcern9m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -74095,7 +74403,7 @@
    [
     "formRourke2006",
     "p3_problems12m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -74107,7 +74415,7 @@
    [
     "formRourke2006",
     "p3_problems15m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -74119,7 +74427,7 @@
    [
     "formRourke2006",
     "p3_problems9m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -76015,7 +76323,7 @@
    [
     "formRourke2006",
     "p4_pConcern18m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -76027,7 +76335,7 @@
    [
     "formRourke2006",
     "p4_pConcern24m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -76039,7 +76347,7 @@
    [
     "formRourke2006",
     "p4_pConcern48m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -76219,7 +76527,7 @@
    [
     "formRourke2006",
     "p4_problems18m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -76231,7 +76539,7 @@
    [
     "formRourke2006",
     "p4_problems24m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -76243,7 +76551,7 @@
    [
     "formRourke2006",
     "p4_problems48m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -77071,7 +77379,7 @@
    [
     "formRourke2009",
     "c_birthRemarks",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -77107,7 +77415,7 @@
    [
     "formRourke2009",
     "c_famHistory",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -77179,7 +77487,7 @@
    [
     "formRourke2009",
     "c_riskFactors",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -77719,7 +78027,7 @@
    [
     "formRourke2009",
     "p1_development1m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -77731,7 +78039,7 @@
    [
     "formRourke2009",
     "p1_development1w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -77743,7 +78051,7 @@
    [
     "formRourke2009",
     "p1_development2w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -78895,7 +79203,7 @@
    [
     "formRourke2009",
     "p1_immunization1m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -78907,7 +79215,7 @@
    [
     "formRourke2009",
     "p1_immunization1w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -78919,7 +79227,7 @@
    [
     "formRourke2009",
     "p1_immunization2w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -79219,7 +79527,7 @@
    [
     "formRourke2009",
     "p1_pConcern1m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -79231,7 +79539,7 @@
    [
     "formRourke2009",
     "p1_pConcern1w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -79243,7 +79551,7 @@
    [
     "formRourke2009",
     "p1_pConcern2w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -79255,7 +79563,7 @@
    [
     "formRourke2009",
     "p1_pEducation",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -79303,7 +79611,7 @@
    [
     "formRourke2009",
     "p1_pNutrition1m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -79315,7 +79623,7 @@
    [
     "formRourke2009",
     "p1_pNutrition1w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -79327,7 +79635,7 @@
    [
     "formRourke2009",
     "p1_pNutrition2w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -79339,7 +79647,7 @@
    [
     "formRourke2009",
     "p1_pPhysical1m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -79351,7 +79659,7 @@
    [
     "formRourke2009",
     "p1_pPhysical1w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -79363,7 +79671,7 @@
    [
     "formRourke2009",
     "p1_pPhysical2w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -79447,7 +79755,7 @@
    [
     "formRourke2009",
     "p1_problems1m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -79459,7 +79767,7 @@
    [
     "formRourke2009",
     "p1_problems1w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -79471,7 +79779,7 @@
    [
     "formRourke2009",
     "p1_problems2w",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -80959,7 +81267,7 @@
    [
     "formRourke2009",
     "p2_development2m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -80971,7 +81279,7 @@
    [
     "formRourke2009",
     "p2_development4m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -80983,7 +81291,7 @@
    [
     "formRourke2009",
     "p2_development6m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -80995,7 +81303,7 @@
    [
     "formRourke2009",
     "p2_education",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -82147,7 +82455,7 @@
    [
     "formRourke2009",
     "p2_immunization6m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -82603,7 +82911,7 @@
    [
     "formRourke2009",
     "p2_nutrition2m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -82615,7 +82923,7 @@
    [
     "formRourke2009",
     "p2_nutrition4m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -82627,7 +82935,7 @@
    [
     "formRourke2009",
     "p2_nutrition6m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -82639,7 +82947,7 @@
    [
     "formRourke2009",
     "p2_pConcern2m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -82651,7 +82959,7 @@
    [
     "formRourke2009",
     "p2_pConcern4m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -82663,7 +82971,7 @@
    [
     "formRourke2009",
     "p2_pConcern6m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -82783,7 +83091,7 @@
    [
     "formRourke2009",
     "p2_physical2m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -82795,7 +83103,7 @@
    [
     "formRourke2009",
     "p2_physical4m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -82807,7 +83115,7 @@
    [
     "formRourke2009",
     "p2_physical6m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -82855,7 +83163,7 @@
    [
     "formRourke2009",
     "p2_problems2m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -82867,7 +83175,7 @@
    [
     "formRourke2009",
     "p2_problems4m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -82879,7 +83187,7 @@
    [
     "formRourke2009",
     "p2_problems6m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -84619,7 +84927,7 @@
    [
     "formRourke2009",
     "p3_development12m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -84631,7 +84939,7 @@
    [
     "formRourke2009",
     "p3_development15m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -84643,7 +84951,7 @@
    [
     "formRourke2009",
     "p3_development9m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -84655,7 +84963,7 @@
    [
     "formRourke2009",
     "p3_education",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -86035,7 +86343,7 @@
    [
     "formRourke2009",
     "p3_nutrition12m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -86047,7 +86355,7 @@
    [
     "formRourke2009",
     "p3_nutrition15m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -86059,7 +86367,7 @@
    [
     "formRourke2009",
     "p3_nutrition9m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -86071,7 +86379,7 @@
    [
     "formRourke2009",
     "p3_pConcern12m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -86083,7 +86391,7 @@
    [
     "formRourke2009",
     "p3_pConcern15m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -86095,7 +86403,7 @@
    [
     "formRourke2009",
     "p3_pConcern9m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -86251,7 +86559,7 @@
    [
     "formRourke2009",
     "p3_physical12m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -86263,7 +86571,7 @@
    [
     "formRourke2009",
     "p3_physical15m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -86275,7 +86583,7 @@
    [
     "formRourke2009",
     "p3_physical9m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -86359,7 +86667,7 @@
    [
     "formRourke2009",
     "p3_problems12m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -86371,7 +86679,7 @@
    [
     "formRourke2009",
     "p3_problems15m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -86383,7 +86691,7 @@
    [
     "formRourke2009",
     "p3_problems9m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -88423,7 +88731,7 @@
    [
     "formRourke2009",
     "p4_development18m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -88435,7 +88743,7 @@
    [
     "formRourke2009",
     "p4_development24m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -88447,7 +88755,7 @@
    [
     "formRourke2009",
     "p4_development36m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -88459,7 +88767,7 @@
    [
     "formRourke2009",
     "p4_development48m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -88471,7 +88779,7 @@
    [
     "formRourke2009",
     "p4_development60m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -88591,7 +88899,7 @@
    [
     "formRourke2009",
     "p4_education18m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -88603,7 +88911,7 @@
    [
     "formRourke2009",
     "p4_education48m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -89635,7 +89943,7 @@
    [
     "formRourke2009",
     "p4_nippisingattained",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -89899,7 +90207,7 @@
    [
     "formRourke2009",
     "p4_nutrition18m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -89911,7 +90219,7 @@
    [
     "formRourke2009",
     "p4_nutrition24m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -89923,7 +90231,7 @@
    [
     "formRourke2009",
     "p4_nutrition48m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -90043,7 +90351,7 @@
    [
     "formRourke2009",
     "p4_pConcern18m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -90055,7 +90363,7 @@
    [
     "formRourke2009",
     "p4_pConcern24m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -90067,7 +90375,7 @@
    [
     "formRourke2009",
     "p4_pConcern48m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -90259,7 +90567,7 @@
    [
     "formRourke2009",
     "p4_physical18m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -90271,7 +90579,7 @@
    [
     "formRourke2009",
     "p4_physical24m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -90283,7 +90591,7 @@
    [
     "formRourke2009",
     "p4_physical48m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -90439,7 +90747,7 @@
    [
     "formRourke2009",
     "p4_problems18m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -90451,7 +90759,7 @@
    [
     "formRourke2009",
     "p4_problems24m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -90463,7 +90771,7 @@
    [
     "formRourke2009",
     "p4_problems48m",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -103687,7 +103995,7 @@
    [
     "formSelfAssessment",
     "ADHD",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103699,7 +104007,7 @@
    [
     "formSelfAssessment",
     "Academic",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103711,7 +104019,7 @@
    [
     "formSelfAssessment",
     "AcademicPerformance",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103735,7 +104043,7 @@
    [
     "formSelfAssessment",
     "Adopted",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103747,7 +104055,7 @@
    [
     "formSelfAssessment",
     "AgesFather",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103759,7 +104067,7 @@
    [
     "formSelfAssessment",
     "AgesMother",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103771,7 +104079,7 @@
    [
     "formSelfAssessment",
     "AgesOthers",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103783,7 +104091,7 @@
    [
     "formSelfAssessment",
     "AgesSiblings",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103795,7 +104103,7 @@
    [
     "formSelfAssessment",
     "Anxiety",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103807,7 +104115,7 @@
    [
     "formSelfAssessment",
     "Bipolar",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103819,7 +104127,7 @@
    [
     "formSelfAssessment",
     "Campus",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103831,7 +104139,7 @@
    [
     "formSelfAssessment",
     "CurrentMedications",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103843,7 +104151,7 @@
    [
     "formSelfAssessment",
     "CurrentMedicationsList",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103855,7 +104163,7 @@
    [
     "formSelfAssessment",
     "Depression",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103867,7 +104175,7 @@
    [
     "formSelfAssessment",
     "DrinkAlcohol",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103879,7 +104187,7 @@
    [
     "formSelfAssessment",
     "DrinkAlcoholMany",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103891,7 +104199,7 @@
    [
     "formSelfAssessment",
     "DrinkAlcoholWeekly",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103903,7 +104211,7 @@
    [
     "formSelfAssessment",
     "Eating",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103915,7 +104223,7 @@
    [
     "formSelfAssessment",
     "Esteem",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103927,7 +104235,7 @@
    [
     "formSelfAssessment",
     "Exercise",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103939,7 +104247,7 @@
    [
     "formSelfAssessment",
     "FamilyADHD",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103951,7 +104259,7 @@
    [
     "formSelfAssessment",
     "FamilyAlcohol",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103963,7 +104271,7 @@
    [
     "formSelfAssessment",
     "FamilyAnxiety",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103975,7 +104283,7 @@
    [
     "formSelfAssessment",
     "FamilyBipolar",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103987,7 +104295,7 @@
    [
     "formSelfAssessment",
     "FamilyDepression",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -103999,7 +104307,7 @@
    [
     "formSelfAssessment",
     "FamilyDrugs",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104011,7 +104319,7 @@
    [
     "formSelfAssessment",
     "FamilyEating",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104023,7 +104331,7 @@
    [
     "formSelfAssessment",
     "FamilyEmotional",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104035,7 +104343,7 @@
    [
     "formSelfAssessment",
     "FamilyPhysical",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104047,7 +104355,7 @@
    [
     "formSelfAssessment",
     "FamilyPsychiatricOther",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104059,7 +104367,7 @@
    [
     "formSelfAssessment",
     "FamilyPsychosis",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104071,7 +104379,7 @@
    [
     "formSelfAssessment",
     "FamilySchizophrenia",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104083,7 +104391,7 @@
    [
     "formSelfAssessment",
     "FamilySexual",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104095,7 +104403,7 @@
    [
     "formSelfAssessment",
     "FamilySubstance",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104107,7 +104415,7 @@
    [
     "formSelfAssessment",
     "FamilySuicide",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104119,7 +104427,7 @@
    [
     "formSelfAssessment",
     "GeneralOther",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104131,7 +104439,7 @@
    [
     "formSelfAssessment",
     "Grief",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104143,7 +104451,7 @@
    [
     "formSelfAssessment",
     "Home",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104155,7 +104463,7 @@
    [
     "formSelfAssessment",
     "Hospitalizations",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104167,7 +104475,7 @@
    [
     "formSelfAssessment",
     "HospitalizationsOther",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104203,7 +104511,7 @@
    [
     "formSelfAssessment",
     "InRelationship",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104227,7 +104535,7 @@
    [
     "formSelfAssessment",
     "LivingSituationOther",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104239,7 +104547,7 @@
    [
     "formSelfAssessment",
     "Mania",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104251,7 +104559,7 @@
    [
     "formSelfAssessment",
     "Meals",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104263,7 +104571,7 @@
    [
     "formSelfAssessment",
     "Medicalillnesses",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104275,7 +104583,7 @@
    [
     "formSelfAssessment",
     "Obsessions",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104299,7 +104607,7 @@
    [
     "formSelfAssessment",
     "PastAlcohol",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104311,7 +104619,7 @@
    [
     "formSelfAssessment",
     "PastCounterMedications",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104323,7 +104631,7 @@
    [
     "formSelfAssessment",
     "PastCutting",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104335,7 +104643,7 @@
    [
     "formSelfAssessment",
     "PastGambling",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104347,7 +104655,7 @@
    [
     "formSelfAssessment",
     "PastLegal",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104359,7 +104667,7 @@
    [
     "formSelfAssessment",
     "PastPASTPSYCHIATRICOther",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104371,7 +104679,7 @@
    [
     "formSelfAssessment",
     "PastPSYCHIATRICTraumaEmotional",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104383,7 +104691,7 @@
    [
     "formSelfAssessment",
     "PastPSYCHIATRICTraumaPhysical",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104395,7 +104703,7 @@
    [
     "formSelfAssessment",
     "PastPSYCHIATRICTraumaSexual",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104407,7 +104715,7 @@
    [
     "formSelfAssessment",
     "PastPrescribedDrugs",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104419,7 +104727,7 @@
    [
     "formSelfAssessment",
     "PastReactionsMedication",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104431,7 +104739,7 @@
    [
     "formSelfAssessment",
     "PastReactionsMedicationList",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104443,7 +104751,7 @@
    [
     "formSelfAssessment",
     "PastStreetDrugs",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104455,7 +104763,7 @@
    [
     "formSelfAssessment",
     "PastSubstance",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104467,7 +104775,7 @@
    [
     "formSelfAssessment",
     "PastSuicideAttempts",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104479,7 +104787,7 @@
    [
     "formSelfAssessment",
     "PastSuicideMany",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104491,7 +104799,7 @@
    [
     "formSelfAssessment",
     "PastSuicideWhen",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104503,7 +104811,7 @@
    [
     "formSelfAssessment",
     "PastTobacco",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104515,7 +104823,7 @@
    [
     "formSelfAssessment",
     "Psychosis",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104527,7 +104835,7 @@
    [
     "formSelfAssessment",
     "ReasonsOther",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104539,7 +104847,7 @@
    [
     "formSelfAssessment",
     "Relationship",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104551,7 +104859,7 @@
    [
     "formSelfAssessment",
     "ReligiousAffiliation",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104563,7 +104871,7 @@
    [
     "formSelfAssessment",
     "Residence",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104575,7 +104883,7 @@
    [
     "formSelfAssessment",
     "Roommates",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104587,7 +104895,7 @@
    [
     "formSelfAssessment",
     "Sexual",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104599,7 +104907,7 @@
    [
     "formSelfAssessment",
     "SexualOrientation",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104611,7 +104919,7 @@
    [
     "formSelfAssessment",
     "SmokeQty",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104623,7 +104931,7 @@
    [
     "formSelfAssessment",
     "Smoker",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104635,7 +104943,7 @@
    [
     "formSelfAssessment",
     "StreetDrugs",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104647,7 +104955,7 @@
    [
     "formSelfAssessment",
     "Substance",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104659,7 +104967,7 @@
    [
     "formSelfAssessment",
     "Suicidal",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104671,7 +104979,7 @@
    [
     "formSelfAssessment",
     "Surgery",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104683,7 +104991,7 @@
    [
     "formSelfAssessment",
     "TraumaEmotional",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104695,7 +105003,7 @@
    [
     "formSelfAssessment",
     "TraumaPhysical",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104707,7 +105015,7 @@
    [
     "formSelfAssessment",
     "TraumaSexual",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104767,7 +105075,7 @@
    [
     "formSelfAssessment",
     "helplessness",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104815,7 +105123,7 @@
    [
     "formSelfAssessment",
     "psychiatricMedications",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104827,7 +105135,7 @@
    [
     "formSelfAssessment",
     "psychiatricMedicationsList",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -104839,7 +105147,7 @@
    [
     "formSelfAssessment",
     "ptsd",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -106279,7 +106587,7 @@
    [
     "formVTForm",
     "Assessment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -106423,7 +106731,7 @@
    [
     "formVTForm",
     "Diagnosis",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -107311,7 +107619,7 @@
    [
     "formVTForm",
     "Objective",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -107371,7 +107679,7 @@
    [
     "formVTForm",
     "Plan",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -107611,7 +107919,7 @@
    [
     "formVTForm",
     "Subjective",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -113803,7 +114111,7 @@
    [
     "health_safety",
     "message",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -114139,7 +114447,7 @@
    [
     "hsfo2_patient",
     "EmrHCPId",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -114319,7 +114627,7 @@
    [
     "hsfo2_patient",
     "FName",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -114343,7 +114651,7 @@
    [
     "hsfo2_patient",
     "LName",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -114367,7 +114675,7 @@
    [
     "hsfo2_patient",
     "PharmacyLocation",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -114379,7 +114687,7 @@
    [
     "hsfo2_patient",
     "PharmacyName",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -114535,7 +114843,7 @@
    [
     "hsfo_recommit_schedule",
     "memo",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -114727,7 +115035,7 @@
    [
     "immunizations",
     "immunizations",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -114895,7 +115203,7 @@
    [
     "indicatorTemplate",
     "definition",
-    "tinytext",
+    "text",
     "YES",
     "NULL",
     "",
@@ -114991,7 +115299,7 @@
    [
     "indicatorTemplate",
     "notes",
-    "tinytext",
+    "text",
     "YES",
     "NULL",
     "",
@@ -115027,7 +115335,7 @@
    [
     "indicatorTemplate",
     "template",
-    "mediumtext",
+    "longtext",
     "YES",
     "NULL",
     "",
@@ -115255,7 +115563,7 @@
    [
     "labPatientPhysicianInfo",
     "comment1",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -115267,7 +115575,7 @@
    [
     "labPatientPhysicianInfo",
     "comment2",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -115687,7 +115995,7 @@
    [
     "labTestResults",
     "description",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -115891,7 +116199,7 @@
    [
     "log",
     "data",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -115999,7 +116307,7 @@
    [
     "log_letters",
     "log",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -117895,7 +118203,7 @@
    [
     "measurementTypeDeleted",
     "typeDisplayName",
-    "varchar(20)",
+    "varchar(255)",
     "NO",
     null,
     "",
@@ -118207,7 +118515,7 @@
    [
     "measurementsExt",
     "val",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -118315,7 +118623,7 @@
    [
     "messagetbl",
     "attachment",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -118387,7 +118695,7 @@
    [
     "messagetbl",
     "sentto",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -118423,7 +118731,7 @@
    [
     "messagetbl",
     "themessage",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -118627,7 +118935,7 @@
    [
     "oscarKeys",
     "privKey",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -118639,7 +118947,7 @@
    [
     "oscarKeys",
     "pubKey",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -118975,7 +119283,7 @@
    [
     "pharmacyInfo",
     "address",
-    "varchar(255)",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -118987,7 +119295,7 @@
    [
     "pharmacyInfo",
     "city",
-    "varchar(60)",
+    "varchar(255)",
     "YES",
     "NULL",
     "",
@@ -119035,7 +119343,7 @@
    [
     "pharmacyInfo",
     "notes",
-    "tinytext",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -119227,7 +119535,7 @@
    [
     "prescribe",
     "content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -119323,7 +119631,7 @@
    [
     "prescription",
     "dates_reprinted",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -119382,8 +119690,20 @@
    ],
    [
     "prescription",
+    "row_version",
+    "bigint(20)",
+    "NO",
+    "0",
+    "",
+    null,
+    null,
+    null,
+    11
+   ],
+   [
+    "prescription",
     "rx_comments",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -119407,7 +119727,7 @@
    [
     "prescription",
     "textView",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -119671,7 +119991,7 @@
    [
     "professionalSpecialists",
     "annotation",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -121195,7 +121515,7 @@
    [
     "property",
     "value",
-    "varchar(2000)",
+    "varchar(4000)",
     "YES",
     "NULL",
     "",
@@ -121231,7 +121551,7 @@
    [
     "provider",
     "comments",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -121567,7 +121887,7 @@
    [
     "providerArchive",
     "comments",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -121663,7 +121983,7 @@
    [
     "providerArchive",
     "lastUpdateDate",
-    "date",
+    "datetime",
     "YES",
     "NULL",
     "",
@@ -122251,7 +122571,7 @@
    [
     "publicKeys",
     "privateKey",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -122263,7 +122583,7 @@
    [
     "publicKeys",
     "pubKey",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -122647,7 +122967,7 @@
    [
     "raheader",
     "content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -122827,7 +123147,7 @@
    [
     "recyclebin",
     "table_content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -122971,7 +123291,7 @@
    [
     "relationships",
     "notes",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -123127,7 +123447,7 @@
    [
     "report",
     "notes",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -123439,7 +123759,7 @@
    [
     "reportFilter",
     "description",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -123463,7 +123783,7 @@
    [
     "reportFilter",
     "javascript",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -123643,7 +123963,7 @@
    [
     "reportTemplates",
     "templatedescription",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -123667,7 +123987,7 @@
    [
     "reportTemplates",
     "templatesql",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -123691,7 +124011,7 @@
    [
     "reportTemplates",
     "templatexml",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -124063,7 +124383,7 @@
    [
     "reporttemp",
     "address",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -124243,7 +124563,7 @@
    [
     "rschedule",
     "avail_hour",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -124359,6 +124679,234 @@
     "utf8mb4_general_ci",
     null,
     10
+   ],
+   [
+    "rx_favorite_group",
+    "id",
+    "int(11)",
+    "NO",
+    null,
+    "auto_increment",
+    null,
+    null,
+    null,
+    1
+   ],
+   [
+    "rx_favorite_group",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    6
+   ],
+   [
+    "rx_favorite_group",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'system'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    5
+   ],
+   [
+    "rx_favorite_group",
+    "name",
+    "varchar(80)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    3
+   ],
+   [
+    "rx_favorite_group",
+    "position",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    4
+   ],
+   [
+    "rx_favorite_group",
+    "provider_no",
+    "varchar(6)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    2
+   ],
+   [
+    "rx_favorite_group_member",
+    "favorite_id",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    2
+   ],
+   [
+    "rx_favorite_group_member",
+    "group_id",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    1
+   ],
+   [
+    "rx_favorite_group_member",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    4
+   ],
+   [
+    "rx_favorite_group_member",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'system'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    3
+   ],
+   [
+    "rx_submission_receipt",
+    "attempt_id",
+    "char(36)",
+    "YES",
+    "NULL",
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    6
+   ],
+   [
+    "rx_submission_receipt",
+    "created_at",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    9
+   ],
+   [
+    "rx_submission_receipt",
+    "demographic_no",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    3
+   ],
+   [
+    "rx_submission_receipt",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    8
+   ],
+   [
+    "rx_submission_receipt",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'system'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    7
+   ],
+   [
+    "rx_submission_receipt",
+    "outcome",
+    "varchar(7)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    5
+   ],
+   [
+    "rx_submission_receipt",
+    "prescription_id",
+    "int(11)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    4
+   ],
+   [
+    "rx_submission_receipt",
+    "provider_no",
+    "varchar(6)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    2
+   ],
+   [
+    "rx_submission_receipt",
+    "submission_hash",
+    "char(64)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    1
    ],
    [
     "scheduledate",
@@ -124531,7 +125079,7 @@
    [
     "scheduletemplate",
     "timecode",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -124663,7 +125211,7 @@
    [
     "scratch_pad",
     "scratch_text",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -125539,7 +126087,7 @@
    [
     "studydata",
     "content",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -125863,7 +126411,7 @@
    [
     "survey",
     "surveyData",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -126103,7 +126651,7 @@
    [
     "table_modification",
     "resultSet",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -126187,7 +126735,7 @@
    [
     "tickler",
     "message",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -126343,7 +126891,7 @@
    [
     "tickler_comments",
     "message",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -127015,7 +127563,7 @@
    [
     "vacancy_client_match",
     "rejection_reason",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -127267,7 +127815,7 @@
    [
     "view",
     "value",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -127807,6 +128355,72 @@
     0,
     1,
     "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "Consent",
+    "uq_consent_live_type",
+    0,
+    1,
+    "live_demographic_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "Consent",
+    "uq_consent_live_type",
+    0,
+    2,
+    "consent_type_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "Consent_migration_audit",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "Consent_migration_audit",
+    "uq_consent_migration_reason",
+    0,
+    1,
+    "consent_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "Consent_migration_audit",
+    "uq_consent_migration_reason",
+    0,
+    2,
+    "migration",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "Consent_migration_audit",
+    "uq_consent_migration_reason",
+    0,
+    3,
+    "reason",
     "A",
     null,
     "BTREE",
@@ -129358,6 +129972,50 @@
     1,
     1,
     "status",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "billing_filename_import",
+    "PRIMARY",
+    0,
+    1,
+    "source_table",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "billing_filename_import",
+    "PRIMARY",
+    0,
+    2,
+    "source_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "billing_filename_import",
+    "imported_filename_lookup",
+    1,
+    1,
+    "imported_filename",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "billing_filename_import",
+    "original_filename_lookup",
+    1,
+    1,
+    "original_filename",
     "A",
     null,
     "BTREE",
@@ -137218,6 +137876,116 @@
     "NO"
    ],
    [
+    "rx_favorite_group",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group",
+    "rx_favorite_group_owner_name",
+    0,
+    1,
+    "provider_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group",
+    "rx_favorite_group_owner_name",
+    0,
+    2,
+    "name",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group_member",
+    "PRIMARY",
+    0,
+    1,
+    "group_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group_member",
+    "PRIMARY",
+    0,
+    2,
+    "favorite_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_favorite",
+    1,
+    1,
+    "favorite_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    0,
+    1,
+    "submission_hash",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    0,
+    2,
+    "provider_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    0,
+    3,
+    "demographic_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_submission_receipt",
+    "rx_submission_receipt_prescription",
+    1,
+    1,
+    "prescription_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
     "scheduledate",
     "PRIMARY",
     0,
@@ -138253,6 +139021,60 @@
     null
    ],
    [
+    "Consent",
+    "uq_consent_live_type",
+    1,
+    "live_demographic_no",
+    null,
+    null,
+    null
+   ],
+   [
+    "Consent",
+    "uq_consent_live_type",
+    2,
+    "consent_type_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "Consent_migration_audit",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "Consent_migration_audit",
+    "uq_consent_migration_reason",
+    1,
+    "consent_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "Consent_migration_audit",
+    "uq_consent_migration_reason",
+    2,
+    "migration",
+    null,
+    null,
+    null
+   ],
+   [
+    "Consent_migration_audit",
+    "uq_consent_migration_reason",
+    3,
+    "reason",
+    null,
+    null,
+    null
+   ],
+   [
     "Contact",
     "PRIMARY",
     1,
@@ -139013,6 +139835,24 @@
     "PRIMARY",
     1,
     "billing_no",
+    null,
+    null,
+    null
+   ],
+   [
+    "billing_filename_import",
+    "PRIMARY",
+    1,
+    "source_table",
+    null,
+    null,
+    null
+   ],
+   [
+    "billing_filename_import",
+    "PRIMARY",
+    2,
+    "source_id",
     null,
     null,
     null
@@ -142564,6 +143404,96 @@
     null
    ],
    [
+    "rx_favorite_group",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group",
+    "rx_favorite_group_owner_name",
+    1,
+    "provider_no",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group",
+    "rx_favorite_group_owner_name",
+    2,
+    "name",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group_member",
+    "PRIMARY",
+    1,
+    "group_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group_member",
+    "PRIMARY",
+    2,
+    "favorite_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_favorite_fk",
+    1,
+    "favorite_id",
+    "$self",
+    "favorites",
+    "favoriteid"
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_group_fk",
+    1,
+    "group_id",
+    "$self",
+    "rx_favorite_group",
+    "id"
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    1,
+    "submission_hash",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    2,
+    "provider_no",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    3,
+    "demographic_no",
+    null,
+    null,
+    null
+   ],
+   [
     "scheduledate",
     "PRIMARY",
     1,
@@ -143312,6 +144242,20 @@
     "Facility",
     "RESTRICT",
     "RESTRICT"
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_favorite_fk",
+    "favorites",
+    "RESTRICT",
+    "CASCADE"
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_group_fk",
+    "rx_favorite_group",
+    "RESTRICT",
+    "CASCADE"
    ]
   ],
   "tables": [
@@ -143389,6 +144333,12 @@
    ],
    [
     "Consent",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "Consent_migration_audit",
     "InnoDB",
     "Dynamic",
     "utf8mb4_general_ci"
@@ -143857,6 +144807,12 @@
    ],
    [
     "billing",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "billing_filename_import",
     "InnoDB",
     "Dynamic",
     "utf8mb4_general_ci"
@@ -145783,6 +146739,24 @@
    ],
    [
     "rschedule",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "rx_favorite_group",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "rx_favorite_group_member",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "rx_submission_receipt",
     "InnoDB",
     "Dynamic",
     "utf8mb4_general_ci"

@@ -80,6 +80,29 @@ class ConsultationAttachmentsNotIncludedUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"en", "fr", "es", "pl", "pt-BR", ""})
+    void shouldPreserveWarnings_whenRelationshipsAreAlreadyFetched(String language) {
+        List<ConsultDocs> storedForms = List.of(new ConsultDocs(42, 7, ConsultDocs.DOCTYPE_FORM, "999998"));
+        List<ConsultDocs> storedHrms = List.of(new ConsultDocs(42, 8, ConsultDocs.DOCTYPE_HRM, "999998"));
+        when(manager.getAttachedDocumentsByType(info, 42, ConsultDocs.DOCTYPE_FORM)).thenReturn(storedForms);
+        when(manager.getAttachedDocumentsByType(info, 42, ConsultDocs.DOCTYPE_HRM)).thenReturn(storedHrms);
+        Locale locale = language.isEmpty() ? null : Locale.forLanguageTag(language);
+        for (boolean formAvailable : List.of(false, true)) {
+            for (boolean hrmAvailable : List.of(false, true)) {
+                List<EctFormData.PatientForm> forms = formAvailable
+                        ? List.of(new EctFormData.PatientForm("formAnnual", "Annual", 7, 1)) : List.of();
+                List<Map<String, ?>> hrms = hrmAvailable ? List.of(Map.of("id", 8)) : List.of();
+                List<String> expected = ConsultationAttachmentsNotIncluded.describe(manager, info, 42, forms, hrms, locale);
+                clearInvocations(manager);
+
+                assertThat(ConsultationAttachmentsNotIncluded.describe(storedForms, storedHrms, forms, hrms, locale))
+                        .isEqualTo(expected).hasSize((formAvailable ? 0 : 1) + (hrmAvailable ? 0 : 1));
+                verifyNoInteractions(manager);
+            }
+        }
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"en", "fr", "es", "pl", "pt-BR"})
     void shouldRenderBundleNotice_whenLocaleIsSupported(String language) throws Exception {
         when(manager.getAttachedDocumentsByType(info, 42, ConsultDocs.DOCTYPE_HRM))

@@ -191,7 +191,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
         for (Object[] items : result) {
             ConsultationRequest consultRequest = (ConsultationRequest) items[0];
             LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.searchRequest", "id=" + consultRequest.getId());
-            r.add(convertToRequestSearchResult(items));
+            r.add(convertToRequestSearchResult(loggedInInfo, items));
         }
         return r;
     }
@@ -206,7 +206,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
         for (Object[] items : result) {
             ConsultationResponse consultResponse = (ConsultationResponse) items[0];
             LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.searchResponse", "id=" + consultResponse.getId());
-            r.add(convertToResponseSearchResult(items));
+            r.add(convertToResponseSearchResult(loggedInInfo, items));
         }
         return r;
     }
@@ -587,7 +587,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
      * @param items Object[] the JPA projection row
      * @return ConsultationRequestSearchResult the populated DTO
      */
-    private ConsultationRequestSearchResult convertToRequestSearchResult(Object[] items) {
+    private ConsultationRequestSearchResult convertToRequestSearchResult(LoggedInInfo loggedInInfo, Object[] items) {
         ConsultationRequestSearchResult result = new ConsultationRequestSearchResult();
 
         ConsultationRequest consultRequest = (ConsultationRequest) items[0];
@@ -598,11 +598,11 @@ public class ConsultationManagerImpl implements ConsultationManager {
 
 
         result.setAppointmentDate(joinDateAndTime(consultRequest.getAppointmentDate(), consultRequest.getAppointmentTime()));
-        result.setConsultant(professionalSpecialist);
-        result.setDemographic(demographic);
+        result.setConsultantSnapshot(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.professionalSpecialist(loggedInInfo, professionalSpecialist));
+        result.setDemographicSnapshot(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.demographic(loggedInInfo, demographic));
         result.setId(consultRequest.getId());
         result.setLastFollowUp(consultRequest.getFollowUpDate());
-        result.setMrp(provider);
+        result.setMrpSnapshot(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.provider(loggedInInfo, provider));
         result.setReferralDate(consultRequest.getReferralDate());
         result.setServiceName(consultationServices.getServiceDesc());
         result.setStatus(consultRequest.getStatus());
@@ -623,7 +623,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
      * @param items Object[] the JPA projection row
      * @return ConsultationResponseSearchResult the populated DTO
      */
-    private ConsultationResponseSearchResult convertToResponseSearchResult(Object[] items) {
+    private ConsultationResponseSearchResult convertToResponseSearchResult(LoggedInInfo loggedInInfo, Object[] items) {
         ConsultationResponseSearchResult result = new ConsultationResponseSearchResult();
 
         ConsultationResponse consultResponse = (ConsultationResponse) items[0];
@@ -633,11 +633,11 @@ public class ConsultationManagerImpl implements ConsultationManager {
 
 
         result.setAppointmentDate(joinDateAndTime(consultResponse.getAppointmentDate(), consultResponse.getAppointmentTime()));
-        result.setReferringDoctor(professionalSpecialist);
-        result.setDemographic(demographic);
+        result.setReferringDoctorSnapshot(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.professionalSpecialist(loggedInInfo, professionalSpecialist));
+        result.setDemographicSnapshot(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.demographic(loggedInInfo, demographic));
         result.setId(consultResponse.getId());
         result.setLastFollowUp(consultResponse.getFollowUpDate());
-        result.setProvider(provider);
+        result.setProviderSnapshot(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.provider(loggedInInfo, provider));
         result.setReferralDate(consultResponse.getReferralDate());
         result.setResponseDate(consultResponse.getResponseDate());
         result.setStatus(consultResponse.getStatus());
@@ -741,7 +741,25 @@ public class ConsultationManagerImpl implements ConsultationManager {
                 Integer.toString(demographicNo))) {
             return Collections.emptyList();
         }
-        List<ConsultDocs> attachedForms = getAttachedDocumentsByType(loggedInInfo, consultRequestId, ConsultDocs.DOCTYPE_FORM);
+        return filterAttachedForms(loggedInInfo, demographicNo,
+                getAttachedDocumentsByType(loggedInInfo, consultRequestId, ConsultDocs.DOCTYPE_FORM));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<EctFormData.PatientForm> getAttachedForms(LoggedInInfo loggedInInfo, int consultRequestId,
+            int demographicNo, List<ConsultDocs> attachedForms) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ,
+                Integer.toString(demographicNo))) {
+            return Collections.emptyList();
+        }
+        return filterAttachedForms(loggedInInfo, demographicNo, attachedForms);
+    }
+
+    private List<EctFormData.PatientForm> filterAttachedForms(LoggedInInfo loggedInInfo, int demographicNo,
+            List<ConsultDocs> attachedForms) {
         List<EctFormData.PatientForm> filteredForms = new ArrayList<>(attachedForms.size());
         /*
          * Sure wish we didn't have to do this.  It's the only option without having to refactor a
@@ -770,7 +788,16 @@ public class ConsultationManagerImpl implements ConsultationManager {
 
     @Override
     public ArrayList<HashMap<String, ? extends Object>> getAttachedHRMDocuments(LoggedInInfo loggedInInfo, String demographicNo, String requestId) {
-        List<ConsultDocs> attachedHRMDocuments = getAttachedDocumentsByType(loggedInInfo, Integer.parseInt(requestId), ConsultDocs.DOCTYPE_HRM);
+        return getAttachedHRMDocuments(loggedInInfo, demographicNo, requestId,
+                getAttachedDocumentsByType(loggedInInfo, Integer.parseInt(requestId), ConsultDocs.DOCTYPE_HRM));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ArrayList<HashMap<String, ? extends Object>> getAttachedHRMDocuments(LoggedInInfo loggedInInfo,
+            String demographicNo, String requestId, List<ConsultDocs> attachedHRMDocuments) {
         //TODO: refactor HRMUtil so that it's possible to call a function, pass in a particular HRM ID, and return the same information for that HRM that listHRMDocuments does
         //		once this is done, would be possible to simply iterate over attachedHRMDocuments
         //		In the absence of the above refactoring, the following gets the full listHRMDocuments and then filters for only the items that are actually attached to the consult

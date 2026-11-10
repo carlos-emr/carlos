@@ -35,6 +35,11 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.ProviderData;
 
 public interface ProviderDataDao extends AbstractDao<ProviderData> {
+    enum ReportScope { ALL, SITE, TEAM }
+
+    record ReportChoice(String providerNo, String lastName, String firstName) { }
+
+    List<ReportChoice> findReportChoices(String providerNo, ReportScope scope);
     ProviderData findByOhipNumber(String ohipNumber);
 
     ProviderData findByProviderNo(String providerNo);

@@ -1,0 +1,226 @@
+{
+  "schemaVersion": 1,
+  "browserExpectedFailures": [
+    {
+      "check": "admin-messages",
+      "finding": 330,
+      "step": "a punctuated message with a script literal is listed and stored with a future expiry",
+      "disposition": "required installed retake; blocks release readiness"
+    },
+    {
+      "check": "admin-issue-editor",
+      "finding": 331,
+      "step": "Issue Editor adds a coded issue and lists it",
+      "disposition": "required installed retake; blocks release readiness"
+    },
+    {
+      "check": "admin-api-keygen",
+      "finding": 163,
+      "step": "a GET of Create Key that names a service is refused and registers no key pair",
+      "disposition": "required installed retake; blocks release readiness"
+    },
+    {
+      "check": "prevention-dose-route-amendment",
+      "finding": 322,
+      "step": "a dose saved with no unit reopens with that dose and survives an unchanged save",
+      "disposition": "required installed retake; blocks release readiness"
+    },
+    {
+      "check": "prevention-brand-picker-units-routes",
+      "finding": 323,
+      "step": "every dose unit and route the catalogue prefills is shown by the Add Prevention form as given",
+      "disposition": "required installed retake; blocks release readiness"
+    },
+    {
+      "check": "authz-read-admin-objects",
+      "finding": 342,
+      "step": "administration pages are refused without their menu object and served with it (lists every route that is not)",
+      "disposition": "required installed retake; blocks release readiness"
+    },
+    {
+      "check": "authz-read-print-export",
+      "finding": 343,
+      "step": "the E-Chart print hands only the sections a role holds the object for (lists every section that leaks)",
+      "disposition": "required installed retake; blocks release readiness"
+    },
+    {
+      "check": "audit-log-locked-patient",
+      "finding": 344,
+      "step": "the refused attempt is itself in the audit log, naming the patient and the refused login",
+      "disposition": "required installed retake; blocks release readiness"
+    },
+    {
+      "check": "xss-poison-master-record",
+      "finding": 118,
+      "step": "the walk found no output-encoding defect",
+      "disposition": "required installed retake; blocks release readiness"
+    },
+    {
+      "check": "xss-poison-schedule",
+      "finding": 123,
+      "step": "the walk found no output-encoding defect",
+      "disposition": "required installed retake; blocks release readiness"
+    },
+    {
+      "check": "xss-poison-note-history",
+      "finding": 148,
+      "step": "the popup found no output-encoding defect",
+      "disposition": "required installed retake; blocks release readiness"
+    },
+    {
+      "check": "xss-poison-admin-reports-system",
+      "finding": 122,
+      "step": "the walk found no output-encoding defect",
+      "disposition": "required installed retake; blocks release readiness"
+    },
+    {
+      "check": "echart-issues-filter-resolve",
+      "finding": 227,
+      "step": "a clinician can reach the control that resolves an issue from the note editor",
+      "disposition": "required installed retake; blocks release readiness"
+    },
+    {
+      "check": "legacy-lab-display-pathnet",
+      "finding": 195,
+      "step": "PathNet display shows the lab's values and its patient",
+      "disposition": "required installed retake; blocks release readiness"
+    },
+    {
+      "check": "authz-write-role-matrix",
+      "finding": 198,
+      "step": "chart note save: the restricted login's replay with its own valid token is refused, and the full login's replay writes",
+      "disposition": "required installed retake; blocks release readiness"
+    },
+    {
+      "check": "authz-write-chart-bill",
+      "finding": 200,
+      "step": "the restricted chart's note toolbar offers no Bill button to a role without _billing",
+      "disposition": "required installed retake; blocks release readiness"
+    },
+    {
+      "check": "direct-response-contract",
+      "finding": 202,
+      "step": "OscarDownload (OBEC key) refuses a stored-document file to a login that holds no _edoc",
+      "disposition": "required installed retake; blocks release readiness"
+    },
+    {
+      "check": "mcedt-mailbox-outbox-plaintext",
+      "finding": 189,
+      "step": "the stored MCEDT password is not the text that was typed",
+      "disposition": "required installed retake; blocks release readiness"
+    },
+    {
+      "check": "patient-set-repeat-save",
+      "finding": 82,
+      "step": "saving the same patient into the same set twice retains one membership",
+      "disposition": "required installed retake; blocks release readiness"
+    },
+    {
+      "check": "appointment-email-option",
+      "finding": 329,
+      "step": "requested reminder has an implemented and visible persisted outcome",
+      "disposition": "required installed retake; blocks release readiness"
+    },
+    {
+      "check": "login-mfa-no-pin",
+      "finding": 347,
+      "step": "Enable MFA on the security record sets usingMfa and stores no secret yet",
+      "disposition": "required installed retake; blocks release readiness"
+    },
+    {
+      "check": "chart-informed-consent",
+      "finding": 332,
+      "step": "cancelled informed-consent confirmation leaves the banner and stored consent unchanged",
+      "disposition": "required installed retake; blocks release readiness"
+    }
+  ],
+  "retiredNodeTodos": [
+    {
+      "case": "Framingham refuses HDL equal to total cholesterol and clears stale risk",
+      "finding": 166,
+      "disposition": "active regression after cross-field guard fix"
+    },
+    {
+      "case": "Framingham refuses HDL above total cholesterol and clears stale risk",
+      "finding": 166,
+      "disposition": "active regression after cross-field guard fix"
+    },
+    {
+      "case": "UKPDS refuses HDL equal to total cholesterol and clears stale risk",
+      "finding": 166,
+      "disposition": "active regression after cross-field guard fix"
+    },
+    {
+      "case": "UKPDS refuses HDL above total cholesterol and clears stale risk",
+      "finding": 166,
+      "disposition": "active regression after cross-field guard fix"
+    },
+    {
+      "case": "shouldConfigureWsServicesRateLimits_forEveryProxyingServer",
+      "finding": 172,
+      "disposition": "active source regression; installed oauth-ws-rate-limit still required"
+    }
+  ],
+  "retiredBrowserExpectations": [
+    {
+      "check": "echart-forms-list-paging",
+      "finding": 335,
+      "step": "Forms heading paginates ten records, Next changes the rows and Previous restores them",
+      "disposition": "Source fix is in #5691 (issue #5684): the Forms list pages across all form types. Manifest pin retired; the check is retained as an active regression. A fresh installed PASS is still required."
+    },
+    {
+      "check": "rx-save-failure-retry-only-lost",
+      "finding": 334,
+      "step": "an uncertain committed save asks the clinician to check rather than claiming nothing was saved",
+      "disposition": "Source fix #5686; manifest pin retired and retained as an active regression. Installed PASS on Ubuntu 26.04 with complete 2026.09.0~snapshot28 packages, nginx HTTPS and shipped Chromium 154.0.8025.0 (2026-11-06, America/Toronto)."
+    },
+    {
+      "check": "rx-save-failure-retry-print-lost",
+      "finding": 334,
+      "step": "an uncertain committed save asks the clinician to check rather than claiming nothing was saved",
+      "disposition": "Source fix #5686; manifest pin retired and retained as an active regression. Installed PASS on Ubuntu 26.04 with complete 2026.09.0~snapshot28 packages, nginx HTTPS and shipped Chromium 154.0.8025.0 (2026-11-06, America/Toronto)."
+    },
+    {
+      "check": "login-facility-chooser",
+      "finding": 265,
+      "step": "the chooser page's own stylesheet and script are served to a login that has not chosen a facility",
+      "disposition": "Source fix is in implementation base #5615; a fresh installed PASS is still required"
+    },
+    {
+      "check": "xss-poison-admin-detail",
+      "finding": 122,
+      "step": "the walk found no output-encoding defect",
+      "disposition": "Manifest pin retired by the implementation base; retained as an active regression. A fresh installed PASS is still required."
+    },
+    {
+      "check": "echart-issues-filter-radios",
+      "finding": 261,
+      "step": "the Certain, Uncertain, Major and Not Major radios and the role box of an issue are enabled for a login with full rights",
+      "disposition": "Manifest pin retired by the implementation base; retained as an active regression. A fresh installed PASS is still required."
+    },
+    {
+      "check": "authz-write-role-matrix-billing",
+      "finding": 199,
+      "step": "Ontario bill save: the restricted login's replay with its own valid token is refused, and the full login's replay writes",
+      "disposition": "Manifest pin retired by the implementation base; retained as an active regression. A fresh installed PASS is still required."
+    },
+    {
+      "check": "mcedt-mailbox-outbox-short-name",
+      "finding": 217,
+      "step": "Add of a one-character name is not answered with a server error",
+      "disposition": "Manifest pin retired by the implementation base; retained as an active regression. A fresh installed PASS is still required."
+    },
+    {
+      "check": "document-clinical-followup",
+      "finding": 348,
+      "step": "the forwarded Inbox row displays its exact seeded description and patient identity",
+      "disposition": "Source fix in #5689 for #5685: every Inbox view shows a document's type in its Discipline column, as chosen in clinical review on #5689; the step now asserts the seeded type. Manifest pin retired; retained as an active regression. A fresh installed PASS of the whole check, including its review, comment and acknowledgement steps, is still required."
+    },
+    {
+      "check": "dialog-confirmations-tickler",
+      "finding": 337,
+      "step": "dismissing task Delete confirms once and preserves every task and status history",
+      "disposition": "Source fix in #5687 for #5683: Delete on the patient and main task lists asks for one localized confirmation, and Cancel leaves the selection, tasks and status history unchanged. Manifest pin retired; retained as an active regression. A fresh installed PASS is still required."
+    }
+  ]
+}

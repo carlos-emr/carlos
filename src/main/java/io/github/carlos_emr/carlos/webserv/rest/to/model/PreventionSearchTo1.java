@@ -34,7 +34,6 @@ import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 public class PreventionSearchTo1 {
 
@@ -213,7 +212,7 @@ public class PreventionSearchTo1 {
 
     @Override
     public String toString() {
-        return (ReflectionToStringBuilder.toString(this));
+        return getClass().getSimpleName() + "[protected]";
     }
 
     public String getMeasurementTrackingType() {

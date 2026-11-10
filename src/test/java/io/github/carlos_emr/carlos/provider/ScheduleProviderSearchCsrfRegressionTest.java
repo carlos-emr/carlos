@@ -153,11 +153,14 @@ class ScheduleProviderSearchCsrfRegressionTest {
         String browserCheck = Files.readString(SCHEDULE_BROWSER_CHECK, StandardCharsets.UTF_8);
         int requestListener = requiredIndex(browserCheck,
                 "const requestPromise = context.waitForEvent('request'");
+        int providerResponseListener = requiredIndex(browserCheck,
+                "const providerResponsePromise = context.waitForEvent('response'");
         int tokenNameResponseListener = requiredIndex(browserCheck,
                 "const tokenNamePromise = context.waitForEvent('response'");
         int searchSubmit = requiredIndex(browserCheck, "await searchInput.press('Enter');");
 
         assertThat(requestListener).isLessThan(searchSubmit);
+        assertThat(providerResponseListener).isLessThan(searchSubmit);
         assertThat(tokenNameResponseListener).isLessThan(searchSubmit);
         assertThat(browserCheck)
                 .contains("const testProviderLastName = process.env.TEST_PROVIDER_LAST_NAME || '';")
@@ -173,7 +176,8 @@ class ScheduleProviderSearchCsrfRegressionTest {
                 .contains("let providerRequest = await Promise.race(")
                 .contains("resultLoadedPromise.then(() => null)")
                 .contains("providerRequest = await requestPromise;")
-                .contains("responseWithTimeout(providerRequest, 30000)")
+                .contains("const response = await providerResponsePromise;")
+                .contains("response.request() !== providerRequest")
                 .as("the token name is configurable, so it must be read from the rendered "
                         + "page; the auto-select path navigates away, so capture it from "
                         + "the document response rather than the live DOM")

@@ -35,6 +35,89 @@ def load_generator():
 
 
 class TestExplicitSourceCommit(unittest.TestCase):
+    def test_quoted_reference_column_names_keep_spaces(self):
+        """BC reference columns must not collapse into a single phantom Fee field."""
+        schema = load_generator().Schema()
+        schema.apply_create("sample", "`Fee Item` VARCHAR(255), `Fee Item Description` TEXT")
+        self.assertEqual(schema.tables["sample"],
+                         {"Fee Item": "VARCHAR(255)", "Fee Item Description": "TEXT"})
+
+    def test_quoted_column_names_unescape_doubled_backticks(self):
+        """A quoted name containing a backtick must not consume its declaration."""
+        schema = load_generator().Schema()
+        schema.apply_create("sample", "`legacy``name` VARCHAR(255), ordinary INT")
+        self.assertEqual(schema.tables["sample"],
+                         {"legacy`name": "VARCHAR(255)", "ordinary": "INT"})
+
+    def test_block_comment_apostrophes_do_not_hide_or_invent_ddl(self):
+        """Comments cannot change quote state or create executable declarations."""
+        generator = load_generator()
+        sql = "/* clinic's CREATE TABLE fake(id INT); */ CREATE TABLE real(id INT /* patient's note */);"
+        statements = list(generator.walk_ddl(sql))
+        self.assertEqual([(s.kind, s.table) for s in statements], [("create", "real")])
+        self.assertIn("id INT", statements[0].body)
+        sql = "/* clinic's comment */\n-- doctor's note\nCREATE TABLE real(id INT);"
+        statements = list(generator.walk_ddl(generator.strip_line_comments(sql)))
+        self.assertEqual([(s.kind, s.table) for s in statements], [("create", "real")])
+
+    def test_escaped_quotes_do_not_expose_literal_ddl(self):
+        """Both MySQL quote escape forms keep embedded DDL inside its literal."""
+        generator = load_generator()
+        for literal in (r"'clinic\'s ALTER TABLE fake ADD value INT;'", "'clinic''s ALTER TABLE fake ADD value INT;'", "'/* clinic comment */ ALTER TABLE fake ADD value INT;'"):
+            with self.subTest(literal=literal):
+                sql = "SET @sql=" + literal + "; CREATE TABLE real(id INT);"
+                statements = list(generator.walk_ddl(sql))
+                self.assertEqual([(s.kind, s.table) for s in statements], [("create", "real")])
+
+    def test_dynamic_ddl_fragments_are_not_column_declarations(self):
+        """Only the real ALTER following a CONCAT changes the parsed schema."""
+        generator = load_generator()
+        sql = "CREATE TABLE sample(id INT, value TEXT); SET @sql=CONCAT('ALTER TABLE sample MODIFY value LONGTEXT', ' NOT NULL'); ALTER TABLE sample MODIFY value MEDIUMTEXT;"
+        statements = list(generator.walk_ddl(sql))
+        self.assertEqual([s.kind for s in statements], ["create", "alter"])
+        self.assertEqual(statements[1].body.strip(), "MODIFY value MEDIUMTEXT")
+
+    def test_modify_tracks_type_default_nullability_and_position(self):
+        schema = load_generator().Schema()
+        schema.apply_create("sample", "id INT, value VARCHAR(1), tail INT")
+        schema.apply_alter("sample", "MODIFY COLUMN `VALUE` VARCHAR(255) NOT NULL DEFAULT 'x' AFTER tail")
+        self.assertEqual(list(schema.tables["sample"]), ["id", "tail", "value"])
+        self.assertEqual(schema.tables["sample"]["value"], "VARCHAR(255) NOT NULL DEFAULT 'x'")
+        schema.apply_alter("sample", "MODIFY value MEDIUMTEXT NULL FIRST")
+        self.assertEqual(list(schema.tables["sample"]), ["value", "id", "tail"])
+        self.assertEqual(schema.tables["sample"]["value"], "MEDIUMTEXT NULL")
+
+    def test_modify_preserves_quoted_identifiers_and_unescapes_backticks(self):
+        schema = load_generator().Schema()
+        schema.feed("CREATE TABLE sample (`Fee Item` VARCHAR(1), `legacy``name` VARCHAR(1), tail INT);"
+                    "ALTER TABLE sample MODIFY COLUMN `FEE ITEM` MEDIUMTEXT NULL FIRST,"
+                    " MODIFY `legacy``name` TEXT NOT NULL AFTER tail;")
+        self.assertEqual(list(schema.tables["sample"]), ["Fee Item", "tail", "legacy`name"])
+        self.assertEqual(schema.tables["sample"]["Fee Item"], "MEDIUMTEXT NULL")
+        self.assertEqual(schema.tables["sample"]["legacy`name"], "TEXT NOT NULL")
+
+    def test_quoted_columns_survive_add_change_and_drop(self):
+        for column_keyword in ("", "COLUMN "):
+            with self.subTest(column_keyword=column_keyword):
+                schema = load_generator().Schema()
+                schema.feed("CREATE TABLE sample (id INT, `Fee Item` TEXT);")
+                schema.apply_alter("sample", f"ADD {column_keyword}`legacy``name` INT PRIMARY KEY AFTER `Fee Item`")
+                self.assertEqual(schema.tables["sample"], {"id": "INT", "Fee Item": "TEXT", "legacy`name": "INT PRIMARY KEY"})
+                self.assertEqual(schema.pks["sample"], ["legacy`name"])
+                schema.apply_alter("sample", f"CHANGE {column_keyword}`LEGACY``NAME` `renamed value` BIGINT")
+                self.assertEqual(schema.tables["sample"], {"id": "INT", "Fee Item": "TEXT", "renamed value": "BIGINT"})
+                self.assertEqual(schema.pks["sample"], ["renamed value"])
+                schema.apply_alter("sample", f"DROP {column_keyword}`RENAMED VALUE`")
+                self.assertEqual(schema.tables["sample"], {"id": "INT", "Fee Item": "TEXT"})
+                self.assertNotIn("sample", schema.pks)
+
+    def test_parenthesized_add_and_drop_accept_quoted_reserved_columns(self):
+        schema = load_generator().Schema()
+        schema.feed("CREATE TABLE sample (id INT);"
+                    "ALTER TABLE sample ADD (`Fee Item` TEXT, `legacy``name` INT, `key` INT);"
+                    "ALTER TABLE sample DROP COLUMN `legacy``name`, DROP COLUMN `key`;")
+        self.assertEqual(schema.tables["sample"], {"id": "INT", "Fee Item": "TEXT"})
+
     def test_empty_or_malformed_source_commit_is_refused_before_generation(self):
         generator = load_generator()
         for commit in ("", "abc", "A" * 40):
@@ -298,13 +381,15 @@ class TestGenerator(unittest.TestCase):
             self.assertNotIn("generated_at", text)
 
     def test_shipped_manifests_carry_the_format_and_kind(self):
+        """Require the supported envelope format and kind for every shipped manifest."""
         # the loader in carlos-ctl refuses anything else before reading a
         # data key; the envelope is the whole cross-package contract
         import json
         for kind, name in self.gen.MANIFEST_FILES.items():
             data = json.loads((self.gen.MANIFEST_DIR / name).read_text(
                 encoding="utf-8"))
-            self.assertEqual(data["format"], self.gen.MANIFEST_FORMAT, name)
+            self.assertEqual(data["format"], self.gen.SCHEMA_MANIFEST_FORMAT
+                             if data["kind"] == "o19map-schema" else self.gen.MANIFEST_FORMAT, name)
             self.assertEqual(data["kind"], kind, name)
 
     def test_shipped_manifests_are_what_the_emitter_writes(self):

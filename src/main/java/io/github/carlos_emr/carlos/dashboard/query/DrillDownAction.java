@@ -28,7 +28,6 @@
  */
 package io.github.carlos_emr.carlos.dashboard.query;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 /*
  * A simple database query parameter POJO
@@ -65,6 +64,6 @@ public class DrillDownAction {
 
     @Override
     public String toString() {
-        return ReflectionToStringBuilder.toString(this);
+        return getClass().getSimpleName() + "[protected]";
     }
 }

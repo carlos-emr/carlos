@@ -36,7 +36,7 @@
  *   4. asserts the new tickler appears in the tickler list (date window
  *      widened to the recall date) for that patient.
  *
- * Fixture: an unacknowledged providerLabRouting row for the provider on the
+ * Fixture: an owned copy of a demo lab, with its own accession, routing, locks and review metadata; an unacknowledged providerLabRouting row for the provider on the
  * first HL7 lab that has a patient, restored on cleanup along with the
  * tickler rows and the macro property (only when the check created it).
  *
@@ -48,6 +48,8 @@
 
 
 const legacyHarness=require('./lib/legacy-check');
+const {createOwnedLab}=require('./lib/owned-lab');
+const {LOCK_NOT_SHARED}=require('./lab-forwarding-rules-playwright-checks');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
@@ -125,12 +127,17 @@ function macroProperty() {
   return out === '' && sql(`SELECT COUNT(*) FROM property WHERE provider_no='${escapeSql(providerNo)}' AND name='labMacroJSON'`) === '0' ? null : out;
 }
 
+const {cloneLab,removeOwnedLab}=createOwnedLab({sql,sqlRows,lockNotShared:LOCK_NOT_SHARED});
+
+/** Clone a linked HL7 lab and prepare only the owned clone for the native macro, leaving the source lab unchanged. */
 function stageLabRouting() {
   const chosen = process.env.MACRO_LAB_NO
     ? sql(`SELECT lab_no, demographic_no FROM patientLabRouting WHERE lab_type='HL7' AND lab_no=${Number(process.env.MACRO_LAB_NO)} LIMIT 1`)
     : sql('SELECT lab_no, demographic_no FROM patientLabRouting WHERE lab_type=\'HL7\' AND demographic_no > 0 ORDER BY lab_no LIMIT 1');
   assert(chosen, 'no HL7 lab linked to a patient is available to run the macro on');
-  [fixture.labNo, fixture.demographicNo] = chosen.split('\t');
+  const [template,demographicNo]=chosen.split('\t');
+  fixture.demographicNo=demographicNo;
+  fixture.labNo=cloneLab(template);
   const routing = sql(`SELECT id, status, IFNULL(comment,'') FROM providerLabRouting WHERE lab_no=${Number(fixture.labNo)} AND lab_type='HL7' AND provider_no='${escapeSql(providerNo)}' ORDER BY id DESC LIMIT 1`);
   if (routing) {
     const [id, status, comment] = routing.split('\t');
@@ -170,12 +177,17 @@ let cleanupDone = false;
 // Runs once from the finally block or the signal handler: every step is attempted
 // and a step that fails marks the run as failed, because a fixture left behind is
 // a failure of this check even when every assertion passed.
+/** Attempt each owned cleanup once and mark the run failed if any rows or attached lab cannot be safely retired. */
 function runCleanup() {
   if (cleanupDone || !mysqlDefaults) {
     return;
   }
   cleanupDone = true;
-  for (const step of [cleanupRows]) {
+  const retireLab=()=>{
+    if(fixture.labNo)assert(sql(`SELECT COUNT(*) FROM ticklerdocs WHERE doctype='L' AND lab_type='HL7' AND document_no=${Number(fixture.labNo)}`)==='0','Retaining owned macro lab while attachments remain');
+    removeOwnedLab();
+  };
+  for (const step of [cleanupRows,retireLab]) {
     try {
       step();
     } catch (cleanupError) {

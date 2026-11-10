@@ -1,0 +1,362 @@
+/*
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 CARLOS Contributors
+ */
+package io.github.carlos_emr.carlos.commn.dao;
+
+import io.github.carlos_emr.carlos.lab.FileUploadCheck;
+import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
+import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
+import io.github.carlos_emr.carlos.lab.ca.all.upload.RouteReportResults;
+import io.github.carlos_emr.carlos.lab.ca.on.CML.ABCDParser;
+import io.github.carlos_emr.carlos.commn.model.Measurement;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.sql.Timestamp;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+import javax.sql.DataSource;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
+import static org.assertj.core.api.Assertions.*;
+
+/** Actual upload service, parser, DAO writes and transaction completion, verified independently. */
+@Tag("integration")
+@Tag("dao")
+@Tag("lab")
+@Isolated("MessageUploader and Hl7textResultsData cache Spring beans in static fields")
+@Transactional(propagation = Propagation.NOT_SUPPORTED)
+class LegacyLabUploadDaoIntegrationTest extends CarlosTestBase {
+    private final String marker = UUID.randomUUID().toString().substring(0, 8);
+    private final String filename = "synthetic-5548-" + marker;
+    @Autowired @Qualifier("dataSource") private DataSource dataSource;
+    @Autowired private PlatformTransactionManager transactions;
+    @PersistenceContext(unitName = "entityManagerFactory") private EntityManager em;
+
+    @org.junit.jupiter.api.BeforeEach
+    void createCoordinationTable() throws IllegalAccessException {
+        // Unit tests can initialize these cached fields with mocks in the same Surefire fork.
+        for (Class<?> holder : new Class<?>[]{MessageUploader.class, Hl7textResultsData.class}) {
+            for (Field field : holder.getDeclaredFields()) {
+                if (Modifier.isStatic(field.getModifiers()) && !Modifier.isFinal(field.getModifiers())
+                        && (field.getName().endsWith("Dao") || field.getName().endsWith("Manager"))) {
+                    field.setAccessible(true);
+                    originalBeans.put(field, field.get(null));
+                    field.set(null, applicationContext.getBean(field.getType()));
+                }
+            }
+        }
+        new TransactionTemplate(transactions).executeWithoutResult(status -> em.createNativeQuery(
+                "CREATE TABLE IF NOT EXISTS providerLabRoutingLock (lab_no INT PRIMARY KEY)").executeUpdate());
+    }
+
+    private final Map<Field, Object> originalBeans = new LinkedHashMap<>();
+
+    private int cmlPatient;
+    private int cmlReport;
+
+    private String doctorNumber = "000000";
+
+    private String content() {
+        return "A^70^20261105^12:00^1^1^0^\n"
+                + String.join("^", "B", marker, "1", "20261105", "Synthetic", "Fixture", "F", "",
+                        "20000101", "F", doctorNumber, "Synthetic", "", "", "", "", "", "", "", "", "", "05 NOV 26", "")
+                + "\nC^Chemistry^^^Synthetic test^A^1^9^mmol/L^10^70^Y^\n";
+    }
+
+    private FileUploadCheck.StoreOutcome upload(boolean fail) throws Exception {
+        byte[] bytes = content().getBytes(StandardCharsets.UTF_8);
+        return FileUploadCheck.storeIfNew(filename, () -> new ByteArrayInputStream(bytes), "999998", checksumId -> {
+            ABCDParser parser = new ABCDParser();
+            parser.parse(new BufferedReader(new StringReader(content())));
+            parser.save();
+            em.flush();
+            assertThat(((Number) em.createNativeQuery("SELECT COUNT(*) FROM labPatientPhysicianInfo WHERE accession_num=?1")
+                    .setParameter(1, marker).getSingleResult()).intValue()).isEqualTo(1);
+            assertThat(((Number) em.createNativeQuery("SELECT COUNT(*) FROM patientLabRouting p JOIN labPatientPhysicianInfo l"
+                    + " ON p.lab_no=l.id WHERE p.lab_type='CML' AND l.accession_num=?1")
+                    .setParameter(1, marker).getSingleResult()).intValue()).isEqualTo(1);
+            Object[] ids = (Object[]) em.createNativeQuery("SELECT id,labReportInfo_id FROM labPatientPhysicianInfo WHERE accession_num=?1")
+                    .setParameter(1, marker).getSingleResult();
+            cmlPatient = ((Number) ids[0]).intValue();
+            cmlReport = ((Number) ids[1]).intValue();
+            var test = em.createQuery("SELECT r FROM LabTestResults r WHERE r.labPatientPhysicianInfoId=?1",
+                    io.github.carlos_emr.carlos.commn.model.LabTestResults.class).setParameter(1,cmlPatient).getSingleResult();
+            assertThat(test.getUnits()).isEqualTo("mmol/L");
+            assertThat(test.getResult()).isEqualTo("10");
+            if (fail) throw new IllegalStateException("synthetic failure after lab and routing writes");
+            return true;
+        });
+    }
+
+    @Test
+    void shouldCommitParserRowsAndChecksum_andRejectDuplicateUpload() throws Exception {
+        assertThat(upload(false)).isEqualTo(FileUploadCheck.StoreOutcome.STORED);
+        assertThat(independentCount("SELECT COUNT(*) FROM fileUploadCheck WHERE filename=?", filename)).isEqualTo(1);
+        assertThat(independentCount("SELECT COUNT(*) FROM labPatientPhysicianInfo WHERE accession_num=?", marker)).isEqualTo(1);
+        assertThat(upload(false)).isEqualTo(FileUploadCheck.StoreOutcome.ALREADY_RECORDED);
+        assertThat(independentCount("SELECT COUNT(*) FROM labPatientPhysicianInfo WHERE accession_num=?", marker)).isEqualTo(1);
+    }
+
+    @Test
+    void shouldRollBackParserRowsRoutingAndChecksum_whenFailureFollowsWrites() throws Exception {
+        assertThatThrownBy(() -> upload(true)).isInstanceOf(IllegalStateException.class)
+                .hasMessage("synthetic failure after lab and routing writes");
+        assertThat(independentCount("SELECT COUNT(*) FROM fileUploadCheck WHERE filename=?", filename)).isZero();
+        assertThat(independentCount("SELECT COUNT(*) FROM labPatientPhysicianInfo WHERE accession_num=?", marker)).isZero();
+        assertThat(independentCount("SELECT COUNT(*) FROM labReportInformation WHERE id=?", Integer.toString(cmlReport))).isZero();
+        assertThat(independentCount("SELECT COUNT(*) FROM labTestResults WHERE labPatientPhysicianInfo_id=?", Integer.toString(cmlPatient))).isZero();
+        assertThat(independentCount("SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='CML' AND lab_no=?", Integer.toString(cmlPatient))).isZero();
+        assertThat(independentCount("SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='CML' AND lab_no=?", Integer.toString(cmlPatient))).isZero();
+        // A retry must be accepted, proving that no orphan checksum survived rollback.
+        assertThat(upload(false)).isEqualTo(FileUploadCheck.StoreOutcome.STORED);
+    }
+
+    @Test
+    void shouldKeepMissingIdentifiersUnmatched_withOnePlausibleBlankHinPatient() throws Exception {
+        createMatchedPatient();
+        new TransactionTemplate(transactions).executeWithoutResult(status -> em.createNativeQuery(
+                "UPDATE demographic SET hin='',last_name='Fixture' WHERE demographic_no=?1")
+                .setParameter(1, matchedPatient).executeUpdate());
+        doctorNumber = "";
+        assertThat(upload(false)).isEqualTo(FileUploadCheck.StoreOutcome.STORED);
+        assertThat(independentCount("SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='CML' AND lab_no=? AND demographic_no=0",
+                Integer.toString(cmlPatient))).isEqualTo(1);
+        assertThat(independentCount("SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='CML' AND lab_no=? AND provider_no='0'",
+                Integer.toString(cmlPatient))).isEqualTo(1);
+        assertThat(independentCount("SELECT COUNT(*) FROM fileUploadCheck WHERE filename=?", filename)).isEqualTo(1);
+    }
+
+    @Test
+    void shouldRejectWholeFile_whenSecondPatientRecordIsMalformed() throws Exception {
+        String malformed = content() + "B^truncated^\n";
+        assertThatThrownBy(() -> FileUploadCheck.storeIfNew(filename,
+                () -> new ByteArrayInputStream(malformed.getBytes(StandardCharsets.UTF_8)), "999998", checksum -> {
+                    ABCDParser parser = new ABCDParser();
+                    parser.parse(new BufferedReader(new StringReader(malformed)));
+                    parser.save();
+                    return true;
+                })).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("CML B record must contain exactly 22 fields");
+        assertThat(independentCount("SELECT COUNT(*) FROM fileUploadCheck WHERE filename=?", filename)).isZero();
+        assertThat(independentCount("SELECT COUNT(*) FROM labPatientPhysicianInfo WHERE accession_num=?", marker)).isZero();
+    }
+
+    private int hl7Segment;
+
+    private FileUploadCheck.StoreOutcome uploadHl7(boolean fail) throws Exception {
+        byte[] bytes = ("synthetic HL7 transaction " + marker).getBytes(StandardCharsets.UTF_8);
+        return FileUploadCheck.storeIfNew(filename + "-hl7", () -> new ByteArrayInputStream(bytes), "999998", checksum -> {
+            var handler = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler.class);
+            org.mockito.Mockito.when(handler.getFirstName()).thenReturn("Synthetic");
+            org.mockito.Mockito.when(handler.getLastName()).thenReturn("Fixture");
+            org.mockito.Mockito.when(handler.getDOB()).thenReturn("2000-01-01");
+            org.mockito.Mockito.when(handler.getSex()).thenReturn("F");
+            org.mockito.Mockito.when(handler.getHealthNum()).thenReturn("5548000000");
+            org.mockito.Mockito.when(handler.getMsgPriority()).thenReturn("");
+            org.mockito.Mockito.when(handler.getOrderStatus()).thenReturn("F");
+            org.mockito.Mockito.when(handler.getAccessionNum()).thenReturn(marker);
+            org.mockito.Mockito.when(handler.getServiceDate()).thenReturn("2026-11-05 12:00:00");
+            org.mockito.Mockito.when(handler.getDocNums()).thenReturn(new java.util.ArrayList<>(java.util.List.of("554899")));
+            org.mockito.Mockito.when(handler.getHeaders()).thenReturn(new java.util.ArrayList<>(java.util.List.of("Synthetic")));
+            var result = new io.github.carlos_emr.carlos.lab.ca.all.upload.RouteReportResults();
+            io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader.routeReport(null, "synthetic", handler,
+                    new String(bytes, StandardCharsets.UTF_8), checksum, result, "HL7");
+            hl7Segment = result.segmentId;
+            em.flush();
+            assertThat(((Number) em.createNativeQuery("SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='HL7' AND lab_no=?1")
+                    .setParameter(1, hl7Segment).getSingleResult()).intValue()).isEqualTo(1);
+            if (fail) throw new IllegalStateException("synthetic failure after HL7 routing");
+            return true;
+        });
+    }
+
+    @Test
+    void shouldCommitHl7MessageInfoAndRouting_withTheUploadChecksum() throws Exception {
+        assertThat(uploadHl7(false)).isEqualTo(FileUploadCheck.StoreOutcome.STORED);
+        assertHl7Rows(1);
+        assertThat(uploadHl7(false)).isEqualTo(FileUploadCheck.StoreOutcome.ALREADY_RECORDED);
+        assertHl7Rows(1);
+    }
+
+    @Test
+    void shouldRollBackHl7MessageInfoAndRouting_whenServiceFailsAfterRouting() throws Exception {
+        assertThatThrownBy(() -> uploadHl7(true)).isInstanceOf(IllegalStateException.class)
+                .hasMessage("synthetic failure after HL7 routing");
+        assertHl7Rows(0);
+    }
+
+    private int matchedPatient;
+    private int matchedMeasurement;
+    private int matchedExtensionCount;
+    private final String matchedHin = String.format(Locale.ROOT, "56%08d", Long.parseLong(marker, 16) % 100000000);
+
+    private void createMatchedPatient() {
+        matchedPatient = new TransactionTemplate(transactions).execute(status -> {
+            em.createNativeQuery("INSERT INTO demographic (hin,year_of_birth,month_of_birth,date_of_birth,"
+                    + "last_name,first_name,sex,provider_no) VALUES (?1,'2000','01','01',?2,'Synthetic','F','0')")
+                    .setParameter(1, matchedHin).setParameter(2, "Fixture-" + marker).executeUpdate();
+            return ((Number) em.createNativeQuery("SELECT demographic_no FROM demographic WHERE hin=?1 AND last_name=?2")
+                    .setParameter(1, matchedHin).setParameter(2, "Fixture-" + marker).getSingleResult()).intValue();
+        });
+    }
+
+    /** One real GDML ORU with a unique accession and a numeric observation for the seeded patient. */
+    private String matchedHl7() {
+        return String.join("\r",
+                "MSH|^~\\&|Reports|SYNTHETIC|||20261105123500||ORU^R01||1|2.3",
+                "PID|1|" + matchedHin + "|" + marker + "|^^ON|Fixture-" + marker + "^Synthetic||20000101|F",
+                "ORC|NW|" + marker + "|||F|||||||554899^DR. SYNTHETIC|||20261105",
+                "OBR|1|" + marker + "||ML70^SYNTHETIC PANEL^^CHEMISTRY||20261105123000|20261105123456"
+                        + "|||||||||554899^DR. SYNTHETIC|||||||||F",
+                "OBX|1|NM|5695^SYNTHETIC RESULT|^^CHEMISTRY|10.25|mmol/L|3-6|H|||F||765^1007010||70",
+                "");
+    }
+
+    private FileUploadCheck.StoreOutcome uploadMatchedHl7(boolean fail) throws Exception {
+        String message = matchedHl7();
+        byte[] bytes = message.getBytes(StandardCharsets.UTF_8);
+        return FileUploadCheck.storeIfNew(filename + "-hl7", () -> new ByteArrayInputStream(bytes), "999998", checksum -> {
+            RouteReportResults result = new RouteReportResults();
+            assertThat(MessageUploader.routeReport(null, "synthetic", "GDML", message, checksum, result)).isEmpty();
+            hl7Segment = result.segmentId;
+            em.flush();
+            assertThat(em.createNativeQuery("SELECT demographic_no FROM patientLabRouting WHERE lab_type='HL7' AND lab_no=?1")
+                    .setParameter(1, hl7Segment).getSingleResult()).isEqualTo(matchedPatient);
+            Measurement measurement = em.createQuery("SELECT m FROM Measurement m WHERE m.demographicId=?1", Measurement.class)
+                    .setParameter(1, matchedPatient).getSingleResult();
+            matchedMeasurement = measurement.getId();
+            assertThat(measurement.getDataField()).isEqualTo("10.25");
+            assertThat(measurement.getDateObserved()).isEqualTo(Timestamp.valueOf("2026-11-05 12:34:56"));
+            var extensions = em.createQuery("SELECT e.keyVal,e.val FROM MeasurementsExt e WHERE e.measurementId=?1", Object[].class)
+                    .setParameter(1, matchedMeasurement).getResultList();
+            assertThat(extensions).contains(new Object[]{"lab_no", Integer.toString(hl7Segment)},
+                    new Object[]{"unit", "mmol/L"}, new Object[]{"datetime", "2026-11-05 12:34:56"},
+                    new Object[]{"abnormal", "A"});
+            matchedExtensionCount = extensions.size();
+            if (fail) throw new IllegalStateException("synthetic failure after matched patient and measurement writes");
+            return true;
+        });
+    }
+
+    @Test
+    void shouldCommitMatchedPatientAndMeasurement_withUploadAndDuplicateProtection() throws Exception {
+        createMatchedPatient();
+        assertThat(uploadMatchedHl7(false)).isEqualTo(FileUploadCheck.StoreOutcome.STORED);
+        assertMatchedHl7Rows(1);
+        assertThat(uploadMatchedHl7(false)).isEqualTo(FileUploadCheck.StoreOutcome.ALREADY_RECORDED);
+        assertMatchedHl7Rows(1);
+    }
+
+    @Test
+    void shouldRollBackMatchedPatientAndMeasurement_whenServiceFailsAfterWrites() throws Exception {
+        createMatchedPatient();
+        assertThatThrownBy(() -> uploadMatchedHl7(true)).isInstanceOf(IllegalStateException.class)
+                .hasMessage("synthetic failure after matched patient and measurement writes");
+        assertMatchedHl7Rows(0);
+        assertThat(uploadMatchedHl7(false)).isEqualTo(FileUploadCheck.StoreOutcome.STORED);
+        assertMatchedHl7Rows(1);
+    }
+
+    private void assertMatchedHl7Rows(int expected) throws Exception {
+        assertHl7Rows(expected);
+        assertThat(matchedPatient).isPositive();
+        assertThat(matchedMeasurement).isPositive();
+        assertThat(matchedExtensionCount).isPositive();
+        assertThat(independentCount("SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='HL7' AND demographic_no=?",
+                Integer.toString(matchedPatient))).isEqualTo(expected);
+        assertThat(independentCount("SELECT COUNT(*) FROM measurements WHERE demographicNo=?",
+                Integer.toString(matchedPatient))).isEqualTo(expected);
+        assertThat(independentCount("SELECT COUNT(*) FROM measurementsExt WHERE measurement_id=?",
+                Integer.toString(matchedMeasurement))).isEqualTo(expected == 0 ? 0 : matchedExtensionCount);
+        if (expected > 0) {
+            try (var connection = dataSource.getConnection();
+                 var statement = connection.prepareStatement("SELECT dataField,dateObserved FROM measurements WHERE id=?")) {
+                statement.setInt(1, matchedMeasurement);
+                try (var rows = statement.executeQuery()) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getString("dataField")).isEqualTo("10.25");
+                    assertThat(rows.getTimestamp("dateObserved").toLocalDateTime())
+                            .isEqualTo(java.time.LocalDateTime.of(2026, 11, 5, 12, 34, 56));
+                    assertThat(rows.next()).isFalse();
+                }
+            }
+        }
+    }
+
+    private void assertHl7Rows(int expected) throws Exception {
+        assertThat(independentCount("SELECT COUNT(*) FROM fileUploadCheck WHERE filename=?", filename + "-hl7")).isEqualTo(expected);
+        for (String table : new String[]{"hl7TextMessage", "hl7TextInfo", "providerLabRouting"}) {
+            String key = table.equals("hl7TextMessage") ? "lab_id" : "lab_no";
+            assertThat(independentCount("SELECT COUNT(*) FROM " + table + " WHERE " + key + "=?",
+                    Integer.toString(hl7Segment))).as(table).isEqualTo(expected);
+        }
+    }
+
+    private int independentCount(String sql, String value) throws Exception {
+        try (var connection = dataSource.getConnection(); var statement = connection.prepareStatement(sql)) {
+            statement.setString(1, value);
+            try (var result = statement.executeQuery()) { assertThat(result.next()).isTrue(); return result.getInt(1); }
+        }
+    }
+
+    @AfterEach
+    void cleanupOwnedRows() throws IllegalAccessException {
+        try {
+            removeOwnedRows();
+        } finally {
+            for (var entry : originalBeans.entrySet()) entry.getKey().set(null, entry.getValue());
+        }
+    }
+
+    private void removeOwnedRows() {
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            var patients = em.createNativeQuery("SELECT id, labReportInfo_id FROM labPatientPhysicianInfo WHERE accession_num=?1")
+                    .setParameter(1, marker).getResultList();
+            for (Object value : patients) {
+                Object[] ids = (Object[]) value;
+                for (String sql : new String[]{"DELETE FROM labTestResults WHERE labPatientPhysicianInfo_id=?1",
+                        "DELETE FROM patientLabRouting WHERE lab_type='CML' AND lab_no=?1",
+                        "DELETE FROM providerLabRouting WHERE lab_type='CML' AND lab_no=?1",
+                        "DELETE FROM providerLabRoutingLock WHERE lab_no=?1",
+                        "DELETE FROM labPatientPhysicianInfo WHERE id=?1"}) {
+                    em.createNativeQuery(sql).setParameter(1, ids[0]).executeUpdate();
+                }
+                em.createNativeQuery("DELETE FROM labReportInformation WHERE id=?1").setParameter(1, ids[1]).executeUpdate();
+            }
+            if (hl7Segment > 0) {
+                for (String sql : new String[]{"DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no=?1",
+                        "DELETE FROM patientLabRouting WHERE lab_type='HL7' AND lab_no=?1",
+                        "DELETE FROM providerLabRoutingLock WHERE lab_no=?1", "DELETE FROM hl7TextInfo WHERE lab_no=?1",
+                        "DELETE FROM hl7TextMessage WHERE lab_id=?1"}) {
+                    em.createNativeQuery(sql).setParameter(1, hl7Segment).executeUpdate();
+                }
+            }
+            if (matchedPatient > 0) {
+                em.createNativeQuery("DELETE FROM measurementsExt WHERE measurement_id IN"
+                        + " (SELECT id FROM measurements WHERE demographicNo=?1)").setParameter(1, matchedPatient).executeUpdate();
+                em.createNativeQuery("DELETE FROM measurements WHERE demographicNo=?1").setParameter(1, matchedPatient).executeUpdate();
+                em.createNativeQuery("DELETE FROM demographic WHERE demographic_no=?1").setParameter(1, matchedPatient).executeUpdate();
+            }
+            em.createNativeQuery("DELETE FROM fileUploadCheck WHERE filename IN (?1,?2)")
+                    .setParameter(1, filename).setParameter(2, filename + "-hl7").executeUpdate();
+        });
+    }
+}

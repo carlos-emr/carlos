@@ -61,6 +61,36 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 @SuppressWarnings("unchecked")
 public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implements OscarAppointmentDao {
 
+    @Override
+    // S2077: sort must equal one of eight fixed columns; predicate variants are literals,
+    // and date, time and provider values remain bound parameters.
+    @SuppressWarnings("java:S2077")
+    public List<AppointmentDaySheetRow> findDaySheet(String start, String end, String startTime, String endTime,
+            String providerNo, boolean newOnly, String sort) {
+        if (!java.util.Set.of("start_time", "name", "phone", "sex", "hin", "ver", "chart_no", "roster_status").contains(sort)) {
+            throw new IllegalArgumentException("Invalid day-sheet sort");
+        }
+        String sql = "SELECT concat(d.year_of_birth,'/',d.month_of_birth,'/',d.date_of_birth), d.family_doctor,"
+                + " CAST(a.appointment_date AS CHAR), a.provider_no, CAST(a.start_time AS CHAR), CAST(a.end_time AS CHAR),"
+                + " a.reason, a.name, a.bookingSource, p.last_name, p.first_name, d.sex, d.hin, d.ver, d.provider_no,"
+                + " d.phone, d.roster_status, p2.last_name, p2.first_name, d.chart_no, a.appointment_no, a.updatedatetime"
+                + " FROM appointment a JOIN provider p ON a.provider_no=p.provider_no"
+                + " LEFT JOIN demographic d ON a.demographic_no=d.demographic_no"
+                + " LEFT JOIN provider p2 ON d.provider_no=p2.provider_no WHERE "
+                + (newOnly ? "a.appointment_date=:start AND a.status LIKE BINARY 't'"
+                        : "a.appointment_date>=:start AND a.appointment_date<=:end AND a.start_time>=:fromTime"
+                                + " AND a.end_time<:untilTime AND BINARY a.status NOT LIKE 'C%'")
+                + (providerNo == null ? "" : " AND a.provider_no=:provider")
+                + " ORDER BY " + (providerNo == null ? "p.last_name, p.first_name, " : "")
+                + "a.appointment_date, " + sort;
+        Query query = entityManager.createNativeQuery(sql, Object[].class).setParameter("start", start);
+        if (!newOnly) query.setParameter("end", end).setParameter("fromTime", startTime).setParameter("untilTime", endTime);
+        if (providerNo != null) query.setParameter("provider", providerNo);
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = query.getResultList();
+        return rows.stream().map(AppointmentDaySheetRow::from).toList();
+    }
+
     public OscarAppointmentDaoImpl() {
         super(Appointment.class);
     }
@@ -211,8 +241,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
      */
     @Override
     public List<Appointment> findByUpdateDate(Date updatedAfterThisDateExclusive, int itemsToReturn) {
-        String sqlCommand = "select x from " + modelClass.getSimpleName()
-                + " x where x.updateDateTime>?1 order by x.updateDateTime";
+        String sqlCommand = "select x from Appointment x where x.updateDateTime>?1 order by x.updateDateTime, x.id";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, updatedAfterThisDateExclusive);
@@ -229,7 +258,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     @Override
     public List<Appointment> findByDemographicIdUpdateDate(Integer demographicId, Date updatedAfterThisDateExclusive) {
         String sqlCommand = "select x from " + modelClass.getSimpleName()
-                + " x where x.demographicNo=?1 and x.updateDateTime>?2 order by x.updateDateTime";
+                + " x where x.demographicNo=?1 and x.updateDateTime>?2 order by x.updateDateTime, x.id";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, demographicId);
@@ -864,7 +893,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     public List<Appointment> findByProgramProviderDemographicDate(Integer programId, String providerNo,
                                                                   Integer demographicId, Date updatedAfterThisDateExclusive, int itemsToReturn) {
         Query query = entityManager.createQuery(
-                "select x from Appointment x where (x.programId=?1 or x.programId is null or x.programId=0) and x.demographicNo=?2 and x.providerNo=?3 and x.updateDateTime>?4 order by x.updateDateTime");
+                "select x from Appointment x where (x.programId=?1 or x.programId is null or x.programId=0) and x.demographicNo=?2 and x.providerNo=?3 and x.updateDateTime>?4 order by x.updateDateTime, x.id");
         query.setParameter(1, programId);
         query.setParameter(2, demographicId);
         query.setParameter(3, providerNo);
@@ -1049,6 +1078,33 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     private static String value(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<Appointment> findByUpdateDateAndId(Date after, int afterId, int limit) {
+        Query query = entityManager.createQuery("select x from Appointment x where "
+                + "(x.updateDateTime>?1 or (x.updateDateTime=?1 and x.id>?2)) order by x.updateDateTime, x.id");
+        query.setParameter(1, after);
+        query.setParameter(2, afterId);
+        setLimit(query, limit);
+        return query.getResultList();
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<Appointment> findByProgramProviderDemographicDateAndId(Integer programId, String providerNo,
+            Integer demographicId, Date after, int afterId, int limit) {
+        Query query = entityManager.createQuery("select x from Appointment x where "
+                + "(x.programId=?1 or x.programId is null or x.programId=0) and x.demographicNo=?2 and x.providerNo=?3 "
+                + "and (x.updateDateTime>?4 or (x.updateDateTime=?4 and x.id>?5)) order by x.updateDateTime, x.id");
+        query.setParameter(1, programId);
+        query.setParameter(2, demographicId);
+        query.setParameter(3, providerNo);
+        query.setParameter(4, after);
+        query.setParameter(5, afterId);
+        setLimit(query, limit);
+        return query.getResultList();
     }
 
 }

@@ -44,6 +44,11 @@ public class DrugTo1 implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private Integer drugId;
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    private Long rowVersion;
+    public Long getRowVersion() { return rowVersion; }
+    public void setRowVersion(Long rowVersion) { this.rowVersion = rowVersion; }
+
 
     private String brandName;
 

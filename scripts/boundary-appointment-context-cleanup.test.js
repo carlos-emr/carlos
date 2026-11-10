@@ -28,7 +28,7 @@ function fixture(body){
   INSERT INTO security VALUES(9,'888888','FAKEPW0123456789abcdef');
   INSERT INTO providersite VALUES('999998',7);`);
  db.prepare('INSERT INTO site VALUES(?,?,1)').run(7,SITE);
- for(const [table,column] of [['casemgmt_note_lock','demographic_no'],['casemgmt_tmpsave','demographic_no'],['measurementsDeleted','demographicNo'],['demographicExt','demographic_no'],['demographicArchive','demographic_no'],['demographicExtArchive','demographic_no'],['demographiccust','demographic_no']])db.exec(`CREATE TABLE ${table}(${column} INTEGER)`);
+ for(const [table,column] of [['rx_submission_receipt','demographic_no'],['casemgmt_note_lock','demographic_no'],['casemgmt_tmpsave','demographic_no'],['measurementsDeleted','demographicNo'],['demographicExt','demographic_no'],['demographicArchive','demographic_no'],['demographicExtArchive','demographic_no'],['demographiccust','demographic_no']])db.exec(`CREATE TABLE ${table}(${column} INTEGER)`);
  const state={connected:false,callbacks:[],queries:[],events:[],logs:[]};
  const sql={rows(query){state.queries.push(query);state.events.push(query.startsWith('SELECT id FROM PageMonitor')?'monitor-read':'read');
    const statement=db.prepare(query);statement.setReturnArrays(true);

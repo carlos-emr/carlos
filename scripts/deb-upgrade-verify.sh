@@ -116,9 +116,25 @@ for snapshot in "$PRE" "$POST"; do
     esac
   done
 done
+# Older format-2 PRE receipts predate this field. Require it only in the
+# freshly captured POST; old preservation digests already include all prior bytes.
+if ! cutover_status=$(g "$POST" cfg.modernChartCutover) || [ -z "$cutover_status" ]; then
+  echo 'ERROR: missing, duplicate or empty required snapshot field: cfg.modernChartCutover' >&2
+  exit 2
+fi
 echo "== pre/post diff (changed non-credential keys) =="
 diff <(grep -v '^admin\.' "$PRE" | sort) <(grep -v '^admin\.' "$POST" | sort) | grep -E "^[<>]" | sed 's/^</  before: /;s/^>/  after:  /' || true
 echo "== assertions =="
+# The postinst always appends this exact final entry after init-config. Its
+# presence proves older Properties readers see true without ignoring or
+# rewriting any prior operator definitions. Preservation hashes omit only
+# exact migration entries (including previous configures), retaining original
+# operator chart flags and comments.
+if [ "$cutover_status" = ready ]; then
+  ok "mandatory modern-chart cutover is durably configured for rollback"
+else
+  bad "mandatory AbandonOldChart=true cutover is missing from the external configuration"
+fi
 [ "$(g "$POST" service.active)" = active ] && ok "carlos-emr service active" || bad "service is $(g "$POST" service.active)"
 [ "$(g "$POST" flyway.count)" = "$EXPECT_FLYWAY" ] && [ "$(g "$POST" flyway.failed)" = 0 ] && ok "Flyway at $EXPECT_FLYWAY applied, 0 failed" || bad "flyway count=$(g "$POST" flyway.count) failed=$(g "$POST" flyway.failed)"
 newv=$(comm -13 <(g "$PRE" flyway.versions | tr , '\n' | sort) <(g "$POST" flyway.versions | tr , '\n' | sort) | sort -V | tr '\n' ' ' | sed 's/ $//')
@@ -137,7 +153,9 @@ for k in cfg.carlos-emr.env.sha cfg.backup.env.sha cfg.tls.cert.sha cfg.province
 # difference is layout alone -- the same active settings, with keys commented
 # out and re-appended unchanged -- which the cfg.carlos.properties.active.sha
 # digest isolates. Any other changed, added or removed active setting is still
-# a failure. Keep the pairs in step with debian/carlos-emr.postinst.
+# a failure. The exact mandatory-modern-chart suffix is also excluded from
+# preservation hashes, with its presence checked above. Prior chart values and
+# comments remain compared. Keep the pairs in step with debian/carlos-emr.postinst.
 OSCAR_DEFAULT_MIGRATIONS=(
   'new_flowsheet_enabled=false|new_flowsheet_enabled=true'
   'workflow_enhance=false|workflow_enhance=true'
@@ -243,8 +261,17 @@ elif { [ -z "$rp_user_pre" ] || [ "$rp_user_pre" = db_reporting_username= ]; } \
     && [ -n "$rp_pw_post" ] && [ "$rp_pw_post" != none ]; then
   rp_ok=1; rp_changed=added
 fi
+cutover_normalized_pre=$(g "$PRE" cfg.carlos.properties.withoutCutover.sha 2>/dev/null || true)
+cutover_normalized_post=$(g "$POST" cfg.carlos.properties.withoutCutover.sha 2>/dev/null || true)
 if [ "$(g "$PRE" cfg.carlos.properties.sha)" = "$(g "$POST" cfg.carlos.properties.sha)" ]; then
   ok "cfg.carlos.properties.sha preserved"
+elif [ -n "$cutover_normalized_post" ] && {
+    [ "$(g "$PRE" cfg.carlos.properties.sha)" = "$cutover_normalized_post" ] \
+    || { [ -n "$cutover_normalized_pre" ] && [ "$cutover_normalized_pre" = "$cutover_normalized_post" ]; }
+  }; then
+  # Exact whole-file equality after removing only known cutover entries. The
+  # first comparison also supports a receipt made before this metadata existed.
+  ok "cfg.carlos.properties.sha preserved apart from mandatory modern-chart cutover"
 elif [ "$ht_ok" = 1 ] && [ "$od_ok" = 1 ] && [ "$oa_ok" = 1 ] && [ "$lf_ok" = 1 ] && [ "$hu_ok" = 1 ] && [ "$rp_ok" = 1 ] \
     && [ -n "$(g "$PRE" cfg.carlos.properties.otherKeys.sha 2>/dev/null || true)" ] \
     && [ "$(g "$PRE" cfg.carlos.properties.otherKeys.sha)" = "$(g "$POST" cfg.carlos.properties.otherKeys.sha)" ]; then
@@ -367,12 +394,11 @@ if [ "$EXPECT_SPLIT" = 1 ]; then
   [ -f /usr/lib/carlos-ctl/carlos_ctl/cli.py ] && ok "the CLI package is under /usr/lib/carlos-ctl" || bad "/usr/lib/carlos-ctl/carlos_ctl/cli.py missing"
   [ ! -e /usr/lib/carlos-emr/carlos_ctl ] && [ ! -e /usr/lib/carlos-emr/carlos-ctl ] && ok "nothing of the pre-split CLI copy remains under /usr/lib/carlos-emr" || bad "pre-split CLI copy still present: $(ls -d /usr/lib/carlos-emr/carlos_ctl /usr/lib/carlos-emr/carlos-ctl 2>/dev/null | tr '\n' ' ')"
   [ ! -e /usr/lib/carlos-emr/carlos_ctl/__pycache__ ] && ok "no orphaned bytecode cache under /usr/lib/carlos-emr" || bad "orphaned /usr/lib/carlos-emr/carlos_ctl/__pycache__"
-  mf_ok=1
-  for m in o19map_schema o19map_props o19_preflight; do
-    f=/usr/share/carlos-emr/o19-manifest/$m.json
-    { [ -f "$f" ] && python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if d.get("format")==1 else 1)' "$f"; } || { mf_ok=0; bad "manifest $f missing or not format 1"; }
-  done
-  [ "$mf_ok" = 1 ] && ok "the three OSCAR 19 manifests ship with carlos-emr at format 1"
+  if python3 "$HERE/ci/installed_o19_manifests.py" /usr/share/carlos-emr/o19-manifest; then
+    ok "OSCAR 19 manifests match schema format 2 and props/preflight format 1"
+  else
+    bad "installed OSCAR 19 manifest kinds or formats differ from the shipped CLI contract"
+  fi
   grep -qFx "  carlos-emr $(g "$POST" pkg.carlos-emr)" "$CHECK_LOG" && ok "check names the carlos-emr version" || bad "check does not name carlos-emr $(g "$POST" pkg.carlos-emr)"
   grep -qFx "  carlos-ctl $ctlv" "$CHECK_LOG" && ok "check names the carlos-ctl version" || bad "check does not name carlos-ctl $ctlv"
   grep -q '^ExecStart=/usr/sbin/carlos-ctl finish-install --boot$' /usr/lib/systemd/system/carlos-emr-provision.service 2>/dev/null && ok "carlos-emr-provision.service starts /usr/sbin/carlos-ctl" || bad "carlos-emr-provision.service ExecStart: $(grep ^ExecStart= /usr/lib/systemd/system/carlos-emr-provision.service 2>/dev/null)"

@@ -34,6 +34,10 @@ function catalogCheck(fields, from, order, rows) {
   return {sql: `SELECT SHA2(COALESCE(GROUP_CONCAT(${serialized} ORDER BY ${order} SEPARATOR '|'),''),256) FROM ${from}`,
     expected: signature(rows)};
 }
+function assertSupportedEngine(table,engine,isOwned) {
+  assert(engine==='InnoDB'||(!isOwned&&table==='formRourke2009'&&['Aria','MyISAM'].includes(engine)),
+    `Unsupported cleanup table engine: ${table} (${engine})`);
+}
 function capability(sql, schema, owned, tables, foreign = []) {
   const writes = new Set(owned);
   tables = new Set(tables);
@@ -44,8 +48,7 @@ function capability(sql, schema, owned, tables, foreign = []) {
     assert(rows.length && rows.every(row => row.length === 10 && row[9] === 'BASE TABLE'), 'Unknown cleanup table definition');
     const engine = rows[0][3];
     assert(rows.every(row => row[3] === engine), 'Inconsistent cleanup engine');
-    assert(engine === 'InnoDB' || (!writes.has(table) && table === 'formRourke2009' && engine === 'Aria'),
-      'Unsupported cleanup table engine');
+    assertSupportedEngine(table,engine,writes.has(table));
   }
   const settings = sql.rows('SELECT @@session.innodb_table_locks,@@global.wsrep_on,@@session.wsrep_on');
   assert.deepEqual(settings, [['1','0','0']], 'Unsupported cleanup locking configuration');
@@ -63,7 +66,7 @@ function build({schema, foreign, owned, tables, checks, deletes}) {
   for (const table of locked) {
     const definition = schema.find(row => row[0] === table);
     assert(definition && definition.length === 10 && definition[9] === 'BASE TABLE', 'Missing locked table');
-    assert(definition[3] === 'InnoDB' || (!owned.includes(table) && table === 'formRourke2009' && definition[3] === 'Aria'), 'Unsupported locked engine');
+    assertSupportedEngine(table,definition[3],owned.includes(table));
   }
   for (const check of checks) {
     assert(locked.has(check.table) && typeof check.where === 'string' && /^\d+$/.test(String(check.count)), 'Invalid cleanup gate');

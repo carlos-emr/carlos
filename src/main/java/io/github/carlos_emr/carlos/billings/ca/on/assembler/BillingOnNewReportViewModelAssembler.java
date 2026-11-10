@@ -251,7 +251,6 @@ public class BillingOnNewReportViewModelAssembler {
                 + "/billing?billRegion=ON&billForm="
                 + URLEncoder.encode(defaultBillForm, StandardCharsets.UTF_8)
                 + "&hotclick=&appointment_no=" + urlParam(row.appointmentNo())
-                + "&demographic_name=" + URLEncoder.encode(name, StandardCharsets.UTF_8)
                 + "&demographic_no=" + urlParam(row.demographicNo())
                 + "&user_no=" + urlParam(row.providerNo())
                 + "&apptProvider_no=" + urlParam(providerView)

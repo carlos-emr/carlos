@@ -5,12 +5,12 @@
 <%@ page import="java.text.DecimalFormat" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.SxmlMisc" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.Gender" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.commn.ISO36612" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.OtherIdManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ContactDao" %>
@@ -32,38 +32,38 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicArchive" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicExtArchive" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.CountryCode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicCust" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.LookupList" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.LookupListItem" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.WaitingListName" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
+
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicRelationship" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.ProvinceNames" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicEditHelper" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
+
 <%@ page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
+
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
@@ -72,11 +72,11 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve all variables from request attributes (set by DemographicEdit2Action) --%>
@@ -238,6 +238,12 @@
                                                         <div class="leftSection">
                                                             <div class="demographicSection" id="demographic">
                                                                 <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.msgDemographic"/></h3>
+                                                                <% if (StringUtils.isNotBlank(demographic.getSourceOfIncome())) { %>
+                                                                <div id="legacyDemographicText" style="margin-top: 6px;">
+                                                                    <span class="label"><fmt:message key="demographic.legacySourceOfIncome"/></span>
+                                                                    <div style="white-space: pre-wrap"><%= SafeEncode.forHtmlContent(demographic.getSourceOfIncome()) %></div>
+                                                                </div>
+                                                                <% } %>
                                                                 <%
                                                                     for (String key : demoExt.keySet()) {
                                                                         if (key.endsWith("_id")) {

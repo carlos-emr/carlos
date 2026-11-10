@@ -36,6 +36,13 @@ GIB = 1 << 30
 UUID = re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z")
 
 
+def is_synthetic_database_endpoint(endpoint) -> bool:
+    """Permit either supported JDBC scheme without weakening disposable DB guards."""
+    return bool(endpoint.scheme in {"mysql", "mariadb"}
+                and re.fullmatch(r"[A-Za-z0-9_]+_test", endpoint.path.removeprefix("/"))
+                and not any((endpoint.username, endpoint.password, endpoint.query, endpoint.fragment)))
+
+
 def supervise(receipt: Path, command: list[str]) -> int:
     """wait4 owns reaping: a short-lived peak cannot disappear between /proc samples."""
     if not receipt.is_absolute() or receipt.exists() or not command or not Path(command[0]).is_absolute():
@@ -122,6 +129,35 @@ def is_import_command(command: list[bytes], source: str, provider: str) -> bool:
     return True
 
 
+def import_candidates(supervisor_pid: int, source: str, provider: str, service_uid: int) -> list[tuple[int, list[bytes]]]:
+    """Find only owned import JVMs descended from this exact supervisor."""
+    # Linux may report either ENOENT or ESRCH when a /proc task exits during a read.
+    parents = {}
+    for entry in Path("/proc").iterdir():
+        if not entry.name.isdecimal():
+            continue
+        try:
+            fields = (entry / "stat").read_text().rsplit(")", 1)[1].split()
+            parents[int(entry.name)] = int(fields[1])
+        except (FileNotFoundError, ProcessLookupError):
+            pass
+    children = {supervisor_pid}
+    for _ in range(8):
+        children |= {pid for pid, parent in parents.items() if parent in children}
+    candidates = []
+    for pid in children:
+        try:
+            command = Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0")
+            if is_import_command(command,source,provider):
+                process_status = Path(f'/proc/{pid}/status').read_text()
+                uid = int(re.search(r'^Uid:\s+(\d+)',process_status,re.M)[1])
+                if uid == service_uid and uid != 0:
+                    candidates.append((pid,command))
+        except (FileNotFoundError, ProcessLookupError):
+            pass
+    return candidates
+
+
 def verify_java_identity(pid: int, uid: int, gid: int, executable: Path, started: str) -> None:
     # /proc/<other-uid>/exe is ptrace-protected on normal unprivileged Docker.
     # Read as that same service UID; do not add SYS_PTRACE to the clinical runtime.
@@ -139,7 +175,7 @@ def service_sample(pid: int) -> dict | None:
     try:
         started = Path(f'/proc/{pid}/stat').read_text().rsplit(')',1)[1].split()[19]
         status = Path(f'/proc/{pid}/status').read_text()
-    except FileNotFoundError:
+    except (FileNotFoundError, ProcessLookupError):
         return None  # A completed JVM may disappear before its supervisor is reaped.
     if re.search(r'^State:\s+[ZX]',status,re.M) and not re.search(r'^VmRSS:',status,re.M):
         return None
@@ -152,7 +188,7 @@ def service_sample(pid: int) -> dict | None:
         # Missing measurements from a live JVM must still fail the resource gate.
         try:
             final = Path(f'/proc/{pid}/stat').read_text().rsplit(')',1)[1].split()
-        except FileNotFoundError:
+        except (FileNotFoundError, ProcessLookupError):
             return None
         if final[19] != started:
             raise RuntimeError('service JVM identity changed during resource sampling')
@@ -715,9 +751,8 @@ def main() -> None:
         jdbc = dict(parse_properties_text(protected_file(args.jdbc_properties).read_text(encoding="ISO-8859-1")))
         endpoint = urlsplit(jdbc["jdbcUrl"].removeprefix("jdbc:"))
         database = endpoint.path.removeprefix("/")
-        if endpoint.scheme != "mysql" or not re.fullmatch(r"[A-Za-z0-9_]+_test", database) \
-                or endpoint.username or endpoint.password or endpoint.query or endpoint.fragment:
-            raise RuntimeError("only the existing explicit synthetic MySQL endpoint is permitted")
+        if not is_synthetic_database_endpoint(endpoint):
+            raise RuntimeError("only the existing explicit synthetic MariaDB/MySQL endpoint is permitted")
         escape = lambda value: '"' + str(value).replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\r') + '"'
         content = "[client]\n" + "\n".join(key + "=" + escape(value) for key, value in
             {"host": endpoint.hostname, "port": endpoint.port or 3306, "user": jdbc["jdbcUser"], "password": jdbc["jdbcPassword"]}.items()) + "\n"
@@ -922,30 +957,7 @@ def main() -> None:
                         if time.monotonic() - started > args.timeout:
                             os.killpg(process.pid, signal.SIGTERM)
                             raise RuntimeError("benchmark deadline exceeded; retain exact accepted run and reconcile")
-                        # Only descendants of this exact installed supervisor can become the measured JVM.
-                        parents = {}
-                        for entry in Path("/proc").iterdir():
-                            if not entry.name.isdecimal():
-                                continue
-                            try:
-                                fields = (entry / "stat").read_text().rsplit(")", 1)[1].split()
-                                parents[int(entry.name)] = int(fields[1])
-                            except FileNotFoundError:
-                                pass
-                        children = {process.pid}
-                        for _ in range(8):
-                            children |= {pid for pid, parent in parents.items() if parent in children}
-                        candidates = []
-                        for pid in children:
-                            try:
-                                command = Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0")
-                                if is_import_command(command,source["source"],str(metadata["provider"])):
-                                    process_status = Path(f'/proc/{pid}/status').read_text()
-                                    uid = int(re.search(r'^Uid:\s+(\d+)',process_status,re.M)[1])
-                                    if uid == service_account.pw_uid and uid != 0:
-                                        candidates.append((pid,command))
-                            except FileNotFoundError:
-                                pass
+                        candidates = import_candidates(process.pid,source["source"],str(metadata["provider"]),service_account.pw_uid)
                         if len(candidates) > 1:
                             raise RuntimeError("ambiguous service JVM measurement target")
                         if candidates:

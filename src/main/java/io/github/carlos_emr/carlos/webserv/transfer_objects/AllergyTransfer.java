@@ -34,7 +34,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 
 public final class AllergyTransfer {
@@ -81,6 +80,8 @@ public final class AllergyTransfer {
         Id = id;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getEntryDate() {
         return (entryDate);
     }
@@ -145,6 +146,8 @@ public final class AllergyTransfer {
         this.typeCode = typeCode;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getStartDate() {
         return (startDate);
     }
@@ -193,6 +196,8 @@ public final class AllergyTransfer {
         this.lifeStage = lifeStage;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getLastUpdateDate() {
         return (lastUpdateDate);
     }
@@ -252,6 +257,6 @@ public final class AllergyTransfer {
 
     @Override
     public String toString() {
-        return (ReflectionToStringBuilder.toString(this));
+        return getClass().getSimpleName() + "[protected]";
     }
 }

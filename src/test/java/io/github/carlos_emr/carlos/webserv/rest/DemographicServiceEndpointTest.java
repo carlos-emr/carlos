@@ -43,6 +43,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
@@ -64,6 +65,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjec
 import io.github.carlos_emr.carlos.test.base.CarlosRestTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicTo1;
 import io.github.carlos_emr.carlos.webserv.rest.util.SecurityExceptionMapper;
 
 /**
@@ -83,6 +85,7 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
 
     @Mock
     private DemographicManager mockDemographicManager;
+    @Mock private io.github.carlos_emr.carlos.commn.dao.DemographicDao updateRecords;
     @Mock
     private ContactDao mockContactDao;
     @Mock
@@ -125,7 +128,7 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
 
     @Override
     protected Object getServiceBean() {
-        DemographicService service = new DemographicService(new CdsLegacyProjectionService(mockProjectionRecords));
+        DemographicService service = new DemographicService(new CdsLegacyProjectionService(mockProjectionRecords), updateRecords);
         injectDependency(service, "demographicManager", mockDemographicManager);
         injectDependency(service, "contactDao", mockContactDao);
         injectDependency(service, "allergyManager", mockAllergyManager);
@@ -143,11 +146,16 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
 
     @Override
     protected List<Object> additionalServerProviders() {
-        return List.of(new SecurityExceptionMapper());
+        return List.of(new SecurityExceptionMapper(),
+                new io.github.carlos_emr.carlos.webserv.rest.util.DemographicWriteProfileResponseFilter());
     }
 
     @BeforeEach
     void setUpSecurityDefaults() {
+        var existing = createTestDemographic(42, "Existing", "Patient");
+        existing.setSin("FAKE-SIN"); existing.setHin("FAKE-HIN");
+        org.mockito.Mockito.lenient().when(updateRecords.findForUpdate(42)).thenReturn(existing);
+        org.mockito.Mockito.lenient().when(updateRecords.findFreshForUpdate(42)).thenReturn(existing);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(), any(), any()))
             .thenReturn(true);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), eq(42)))
@@ -166,6 +174,135 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
         demo.setYearOfBirth("1980");
         demo.setSex("M");
         return demo;
+    }
+
+    @Nested
+    @DisplayName("Demographic write field lengths")
+    class WriteFieldLengths {
+
+        @BeforeEach
+        void allowRecordUpdates() {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("u"), eq(42)))
+                    .thenReturn(true);
+        }
+
+        private DemographicTo1 payload(String method) {
+            DemographicTo1 data = new DemographicTo1();
+            if ("PUT".equals(method)) data.setDemographicNo(42);
+            data.setFirstName("FAKE");
+            data.setLastName("PATIENT");
+            data.setDobYear("1980");
+            data.setDobMonth("06");
+            data.setDobDay("15");
+            return data;
+        }
+
+        @ParameterizedTest
+        @CsvSource({"POST,pronoun,A", "POST,gender,A", "PUT,pronoun,A", "PUT,gender,A",
+                "POST,pronoun,😀", "POST,gender,😀", "PUT,pronoun,😀", "PUT,gender,😀"})
+        void shouldRejectOverlongFields_beforeAnyWrite(String method, String field, String character) {
+            DemographicTo1 data = payload(method);
+            String invalid = character.repeat(26);
+            if ("pronoun".equals(field)) data.setPronoun(invalid);
+            else data.setGender(invalid);
+            data.setNurse("999998");
+            data.setNotes("FAKE-NOTES");
+            data.setWaitingListID(7);
+
+            try (Response response = request().path("/demographics").invoke(method, data)) {
+                assertThat(response.getStatus()).isEqualTo(400);
+                assertThat(response.readEntity(String.class))
+                        .contains("exceeds maximum length of 25 characters.")
+                        .doesNotContain(invalid, "FAKE-NOTES");
+            }
+            verifyNoInteractions(mockDemographicManager, mockWaitingListDao);
+        }
+
+        @ParameterizedTest
+        @CsvSource({"POST,A", "PUT,A", "POST,😀", "PUT,😀"})
+        void shouldPreserveFullColumnCapacity_whenFieldsAreAtTheLimit(String method, String character) {
+            DemographicTo1 data = payload(method);
+            String exact = character.repeat(25);
+            data.setPronoun(exact);
+            data.setGender(exact);
+
+            try (Response response = request().path("/demographics").invoke(method, data)) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                var json = responseJson(response);
+                assertThat(json.get("pronoun").textValue()).isEqualTo(exact);
+                assertThat(json.get("gender").textValue()).isEqualTo(exact);
+            }
+            ArgumentCaptor<Demographic> saved = ArgumentCaptor.forClass(Demographic.class);
+            if ("POST".equals(method)) {
+                verify(mockDemographicManager).createDemographic(any(LoggedInInfo.class), saved.capture(), eq(null));
+            } else {
+                verify(mockDemographicManager).updateDemographic(any(LoggedInInfo.class), saved.capture());
+            }
+            assertThat(saved.getValue().getPronoun()).isEqualTo(exact);
+            assertThat(saved.getValue().getGender()).isEqualTo(exact);
+        }
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"default", "preserve-hidden-identifiers", "legacy-null-identifiers"})
+    void shouldPreserveHiddenIdentifiersByDefault_andSupportExplicitLegacyNullClears(String profile) {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("u"), eq(42)))
+                .thenReturn(true);
+        var data = new DemographicTo1(); data.setDemographicNo(42);
+        data.setFirstName("Changed"); data.setLastName("Patient");
+        data.setDobYear("1980"); data.setDobMonth("06"); data.setDobDay("15");
+        if (profile.equals("legacy-null-identifiers")) {
+            when(updateRecords.findFreshForUpdate(42)).thenThrow(new UnsupportedOperationException("Legacy DAO"));
+        }
+        var client = request().path("/demographics");
+        if (!profile.equals("default")) client.header("X-Carlos-Demographic-Write-Profile", profile);
+        try (Response response = client.invoke("PUT", data)) {
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getHeaderString("X-Carlos-Demographic-Write-Profile"))
+                    .isEqualTo(profile.equals("default") ? "preserve-hidden-identifiers" : profile);
+            assertThat(response.readEntity(String.class)).doesNotContain("FAKE-SIN");
+        }
+        var saved = ArgumentCaptor.forClass(Demographic.class);
+        verify(mockDemographicManager).updateDemographic(eq(mockLoggedInInfo), saved.capture());
+        assertThat(saved.getValue().getFirstName()).isEqualTo("Changed");
+        boolean preserve = !profile.equals("legacy-null-identifiers");
+        assertThat(saved.getValue().getSin()).isEqualTo(preserve ? "FAKE-SIN" : null);
+        assertThat(saved.getValue().getHin()).isEqualTo(preserve ? "FAKE-HIN" : null);
+        if (preserve) verify(updateRecords).findFreshForUpdate(42);
+        else verify(updateRecords).findForUpdate(42);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", "unknown-private-value", "legacy-null-identifiers,preserve-hidden-identifiers"})
+    void shouldRejectUnknownIdentifierWriteProfiles_beforeLockingOrWriting(String profile) {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("u"), eq(42)))
+                .thenReturn(true);
+        var data = new DemographicTo1(); data.setDemographicNo(42);
+        data.setDobYear("1980"); data.setDobMonth("06"); data.setDobDay("15");
+        try (Response response = request().path("/demographics")
+                .header("X-Carlos-Demographic-Write-Profile", profile).invoke("PUT", data)) {
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.readEntity(String.class)).doesNotContain("unknown-private-value");
+        }
+        verifyNoInteractions(updateRecords, mockDemographicManager);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"HY000,1020", "HY000,1205", "40001,1213"})
+    void shouldReportPreWriteDatabaseConflicts_withoutLeakingSqlOrChangingRelatedRecords(String state, int code) {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("u"), eq(42)))
+                .thenReturn(true);
+        when(updateRecords.findFreshForUpdate(42)).thenThrow(new IllegalStateException(
+                new java.sql.SQLException("FAKE-PRIVATE-SQL-VALUE", state, code)));
+        var data = new DemographicTo1(); data.setDemographicNo(42);
+        data.setDobYear("1980"); data.setDobMonth("06"); data.setDobDay("15");
+        data.setNurse("41"); data.setWaitingListID(7);
+        try (Response response = request().path("/demographics").invoke("PUT", data)) {
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(response.readEntity(String.class)).contains("reload before retrying")
+                    .doesNotContain("FAKE-PRIVATE-SQL-VALUE", "SQLException");
+        }
+        verifyNoInteractions(mockDemographicManager, mockWaitingListDao);
     }
 
     /** Tests for GET /demographics (list all). */

@@ -26,7 +26,7 @@ import io.github.carlos_emr.carlos.utility.CdsJdbcConnectionTimeouts;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.mysql.cj.jdbc.Driver;
+import org.mariadb.jdbc.Driver;
 import io.github.carlos_emr.carlos.demographic.cdsimport.cli.CdsCliSpringConfiguration;
 import io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource;
 import java.net.InetAddress;
@@ -87,12 +87,23 @@ class CdsJdbcConnectionTimeoutsUnitTest {
     static class Inspectable extends OscarTrackingBasicDataSource {
         DriverConnectionFactory factory() throws SQLException { return (DriverConnectionFactory) createConnectionFactory(); }
     }
-    static class CapturingDriver extends Driver {
+    static class CapturingDriver implements java.sql.Driver {
+        private final io.github.carlos_emr.carlos.utility.MariaDbCompatibilityDriver delegate=
+                new io.github.carlos_emr.carlos.utility.MariaDbCompatibilityDriver();
         Properties seen;
-        CapturingDriver() throws SQLException { }
         @Override public java.sql.Connection connect(String url, Properties properties) throws SQLException {
             seen=(Properties) properties.clone();
             throw new SQLException("Synthetic capture stopped before network", "08001");
+        }
+        @Override public boolean acceptsURL(String url) { return delegate.acceptsURL(url); }
+        @Override public DriverPropertyInfo[] getPropertyInfo(String url, Properties properties) throws SQLException {
+            return delegate.getPropertyInfo(url, properties);
+        }
+        @Override public int getMajorVersion() { return delegate.getMajorVersion(); }
+        @Override public int getMinorVersion() { return delegate.getMinorVersion(); }
+        @Override public boolean jdbcCompliant() { return delegate.jdbcCompliant(); }
+        @Override public java.util.logging.Logger getParentLogger() throws java.sql.SQLFeatureNotSupportedException {
+            return delegate.getParentLogger();
         }
     }
     enum Boundary { MAINTENANCE, ORDINARY_LEASE, WEB_OPT_IN_POOL, CLI_POOL }
@@ -132,6 +143,19 @@ class CdsJdbcConnectionTimeoutsUnitTest {
         assertThat(effective(addressed)).containsEntry("connectTimeout", "1000").containsEntry("socketTimeout", "2000");
     }
 
+    @Test
+    void shouldHonorEncodedTimeouts_andRefuseExplicitUnboundedPropertyDefaults() throws Exception {
+        var encoded=(DriverConnectionFactory) CdsJdbcConnectionTimeouts.bounded(
+                new DriverConnectionFactory(new Driver(), URL+"?%63onnectTimeout=%31%32%33%34&socketTimeout=2345", new Properties()));
+        assertThat(effective(encoded)).containsEntry("connectTimeout", "1234").containsEntry("socketTimeout", "2345");
+        Properties defaults=new Properties(); defaults.setProperty("socketTimeout", "0");
+        Properties properties=new Properties(defaults);
+        assertThatThrownBy(()->CdsJdbcConnectionTimeouts.bounded(
+                new DriverConnectionFactory(new Driver(), URL, properties)))
+                .isInstanceOf(SQLException.class).hasMessage("CDS_JDBC_TIMEOUT_CONFIGURATION_INVALID");
+        assertThat(properties).isEmpty();
+    }
+
     @ParameterizedTest
     @ValueSource(booleans={false, true})
     void shouldScopeMissingNonpoolDefaults_evenWhenOrdinaryPoolOptsOut(boolean ordinaryLease) throws Exception {
@@ -147,8 +171,9 @@ class CdsJdbcConnectionTimeoutsUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings={"connectTimeout=0", "socketTimeout=0", "connectTimeout=-1", "socketTimeout=-1",
-            "connectTimeout=30001", "socketTimeout=300001", "socketTimeout=private-configuration-value"})
-    void shouldRejectUnboundedInvalidAndOverCeilingOptions_withoutLeakingConfiguration(String option) throws Exception {
+            "connectTimeout=30001", "socketTimeout=300001", "socketTimeout=private-configuration-value",
+            "CONNECTTIMEOUT=0", "SOCKETTIMEOUT=0"})
+    void shouldRejectUnboundedInvalidAndOverCeilingOptions_withoutLeakingConfiguration(String option) {
         var configured=new DriverConnectionFactory(new Driver(), URL+"?"+option, new Properties());
         assertThatThrownBy(() -> CdsJdbcConnectionTimeouts.bounded(configured)).isInstanceOf(SQLException.class)
                 .hasMessage("CDS_JDBC_TIMEOUT_CONFIGURATION_INVALID").hasNoCause()
@@ -161,8 +186,11 @@ class CdsJdbcConnectionTimeoutsUnitTest {
             "jdbc:mysql://address=(host=two.invalid)(connectTimeout=3000)(socketTimeout=0),address=(host=one.invalid)(connectTimeout=1000)(socketTimeout=2000)/synthetic",
             "jdbc:mysql://one.invalid,two.invalid/synthetic?connectTimeout=1000&socketTimeout=2000",
             "jdbc:mysql:loadbalance://one.invalid/synthetic", "jdbc:mysql:replication://one.invalid/synthetic",
-            "jdbc:mysql+srv://unresolved.invalid/synthetic", "jdbc:mysql://unresolved.invalid/synthetic?dnsSrv=true"})
-    void shouldRefuseUnsupportedTopology_beforeAnyDriverConnectionOrSrvLookup(String url) throws Exception {
+            "jdbc:mysql+srv://unresolved.invalid/synthetic", "jdbc:mysql://unresolved.invalid/synthetic?dnsSrv=true",
+            "jdbc:mariadb://one.invalid,two.invalid/synthetic?connectTimeout=1000&socketTimeout=2000",
+            "jdbc:mariadb:sequential://one.invalid/synthetic", "jdbc:mariadb:replication://one.invalid/synthetic",
+            "jdbc:mariadb://unresolved.invalid/synthetic?%64nsSrv=true"})
+    void shouldRefuseUnsupportedTopology_beforeAnyDriverConnectionOrSrvLookup(String url) {
         var driver=new CapturingDriver();
         var factory=new DriverConnectionFactory(driver, url, new Properties());
         assertThatThrownBy(() -> CdsJdbcConnectionTimeouts.bounded(factory)).isInstanceOf(SQLException.class)

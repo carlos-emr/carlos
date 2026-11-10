@@ -61,6 +61,24 @@ class PayRefSummaryUnitTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"1e3", "1E999999999", "1e-999999999", "NaN", "0x1p3", "1f"})
+    void shouldKeepNonDecimalAmountsUnknown_withoutAllocatingExponentScales(String source) {
+        assertThat(PayRefSummary.knownAmount(source)).isNull();
+        PayRefSummary summary = new PayRefSummary();
+        summary.addAdjustmentAmount(source);
+        assertThat(summary.getTotal()).isEqualTo("$0.00");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"1.00", " 1.00", "1.00 ", " 1.00 "})
+    void shouldSumPaddedAdjustments_usingTheSameParserAsTheReportGuard(String amount) {
+        PayRefSummary summary = new PayRefSummary();
+        summary.addAdjustmentAmount(amount);
+        assertThat(summary.getElectronic()).isEqualTo("$1.00");
+        assertThat(summary.getTotal()).isEqualTo("$1.00");
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"en", "en-CA", "fr-FR", "de-DE"})
     void shouldFormatEveryPaymentMethodInCanadianDollars_underDifferentHostLocales(String locale) {
         Locale.setDefault(Locale.Category.FORMAT, Locale.forLanguageTag(locale));

@@ -53,16 +53,16 @@
     @since 2004-02-05
 --%>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
-<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxReprintWorkspace" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxPreviewSnapshot" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProSignatureData, io.github.carlos_emr.carlos.providers.data.ProviderData" %>
-<%@ page import="io.github.carlos_emr.carlos.rx.data.*" %>
+
 <%@ page import="io.github.carlos_emr.*,
                  java.lang.*,
                  java.util.Date,
@@ -132,10 +132,13 @@
             }
         </style>
         <style media="all">
+            html {
+                overscroll-behavior: none;
+            }
+
             * {
 		font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
 		font-size: 12px;
-		overscroll-behavior: none;
 		-webkit-font-smoothing: antialiased;
 		-moz-osx-font-smoothing: grayscale;
             }

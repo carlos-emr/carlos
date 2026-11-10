@@ -38,7 +38,10 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-/** Uses the CI MariaDB DAO lane when configured, and H2 for the ordinary test lane. */
+/**
+ * Uses a database-free {@code jdbc:mariadb://host:port/} server URL from
+ * {@code CARLOS_TEST_MARIADB_URL}, or H2 when the variable is absent.
+ */
 @Tag("integration")
 @Tag("dao")
 @Tag("mariadb-native")
@@ -54,11 +57,17 @@ class AppointmentUpdateDaoIntegrationTest {
     private final LoggedInInfo clientA = mock(LoggedInInfo.class);
     private final LoggedInInfo clientB = mock(LoggedInInfo.class);
     private int id;
+    private SecurityInfoManager security;
 
     @BeforeEach
     void setup() throws Exception {
+        String configuredServer = System.getenv("CARLOS_TEST_MARIADB_URL");
+        if (configuredServer != null && !configuredServer.matches("jdbc:mariadb://[^/@?#;\\s]+/")) {
+            throw new IllegalArgumentException("Appointment DAO tests require a jdbc:mariadb server URL ending in / without a database or query");
+        }
+        // Assign only after validation so failure cleanup cannot connect to a rejected URL.
+        server = configuredServer;
         database = "carlos_test_5300_" + UUID.randomUUID().toString().replace("-", "");
-        server = System.getenv("CARLOS_TEST_MARIADB_URL");
         String url = "jdbc:h2:mem:" + database + ";MODE=MySQL;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=5000";
         credentials.setProperty("user", System.getenv().getOrDefault("CARLOS_TEST_MARIADB_USER", "root"));
         credentials.setProperty("password", System.getenv().getOrDefault("CARLOS_TEST_MARIADB_PASSWORD", ""));
@@ -70,7 +79,7 @@ class AppointmentUpdateDaoIntegrationTest {
             url = server + database;
         }
         var configuration = new Configuration().addAnnotatedClass(Appointment.class).addAnnotatedClass(AppointmentArchive.class)
-                .setProperty("hibernate.connection.driver_class", server == null ? "org.h2.Driver" : "com.mysql.cj.jdbc.Driver")
+                .setProperty("hibernate.connection.driver_class", server == null ? "org.h2.Driver" : "org.mariadb.jdbc.Driver")
                 .setProperty("hibernate.connection.url", url)
                 .setProperty("hibernate.dialect", server == null ? "org.hibernate.dialect.H2Dialect"
                         : "io.github.carlos_emr.carlos.util.persistence.OscarMySQL5Dialect")
@@ -98,7 +107,7 @@ class AppointmentUpdateDaoIntegrationTest {
         var target = new ScheduleManagerImpl();
         ReflectionTestUtils.setField(target, "oscarAppointmentDao", appointments);
         ReflectionTestUtils.setField(target, "appointmentArchiveDao", archives);
-        var security = mock(SecurityInfoManager.class);
+        security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(any(), eq("_appointment"), eq("w"), isNull())).thenReturn(true);
         ReflectionTestUtils.setField(target, "securityInfoManager", security);
         when(clientA.getLoggedInProviderNo()).thenReturn("FAKE-A");
@@ -165,6 +174,37 @@ class AppointmentUpdateDaoIntegrationTest {
     }
 
     @Test
+    void shouldRefuseStoredPatient_beforeArchivalOrMutation() {
+        tx(em -> { em.find(Appointment.class,id).setDemographicNo(42); return null; });
+        assertThatThrownBy(() -> save(clientA,null,row -> row.setReason("FAKE-denied")))
+                .isInstanceOf(jakarta.ws.rs.ForbiddenException.class);
+        assertState("FAKE-original",0);
+        assertThat(read().getDemographicNo()).isEqualTo(42);
+    }
+
+    @Test
+    void shouldRollbackArchiveAndEdit_whenReplacementPatientIsDenied() {
+        tx(em -> { em.find(Appointment.class,id).setDemographicNo(42); return null; });
+        when(security.hasPrivilege(clientA,"_appointment","w","42")).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(clientA,42)).thenReturn(true);
+        assertThatThrownBy(() -> save(clientA,null,row -> {
+            row.setReason("FAKE-denied"); row.setDemographicNo(43);
+        })).isInstanceOf(jakarta.ws.rs.ForbiddenException.class);
+        assertState("FAKE-original",0);
+        assertThat(read().getDemographicNo()).isEqualTo(42);
+    }
+
+    @Test
+    void shouldAllowAssignedPatientWrite_withoutReadPermission() {
+        tx(em -> { em.find(Appointment.class,id).setDemographicNo(42); return null; });
+        when(security.hasPrivilege(clientA,"_appointment","w","42")).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(clientA,42)).thenReturn(true);
+        save(clientA,null,row -> row.setReason("FAKE-write-only"));
+        assertState("FAKE-write-only",1);
+        verify(security,never()).hasPrivilege(any(),eq("_appointment"),eq("r"),any());
+    }
+
+    @Test
     void shouldRejectSecondClient_andKeepOriginalArchive() {
         String a = read().getEditVersion();
         String b = read().getEditVersion();
@@ -182,6 +222,30 @@ class AppointmentUpdateDaoIntegrationTest {
         });
         save(clientB, saved.getEditVersion(), row -> row.setReason("FAKE-fresh"));
         assertState("FAKE-fresh", 2);
+    }
+
+    /** Verifies that a legacy write archives newer data and invalidates the previous read token. */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {" ", "\t\n"})
+    void shouldPreserveLegacyLastWriterWins_whenVersionIsAbsentOrBlank(String version) {
+        String originalVersion = read().getEditVersion();
+        Appointment first = save(clientA, originalVersion, row -> row.setReason("FAKE-first"));
+        Appointment legacy = save(clientB, version, row -> row.setReason("FAKE-legacy"));
+        assertState("FAKE-legacy", 2);
+        assertThat(legacy.getEditVersion()).isNotEqualTo(first.getEditVersion())
+                .isEqualTo(read().getEditVersion());
+        assertThat(read().getLastUpdateUser()).isEqualTo("FAKE-B");
+        tx(em -> {
+            assertThat(em.createQuery("from AppointmentArchive order by id", AppointmentArchive.class)
+                    .getResultList()).extracting(AppointmentArchive::getReason)
+                    .containsExactly("FAKE-original", "FAKE-first");
+            return null;
+        });
+        assertThatThrownBy(() -> save(clientA, first.getEditVersion(), row -> row.setReason("FAKE-stale")))
+                .isInstanceOfSatisfying(AppointmentUpdateException.class,
+                        e -> assertThat(e.getReason()).isEqualTo(AppointmentUpdateException.Reason.STALE_VERSION));
+        assertState("FAKE-legacy", 2);
     }
 
     @Test
@@ -290,17 +354,18 @@ class AppointmentUpdateDaoIntegrationTest {
         assertThat(read().getEditVersion()).isEqualTo(version);
     }
 
-    @Test
-    void shouldRequireReadToken_andSupportLegacyNullTimestamps() {
-        assertThatThrownBy(() -> save(clientA, null, row -> row.setReason("FAKE-rejected")))
-                .isInstanceOf(AppointmentUpdateException.class);
+    /** Exercises optional tokens on imported rows that have no update timestamp. */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"unversioned", " "})
+    void shouldSupportLegacyNullTimestamps_withOptionalVersion(String version) {
         tx(em -> {
             em.createNativeQuery("update appointment set updatedatetime=null where appointment_no=:id")
                     .setParameter("id", id).executeUpdate();
             return null;
         });
         assertThat(read().getEditVersion()).isEqualTo("unversioned");
-        save(clientA, "unversioned", row -> row.setReason("FAKE-upgraded"));
+        save(clientA, version, row -> row.setReason("FAKE-upgraded"));
         assertState("FAKE-upgraded", 1);
         assertThatThrownBy(() -> save(clientB, "unversioned", row -> row.setReason("FAKE-stale")))
                 .isInstanceOf(AppointmentUpdateException.class);

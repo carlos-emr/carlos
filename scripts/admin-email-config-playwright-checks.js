@@ -289,9 +289,10 @@ async function workflow(s) {
   let manager;
   const cards = () => manager.locator('#results .email-status-card');
   async function fetchEmails(status) {
-    const today = sql.value("SELECT DATE_FORMAT(CURDATE(),'%Y-%m-%d')");
-    for (const selector of ['#dateBegin', '#dateEnd']) {
-      await manager.locator(selector).fill(today);
+    const [dates] = sql.rows(`SELECT DATE_FORMAT(MIN(timestamp),'%Y-%m-%d'), DATE_FORMAT(MAX(timestamp),'%Y-%m-%d')
+      FROM emailLog WHERE id IN (${sentLog},${failedLog})`);
+    for (const [index, selector] of ['#dateBegin', '#dateEnd'].entries()) {
+      await manager.locator(selector).fill(dates[index]);
       await manager.locator(selector).press('Tab');
     }
     await manager.locator('#senderEmailAddress').selectOption(sender);
@@ -331,6 +332,17 @@ async function workflow(s) {
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Resolve did not ask for confirmation');
     await expectValue(sql, `SELECT status FROM emailLog WHERE id=${failedLog}`, 'RESOLVED',
       'Resolve showed RESOLVED but the log row is still FAILED');
+  });
+
+  await s.step('Resolved email stays RESOLVED after reloading Manage Emails', async () => {
+    await manager.goto(manager.url(), {waitUntil: 'domcontentloaded'});
+    await fetchEmails('RESOLVED');
+    h.assert(await cards().count() === 1 && await manager.locator(`#emailStatus${failedLog}`).count() === 1,
+      'The RESOLVED filter did not isolate the resolved row after reload');
+    h.assert((await manager.locator(`#emailStatus${failedLog}`).innerText()).trim() === 'RESOLVED',
+      'The reloaded card does not show the stored RESOLVED status');
+    h.assert(await manager.locator(`#btnResolve${failedLog}`).count() === 0,
+      'The reloaded resolved row still offers Resolve');
   });
 }
 
