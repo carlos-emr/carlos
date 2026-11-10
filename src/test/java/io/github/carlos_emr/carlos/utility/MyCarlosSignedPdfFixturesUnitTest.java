@@ -159,60 +159,80 @@ class MyCarlosSignedPdfFixturesUnitTest {
         }
         Sig only = pdfFacts.signatures().get(0);
         switch (expect) {
-            case "verified" -> {
-                assertWholeFileAndValid(only, pdf);
-                assertThat(only.subFilter()).isEqualTo(PDSignature.SUBFILTER_ETSI_CADES_DETACHED.getName());
-                assertThat(only.signerSpki()).isEqualTo(signerSpki);
-                JsonNode manifest = new ObjectMapper().readTree(declaredManifest);
-                assertThat(manifest.get("kid").asText()).isEqualTo(MyCarlosSignedPdfFixtures.kidFromSeed(MyCarlosSignedPdfFixtures.CLINIC_A_SEED));
-                assertThat(manifest.get("recipient_id").asText()).isEqualTo(MyCarlosSignedPdfFixtures.RECIPIENT_ID);
-                assertThat(manifest.get("clinic_id").asText()).isEqualTo(MyCarlosSignedPdfFixtures.CLINIC_ID);
-                assertThat(isExactManifest(declaredManifest)).as("accepted as a manifest").isTrue();
-            }
-            case "signed_not_matched" -> {
-                assertWholeFileAndValid(only, pdf);
-                assertThat(declaredManifest == null || new ObjectMapper().readTree(declaredManifest).get("recipient_id").isNull())
-                        .as("no manifest, or a manifest with no recipient").isTrue();
-                assertThat(declaredManifest == null || isExactManifest(declaredManifest)).as("accepted as a manifest").isTrue();
-            }
-            case "bad_signature" -> {
-                assertThat(only.coversWholeFile(pdf.length)).isTrue();
-                assertThat(only.cmsValid()).isFalse();
-            }
-            case "extra_update" -> {
-                assertThat(only.cmsValid()).isTrue();
-                assertThat(only.coversWholeFile(pdf.length)).isFalse();
-                assertThat(tailAfter(only, pdf)).contains("startxref");
-                assertThat(pdfFacts.title()).isEqualTo(MyCarlosSignedPdfFixtures.EXTRA_UPDATE_TITLE);
-            }
-            case "incomplete_range" -> {
-                assertThat(only.cmsValid()).isTrue();
-                assertThat(only.coversWholeFile(pdf.length)).isFalse();
-                assertThat(tailAfter(only, pdf)).doesNotContain("startxref").doesNotContain("xref");
-            }
-            case "kid_mismatch" -> {
-                assertWholeFileAndValid(only, pdf);
-                assertThat(only.signerSpki()).isEqualTo(signerSpki);
-                assertThat(new ObjectMapper().readTree(declaredManifest).get("kid").asText())
-                        .isEqualTo(MyCarlosSignedPdfFixtures.kidFromSeed(MyCarlosSignedPdfFixtures.CLINIC_B_SEED));
-                // Well formed: only the key ID is wrong.
-                assertThat(isExactManifest(declaredManifest)).as("accepted as a manifest").isTrue();
-            }
-            case "not_p256" -> {
-                assertWholeFileAndValid(only, pdf);
-                assertThat(only.keyAlgorithm()).isEqualTo("RSA");
-            }
-            case "two_signatures" -> {
-                assertThat(pdfFacts.signatures()).hasSize(2);
-                assertThat(pdfFacts.signatures()).allMatch(Sig::cmsValid);
-                assertThat(pdfFacts.signatures().get(1).coversWholeFile(pdf.length)).isTrue();
-            }
-            case "bad_manifest" -> {
-                assertWholeFileAndValid(only, pdf);
-                assertThat(isExactManifest(declaredManifest)).as("refused as a manifest").isFalse();
-            }
+            case "verified" -> assertVerifiedFixture(only, pdf, signerSpki, declaredManifest);
+            case "signed_not_matched" -> assertSignedNotMatchedFixture(only, pdf, declaredManifest);
+            case "bad_signature" -> assertBadSignatureFixture(only, pdf);
+            case "extra_update" -> assertExtraUpdateFixture(only, pdf, pdfFacts);
+            case "incomplete_range" -> assertIncompleteRangeFixture(only, pdf);
+            case "kid_mismatch" -> assertKidMismatchFixture(only, pdf, signerSpki, declaredManifest);
+            case "not_p256" -> assertNonP256Fixture(only, pdf);
+            case "two_signatures" -> assertTwoSignaturesFixture(pdfFacts, pdf);
+            case "bad_manifest" -> assertBadManifestFixture(only, pdf, declaredManifest);
             default -> throw new AssertionError("Unknown expect value " + expect);
         }
+    }
+
+    private static void assertVerifiedFixture(
+            Sig only, byte[] pdf, String signerSpki, byte[] declaredManifest) throws Exception {
+        assertWholeFileAndValid(only, pdf);
+        assertThat(only.subFilter()).isEqualTo(PDSignature.SUBFILTER_ETSI_CADES_DETACHED.getName());
+        assertThat(only.signerSpki()).isEqualTo(signerSpki);
+        JsonNode manifest = new ObjectMapper().readTree(declaredManifest);
+        assertThat(manifest.get("kid").asText()).isEqualTo(MyCarlosSignedPdfFixtures.kidFromSeed(MyCarlosSignedPdfFixtures.CLINIC_A_SEED));
+        assertThat(manifest.get("recipient_id").asText()).isEqualTo(MyCarlosSignedPdfFixtures.RECIPIENT_ID);
+        assertThat(manifest.get("clinic_id").asText()).isEqualTo(MyCarlosSignedPdfFixtures.CLINIC_ID);
+        assertThat(isExactManifest(declaredManifest)).as("accepted as a manifest").isTrue();
+    }
+
+    private static void assertSignedNotMatchedFixture(Sig only, byte[] pdf, byte[] declaredManifest) throws Exception {
+        assertWholeFileAndValid(only, pdf);
+        assertThat(declaredManifest == null || new ObjectMapper().readTree(declaredManifest).get("recipient_id").isNull())
+                .as("no manifest, or a manifest with no recipient").isTrue();
+        assertThat(declaredManifest == null || isExactManifest(declaredManifest)).as("accepted as a manifest").isTrue();
+    }
+
+    private static void assertBadSignatureFixture(Sig only, byte[] pdf) {
+        assertThat(only.coversWholeFile(pdf.length)).isTrue();
+        assertThat(only.cmsValid()).isFalse();
+    }
+
+    private static void assertExtraUpdateFixture(Sig only, byte[] pdf, Inspection pdfFacts) {
+        assertThat(only.cmsValid()).isTrue();
+        assertThat(only.coversWholeFile(pdf.length)).isFalse();
+        assertThat(tailAfter(only, pdf)).contains("startxref");
+        assertThat(pdfFacts.title()).isEqualTo(MyCarlosSignedPdfFixtures.EXTRA_UPDATE_TITLE);
+    }
+
+    private static void assertIncompleteRangeFixture(Sig only, byte[] pdf) {
+        assertThat(only.cmsValid()).isTrue();
+        assertThat(only.coversWholeFile(pdf.length)).isFalse();
+        assertThat(tailAfter(only, pdf)).doesNotContain("startxref").doesNotContain("xref");
+    }
+
+    private static void assertKidMismatchFixture(
+            Sig only, byte[] pdf, String signerSpki, byte[] declaredManifest) throws Exception {
+        assertWholeFileAndValid(only, pdf);
+        assertThat(only.signerSpki()).isEqualTo(signerSpki);
+        assertThat(new ObjectMapper().readTree(declaredManifest).get("kid").asText())
+                .isEqualTo(MyCarlosSignedPdfFixtures.kidFromSeed(MyCarlosSignedPdfFixtures.CLINIC_B_SEED));
+        // Well formed: only the key ID is wrong.
+        assertThat(isExactManifest(declaredManifest)).as("accepted as a manifest").isTrue();
+    }
+
+    private static void assertNonP256Fixture(Sig only, byte[] pdf) {
+        assertWholeFileAndValid(only, pdf);
+        assertThat(only.keyAlgorithm()).isEqualTo("RSA");
+    }
+
+    private static void assertTwoSignaturesFixture(Inspection pdfFacts, byte[] pdf) {
+        assertThat(pdfFacts.signatures()).hasSize(2);
+        assertThat(pdfFacts.signatures()).allMatch(Sig::cmsValid);
+        assertThat(pdfFacts.signatures().get(1).coversWholeFile(pdf.length)).isTrue();
+    }
+
+    private static void assertBadManifestFixture(Sig only, byte[] pdf, byte[] declaredManifest) {
+        assertWholeFileAndValid(only, pdf);
+        assertThat(isExactManifest(declaredManifest)).as("refused as a manifest").isFalse();
     }
 
     @Test
