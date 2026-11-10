@@ -20,21 +20,32 @@ def unique_object(pairs):
     return result
 
 
+def verify_manifest(path, name):
+    if name not in CONTRACTS:
+        return {'file': name, 'problem': 'unregistered-manifest'}
+    kind, version = CONTRACTS[name]
+    path = Path(path)
+    try:
+        if not path.is_file() or path.stat().st_size > 32 * 1024 * 1024:
+            raise ValueError('Manifest is missing or oversized')
+        document = json.loads(path.read_text(encoding='utf-8'), object_pairs_hook=unique_object)
+        if (not isinstance(document, dict) or document.get('kind') != kind
+                or type(document.get('format')) is not int or document['format'] != version):
+            raise ValueError('Manifest header differs from the shipped contract')
+    except (OSError, ValueError):
+        return {'file': name, 'expectedKind': kind, 'expectedFormat': version}
+    return None
+
+
 def verify(directory):
     problems = []
     formats = {}
-    for name, (kind, version) in CONTRACTS.items():
-        path = Path(directory) / name
-        try:
-            if not path.is_file() or path.stat().st_size > 32 * 1024 * 1024:
-                raise ValueError('Manifest is missing or oversized')
-            document = json.loads(path.read_text(encoding='utf-8'), object_pairs_hook=unique_object)
-            if (not isinstance(document, dict) or document.get('kind') != kind
-                    or type(document.get('format')) is not int or document['format'] != version):
-                raise ValueError('Manifest header differs from the shipped contract')
+    for name, (_kind, version) in CONTRACTS.items():
+        problem = verify_manifest(Path(directory) / name, name)
+        if problem is not None:
+            problems.append(problem)
+        else:
             formats[name] = version
-        except (OSError, ValueError):
-            problems.append({'file': name, 'expectedKind': kind, 'expectedFormat': version})
     return {'ready': not problems, 'formats': formats, 'problems': problems}
 
 

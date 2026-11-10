@@ -383,3 +383,26 @@ bytes/metadata and the encryption key, verifies the candidate application and
 cleans its owned canary. These receipts qualify the local canonical candidate;
 supported published N-1, both-province and broader lifecycle acceptance remain
 separate requirements.
+
+Fresh isolated snapshot29/CLI 1.3.2 installations now pass all seven strict
+checks on both ON and BC, with no failures or skips and retained JUnit receipts.
+Each installed application matches all 6,289 tested classes and 32 recent
+JSP/resource changes. Their CML checks cover all four versions, bulk Select All,
+the separate Ajax route, exact source/preference restoration and no clinical
+measurement mutation. The interrupted OOM attempt is not counted as a pass.
+
+An actual same-candidate BC APT reinstall preserved clinical cells, stored
+document bytes/metadata and the encryption key, but exposed a stale verifier
+that required format 1 for every OSCAR 19 manifest. CLI 1.3.2 requires schema
+format 2 while properties/preflight remain format 1. The verifier now checks
+each exact kind and integer format; stale, malformed, boolean and substituted
+envelopes fail. Eight new evidence tests and all 63 affected Node upgrade tests
+pass. All eight cases are required by the release matrix. The original failed
+receipt remains failed; its application bytes and owned canary were reconciled
+before a fresh reinstall retake. That actual BC retake passes all nine
+assertions, including the full application binding, upgrade contract and owned
+canary cleanup. Clinical cells, documents, configuration and the encryption key
+are preserved. The complete updated tooling suite passes 386 cases; the
+eight manifest cases also pass with explicit rejection of unrelated exception
+output. The matrix retains 40 workstreams and 92 checks. These bounded results
+do not qualify the still-required published-predecessor lifecycle matrix.

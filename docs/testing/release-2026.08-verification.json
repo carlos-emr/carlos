@@ -749,9 +749,10 @@
         "scripts/ci/run-package-lifecycle.py",
         "scripts/ci/run-package-lifecycle-cell.py",
         "scripts/ci/installed_o19_manifests.py",
-        "scripts/ci/test_installed_o19_manifests.py"
+        "scripts/ci/test_installed_o19_manifests.py",
+        "scripts/ci/test_upgrade_manifest_contract.py"
       ],
-      "implementation": "Run real clean-install, predecessor-upgrade, reconfigure and data-preserving reinstall on the supported packaged OS; reconcile main-only host/MariaDB recovery fixes. Test both app and DrugRef locks and pinned carlos-ctl 1.3.0.",
+      "implementation": "Run real clean-install, predecessor-upgrade, reconfigure and data-preserving reinstall on the supported packaged OS; reconcile main-only host/MariaDB recovery fixes. Test both app and DrugRef locks and the separately pinned candidate CLI and unchanged published predecessor CLIs.",
       "cases": "Installed version/build identity; MariaDB system tables and existing clinical datadir; IPv4/IPv6 nginx default sites; ports in use; cert renewal, service user/modes/paths; paused import guard; dependency-lock enforcement; app/DrugRef startup; failed configure and recovery; published predecessor version layouts; no source-copied fixtures substituted for package files.",
       "acceptance": "Fresh install and supported upgrade/reinstall preserve data, configuration and keys, restore service correctly, and exercise the actual built .deb/WAR and pinned CLI.",
       "requiredChecks": [
@@ -1215,7 +1216,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 381,
+      "minimumCases": 389,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1526,6 +1527,14 @@
         "test_spotbugs_xml_to_sarif.SpotBugsXmlToSarifTest.test_malformed_xml_fails_without_upload_artifacts",
         "test_spotbugs_xml_to_sarif.SpotBugsXmlToSarifTest.test_no_findings_produces_an_empty_sarif_run_and_zero_metrics",
         "test_spotbugs_xml_to_sarif.SpotBugsXmlToSarifTest.test_only_locatable_security_findings_are_uploaded_and_counted",
+        "test_upgrade_manifest_contract.UpgradeManifestContractTest.test_boolean_string_float_and_missing_formats_cannot_qualify",
+        "test_upgrade_manifest_contract.UpgradeManifestContractTest.test_current_shipped_manifests_match_the_installed_cli_contract",
+        "test_upgrade_manifest_contract.UpgradeManifestContractTest.test_nonobject_malformed_and_missing_files_cannot_qualify",
+        "test_upgrade_manifest_contract.UpgradeManifestContractTest.test_schema_format_one_cannot_qualify_the_billing_helper_manifest",
+        "test_upgrade_manifest_contract.UpgradeManifestContractTest.test_schema_format_two_does_not_change_other_envelopes",
+        "test_upgrade_manifest_contract.UpgradeManifestContractTest.test_unknown_formats_cannot_qualify",
+        "test_upgrade_manifest_contract.UpgradeManifestContractTest.test_unknown_manifest_name_cannot_qualify",
+        "test_upgrade_manifest_contract.UpgradeManifestContractTest.test_wrong_or_missing_kind_cannot_substitute_another_manifest",
         "test_verify_release_evidence.DiscoveryTest.test_nested_parameterized_dynamic_and_missing_sources_are_reconciled",
         "test_verify_release_evidence.ReleaseEvidenceTest.test_binary_artifact_binding_is_rechecked_at_final_verification",
         "test_verify_release_evidence.ReleaseEvidenceTest.test_binary_comparison_requires_artifact_without_requiring_an_installed_server",
@@ -7119,6 +7128,22 @@
       ],
       "workstreams": [
         "T08"
+      ]
+    },
+    "scripts/deb-upgrade-verify.sh": {
+      "reason": "Verify the candidate CLI schema-format-2 envelope and format-1 companion manifests without accepting booleans, malformed JSON or wrong kinds; preserve all installed upgrade and data-retention checks.",
+      "tests": [
+        "scripts/ci/test_upgrade_manifest_contract.py",
+        "scripts/deb-upgrade-snapshot.test.js",
+        "scripts/ci/test_installed_o19_manifests.py"
+      ],
+      "checks": [
+        "evidence-self-tests",
+        "node-all",
+        "installed-package-reinstall"
+      ],
+      "workstreams": [
+        "T26"
       ]
     }
   },
