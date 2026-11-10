@@ -120,6 +120,7 @@ class MariaDbCompatibilityDriverNumberUnitTest {
             assertThat(rows.getObject(TINY_FLAG, Boolean.class)).isEqualTo(expected);
             assertThat(rows.getBoolean(TINY_FLAG)).isEqualTo(Boolean.TRUE.equals(expected));
             assertThat(rows.wasNull()).isEqualTo(value == null);
+            assertThat(rows.getString(TINY_FLAG)).isEqualTo(value == null ? null : value.toString());
         });
     }
 
@@ -216,7 +217,7 @@ class MariaDbCompatibilityDriverNumberUnitTest {
         values.put(NULL_BIT, null);
         values.put(NULL_DOUBLE, null);
         Map<Integer, String> serverText = Map.of(DOUBLE, "100", FLOAT, "10000000", FLAG, "b'1'",
-                WIDE_BIT, "b'1000000000000000000000000000000000000000000000000000000000000000'", TINY_FLAG, "-1",
+                WIDE_BIT, "b'1000000000000000000000000000000000000000000000000000000000000000'", TINY_FLAG, String.valueOf(tinyFlag),
                 TEXT, "server text");
         ResultSetMetaData metadata = mock(ResultSetMetaData.class);
         int[] types = {0, Types.DOUBLE, Types.REAL, Types.BIT, Types.BIT, Types.BIT, Types.VARCHAR, Types.BIT, Types.DOUBLE};
