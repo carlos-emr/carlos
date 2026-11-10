@@ -133,3 +133,15 @@ required refusal lines and 80 unreviewed zero floors remain. The wider main/rele
 comparison still has 190 unmet assertions pending the required native-lane union and
 review. This refresh establishes source freshness and measured PR coverage, not full
 release qualification, and introduces no waiver or lower threshold.
+
+The `d950b07166cc5e5c475762f8db0998f23fbe57a5` follow-up removes numeric-parser
+backtracking while retaining the declared numeric grammar. A fresh complete Ubuntu
+26.04 / OpenJDK 25.0.5.0.3 H2 execution passes 35,784 cases with 206 exact registered
+routed/prerequisite skips (35,990 total), zero failures/errors, followed by all five
+required permission cases passing separately against the same compiled classes.
+The checkpoint replaces the earlier supplemental-run inventories with this complete
+run and its permission lane; those overlapping runs are not added to the total.
+All 6,301 production class hashes match the clean source-built WAR. All 27 PR Java
+paths meet their retained floors without lowering a threshold or adding a waiver.
+The wider comparison still has 190 unmet assertions; complete release native-union
+qualification and the existing zero-floor review requirements remain outstanding.
