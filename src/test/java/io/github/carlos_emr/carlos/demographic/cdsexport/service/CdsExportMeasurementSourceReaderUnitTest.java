@@ -89,6 +89,33 @@ class CdsExportMeasurementSourceReaderUnitTest {
     }
 
     @Test
+    void shouldCaptureDeletedCareWithItsExplicitSupportingSelection_withoutMutatingTheSingleton() {
+        var dao = mock(MeasurementsDeletedDao.class);
+        var singleton = new CdsExportDeletedMeasurementSourceReader(dao);
+        when(dao.countCdsExportRows(27)).thenReturn(1L);
+        var command =
+                new io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand(
+                        "deleted-proof",
+                        "999998",
+                        null,
+                        io.github.carlos_emr.carlos.demographic.cds.contract.CdsLogicalProfile
+                                .ONTARIO_MD_5_2,
+                        io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand
+                                .Selection.SELECTED_PATIENTS,
+                        List.of(),
+                        List.of(27),
+                        Set.of(
+                                CdsCategory.DEMOGRAPHICS,
+                                CdsCategory.CARE_ELEMENTS,
+                                CdsCategory.NEW_CATEGORY),
+                        "receiver",
+                        "audit");
+        assertThat(singleton.forRequest(command).count(27)).isEqualTo(1L);
+        assertThatThrownBy(() -> singleton.count(27)).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        verify(dao, never()).findCdsExportRowsAfter(anyInt(), nullable(Long.class), anyInt());
+    }
+
+    @Test
     void shouldKeepLargeUnicodeCareValues_andNullAndEmptyFieldsDistinct() throws Exception {
         String body = "Complete native care 😀 & literal text\r\n".repeat(2000);
         byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
@@ -168,7 +195,7 @@ class CdsExportMeasurementSourceReaderUnitTest {
     }
 
     @Test
-    void shouldRefuseDeletedCareBeforeAnyPayloadRead_untilItsAuditCarrierIsQualified() {
+    void shouldRefuseDeletedCareBeforeAnyPayloadRead_whenSupportingHistoryIsExcluded() {
         var dao = mock(MeasurementsDeletedDao.class);
         var deleted = new CdsExportDeletedMeasurementSourceReader(dao);
         when(dao.countCdsExportRows(27)).thenReturn(1L);

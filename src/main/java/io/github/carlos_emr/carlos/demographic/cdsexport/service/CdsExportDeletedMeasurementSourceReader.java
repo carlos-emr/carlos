@@ -27,17 +27,50 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 
-/** Complete patient-owned care projection. Deleted observations require a qualified audit carrier before any payload capture. */
+/** Complete deleted-observation projection, with an explicit request-bound supporting carrier gate. */
 @Service
 public class CdsExportDeletedMeasurementSourceReader extends CdsExportPatientTableSourceReader {
+    private final MeasurementsDeletedDao source;
+    private final boolean supporting;
+
+    @org.springframework.beans.factory.annotation.Autowired
     public CdsExportDeletedMeasurementSourceReader(MeasurementsDeletedDao source) {
-        super(source, CdsExportPatientTableReadSupport.Plan.MEASUREMENTS_DELETED, Set.of(CdsCategory.CARE_ELEMENTS));
+        this(source, false);
     }
-    @Override public Set<String> requiredTables() { return Set.of("measurements", "measurementsExt", "measurementsDeleted", "measurementType"); }
-    @Override public long count(int patient) {
+
+    private CdsExportDeletedMeasurementSourceReader(
+            MeasurementsDeletedDao source, boolean supporting) {
+        super(
+                source,
+                CdsExportPatientTableReadSupport.Plan.MEASUREMENTS_DELETED,
+                Set.of(CdsCategory.CARE_ELEMENTS));
+        this.source = java.util.Objects.requireNonNull(source);
+        this.supporting = supporting;
+    }
+
+    @Override
+    public CdsExportNativeSourceReader forRequest(
+            io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand command) {
+        return new CdsExportDeletedMeasurementSourceReader(
+                source,
+                java.util.Objects.requireNonNull(command)
+                        .categories()
+                        .contains(CdsCategory.NEW_CATEGORY));
+    }
+
+    @Override
+    public Set<String> requiredTables() {
+        return Set.of("measurements", "measurementsExt", "measurementsDeleted", "measurementType");
+    }
+
+    @Override
+    public long count(int patient) {
         long count = super.count(patient);
-        if (count != 0) throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException(
-                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException.Reason.UNMAPPED_DATA);
+        if (count != 0 && !supporting)
+            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                    .CdsExportReviewException(
+                    io.github.carlos_emr.carlos.demographic.cdsexport.support
+                            .CdsExportReviewException.Reason.UNMAPPED_DATA);
         return count;
     }
 }
