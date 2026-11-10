@@ -143,16 +143,25 @@ public class CdsImportUnitDao extends AbstractDaoImpl<CdsImportUnit>
     public List<io.github.carlos_emr.carlos.commn.dto.CdsImportUnitMetadataDto> metadataPage(
             String runId, String patientKey, String afterKey, int limit) {
         io.github.carlos_emr.carlos.utility.CdsImportKeys.pageSize(limit);
-        String projection =
-                "select new io.github.carlos_emr.carlos.commn.dto.CdsImportUnitMetadataDto("
-                    + "u.patientKey,u.unitKey,u.category,u.ordinal,u.sourceDigest,u.spoolLocation,u.state,u.targetReferences,u.targetDigest)"
-                    + " from CdsImportUnit u where u.runId=:run and u.unitKey>:after";
         var query =
-                entityManager.createQuery(
-                        projection
-                                + (patientKey == null ? "" : " and u.patientKey=:patient")
-                                + " order by u.unitKey",
-                        io.github.carlos_emr.carlos.commn.dto.CdsImportUnitMetadataDto.class);
+                patientKey == null
+                        ? entityManager.createQuery(
+                                "select new"
+                                    + " io.github.carlos_emr.carlos.commn.dto.CdsImportUnitMetadataDto("
+                                    + "u.patientKey,u.unitKey,u.category,u.ordinal,u.sourceDigest,u.spoolLocation,u.state,u.targetReferences,u.targetDigest)"
+                                    + " from CdsImportUnit u where u.runId=:run and"
+                                    + " u.unitKey>:after order by u.unitKey",
+                                io.github.carlos_emr.carlos.commn.dto.CdsImportUnitMetadataDto
+                                        .class)
+                        : entityManager.createQuery(
+                                "select new"
+                                    + " io.github.carlos_emr.carlos.commn.dto.CdsImportUnitMetadataDto("
+                                    + "u.patientKey,u.unitKey,u.category,u.ordinal,u.sourceDigest,u.spoolLocation,u.state,u.targetReferences,u.targetDigest)"
+                                    + " from CdsImportUnit u where u.runId=:run and"
+                                    + " u.unitKey>:after and u.patientKey=:patient order by"
+                                    + " u.unitKey",
+                                io.github.carlos_emr.carlos.commn.dto.CdsImportUnitMetadataDto
+                                        .class);
         query.setParameter("run", runId).setParameter("after", afterKey).setMaxResults(limit);
         if (patientKey != null) query.setParameter("patient", patientKey);
         return query.getResultList();

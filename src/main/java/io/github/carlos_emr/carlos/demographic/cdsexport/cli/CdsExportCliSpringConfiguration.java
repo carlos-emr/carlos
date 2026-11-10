@@ -253,7 +253,7 @@ public class CdsExportCliSpringConfiguration {
     }
 
     @Bean
-    public io.github.carlos_emr.carlos.commn.dao.PrescriptionDaoImpl prescriptionDao() {
+    public io.github.carlos_emr.carlos.commn.dao.PrescriptionDaoImpl prescriptionDaoImpl() {
         return new io.github.carlos_emr.carlos.commn.dao.PrescriptionDaoImpl();
     }
 

@@ -30,7 +30,9 @@ import org.springframework.stereotype.Service;
 /** Printed script history and comments are independent clinical source, including scripts without drug rows. */
 @Service
 public class CdsExportPrescriptionSourceReader extends CdsExportPatientTableSourceReader {
-    public CdsExportPrescriptionSourceReader(PrescriptionDao source) {
+    public CdsExportPrescriptionSourceReader(
+            @org.springframework.beans.factory.annotation.Qualifier("prescriptionDaoImpl")
+                    PrescriptionDao source) {
         super(
                 source,
                 CdsExportPatientTableReadSupport.Plan.PRESCRIPTIONS,

@@ -2014,6 +2014,11 @@
               "name": "shouldRejectAnExactFloatChange_hiddenByTheOriginalSqlReceipt",
               "container": "",
               "check": "java-cds-transfer-import"
+            },
+            {
+              "name": "shouldCancelASlowBinaryRead_whenTimeoutIsSetAfterItsMetadataPrepare",
+              "container": "",
+              "check": "java-cds-transfer-import"
             }
           ]
         },
@@ -3270,6 +3275,11 @@
               "name": "shouldNormalizeProgramAccessMapKeys_asTheActiveReaderDoes",
               "container": "",
               "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldReadExactBatchScopes_andRejectMissingForeignLockedAndConflictingRevisions",
+              "container": "",
+              "check": "java-cds-transfer-export"
             }
           ]
         },
@@ -3620,6 +3630,21 @@
               "name": "shouldRefuseANumericTextPatientAlias_withoutHidingItBehindCanonicalStringEquality",
               "container": "",
               "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldAllowReviewedProviderPreferencesAndReportDefinitions_withoutReadingTheirContents",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldUseTheNumericPatientIndex_forLargeUnrelatedHospitalReportLinkSets",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldPreserveLegacyHrmPositionalInsertsAndSelectStar_withTheIndexedDerivedKey",
+              "container": "",
+              "check": "java-cds-transfer-export"
             }
           ]
         },
@@ -3861,6 +3886,16 @@
               "name": "shouldKeepTheOriginalLargeValueAndRowHashesInOneSnapshot_acrossAConcurrentNativeEdit",
               "container": "",
               "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldCaptureOnlyThePatientsCompletePrintedScriptHistory_withExactLargeComments",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldDiscoverThePatientsBoundedDrugCatalogueKeys_withoutReadingOrSendingChartPayloads",
+              "container": "",
+              "check": "java-cds-transfer-export"
             }
           ]
         },
@@ -4074,6 +4109,31 @@
             },
             {
               "name": "shouldVerifyActualPinnedNativeSchema_beforeCapturingEveryDeclaredColumn",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.commn.dao.CdsExportIndirectPatientScopeMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "shouldResolveFormChildOwnership_onActualMariaDbAndKeepOrphansBlocking",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldResolveTheWholeDocumentLink_onActualMariaDbWithoutTreatingProviderModulesAsPatients",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldPrepareTheActualInstalledLabFixture_onTheStrictPhysicalSchemaBeforePackaging(Path)",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldKeepLegacyLabTypesDistinct_onActualMariaDbAndRefuseAnOrphanProviderRoute",
               "container": "",
               "check": "java-cds-transfer-export"
             }
