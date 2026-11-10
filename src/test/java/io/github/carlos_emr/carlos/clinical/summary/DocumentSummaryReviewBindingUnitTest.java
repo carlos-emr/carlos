@@ -324,7 +324,7 @@ class DocumentSummaryReviewBindingUnitTest {
                         "revisado por el profesional de la salud FAKE Reviewer el " + REVIEWED, "no confíe en este resumen."),
                 new Case("pl", "carlos-5537-pl-1", "Pomoc w czytaniu wygenerowana przez AI — proszę otworzyć oryginalny dokument\n",
                         "Status weryfikacji: ", "weryfikacja niepotwierdzona",
-                        "zweryfikowano przez pracownika ochrony zdrowia FAKE Reviewer w dniu " + REVIEWED,
+                        "zweryfikowane przez pracownika ochrony zdrowia FAKE Reviewer w dniu " + REVIEWED,
                         "nie należy polegać na tym streszczeniu."),
                 new Case("pt-BR", "carlos-5537-pt-BR-1", "Auxílio de leitura gerado por IA — abra o documento original\n",
                         "Situação da revisão: ", "revisão não confirmada",
@@ -344,6 +344,12 @@ class DocumentSummaryReviewBindingUnitTest {
         }
         // Polish says przychodnia for the clinic, never klinika; the three versions are distinct.
         assertThat(DocumentSummaryReviewBinding.unreviewedNotice("pl")).contains("przychodni").doesNotContainIgnoringCase("klinik");
+        // The wording fixes of 10 Nov 2026.
+        assertThat(DocumentSummaryReviewBinding.unreviewedNotice("es"))
+                .contains("ni a las indicaciones", "servicios de urgencias o emergencias correspondientes");
+        assertThat(DocumentSummaryReviewBinding.unreviewedNotice("pl"))
+                .contains("W razie nagłego problemu zdrowotnego proszę skontaktować się")
+                .doesNotContain("W nagłych problemach");
         assertThat(java.util.Set.of(DocumentSummaryReviewBinding.NOTICE_VERSION, DocumentSummaryReviewBinding.NOTICE_VERSION_FR,
                 DocumentSummaryReviewBinding.NOTICE_VERSION_ES, DocumentSummaryReviewBinding.NOTICE_VERSION_PL,
                 DocumentSummaryReviewBinding.NOTICE_VERSION_PT_BR)).hasSize(5);

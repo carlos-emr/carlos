@@ -71,11 +71,11 @@ public final class DocumentSummaryReviewBinding {
             "Este resumen opcional fue generado por inteligencia artificial a partir del documento vinculado. "
             + "Puede contener afirmaciones incorrectas o engañosas, u omitir información importante, "
             + "incluida la relativa a medicamentos, dosis y resultados de pruebas.\n\n"
-            + "No sustituye al documento original ni las indicaciones de su equipo de atención médica. Abra el "
+            + "No sustituye al documento original ni a las indicaciones de su equipo de atención médica. Abra el "
             + "documento original para obtener la información completa. No inicie, suspenda, cambie ni retrase "
             + "un tratamiento basándose únicamente en este resumen. Comuníquese con su clínica si algo no está "
             + "claro o difiere del original. Ante un problema médico urgente, comuníquese con los servicios de "
-            + "urgencias correspondientes; no confíe en este resumen.";
+            + "urgencias o emergencias correspondientes; no confíe en este resumen.";
     private static final String NOTICE_HEADING_PL = "Pomoc w czytaniu wygenerowana przez AI — proszę otworzyć oryginalny dokument";
     private static final String NOTICE_BODY_PL =
             "To opcjonalne streszczenie zostało wygenerowane przez sztuczną inteligencję na podstawie "
@@ -84,7 +84,7 @@ public final class DocumentSummaryReviewBinding {
             + "Nie zastępuje oryginalnego dokumentu ani zaleceń zespołu opieki zdrowotnej. Proszę otworzyć "
             + "oryginalny dokument, aby uzyskać pełne informacje. Nie należy rozpoczynać, przerywać, zmieniać "
             + "ani odkładać leczenia wyłącznie na podstawie tego streszczenia. Jeśli coś jest niejasne lub "
-            + "różni się od oryginału, proszę skontaktować się z przychodnią. W nagłych problemach zdrowotnych "
+            + "różni się od oryginału, proszę skontaktować się z przychodnią. W razie nagłego problemu zdrowotnego "
             + "proszę skontaktować się z odpowiednimi służbami ratunkowymi; nie należy polegać na tym streszczeniu.";
     private static final String NOTICE_HEADING_PT_BR = "Auxílio de leitura gerado por IA — abra o documento original";
     private static final String NOTICE_BODY_PT_BR =
@@ -468,7 +468,7 @@ public final class DocumentSummaryReviewBinding {
         return switch (known(language)) {
             case "fr" -> "révisé par le professionnel de la santé " + reviewer + " le " + at;
             case "es" -> "revisado por el profesional de la salud " + reviewer + " el " + at;
-            case "pl" -> "zweryfikowano przez pracownika ochrony zdrowia " + reviewer + " w dniu " + at;
+            case "pl" -> "zweryfikowane przez pracownika ochrony zdrowia " + reviewer + " w dniu " + at;
             case "pt-BR" -> "revisado pelo profissional de saúde " + reviewer + " em " + at;
             default -> "Reviewed by clinician " + reviewer + " on " + at;
         };
