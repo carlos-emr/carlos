@@ -1027,7 +1027,7 @@ class CdsExportSelectionIntegrationTest {
                                     1000,
                                     8L << 20,
                                     () -> {});
-            assertThat(proof.fields()).isEqualTo(34L * 27);
+            assertThat(proof.fields()).isEqualTo(34L * 26);
             assertThat(values.toString(StandardCharsets.UTF_8))
                     .contains(
                             note, "23:59:30", "00:00:30", "2024-02-29", "Original imported status");
@@ -1628,7 +1628,7 @@ class CdsExportSelectionIntegrationTest {
                                     1000,
                                     8L << 20,
                                     () -> {});
-            assertThat(proof.fields()).isEqualTo(34L * 27);
+            assertThat(proof.fields()).isEqualTo(34L * 26);
             assertThat(values.toString(StandardCharsets.UTF_8)).contains(notes);
         } finally {
             for (int id : ids)

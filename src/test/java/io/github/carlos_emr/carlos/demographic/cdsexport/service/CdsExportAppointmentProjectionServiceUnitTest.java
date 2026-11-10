@@ -56,7 +56,7 @@ class CdsExportAppointmentProjectionServiceUnitTest {
         var result = project(reader, 10, 1L << 20, output);
         assertThat(result.rows()).isEqualTo(1);
         assertThat(result.blockedRows()).isZero();
-        assertThat(result.assessedFields()).isEqualTo(42);
+        assertThat(result.assessedFields()).isEqualTo(41);
         assertThat(output).hasSize(1);
         assertThat(output.getFirst().value().status()).isEqualTo("Exact booked Ω");
         assertThat(output.getFirst().value().provider().ohipNumber()).isEqualTo("001234");

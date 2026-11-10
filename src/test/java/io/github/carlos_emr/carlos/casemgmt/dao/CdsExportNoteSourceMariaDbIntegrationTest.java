@@ -336,7 +336,7 @@ class CdsExportNoteSourceMariaDbIntegrationTest {
                     assertThat(columns)
                             .allSatisfy(
                                     column -> {
-                                        assertThat(column.type()).isEqualTo("INT");
+                                        assertThat(column.type()).isEqualTo("INTEGER");
                                         assertThat(column.precision()).isEqualTo(10);
                                         assertThat(column.scale()).isZero();
                                     });

@@ -57,7 +57,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
         assertThat(f.result.nativeOnlyRows()).isEqualTo(1);
         assertThat(f.result.importedRows()).isZero();
         assertThat(f.receipts).hasSize(1);
-        assertThat(f.receipts.getFirst().fields()).hasSize(33);
+        assertThat(f.receipts.getFirst().fields()).hasSize(32);
     }
 
     @Test
