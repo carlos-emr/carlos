@@ -145,9 +145,8 @@ A failed chart request restores autosave; retrying the chart does not create ano
 revision. The installed editor workflow now injects HTTP 503 after the real compact
 save and checks text, controls, saved identity and duplicate-free retry.
 
-The final full-chart regression changes encounter type through the visible SelectBox
-combo and invokes the production refresh entry point: the current layout no longer
-renders the historical Quick/Full Chart link. On the upgraded Ontario package this
+The full-chart regression changes encounter type through the visible SelectBox
+combo and clicks the modern Quick/Full Chart button. On the upgraded Ontario package this
 passes the real compact save, injected HTTP 503, editable-control and text preservation,
 new revision identity, unchanged prior encounter type, and duplicate-free chart retry.
 The strict residue audit passes. Only the single deliberately injected HTTP response
@@ -192,6 +191,16 @@ and pressed state; opening an already queued note reflects its current selection
 Editor cleanup removes the native control as well as old images.
 The installed recovery workflow verifies both keyboard activation keys after the
 acknowledgement renames the control.
+
+Chart replacement passes the current editor's note identity to the edit action.
+After acquiring a different replacement editor, the action retires only the prior
+provider/patient/note/session lock. A conflicting replacement returns HTTP 409 and
+leaves the prior editor available; ordinary edit routes and independent new notes
+for different clinicians keep their existing behavior. Malformed identities reject
+before mutations, and storage failures propagate to chart-load recovery. The Java
+regressions cover these boundaries and acquisition-before-retirement ordering; the
+installed recovery check verifies that successful retry leaves no stale saved-note
+lock and can close and reopen the chart cleanly.
 
 ## Remaining legacy assets
 

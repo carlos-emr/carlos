@@ -297,6 +297,7 @@ for (const failure of ['503', 'unacknowledged 200', 'different patient', 'setup'
     h.context.caseNote = 'editor1';
     h.context.noteIssuesChanged = false;
     h.context.origCaseNote = h.editor.value;
+    h.form.noteId = { value: '48' };
     Object.assign(h.context, {
       assembleMainChartParams: () => 'demographicNo=123',
       showChartLoadError: (id, status) => errors.push(status),
@@ -305,6 +306,7 @@ for (const failure of ['503', 'unacknowledged 200', 'different patient', 'setup'
     vm.runInContext(source.slice(source.indexOf('    var fullChart ='), source.indexOf('    var socHistoryLabel;')), h.context);
     if (failure === 'setup') h.context.CarlosAjax.request = () => { throw new Error('setup'); };
     h.context.viewFullChart(true);
+    if (failure !== 'setup') assert.equal(h.updates[0].postBody, 'demographicNo=123&previousNoteId=48');
     assert.equal(h.editor.value, 'typed clinical text');
     assert.deepEqual(replacements, []);
     if (failure !== 'setup') {

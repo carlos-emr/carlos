@@ -480,6 +480,21 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             return null;
         }
 
+        Long previousNoteId = null;
+        String previousNote = request.getParameter("previousNoteId");
+        if (previousNote != null) {
+            try {
+                previousNoteId = Long.valueOf(previousNote);
+            } catch (NumberFormatException invalidPreviousNote) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+            if (previousNoteId < 0) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+        }
+
         CaseManagementEntryFormBean cform = new CaseManagementEntryFormBean();
         cform.setChain("");
         request.setAttribute("change_flag", "false");
@@ -738,9 +753,21 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         Long note_id = note.getId() != null && note.getId() >= 0 ? note.getId() : 0L;
         casemgmtNoteLock = isNoteEdited(note_id, demographicNo, providerNo, ipAddress, request.getSession().getId());
 
+        if (previousNoteId != null && (casemgmtNoteLock.isLocked()
+                || !Objects.equals(casemgmtNoteLock.getSessionId(), session.getId()))) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            return NONE;
+        }
+
         if (casemgmtNoteLock.isLocked()) {
             note = makeNewNote(providerNo, demono, request);
             cform.setCaseNote(note);
+        }
+        // A successful chart replacement may open a different editor. Retire only
+        // the originating editor's lock, after acquiring its replacement, and bind
+        // the delete to the authenticated provider, patient and HTTP session.
+        if (previousNoteId != null && !previousNoteId.equals(note_id)) {
+            casemgmtNoteLockDao.removeForSession(providerNo, demographicNo, previousNoteId, session.getId());
         }
         // The legacy autosave must name the final editor note, including an unsigned
         // fallback or the new note substituted when the originally requested one is locked.

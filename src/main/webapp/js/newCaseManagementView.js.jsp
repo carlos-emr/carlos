@@ -445,6 +445,10 @@
 
         var url = chartActionUrl("/CaseManagementEntry");
         var params = assembleMainChartParams(displayFullChart);
+        var editorForm = document.forms["caseManagementEntryForm"];
+        if ($(caseNote) && editorForm && editorForm.noteId) {
+            params += "&previousNoteId=" + encodeURIComponent(editorForm.noteId.value);
+        }
 
         // Keep the live editor until the request succeeds. Freeze its controls
         // after serialization so edits cannot race the replacement response.

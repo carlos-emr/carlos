@@ -534,13 +534,13 @@ async function workflow(s) {
         h.assert(await chart.locator('select.encTypeCombo').inputValue() === encounterType, 'Status refresh reset the unsaved encounter type');
         h.assert(await chart.locator('#observationDate').inputValue() === date, 'Status refresh reset the unsaved date');
         const uuid = sql.value(`SELECT uuid FROM casemgmt_note WHERE note_id=${oldId} AND demographic_no=${patient}`);
+        // Complete the explicit Sign & Save and close before the next case.
+        // Each failure case then starts in a settled editor, independently of
+        // asynchronous lock release from a preceding note-switch operation.
         const dialogs = await h.withExpectedDialogs(chart, async () => {
-          await Promise.all([
-            chart.waitForResponse(response => chartSaveRequest('ajaxsave')(response.request()), {timeout: TIMEOUT}),
-            chart.locator(`#edit${notes.a}`).click({timeout: TIMEOUT}),
-          ]);
+          await pressAndExit(chart, SIGN_SAVE);
         });
-        h.assert(dialogs.length === 1, 'The unsaved clinical changes did not request save confirmation');
+        h.assert(dialogs.length === 0, 'Explicit Sign & Save reported an unexpected refusal');
         await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient} AND uuid=${q(uuid)} AND note_id>${oldId}`, '1', 'Reconciliation did not create exactly one revision');
         notes.b = sql.value(`SELECT MAX(note_id) FROM casemgmt_note WHERE demographic_no=${patient} AND uuid=${q(uuid)}`);
         h.assert(sql.value(`SELECT encounter_type FROM casemgmt_note WHERE note_id=${notes.b} AND demographic_no=${patient}`) === encounterType,
@@ -553,7 +553,9 @@ async function workflow(s) {
           'The status/reconciliation workflow rewrote historical clinical fields');
       }
       const chart = await s.chart();
-      await chart.locator(`#edit${notes.b}`).click({timeout: TIMEOUT});
+      if (await chart.locator(`#n${notes.b} textarea[name="caseNote_note"]`).count() === 0) {
+        await chart.locator(`#edit${notes.b}`).click({timeout: TIMEOUT});
+      }
       await noteField(chart).waitFor({state: 'visible', timeout: TIMEOUT});
       await chart.waitForFunction(() => issueUpdatesPending === 0, null, {timeout: TIMEOUT});
     });
@@ -582,8 +584,7 @@ async function workflow(s) {
         const dialogs = await h.withExpectedDialogs(chart, async () => {
           await Promise.all([
             chart.waitForResponse(response => chartSaveRequest('edit')(response.request()) && response.status() === 503, {timeout: TIMEOUT}),
-            // The current layout omits the old Quick/Full Chart toolbar link.
-            // Execute its production entry point against the real save response.
+            // Exercise the clinician-visible chart toggle against the real save response.
             chart.locator('#quickChart').click({timeout: TIMEOUT}),
           ]);
         });
@@ -631,10 +632,17 @@ async function workflow(s) {
       });
       h.assert(dialogs.length === 0, 'Retrying the chart tried to save the acknowledged note again');
       await chart.waitForFunction(() => !noteSwitchSavePending, null, {timeout: TIMEOUT});
+      await chart.waitForFunction(() => {
+        const form = document.forms.caseManagementEntryForm;
+        const editor = document.getElementById(caseNote);
+        return editor && form.noteId.value === String(Number(editor.parentNode.id.slice(1)));
+      }, null, {timeout: TIMEOUT});
       h.assert(await chart.locator('#encMainDiv').getAttribute('data-chart-patient') === patient,
         'Chart retry did not load the expected patient');
       await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}
         AND uuid=${q(uuid)} AND note_id>${oldId}`, '1', 'Chart retry duplicated the saved revision');
+      await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${patient} AND note_id=${notes.b}`,
+        '0', 'Chart retry retained the saved editor lock after opening a replacement');
       // Consume only the single response deliberately injected by this step.
       // All other HTTP, console, script and cleanup failures remain strict.
       const expected = s.recorder.badResponses.filter(entry => entry.status === 503 && entry.method === 'POST' && entry.url === failedUrl);
@@ -651,10 +659,13 @@ async function workflow(s) {
     await s.step('rendered JSP producers preserve hostile template names and CPP issue components through their JavaScript consumers', async () => {
       let chart = await s.chart();
       await leaveChart(chart);
-      producerTemplate = `${marker.slice(0, 16)} Patient's A&B + ü;<tag>`;
+      const templateName = `${marker.slice(-16)} Patient's A&B + ü;<tag>`;
       const templateBody = `${marker} encoded template body`;
+      h.assert(sql.value(`SELECT COUNT(*) FROM encountertemplate WHERE encountertemplate_name=${q(templateName)}`) === '0',
+        'The template producer fixture name is already in use');
       sql.execute(`INSERT INTO encountertemplate (encountertemplate_name,createdatetime,encountertemplate_value,creator)
-        VALUES (${q(producerTemplate)},NOW(),${q(templateBody)},${q(s.provider)})`);
+        VALUES (${q(templateName)},NOW(),${q(templateBody)},${q(s.provider)})`);
+      producerTemplate = templateName;
       const description = `${marker} Patient's; Other Meds %20 <b>ü</b>`;
       producerIssue = sql.value(`INSERT INTO issue (code,description,role,update_date,type,sortOrderId)
         VALUES ('A;B %20',${q(description)},${q(issueRole)},NOW(),'custom',0); SELECT LAST_INSERT_ID()`);
