@@ -12,19 +12,60 @@
  *     signed-in provider the document's reviewer, with no extra-reviewer row;
  *   - another provider reviewed it (the popup still shows it unreviewed): Reviewed keeps that first
  *     review and adds the signed-in provider as an additional reviewer;
- *   - the document row was deleted: Reviewed re-renders the popup with "This document no longer
- *     exists" and stores nothing.
+ *   - the document row is deleted while the request is between its access check and the save (a
+ *     second database session holds the row lock, deletes the row and commits): Reviewed re-renders
+ *     the popup with "This document no longer exists" and stores nothing. A row deleted before the
+ *     click is refused earlier, by the access check (HTTP 403), on any build.
  * Env: SCREENSHOT_DIR (optional) receives the evidence screenshots.
  * Fixtures: the owned patient and three owned 1-page PDF documents (rows + files, names carry the
  * marker); a second provider from the install is used only as a stored reviewer value. Cleanup
  * removes the extra-reviewer rows, the documents, their links and files, and asserts they are gone.
  */
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { spawn } = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const {
   directory, ownedPdfDocuments, seedOwnedPdfDocuments, removeOwnedPdfDocuments, assertOwnedPdfDocumentsRemoved,
 } = require('./lib/stored-pdf-documents');
 const { masterRecordLink } = require('./lib/master-record-link');
+
+/**
+ * A second database session that locks the document row, waits, deletes it and commits. Started
+ * just before the click, it lets the request pass its access check and reach the locked save while
+ * the row still exists, then removes it: the window issue #6081 describes, made deterministic.
+ * Resolves `locked` once the lock is held and `done` once the delete has committed.
+ */
+function deleteUnderLock(mysql, documentNo, holdSeconds) {
+  h.assert(/^[1-9]\d*$/.test(String(documentNo)), 'Invalid document identity');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-review-race-'));
+  const options = path.join(dir, 'client.cnf');
+  fs.writeFileSync(options, `[client]\npassword="${String(mysql.password).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"\n`, { mode: 0o600 });
+  const child = spawn('mysql', [`--defaults-extra-file=${options}`, '-h', mysql.host || 'localhost', '-u', mysql.user || 'root',
+    mysql.database || 'carlos', '-N', '-B', '-n', '-e',
+    `START TRANSACTION; SELECT document_no FROM document WHERE document_no=${documentNo} FOR UPDATE; SELECT 'locked';
+     DO SLEEP(${holdSeconds}); DELETE FROM document WHERE document_no=${documentNo}; COMMIT; SELECT 'deleted';`],
+  { stdio: ['ignore', 'pipe', 'pipe'] });
+  let output = '';
+  let lockedResolve;
+  const locked = new Promise(resolve => { lockedResolve = resolve; });
+  child.stdout.on('data', chunk => {
+    output += chunk;
+    if (/^locked$/m.test(output)) lockedResolve();
+  });
+  const done = new Promise((resolve, reject) => {
+    child.on('error', reject);
+    child.on('close', code => {
+      fs.rmSync(dir, { recursive: true, force: true });
+      lockedResolve();
+      if (code === 0 && /^deleted$/m.test(output)) resolve();
+      else reject(new Error(`The locking session ended with exit ${code} before deleting the row`));
+    });
+  });
+  return { locked, done };
+}
 
 const MISSING_MESSAGE = 'This document no longer exists. It may have been deleted by another user, so nothing was saved.';
 
@@ -131,12 +172,15 @@ async function workflow(s) {
     await reopened.close();
   });
 
-  await s.step('Reviewed on a document deleted after the popup opened says so and stores nothing', async () => {
+  await s.step('Reviewed on a document deleted while its save waits for the row says so and stores nothing', async () => {
     setReview(vanished, other);
     const editor = await openEditor(vanished);
-    // The row goes after the popup was rendered (its link stays for the fixture cleanup).
-    sql.execute(`DELETE FROM document WHERE document_no=${vanished.id}`);
+    const race = deleteUnderLock(s.config.mysql, vanished.id, 4);
+    await race.locked;
+    const started = Date.now();
     await Promise.all([editor.waitForEvent('load'), clickReviewed(editor, { expectSaved: false })]);
+    await race.done;
+    console.log(`    the save waited ${Date.now() - started} ms for the deleting session`);
     h.assert(!editor.isClosed(), 'The popup closed as if the review had been saved');
     const text = await editor.locator('body').innerText();
     h.assert(text.includes(`Error: ${MISSING_MESSAGE}`), 'The popup does not say that the document no longer exists');
