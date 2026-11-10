@@ -239,7 +239,11 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
             var otherPatient =
                     read.execute(
                             status -> drugs.readCdsExportDrugReferenceInputs(patient + 1, 8192));
-            assertThat(otherPatient).isEmpty();
+            assertThat(otherPatient)
+                    .extracting(
+                            io.github.carlos_emr.carlos.commn.dto.CdsExportDrugReferenceInputDto
+                                    ::drugId)
+                    .containsExactly((long) patient + 40);
             assertThatThrownBy(
                             () ->
                                     read.execute(
