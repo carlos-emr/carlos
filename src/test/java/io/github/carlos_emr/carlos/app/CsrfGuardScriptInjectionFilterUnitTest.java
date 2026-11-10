@@ -417,6 +417,11 @@ class CsrfGuardScriptInjectionFilterUnitTest {
             servletResponse.getWriter().write(body);
         };
 
+        // Production emits this warning once per JVM. Other response tests may already have
+        // consumed it; isolate this assertion and restore the original latch afterwards.
+        var warned = (java.util.concurrent.atomic.AtomicBoolean) org.springframework.test.util.ReflectionTestUtils
+                .getField(CsrfGuardScriptInjectionFilter.class, "HTML_LOOKING_PASSTHROUGH_WARNED");
+        boolean previouslyWarned = warned.getAndSet(false);
         try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
             withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
 
@@ -428,6 +433,8 @@ class CsrfGuardScriptInjectionFilterUnitTest {
                         .doesNotContain("jsessionid")
                         .doesNotContain("secret-session");
             });
+        } finally {
+            warned.set(previouslyWarned);
         }
         assertThat(response.getContentAsString()).isEqualTo(body);
     }

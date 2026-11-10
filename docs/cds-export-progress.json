@@ -20,7 +20,7 @@
     "Fresh ON/BC and retained-data upgrades from the exact release base, packaged CLI/boot validation and unchanged prior migration history"
   ],
   "integration": {
-    "coreBase": "0f73961b38044095f2d191afde32630c3291c6b2",
+    "coreBase": "38cfc10c0ae72c66ebe501703de462f59249da1f",
     "upgradeSqlBaseline": "ef69eea17a4cc3fb288b26327471fce1e20dcd8f",
     "releaseSqlUnchangedSinceUpgradeBaseline": true,
     "cliHead": "be395c7cfa008d45f6f1bb0a38bdd40d49f51cfa",
@@ -53,7 +53,15 @@
       "allExternalQualificationHelpersCompile": 11,
       "historicalReceiptRestamping": false
     },
-    "mergeReadinessAuthority": "Current required checks and reviews on carlos#5706"
+    "mergeReadinessAuthority": "Current required checks and reviews on carlos#5706",
+    "candidateCliPackage": {
+      "sha256": "918a8b12ddc299c8dddab44013c5bcced9a7ab3002c6d4622b31e57feb0a3170",
+      "bytes": 358440,
+      "sourceCommit": "be395c7cfa008d45f6f1bb0a38bdd40d49f51cfa",
+      "workflowRun": 42759435594,
+      "artifact": 13740162733,
+      "publication": false
+    }
   },
   "evidenceLimits": "Export admission remains disabled by default. Unsupported, changed or ambiguous clinical facts require explicit review. Recorded checkpoints are historical; only evidence bound to the exact current source/WAR qualifies it. No OntarioMD certification or PCON qualification is claimed.",
   "implementedProfiles": [

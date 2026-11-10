@@ -1292,8 +1292,15 @@ async function gotoApp(page, baseUrl, appPath, waitUntil = 'domcontentloaded') {
 }
 
 async function assertNotErrorPage(page, label, options = {}) {
-  const text = await page.locator('body').innerText({ timeout: 10000 }).catch(() => '');
-  assert(!/CARLOS has encountered an unexpected error|HTTP Status 500|Exception Report|Whitelabel Error Page/i.test(text), `${label} rendered an error page`);
+  const text = await page.locator('body').innerText({ timeout: 10000 });
+  assert(!/CARLOS has encountered an unexpected error|Exception Report|Whitelabel Error Page/i.test(text), `${label} rendered an error page`);
+  // A chart can quote an HTTP status in clinical prose. Tomcat error pages put
+  // their status in the title or heading, which distinguishes the actual page.
+  const headings = await page.locator('title, h1, h2').allTextContents();
+  assert(!headings.some(heading => /^\s*HTTP Status\s*:?\s*[45]\d\d\b/i.test(heading)),
+    `${label} rendered an error page`);
+  assert(!/(?:^|\n)\s*An error occurred\s*(?:\n|$)/i.test(text)
+    || !/Reference ID\s*:/i.test(text), `${label} rendered a sanitized error page`);
   if (!text.trim() && options.allowPdf && await page.locator('embed[type="application/pdf"], link[href^="chrome-extension://"][href$="/pdf_embedder.css"]').count() > 0) {
     // Chromium's native PDF viewer (embed or extension-backed) has no body
     // text. Accept it only after the

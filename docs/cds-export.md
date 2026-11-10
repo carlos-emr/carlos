@@ -24,7 +24,7 @@ Native clinical clocks use the same explicit `cds.export.clinicalZone` as the ac
 plan; a configured import zone must agree. No JVM default zone is inferred.
 
 This change targets `release/2026.08`, integrating through
-`0f73961b38044095f2d191afde32630c3291c6b2`, including the release lab fixes.
+`38cfc10c0ae72c66ebe501703de462f59249da1f`, including the release lab and package/test qualification fixes.
 Its released migration bytes are identical to the pinned upgrade SQL baseline
 `ef69eea17a4cc3fb288b26327471fce1e20dcd8f`. The integration retains the release's
 importer, MariaDB Connector/J 3.5.11 and DAO/API fixes. It excludes develop-only
@@ -47,6 +47,16 @@ result decoder before exposing values, because Connector/J can fall back to text
 protocol while retaining its server-prepared statement class. Unsupported driver
 inspection or text results fail explicitly. Required tests cover actual float bits,
 text-result refusal, statement ownership and bypass attempts.
+
+The package lifecycle gate keeps its published beta6/CLI 1.3.1 and beta5/CLI 1.3.0
+predecessors intact. Its unpublished 1.3.4 candidate is separately bound to the exact
+companion fallback commit and actual CI-built Debian bytes (358,440 bytes,
+SHA-256 `918a8b12ddc299c8dddab44013c5bcced9a7ab3002c6d4622b31e57feb0a3170`,
+workflow 42759435594, artifact 13740162733). All 30 installed Python modules,
+the executable shim, manual and changelog were compared with that source.
+Source-built mode asserts no published tag or release-download URL. Lifecycle
+configuration must supply this exact candidate package; predecessor packages
+cannot substitute for it.
 
 The companion CLI PR also targets `release/2026.08`, starting at its compatible
 `84adfc5c237d4a536300a9d7e74e19599df23dcc` baseline. Its pinned runtime remains

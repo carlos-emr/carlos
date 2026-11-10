@@ -1202,5 +1202,9 @@ for _province in sorted(o19map_schema.PROFILES):
                         .format(_base.__name__, _province)})
 
 
+# unittest discovers class aliases too, including underscored loop variables.
+# Keep each inherited ON/BC case once instead of rerunning the final base.
+del _base
+
 if __name__ == "__main__":
     unittest.main()
