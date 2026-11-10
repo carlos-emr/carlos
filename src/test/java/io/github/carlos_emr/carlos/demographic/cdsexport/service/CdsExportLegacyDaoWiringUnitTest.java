@@ -29,15 +29,79 @@ import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDao;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarLogDaoImpl;
+import jakarta.persistence.EntityManagerFactory;
 import java.util.List;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.ClassPathBeanDefinitionScanner;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+import org.springframework.beans.factory.support.RootBeanDefinition;
+import org.springframework.core.type.filter.AssignableTypeFilter;
 
 /** Both historical web bean names remain installed; export binds to the canonical owners. */
-@Tag("unit") @Tag("cds-export")
+@Tag("unit")
+@Tag("cds-export")
 class CdsExportLegacyDaoWiringUnitTest {
-    @Test void shouldUseCanonicalOwners_whenLegacyWebContextContainsDuplicateDaoTypes() throws Exception {
+    @Test
+    void shouldResolveOneAuditOwner_whenTheLegacyXmlDefinitionPrecedesComponentScanning() {
+        verifyAuditOwner(true);
+    }
+
+    @Test
+    void shouldResolveOneAuditOwner_whenComponentScanningPrecedesTheLegacyXmlDefinition() {
+        verifyAuditOwner(false);
+    }
+
+    @Test
+    void shouldResolveTheSameAuditOwner_inTheIsolatedCliImportContext() {
+        try (var context = auditContext()) {
+            context.register(CliAuditConfiguration.class);
+            context.refresh();
+            assertThat(context.getBeanNamesForType(OscarLogDao.class))
+                    .containsExactly("oscarLogDao");
+            assertThat(context.getBean(CdsExportAuditPersister.class)).isNotNull();
+        }
+    }
+
+    private static AnnotationConfigApplicationContext auditContext() {
+        var context = new AnnotationConfigApplicationContext();
+        context.setAllowBeanDefinitionOverriding(true);
+        context.getBeanFactory()
+                .registerSingleton("entityManagerFactory", mock(EntityManagerFactory.class));
+        return context;
+    }
+
+    private static void verifyAuditOwner(boolean xmlFirst) {
+        try (var context = auditContext()) {
+            if (xmlFirst) registerLegacyAuditOwner(context);
+            var scanner = new ClassPathBeanDefinitionScanner(context, false);
+            scanner.addIncludeFilter(new AssignableTypeFilter(OscarLogDaoImpl.class));
+            scanner.scan(OscarLogDaoImpl.class.getPackageName());
+            if (!xmlFirst) registerLegacyAuditOwner(context);
+            context.register(CdsExportAuditPersister.class);
+            context.refresh();
+            assertThat(context.getBeanNamesForType(OscarLogDao.class))
+                    .containsExactly("oscarLogDao");
+            assertThat(context.getBean(CdsExportAuditPersister.class)).isNotNull();
+        }
+    }
+
+    private static void registerLegacyAuditOwner(AnnotationConfigApplicationContext context) {
+        // applicationContext.xml's existing explicit bean keeps this canonical identity.
+        context.registerBeanDefinition(
+                "oscarLogDao", new RootBeanDefinition(OscarLogDaoImpl.class));
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @Import({OscarLogDaoImpl.class, CdsExportAuditPersister.class})
+    static class CliAuditConfiguration {}
+
+    @Test
+    void shouldUseCanonicalOwners_whenLegacyWebContextContainsDuplicateDaoTypes() throws Exception {
         var issues = mock(CaseManagementIssueDAO.class);
         var oldIssues = mock(CaseManagementIssueDAO.class);
         var notes = mock(CaseManagementNoteDAO.class);
@@ -59,17 +123,25 @@ class CdsExportLegacyDaoWiringUnitTest {
             context.getBeanFactory().registerSingleton("caseManagementNoteDAO", notes);
             context.getBeanFactory().registerSingleton("CaseManagementNoteDAO", oldNotes);
             context.getBeanFactory().registerSingleton("cdsExportNoteAccessDao", scopes);
-            context.getBeanFactory().registerSingleton("cdsExportNoteScopeProjectionService", projection);
-            context.register(CdsExportCaseIssueSourceReader.class, CdsExportNoteSourceReader.class,
-                    CdsExportNoteIssueLinkSourceReader.class, CdsExportDocumentSourceReader.class,
+            context.getBeanFactory()
+                    .registerSingleton("cdsExportNoteScopeProjectionService", projection);
+            context.register(
+                    CdsExportCaseIssueSourceReader.class,
+                    CdsExportNoteSourceReader.class,
+                    CdsExportNoteIssueLinkSourceReader.class,
+                    CdsExportDocumentSourceReader.class,
                     CdsExportDocumentFileSourceReader.class);
             context.refresh();
             assertThat(context.getBean(CdsExportDocumentSourceReader.class).count(27)).isEqualTo(5);
-            assertThat(context.getBean(CdsExportDocumentFileSourceReader.class).count(27)).isEqualTo(5);
-            assertThat(context.getBean(CdsExportCaseIssueSourceReader.class).count(27)).isEqualTo(3);
-            assertThat(context.getBean(CdsExportNoteIssueLinkSourceReader.class).count(27)).isEqualTo(4);
-            var prepared = context.getBean(CdsExportNoteSourceReader.class)
-                    .forCapture(27, mock(CdsExportRunControl.class));
+            assertThat(context.getBean(CdsExportDocumentFileSourceReader.class).count(27))
+                    .isEqualTo(5);
+            assertThat(context.getBean(CdsExportCaseIssueSourceReader.class).count(27))
+                    .isEqualTo(3);
+            assertThat(context.getBean(CdsExportNoteIssueLinkSourceReader.class).count(27))
+                    .isEqualTo(4);
+            var prepared =
+                    context.getBean(CdsExportNoteSourceReader.class)
+                            .forCapture(27, mock(CdsExportRunControl.class));
             assertThat(prepared.count(27)).isZero();
             verify(issues).countCdsExportRows(27);
             verify(notes).countCdsExportIssueLinks(27);

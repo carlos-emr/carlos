@@ -2,7 +2,7 @@
 """Curated distinct main and historical package baselines for release 2026.08."""
 import re
 from pathlib import Path
-from junit_evidence import EvidenceError
+from evidence_errors import EvidenceError
 
 REQUIRED_TAGS = {'2026.08.0-beta6', '2026.08.0-beta5'}
 PACKAGE_PREFIXES = ('carlos-emr_', 'carlos-emr-drugref_', 'carlos-ctl_')

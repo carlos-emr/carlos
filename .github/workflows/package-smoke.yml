@@ -53,7 +53,8 @@ jobs:
           apt-get update -o APT::Update::Error-Mode=any
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             build-essential debhelper devscripts lintian fakeroot maven \
-            openjdk-25-jdk-headless tomcat11 git ca-certificates curl xz-utils unzip
+            openjdk-25-jdk-headless tomcat11 git ca-certificates curl xz-utils unzip \
+            python3 python3-bcrypt groff-base
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -74,6 +75,23 @@ jobs:
           cp ../carlos-emr_*_amd64.deb ../carlos-emr-drugref_*_all.deb target/pr-debs/
           cd target/pr-debs
           sha256sum ./*.deb > SHA256SUMS
+      - name: Read the independent companion candidate
+        id: cli
+        run: python3 scripts/ci/candidate_cli_package.py describe --github-output "$GITHUB_OUTPUT"
+      - name: Check out the exact unpublished companion source
+        if: steps.cli.outputs.source_built == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: carlos-emr/carlos-ctl
+          ref: ${{ steps.cli.outputs.source_commit }}
+          path: target/companion-cli/source
+          persist-credentials: false
+      - name: Build and verify the unpublished companion package
+        if: steps.cli.outputs.source_built == 'true'
+        run: |
+          python3 scripts/ci/candidate_cli_package.py build \
+            --source target/companion-cli/source --destination target/pr-debs
+          (cd target/pr-debs && sha256sum ./*.deb > SHA256SUMS)
       - name: Retain candidate packages
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -106,13 +124,22 @@ jobs:
         with:
           name: pr-debs
           path: ${{ env.DEBS_DIR }}
+      - name: Read the independent companion candidate
+        id: cli
+        run: python3 scripts/ci/candidate_cli_package.py describe --github-output "$GITHUB_OUTPUT"
       - name: Verify candidate bytes and obtain pinned CLI
         env:
           GH_TOKEN: ${{ github.token }}
+          CANDIDATE_SOURCE_BUILT: ${{ steps.cli.outputs.source_built }}
         run: |
           set -euo pipefail
           (cd "$DEBS_DIR" && sha256sum -c SHA256SUMS)
-          debian/fetch-carlos-ctl.sh "$DEBS_DIR"
+          if [ "$CANDIDATE_SOURCE_BUILT" = true ]; then
+            python3 scripts/ci/candidate_cli_package.py verify --destination "$DEBS_DIR"
+          else
+            debian/fetch-carlos-ctl.sh "$DEBS_DIR"
+            python3 scripts/ci/candidate_cli_package.py verify --destination "$DEBS_DIR"
+          fi
       - name: Install complete packages and reset the initial account
         run: bash scripts/deb-docker-validation.sh up
       - name: Exercise installed HTTPS and database contracts
