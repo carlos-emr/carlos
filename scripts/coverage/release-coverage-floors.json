@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "8f83511d2bf8204b0c3d4d76b3f2f190cd48ce3d",
-  "comparisonSha256": "a180c2afc73d59cc58b248fd71623d2181f532d376f9173eacfe44ac93ae2908",
-  "baselineCommit": "dd7321db79ee484ec1cc2abdd16d7d8251a47b6f",
-  "baselineSourceTree": "8f83511d2bf8204b0c3d4d76b3f2f190cd48ce3d",
-  "baselineReportSha256": "d499fbbf3956765d7c209f96a5367e06d50349bf9cb8de1ccd035d7e30f47d6f",
-  "baselineLane": "Candidate Debian 13/Temurin 25.0.3 H2 baseline. Routed/prerequisite skips remain explicit. Previous higher floors and refusal lines are retained; native-lane union qualification and zero-floor review remain required.",
+  "sourceTree": "c64108ddcb0c85110f21537650adcc734d285aef",
+  "comparisonSha256": "8956052406125cb54e2e575e8c41675c7f7c36a178b94aa1d965c088ef3f843b",
+  "baselineCommit": "b91796b3d29b930bf82444eb91de0072a1f512f8",
+  "baselineSourceTree": "c64108ddcb0c85110f21537650adcc734d285aef",
+  "baselineReportSha256": "e286c87f972c57eb3ced7f77f0f0629c03b7a9be37629119b321efa2a2641411",
+  "baselineLane": "Ubuntu 26.04/OpenJDK 25.0.5.0.3 complete H2 baseline with pinned Chromium. All 27 PR #6102 Java paths meet retained floors. 206 registered routed/prerequisite skips and the separate five-case permission lane are verified. Same-class refusal/compatibility retakes append measured coverage. Higher historical floors, required refusal lines and zero-floor review requirements remain; this is not full release native-union qualification.",
   "baselineTestCounts": {
-    "tests": 35947,
-    "skipped": 211,
+    "tests": 35964,
+    "skipped": 206,
     "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "9850513f8719c6e1c76d687e64fa72f5a1b7f5c8aae11fa416e970962cc60ed7",
+  "baselineTestReportsSha256": "b17ba7c2c237c83fdb7712be90bc3646d3fb252bff52000c097fade9f82991c8",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -1750,10 +1750,10 @@
       "sourceBlob": "b801759b675bebc9a25e2e959be961ee3e108ef6"
     },
     "src/main/java/io/github/carlos_emr/carlos/eform/util/BrowserChartRenderer.java": {
-      "lines": 94.0,
-      "instructions": 89.39393939393939,
-      "branches": 65.625,
-      "sourceBlob": "e041df9d0458a46ff6fa352c060c90abbf7762ea"
+      "lines": 100.0,
+      "instructions": 92.88389513108615,
+      "branches": 68.75,
+      "sourceBlob": "211e3ac26ed861ef61334fbc99fd15128aac74e0"
     },
     "src/main/java/io/github/carlos_emr/carlos/eform/util/BrowserOptions.java": {
       "lines": 100.0,
@@ -1768,10 +1768,10 @@
       "sourceBlob": "957afb98c5c77f4136a81fa45daa3fd46d0633cd"
     },
     "src/main/java/io/github/carlos_emr/carlos/eform/util/EFormBrowserPdfService.java": {
-      "lines": 68.08510638297872,
-      "instructions": 64.43298969072166,
-      "branches": 68.18181818181819,
-      "sourceBlob": "fd1bffd2dafc6257bf9ee0178ffbd63e1535b83c"
+      "lines": 69.11764705882354,
+      "instructions": 67.01754385964912,
+      "branches": 70.83333333333333,
+      "sourceBlob": "f3dd9f05ef85cb91cf6d5cf38b4598ef43e9f22a"
     },
     "src/main/java/io/github/carlos_emr/carlos/eform/util/EFormBrowserRendererStartupValidator.java": {
       "lines": 100.0,
@@ -1799,8 +1799,8 @@
     },
     "src/main/java/io/github/carlos_emr/carlos/eform/util/RenderAdmission.java": {
       "lines": 100.0,
-      "instructions": 98.45559845559846,
-      "branches": 91.66666666666667,
+      "instructions": 100.0,
+      "branches": 95.83333333333333,
       "sourceBlob": "9962d354b079f5f57d1bf3dd25fdb0d592f8c881"
     },
     "src/main/java/io/github/carlos_emr/carlos/eform/util/RenderBrowser.java": {
@@ -1936,16 +1936,16 @@
       "sourceBlob": "89c3d2d7ff520d3add107a7e0fc23834f8cdc33d"
     },
     "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/MeasurementGraphAction22Action.java": {
-      "lines": 75.5,
-      "instructions": 73.60594795539033,
-      "branches": 64.8,
-      "sourceBlob": "f5b37e3f0f0c6c89d240618d65e4e14073af6298"
+      "lines": 77.46478873239437,
+      "instructions": 74.10468319559229,
+      "branches": 65.04065040650407,
+      "sourceBlob": "44068c9583d2554b4ace0dd552730c201104d5c3"
     },
     "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/ScatterPlotChartServlet.java": {
-      "lines": 50.0,
-      "instructions": 52.56410256410256,
-      "branches": 37.5,
-      "sourceBlob": "6069878662164ceaaddf8aeaacec3156a121d06f"
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 90.0,
+      "sourceBlob": "4cee5b1c383ec24fbcfa9e383ad772db26ffd799"
     },
     "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/util/MeasurementDSHelper.java": {
       "lines": 0.0,
@@ -2436,8 +2436,8 @@
     "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/Hl7textResultsData.java": {
       "lines": 100.0,
       "instructions": 100.0,
-      "branches": 98.0,
-      "sourceBlob": "db10bec3cafbdff52f698ae99addde2bb5d8267f"
+      "branches": 100.0,
+      "sourceBlob": "412ebfc7c2593fac0b3b4d0a53a5ea0d45546c69"
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/pageUtil/LabUpload2Action.java": {
       "lines": 60.0,
@@ -2461,7 +2461,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "340c6c4a0108d254b832961adc3ad472d512cac1"
+      "sourceBlob": "a93c66c71b6057737b6d1c8bf00f73dedbf188c1"
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/parsers/MDSHandler.java": {
       "lines": 0.0,
@@ -2587,7 +2587,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "69ae88364335e0f6c44b401a1e79bf8847624f1b"
+      "sourceBlob": "290e2e23b4843c3de542183b22f18802bc0319df"
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/ca/on/CommonLabTestValues.java": {
       "lines": 100.0,
@@ -2614,10 +2614,10 @@
       "sourceBlob": "376fd42600aed2cd498f9f766f6556ad3d5cbb1d"
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/service/CmlVersionPolicy.java": {
-      "lines": 98.03921568627452,
-      "instructions": 97.29729729729729,
-      "branches": 76.66666666666667,
-      "sourceBlob": "19f3ed9d9a39baf4d81cf33f2aaf285f110220e3"
+      "lines": 98.41269841269842,
+      "instructions": 97.39884393063583,
+      "branches": 88.0952380952381,
+      "sourceBlob": "522af6402cf470b037c6ada4ae8ac4c99ffb44b6"
     },
     "src/main/java/io/github/carlos_emr/carlos/log/LogAction.java": {
       "lines": 100.0,
@@ -2893,13 +2893,13 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "d015e115f7bb553b8633af61d43edad3a089b920"
+      "sourceBlob": "0ede888fbb35a508bbeb3f9eda2327a15ef5f9ce"
     },
     "src/main/java/io/github/carlos_emr/carlos/mds/pageUtil/ReportStatusUpdate2Action.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "6d37af8ee8896f524701d4c4790d3b23532a8f19"
+      "sourceBlob": "15eef0410c5a585341ac150035685b482d91bf45"
     },
     "src/main/java/io/github/carlos_emr/carlos/messenger/docxfer/send/MsgGenerate.java": {
       "lines": 100.0,
@@ -3274,10 +3274,10 @@
       "sourceBlob": "17b2c1ddb87286e236a957e3f5fca4b820679406"
     },
     "src/main/java/io/github/carlos_emr/carlos/report/oscarMeasurements/pageUtil/RptInitializeFrequencyOfRelevantTestsCDMReport2Action.java": {
-      "lines": 83.33333333333333,
-      "instructions": 92.5925925925926,
-      "branches": 78.57142857142857,
-      "sourceBlob": "eed88ee40b0cef90a86cba48f279432b904842f8"
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "16ac5621bf3562689a2741537444ae4359dd518a"
     },
     "src/main/java/io/github/carlos_emr/carlos/report/oscarMeasurements/pageUtil/RptInitializePatientsInAbnormalRangeCDMReport2Action.java": {
       "lines": 57.142857142857146,
@@ -4422,5 +4422,28 @@
       ]
     }
   },
-  "zeroCoverageWaivers": {}
+  "zeroCoverageWaivers": {},
+  "baselineAdditionalTestRuns": [
+    {
+      "lane": "review-refusal-compatibility",
+      "tests": 367,
+      "failures": 0,
+      "skipped": 0,
+      "reportsSha256": "e71daa637ab92a6139d8d8fe957412bcb375e796b114af7f5b5faf0d8137769d"
+    },
+    {
+      "lane": "final-filter-status-guards",
+      "tests": 132,
+      "failures": 0,
+      "skipped": 0,
+      "reportsSha256": "f05271b94c803107fff34a8c6c7f0e4205abacd105585e962d8e21bc554ebfd3"
+    },
+    {
+      "lane": "unprivileged-permissions",
+      "tests": 5,
+      "failures": 0,
+      "skipped": 0,
+      "reportsSha256": "688c583cb8d1c2d510dd6e904f9cd91a53ff54ac5c4fd1f46425cf85c02deffc"
+    }
+  ]
 }
