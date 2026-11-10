@@ -174,3 +174,12 @@ an explicitly selected historical revision. The installed recovery regression ve
 mouse selection, Space-key deselection, state announcements and the unchanged old queue.
 The Java findings are corrected with direct validated-index diagnosis updates, removal
 of redundant conditions, unused catch bindings, and narrower test assertions/callables.
+
+Selecting Print before changing the encounter type exposed a SelectBox positioning
+defect: its dropdown used document coordinates inside a positioned editor, placing
+the choices outside the viewport. SelectBox now measures its own coordinate origin
+before placing the choices below the input. Three production-code regressions cover
+document scrolling and positioned/scrolled editors; the two editor cases fail against
+the prior code. A real Chromium reproduction moves the dropdown from 1,200 pixels
+below its input to the correct edge and selects the visible option. The installed
+recovery workflow retains the Print-first interaction to exercise this layout.
