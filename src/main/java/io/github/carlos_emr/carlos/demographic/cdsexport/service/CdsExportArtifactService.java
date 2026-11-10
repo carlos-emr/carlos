@@ -176,6 +176,14 @@ public class CdsExportArtifactService {
                         probe();
                         access.requireNoteRead(actor, lease.document().command(), category, note);
                     }
+
+                    @Override
+                    public void authorizeNotes(
+                            CdsCategory category, java.util.List<CdsExportNoteAccessDto> notes) {
+                        probe();
+                        access.requireNotesRead(actor, lease.document().command(), category, notes);
+                        probe();
+                    }
                 };
 
         private Download(

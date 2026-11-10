@@ -205,7 +205,8 @@ class CdsExportNoteAccessDaoMariaDbIntegrationTest {
                             id + 1,
                             "read Cds" + id + " notes");
                     sql.update(
-                            "insert into program_access(id,program_id,access_type_id,all_roles) values(?,?,?,0)",
+                            "insert into program_access(id,program_id,access_type_id,all_roles)"
+                                + " values(?,?,?,0)",
                             id + 1,
                             id,
                             Integer.toString(id + 1));
@@ -228,11 +229,13 @@ class CdsExportNoteAccessDaoMariaDbIntegrationTest {
                         assertThat(notes.findScope(id, id)).isNull();
                     }
                     sql.update(
-                            "update casemgmt_note set program_no='',reporter_caisi_role='1' where note_id=?",
+                            "update casemgmt_note set program_no='',reporter_caisi_role='1' where"
+                                + " note_id=?",
                             id);
                     assertThat(notes.findScope(id, id).program()).isEmpty();
                     sql.update(
-                            "update casemgmt_note set program_no=?,reporter_caisi_role='0' where note_id=?",
+                            "update casemgmt_note set program_no=?,reporter_caisi_role='0' where"
+                                + " note_id=?",
                             Integer.toString(id),
                             id);
                     assertThat(notes.findScope(id, id)).isNull();
@@ -275,7 +278,8 @@ class CdsExportNoteAccessDaoMariaDbIntegrationTest {
                             "update admission set discharge_date='2001-01-01' where am_id=?", id);
                     assertThat(read(zero)).isTrue();
                     sql.update(
-                            "update admission set admission_date='9999-01-01',discharge_date=NULL where am_id=?",
+                            "update admission set admission_date='9999-01-01',discharge_date=NULL"
+                                + " where am_id=?",
                             id);
                     assertThat(read(zero)).isTrue();
                 });
@@ -290,7 +294,9 @@ class CdsExportNoteAccessDaoMariaDbIntegrationTest {
                     membership(id, id);
                     assertThat(read(zero)).isFalse();
                     sql.update(
-                            "insert into program_queue(queue_id,client_id,program_id,provider_no,status) values(?,?,?,?,'active')",
+                            "insert into"
+                                + " program_queue(queue_id,client_id,program_id,provider_no,status)"
+                                + " values(?,?,?,?,'active')",
                             id,
                             id,
                             id,
@@ -307,11 +313,15 @@ class CdsExportNoteAccessDaoMariaDbIntegrationTest {
                 () -> {
                     membership(id, id);
                     sql.update(
-                            "insert into Facility(id,name,disabled,displayAllVacancies,enableAnonymous,enableCbiForm,enableDigitalSignatures,enableEncounterTime,enableEncounterTransportationTime,enableHealthNumberRegistry,enableOcanForms,enablePhoneEncounter,hic,lastUpdated,orgId,rxInteractionWarningLevel,sectorId) values(?,?,0,0,0,0,0,0,0,0,0,0,0,CURRENT_TIMESTAMP,0,0,0)",
+                            "insert into"
+                                + " Facility(id,name,disabled,displayAllVacancies,enableAnonymous,enableCbiForm,enableDigitalSignatures,enableEncounterTime,enableEncounterTransportationTime,enableHealthNumberRegistry,enableOcanForms,enablePhoneEncounter,hic,lastUpdated,orgId,rxInteractionWarningLevel,sectorId)"
+                                + " values(?,?,0,0,0,0,0,0,0,0,0,0,0,CURRENT_TIMESTAMP,0,0,0)",
                             id,
                             "Cds" + id);
                     sql.update(
-                            "insert into program(id,name,ageMax,ageMin,alcohol,exclusiveView,facilityId,firstNation,housing,maxAllowed,mentalHealth,physicalHealth,programStatus,transgender) values(?,?,0,0,0,'',?,0,0,100,0,0,'active',0)",
+                            "insert into"
+                                + " program(id,name,ageMax,ageMin,alcohol,exclusiveView,facilityId,firstNation,housing,maxAllowed,mentalHealth,physicalHealth,programStatus,transgender)"
+                                + " values(?,?,0,0,0,'',?,0,0,100,0,0,'active',0)",
                             id,
                             "Cds" + id,
                             id);
@@ -329,7 +339,8 @@ class CdsExportNoteAccessDaoMariaDbIntegrationTest {
                     membership(id, id);
                     assertThat(read(scope())).isTrue();
                     sql.update(
-                            "insert into program_provider(id,program_id,provider_no,role_id) values(?,?,?,?)",
+                            "insert into program_provider(id,program_id,provider_no,role_id)"
+                                + " values(?,?,?,?)",
                             id + 1,
                             id,
                             provider,
@@ -370,7 +381,10 @@ class CdsExportNoteAccessDaoMariaDbIntegrationTest {
                     String uuid = java.util.UUID.randomUUID().toString();
                     sql.update("update casemgmt_note set uuid=? where note_id=?", uuid, id);
                     sql.update(
-                            "insert into casemgmt_note(note_id,demographic_no,note,history,program_no,reporter_caisi_role,uuid,update_date) values(?,?,'Foreign synthetic note','',?,?,?,CURRENT_TIMESTAMP)",
+                            "insert into"
+                                + " casemgmt_note(note_id,demographic_no,note,history,program_no,reporter_caisi_role,uuid,update_date)"
+                                + " values(?,?,'Foreign synthetic"
+                                + " note','',?,?,?,CURRENT_TIMESTAMP)",
                             id + 1,
                             id + 1,
                             Integer.toString(id),
@@ -397,7 +411,8 @@ class CdsExportNoteAccessDaoMariaDbIntegrationTest {
                     for (String program : java.util.List.of("", "0")) {
                         for (String reporter : java.util.List.of("", "0")) {
                             sql.update(
-                                    "update casemgmt_note set program_no=?,reporter_caisi_role=? where note_id=?",
+                                    "update casemgmt_note set program_no=?,reporter_caisi_role=?"
+                                        + " where note_id=?",
                                     program,
                                     reporter,
                                     id);
@@ -408,7 +423,8 @@ class CdsExportNoteAccessDaoMariaDbIntegrationTest {
                         }
                     }
                     sql.update(
-                            "update casemgmt_note set program_no=?,reporter_caisi_role='' where note_id=?",
+                            "update casemgmt_note set program_no=?,reporter_caisi_role='' where"
+                                + " note_id=?",
                             Integer.toString(id),
                             id);
                     assertThat(notes.findScope(id, id)).isNull();
@@ -419,9 +435,45 @@ class CdsExportNoteAccessDaoMariaDbIntegrationTest {
         return notes.canRead(provider, scope, null, false);
     }
 
+    @Test
+    void shouldReadExactBatchScopes_andRejectMissingForeignLockedAndConflictingRevisions() {
+        fixture(
+                () -> {
+                    assertThat(notes.findScopes(id, java.util.List.of((long) id)))
+                            .containsExactly(scope());
+                    assertThatThrownBy(() -> notes.findScopes(id + 1, java.util.List.of((long) id)))
+                            .isInstanceOf(SecurityException.class);
+                    assertThatThrownBy(
+                                    () ->
+                                            notes.findScopes(
+                                                    id,
+                                                    java.util.List.of((long) id, (long) id + 1)))
+                            .isInstanceOf(SecurityException.class);
+                    sql.update("UPDATE casemgmt_note SET locked='1' WHERE note_id=?", id);
+                    assertThatThrownBy(() -> notes.findScopes(id, java.util.List.of((long) id)))
+                            .isInstanceOf(SecurityException.class);
+                    sql.update(
+                            "UPDATE casemgmt_note SET locked='0',uuid=? WHERE note_id=?",
+                            "batch-" + id,
+                            id);
+                    sql.update(
+                            "INSERT INTO"
+                                + " casemgmt_note(note_id,demographic_no,note,history,uuid,program_no,reporter_caisi_role,update_date)"
+                                + " VALUES(?,?,'Synthetic foreign"
+                                + " body','',?,'0','0',CURRENT_TIMESTAMP)",
+                            id + 1,
+                            id + 1,
+                            "batch-" + id);
+                    assertThatThrownBy(() -> notes.findScopes(id, java.util.List.of((long) id)))
+                            .isInstanceOf(SecurityException.class);
+                });
+    }
+
     private void admission(int program) {
         sql.update(
-                "insert into admission(am_id,client_id,program_id,provider_no,admission_date,discharge_date,admission_from_transfer,discharge_from_transfer,lastUpdateDate) values(?,?,?,?,'2000-01-01',NULL,0,0,CURRENT_TIMESTAMP)",
+                "insert into"
+                    + " admission(am_id,client_id,program_id,provider_no,admission_date,discharge_date,admission_from_transfer,discharge_from_transfer,lastUpdateDate)"
+                    + " values(?,?,?,?,'2000-01-01',NULL,0,0,CURRENT_TIMESTAMP)",
                 id,
                 id,
                 program,
@@ -471,20 +523,27 @@ class CdsExportNoteAccessDaoMariaDbIntegrationTest {
                                             provider))
                             .isZero();
                     sql.update(
-                            "insert into provider(provider_no,first_name,last_name,provider_type,status,lastUpdateDate) values(?,'Synthetic','CDS note access','doctor','1',CURRENT_TIMESTAMP)",
+                            "insert into"
+                                + " provider(provider_no,first_name,last_name,provider_type,status,lastUpdateDate)"
+                                + " values(?,'Synthetic','CDS note"
+                                + " access','doctor','1',CURRENT_TIMESTAMP)",
                             provider);
                     sql.update(
-                            "insert into casemgmt_note(note_id,demographic_no,note,history,program_no,reporter_caisi_role,update_date) values(?,?,'Synthetic private body','',?,?,CURRENT_TIMESTAMP)",
+                            "insert into"
+                                + " casemgmt_note(note_id,demographic_no,note,history,program_no,reporter_caisi_role,update_date)"
+                                + " values(?,?,'Synthetic private body','',?,?,CURRENT_TIMESTAMP)",
                             id,
                             id,
                             Integer.toString(id),
                             Integer.toString(id));
                     sql.update(
-                            "insert into secRole(role_no,role_name,description) values(?,?,'Synthetic CDS access fixture')",
+                            "insert into secRole(role_no,role_name,description)"
+                                + " values(?,?,'Synthetic CDS access fixture')",
                             id,
                             "Cds" + id);
                     sql.update(
-                            "insert into secRole(role_no,role_name,description) values(?,?,'Synthetic CDS access fixture')",
+                            "insert into secRole(role_no,role_name,description)"
+                                + " values(?,?,'Synthetic CDS access fixture')",
                             id + 1,
                             "CdsOther" + id);
                     assertions.run();
@@ -518,7 +577,8 @@ class CdsExportNoteAccessDaoMariaDbIntegrationTest {
                 id,
                 "read Cds" + id + " notes");
         sql.update(
-                "insert into program_access(id,program_id,access_type_id,all_roles) values(?,?,?,?)",
+                "insert into program_access(id,program_id,access_type_id,all_roles)"
+                    + " values(?,?,?,?)",
                 id,
                 program,
                 Integer.toString(id),

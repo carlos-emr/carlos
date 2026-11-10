@@ -196,6 +196,52 @@ public class CdsExportAccessService {
     }
 
     /**
+     * Rechecks every exact retained note in one fresh patient transaction. Identical
+     * program/reporter-role grants share that transaction only; nothing survives a boundary.
+     */
+    public void requireNotesRead(
+            CdsExportActorDto actor,
+            CdsExportCommand command,
+            CdsCategory category,
+            java.util.List<
+                            io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                    .CdsExportNoteAccessDto>
+                    expected) {
+        var batch = java.util.List.copyOf(expected);
+        if (batch.isEmpty()
+                || batch.size() > 8192
+                || command == null
+                || category == null
+                || !CdsExportNoteSourceReader.CATEGORIES.contains(category)
+                || !command.categories().contains(category)) deny();
+        int patient = batch.getFirst().patient();
+        long previous = 0;
+        for (var scope : batch) {
+            if (scope.patient() != patient || scope.noteId() <= previous) deny();
+            previous = scope.noteId();
+        }
+        CurrentIdentity current = chartIdentity(actor, command, patient, category);
+        var actual =
+                notes.findScopes(patient, batch.stream().map(scope -> scope.noteId()).toList());
+        if (!batch.equals(actual)) deny();
+        record Grant(String program, String reporterRole) {}
+        var checked = new java.util.HashSet<Grant>();
+        boolean filter = configuration.filterNotesOnFacility();
+        for (var scope : batch) {
+            if (!checked.add(new Grant(scope.program(), scope.reporterRole()))) continue;
+            if (!notes.canRead(
+                            current.effective().getLoggedInProviderNo(),
+                            scope,
+                            command.facilityId(),
+                            filter)
+                    || current.operator() != null
+                            && !notes.canRead(
+                                    current.operator().getLoggedInProviderNo(), scope,
+                                    command.facilityId(), filter)) deny();
+        }
+    }
+
+    /**
      * Complete issue/catalogue reads use the live chart gate even for a patient with no native
      * notes.
      */

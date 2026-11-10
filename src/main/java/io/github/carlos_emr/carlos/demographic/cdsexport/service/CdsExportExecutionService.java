@@ -370,6 +370,18 @@ public class CdsExportExecutionService {
         }
 
         @Override
+        public void authorizeNotes(
+                CdsCategory category,
+                java.util.List<
+                                io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                        .CdsExportNoteAccessDto>
+                        scopes) {
+            outsideCapture();
+            access.requireNotesRead(
+                    lease.document().actor(), lease.document().command(), category, scopes);
+        }
+
+        @Override
         public void authorizeCategory(
                 int patient, CdsCategory category, boolean sensitiveLaboratory) {
             outsideCapture();

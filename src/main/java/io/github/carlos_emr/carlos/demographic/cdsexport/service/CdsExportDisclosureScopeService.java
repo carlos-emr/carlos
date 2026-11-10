@@ -145,6 +145,8 @@ public class CdsExportDisclosureScopeService {
                                 captures.authorizeScope(
                                         intent.command(), patient.demographicNo(), tables, control);
                                 long previous = 0;
+                                var patientNotes =
+                                        new java.util.ArrayList<CdsExportNoteAccessDto>();
                                 for (var value : node.path("notes")) {
                                     control.checkpoint();
                                     var scope = note(value, patient.demographicNo());
@@ -153,10 +155,14 @@ public class CdsExportDisclosureScopeService {
                                                     .categories()
                                                     .contains(CdsCategory.CLINICAL_NOTES))
                                         invalid();
-                                    control.authorizeNote(CdsCategory.CLINICAL_NOTES, scope);
+                                    patientNotes.add(scope);
                                     previous = scope.noteId();
                                     notes[0]++;
                                 }
+                                if (!patientNotes.isEmpty())
+                                    control.authorizeNotes(
+                                            CdsCategory.CLINICAL_NOTES,
+                                            java.util.List.copyOf(patientNotes));
                             });
             if (count != patients
                     || !JSON.readTree(

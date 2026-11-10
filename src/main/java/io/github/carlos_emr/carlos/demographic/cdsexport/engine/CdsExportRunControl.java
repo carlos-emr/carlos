@@ -27,19 +27,38 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 public interface CdsExportRunControl {
     /** Outside source transactions; cheap local checks may throttle durable metadata probes. */
     void checkpoint();
+
     /** Inside an explicit read-only source transaction; metadata control uses an independent transaction. */
     void captureCheckpoint();
+
     /** Before/after capture, outside its admission barrier; no stale source-snapshot permission check. */
     void authorizePatient(int patient);
+
     /** The preferred pharmacy is a demographic wire field backed by the separate native Rx read privilege. */
-    default void authorizePharmacy(int patient) { throw new SecurityException("CDS_EXPORT_PHARMACY_AUTHORIZATION_REQUIRED"); }
+    default void authorizePharmacy(int patient) {
+        throw new SecurityException("CDS_EXPORT_PHARMACY_AUTHORIZATION_REQUIRED");
+    }
 
     /** Fresh chart/category and patient program-domain read, even when the patient has no notes. */
-    default void authorizeCaseManagement(int patient) { throw new SecurityException("CDS_EXPORT_CASE_MANAGEMENT_AUTHORIZATION_REQUIRED"); }
+    default void authorizeCaseManagement(int patient) {
+        throw new SecurityException("CDS_EXPORT_CASE_MANAGEMENT_AUTHORIZATION_REQUIRED");
+    }
 
     /** Fresh program/reporter-role checks for the exact note, outside the source transaction. */
-    default void authorizeNote(CdsCategory category, io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto scope) {
+    default void authorizeNote(
+            CdsCategory category,
+            io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto scope) {
         throw new SecurityException("CDS_EXPORT_NOTE_AUTHORIZATION_REQUIRED");
+    }
+
+    /** One bounded patient batch; adapters may share only this fresh authorization transaction. */
+    default void authorizeNotes(
+            CdsCategory category,
+            java.util.List<
+                            io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                    .CdsExportNoteAccessDto>
+                    scopes) {
+        for (var scope : java.util.List.copyOf(scopes)) authorizeNote(category, scope);
     }
 
     /** Actual sensitive laboratory occurrences must explicitly require their additional domain privilege. */

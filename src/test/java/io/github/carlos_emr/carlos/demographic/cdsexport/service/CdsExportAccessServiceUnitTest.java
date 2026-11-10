@@ -229,6 +229,117 @@ class CdsExportAccessServiceUnitTest {
     }
 
     @Test
+    void shouldAuthorizeAll8192ExactNoteScopes_withOneIdentityAndOneSharedProgramGrant() {
+        var command = noteCommand("100");
+        var actor = access.webActor(session, command);
+        var batch =
+                java.util.stream.LongStream.rangeClosed(1, 8192)
+                        .mapToObj(
+                                id ->
+                                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                                .CdsExportNoteAccessDto(id, 27, "17", "1"))
+                        .toList();
+        when(notes.findScopes(eq(27), anyList())).thenReturn(batch);
+        when(notes.canRead("100", batch.getFirst(), null, true)).thenReturn(true);
+        clearInvocations(accounts, providers, permissions);
+        access.requireNotesRead(actor, command, CdsCategory.CLINICAL_NOTES, batch);
+        verify(accounts, times(1)).find(7);
+        verify(notes, times(1))
+                .findScopes(27, batch.stream().map(scope -> scope.noteId()).toList());
+        verify(notes, times(1)).canRead(anyString(), any(), isNull(), eq(true));
+        verify(notes, never()).findScope(anyInt(), anyLong());
+        // A later disclosure boundary must read the identity and grants again.
+        when(notes.canRead("100", batch.getFirst(), null, true)).thenReturn(false);
+        assertThatThrownBy(
+                        () ->
+                                access.requireNotesRead(
+                                        actor, command, CdsCategory.CLINICAL_NOTES, batch))
+                .isInstanceOf(SecurityException.class);
+        verify(accounts, times(2)).find(7);
+    }
+
+    @Test
+    void shouldRefuseChangedMissingDuplicateForeignAndOversizedNoteBatches_beforeGrantReuse() {
+        var command = noteCommand("100");
+        var actor = access.webActor(session, command);
+        var note =
+                new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto(
+                        91, 27, "17", "1");
+        when(notes.findScopes(27, List.of(91L)))
+                .thenReturn(
+                        List.of(
+                                new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                        .CdsExportNoteAccessDto(91, 27, "17", "2")));
+        assertThatThrownBy(
+                        () ->
+                                access.requireNotesRead(
+                                        actor, command, CdsCategory.CLINICAL_NOTES, List.of(note)))
+                .isInstanceOf(SecurityException.class);
+        when(notes.findScopes(27, List.of(91L))).thenReturn(List.of());
+        assertThatThrownBy(
+                        () ->
+                                access.requireNotesRead(
+                                        actor, command, CdsCategory.CLINICAL_NOTES, List.of(note)))
+                .isInstanceOf(SecurityException.class);
+        assertThatThrownBy(
+                        () ->
+                                access.requireNotesRead(
+                                        actor,
+                                        command,
+                                        CdsCategory.CLINICAL_NOTES,
+                                        List.of(note, note)))
+                .isInstanceOf(SecurityException.class);
+        var foreign =
+                new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto(
+                        92, 28, "17", "1");
+        assertThatThrownBy(
+                        () ->
+                                access.requireNotesRead(
+                                        actor,
+                                        command,
+                                        CdsCategory.CLINICAL_NOTES,
+                                        List.of(note, foreign)))
+                .isInstanceOf(SecurityException.class);
+        assertThatThrownBy(
+                        () ->
+                                access.requireNotesRead(
+                                        actor,
+                                        command,
+                                        CdsCategory.CLINICAL_NOTES,
+                                        java.util.Collections.nCopies(8193, note)))
+                .isInstanceOf(SecurityException.class);
+        verify(notes, never()).canRead(anyString(), any(), nullable(Integer.class), anyBoolean());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"100", "200"})
+    void shouldRequireBothDelegatedIdentitiesForEveryDistinctBatchGrant(String denied) {
+        var command = noteCommand("200");
+        var actor = access.webActor(session, command);
+        var batch =
+                List.of(
+                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportNoteAccessDto(91, 27, "17", "1"),
+                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportNoteAccessDto(92, 27, "18", "2"));
+        when(notes.findScopes(eq(27), anyList())).thenReturn(batch);
+        when(notes.canRead(anyString(), any(), isNull(), eq(true)))
+                .thenAnswer(
+                        call ->
+                                !(denied.equals(call.getArgument(0))
+                                        && ((io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                                                .CdsExportNoteAccessDto)
+                                                        call.getArgument(1))
+                                                .program()
+                                                .equals("18")));
+        assertThatThrownBy(
+                        () ->
+                                access.requireNotesRead(
+                                        actor, command, CdsCategory.CLINICAL_NOTES, batch))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
     void shouldDenyMissingNotesAndChangedReporterRoles_beforeCheckingProgramGrants() {
         var command = noteCommand("100");
         var actor = access.webActor(session, command);

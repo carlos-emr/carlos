@@ -59,6 +59,7 @@ class CdsExportDisclosureScopeServiceUnitTest {
 
     @BeforeEach
     void prepare() throws Exception {
+        doCallRealMethod().when(control).authorizeNotes(any(), anyList());
         Files.setPosixFilePermissions(root, PosixFilePermissions.fromString("rwx------"));
         var categories = EnumSet.copyOf(CdsExportNoteSourceReader.CATEGORIES);
         categories.add(CdsCategory.DEMOGRAPHICS);
@@ -106,7 +107,8 @@ class CdsExportDisclosureScopeServiceUnitTest {
                         "PATIENT_SELECTION",
                         output ->
                                 output.write(
-                                        ("{\"demographicNo\":27,\"physicianNo\":null}\n{\"demographicNo\":28,\"physicianNo\":null}\n")
+                                        ("{\"demographicNo\":27,\"physicianNo\":null}\n"
+                                             + "{\"demographicNo\":28,\"physicianNo\":null}\n")
                                                 .getBytes(
                                                         java.nio.charset.StandardCharsets.UTF_8)));
         var now = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
@@ -221,7 +223,8 @@ class CdsExportDisclosureScopeServiceUnitTest {
     }
 
     @Test
-    void shouldRejectDuplicateOrUnorderedNoteScopeIdentities_forDisclosureScopeServiceContract() throws Exception {
+    void shouldRejectDuplicateOrUnorderedNoteScopeIdentities_forDisclosureScopeServiceContract()
+            throws Exception {
         patients.set(
                 0,
                 patient(
