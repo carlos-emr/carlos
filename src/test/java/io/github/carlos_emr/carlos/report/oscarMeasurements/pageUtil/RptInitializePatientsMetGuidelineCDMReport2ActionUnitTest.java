@@ -127,7 +127,7 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
 
         private MockedStatic<ServletActionContext> servletActionContext;
         private MockedStatic<LoggedInInfo> loggedInInfo;
-        private HttpServletRequest request;
+        private org.springframework.mock.web.MockHttpServletRequest request;
         private HttpServletResponse response;
         private MeasurementDao measurementDao;
         private FormsDao formsDao;
@@ -143,10 +143,9 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
             measurementDao = createAndRegisterMock(MeasurementDao.class);
             formsDao = createAndRegisterMock(FormsDao.class);
 
-            request = mock(HttpServletRequest.class);
+            request = org.mockito.Mockito.spy(new org.springframework.mock.web.MockHttpServletRequest());
             response = mock(HttpServletResponse.class);
-            HttpSession session = mock(HttpSession.class);
-            when(request.getSession(false)).thenReturn(session);
+            HttpSession session = request.getSession();
             servletActionContext = mockStatic(ServletActionContext.class);
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
@@ -174,7 +173,9 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
             // The same definitions the CDM setup page stores for the report forms, built before the
             // session stub so its DAO calls are not caught inside an in-progress when().
             RptMeasurementTypesBeanHandler definitions = new RptMeasurementTypesBeanHandler(GROUP);
-            when(session.getAttribute("measurementTypes")).thenReturn(definitions);
+            session.setAttribute("measurementTypes", definitions);
+            String context = CdmReportContexts.issue(request, Map.of(CdmReportContexts.MEASUREMENT_TYPES, definitions));
+            request.setParameter(CdmReportContexts.PARAMETER, context);
             clearInvocations(measurementDao);
         }
 
@@ -189,10 +190,11 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
         }
 
         private RptInitializePatientsMetGuidelineCDMReport2Action actionForRow(int row, String type, String instruction) {
-            when(request.getParameter("value(measurementType" + row + ")")).thenReturn(type);
-            when(request.getParameter("value(mNbInstrcs" + row + ")")).thenReturn("1");
-            when(request.getParameter("value(mInstrcsCheckbox" + row + "0)")).thenReturn(instruction);
-            when(request.getParameter("value(aboveBelow" + row + ")")).thenReturn(">");
+            request.setParameter("value(measurementType" + row + ")", type);
+            request.setParameter("value(mNbInstrcs" + row + ")", "1");
+            if (instruction != null) request.setParameter("value(mInstrcsCheckbox" + row + "0)", instruction);
+            else request.removeParameter("value(mInstrcsCheckbox" + row + "0)");
+            request.setParameter("value(aboveBelow" + row + ")", ">");
             RptInitializePatientsMetGuidelineCDMReport2Action action = new TestableAction();
             action.setGuidelineCheckbox(new String[] {Integer.toString(row)});
             action.setStartDateB(new String[] {"2025-01-01"});
@@ -202,10 +204,10 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
         }
 
         private RptInitializePatientsMetGuidelineCDMReport2Action actionForRawIndex(String rawIndex) {
-            when(request.getParameter("value(measurementType0)")).thenReturn("AACP");
-            when(request.getParameter("value(mNbInstrcs0)")).thenReturn("1");
-            when(request.getParameter("value(mInstrcsCheckbox00)")).thenReturn("Yes/No");
-            when(request.getParameter("value(aboveBelow0)")).thenReturn(">");
+            request.setParameter("value(measurementType0)", "AACP");
+            request.setParameter("value(mNbInstrcs0)", "1");
+            request.setParameter("value(mInstrcsCheckbox00)", "Yes/No");
+            request.setParameter("value(aboveBelow0)", ">");
             RptInitializePatientsMetGuidelineCDMReport2Action action = new TestableAction();
             action.setGuidelineCheckbox(new String[] {rawIndex});
             action.setStartDateB(new String[] {"2025-01-01"});
@@ -255,9 +257,12 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
                     suffix = "D";
                     checkbox = "FrequencyCheckbox";
                     typePrefix = "measurementTypeD";
+                    ((RptInitializeFrequencyOfRelevantTestsCDMReport2Action) action).setExactly(new int[]{1});
+                    ((RptInitializeFrequencyOfRelevantTestsCDMReport2Action) action).setMoreThan(new int[]{0});
+                    ((RptInitializeFrequencyOfRelevantTestsCDMReport2Action) action).setLessThan(new int[]{2});
                 }
             }
-            when(request.getParameter("value(" + typePrefix + "0)")).thenReturn("AACP");
+            request.setParameter("value(" + typePrefix + "0)", "AACP");
             Class<?> type = action.getClass();
             type.getMethod("set" + checkbox, String[].class).invoke(action, (Object) new String[]{"0"});
             type.getMethod("setStartDate" + suffix, String[].class).invoke(action, (Object) new String[]{"not-a-date"});
@@ -268,6 +273,91 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
             verify(request).setAttribute("actionErrors", new ArrayList<>(action.getActionErrors()));
             verify(response, never()).sendRedirect(anyString());
             verifyNoInteractions(measurementDao, formsDao);
+            verify(request, never()).setAttribute(eq("messages"), any());
+        }
+
+        private RptInitializeFrequencyOfRelevantTestsCDMReport2Action frequencyAction() {
+            request.setParameter("value(measurementTypeD0)", "AACP");
+            request.setParameter("value(mInstrcsCheckboxD00)", "Yes/No");
+            var action = new RptInitializeFrequencyOfRelevantTestsCDMReport2Action() {
+                @Override public String getText(String key) { return key; }
+                @Override public String getText(String key, String[] args) { return key; }
+            };
+            action.setFrequencyCheckbox(new String[]{"0"});
+            action.setStartDateD(new String[]{"2025-01-01"});
+            action.setEndDateD(new String[]{"2026-01-01"});
+            action.setExactly(new int[]{1});
+            action.setMoreThan(new int[]{0});
+            action.setLessThan(new int[]{2});
+            return action;
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"Exactly", "MoreThan", "LessThan"})
+        void shouldRefuseSelectedFrequencyRow_whenCountArrayIsMissing(String field) throws Exception {
+            var action = frequencyAction();
+            action.getClass().getMethod("set" + field, int[].class).invoke(action, (Object) null);
+            assertThat(action.execute()).isEqualTo("input");
+            assertThat(action.getActionErrors()).containsExactly("oscarReport.CDMReport.msgInvalidValue");
+            verifyNoInteractions(measurementDao, formsDao);
+            verify(request, never()).setAttribute(eq("messages"), any());
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"Exactly", "MoreThan", "LessThan"})
+        void shouldRefuseNegativeCounts_whenFrequencyRowIsSelected(String field) throws Exception {
+            var action = frequencyAction();
+            action.getClass().getMethod("set" + field, int[].class).invoke(action, (Object) new int[]{-1});
+            assertThat(action.execute()).isEqualTo("input");
+            assertThat(action.getActionErrors()).containsExactly("oscarReport.CDMReport.msgInvalidValue");
+            verifyNoInteractions(measurementDao, formsDao);
+        }
+
+        @Test
+        void shouldRefuseExpiredFrequencyForm_beforeAnyReportQueries() throws Exception {
+            var action = frequencyAction();
+            request.setParameter(CdmReportContexts.PARAMETER, "00000000-0000-0000-0000-000000000000");
+            assertThat(action.execute()).isEqualTo("none");
+            verify(response).sendError(eq(409), eq("oscarReport.CDMReport.msgStaleForm"));
+            verifyNoInteractions(measurementDao, formsDao);
+        }
+
+        @Test
+        void shouldRefuseUnknownFrequencyRow_withoutProducingAPartialReport() throws Exception {
+            var action = frequencyAction();
+            action.setFrequencyCheckbox(new String[]{"9"});
+            assertThat(action.execute()).isEqualTo("input");
+            assertThat(action.getActionErrors()).containsExactly("oscarReport.CDMReport.msgInvalidSelection");
+            verifyNoInteractions(measurementDao, formsDao);
+        }
+
+        @Test
+        void shouldFailReport_whenFrequencyQueryFailsAfterValidation() {
+            var action = frequencyAction();
+            when(measurementDao.findByCreateDate(any(Date.class), any(Date.class)))
+                    .thenThrow(new IllegalStateException("synthetic database fault"));
+            org.assertj.core.api.Assertions.assertThatThrownBy(action::execute)
+                    .isInstanceOf(IllegalStateException.class).hasMessage("Unable to complete CDM frequency report");
+            verify(request, never()).setAttribute(eq("messages"), any());
+        }
+
+        @Test
+        void shouldFailReport_whenRangeQueryFailsAfterValidation() {
+            request.setParameter("value(measurementTypeC0)", "AACP");
+            request.setParameter("value(mInstrcsCheckboxC00)", "Yes/No");
+            var action = new RptInitializePatientsInAbnormalRangeCDMReport2Action() {
+                @Override public String getText(String key) { return key; }
+                @Override public String getText(String key, String[] args) { return key; }
+            };
+            action.setAbnormalCheckbox(new String[]{"0"});
+            action.setStartDateC(new String[]{"2025-01-01"});
+            action.setEndDateC(new String[]{"2026-01-01"});
+            action.setLowerBound(new String[]{"No"});
+            action.setUpperBound(new String[]{"Yes"});
+            when(measurementDao.findLastEntered(any(Date.class), any(Date.class), eq("AACP"), eq("Yes/No")))
+                    .thenThrow(new IllegalStateException("synthetic database fault"));
+            org.assertj.core.api.Assertions.assertThatThrownBy(action::execute)
+                    .isInstanceOf(IllegalStateException.class).hasMessage("Unable to complete CDM range report");
             verify(request, never()).setAttribute(eq("messages"), any());
         }
 
@@ -327,14 +417,14 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
         @DisplayName("should bound the instruction loop by the rendered list when a huge count is posted")
         void shouldIgnorePostedCount_whenInstructionCountIsHuge() throws Exception {
             RptInitializePatientsMetGuidelineCDMReport2Action action = actionForRow0("AACP", "Yes/No");
-            when(request.getParameter("value(mNbInstrcs0)")).thenReturn(Integer.toString(Integer.MAX_VALUE));
-            when(request.getParameter("value(mInstrcsCheckbox01)")).thenReturn(CURRENT);
+            request.setParameter("value(mNbInstrcs0)", Integer.toString(Integer.MAX_VALUE));
+            request.setParameter("value(mInstrcsCheckbox01)", CURRENT);
 
             String result = action.execute();
 
             assertThat(result).isEqualTo("success");
-            // Two instructions were rendered for row 0, so validate + report read exactly two
-            // checkbox fields each and never probe a third; the DAO sees one query per instruction.
+            // Two instructions were rendered. Validation and reporting each read
+            // both fields, never a third; binding reads the parameter map directly.
             verify(request, times(2)).getParameter("value(mInstrcsCheckbox00)");
             verify(request, times(2)).getParameter("value(mInstrcsCheckbox01)");
             verify(request, never()).getParameter(startsWith("value(mInstrcsCheckbox02"));
@@ -348,7 +438,7 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
 
             String result = action.execute();
 
-            assertThat(result).isEqualTo("success");
+            assertThat(result).isEqualTo("input");
             verifyNoInteractions(measurementDao);
             verifyNoInteractions(formsDao);
             verify(response, never()).sendRedirect(anyString());
@@ -358,15 +448,15 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
         @DisplayName("should skip a row whose index is past the rendered rows or the posted arrays")
         void shouldSkipRow_whenIndexIsOutOfRange() throws Exception {
             RptInitializePatientsMetGuidelineCDMReport2Action past = actionForRawIndex("7");
-            assertThat(past.execute()).isEqualTo("success");
+            assertThat(past.execute()).isEqualTo("input");
 
             RptInitializePatientsMetGuidelineCDMReport2Action negative = actionForRawIndex("-1");
-            assertThat(negative.execute()).isEqualTo("success");
+            assertThat(negative.execute()).isEqualTo("input");
 
             // Row 0 is rendered, but the posted arrays are empty: no array may be indexed.
             RptInitializePatientsMetGuidelineCDMReport2Action shortArrays = actionForRawIndex("0");
             shortArrays.setStartDateB(new String[0]);
-            assertThat(shortArrays.execute()).isEqualTo("success");
+            assertThat(shortArrays.execute()).isEqualTo("input");
 
             verifyNoInteractions(measurementDao);
             verifyNoInteractions(formsDao);
@@ -380,10 +470,10 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
 
             String result = action.execute();
 
-            assertThat(result).isEqualTo("success");
+            assertThat(result).isEqualTo("none");
             verifyNoInteractions(measurementDao);
             verifyNoInteractions(formsDao);
-            verify(response, never()).sendRedirect(anyString());
+            verify(response).sendError(eq(409), any());
         }
 
         @Test
@@ -394,7 +484,7 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
 
             String result = action.execute();
 
-            assertThat(result).isEqualTo("success");
+            assertThat(result).isEqualTo("none");
             verify(measurementDao, never()).findLastEntered(any(Date.class), any(Date.class), anyString(), anyString());
             verifyNoInteractions(formsDao);
         }

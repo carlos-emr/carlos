@@ -93,7 +93,7 @@ class InboxAcknowledgeNotificationRegressionTest {
     void shouldNotifyInbox_whenLabMacroDoesNotCloseWindow() throws IOException {
         String labDisplay = read(LAB_DISPLAY_JSP);
 
-        int notifyCall = labDisplay.indexOf("notifyInboxhubAfterMacro(formid, json.clearedCount);");
+        int notifyCall = labDisplay.indexOf("notifyInboxhubAfterMacro(formid, json.clearedCount, json);");
         int closeCall = labDisplay.indexOf("if (closeOnSuccess) {");
         assertThat(notifyCall)
                 .as("lab macro success handler must notify the Inboxhub")
@@ -119,7 +119,7 @@ class InboxAcknowledgeNotificationRegressionTest {
         assertThat(read(REPORT_MACRO_ACTION))
                 .as("the server must report acknowledgement separately from success")
                 .contains("result.put(\"acknowledged\", outcome.acknowledged());")
-                .contains("return MacroOutcome.ran(acknowledged, clearedCount);");
+                .contains("return MacroOutcome.ran(acknowledged, clearedCount, chainUpdate);");
     }
 
     @Test
@@ -236,7 +236,7 @@ class InboxAcknowledgeNotificationRegressionTest {
                 .as("the refresh listener must drop the item, and must READ the answer: it decides "
                         + "whether a re-fetch is still required, so calling and discarding it would "
                         + "re-run the whole search over an item already dealt with")
-                .contains("? dropAcknowledgedInboxhubItem(acknowledgedId, acknowledgedType, acknowledgedRows)");
+                .contains("? dropAcknowledgedInboxhubItem(acknowledgedId, acknowledgedType, acknowledgedRows, event.data.retainedVersionIds)");
         assertThat(inboxhubForm)
                 .as("the stored totals, not just the rendered badges, must be decremented")
                 .contains("typeInput.val(typeCount - taken);")
@@ -267,7 +267,7 @@ class InboxAcknowledgeNotificationRegressionTest {
         // one left the badge one ahead of the figure the next page load computes.
         assertThat(read(COMMON_LAB_RESULT_DATA))
                 .as("the server must report how many routing rows it cleared")
-                .contains("return clearedFromNew;");
+                .contains("return new ReportChainUpdate(clearedFromNew, new java.util.ArrayList<>(versions));");
         assertThat(read(REPORT_MACRO_ACTION))
                 .as("the macro response must carry that count to the browser")
                 .contains("result.put(\"clearedCount\", outcome.clearedCount());");
@@ -286,9 +286,9 @@ class InboxAcknowledgeNotificationRegressionTest {
     @Test
     @DisplayName("should count one routing row for each id the manual acknowledge path clears")
     void shouldCountPerCall_whenOpenerClearsEachChainVersion() throws IOException {
-        // The manual path has the chain client-side and calls removeReport once per id it
-        // cleared, so each call is exactly one routing row. Making that count conditional on
-        // a row being present dropped the older versions from the badge, because the inbox
+        // The manual path receives the server-selected affected IDs and removes each
+        // matching row. The separate cleared count controls routing totals. Making that
+        // count conditional on a row being present dropped older versions from the badge; the inbox
         // collapses a chain and only the newest version ever has a row.
         assertThat(read(INBOXHUB_LIST_MODE_JSP))
                 .as("removeReport counts its call, whether or not a row was on screen, through the "
@@ -302,7 +302,7 @@ class InboxAcknowledgeNotificationRegressionTest {
                         "countAcknowledgedInboxhubItem(segmentId, resolvedType, clearedCount);",
                         "if (!isInboxhubItemHandled(segmentId, resolvedType)) { return false; }");
         assertThat(read(OSCAR_MDS_INDEX_JS))
-                .as("the opener loop must walk the same versions the server files")
+                .as("the legacy non-CML fallback must still reject malformed chain tokens")
                 .contains("return at < 0 ? [target] : chain.slice(0, at + 1);")
                 .contains("removeOpenerInboxRow(id, data.labType);");
     }
@@ -346,13 +346,13 @@ class InboxAcknowledgeNotificationRegressionTest {
         // NEW, so a stale or forged chain must not decide how far the badge moves.
         assertThat(read(REPORT_STATUS_UPDATE_ACTION))
                 .as("the AJAX acknowledge response must carry the cleared count")
-                .contains("json.put(\"clearedCount\", clearedCount);")
-                .contains("writeClearedCount(update.cleared());");
+                .contains("json.put(\"clearedCount\", chain.clearedCount());")
+                .contains("writeClearedCount(update.chain());");
         assertThat(read(OSCAR_MDS_INDEX_JS))
                 .as("the browser must ask for that response and use it")
                 .contains("data.ajaxcall = 'yes';")
                 .contains("const clearedCount = serverClearedCount(responseBody);")
-                .contains("notifyInboxhubAcknowledged(doclabid, data.labType, clearedCount);");
+                .contains("notifyInboxhubAcknowledged(doclabid, data.labType, clearedCount, chain);");
         assertThat(read(OSCAR_MDS_INDEX_JS))
                 .as("a chain token the server would skip must not be counted as a cleared row")
                 .contains(".filter(function (id) { return /^\\d+$/.test(id); });");
@@ -375,10 +375,10 @@ class InboxAcknowledgeNotificationRegressionTest {
                         + "            return true;\n"
                         + "        } catch (e) {")
                 .as("and a failed post falls through to the direct route, not to a bare false")
-                .contains("return dropFromInboxhubDirectly(segmentId, labType, clearedCount);");
+                .contains("return dropFromInboxhubDirectly(segmentId, labType, clearedCount, chain);");
         assertThat(labDisplay)
                 .as("the direct route does the whole job: row and counters, by the server's count")
-                .contains("inbox.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount) === true;")
+                .contains("inbox.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount, chain ? [] : undefined) === true;")
                 .as("reaching the inbox in preview mode as well as from a popup")
                 .contains("} else if (window.parent !== window")
                 .as("and re-fetching ONLY when the inbox could not deal with the item itself: it "

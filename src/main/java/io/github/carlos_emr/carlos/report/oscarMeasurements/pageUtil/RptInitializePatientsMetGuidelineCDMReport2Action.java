@@ -62,6 +62,11 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
             throw new SecurityException("missing required sec object (_report)");
         }
+        if (!CdmReportContexts.bind(request)) {
+            CdmReportContexts.refuse(response, this);
+            return NONE;
+        }
+
 
         RptMeasurementsData mData = new RptMeasurementsData();
         String[] patientSeenCheckbox = this.getPatientSeenCheckbox();
@@ -178,7 +183,10 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                 }
             }
         }
-        return valid;
+        if (!selection.isValid()) {
+            addActionError(getText("oscarReport.CDMReport.msgInvalidSelection"));
+        }
+        return valid && selection.isValid();
     }
 
     private static final String ABOVE = ">";

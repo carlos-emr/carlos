@@ -303,11 +303,15 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
 
     record Fixture(CaseManagementEntry2Action action,CaseManagementManager manager,CaseManagementEntryFormBean form) {}
 
-    @Test
-    void shouldUseAuthenticatedDefaultProgram_whenLegacyEditorHasNoCapturedProgram() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {" "})
+    void shouldUseAuthenticatedDefaultProgram_whenLegacyEditorHasNoCapturedProgram(String capturedProgram) {
         var fixture = diagnosisFixture();
         var request = (MockHttpServletRequest) fixture.action.request;
         request.getSession().removeAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.class.getName() + ".101");
+        if (capturedProgram != null) request.getSession().setAttribute(
+                io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.class.getName() + ".101", capturedProgram);
         var programs = mock(io.github.carlos_emr.carlos.encounter.data.EctProgramManager.class);
         when(programs.getProgramBeans("999998", null)).thenReturn(List.of(new io.github.carlos_emr.carlos.util.LabelValueBean("Default", "23")));
         when(programs.getDefaultProgramId("999998")).thenReturn(23);
@@ -451,10 +455,132 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldIgnoreMissingAndSparseSelections_whenNoReplacementWasSelected() {
         var fixture = diagnosisFixture();
-        for (CheckIssueBoxBean[] choices : new CheckIssueBoxBean[][]{null, {null}}) {
+        var unchecked = new CheckIssueBoxBean();
+        var missingIssue = mock(CheckIssueBoxBean.class);
+        when(missingIssue.isChecked()).thenReturn(true);
+        when(missingIssue.getIssue()).thenReturn(null);
+        for (CheckIssueBoxBean[] choices : new CheckIssueBoxBean[][]{null, {null}, {unchecked, missingIssue}}) {
             fixture.action.setNewIssueCheckList(choices);
             assertThat(fixture.action.submitChangeDiagnosis()).isEqualTo("view");
         }
         verify(fixture.manager, never()).saveCaseIssue(any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"missing-selection", "missing-id", "deleted", "other-patient"})
+    void shouldRefuseStaleDiagnosisSelectionWithoutWrites_whenStoredIdentityIsUnavailable(String scenario) {
+        var fixture = diagnosisFixture();
+        var original = fixture.form.getIssueCheckList().get(0).getIssue();
+        var dao = (io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO)
+                org.springframework.test.util.ReflectionTestUtils.getField(fixture.action, "caseManagementIssueDao");
+        switch (scenario) {
+            case "missing-selection" -> {
+                var detachedSelection = new CheckBoxBean();
+                detachedSelection.setIssue(null);
+                // Represent an already-restored editor snapshot, independently of the current session form.
+                injectDependency(fixture.action, "issueCheckList", List.of(detachedSelection));
+            }
+            case "missing-id" -> original.setId(null);
+            case "deleted" -> when(dao.findById(91L)).thenReturn(null);
+            default -> {
+                var otherPatient = new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue();
+                otherPatient.setDemographic_no(202);
+                when(dao.findById(91L)).thenReturn(otherPatient);
+            }
+        }
+
+        assertThatThrownBy(fixture.action::submitChangeDiagnosis).isInstanceOf(SecurityException.class);
+
+        verifyNoInteractions(fixture.manager);
+        assertThat(fixture.form.getIssueCheckList().get(0).getIssue()).isSameAs(original);
+        assertThat(original.isResolved()).isFalse();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"submit,not-an-index", "submit,-1", "submit,1",
+            "ajax,not-an-index", "ajax,-1", "ajax,1", "status,not-an-index", "status,-1", "status,1"})
+    void shouldRejectInvalidIssueIndexWithoutWrites_whenChangingDiagnosisOrStatus(String operation, String index) throws Exception {
+        var fixture = diagnosisFixture();
+        ((MockHttpServletRequest) fixture.action.request).setParameter("change_diagnosis_id", index);
+        fixture.action.setLineId(index);
+
+        String result = switch (operation) {
+            case "submit" -> fixture.action.submitChangeDiagnosis();
+            case "ajax" -> fixture.action.ajaxChangeDiagnosis();
+            default -> fixture.action.issueChange();
+        };
+
+        assertThat(result).isEqualTo("none");
+        assertThat(fixture.action.response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(fixture.manager);
+        assertThat(fixture.form.getIssueCheckList().get(0).getIssue().isResolved()).isFalse();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"submit,missing-list", "ajax,missing-form", "ajax,missing-list",
+            "status,missing-form", "status,missing-list"})
+    void shouldRejectMissingIssueEditorWithoutWrites_whenTheSessionOrBoundListIsStale(String operation, String scenario) throws Exception {
+        var fixture = diagnosisFixture();
+        if (scenario.equals("missing-form")) fixture.action.request.getSession().removeAttribute("caseManagementEntryForm101");
+        else if (operation.equals("submit")) injectDependency(fixture.action, "issueCheckList", null);
+        else fixture.form.setIssueCheckList(null);
+
+        String result = switch (operation) {
+            case "submit" -> fixture.action.submitChangeDiagnosis();
+            case "ajax" -> fixture.action.ajaxChangeDiagnosis();
+            default -> fixture.action.issueChange();
+        };
+
+        assertThat(result).isEqualTo("none");
+        assertThat(fixture.action.response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(fixture.manager);
+    }
+
+    @Test
+    void shouldLeaveDiagnosisUnchanged_whenAjaxHasNoReplacement() {
+        var fixture = diagnosisFixture();
+        ((MockHttpServletRequest) fixture.action.request).removeParameter("newIssueId");
+        assertThat(fixture.action.ajaxChangeDiagnosis()).isEqualTo("issueList_ajax");
+        verify(fixture.manager, never()).saveCaseIssue(any());
+    }
+
+    @Test
+    void shouldRejectInvalidDurationBeforeChangingIssueStatus() throws Exception {
+        var fixture = diagnosisFixture();
+        ((MockHttpServletRequest) fixture.action.request).setParameter("hourOfEncounterTime", "invalid");
+        assertThat(fixture.action.issueChange()).isEqualTo("none");
+        assertThat(fixture.action.response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(fixture.manager);
+        assertThat(fixture.form.getIssueCheckList().get(0).getIssue().isResolved()).isFalse();
+    }
+
+    @Test
+    void shouldReturnForbiddenWithoutWriting_whenTheIssueEditorSessionRoleHasExpired() throws Exception {
+        var fixture = issueFixture(true);
+        fixture.action.request.getSession().removeAttribute("userrole");
+
+        assertThat(fixture.action.issueChange()).isEqualTo("none");
+
+        assertThat(fixture.action.response.getStatus()).isEqualTo(403);
+        verifyNoInteractions(fixture.manager);
+        assertThat(fixture.form.getIssueCheckList().get(0).getIssue().isResolved()).isFalse();
+    }
+
+    @Test
+    void shouldPersistAllIssueFlagsWithoutANote_whenIssueOnlyEditingIsAuthorized() throws Exception {
+        var fixture = diagnosisFixture();
+        fixture.form.setCaseNote(null);
+        var request = (MockHttpServletRequest) fixture.action.request;
+        request.setParameter("issueCheckList[0].issue.acute", "true");
+        request.setParameter("issueCheckList[0].issue.major", "true");
+
+        assertThat(fixture.action.issueChange()).isEqualTo("view");
+
+        var box = fixture.form.getIssueCheckList().get(0);
+        assertThat(box.getIssue().isAcute()).isTrue();
+        assertThat(box.getIssue().isMajor()).isTrue();
+        assertThat(box.getIssueDisplay().getAcute()).isEqualTo("acute");
+        assertThat(box.getIssueDisplay().getMajor()).isEqualTo("major");
+        verify(fixture.manager).saveAndUpdateCaseIssues(List.of(box.getIssue()));
     }
 }

@@ -31,13 +31,13 @@ package io.github.carlos_emr.carlos.lab.ca.all;
 
 import io.github.carlos_emr.carlos.util.NativeQueryValues;
 
-import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -75,7 +75,6 @@ import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class Hl7textResultsData {
 
@@ -96,14 +95,6 @@ public class Hl7textResultsData {
     }
 
     /**
-     * Observation-time layouts the HL7 message parsers hand back. HL7 OBR-7 may carry 14 digits (with
-     * seconds), 12 (no seconds), 10 (hour only) or 8 (date only), and the parsers (e.g.
-     * {@code CMLHandler.formatDateTime}, {@code DefaultGenericHandler}) render them as these shapes.
-     */
-    private static final String[] OBSERVATION_DATE_PATTERNS = {
-            "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm", "yyyy-MM-dd HH", "yyyy-MM-dd"};
-
-    /**
      * Parses a handler-formatted observation time, accepting a missing seconds, minutes or time
      * component so a result observed in the past is never re-dated to the moment it was filed
      * (issue #4619). Each layout must match the whole value and be a real calendar time, so a short
@@ -112,38 +103,17 @@ public class Hl7textResultsData {
      * @param observationDate the handler's formatted timestamp, may be null
      * @return the parsed instant, or {@code null} when no supported layout matches
      */
-    static Date parseObservationDate(String observationDate) {
-        if (observationDate == null) {
-            return null;
-        }
-        String trimmed = observationDate.trim();
-        for (String pattern : OBSERVATION_DATE_PATTERNS) {
-            // SimpleDateFormat is not thread-safe, so build one per call.
-            SimpleDateFormat format = new SimpleDateFormat(pattern);
-            format.setLenient(false);
-            ParsePosition position = new ParsePosition(0);
-            Date parsed = format.parse(trimmed, position);
-            if (parsed != null && position.getIndex() == trimmed.length()) {
-                return parsed;
-            }
-        }
-        return null;
+    public static Date parseObservationDate(String observationDate) {
+        return io.github.carlos_emr.carlos.lab.ca.all.util.ObservationTime.parse(observationDate);
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static void populateMeasurementsTable(String lab_no, String demographic_no) {
         MessageHandler h = Factory.getHandler(lab_no);
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        Calendar calender = Calendar.getInstance();
-        String day = Integer.toString(calender.get(Calendar.DAY_OF_MONTH));
-        String month = Integer.toString(calender.get(Calendar.MONTH) + 1);
-        String year = Integer.toString(calender.get(Calendar.YEAR));
-        String hour = Integer.toString(calender.get(Calendar.HOUR_OF_DAY));
-        String min = Integer.toString(calender.get(Calendar.MINUTE));
-        String second = Integer.toString(calender.get(Calendar.SECOND));
-        String dateEntered = year + "-" + month + "-" + day + " " + hour + ":" + min + ":" + second + ":";
-
+        if (h == null) {
+            // Refuse before the previous version's measurements are archived: with nothing
+            // readable to file in their place, the chart would be left with neither.
+            throw new IllegalStateException("Lab report could not be read; its measurements were not filed");
+        }
         //Check for other versions of this lab
         String[] matchingLabs = getMatchingLabs(lab_no).split(",");
         //if this lab is the latest version delete the measurements from the previous version and add the new ones
@@ -156,31 +126,50 @@ public class Hl7textResultsData {
         if (k == matchingLabs.length) {
             throw new IllegalStateException("The incoming lab is absent from its resolved version chain");
         }
-        // Historical deliveries retain their raw report/routing, but must never replace
-        // the active measurements of the clinically current version.
+        // A late historical delivery must not replace the current version's measurements.
         if (k != matchingLabs.length - 1) return;
 
-        if (k != 0) {
+        List<String> superseded = new ArrayList<>();
+        if (h instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler) {
+            // An older version delivered after a newer one is history: it used to remove the
+            // newer version's measurements and file its own stale values (#5820). The newest
+            // version replaces every version before it, including any left by that defect.
+            superseded.addAll(java.util.Arrays.asList(matchingLabs).subList(0, k));
+        } else if (k != 0) {
+            superseded.add(matchingLabs[k - 1]);
+        }
+        if (!superseded.isEmpty()) {
             List<MeasurementsDeleted> measurementsDeletedList = new ArrayList<>();
             List<Measurement> measurementsToRemove = new ArrayList<>();
-            MeasurementsDeleted measurementsDeleted;
-            for (Measurement m : measurementDao.findByValue("lab_no", matchingLabs[k - 1])) {
-                measurementsDeleted = new MeasurementsDeleted(m);
-                measurementsDeletedList.add(measurementsDeleted);
-                measurementsToRemove.add(m);
+            for (String previous : superseded) {
+                for (Measurement m : measurementDao.findByValue("lab_no", previous)) {
+                    measurementsDeletedList.add(new MeasurementsDeleted(m));
+                    measurementsToRemove.add(m);
+                }
             }
             measurementsDeletedDao.batchPersistAtomically(measurementsDeletedList);
             measurementDao.batchRemoveAtomically(measurementsToRemove);
         }
-        // loop through the measurements for the lab and add them
+        fileMeasurements(h, lab_no, demographic_no);
+    }
+
+    /** Files every viewable result of one report as a measurement. */
+    private static void fileMeasurements(MessageHandler h, String lab_no, String demographic_no) {
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        Calendar calender = Calendar.getInstance();
+        String day = Integer.toString(calender.get(Calendar.DAY_OF_MONTH));
+        String month = Integer.toString(calender.get(Calendar.MONTH) + 1);
+        String year = Integer.toString(calender.get(Calendar.YEAR));
+        String hour = Integer.toString(calender.get(Calendar.HOUR_OF_DAY));
+        String min = Integer.toString(calender.get(Calendar.MINUTE));
+        String second = Integer.toString(calender.get(Calendar.SECOND));
+        String dateEntered = year + "-" + month + "-" + day + " " + hour + ":" + min + ":" + second + ":";
 
         /*
          * find a regex filter in properties -or- set default to find everything
          * This OSCAR property determines what is allowed to be written to the measurements
          * table.  No more entire PDF documents written into measurements.
          */
-        String patternstring = CarlosProperties.getInstance().getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*");
-        Pattern pattern = Pattern.compile(patternstring);
 
         /*
          * Setting in OSCAR properties that toggles if a code
@@ -192,7 +181,6 @@ public class Hl7textResultsData {
         List<MeasurementsExt> measurementsExts = new ArrayList<>();
         for (int i = 0; i < h.getOBRCount(); i++) {
             for (int j = 0; j < h.getOBXCount(i); j++) {
-
                 String result = h.getOBXResult(i, j);
 
                 if (result == null) {
@@ -265,40 +253,9 @@ public class Hl7textResultsData {
                 }
 
 
-                /*
-                 * Trim and remove HTML
-                 */
-                String trimmed = StringUtils.trimToEmpty(result);
-                // Trim again once the markers are gone: a result such as "<br /> -5.2" (handlers turn \.br\ into
-                // <br />) would otherwise reach the filter with a leading space and be filed with it, or, for a word
-                // result such as "<br />negative", not at all.
-                trimmed = StringUtils.trimToEmpty(trimmed.replaceAll("\\<br\\s?/?\\>", ""));
-                String folded = trimmed.toLowerCase(java.util.Locale.ROOT);
-                Matcher matcher = pattern.matcher(folded);
-                Measurement m = new Measurement();
-
-                if (matcher.find()) {
-                    // The match, not the whole result, is the value filed: the filter both selects and extracts.
-                    String value = originalResultMatch(trimmed, folded, matcher);
-                    if (value == null) {
-                        if (logger.isWarnEnabled()) {
-                            logger.warn("Result filter split a Unicode case mapping; not filed as a measurement (lab {}, OBX {}-{})",
-                                    LogSafe.sanitize(lab_no), i, j);
-                        }
-                        continue;
-                    }
-                    // measurements.dataField holds 255 characters. The packaged install (MariaDB sql_mode="", and
-                    // jdbcCompliantTruncation=false in the JDBC URL) would cut a longer value to fit without an error,
-                    // and a strict server would roll back the whole lab. The lab report keeps the full result, so such
-                    // a value is left out of measurements rather than filed as something the lab did not send (#4613).
-                    // Counted in code points: the utf8mb4 column counts characters, not UTF-16 units.
-                    int characters = value.codePointCount(0, value.length());
-                    if (characters > Measurement.DATA_FIELD_MAX_LENGTH) {
-                        logger.warn("A result of {} characters matched HL7_LAB_MEASUREMENT_FILTER but is longer than a"
-                                + " measurement holds; not filed as a measurement (lab {}, OBX {}-{})",
-                                characters, LogSafe.sanitize(lab_no), i, j);
-                        continue;
-                    }
+                String value = projectableValue(result, lab_no, i, j);
+                if (value != null) {
+                    Measurement m = new Measurement();
                     m.setType(measType);
                     m.setDemographicId(Integer.parseInt(demographic_no));
                     m.setProviderNo("0");
@@ -326,8 +283,7 @@ public class Hl7textResultsData {
                     /*
                      * Remove HTML
                      */
-                    comments = comments.replaceAll("\\<br\\s?/?\\>", "");
-                    m.setComments(comments);
+                    m.setComments(measurementComment(comments));
                     measurementDao.persist(m);
 
                     int mId = m.getId();
@@ -441,21 +397,69 @@ public class Hl7textResultsData {
         measurementsExtDao.batchPersistAtomically(measurementsExts, 50);
     }
 
-    /** Preserve source spelling while keeping the filter's existing lowercase selection/extraction. */
-    private static String originalResultMatch(String original, String folded, Matcher match) {
-        if (original.length() == folded.length()) return original.substring(match.start(), match.end());
-        int foldedOffset = 0;
-        int start = -1;
-        int offset = 0;
-        while (offset <= original.length()) {
-            if (foldedOffset == match.start()) start = offset;
-            if (foldedOffset == match.end()) return start < 0 ? null : original.substring(start, offset);
-            if (offset == original.length() || foldedOffset > match.end()) break;
-            String codePoint = new String(Character.toChars(original.codePointAt(offset)));
-            foldedOffset += codePoint.toLowerCase(java.util.Locale.ROOT).length();
-            offset += codePoint.length();
+    /**
+     * A result's joined comment as a measurement stores it: handler line-break markers removed and
+     * cut to the column width, which the packaged database would otherwise do silently and a
+     * strict one would refuse. The full comment remains in the report.
+     */
+    private static String measurementComment(String joinedComments) {
+        String comment = joinedComments.replaceAll("\\<br\\s?/?\\>", "");
+        return comment.codePointCount(0, comment.length()) <= Measurement.COMMENTS_MAX_LENGTH ? comment
+                : comment.substring(0, comment.offsetByCodePoints(0, Measurement.COMMENTS_MAX_LENGTH));
+    }
+
+    /**
+     * The value a result is filed as: the text {@code HL7_LAB_MEASUREMENT_FILTER} matches, in the
+     * lab's own case. {@code null} when the filter does not match or the match is longer than a
+     * measurement holds; the full result stays in the report.
+     */
+    private static String projectableValue(String result, String lab, int obr, int obx) {
+        return projectableValue(result, "lab " + LogSafe.sanitize(lab) + ", OBX " + obr + "-" + obx);
+    }
+
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "Locale.ROOT shadow matches the clinic's result filter; not an identity or authorization decision")
+    // Locale.ROOT folding is only for the clinic's result filter, never identity or authorization.
+    private static String projectableValue(String result, String context) {
+        if (result == null || result.isEmpty() || "DNR".equals(result)) return null;
+        String trimmed = StringUtils.trimToEmpty(result).replaceAll("\\<br\\s?/?\\>", "").trim();
+        Locale locale = Locale.ROOT;
+        String shadow = trimmed.toLowerCase(locale);
+        Matcher match = Pattern.compile(CarlosProperties.getInstance()
+                .getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).matcher(shadow);
+        if (!match.find()) return null;
+        int start = originalBoundary(trimmed, shadow, match.start(), locale);
+        int end = originalBoundary(trimmed, shadow, match.end(), locale);
+        if (start < 0 || end < 0) {
+            if (context != null) logger.warn("Result filter split a Unicode case mapping; not filed as a measurement ({})", context);
+            return null;
         }
-        return null;
+        String value = trimmed.substring(start, end);
+        int characters = value.codePointCount(0, value.length());
+        if (characters > Measurement.DATA_FIELD_MAX_LENGTH) {
+            if (context != null) logger.warn("A result of {} characters matched HL7_LAB_MEASUREMENT_FILTER but is longer than a measurement holds; original remains in the source report ({})", characters, context);
+            return null;
+        }
+        return value;
+    }
+
+    /** Map a lowercase-shadow boundary without cutting a source character in half. */
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "Maps the Locale.ROOT filter shadow back onto original result text; not an identity or authorization decision")
+    // This fold maps the Locale.ROOT filter shadow to original text, never identity or authorization.
+    private static int originalBoundary(String source, String shadow, int boundary, Locale locale) {
+        if (boundary == 0) return 0;
+        if (boundary == shadow.length()) return source.length();
+        if (source.length() == shadow.length()) return boundary;
+        int original = 0, folded = 0;
+        while (original < source.length()) {
+            int next = original + Character.charCount(source.codePointAt(original));
+            folded += source.substring(original, next).toLowerCase(locale).length();
+            if (folded == boundary) return next;
+            if (folded > boundary) return -1;
+            original = next;
+        }
+        return -1;
     }
 
     public static String getMatchingLabs_CLS(String lab_no) {
@@ -537,10 +541,7 @@ public class Hl7textResultsData {
         }
 
         boolean cml = hl7Msg != null && "CML".equals(hl7Msg.getType());
-        List<Hl7TextInfo> cmlVersions = new ArrayList<>();
-        java.util.Map<Integer, Integer> completedCounts = new java.util.HashMap<>();
-        java.util.Map<Integer, Date> observationDates = new java.util.HashMap<>();
-        java.util.Set<Integer> correctedVersions = new java.util.HashSet<>();
+        java.util.Map<Integer, io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler> cmlVersions = new java.util.LinkedHashMap<>();
         java.util.Set<Integer> seenVersions = new java.util.HashSet<>();
 
         for (Object[] o : hl7TxtInfoDao.findByLabIdViaMagic(ConversionUtils.fromIntString(lab_no))) {
@@ -574,18 +575,11 @@ public class Hl7textResultsData {
                     if (version == null) throw new IncompleteCmlVersionChainException("A CML version has no stored source message");
                     if ("CML".equals(version.getType())) {
                         MessageHandler parser = Factory.getHandler(version);
-                        if (parser == null) throw new IncompleteCmlVersionChainException("A stored CML version cannot be parsed");
-                        // Derive completeness from the source so corrections stored before the
-                        // C-status counter fix do not remain permanently below an original F.
-                        completedCounts.put(labNo, parser.getOBXFinalResultCount());
-                        observationDates.put(labNo, dateA);
-                        for (int obr = 0; obr < parser.getOBRCount(); obr++) {
-                            for (int obx = 0; obx < parser.getOBXCount(obr); obx++) {
-                                String status = parser.getOBXResultStatus(obr, obx);
-                                if ("C".equals(status) || "c".equals(status)) correctedVersions.add(labNo);
-                            }
+                        if (!(parser instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler cmlHandler)) {
+                            throw new IncompleteCmlVersionChainException("A stored CML version cannot be parsed");
                         }
-                        cmlVersions.add(a);
+                        // Order by the lab's revision evidence, never stale persisted completeness.
+                        cmlVersions.put(labNo, cmlHandler);
                     }
                 } else {
                     if (ret.equals("")) ret = "" + labNo;
@@ -595,15 +589,8 @@ public class Hl7textResultsData {
         }
 
         if (cml) {
-            cmlVersions.sort(java.util.Comparator
-                    .comparingInt((Hl7TextInfo info) -> completedCounts.get(info.getLabNumber()))
-                    .thenComparing(info -> observationDates.get(info.getLabNumber()))
-                    // A late resend of an original F must not displace its correction
-                    // when both messages describe the same observation time.
-                    .thenComparing(info -> correctedVersions.contains(info.getLabNumber()))
-                    .thenComparingInt(Hl7TextInfo::getLabNumber));
-            ret = cmlVersions.stream().map(info -> Integer.toString(info.getLabNumber()))
-                    .collect(java.util.stream.Collectors.joining(","));
+            ret = io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.order(cmlVersions).stream()
+                    .map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
         }
         if (ret.equals("")) return (lab_no);
         else return (ret);

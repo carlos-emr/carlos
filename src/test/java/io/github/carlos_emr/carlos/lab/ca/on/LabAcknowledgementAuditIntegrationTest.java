@@ -22,7 +22,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mockStatic;
 
-/** Commits and reloads the real routing rows; only the version lookup is synthetic. */
+/** Commits and reloads the real routing rows; only the version/source lookup is synthetic. */
 @Tag("integration")
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class LabAcknowledgementAuditIntegrationTest extends CarlosTestBase {
@@ -83,7 +83,13 @@ class LabAcknowledgementAuditIntegrationTest extends CarlosTestBase {
 
     @Test
     void shouldKeepEarlierReviewAudit_whenAcknowledgingNewerVersion() {
-        try (var hl7 = mockStatic(Hl7textResultsData.class)) {
+        try (var hl7 = mockStatic(Hl7textResultsData.class);
+             var sources = mockStatic(io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory.class)) {
+            // This fixture exercises non-CML routing audit semantics, with readable sources.
+            sources.when(() -> io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory.getHandler(
+                    org.mockito.ArgumentMatchers.anyString()))
+                    .thenReturn(org.mockito.Mockito.mock(
+                            io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler.class));
             hl7.when(() -> Hl7textResultsData.getMatchingLabs(String.valueOf(REVIEWED)))
                     .thenReturn(OLDER + "," + MIDDLE + "," + REVIEWED + "," + NEWER);
             assertThat(CommonLabResultData.acknowledgeReport(REVIEWED, "REVIEWER", "New review", "HL7", false, null))

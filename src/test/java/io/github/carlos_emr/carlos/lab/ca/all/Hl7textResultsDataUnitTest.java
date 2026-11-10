@@ -2,6 +2,7 @@
 package io.github.carlos_emr.carlos.lab.ca.all;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.atMost;
@@ -10,6 +11,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
@@ -48,6 +50,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementMapDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.MeasurementMap;
@@ -102,6 +105,21 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         for (Map.Entry<Field, Object> entry : originalDaos.entrySet()) {
             entry.getKey().set(null, entry.getValue());
         }
+    }
+
+    @Test
+    void shouldKeepConfiguredFilterSelection_whenPreservingLiteralCase() {
+        LocalDateTime entered = LocalDateTime.parse("2026-10-13T10:05:19");
+        assertThat(fileResult("Negative", "^NEGATIVE$", "2026-10-09 11:20:29", entered)).isNull();
+        assertThat(fileResult("Negative", "^[^A-Z]+$", "2026-10-09 11:20:29", entered).getDataField())
+                .isEqualTo("Negative");
+    }
+
+    @Test
+    void shouldPreserveUnicodeLiteralBoundaries_whenLowercaseMappingExpands() {
+        LocalDateTime entered = LocalDateTime.parse("2026-10-13T10:05:19");
+        assertThat(fileResult("İNegative", "negative", "2026-10-09 11:20:29", entered).getDataField())
+                .isEqualTo("Negative");
     }
 
     @ParameterizedTest(name = "dateObserved preserves {0}")
@@ -208,6 +226,18 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
                 .flatMap(time -> Stream.of(time + ":00", time + ":37"));
     }
 
+    @Test
+    @DisplayName("should refuse before any measurement changes when the report cannot be read")
+    void shouldRefuseBeforeChangingMeasurements_whenTheReportCannotBeRead() {
+        try (MockedStatic<Factory> factory = mockStatic(Factory.class)) {
+            factory.when(() -> Factory.getHandler("4616")).thenReturn(null);
+
+            assertThatThrownBy(() -> Hl7textResultsData.populateMeasurementsTable("4616", "42"))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+        verifyNoInteractions(measurementDao, mockedBeans.get(MeasurementsDeletedDao.class));
+    }
+
     private static Date inDefaultTimeZone(LocalDateTime timestamp) {
         return Date.from(timestamp.atZone(ZoneId.systemDefault()).toInstant());
     }
@@ -216,6 +246,50 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         Measurement measurement = fileResult("6.1", ".*", observationTimestamp, entryTimestamp);
         assertThat(measurement).isNotNull();
         return measurement;
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @ValueSource(strings = {"DNR"})
+    void shouldLeaveMeasurementsAbsent_whenTheSourceHasNoReportableValue(String result) {
+        assertThat(fileResult(result, ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00"))).isNull();
+        verify(measurementDao, never()).persist(any(Measurement.class));
+    }
+
+    @Test
+    void shouldKeepTheLegacyPreviousVersionScope_forANonCmlSource() {
+        try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("1111,2222,4616");
+            assertThat(fileResult("6.1", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00")))
+                    .isNotNull();
+        }
+        verify(measurementDao).findByValue("lab_no", "2222");
+        verify(measurementDao, never()).findByValue("lab_no", "1111");
+    }
+
+    @Test
+    void shouldPreserveTheOriginalTail_whenSeveralCharactersFollowACaseExpansion() {
+        assertThat(fileResult("İAB", "b$", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00")))
+                .extracting(Measurement::getDataField).isEqualTo("B");
+    }
+
+    @Test
+    void shouldRefuseUnmappableFilterBoundaries_withoutLoggingWhenNoContextWasProvided() throws Exception {
+        var value = Hl7textResultsData.class.getDeclaredMethod("projectableValue", String.class, String.class);
+        value.setAccessible(true);
+        CarlosProperties properties = mock(CarlosProperties.class);
+        try (var settings = mockStatic(CarlosProperties.class); var logs = LogCapture.forLogger(Hl7textResultsData.class)) {
+            settings.when(CarlosProperties::getInstance).thenReturn(properties);
+            when(properties.getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).thenReturn("i");
+            assertThat(value.invoke(null, "İ", null)).isNull();
+            when(properties.getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).thenReturn(".*");
+            for (String missing : new String[]{null, "", "DNR"}) assertThat(value.invoke(null, missing, null)).isNull();
+            assertThat(value.invoke(null, "1".repeat(Measurement.DATA_FIELD_MAX_LENGTH + 1), null)).isNull();
+            assertThat(logs.messages()).isEmpty();
+        }
+        var boundary = Hl7textResultsData.class.getDeclaredMethod("originalBoundary", String.class, String.class, int.class, java.util.Locale.class);
+        boundary.setAccessible(true);
+        assertThat(boundary.invoke(null, "İ", "inconsistent-shadow", 10, java.util.Locale.ROOT)).isEqualTo(-1);
     }
 
     @Test

@@ -40,7 +40,6 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.Measurem
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.*;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -119,6 +118,10 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         int height = 600;
 
         String method = request.getParameter("method");
+        if ("actualLab".equals(method)) {
+            PatientReadAccess.requirePatient(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                    demographicNo, "_lab", SecurityInfoManager.READ);
+        }
 
         log.debug("Creating graph for demo {} type1: {} type2: {}", LogSafe.sanitizeObject(demographicNo), LogSafe.sanitize(typeIdName), LogSafe.sanitize(typeIdName2));
         // Assemble and render before sending image headers. Invalid stored values must produce
@@ -133,10 +136,13 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             BrowserChartRenderer.write(request.getServletContext(), image, chart, width, height, "png");
         } catch (IOException | ParseException | RuntimeException unavailable) {
             // Parse/DAO/driver messages can include clinical values; retain only the failure type.
-            log.warn("Measurement graph unavailable ({})", unavailable.getClass().getSimpleName());
+            log.warn("Measurement graph unavailable: reason={}, exception={}",
+                    io.github.carlos_emr.carlos.eform.util.ChartRenderFailure.code(unavailable), unavailable.getClass().getName());
             if (!response.isCommitted()) {
                 response.resetBuffer();
-                response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+                int status = io.github.carlos_emr.carlos.eform.util.ChartRenderFailure.status(unavailable);
+                if (status == 503) response.setHeader("Retry-After", "5");
+                response.sendError(status, "Graph unavailable; " + (status == 503 ? "retry shortly." : "review the source history or contact your administrator."));
             }
             return NONE;
         }
@@ -305,34 +311,104 @@ public class MeasurementGraphAction22Action extends ActionSupport {
     }
 
     /**
-     * Accepts a complete finite signed ASCII decimal without extracting numbers from clinical qualifiers or text.
-     * @param result source measurement literal
-     * @return the trimmed decimal, or null if it cannot safely represent a plotted numeric value
+     * Reads one finite decimal, retaining the existing bound/unit policy pending #6118:
+     * {@code <5} plots as 5. The whole value must read as an optional {@code H}/{@code L} flag,
+     * an optional comparator, one number and an optional unit or trailing {@code +}, so
+     * unrelated digit groups (titres, dates, fractions or exponents) are never joined into a
+     * different clinical number. Grouping commas must form unambiguous thousands groups.
+     * Overlong values cannot exhaust the renderer.
+     *
+     * @param result stored measurement or lab result
+     * @return the number to plot, or null when the result holds no single finite number
      */
     static String numericResult(String result) {
-        if (StringUtils.isEmpty(result)) {
+        if (StringUtils.isEmpty(result) || result.length() > 1024) {
             return null;
         }
-        String numeric = result.trim();
-        int digits = 0;
-        boolean decimal = false;
-        int start = !numeric.isEmpty() && (numeric.charAt(0) == '+' || numeric.charAt(0) == '-') ? 1 : 0;
-        for (int i = start; i < numeric.length(); i++) {
-            char character = numeric.charAt(i);
-            if (character >= '0' && character <= '9') {
-                digits++;
-            } else if (character == '.' && !decimal) {
-                decimal = true;
-            } else {
+        // Read left to right in one pass rather than with a regular expression: the optional
+        // whitespace runs around each part make a pattern backtrack on a long value.
+        int start = skipWhitespace(result, 0);
+        if (start < result.length() && "HLhl".indexOf(result.charAt(start)) >= 0) {
+            int afterFlag = skipWhitespace(result, start + 1);
+            if (afterFlag == start + 1) {
                 return null;
             }
+            start = afterFlag;
         }
-        if (digits == 0) return null;
-        try {
-            return Double.isFinite(Double.parseDouble(numeric)) ? numeric : null;
-        } catch (NumberFormatException invalid) {
+        start = skipWhitespace(result, skipComparator(result, start));
+        int end = numberEnd(result, start);
+        if (end < 0 || !onlyUnitFollows(result, end)) {
             return null;
         }
+        String numeric = result.substring(start, end).replace(",", "");
+        if (numeric.startsWith("+")) numeric = numeric.substring(1);
+        return Double.isFinite(Double.parseDouble(numeric)) ? numeric : null;
+    }
+
+    private static int skipWhitespace(String text, int from) {
+        int at = from;
+        while (at < text.length() && " \t\n\u000B\f\r".indexOf(text.charAt(at)) >= 0) {
+            at++;
+        }
+        return at;
+    }
+
+    private static int skipDigits(String text, int from) {
+        int at = from;
+        while (at < text.length() && text.charAt(at) >= '0' && text.charAt(at) <= '9') {
+            at++;
+        }
+        return at;
+    }
+
+    private static int skipComparator(String text, int from) {
+        if (text.startsWith("<=", from) || text.startsWith(">=", from)) {
+            return from + 2;
+        }
+        return from < text.length() && "<>≤≥".indexOf(text.charAt(from)) >= 0 ? from + 1 : from;
+    }
+
+    /**
+     * @return the index after the signed decimal that starts at {@code from}, or -1 when none
+     *         starts there
+     */
+    private static int numberEnd(String text, int from) {
+        int whole = from < text.length() && "+-".indexOf(text.charAt(from)) >= 0 ? from + 1 : from;
+        int at = skipDigits(text, whole);
+        boolean hasWhole = at > whole;
+        if (hasWhole && at - whole <= 3 && text.charAt(whole) != '0') {
+            // 1,234 is one number; 0,500 and 1,23 are not, and stay unplotted.
+            while (at + 3 < text.length() && text.charAt(at) == ',' && skipDigits(text, at + 1) >= at + 4) {
+                at += 4;
+            }
+        }
+        if (at < text.length() && text.charAt(at) == '.') {
+            int fraction = skipDigits(text, at + 1);
+            return hasWhole || fraction > at + 1 ? fraction : -1;
+        }
+        return hasWhole ? at : -1;
+    }
+
+    /** A unit such as {@code mmol/L} or {@code %}, or the {@code +} of a graded result. */
+    private static boolean onlyUnitFollows(String text, int from) {
+        int at = skipWhitespace(text, from);
+        if (at < text.length() && text.charAt(at) == '+') {
+            at++;
+        } else if (at < text.length() && startsUnit(text.codePointAt(at))) {
+            while (at < text.length()) {
+                int character = text.codePointAt(at);
+                if (!startsUnit(character) && character != '/' && character != ' ') {
+                    break;
+                }
+                at += Character.charCount(character);
+            }
+        }
+        return skipWhitespace(text, at) == text.length();
+    }
+
+    private static boolean startsUnit(int character) {
+        // The micro sign and Greek mu of µmol/L are letters.
+        return Character.isLetter(character) || character == '%';
     }
 
     private List<ReferenceRange> measurementReferenceRanges(List<EctMeasurementsDataBean> measurements, String typeIdName) {
@@ -451,8 +527,33 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             if ("null".equals(observed)) return null;
             collectionDate = observed;
         }
-        return collectionDate == null ? null
-                : new Day(new SimpleDateFormat("yyyy-MM-dd HH:mm").parse(collectionDate).toInstant());
+        if (collectionDate == null) return null;
+        try {
+            // CDS timestamps can carry explicit offsets and nanosecond fractions.
+            // Use their instant, just as for a normalized Date supplied by a handler.
+            return new Day(java.time.OffsetDateTime.parse(collectionDate.replace(' ', 'T'),
+                    java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant());
+        } catch (java.time.format.DateTimeParseException ignored) {
+            // Offset-free producer formats below still require a strict, full-input match.
+        }
+        try {
+            var format = new java.time.format.DateTimeFormatterBuilder()
+                    .appendPattern("uuuu-MM-dd")
+                    .optionalStart().appendLiteral('T').appendPattern("HH")
+                    .optionalStart().appendPattern(":mm")
+                    .optionalStart().appendPattern(":ss")
+                    .optionalStart().appendFraction(java.time.temporal.ChronoField.NANO_OF_SECOND, 1, 9, true)
+                    .optionalEnd().optionalEnd().optionalEnd().optionalEnd()
+                    .parseDefaulting(java.time.temporal.ChronoField.HOUR_OF_DAY, 0)
+                    .parseDefaulting(java.time.temporal.ChronoField.MINUTE_OF_HOUR, 0)
+                    .parseDefaulting(java.time.temporal.ChronoField.SECOND_OF_MINUTE, 0)
+                    .toFormatter(java.util.Locale.ROOT).withResolverStyle(java.time.format.ResolverStyle.STRICT);
+            // Resolve offset-free wall times with the server zone, including DST gaps as before.
+            return new Day(java.time.LocalDateTime.parse(collectionDate.replace(' ', 'T'), format)
+                    .atZone(java.time.ZoneId.systemDefault()).toInstant());
+        } catch (java.time.format.DateTimeParseException invalid) {
+            throw new ParseException("Unsupported observation date", 0);
+        }
     }
 
     private MeasurementChart chartMeds(Integer demographicNo, String chartTitle, String[] drugs) {

@@ -14,6 +14,46 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 @Tag("measurement")
 class MeasurementChartDataUnitTest {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"2024-05-10 14:30:00.1234", "2024-05-10 14:30:00.123456789",
+            "2024-03-10 02:30:00", "2024-05-10", "2024-05-10 14", "2024-05-10 14:30"})
+    void shouldResolveLocalCollectionTimes_withFractionsAndDaylightSavingGaps(String source) throws Exception {
+        var previous = java.util.TimeZone.getDefault();
+        try {
+            java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("America/Toronto"));
+            var method = MeasurementGraphAction22Action.class.getDeclaredMethod("collectionDay", Map.class);
+            method.setAccessible(true);
+            var actual = (MeasurementChart.Day) method.invoke(null, Map.of("collDate", source));
+            String date = source.substring(0, 10);
+            assertThat(actual.getStart()).isEqualTo(new MeasurementChart.Day(java.time.LocalDate.parse(date)
+                    .atStartOfDay(java.time.ZoneId.systemDefault()).toInstant()).getStart());
+        } finally {
+            java.util.TimeZone.setDefault(previous);
+        }
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "2024-03-10 02:30:00-05:00,2024-03-10T07:30:00Z",
+            "2024-03-10 23:30:00-05:00,2024-03-11T04:30:00Z",
+            "2024-03-10 00:30:00+05:30,2024-03-09T19:00:00Z",
+            "2024-03-10 02:30-05:00,2024-03-10T07:30:00Z",
+            "2024-03-10 02:30:00.123456789-05:00,2024-03-10T07:30:00.123456789Z"})
+    void shouldPreserveTimestampInstant_whenCdsCollectionDateHasOffset(String source, String instant) throws Exception {
+        var method = MeasurementGraphAction22Action.class.getDeclaredMethod("collectionDay", Map.class);
+        method.setAccessible(true);
+        var day = (MeasurementChart.Day) method.invoke(null, Map.of("collDate", source));
+        assertThat(day.getStart()).isEqualTo(new MeasurementChart.Day(Instant.parse(instant)).getStart());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"2024-02-30 02:30:00-05:00", "2024-03-10 02:30:00+25:00", "2024-03-10 02:30:00-05:00 extra"})
+    void shouldRejectInvalidCollectionTimestamp_withoutDiscardingOffsetOrTrailingText(String source) throws Exception {
+        var method = MeasurementGraphAction22Action.class.getDeclaredMethod("collectionDay", Map.class);
+        method.setAccessible(true);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> method.invoke(null, Map.of("collDate", source)))
+                .hasCauseInstanceOf(java.text.ParseException.class);
+    }
+
     @Test
     @SuppressWarnings("unchecked")
     void shouldReplaceDailyReadings_andKeepSecondaryAxisUnits() {
@@ -91,6 +131,19 @@ class MeasurementChartDataUnitTest {
         assertThat(chart.toConfig()).containsEntry("medicationPanel", true);
         assertThat(MeasurementChart.lines("Synthetic", "Days", "kg", collection("Weight", 61)).toConfig())
                 .doesNotContainKey("medicationPanel");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldUseHalfEvenPointLabels_withoutRoundingTheObservation() {
+        for (String pattern : List.of("0.00", "0.###")) {
+            var chart = MeasurementChart.lines("Synthetic", "Days", "kg", collection("Weight", 0.125))
+                    .withItemLabels("{2}", pattern, 12);
+            var datasets = (List<Map<String, Object>>) chart.toConfig().get("datasets");
+            var point = ((List<Map<String, Object>>) datasets.getFirst().get("data")).getFirst();
+            assertThat(point.get("y")).isEqualTo(0.125);
+            assertThat(point.get("labelValue")).isEqualTo(new java.text.DecimalFormat(pattern).format(0.125));
+        }
     }
 
     /** V8's Intl accepts IANA regions and "+HH:MM" offsets, not Java's "GMT+03:00" or "Z". */

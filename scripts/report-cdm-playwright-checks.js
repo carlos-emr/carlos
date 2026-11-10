@@ -98,6 +98,11 @@ async function workflow(s) {
   h.assert(sql.value(`SELECT COUNT(*) FROM measurements WHERE type=${q(type)}`) === '4', 'The reading fixtures were not created');
   const [narrowStart, narrowEnd] = sql.rows('SELECT CURDATE() - INTERVAL 45 DAY, CURDATE() - INTERVAL 20 DAY')[0];
   const line = `${type} ${INSTRUCTION} -> `;
+  async function secondGroupTab(forward) {
+    const other = sql.value(`SELECT name FROM measurementGroup WHERE name<>${q(group)} ORDER BY name LIMIT 1`);
+    h.assert(other, 'A second CDM group is needed for the shared-session controls');
+    return openScreen(s, other, forward);
+  }
 
   await s.step('"Patients who met guideline" counts the latest in-window reading of each owned patient (> 6: 1 of 2)', async () => {
     const page = await openScreen(s, group, 'patientWhoMetGuideline');
@@ -106,9 +111,11 @@ async function workflow(s) {
     await page.locator(`input[name="guidelineCheckbox"][value="${row}"]`).check();
     await page.locator('input[name="guidelineB"]').nth(row).fill('6');
     await page.locator(`input[name="value(aboveBelow${row})"][value=">"]`).check();
+    const otherTab = await secondGroupTab('patientWhoMetGuideline');
     const text = await generate(page, 'InitializePatientsMetGuidelineCDMReport');
     const [met, total] = counts(text, line, 'met-guideline');
     h.assert(met === 1 && total === 2, `Met guideline > 6 counted ${met} of ${total}; SQL fixtures give 1 of 2`);
+    await otherTab.close();
     await page.close();
   });
 
@@ -141,9 +148,11 @@ async function workflow(s) {
     await page.locator(`input[name="abnormalCheckbox"][value="${row}"]`).check();
     await page.locator('input[name="lowerBound"]').nth(row).fill('3');
     await page.locator('input[name="upperBound"]').nth(row).fill('5');
+    const otherTab = await secondGroupTab('patientInAbnormalRange');
     const text = await generate(page, 'InitializePatientsInAbnormalRangeCDMReport');
     const [inRange, total] = counts(text, `${line}From 3 to 5: `, 'abnormal-range');
     h.assert(inRange === 1 && total === 2, `Abnormal range 3..5 counted ${inRange} of ${total}; SQL fixtures give 1 of 2`);
+    await otherTab.close();
     await page.close();
   });
 
@@ -237,6 +246,7 @@ async function workflow(s) {
     await page.locator('input[name="exactly"]').nth(row).fill('2');
     await page.locator('input[name="moreThan"]').nth(row).fill('0');
     await page.locator('input[name="lessThan"]').nth(row).fill('1');
+    const otherTab = await secondGroupTab('freqencyOfReleventTests');
     const seenBefore = Number(sql.value(seenSql));
     const text = await generate(page, 'InitializeFrequencyOfRelevantTestsCDMReport');
     const seenAfter = Number(sql.value(seenSql));
@@ -269,28 +279,56 @@ async function workflow(s) {
       if (!inBracket(less[1])) defects.push(`the less-than denominator is ${less[1]}; SQL counts ${seenBefore}..${seenAfter}`);
     }
     h.assert(!defects.length, `CDM report defects: ${defects.join('; ')}`);
+    await otherTab.close();
     await page.close();
   });
   await s.step('A frequency conversion failure preserves authorized access and refuses an unprivileged user', async () => {
     const route = '/oscarReport/oscarMeasurements/InitializeFrequencyOfRelevantTestsCDMReport';
+    // Reproduce a multi-row form with an unfilled, unselected row as well as the bad selected count.
+    const extraDisplay = sql.value(`SELECT typeDisplayName FROM measurementType WHERE type<>${q(type)} ORDER BY id LIMIT 1`);
+    h.assert(extraDisplay, 'A second measurement row is needed for the conversion control');
+    sql.execute(`INSERT INTO measurementGroup (name,typeDisplayName) VALUES (${q(group)},${q(extraDisplay)})`);
+    const otherGroup = sql.value(`SELECT name FROM measurementGroup WHERE name<>${q(group)} ORDER BY name LIMIT 1`);
+    h.assert(otherGroup, 'A second CDM group is needed for the cross-tab conversion control');
+    for (const field of ['exactly', 'moreThan', 'lessThan']) {
+      const authorized = await openScreen(s, group, 'freqencyOfReleventTests');
+      const row = await rowOf(authorized, 'measurementTypeD', type);
+      const formContext = await authorized.locator('input[name="cdmFormContext"]').inputValue();
+      const otherTab = await openScreen(s, otherGroup, 'freqencyOfReleventTests');
+      try {
+        await authorized.locator('input[name="patientSeenCheckbox"]').uncheck();
+        await authorized.locator(`input[name="frequencyCheckbox"][value="${row}"]`).check();
+        for (const count of ['exactly', 'moreThan', 'lessThan']) {
+          await authorized.locator(`input[name="${count}"]`).nth(row).fill(count === field ? 'not-an-integer' : '1');
+        }
+        await generate(authorized, 'InitializeFrequencyOfRelevantTestsCDMReport');
+        await authorized.locator('.action-errors[role="alert"]').waitFor({state: 'visible'});
+        h.assert((await authorized.locator('.action-errors[role="alert"]').innerText()).includes(field),
+          `The ${field} conversion failure returned no visible field error`);
+        h.assert(await authorized.locator(`input[name="${field}"]`).nth(row).inputValue() === 'not-an-integer',
+          `The ${field} conversion failure discarded the invalid value`);
+        h.assert(await authorized.locator('input[name="cdmFormContext"]').inputValue() === formContext,
+          `The ${field} conversion failure lost its originating context token`);
+        h.assert(await rowOf(authorized, 'measurementTypeD', type) === row,
+          `The ${field} conversion failure used the other tab's definitions`);
+        for (const count of ['exactly', 'moreThan', 'lessThan']) {
+          for (const box of await authorized.locator(`input[name="${count}"]`).all()) await box.fill('1');
+        }
+        const report = await generate(authorized, 'InitializeFrequencyOfRelevantTestsCDMReport');
+        h.assert(report.includes(line), `Correcting ${field} did not generate the originating group's report`);
+      } finally {
+        await otherTab.close();
+        await authorized.close();
+      }
+    }
     const authorized = await openScreen(s, group, 'freqencyOfReleventTests');
     const authorizedToken = await authorized.locator('input[name="CSRF-TOKEN"]').first().inputValue();
-    for (const field of ['exactly', 'moreThan', 'lessThan']) {
-      const allowed = await s.context.request.post(h.appUrl(s.config.baseUrl, route), {
-        form: {'CSRF-TOKEN': authorizedToken, [field]: 'not-an-integer'}, maxRedirects: 0,
-      });
-      const body = await allowed.text();
-      h.assert(allowed.status() === 200 && body.includes('name="submitBtn"'),
-        `An authorized ${field} conversion failure did not return the frequency INPUT form`);
-      const errorText = await authorized.evaluate(html => new DOMParser().parseFromString(html, 'text/html')
-        .querySelector('.action-errors[role="alert"]')?.textContent, body);
-      h.assert(errorText && errorText.includes(field),
-        `The ${field} conversion failure returned no visible field error`);
-      const submitted = await authorized.evaluate(({html, field}) => new DOMParser().parseFromString(html, 'text/html')
-        .querySelector(`input[name="${field}"]`)?.value, {html: body, field});
-      h.assert(submitted === 'not-an-integer', `The ${field} conversion failure discarded the invalid value`);
-      await allowed.dispose();
-    }
+    const stale = await s.context.request.post(h.appUrl(s.config.baseUrl, route), {
+      form: {'CSRF-TOKEN': authorizedToken, exactly: 'not-an-integer'}, maxRedirects: 0,
+    });
+    h.assert(stale.status() === 409 && !(await stale.text()).includes('name="submitBtn"'),
+      'A conversion failure without a form context did not refuse stale definitions');
+    await stale.dispose();
     await authorized.close();
     const fixture = throwawayLoginFixture({sql, marker, provider, testUser: s.config.testUser});
     const role = `${marker}-nr`; // secObjPrivilege.roleUserGroup is limited to 30 characters.

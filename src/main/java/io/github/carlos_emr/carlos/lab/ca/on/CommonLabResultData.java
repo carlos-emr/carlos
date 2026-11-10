@@ -487,6 +487,23 @@ public class CommonLabResultData {
     public static int updateReportStatusWithOlderVersions(int labNo, String providerNo, char status,
                                                           String comment, String labType,
                                                           boolean skipCommentOnUpdate, String multiId) {
+        return updateReportStatusWithOlderVersionsDetailed(labNo, providerNo, status, comment,
+                labType, skipCommentOnUpdate, multiId).clearedCount();
+    }
+
+    /**
+     * What one acknowledgement did, as the transaction saw it: the routing rows it cleared from
+     * NEW and the ids of the versions it touched, so the inbox can update exactly those rows.
+     * Every older version is filed with the acknowledged one.
+     */
+    public record ReportChainUpdate(int clearedCount, List<Integer> affectedVersionIds) {
+        public ReportChainUpdate {
+            affectedVersionIds = List.copyOf(affectedVersionIds);
+        }
+    }
+
+    public static ReportChainUpdate updateReportStatusWithOlderVersionsDetailed(int labNo, String providerNo,
+            char status, String comment, String labType, boolean skipCommentOnUpdate, String multiId) {
         // Static legacy callers cannot receive a Spring @Transactional proxy. Start an outer
         // REQUIRED transaction explicitly so all routing/archive DAO calls join one unit.
         TransactionTemplate transaction =
@@ -500,7 +517,7 @@ public class CommonLabResultData {
                 labNo, providerNo, status, comment, labType, skipCommentOnUpdate, multiId));
     }
 
-    private static int updateReportChainInTransaction(int labNo, String providerNo, char status,
+    private static ReportChainUpdate updateReportChainInTransaction(int labNo, String providerNo, char status,
                                                        String comment, String labType,
                                                        boolean skipCommentOnUpdate, String multiId) {
         // Resolve the chain BEFORE the first write. Resolving it queries the database, and if
@@ -541,7 +558,7 @@ public class CommonLabResultData {
                 updateReportStatusInTransaction(version, providerNo, 'F', "", labType, false, true);
             }
         }
-        return clearedFromNew;
+        return new ReportChainUpdate(clearedFromNew, new java.util.ArrayList<>(versions));
     }
 
     /**

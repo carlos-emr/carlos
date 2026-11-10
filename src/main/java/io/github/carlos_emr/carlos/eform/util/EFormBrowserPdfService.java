@@ -190,7 +190,7 @@ public class EFormBrowserPdfService {
     private static final int MAX_CONCURRENT_RENDERS = 2;
     private static final Duration RENDER_SLOT_WAIT = Duration.ofSeconds(30);
     static final Semaphore RENDER_SLOTS = new Semaphore(MAX_CONCURRENT_RENDERS, true);
-    private static final Semaphore RENDER_WAITERS = new Semaphore(2 * MAX_CONCURRENT_RENDERS);
+    static final RenderAdmission ADMISSION = new RenderAdmission(RENDER_SLOTS);
 
     /**
      * Filename prefix of the renderer's output PDF. The {@link RenderedEformPdf} guard keys on it
@@ -944,8 +944,14 @@ public class EFormBrowserPdfService {
         Path tempRoot = resolveRendererTempRoot();
         sweepStaleRendererRoots(tempRoot);
 
-        SlotAcquisition acquisition = acquireRenderSlot(RENDER_SLOTS, RENDER_SLOT_WAIT);
-        if (acquisition == SlotAcquisition.TIMED_OUT) {
+        RenderAdmission.Lease lease;
+        try {
+            lease = ADMISSION.acquire(RenderAdmission.Kind.PDF, RENDER_SLOT_WAIT);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new PDFGenerationException("Browser rendering was aborted before it started.", true);
+        }
+        if (lease == null) {
             // No render started: either the bounded waiting queue was already full or the
             // admitted caller reached its deadline (fdid only — no PHI, no render URL/token).
             logger.warn("Browser eForm renderer at capacity ({} concurrent slots); rejecting render for fdid={}",
@@ -955,19 +961,10 @@ public class EFormBrowserPdfService {
             // durable failure without matching on wording — see PDFGenerationException.isRetryable().
             throw new PDFGenerationException("Browser rendering is at capacity; please retry shortly.", true);
         }
-        if (acquisition == SlotAcquisition.INTERRUPTED) {
-            // Distinct from capacity: the waiting thread was interrupted (JVM/app shutdown), so no
-            // slot was ever taken (nothing to release) and the render never started. Still marked
-            // retryable structurally: on a live JVM a retry can still succeed, even though the
-            // message itself omits retry advice since a shutdown-triggered interrupt would make it
-            // misleading.
-            logger.warn("Browser eForm render aborted: waiting thread interrupted (shutdown?): fdid={}", fdid);
-            throw new PDFGenerationException("Browser rendering was aborted before it started.", true);
-        }
         try {
             return renderWithSlot(fdid, providerId, tempRoot, approval, measurementsPermitted);
         } finally {
-            RENDER_SLOTS.release();
+            lease.close();
         }
     }
 
@@ -2824,41 +2821,6 @@ public class EFormBrowserPdfService {
         // Difference comparison is nanoTime wrap-around safe, unlike a direct `>`.
         if (System.nanoTime() - deadlineNanos > 0) {
             throw new PDFGenerationException("Browser rendering timed out while generating the eForm PDF.");
-        }
-    }
-
-    /**
-     * Outcome of competing for one of the bounded render slots: {@code ACQUIRED} within the wait,
-     * {@code TIMED_OUT} when the waiting queue is full or the admission deadline expires,
-     * or {@code INTERRUPTED} when the
-     * waiting thread was interrupted (shutdown) before a slot was taken. Distinguishing the last two
-     * lets the caller give correct operator guidance — capacity load-shed (retry) versus an aborted
-     * render (no retry) — rather than collapsing both into a single boolean {@code false}.
-     */
-    enum SlotAcquisition { ACQUIRED, TIMED_OUT, INTERRUPTED }
-
-    static SlotAcquisition acquireRenderSlot(Semaphore slots, Duration wait) {
-        return acquireRenderSlot(slots, RENDER_WAITERS, wait);
-    }
-
-    /** Custom semaphores let concurrency tests exercise the real admission policy in isolation. */
-    static SlotAcquisition acquireRenderSlot(Semaphore slots, Semaphore waiting, Duration wait) {
-        try {
-            // A timed zero probe respects FIFO fairness and the interrupted flag. A free
-            // browser needs no waiting token; untimed tryAcquire would barge past a queue.
-            if (slots.tryAcquire(0, TimeUnit.MILLISECONDS)) return SlotAcquisition.ACQUIRED;
-            // Only a small bounded set may occupy servlet threads while waiting. Chromium
-            // needs other servlet threads to load its token-authorized page and resources.
-            if (!waiting.tryAcquire()) return SlotAcquisition.TIMED_OUT;
-            try {
-                return slots.tryAcquire(wait.toMillis(), TimeUnit.MILLISECONDS)
-                        ? SlotAcquisition.ACQUIRED : SlotAcquisition.TIMED_OUT;
-            } finally {
-                waiting.release();
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return SlotAcquisition.INTERRUPTED;
         }
     }
 

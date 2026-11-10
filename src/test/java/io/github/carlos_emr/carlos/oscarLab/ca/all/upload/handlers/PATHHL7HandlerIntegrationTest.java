@@ -32,6 +32,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
@@ -52,6 +53,7 @@ import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.utils.AuthUtils;
+import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.PATHL7Handler;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.RouteReportResults;
@@ -63,7 +65,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("integration")
 @Tag("lab")
 @Tag("upload")
-@Isolated("MessageUploader caches Spring beans in static fields")
+@Isolated("MessageUploader and HL7 result readers cache Spring beans in static fields")
 class PATHHL7HandlerIntegrationTest extends CarlosTestBase {
     @PersistenceContext(unitName = "entityManagerFactory") private EntityManager em;
     @Autowired private Hl7TextMessageDao messages;
@@ -73,13 +75,17 @@ class PATHHL7HandlerIntegrationTest extends CarlosTestBase {
 
     @BeforeEach
     void bindRealUploaderDaos() throws Exception {
-        // A unit test may have initialized this legacy class first with mocked Spring beans.
-        for (Field field : MessageUploader.class.getDeclaredFields()) {
-            if (Modifier.isStatic(field.getModifiers()) && !Modifier.isFinal(field.getModifiers())
-                    && (field.getName().endsWith("Dao") || field.getName().endsWith("Manager"))) {
-                field.setAccessible(true);
-                originalBeans.put(field, field.get(null));
-                field.set(null, applicationContext.getBean(field.getType()));
+        // A unit test may have initialized either legacy class first with mocked Spring beans.
+        // Routing reads the report's version chain through Hl7textResultsData (the unlink fence),
+        // so a mocked message DAO left there answers for a report this test has just stored.
+        for (Class<?> legacyClass : List.of(MessageUploader.class, Hl7textResultsData.class)) {
+            for (Field field : legacyClass.getDeclaredFields()) {
+                if (Modifier.isStatic(field.getModifiers()) && !Modifier.isFinal(field.getModifiers())
+                        && (field.getName().endsWith("Dao") || field.getName().endsWith("Manager"))) {
+                    field.setAccessible(true);
+                    originalBeans.put(field, field.get(null));
+                    field.set(null, applicationContext.getBean(field.getType()));
+                }
             }
         }
         em.createNativeQuery("CREATE TABLE IF NOT EXISTS providerLabRoutingLock (lab_no INT PRIMARY KEY)").executeUpdate();

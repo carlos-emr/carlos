@@ -1,7 +1,20 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {assertMessage,verifyGeometry}=require('./lib/qualified-lab-oracle');
+const {assertMessage,verifyGeometry,printedDateAxis}=require('./lib/qualified-lab-oracle');
+const dateTicks=Array.from({length:17},(_,index)=>({word:{text:String(2016+index),y:539+index%2},match:[String(2016+index)]}));
+test('a year in a plotted observation label cannot crop the low numeric control',()=>{
+  const dataLabel={word:{text:'2026',y:511},match:['2026']};
+  const actual=printedDateAxis([...dateTicks,dataLabel]);
+  assert.deepEqual(actual,dateTicks);
+  assert(Math.min(...actual.map(item=>item.word.y))-8>527,'The observed low control must remain in the red-pixel scan');
+});
+test('date-axis selection retains printed ticks with small OCR box-height differences',()=>
+  assert.deepEqual(printedDateAxis(dateTicks),dateTicks));
+test('ambiguous or insufficient printed date rows refuse calibration',()=>{
+  assert.throws(()=>printedDateAxis([...dateTicks.slice(0,3),...dateTicks.slice(0,3).map(item=>({...item,word:{...item.word,y:511}}))]));
+  assert.throws(()=>printedDateAxis(dateTicks.slice(0,2)));
+});
 const marker='FAKE-PW0123456789abcdef',expected={marker,accession:'QLORACLE',date:'2021-01-01',tests:[{code:'2010',name:'HEMOGLOBIN',value:'<0.1',unit:'g/L',low:'120',high:'160',flag:'A'}]};
 const lines=['MSH|^~\\&|SYNTHETIC','PID|1||||'+marker+'^Workflow','ORC|RE|QLORACLE','OBX|1|FT|2010^HEMOGLOBIN^|GENERAL|<0.1|g/L|120 - 160|A|||F|||20210101090000'];
 const encode=rows=>Buffer.from(rows.join('\r'),'utf8').toString('base64');
@@ -13,6 +26,26 @@ const x={at:value=>100+(value-dates[0])/(dates[1]-dates[0])*600},y={at:value=>50
 const points=Array.from({length:101},(_,i)=>({x:100+i*6,y:360-i*1.6}));
 test('two numeric controls establish the complete visible series',()=>assert.equal(verifyGeometry({points,x,y},observations).numericPoints,2));
 for(const [label,changed] of [['qualified comparator converted to an exact bound',[...points,{x:350,y:490}]],['qualitative fabricated zero',[...points,{x:550,y:500}]],['another patient',[...points,{x:700,y:40}]],['missing numeric control',points.slice(0,50)],['wrong observation date',points.map(point=>({...point,x:point.x+25}))]])test('native graph oracle refuses '+label,()=>assert.throws(()=>verifyGeometry({points:changed,x,y},observations)));
+const legacyObservations=[{date:'2021-01-01',value:'0.1'},{date:'2023-12-29',value:'137'},
+  {date:'2025-10-02',value:'100'},{date:'2026-11-01',value:'145'}];
+const legacyStart=Date.parse('2021-01-01T00:00:00Z'),legacyEnd=Date.parse('2026-11-01T00:00:00Z');
+const legacyX={at:value=>100+(value-legacyStart)/(legacyEnd-legacyStart)*600},legacyY={at:value=>500-value*2};
+function legacyPixels(rows){
+  const vertices=rows.map(row=>({x:legacyX.at(Date.parse(row.date+'T00:00:00Z')),y:legacyY.at(Number(row.value))}));
+  return vertices.slice(1).flatMap((point,index)=>Array.from({length:101},(_,step)=>({
+    x:vertices[index].x+(point.x-vertices[index].x)*step/100,
+    y:vertices[index].y+(point.y-vertices[index].y)*step/100})));
+}
+test('declared legacy projections and numeric controls establish every polyline vertex',()=>
+  assert.equal(verifyGeometry({points:legacyPixels(legacyObservations),x:legacyX,y:legacyY},legacyObservations).numericPoints,4));
+for(const [label,changed] of [
+  ['missing early qualified projection',legacyObservations.slice(1)],
+  ['missing later qualified projection',legacyObservations.filter((_,index)=>index!==2)],
+  ['incorrect qualified bound',legacyObservations.map((row,index)=>index===2?{...row,value:'10'}:row)],
+])test('declared legacy projection oracle refuses '+label,()=>assert.throws(()=>
+  verifyGeometry({points:legacyPixels(changed),x:legacyX,y:legacyY},legacyObservations)));
+test('declared projection oracle still refuses another patient outside the polyline',()=>assert.throws(()=>
+  verifyGeometry({points:[...legacyPixels(legacyObservations),{x:100,y:40}],x:legacyX,y:legacyY},legacyObservations)));
 const {assertPdfWords}=require('./lib/qualified-lab-oracle');
 const pdfPlan={date:'2021-01-01',tests:[expected.tests[0],{code:'3210',name:'SODIUM',value:'Negative',unit:'qual-Na',low:'negative',high:'negative',flag:'N'}]};
 function pdfWords(){const words=[];const word=(text,x,y)=>words.push({text,xMin:x,yMin:y,xMax:x+Math.max(5,text.length*3),yMax:y+8});

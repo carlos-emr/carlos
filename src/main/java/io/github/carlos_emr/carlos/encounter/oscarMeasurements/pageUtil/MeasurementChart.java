@@ -223,13 +223,45 @@ public final class MeasurementChart {
     public Map<String, Object> toConfig() {
         Map<String, Object> config = new LinkedHashMap<>();
         config.put("title", title); config.put("xLabel", xLabel); config.put("yLabel", yLabel);
-        config.put("datasets", datasets); config.put("medications", medications);
+        config.put("datasets", formattedDatasets());
+        java.util.Locale locale = java.util.Locale.getDefault(java.util.Locale.Category.FORMAT);
+        java.text.DateFormatSymbols symbols = java.text.DateFormatSymbols.getInstance(locale);
+        config.put("locale", locale.toLanguageTag());
+        config.put("months", java.util.Arrays.asList(symbols.getShortMonths()));
+        config.put("amPm", java.util.Arrays.asList(symbols.getAmPmStrings())); config.put("medications", medications);
         if (medicationPanel) config.put("medicationPanel", true);
         config.put("dateAxis", dateAxis);
         config.put("timeZone", browserTimeZone(ZoneId.systemDefault()));
         config.put("style", style);
         if (secondAxis != null) config.put("secondAxis", secondAxis);
         return config;
+    }
+
+    /** Label formatting retains DecimalFormat's binary-double HALF_EVEN contract. */
+    private List<Map<String, Object>> formattedDatasets() {
+        Object configured = style.get(ITEM_LABELS);
+        if (!(configured instanceof Map<?, ?> labels)) return datasets;
+        String pattern = String.valueOf(labels.get("decimals"));
+        java.text.DecimalFormat numbers = new java.text.DecimalFormat(pattern);
+        java.text.SimpleDateFormat dates = new java.text.SimpleDateFormat("yyyy.MM.dd");
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Map<String, Object> dataset : datasets) {
+            Map<String, Object> copy = new LinkedHashMap<>(dataset);
+            List<Map<String, Object>> points = new ArrayList<>();
+            for (Object raw : (List<?>) dataset.get("data")) {
+                Map<?, ?> point = (Map<?, ?>) raw;
+                Map<String, Object> decorated = new LinkedHashMap<>();
+                point.forEach((key, value) -> decorated.put(String.valueOf(key), value));
+                if (point.get("y") instanceof Number value) {
+                    decorated.put("labelValue", numbers.format(value.doubleValue()));
+                    decorated.put("labelDate", dates.format(new java.util.Date(((Number) point.get("x")).longValue())));
+                }
+                points.add(decorated);
+            }
+            copy.put("data", points);
+            result.add(copy);
+        }
+        return result;
     }
 
     static final class Series {

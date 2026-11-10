@@ -19,12 +19,25 @@ function assertMessage(encoded,{marker,accession,date,time='09:00',tests}){
 }
 function distance(point,a,b){const dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((point.x-a.x)*dx+(point.y-a.y)*dy)/(dx*dx+dy*dy)));return Math.hypot(point.x-a.x-t*dx,point.y-a.y-t*dy);}
 function verifyGeometry({points,x,y},observations){
-  const expected=observations.map(row=>({x:x.at(Date.parse(row.date+'T00:00:00Z')),y:y.at(Number(row.value))}));
-  assert(expected.length===2&&expected.every(point=>Number.isFinite(point.x)&&Number.isFinite(point.y)),'Lab control requires two independent exact numeric observations');
+  const expected=observations.map(row=>({x:x.at(Date.parse(row.date+'T00:00:00Z')),y:y.at(Number(row.value))})).sort((a,b)=>a.x-b.x);
+  assert(expected.length>=2&&expected.every((point,index)=>Number.isFinite(point.x)&&Number.isFinite(point.y)&&(!index||point.x>expected[index-1].x)),'Lab control requires independently dated finite numeric projections');
   assert(points.length>20,'Native lab graph contains no visible numeric series');
   for(const point of expected)assert(points.some(actual=>Math.hypot(actual.x-point.x,actual.y-point.y)<=6),'Native lab graph omitted or displaced a numeric control');
-  assert(points.every(point=>distance(point,expected[0],expected[1])<=6),'Native lab graph invented numeric points from qualified/qualitative observations or another patient');
+  const segments=expected.slice(1).map((point,index)=>[expected[index],point]);
+  assert(points.every(point=>segments.some(([a,b])=>distance(point,a,b)<=6)),'Native lab graph contains an undeclared numeric projection or another patient');
   return {numericPoints:expected.length,tolerancePixels:6,redPixels:points.length};
+}
+function printedDateAxis(candidates){
+  // A date printed beside a low observation can OCR as a bare year too. Use
+  // the common axis-text row so that label cannot crop a valid plotted point.
+  let dates=[];
+  for(const candidate of candidates){
+    const row=candidates.filter(item=>Math.abs(item.word.y-candidate.word.y)<=2);
+    if(row.length>dates.length)dates=row;
+  }
+  assert(dates.length>=3&&dates.length>=candidates.length*0.8,
+    'Native printed lab date ticks do not establish an unambiguous axis row');
+  return dates;
 }
 function inspectPlot(bytes){
   const png=PNG.sync.read(bytes,{checkCRC:true});assert.equal(png.width,1000);assert.equal(png.height,600);
@@ -32,8 +45,7 @@ function inspectPlot(bytes){
   let tsv;try{const file=path.join(dir,'native.png');fs.writeFileSync(file,bytes,{mode:0o600});tsv=execFileSync('tesseract',[file,'stdout','-l','eng','--psm','11','tsv'],{encoding:'utf8',timeout:30000,maxBuffer:2*1024*1024,stdio:['ignore','pipe','pipe']});}finally{fs.rmSync(dir,{recursive:true,force:true});}
   const words=tsv.trim().split('\n').slice(1).map(line=>line.split('\t')).filter(row=>row[0]==='5'&&row[11]?.trim()).map(row=>({x:+row[6],y:+row[7],w:+row[8],h:+row[9],text:row.slice(11).join('\t').trim()}));
   const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const dates=words.map(word=>({word,match:/^(?:(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{4})|(\d{4}))$/.exec(word.text)})).filter(row=>row.match&&row.word.y>400);
-  assert(dates.length>=3,'Native printed lab date ticks cannot calibrate the plot');
+  const dates=printedDateAxis(words.map(word=>({word,match:/^(?:(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{4})|(\d{4}))$/.exec(word.text)})).filter(row=>row.match&&row.word.y>400));
   const baseline=Math.min(...dates.map(row=>row.word.y));
   let ticks=words.filter(word=>word.x+word.w<80&&word.y+word.h/2<baseline-8&&/^-?\d+(?:\.\d+)?$/.test(word.text));
   assert(ticks.length>=3,'Native lab value ticks are unreadable');
@@ -54,7 +66,7 @@ function inspectPlot(bytes){
   for(let py=20;py<baseline-8;py++)for(let px=Math.ceil(left);px<png.width-10;px++){const offset=(py*png.width+px)*4,r=png.data[offset],g=png.data[offset+1],b=png.data[offset+2];if(r>=180&&r>g+45&&r>b+45)points.push({x:px,y:py});}
   return {points,x,y};
 }
-function assertNoNumericPoints(bytes){const png=PNG.sync.read(bytes,{checkCRC:true});assert.equal(png.width,1000);assert.equal(png.height,600);let points=0;for(let y=20;y<530;y++)for(let x=80;x<990;x++){const i=(y*png.width+x)*4;if(png.data[i]>=180&&png.data[i]>png.data[i+1]+45&&png.data[i]>png.data[i+2]+45)points++;}assert.equal(points,0,'Native lab graph invented a numeric point for a wholly qualified/qualitative result');}
+function assertNoNumericPoints(bytes){const png=PNG.sync.read(bytes,{checkCRC:true});assert.equal(png.width,1000);assert.equal(png.height,600);let points=0;for(let y=20;y<530;y++)for(let x=80;x<990;x++){const i=(y*png.width+x)*4;if(png.data[i]>=180&&png.data[i]>png.data[i+1]+45&&png.data[i]>png.data[i+2]+45)points++;}assert.equal(points,0,'Native lab graph invented a numeric point for a wholly qualitative result');}
 /** Read each actual PDF row and column, including wrapped names/units/ranges. */
 function assertPdfWords(words,{tests,date}){
   const clean=value=>value.replace(/\s+/g,'');
@@ -80,4 +92,4 @@ function assertPdfWords(words,{tests,date}){
   }
 }
 function assertPdf(bytes,expected){const graph=require('./pdf-graph');assert.equal(graph.pageCount(bytes),1,'Known five-row lab fixture was clipped or repaginated');const words=graph.pageWords(bytes,1).words;assertPdfWords(words,expected);const text=words.map(word=>word.text).join('');assert(text.includes(expected.marker)&&!text.includes(expected.controlMarker)&&!text.includes('999.37'),'PDF changed the patient or disclosed its control');}
-module.exports={assertMessage,inspectPlot,verifyGeometry,assertPdfWords,assertPdf,assertNoNumericPoints};
+module.exports={assertMessage,inspectPlot,verifyGeometry,printedDateAxis,assertPdfWords,assertPdf,assertNoNumericPoints};

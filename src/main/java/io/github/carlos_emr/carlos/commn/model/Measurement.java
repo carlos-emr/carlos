@@ -111,6 +111,13 @@ public class Measurement extends AbstractModel<Integer> implements Serializable 
      */
     public static final int DATA_FIELD_MAX_LENGTH = 255;
 
+    /**
+     * The longest comment {@code measurements.comments} holds, in characters. The packaged database
+     * cuts a longer comment to this length without an error (see {@link #DATA_FIELD_MAX_LENGTH}); a
+     * writer that later compares the stored row with its source must cut the comment itself first.
+     */
+    public static final int COMMENTS_MAX_LENGTH = 255;
+
     /** 
      * The actual measurement value or data.
      * Format depends on measurement type - may be numeric ("120/80"), 

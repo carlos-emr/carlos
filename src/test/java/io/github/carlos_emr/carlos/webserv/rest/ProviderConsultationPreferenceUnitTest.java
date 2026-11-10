@@ -49,6 +49,39 @@ class ProviderConsultationPreferenceUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    void shouldRefuseMissingRestSettingsBeforeAnyWrite() {
+        var service = mock(ProviderService.class, CALLS_REAL_METHODS);
+        var user = mock(LoggedInInfo.class);
+        when(user.getLoggedInProviderNo()).thenReturn("999998");
+        doReturn(user).when(service).getLoggedInInfo();
+        var manager = mock(ProviderManager2.class);
+        injectDependency(service, "providerManager", manager);
+
+        assertThatThrownBy(() -> service.saveProviderSettings(null, "999998"))
+                .isInstanceOfSatisfying(WebApplicationException.class,
+                        error -> assertThat(error.getResponse().getStatus()).isEqualTo(400));
+
+        verifyNoInteractions(manager);
+    }
+
+    @Test
+    void shouldDelegateValidRestSettingsToTheAuthenticatedProvider() {
+        var service = mock(ProviderService.class, CALLS_REAL_METHODS);
+        var user = mock(LoggedInInfo.class);
+        when(user.getLoggedInProviderNo()).thenReturn("999998");
+        doReturn(user).when(service).getLoggedInInfo();
+        var manager = mock(ProviderManager2.class);
+        injectDependency(service, "providerManager", manager);
+        var settings = new ProviderSettings();
+        settings.setConsultationTimePeriodWarning(" 6 ");
+
+        assertThat(service.saveProviderSettings(settings, "999998")).isNotNull();
+
+        verify(manager).updateProviderSettings(user, "999998", settings);
+        verifyNoMoreInteractions(manager);
+    }
+
     @ParameterizedTest
     @CsvSource(value = {"' 6 ',6", "' ',NULL"}, nullValues = "NULL")
     void shouldSaveNormalizedMonthsAndRetainUnrelatedProperties_whenManagerSettingsAreValid(

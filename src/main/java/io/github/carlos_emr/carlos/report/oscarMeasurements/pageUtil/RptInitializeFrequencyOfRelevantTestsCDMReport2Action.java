@@ -63,6 +63,11 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
             throw new SecurityException("missing required sec object (_report)");
         }
+        if (!CdmReportContexts.bind(request)) {
+            CdmReportContexts.refuse(response, this);
+            return NONE;
+        }
+
 
         ArrayList<String> reportMsg = new ArrayList<String>();
         ArrayList<String> headings = new ArrayList<String>();
@@ -129,6 +134,14 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
                     continue;
                 }
 
+                if (ctr >= CdmReportSelectionValidator.length(getExactly())
+                        || ctr >= CdmReportSelectionValidator.length(getMoreThan())
+                        || ctr >= CdmReportSelectionValidator.length(getLessThan())
+                        || getExactly()[ctr] < 0 || getMoreThan()[ctr] < 0 || getLessThan()[ctr] < 0) {
+                    addActionError(getText("oscarReport.CDMReport.msgInvalidValue", new String[]{measurementType}));
+                    valid = false;
+                }
+
                 if (!ectValidation.isDate(startDate)) {
                     addActionError(getText("oscarReport.CDMReport.msgInvalidDate", new String[]{measurementType}));
 
@@ -141,7 +154,10 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
                 }
             }
         }
-        return valid;
+        if (!selection.isValid()) {
+            addActionError(getText("oscarReport.CDMReport.msgInvalidSelection"));
+        }
+        return valid && selection.isValid();
     }
 
     /**
@@ -241,7 +257,7 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
                     }
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                throw new IllegalStateException("Unable to complete CDM frequency report", e);
             }
         } else {
             MiscUtils.getLogger().debug("guideline checkbox is null");

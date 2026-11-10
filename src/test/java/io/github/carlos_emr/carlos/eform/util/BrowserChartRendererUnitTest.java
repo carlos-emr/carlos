@@ -75,6 +75,21 @@ class BrowserChartRendererUnitTest {
     }
 
     @Test
+    void shouldPreserveInterruption_withoutReadingScriptsOrTakingASlot() {
+        int permits = EFormBrowserPdfService.RENDER_SLOTS.availablePermits();
+        Thread.currentThread().interrupt();
+        try {
+            assertThatThrownBy(this::render).isInstanceOf(ChartRenderFailure.class)
+                    .hasMessage("Chart rendering interrupted");
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+            assertThat(libraryReads.get()).isZero();
+            assertThat(EFormBrowserPdfService.RENDER_SLOTS.availablePermits()).isEqualTo(permits);
+        } finally {
+            Thread.interrupted();
+        }
+    }
+
+    @Test
     void shouldReadBundledScriptsOnce_acrossRenders() {
         for (int i = 0; i < 3; i++) {
             assertThatThrownBy(this::render).isInstanceOf(IOException.class).hasMessage("Chart rendering failed");
