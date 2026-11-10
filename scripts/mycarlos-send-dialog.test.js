@@ -131,6 +131,17 @@ test("closing returns the focus to the document's Send button when the page redr
     assert.equal(view.document.focused, redrawn);
 });
 
+test('a dialog its script cannot wire leaves the click to the link, which opens the standalone page', () => {
+    const view = page();
+    const {root, parts} = view.dialogs['44'];
+    // A part missing, as when a host page's parser dropped the dialog's form.
+    root.children = root.children.filter(child => child !== parts.form);
+    const event = view.openers['44'].click();
+    assert.equal(event.defaultPrevented, false, 'the link keeps its default');
+    assert.equal(root.open, false);
+    assert.equal(view.calls.length, 0);
+});
+
 test('a failed send shows what went wrong, then lets the dialog close', async () => {
     const view = page();
     const {root, parts} = view.dialogs['44'];

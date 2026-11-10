@@ -94,8 +94,9 @@
         const opener = event.target && event.target.closest ? event.target.closest('[data-mycarlos-dialog]') : null;
         if (!opener || !window.CarlosMyCarlosSend) return;
         const dialog = document.getElementById(opener.dataset.mycarlosDialog);
-        // No dialog here, or a browser without one: the link opens the standalone page.
-        if (!dialog || typeof dialog.showModal !== 'function') return;
+        // No dialog here, a browser without one, or a dialog its script cannot wire (a part missing):
+        // the link opens the standalone page.
+        if (!dialog || typeof dialog.showModal !== 'function' || !wire(dialog).sender) return;
         event.preventDefault();
         open(dialog, opener);
     });

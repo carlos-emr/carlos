@@ -75,3 +75,21 @@ test('a send says it is sending, then that it was sent', async () => {
     assert.equal(parts.message.textContent, 'sent');
     assert.equal(parts.send.disabled, true, 'this operation id is queued: the same copy is not sent twice');
 });
+
+// Agent review S1: a device the user chose, then removed by the patient, is never replaced by another
+// device on a later refresh; Send waits for a deliberate choice every time.
+test('a removed device choice is never replaced by another device on later refreshes', async () => {
+    const device = id => ({deviceKeyId: id, acceptedAt: '2026-10-26T00:00:00Z', fingerprint: '0'.repeat(64)});
+    const document = new FakeDocument();
+    const {root, parts} = sendRoot(document, {data: {delivery: '00000000-0000-4000-8000-000000000999'},
+        devices: ['FAKE-device-a', 'FAKE-device-b']});
+    document.ids['mycarlos-send'] = root;
+    const {calls} = load(document);
+    parts.device.value = 'FAKE-device-b';
+    for (const round of [1, 2]) {
+        parts.check.click(); await tick();
+        calls[calls.length - 1].resolve(state([], {devices: [device('FAKE-device-a')]})); await tick();
+        assert.equal(parts.device.value, '', `refresh ${round}: no device is chosen for the user`);
+        assert.equal(parts.send.disabled, true, `refresh ${round}: Send waits for a deliberate choice`);
+    }
+});

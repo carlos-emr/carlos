@@ -87,6 +87,8 @@
         };
         const reconcileDevices = devices => {
             const selected = chooser.value;
+            // Whether a choice was on offer before this read: then an empty one stays empty.
+            const offered = chooser.options.length > 0;
             chooser.replaceChildren();
             devices.forEach(device => {
                 const option = document.createElement('option');
@@ -94,9 +96,10 @@
                 option.textContent = device.acceptedAt + ' · ' + device.fingerprint;
                 chooser.append(option);
             });
-            // A removed selection requires a deliberate new device choice. With none made yet (the
-            // dialog's first read), the first device is offered, as the standalone page offers it.
-            if (selected) chooser.value = selected;
+            // A removed selection requires a deliberate new device choice, on this read and every
+            // later one. Only when nothing was on offer yet (the dialog's first read) is the first
+            // device offered, as the standalone page offers it.
+            if (selected || offered) chooser.value = selected;
             if (noDevice) noDevice.hidden = devices.length !== 0;
         };
         const addRetryControls = () => {
