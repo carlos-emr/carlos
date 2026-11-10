@@ -45,7 +45,9 @@
             entry.append(element('pre', device.fingerprint));
             list.append(entry);
         });
-        state.pending.forEach(row => {
+        // A request staff can still approve comes first, with its form; expired ones follow it.
+        const rows = state.pending.filter(row => !row.expired).concat(state.pending.filter(row => row.expired));
+        rows.forEach(row => {
             const entry = element('div');
             entry.append(element('p', text(row.expired ? 'status.expired' : row.firstDevice ? 'first.body' : 'later.hint')));
             entry.append(element('pre', row.fingerprint));
@@ -85,6 +87,16 @@
             list.append(entry);
         });
     }
+    // Refresh reports the patient's earlier requests again each time, so "expired" there is about
+    // the past: it is said only when the patient has no approved device and no request can be
+    // approved now (#6124).
+    function statusLine(state) {
+        const refused = Array.isArray(state.refusedRequests) ? state.refusedRequests : [];
+        if (!refused.length) return '';
+        if (refused.some(reason => reason !== 'challenge_expired')) return text('status.unavailable');
+        if (state.devices.some(device => !device.removedAt)) return '';
+        return state.pending.some(row => !row.expired) ? '' : text('status.earlierExpired');
+    }
     async function run(operation, fields) {
         if (busy) return;
         busy = true;
@@ -94,9 +106,7 @@
         try {
             const state = await request(operation === 'read' ? 'GET' : 'POST', {method: operation, ...fields});
             render(state);
-            status.textContent = state.refusedRequests && state.refusedRequests.length
-                ? text(state.refusedRequests.every(reason => reason === 'challenge_expired')
-                    ? 'status.expired' : 'status.unavailable') : '';
+            status.textContent = statusLine(state);
         } catch (_) {
             status.textContent = text('status.unavailable');
         } finally {
