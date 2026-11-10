@@ -1,8 +1,0 @@
-{
-  "locales" : [ "en-CA", "fr-CA", "es-ES", "pl-PL", "pt-BR" ],
-  "mixedRealRenders" : 10,
-  "peakAdmission" : 2,
-  "queuedInterruptionPreserved" : true,
-  "remainingSessions" : 0,
-  "remainingPermits" : 2
-}

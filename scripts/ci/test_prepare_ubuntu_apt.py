@@ -42,7 +42,7 @@ class UbuntuAptTest(unittest.TestCase):
         path.write_bytes(b'deb http://security.ubuntu.com/ubuntu noble-security main\n'
                          b'deb https://azure.archive.ubuntu.com/ubuntu noble main\n')
         MIRRORS.prepare(self.root)
-        self.assertEqual(path.read_bytes(), b'deb https://security.ubuntu.com/ubuntu noble-security main\n'
+        self.assertEqual(path.read_bytes(), b'deb https://archive.ubuntu.com/ubuntu noble-security main\n'
                          b'deb https://archive.ubuntu.com/ubuntu noble main\n')
 
     def test_unrelated_hosts_and_lookalike_domains_remain_unchanged(self):

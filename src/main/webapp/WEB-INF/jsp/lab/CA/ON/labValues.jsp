@@ -65,28 +65,31 @@
     String highlight = "#E0E0FF";
 
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    final int patient;
+    Integer patient = null;
     try {
         String[] patients = request.getParameterValues("demo");
-        if (patients == null || patients.length != 1 || !patients[0].matches("[0-9]+")) {
+        if (patients != null && patients.length != 1) {
             throw new IllegalArgumentException("Invalid patient");
         }
-        patient = Integer.parseInt(patients[0]);
-        if (patient <= 0) throw new IllegalArgumentException("Invalid patient");
+        if (!(demographicNo == null || demographicNo.isEmpty() || "null".equals(demographicNo)
+                || "undefined".equals(demographicNo) || "0".equals(demographicNo))) {
+            patient = io.github.carlos_emr.carlos.lab.service.LabPatientAccess.positiveIdentity(demographicNo);
+            if (patient == null) throw new IllegalArgumentException("Invalid patient");
+        }
     } catch (IllegalArgumentException invalidPatient) {
         response.sendError(HttpServletResponse.SC_BAD_REQUEST);
         return;
     }
-    io.github.carlos_emr.carlos.demographic.PatientReadAccess.requirePatient(
+    if (patient != null) io.github.carlos_emr.carlos.demographic.PatientReadAccess.requirePatient(
             SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class),
             loggedInInfo, patient, "_lab", "r");
 
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-    Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
+    Demographic demographic = patient == null ? null : demographicManager.getDemographic(loggedInInfo, demographicNo);
 
     ArrayList list = null;
 
-    if (!(demographicNo == null || "null".equals(demographicNo) || "undefined".equals(demographicNo))) {
+    if (patient != null && demographic != null) {
         list = CommonLabTestValues.findValuesForTest(labType, Integer.valueOf(demographicNo), testName, identifier);
     }
 %>

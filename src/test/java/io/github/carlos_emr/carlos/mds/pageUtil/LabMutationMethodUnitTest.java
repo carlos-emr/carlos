@@ -59,7 +59,7 @@ class LabMutationMethodUnitTest extends CarlosUnitTestBase {
             if (operation.equals("ack-response")) data.when(() -> io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.updateReportStatusWithOlderVersionsDetailed(
                     169, "999998", 'F', "PRIVATE_CLINICAL_COMMENT", "HL7", false, null))
                     .thenReturn(new io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.ReportChainUpdate(
-                            0, java.util.List.of(169), java.util.List.of()));
+                            0, java.util.List.of(169)));
             var action = new ReportStatusUpdate2Action();
             String result = operation.equals("ack-response") ? action.executemain() : action.addComment();
             assertThat(result).isEqualTo(persistenceFails ? "failure" : ActionSupport.NONE);
@@ -112,14 +112,14 @@ class LabMutationMethodUnitTest extends CarlosUnitTestBase {
                         logActionMock.verifyNoInteractions();
                         if (mutationFails) throw new IllegalStateException("PRIVATE_ROUTING_MESSAGE", new IllegalArgumentException("PRIVATE_ROUTING_CAUSE"));
                         return new io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.ReportChainUpdate(
-                                2, java.util.List.of(168,169), java.util.List.of(167));
+                                2, java.util.List.of(168,169));
                     });
             assertThat(new ReportStatusUpdate2Action().executemain()).isEqualTo(mutationFails ? "failure" : failureStage == 0 ? ActionSupport.NONE : ActionSupport.SUCCESS);
             if (failureStage == 0) {
                 var result = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
                 assertThat(result.path("clearedCount").asInt()).isEqualTo(2);
                 assertThat(result.path("affectedVersionIds").toString()).isEqualTo("[168,169]");
-                assertThat(result.path("retainedVersionIds").toString()).isEqualTo("[167]");
+                assertThat(result.path("retainedVersionIds").toString()).isEqualTo("[]");
             }
             if (mutationFails) {
                 assertThat(response.getStatus()).isEqualTo(500);

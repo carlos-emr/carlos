@@ -1,5 +1,33 @@
 # CARLOS 2026.08 release notes
 
+## Measurement charts, CML revisions and CDM forms
+
+Single-point and constant-value measurement charts now draw useful markers and axes.
+Point labels retain Java HALF_EVEN rounding and the server's locale/date conventions.
+Graph failures return explicit 422, 500 or 503 responses; embedded lab and medication
+graphs provide a visible retry control.
+
+Qualified bounds such as `<5` continue to plot as 5 pending the clinical decision in
+[#6118](https://github.com/carlos-emr/carlos/issues/6118). The parser now accepts one
+number with supported qualifiers/units and rejects titres, dates, exponents, ranges
+and malformed grouping, preventing digit groups from being joined into a different
+value. Stored results and source reports remain available unchanged.
+
+CML versions are ordered by result stage, comparable OBR-22 revision clocks,
+correction status, completeness and arrival. A same-revision partial final delivered
+late no longer replaces the complete final. Collection dates do not demote a
+correction whose revision clock is absent. Filing retains the whole-report rule:
+the current version replaces every earlier version's measurements, including readings
+omitted by a partial correction. Those readings remain in the earlier report/PDF.
+Acknowledgement files all older versions resolved for that transaction and preserves
+prior acknowledgement audit data. Unlink remains a single-report operation.
+
+CDM report tabs keep their own definitions through conversion/validation errors and
+corrected resubmission. Invalid or expired forms refuse the report with a recovery
+message instead of using another tab's group. Lab history and graph access now
+require patient-level `_lab` read rights; unmatched history retains its existing
+invalid-demographic message. See the [shipping contract](testing/measurement-integrity-acceptance.md).
+
 ## Fixed Jasper report downloads
 
 Lab/billing day sheets and Ontario patient end-year statements now load bound,

@@ -191,7 +191,6 @@ public class EFormBrowserPdfService {
     private static final Duration RENDER_SLOT_WAIT = Duration.ofSeconds(30);
     static final Semaphore RENDER_SLOTS = new Semaphore(MAX_CONCURRENT_RENDERS, true);
     static final RenderAdmission ADMISSION = new RenderAdmission(RENDER_SLOTS);
-    private static final Semaphore RENDER_WAITERS = new Semaphore(2 * MAX_CONCURRENT_RENDERS);
 
     /**
      * Filename prefix of the renderer's output PDF. The {@link RenderedEformPdf} guard keys on it
@@ -2822,41 +2821,6 @@ public class EFormBrowserPdfService {
         // Difference comparison is nanoTime wrap-around safe, unlike a direct `>`.
         if (System.nanoTime() - deadlineNanos > 0) {
             throw new PDFGenerationException("Browser rendering timed out while generating the eForm PDF.");
-        }
-    }
-
-    /**
-     * Outcome of competing for one of the bounded render slots: {@code ACQUIRED} within the wait,
-     * {@code TIMED_OUT} when the waiting queue is full or the admission deadline expires,
-     * or {@code INTERRUPTED} when the
-     * waiting thread was interrupted (shutdown) before a slot was taken. Distinguishing the last two
-     * lets the caller give correct operator guidance — capacity load-shed (retry) versus an aborted
-     * render (no retry) — rather than collapsing both into a single boolean {@code false}.
-     */
-    enum SlotAcquisition { ACQUIRED, TIMED_OUT, INTERRUPTED }
-
-    static SlotAcquisition acquireRenderSlot(Semaphore slots, Duration wait) {
-        return acquireRenderSlot(slots, RENDER_WAITERS, wait);
-    }
-
-    /** Custom semaphores let concurrency tests exercise the real admission policy in isolation. */
-    static SlotAcquisition acquireRenderSlot(Semaphore slots, Semaphore waiting, Duration wait) {
-        try {
-            // A timed zero probe respects FIFO fairness and the interrupted flag. A free
-            // browser needs no waiting token; untimed tryAcquire would barge past a queue.
-            if (slots.tryAcquire(0, TimeUnit.MILLISECONDS)) return SlotAcquisition.ACQUIRED;
-            // Only a small bounded set may occupy servlet threads while waiting. Chromium
-            // needs other servlet threads to load its token-authorized page and resources.
-            if (!waiting.tryAcquire()) return SlotAcquisition.TIMED_OUT;
-            try {
-                return slots.tryAcquire(wait.toMillis(), TimeUnit.MILLISECONDS)
-                        ? SlotAcquisition.ACQUIRED : SlotAcquisition.TIMED_OUT;
-            } finally {
-                waiting.release();
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return SlotAcquisition.INTERRUPTED;
         }
     }
 

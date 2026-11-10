@@ -36,7 +36,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Semaphore;
 
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
@@ -1232,38 +1231,6 @@ class EFormBrowserPdfServiceUnitTest {
 
     private static String cdpMessage(String method, String paramsJson) {
         return "{\"message\":{\"method\":\"" + method + "\",\"params\":{" + paramsJson + "}}}";
-    }
-
-    @Test
-    @DisplayName("should refuse a render slot when the concurrency bound is saturated")
-    void shouldRefuseRenderSlot_whenConcurrencyBoundSaturated() {
-        Semaphore drained = new Semaphore(0);
-
-        assertThat(EFormBrowserPdfService.acquireRenderSlot(drained, Duration.ofMillis(50)))
-                .isEqualTo(EFormBrowserPdfService.SlotAcquisition.TIMED_OUT);
-
-        Semaphore available = new Semaphore(1);
-        assertThat(EFormBrowserPdfService.acquireRenderSlot(available, Duration.ofMillis(50)))
-                .isEqualTo(EFormBrowserPdfService.SlotAcquisition.ACQUIRED);
-    }
-
-    @Test
-    @DisplayName("should report interrupted when the waiting thread is interrupted before a slot is taken")
-    void shouldReportInterrupted_whenWaitingThreadInterrupted() {
-        // A shutdown-time interrupt is not load-shed capacity: it must be distinguishable so the
-        // caller gives "aborted" guidance (no retry advice) instead of the capacity message.
-        Thread.currentThread().interrupt();
-        try {
-            EFormBrowserPdfService.SlotAcquisition result =
-                    EFormBrowserPdfService.acquireRenderSlot(new Semaphore(0), Duration.ofSeconds(30));
-
-            assertThat(result).isEqualTo(EFormBrowserPdfService.SlotAcquisition.INTERRUPTED);
-            // The interrupt status must be re-raised for the caller / shutdown machinery.
-            assertThat(Thread.currentThread().isInterrupted()).isTrue();
-        } finally {
-            // Clear the flag so it cannot leak into sibling tests running on this thread.
-            Thread.interrupted();
-        }
     }
 
     @Test

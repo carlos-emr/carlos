@@ -200,17 +200,14 @@ public class CMLHandler implements MessageHandler {
     }
 
     /**
-     * The time the lab last revised this result: OBR-22, else OBX-14, else OBR-7. The message
-     * time (MSH-7) is a transport time and is deliberately not used. Empty when none is readable.
+     * The lab's revision time (OBR-22), empty when absent or unreadable. Collection/observation
+     * times (OBR-7/OBX-14) and transport time (MSH-7) cannot date a correction.
      */
     public String getRevisionTimestamp(int obrIndex, int obxIndex) {
         try {
             Segment obr = msg.getRESPONSE().getORDER_OBSERVATION(obrIndex).getOBR();
             String revision = Terser.get(obr, 22, 0, 1, 1);
-            if (revision != null && !revision.isBlank()) return revision;
-            String observation = Terser.get(getOBXSegment(obrIndex, obxIndex), 14, 0, 1, 1);
-            String time = observation == null || observation.isBlank() ? Terser.get(obr, 7, 0, 1, 1) : observation;
-            return time == null ? "" : time;
+            return revision == null ? "" : revision;
         } catch (Exception unreadable) {
             return "";
         }

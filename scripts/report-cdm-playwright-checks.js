@@ -273,24 +273,51 @@ async function workflow(s) {
   });
   await s.step('A frequency conversion failure preserves authorized access and refuses an unprivileged user', async () => {
     const route = '/oscarReport/oscarMeasurements/InitializeFrequencyOfRelevantTestsCDMReport';
+    // Reproduce a multi-row form with an unfilled, unselected row as well as the bad selected count.
+    const extraDisplay = sql.value(`SELECT typeDisplayName FROM measurementType WHERE type<>${q(type)} ORDER BY id LIMIT 1`);
+    h.assert(extraDisplay, 'A second measurement row is needed for the conversion control');
+    sql.execute(`INSERT INTO measurementGroup (name,typeDisplayName) VALUES (${q(group)},${q(extraDisplay)})`);
+    const otherGroup = sql.value(`SELECT name FROM measurementGroup WHERE name<>${q(group)} ORDER BY name LIMIT 1`);
+    h.assert(otherGroup, 'A second CDM group is needed for the cross-tab conversion control');
+    for (const field of ['exactly', 'moreThan', 'lessThan']) {
+      const authorized = await openScreen(s, group, 'freqencyOfReleventTests');
+      const row = await rowOf(authorized, 'measurementTypeD', type);
+      const formContext = await authorized.locator('input[name="cdmFormContext"]').inputValue();
+      const otherTab = await openScreen(s, otherGroup, 'freqencyOfReleventTests');
+      try {
+        await authorized.locator('input[name="patientSeenCheckbox"]').uncheck();
+        await authorized.locator(`input[name="frequencyCheckbox"][value="${row}"]`).check();
+        for (const count of ['exactly', 'moreThan', 'lessThan']) {
+          await authorized.locator(`input[name="${count}"]`).nth(row).fill(count === field ? 'not-an-integer' : '1');
+        }
+        await generate(authorized, 'InitializeFrequencyOfRelevantTestsCDMReport');
+        await authorized.locator('.action-errors[role="alert"]').waitFor({state: 'visible'});
+        h.assert((await authorized.locator('.action-errors[role="alert"]').innerText()).includes(field),
+          `The ${field} conversion failure returned no visible field error`);
+        h.assert(await authorized.locator(`input[name="${field}"]`).nth(row).inputValue() === 'not-an-integer',
+          `The ${field} conversion failure discarded the invalid value`);
+        h.assert(await authorized.locator('input[name="cdmFormContext"]').inputValue() === formContext,
+          `The ${field} conversion failure lost its originating context token`);
+        h.assert(await rowOf(authorized, 'measurementTypeD', type) === row,
+          `The ${field} conversion failure used the other tab's definitions`);
+        for (const count of ['exactly', 'moreThan', 'lessThan']) {
+          for (const box of await authorized.locator(`input[name="${count}"]`).all()) await box.fill('1');
+        }
+        const report = await generate(authorized, 'InitializeFrequencyOfRelevantTestsCDMReport');
+        h.assert(report.includes(line), `Correcting ${field} did not generate the originating group's report`);
+      } finally {
+        await otherTab.close();
+        await authorized.close();
+      }
+    }
     const authorized = await openScreen(s, group, 'freqencyOfReleventTests');
     const authorizedToken = await authorized.locator('input[name="CSRF-TOKEN"]').first().inputValue();
-    for (const field of ['exactly', 'moreThan', 'lessThan']) {
-      const allowed = await s.context.request.post(h.appUrl(s.config.baseUrl, route), {
-        form: {'CSRF-TOKEN': authorizedToken, [field]: 'not-an-integer'}, maxRedirects: 0,
-      });
-      const body = await allowed.text();
-      h.assert(allowed.status() === 200 && body.includes('name="submitBtn"'),
-        `An authorized ${field} conversion failure did not return the frequency INPUT form`);
-      const errorText = await authorized.evaluate(html => new DOMParser().parseFromString(html, 'text/html')
-        .querySelector('.action-errors[role="alert"]')?.textContent, body);
-      h.assert(errorText && errorText.includes(field),
-        `The ${field} conversion failure returned no visible field error`);
-      const submitted = await authorized.evaluate(({html, field}) => new DOMParser().parseFromString(html, 'text/html')
-        .querySelector(`input[name="${field}"]`)?.value, {html: body, field});
-      h.assert(submitted === 'not-an-integer', `The ${field} conversion failure discarded the invalid value`);
-      await allowed.dispose();
-    }
+    const stale = await s.context.request.post(h.appUrl(s.config.baseUrl, route), {
+      form: {'CSRF-TOKEN': authorizedToken, exactly: 'not-an-integer'}, maxRedirects: 0,
+    });
+    h.assert(stale.status() === 409 && !(await stale.text()).includes('name="submitBtn"'),
+      'A conversion failure without a form context did not refuse stale definitions');
+    await stale.dispose();
     await authorized.close();
     const fixture = throwawayLoginFixture({sql, marker, provider, testUser: s.config.testUser});
     const role = `${marker}-nr`; // secObjPrivilege.roleUserGroup is limited to 30 characters.

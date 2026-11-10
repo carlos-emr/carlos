@@ -22,9 +22,7 @@ def prepare(apt_root):
         if not path.is_file():
             continue
         original = path.read_bytes()
-        updated = UBUNTU_MIRROR.sub(lambda match: b'https://'
-            + (b'security.ubuntu.com' if match['host'] == b'security.ubuntu.com'
-               else b'archive.ubuntu.com') + b'/ubuntu', original)
+        updated = UBUNTU_MIRROR.sub(b'https://archive.ubuntu.com/ubuntu', original)
         if updated != original:
             path.write_bytes(updated)
             changed.append(path)

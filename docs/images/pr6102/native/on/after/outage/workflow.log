@@ -1,5 +1,0 @@
-  PASS measurement-renderer-outage: rejected content stays retryable without a checksum
-  PASS measurement-renderer-outage: first HL7 upload is filed
-  PASS measurement-renderer-outage: the same file again is refused as already uploaded
-EVIDENCE {"healthy":200,"outage":503,"retryAfter":"5","recovered":200}
-PASS measurement-renderer-outage

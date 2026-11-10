@@ -15,6 +15,23 @@ import static org.mockito.Mockito.*;
 @Tag("measurement")
 class MeasurementChartDataUnitTest {
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"2024-05-10 14:30:00.1234", "2024-05-10 14:30:00.123456789",
+            "2024-03-10 02:30:00", "2024-05-10", "2024-05-10 14", "2024-05-10 14:30"})
+    void shouldResolveLocalCollectionTimes_withFractionsAndDaylightSavingGaps(String source) throws Exception {
+        var previous = java.util.TimeZone.getDefault();
+        try {
+            java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("America/Toronto"));
+            var method = MeasurementGraphAction22Action.class.getDeclaredMethod("collectionDay", Map.class);
+            method.setAccessible(true);
+            var actual = (MeasurementChart.Day) method.invoke(null, Map.of("collDate", source));
+            String date = source.substring(0, 10);
+            assertThat(actual.getStart()).isEqualTo(new MeasurementChart.Day(java.time.LocalDate.parse(date)
+                    .atStartOfDay(java.time.ZoneId.systemDefault()).toInstant()).getStart());
+        } finally {
+            java.util.TimeZone.setDefault(previous);
+        }
+    }
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({
             "2024-03-10 02:30:00-05:00,2024-03-10T07:30:00Z",
             "2024-03-10 23:30:00-05:00,2024-03-11T04:30:00Z",

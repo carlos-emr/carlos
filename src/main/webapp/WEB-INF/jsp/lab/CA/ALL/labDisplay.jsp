@@ -1352,11 +1352,8 @@ input[id^='acklabel_']{
                 segmentID: segmentId,
                 labType: labType,
                 clearedCount: clearedCount,
-                retainedVersionIds: chain ? chain.retainedVersionIds : undefined
+                retainedVersionIds: chain ? [] : undefined
             });
-            if (chain && Array.isArray(chain.retainedVersionIds) && chain.retainedVersionIds.length > 0) {
-                bc.postMessage({action: 'refresh', labType: labType, compatibilityFor: String(segmentId)});
-            }
             bc.close();
             return true;
         } catch (e) {
@@ -1409,13 +1406,6 @@ input[id^='acklabel_']{
                 legacyInbox = true;
             }
             if (!inbox) { return false; }
-            if (chain && Array.isArray(chain.retainedVersionIds) && chain.retainedVersionIds.length
-                    && typeof inbox.dropAcknowledgedInboxhubItem === 'function'
-                    && inbox.dropAcknowledgedInboxhubItem.length < 4
-                    && typeof inbox.refreshInboxhubAfterHrmRevoke === 'function') {
-                inbox.refreshInboxhubAfterHrmRevoke();
-                return true;
-            }
             var handledInPlace = false;
             if (legacyInbox) {
                 inbox.removeReport(segmentId, labType);
@@ -1428,7 +1418,7 @@ input[id^='acklabel_']{
                 // listener cannot drift apart. An inbox from before that return value
                 // existed answers undefined, which falls through to the re-fetch below
                 // exactly as it always did.
-                handledInPlace = inbox.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount, chain ? chain.retainedVersionIds : undefined) === true;
+                handledInPlace = inbox.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount, chain ? [] : undefined) === true;
             }
             // Only when the inbox could not deal with the item itself. It drops the row or
             // the preview card and moves the counters in place; re-fetching on top of that

@@ -82,12 +82,53 @@ class CmlVersionPolicyUnitTest {
     }
     @Test void shouldNeverRefuseToOrder_whenAVersionIsUndatedOrItsStatusIsUnknown() throws Exception {
         assertThat(order(7,handler("","F","7010=5.1"))).containsExactly(7);
-        // An undated or unrecognised version is simply the oldest; nothing is dropped.
-        assertThat(order(1,handler("20260310080000","F","7010=5.1"),2,handler("","F","7010=6.0"))).containsExactly(2,1);
+        // Without comparable revision clocks, correction/completeness/arrival remain a total order.
+        assertThat(order(1,handler("20260310080000","F","7010=5.1"),2,handler("","F","7010=6.0"))).containsExactly(1,2);
         assertThat(order(1,handler("20260310080000","F","7010=5.1"),2,handler("20260310120000","X","7010=13.1")))
                 .containsExactly(2,1);
         assertThat(order(1,handler("20260310080000","F","7010=5.1","7010=5.2"),2,handler("20260310120000","C","7010=6.0")))
                 .containsExactly(1,2);
+    }
+
+    @Test void shouldKeepTheCompleteFinalCurrent_whenAPartialFinalArrivesLate() throws Exception {
+        CMLHandler complete = handler("20260310", "F", "7010=5.1", "7020=9.2");
+        CMLHandler partial = handler("20260310", "F", "7010=5.1");
+        assertThat(order(1, complete, 2, partial)).containsExactly(2, 1);
+        assertThat(order(2, partial, 1, complete)).containsExactly(2, 1);
+    }
+
+    @Test void shouldPreferACorrection_withoutSubstitutingAnEarlierCollectionDate() throws Exception {
+        var correction = withoutRevision("20260310", "C", "7010=12.7");
+        assertThat(order(1, withoutRevision("20260311", "F", "7010=5.1"), 2, correction)).containsExactly(1, 2);
+        assertThat(order(1, handler("20260311120000", "F", "7010=5.1"), 2, correction)).containsExactly(1, 2);
+        assertThat(correction.getRevisionTimestamp(0, 0)).isEmpty();
+    }
+
+    @Test void shouldKeepOrderingTransitive_whenOnlySomeVersionsHaveRevisionTimes() throws Exception {
+        var undated = withoutRevision("20260309", "C", "7010=12.7");
+        var earlierCorrection = handler("20260310080000", "C", "7010=10.1");
+        var laterFinal = handler("20260311120000", "F", "7010=5.1");
+        for (var ids : List.of(List.of(1, 2, 3), List.of(3, 2, 1), List.of(2, 1, 3))) {
+            var sources = new LinkedHashMap<Integer, CMLHandler>();
+            var handlers = Map.of(1, earlierCorrection, 2, laterFinal, 3, undated);
+            for (int id : ids) sources.put(id, handlers.get(id));
+            assertThat(CmlVersionPolicy.order(sources)).containsExactly(2, 1, 3);
+        }
+    }
+
+    private static CMLHandler withoutRevision(String collection, String status, String... rows) throws Exception {
+        String message = body("SYNTHETIC-ACCESSION", collection, status, rows);
+        String[] segments = message.split("\\r");
+        for (int i = 0; i < segments.length; i++) {
+            if (segments[i].startsWith("OBR|")) {
+                String[] fields = segments[i].split("\\|", -1);
+                fields[22] = "";
+                segments[i] = String.join("|", fields);
+            }
+        }
+        var handler = new CMLHandler();
+        handler.init(String.join("\r", segments) + "\r");
+        return handler;
     }
     @Test void shouldParseExplicitOffsetsAndPrecision_withoutRoundingClinicalRevisionTime() {
         assertThat(CmlVersionPolicy.timestamp("20260310120000.123456789-0400"))

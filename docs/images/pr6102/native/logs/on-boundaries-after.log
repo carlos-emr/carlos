@@ -1,9 +1,0 @@
-PASS native constant 99: 49 visible marker pixels
-PASS native constant 0: 49 visible marker pixels
-PASS native constant 0.05: 49 visible marker pixels
-PASS native constant -0.05: 49 visible marker pixels
-PASS native constant 5000000: 49 visible marker pixels
-PASS native constant 12500000: 49 visible marker pixels
-PASS native constant 45000000: 49 visible marker pixels
-PASS native constant -6000000: 49 visible marker pixels
-PASS measurement-native-boundaries

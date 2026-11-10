@@ -2145,23 +2145,15 @@ function notifyInboxhubAcknowledged(doclabid, labType, clearedCount, chain) {
             segmentID: String(doclabid),
             labType: labType,
             clearedCount: clearedCount,
-            retainedVersionIds: chain ? chain.retainedVersionIds : undefined
+            retainedVersionIds: chain ? [] : undefined
         });
-        if (chain && chain.retainedVersionIds.length > 0) {
-            // Older inbox listeners understand an identity-free refresh. New listeners
-            // coalesce this compatibility message with the typed update above.
-            bc.postMessage({action: 'refresh', labType: labType, compatibilityFor: String(doclabid)});
-        }
         bc.close();
     } catch (e) {
         try {
         const inbox = self.opener || (window.parent !== window ? window.parent : null);
-        if (inbox && chain && chain.retainedVersionIds.length && typeof inbox.dropAcknowledgedInboxhubItem === 'function'
-                && inbox.dropAcknowledgedInboxhubItem.length < 4 && typeof inbox.refreshInboxhubAfterHrmRevoke === 'function') {
-            inbox.refreshInboxhubAfterHrmRevoke();
-        } else if (inbox && typeof inbox.dropAcknowledgedInboxhubItem === 'function') {
+        if (inbox && typeof inbox.dropAcknowledgedInboxhubItem === 'function') {
             const handled = inbox.dropAcknowledgedInboxhubItem(String(doclabid), labType, clearedCount,
-                chain ? chain.retainedVersionIds : undefined);
+                chain ? [] : undefined);
             if (!handled && typeof inbox.fetchInboxhubData === 'function') inbox.fetchInboxhubData();
         } else if (inbox && typeof inbox.refreshView === 'function') inbox.refreshView();
         } catch (unreachableInbox) {
@@ -2237,13 +2229,13 @@ function serverClearedCount(responseBody) {
     }
 }
 
-/** Never infer a partial CML filing set from the form's stale multiID. */
+/** Use only the server-confirmed filing set, never the form's stale multiID. */
 function serverAcknowledgedVersions(responseBody) {
     try {
         const parsed = typeof responseBody === 'string' ? JSON.parse(responseBody) : responseBody;
         const valid = ids => Array.isArray(ids) && ids.every(id => /^[1-9]\d*$/.test(String(id)) && Number(id) <= 2147483647);
-        return parsed && valid(parsed.affectedVersionIds) && valid(parsed.retainedVersionIds)
-            ? {affectedVersionIds: parsed.affectedVersionIds.map(String), retainedVersionIds: parsed.retainedVersionIds.map(String)} : null;
+        return parsed && valid(parsed.affectedVersionIds)
+            ? {affectedVersionIds: parsed.affectedVersionIds.map(String)} : null;
     } catch (error) { return null; }
 }
 
@@ -2314,7 +2306,7 @@ function updateStatus(formid, requireConfirmation) {//acknowledge
                 } else {
                     //Hide document
                     labDocumentRows(doclabid, data.labType).slideUp();
-                    if (data.labType === 'HL7' && (!chain || chain.retainedVersionIds.length)) refreshView();
+                    if (data.labType === 'HL7' && !chain) refreshView();
                     else updateGlobalDataAndSideNav(doclabid, null);
                 }
             }

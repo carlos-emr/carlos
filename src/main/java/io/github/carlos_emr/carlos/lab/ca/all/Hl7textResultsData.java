@@ -417,6 +417,9 @@ public class Hl7textResultsData {
         return projectableValue(result, "lab " + LogSafe.sanitize(lab) + ", OBX " + obr + "-" + obx);
     }
 
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "Locale.ROOT shadow matches the clinic's result filter; not an identity or authorization decision")
+    // Locale.ROOT folding is only for the clinic's result filter, never identity or authorization.
     private static String projectableValue(String result, String context) {
         if (result == null || result.isEmpty() || "DNR".equals(result)) return null;
         String trimmed = StringUtils.trimToEmpty(result).replaceAll("\\<br\\s?/?\\>", "").trim();
@@ -441,6 +444,9 @@ public class Hl7textResultsData {
     }
 
     /** Map a lowercase-shadow boundary without cutting a source character in half. */
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "Maps the Locale.ROOT filter shadow back onto original result text; not an identity or authorization decision")
+    // This fold maps the Locale.ROOT filter shadow to original text, never identity or authorization.
     private static int originalBoundary(String source, String shadow, int boundary, Locale locale) {
         if (boundary == 0) return 0;
         if (boundary == shadow.length()) return source.length();

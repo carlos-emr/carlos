@@ -190,7 +190,13 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         request.setParameter("method", "inclRef");
         when(extensions.getMeasurementsExtByMeasurementId(42)).thenThrow(new IllegalStateException("Synthetic database unavailable"));
         AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
-        executeMeasurementChart("63", rendered);
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(MeasurementGraphAction22Action.class)) {
+            executeMeasurementChart("63", rendered);
+            assertThat(logs.messages()).anySatisfy(message -> assertThat(message)
+                    .contains("reason=INTERNAL_ERROR", "exception=java.lang.IllegalStateException")
+                    .doesNotContain("Synthetic database unavailable"));
+            assertThat(logs.events()).allSatisfy(event -> assertThat(event.getThrown()).isNull());
+        }
 
         assertThat(rendered).hasNullValue();
         assertThat(response.getStatus()).isEqualTo(500);

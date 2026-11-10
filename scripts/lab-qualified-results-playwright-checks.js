@@ -93,6 +93,20 @@ async function workflow(s){
     async function openReport(lab){const position=ids.indexOf(lab.id);h.assert(position>=0,'Native patient lab list omitted its source report');const report=await s.popup(index,reportLinks.nth(position),'qualified-native-report');h.assert(new URL(report.url()).searchParams.get('segmentID')===lab.id,'Native report selected another lab');return report;}
 
     async function values(report,test){const link=report.locator('a[href*="CA/ON/ViewLabValues"]').filter({hasText:test.name}).first();const value=await s.popup(report,link,'qualified-native-values');const url=new URL(value.url());h.assert(url.searchParams.get('demo')===patient&&url.searchParams.get('identifier')===test.code,'Native value history selected another patient/test');return value;}
+    await checks.check('unmatched history keeps its message and malformed identities fail closed',async()=>{
+      for(const demo of [null,'','0','null','undefined','bad','-1','2147483648']){
+        const params=new URLSearchParams({labType:'HL7',testName:HGB.name,identifier:HGB.code});
+        if(demo!==null)params.set('demo',demo);
+        const response=await s.context.request.get(h.appUrl(s.config.baseUrl,'/lab/CA/ON/ViewLabValues')+'?'+params);
+        try{
+          const unmatched=demo===null||['','0','null','undefined'].includes(demo);
+          h.assert(response.status()===(unmatched?200:400),'History returned an unexpected status for an absent/invalid patient');
+          const body=await response.text();
+          if(unmatched)h.assert(body.includes('The demographic number is not valid'),'Unmatched history lost its established recovery message');
+          h.assert(!body.includes('id="tblDiscs"'),'An absent/invalid patient returned clinical history');
+        }finally{await response.dispose();}
+      }
+    });
     for(const lab of labs){const report=await openReport(lab);
       await checks.check(lab.date+' native report literal associations',async()=>{for(const test of lab.tests){const link=report.locator('a[href*="CA/ON/ViewLabValues"]').filter({hasText:test.name}).first();h.assert(await link.count()===1,'Report omitted the native test/history link');const row=link.locator('xpath=ancestor::tr[1]'),cells=(await row.locator('td').allInnerTexts()).map(text=>text.replace(/\s+/g,' ').trim());h.assert(cells.includes(test.value)&&cells.includes(test.unit)&&cells.includes(test.low+' - '+test.high),'Report changed a literal qualifier/value/unit/range association: '+test.name);}const text=await report.locator('body').innerText();h.assert(text.includes(marker)&&!text.includes(controlMarker)&&!text.includes('999.37'),'Report leaked another patient/result');});
       if(lab===labs[0])for(const test of PANEL){const value=await values(report,test);const history=labs.flatMap(lab=>lab.tests.filter(row=>row.code===test.code).map(row=>({...row,date:lab.date})));

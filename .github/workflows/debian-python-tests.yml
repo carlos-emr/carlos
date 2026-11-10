@@ -28,6 +28,7 @@ on:
       - 'scripts/ci/prepare-cli-manifest-test-copy.py'
       - 'scripts/ci/prepare-o19-native.sh'
       - 'scripts/ci/fetch-flyway.sh'
+      - 'scripts/ci/prepare-ubuntu-apt.py'
       - 'scripts/ci/run-python-release-tests.py'
       # the manifest generator's inputs (schema/overlay parity tests run
       # here; full --check also needs an OSCAR 19 checkout): the Flyway set
@@ -51,6 +52,7 @@ on:
       - 'scripts/ci/prepare-cli-manifest-test-copy.py'
       - 'scripts/ci/prepare-o19-native.sh'
       - 'scripts/ci/run-python-release-tests.py'
+      - 'scripts/ci/prepare-ubuntu-apt.py'
       # the manifest generator's inputs (schema/overlay parity tests run
       # here; full --check also needs an OSCAR 19 checkout): the Flyway set
       # and the legacy patches it reads, the entity

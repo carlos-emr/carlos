@@ -298,7 +298,7 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
             var action = frequencyAction();
             action.getClass().getMethod("set" + field, int[].class).invoke(action, (Object) null);
             assertThat(action.execute()).isEqualTo("input");
-            assertThat(action.getActionErrors()).containsExactly("oscarReport.CDMReport.msgInvalidSelection");
+            assertThat(action.getActionErrors()).containsExactly("oscarReport.CDMReport.msgInvalidValue");
             verifyNoInteractions(measurementDao, formsDao);
             verify(request, never()).setAttribute(eq("messages"), any());
         }

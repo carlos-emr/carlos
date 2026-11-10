@@ -40,7 +40,6 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.Measurem
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.*;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -80,7 +79,10 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
     private static final Logger log = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private static final String NUMERIC_REGEX = "[^-.\\d]";
+    private static final java.util.regex.Pattern PLOT_NUMBER = java.util.regex.Pattern.compile(
+            "\\s*(?:[HLhl]\\s+)?(?:<=|>=|<|>|≤|≥)?\\s*"
+            + "([+-]?(?:(?:[1-9][0-9]{0,2}(?:,[0-9]{3})+|[0-9]+)(?:\\.[0-9]*)?|\\.[0-9]+))"
+            + "\\s*(?:[\\p{L}%µμ][\\p{L}%µμ/ ]*|\\+)?\\s*");
     private static final String WHITE = "#ffffff";
     private static final String VALUE_DATE_LABEL = "{1} \n {2}";
     private static final String SYSTOLIC = "Systolic";
@@ -138,7 +140,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             BrowserChartRenderer.write(request.getServletContext(), image, chart, width, height, "png");
         } catch (IOException | ParseException | RuntimeException unavailable) {
             // Parse/DAO/driver messages can include clinical values; retain only the failure type.
-            log.warn("Measurement graph unavailable: reason={}", io.github.carlos_emr.carlos.eform.util.ChartRenderFailure.code(unavailable));
+            log.warn("Measurement graph unavailable: reason={}, exception={}",
+                    io.github.carlos_emr.carlos.eform.util.ChartRenderFailure.code(unavailable), unavailable.getClass().getName());
             if (!response.isCommitted()) {
                 response.resetBuffer();
                 int status = io.github.carlos_emr.carlos.eform.util.ChartRenderFailure.status(unavailable);
@@ -312,20 +315,23 @@ public class MeasurementGraphAction22Action extends ActionSupport {
     }
 
     /**
-     * The number a stored result is plotted as, read the way OSCAR 19 reads it: everything except
-     * digits, the minus sign and the decimal point is dropped first, so {@code <5} plots as 5.
-     * Whether a qualified result should be plotted at all is open in #6118; until that is decided
-     * the graph draws what it always drew. A number too large to draw is left out.
+     * Reads one finite decimal, retaining the existing bound/unit policy pending #6118:
+     * {@code <5} plots as 5. An anchored match prevents unrelated digit groups (titres, dates,
+     * fractions or exponents) being joined into a different clinical number. Grouping commas
+     * must form unambiguous thousands groups. Overlong values cannot exhaust the renderer.
      *
      * @param result stored measurement or lab result
      * @return the number to plot, or null when the result holds no single finite number
      */
     static String numericResult(String result) {
-        if (StringUtils.isEmpty(result)) {
+        if (StringUtils.isEmpty(result) || result.length() > 1024) {
             return null;
         }
-        String numeric = result.replaceAll(NUMERIC_REGEX, "");
-        return NumberUtils.isParsable(numeric) && Double.isFinite(Double.parseDouble(numeric)) ? numeric : null;
+        var match = PLOT_NUMBER.matcher(result);
+        if (!match.matches()) return null;
+        String numeric = match.group(1).replace(",", "");
+        if (numeric.startsWith("+")) numeric = numeric.substring(1);
+        return Double.isFinite(Double.parseDouble(numeric)) ? numeric : null;
     }
 
     private List<ReferenceRange> measurementReferenceRanges(List<EctMeasurementsDataBean> measurements, String typeIdName) {
@@ -453,15 +459,24 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         } catch (java.time.format.DateTimeParseException ignored) {
             // Offset-free producer formats below still require a strict, full-input match.
         }
-        for (String pattern : new String[]{"yyyy-MM-dd HH:mm:ss.SSS", "yyyy-MM-dd HH:mm:ss",
-                "yyyy-MM-dd HH:mm", "yyyy-MM-dd HH", "yyyy-MM-dd"}) {
-            SimpleDateFormat format = new SimpleDateFormat(pattern);
-            format.setLenient(false);
-            java.text.ParsePosition position = new java.text.ParsePosition(0);
-            Date date = format.parse(collectionDate, position);
-            if (date != null && position.getIndex() == collectionDate.length()) return new Day(date.toInstant());
+        try {
+            var format = new java.time.format.DateTimeFormatterBuilder()
+                    .appendPattern("uuuu-MM-dd")
+                    .optionalStart().appendLiteral('T').appendPattern("HH")
+                    .optionalStart().appendPattern(":mm")
+                    .optionalStart().appendPattern(":ss")
+                    .optionalStart().appendFraction(java.time.temporal.ChronoField.NANO_OF_SECOND, 1, 9, true)
+                    .optionalEnd().optionalEnd().optionalEnd().optionalEnd()
+                    .parseDefaulting(java.time.temporal.ChronoField.HOUR_OF_DAY, 0)
+                    .parseDefaulting(java.time.temporal.ChronoField.MINUTE_OF_HOUR, 0)
+                    .parseDefaulting(java.time.temporal.ChronoField.SECOND_OF_MINUTE, 0)
+                    .toFormatter(java.util.Locale.ROOT).withResolverStyle(java.time.format.ResolverStyle.STRICT);
+            // Resolve offset-free wall times with the server zone, including DST gaps as before.
+            return new Day(java.time.LocalDateTime.parse(collectionDate.replace(' ', 'T'), format)
+                    .atZone(java.time.ZoneId.systemDefault()).toInstant());
+        } catch (java.time.format.DateTimeParseException invalid) {
+            throw new ParseException("Unsupported observation date", 0);
         }
-        throw new ParseException("Unsupported observation date", 0);
     }
 
     private MeasurementChart chartMeds(Integer demographicNo, String chartTitle, String[] drugs) {

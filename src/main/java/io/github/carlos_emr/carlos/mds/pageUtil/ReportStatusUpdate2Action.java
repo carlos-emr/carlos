@@ -271,7 +271,8 @@ public class ReportStatusUpdate2Action extends ActionSupport {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("clearedCount", chain.clearedCount());
         json.set("affectedVersionIds", objectMapper.valueToTree(chain.affectedVersionIds()));
-        json.set("retainedVersionIds", objectMapper.valueToTree(chain.retainedVersionIds()));
+        // Empty wire alias keeps cached pre-upgrade scripts working; no versions are retained.
+        json.set("retainedVersionIds", objectMapper.createArrayNode());
         response.setContentType("application/json; charset=UTF-8");
         try {
             response.getWriter().write(json.toString());
