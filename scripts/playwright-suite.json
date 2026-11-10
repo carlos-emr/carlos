@@ -4606,6 +4606,29 @@
       "fixtures": "Creates and deletes one marker-named ServiceClient through the UI. Seeds one marker publicKeys row with a fresh RSA-2048 pair and links a demo specialist id only on that row. Removes the client, the key, any key the pinned GET probe registers under the marker-get service name and the key's PublicKey read-audit log rows."
     },
     {
+      "name": "admin-keygen-create-key-retry",
+      "script": "scripts/admin-keygen-create-key-retry-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "notes": "Issue #6009. On an install without the CARLOS key pair (oscarKeys name oscar), Key Pair Creation refuses a client key with a message to create the CARLOS key pair first and stores no publicKeys row; the page then creates the CARLOS key pair, the same client name downloads keyPair.key (client private key pairs with the stored public key, CARLOS public key is the stored one), and a further attempt is refused as a duplicate. SKIPs when the CARLOS key pair already exists.",
+      "mutates": [
+        "oscarKeys",
+        "publicKeys"
+      ],
+      "fixtures": "Creates the CARLOS key pair and one marker-named publicKeys row through the page. Cleanup removes the marker row and the CARLOS key pair this run created (only while its public key is still the one the run stored) and asserts both are gone. An existing CARLOS key pair is never changed: the check SKIPs. The downloaded key file is deleted once read. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "admin-email-config",
       "script": "scripts/admin-email-config-playwright-checks.js",
       "tiers": [

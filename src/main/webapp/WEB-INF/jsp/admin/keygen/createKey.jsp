@@ -73,7 +73,8 @@
             if (KeyPairGen.checkName(name)) {
                 message = "Failed: The oscar key pair has already been created";
                 error = "true";
-            } else if (KeyPairGen.createKeys(name, null).equals("success")) {
+            } else if ("success".equals(KeyPairGen.createKeys(name, null))) {
+                // Null-safe: createKeys answers null when it cannot generate or store the pair.
                 message = "CARLOS key pair created successfully";
             } else {
                 message = "Failed: Could not create the oscar key pair";
@@ -84,17 +85,23 @@
                 message = "Failed: Key pair has already been created for the service '" + name + "'";
                 error = "true";
             } else {
-                String clientKey = KeyPairGen.createKeys(name, type);
-                String oscarKey = KeyPairGen.getPublic();
+                // createClientKeys stores nothing unless the CARLOS key exists. A stored client key
+                // takes its service name, so a failed attempt could not be retried (#6009).
+                KeyPairGen.ClientKeys keys = KeyPairGen.createClientKeys(name, type);
 
-                if (clientKey == null) {
-                    message = "Failed: Could not create key pair";
+                if (keys.status() == KeyPairGen.ClientKeyStatus.CARLOS_KEY_MISSING) {
+                    message = "Failed: The CARLOS key pair has not been created yet. Create it first with the"
+                            + " service name 'oscar', then create the key pair for '" + name + "' again";
                     error = "true";
-                } else if (oscarKey == null) {
-                    message = "Failed: Could not retrieve public key from oscar";
+                } else if (keys.status() != KeyPairGen.ClientKeyStatus.CREATED) {
+                    // An unreadable or blank CARLOS key, or a failed save: the log says which.
+                    message = "Failed: Could not create key pair. The server log records the cause";
                     error = "true";
                 } else {
+                    String clientKey = keys.clientPrivateKey();
+                    String oscarKey = keys.carlosPublicKey();
 
+                    // The section titles are the key file format lab upload clients read: keep them.
                     String keyPairOut = "-------- Service Name --------\n" + name + "\n------------------------------\n" +
                             "----- Client Private Key -----\n" + clientKey + "\n------------------------------\n" +
                             "------ Oscar Public Key ------\n" + oscarKey + "\n------------------------------";
