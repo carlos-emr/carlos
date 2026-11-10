@@ -53,8 +53,8 @@
 
     String demographic_no = request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "0";
     String deepcolor = "#CCCCFF", weakcolor = "#EEEEFF";
-    int historyOffset = request.getAttribute("historyOffset") instanceof Integer value ? value : 0;
-    int historyPageSize = request.getAttribute("historyPageSize") instanceof Integer value ? value : 10;
+    int historyOffset = request.getAttribute("historyOffset") instanceof Integer ? (Integer) request.getAttribute("historyOffset") : 0;
+    int historyPageSize = request.getAttribute("historyPageSize") instanceof Integer ? (Integer) request.getAttribute("historyPageSize") : 10;
 %>
 <%@ page import="java.lang.*, io.github.carlos_emr.carlos.providers.data.*"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
