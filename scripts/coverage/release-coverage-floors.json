@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "292b72cb296206e802acea052628cf4f53a9d258",
-  "comparisonSha256": "ec6620879a68d862f6ffc8ca9e4f52510bd7a29231342358d3ada887e7d2beba",
-  "baselineCommit": "b573696b8f3ea4de313e541a2d00a17d459a5628",
-  "baselineSourceTree": "292b72cb296206e802acea052628cf4f53a9d258",
-  "baselineReportSha256": "7a0e8c6945229be6c89412242822eda36ab063e856443ff0c2fd4ee93cf40c3a",
-  "baselineLane": "PR #6103 Ubuntu 26.04/OpenJDK 25.0.5 H2 qualification. Exact complete case inventory verified after retaking every class from a memory-terminated worker (347 classes / 4563 cases); all 6293 production class hashes and compiled test classes stayed identical. Explicit native/prerequisite skips remain routed. Higher historical metrics and refusal lines are retained. Source freshness does not qualify the complete native-lane coverage union or waive zero floors.",
+  "sourceTree": "b78f9b0c2e6de829d54f3fde8b96ea17f622e13f",
+  "comparisonSha256": "6cc9fa6ea42df26c47c672567ac6369fda98d7374d7cbc1dcbc1e297702b499b",
+  "baselineCommit": "45225d416f02b8837172761948347b26500d2348",
+  "baselineSourceTree": "b78f9b0c2e6de829d54f3fde8b96ea17f622e13f",
+  "baselineReportSha256": "88f111f213976e41eeb054c1804613f6d9221f17828b313a6ceb6675429579b4",
+  "baselineLane": "PR #6103 Ubuntu 26.04/OpenJDK 25.0.5 fresh complete H2 qualification on the cleared-period fix, with three workers and one successful execution. The exact 35954-case inventory, all 6293 production class hashes and compiled test classes are verified. Explicit native/prerequisite skips remain routed. Higher historical metrics and refusal lines are retained. Source freshness does not qualify the complete native-lane coverage union or waive zero floors.",
   "baselineTestCounts": {
-    "tests": 35952,
+    "tests": 35954,
     "skipped": 212,
     "failures": 0,
     "errors": 0
@@ -2770,10 +2770,10 @@
       "sourceBlob": "94351a78b9da218e24d4a0a1609ab0b76dbf2734"
     },
     "src/main/java/io/github/carlos_emr/carlos/managers/ProviderManager2.java": {
-      "lines": 33.333333333333336,
-      "instructions": 14.285714285714286,
+      "lines": 100.0,
+      "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "3cc40f61c404a2591ecca913af5edfecfb3f9891"
+      "sourceBlob": "cd719dfce638df53c2a23fbd8a8e361f8dd3264d"
     },
     "src/main/java/io/github/carlos_emr/carlos/managers/RBTGroupManager.java": {
       "lines": 100.0,
@@ -3425,8 +3425,8 @@
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/ConsultationWarningPeriod.java": {
       "lines": 100.0,
-      "instructions": 97.05882352941177,
-      "branches": 85.0,
+      "instructions": 100.0,
+      "branches": 95.0,
       "sourceBlob": "ee14062eff4b04de8f563bd42a456f818b2d1f28"
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/ContentDigests.java": {

@@ -116,7 +116,7 @@ The 80 existing unreviewed zero floors remain refused; no waiver or lower
 threshold is introduced. This refresh establishes source freshness, and does
 not replace the full same-class native-lane union required for release coverage.
 
-The final PR #6103 Java source tree `292b72cb296206e802acea052628cf4f53a9d258`
+The earlier PR #6103 Java source tree `292b72cb296206e802acea052628cf4f53a9d258`
 qualifies 35,952 cases with zero failures/errors and 212 registered skips.
 One full-suite worker was terminated by shared-host memory pressure; all 347
 classes assigned to it were retaken (4,563 cases), including the interrupted
@@ -128,3 +128,19 @@ the surviving workers with the complete worker retake from those same classes.
 Its 717 source-bound floors retain 56 higher historical measurements and every
 required refusal line. The 80 existing unreviewed zero floors remain refused;
 there is no new waiver or lowered threshold.
+
+The final PR #6103 Java source tree `b78f9b0c2e6de829d54f3fde8b96ea17f622e13f`
+adds positive coverage for normalized consultation months, clearing a saved period
+and retaining unrelated properties. A fresh complete three-worker H2 execution
+passes all 35,954 cases with zero failures/errors and 212 registered skips; all
+2,646 reports match the complete case inventory. The separate five-case permission
+and two-case physical MariaDB lanes pass without skips. All 6,293 production class
+hashes remain identical across those executions and the source-built WAR/Debian
+payload; compiled test class hashes remain identical across the Java lanes.
+All twelve selected ON/BC installed browser checks
+pass on Ubuntu 26.04; the installed payload and restored descriptor match that WAR.
+The refreshed 717 source-bound floors retain 56 higher historical measurements and
+every required refusal line. The changed manager persistence lines, instructions
+and branches now measure 100% in this run. The 80 existing unreviewed zero floors
+remain refused; this adds no waiver or lowered threshold and does not replace the
+complete same-source native-lane coverage union required for broader release coverage.

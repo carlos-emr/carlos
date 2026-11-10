@@ -218,6 +218,10 @@ applies the configured offset once (previously twice); explicit settings may
 therefore flag referrals sooner. Blank retains the default, malformed stored
 values use the reader fallback, and invalid submissions reject the entire
 preference save before any setting is changed.
+Clearing a previously saved period explicitly persists the canonical property's
+null reset, restoring the one-month default. Valid month normalization and that
+reset have positive manager regressions; unrelated nullable properties retain
+their existing persistence behavior.
 
 ## Reviewed qualification — 10 November 2026
 
@@ -227,9 +231,10 @@ routes authorize the proposed role before persistence. The visible chart toggle 
 the editor after an acknowledged save and failed refresh, updates its revision and Print
 identity, and retires the prior session-owned lock after acquiring a replacement.
 
-- Java: 35,952 cases, 212 registered routed/prerequisite skips, zero failures/errors.
-  A memory-terminated worker was retaken in full (347 classes / 4,563 cases); the
-  complete case inventory and all compiled production/test class hashes match.
+- Java: 35,954 cases, 212 registered routed/prerequisite skips, zero failures/errors.
+  A fresh complete three-worker run succeeds in one execution; all 2,646 reports
+  match the complete case inventory, including both positive preference cases.
+  All compiled production/test class hashes match across the qualification lanes.
   The five permission-sensitive cases pass separately without skips.
 - Physical MariaDB: both grouped-history and unknown-table boundary cases pass without
   skips. Other illegal-argument failures remain visible rather than becoming empty history.
@@ -237,14 +242,17 @@ identity, and retires the prior session-owned lock after acquiring a replacement
   Python: all 390 CI-tooling cases and 30 coverage-tool cases pass.
 - WAR/JSP: clean build, 997 JSPs plus eight dispatched fragments compiled, four taglib
   contract cases pass, zero dead directives.
-- Complete Ubuntu 26.04 packages `2026.09.0~snapshot29+pr6103.10` include pinned Chromium
+- Complete Ubuntu 26.04 packages `2026.09.0~snapshot29+pr6103.11` include pinned Chromium
   and carlos-ctl 1.3.2. All 7,503 packaged class/JSP/JavaScript entries match the source
   WAR, including the same 6,293 production classes used for Java qualification.
 - ON and BC upgrades pass all deployment health checks. Their 1,081 durable encounter
-  rows (410,424-byte dumps) remain byte-identical. All six selected issue/editor native
-  checks qualify in each province with strict residue audits and descriptor restoration.
-  The editor retake uses the native template dropdown, waits for CPP reconciliation before
-  fixture teardown, accepts the normal CPP redirect and checks the stored/reopened item.
+  rows remain byte-identical through upgrade and browser qualification. All six selected
+  issue/editor native checks qualify in each province with strict residue audits and
+  descriptor restoration.
+  All 7,503 installed class/JSP/JavaScript entries and the restored deployment descriptor
+  match the source WAR in each province. The editor workflow uses the native template
+  dropdown, waits for CPP reconciliation before fixture teardown, accepts the normal CPP
+  redirect and checks the stored/reopened item.
   Template names retain quotes, ampersands, plus signs, Unicode and literal percent escapes;
   CPP labels also retain semicolons and markup-like text without interpreting it as HTML.
 
