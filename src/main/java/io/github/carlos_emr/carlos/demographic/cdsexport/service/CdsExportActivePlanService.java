@@ -73,7 +73,7 @@ public class CdsExportActivePlanService {
         }
     }
 
-    private CdsExportClinicalZone.Snapshot zone() throws IOException {
+    CdsExportClinicalZone.Snapshot zone() throws IOException {
         var zone =
                 CdsExportClinicalZone.capture(settings.getProperty("cds.export.clinicalZone", ""));
         String importZone = settings.getProperty("cds.import.clinicalZone", "").trim();
@@ -107,7 +107,7 @@ public class CdsExportActivePlanService {
                         number("maxPatients", 100_000, 1, 2_000_000),
                         number("maxPackageMembers", 2_000_000, 3, 2_000_000),
                         number("maxPackageIndexBytes", 1L << 30, 12, 64L << 30),
-                        number("maxMetadataBytes", 256L << 20, 1, 256L << 20),
+                        number("maxMetadataBytes", 256L << 20, 1, 4L << 30),
                         number("maxSupportingBytes", 64L << 20, 1, 64L << 30),
                         number("maxZipBytes", 64L << 30, 1, 64L << 30));
         return new Plan(
@@ -122,6 +122,11 @@ public class CdsExportActivePlanService {
     }
 
     private long number(String suffix, long fallback, long minimum, long maximum) {
+        return number(settings, suffix, fallback, minimum, maximum);
+    }
+
+    static long number(
+            Properties settings, String suffix, long fallback, long minimum, long maximum) {
         String text = settings.getProperty("cds.export." + suffix, Long.toString(fallback)).strip();
         try {
             if (!text.matches("[0-9]{1,15}")) invalid();

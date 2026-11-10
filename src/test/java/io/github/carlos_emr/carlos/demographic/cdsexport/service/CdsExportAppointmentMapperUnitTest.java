@@ -42,7 +42,7 @@ class CdsExportAppointmentMapperUnitTest {
         assertThat(mapped.value().status()).isEqualTo("Exact booked Ω");
         assertThat(mapped.value().provider().ohipNumber()).isEqualTo("001234");
         assertThat(mapped.value().provider().firstName()).isEqualTo("Zoë😀");
-        assertThat(mapped.value().timing().durationMinutes()).isEqualTo(75);
+        assertThat(mapped.value().timing().durationMinutes()).isEqualTo(76);
         assertThat(mapped.value().notes()).isEqualTo("Literal café 😀\r\nnotes");
         assertThat(mapped.fields().get(key("name")).presence()).isEqualTo(Presence.SQL_NULL);
         assertThatThrownBy(() -> mapped.fields().clear())
@@ -50,7 +50,9 @@ class CdsExportAppointmentMapperUnitTest {
     }
 
     @Test
-    void shouldRefuseMissingDuplicateAndFirstCharacterOnlyStatusMatches_forAppointmentMapperContract() throws Exception {
+    void
+            shouldRefuseMissingDuplicateAndFirstCharacterOnlyStatusMatches_forAppointmentMapperContract()
+                    throws Exception {
         var original = lookups();
         var definition = status();
         for (var candidates :

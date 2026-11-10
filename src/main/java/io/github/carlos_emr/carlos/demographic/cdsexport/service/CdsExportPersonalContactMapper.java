@@ -219,7 +219,8 @@ public final class CdsExportPersonalContactMapper {
                         "HISTORICAL_OR_UNKNOWN_CONTACT_ASSOCIATION_REQUIRES_REVIEW");
                 continue;
             }
-            var contact = lookup.get(state.raw("contactId"));
+            var contact =
+                    state.raw("contactId") == null ? null : lookup.get(state.raw("contactId"));
             if (contact == null) {
                 state.review("contactId", root, "EXACT_LINKED_CONTACT_MISSING_REQUIRES_REVIEW");
                 continue;
@@ -290,7 +291,7 @@ public final class CdsExportPersonalContactMapper {
             phone(state, phones, "cellPhone", "C", root);
             phone(state, phones, "workPhone", "W", root);
             String extension = state.raw("workPhoneExtension");
-            if (extension != null) {
+            if (present(extension)) {
                 int work = -1;
                 for (int i = 0; i < phones.size(); i++)
                     if (phones.get(i).type().equals("W")) work = i;
@@ -384,7 +385,7 @@ public final class CdsExportPersonalContactMapper {
                     root + "/ContactPurpose",
                     "EXACT_NATIVE_CONTACT_PURPOSE_FLAG");
         } else if (value.equals("false")) {
-            if (code.equals(ROLES.get(state.raw("role")))) {
+            if (state.raw("role") != null && code.equals(ROLES.get(state.raw("role")))) {
                 state.review(
                         column,
                         root + "/ContactPurpose",

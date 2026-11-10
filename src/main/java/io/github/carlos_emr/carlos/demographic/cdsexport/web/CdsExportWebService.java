@@ -128,6 +128,12 @@ public class CdsExportWebService {
             code = "CDS_EXPORT_SUBMISSION_CONFLICT";
         } else if (failure
                 instanceof
+                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException
+                        review) {
+            status = 409;
+            code = review.reason().code();
+        } else if (failure
+                instanceof
                 io.github.carlos_emr.carlos.demographic.cdsexport.support
                         .CdsExportArtifactUnavailableException) {
             status = 409;
@@ -141,7 +147,8 @@ public class CdsExportWebService {
                             "CDS_EXPORT_ARTIFACT_BUSY",
                             "CDS_EXPORT_CANCEL_INVALID",
                             "CDS_EXPORT_WORKER_BUSY",
-                            "CDS_EXPORT_RESUME_INVALID")
+                            "CDS_EXPORT_RESUME_INVALID",
+                            "CDS_EXPORT_RUNTIME_CHANGED")
                     .contains(known == null ? "" : known)) {
                 status = 409;
                 code = known;
@@ -165,7 +172,7 @@ public class CdsExportWebService {
                             code,
                             "message",
                             "The request did not complete. Check the saved submission or job status"
-                                + " before retrying."));
+                                    + " before retrying."));
         } catch (IOException | IllegalStateException writeFailed) {
             LOG.error("CDS_EXPORT_ERROR_RESPONSE_FAILED {}", LogSafe.exceptionTrace(writeFailed));
         }

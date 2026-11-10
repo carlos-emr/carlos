@@ -36,7 +36,8 @@ public final class CdsExportAllergyRetainedAssembler {
             Set.of(
                     CdsNativeExtensionContract.ALLERGY_ARCHIVED,
                     CdsNativeExtensionContract.ALLERGY_AGE_OF_ONSET,
-                    CdsNativeExtensionContract.ALLERGY_ONSET_OF_REACTION);
+                    CdsNativeExtensionContract.ALLERGY_ONSET_OF_REACTION,
+                    CdsNativeExtensionContract.ALLERGY_ATC);
 
     public CdsExportRetainedSectionWriter.Prepared prepare(
             int patient,
@@ -182,7 +183,7 @@ public final class CdsExportAllergyRetainedAssembler {
         text(result, "PropertyOfOffendingAgent", value.property());
         result.put(
                 "Code",
-                value.codeValue() == null
+                value.codeValue() == null || "ATC".equals(value.codeType())
                         ? null
                         : xml -> {
                             xml.element("cds_dt", "CodeType", value.codeType());
@@ -229,6 +230,8 @@ public final class CdsExportAllergyRetainedAssembler {
         if (name.equals(CdsNativeExtensionContract.ALLERGY_ARCHIVED))
             return Boolean.toString(value.archived());
         if (name.equals(CdsNativeExtensionContract.ALLERGY_AGE_OF_ONSET)) return value.ageOfOnset();
+        if (name.equals(CdsNativeExtensionContract.ALLERGY_ATC))
+            return "ATC".equals(value.codeType()) ? value.codeValue() : null;
         return value.onsetOfReaction() == null
                 ? null
                 : CdsNativeExtensionContract.ALLERGY_ONSET_VALUES.get(value.onsetOfReaction());

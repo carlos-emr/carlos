@@ -58,7 +58,7 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
                 new CdsClinicalNormalizationService(new CdsFieldParser())
                         .immunization(records.get(1));
         assertThat(value.type()).isEqualTo("Td");
-        assertThat(value.date().original()).isEqualTo("2024-02-29T00:00:00");
+        assertThat(value.date().original()).isEqualTo("2024-02-29");
         assertThat(f.result.nativeOnlyRows()).isEqualTo(1);
         assertThat(f.result.importedRows()).isZero();
         assertThat(f.receipts).hasSize(1);
@@ -70,8 +70,9 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyImportedEditedNotesKeepSourceCodeDateAndVendorFieldsAndAccount_forEveryRetainedField()
-            throws Exception {
+    void
+            shouldVerifyImportedEditedNotesKeepSourceCodeDateAndVendorFieldsAndAccount_forEveryRetainedField()
+                    throws Exception {
         var f = fixture(true, "Current café 😀\r\nnotes");
         var records = parse(compose(f, false));
         var value =
@@ -91,7 +92,8 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyImportedClearNeverReplaysOldNotes_forImmunizationOccurrenceServiceContract() throws Exception {
+    void shouldVerifyImportedClearNeverReplaysOldNotes_forImmunizationOccurrenceServiceContract()
+            throws Exception {
         var f = fixture(true, null);
         assertThat(
                         new CdsClinicalNormalizationService(new CdsFieldParser())
@@ -115,7 +117,8 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyUnknownNativeClinicalFieldsRequireReview_insteadOfAnEmptyOccurrence() throws Exception {
+    void shouldVerifyUnknownNativeClinicalFieldsRequireReview_insteadOfAnEmptyOccurrence()
+            throws Exception {
         var f = fixture(false, null);
         var parent = new TreeMap<>(f.parents.getFirst().fields());
         parent.put("provider_name", "Unmapped administering clinician");
@@ -126,7 +129,9 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyMissingAndDuplicateParentCallbacksCannotProduceSuccess_forImmunizationOccurrenceServiceContract() throws Exception {
+    void
+            shouldVerifyMissingAndDuplicateParentCallbacksCannotProduceSuccess_forImmunizationOccurrenceServiceContract()
+                    throws Exception {
         var missing = fixture(false, null);
         missing.parents = List.of();
         refused(missing);
@@ -136,7 +141,9 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyMissingOrSubstitutedWitnessesCannotBorrowEarlierNativeValues_forImmunizationOccurrenceServiceContract() throws Exception {
+    void
+            shouldVerifyMissingOrSubstitutedWitnessesCannotBorrowEarlierNativeValues_forImmunizationOccurrenceServiceContract()
+                    throws Exception {
         var missing = fixture(false, null);
         missing.witnesses = List.of();
         refused(missing);
@@ -150,7 +157,9 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyOrphanedExtensionsAndWrongPrecisionOwnerCannotBeIgnored_forImmunizationOccurrenceServiceContract() throws Exception {
+    void
+            shouldVerifyOrphanedExtensionsAndWrongPrecisionOwnerCannotBeIgnored_forImmunizationOccurrenceServiceContract()
+                    throws Exception {
         for (String table : List.of("preventionsExt", "prevention_precision")) {
             var f = fixture(false, null);
             var fields =
@@ -181,14 +190,18 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyMissingAuxiliaryCallbackCannotBeTreatedAsAnAbsentOriginalField_forImmunizationOccurrenceServiceContract() throws Exception {
+    void
+            shouldVerifyMissingAuxiliaryCallbackCannotBeTreatedAsAnAbsentOriginalField_forImmunizationOccurrenceServiceContract()
+                    throws Exception {
         var f = fixture(true, "Current note");
         f.auxiliary = List.of();
         refused(f);
     }
 
     @Test
-    void shouldVerifyChangedGenerationAndCatalogueCannotSupplyDifferentMeaning_forImmunizationOccurrenceServiceContract() throws Exception {
+    void
+            shouldVerifyChangedGenerationAndCatalogueCannotSupplyDifferentMeaning_forImmunizationOccurrenceServiceContract()
+                    throws Exception {
         var changed = fixture(false, null);
         changed.lookupGeneration = true;
         refused(changed);
@@ -200,7 +213,9 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyFinalCallbackRevocationOrSourceFailureCannotBeSwallowedIntoValidXml_forImmunizationOccurrenceServiceContract() throws Exception {
+    void
+            shouldVerifyFinalCallbackRevocationOrSourceFailureCannotBeSwallowedIntoValidXml_forImmunizationOccurrenceServiceContract()
+                    throws Exception {
         var denied = fixture(false, null);
         denied.revokeAtReceipt = true;
         assertThatThrownBy(() -> compose(denied, true))
@@ -213,7 +228,9 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyReceiptSinkAndRetainedScopeFailuresKeepTheWholeDocumentFailed_forImmunizationOccurrenceServiceContract() throws Exception {
+    void
+            shouldVerifyReceiptSinkAndRetainedScopeFailuresKeepTheWholeDocumentFailed_forImmunizationOccurrenceServiceContract()
+                    throws Exception {
         var sink = fixture(false, null);
         sink.receiptFailure = true;
         assertThatThrownBy(() -> compose(sink, true)).hasMessage("CDS_EXPORT_SECTION_WRITE_FAILED");
@@ -224,7 +241,8 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyMissingImportedParentRequiresReview_insteadOfReplayingRetainedData() throws Exception {
+    void shouldVerifyMissingImportedParentRequiresReview_insteadOfReplayingRetainedData()
+            throws Exception {
         var f = fixture(true, "Current note");
         f.parents = List.of();
         f.auxiliary = List.of();
@@ -261,7 +279,9 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyUnaccountedRetainedSourceFieldsCannotDisappear_forImmunizationOccurrenceServiceContract() throws Exception {
+    void
+            shouldVerifyUnaccountedRetainedSourceFieldsCannotDisappear_forImmunizationOccurrenceServiceContract()
+                    throws Exception {
         var f = fixture(true, "Current note");
         var prior = f.retained.getFirst();
         var extra =
@@ -287,7 +307,8 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyNativeAndAuxiliaryBoundsFailClosed_withoutPartialClinicalSuccess() throws Exception {
+    void shouldVerifyNativeAndAuxiliaryBoundsFailClosed_withoutPartialClinicalSuccess()
+            throws Exception {
         var f = fixture(false, null);
         f.scopes.put("preventions", table("preventions", 101));
         assertThatThrownBy(() -> compose(f, false)).hasMessage("CDS_EXPORT_RESOURCE_LIMIT");
@@ -295,7 +316,9 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyLegacyConstructorCannotSilentlySkipANewImmunizationCategory_forImmunizationOccurrenceServiceContract() throws Exception {
+    void
+            shouldVerifyLegacyConstructorCannotSilentlySkipANewImmunizationCategory_forImmunizationOccurrenceServiceContract()
+                    throws Exception {
         var f = fixture(false, null);
         f.legacy = true;
         assertThatThrownBy(() -> compose(f, true)).hasMessage("CDS_EXPORT_SECTION_WRITE_FAILED");

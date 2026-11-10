@@ -127,7 +127,8 @@ public final class CdsExportAllergyMapper {
                         "severity_of_reaction",
                         "Severity",
                         Map.of("1", "MI", "2", "MO", "5", "NO"));
-        if ("0".equals(source.raw("severity_of_reaction")))
+        if (Set.of("0", "4")
+                .contains(java.util.Objects.toString(source.raw("severity_of_reaction"), "")))
             source.set(
                     "severity_of_reaction",
                     Outcome.ABSENT,
@@ -138,15 +139,16 @@ public final class CdsExportAllergyMapper {
                     "severity_of_reaction",
                     "Severity",
                     "SEVERE_IS_NOT_EVIDENCE_OF_LIFE_THREATENING");
-        String type = null, code = source.token("atc", "Code/CodeValue", 20);
+        String atcPath = "ResidualInfo/" + CdsNativeExtensionContract.ALLERGY_ATC;
+        String type = null, code = source.token("atc", atcPath, 7);
         if (code != null) {
-            if (code.matches("[A-Za-z0-9]+")) type = "ATC";
-            else source.review("atc", "Code/CodeValue", "SINGLE_ATC_CODE_REQUIRES_REVIEW");
+            if (CdsNativeExtensionContract.validAllergyAtc(code)) type = "ATC";
+            else source.review("atc", atcPath, "SINGLE_ATC_CODE_REQUIRES_REVIEW");
         }
         if ("0".equals(source.raw("TYPECODE")))
             source.operational("TYPECODE", "NATIVE_CATALOGUE_TYPE_UNSPECIFIED");
         else if ("8".equals(source.raw("TYPECODE")) && type != null)
-            source.set("TYPECODE", Outcome.MAPPED, "Code/CodeType", "EXPLICIT_ATC_CLASS_TYPE");
+            source.set("TYPECODE", Outcome.MAPPED, atcPath, "EXPLICIT_ATC_CLASS_TYPE");
         String age =
                 source.token(
                         "age_of_onset",
@@ -158,6 +160,12 @@ public final class CdsExportAllergyMapper {
                         "ResidualInfo/" + CdsNativeExtensionContract.ALLERGY_ONSET_OF_REACTION,
                         CdsNativeExtensionContract.ALLERGY_ONSET_VALUES);
         if (onset != null) onset = source.raw("onset_of_reaction");
+        if ("4".equals(source.raw("onset_of_reaction")))
+            source.set(
+                    "onset_of_reaction",
+                    Outcome.ABSENT,
+                    "ResidualInfo/" + CdsNativeExtensionContract.ALLERGY_ONSET_OF_REACTION,
+                    "NATIVE_ONSET_UNKNOWN_NO_ASSERTION");
         // All other populated coding/author fields retain their initial explicit
         // review disposition. Values or IDs alone do not establish the missing namespace,
         // lookup definition, recording clinician or additional clinical representation.

@@ -30,6 +30,16 @@ import java.util.List;
 
 /** Exact civil DATETIME(0) source with explicit native year/month markers; never a creation/import/modification clock. */
 public final class CdsExportNativePreventionDateMapper {
+    private final ZoneId zone;
+
+    public CdsExportNativePreventionDateMapper() {
+        this(null);
+    }
+
+    public CdsExportNativePreventionDateMapper(ZoneId zone) {
+        this.zone = zone;
+    }
+
     public CdsExportDateDto map(String anchor, List<String> markers) throws IOException {
         if (markers == null || markers.size() > 1) review();
         String marker = markers.isEmpty() ? null : markers.getFirst();
@@ -45,16 +55,28 @@ public final class CdsExportNativePreventionDateMapper {
                             DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss")
                                     .withResolverStyle(ResolverStyle.STRICT));
             if (parsed.getYear() < 1) review();
-            if (marker == null || marker.isEmpty())
+            if (marker == null || marker.isEmpty()) {
+                // Native date-only entry uses midnight as a storage anchor, not a clock assertion.
+                if (parsed.toLocalTime().equals(LocalTime.MIDNIGHT))
+                    return new CdsExportDateDto(
+                            CdsExportDateDto.Precision.DATE, parsed.toLocalDate().toString());
+                if (zone == null) review();
+                var offsets = zone.getRules().getValidOffsets(parsed);
+                if (offsets.size() != 1) review();
                 return new CdsExportDateDto(
-                        CdsExportDateDto.Precision.DATE_TIME, anchor.replace(' ', 'T'));
+                        CdsExportDateDto.Precision.DATE_TIME,
+                        parsed.atOffset(offsets.getFirst())
+                                .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
+            }
             return new CdsExportNativeDateMapper().map(anchor.substring(0, 10), markers);
         } catch (DateTimeException failed) {
-            throw new IOException("CDS_EXPORT_PREVENTION_DATE_REQUIRES_REVIEW");
+            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                    .CdsExportMappingReviewException("CDS_EXPORT_PREVENTION_DATE_REQUIRES_REVIEW");
         }
     }
 
     private static void review() throws IOException {
-        throw new IOException("CDS_EXPORT_PREVENTION_DATE_REQUIRES_REVIEW");
+        throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                .CdsExportMappingReviewException("CDS_EXPORT_PREVENTION_DATE_REQUIRES_REVIEW");
     }
 }

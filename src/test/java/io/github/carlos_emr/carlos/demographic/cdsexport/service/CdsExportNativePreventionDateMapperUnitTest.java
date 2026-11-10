@@ -31,23 +31,39 @@ class CdsExportNativePreventionDateMapperUnitTest {
             new CdsExportNativePreventionDateMapper();
 
     @Test
-    void shouldVerifyLocalClockAndMidnightStayExact_withoutInventingAnOffset() throws Exception {
-        for (String clock : List.of("2024-02-29 12:34:56", "2024-02-29 00:00:00")) {
-            var value = mapper.map(clock, List.of());
-            assertThat(value.precision()).isEqualTo(CdsExportDateDto.Precision.DATE_TIME);
-            assertThat(value.lexical()).isEqualTo(clock.replace(' ', 'T'));
-        }
+    void shouldExportTheDateOnlyNativeAnchor_withoutInventingARecordedClock() throws Exception {
+        var value = mapper.map("2024-02-29 00:00:00", List.of());
+        assertThat(value.precision()).isEqualTo(CdsExportDateDto.Precision.DATE);
+        assertThat(value.lexical()).isEqualTo("2024-02-29");
     }
 
     @Test
-    void shouldVerifyNativePartialMarkersSuppressAnchorClockAndMissingCalendarParts_forNativePreventionDateMapperContract() throws Exception {
+    void shouldRequireAnExplicitUnambiguousZone_forANativeEventClock() throws Exception {
+        assertThatThrownBy(() -> mapper.map("2024-02-29 12:34:56", List.of()))
+                .hasMessage("CDS_EXPORT_PREVENTION_DATE_REQUIRES_REVIEW");
+        var zoned = new CdsExportNativePreventionDateMapper(java.time.ZoneId.of("America/Toronto"));
+        assertThat(zoned.map("2024-02-29 12:34:56", List.of()).lexical())
+                .isEqualTo("2024-02-29T12:34:56-05:00");
+        assertThat(zoned.map("2024-07-01 12:34:56", List.of()).lexical())
+                .isEqualTo("2024-07-01T12:34:56-04:00");
+        for (String ambiguous : List.of("2024-03-10 02:30:00", "2024-11-03 01:30:00"))
+            assertThatThrownBy(() -> zoned.map(ambiguous, List.of()))
+                    .hasMessage("CDS_EXPORT_PREVENTION_DATE_REQUIRES_REVIEW");
+    }
+
+    @Test
+    void
+            shouldVerifyNativePartialMarkersSuppressAnchorClockAndMissingCalendarParts_forNativePreventionDateMapperContract()
+                    throws Exception {
         assertThat(mapper.map("2024-02-29 12:34:56", List.of("YYYY")).lexical()).isEqualTo("2024");
         assertThat(mapper.map("2024-02-29 12:34:56", List.of("YYYY-MM")).lexical())
                 .isEqualTo("2024-02");
     }
 
     @Test
-    void shouldVerifyUnknownDateDoesNotAcceptAPopulatedPrecisionMarker_forNativePreventionDateMapperContract() throws Exception {
+    void
+            shouldVerifyUnknownDateDoesNotAcceptAPopulatedPrecisionMarker_forNativePreventionDateMapperContract()
+                    throws Exception {
         assertThat(mapper.map(null, List.of()).precision())
                 .isEqualTo(CdsExportDateDto.Precision.ABSENT);
         assertThatThrownBy(() -> mapper.map(null, List.of("YYYY")))
@@ -55,15 +71,16 @@ class CdsExportNativePreventionDateMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyClearedMarkersHaveNativeFullClockConvention_forNativePreventionDateMapperContract() throws Exception {
+    void shouldUseNativeDatePrecision_whenOptionalMarkersAreCleared() throws Exception {
         assertThat(mapper.map("2024-02-29 00:00:00", Arrays.asList((String) null)).precision())
-                .isEqualTo(CdsExportDateDto.Precision.DATE_TIME);
+                .isEqualTo(CdsExportDateDto.Precision.DATE);
         assertThat(mapper.map("2024-02-29 00:00:00", List.of("")).precision())
-                .isEqualTo(CdsExportDateDto.Precision.DATE_TIME);
+                .isEqualTo(CdsExportDateDto.Precision.DATE);
     }
 
     @Test
-    void shouldVerifyInvalidCalendarClockFractionOffsetOrPrecisionCannotBeSilentlyNormalized_forNativePreventionDateMapperContract() {
+    void
+            shouldVerifyInvalidCalendarClockFractionOffsetOrPrecisionCannotBeSilentlyNormalized_forNativePreventionDateMapperContract() {
         for (String date :
                 List.of(
                         "2023-02-29 12:34:56",

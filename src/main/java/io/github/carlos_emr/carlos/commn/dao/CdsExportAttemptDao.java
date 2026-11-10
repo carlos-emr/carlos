@@ -55,10 +55,18 @@ public class CdsExportAttemptDao extends AbstractDaoImpl<CdsExportAttempt> {
     }
 
     public List<String> expiredRunIds(Instant now, int limit) {
+        return expiredRunIds(now, "", limit);
+    }
+
+    public List<String> expiredRunIds(Instant now, String after, int limit) {
         return entityManager
                 .createQuery(
-                        "select distinct a.runId from CdsExportAttempt a where a.state<>'PURGED' and a.expiresAt<=:now and (a.downloadUntil is null or a.downloadUntil<=:now) and (a.cleanupUntil is null or a.cleanupUntil<=:now) order by a.runId",
+                        "select distinct a.runId from CdsExportAttempt a where a.runId>:after and"
+                                + " a.state<>'PURGED' and a.expiresAt<=:now and (a.downloadUntil is"
+                                + " null or a.downloadUntil<=:now) and (a.cleanupUntil is null or"
+                                + " a.cleanupUntil<=:now) order by a.runId",
                         String.class)
+                .setParameter("after", after)
                 .setParameter("now", now)
                 .setMaxResults(limit)
                 .getResultList();
@@ -67,7 +75,9 @@ public class CdsExportAttemptDao extends AbstractDaoImpl<CdsExportAttempt> {
     public List<Long> epochs(String runId, long after, Instant now, int limit) {
         return entityManager
                 .createQuery(
-                        "select a.epoch from CdsExportAttempt a where a.runId=:run and a.epoch>:after and a.state<>'PURGED' and a.expiresAt<=:now order by a.epoch",
+                        "select a.epoch from CdsExportAttempt a where a.runId=:run and"
+                            + " a.epoch>:after and a.state<>'PURGED' and a.expiresAt<=:now order by"
+                            + " a.epoch",
                         Long.class)
                 .setParameter("run", runId)
                 .setParameter("after", after)
@@ -78,5 +88,17 @@ public class CdsExportAttemptDao extends AbstractDaoImpl<CdsExportAttempt> {
 
     public void flush() {
         entityManager.flush();
+    }
+
+    /** Cancellation makes all retained generations due; active download/cleanup leases still fence erasure. */
+    public void expireForRun(String runId, Instant now) {
+        entityManager
+                .createQuery(
+                        "update CdsExportAttempt a set"
+                                + " a.expiresAt=:now,a.updatedAt=:now,a.revision=a.revision+1 where"
+                                + " a.runId=:run and a.state<>'PURGED' and a.expiresAt>:now")
+                .setParameter("run", runId)
+                .setParameter("now", now)
+                .executeUpdate();
     }
 }

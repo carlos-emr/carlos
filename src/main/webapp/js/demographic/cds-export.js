@@ -98,7 +98,9 @@
             byId('reportRunId').value = current.id; byId('downloadRunId').value = current.id; byId('runId').value = current.id; byId('exportStatus').hidden = false;
             byId('exportState').textContent = shown.label; byId('exportCounts').textContent = shown.count + ' Blocked: ' + current.blockedPatients + '.';
             byId('exportConnection').textContent = current.waiting ? 'Saved; waiting for a compatible worker.' : 'Status confirmed by the server.';
-            byId('exportCode').textContent = current.safeCode || '';
+            byId('exportCode').textContent = current.safeCode === 'CDS_EXPORT_RUNTIME_CHANGED'
+                ? 'This package belongs to a different installation build. Start a new export to prepare a compatible package.'
+                : current.safeCode || '';
             const progress = byId('exportProgress');
             if (current.totalPatients === null) progress.removeAttribute('value');
             else { progress.max = Math.max(1, current.totalPatients); progress.value = current.processedPatients; }

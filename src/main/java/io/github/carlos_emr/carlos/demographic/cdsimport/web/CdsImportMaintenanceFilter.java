@@ -38,7 +38,10 @@ import java.util.function.Supplier;
 
 /**
  * While durable maintenance/holds exist, clinical HTTP reads/egress stay closed as well as writes.
- * Existing authentication and importer actions retain their own authorization/CSRF checks.
+ * Existing authentication, importer and export metadata actions retain their own
+ * authorization/CSRF checks. Export status, cancellation and resume intent are available;
+ * submission, package retrieval and clinical reports remain closed. Recording resume
+ * intent does not grant access through the maintenance barrier or authorize clinical SQL.
  * Pool-level admission independently excludes background/non-HTTP clinical SQL.
  */
 public final class CdsImportMaintenanceFilter implements Filter {
@@ -155,15 +158,16 @@ public final class CdsImportMaintenanceFilter implements Filter {
             case STARTUP_PENDING ->
                     reply.getWriter()
                             .write(
-                                    "Clinical startup initialization is pending. "
-                                            + "Authorized operators can open the CDS import page by adding "
-                                            + "/form/importUpload to the application base address.");
+                                    "Clinical startup initialization is pending. Authorized"
+                                        + " operators can open the CDS import page by adding"
+                                        + " /form/importUpload to the application base address.");
             case IMPORT_MAINTENANCE ->
                     reply.getWriter()
                             .write(
-                                    "Clinical access is unavailable during CDS import maintenance or chart reconciliation. "
-                                            + "Authorized operators can open the CDS import page by adding "
-                                            + "/form/importUpload to the application base address.");
+                                    "Clinical access is unavailable during CDS import maintenance"
+                                        + " or chart reconciliation. Authorized operators can open"
+                                        + " the CDS import page by adding /form/importUpload to the"
+                                        + " application base address.");
             default -> throw new IllegalStateException("Unsupported clinical availability reason");
         }
     }

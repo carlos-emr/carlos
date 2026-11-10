@@ -141,8 +141,8 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                             String id = nativeId(row);
                             var plan = plan(row.table());
                             if (!row.fields().keySet().equals(Set.copyOf(plan.columns()))
-                                    || !row.exactNumbers().isEmpty()
-                                    || current.size() >= bounds.nativeRows()) limit();
+                                    || !row.exactNumbers().isEmpty()) invalid();
+                            if (current.size() >= bounds.nativeRows()) limit();
                             for (var value : row.fields().values())
                                 if (value != null)
                                     memory[0] =
@@ -167,10 +167,9 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                         control,
                         witness -> {
                             if (!TABLES.contains(witness.table())) return;
-                            if (exact.size() >= bounds.nativeRows()
-                                    || exact.putIfAbsent(
-                                                    key(witness.table(), witness.id()), witness)
-                                            != null) limit();
+                            if (exact.size() >= bounds.nativeRows()) limit();
+                            if (exact.putIfAbsent(key(witness.table(), witness.id()), witness)
+                                    != null) invalid();
                         });
         if (!scanned.sourceManifestSha256().equals(source.manifest().plaintextSha256())
                 || !current.keySet().equals(exact.keySet())) invalid();

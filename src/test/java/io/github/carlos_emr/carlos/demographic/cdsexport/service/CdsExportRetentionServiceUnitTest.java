@@ -59,6 +59,35 @@ class CdsExportRetentionServiceUnitTest {
     }
 
     @Test
+    void shouldContinueOtherRuns_whenOneCleanupClaimCannotReadItsIntent() {
+        String broken = UUID.randomUUID().toString();
+        when(ledger.expiredArtifacts(16)).thenReturn(List.of(broken, run));
+        when(ledger.artifactEpochs(broken, 0, 64)).thenReturn(List.of(1L));
+        when(ledger.beginCleanup(broken, 1))
+                .thenThrow(new IllegalStateException("CDS_EXPORT_JOB_DOCUMENT_INVALID"));
+        assertThatThrownBy(service::sweep).hasMessage("CDS_EXPORT_JOB_DOCUMENT_INVALID");
+        verify(ledger).finishCleanup(claim, true);
+    }
+
+    @Test
+    void shouldRotatePastAFullPoisonedPage_insteadOfStarvingLaterExpiredRuns() {
+        var broken =
+                java.util.stream.IntStream.range(0, 16)
+                        .mapToObj(i -> UUID.randomUUID().toString())
+                        .sorted()
+                        .toList();
+        when(ledger.expiredArtifacts(16)).thenReturn(broken);
+        for (String id : broken) {
+            when(ledger.artifactEpochs(id, 0, 64))
+                    .thenThrow(new IllegalStateException("CDS_EXPORT_JOB_DOCUMENT_INVALID"));
+        }
+        when(ledger.expiredArtifacts(broken.getLast(), 16)).thenReturn(List.of(run));
+        assertThatThrownBy(service::sweep).hasMessage("CDS_EXPORT_JOB_DOCUMENT_INVALID");
+        service.sweep();
+        verify(ledger).finishCleanup(claim, true);
+    }
+
+    @Test
     void shouldRemoveOnlyTheExclusivelyClaimedAttempt_andAcknowledgeAfterDeletion()
             throws Exception {
         var storage = document.storage();

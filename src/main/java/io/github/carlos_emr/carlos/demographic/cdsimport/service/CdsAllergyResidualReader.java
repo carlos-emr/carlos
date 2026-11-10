@@ -45,7 +45,8 @@ final class CdsAllergyResidualReader {
             Set.of(
                     CdsNativeExtensionContract.ALLERGY_ARCHIVED,
                     CdsNativeExtensionContract.ALLERGY_AGE_OF_ONSET,
-                    CdsNativeExtensionContract.ALLERGY_ONSET_OF_REACTION);
+                    CdsNativeExtensionContract.ALLERGY_ONSET_OF_REACTION,
+                    CdsNativeExtensionContract.ALLERGY_ATC);
     private static final int MAXIMUM_NAME =
             KNOWN.stream().mapToInt(String::length).max().orElseThrow();
     private final CdsFieldParser fields;
@@ -54,7 +55,7 @@ final class CdsAllergyResidualReader {
         this.fields = Objects.requireNonNull(fields);
     }
 
-    record NativeState(boolean archived, String ageOfOnset, String onsetOfReaction) {}
+    record NativeState(boolean archived, String ageOfOnset, String onsetOfReaction, String atc) {}
 
     NativeState read(CdsRecordDto record) throws IOException {
         if (!record.section().equals("AllergiesAndAdverseReactions"))
@@ -72,7 +73,10 @@ final class CdsAllergyResidualReader {
                     });
             state.finish();
             return new NativeState(
-                    Boolean.TRUE.equals(state.archived), state.ageOfOnset, state.onsetOfReaction);
+                    Boolean.TRUE.equals(state.archived),
+                    state.ageOfOnset,
+                    state.onsetOfReaction,
+                    state.atc);
         } catch (UncheckedIOException invalid) {
             throw invalid.getCause();
         }
@@ -85,6 +89,7 @@ final class CdsAllergyResidualReader {
         private Boolean archived;
         private String ageOfOnset;
         private String onsetOfReaction;
+        private String atc;
         private final Set<String> seen = new java.util.HashSet<>();
 
         private State(CdsRecordDto record) {
@@ -141,6 +146,9 @@ final class CdsAllergyResidualReader {
                 if (value.isEmpty() || value.codePointCount(0, value.length()) > 4)
                     throw invalidValue(false);
                 ageOfOnset = value;
+            } else if (CdsNativeExtensionContract.ALLERGY_ATC.equals(text)) {
+                if (!CdsNativeExtensionContract.validAllergyAtc(value)) throw invalidValue(false);
+                atc = value;
             } else {
                 onsetOfReaction =
                         CdsNativeExtensionContract.ALLERGY_ONSET_VALUES.entrySet().stream()

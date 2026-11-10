@@ -63,7 +63,7 @@ class CodeFactorReportTest(unittest.TestCase):
                 REPORT.collect(lambda _: self.fail("Must refuse before reading"), "owner/repo", COMMIT,
                                self.check() | change)
 
-    def test_missing_current_check_retains_exact_ancestor_identity(self):
+    def test_missing_current_check_cannot_borrow_a_complete_ancestor_analysis(self):
         ancestor = "b" * 40
         calls = []
 
@@ -73,10 +73,9 @@ class CodeFactorReportTest(unittest.TestCase):
                 return {"check_runs": [] if COMMIT in path else [self.check() | {"head_sha": ancestor}]}
             return {"parents": [{"sha": ancestor}]}
 
-        actual, check = REPORT.latest_completed_check(fetch, "owner/repo", COMMIT)
-        self.assertEqual(ancestor, actual)
-        self.assertEqual(ancestor, check["head_sha"])
-        self.assertEqual(3, len(calls))
+        self.assertIsNone(REPORT.latest_completed_check(fetch, "owner/repo", COMMIT))
+        self.assertEqual(1, len(calls))
+        self.assertIn(COMMIT, calls[0])
 
     def test_absent_external_analysis_is_bounded(self):
         calls = []
@@ -86,7 +85,7 @@ class CodeFactorReportTest(unittest.TestCase):
             return {"check_runs": []} if "check-runs?" in path else {"parents": [{"sha": COMMIT}]}
 
         self.assertIsNone(REPORT.latest_completed_check(fetch, "owner/repo", COMMIT))
-        self.assertEqual(20, len(calls))
+        self.assertEqual(1, len(calls))
 
     def environment(self, output):
         return {"REPORT_REPOSITORY": "owner/repo", "REPORT_COMMIT": COMMIT,

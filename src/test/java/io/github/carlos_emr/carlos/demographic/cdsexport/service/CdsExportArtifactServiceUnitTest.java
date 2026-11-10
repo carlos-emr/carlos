@@ -209,6 +209,24 @@ class CdsExportArtifactServiceUnitTest {
     }
 
     @Test
+    void shouldRejectAnUnboundedDownloadBudget_beforeTakingAnArtifactLease() {
+        var settings = new Properties();
+        settings.setProperty("cds.export.downloadTimeoutSeconds", "86401");
+        service =
+                new CdsExportArtifactService(
+                        ledger,
+                        stores,
+                        scopes,
+                        disclosure,
+                        access,
+                        new CdsExportEngineRegistry(List.of(engine)),
+                        settings);
+        assertThatThrownBy(() -> service.open(actor, lease.runId(), "package"))
+                .hasMessage("CDS_EXPORT_CONFIGURATION_INVALID");
+        verify(ledger, never()).beginDownload(anyString(), anyString());
+    }
+
+    @Test
     void shouldReleaseTheLease_afterAnOutputFailureWithoutClaimingSuccessfulDelivery()
             throws Exception {
         try (var download = service.open(actor, lease.runId(), "package")) {
@@ -241,7 +259,7 @@ class CdsExportArtifactServiceUnitTest {
         when(engine.qualifiedProfiles()).thenReturn(Set.of());
         assertThatThrownBy(() -> service.open(actor, lease.runId(), "package"))
                 .hasMessage("CDS_EXPORT_ENGINE_IDENTITY_CHANGED");
-        verify(ledger).finishDownload(lease, false, false);
+        verify(ledger, never()).beginDownload(anyString(), anyString());
     }
 
     @Test

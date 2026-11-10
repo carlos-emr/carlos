@@ -194,6 +194,43 @@ class CdsExportServiceUnitTest {
     }
 
     @Test
+    void shouldMarkAnOldBuildPackageUnavailable_inStatusAndSavedHistory() {
+        var ready =
+                new CdsExportJobDto(
+                        RUN,
+                        CdsExportState.READY,
+                        3,
+                        1L,
+                        1,
+                        0,
+                        false,
+                        false,
+                        1,
+                        null,
+                        Instant.EPOCH,
+                        Instant.EPOCH,
+                        true);
+        when(ledger.status(RUN)).thenReturn(ready);
+        when(ledger.history(actor.operatorKey(), "", 25)).thenReturn(List.of(ready));
+        when(ledger.document(RUN))
+                .thenReturn(
+                        new CdsExportJobDocumentDto(
+                                1,
+                                actor,
+                                command,
+                                "f".repeat(64),
+                                "instance",
+                                "b".repeat(64),
+                                "c".repeat(64)));
+        var status = service.observe(viewer, RUN);
+        assertThat(status.state()).isEqualTo(CdsExportState.READY);
+        assertThat(status.artifactAvailable()).isFalse();
+        assertThat(status.complete()).isFalse();
+        assertThat(status.safeCode()).isEqualTo("CDS_EXPORT_RUNTIME_CHANGED");
+        assertThat(service.history(viewer, "", 25)).containsExactly(status);
+    }
+
+    @Test
     void shouldRecoverConcurrentUnchangedIntent_withoutReplacingItsOriginalBindings()
             throws Exception {
         when(ledger.accept(document)).thenThrow(new CdsExportSubmissionConflictException());
@@ -202,7 +239,8 @@ class CdsExportServiceUnitTest {
     }
 
     @Test
-    void shouldRejectAnEngineThatSubstitutesActorOrAcceptedIntent_forServiceContract() throws Exception {
+    void shouldRejectAnEngineThatSubstitutesActorOrAcceptedIntent_forServiceContract()
+            throws Exception {
         when(engine.bind(actor, command))
                 .thenReturn(
                         new CdsExportJobDocumentDto(

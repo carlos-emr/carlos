@@ -197,12 +197,79 @@ class CdsExportNativeDemographicAssemblerUnitTest {
     }
 
     @Test
-    void shouldRefuseUnrepresentedDemographicHistory_insteadOfDroppingAnArchive() {
+    void shouldRefuseMalformedDemographicHistory_beforeAccountingForItsFields() {
         rows.get("demographicArchive")
                 .add(
                         new CdsExportCapturedTextRowDto(
                                 "demographicArchive", "archive", Map.of("id", "1")));
-        assertThatThrownBy(this::assemble).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        assertThatThrownBy(this::assemble).hasMessage("CDS_EXPORT_ENROLMENT_SOURCE_SCOPE_INVALID");
+    }
+
+    @Test
+    void shouldUseTheCurrentSnapshotAndPreserveRosterHistory_afterOrdinaryDemographicEdits()
+            throws Exception {
+        var old = new LinkedHashMap<String, String>();
+        Plan.DEMOGRAPHIC_ARCHIVE.columns().forEach(column -> old.put(column, null));
+        old.putAll(
+                Map.of(
+                        "id",
+                        "1",
+                        "demographic_no",
+                        "27",
+                        "first_name",
+                        "Previous spelling",
+                        "roster_status",
+                        "TE",
+                        "roster_date",
+                        "2020-01-02",
+                        "roster_termination_date",
+                        "2021-01-02"));
+        rows.get("demographicArchive")
+                .add(
+                        new CdsExportCapturedTextRowDto(
+                                "demographicArchive",
+                                CdsExportPatientTableSourceReader.key(1),
+                                old));
+        var current = rows.get("demographic").getFirst();
+        var fields = new LinkedHashMap<>(current.fields());
+        fields.putAll(
+                Map.of(
+                        "roster_status",
+                        "RO",
+                        "roster_date",
+                        "2022-01-02",
+                        "family_doctor",
+                        "<rdohip></rdohip><rd></rd>"));
+        rows.get("demographic")
+                .set(
+                        0,
+                        new CdsExportCapturedTextRowDto(
+                                current.table(), current.recordKey(), fields));
+        var result = assemble();
+        assertThat(result.demographic().events()).hasSize(2);
+        assertThat(
+                        result.fields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "demographicArchive",
+                                                CdsExportPatientTableSourceReader.key(1),
+                                                "first_name"))
+                                .rule())
+                .isEqualTo("SUPERSEDED_DEMOGRAPHIC_SNAPSHOT_IN_APPROVED_AUDIT");
+        assertThat(
+                        result.fields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "demographicArchive",
+                                                CdsExportPatientTableSourceReader.key(1),
+                                                "roster_date"))
+                                .outcome())
+                .isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
+        assertThat(result.fields().values())
+                .noneMatch(
+                        field ->
+                                field.outcome()
+                                        == CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
     }
 
     @Test

@@ -176,12 +176,49 @@ public final class CdsExportDemographicAncillaryReconciler {
                             : presence == Presence.VALUE
                                     ? "ANCILLARY_NATIVE_VALUE_REQUIRES_REVIEW"
                                     : "ABSENT_ANCILLARY_NATIVE_VALUE";
+            if (column.equals("family_doctor")
+                    && ("<rdohip></rdohip><rd></rd>".equals(value)
+                            || "<rdohip></rdohip><rd></rd><family_doc></family_doc>"
+                                    .equals(value))) {
+                outcome = Outcome.OPERATIONAL;
+                rule = "NATIVE_EMPTY_REFERRING_PHYSICIAN_WRAPPER";
+            }
             fields.put(
                     new CdsExportNativeFieldKeyDto(current.table(), current.recordKey(), column),
                     new CdsExportFieldAssessmentDto(presence, outcome, "", rule));
         }
         checkpoint.run();
         return Map.copyOf(fields);
+    }
+
+    /**
+     * Migration guide 18.2 transfers the current demographic snapshot. Superseded snapshot
+     * attributes stay in the separately approved audit arrangement; they must not overwrite
+     * the current chart. Roster episodes are clinical history and are deliberately excluded
+     * here so that the enrolment mapper must account for every one of them.
+     */
+    static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assessArchive(
+            int patient, CdsExportCapturedTextRowDto archive, Runnable checkpoint)
+            throws IOException {
+        CdsExportEnrolmentMapper.requireRow(patient, archive);
+        if (!archive.table().equals("demographicArchive")) scope();
+        var result = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
+        for (var entry : archive.fields().entrySet()) {
+            checkpoint.run();
+            if (CdsExportEnrolmentMapper.COLUMNS.containsKey(entry.getKey())) continue;
+            String value = entry.getValue();
+            result.put(
+                    new CdsExportNativeFieldKeyDto(
+                            archive.table(), archive.recordKey(), entry.getKey()),
+                    new CdsExportFieldAssessmentDto(
+                            value == null
+                                    ? Presence.SQL_NULL
+                                    : value.isEmpty() ? Presence.EMPTY : Presence.VALUE,
+                            Outcome.OPERATIONAL,
+                            "",
+                            "SUPERSEDED_DEMOGRAPHIC_SNAPSHOT_IN_APPROVED_AUDIT"));
+        }
+        return Map.copyOf(result);
     }
 
     private static void scope() throws IOException {

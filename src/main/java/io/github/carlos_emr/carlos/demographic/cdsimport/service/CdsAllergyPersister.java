@@ -42,7 +42,10 @@ public class CdsAllergyPersister {
     private final PartialDateDao dates;
     private final CdsClinicalNormalizationService normalization;
 
-    public CdsAllergyPersister(@org.springframework.beans.factory.annotation.Qualifier("allergyDao") AllergyDao allergies, PartialDateDao dates,
+    public CdsAllergyPersister(
+            @org.springframework.beans.factory.annotation.Qualifier("allergyDao")
+                    AllergyDao allergies,
+            PartialDateDao dates,
             CdsClinicalNormalizationService normalization) {
         this.allergies = allergies;
         this.dates = dates;
@@ -56,7 +59,8 @@ public class CdsAllergyPersister {
     }
 
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
-    public Map<String, String> write(int demographicNo, String auditProviderNo, CdsAllergyDto source) {
+    public Map<String, String> write(
+            int demographicNo, String auditProviderNo, CdsAllergyDto source) {
         CdsClinicalTransactions.requireUnit();
         Allergy allergy = candidate(demographicNo, source);
         allergies.persist(allergy);
@@ -70,22 +74,28 @@ public class CdsAllergyPersister {
         if (demographicNo < 1) throw new IllegalArgumentException("Invalid target patient");
         Allergy allergy = new Allergy();
         allergy.setDemographicNo(demographicNo);
-        allergy.setProviderNo(null); // No source-author field exists here; importing actor is separate audit.
+        allergy.setProviderNo(
+                null); // No source-author field exists here; importing actor is separate audit.
         allergy.setDescription(source.description() == null ? source.code() : source.description());
         allergy.setReaction(source.reaction());
         allergy.setReactionType(source.reactionType());
-        allergy.setNonDrug("ND".equals(source.property()) ? Boolean.TRUE
-                : "DR".equals(source.property()) ? Boolean.FALSE : null);
-        allergy.setTypeCode(0); // DR does not establish brand/generic/class identity.
-        allergy.setRegionalIdentifier(source.code());
+        allergy.setNonDrug(
+                "ND".equals(source.property())
+                        ? Boolean.TRUE
+                        : "DR".equals(source.property()) ? Boolean.FALSE : null);
+        boolean atc = source.atcResidual();
+        allergy.setTypeCode(atc ? 8 : 0); // DR alone does not establish catalogue identity.
+        allergy.setRegionalIdentifier(atc ? null : source.code());
+        allergy.setAtc(atc ? source.code() : null);
         allergy.setDrugrefId(null);
-        allergy.setSeverityOfReaction(switch (source.severity() == null ? "" : source.severity()) {
-            case "NO" -> "5";
-            case "MI" -> "1";
-            case "MO" -> "2";
-            case "LT" -> "3";
-            default -> null;
-        });
+        allergy.setSeverityOfReaction(
+                switch (source.severity() == null ? "" : source.severity()) {
+                    case "NO" -> "5";
+                    case "MI" -> "1";
+                    case "MO" -> "2";
+                    case "LT" -> "3";
+                    default -> null;
+                });
         allergy.setLifeStage(source.lifeStage());
         allergy.setStartDate(source.start().dateStorageAnchor());
         allergy.setEntryDate(source.recorded().dateStorageAnchor());
@@ -97,7 +107,8 @@ public class CdsAllergyPersister {
 
     private void partial(int id, int field, CdsTemporalDto value) {
         if (value.legacyPartialFormat() != null) {
-            dates.persist(new PartialDate(PartialDate.ALLERGIES, id, field, value.legacyPartialFormat()));
+            dates.persist(
+                    new PartialDate(PartialDate.ALLERGIES, id, field, value.legacyPartialFormat()));
         }
     }
 }

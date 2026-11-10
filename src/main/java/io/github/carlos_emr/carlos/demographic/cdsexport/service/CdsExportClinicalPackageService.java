@@ -58,7 +58,7 @@ public class CdsExportClinicalPackageService {
                     || indexBytes < 12
                     || indexBytes > (64L << 30)
                     || metadataBytes < 1
-                    || metadataBytes > (256L << 20)
+                    || metadataBytes > (4L << 30)
                     || supportingBytes < 1
                     || supportingBytes > (64L << 30)
                     || zipBytes < 1
@@ -86,6 +86,7 @@ public class CdsExportClinicalPackageService {
     private final CdsExportPatientFileBindingService naming;
     private final CdsExportPackageInventoryService inventories;
     private final CdsExportDisclosurePolicyService disclosure;
+    private final CdsExportAuditPersister audit;
 
     public CdsExportClinicalPackageService(
             CdsExportStagingFactory stores,
@@ -96,7 +97,8 @@ public class CdsExportClinicalPackageService {
             CdsExportPatientDocumentService documents,
             CdsExportPatientFileBindingService naming,
             CdsExportPackageInventoryService inventories,
-            CdsExportDisclosurePolicyService disclosure) {
+            CdsExportDisclosurePolicyService disclosure,
+            CdsExportAuditPersister audit) {
         this.stores = Objects.requireNonNull(stores);
         this.cohorts = Objects.requireNonNull(cohorts);
         this.ledger = Objects.requireNonNull(ledger);
@@ -106,6 +108,7 @@ public class CdsExportClinicalPackageService {
         this.naming = Objects.requireNonNull(naming);
         this.inventories = Objects.requireNonNull(inventories);
         this.disclosure = Objects.requireNonNull(disclosure);
+        this.audit = Objects.requireNonNull(audit);
     }
 
     /** Starts with a committed cohort in CAPTURING and returns only a private validated ZIP in PACKAGING. */
@@ -241,7 +244,7 @@ public class CdsExportClinicalPackageService {
                         || patients != files.size()) invalid();
             }
             ledger.phase(lease, CdsExportState.RECONCILING);
-            authorizeCohort(lease, tables, files.values(), control, patients);
+            authorizeCohort(lease, tables, files.values(), control, patients, false);
             policy = disclosure.resolveAccepted(lease.document(), Instant.now());
             var metadata =
                     new CdsExportPackageMetadataDto(
@@ -363,7 +366,7 @@ public class CdsExportClinicalPackageService {
                                                                         file.document()
                                                                                 .validation()))
                                                 .iterator(),
-                                        limits.patients(),
+                                        Math.min(limits.patients(), 1_000_000),
                                         limits.patients(),
                                         limits.supportingBytes(),
                                         control::checkpoint);
@@ -414,7 +417,7 @@ public class CdsExportClinicalPackageService {
                                     control::checkpoint);
             owned.add(archive.archive());
             if (archive.entries() != expectedMembers) invalid();
-            authorizeCohort(lease, tables, files.values(), control, patients);
+            authorizeCohort(lease, tables, files.values(), control, patients, false);
             disclosure.resolveAccepted(lease.document(), Instant.now());
             control.checkpoint();
             var descriptors =
@@ -459,7 +462,7 @@ public class CdsExportClinicalPackageService {
                 if (!same(new OwnershipEnd("END", descriptors.size()), lines.next())
                         || lines.next() != null) invalid();
             }
-            authorizeCohort(lease, tables, files.values(), control, patients);
+            authorizeCohort(lease, tables, files.values(), control, patients, true);
             disclosure.resolveAccepted(lease.document(), Instant.now());
             control.checkpoint();
             var result =
@@ -497,12 +500,14 @@ public class CdsExportClinicalPackageService {
             Set<String> tables,
             Collection<PatientFile> files,
             CdsExportRunControl control,
-            long expected)
+            long expected,
+            boolean auditPrepared)
             throws IOException {
         var byPatient = new HashMap<Integer, PatientFile>();
         for (var file : files)
             if (byPatient.putIfAbsent(file.document().patient(), file) != null) invalid();
         long count = 0;
+        var auditBatch = new ArrayList<Integer>(100);
         try (var cursor = cohorts.open(lease, control)) {
             CdsExportCohortService.Patient patient;
             while ((patient = cursor.next()) != null) {
@@ -514,9 +519,17 @@ public class CdsExportClinicalPackageService {
                     control.checkpoint();
                     control.authorizeNote(CdsCategory.CLINICAL_NOTES, scope);
                 }
+                if (auditPrepared) {
+                    auditBatch.add(patient.patient());
+                    if (auditBatch.size() == 100) {
+                        audit.prepared(lease, auditBatch);
+                        auditBatch.clear();
+                    }
+                }
                 count++;
             }
             if (!cursor.complete() || count != expected) invalid();
+            if (!auditBatch.isEmpty()) audit.prepared(lease, auditBatch);
         }
     }
 

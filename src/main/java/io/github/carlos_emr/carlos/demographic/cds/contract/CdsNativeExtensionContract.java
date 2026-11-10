@@ -23,15 +23,29 @@ package io.github.carlos_emr.carlos.demographic.cds.contract;
 
 /** Vendor residual fields with explicit semantics shared by the two transfer directions. */
 public final class CdsNativeExtensionContract {
-    private CdsNativeExtensionContract() { }
+    private CdsNativeExtensionContract() {}
+
     /** The pinned allergy category has no native record-active/archive field. */
     public static final String ALLERGY_ARCHIVED = "CARLOS.Allergy.Archived.v1";
+
     /** Exact native age text; this extension does not invent a unit or a birth date. */
     public static final String ALLERGY_AGE_OF_ONSET = "CARLOS.Allergy.AgeOfOnset.v1";
+
     public static final String ALLERGY_ONSET_OF_REACTION = "CARLOS.Allergy.OnsetOfReaction.v1";
+
+    /** An ATC class is not a DIN and cannot be written in the standard allergy Code. */
+    public static final String ALLERGY_ATC = "CARLOS.Allergy.Atc.v1";
+
     public static final String BOOLEAN_TYPE = "boolean";
     public static final String STRING_TYPE = "string";
+
     /** Labels match the native allergy vocabulary; no other code means Unknown. */
-    public static final java.util.Map<String, String> ALLERGY_ONSET_VALUES = java.util.Map.of(
-            "0", "Unknown", "1", "Immediate", "2", "Gradual", "3", "Slow");
+    public static final java.util.Map<String, String> ALLERGY_ONSET_VALUES =
+            java.util.Map.of("0", "Unknown", "1", "Immediate", "2", "Gradual", "3", "Slow");
+
+    /** WHO ATC hierarchy: anatomical group through chemical substance; one exact code. */
+    public static boolean validAllergyAtc(String value) {
+        return value != null
+                && value.matches("[ABCDGHJLMNPRSV](?:[0-9]{2}(?:[A-Z](?:[A-Z](?:[0-9]{2})?)?)?)?");
+    }
 }

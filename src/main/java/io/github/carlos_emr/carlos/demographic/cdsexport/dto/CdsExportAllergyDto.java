@@ -23,7 +23,10 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.dto;
 
 import java.util.Objects;
 
-/** Typed allergy wire values after native/source reconciliation; this DTO alone is not coverage proof. */
+/**
+ * Typed allergy values after reconciliation; this DTO alone is not coverage proof.
+ * Code authority is logical: DIN uses Code; ATC uses its versioned residual marker.
+ */
 public record CdsExportAllergyDto(
         String description,
         String property,

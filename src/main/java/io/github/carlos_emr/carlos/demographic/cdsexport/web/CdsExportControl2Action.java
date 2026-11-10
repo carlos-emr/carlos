@@ -57,7 +57,7 @@ public class CdsExportControl2Action extends ActionSupport {
         var response = ServletActionContext.getResponse();
         if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
-            response.sendError(405);
+            response.sendError(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
         try {

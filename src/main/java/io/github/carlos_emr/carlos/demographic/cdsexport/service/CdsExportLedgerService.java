@@ -570,8 +570,7 @@ public class CdsExportLedgerService {
                     attempt.setContextDigest(sha);
                     attempt.setUpdatedAt(now);
                     attempt.setState(encrypted ? "ENCRYPTED" : "PREPARED");
-                    run.setLeaseUntil(now.plusSeconds(LEASE_SECONDS));
-                    run.setUpdatedAt(now);
+                    runs.renewLease(run, now, now.plusSeconds(LEASE_SECONDS));
                     event(
                             run,
                             encrypted ? "CIPHERTEXT_RETAINED" : "PACKAGE_RETAINED",
@@ -854,6 +853,45 @@ public class CdsExportLedgerService {
         return transaction(read, () -> List.copyOf(attempts.expiredRunIds(runs.now(), limit)));
     }
 
+    public List<String> expiredArtifacts(String after, int limit) {
+        runId(after);
+        page(limit);
+        return transaction(
+                read, () -> List.copyOf(attempts.expiredRunIds(runs.now(), after, limit)));
+    }
+
+    /** Stops unreadable waiting intent without parsing it into a clinical grant or touching a live owner. */
+    public boolean rejectUnreadableIntent(String id) {
+        runId(id);
+        return transaction(
+                write,
+                () -> {
+                    var run = required(runs.lock(id));
+                    var now = runs.now();
+                    if (state(run).terminal() || liveOwner(run, now)) return false;
+                    try {
+                        document(run);
+                        return false;
+                    } catch (IllegalStateException malformed) {
+                        if (!java.util.Set.of(
+                                        "CDS_EXPORT_JOB_DOCUMENT_INVALID",
+                                        "CDS_EXPORT_JOB_BINDING_INVALID")
+                                .contains(
+                                        malformed.getMessage() == null
+                                                ? ""
+                                                : malformed.getMessage())) throw malformed;
+                        finish(
+                                run,
+                                "CDS_EXPORT_JOB_BINDING_INVALID".equals(malformed.getMessage())
+                                        ? CdsExportState.FAILED
+                                        : CdsExportState.REVIEW_REQUIRED,
+                                malformed.getMessage(),
+                                now);
+                        return true;
+                    }
+                });
+    }
+
     public List<Long> artifactEpochs(String id, long after, int limit) {
         runId(id);
         page(limit);
@@ -993,6 +1031,7 @@ public class CdsExportLedgerService {
                         throw new IllegalStateException("CDS_EXPORT_CANCEL_INVALID");
                     }
                     run.setCancelRequested(true);
+                    attempts.expireForRun(id, now);
                     run.setUpdatedAt(now);
                     event(run, "CANCEL_REQUESTED", operator, null, now);
                     if (!liveOwner(run, now) || state(run) == CdsExportState.READY) {
@@ -1255,7 +1294,7 @@ public class CdsExportLedgerService {
                 throw new IllegalStateException("CDS_EXPORT_JOB_BINDING_INVALID");
             }
             return result;
-        } catch (IOException failure) {
+        } catch (IOException | IllegalArgumentException | NullPointerException failure) {
             throw new IllegalStateException("CDS_EXPORT_JOB_DOCUMENT_INVALID");
         }
     }

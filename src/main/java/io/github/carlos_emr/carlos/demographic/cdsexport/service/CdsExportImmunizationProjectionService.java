@@ -44,8 +44,8 @@ public class CdsExportImmunizationProjectionService {
     private final CdsExportImmunizationCaptureValidator closure;
     private final CdsExportPreventionConfigurationService configurations;
     private final CdsExportCapturedTextRowsReader rows;
+    private final CdsExportClinicalZoneService zones;
 
-    @org.springframework.beans.factory.annotation.Autowired
     public CdsExportImmunizationProjectionService(
             CdsExportNativeCaptureService captures,
             CdsExportImmunizationCaptureValidator closure,
@@ -53,15 +53,39 @@ public class CdsExportImmunizationProjectionService {
         this(captures, closure, configurations, new CdsExportCapturedTextRowsReader(captures));
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    public CdsExportImmunizationProjectionService(
+            CdsExportNativeCaptureService captures,
+            CdsExportImmunizationCaptureValidator closure,
+            CdsExportPreventionConfigurationService configurations,
+            CdsExportClinicalZoneService zones) {
+        this(
+                captures,
+                closure,
+                configurations,
+                new CdsExportCapturedTextRowsReader(captures),
+                zones);
+    }
+
     CdsExportImmunizationProjectionService(
             CdsExportNativeCaptureService captures,
             CdsExportImmunizationCaptureValidator closure,
             CdsExportPreventionConfigurationService configurations,
             CdsExportCapturedTextRowsReader rows) {
+        this(captures, closure, configurations, rows, new CdsExportClinicalZoneService(captures));
+    }
+
+    CdsExportImmunizationProjectionService(
+            CdsExportNativeCaptureService captures,
+            CdsExportImmunizationCaptureValidator closure,
+            CdsExportPreventionConfigurationService configurations,
+            CdsExportCapturedTextRowsReader rows,
+            CdsExportClinicalZoneService zones) {
         this.captures = Objects.requireNonNull(captures);
         this.closure = Objects.requireNonNull(closure);
         this.configurations = Objects.requireNonNull(configurations);
         this.rows = Objects.requireNonNull(rows);
+        this.zones = Objects.requireNonNull(zones);
     }
 
     public CdsExportImmunizationProjectionDto project(
@@ -111,6 +135,20 @@ public class CdsExportImmunizationProjectionService {
                         maximumBytes,
                         control);
         if (!definitions.sourceManifestSha256().equals(source.manifest().plaintextSha256()))
+            scope();
+        var zone =
+                tables.contains("clinical_timezone")
+                        ? zones.read(
+                                lease,
+                                patient,
+                                tables,
+                                source,
+                                maximumFields,
+                                maximumBytes,
+                                control)
+                        : null;
+        if (zone != null
+                && !zone.sourceManifestSha256().equals(source.manifest().plaintextSha256()))
             scope();
         var extensions = new HashMap<Integer, List<CdsExportCapturedTextRowDto>>();
         var precision = new HashMap<Integer, List<CdsExportCapturedTextRowDto>>();
@@ -179,7 +217,8 @@ public class CdsExportImmunizationProjectionService {
                             var child = extensions.remove(id);
                             var dates = precision.remove(id);
                             var mapping =
-                                    new CdsExportImmunizationMapper()
+                                    new CdsExportImmunizationMapper(
+                                                    zone == null ? null : zone.zone())
                                             .map(
                                                     patient.patient(),
                                                     row,

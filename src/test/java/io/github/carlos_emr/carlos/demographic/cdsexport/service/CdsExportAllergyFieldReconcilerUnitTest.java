@@ -261,6 +261,41 @@ class CdsExportAllergyFieldReconcilerUnitTest {
             CdsExportCapturedTextRowDto row,
             CdsExportNativeRowReceiptDto witness) {}
 
+    @Test
+    void shouldVerifyBothAtcProjectionVersions_fromTheirOriginalSealedPreparation()
+            throws Exception {
+        var original = source();
+        for (boolean marker : List.of(false, true)) {
+            var atcSource =
+                    new CdsAllergyDto(
+                            original.description(),
+                            original.property(),
+                            "B01AB01",
+                            "ATC",
+                            original.reactionType(),
+                            original.reaction(),
+                            original.severity(),
+                            original.lifeStage(),
+                            original.notes(),
+                            original.start(),
+                            original.recorded(),
+                            false,
+                            null,
+                            null,
+                            marker);
+            var fields = baseline();
+            fields.put("regional_identifier", marker ? null : "B01AB01");
+            fields.put("atc", marker ? "B01AB01" : null);
+            fields.put("TYPECODE", marker ? "8" : "0");
+            var result = reconcile(fixture(fields, true, atcSource, fields), List.of());
+            assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+            assertThat(result.mapping().value().codeType()).isEqualTo("ATC");
+            var received = roundTrip(result.mapping().value());
+            assertThat(received.code()).isEqualTo("B01AB01");
+            assertThat(received.atcResidual()).isTrue();
+        }
+    }
+
     private CdsExportAllergyFieldReconciler.Result reconcile(
             Fixture f, List<CdsExportCapturedTextRowDto> precision) throws Exception {
         return new CdsExportAllergyFieldReconciler()
@@ -537,7 +572,8 @@ class CdsExportAllergyFieldReconcilerUnitTest {
         new CdsXmlParser()
                 .parse(
                         file,
-                        directory.resolve("parsed"),
+                        java.nio.file.Files.createTempDirectory(directory, "receiving-")
+                                .resolve("parsed"),
                         CdsInputLimitsDto.defaults(),
                         () -> false,
                         records::add);

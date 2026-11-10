@@ -524,6 +524,36 @@ class CdsExportLedgerIntegrationTest {
     }
 
     @Test
+    void shouldMakeCancelledPackagesDueForCleanup_withoutWaitingForTheOriginalRetention()
+            throws Exception {
+        var ready = readyArtifact();
+        var id = ready.lease().runId();
+        ledger.cancel(id, operatorKey());
+        assertThat(ledger.expiredArtifacts(100)).contains(id);
+        assertThat(ledger.beginCleanup(id, ready.lease().epoch())).isNotNull();
+    }
+
+    @Test
+    void shouldKeepBrowserCancelRevisionValid_acrossPreparedArtifactRetention() throws Exception {
+        var fixture = artifactFixture();
+        var id = fixture.lease().runId();
+        long revision = ledger.status(id).revision();
+        ledger.retainPrepared(fixture.lease(), fixture.prepared());
+        assertThat(ledger.status(id).revision()).isEqualTo(revision);
+        ledger.cancel(id, operatorKey(), revision);
+        assertThat(ledger.status(id).cancelRequested()).isTrue();
+    }
+
+    @Test
+    void shouldQuarantineUnreadableWaitingIntent_withoutRetryingItForever() {
+        var job = ledger.accept(document("recipient"));
+        sql.update("update cds_export_run set request_document=? where id=?", "null", job.id());
+        assertThat(ledger.rejectUnreadableIntent(job.id())).isTrue();
+        assertThat(ledger.status(job.id()).safeCode()).isEqualTo("CDS_EXPORT_JOB_DOCUMENT_INVALID");
+        assertThat(ledger.pending(100)).doesNotContain(job.id());
+    }
+
+    @Test
     void shouldFenceExpiredWorkers_whenASecondNodeClaimsTheJob() {
         var job = ledger.accept(document("recipient"));
         var first = ledger.claim(job.id(), COMPATIBLE);

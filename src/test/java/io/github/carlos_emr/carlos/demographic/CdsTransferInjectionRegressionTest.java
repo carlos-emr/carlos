@@ -50,33 +50,52 @@ class CdsTransferInjectionRegressionTest {
     private static final Path DEMOGRAPHIC_SOURCE_DIR =
             Path.of("src/main/java/io/github/carlos_emr/carlos/demographic");
     private static final Path STRUTS_CONFIG = Path.of("src/main/webapp/WEB-INF/classes/struts.xml");
+
     /**
      * Matches a field declaration initialized from {@code SpringUtils.getBean(...)}.
      *
      * <p>Applied to a whole normalized statement (see {@link #fieldGetBeanViolations(Path, String)}),
      * not to one physical line, so wrapping the initializer onto its own line does not hide the shim.
      */
-    private static final Pattern FIELD_GET_BEAN = Pattern.compile(
-            "^(?:(?:private|protected|public)\\s+)?(?:(?:static|final|transient)\\s+)*"
-                    + "[A-Z][^;=]+\\s+\\w+\\s*=\\s*(?:\\([^)]*\\)\\s*)?SpringUtils\\.getBean\\(.*$");
+    private static final Pattern FIELD_PREFIX =
+            Pattern.compile(
+                    "^(?:(?:private|protected|public)\\s++)?(?:(?:static|final|transient)\\s++)*+[A-Z]");
+
+    private static boolean fieldInitializedFromSpring(String statement) {
+        if (!FIELD_PREFIX.matcher(statement).find()) return false;
+        int assignment = statement.indexOf('=');
+        if (assignment < 0) return false;
+        String initializer = statement.substring(assignment + 1).stripLeading();
+        if (initializer.startsWith("(")) {
+            int castEnd = initializer.indexOf(')');
+            if (castEnd < 0) return false;
+            initializer = initializer.substring(castEnd + 1).stripLeading();
+        }
+        return initializer.startsWith("SpringUtils.getBean(");
+    }
 
     @Test
     @DisplayName("should use constructor injection instead of SpringUtils field shims")
     void shouldUseConstructorInjection_whenDemographic2ActionsNeedSpringBeans() throws IOException {
         List<String> violations;
         try (Stream<Path> sourceFiles = CdsTransferActionTestSources.actions()) {
-            violations = sourceFiles
-                    .flatMap(CdsTransferInjectionRegressionTest::fieldGetBeanViolations)
-                    .toList();
+            violations =
+                    sourceFiles
+                            .flatMap(CdsTransferInjectionRegressionTest::fieldGetBeanViolations)
+                            .toList();
         }
 
         assertThat(violations)
-                .as("all CDS importer/exporter actions should receive Spring beans through constructors")
+                .as(
+                        "all CDS importer/exporter actions should receive Spring beans through"
+                                + " constructors")
                 .isEmpty();
     }
 
     @Test
-    @DisplayName("should use the Spring object factory without the startup-breaking constructor autowire strategy")
+    @DisplayName(
+            "should use the Spring object factory without the startup-breaking constructor autowire"
+                    + " strategy")
     void shouldUseSpringObjectFactory_withoutGlobalConstructorAutowire() throws IOException {
         String strutsConfig = Files.readString(STRUTS_CONFIG, StandardCharsets.UTF_8);
 
@@ -99,61 +118,69 @@ class CdsTransferInjectionRegressionTest {
     @DisplayName("should detect SpringUtils field shims with nonstandard indentation")
     void shouldDetectFieldShim_whenIndentationVaries(@TempDir Path tempDir) throws IOException {
         Path sourceFile = tempDir.resolve("TabIndented2Action.java");
-        Files.writeString(sourceFile, """
+        Files.writeString(
+                sourceFile,
+                """
                 class TabIndented2Action {
                 \tprivate final transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
                 }
-                """, StandardCharsets.UTF_8);
+                """,
+                StandardCharsets.UTF_8);
 
-        assertThat(fieldGetBeanViolations(sourceFile))
-                .containsExactly(sourceFile + ":2");
+        assertThat(fieldGetBeanViolations(sourceFile)).containsExactly(sourceFile + ":2");
     }
 
     @Test
     @DisplayName("should ignore SpringUtils method-local lookups")
     void shouldIgnoreLocalLookup_whenInsideMethod(@TempDir Path tempDir) throws IOException {
         Path sourceFile = tempDir.resolve("LocalLookup2Action.java");
-        Files.writeString(sourceFile, """
+        Files.writeString(
+                sourceFile,
+                """
                 class LocalLookup2Action {
                     void execute() {
                         SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
                     }
                 }
-                """, StandardCharsets.UTF_8);
+                """,
+                StandardCharsets.UTF_8);
 
-        assertThat(fieldGetBeanViolations(sourceFile))
-                .isEmpty();
+        assertThat(fieldGetBeanViolations(sourceFile)).isEmpty();
     }
 
     @Test
     @DisplayName("should detect SpringUtils field shims split across lines")
     void shouldDetectFieldShim_whenDeclarationSpansLines(@TempDir Path tempDir) throws IOException {
         Path sourceFile = tempDir.resolve("WrappedDeclaration2Action.java");
-        Files.writeString(sourceFile, """
+        Files.writeString(
+                sourceFile,
+                """
                 class WrappedDeclaration2Action {
                     @SuppressFBWarnings(value = "X", justification = "wraps (parens) and a ; too")
                     private final transient SecurityInfoManager securityInfoManager =
                             SpringUtils.getBean(SecurityInfoManager.class);
                 }
-                """, StandardCharsets.UTF_8);
+                """,
+                StandardCharsets.UTF_8);
 
-        assertThat(fieldGetBeanViolations(sourceFile))
-                .containsExactly(sourceFile + ":3");
+        assertThat(fieldGetBeanViolations(sourceFile)).containsExactly(sourceFile + ":3");
     }
 
     @Test
     @DisplayName("should ignore SpringUtils lookups inside comments")
     void shouldIgnoreFieldShim_whenOnlyInAComment(@TempDir Path tempDir) throws IOException {
         Path sourceFile = tempDir.resolve("CommentedOut2Action.java");
-        Files.writeString(sourceFile, """
+        Files.writeString(
+                sourceFile,
+                """
                 class CommentedOut2Action {
                     // private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
                     /* private SecurityInfoManager other = SpringUtils.getBean(SecurityInfoManager.class); */
                 }
-                """, StandardCharsets.UTF_8);
+                """,
+                StandardCharsets.UTF_8);
 
-        assertThat(fieldGetBeanViolations(sourceFile))
-                .isEmpty();
+        assertThat(fieldGetBeanViolations(sourceFile)).isEmpty();
     }
 
     private static Stream<String> fieldGetBeanViolations(Path path) {
@@ -226,12 +253,13 @@ class CdsTransferInjectionRegressionTest {
             }
             if (current == '{' || current == '}') {
                 braceDepth += current == '{' ? 1 : -1;
-                // A member body or initializer block is not the single field declaration scanned for.
+                // A member body or initializer block is not the single field declaration scanned
+                // for.
                 statement.setLength(0);
                 continue;
             }
             if (current == ';') {
-                if (braceDepth == 1 && FIELD_GET_BEAN.matcher(statement.toString().trim()).matches()) {
+                if (braceDepth == 1 && fieldInitializedFromSpring(statement.toString().trim())) {
                     violations.add(path + ":" + statementLine);
                 }
                 statement.setLength(0);
@@ -277,11 +305,14 @@ class CdsTransferInjectionRegressionTest {
      */
     private static int endOfAnnotation(String source, int start) {
         int index = start + 1;
-        while (index < source.length() && (Character.isJavaIdentifierPart(source.charAt(index)) || source.charAt(index) == '.')) {
+        while (index < source.length()
+                && (Character.isJavaIdentifierPart(source.charAt(index))
+                        || source.charAt(index) == '.')) {
             index++;
         }
         int argumentStart = index;
-        while (argumentStart < source.length() && Character.isWhitespace(source.charAt(argumentStart))) {
+        while (argumentStart < source.length()
+                && Character.isWhitespace(source.charAt(argumentStart))) {
             argumentStart++;
         }
         if (argumentStart >= source.length() || source.charAt(argumentStart) != '(') {

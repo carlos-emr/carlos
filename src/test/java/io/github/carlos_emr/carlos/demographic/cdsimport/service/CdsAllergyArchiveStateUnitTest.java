@@ -124,6 +124,7 @@ class CdsAllergyArchiveStateUnitTest {
         assertThat(json.readTree(encoded).has("archived")).isFalse();
         assertThat(json.readTree(encoded).has("ageOfOnset")).isFalse();
         assertThat(json.readTree(encoded).has("onsetOfReaction")).isFalse();
+        assertThat(json.readTree(encoded).has("atcResidual")).isFalse();
         assertThat(json.readValue(encoded, CdsAllergyDto.class).archived()).isFalse();
         var archived =
                 new CdsAllergyDto(
@@ -261,7 +262,74 @@ class CdsAllergyArchiveStateUnitTest {
                 .hasMessageContaining("CDS_SPOOL_VALUE_HASH_MISMATCH");
     }
 
+    @Test
+    void shouldRestoreTheExplicitAtcClass_withoutChangingLegacyPreparedProjection()
+            throws Exception {
+        var dto =
+                normalization.allergy(
+                        parsed(
+                                combined(
+                                        element(
+                                                CdsNativeExtensionContract.ALLERGY_ATC,
+                                                "string",
+                                                "B01AB01"))));
+        var persister =
+                new CdsAllergyPersister(
+                        mock(AllergyDao.class), mock(PartialDateDao.class), normalization);
+        var row = persister.candidate(27, dto);
+        assertThat(dto.atcResidual()).isTrue();
+        assertThat(row.getAtc()).isEqualTo("B01AB01");
+        assertThat(row.getTypeCode()).isEqualTo(8);
+        assertThat(row.getRegionalIdentifier()).isEmpty(); // Native getter masks SQL NULL.
+        var legacy =
+                new CdsAllergyDto(
+                        dto.description(),
+                        dto.property(),
+                        dto.code(),
+                        dto.codeSystem(),
+                        dto.reactionType(),
+                        dto.reaction(),
+                        dto.severity(),
+                        dto.lifeStage(),
+                        dto.notes(),
+                        dto.start(),
+                        dto.recorded(),
+                        dto.archived(),
+                        dto.ageOfOnset(),
+                        dto.onsetOfReaction());
+        var oldRow = persister.candidate(27, legacy);
+        assertThat(oldRow.getAtc()).isEmpty(); // Native getter masks SQL NULL.
+        assertThat(oldRow.getTypeCode()).isZero();
+        assertThat(oldRow.getRegionalIdentifier()).isEqualTo("B01AB01");
+    }
+
+    @Test
+    void shouldRejectConflictingDuplicateAndMalformedAtcMarkers_beforeNativePersistence()
+            throws Exception {
+        String valid = element(CdsNativeExtensionContract.ALLERGY_ATC, "string", "B01AB01");
+        for (String marker :
+                List.of(
+                        element(CdsNativeExtensionContract.ALLERGY_ATC, "string", "not an ATC"),
+                        element(CdsNativeExtensionContract.ALLERGY_ATC, "boolean", "B01AB01"),
+                        valid + valid)) {
+            var record = parsed(combined(marker));
+            assertThatThrownBy(() -> normalization.allergy(record))
+                    .hasMessageContaining("CDS_ALLERGY_NATIVE_FIELD_REQUIRES_REVIEW");
+        }
+        var conflict =
+                parsed(
+                        combined(valid),
+                        "<Code><cdsd:CodeType>DIN</cdsd:CodeType>"
+                                + "<cdsd:CodeValue>00123456</cdsd:CodeValue></Code>");
+        assertThatThrownBy(() -> normalization.allergy(conflict))
+                .hasMessageContaining("CDS_ALLERGY_CODE_CONFLICT_REQUIRES_REVIEW");
+    }
+
     private CdsRecordDto parsed(String residual) throws Exception {
+        return parsed(residual, "");
+    }
+
+    private CdsRecordDto parsed(String residual, String code) throws Exception {
         String fixture;
         try (var input =
                 getClass().getResourceAsStream("/demographic/cds-import-all-categories.xml")) {
@@ -275,7 +343,9 @@ class CdsAllergyArchiveStateUnitTest {
                 fixture.substring(0, start)
                         + "<AllergiesAndAdverseReactions>"
                         + residual
-                        + "<OffendingAgentDescription>Synthetic agent</OffendingAgentDescription></AllergiesAndAdverseReactions>"
+                        + "<OffendingAgentDescription>Synthetic agent</OffendingAgentDescription>"
+                        + code
+                        + "</AllergiesAndAdverseReactions>"
                         + fixture.substring(end);
         Path root = Files.createTempDirectory(directory, "archive-");
         Path file = Files.writeString(root.resolve("patient.xml"), xml, StandardCharsets.UTF_8);

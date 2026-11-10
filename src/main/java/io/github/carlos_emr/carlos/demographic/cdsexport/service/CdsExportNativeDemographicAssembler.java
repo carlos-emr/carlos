@@ -78,8 +78,6 @@ public final class CdsExportNativeDemographicAssembler {
                                         "demographicPharmacy"))
                 || rows.get("demographic").size() != 1
                 || rows.get("demographiccust").size() > 1) invalid();
-        // Distinct historical demographic values need their own qualified audit carrier.
-        if (!rows.get("demographicArchive").isEmpty()) review();
         var current = rows.get("demographic").getFirst();
         if (!"demographic".equals(current.table())
                 || !String.format(Locale.ROOT, "%010d", patient).equals(current.recordKey())
@@ -116,8 +114,17 @@ public final class CdsExportNativeDemographicAssembler {
                                 maximumBytes,
                                 checkpoint);
         var history = new CdsExportEnrolmentHistory(patient, maximumRows, maximumBytes, checkpoint);
+        var archiveFields =
+                new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
+        for (var archive : rows.get("demographicArchive")) {
+            history.accept(archive, providers.get(archive.fields().get("roster_enrolled_to")));
+            merge(
+                    archiveFields,
+                    CdsExportDemographicAncillaryReconciler.assessArchive(
+                            patient, archive, checkpoint));
+        }
         history.accept(current, providers.get(current.fields().get("roster_enrolled_to")));
-        var enrolment = history.finish(0);
+        var enrolment = history.finish(rows.get("demographicArchive").size());
         var mappedFields = new LinkedHashMap<>(base.fields());
         var ancillary = CdsExportDemographicAncillaryReconciler.assess(current, checkpoint);
         for (var entry : ancillary.entrySet())
@@ -175,6 +182,7 @@ public final class CdsExportNativeDemographicAssembler {
         var relatedEnrolment = new LinkedHashMap<>(enrolment.fields());
         relatedEnrolment.keySet().removeIf(key -> key.table().equals("demographic"));
         merge(fields, relatedEnrolment);
+        merge(fields, archiveFields);
         CdsExportPatientNoteMappingDto note = null;
         if (!rows.get("demographiccust").isEmpty()) {
             var custom = rows.get("demographiccust").getFirst();

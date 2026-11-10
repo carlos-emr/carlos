@@ -1,5 +1,28 @@
 # CDS export implementation contract
 
+The PR is still in clinical review. Native case-management notes/history,
+measurements, laboratory results and reports still need complete export mappings
+without import provenance; the conservative source catalogue also needs selected-patient
+scope. These are completion blockers. A review refusal prevents partial publication,
+but does not qualify the missing functionality.
+
+The current review fixes preserve sealed import preparations, move native ATC allergy
+classes into an explicit residual marker (the standard allergy Code is DIN-only),
+respect native inclusive appointment end times and date-only immunization storage,
+and retain native enrolment history beside the current demographic snapshot.
+Patient membership is written synchronously to the normal chart audit in bounded
+batches before a private package is returned; PREPARED and actual publication/download
+outcomes are explicitly distinct and remain linked by run and attempt generation.
+
+Finite operator settings include `cds.export.captureTimeoutSeconds` (default 120,
+range 1–7200), `cds.export.downloadTimeoutSeconds` (default 900, range 1–86400),
+and `cds.export.maxMetadataBytes` (default 256 MiB, maximum 4 GiB). Raising metadata
+limits requires enough JVM heap for retained patient/file/note indexes and normal
+application work. These limits act together with member, row, byte and staging limits;
+raising the patient count alone does not qualify an arbitrarily large package.
+Native clinical clocks use the same explicit `cds.export.clinicalZone` as the accepted
+plan; a configured import zone must agree. No JVM default zone is inferred.
+
 This change targets `release/2026.08`, integrating through
 `0f73961b38044095f2d191afde32630c3291c6b2`, including the release lab fixes.
 Its released migration bytes are identical to the pinned upgrade SQL baseline
@@ -27,7 +50,7 @@ text-result refusal, statement ownership and bypass attempts.
 
 The companion CLI PR also targets `release/2026.08`, starting at its compatible
 `84adfc5c237d4a536300a9d7e74e19599df23dcc` baseline. Its pinned runtime remains
-`3f4c2c34e6227ea856d2cba64340987a24a115b7` (unpublished 1.3.4), with schema manifest format 2 and
+`be395c7cfa008d45f6f1bb0a38bdd40d49f51cfa` (unpublished 1.3.4), with schema manifest format 2 and
 ETL contract 4. CLI main has advanced to format 3 / ETL 6 for a newer application
 line; those changes are not part of this release pair.
 

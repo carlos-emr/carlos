@@ -26,6 +26,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -652,14 +654,17 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyInvokesAdditionalReadScopeChecksAtEveryLiveAuthorizationBoundary_forNativeCaptureServiceContract() throws Exception {
+    void
+            shouldVerifyInvokesAdditionalReadScopeChecksAtEveryLiveAuthorizationBoundary_forNativeCaptureServiceContract()
+                    throws Exception {
         var control = new Control();
         service().capture(lease, patientScope, Set.of("demographic"), 1000, 8L << 20, control);
         assertThat(source.scopeChecks).isEqualTo(control.authorizations.get()).isEqualTo(3);
     }
 
     @Test
-    void shouldVerifyASourceScopeRefusal_beforeCaptureReadsNoClinicalCellsAndCreatesNoPatientMembers() {
+    void
+            shouldVerifyASourceScopeRefusal_beforeCaptureReadsNoClinicalCellsAndCreatesNoPatientMembers() {
         source.denyScopeAt = 1;
         assertThatThrownBy(
                         () ->
@@ -697,7 +702,9 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyCurrentSourceScopeRevocationPreventsReopeningFrozenClinicalValues_forNativeCaptureServiceContract() throws Exception {
+    void
+            shouldVerifyCurrentSourceScopeRevocationPreventsReopeningFrozenClinicalValues_forNativeCaptureServiceContract()
+                    throws Exception {
         var service = service();
         var captured =
                 service.capture(
@@ -1533,7 +1540,9 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyFrozenReadsCannotBypassAReadersNewlyRequiredSnapshotDependency_forNativeCaptureServiceContract() throws Exception {
+    void
+            shouldVerifyFrozenReadsCannotBypassAReadersNewlyRequiredSnapshotDependency_forNativeCaptureServiceContract()
+                    throws Exception {
         var captured =
                 service()
                         .capture(
@@ -1597,7 +1606,8 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyARevocation_duringTheFinalTextRowCallbackCannotReturnACompletedRead() throws Exception {
+    void shouldVerifyARevocation_duringTheFinalTextRowCallbackCannotReturnACompletedRead()
+            throws Exception {
         var service = service();
         var tables = Set.of("demographic");
         var captured = service.capture(lease, patientScope, tables, 1000, 8L << 20, new Control());
@@ -1624,7 +1634,8 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyARevocation_duringTheFinalRowReceiptCallbackCannotReturnACompletedScan() throws Exception {
+    void shouldVerifyARevocation_duringTheFinalRowReceiptCallbackCannotReturnACompletedScan()
+            throws Exception {
         source.receipts = true;
         var service = service();
         var tables = Set.of("demographic");
@@ -1692,6 +1703,37 @@ class CdsExportNativeCaptureServiceUnitTest {
 
     private CdsExportNativeCaptureService service() {
         return new CdsExportNativeCaptureService(List.of(source), factory, clock, transactions);
+    }
+
+    @Test
+    void shouldApplyTheConfiguredFiniteCaptureTimeout_toTheActualPatientTransaction()
+            throws Exception {
+        @SuppressWarnings("unchecked")
+        var installed =
+                (org.springframework.beans.factory.ObjectProvider<CdsExportNativeSourceReader>)
+                        mock(org.springframework.beans.factory.ObjectProvider.class);
+        when(installed.orderedStream()).thenAnswer(ignored -> java.util.stream.Stream.of(source));
+        var settings = new java.util.Properties();
+        settings.setProperty("cds.export.captureTimeoutSeconds", "600");
+        var manager = spy(transactions);
+        var observed = new java.util.concurrent.atomic.AtomicInteger();
+        doAnswer(
+                        call -> {
+                            observed.set(
+                                    ((org.springframework.transaction.TransactionDefinition)
+                                                    call.getArgument(0))
+                                            .getTimeout());
+                            return call.callRealMethod();
+                        })
+                .when(manager)
+                .getTransaction(any());
+        var service =
+                new CdsExportNativeCaptureService(
+                        installed, factory, clock, manager, null, settings);
+        service.capture(lease, patientScope, Set.of("demographic"), 1000, 8L << 20, new Control());
+        assertThat(observed.get()).isEqualTo(600);
+        assertThat(transactions.getDefaultTimeout())
+                .isEqualTo(org.springframework.transaction.TransactionDefinition.TIMEOUT_DEFAULT);
     }
 
     private void assertNoPatientMembers() {

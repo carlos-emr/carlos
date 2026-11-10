@@ -26,17 +26,27 @@ import io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import java.io.*;
 import java.util.*;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /** Same explicit clinic setting used for native appointment import. Only this finite public configuration enters capture. */
 @Service
 public class CdsExportClinicalZoneSourceReader implements CdsExportNativeSourceReader {
-    private final String configured;
+    @FunctionalInterface
+    private interface ZoneSource {
+        CdsExportClinicalZone.Snapshot read() throws IOException;
+    }
 
-    public CdsExportClinicalZoneSourceReader(
-            @Value("${cds.import.clinicalZone:}") String configured) {
-        this.configured = configured == null ? "" : configured.trim();
+    private final ZoneSource configured;
+
+    @Autowired
+    public CdsExportClinicalZoneSourceReader(CdsExportActivePlanService plans) {
+        this.configured = Objects.requireNonNull(plans)::zone;
+    }
+
+    public CdsExportClinicalZoneSourceReader(String configured) {
+        String value = configured == null ? "" : configured.trim();
+        this.configured = () -> CdsExportClinicalZone.capture(value);
     }
 
     @Override
@@ -51,7 +61,7 @@ public class CdsExportClinicalZoneSourceReader implements CdsExportNativeSourceR
 
     @Override
     public Set<CdsCategory> categories() {
-        return Set.of(CdsCategory.APPOINTMENTS);
+        return Set.of(CdsCategory.APPOINTMENTS, CdsCategory.IMMUNIZATIONS);
     }
 
     @Override
@@ -71,7 +81,7 @@ public class CdsExportClinicalZoneSourceReader implements CdsExportNativeSourceR
         if (patient < 1)
             throw new IllegalArgumentException("CDS_EXPORT_CLINICAL_ZONE_SCOPE_INVALID");
         try {
-            CdsExportClinicalZone.capture(configured);
+            configured.read();
             return 1;
         } catch (IOException failed) {
             throw new UncheckedIOException(failed);
@@ -83,7 +93,7 @@ public class CdsExportClinicalZoneSourceReader implements CdsExportNativeSourceR
             throws IOException {
         if (patient < 1)
             throw new IllegalArgumentException("CDS_EXPORT_CLINICAL_ZONE_SCOPE_INVALID");
-        var frozen = CdsExportClinicalZone.capture(configured);
+        var frozen = configured.read();
         output.row(
                 "configuration",
                 row -> {

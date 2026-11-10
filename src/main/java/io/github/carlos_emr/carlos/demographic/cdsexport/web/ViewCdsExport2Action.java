@@ -53,7 +53,7 @@ public class ViewCdsExport2Action extends ActionSupport {
         var response = ServletActionContext.getResponse();
         if (!Set.of("GET", "HEAD").contains(request.getMethod())) {
             response.setHeader("Allow", "GET, HEAD");
-            response.sendError(405);
+            response.sendError(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
         var actor = web.authorize(request, securityInfoManager);

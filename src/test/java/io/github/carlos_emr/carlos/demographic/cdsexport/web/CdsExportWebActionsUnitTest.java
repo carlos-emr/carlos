@@ -104,16 +104,19 @@ class CdsExportWebActionsUnitTest {
         verifyNoInteractions(exports, access, parser, security);
     }
 
-    @Test
-    void shouldRefuseEveryExportRoute_beforeServicesWhenRequestPrivilegesAreMissing()
+    @ParameterizedTest
+    @ValueSource(strings = {"_demographic", "_cds_export"})
+    void shouldRefuseEveryExportRoute_beforeServicesWhenRequestPrivilegesAreMissing(String denied)
             throws Exception {
         request.setMethod("POST");
-        when(security.hasPrivilege(
-                        any(),
-                        org.mockito.ArgumentMatchers.eq("_demographic"),
-                        anyString(),
-                        nullable(String.class)))
-                .thenReturn(false);
+        when(security.hasPrivilege(any(), anyString(), anyString(), nullable(String.class)))
+                .thenAnswer(
+                        call -> {
+                            String object = call.getArgument(1);
+                            return denied.equals("_demographic")
+                                    ? !object.equals("_demographic")
+                                    : !object.equals("_admin") && !object.equals("_cds_export");
+                        });
         var artifacts =
                 mock(
                         io.github.carlos_emr.carlos.demographic.cdsexport.service
@@ -135,7 +138,7 @@ class CdsExportWebActionsUnitTest {
         var assembler = mock(CdsExportViewModelAssembler.class);
         assertThatThrownBy(() -> new ViewCdsExport2Action(web, assembler, security).execute())
                 .isInstanceOf(SecurityException.class)
-                .hasMessage("missing required sec object (_demographic)");
+                .hasMessage("missing required sec object (" + denied + ")");
         verifyNoInteractions(exports, access, artifacts, assembler);
     }
 

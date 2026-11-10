@@ -82,7 +82,9 @@ final class CdsExportAppointmentNativeMetadata {
                 demographic.fields().get("last_name")
                         + ","
                         + demographic.fields().get("first_name")))
-            throw new IOException("CDS_EXPORT_APPOINTMENT_PATIENT_DISPLAY_REQUIRES_REVIEW");
+            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                    .CdsExportMappingReviewException(
+                    "CDS_EXPORT_APPOINTMENT_PATIENT_DISPLAY_REQUIRES_REVIEW");
         mark(
                 row,
                 fields,

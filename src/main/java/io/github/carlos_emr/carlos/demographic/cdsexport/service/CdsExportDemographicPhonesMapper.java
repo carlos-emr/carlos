@@ -123,14 +123,14 @@ public final class CdsExportDemographicPhonesMapper {
             String extension = null;
             if (row != null && !duplicate.contains(key)) {
                 String value = row.fields().get("value");
-                if (value == null) {
+                if (value == null || value.isEmpty()) {
                     mark(
                             row,
                             fields,
                             "value",
                             Outcome.ABSENT,
                             path(key),
-                            "EXPLICIT_NULL_PHONE_EXTENSION");
+                            "ABSENT_NATIVE_PHONE_EXTENSION");
                     mark(
                             row,
                             fields,

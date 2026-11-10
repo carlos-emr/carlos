@@ -95,6 +95,23 @@ public final class CdsExportAppointmentMapper {
             ZoneId clinicalZone,
             CdsExportCapturedTextRowDto demographic)
             throws IOException {
+        return candidate(
+                patient,
+                row,
+                lookups,
+                clinicalZone,
+                demographic,
+                CdsExportAppointmentTimingMapper.EndConvention.NATIVE_INCLUSIVE);
+    }
+
+    Candidate candidate(
+            int patient,
+            CdsExportCapturedTextRowDto row,
+            CdsExportAppointmentLookupsDto lookups,
+            ZoneId clinicalZone,
+            CdsExportCapturedTextRowDto demographic,
+            CdsExportAppointmentTimingMapper.EndConvention endConvention)
+            throws IOException {
         if (patient < 1
                 || row == null
                 || lookups == null
@@ -127,7 +144,8 @@ public final class CdsExportAppointmentMapper {
                                     source.raw("appointment_date"),
                                     source.raw("start_time"),
                                     source.raw("end_time"),
-                                    clinicalZone);
+                                    clinicalZone,
+                                    endConvention);
             source.set(
                     "appointment_date",
                     Outcome.MAPPED,

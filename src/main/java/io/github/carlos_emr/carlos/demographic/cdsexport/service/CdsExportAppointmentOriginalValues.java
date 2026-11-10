@@ -151,6 +151,8 @@ final class CdsExportAppointmentOriginalValues {
     }
 
     private static void scope() throws IOException {
-        throw new IOException("CDS_EXPORT_APPOINTMENT_ORIGINAL_VALUES_REQUIRES_REVIEW");
+        throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                .CdsExportMappingReviewException(
+                "CDS_EXPORT_APPOINTMENT_ORIGINAL_VALUES_REQUIRES_REVIEW");
     }
 }

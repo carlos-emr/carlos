@@ -54,8 +54,9 @@ class CdsExportImmunizationRetainedAssemblerUnitTest {
             List<CdsExportRetainedFieldDto> fields) {}
 
     @Test
-    void shouldVerifyChangedNotesAndAllStandardFieldsReachTheReceivingImporterWhileVendorFieldsRemain_forImmunizationRetainedAssemblerContract()
-            throws Exception {
+    void
+            shouldVerifyChangedNotesAndAllStandardFieldsReachTheReceivingImporterWhileVendorFieldsRemain_forImmunizationRetainedAssemblerContract()
+                    throws Exception {
         var fixture =
                 fixture(
                         1,
@@ -70,6 +71,10 @@ class CdsExportImmunizationRetainedAssemblerUnitTest {
         assertThat(received.name()).isEqualTo("Original café vaccine");
         assertThat(received.code()).isEqualTo("00123456");
         assertThat(received.route()).isEqualTo("IM");
+        assertThat(
+                        new CdsFieldParser()
+                                .firstToken(records.get(1), "ImmunizationCode/Description", 1024))
+                .isEqualTo("Original code description");
         assertThat(
                         new CdsFieldParser()
                                 .firstToken(
@@ -109,7 +114,9 @@ class CdsExportImmunizationRetainedAssemblerUnitTest {
     }
 
     @Test
-    void shouldVerifyAnExplicitNativeClearNeverReplaysTheOldSourceComment_forImmunizationRetainedAssemblerContract() throws Exception {
+    void
+            shouldVerifyAnExplicitNativeClearNeverReplaysTheOldSourceComment_forImmunizationRetainedAssemblerContract()
+                    throws Exception {
         var fixture = fixture(1, CdsTemporal.parse(null, null, "2024-02-29", null, "Date"), null);
         assertThat(
                         new CdsClinicalNormalizationService(new CdsFieldParser())
@@ -119,7 +126,9 @@ class CdsExportImmunizationRetainedAssemblerUnitTest {
     }
 
     @Test
-    void shouldVerifyPostOptionDateShiftRemainsEffectiveAndTheOriginalDateIsNotRestored_forImmunizationRetainedAssemblerContract() throws Exception {
+    void
+            shouldVerifyPostOptionDateShiftRemainsEffectiveAndTheOriginalDateIsNotRestored_forImmunizationRetainedAssemblerContract()
+                    throws Exception {
         var fixture =
                 fixture(
                         1,
@@ -137,7 +146,9 @@ class CdsExportImmunizationRetainedAssemblerUnitTest {
     }
 
     @Test
-    void shouldVerifyAnUnqualifiedHistoricalOffsetCannotProduceAContentCallback_forImmunizationRetainedAssemblerContract() throws Exception {
+    void
+            shouldVerifyAnUnqualifiedHistoricalOffsetCannotProduceAContentCallback_forImmunizationRetainedAssemblerContract()
+                    throws Exception {
         var fixture =
                 fixture(
                         1,
@@ -149,7 +160,8 @@ class CdsExportImmunizationRetainedAssemblerUnitTest {
     }
 
     @Test
-    void shouldVerifyMissingOrSubstitutedSourceDescriptorsFail_beforePreparingOutput() throws Exception {
+    void shouldVerifyMissingOrSubstitutedSourceDescriptorsFail_beforePreparingOutput()
+            throws Exception {
         var fixture =
                 fixture(
                         1,
@@ -202,7 +214,9 @@ class CdsExportImmunizationRetainedAssemblerUnitTest {
     }
 
     @Test
-    void shouldVerifyChangedFieldPagesCannotBorrowUnchangedNativeClinicalRows_forImmunizationRetainedAssemblerContract() throws Exception {
+    void
+            shouldVerifyChangedFieldPagesCannotBorrowUnchangedNativeClinicalRows_forImmunizationRetainedAssemblerContract()
+                    throws Exception {
         var fixture =
                 fixture(
                         1,
@@ -268,6 +282,12 @@ class CdsExportImmunizationRetainedAssemblerUnitTest {
                         "ImmunizationCode[1]/value[1]",
                         "cds_dt",
                         base.source().code()));
+        fields.add(
+                field(
+                        patientOrdinal,
+                        "ImmunizationCode[1]/Description[1]",
+                        "cds_dt",
+                        "Original code description"));
         String child =
                 switch (date.precision()) {
                     case YEAR -> "YearOnly";

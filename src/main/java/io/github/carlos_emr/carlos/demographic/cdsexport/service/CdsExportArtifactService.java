@@ -44,6 +44,21 @@ public class CdsExportArtifactService {
     private final CdsExportDisclosurePolicyService disclosure;
     private final CdsExportAccessService access;
     private final CdsExportEngineRegistry engines;
+    private final java.util.Properties settings = new java.util.Properties();
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CdsExportArtifactService(
+            CdsExportLedgerService ledger,
+            CdsExportStagingFactory stores,
+            CdsExportDisclosureScopeService scopes,
+            CdsExportDisclosurePolicyService disclosure,
+            CdsExportAccessService access,
+            CdsExportEngineRegistry engines,
+            @org.springframework.beans.factory.annotation.Qualifier("cdsExportProperties")
+                    java.util.Properties settings) {
+        this(ledger, stores, scopes, disclosure, access, engines);
+        this.settings.putAll(Objects.requireNonNull(settings));
+    }
 
     public CdsExportArtifactService(
             CdsExportLedgerService ledger,
@@ -66,8 +81,11 @@ public class CdsExportArtifactService {
         if (!"package".equals(artifact))
             throw new IllegalArgumentException("CDS_EXPORT_ARTIFACT_ID_INVALID");
         var intent = ledger.document(runId);
-        access.requireObserve(actor, intent);
-        access.requireScope(actor, intent.command());
+        authority(actor, intent);
+        long timeoutNanos =
+                TimeUnit.SECONDS.toNanos(
+                        CdsExportActivePlanService.number(
+                                settings, "downloadTimeoutSeconds", 900, 1, 86400));
         CdsExportLedgerService.Download lease;
         try {
             lease = ledger.beginDownload(runId, actor.operatorKey());
@@ -77,7 +95,7 @@ public class CdsExportArtifactService {
                         CdsExportArtifactUnavailableException.Kind.PACKAGE);
             throw unavailable;
         }
-        var download = new Download(actor, lease);
+        var download = new Download(actor, lease, timeoutNanos);
         try {
             download.initialize();
             return download;
@@ -91,6 +109,15 @@ public class CdsExportArtifactService {
         }
     }
 
+    private void authority(CdsExportActorDto actor, CdsExportJobDocumentDto intent) {
+        access.requireObserve(actor, intent);
+        access.requireScope(actor, intent.command());
+        var engine = engines.find(intent.command().profile());
+        if (engine == null || !intent.compatibilityDigest().equals(engine.compatibilityDigest()))
+            throw new IllegalStateException("CDS_EXPORT_RUNTIME_CHANGED");
+        disclosure.resolveAccepted(intent, Instant.now());
+    }
+
     /**
      * A single-use, finite delivery; the durable lease also protects a slow/blocked output from
      * retention.
@@ -99,6 +126,7 @@ public class CdsExportArtifactService {
         private final CdsExportActorDto actor;
         private final CdsExportLedgerService.Download lease;
         private final long started = System.nanoTime();
+        private final long timeoutNanos;
         private long lastProbe = started - 1_000_000_000L, lastScope;
         private final AtomicReference<RuntimeException> heartbeatFailure = new AtomicReference<>();
         private final ScheduledExecutorService heartbeat;
@@ -150,9 +178,11 @@ public class CdsExportArtifactService {
                     }
                 };
 
-        private Download(CdsExportActorDto actor, CdsExportLedgerService.Download lease) {
+        private Download(
+                CdsExportActorDto actor, CdsExportLedgerService.Download lease, long timeoutNanos) {
             this.actor = actor;
             this.lease = lease;
+            this.timeoutNanos = timeoutNanos;
             heartbeat =
                     Executors.newSingleThreadScheduledExecutor(
                             work -> {
@@ -196,20 +226,14 @@ public class CdsExportArtifactService {
 
         private void local() {
             if (Thread.currentThread().isInterrupted()
-                    || System.nanoTime() - started > TimeUnit.MINUTES.toNanos(15))
+                    || System.nanoTime() - started > timeoutNanos)
                 throw new CancellationException("CDS_EXPORT_DOWNLOAD_STOPPED");
             var failed = heartbeatFailure.get();
             if (failed != null) throw failed;
         }
 
         private void authority() {
-            var intent = lease.document();
-            access.requireObserve(actor, intent);
-            access.requireScope(actor, intent.command());
-            if (!intent.compatibilityDigest()
-                    .equals(engines.require(intent.command().profile()).compatibilityDigest()))
-                throw new IllegalStateException("CDS_EXPORT_RUNTIME_CHANGED");
-            disclosure.resolveAccepted(intent, Instant.now());
+            CdsExportArtifactService.this.authority(actor, lease.document());
         }
 
         private void probe() {

@@ -26,16 +26,24 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /** Optional extension defaults applied only to a transient tree after the original preparation seal is verified. */
 public final class CdsPreparedAllergyDefaults {
-    private CdsPreparedAllergyDefaults() { }
+    private CdsPreparedAllergyDefaults() {}
+
     public static ObjectNode apply(JsonNode value) {
-        if (value == null || !value.isObject() || value.has("archived") && !value.get("archived").isBoolean()) invalid();
+        if (value == null
+                || !value.isObject()
+                || value.has("archived") && !value.get("archived").isBoolean()) invalid();
         ObjectNode result = ((ObjectNode) value).deepCopy();
         if (!result.has("archived")) result.put("archived", false);
+        if (!result.has("atcResidual")) result.put("atcResidual", false);
+        else if (!result.get("atcResidual").isBoolean()) invalid();
         for (String optional : java.util.List.of("ageOfOnset", "onsetOfReaction")) {
             if (!result.has(optional)) result.putNull(optional);
             else if (!result.get(optional).isNull() && !result.get(optional).isTextual()) invalid();
         }
         return result;
     }
-    private static void invalid() { throw new IllegalArgumentException("CDS_PREPARED_ALLERGY_DEFAULTS_INVALID"); }
+
+    private static void invalid() {
+        throw new IllegalArgumentException("CDS_PREPARED_ALLERGY_DEFAULTS_INVALID");
+    }
 }

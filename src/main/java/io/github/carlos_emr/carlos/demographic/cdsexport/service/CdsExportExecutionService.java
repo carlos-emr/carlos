@@ -109,7 +109,21 @@ public class CdsExportExecutionService {
 
     private boolean ownedExecution(String runId) {
         if (fatal.get()) throw new CdsExportControlOutcomeUnknownException();
-        var document = ledger.document(runId);
+        io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportJobDocumentDto document;
+        try {
+            document = ledger.document(runId);
+        } catch (IllegalStateException malformed) {
+            if (!java.util.Set.of(
+                            "CDS_EXPORT_JOB_DOCUMENT_INVALID", "CDS_EXPORT_JOB_BINDING_INVALID")
+                    .contains(malformed.getMessage() == null ? "" : malformed.getMessage()))
+                throw malformed;
+            ledger.rejectUnreadableIntent(runId);
+            LOG.warn(
+                    "CDS_EXPORT_JOB_DOCUMENT_INVALID run={} {}",
+                    runId,
+                    LogSafe.exceptionTrace(malformed));
+            return true;
+        }
         var engine = engines.find(document.command().profile());
         if (engine == null || !configuration.enabled()) return false;
         long maximumMillis = configuration.maxDurationMillis();
@@ -150,6 +164,16 @@ public class CdsExportExecutionService {
                     LogSafe.exceptionTrace(review));
         } catch (SecurityException denied) {
             stop(lease, CdsExportState.REVIEW_REQUIRED, "CDS_EXPORT_ACCESS_CHANGED");
+        } catch (
+                io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportMappingReviewException
+                        review) {
+            stop(lease, CdsExportState.REVIEW_REQUIRED, "CDS_EXPORT_UNMAPPED_DATA");
+            LOG.warn(
+                    "CDS_EXPORT_REVIEW_REQUIRED run={} epoch={} code=CDS_EXPORT_UNMAPPED_DATA {}",
+                    runId,
+                    lease.epoch(),
+                    LogSafe.exceptionTrace(review));
         } catch (IOException failed) {
             if (Thread.currentThread().isInterrupted())
                 finishUninterrupted(() -> ledger.release(lease));

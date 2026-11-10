@@ -207,8 +207,7 @@ public class CdsExportRetainedIndexService {
                                             tables.get("cds_import_run").get(row.recordKey()),
                                             encoded));
                     });
-            if (!optionRows.keySet().equals(tables.get("cds_import_run").keySet())
-                    || frozenOptions != null && !frozenOptions.equals(verified)) invalid();
+            if (!optionRows.keySet().equals(tables.get("cds_import_run").keySet())) invalid();
             tables.put("retained_import_options", optionRows);
             frozenOptions = Map.copyOf(verified);
         }
@@ -436,7 +435,7 @@ public class CdsExportRetainedIndexService {
         }
         return List.copyOf(
                 result); // Repeated receipt references are legal; never turn them into additional
-                         // clinical occurrences.
+        // clinical occurrences.
     }
 
     private static void acyclic(

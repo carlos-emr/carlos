@@ -780,8 +780,8 @@ public class CdsExportClinicalOccurrenceService {
                                                             ? 0
                                                             : witness.state().columns().size()
                                                                     * 256L));
-                            if (witnessBytes[0] > bounds.indexBytes()
-                                    || exact.putIfAbsent(witness.id(), witness) != null) limit();
+                            if (witnessBytes[0] > bounds.indexBytes()) limit();
+                            if (exact.putIfAbsent(witness.id(), witness) != null) scope();
                         });
         if (!witnessScan.sourceManifestSha256().equals(source.manifest().plaintextSha256())
                 || exact.size() != source.capture().tables().get(table).rows()) scope();

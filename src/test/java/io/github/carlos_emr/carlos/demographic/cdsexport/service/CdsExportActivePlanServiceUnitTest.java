@@ -55,6 +55,21 @@ class CdsExportActivePlanServiceUnitTest {
     }
 
     @Test
+    void shouldAllowALargerFiniteMetadataBudget_whenTheOperatorSizesTheHeapForIt()
+            throws Exception {
+        var properties = settings();
+        properties.setProperty("cds.export.maxMetadataBytes", Long.toString(2L << 30));
+        var plan = new CdsExportActivePlanService(properties, () -> "2026.08.0-test").resolve();
+        assertThat(plan.archive().metadataBytes()).isEqualTo(2L << 30);
+        properties.setProperty("cds.export.maxMetadataBytes", Long.toString((4L << 30) + 1));
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportActivePlanService(properties, () -> "2026.08.0-test")
+                                        .resolve())
+                .hasMessage("CDS_EXPORT_CONFIGURATION_INVALID");
+    }
+
+    @Test
     void shouldRefuseAnUnboundedOrOverflowingBudget_insteadOfClampingIt() {
         for (String value : new String[] {"0", "-1", "2000001", "999999999999999999999", "1.5"}) {
             var settings = settings();

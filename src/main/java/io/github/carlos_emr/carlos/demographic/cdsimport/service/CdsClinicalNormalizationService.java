@@ -197,16 +197,24 @@ public class CdsClinicalNormalizationService {
                 vocabulary(text(record, "Severity", 2), Set.of("NO", "MI", "MO", "LT"), "Severity");
         String description = text(record, "OffendingAgentDescription", 120);
         String code = text(record, "Code/CodeValue", 20);
+        String codeSystem = text(record, "Code/CodeType", 3);
+        var nativeState = new CdsAllergyResidualReader(fields).read(record);
+        if (nativeState.atc() != null) {
+            // One native coding slot cannot represent two independent coding authorities.
+            if (code != null || codeSystem != null)
+                throw new CdsClinicalException("CDS_ALLERGY_CODE_CONFLICT_REQUIRES_REVIEW", "Code");
+            code = nativeState.atc();
+            codeSystem = "ATC";
+        }
         if ((description == null || description.isBlank()) && (code == null || code.isBlank())) {
             throw new CdsClinicalException(
                     "CDS_ALLERGY_AGENT_REQUIRES_REVIEW", "OffendingAgentDescription");
         }
-        var nativeState = new CdsAllergyResidualReader(fields).read(record);
         return new CdsAllergyDto(
                 description,
                 property,
                 code,
-                text(record, "Code/CodeType", 3),
+                codeSystem,
                 reactionType,
                 text(record, "Reaction", 120),
                 severity,
@@ -216,7 +224,8 @@ public class CdsClinicalNormalizationService {
                 date(record, "RecordedDate", command),
                 nativeState.archived(),
                 nativeState.ageOfOnset(),
-                nativeState.onsetOfReaction());
+                nativeState.onsetOfReaction(),
+                nativeState.atc() != null);
     }
 
     public CdsImmunizationDto immunization(CdsRecordDto record) throws IOException {

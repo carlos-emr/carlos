@@ -51,6 +51,8 @@ class CdsExportClinicalPackageServiceUnitTest {
             mock(CdsExportPatientFileBindingService.class);
     private final CdsExportDisclosurePolicyService disclosure =
             mock(CdsExportDisclosurePolicyService.class);
+    private final io.github.carlos_emr.carlos.commn.dao.OscarLogDao auditLogs =
+            mock(io.github.carlos_emr.carlos.commn.dao.OscarLogDao.class);
     private final CdsExportDisclosurePolicyService.Resolved policy =
             new CdsExportDisclosurePolicyService.Resolved(
                     "sender",
@@ -128,7 +130,8 @@ class CdsExportClinicalPackageServiceUnitTest {
                         documents,
                         naming,
                         new CdsExportPackageInventoryService(),
-                        disclosure);
+                        disclosure,
+                        new CdsExportAuditPersister(auditLogs));
     }
 
     private CdsExportJobDto status(Long total) {
@@ -157,6 +160,35 @@ class CdsExportClinicalPackageServiceUnitTest {
                 CdsExportXmlLimitsDto.defaults(),
                 limits,
                 fixture.control);
+    }
+
+    @Test
+    void shouldKeepPatientMembershipInTheNormalAudit_afterPrivatePackagePreparation()
+            throws Exception {
+        compose();
+        var entries =
+                org.mockito.ArgumentCaptor.forClass(
+                        io.github.carlos_emr.carlos.commn.model.OscarLog.class);
+        verify(auditLogs).persist(entries.capture());
+        verify(auditLogs).flush();
+        var entry = entries.getValue();
+        assertThat(entry.getDemographicId()).isEqualTo(27);
+        assertThat(entry.getContent()).isEqualTo("demographic");
+        assertThat(entry.getContentId()).isEqualTo("27");
+        assertThat(entry.getAction()).isEqualTo("EXPORT");
+        assertThat(entry.getProviderNo()).isEqualTo(fixture.lease.document().actor().providerNo());
+        assertThat(entry.getData())
+                .contains(
+                        "CDS_EXPORT_PACKAGE_PREPARED",
+                        fixture.lease.runId(),
+                        "epoch=" + fixture.lease.epoch(),
+                        "outcomes=cds_export_event");
+    }
+
+    @Test
+    void shouldWithholdThePrivatePackage_whenThePatientAuditCannotBeCommitted() {
+        doThrow(new IllegalStateException("AUDIT_WRITE_FAILED")).when(auditLogs).flush();
+        assertThatThrownBy(this::compose).hasMessage("AUDIT_WRITE_FAILED");
     }
 
     @Test

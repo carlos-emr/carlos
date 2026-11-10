@@ -66,10 +66,29 @@ public final class CdsExportImmunizationRetainedAssembler {
                             : field.sourcePath().substring(root.length() + 1);
             if (relative.putIfAbsent(path, field) != null) scope();
         }
+        var historical =
+                new CdsExportPreparedImmunizationMapper()
+                        .map(
+                                new CdsExportRetainedPreparationReader()
+                                        .immunization(index, decision.unitAddress())
+                                        .value());
+        var current = decision.mapping().value();
         var changes = new ArrayList<CdsExportRetainedSectionWriter.Change>();
-        for (var entry : parts(decision.mapping().value()).entrySet()) {
+        for (var entry : parts(current).entrySet()) {
             checkpoint.run();
             String path = entry.getKey() + "[1]";
+            if (entry.getKey().equals("ImmunizationCode")) {
+                // Code also permits a source-only Description. Preserve the original
+                // subtree when its coded identity is unchanged; a changed code cannot
+                // silently discard or borrow the old description.
+                if (Objects.equals(historical.code(), current.code())
+                        && Objects.equals(historical.codeSystem(), current.codeSystem())) continue;
+                if (relative.containsKey(path + "/Description[1]"))
+                    throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                            .CdsExportReviewException(
+                            io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                    .CdsExportReviewException.Reason.UNMAPPED_DATA);
+            }
             var prior = new HashSet<String>();
             for (var field : relative.entrySet())
                 if (field.getKey().equals(path) || field.getKey().startsWith(path + "/"))

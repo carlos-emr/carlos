@@ -52,8 +52,8 @@ public class CdsExportImmunizationOccurrenceService
     private final CdsExportImmunizationCaptureValidator closure;
     private final CdsExportPreventionConfigurationService configurations;
     private final CdsExportCapturedTextRowsReader rows;
+    private final CdsExportClinicalZoneService zones;
 
-    @Autowired
     public CdsExportImmunizationOccurrenceService(
             CdsExportRetainedValuesService values,
             CdsExportRetainedReceiptVerificationService verification,
@@ -71,6 +71,26 @@ public class CdsExportImmunizationOccurrenceService
                 new CdsExportCapturedTextRowsReader(captures));
     }
 
+    @Autowired
+    public CdsExportImmunizationOccurrenceService(
+            CdsExportRetainedValuesService values,
+            CdsExportRetainedReceiptVerificationService verification,
+            CdsExportNativeRowReceiptReader witnesses,
+            CdsExportNativeCaptureService captures,
+            CdsExportImmunizationCaptureValidator closure,
+            CdsExportPreventionConfigurationService configurations,
+            CdsExportClinicalZoneService zones) {
+        this(
+                values,
+                verification,
+                witnesses,
+                captures,
+                closure,
+                configurations,
+                new CdsExportCapturedTextRowsReader(captures),
+                zones);
+    }
+
     CdsExportImmunizationOccurrenceService(
             CdsExportRetainedValuesService values,
             CdsExportRetainedReceiptVerificationService verification,
@@ -79,6 +99,26 @@ public class CdsExportImmunizationOccurrenceService
             CdsExportImmunizationCaptureValidator closure,
             CdsExportPreventionConfigurationService configurations,
             CdsExportCapturedTextRowsReader rows) {
+        this(
+                values,
+                verification,
+                witnesses,
+                captures,
+                closure,
+                configurations,
+                rows,
+                new CdsExportClinicalZoneService(captures));
+    }
+
+    CdsExportImmunizationOccurrenceService(
+            CdsExportRetainedValuesService values,
+            CdsExportRetainedReceiptVerificationService verification,
+            CdsExportNativeRowReceiptReader witnesses,
+            CdsExportNativeCaptureService captures,
+            CdsExportImmunizationCaptureValidator closure,
+            CdsExportPreventionConfigurationService configurations,
+            CdsExportCapturedTextRowsReader rows,
+            CdsExportClinicalZoneService zones) {
         this.values = Objects.requireNonNull(values);
         this.verification = Objects.requireNonNull(verification);
         this.witnesses = Objects.requireNonNull(witnesses);
@@ -86,6 +126,7 @@ public class CdsExportImmunizationOccurrenceService
         this.closure = Objects.requireNonNull(closure);
         this.configurations = Objects.requireNonNull(configurations);
         this.rows = Objects.requireNonNull(rows);
+        this.zones = Objects.requireNonNull(zones);
     }
 
     public CdsExportClinicalOccurrenceService.Result append(
@@ -143,6 +184,20 @@ public class CdsExportImmunizationOccurrenceService
                 || !tables.equals(source.capture().tables().keySet())
                 || !tables.containsAll(CdsExportImmunizationCaptureValidator.REQUIRED)) scope();
         if (source.capture().tables().get("preventions").rows() > bounds.nativeRows()) limit();
+        var zone =
+                tables.contains("clinical_timezone")
+                        ? zones.read(
+                                lease,
+                                patient,
+                                tables,
+                                source,
+                                bounds.fields(),
+                                bounds.bytes(),
+                                control)
+                        : null;
+        if (zone != null
+                && !zone.sourceManifestSha256().equals(source.manifest().plaintextSha256()))
+            scope();
         new CdsExportMergeScopeValidator(rows)
                 .requireUnmerged(
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
@@ -339,7 +394,10 @@ public class CdsExportImmunizationOccurrenceService
                                         Set<String> kept = Set.of(), replaced = Set.of();
                                         if (importedUnit == null) {
                                             var mapping =
-                                                    new CdsExportImmunizationMapper()
+                                                    new CdsExportImmunizationMapper(
+                                                                    zone == null
+                                                                            ? null
+                                                                            : zone.zone())
                                                             .map(
                                                                     patient.patient(),
                                                                     row,
@@ -354,7 +412,10 @@ public class CdsExportImmunizationOccurrenceService
                                                                     .write(mapping.value(), writer);
                                         } else {
                                             var decision =
-                                                    new CdsExportImmunizationFieldReconciler()
+                                                    new CdsExportImmunizationFieldReconciler(
+                                                                    zone == null
+                                                                            ? null
+                                                                            : zone.zone())
                                                             .reconcile(
                                                                     patient.patient(),
                                                                     index,

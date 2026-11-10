@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
 import org.springframework.beans.factory.ObjectProvider;
@@ -88,8 +89,21 @@ public class CdsExportNativeCaptureService {
     private final CdsExportRunDao clock;
     private final TransactionTemplate read;
     private final CdsExportSourceSnapshotService snapshots;
+    private final Properties settings = new Properties();
 
     @Autowired
+    public CdsExportNativeCaptureService(
+            ObjectProvider<CdsExportNativeSourceReader> installed,
+            CdsExportStagingFactory stores,
+            CdsExportRunDao clock,
+            PlatformTransactionManager transactions,
+            CdsExportSourceSnapshotService snapshots,
+            @org.springframework.beans.factory.annotation.Qualifier("cdsExportProperties")
+                    Properties settings) {
+        this(installed.orderedStream().toList(), stores, clock, transactions, snapshots);
+        this.settings.putAll(Objects.requireNonNull(settings));
+    }
+
     public CdsExportNativeCaptureService(
             ObjectProvider<CdsExportNativeSourceReader> installed,
             CdsExportStagingFactory stores,
@@ -138,6 +152,17 @@ public class CdsExportNativeCaptureService {
         read.setReadOnly(true);
         read.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
         read.setTimeout(120);
+    }
+
+    /** A per-capture definition keeps concurrent jobs from mutating a shared transaction template. */
+    private TransactionTemplate captureTransaction() {
+        var transaction =
+                new TransactionTemplate(Objects.requireNonNull(read.getTransactionManager()), read);
+        transaction.setTimeout(
+                (int)
+                        CdsExportActivePlanService.number(
+                                settings, "captureTimeoutSeconds", 120, 1, 7200));
+        return transaction;
     }
 
     /**
@@ -228,110 +253,121 @@ public class CdsExportNativeCaptureService {
                             : io.github.carlos_emr.carlos.demographic.cdsexport.support
                                     .CdsExportSourceReadLock.none()) {
                 captured =
-                        read.execute(
-                                status -> {
-                                    control.captureCheckpoint();
-                                    var started = clock.now();
-                                    var scopes = new TreeMap<String, CdsExportCapturedTableDto>();
-                                    try {
-                                        for (var reader : selected) {
+                        captureTransaction()
+                                .execute(
+                                        status -> {
                                             control.captureCheckpoint();
-                                            var columns = Set.copyOf(reader.columns());
-                                            String schema =
-                                                    new CdsExportSourceSchemaValidator()
-                                                            .verify(
-                                                                    reader.table(),
-                                                                    reader.schema(),
-                                                                    columns);
-                                            long count = reader.count(patient, probe);
-                                            if (count < 0 || count > maximumFields / columns.size())
-                                                throw new IOException(
-                                                        "CDS_EXPORT_CAPTURE_FIELD_LIMIT");
-                                            if (reader.table().equals("demographic") && count != 1)
-                                                throw new IOException(
-                                                        "CDS_EXPORT_SELECTED_PATIENT_MISSING");
-                                            var receiptColumns =
-                                                    List.copyOf(reader.receiptColumns());
-                                            verifyReceiptColumns(
-                                                    reader.table(), columns, receiptColumns);
-                                            scopes.put(
-                                                    reader.table(),
-                                                    new CdsExportCapturedTableDto(
+                                            var started = clock.now();
+                                            var scopes =
+                                                    new TreeMap<
+                                                            String, CdsExportCapturedTableDto>();
+                                            try {
+                                                for (var reader : selected) {
+                                                    control.captureCheckpoint();
+                                                    var columns = Set.copyOf(reader.columns());
+                                                    String schema =
+                                                            new CdsExportSourceSchemaValidator()
+                                                                    .verify(
+                                                                            reader.table(),
+                                                                            reader.schema(),
+                                                                            columns);
+                                                    long count = reader.count(patient, probe);
+                                                    if (count < 0
+                                                            || count
+                                                                    > maximumFields
+                                                                            / columns.size())
+                                                        throw new IOException(
+                                                                "CDS_EXPORT_CAPTURE_FIELD_LIMIT");
+                                                    if (reader.table().equals("demographic")
+                                                            && count != 1)
+                                                        throw new IOException(
+                                                                "CDS_EXPORT_SELECTED_PATIENT_MISSING");
+                                                    var receiptColumns =
+                                                            List.copyOf(reader.receiptColumns());
+                                                    verifyReceiptColumns(
+                                                            reader.table(),
                                                             columns,
-                                                            count,
-                                                            schema,
-                                                            receiptColumns,
-                                                            reader.noteAccess()));
-                                        }
-                                        var result = new CdsExportNativeCaptureComposer.Result[1];
-                                        var index = new CdsExportStagedFileDto[1];
-                                        var values =
-                                                store.stage(
-                                                        "SOURCE_VALUES",
-                                                        valueOutput -> {
-                                                            index[0] =
-                                                                    store.stage(
-                                                                            "SOURCE_INDEX",
-                                                                            indexOutput -> {
-                                                                                result[0] =
-                                                                                        new CdsExportNativeCaptureComposer()
-                                                                                                .compose(
-                                                                                                        valueOutput,
-                                                                                                        indexOutput,
-                                                                                                        tables,
-                                                                                                        maximumFields,
-                                                                                                        maximumValueBytes,
-                                                                                                        control
-                                                                                                                ::captureCheckpoint,
-                                                                                                        writer -> {
-                                                                                                            for (var
-                                                                                                                    reader :
-                                                                                                                            selected) {
-                                                                                                                var
-                                                                                                                        scope =
-                                                                                                                                scopes
-                                                                                                                                        .get(
-                                                                                                                                                reader
-                                                                                                                                                        .table());
-                                                                                                                writer
-                                                                                                                        .beginTable(
-                                                                                                                                reader
-                                                                                                                                        .table(),
-                                                                                                                                scope
-                                                                                                                                        .columns(),
-                                                                                                                                scope
-                                                                                                                                        .rows());
-                                                                                                                reader
-                                                                                                                        .capture(
-                                                                                                                                patient,
-                                                                                                                                writer,
-                                                                                                                                probe);
-                                                                                                                writer
-                                                                                                                        .endTable();
-                                                                                                            }
-                                                                                                        });
-                                                                            });
-                                                            owned.add(index[0]);
-                                                        });
-                                        owned.add(values);
-                                        control.captureCheckpoint();
-                                        return new CdsExportNativeCaptureDto(
-                                                2,
-                                                lease.runId(),
-                                                lease.epoch(),
-                                                patient,
-                                                patientScope.cohortSha256(),
-                                                started,
-                                                clock.now(),
-                                                scopes,
-                                                result[0].fields(),
-                                                result[0].valueBytes(),
-                                                values,
-                                                index[0]);
-                                    } catch (IOException failure) {
-                                        throw new UncheckedIOException(failure);
-                                    }
-                                });
+                                                            receiptColumns);
+                                                    scopes.put(
+                                                            reader.table(),
+                                                            new CdsExportCapturedTableDto(
+                                                                    columns,
+                                                                    count,
+                                                                    schema,
+                                                                    receiptColumns,
+                                                                    reader.noteAccess()));
+                                                }
+                                                var result =
+                                                        new CdsExportNativeCaptureComposer.Result
+                                                                [1];
+                                                var index = new CdsExportStagedFileDto[1];
+                                                var values =
+                                                        store.stage(
+                                                                "SOURCE_VALUES",
+                                                                valueOutput -> {
+                                                                    index[0] =
+                                                                            store.stage(
+                                                                                    "SOURCE_INDEX",
+                                                                                    indexOutput -> {
+                                                                                        result[0] =
+                                                                                                new CdsExportNativeCaptureComposer()
+                                                                                                        .compose(
+                                                                                                                valueOutput,
+                                                                                                                indexOutput,
+                                                                                                                tables,
+                                                                                                                maximumFields,
+                                                                                                                maximumValueBytes,
+                                                                                                                control
+                                                                                                                        ::captureCheckpoint,
+                                                                                                                writer -> {
+                                                                                                                    for (var
+                                                                                                                            reader :
+                                                                                                                                    selected) {
+                                                                                                                        var
+                                                                                                                                scope =
+                                                                                                                                        scopes
+                                                                                                                                                .get(
+                                                                                                                                                        reader
+                                                                                                                                                                .table());
+                                                                                                                        writer
+                                                                                                                                .beginTable(
+                                                                                                                                        reader
+                                                                                                                                                .table(),
+                                                                                                                                        scope
+                                                                                                                                                .columns(),
+                                                                                                                                        scope
+                                                                                                                                                .rows());
+                                                                                                                        reader
+                                                                                                                                .capture(
+                                                                                                                                        patient,
+                                                                                                                                        writer,
+                                                                                                                                        probe);
+                                                                                                                        writer
+                                                                                                                                .endTable();
+                                                                                                                    }
+                                                                                                                });
+                                                                                    });
+                                                                    owned.add(index[0]);
+                                                                });
+                                                owned.add(values);
+                                                control.captureCheckpoint();
+                                                return new CdsExportNativeCaptureDto(
+                                                        2,
+                                                        lease.runId(),
+                                                        lease.epoch(),
+                                                        patient,
+                                                        patientScope.cohortSha256(),
+                                                        started,
+                                                        clock.now(),
+                                                        scopes,
+                                                        result[0].fields(),
+                                                        result[0].valueBytes(),
+                                                        values,
+                                                        index[0]);
+                                            } catch (IOException failure) {
+                                                throw new UncheckedIOException(failure);
+                                            }
+                                        });
                 held.verify();
             } catch (java.sql.SQLException failed) {
                 throw new IOException("CDS_EXPORT_SOURCE_SNAPSHOT_GUARD_FAILED", failed);

@@ -1574,7 +1574,7 @@
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java",
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java"
       ],
-      "normalization": "Literal AL/AR and independent DR/ND/UK retained; NO severity maps native No Reaction; no fabricated drugref/class. Year/month precision metadata mandatory, unknown dates null; timestamps into DATE lose clock only in native projection with exact source retained. Native DATE projection must round-trip its exact civil day through the actual legacy calendar; a cutover gap is preflight review rather than normalization into another day.",
+      "normalization": "Literal AL/AR and independent DR/ND/UK retained; NO severity maps native No Reaction; no fabricated drugref/class. Year/month precision metadata mandatory, unknown dates null; timestamps into DATE lose clock only in native projection with exact source retained. Native DATE projection must round-trip its exact civil day through the actual legacy calendar; a cutover gap is preflight review rather than normalization into another day. Standard allergy CodeType remains DIN-only on export. Explicit native ATC classes use a separate versioned residual marker and never masquerade as DIN; old frozen prepared native projections remain unchanged.",
       "normativeBasis": [
         "EMR Data Migration Implementation Guide v1.1 section 9 (AllergiesAndAdverseReactions)",
         "EMR Data Migration Requirements v1.1 DP02.01",
@@ -1616,6 +1616,48 @@
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTemporalUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalPersisterUnitTest.java#shouldRefuseUnrepresentableNativeDatesInCompletePreflight_beforeAnyClinicalDaoWrite",
         "src/test/java/io/github/carlos_emr/carlos/webserv/rest/DemographicServiceUnitTest.java"
+      ],
+      "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
+    },
+    "allergy-native-residual-extensions": {
+      "destination": "Exact recognized CARLOS allergy residual markers project archived, age_of_onset, onset_of_reaction and ATC class identity. Unrecognized residual names remain complete source-only values.",
+      "disposition": "native-and-source",
+      "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
+      "implementation": [
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeExtensionContract.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPreparedAllergyDefaults.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsAllergyDto.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAllergyResidualReader.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAllergyPersister.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java"
+      ],
+      "normalization": "Only exact versioned names with one valid Name/DataType/Content group are materialized. Archived is an explicit boolean and produces a durable source-marker warning; age and onset retain validated native meaning. CARLOS.Allergy.Atc.v1 carries one valid WHO ATC hierarchy code in allergies.atc with TYPECODE 8, never a DIN. A simultaneous standard Code is an explicit conflict. Malformed, duplicate and conflicting known markers require review. The optional atcResidual preparation flag defaults false after original seal verification and is omitted when false, preserving legacy sealed bytes and regional-identifier projections.",
+      "normativeBasis": [
+        "EMR Data Migration Implementation Guide v1.1 section 9 (AllergiesAndAdverseReactions)",
+        "EMR Data Migration Requirements v1.1 DP02.01",
+        "Pinned XML Schema declaration/facets in generated row",
+        "EMR Data Migration Implementation Guide v1.1 sections 9 (allergy CodeType DIN only) and 18.1.1 (nonstandard residual concepts)"
+      ],
+      "original": "Immutable accepted XML bytes are retained. Each original XML character value/attribute (XML line-end/entity processing already applied) or decoded binary is separately addressed by indexed XPath, namespace, ordinal and type in cds_import_field; large values use hash-bound spool offsets. Logical whitespace/corrections are separate. Source category view and original-value download remain protected.",
+      "paths": [
+        "/cds:OmdCds/cds:PatientRecord/cds:AllergiesAndAdverseReactions/cds:ResidualInfo/dt:DataElement/dt:Content",
+        "/cds:OmdCds/cds:PatientRecord/cds:AllergiesAndAdverseReactions/cds:ResidualInfo/dt:DataElement/dt:DataType",
+        "/cds:OmdCds/cds:PatientRecord/cds:AllergiesAndAdverseReactions/cds:ResidualInfo/dt:DataElement/dt:Name"
+      ],
+      "reader": [
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalSourceService.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/ViewCdsSourceFields2Action.java",
+        "src/main/webapp/WEB-INF/jsp/demographic/cdsSourceFields.jsp",
+        "src/main/java/io/github/carlos_emr/carlos/webserv/rest/DemographicService.java"
+      ],
+      "testScope": "Named tests cover representative projections, refusal and reader semantics. The separate all-choice corpus proves every listed structural path reaches the real schema validator/parser; it does not claim a native round-trip assertion per leaf.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAllergyArchiveStateUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAllergyMapperUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAllergyFieldReconcilerUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativePreparationServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedPreparationReaderUnitTest.java"
       ],
       "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
     },
@@ -3338,10 +3380,7 @@
       "original": "Immutable accepted XML bytes are retained. Each original XML character value/attribute (XML line-end/entity processing already applied) or decoded binary is separately addressed by indexed XPath, namespace, ordinal and type in cds_import_field; large values use hash-bound spool offsets. Logical whitespace/corrections are separate. Source category view and original-value download remain protected.",
       "paths": [
         "/cds:OmdCds/cds:PatientRecord/cds:AllergiesAndAdverseReactions/cds:Code/dt:CodeType",
-        "/cds:OmdCds/cds:PatientRecord/cds:AllergiesAndAdverseReactions/cds:Notes",
-        "/cds:OmdCds/cds:PatientRecord/cds:AllergiesAndAdverseReactions/cds:ResidualInfo/dt:DataElement/dt:Content",
-        "/cds:OmdCds/cds:PatientRecord/cds:AllergiesAndAdverseReactions/cds:ResidualInfo/dt:DataElement/dt:DataType",
-        "/cds:OmdCds/cds:PatientRecord/cds:AllergiesAndAdverseReactions/cds:ResidualInfo/dt:DataElement/dt:Name"
+        "/cds:OmdCds/cds:PatientRecord/cds:AllergiesAndAdverseReactions/cds:Notes"
       ],
       "reader": [
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalSourceService.java",
@@ -3860,7 +3899,8 @@
     "Three-cycle release/main compatibility review: Demographic.java adds only a property-level CalendarDateTimeXmlAdapter annotation and explanatory comments to getBirthDay, restoring the published main Glassfish xs:dateTime birthday output with midnight and the calendar zone offset. The getter body and JPA/native date fields are unchanged. CDS import identity and persistence read/write the explicit year/month/day fields through LocalDate; CDS export constructs cds.DemographicsDocument with XMLBeans from DemographicData.getDob rather than JAXB-marshalling this model. Source retention, scalar normalization, identity matching, native/source dispositions and transaction mappings are therefore unchanged. The scoped adapter is excluded from both production JSON mappers; focused tests cover all nested patient XML boundaries, legacy date-only input, optional nulls, Toronto/Vancouver summer/winter offsets and unchanged numeric JSON. Refreshed only this reviewed model hash and regenerated the crosswalk with the canonical tool; schema pins, all 407 path dispositions, 130 choice-arm reviews and synthetic fixture bytes remain unchanged.",
     "Review for #5720/#5721 birthday formatter correction: Demographic.getFormattedDob now formats with its returned Calendar timezone instead of the class-initialization timezone cached by DateFormatUtils.ISO_DATE_FORMAT. The six new default-timezone-change cases reproduce the former date shift, and all 27 timezone cases pass in separate Toronto and Tokyo JVMs. Reviewed the CDS identity resolver and persister: they continue to read/write explicit year/month/day components through LocalDate. DemographicExportAction42Action continues to construct the XMLBeans birth date from DemographicData.getDob; none calls getFormattedDob. Native fields, scalar normalization, source retention, identity matching, transactions and all nine demographic crosswalk groups are unchanged. Refreshed only the reviewed Demographic source hash and regenerated the canonical crosswalk; schema pins, 407 path dispositions, 130 choice-arm reviews and synthetic fixture bytes are unchanged.",
     "Review for #6098 XML profiles: Demographic.java changes only getBirthDay's XML-only adapter annotation from CalendarDateTimeXmlAdapter to BirthdayXmlAdapter. Its published default delegates to the same dateTime adapter; the explicit moxy-date-only-birthday HTTP profile delegates to CalendarXmlAdapter. No getter body, JPA/native fields or JSON binding changes. CdsDemographicPersister writes explicit year/month/day components (lines 296-299), and DemographicExportAction42Action reads DemographicData.getDob (line 753) into XMLBeans; neither uses this JAXB adapter. All 407 source/native path dispositions, 130 choice arms, schema pins and synthetic fixtures remain unchanged. Refreshed only this reviewed model hash after rechecking those call paths.",
-    "REST/SOAP identifier minimization review: the shared DemographicService changes affect bulk patient-selection DTOs and the locked identifier-preserving write boundary. Existing single-patient HIN disclosure remains behind its scoped demographic read check; SIN is omitted by the named DTO converters. CDS category authorization, source-only disclosure, native/source field dispositions and temporal read semantics are unchanged. The source hash is refreshed for this resource only; schema pins, path classifications, choice evidence and structural fixture bytes remain unchanged. Final-head Java/Python and native acceptance results are recorded in the REST/SOAP acceptance ledger."
+    "REST/SOAP identifier minimization review: the shared DemographicService changes affect bulk patient-selection DTOs and the locked identifier-preserving write boundary. Existing single-patient HIN disclosure remains behind its scoped demographic read check; SIN is omitted by the named DTO converters. CDS category authorization, source-only disclosure, native/source field dispositions and temporal read semantics are unchanged. The source hash is refreshed for this resource only; schema pins, path classifications, choice evidence and structural fixture bytes remain unchanged. Final-head Java/Python and native acceptance results are recorded in the REST/SOAP acceptance ledger.",
+    "Release exporter review: verified DIN-only standard allergy Code against guide section 9; added explicit ATC residual import/export with strict duplicate/conflict/value checks and native class storage. Existing sealed preparation bytes and legacy ATC projection remain unchanged through an omitted-default provenance flag, applied only after seal verification. Archived residual state now emits an explicit warning. Reviewed the changed normalization, persister and import warning paths and the five named preparation/round-trip suites; refreshed only specification review bindings. Native receipts, accepted preparation seals, schema pins and synthetic structural fixture bytes are not rewritten."
   ],
   "reviewedImplementationSha256": {
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/CaseManagementNoteDAOImpl.java": "c085f5c85d5795d0009130c5e373fc1e8c849d954a37eb6744d2372dcecbbe7e",
@@ -3873,15 +3913,19 @@
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java": "7361c58b4e786c59f47a9e171e793ffb22b5b295bc04cde259641818178b5d24",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/PharmacyInfo.java": "de6f091818d30531a93ec6d08e97c84dab5860619c45c10d6986db9440f16bc5",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/ProfessionalContact.java": "f20b8173073ba12f3da1b9dc2bc63708d5a2a9c2d45adf71c04396b85de8c5f1",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeExtensionContract.java": "2fa9cc704d190f025d3cf2e8555b2d638c974afc1f8ec0b4282c2625dd8887ef",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPreparedAllergyDefaults.java": "21d0efa50e05aadfb9d823c026e3f9f663aad9465b5be2b100a1523583cd7477",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsAllergyDto.java": "9f081a1e16b6cab9d4eb5b8c924046c95e84584bcd018720508706ef6476f66f",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsDemographicNativeDto.java": "3f903623636da5d822c5d539167f4efbb10220f0c8ef69727e698460c3e5e911",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsHistoryNativeDto.java": "b72b9f8196864707d0477220e5b86392d25559c2fef70159ddc862111f6f14bc",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java": "dd9962f4871fac91c36dd829bbeef83c70cde778b1eafb9ed390a327bfe72c3b",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAllergyPersister.java": "9ac89339a6ecd3da195da269a1cd67845ad76cc846d59967aa13dd086f9146a5",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAllergyPersister.java": "1ad9181f1c0923c45bc1717a3c5590ae5e72621d61587a1a966bc822dab699c1",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAllergyResidualReader.java": "b9e23bede1f31ce8d2997cdcdac96f51933447f199b235dff593fdb9c94851ea",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAppointmentPersister.java": "fa536fa8f0afe9945e50cf3e59c03c3b17ce8e66003743a0882cfa71cce95f87",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCareImportService.java": "fad8087d3ce68ca7ebfc1852896661f6b429f9bd85fb298e3a1c533b61501f59",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCareNormalizationService.java": "4251401737cbbbc54d03e3e42bb50bb9c24ddcf28a42e869ee714f1a2c78d553",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCarePersister.java": "c97d6be4687059ebdd5f6b35aeee052d2bfc7fcde333b493e3806a0d134e043e",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java": "74f417d416d539b63422c09fd2ef448a4d3ad63dd4ded84141345fe0bed379f8",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java": "109f2c7f6459c9bb2a85a9e3775f538668a9c21544d29fd413f2378f496b1ccc",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalSourceService.java": "b67c51d98ea2c7689e4b5f4a0b199a0bb2dd41f10e1df0fdbccf0142da8e24a8",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsContactImportService.java": "34a7d9f04c6cda1a9d1a6b2cf4d38c6af59152707648a5c4bfa223ef0f8b3419",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsContactNormalizationService.java": "13890e8b60d63df2511a167a298e6ef5cd81575699dd2c637470a4df00a42e15",
@@ -3893,7 +3937,7 @@
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java": "80a19468fa6a0ed3bbf364cf7878877af605490076f9c8ca38e0f78186903996",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImmunizationPersister.java": "9a6adf440305e52b2a93ab47bcbbb3696c3f8a3ecf74bc4fbf8bbf664771b076",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java": "42721f4156fd018be1ca6e5a6828175435b369b2adce58bf71ecc4a791d7aa3e",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java": "a1a29b03f54fe18de5ac2408fc598d2f75d2aa649e990d4cdf12c80d16455be2",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java": "ec505f1291eeb7b675743977b40d59e41e745784b1c0aad66057e864b7224b64",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryImportService.java": "30b5b490ad5ccd73e292f9468e93e4c4ddbdb29c394c3d11097cdebe1ec67694",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryReadService.java": "fbb895c9131095cbe85c7a4b065e130a38dc17e178e01483843a0e163260a458",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java": "6e6ccac1b52f180df5af0a07bd8a572767f7f6531db579f99f9801d3f442e4f9",

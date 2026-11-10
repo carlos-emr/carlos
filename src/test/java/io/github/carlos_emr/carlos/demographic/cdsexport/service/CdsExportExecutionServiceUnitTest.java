@@ -165,6 +165,23 @@ class CdsExportExecutionServiceUnitTest {
     }
 
     @Test
+    void shouldSeparateMappingReviewFromIoFailure_withoutClassifyingByExceptionMessage()
+            throws Exception {
+        doThrow(
+                        new CdsExportMappingReviewException(
+                                "CDS_EXPORT_APPOINTMENT_PATIENT_DISPLAY_REQUIRES_REVIEW"))
+                .when(engine)
+                .execute(any(), any());
+        execution.execute(RUN);
+        verify(ledger).stop(lease, CdsExportState.REVIEW_REQUIRED, "CDS_EXPORT_UNMAPPED_DATA");
+        doThrow(new IOException("CDS_EXPORT_APPOINTMENT_PATIENT_DISPLAY_REQUIRES_REVIEW"))
+                .when(engine)
+                .execute(any(), any());
+        execution.execute(RUN);
+        verify(ledger).stop(lease, CdsExportState.FAILED, "CDS_EXPORT_IO_FAILED");
+    }
+
+    @Test
     void shouldLeaveTheJobWaiting_withoutFallingBackToAnUnqualifiedEngine() {
         var unavailable =
                 new CdsExportExecutionService(

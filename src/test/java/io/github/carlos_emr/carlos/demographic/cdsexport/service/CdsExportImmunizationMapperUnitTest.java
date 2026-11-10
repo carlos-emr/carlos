@@ -32,7 +32,8 @@ import org.junit.jupiter.api.*;
 
 /** Native counterexamples: a valid transport or a nearby code never establishes missing clinical semantics. */
 class CdsExportImmunizationMapperUnitTest {
-    private final CdsExportImmunizationMapper mapper = new CdsExportImmunizationMapper();
+    private final CdsExportImmunizationMapper mapper =
+            new CdsExportImmunizationMapper(java.time.ZoneId.of("America/Toronto"));
     private Map<String, String> parent;
     private List<CdsExportCapturedTextRowDto> extras, dates;
     private CdsExportPreventionClassifier definitions;
@@ -124,12 +125,13 @@ class CdsExportImmunizationMapperUnitTest {
         assertThat(result.value().date())
                 .isEqualTo(
                         new CdsExportDateDto(
-                                CdsExportDateDto.Precision.DATE_TIME, "2024-02-29T12:34:56"));
+                                CdsExportDateDto.Precision.DATE_TIME, "2024-02-29T12:34:56-05:00"));
         assertThat(result.value().refused()).isFalse();
     }
 
     @Test
-    void shouldVerifyAllNativeStandardExtensionsMap_withoutTrimmingOrChangingNullAndEmpty() throws Exception {
+    void shouldVerifyAllNativeStandardExtensionsMap_withoutTrimmingOrChangingNullAndEmpty()
+            throws Exception {
         extra(30, "name", " Brand café 😀 ");
         extra(31, "manufacture", "");
         extra(32, "lot", null);
@@ -162,7 +164,8 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyIneligibleAndCompletedExternallyAreNeverCollapsed_toNotRefused() throws Exception {
+    void shouldVerifyIneligibleAndCompletedExternallyAreNeverCollapsed_toNotRefused()
+            throws Exception {
         for (String flag : Arrays.asList("2", "3", "x", null, "")) {
             parent.put("refused", flag);
             assertThat(map().value()).isNull();
@@ -172,7 +175,9 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyArchivedAndUnknownArchiveStatesCannotBecomeActiveEvents_forImmunizationMapperContract() throws Exception {
+    void
+            shouldVerifyArchivedAndUnknownArchiveStatesCannotBecomeActiveEvents_forImmunizationMapperContract()
+                    throws Exception {
         for (String flag : Arrays.asList("1", "x", null, "")) {
             parent.put("deleted", flag);
             assertThat(map().value()).isNull();
@@ -180,7 +185,9 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyDuplicateExtensionKeysRetainEveryRowAndNeverUseFirstOrLast_forImmunizationMapperContract() throws Exception {
+    void
+            shouldVerifyDuplicateExtensionKeysRetainEveryRowAndNeverUseFirstOrLast_forImmunizationMapperContract()
+                    throws Exception {
         extra(30, "comments", "First");
         extra(31, "comments", "Second");
         var result = map();
@@ -201,21 +208,27 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyEvenEqualDuplicateCommentsRemainSeparateUnresolvedSourceRows_forImmunizationMapperContract() throws Exception {
+    void
+            shouldVerifyEvenEqualDuplicateCommentsRemainSeparateUnresolvedSourceRows_forImmunizationMapperContract()
+                    throws Exception {
         extra(30, "comments", "Same");
         extra(31, "comments", "Same");
         assertThat(map().value()).isNull();
     }
 
     @Test
-    void shouldVerifyConflictingLegacyAndImportedNamesCannotSilentlyChooseOne_forImmunizationMapperContract() throws Exception {
+    void
+            shouldVerifyConflictingLegacyAndImportedNamesCannotSilentlyChooseOne_forImmunizationMapperContract()
+                    throws Exception {
         extra(30, "name", "Current Name");
         extra(31, "cdsName", "Old imported name");
         assertThat(map().value()).isNull();
     }
 
     @Test
-    void shouldVerifyConflictingNativeTypeAndImportedTypeRequiresFieldReconciliation_forImmunizationMapperContract() throws Exception {
+    void
+            shouldVerifyConflictingNativeTypeAndImportedTypeRequiresFieldReconciliation_forImmunizationMapperContract()
+                    throws Exception {
         extra(30, "cdsType", "HB");
         assertThat(map().value()).isNull();
         assertThat(decision(map(), "preventions", "prevention_type").rule())
@@ -223,7 +236,8 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyExplicitImportedDinNeedsItsPairedAuthority_forImmunizationMapperContract() throws Exception {
+    void shouldVerifyExplicitImportedDinNeedsItsPairedAuthority_forImmunizationMapperContract()
+            throws Exception {
         extra(30, "cdsCode", "00123456");
         assertThat(map().value()).isNull();
         extra(31, "cdsCodeSystem", "DIN");
@@ -231,14 +245,17 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyASnomedCodeOrEightDigitsCannotInventDinAuthority_forImmunizationMapperContract() throws Exception {
+    void
+            shouldVerifyASnomedCodeOrEightDigitsCannotInventDinAuthority_forImmunizationMapperContract()
+                    throws Exception {
         extra(30, "cdsCode", "00123456");
         extra(31, "cdsCodeSystem", "SNOMED");
         assertThat(map().value()).isNull();
     }
 
     @Test
-    void shouldVerifyANativeSnomedIdNeverTurnsIntoStandardDin_forImmunizationMapperContract() throws Exception {
+    void shouldVerifyANativeSnomedIdNeverTurnsIntoStandardDin_forImmunizationMapperContract()
+            throws Exception {
         parent.put("snomedId", "00123456");
         assertThat(map().value()).isNull();
         assertThat(decision(map(), "preventions", "snomedId").outcome())
@@ -246,7 +263,8 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyCompetingDinFieldsCannotChooseOneEven_whenBothAreEightDigits() throws Exception {
+    void shouldVerifyCompetingDinFieldsCannotChooseOneEven_whenBothAreEightDigits()
+            throws Exception {
         extra(30, "din", "00123456");
         extra(31, "cdsCode", "00987654");
         extra(32, "cdsCodeSystem", "DIN");
@@ -254,13 +272,16 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyConfiguredH1n1UsesItsExplicitWireType_insteadOfAnUnlistedName() throws Exception {
+    void shouldVerifyConfiguredH1n1UsesItsExplicitWireType_insteadOfAnUnlistedName()
+            throws Exception {
         parent.put("prevention_type", "H1N1");
         assertThat(map().value().type()).isEqualTo("Inf");
     }
 
     @Test
-    void shouldVerifyAFutureConfiguredVaccineDoesNotExtendTheOldWireEnumeration_forImmunizationMapperContract() throws Exception {
+    void
+            shouldVerifyAFutureConfiguredVaccineDoesNotExtendTheOldWireEnumeration_forImmunizationMapperContract()
+                    throws Exception {
         parent.put("prevention_type", "FutureVaccine");
         assertThat(map().value()).isNull();
         assertThat(decision(map(), "preventions", "prevention_type").rule())
@@ -268,7 +289,9 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyMantouxAndAmbiguousOtherInjectionsNeverBecomeVaccinationEvents_forImmunizationMapperContract() throws Exception {
+    void
+            shouldVerifyMantouxAndAmbiguousOtherInjectionsNeverBecomeVaccinationEvents_forImmunizationMapperContract()
+                    throws Exception {
         for (String type : List.of("Tuberculosis", "OtherA")) {
             parent.put("prevention_type", type);
             extra(30, "name", "Clinical name");
@@ -278,7 +301,9 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyYearAndMonthMarkersNeverInventAClinicalMonthDayOrClock_forImmunizationMapperContract() throws Exception {
+    void
+            shouldVerifyYearAndMonthMarkersNeverInventAClinicalMonthDayOrClock_forImmunizationMapperContract()
+                    throws Exception {
         date(30, "7", "YYYY");
         assertThat(map().value().date())
                 .isEqualTo(new CdsExportDateDto(CdsExportDateDto.Precision.YEAR, "2024"));
@@ -289,7 +314,9 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyUnknownDateStaysAbsentAndCannotUseCreationOrModificationDates_forImmunizationMapperContract() throws Exception {
+    void
+            shouldVerifyUnknownDateStaysAbsentAndCannotUseCreationOrModificationDates_forImmunizationMapperContract()
+                    throws Exception {
         parent.put("prevention_date", null);
         assertThat(map().value().date().precision()).isEqualTo(CdsExportDateDto.Precision.ABSENT);
         date(30, "7", "YYYY");
@@ -297,7 +324,9 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyDuplicateOrUnsupportedEventPrecisionRemainsReview_forImmunizationMapperContract() throws Exception {
+    void
+            shouldVerifyDuplicateOrUnsupportedEventPrecisionRemainsReview_forImmunizationMapperContract()
+                    throws Exception {
         date(30, "7", "YYYY");
         date(31, "7", "YYYY");
         assertThat(map().value()).isNull();
@@ -307,7 +336,9 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyNextDateAndUnknownPrecisionFieldsCannotBeMergedIntoEventDate_forImmunizationMapperContract() throws Exception {
+    void
+            shouldVerifyNextDateAndUnknownPrecisionFieldsCannotBeMergedIntoEventDate_forImmunizationMapperContract()
+                    throws Exception {
         for (String field : List.of("8", "999")) {
             date(30, field, "YYYY");
             assertThat(map().value()).isNull();
@@ -316,7 +347,9 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyUnknownAndStaleImportedExtensionsCannotBeIgnoredOrOverrideCurrentEvent_forImmunizationMapperContract() throws Exception {
+    void
+            shouldVerifyUnknownAndStaleImportedExtensionsCannotBeIgnoredOrOverrideCurrentEvent_forImmunizationMapperContract()
+                    throws Exception {
         for (String key : List.of("customClinicalValue", "cdsDateOriginal", "cdsDatePrecision")) {
             extra(30, key, "2020");
             assertThat(map().value()).isNull();
@@ -325,8 +358,9 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyAdministeringCliniciansDueDatesReminderSuppressionAndProgramAffiliationRemainExplicit_forImmunizationMapperContract()
-            throws Exception {
+    void
+            shouldVerifyAdministeringCliniciansDueDatesReminderSuppressionAndProgramAffiliationRemainExplicit_forImmunizationMapperContract()
+                    throws Exception {
         for (String column :
                 List.of("provider_no", "provider_name", "next_date", "never", "programNo")) {
             String prior =
@@ -337,7 +371,9 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyExactDictionaryNoteLimitCountsCodePointsAndNeverTruncates_forImmunizationMapperContract() throws Exception {
+    void
+            shouldVerifyExactDictionaryNoteLimitCountsCodePointsAndNeverTruncates_forImmunizationMapperContract()
+                    throws Exception {
         extra(30, "comments", "😀".repeat(32000));
         assertThat(map().value().notes().codePointCount(0, map().value().notes().length()))
                 .isEqualTo(32000);
@@ -347,7 +383,8 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyForeignParentsChildrenPrecisionAndDuplicatePhysicalKeysAreScopeErrors_forImmunizationMapperContract() {
+    void
+            shouldVerifyForeignParentsChildrenPrecisionAndDuplicatePhysicalKeysAreScopeErrors_forImmunizationMapperContract() {
         parent.put("demographic_no", "28");
         assertThatThrownBy(this::map).hasMessage("CDS_EXPORT_IMMUNIZATION_MAPPING_SCOPE_INVALID");
         parent.put("demographic_no", "27");
@@ -357,7 +394,9 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyNullAndEmptyNativeExtensionValuesHaveDifferentFieldPresence_forImmunizationMapperContract() throws Exception {
+    void
+            shouldVerifyNullAndEmptyNativeExtensionValuesHaveDifferentFieldPresence_forImmunizationMapperContract()
+                    throws Exception {
         extra(30, "lot", null);
         extra(31, "manufacture", "");
         var result = map();
@@ -377,7 +416,9 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyWireVocabularyExactlyMatchesTheHashPinnedOriginalSchema_forImmunizationMapperContract() throws Exception {
+    void
+            shouldVerifyWireVocabularyExactlyMatchesTheHashPinnedOriginalSchema_forImmunizationMapperContract()
+                    throws Exception {
         var factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
@@ -405,7 +446,9 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyProtectedIntermediateObjectsDoNotPrintClinicalNamesOrValues_forImmunizationMapperContract() throws Exception {
+    void
+            shouldVerifyProtectedIntermediateObjectsDoNotPrintClinicalNamesOrValues_forImmunizationMapperContract()
+                    throws Exception {
         extra(30, "name", "PRIVATE NAME");
         assertThat(map().toString()).isEqualTo("CdsExportImmunizationMappingDto[protected]");
         assertThat(definitions.definition("Td").orElseThrow().toString())

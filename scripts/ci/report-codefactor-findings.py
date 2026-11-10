@@ -63,20 +63,12 @@ def collect(fetch, repository: str, commit: str, check: dict) -> dict:
 
 
 def latest_completed_check(fetch, repository: str, requested: str):
-    """External apps may omit checks on CI-only commits; retain the actual analysis SHA."""
-    commit = requested
-    for _ in range(10):
-        response = fetch(f"/repos/{repository}/commits/{commit}/check-runs?check_name=CodeFactor&filter=latest&per_page=100")
-        matches = [check for check in response.get("check_runs", []) if check.get("name") == "CodeFactor"
-                   and check.get("head_sha") == commit and check.get("status") == "completed"]
-        if matches:
-            return commit, max(matches, key=lambda check: check["id"])
-        parents = fetch(f"/repos/{repository}/commits/{commit}").get("parents", [])
-        if not parents:
-            break
-        commit = parents[0].get("sha")
-        if not isinstance(commit, str) or not re.fullmatch(r"[a-f0-9]{40}", commit):
-            raise ValueError("Invalid analysis ancestor")
+    """Only analysis of this exact head qualifies; an ancestor's report is different code."""
+    response = fetch(f"/repos/{repository}/commits/{requested}/check-runs?check_name=CodeFactor&filter=latest&per_page=100")
+    matches = [check for check in response.get("check_runs", []) if check.get("name") == "CodeFactor"
+               and check.get("head_sha") == requested and check.get("status") == "completed"]
+    if matches:
+        return requested, max(matches, key=lambda check: check["id"])
     return None
 
 

@@ -151,7 +151,18 @@ public final class CdsExportAppointmentFieldReconciler {
                         .read(patient, address, index, checked, retained, values, checkpoint);
         var candidate =
                 new CdsExportAppointmentMapper()
-                        .candidate(patient, row, lookups, clinicalZone, demographic);
+                        .candidate(
+                                patient,
+                                row,
+                                lookups,
+                                clinicalZone,
+                                demographic,
+                                difference.changedColumns().contains("start_time")
+                                                || difference.changedColumns().contains("end_time")
+                                        ? CdsExportAppointmentTimingMapper.EndConvention
+                                                .NATIVE_INCLUSIVE
+                                        : CdsExportAppointmentTimingMapper.EndConvention
+                                                .IMPORTED_EXCLUSIVE);
         var fields = new LinkedHashMap<>(candidate.fields());
         var prior = new HashSet<String>();
         var current = new HashSet<String>();
@@ -292,6 +303,7 @@ public final class CdsExportAppointmentFieldReconciler {
     }
 
     private static void review(String code) throws IOException {
-        throw new IOException(code);
+        throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                .CdsExportMappingReviewException(code);
     }
 }

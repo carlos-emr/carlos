@@ -30,7 +30,8 @@ import org.junit.jupiter.api.Test;
 
 class CdsExportClinicalZoneUnitTest {
     @Test
-    void shouldVerifyExplicitRegionAndRulesVersionSurviveRecovery_forClinicalZoneContract() throws Exception {
+    void shouldVerifyExplicitRegionAndRulesVersionSurviveRecovery_forClinicalZoneContract()
+            throws Exception {
         var frozen = CdsExportClinicalZone.capture("America/Toronto");
         assertThat(frozen.zoneId()).isEqualTo("America/Toronto");
         assertThat(frozen.tzdbVersion()).isNotBlank();
@@ -52,7 +53,8 @@ class CdsExportClinicalZoneUnitTest {
     }
 
     @Test
-    void shouldVerifyExplicitFixedOffsetHasNoMutableRegionRulesDependency_forClinicalZoneContract() throws Exception {
+    void shouldVerifyExplicitFixedOffsetHasNoMutableRegionRulesDependency_forClinicalZoneContract()
+            throws Exception {
         var value = CdsExportClinicalZone.capture("+00:00");
         assertThat(value.zoneId()).isEqualTo("Z");
         assertThat(value.tzdbVersion()).isEqualTo("fixed.0");
@@ -69,7 +71,8 @@ class CdsExportClinicalZoneUnitTest {
     }
 
     @Test
-    void shouldVerifyAChangedCapturedZoneCannotBorrowAnotherSnapshotDigest_forClinicalZoneContract() throws Exception {
+    void shouldVerifyAChangedCapturedZoneCannotBorrowAnotherSnapshotDigest_forClinicalZoneContract()
+            throws Exception {
         var frozen = CdsExportClinicalZone.capture("America/Toronto");
         assertThatThrownBy(
                         () ->
@@ -79,7 +82,9 @@ class CdsExportClinicalZoneUnitTest {
     }
 
     @Test
-    void shouldVerifyAGenuineOldVersionDigestCannotSilentlyAdoptCurrentTimezoneRules_forClinicalZoneContract() throws Exception {
+    void
+            shouldVerifyAGenuineOldVersionDigestCannotSilentlyAdoptCurrentTimezoneRules_forClinicalZoneContract()
+                    throws Exception {
         String zone = "America/Toronto", version = "fixture-historic-1900";
         String digest =
                 HexFormat.of()
@@ -93,7 +98,9 @@ class CdsExportClinicalZoneUnitTest {
     }
 
     @Test
-    void shouldVerifyTrustedConfigurationHasAnExplicitContractAndNoPretendSqlPrimaryKey_forClinicalZoneContract() throws Exception {
+    void
+            shouldVerifyTrustedConfigurationHasAnExplicitContractAndNoPretendSqlPrimaryKey_forClinicalZoneContract()
+                    throws Exception {
         var reader = new CdsExportClinicalZoneSourceReader("America/Toronto");
         assertThat(reader.count(27)).isEqualTo(1);
         assertThat(new CdsExportClinicalZoneSourceReader(" America/Toronto ").count(27))
@@ -106,5 +113,24 @@ class CdsExportClinicalZoneUnitTest {
         assertThatThrownBy(() -> new CdsExportClinicalZoneSourceReader("").count(27))
                 .isInstanceOf(java.io.UncheckedIOException.class)
                 .hasMessageContaining("CDS_EXPORT_CLINICAL_ZONE_REQUIRED");
+    }
+
+    @Test
+    void shouldCaptureTheSameConfiguredZone_asTheAcceptedExportPlan() throws Exception {
+        var settings = new java.util.Properties();
+        settings.setProperty("cds.export.clinicalZone", "America/Toronto");
+        var plan = new CdsExportActivePlanService(settings, () -> "2026.08.0-test");
+        var reader = new CdsExportClinicalZoneSourceReader(plan);
+        assertThat(reader.count(27)).isEqualTo(1);
+        assertThat(reader.categories())
+                .contains(
+                        io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory
+                                .IMMUNIZATIONS);
+        settings.setProperty("cds.import.clinicalZone", "America/Vancouver");
+        var conflicting =
+                new CdsExportClinicalZoneSourceReader(
+                        new CdsExportActivePlanService(settings, () -> "2026.08.0-test"));
+        assertThatThrownBy(() -> conflicting.count(27))
+                .hasMessageContaining("CDS_EXPORT_CLINICAL_ZONE_MISMATCH");
     }
 }

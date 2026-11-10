@@ -1,5 +1,5 @@
 {
-  "status": "IMPLEMENTED_WITH_REQUIRED_CI_GATES",
+  "status": "IN_PROGRESS_CLINICAL_REVIEW",
   "scope": "OntarioMD CDS 5.2 import/export coordinated on release/2026.08 with foreground/detached CLI and authenticated asynchronous browser jobs",
   "verifiedBaseline": {
     "javaChecks": 2747,
@@ -23,7 +23,7 @@
     "coreBase": "0f73961b38044095f2d191afde32630c3291c6b2",
     "upgradeSqlBaseline": "ef69eea17a4cc3fb288b26327471fce1e20dcd8f",
     "releaseSqlUnchangedSinceUpgradeBaseline": true,
-    "cliHead": "3f4c2c34e6227ea856d2cba64340987a24a115b7",
+    "cliHead": "be395c7cfa008d45f6f1bb0a38bdd40d49f51cfa",
     "cliVersion": "1.3.4",
     "coreIntendedTarget": "release/2026.08",
     "cliIntendedTarget": "release/2026.08",
@@ -64,5 +64,19 @@
     "Every required GitHub check passes for the current PR head, including strict scanner execution evidence",
     "All reviewed importer/exporter/shared database suites execute without failures, errors, reruns or skips",
     "Retained-data release upgrades, case-folded schemas and actual installed CLI/browser/resource proofs match their source and WAR identities"
-  ]
+  ],
+  "completionBlockers": [
+    "Native case-management history/notes with every revision and clinical association",
+    "Native measurements, laboratory results and reports without import ownership",
+    "Selected-patient source catalogue scope and ordinary native prescription mappings",
+    "Remaining performance, permission seed and route proof findings",
+    "Required exact-head native, installed/browser/CLI, resource and scanner CI after the final changes"
+  ],
+  "latestFocusedReview": {
+    "cases": 656,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "scope": "Focused local verification; fresh MariaDB and final exact-head CI remain required"
+  }
 }

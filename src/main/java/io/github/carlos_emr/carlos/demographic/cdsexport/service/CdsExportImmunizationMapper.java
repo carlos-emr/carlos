@@ -34,6 +34,16 @@ import java.util.*;
  * unsupported native statuses require reconciliation; no first/last row silently wins.
  */
 public final class CdsExportImmunizationMapper {
+    private final java.time.ZoneId zone;
+
+    public CdsExportImmunizationMapper() {
+        this(null);
+    }
+
+    public CdsExportImmunizationMapper(java.time.ZoneId zone) {
+        this.zone = zone;
+    }
+
     private static final Map<String, String> DESTINATIONS =
             Map.ofEntries(
                     Map.entry("name", "ImmunizationName"),
@@ -197,7 +207,7 @@ public final class CdsExportImmunizationMapper {
             var formats = new ArrayList<String>();
             for (var fields : dateRows) formats.add(fields.raw("format"));
             date =
-                    new CdsExportNativePreventionDateMapper()
+                    new CdsExportNativePreventionDateMapper(zone)
                             .map(source.raw("prevention_date"), formats);
             source.set(
                     "prevention_date",

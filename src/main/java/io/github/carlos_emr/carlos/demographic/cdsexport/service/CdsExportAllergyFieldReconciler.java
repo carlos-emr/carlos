@@ -317,6 +317,11 @@ public final class CdsExportAllergyFieldReconciler {
         for (String column :
                 List.of("drugref_id", "atc", "HICL_SEQNO", "HIC_SEQNO", "AGCSP", "AGCCS"))
             fields.put(column, null);
+        if (source.atcResidual()) {
+            fields.put("regional_identifier", null);
+            fields.put("TYPECODE", "8");
+            fields.put("atc", source.code());
+        }
         fields.put("reaction_type", source.reactionType());
         fields.put("reaction", trim(source.reaction()));
         fields.put("life_stage", trim(source.lifeStage()));

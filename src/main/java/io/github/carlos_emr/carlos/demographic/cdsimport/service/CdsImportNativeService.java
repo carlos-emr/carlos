@@ -139,7 +139,8 @@ public class CdsImportNativeService {
                 validateNativeDate(value.start(), "StartDate");
                 validateNativeDate(value.recorded(), "RecordedDate");
             }
-            case "Immunizations" -> immunizations.validate(normalization.immunization(record, command));
+            case "Immunizations" ->
+                    immunizations.validate(normalization.immunization(record, command));
             case "Demographics" -> demographics.validate(record, command);
             case "Appointments" -> appointments.validate(record, command);
             case "CareElements", "NewCategory" -> {
@@ -308,6 +309,16 @@ public class CdsImportNativeService {
                                 CdsAllergyDto.class);
                 temporalNotice(run, epoch, unit, "StartDate", source.start());
                 temporalNotice(run, epoch, unit, "RecordedDate", source.recorded());
+                if (source.archived())
+                    notice(
+                            run,
+                            epoch,
+                            unit,
+                            "WARNING",
+                            "CDS_ALLERGY_ARCHIVED_SOURCE_MARKER",
+                            "ResidualInfo",
+                            "The source marked this allergy as archived. It will be imported as"
+                                    + " inactive; review the source allergy history.");
                 written = allergies.write(target, command.providerNo(), source);
             }
             case "Immunizations" -> {
@@ -406,14 +417,22 @@ public class CdsImportNativeService {
                 notice(run, epoch, unit, "WARNING", "CDS_CALENDAR_STORAGE_ANCHOR_NORMALIZED", path);
             if (date.offsetDateTime() != null && date.offsetDateTime().getNano() != 0
                     || date.localDateTime() != null && date.localDateTime().getNano() != 0)
-                notice(run, epoch, unit, "WARNING", "CDS_IMMUNIZATION_SUBSECOND_PRECISION_RETAINED_IN_SOURCE", path);
+                notice(
+                        run,
+                        epoch,
+                        unit,
+                        "WARNING",
+                        "CDS_IMMUNIZATION_SUBSECOND_PRECISION_RETAINED_IN_SOURCE",
+                        path);
         }
     }
 
     private static void validateNativeDate(CdsTemporalDto value, String field) {
-        try { value.dateStorageAnchor(); }
-        catch (io.github.carlos_emr.carlos.commn.model.CdsClinicalException invalid) {
-            throw new io.github.carlos_emr.carlos.commn.model.CdsClinicalException(invalid.code(), field);
+        try {
+            value.dateStorageAnchor();
+        } catch (io.github.carlos_emr.carlos.commn.model.CdsClinicalException invalid) {
+            throw new io.github.carlos_emr.carlos.commn.model.CdsClinicalException(
+                    invalid.code(), field);
         }
     }
 
@@ -424,6 +443,25 @@ public class CdsImportNativeService {
             String severity,
             String code,
             String path) {
+        notice(
+                run,
+                epoch,
+                unit,
+                severity,
+                code,
+                path,
+                "Source meaning retained; inspect the category-local original, normalized value and"
+                        + " precision");
+    }
+
+    private void notice(
+            String run,
+            long epoch,
+            CdsImportUnitDto unit,
+            String severity,
+            String code,
+            String path,
+            String message) {
         ledger.diagnostic(
                 run,
                 epoch,
@@ -433,8 +471,7 @@ public class CdsImportNativeService {
                 code,
                 "NORMALIZATION",
                 path,
-                "Source meaning retained; inspect the category-local original, normalized value and"
-                        + " precision",
+                message,
                 null,
                 false);
     }

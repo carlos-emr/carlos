@@ -38,11 +38,12 @@ class CdsExportAppointmentTimingMapperUnitTest {
         var result = mapper.map("2024-02-29", "09:00:30", "10:15:30", zone);
         assertThat(result.date().lexical()).isEqualTo("2024-02-29");
         assertThat(result.time()).isEqualTo("09:00:30");
-        assertThat(result.durationMinutes()).isEqualTo(75);
+        assertThat(result.durationMinutes()).isEqualTo(76);
     }
 
     @Test
-    void shouldVerifyWireTimeCarriesTheExactSourceOffset_withoutChangingItsLocalClock() throws Exception {
+    void shouldVerifyWireTimeCarriesTheExactSourceOffset_withoutChangingItsLocalClock()
+            throws Exception {
         var winter = mapper.map("2024-02-29", "09:00:30", "10:15:30", zone);
         assertThat(winter.time()).isEqualTo("09:00:30");
         assertThat(winter.wireTime()).isEqualTo("09:00:30-05:00");
@@ -53,7 +54,8 @@ class CdsExportAppointmentTimingMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyHistoricalSecondOffsetsAndOffsetsOutsideTheWireRangeNeedReview_forAppointmentTimingMapperContract() {
+    void
+            shouldVerifyHistoricalSecondOffsetsAndOffsetsOutsideTheWireRangeNeedReview_forAppointmentTimingMapperContract() {
         assertThatThrownBy(() -> mapper.map("1800-01-01", "09:00:00", "10:00:00", zone))
                 .hasMessage("CDS_EXPORT_APPOINTMENT_TIMING_REQUIRES_REVIEW");
         assertThatThrownBy(
@@ -67,11 +69,29 @@ class CdsExportAppointmentTimingMapperUnitTest {
     }
 
     @Test
+    void shouldDistinguishNativeInclusiveAndImportedExclusiveEnds_usingTheProvenOccurrenceOrigin()
+            throws Exception {
+        assertThat(mapper.map("2024-02-29", "09:00:00", "09:14:00", zone).durationMinutes())
+                .isEqualTo(15);
+        assertThat(mapper.map("2024-02-29", "09:00:00", "09:00:00", zone).durationMinutes())
+                .isEqualTo(1);
+        assertThat(
+                        mapper.map(
+                                        "2024-02-29",
+                                        "09:00:00",
+                                        "09:15:00",
+                                        zone,
+                                        CdsExportAppointmentTimingMapper.EndConvention
+                                                .IMPORTED_EXCLUSIVE)
+                                .durationMinutes())
+                .isEqualTo(15);
+    }
+
+    @Test
     void shouldRefuseOvernightZeroOrFractionalMinuteSlots_insteadOfChangingDatesOrRounding() {
         for (var span :
                 List.of(
                         List.of("23:59:30", "00:00:30"),
-                        List.of("09:00:00", "09:00:00"),
                         List.of("09:00:00", "09:00:30"),
                         List.of("09:00:00", "09:01:01"))) {
             assertThatThrownBy(() -> mapper.map("2024-02-29", span.get(0), span.get(1), zone))
@@ -80,7 +100,8 @@ class CdsExportAppointmentTimingMapperUnitTest {
     }
 
     @Test
-    void shouldRefuseAmbiguousMissingAndOffsetChangingDaylightSavingSlots_forAppointmentTimingMapperContract() {
+    void
+            shouldRefuseAmbiguousMissingAndOffsetChangingDaylightSavingSlots_forAppointmentTimingMapperContract() {
         for (var slot :
                 List.of(
                         List.of("2026-11-01", "01:15:00", "01:45:00"),

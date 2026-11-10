@@ -5255,7 +5255,7 @@
       "category": "AllergiesAndAdverseReactions",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:AllergiesAndAdverseReactions/cds:ResidualInfo/dt:DataElement/dt:Content",
-      "reviewGroup": "source-only-AllergiesAndAdverseReactions",
+      "reviewGroup": "allergy-native-residual-extensions",
       "variants": [
         {
           "choiceArms": [],
@@ -5335,7 +5335,7 @@
       "category": "AllergiesAndAdverseReactions",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:AllergiesAndAdverseReactions/cds:ResidualInfo/dt:DataElement/dt:DataType",
-      "reviewGroup": "source-only-AllergiesAndAdverseReactions",
+      "reviewGroup": "allergy-native-residual-extensions",
       "variants": [
         {
           "choiceArms": [],
@@ -5415,7 +5415,7 @@
       "category": "AllergiesAndAdverseReactions",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:AllergiesAndAdverseReactions/cds:ResidualInfo/dt:DataElement/dt:Name",
-      "reviewGroup": "source-only-AllergiesAndAdverseReactions",
+      "reviewGroup": "allergy-native-residual-extensions",
       "variants": [
         {
           "choiceArms": [],
@@ -38027,7 +38027,7 @@
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java"
         ],
-        "normalization": "Literal AL/AR and independent DR/ND/UK retained; NO severity maps native No Reaction; no fabricated drugref/class. Year/month precision metadata mandatory, unknown dates null; timestamps into DATE lose clock only in native projection with exact source retained. Native DATE projection must round-trip its exact civil day through the actual legacy calendar; a cutover gap is preflight review rather than normalization into another day.",
+        "normalization": "Literal AL/AR and independent DR/ND/UK retained; NO severity maps native No Reaction; no fabricated drugref/class. Year/month precision metadata mandatory, unknown dates null; timestamps into DATE lose clock only in native projection with exact source retained. Native DATE projection must round-trip its exact civil day through the actual legacy calendar; a cutover gap is preflight review rather than normalization into another day. Standard allergy CodeType remains DIN-only on export. Explicit native ATC classes use a separate versioned residual marker and never masquerade as DIN; old frozen prepared native projections remain unchanged.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 9 (AllergiesAndAdverseReactions)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -38053,6 +38053,43 @@
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTemporalUnitTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalPersisterUnitTest.java#shouldRefuseUnrepresentableNativeDatesInCompletePreflight_beforeAnyClinicalDaoWrite",
           "src/test/java/io/github/carlos_emr/carlos/webserv/rest/DemographicServiceUnitTest.java"
+        ],
+        "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
+      },
+      "allergy-native-residual-extensions": {
+        "destination": "Exact recognized CARLOS allergy residual markers project archived, age_of_onset, onset_of_reaction and ATC class identity. Unrecognized residual names remain complete source-only values.",
+        "disposition": "native-and-source",
+        "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
+        "implementation": [
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeExtensionContract.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPreparedAllergyDefaults.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsAllergyDto.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAllergyResidualReader.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAllergyPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java"
+        ],
+        "normalization": "Only exact versioned names with one valid Name/DataType/Content group are materialized. Archived is an explicit boolean and produces a durable source-marker warning; age and onset retain validated native meaning. CARLOS.Allergy.Atc.v1 carries one valid WHO ATC hierarchy code in allergies.atc with TYPECODE 8, never a DIN. A simultaneous standard Code is an explicit conflict. Malformed, duplicate and conflicting known markers require review. The optional atcResidual preparation flag defaults false after original seal verification and is omitted when false, preserving legacy sealed bytes and regional-identifier projections.",
+        "normativeBasis": [
+          "EMR Data Migration Implementation Guide v1.1 section 9 (AllergiesAndAdverseReactions)",
+          "EMR Data Migration Requirements v1.1 DP02.01",
+          "Pinned XML Schema declaration/facets in generated row",
+          "EMR Data Migration Implementation Guide v1.1 sections 9 (allergy CodeType DIN only) and 18.1.1 (nonstandard residual concepts)"
+        ],
+        "original": "Immutable accepted XML bytes are retained. Each original XML character value/attribute (XML line-end/entity processing already applied) or decoded binary is separately addressed by indexed XPath, namespace, ordinal and type in cds_import_field; large values use hash-bound spool offsets. Logical whitespace/corrections are separate. Source category view and original-value download remain protected.",
+        "reader": [
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalSourceService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/ViewCdsSourceFields2Action.java",
+          "src/main/webapp/WEB-INF/jsp/demographic/cdsSourceFields.jsp",
+          "src/main/java/io/github/carlos_emr/carlos/webserv/rest/DemographicService.java"
+        ],
+        "testScope": "Named tests cover representative projections, refusal and reader semantics. The separate all-choice corpus proves every listed structural path reaches the real schema validator/parser; it does not claim a native round-trip assertion per leaf.",
+        "tests": [
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAllergyArchiveStateUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAllergyMapperUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAllergyFieldReconcilerUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativePreparationServiceUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedPreparationReaderUnitTest.java"
         ],
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
       },
@@ -39783,7 +39820,7 @@
       }
     },
     "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described. On 2026-11-05, Codex independently reviewed the FrmSetupForm2Action reader update for PR #5602: the ongoing-concerns prefill changed, while the reviewed medication dose, pharmacy-instruction and timing mappings and their getDrugList/medicationLine reader behavior remain unchanged.",
-    "sha256": "e3e7358a25fff6360c4fc1c6b279c387f92cf55d8579bb8a77b6b66dd2ed823a"
+    "sha256": "13d09f31d80541789928182bcaa37537cbb395dcb09eb65c739bad75a9a9b9c2"
   },
   "root": "cds:OmdCds",
   "schemas": [

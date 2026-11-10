@@ -45,6 +45,12 @@ public final class CdsExportAllergyXmlWriter {
                 CdsNativeExtensionContract.ALLERGY_ARCHIVED,
                 CdsNativeExtensionContract.BOOLEAN_TYPE,
                 Boolean.toString(allergy.archived()));
+        if ("ATC".equals(allergy.codeType()))
+            residual(
+                    xml,
+                    CdsNativeExtensionContract.ALLERGY_ATC,
+                    CdsNativeExtensionContract.STRING_TYPE,
+                    allergy.codeValue());
         if (allergy.ageOfOnset() != null) {
             String age = allergy.ageOfOnset();
             if (age.isEmpty()
@@ -73,7 +79,7 @@ public final class CdsExportAllergyXmlWriter {
         xml.end();
         optional(xml, "OffendingAgentDescription", allergy.description());
         optional(xml, "PropertyOfOffendingAgent", allergy.property());
-        if (allergy.codeValue() != null) {
+        if (allergy.codeValue() != null && "DIN".equals(allergy.codeType())) {
             xml.start("cds", "Code");
             xml.element("cds_dt", "CodeType", allergy.codeType());
             xml.element("cds_dt", "CodeValue", allergy.codeValue());
@@ -91,6 +97,11 @@ public final class CdsExportAllergyXmlWriter {
     /** Same capacity/lexical gate for direct and retained assembly. */
     static void validate(CdsExportAllergyDto allergy) throws IOException {
         Objects.requireNonNull(allergy);
+        if (allergy.codeType() != null
+                && !("DIN".equals(allergy.codeType())
+                        || "ATC".equals(allergy.codeType())
+                                && CdsNativeExtensionContract.validAllergyAtc(allergy.codeValue())))
+            throw new IOException("CDS_EXPORT_ALLERGY_CODE_AUTHORITY_REQUIRES_REVIEW");
         if ((allergy.description() == null || allergy.description().isBlank())
                 && allergy.codeValue() == null) {
             throw new IOException("CDS_EXPORT_ALLERGY_AGENT_REQUIRES_REVIEW");

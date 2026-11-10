@@ -57,7 +57,9 @@ class CdsExportDemographicNamesReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyUnchangedNamesKeepEveryOriginalNamePartAndAlternateFamilyName_forDemographicNamesReconcilerContract() throws Exception {
+    void
+            shouldVerifyUnchangedNamesKeepEveryOriginalNamePartAndAlternateFamilyName_forDemographicNamesReconcilerContract()
+                    throws Exception {
         name("OtherName[2]", "Alternate Family", "FAMC");
         var result = reconcile();
         assertThat(result.representable()).isTrue();
@@ -71,7 +73,9 @@ class CdsExportDemographicNamesReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyChangingOnlyOneNameDoesNotFlattenOtherNameParts_forDemographicNamesReconcilerContract() throws Exception {
+    void
+            shouldVerifyChangingOnlyOneNameDoesNotFlattenOtherNameParts_forDemographicNamesReconcilerContract()
+                    throws Exception {
         name("OtherName[2]", "Alternate Family", "FAMC");
         fixture.currentField("first_name", "Edited😀");
         var result = reconcile();
@@ -83,7 +87,8 @@ class CdsExportDemographicNamesReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyOneMiddlePartCanBeChangedExactly_forDemographicNamesReconcilerContract() throws Exception {
+    void shouldVerifyOneMiddlePartCanBeChangedExactly_forDemographicNamesReconcilerContract()
+            throws Exception {
         fixture.currentField("middleNames", "New middle");
         var result = reconcile();
         assertThat(result.representable()).isTrue();
@@ -91,8 +96,9 @@ class CdsExportDemographicNamesReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyAJoinedMiddleNameEditRequiresReviewRatherThanBeingCopiedIntoEveryOriginalPart_forDemographicNamesReconcilerContract()
-            throws Exception {
+    void
+            shouldVerifyAJoinedMiddleNameEditRequiresReviewRatherThanBeingCopiedIntoEveryOriginalPart_forDemographicNamesReconcilerContract()
+                    throws Exception {
         name("OtherName[1]", "Source", "GIV");
         name("OtherName[2]", "Middle", "GIV");
         fixture.currentField("middleNames", "Later edit");
@@ -116,8 +122,20 @@ class CdsExportDemographicNamesReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyAnUnprojectedOriginalMiddleNameIsPreservedAndCannotBeOverwritten_byALaterSingleValue()
-            throws Exception {
+    void shouldPreserveUnprojectedGivenNames_whenNativeNullIsSavedAsEmpty() throws Exception {
+        fixture.preparedScalar(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR, null);
+        fixture.oldField("middleNames", null);
+        fixture.currentField("middleNames", "");
+        var result = reconcile();
+        assertThat(result.representable()).isFalse();
+        assertThatThrownBy(result::changes)
+                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_NAMES_REQUIRES_REVIEW");
+    }
+
+    @Test
+    void
+            shouldVerifyAnUnprojectedOriginalMiddleNameIsPreservedAndCannotBeOverwritten_byALaterSingleValue()
+                    throws Exception {
         fixture.preparedScalar(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR, null);
         fixture.oldField("middleNames", null);
         assertThat(reconcile().changes()).isEmpty();
@@ -126,7 +144,8 @@ class CdsExportDemographicNamesReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyANewMiddlePartIsAppended_afterAnExistingAlternateFamilyName() throws Exception {
+    void shouldVerifyANewMiddlePartIsAppended_afterAnExistingAlternateFamilyName()
+            throws Exception {
         removeName("OtherName[1]");
         name("OtherName[1]", "Alternate", "FAMC");
         fixture.preparedScalar(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR, null);
@@ -140,7 +159,9 @@ class CdsExportDemographicNamesReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyAnAbsentPrefixCanBeAddedAndAnExistingPrefixCanBeCleared_forDemographicNamesReconcilerContract() throws Exception {
+    void
+            shouldVerifyAnAbsentPrefixCanBeAddedAndAnExistingPrefixCanBeCleared_forDemographicNamesReconcilerContract()
+                    throws Exception {
         source.remove("Names[1]/NamePrefix[1]");
         fixture.preparedScalar("Names/NamePrefix", null);
         fixture.oldField("title", null);
@@ -152,7 +173,9 @@ class CdsExportDemographicNamesReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyInvalidRequiredNamesAndUnrepresentablePrefixesHaveNoSourceFallback_forDemographicNamesReconcilerContract() throws Exception {
+    void
+            shouldVerifyInvalidRequiredNamesAndUnrepresentablePrefixesHaveNoSourceFallback_forDemographicNamesReconcilerContract()
+                    throws Exception {
         for (var change :
                 List.of(
                         Map.entry("first_name", ""),
@@ -177,7 +200,9 @@ class CdsExportDemographicNamesReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyASubstitutedOriginalNameAndAMissingLegalPurposeCannotQualifyNames_forDemographicNamesReconcilerContract() throws Exception {
+    void
+            shouldVerifyASubstitutedOriginalNameAndAMissingLegalPurposeCannotQualifyNames_forDemographicNamesReconcilerContract()
+                    throws Exception {
         source.put("Names[1]/LegalName[1]/FirstName[1]/Part[1]", "Other");
         assertThat(reconcile().representable()).isFalse();
         setup();
@@ -186,7 +211,9 @@ class CdsExportDemographicNamesReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyExpiredValuesAndCancellationCannotProduceNameChanges_forDemographicNamesReconcilerContract() throws Exception {
+    void
+            shouldVerifyExpiredValuesAndCancellationCannotProduceNameChanges_forDemographicNamesReconcilerContract()
+                    throws Exception {
         active = false;
         assertThatThrownBy(this::reconcile).hasMessage("EXPIRED_VALUES");
         active = true;

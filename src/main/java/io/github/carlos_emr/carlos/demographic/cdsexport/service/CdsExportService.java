@@ -74,7 +74,8 @@ public class CdsExportService {
                         thread.setUncaughtExceptionHandler(
                                 (failed, error) ->
                                         LOG.error(
-                                                "CDS export worker stopped: CDS_EXPORT_WORKER_FATAL"));
+                                                "CDS export worker stopped:"
+                                                        + " CDS_EXPORT_WORKER_FATAL"));
                         return thread;
                     });
     private volatile boolean closed;
@@ -95,6 +96,17 @@ public class CdsExportService {
 
     /** Web startup calls this only after publishing the normal Spring bridge. Dedicated CLI contexts disable both dispatchers. */
     public synchronized void start() {
+        try {
+            startDispatcher();
+        } catch (IllegalStateException malformed) {
+            if (!"CDS_EXPORT_CONFIGURATION_INVALID".equals(malformed.getMessage())) throw malformed;
+            LOG.error(
+                    "CDS_EXPORT_STARTUP_DISABLED code=CDS_EXPORT_CONFIGURATION_INVALID {}",
+                    io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(malformed));
+        }
+    }
+
+    private void startDispatcher() {
         if (closed
                 || dispatcher != null
                 || !configuration.workerEnabled()
@@ -189,18 +201,56 @@ public class CdsExportService {
 
     public CdsExportJobDto observe(LoggedInInfo viewer, String runId) {
         authorize(viewer, runId);
-        return ledger.status(runId);
+        return runtimeChecked(ledger.status(runId));
     }
 
     public CdsExportJobDto observeDelegated(
             String verifiedOperator, String provider, String runId) {
         authorizeDelegated(verifiedOperator, provider, runId);
-        return ledger.status(runId);
+        return runtimeChecked(ledger.status(runId));
     }
 
     public List<CdsExportJobDto> history(LoggedInInfo viewer, String after, int limit) {
         var actor = access.operatorSession(viewer);
-        return ledger.history(actor.operatorKey(), after, limit);
+        return ledger.history(actor.operatorKey(), after, limit).stream()
+                .map(this::runtimeChecked)
+                .toList();
+    }
+
+    /** A retained package requires its validated implementation; READY alone is not availability. */
+    private CdsExportJobDto runtimeChecked(CdsExportJobDto row) {
+        if (row.state()
+                        != io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportState
+                                .READY
+                || !row.artifactAvailable()) return row;
+        String code = null;
+        try {
+            var intent = ledger.document(row.id());
+            var engine = engines.find(intent.command().profile());
+            if (engine == null
+                    || !intent.compatibilityDigest().equals(engine.compatibilityDigest()))
+                code = "CDS_EXPORT_RUNTIME_CHANGED";
+        } catch (IllegalStateException malformed) {
+            if (!Set.of("CDS_EXPORT_JOB_DOCUMENT_INVALID", "CDS_EXPORT_JOB_BINDING_INVALID")
+                    .contains(malformed.getMessage() == null ? "" : malformed.getMessage()))
+                throw malformed;
+            code = malformed.getMessage();
+        }
+        if (code == null) return row;
+        return new CdsExportJobDto(
+                row.id(),
+                row.state(),
+                row.revision(),
+                row.totalPatients(),
+                row.processedPatients(),
+                row.blockedPatients(),
+                row.cancelRequested(),
+                row.workerOwned(),
+                row.epoch(),
+                code,
+                row.createdAt(),
+                row.updatedAt(),
+                false);
     }
 
     public CdsExportJobDto submissionDelegated(
@@ -304,13 +354,38 @@ public class CdsExportService {
     public io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDiagnosticDto report(
             LoggedInInfo viewer, String runId) {
         authorize(viewer, runId);
-        return ledger.diagnostic(runId);
+        return currentDiagnostic(runId);
     }
 
     public io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDiagnosticDto
             reportDelegated(String verifiedOperator, String provider, String runId) {
         authorizeDelegated(verifiedOperator, provider, runId);
-        return ledger.diagnostic(runId);
+        return currentDiagnostic(runId);
+    }
+
+    private io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDiagnosticDto
+            currentDiagnostic(String runId) {
+        var report = ledger.diagnostic(runId);
+        if (!report.artifactAvailable() || !"READY".equals(report.state())) return report;
+        var row = runtimeChecked(ledger.status(runId));
+        if (row.artifactAvailable()) return report;
+        return new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDiagnosticDto(
+                report.apiVersion(),
+                report.event(),
+                row.id(),
+                row.state().name(),
+                row.epoch(),
+                row.totalPatients(),
+                row.processedPatients(),
+                row.blockedPatients(),
+                row.cancelRequested(),
+                row.complete(),
+                row.artifactAvailable(),
+                row.safeCode(),
+                row.createdAt().toString(),
+                row.updatedAt().toString(),
+                report.eventsTruncated(),
+                report.recentEvents());
     }
 
     /** Retrieval reconstructs the observer in the exact accepted clinical provider/facility scope. */
@@ -340,8 +415,11 @@ public class CdsExportService {
                             if (failed instanceof CdsExportControlOutcomeUnknownException)
                                 supervisorStopped.set(true);
                             LOG.error(
-                                    "CDS export attempt stopped for {}: CDS_EXPORT_EXECUTION_FAILED",
-                                    runId);
+                                    "CDS export attempt stopped for {}: CDS_EXPORT_EXECUTION_FAILED"
+                                            + " {}",
+                                    runId,
+                                    io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(
+                                            failed));
                         } catch (Error failed) {
                             supervisorStopped.set(true);
                             throw failed;
@@ -362,7 +440,9 @@ public class CdsExportService {
             if (!configuration.enabled()) return;
             for (String runId : ledger.pending(16)) schedule(runId);
         } catch (RuntimeException failed) {
-            LOG.error("CDS export discovery unavailable: CDS_EXPORT_DISCOVERY_FAILED");
+            LOG.error(
+                    "CDS export discovery unavailable: CDS_EXPORT_DISCOVERY_FAILED {}",
+                    io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(failed));
         } catch (Error failed) {
             supervisorStopped.set(true);
             throw failed;

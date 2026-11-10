@@ -36,6 +36,16 @@ import java.util.*;
  * remain review cases. Unknown native/source fields still need their independent carriers.
  */
 public final class CdsExportImmunizationFieldReconciler {
+    private final java.time.ZoneId zone;
+
+    public CdsExportImmunizationFieldReconciler() {
+        this(null);
+    }
+
+    public CdsExportImmunizationFieldReconciler(java.time.ZoneId zone) {
+        this.zone = zone;
+    }
+
     public record Result(
             String sourceManifestSha256,
             String unitAddress,
@@ -132,7 +142,7 @@ public final class CdsExportImmunizationFieldReconciler {
         var prior =
                 verifyReferenceBaselines(patient, nativeId, references, current, actual, baselines);
         var candidate =
-                new CdsExportImmunizationMapper()
+                new CdsExportImmunizationMapper(zone)
                         .candidate(patient, parent, extensions, precision, definitions);
         var fields = new LinkedHashMap<>(candidate.fields());
         var old = new CdsExportPreparedImmunizationMapper().map(prepared);

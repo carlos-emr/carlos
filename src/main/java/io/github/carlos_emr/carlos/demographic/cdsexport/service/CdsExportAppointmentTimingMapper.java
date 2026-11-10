@@ -32,8 +32,20 @@ import java.time.DateTimeException;
 
 /** No guessed overnight date, rounded minutes, invented offset or ambiguous daylight-saving interpretation. */
 public final class CdsExportAppointmentTimingMapper {
+    public enum EndConvention {
+        NATIVE_INCLUSIVE,
+        IMPORTED_EXCLUSIVE
+    }
+
     public CdsExportAppointmentTimingDto map(
             String date, String start, String end, ZoneId clinicalZone) throws IOException {
+        return map(date, start, end, clinicalZone, EndConvention.NATIVE_INCLUSIVE);
+    }
+
+    public CdsExportAppointmentTimingDto map(
+            String date, String start, String end, ZoneId clinicalZone, EndConvention convention)
+            throws IOException {
+        java.util.Objects.requireNonNull(convention);
         if (clinicalZone == null)
             throw new IllegalArgumentException("CDS_EXPORT_CLINICAL_ZONE_REQUIRED");
         try {
@@ -47,8 +59,14 @@ public final class CdsExportAppointmentTimingMapper {
             var from = LocalTime.parse(start);
             var to = LocalTime.parse(end);
             long seconds = Duration.between(from, to).getSeconds();
-            if (day.getYear() < 1 || day.getYear() > 9999 || seconds < 60 || seconds % 60 != 0)
-                review();
+            // The native scheduler stores start + duration - one minute. Existing
+            // imported receipts prove the older exclusive-end representation instead.
+            long minutes = seconds / 60 + (convention == EndConvention.NATIVE_INCLUSIVE ? 1 : 0);
+            if (day.getYear() < 1
+                    || day.getYear() > 9999
+                    || seconds < 0
+                    || minutes < 1
+                    || seconds % 60 != 0) review();
             var rules = clinicalZone.getRules();
             var before = rules.getValidOffsets(day.atTime(from));
             var after = rules.getValidOffsets(day.atTime(to));
@@ -61,7 +79,7 @@ public final class CdsExportAppointmentTimingMapper {
             return new CdsExportAppointmentTimingDto(
                     new CdsExportDateDto(CdsExportDateDto.Precision.DATE, date),
                     start,
-                    Math.toIntExact(seconds / 60),
+                    Math.toIntExact(minutes),
                     offset);
         } catch (DateTimeException | ArithmeticException invalid) {
             review();
@@ -70,6 +88,7 @@ public final class CdsExportAppointmentTimingMapper {
     }
 
     private static void review() throws IOException {
-        throw new IOException("CDS_EXPORT_APPOINTMENT_TIMING_REQUIRES_REVIEW");
+        throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                .CdsExportMappingReviewException("CDS_EXPORT_APPOINTMENT_TIMING_REQUIRES_REVIEW");
     }
 }
