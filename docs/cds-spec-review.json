@@ -2542,6 +2542,61 @@
       ],
       "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
     },
+    "history-native-residual-extensions": {
+      "destination": "Exact recognized CARLOS CPP residual markers project archive state to casemgmt_note.archived and authored PersonalHistory narrative to casemgmt_note.note. Unrecognized residual names remain complete protected source values.",
+      "disposition": "native-and-source",
+      "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
+      "implementation": [
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeExtensionContract.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPreparedHistoryDefaults.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsHistoryNativeDto.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryResidualReader.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativePreparationService.java"
+      ],
+      "normalization": "Only CARLOS.History.Archived.v1 (boolean) and CARLOS.History.PersonalNarrative.v1 (string) are interpreted. One complete Name/DataType/Content group is required per known marker; malformed, duplicated, conflicting or wrong-category markers block projection. The archive carrier is limited to six CPP categories; the authored narrative carrier is limited to PersonalHistory. Missing archive defaults false only after verification of the original preparation seal and never changes its stored bytes. Structured-only PersonalHistory keeps its explicit source-view reference; large authored narratives retain complete source text with a bounded native reference and durable warning. Imported archive state produces an explicit vendor-context warning; source participants/reviewers never become a native signature.",
+      "normativeBasis": [
+        "EMR Data Migration Implementation Guide v1.1 sections 4-8, 16 and 18.1.1 (CPP and nonstandard residual concepts)",
+        "EMR Data Migration Requirements v1.1 DP02.01",
+        "Pinned XML Schema declaration/facets in generated row"
+      ],
+      "original": "Immutable accepted XML bytes are retained. Each original XML character value/attribute (XML line-end/entity processing already applied) or decoded binary is separately addressed by indexed XPath, namespace, ordinal and type in cds_import_field; large values use hash-bound spool offsets. Logical whitespace/corrections are separate. Source category view and original-value download remain protected.",
+      "paths": [
+        "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:ResidualInfo/dt:DataElement/dt:Content",
+        "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:ResidualInfo/dt:DataElement/dt:DataType",
+        "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:ResidualInfo/dt:DataElement/dt:Name",
+        "/cds:OmdCds/cds:PatientRecord/cds:FamilyHistory/cds:ResidualInfo/dt:DataElement/dt:Content",
+        "/cds:OmdCds/cds:PatientRecord/cds:FamilyHistory/cds:ResidualInfo/dt:DataElement/dt:DataType",
+        "/cds:OmdCds/cds:PatientRecord/cds:FamilyHistory/cds:ResidualInfo/dt:DataElement/dt:Name",
+        "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ResidualInfo/dt:DataElement/dt:Content",
+        "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ResidualInfo/dt:DataElement/dt:DataType",
+        "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ResidualInfo/dt:DataElement/dt:Name",
+        "/cds:OmdCds/cds:PatientRecord/cds:PersonalHistory/cds:ResidualInfo/dt:DataElement/dt:Content",
+        "/cds:OmdCds/cds:PatientRecord/cds:PersonalHistory/cds:ResidualInfo/dt:DataElement/dt:DataType",
+        "/cds:OmdCds/cds:PatientRecord/cds:PersonalHistory/cds:ResidualInfo/dt:DataElement/dt:Name",
+        "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:ResidualInfo/dt:DataElement/dt:Content",
+        "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:ResidualInfo/dt:DataElement/dt:DataType",
+        "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:ResidualInfo/dt:DataElement/dt:Name",
+        "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:ResidualInfo/dt:DataElement/dt:Content",
+        "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:ResidualInfo/dt:DataElement/dt:DataType",
+        "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:ResidualInfo/dt:DataElement/dt:Name"
+      ],
+      "reader": [
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalSourceService.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/ViewCdsSourceFields2Action.java",
+        "src/main/webapp/WEB-INF/jsp/demographic/cdsSourceFields.jsp",
+        "src/main/java/io/github/carlos_emr/carlos/webserv/rest/DemographicService.java"
+      ],
+      "testScope": "Named tests cover representative projections, refusal and reader semantics. The separate all-choice corpus proves every listed structural path reaches the real schema validator/parser; it does not claim a native round-trip assertion per leaf.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryResidualReaderUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPreparedHistoryDefaultsUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativePreparationServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeHistoryMapperUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportHistoryRetainedSourceUnitTest.java"
+      ],
+      "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
+    },
     "history-observation": {
       "destination": "CaseManagementNote.observation_date for a representable exact date/timestamp; casemgmt_note_ext cdsDatePrecision/cdsDateOriginal/cdsDateField preserve source meaning.",
       "disposition": "native-and-source",
@@ -3343,10 +3398,7 @@
         "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:EndDate/dt:FullDate",
         "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:EndDate/dt:YearMonth",
         "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:EndDate/dt:YearOnly",
-        "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:Notes",
-        "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:ResidualInfo/dt:DataElement/dt:Content",
-        "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:ResidualInfo/dt:DataElement/dt:DataType",
-        "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:ResidualInfo/dt:DataElement/dt:Name"
+        "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:Notes"
       ],
       "reader": [
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalSourceService.java",
@@ -3506,9 +3558,6 @@
         "/cds:OmdCds/cds:PatientRecord/cds:FamilyHistory/cds:LifeStage",
         "/cds:OmdCds/cds:PatientRecord/cds:FamilyHistory/cds:Notes",
         "/cds:OmdCds/cds:PatientRecord/cds:FamilyHistory/cds:Relationship",
-        "/cds:OmdCds/cds:PatientRecord/cds:FamilyHistory/cds:ResidualInfo/dt:DataElement/dt:Content",
-        "/cds:OmdCds/cds:PatientRecord/cds:FamilyHistory/cds:ResidualInfo/dt:DataElement/dt:DataType",
-        "/cds:OmdCds/cds:PatientRecord/cds:FamilyHistory/cds:ResidualInfo/dt:DataElement/dt:Name",
         "/cds:OmdCds/cds:PatientRecord/cds:FamilyHistory/cds:Treatment"
       ],
       "reader": [
@@ -3692,47 +3741,9 @@
         "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:LifeStage",
         "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:Notes",
         "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ProblemStatus",
-        "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ResidualInfo/dt:DataElement/dt:Content",
-        "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ResidualInfo/dt:DataElement/dt:DataType",
-        "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ResidualInfo/dt:DataElement/dt:Name",
         "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ResolvedDate/dt:FullDate",
         "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ResolvedDate/dt:YearMonth",
         "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ResolvedDate/dt:YearOnly"
-      ],
-      "reader": [
-        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalSourceService.java",
-        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/ViewCdsSourceFields2Action.java",
-        "src/main/webapp/WEB-INF/jsp/demographic/cdsSourceFields.jsp",
-        "src/main/java/io/github/carlos_emr/carlos/webserv/rest/DemographicService.java"
-      ],
-      "testScope": "Named tests cover representative projections, refusal and reader semantics. The separate all-choice corpus proves every listed structural path reaches the real schema validator/parser; it does not claim a native round-trip assertion per leaf.",
-      "tests": [
-        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/CdsXmlParserUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/assembler/CdsSourceFieldsViewModelAssemblerUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/DemographicServiceUnitTest.java"
-      ],
-      "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
-    },
-    "source-only-PersonalHistory": {
-      "destination": "cds_import_field original/logical value or protected content reference, in its source category; no claimed discrete native destination for these fields.",
-      "disposition": "source-only",
-      "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
-      "implementation": [
-        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java",
-        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java"
-      ],
-      "normalization": "Schema-defined logical whitespace only (plus separately audited reviewed scalar overlay when applicable); original values retain exact path, namespace, type, repetition and precision. Codes, residual Name/DataType/Content, source reviewer/created clocks and unsupported structured metadata are not reinterpreted as successful generic Notes. Category anchors can exist without projecting these facts.",
-      "normativeBasis": [
-        "EMR Data Migration Implementation Guide v1.1 section 4 (PersonalHistory)",
-        "EMR Data Migration Requirements v1.1 DP02.01",
-        "Pinned XML Schema declaration/facets in generated row"
-      ],
-      "original": "Immutable accepted XML bytes are retained. Each original XML character value/attribute (XML line-end/entity processing already applied) or decoded binary is separately addressed by indexed XPath, namespace, ordinal and type in cds_import_field; large values use hash-bound spool offsets. Logical whitespace/corrections are separate. Source category view and original-value download remain protected.",
-      "paths": [
-        "/cds:OmdCds/cds:PatientRecord/cds:PersonalHistory/cds:ResidualInfo/dt:DataElement/dt:Content",
-        "/cds:OmdCds/cds:PatientRecord/cds:PersonalHistory/cds:ResidualInfo/dt:DataElement/dt:DataType",
-        "/cds:OmdCds/cds:PatientRecord/cds:PersonalHistory/cds:ResidualInfo/dt:DataElement/dt:Name"
       ],
       "reader": [
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalSourceService.java",
@@ -3772,9 +3783,6 @@
         "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:Notes",
         "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:ProblemDescription",
         "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:ProblemStatus",
-        "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:ResidualInfo/dt:DataElement/dt:Content",
-        "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:ResidualInfo/dt:DataElement/dt:DataType",
-        "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:ResidualInfo/dt:DataElement/dt:Name",
         "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:ResolutionDate/dt:FullDate",
         "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:ResolutionDate/dt:YearMonth",
         "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:ResolutionDate/dt:YearOnly"
@@ -3864,10 +3872,7 @@
         "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:EndDate/dt:YearOnly",
         "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:ExposureDetails",
         "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:LifeStage",
-        "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:Notes",
-        "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:ResidualInfo/dt:DataElement/dt:Content",
-        "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:ResidualInfo/dt:DataElement/dt:DataType",
-        "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:ResidualInfo/dt:DataElement/dt:Name"
+        "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:Notes"
       ],
       "reader": [
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalSourceService.java",
@@ -3913,11 +3918,12 @@
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java": "7361c58b4e786c59f47a9e171e793ffb22b5b295bc04cde259641818178b5d24",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/PharmacyInfo.java": "de6f091818d30531a93ec6d08e97c84dab5860619c45c10d6986db9440f16bc5",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/ProfessionalContact.java": "f20b8173073ba12f3da1b9dc2bc63708d5a2a9c2d45adf71c04396b85de8c5f1",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeExtensionContract.java": "2fa9cc704d190f025d3cf2e8555b2d638c974afc1f8ec0b4282c2625dd8887ef",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeExtensionContract.java": "0e2c50b2eb5eecfa821c27a48d114196d2a88c812c09636dd8b07c775613f124",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPreparedAllergyDefaults.java": "21d0efa50e05aadfb9d823c026e3f9f663aad9465b5be2b100a1523583cd7477",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPreparedHistoryDefaults.java": "acf6c0755d5e794e3ed2576afb82ff7f5985747781c91a1b2a2bd3ea175d7c48",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsAllergyDto.java": "9f081a1e16b6cab9d4eb5b8c924046c95e84584bcd018720508706ef6476f66f",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsDemographicNativeDto.java": "3f903623636da5d822c5d539167f4efbb10220f0c8ef69727e698460c3e5e911",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsHistoryNativeDto.java": "b72b9f8196864707d0477220e5b86392d25559c2fef70159ddc862111f6f14bc",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsHistoryNativeDto.java": "e193e07f9a4737553b8cdbcdcb8aeb082deb054382e735b1bf741f89e47cd6a0",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java": "dd9962f4871fac91c36dd829bbeef83c70cde778b1eafb9ed390a327bfe72c3b",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAllergyPersister.java": "1ad9181f1c0923c45bc1717a3c5590ae5e72621d61587a1a966bc822dab699c1",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAllergyResidualReader.java": "b9e23bede1f31ce8d2997cdcdac96f51933447f199b235dff593fdb9c94851ea",
@@ -3934,13 +3940,15 @@
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java": "dab512ddfbc7b68986b7f26ff5b904897b716bffbb4268700824436e94f09648",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsService.java": "9107ad8cde3b8ff8bded2f40c6b0afadba9f8ca68b258ee709ec070fc08e62f5",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDocumentPublicationService.java": "a92b47bc176b3d6aa218ef7a14d2c1922418a45e26376c370409fe27097ca939",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java": "80a19468fa6a0ed3bbf364cf7878877af605490076f9c8ca38e0f78186903996",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java": "24853264767b3da149b6b78c9db23a4f29f425db407b169b3c4e6f48ea125954",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryResidualReader.java": "c20859436e8b18bd32bb6cdc1d0af83463ae177e67e6e954dee7d42625c52275",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImmunizationPersister.java": "9a6adf440305e52b2a93ab47bcbbb3696c3f8a3ecf74bc4fbf8bbf664771b076",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java": "42721f4156fd018be1ca6e5a6828175435b369b2adce58bf71ecc4a791d7aa3e",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java": "ec505f1291eeb7b675743977b40d59e41e745784b1c0aad66057e864b7224b64",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryImportService.java": "30b5b490ad5ccd73e292f9468e93e4c4ddbdb29c394c3d11097cdebe1ec67694",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryReadService.java": "fbb895c9131095cbe85c7a4b065e130a38dc17e178e01483843a0e163260a458",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java": "6e6ccac1b52f180df5af0a07bd8a572767f7f6531db579f99f9801d3f442e4f9",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativePreparationService.java": "0cfea8c0eee5101673b876586583602a26985524d995340d6397e6d751975578",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsPatientIdentityResolver.java": "15b0f2b4182eda3f4d4f6ac62d40cc3d0a756b208619eb1f03e1f64acd2d2eab",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsPreflightIdentityService.java": "887f4fd8eaceef00b0d4dd773458b80f1788b7cc568f8a0ade3e5bbf5d219f13",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsProviderResolver.java": "ae26b6565baa3455e3006fa5a45824f68cb03c4f4a7ff6a0f77854f1ed8f882e",
@@ -3964,5 +3972,5 @@
     "EMR_Data_Migration_Schema.xsd": "2bffde70ae84137624db888611e8a3b919e868789b726ee012d39513ce846726",
     "EMR_Data_Migration_Schema_DT.xsd": "e999fafd945d13a7a2866482e06029cea86b902ce7f30139377a3600c3d9ce31"
   },
-  "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described. On 2026-11-05, Codex independently reviewed the FrmSetupForm2Action reader update for PR #5602: the ongoing-concerns prefill changed, while the reviewed medication dose, pharmacy-instruction and timing mappings and their getDrugList/medicationLine reader behavior remain unchanged."
+  "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described. On 2026-11-05, Codex independently reviewed the FrmSetupForm2Action reader update for PR #5602: the ongoing-concerns prefill changed, while the reviewed medication dose, pharmacy-instruction and timing mappings and their getDrugList/medicationLine reader behavior remain unchanged. On 2026-11-10, the shared CPP archive and authored PersonalHistory residual contract, sealed-payload defaults and receiving importer were reviewed together with native export round-trip evidence. This documents conditional CARLOS extensions, not standard receiver support for those extensions."
 }
