@@ -3032,20 +3032,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         CheckBoxBean target = resolveTargetIssue(oldList, demono, request.getParameter("change_diagnosis_id"));
         if (target == null) return NONE;
 
-        CheckIssueBoxBean[] issueList = this.getNewIssueCheckList();
-        CheckIssueBoxBean substitution = null;
+        CheckIssueBoxBean substitution = firstCheckedIssue(this.getNewIssueCheckList());
         String origIssueDesc = null;
         String newIssueDesc = null;
-        // find the checked issue
-        if (issueList != null) {
-            for (CheckIssueBoxBean curr : issueList) {
-                if (curr.isChecked()) {
-                    substitution = curr;
-                    break;
-                }
-            }
-        }
-
         if (substitution != null) {
             Issue oldIssue = target.getIssue().getIssue();
             origIssueDesc = oldIssue == null ? null : oldIssue.getDescription();
@@ -3058,22 +3047,42 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 return NONE;
             }
             newIssueDesc = newIssue.getDescription();
-
-            target.getIssue().setIssue(newIssue);
-            target.getIssue().setIssue_id(substitutionId);
-            target.getIssue().setType(newIssue.getType());
-            target.getIssueDisplay().setCode(newIssue.getCode());
-            target.getIssueDisplay().setCodeType(newIssue.getType());
-            target.getIssueDisplay().setDescription(newIssue.getDescription());
-
+            recodeIssue(target, newIssue, substitutionId);
             caseManagementMgr.saveCaseIssue(target.getIssue());
         }
 
         this.setIssueCheckList(oldList);
-        if (substitution != null && origIssueDesc != null)
+        if (origIssueDesc != null)
             this.caseManagementMgr.changeIssueInCPP(demono, origIssueDesc, newIssueDesc);
 
         return "view";
+    }
+
+    /**
+     * Returns the first replacement issue the IssueSearch page marked as chosen.
+     *
+     * @param issueList the posted replacement candidates, possibly {@code null}
+     * @return the chosen candidate, or {@code null} when none was chosen
+     */
+    private static CheckIssueBoxBean firstCheckedIssue(CheckIssueBoxBean[] issueList) {
+        if (issueList == null) return null;
+        for (CheckIssueBoxBean curr : issueList) {
+            if (curr.isChecked()) return curr;
+        }
+        return null;
+    }
+
+    /**
+     * Points a patient issue at a different coded issue, keeping the row's display in step so the
+     * editor shows the new code and description without a reload.
+     */
+    private static void recodeIssue(CheckBoxBean target, Issue newIssue, Long newIssueId) {
+        target.getIssue().setIssue(newIssue);
+        target.getIssue().setIssue_id(newIssueId);
+        target.getIssue().setType(newIssue.getType());
+        target.getIssueDisplay().setCode(newIssue.getCode());
+        target.getIssueDisplay().setCodeType(newIssue.getType());
+        target.getIssueDisplay().setDescription(newIssue.getDescription());
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
