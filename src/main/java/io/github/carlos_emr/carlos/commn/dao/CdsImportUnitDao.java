@@ -127,12 +127,12 @@ public class CdsImportUnitDao extends AbstractDaoImpl<CdsImportUnit>
                 patientKey == null
                         ? entityManager.createQuery(
                                 "select u from CdsImportUnit u where u.runId=:run and"
-                                    + " u.unitKey>:after order by u.unitKey",
+                                        + " u.unitKey>:after order by u.unitKey",
                                 CdsImportUnit.class)
                         : entityManager.createQuery(
                                 "select u from CdsImportUnit u where u.runId=:run and"
-                                    + " u.unitKey>:after and u.patientKey=:patient order by"
-                                    + " u.unitKey",
+                                        + " u.unitKey>:after and u.patientKey=:patient order by"
+                                        + " u.unitKey",
                                 CdsImportUnit.class);
         query.setParameter("run", runId).setParameter("after", afterKey).setMaxResults(limit);
         if (patientKey != null) query.setParameter("patient", patientKey);
@@ -140,11 +140,11 @@ public class CdsImportUnitDao extends AbstractDaoImpl<CdsImportUnit>
     }
 
     /** Metadata pages never hydrate the potentially large protected native witness document. */
-    public List<io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportUnitDto>
-            metadataPage(String runId, String patientKey, String afterKey, int limit) {
+    public List<io.github.carlos_emr.carlos.commn.dto.CdsImportUnitMetadataDto> metadataPage(
+            String runId, String patientKey, String afterKey, int limit) {
         io.github.carlos_emr.carlos.utility.CdsImportKeys.pageSize(limit);
         String projection =
-                "select new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportUnitDto("
+                "select new io.github.carlos_emr.carlos.commn.dto.CdsImportUnitMetadataDto("
                     + "u.patientKey,u.unitKey,u.category,u.ordinal,u.sourceDigest,u.spoolLocation,u.state,u.targetReferences,u.targetDigest)"
                     + " from CdsImportUnit u where u.runId=:run and u.unitKey>:after";
         var query =
@@ -152,8 +152,7 @@ public class CdsImportUnitDao extends AbstractDaoImpl<CdsImportUnit>
                         projection
                                 + (patientKey == null ? "" : " and u.patientKey=:patient")
                                 + " order by u.unitKey",
-                        io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportUnitDto
-                                .class);
+                        io.github.carlos_emr.carlos.commn.dto.CdsImportUnitMetadataDto.class);
         query.setParameter("run", runId).setParameter("after", afterKey).setMaxResults(limit);
         if (patientKey != null) query.setParameter("patient", patientKey);
         return query.getResultList();
@@ -185,7 +184,7 @@ public class CdsImportUnitDao extends AbstractDaoImpl<CdsImportUnit>
                                 Long.class)
                         : entityManager.createQuery(
                                 "select count(u) from CdsImportUnit u where u.runId=:run and"
-                                    + " u.patientKey=:patient",
+                                        + " u.patientKey=:patient",
                                 Long.class);
         query.setParameter("run", runId);
         if (patientKey != null) query.setParameter("patient", patientKey);
@@ -197,11 +196,11 @@ public class CdsImportUnitDao extends AbstractDaoImpl<CdsImportUnit>
                 patientKey == null
                         ? entityManager.createQuery(
                                 "select count(u) from CdsImportUnit u where u.runId=:run and"
-                                    + " u.state=:state",
+                                        + " u.state=:state",
                                 Long.class)
                         : entityManager.createQuery(
                                 "select count(u) from CdsImportUnit u where u.runId=:run and"
-                                    + " u.state=:state and u.patientKey=:patient",
+                                        + " u.state=:state and u.patientKey=:patient",
                                 Long.class);
         query.setParameter("run", runId).setParameter("state", state);
         if (patientKey != null) query.setParameter("patient", patientKey);
@@ -226,10 +225,10 @@ public class CdsImportUnitDao extends AbstractDaoImpl<CdsImportUnit>
         return entityManager
                 .createQuery(
                         "select u.category,count(u),sum(case when u.state='COMMITTED' then 1 else 0"
-                            + " end),sum(case when u.state='ALREADY_COMPLETE' then 1 else 0"
-                            + " end),sum(case when u.state='EXPECTED' then 1 else 0 end) from"
-                            + " CdsImportUnit u where u.runId=:run group by u.category order by"
-                            + " u.category",
+                                + " end),sum(case when u.state='ALREADY_COMPLETE' then 1 else 0"
+                                + " end),sum(case when u.state='EXPECTED' then 1 else 0 end) from"
+                                + " CdsImportUnit u where u.runId=:run group by u.category order by"
+                                + " u.category",
                         Object[].class)
                 .setParameter("run", runId)
                 .setMaxResults(limit)
@@ -240,8 +239,8 @@ public class CdsImportUnitDao extends AbstractDaoImpl<CdsImportUnit>
         return entityManager
                 .createQuery(
                         "select count(u) from CdsImportUnit u where u.runId=:run and"
-                            + " u.patientKey=:patient and u.state not in"
-                            + " ('COMMITTED','ALREADY_COMPLETE')",
+                                + " u.patientKey=:patient and u.state not in"
+                                + " ('COMMITTED','ALREADY_COMPLETE')",
                         Long.class)
                 .setParameter("run", runId)
                 .setParameter("patient", patientKey)
