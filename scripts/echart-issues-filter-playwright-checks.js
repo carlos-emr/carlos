@@ -645,7 +645,7 @@ async function workflow(s) {
         AND uuid=${q(uuid)} AND note_id>${oldId}`, '1', 'Chart retry duplicated the saved revision');
       const currentEditor = await chart.evaluate(() => document.forms.caseManagementEntryForm.noteId.value);
       const remainingLocks = sql.rows(`SELECT note_id FROM casemgmt_note_lock WHERE demographic_no=${patient}`).map(([id]) => id);
-      h.assert(remainingLocks.every(id => id === currentEditor),
+      h.assert(remainingLocks.length === 1 && remainingLocks.every(id => id === currentEditor),
         `Chart retry retained stale locks: current=${currentEditor}, locks=${remainingLocks.join(',')}, previous=${retryParameters.get('previousNoteId')}`);
       // Consume only the single response deliberately injected by this step.
       // All other HTTP, console, script and cleanup failures remain strict.
