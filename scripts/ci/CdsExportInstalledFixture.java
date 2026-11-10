@@ -392,11 +392,13 @@ public final class CdsExportInstalledFixture {
                 + "OBX|2|ST|COMMENT^Narrative^L||A\\T\\B|||A|||F|||20260709143500-0400\r"
                 + "OBR|2||ACC-2|OTHER^Other panel^L|||20260709\r"
                 + "OBX|1|NM|NATIVE^Repeated native result^L||10~11|mg/L|||||P\r";
-        update(db, "INSERT INTO hl7TextMessage(message,type,created) VALUES(?,'GENERIC','2026-07-10 12:30:00')",
-                Base64.getEncoder().encodeToString(message.getBytes(StandardCharsets.UTF_8)));
+        update(db, "INSERT INTO fileUploadCheck(provider_no,filename,date_time) VALUES(?,'native-lab.hl7','2026-07-10 12:30:00')", PROVIDER);
+        int upload = (int) count(db, "SELECT LAST_INSERT_ID()");
+        update(db, "INSERT INTO hl7TextMessage(message,type,created,fileUploadCheck_id,serviceName) VALUES(?,'GENERIC','2026-07-10 12:30:00',?,'Native Lab')",
+                Base64.getEncoder().encodeToString(message.getBytes(StandardCharsets.UTF_8)), upload);
         int lab = (int) count(db, "SELECT LAST_INSERT_ID()");
-        update(db, "INSERT INTO hl7TextInfo(lab_no,accessionNum,first_name,last_name,health_no,sex,sending_facility,result_status,final_result_count,obr_date)"
-                + " VALUES(?,'ACC-1','Native','Synthetic','','F','Native Lab','F',4,'2026-07-09 14:35:00')", lab);
+        update(db, "INSERT INTO hl7TextInfo(lab_no,accessionNum,first_name,last_name,health_no,sex,sending_facility,result_status,final_result_count,obr_date,report_status)"
+                + " VALUES(?,'ACC-1','Native','Synthetic','','F','Native Lab','F',4,'2026-07-09 14:35:00','F')", lab);
         update(db, "INSERT INTO patientLabRouting(demographic_no,lab_no,lab_type,created,dateModified) VALUES(?,?,'HL7','2026-07-10 12:30:00','2026-07-10 12:30:00')", patient, lab);
     }
 

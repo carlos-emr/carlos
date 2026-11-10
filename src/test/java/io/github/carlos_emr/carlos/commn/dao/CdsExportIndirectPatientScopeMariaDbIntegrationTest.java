@@ -161,6 +161,65 @@ class CdsExportIndirectPatientScopeMariaDbIntegrationTest {
     }
 
     @Test
+    void shouldPrepareTheActualInstalledLabFixture_onTheStrictPhysicalSchemaBeforePackaging(
+            @org.junit.jupiter.api.io.TempDir Path compiled) throws Exception {
+        var compiler = javax.tools.ToolProvider.getSystemJavaCompiler();
+        assertThat(compiler).isNotNull();
+        String classpath =
+                System.getProperty(
+                        "surefire.test.class.path", System.getProperty("java.class.path"));
+        try (var diagnostics = new java.io.ByteArrayOutputStream()) {
+            int result =
+                    compiler.run(
+                            null,
+                            diagnostics,
+                            diagnostics,
+                            "--release",
+                            "25",
+                            "-encoding",
+                            "UTF-8",
+                            "-proc:none",
+                            "-classpath",
+                            classpath,
+                            "-d",
+                            compiled.toString(),
+                            Path.of("scripts/ci/CdsExportInstalledFixture.java")
+                                    .toAbsolutePath()
+                                    .toString());
+            assertThat(result)
+                    .withFailMessage("The actual installed fixture helper must compile")
+                    .isZero();
+        }
+        try (var loader =
+                new java.net.URLClassLoader(
+                        new java.net.URL[] {compiled.toUri().toURL()},
+                        getClass().getClassLoader())) {
+            var type =
+                    loader.loadClass("io.github.carlos_emr.carlos.login.CdsExportInstalledFixture");
+            var prepare = type.getDeclaredMethod("nativeLaboratory", Connection.class, int.class);
+            prepare.setAccessible(true);
+            try {
+                prepare.invoke(null, db, selected);
+            } catch (java.lang.reflect.InvocationTargetException failure) {
+                if (failure.getCause() instanceof Exception cause) throw cause;
+                throw failure;
+            }
+        }
+        try (var statement =
+                db.prepareStatement(
+                        "SELECT COUNT(*) FROM patientLabRouting WHERE demographic_no=? AND"
+                            + " lab_type='HL7'")) {
+            statement.setInt(1, selected);
+            try (var rows = statement.executeQuery()) {
+                assertThat(rows.next()).isTrue();
+                assertThat(rows.getInt(1)).isEqualTo(1);
+            }
+        }
+        assertThat(CdsExportSourceCatalogue.current().tables().get("fileUploadCheck"))
+                .isEqualTo(CdsExportSourceCatalogue.Disposition.OPERATIONAL);
+    }
+
+    @Test
     void shouldKeepLegacyLabTypesDistinct_onActualMariaDbAndRefuseAnOrphanProviderRoute()
             throws Exception {
         int lab = 1_900_000_000 + selected;
