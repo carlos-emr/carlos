@@ -145,6 +145,9 @@ public final class CdsExportInstalledFixture {
                         PROVIDER,
                         role);
             }
+            // The migrated capability intentionally has no default grant, including for admin.
+            // This owned synthetic operator explicitly receives it for the native HL7 exercise.
+            nativeReadGrant(db);
             int facility =
                     (int) count(db, "SELECT COALESCE(MIN(id),0) FROM Facility WHERE disabled=0");
             if (facility == 0) {
@@ -380,6 +383,11 @@ public final class CdsExportInstalledFixture {
                                 "auditPlans",
                                 Map.of("native", sha(audit)))),
                 true);
+    }
+
+    private static void nativeReadGrant(Connection db) throws SQLException {
+        update(db, "INSERT INTO secObjPrivilege(roleUserGroup,objectName,privilege,priority,provider_no)"
+                + " VALUES(?,'_lab_sensitive','r',0,?)", PROVIDER, PROVIDER);
     }
 
     /** The native chart deliberately has no CDS import parent or retained fields. */

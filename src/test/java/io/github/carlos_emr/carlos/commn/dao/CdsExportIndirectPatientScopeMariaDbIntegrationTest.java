@@ -196,6 +196,18 @@ class CdsExportIndirectPatientScopeMariaDbIntegrationTest {
                         getClass().getClassLoader())) {
             var type =
                     loader.loadClass("io.github.carlos_emr.carlos.login.CdsExportInstalledFixture");
+            var grant = type.getDeclaredMethod("nativeReadGrant", Connection.class);
+            grant.setAccessible(true);
+            grant.invoke(null, db);
+            try (var check = db.createStatement();
+                    var granted =
+                            check.executeQuery(
+                                    "SELECT COUNT(*) FROM secObjPrivilege WHERE"
+                                        + " objectName='_lab_sensitive' AND privilege='r' AND"
+                                        + " roleUserGroup=provider_no")) {
+                assertThat(granted.next()).isTrue();
+                assertThat(granted.getInt(1)).isEqualTo(1);
+            }
             var prepare = type.getDeclaredMethod("nativeLaboratory", Connection.class, int.class);
             prepare.setAccessible(true);
             try {
@@ -208,7 +220,7 @@ class CdsExportIndirectPatientScopeMariaDbIntegrationTest {
         try (var statement =
                 db.prepareStatement(
                         "SELECT COUNT(*) FROM patientLabRouting WHERE demographic_no=? AND"
-                            + " lab_type='HL7'")) {
+                                + " lab_type='HL7'")) {
             statement.setInt(1, selected);
             try (var rows = statement.executeQuery()) {
                 assertThat(rows.next()).isTrue();
