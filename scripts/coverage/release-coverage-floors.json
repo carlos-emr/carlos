@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "46d0eea64b355073d44ab1584a6b4634bbb381bf",
-  "comparisonSha256": "f16a22af9348a4ee2e9f4ae97246efd3800e82d0fdf46407bb635d33b5c7f612",
-  "baselineCommit": "96316e4cf3ed298d57b173cd8d01c0dad303ae82",
-  "baselineSourceTree": "46d0eea64b355073d44ab1584a6b4634bbb381bf",
-  "baselineReportSha256": "6b08c203e26f87e951a8a2903b603fc894590142bd820520504e6f125452b35d",
-  "baselineLane": "Ubuntu 26.04/OpenJDK 25.0.5.0.3 clean complete H2 baseline after the PR #6102 regex-free parser replacement, with pinned Chromium. All 27 PR Java paths meet retained floors. Registered routed/prerequisite skips and the separate five-case permission lane are verified. Higher historical floors, required refusal lines and zero-floor review requirements remain; this is not full release native-union qualification.",
+  "sourceTree": "bfbc7ef7d080eccc9eb5b551ee8c506b205d09e6",
+  "comparisonSha256": "b1f8d8cb128ba2b55a47a5c33efe8e56ca3a352c1fd3a788a22336295623b999",
+  "baselineCommit": "075d3112b6c2fe0c48b71ca4384d16939f2fcdb4",
+  "baselineSourceTree": "bfbc7ef7d080eccc9eb5b551ee8c506b205d09e6",
+  "baselineReportSha256": "66dcda8b48a4bdc2967b35c1a1ceda55ab57cc873d561657a15d787c7bb0aed5",
+  "baselineLane": "Ubuntu 26.04/OpenJDK 25.0.5.0.3 complete H2 baseline with final full retakes of four augmented test classes on the PR #6102 and release #6103 merged source, with pinned Chromium. All 43 combined Java paths (27 PR paths against the updated release branch) meet both parents' retained floors. Registered routed/prerequisite skips, the separate five-case permission lane and two physical MariaDB form-history cases are verified; all execution data use identical production classes. Higher historical floors, required refusal lines and zero-floor review requirements remain; this is not full release native-union qualification.",
   "baselineTestCounts": {
-    "tests": 36020,
-    "skipped": 206,
+    "tests": 36113,
+    "skipped": 207,
     "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "2a30f168f23744fd95a1f9ddd2319f218350efe698006fe139279f9b9f5af991",
+  "baselineTestReportsSha256": "8644a61dc5760ebf7aae79d3549ece4cda86997e447543bf19bb70cc5b780f98",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -637,13 +637,13 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "5fa0567aabe3414cc466af71ef738ff5b1d515d7"
+      "sourceBlob": "9484cdb34384b2e0315947000d968b0f6a32f73a"
     },
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementView2Action.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "fdc83f0b1c26d414e35a719e395ed2c14ca1bf0e"
+      "sourceBlob": "8f56e3a439bf979de90a87cd0fa0b0f64678d8a2"
     },
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementViewAction.java": {
       "lines": 100.0,
@@ -853,13 +853,13 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "0138b1b29dee624a213f09f99fb1acb918fc2cdc"
+      "sourceBlob": "c0ce7f16e21809f1b71b22bf587be9ba8ab01093"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/EChartDaoImpl.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "7a84b04c58850aaa596e5feee9090e7e4023440c"
+      "sourceBlob": "bee36dad5ed81d3e62e51d96addf985abf254715"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/EFormDao.java": {
       "lines": 100.0,
@@ -934,10 +934,10 @@
       "sourceBlob": "0af78c09e21d0a8c25d8df582d44f2206a62f9f9"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/EncounterFormDaoImpl.java": {
-      "lines": 97.46835443037975,
-      "instructions": 94.46564885496183,
-      "branches": 72.91666666666667,
-      "sourceBlob": "06de493e8c6578c2309fce8f575e94d144e7abe2"
+      "lines": 100.0,
+      "instructions": 95.99236641221374,
+      "branches": 77.08333333333333,
+      "sourceBlob": "99388146a342309e477a6f8d9634e2c075a797ef"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/FaxClientLogDao.java": {
       "lines": 100.0,
@@ -1841,9 +1841,9 @@
     },
     "src/main/java/io/github/carlos_emr/carlos/encounter/data/EctFormData.java": {
       "lines": 92.10526315789474,
-      "instructions": 88.74458874458874,
-      "branches": 90.0,
-      "sourceBlob": "0db085da760bb10ee86538035a88d8fae22c7569"
+      "instructions": 95.23809523809524,
+      "branches": 95.0,
+      "sourceBlob": "8907e310bd4c67781092f696f5186255e819dd92"
     },
     "src/main/java/io/github/carlos_emr/carlos/encounter/data/EctPatientData.java": {
       "lines": 0.0,
@@ -1981,7 +1981,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "4a5edd90bd85cb8f2ab31be996d56b3d25b541f5"
+      "sourceBlob": "c925eeff77432b9fde15e0a04f296abd7abc19e5"
     },
     "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayDecisionSupportAlerts2Action.java": {
       "lines": 100.0,
@@ -3121,7 +3121,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 85.71428571428571,
-      "sourceBlob": "5f4199819bcc50df7e5ea5d4405747ce905a104a"
+      "sourceBlob": "5e14ccd24c20b2916540374107d52dd86e606981"
     },
     "src/main/java/io/github/carlos_emr/carlos/provider/web/ProviderPropertyAction.java": {
       "lines": 100.0,
@@ -3973,7 +3973,7 @@
       "lines": 92.3076923076923,
       "instructions": 88.65979381443299,
       "branches": 100.0,
-      "sourceBlob": "a7218ab5226b77ba5588e458f821e3202de2e710"
+      "sourceBlob": "a6ac23429553e3f9938258e8f0d6ab57359c6eff"
     },
     "src/main/java/io/github/carlos_emr/carlos/webserv/rest/RecordUxService.java": {
       "lines": 100.0,
@@ -4467,13 +4467,29 @@
   "zeroCoverageWaivers": {},
   "baselineAdditionalTestRuns": [
     {
+      "lane": "final-augmented-h2-test-class-retakes",
+      "tests": 132,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "reportsSha256": "837a312fd82813ac1d8647cbc0a38c405ad10dae8541f2baf419474f5f2b0d52"
+    },
+    {
       "lane": "unprivileged-permissions",
       "tests": 5,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "reportsSha256": "df685a5db006412f0bbe5e15c9b6c460a85d6df8f354409e81ea8fc611de1fd9"
+      "reportsSha256": "bd4b618bcb34c30301c0213f9faa75f5ecc7a560910fe4859c0e66dc914d8947"
+    },
+    {
+      "lane": "physical-mariadb-form-history",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "reportsSha256": "5fd7146bc023d344ab4e785af2cb2396c85b29fe02bae01bbfc1dc7c9810762e"
     }
   ],
-  "baselineTestRunCommit": "c3588400064526dad5347744e2a37581daaa75c8"
+  "baselineTestRunCommit": "075d3112b6c2fe0c48b71ca4384d16939f2fcdb4"
 }

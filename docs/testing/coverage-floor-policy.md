@@ -196,3 +196,29 @@ every required refusal line. The changed manager persistence lines, instructions
 and branches now measure 100% in this run. The 80 existing unreviewed zero floors
 remain refused; this adds no waiver or lowered threshold and does not replace the
 complete same-source native-lane coverage union required for broader release coverage.
+
+PR #6102 merges release PR #6103 at `5a85f66af4de862c1abd7791107cd5b9ac57d569`
+without changing either parent's production Java blobs. The merged Java source tree
+is `bfbc7ef7d080eccc9eb5b551ee8c506b205d09e6`. A fresh Ubuntu 26.04/OpenJDK
+25.0.5.0.3 full H2 run executes 36,080 cases with zero failures/errors and 207
+registered skips. Four test families then receive 33 additional regression cases
+for stale issue identities/editor state, expired sessions, historical page bounds,
+missing REST settings and independently encoded CPP issue fields. Their complete
+132-case final retake passes without skips; replacing only those four reports
+produces the verified complete 36,113-case inventory (35,906 passes, 207 registered
+skips). All 6,303 production class hashes remain identical across the full run,
+retakes, separate five-case permission lane, two-case physical MariaDB form-history
+lane and the rebuilt WAR. Test classes outside the four retaken families remain
+byte-identical. Both additional native lanes pass without skips.
+
+All 43 combined production Java paths (27 PR paths against the updated release)
+meet retained line, instruction and branch floors. The merged checkpoint retains
+all 734 source floors, six nonexecutable exclusions, each parent's higher
+thresholds and every required refusal line. Source/tree/comparison, coverage XML
+and final report-inventory hashes are refreshed for the merged source. The wider
+release comparison still refuses 190 coverage checks, including the existing 80
+unreviewed zero floors; no waiver or threshold is weakened, and this checkpoint
+does not replace the complete same-source native-lane union for broader release
+qualification. Native Node 22.22.1 passes all 7,911 cases without skips,
+cancellations or source mutation; Python 3.14 passes 405 CI and 30 coverage-tooling
+tests.
