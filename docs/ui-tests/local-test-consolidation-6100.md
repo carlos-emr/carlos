@@ -358,3 +358,28 @@ Installed acceptance remains a separate gate. An Ontario attempt interrupted
 by a container OOM event produced no required JUnit receipt and remains failed
 evidence, with its container and logs retained. Only complete strict ON/BC
 retakes qualify that gate; the PR description records their current outcomes.
+
+The fresh canonical Ubuntu 26.04 BC installation passes the native first-login
+reset and every `carlos-ctl check` probe. All ten strict Chromium 154 checks
+pass without failures or skips, including drug search, both tickler checks,
+CML inbox/Ajax recovery and four-row Select All refusal, eForm widgets, audit
+reads and qualified-result artifacts. The earlier canonical setup's missing
+JSP classes coincided with a full workspace; its complete SQL dump, configured
+application/document files, package versions and startup logs are retained as
+failed setup evidence. The clean retake uses unchanged package bytes and has
+ample free space.
+
+The same-candidate reinstall exposed a stale verifier assertion: the shipped
+OSCAR 19 schema manifest is format 2, while props/preflight remain format 1.
+The verifier now requires each exact filename/kind/format contract, rejects
+malformed/duplicate JSON and noninteger or stale versions, and reports failure
+through its exit status. Three required regressions bring Python tooling to
+381 passing cases; the complete Node 22 retake again passes all 7,848 cases.
+The failed assertion's exact owned canary was reconciled only after its bytes,
+owner and independent clinical/document/key snapshots matched; its original
+failed receipt is unchanged. A fresh reinstall retake passes all nine
+assertions, preserves all checked cells in eleven clinical tables, document
+bytes/metadata and the encryption key, verifies the candidate application and
+cleans its owned canary. These receipts qualify the local canonical candidate;
+supported published N-1, both-province and broader lifecycle acceptance remain
+separate requirements.

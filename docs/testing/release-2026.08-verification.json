@@ -747,7 +747,9 @@
         "scripts/ci/run-installed-first-login.py",
         "scripts/ci/test_installed_first_login.py",
         "scripts/ci/run-package-lifecycle.py",
-        "scripts/ci/run-package-lifecycle-cell.py"
+        "scripts/ci/run-package-lifecycle-cell.py",
+        "scripts/ci/installed_o19_manifests.py",
+        "scripts/ci/test_installed_o19_manifests.py"
       ],
       "implementation": "Run real clean-install, predecessor-upgrade, reconfigure and data-preserving reinstall on the supported packaged OS; reconcile main-only host/MariaDB recovery fixes. Test both app and DrugRef locks and pinned carlos-ctl 1.3.0.",
       "cases": "Installed version/build identity; MariaDB system tables and existing clinical datadir; IPv4/IPv6 nginx default sites; ports in use; cert renewal, service user/modes/paths; paused import guard; dependency-lock enforcement; app/DrugRef startup; failed configure and recovery; published predecessor version layouts; no source-copied fixtures substituted for package files.",
@@ -1213,7 +1215,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 378,
+      "minimumCases": 381,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1342,6 +1344,9 @@
         "test_installed_front_door.InstalledFrontDoorTest.test_redirect_may_not_follow_another_host_or_downgrade_tls",
         "test_installed_front_door.InstalledFrontDoorTest.test_two_complete_responses_are_required_and_certificate_errors_fail",
         "test_installed_front_door.InstalledFrontDoorTest.test_wall_clock_deadline_interrupts_a_slow_response_and_releases_the_timer",
+        "test_installed_o19_manifests.InstalledO19ManifestTest.test_current_packaged_headers_pass_the_real_command",
+        "test_installed_o19_manifests.InstalledO19ManifestTest.test_missing_corrupt_or_legacy_headers_cannot_qualify",
+        "test_installed_o19_manifests.InstalledO19ManifestTest.test_missing_manifests_return_failure_instead_of_silent_success",
         "test_installed_package_state.PackagePreservationTest.test_comparison_uses_control_versions_instead_of_normalized_asset_filenames",
         "test_installed_package_state.PackagePreservationTest.test_equal_row_counts_or_file_counts_cannot_hide_replaced_bytes_or_permissions",
         "test_installed_package_state.PackagePreservationTest.test_managed_asset_rule_does_not_hide_added_removed_or_changed_clinical_files",
