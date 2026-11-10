@@ -184,7 +184,7 @@ public final class ViewKeygenCreateKey2Action extends ActionSupport {
         response.setContentLength(keyFile.length);
         try {
             ServletOutputStream output = response.getOutputStream();
-            output.write(keyFile);
+            output.write(keyFile); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- text/plain nosniff attachment; the service name is limited to [A-Za-z0-9._-] and the keys are base64
             output.flush();
         } catch (IOException e) {
             // The pair is stored; the administrator can still read its private key in the Key Pair
