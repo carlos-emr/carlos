@@ -275,7 +275,9 @@ async function issueChange(s, { restricted, restrictedToken, fullToken, name, ca
     reseed();
     const response = await R.sendReplay(s.context, replay(fullToken));
     h.assert(!h.isWafPage(response.status(), await response.text().catch(() => '')), 'The full login\'s replay was refused by the WAF front door, so it proves nothing about the request');
-    await R.expectCount(sql, 'casemgmt_issue', `id=${issueRow} AND resolved=0 AND major=1`, 1,
+    // The full login's editor still holds the issue as resolved (its own click above), and an
+    // issue change saves that editor's copy of the issue with the one attribute set.
+    await R.expectCount(sql, 'casemgmt_issue', `id=${issueRow} AND resolved=1 AND major=1`, 1,
       `The same issueChange sent by the full login (HTTP ${response.status()}) did not write, so the replay is not a request the application accepts`);
     reseed();
   });
