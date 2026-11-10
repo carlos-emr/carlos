@@ -519,7 +519,7 @@ test('shouldRefuseToReplay_whenAStatementShapeIsNotUnderstood', () => {
 });
 
 test('shouldReplayTheActualIndependentImportSeed_withoutOverwritingExplicitDecisions', () => {
-  const sql = fs.readFileSync(path.join(MIGRATION_DIR, 'common', 'V1.0.85__seed_admin_cds_import_permission.sql'), 'utf8');
+  const sql = fs.readFileSync(path.join(MIGRATION_DIR, 'common', 'V1.0.59.41__seed_admin_cds_import_permission.sql'), 'utf8');
   const row = (roleUserGroup, objectName, privilege) => ({roleUserGroup, objectName, privilege, priority: '17', provider_no: '999998'});
   for (const privilege of ['x', 'w', 'r', 'o', '|o|']) {
     const admin = row('admin', '_admin', privilege);

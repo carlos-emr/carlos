@@ -74,21 +74,15 @@ public final class CdsExportInstalledFixture {
             }
         } catch (Exception failure) {
             // Never render database/config/patient values or exception messages.
+            String framePrefix = "  at " + CdsExportInstalledFixture.class.getName() + ".";
             String at =
-                    Arrays.stream(failure.getStackTrace())
-                            .filter(
-                                    f ->
-                                            f.getClassName()
-                                                    .equals(
-                                                            CdsExportInstalledFixture.class
-                                                                    .getName()))
-                            .map(f -> f.getMethodName() + ":" + f.getLineNumber())
+                    io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(failure)
+                            .lines()
+                            .filter(line -> line.startsWith(framePrefix))
+                            .map(line -> line.substring(framePrefix.length()))
                             .findFirst()
                             .orElse("unknown");
-            // Disposable CI helper emits only a fixed code, class and its own method/line;
-            // no message, value or full stack is rendered.
-            // nosemgrep:
-            // java.lang.security.audit.active-debug-code-getstacktrace.active-debug-code-getstacktrace
+            // Only the existing safe diagnostic formatter's own method/line is emitted.
             System.err.println(
                     "CDS_EXPORT_INSTALLED_FIXTURE_FAILED:"
                             + failure.getClass().getSimpleName()
@@ -146,7 +140,7 @@ public final class CdsExportInstalledFixture {
                 update(
                         db,
                         "INSERT INTO secUserRole(provider_no,role_name,activeyn,lastUpdateDate)"
-                            + " VALUES (?,?,1,NOW())",
+                                + " VALUES (?,?,1,NOW())",
                         PROVIDER,
                         role);
             }
@@ -264,6 +258,8 @@ public final class CdsExportInstalledFixture {
         config.setProperty("INVOICE_DIR", ROOT.resolve("data/carlos/billing/invoices").toString());
         config.setProperty("FAX_INCOMING_DIR", ROOT.resolve("data/carlos/fax-incoming").toString());
         config.setProperty("log.purge.outputdir", ROOT.resolve("documents") + "/");
+        // Match the mandatory modern-chart setting in the shipped release configuration.
+        config.setProperty("AbandonOldChart", "true");
         config.setProperty("project_home", "carlos");
         config.setProperty("tomcat_path", "/opt/cds-tomcat-ci/");
         config.setProperty("ws_endpoint_url_base", publicBase);
@@ -435,7 +431,7 @@ public final class CdsExportInstalledFixture {
                                 text(
                                         db,
                                         "SELECT content FROM demographiccust WHERE"
-                                            + " demographic_no=?",
+                                                + " demographic_no=?",
                                         patient)))
             throw new IllegalStateException("Native chart changed");
         System.out.println(

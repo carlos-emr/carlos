@@ -28,7 +28,6 @@ import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.hibernate.Hibernate;
-import org.hibernate.LazyInitializationException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -44,10 +43,9 @@ import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Regression coverage for the lazy {@code Prevention.preventionExts} mapping as seen by
+ * Regression coverage for the release's eager {@code Prevention.preventionExts} mapping as seen by
  * consumers that receive entities <em>after</em> the DAO transaction has ended.
  *
  * <p>Runs without a test-managed transaction so that every DAO call opens and closes its own
@@ -134,33 +132,41 @@ class PreventionDaoDetachedExtensionsIntegrationTest extends CarlosTestBase {
 
     @Test
     @Tag("query")
-    @DisplayName("the generic list query retains the lazy extensions mapping")
-    void shouldLeavePreventionExtsUninitialized_whenLoadedViaListQuery() {
+    @DisplayName("the generic list query retains usable detached extensions on the release mapping")
+    void shouldInitializePreventionExts_whenLoadedViaListQuery() {
         List<Prevention> results = preventionDao.findByDemographicId(DEMOGRAPHIC);
 
         assertThat(results).hasSize(1);
         Prevention detached = results.get(0);
 
-        // Pins the performance contract of the LAZY mapping at runtime, not just the annotation:
-        // The generic query keeps its lazy contract; owning clinical projections
-        // explicitly fetch extensions in one join instead of one query per row.
-        assertThat(Hibernate.isInitialized(detached.getPreventionExts())).isFalse();
-        assertThatThrownBy(detached::setPreventionExtendedProperties)
-                .isInstanceOf(LazyInitializationException.class);
+        // release/2026.08 already uses EAGER here. Preserve its detached-consumer
+        // contract; the owning clinical list queries also fetch in one distinct join.
+        assertThat(Hibernate.isInitialized(detached.getPreventionExts())).isTrue();
+        assertThat(detached.getPreventionExts()).hasSize(3);
+        detached.setPreventionExtendedProperties();
+        assertThat(detached.getLotNo()).isEqualTo("LOT-001");
+        assertThat(detached.getImmunizationProperty(ImmunizationProperty.providerName))
+                .isEqualTo("External Clinic");
     }
 
     @Test
     @Tag("query")
-    @DisplayName("single extension lookup works for detached preventions without the collection")
-    void shouldResolveSingleExtension_withoutInitializingCollection() {
+    @DisplayName("single extension lookup agrees with the complete detached release collection")
+    void shouldResolveSingleExtension_withoutChangingDetachedMetadata() {
         Prevention detached = preventionDao.findByDemographicId(DEMOGRAPHIC).get(0);
+        assertThat(Hibernate.isInitialized(detached.getPreventionExts())).isTrue();
+        List<Integer> extensionIds = detached.getPreventionExts().stream().map(PreventionExt::getId).toList();
 
         // The PreventionData list view resolves the external provider name this way.
         List<PreventionExt> providerName = preventionExtDao.findByPreventionIdAndKey(
                 detached.getId(), ImmunizationProperty.providerName.name());
 
         assertThat(providerName).extracting(PreventionExt::getVal).containsExactly("External Clinic");
-        assertThat(Hibernate.isInitialized(detached.getPreventionExts())).isFalse();
+        assertThat(detached.getPreventionExts()).extracting(PreventionExt::getId)
+                .containsExactlyElementsOf(extensionIds);
+        detached.setPreventionExtendedProperties();
+        assertThat(detached.getImmunizationProperty(ImmunizationProperty.providerName))
+                .isEqualTo(providerName.get(0).getVal());
     }
 
     @Test
