@@ -106,3 +106,28 @@ retained floors. The wider currentMain comparison still refuses 80 unreviewed
 zero floors and misses 36 line, 44 instruction and 32 branch assertions.
 These are retained failures; no waiver or lower threshold is introduced.
 The complete same-source native-lane coverage union remains required.
+
+The `f69b87ad0ff0` refresh is PR #6113 (#5969, #5968), merged with release
+`38cfc10c0ae7` (#6100). It changes the source blobs of
+`MariaDbCompatibilityDriver.java` and `MariaDbJdbcCompatibility.java` only.
+Every other floor and exclusion is unchanged. Its evidence is CI run
+42762907938 ("Check Carlos EMR", `tests` job) for that head. The PR merge ref
+it checked out has the same tree as `f69b87ad0ff0`. The H2 run records 35,937
+cases with 218 explicit routed/prerequisite skips and zero failures or errors.
+`baselineReportSha256` is the SHA-256 of that run's
+`target/site/jacoco/jacoco.xml` (artifact `java-coverage-42762907938-1`).
+`baselineTestReportsSha256` is the SHA-256 over the 2,649
+`TEST-*.xml` reports of artifact `java-test-reports`, taken in sorted filename
+order as one `<name>\0<sha256 hex of file>\n` line per report.
+The driver's changed-line floors rise from 3.29/2.47/1.25 to 48.02/47.62/40.97
+(lines/instructions/branches). That is because `MariaDbCompatibilityDriverNumberUnitTest` now runs the
+#5968 conversions in the H2 lane. Previously only the physical-MariaDB test
+exercised them. `MariaDbJdbcCompatibility.java` rises from 95.36/96.24/88.34 to
+97.77/98.14/90.45. No floor was lowered and no waiver was added. Both changed
+files meet their floors in this report. The wider currentMain comparison in
+this run still refuses 80 unreviewed zero floors and misses 37 line,
+45 instruction and 33 branch assertions, all in other files. The same misses
+appear in the CI run of `0e86503` without the new tests. That run also
+missed all three of the driver's previous floors, which the new tests cover.
+These remain open release failures; the complete same-source native-lane union is
+still required.
