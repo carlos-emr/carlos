@@ -10820,6 +10820,21 @@
       ]
     },
     {
+      "name": "mycarlos-devices-expired",
+      "script": "scripts/mycarlos-devices-expired-playwright-checks.js",
+      "tiers": [
+        "standalone"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": [
+        "CHROME_PATH"
+      ]
+    },
+    {
       "name": "sms-history",
       "script": "scripts/sms-history-playwright-checks.js",
       "tiers": [
