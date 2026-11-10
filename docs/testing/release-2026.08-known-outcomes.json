@@ -74,12 +74,6 @@
       "disposition": "required installed retake; blocks release readiness"
     },
     {
-      "check": "echart-issues-filter-resolve",
-      "finding": 227,
-      "step": "a clinician can reach the control that resolves an issue from the note editor",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
       "check": "legacy-lab-display-pathnet",
       "finding": 195,
       "step": "PathNet display shows the lab's values and its patient",

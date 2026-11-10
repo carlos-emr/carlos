@@ -203,6 +203,17 @@ public class EChartDaoImpl extends AbstractDaoImpl<EChart> implements EChartDao 
         return query.getResultList();
     }
 
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<EChart> getChartsForDemographic(Integer demoNo, int offset, int limit) {
+        if (demoNo == null || demoNo <= 0 || offset < 0 || limit < 1 || limit > 101) {
+            throw new IllegalArgumentException("Invalid historical chart page");
+        }
+        Query query = createQuery("e", "e.demographicNo = ?1 ORDER BY e.id DESC");
+        query.setParameter(1, demoNo);
+        return query.setFirstResult(offset).setMaxResults(limit).getResultList();
+    }
+
     @SuppressWarnings("unchecked")
     public List<EChart> findByDemoIdAndSubject(Integer demoNo, String subj) {
         Query query = createQuery("e", "e.demographicNo = ?1 and e.subject = ?2 ORDER BY e.timestamp");

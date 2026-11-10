@@ -260,8 +260,8 @@ class EncounterPrintPatientIsolationUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should read the window's revision through the property EL resolves on the bean")
-        void shouldUseResolvableRevisionProperty_inLegacyEditorPages() throws Exception {
+        @DisplayName("should retain the historical revision bean contract while retiring the editor")
+        void shouldRetainResolvableRevisionProperty_whenLegacyEditorIsRetired() throws Exception {
             // getEChartId() is the bean property "EChartId": JavaBeans keeps a leading pair of
             // capitals, so ${bean.eChartId} would not resolve and the editor page would fail.
             Set<String> properties = Arrays.stream(Introspector.getBeanInfo(EctSessionBean.class).getPropertyDescriptors())
@@ -269,7 +269,8 @@ class EncounterPrintPatientIsolationUnitTest extends CarlosUnitTestBase {
             assertThat(properties).contains("EChartId").doesNotContain("eChartId");
 
             assertThat(source("Index2.jsp"))
-                    .contains("<input type=\"hidden\" name=\"eChartId\" value=\"${carlos:forHtmlAttribute(bean.EChartId)}\">")
+                    .contains("response.sendRedirect(hrefurl)")
+                    .doesNotContain("name=\"eChartId\"")
                     .doesNotContain("bean.eChartId");
             assertThat(source("includes/encounter-row-three.jspf")).doesNotContain("bean.eChartId");
         }
@@ -283,13 +284,13 @@ class EncounterPrintPatientIsolationUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should post the legacy editor to its save route whatever the page's base address")
-        void shouldPostEditorToSaveRoute_despiteBaseHref() throws IOException {
-            // encounter-head.jspf sets <base href> to the context root, so the relative action
-            // "SaveEncounter2" posted to /carlos/SaveEncounter2 (404) and no editor save reached it.
-            assertThat(source("includes/encounter-head.jspf")).contains("<base href=");
+        @DisplayName("should redirect the retired editor to the modern chart without a legacy save form")
+        void shouldRedirectToModernChart_whenLegacyEditorIsRetired() throws IOException {
+            // The retained print route still handles historical revisions; entry goes to the modern chart.
             assertThat(source("Index2.jsp"))
-                    .contains("<form name=\"encForm\" action=\"${pageContext.request.contextPath}/encounter/SaveEncounter2\" method=\"POST\">")
+                    .contains("/casemgmt/ViewForward?action=view&demographicNo=")
+                    .contains("response.sendRedirect(hrefurl)")
+                    .doesNotContain("<form name=\"encForm\"")
                     .doesNotContain("action=\"SaveEncounter2\"");
         }
     }

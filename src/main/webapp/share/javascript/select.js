@@ -233,15 +233,17 @@ var CarlosAutocomplete = (function () {
             return;
         }
 
-        // Position dropdown below the input
+        // Measure the dropdown's own coordinate origin: it can live inside a
+        // positioned/scrolled editor rather than directly under the document.
+        this.dropdown.style.display = 'block';
+        this.dropdown.style.top = '0px';
+        this.dropdown.style.left = '0px';
         var rect = this.input.getBoundingClientRect();
-        var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-        var scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
-        this.dropdown.style.top = (rect.bottom + scrollTop) + 'px';
-        this.dropdown.style.left = (rect.left + scrollLeft) + 'px';
+        var origin = this.dropdown.getBoundingClientRect();
+        this.dropdown.style.top = (rect.bottom - origin.top) + 'px';
+        this.dropdown.style.left = (rect.left - origin.left) + 'px';
         this.dropdown.style.width = rect.width + 'px';
 
-        this.dropdown.style.display = 'block';
         this.isOpen = true;
         this.activeIndex = -1;
     };

@@ -996,9 +996,13 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         lock.setNoteId(502L);
         if ("expiredLock".equals(scenario)) when(locks.find(10L)).thenReturn(null);
         if ("ajaxStaleSelection".equals(scenario)) request.setParameter("ajax", "true");
-        var issue = new CaseManagementIssue();
+        var issue = spy(new CaseManagementIssue());
         issue.setId(71L);
         issue.setDemographic_no(101);
+        doReturn(true).when(issue).isWriteAccess("999998", 7);
+        var issues = mock(io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO.class);
+        when(issues.findById(71L)).thenReturn(issue);
+        injectDependency(action, "caseManagementIssueDao", issues);
         var checkbox = new CheckBoxBean();
         checkbox.setIssue(issue);
         form.getIssueCheckList().add(checkbox);
@@ -1012,6 +1016,8 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         assertThat(note.getNote()).isEqualTo("Window B existing note");
         assertThat(form.getCaseNote()).isSameAs(note);
         assertThat(form.getIssueCheckList()).isSameAs(originalIssues).containsExactly(checkbox);
+        verify(issues, times("expiredLock".equals(scenario) ? 0 : 1)).findById(71L);
+        verify(issue, times("expiredLock".equals(scenario) ? 0 : 1)).isWriteAccess("999998", 7);
         verify(manager, never()).deleteIssueById(any());
         verify(manager, never()).removeIssueFromCPP(any(), any());
         verify(manager, never()).saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),

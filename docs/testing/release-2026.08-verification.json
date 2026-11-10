@@ -2866,6 +2866,10 @@
             {
               "name": "shouldGroupPhysicalHistory_onTheNativeTable",
               "container": ""
+            },
+            {
+              "name": "shouldRejectUnregisteredTableBeforeHistorySql_whenIdentifierIsOtherwiseValid",
+              "container": ""
             }
           ]
         },
@@ -3236,7 +3240,7 @@
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementIntegrationTest": 5,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
-        "EncounterFormDaoGroupedHistoryIntegrationTest": 1,
+        "EncounterFormDaoGroupedHistoryIntegrationTest": 2,
         "SoapTokenHousekeepingDaoIntegrationTest": 8,
         "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
         "ScheduleSyncMariaDbIntegrationTest": 9,
@@ -3311,7 +3315,7 @@
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementIntegrationTest": 5,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
-        "EncounterFormDaoGroupedHistoryIntegrationTest": 1,
+        "EncounterFormDaoGroupedHistoryIntegrationTest": 2,
         "SoapTokenHousekeepingDaoIntegrationTest": 8,
         "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
         "ScheduleSyncMariaDbIntegrationTest": 9,
@@ -3377,7 +3381,7 @@
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
         "LegacyBcTeleplanExportMariaDbIntegrationTest": 29,
-        "EncounterFormDaoGroupedHistoryIntegrationTest": 1,
+        "EncounterFormDaoGroupedHistoryIntegrationTest": 2,
         "SoapTokenHousekeepingDaoIntegrationTest": 8,
         "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
         "ScheduleSyncMariaDbIntegrationTest": 9,

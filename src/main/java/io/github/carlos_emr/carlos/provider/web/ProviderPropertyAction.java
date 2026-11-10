@@ -97,6 +97,9 @@ public class ProviderPropertyAction {
         UserPropertyDAO propertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
+        io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod.validate(
+                request.getParameter("consultation_time_period_warning"));
+
         // Schedule preferences
         saveBoolean(request, propertyDAO, providerNo, UserProperty.SCHEDULE_WEEK_VIEW_WEEKENDS);
 

@@ -78,6 +78,21 @@ public class EChartDaoIntegrationTest extends CarlosTestBase {
         assertThat(eChartDao.getLatestChartById(5547103)).isNull();
     }
 
+    @Test
+    void shouldReturnDistinctBoundedPages_whenHistoricalRevisionsExist() throws Exception {
+        EChart first = createEChart(5547201, "first", new Date(100000L));
+        EChart second = createEChart(5547201, "second", new Date(100000L));
+        EChart third = createEChart(5547201, "third", new Date(100000L));
+        createEChart(5547202, "other", new Date(100000L));
+        assertThat(eChartDao.getChartsForDemographic(5547201, 0, 2))
+                .extracting(EChart::getId).containsExactly(third.getId(), second.getId());
+        assertThat(eChartDao.getChartsForDemographic(5547201, 2, 2))
+                .extracting(EChart::getId).containsExactly(first.getId());
+        assertThat(eChartDao.getChartsForDemographic(5547201, 3, 2)).isEmpty();
+        assertThatThrownBy(() -> eChartDao.getChartsForDemographic(5547201, -1, 2))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {

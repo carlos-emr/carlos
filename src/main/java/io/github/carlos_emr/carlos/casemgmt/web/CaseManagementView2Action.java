@@ -1205,7 +1205,9 @@ public class CaseManagementView2Action extends ActionSupport {
             if (idx > 0) {
                 cppIssues.append(";");
             }
-            cppIssues.append(issue.getId() + ";" + issue.getCode() + ";" + issue.getDescription());
+            cppIssues.append(issue.getId()).append(";")
+                    .append(io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(issue.getCode())).append(";")
+                    .append(io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(issue.getDescription()));
             issueIds[idx] = String.valueOf(issue.getId());
             idx++;
         }

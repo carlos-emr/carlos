@@ -76,4 +76,17 @@ class EncounterFormDaoGroupedHistoryIntegrationTest extends CarlosTestBase {
         assertThat(forms.findPatientHistory(table, "202", true)).extracting(EncounterFormDao.HistoryRow::id)
                 .containsExactly(99);
     }
+
+    @Test
+    void shouldRejectUnregisteredTableBeforeHistorySql_whenIdentifierIsOtherwiseValid() {
+        String unregistered = table + "Missing";
+        assertThat(forms.findByFormTable(unregistered)).isEmpty();
+        for (boolean grouped : new boolean[]{true, false}) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> forms.findPatientHistory(unregistered, "101", grouped))
+                    .isInstanceOf(io.github.carlos_emr.carlos.commn.dao.UnknownEncounterFormTableException.class);
+        }
+        assertThat(EctFormData.getPatientFormsAsArrayList("101", "Missing", unregistered)).isEmpty();
+        assertThat(EctFormData.getGroupedPatientFormsAsArrayList("101", "Missing", unregistered, "missing.jsp")).isEmpty();
+        assertThat(EctFormData.getShortcutLatestPatientForm("101", unregistered)).isNull();
+    }
 }

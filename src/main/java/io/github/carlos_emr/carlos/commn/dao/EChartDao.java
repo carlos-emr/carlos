@@ -53,5 +53,8 @@ public interface EChartDao extends AbstractDao<EChart> {
 
     List<EChart> getChartsForDemographic(Integer demoNo);
 
+    /** Bounded historical page, newest revision ID first. */
+    List<EChart> getChartsForDemographic(Integer demoNo, int offset, int limit);
+
     List<EChart> findByDemoIdAndSubject(Integer demoNo, String subj);
 }

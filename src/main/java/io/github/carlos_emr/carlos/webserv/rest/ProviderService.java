@@ -436,6 +436,10 @@ public class ProviderService extends AbstractServiceImpl {
             throw new WebApplicationException("provider settings may only be saved for the authenticated provider",
                     Response.Status.FORBIDDEN);
         }
+        if (json == null || !io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod
+                .isValid(json.getConsultationTimePeriodWarning())) {
+            throw new WebApplicationException("Invalid consultation warning period in months", Response.Status.BAD_REQUEST);
+        }
         providerManager.updateProviderSettings(getLoggedInInfo(), providerNo, json);
         return RestResponse.successResponse(null);
     }
