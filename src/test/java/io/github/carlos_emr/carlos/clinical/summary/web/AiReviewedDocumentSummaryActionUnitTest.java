@@ -399,6 +399,37 @@ class AiReviewedDocumentSummaryActionUnitTest {
         verify(response).sendError(409);
         verify(request, never()).setAttribute(eq("documentSummaryError"), any());
     }
+    @Test void frenchPatientRecordGivesTheFrenchNoticeOnThePageAndInTheReview() throws Exception {
+        when(context.load(any(LoggedInInfo.class), eq(11)))
+                .thenReturn(new DocumentSummaryReviewContext.Snapshot(SCOPE, META, "fr"));
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(request, atLeastOnce()).setAttribute("documentSummaryNotice", DocumentSummaryReviewBinding.unreviewedNotice("fr"));
+        var review = generate();
+        var view = review.view(actor, SCOPE, source());
+        assertThat(view.notice()).contains("Statut de la révision").doesNotContain("Review status");
+        verify(request, atLeastOnce()).setAttribute("documentSummaryNotice", view.notice());
+    }
+
+    private void noticeFollowsTheRecord(String language, String statusLabel) throws Exception {
+        when(context.load(any(LoggedInInfo.class), eq(11)))
+                .thenReturn(new DocumentSummaryReviewContext.Snapshot(SCOPE, META, language));
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(request, atLeastOnce()).setAttribute("documentSummaryNotice", DocumentSummaryReviewBinding.unreviewedNotice(language));
+        var review = generate();
+        var view = review.view(actor, SCOPE, source());
+        assertThat(view.notice()).as(language).contains(statusLabel).doesNotContain("Review status", "Statut de la");
+        verify(request, atLeastOnce()).setAttribute("documentSummaryNotice", view.notice());
+    }
+    @Test void aSpanishRecordGivesTheSpanishNoticeOnThePageAndInTheReview() throws Exception {
+        noticeFollowsTheRecord("es", "Estado de la revisión");
+    }
+    @Test void aPolishRecordGivesThePolishNoticeOnThePageAndInTheReview() throws Exception {
+        noticeFollowsTheRecord("pl", "Status weryfikacji");
+    }
+    @Test void aPortugueseRecordGivesTheBrazilianPortugueseNoticeOnThePageAndInTheReview() throws Exception {
+        noticeFollowsTheRecord("pt-BR", "Situação da revisão");
+    }
+
     @Test void aCapRefusalWritesNoGenerateRowOnlyADistinctRefusedRowWithTheIds() throws Exception {
         int capacity = DocumentSummaryReviewSession.capacity();
         var held = new java.util.ArrayList<DocumentSummaryReviewSession>();
