@@ -823,7 +823,7 @@
         "scripts/ci/lifecycle_baselines.py",
         "scripts/ci/test_lifecycle_baselines.py"
       ],
-      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5 and current-main beta6 installs on ON/BC; beta5 exercises V1.0.59.27\u201332 and CLI 1.3.0-to-1.3.1. A source-identical current-main install alone does not cover historical migration.",
+      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5 and current-main beta6 installs on ON/BC; beta5 exercises V1.0.59.27–32 and CLI 1.3.0-to-1.3.1. A source-identical current-main install alone does not cover historical migration.",
       "cases": "Framingham/UKPDS HDL equal/greater than total and stale-answer clearing; renal thresholds/source selection; WHtR and waist units; valid/impossible dates and leap/DST days; missing patient/catalog/rules; age/sex/hide filters; shared/private/null flowsheet scopes; selected preventions in print; duplicate linked diagnosis/drug and intact long lab values.",
       "acceptance": "Clinical calculations use the intended inputs, invalid input clears stale results, persisted dates/values are exact, and no missing-data case logs an error per prevention type.",
       "requiredChecks": [
@@ -3212,7 +3212,7 @@
         "-DexcludedGroups=flyway-schema",
         "-Dcarlos.test.schema.expected=generated"
       ],
-      "minimumCases": 2572,
+      "minimumCases": 2575,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "RxCorrectionSaveRollbackIntegrationTest": 2,
@@ -3225,8 +3225,8 @@
         "MeasurementsExtDaoIntegrationTest": 1,
         "ProviderLabRoutingDaoIntegrationTest": 1,
         "BillingONCHeader1DaoIntegrationTest": 1,
-        "LegacyLabUploadDaoIntegrationTest": 6,
-        "LabRoutingLookupDaoIntegrationTest": 5,
+        "LegacyLabUploadDaoIntegrationTest": 8,
+        "LabRoutingLookupDaoIntegrationTest": 6,
         "MeasurementPatientMatchMariaDbIntegrationTest": 10,
         "BillingHistoryDaoIntegrationTest": 1,
         "LookupDaoIntegrationTest": 1,
@@ -3289,7 +3289,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 157,
+      "minimumCases": 160,
       "requiredFamilies": {
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
@@ -3303,8 +3303,8 @@
         "MeasurementsExtDaoIntegrationTest": 1,
         "ProviderLabRoutingDaoIntegrationTest": 1,
         "BillingONCHeader1DaoIntegrationTest": 1,
-        "LegacyLabUploadDaoIntegrationTest": 6,
-        "LabRoutingLookupDaoIntegrationTest": 5,
+        "LegacyLabUploadDaoIntegrationTest": 8,
+        "LabRoutingLookupDaoIntegrationTest": 6,
         "LegacyLabNativeMariaDbIntegrationTest": 7,
         "ArchiveAuditTimestampIntegrationTest": 2,
         "Growth0To36FormPersistenceIntegrationTest": 19,
@@ -3357,7 +3357,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 186,
+      "minimumCases": 187,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 22,
@@ -3365,7 +3365,7 @@
         "DemographicMergeMariaDbIntegrationTest": 9,
         "CaseManagementNoteLockMariaDbIntegrationTest": 15,
         "ConsultationArchiveDaoIntegrationTest": 1,
-        "LabRoutingLookupDaoIntegrationTest": 5,
+        "LabRoutingLookupDaoIntegrationTest": 6,
         "LegacyLabNativeMariaDbIntegrationTest": 7,
         "ArchiveAuditTimestampIntegrationTest": 2,
         "FormXmlImportServiceIntegrationTest": 7,
