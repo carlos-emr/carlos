@@ -93,6 +93,22 @@ public class EChartDaoIntegrationTest extends CarlosTestBase {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource(value = {"NULL,0,1", "0,0,1", "-1,0,1",
+            "5547201,0,0", "5547201,0,102"}, nullValues = "NULL")
+    void shouldRefuseInvalidHistoricalPageBeforeQuerying(Integer patient, int offset, int limit) {
+        assertThatThrownBy(() -> eChartDao.getChartsForDemographic(patient, offset, limit))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldAllowMaximumHistoricalPageSize_withoutReturningAnotherPatient() throws Exception {
+        EChart own = createEChart(5547301, "own", new Date());
+        createEChart(5547302, "other", new Date());
+        assertThat(eChartDao.getChartsForDemographic(5547301, 0, 101))
+                .extracting(EChart::getId).containsExactly(own.getId());
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {
