@@ -2,6 +2,7 @@
 import copy
 import hashlib
 from pathlib import Path
+import re
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -28,6 +29,15 @@ class CandidateCliPackageTest(unittest.TestCase):
         with patch.object(cli.subprocess, 'check_output', return_value='Package: carlos-ctl\nVersion: 1.3.2\nArchitecture: all\n'):
             with self.assertRaisesRegex(EvidenceError, 'control identity'):
                 cli.verify_package(self.package, self.spec)
+
+    def test_privileged_workflow_checkout_is_literal_and_matches_both_reviewed_pins(self):
+        workflow = (cli.ROOT / '.github/workflows/package-smoke.yml').read_text()
+        block = workflow.split('repository: carlos-emr/carlos-ctl\n', 1)[1].split('path:', 1)[0]
+        references = re.findall(r'^\s+ref: ([0-9a-f]{40})\s*$', block, re.MULTILINE)
+        self.assertEqual(references, [cli.specification()['sourceCommit']])
+        pin = dict(line.split('=', 1) for line in (cli.ROOT / 'debian/carlos-ctl.pin').read_text().splitlines()
+                   if line and not line.startswith('#'))
+        self.assertEqual(references[0], pin['fallback'])
 
     def test_changed_bytes_cannot_reach_package_metadata_parsing(self):
         self.package.write_bytes(b'x' * len(self.payload))
