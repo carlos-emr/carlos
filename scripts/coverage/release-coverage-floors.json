@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "c64108ddcb0c85110f21537650adcc734d285aef",
-  "comparisonSha256": "8956052406125cb54e2e575e8c41675c7f7c36a178b94aa1d965c088ef3f843b",
-  "baselineCommit": "b91796b3d29b930bf82444eb91de0072a1f512f8",
-  "baselineSourceTree": "c64108ddcb0c85110f21537650adcc734d285aef",
-  "baselineReportSha256": "e286c87f972c57eb3ced7f77f0f0629c03b7a9be37629119b321efa2a2641411",
-  "baselineLane": "Ubuntu 26.04/OpenJDK 25.0.5.0.3 complete H2 baseline with pinned Chromium. All 27 PR #6102 Java paths meet retained floors. 206 registered routed/prerequisite skips and the separate five-case permission lane are verified. Same-class refusal/compatibility retakes append measured coverage. Higher historical floors, required refusal lines and zero-floor review requirements remain; this is not full release native-union qualification.",
+  "sourceTree": "c3a8aaa9506147531483f6b6ea4fa9ecf424d2c8",
+  "comparisonSha256": "031403c082a208b33973ee3cb751871d5ec6a018988d9883d204a6a853741ad6",
+  "baselineCommit": "d950b07166cc5e5c475762f8db0998f23fbe57a5",
+  "baselineSourceTree": "c3a8aaa9506147531483f6b6ea4fa9ecf424d2c8",
+  "baselineReportSha256": "f630287549233d5bd9edfa0c4a6ef767fc877fd8fe5d076078870252c2ad8611",
+  "baselineLane": "Ubuntu 26.04/OpenJDK 25.0.5.0.3 clean complete H2 baseline after the PR #6102 parser backtracking fix, with pinned Chromium. All 27 PR Java paths meet retained floors. Registered routed/prerequisite skips and the separate five-case permission lane are verified. Higher historical floors, required refusal lines and zero-floor review requirements remain; this is not full release native-union qualification.",
   "baselineTestCounts": {
-    "tests": 35964,
+    "tests": 35990,
     "skipped": 206,
     "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "b17ba7c2c237c83fdb7712be90bc3646d3fb252bff52000c097fade9f82991c8",
+  "baselineTestReportsSha256": "f85ee28d2f4b9b5f51010c9e0157b41018d0fb9569cc3f10f8ed5f5806a4c549",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -1939,7 +1939,7 @@
       "lines": 77.46478873239437,
       "instructions": 74.10468319559229,
       "branches": 65.04065040650407,
-      "sourceBlob": "44068c9583d2554b4ace0dd552730c201104d5c3"
+      "sourceBlob": "f868bcd6c0a3403541cc9b9a9ef841db3e4fb4d9"
     },
     "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/ScatterPlotChartServlet.java": {
       "lines": 100.0,
@@ -4425,25 +4425,12 @@
   "zeroCoverageWaivers": {},
   "baselineAdditionalTestRuns": [
     {
-      "lane": "review-refusal-compatibility",
-      "tests": 367,
-      "failures": 0,
-      "skipped": 0,
-      "reportsSha256": "e71daa637ab92a6139d8d8fe957412bcb375e796b114af7f5b5faf0d8137769d"
-    },
-    {
-      "lane": "final-filter-status-guards",
-      "tests": 132,
-      "failures": 0,
-      "skipped": 0,
-      "reportsSha256": "f05271b94c803107fff34a8c6c7f0e4205abacd105585e962d8e21bc554ebfd3"
-    },
-    {
       "lane": "unprivileged-permissions",
       "tests": 5,
       "failures": 0,
+      "errors": 0,
       "skipped": 0,
-      "reportsSha256": "688c583cb8d1c2d510dd6e904f9cd91a53ff54ac5c4fd1f46425cf85c02deffc"
+      "reportsSha256": "a9294acf084dc232ec99edabaac4c5c1f6b9516a7fcd575e2409566829bdfb61"
     }
   ]
 }
