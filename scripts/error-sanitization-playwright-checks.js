@@ -25,7 +25,8 @@
  *
  * Run this browser check through HTTPS :443 to observe the packaged front door.
  * Requires BASE_URL, TEST_USER, TEST_PASSWORD and TEST_PIN as in the runbook.
- * Optional CHROME_PATH and ERROR_SANITIZATION_SCREENSHOT_DIR. No fixture writes.
+ * Optional CHROME_PATH and ERROR_SANITIZATION_SCREENSHOT_DIR. The disposable
+ * installed check temporarily adds fault routes and restores them before exiting.
  */
 
 
@@ -102,7 +103,39 @@ function assertSanitizedFault(status, body, headers, errorDispatch = false) {
   for (const marker of STACK_TRACE_MARKERS) assert(!body.includes(marker), 'Fault fixture leaked a stack trace');
 }
 
-if (require.main === module) legacyHarness.runLegacyCheck('error-sanitization',async({cancellation})=>{
+// The fault descriptor must exist only for this check, never for other suite
+// clients. Keep this parent alive on cancellation until Python restores it.
+function superviseInstalledFault({ environment = process.env, signalProcess = process,
+  spawn = require('node:child_process').spawn } = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn('python3', ['scripts/ci/run-installed-error-sanitization.py', '--',
+      'node', 'scripts/error-sanitization-playwright-checks.js'], {
+      cwd: require('node:path').resolve(__dirname, '..'), env: environment, stdio: 'inherit',
+    });
+    const interrupt = () => child.kill('SIGINT');
+    const terminate = () => child.kill('SIGTERM');
+    const cleanup = () => {
+      signalProcess.removeListener('SIGINT', interrupt);
+      signalProcess.removeListener('SIGTERM', terminate);
+    };
+    signalProcess.on('SIGINT', interrupt);
+    signalProcess.on('SIGTERM', terminate);
+    child.once('error', error => { cleanup(); reject(error); });
+    child.once('close', (code, signal) => {
+      cleanup();
+      if (signal) console.error(`FAIL installed error fixture supervisor ended by ${signal}; verify the installed web.xml was restored`);
+      resolve(signal || code === null ? 1 : code);
+    });
+  });
+}
+
+if (require.main === module && process.env.CARLOS_DISPOSABLE_HOST === 'true'
+    && !process.env.ERROR_SANITIZATION_FAULT_TOKEN) {
+  superviseInstalledFault().then(code => { process.exitCode = code; }, () => {
+    console.error('FAIL installed error fixture could not start');
+    process.exitCode = 1;
+  });
+} else if (require.main === module) legacyHarness.runLegacyCheck('error-sanitization',async({cancellation})=>{
   const faultToken = process.env.ERROR_SANITIZATION_FAULT_TOKEN || '';
   if (!/^[a-f0-9]{32}$/.test(faultToken)) {
     throw new SkipCheck('Run scripts/ci/run-installed-error-sanitization.py inside the disposable packaged container to provision temporary fault routes');
@@ -190,4 +223,4 @@ if (require.main === module) legacyHarness.runLegacyCheck('error-sanitization',a
   }
 });
 
-module.exports = { assertControlledRefusal, assertScheduleDateRefusal, assertSanitizedFault };
+module.exports = { assertControlledRefusal, assertScheduleDateRefusal, assertSanitizedFault, superviseInstalledFault };

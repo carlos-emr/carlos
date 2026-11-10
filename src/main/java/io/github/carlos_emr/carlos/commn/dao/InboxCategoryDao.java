@@ -52,6 +52,20 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 @Repository
 @Transactional(readOnly = true)
 public class InboxCategoryDao {
+    private static final java.time.format.DateTimeFormatter INBOX_DATE =
+            java.time.format.DateTimeFormatter.ofPattern("uuuu-M-d")
+                    .withResolverStyle(java.time.format.ResolverStyle.STRICT);
+
+    /**
+     * Parses an inclusive inbox date bound shared by count and content requests.
+     * @param date optional padded or unpadded ISO calendar date
+     * @return the calendar date, or null for a missing/blank bound
+     * @throws java.time.format.DateTimeParseException if a nonblank bound is invalid
+     */
+    public static java.time.LocalDate parseDateBound(String date) {
+        return StringUtils.isBlank(date) ? null : java.time.LocalDate.parse(date, INBOX_DATE);
+    }
+
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
     private final SystemPreferencesDao preferences;
@@ -133,9 +147,9 @@ public class InboxCategoryDao {
     }
 
     private static final class QueryState {
-
         private static final String COUNT_COLUMN = "count";
         private static final String SQL_EQUALS_PARAM = " = ? ";
+        private static final String SQL_LIKE_PARAM = " like ? ";
         private static final String SQL_IS_NOT_NULL = " IS NOT NULL ";
         private static final String SQL_IS_NOT_NULL_NO_PREFIX = "IS NOT NULL ";
 
@@ -187,6 +201,9 @@ public class InboxCategoryDao {
                             boolean providerSearch, String searchProviderNo, String status, String abnormalStatus,
                             String startDate, String endDate) {
 
+            startDate = normalizeDate(startDate);
+            endDate = normalizeDate(endDate);
+
             this.entityManager = entityManager;
             this.patientLastName = patientLastName;
             this.searchProviderNo = searchProviderNo;
@@ -213,12 +230,12 @@ public class InboxCategoryDao {
                     documentDateSql += "AND doc.contentdatetime >= ? ";
                     documentDateParams.add(startDate + " 00:00:00");
                     labDateSql += "AND message.created >= ? ";
-                    labDateParams.add(startDate + " 00:00:00");
+                    labDateParams.add(startDate);
                 } else {
                     documentDateSql += "AND doc.observationdate >= ? ";
                     documentDateParams.add(startDate + " 00:00:00");
                     labDateSql += "AND info.obr_date >= ? ";
-                    labDateParams.add(startDate + " 00:00:00");
+                    labDateParams.add(startDate);
                 }
 
                 hrmDateSql += "AND h.timeReceived >= :hrmStartDate ";
@@ -229,13 +246,13 @@ public class InboxCategoryDao {
                 if (dateSearchType.equals("receivedCreated")) {
                     documentDateSql += "AND doc.contentdatetime <= ? ";
                     documentDateParams.add(endDate + " 23:59:59");
-                    labDateSql += "AND message.created <= ? ";
-                    labDateParams.add(endDate + " 23:59:59");
+                    labDateSql += "AND message.created < ? ";
+                    labDateParams.add(java.time.LocalDate.parse(endDate).plusDays(1).toString());
                 } else {
                     documentDateSql += "AND doc.observationdate <= ? ";
                     documentDateParams.add(endDate + " 23:59:59");
-                    labDateSql += "AND info.obr_date <= ? ";
-                    labDateParams.add(endDate + " 23:59:59");
+                    labDateSql += "AND info.obr_date < ? ";
+                    labDateParams.add(java.time.LocalDate.parse(endDate).plusDays(1).toString());
                 }
 
                 hrmDateSql += "AND h.timeReceived <= :hrmEndDate ";
@@ -278,6 +295,18 @@ public class InboxCategoryDao {
 
         }
 
+        private static String normalizeDate(String date) {
+            var parsed = parseDateBound(date);
+            return parsed == null ? null : parsed.toString();
+        }
+
+        /** Builds the shared patient predicate in the same order as addPatientSearchParams. */
+        private String patientFiltersSql() {
+            return "d.last_name" + (StringUtils.isEmpty(patientLastName) ? SQL_IS_NOT_NULL : SQL_LIKE_PARAM)
+                    + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? SQL_IS_NOT_NULL : SQL_LIKE_PARAM)
+                    + hinFilter();
+        }
+
         private boolean matchesAnyStatus() {
             return status == null || status.isEmpty();
         }
@@ -288,10 +317,11 @@ public class InboxCategoryDao {
 
         private String getDateSearchType() { return dateSearchType; }
 
+        /** Counts distinct unmatched HL7 reports within this request's provider, status and date filters. */
         public int getLabCountForUnmatched()
                 throws SQLException {
             String dateSearchType = getDateSearchType();
-            String sql = " SELECT HIGH_PRIORITY COUNT(DISTINCT accessionNum) as count "
+            String sql = " SELECT HIGH_PRIORITY COUNT(DISTINCT info.lab_no) as count "
                     + " FROM providerLabRouting plr "
                     + " LEFT JOIN patientLabRouting plr2 ON plr.lab_no = plr2.lab_no AND plr2.lab_type = 'HL7'"
                     + " RIGHT JOIN hl7TextInfo info ON plr.lab_no = info.lab_no"
@@ -313,44 +343,27 @@ public class InboxCategoryDao {
             return queryTrustedCount(sql, params);
         }
 
+        /** Counts distinct scoped reports; a missing abnormal flag belongs to the normal partition. */
         public int getAbnormalCount(boolean isAbnormal) throws SQLException {
-            String sql;
+            String sql = " SELECT HIGH_PRIORITY COUNT(DISTINCT info.lab_no) as count "
+                    + " FROM providerLabRouting plr JOIN hl7TextInfo info ON info.lab_no = plr.lab_no "
+                    + (getDateSearchType().equals("receivedCreated")
+                        ? " JOIN hl7TextMessage message ON message.lab_id = info.lab_no " : "")
+                    + (patientSearch ? " JOIN patientLabRouting cd ON cd.lab_no = plr.lab_no AND cd.lab_type = 'HL7' "
+                        + " JOIN demographic d ON d.demographic_no = cd.demographic_no " : "")
+                    + " WHERE plr.lab_type = 'HL7' "
+                    + (patientSearch ? " AND " + patientFiltersSql() : "")
+                    + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
+                    + (providerSearch ? " AND plr.provider_no = ? " : "")
+                    + (isAbnormal ? " AND info.result_status = 'A' "
+                        : " AND (info.result_status IS NULL OR info.result_status != 'A') ")
+                    + labAbnormalSql + labDateSql;
             List<Object> params = new ArrayList<>();
-            if (patientSearch) {
-                sql = " SELECT HIGH_PRIORITY COUNT(1) as count "
-                        + " FROM patientLabRouting cd, demographic d, providerLabRouting plr, hl7TextInfo info "
-                        + " WHERE d.last_name" + (StringUtils.isEmpty(patientLastName) ? SQL_IS_NOT_NULL : " like ?  ")
-                        + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? SQL_IS_NOT_NULL : " like ? ")
-                        + hinFilter()
-                        + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
-                        + (providerSearch ? "AND plr.provider_no = ? " : "")
-                        + " AND plr.lab_type = 'HL7' "
-                        + " AND cd.lab_type = 'HL7' "
-                        + " AND cd.lab_no = plr.lab_no "
-                        + " AND cd.demographic_no = d.demographic_no "
-                        + " AND info.lab_no = plr.lab_no "
-                        + " AND result_status " + (isAbnormal ? "" : "!") + "= 'A' ";
-                addPatientSearchParams(params);
-                if (bindsStatusParameter()) params.add(status);
-                if (providerSearch) params.add(searchProviderNo);
-                return queryTrustedCount(sql, params);
-            } else if (providerSearch || bindsStatusParameter()) {
-                sql = "SELECT HIGH_PRIORITY COUNT(1) as count "
-                        + " FROM providerLabRouting plr, hl7TextInfo info "
-                        + " WHERE plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
-                        + (providerSearch ? " AND plr.provider_no = ? " : " ")
-                        + " AND plr.lab_type = 'HL7'  "
-                        + " AND info.lab_no = plr.lab_no"
-                        + " AND result_status " + (isAbnormal ? "" : "!") + "= 'A' ";
-                if (bindsStatusParameter()) params.add(status);
-                if (providerSearch) params.add(searchProviderNo);
-                return queryTrustedCount(sql, params);
-            } else {
-                sql = " SELECT HIGH_PRIORITY COUNT(1) as count "
-                        + " FROM hl7TextInfo info "
-                        + " WHERE result_status " + (isAbnormal ? "" : "!") + "= 'A' ";
-                return queryTrustedCount(sql, params);
-            }
+            if (patientSearch) addPatientSearchParams(params);
+            if (bindsStatusParameter()) params.add(status);
+            if (providerSearch) params.add(searchProviderNo);
+            params.addAll(labDateParams);
+            return queryTrustedCount(sql, params);
         }
 
         public int getDocumentCountForUnmatched()
@@ -373,18 +386,17 @@ public class InboxCategoryDao {
             return queryTrustedCount(sql, params);
         }
 
+        /** Accumulates one patient summary per patient, counting each matching raw report once. */
         public int getLabCountForPatientSearch() throws SQLException {
             PatientInfo info;
             String dateSearchType = getDateSearchType();
-            String sql = " SELECT HIGH_PRIORITY d.demographic_no, d.last_name, d.first_name, COUNT(*) as count "
+            String sql = " SELECT HIGH_PRIORITY d.demographic_no, d.last_name, d.first_name, COUNT(DISTINCT info.lab_no) as count "
                     + " FROM patientLabRouting cd"
                     + " LEFT JOIN demographic d ON cd.demographic_no = d.demographic_no"
                     + " LEFT JOIN providerLabRouting plr ON cd.lab_no = plr.lab_no"
                     + " LEFT JOIN hl7TextInfo info ON cd.lab_no = info.lab_no"
                     + (dateSearchType.equals("receivedCreated") ? " LEFT JOIN hl7TextMessage message ON cd.lab_no = message.lab_id" : "")
-                    + " WHERE   d.last_name" + (StringUtils.isEmpty(patientLastName) ? SQL_IS_NOT_NULL : "  like ? ")
-                    + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? SQL_IS_NOT_NULL : " like ? ")
-                    + hinFilter()
+                    + " WHERE " + patientFiltersSql()
                     + " AND plr.lab_type = 'HL7' "
                     + " AND cd.lab_type = 'HL7' "
                     + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
@@ -395,7 +407,7 @@ public class InboxCategoryDao {
                     // Qualified: both patientLabRouting (cd) and demographic (d) carry demographic_no.
                     // MariaDB resolves the bare name to the select-list d.demographic_no, but H2 and
                     // stricter SQL engines reject it as ambiguous; d. states the intended column.
-                    + " GROUP BY d.demographic_no, info.accessionNum ";
+                    + " GROUP BY d.demographic_no, d.last_name, d.first_name ";
 
             List<Object> params = new ArrayList<>();
             addPatientSearchParams(params);
@@ -426,6 +438,7 @@ public class InboxCategoryDao {
             }
         }
 
+        /** Counts distinct routed reports for one demographic without multiplying duplicate provider routes. */
         public int getLabCountForDemographic(String demographicNo) throws SQLException {
             if (demographicNo == null || demographicNo.trim().isEmpty()) {
                 throw new IllegalArgumentException("demographicNo cannot be null or empty");
@@ -433,7 +446,7 @@ public class InboxCategoryDao {
 
             // Build SQL with placeholders
             StringBuilder sql = new StringBuilder();
-            sql.append(" SELECT HIGH_PRIORITY d.demographic_no, last_name, first_name, COUNT(1) as count ");
+            sql.append(" SELECT HIGH_PRIORITY d.demographic_no, last_name, first_name, COUNT(DISTINCT cd.lab_no) as count ");
             sql.append(" FROM patientLabRouting cd, demographic d, providerLabRouting plr ");
             sql.append(" WHERE d.demographic_no = ? ");
             sql.append(" AND cd.demographic_no = d.demographic_no ");
@@ -452,7 +465,7 @@ public class InboxCategoryDao {
             }
 
             // Qualified for the same reason as getLabCountForPatientSearch: cd and d both have demographic_no.
-            sql.append(" GROUP BY d.demographic_no ");
+            sql.append(" GROUP BY d.demographic_no, d.last_name, d.first_name ");
 
             List<Object> params = new ArrayList<>();
             params.add(demographicNo);
@@ -481,7 +494,7 @@ public class InboxCategoryDao {
                     + documentJoinSql
                     + " WHERE   d.last_name" + (StringUtils.isEmpty(patientLastName) ? SQL_IS_NOT_NULL : " like ?  ")
                     + hinFilter()
-                    + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? SQL_IS_NOT_NULL : " like ? ")
+                    + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? SQL_IS_NOT_NULL : SQL_LIKE_PARAM)
                     + " AND plr.lab_type = 'DOC' "
                     + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
                     + (providerSearch ? "AND plr.provider_no = ? " : "")

@@ -18,6 +18,15 @@ CRITICAL = {
 # Surefire's default JUnit 5 names distinguish both boolean invocations. Counts
 # alone cannot prove archive-failure or demographic-audit regressions executed.
 REQUIRED_CASES = {
+    "EncounterFormDaoGroupedHistoryIntegrationTest": {"shouldGroupPhysicalHistory_onTheNativeTable"},
+    "LabRoutingLookupDaoIntegrationTest": {
+        "shouldPreserveBcLikeMatchingAndSpireShortestNameLimit_forProviderSearch",
+        "shouldNeverMatchMissingCmlHin_evenWithOnePlausiblePatient",
+    },
+    "LegacyLabUploadDaoIntegrationTest": {
+        "shouldKeepMissingIdentifiersUnmatched_withOnePlausibleBlankHinPatient",
+        "shouldRejectWholeFile_whenSecondPatientRecordIsMalformed",
+    },
     'ReportingPatientListAuditMariaDbIntegrationTest': {
         'shouldCommitPatientNameAudit_withAnUnassignedOrMissingProvider(String)[1]',
         'shouldCommitPatientNameAudit_withAnUnassignedOrMissingProvider(String)[2]',
@@ -98,7 +107,7 @@ REQUIRED_CASES = {
 # AbstractDaoFindAllOrderingIntegrationTest pins issue #5308 where it matters: MariaDB returns an
 # unordered page in secondary-index order, so its paging cases must execute on the physical server.
 # CaseManagementIssueDAO adds one duplicate-link case on the legacy Flyway schema only.
-REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 6, "LabRoutingLookupDaoIntegrationTest": 4, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
+REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
                           "JdbcConnectorMariaDbIntegrationTest": 32,
                           "BillingHistoryDaoIntegrationTest": 1, "LookupDaoIntegrationTest": 1,
                           "AbstractDaoFindAllOrderingIntegrationTest": 6,
@@ -119,8 +128,8 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, 
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
                           "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
-                          "Growth0To36FormPersistenceIntegrationTest": 19},
-            "flyway": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 6, "LabRoutingLookupDaoIntegrationTest": 4,
+                          "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 1},
+            "flyway": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6,
                        "LegacyLabNativeMariaDbIntegrationTest": 7, "ConsultationArchiveDaoIntegrationTest": 1,
                        "ArchiveAuditTimestampIntegrationTest": 2,
                        "CaseManagementNoteLockMariaDbIntegrationTest": 15,
@@ -135,8 +144,8 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, 
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
                           "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
-                       "Growth0To36FormPersistenceIntegrationTest": 19},
-            "bc-flyway": {"FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementTransactionIntegrationTest": 2, "LabRoutingLookupDaoIntegrationTest": 4,
+                       "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 1},
+            "bc-flyway": {"FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementTransactionIntegrationTest": 2, "LabRoutingLookupDaoIntegrationTest": 6,
                            "LegacyLabNativeMariaDbIntegrationTest": 7,
                            "ConsultationArchiveDaoIntegrationTest": 1,
                            "ArchiveAuditTimestampIntegrationTest": 2,
@@ -158,7 +167,7 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, 
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
                           "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
-                           "Growth0To36FormPersistenceIntegrationTest": 19}}
+                           "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 1}}
 
 
 INBOX_CASES = (
@@ -234,7 +243,8 @@ def verify(reports: Path, output: Path) -> dict:
             if families[mode][family] < minimum:
                 raise EvidenceError(f"Required MariaDB {mode} coverage missing: {family}")
         for family, names in REQUIRED_CASES.items():
-            if family not in required: continue
+            if family not in required:
+                continue
             missing = names - passed_cases[mode][family]
             if missing:
                 raise EvidenceError(f"Required MariaDB {mode} cases missing: {family}: " + ", ".join(sorted(missing)))

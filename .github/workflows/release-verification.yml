@@ -39,6 +39,14 @@ jobs:
         # Discovery aids and open ownership decisions remain explicitly incomplete.
         # This job verifies tooling; it does not certify release readiness.
         run: python3 scripts/ci/release-scope-audit.py --inventory-only --output target/verification-tooling/scope.json
+      - name: Check coverage baseline source freshness
+        if: github.event_name != 'pull_request' || github.base_ref == 'release/2026.08'
+        # Freshness does not approve unreviewed zero floors or qualify coverage.
+        run: |
+          python3 scripts/coverage/check-coverage-floors.py --freshness-only \
+            --floors scripts/coverage/release-coverage-floors.json \
+            --base "$(python3 -c 'import json; print(json.load(open("docs/testing/release-2026.08-verification.json"))["baselines"]["currentMain"])')" \
+            --output target/verification-tooling/coverage-freshness.json
       - name: Preserve metadata for review
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

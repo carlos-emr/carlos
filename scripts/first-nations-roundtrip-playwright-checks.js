@@ -6,6 +6,7 @@ const h=require('./lib/playwright-harness');
 const ui=require('./lib/playwright-ui');
 const {runWorkflow}=require('./lib/workflow-session');
 const {openEditForm}=require('./demographic-edit-update-playwright-checks');
+const {settleOperations}=require('./graceful-signal-cancellation');
 const q=h.sqlString;
 const KEYS=['statusNum','fNationCom','labelfNationCom','fNationFamilyNumber','fNationFamilyPosition','ethnicity','aboriginal'];
 
@@ -71,7 +72,16 @@ async function workflow(s) {
     extensions:sql.rows(`SELECT key_val,value,hidden FROM demographicExt WHERE demographic_no=${patient} AND key_val NOT IN (${KEYS.map(q).join(',')}) ORDER BY key_val`)});
   const unrelatedBefore=unrelated();
   async function search(number){
-    const {page}=await ui.clickOpensPopupOrNavigates(s.schedule,s.schedule.locator('#search a').first(),{context:s.context,recorder:s.recorder,label:'first-nations-search'});
+    // openMasterRecord retains its named Search window as the master's opener.
+    // A native Search click reuses it, which does not emit a new-page event.
+    await s.schedule.goto(s.scheduleUrl,{waitUntil:'load'});
+    const retained=s.search&&s.search!==s.schedule&&!s.search.isClosed()
+      &&await s.search.evaluate(()=>window.name)==='apptProviderSearch';
+    let page;
+    if(retained) {
+      await settleOperations([s.search.waitForNavigation({waitUntil:'load'}),s.schedule.locator('#search a').first().click()]);
+      page=s.search;await h.assertNotErrorPage(page,'native reused band-number search');
+    }else ({page}=await ui.clickOpensPopupOrNavigates(s.schedule,s.schedule.locator('#search a').first(),{context:s.context,recorder:s.recorder,label:'first-nations-search'}));
     const form=page.locator('form[name="titlesearch"]').first();await form.waitFor({state:'attached'});
     h.assert(await form.locator('select[name="search_mode"] option[value="search_band_number"]').count()===1,'Enabled First Nations profile has no Band Number search');
     const keyword=form.locator('input[name="keyword"]').first();
@@ -80,7 +90,7 @@ async function workflow(s) {
     await keyword.fill(number);await ui.clickAndAwaitReload(page,form.locator('input[type="submit"]').first());
     await h.assertNotErrorPage(page,'native saved band-number search');
     const ids=(await page.locator('a[title="Master Demographic File"]').allTextContents()).map(text=>text.trim()).filter(text=>/^\d+$/.test(text));
-    if(page!==s.schedule)await page.close();return ids;
+    if(page!==s.schedule&&page!==s.search)await page.close();return ids;
   }
   await s.step('native valid status entry selects its configured community and family fields, then saves and reopens exactly',async()=>{
     await input('aboriginal').selectOption('Yes');

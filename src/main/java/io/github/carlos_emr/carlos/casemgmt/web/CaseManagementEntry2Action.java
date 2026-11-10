@@ -3341,7 +3341,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 return null;
             }
         }
-        return new AuthorizedNoteHistory(demono, selectedNote, history, linkedGroupNote);
+        return new AuthorizedNoteHistory(demono, noteId, selectedNote, history, linkedGroupNote);
     }
 
     /** Shared patient, record and domain boundary for individual-note and issue histories. */
@@ -3363,10 +3363,19 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 || caseManagementMgr.isClientReferredInProgramDomain(provider, patient) ? patient : null;
     }
 
-    private record AuthorizedNoteHistory(String patient, CaseManagementNote selectedNote,
+    private record AuthorizedNoteHistory(String patient, long noteId, CaseManagementNote selectedNote,
                                          List<CaseManagementNote> history, boolean linkedGroupNote) { }
 
     private String prepareNoteHistoryView(AuthorizedNoteHistory access) {
+        try {
+            LogAction.addLogStrict(LoggedInInfo.getLoggedInInfoFromSession(request),
+                    LogConst.READ, LogConst.CON_CME_NOTE,
+                    Long.toString(access.noteId()), access.patient(), null);
+        } catch (RuntimeException auditFailure) {
+            logger.error("Note history withheld because its read audit could not be persisted");
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
+        }
         request.setAttribute("demoName", getDemoName(access.patient()));
         request.setAttribute("history", access.history());
         request.setAttribute("showStoredNoteHistory", !access.linkedGroupNote());
@@ -3780,7 +3789,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         CaseManagementPrint cmp = new CaseManagementPrint();
         try {
-            cmp.doPrint(loggedInInfo, demographicNo, printAllNotes, noteIds, printCPP, printRx, printLabs, printPreventions, printAllergies, (pType != null && "dates".equals(pType)) ? true : false, cStartDate, cEndDate, request, response.getOutputStream());
+            cmp.doPrint(loggedInInfo, demographicNo, printAllNotes, noteIds, printCPP, printRx, printLabs, printPreventions, printAllergies, "dates".equals(pType), cStartDate, cEndDate, request,
+                    auditedChartPrintOutput(loggedInInfo, patient, response.getOutputStream()));
         } catch (CaseManagementPrint.NoteAccessDeniedException deniedNote) {
             sendPrintError(HttpServletResponse.SC_FORBIDDEN, "Selected note access denied");
         } catch (Exception e) {
@@ -3791,6 +3801,30 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         return null;
+    }
+
+    /** Audit the first disclosed PDF byte, after renderer authorization and before disclosure. */
+    private java.io.OutputStream auditedChartPrintOutput(LoggedInInfo login, String patient,
+                                                        java.io.OutputStream destination) {
+        return new java.io.FilterOutputStream(destination) {
+            private boolean recorded;
+            private void audit() {
+                if (!recorded) {
+                    LogAction.addLogStrict(login, "print", "echart", patient, patient, null);
+                    recorded = true;
+                }
+            }
+            @Override
+            public void write(int value) throws IOException {
+                audit();
+                out.write(value);
+            }
+            @Override
+            public void write(byte[] bytes, int offset, int length) throws IOException {
+                if (length > 0) audit();
+                out.write(bytes, offset, length);
+            }
+        };
     }
 
     /** Clears failed PDF output while retaining the request's security, cache and session headers. */

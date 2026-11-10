@@ -44,12 +44,6 @@
       "disposition": "required installed retake; blocks release readiness"
     },
     {
-      "check": "audit-log-chart-read",
-      "finding": 141,
-      "step": "the read/CME note row of the Note Search history view names the patient (demographic_no)",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
       "check": "audit-log-locked-patient",
       "finding": 344,
       "step": "the refused attempt is itself in the audit log, naming the patient and the refused login",

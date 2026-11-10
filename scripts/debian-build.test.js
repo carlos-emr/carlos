@@ -183,3 +183,13 @@ test('render browser names avoid everything the old renderer purge touches', () 
   assert.doesNotMatch(shipped, /carlos-emr-chromedriver|render-browser\.env|\/var\/lib\/carlos-emr\/render(?![a-z])/);
   assert.match(shipped, /carlos-emr-render-browser/);
 });
+
+test('source builds retain both dependency-lock gates', () => {
+  const rules = fs.readFileSync(path.join(__dirname, '..', 'debian', 'rules'), 'utf8');
+  const flags = rules.match(/^MVN_FLAGS\s*:=([^\n]*)/m)[1];
+  assert.doesNotMatch(flags, /skip-dependency-lock/);
+  const recipe = rules.match(/\$\(MVN\) -f "\$\$src\/pom\.xml"[\s\S]*?clean package;/)[0];
+  assert.match(recipe, /se\.vandmo:dependency-lock-maven-plugin:1\.1\.1:check/);
+  assert.match(recipe, /-DdependencyLock\.filename=\$\$lock/);
+  assert.match(rules, /lock=.*debian\/drugref-dependencies-lock\.json/);
+});

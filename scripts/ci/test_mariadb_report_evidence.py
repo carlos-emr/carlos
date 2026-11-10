@@ -102,6 +102,12 @@ IDENTIFIER_REQUIRED_CASES = {
 }
 
 
+NATIVE_REQUIRED_CASES = {
+    "EncounterFormDaoGroupedHistoryIntegrationTest": "shouldGroupPhysicalHistory_onTheNativeTable",
+    "LabRoutingLookupDaoIntegrationTest": "shouldPreserveBcLikeMatchingAndSpireShortestNameLimit_forProviderSearch",
+}
+
+
 class MariaDbReportEvidenceTest(unittest.TestCase):
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
@@ -140,7 +146,9 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                     "AppointmentUpdateDaoIntegrationTest": APPOINTMENT_REQUIRED_CASES,
                     "ProgramAdmissionAuditMariaDbIntegrationTest": ADMISSION_REQUIRED_CASES,
                     "ReportingPatientListAuditMariaDbIntegrationTest": REPORTING_REQUIRED_CASES,
-                }.get(family, set()))
+                }.get(family, set()) | MODULE.REQUIRED_CASES.get(family, set()))
+                if family in NATIVE_REQUIRED_CASES:
+                    required_names = sorted(set(required_names) | {NATIVE_REQUIRED_CASES[family]})
                 def case(index):
                     fault = tag if selected == mode and family == next(iter(required)) and index == 0 else ""
                     name = required_names[index] if index < len(required_names) else f"shouldRead_forRow{index}"
@@ -301,6 +309,55 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                                         f"Required MariaDB {mode} coverage missing: LegacyLabUploadDaoIntegrationTest")
                 finally:
                     path.write_bytes(original)
+
+    def test_native_case_families_cannot_be_omitted_or_substituted_in_any_lane(self):
+        self.seed()
+        for family, required_case in NATIVE_REQUIRED_CASES.items():
+            for mode in ("generated", "flyway", "bc-flyway"):
+                suffix = "" if mode == "generated" else "-" + mode
+                path = self.reports / ("TEST-example." + family + suffix + ".xml")
+                original = path.read_bytes()
+                for missing_report in (True, False):
+                    with self.subTest(family=family, mode=mode, missing_report=missing_report):
+                        if missing_report:
+                            path.unlink()
+                            reason = f"Required MariaDB {mode} coverage missing: {family}"
+                        else:
+                            path.write_bytes(original.replace(required_case.encode(), b"shouldPass_forUnrelatedScenario"))
+                            reason = f"Required MariaDB {mode} cases missing: {family}: {required_case}"
+                        try:
+                            for optimized in (False, True):
+                                self.assert_refused(self.invoke(optimized), reason)
+                        finally:
+                            path.write_bytes(original)
+
+    def test_cml_safety_cases_are_required_in_every_lane(self):
+        required = {
+            "LegacyLabUploadDaoIntegrationTest": {
+                "shouldKeepMissingIdentifiersUnmatched_withOnePlausibleBlankHinPatient",
+                "shouldRejectWholeFile_whenSecondPatientRecordIsMalformed",
+            },
+            "LabRoutingLookupDaoIntegrationTest": {
+                "shouldNeverMatchMissingCmlHin_evenWithOnePlausiblePatient",
+            },
+        }
+        self.seed()
+        for mode, families in MODULE.REQUIRED.items():
+            suffix = "" if mode == "generated" else "-" + mode
+            for family, names in required.items():
+                if family not in families:
+                    continue
+                path = self.reports / ("TEST-example." + family + suffix + ".xml")
+                original = path.read_text()
+                for name in names:
+                    with self.subTest(mode=mode, family=family, name=name):
+                        self.assertIn(name, MODULE.REQUIRED_CASES.get(family, set()))
+                        path.write_text(original.replace('name="' + name + '"', 'name="unrelatedCase"'))
+                        try:
+                            self.assert_refused(self.invoke(),
+                                                f"Required MariaDB {mode} cases missing: {family}")
+                        finally:
+                            path.write_text(original)
 
     def test_growth_required_cases_cannot_be_replaced_by_unrelated_cases_in_any_lane(self):
         self.seed()

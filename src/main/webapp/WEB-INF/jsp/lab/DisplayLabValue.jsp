@@ -32,6 +32,8 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -75,6 +77,11 @@
                <a href="">#</a--> <br/>
         </p>
     </div>
+    <% if (list.isEmpty()) { %>
+    <p class="alert alert-info" data-carlos-lab-history-unavailable="true">
+        <fmt:message key="lab.measurementHistory.unavailable"/>
+    </p>
+    <% } %>
     <%
         for (int k = 0; k < list.size(); k++) {
             HashMap hMap = (HashMap) list.get(k);

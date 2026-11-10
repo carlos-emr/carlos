@@ -1,5 +1,6 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 import importlib.util
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -49,8 +50,14 @@ class CoverageCommandTest(unittest.TestCase):
             git('add', source)
             git('commit', '-qm', 'candidate')
             policy = root / 'floors.json'
+            comparison = subprocess.check_output(['git', 'diff', '--no-ext-diff', '--no-textconv',
+                '--no-renames', '--raw', '-z', '--no-abbrev', base, 'HEAD', '--', 'src/main/java'], cwd=root)
             policy.write_text(json.dumps({'schemaVersion': 1, 'base': base,
-                'baselineCommit': base, 'files': {source: {
+                'baselineCommit': git('rev-parse', 'HEAD'),
+                'sourceTree': git('rev-parse', 'HEAD:src/main/java'),
+                'comparisonSha256': hashlib.sha256(comparison).hexdigest(),
+                'baselineReportSha256': 'a' * 64, 'baselineLane': 'FAKE fixture baseline',
+                'files': {source: {'sourceBlob': git('rev-parse', 'HEAD:' + source),
                     'lines': 100, 'instructions': 100, 'branches': 100}}}))
             report = root / 'jacoco.xml'
             with patch.dict(os.environ):
