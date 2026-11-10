@@ -10,9 +10,17 @@ together.
 
 - Out-of-band OAuth request-token, browser consent, access-token exchange, and a
   signed token-identity request.
-- Scoped OAuth demographic read, update, and database-backed read-after-write.
+- Scoped demographic list/detail/basic/summary reads, both search forms,
+  create/update/delete, and database-backed read-after-write.
 - Scoped measurement read using an owned synthetic BP measurement.
 - eForm template listing, create, load, update, and persisted read-after-write.
+- HL7 lab message listing and malformed-upload rejection. A valid synthetic
+  PATHL7 ORU upload and patient-specific read-after-upload are also tested when
+  `AI_SCRIBE_DOCUMENT_STORE` points to the running server's `DOCUMENT_DIR`.
+- Rx lookup search/details/instruction parsing, patient medication reads and
+  writes, prescription history, and prescription listing.
+- Scheduling day/status/month/provider-period/patient-history reads, including
+  the endpoint used to find the patient's existing appointments.
 - `insufficient_scope` refusals for demographic and eForm operations when the
   token lacks the corresponding scope.
 - The current REST measurement-write gap: a suitably scoped `PUT` is expected
@@ -23,8 +31,11 @@ Measurement REST currently supports reads only; adding measurements is a
 separate SOAP/WS-Security API. Both limited-scope and fully scoped REST
 measurement `PUT` probes return HTTP 405 because the route does not exist; the
 limited-scope probe therefore does not demonstrate `measurement.write` scope
-enforcement. The check makes these boundaries explicit rather than treating
-them as implemented OAuth workflows.
+enforcement. Provider availability is also not routed (the implementation is
+commented out), and is reported as a capability gap. When the document-store
+environment variable is omitted, the check still verifies rejection of a
+malformed upload but marks successful HL7 import as unverified rather than
+leaving a stored lab file behind.
 
 ## Prerequisites and execution
 
@@ -38,9 +49,12 @@ Set `BASE_URL` if the installation is not at
 account (`carlosdoc` / `carlos2026`, PIN `2026`); override with `TEST_USER`,
 `TEST_PASSWORD`, and `TEST_PIN` as appropriate. Set `MYSQL_PASSWORD`; optional
 database connection overrides are `MYSQL_HOST`, `MYSQL_USER`, and
-`MYSQL_DATABASE`. Database writes are restricted to a loopback host by default.
-Do not set `ALLOW_NON_LOCAL_MYSQL_HOST=true` except for a deliberately
-isolated, disposable database.
+`MYSQL_DATABASE`. To test successful HL7 upload, also set
+`AI_SCRIBE_DOCUMENT_STORE` to the server's `DOCUMENT_DIR`, mounted where this
+script can remove the uniquely named synthetic upload during cleanup. Database
+writes are restricted to a loopback host by default. Do not set
+`ALLOW_NON_LOCAL_MYSQL_HOST=true` except for a deliberately isolated,
+disposable database.
 
 From the repository root, run:
 
@@ -50,15 +64,20 @@ EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
 
 `EXPECT_OAUTH_MODE` is an assertion, not a server configuration mechanism.
 The script refuses a non-scoped expectation, and the OAuth consent page must
-not show a legacy-mode warning. A successful run prints an endpoint-by-endpoint
-table with the HTTP status, persisted read-after-write checks, scope refusals,
-and explicit `GAP` rows for the unsupported measurement writes.
+not show a legacy-mode warning. A run prints an endpoint-by-endpoint table after cleanup, including partial
+results if a request or assertion fails. It reports HTTP status, persisted
+read-after-write checks, scope refusals, `UNVERIFIED` activities not executed,
+and explicit `GAP` rows for unsupported operations. After the first failed
+assertion, dependent steps are not attempted; the table identifies the failure
+and all endpoints reached up to that point.
 
 The check creates one uniquely marked synthetic demographic and BP
-measurement, one eForm template, and one temporary OAuth client with issued
-tokens/nonces. It removes those owned fixtures in cleanup even when an
-assertion fails. Run it serially and never against a shared or production
-database.
+measurement, one synthetic medication/prescription, one eForm template, and
+one temporary OAuth client with issued tokens/nonces. The API deletes the
+synthetic demographic during the workflow; final cleanup verifies/removes any
+remaining owned clinical rows, OAuth records, eForm template, and (when
+configured) the imported lab rows and archived file. Run it serially and never
+against a shared or production database.
 
 ## API capability follow-up
 
