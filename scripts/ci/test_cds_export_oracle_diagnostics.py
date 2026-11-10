@@ -38,6 +38,22 @@ class OracleDiagnosticsTest(unittest.TestCase):
         self.assertEqual(ORACLE.clinical_mismatches(XML.Element("PRIVATE_ROOT"), 731001),
                          ["PATIENT_RECORD_SHAPE"])
 
+    def test_dose_checks_compare_exact_amounts_and_ranges_independent_of_decimal_scale(self):
+        for actual, expected in (("1.0", "1"), ("1.000000", "1"),
+                                 ("0.50-1.0", "0.5-1")):
+            with self.subTest(actual=actual):
+                self.assertTrue(ORACLE.medication_value_matches("c:Dosage", actual, expected))
+        self.assertFalse(ORACLE.medication_value_matches("c:DrugName", "1.0", "1"))
+
+    def test_changed_dose_endpoints_and_invalid_numeric_forms_are_always_refused(self):
+        for actual, expected in (("1.00000001", "1"), ("0.50000001-1.0", "0.5-1"),
+                                 ("0.5-2", "0.5-1"), ("1-1", "1"),
+                                 ("NaN", "1"), ("Infinity", "1"), ("1e0", "1"),
+                                 (" 1", "1"), ("-1", "1"), (None, "1"),
+                                 ("1" * 129, "1")):
+            with self.subTest(actual=actual):
+                self.assertFalse(ORACLE.medication_value_matches("c:Dosage", actual, expected))
+
     def archive(self, path, *, reference=None, member=None, body=None):
         relative = "Reports/" + "a" * 64 + ".txt"
         reference = relative if reference is None else reference

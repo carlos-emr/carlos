@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import base64
 import copy
+from decimal import Decimal
 import hashlib
 import json
 from pathlib import Path, PurePosixPath
@@ -237,13 +238,26 @@ def medication_expected() -> list[dict[str, str]]:
     ]
 
 
+def medication_value_matches(path: str, actual, expected_value: str) -> bool:
+    if path != "c:Dosage":
+        return actual == expected_value
+    # Dosage is a clinical amount/range. Decimal scale does not change its value;
+    # compare exact decimals, never float tolerances or rounded display values.
+    pattern = r"[0-9]+(?:\.[0-9]+)?(?:-[0-9]+(?:\.[0-9]+)?)?"
+    if (not isinstance(actual, str) or len(actual) > 128
+            or not re.fullmatch(pattern, actual) or not re.fullmatch(pattern, expected_value)):
+        return False
+    return tuple(map(Decimal, actual.split("-"))) == tuple(map(Decimal, expected_value.split("-")))
+
+
 def medication_equal(record, patient: int) -> bool:
     medications = record.findall("c:MedicationsAndTreatments", NS)
     if len(medications) != 3:
         return False
     contexts = []
     for index, (medication, expected_values) in enumerate(zip(medications, medication_expected(), strict=True)):
-        if any(len(medication.findall(path, NS)) != 1 or medication.find(path, NS).text != value
+        if any(len(medication.findall(path, NS)) != 1 or not medication_value_matches(
+                    path, medication.find(path, NS).text, value)
                for path, value in expected_values.items()):
             return False
         if index != 2 and (medication.find("c:DrugIdentificationNumber", NS) is not None or medication.find("c:Strength", NS) is not None):
@@ -308,7 +322,10 @@ def clinical_mismatches(root, patient: int) -> list[str]:
     def check_fields(node, prefix, fields):
         for path, value in fields.items():
             found = [] if node is None else node.findall(path, NS)
-            if len(found) != 1 or (found[0].text or "") != value:
+            if len(found) != 1 or not (
+                    medication_value_matches(path, found[0].text, value)
+                    if prefix.startswith("MedicationsAndTreatments[")
+                    else (found[0].text or "") == value):
                 issues.append(prefix + "/" + path)
 
     check_fields(record.find("c:Demographics", NS), "Demographics", expected(patient))
