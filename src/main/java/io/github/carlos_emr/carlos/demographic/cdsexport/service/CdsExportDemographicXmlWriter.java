@@ -151,6 +151,19 @@ public final class CdsExportDemographicXmlWriter {
             String senderPatientId,
             CdsExportXmlComposer.ContentWriter xml)
             throws IOException {
+        writeWithRelated(value, pharmacy, contacts, null, senderPatientId, xml);
+    }
+
+    public void writeWithRelated(
+            io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                            .CdsExportDemographicEnrolmentProjectionDto
+                    value,
+            CdsExportPharmacyProjectionService.Result pharmacy,
+            CdsExportPersonalContactProjectionService.Result contacts,
+            CdsExportProfessionalContactMapper.Result professional,
+            String senderPatientId,
+            CdsExportXmlComposer.ContentWriter xml)
+            throws IOException {
         java.util.Objects.requireNonNull(xml)
                 .content(
                         guarded -> {
@@ -174,6 +187,12 @@ public final class CdsExportDemographicXmlWriter {
                                             value.note().text(), 64000))
                                 throw new IOException(
                                         "CDS_EXPORT_PATIENT_NOTE_MAPPING_REQUIRES_REVIEW");
+                            if (professional != null
+                                    && (!professional.representable()
+                                            || professional.patient()
+                                                    != value.demographic().patient()))
+                                throw new IOException(
+                                        "CDS_EXPORT_PROFESSIONAL_CONTACT_SOURCE_INVALID");
                             if (senderPatientId != null
                                     && !senderPatientId.equals("C" + value.demographic().patient()))
                                 throw new IOException("CDS_EXPORT_NATIVE_PATIENT_IDENTITY_INVALID");
@@ -184,7 +203,8 @@ public final class CdsExportDemographicXmlWriter {
                                     value.events(),
                                     pharmacy.mapping(),
                                     contacts.mapping(),
-                                    senderPatientId);
+                                    senderPatientId,
+                                    professional);
                         });
     }
 
@@ -213,6 +233,22 @@ public final class CdsExportDemographicXmlWriter {
             CdsExportPharmacyMapper.Result pharmacy,
             CdsExportPersonalContactMapper.Result contacts,
             String senderPatientId)
+            throws IOException {
+        writeValue(patient, xml, patientNote, enrolment, pharmacy, contacts, senderPatientId, null);
+    }
+
+    private void writeValue(
+            CdsExportDemographicMappingDto patient,
+            CdsExportXmlComposer.ContentWriter xml,
+            String patientNote,
+            java.util.List<
+                            io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                    .CdsExportEnrolmentEventDto>
+                    enrolment,
+            CdsExportPharmacyMapper.Result pharmacy,
+            CdsExportPersonalContactMapper.Result contacts,
+            String senderPatientId,
+            CdsExportProfessionalContactMapper.Result professional)
             throws IOException {
         if (patient == null || !patient.baseRowRepresentable())
             throw new IOException("CDS_EXPORT_DEMOGRAPHIC_MAPPING_REQUIRES_REVIEW");
@@ -296,6 +332,8 @@ public final class CdsExportDemographicXmlWriter {
                 "PersonStatusDate",
                 patient.personStatusDate() == null ? null : patient.personStatusDate().toString());
         optional(xml, "cds", "SIN", patient.sin());
+        if (professional != null)
+            new CdsExportProfessionalContactXmlWriter().write(professional, xml, () -> {});
         if (pharmacy != null) new CdsExportPharmacyXmlWriter().write(pharmacy, xml);
     }
 

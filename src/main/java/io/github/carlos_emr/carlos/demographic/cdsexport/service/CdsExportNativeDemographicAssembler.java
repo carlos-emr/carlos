@@ -34,6 +34,7 @@ public final class CdsExportNativeDemographicAssembler {
             CdsExportDemographicEnrolmentProjectionDto demographic,
             CdsExportPharmacyProjectionService.Result pharmacy,
             CdsExportPersonalContactProjectionService.Result contacts,
+            CdsExportProfessionalContactMapper.Result professional,
             Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields) {
         public Result {
             fields = Map.copyOf(fields);
@@ -214,17 +215,52 @@ public final class CdsExportNativeDemographicAssembler {
                                 maximumRows,
                                 maximumBytes,
                                 checkpoint);
+        var professionalLinks =
+                rows.get("DemographicContact").stream()
+                        .filter(row -> "professional".equals(row.fields().get("category")))
+                        .toList();
+        var professionalIds = new HashSet<String>();
+        for (var link : professionalLinks)
+            if ("2".equals(link.fields().get("type")))
+                professionalIds.add(link.fields().get("contactId"));
+        var personalLinks =
+                rows.get("DemographicContact").stream()
+                        .filter(row -> !"professional".equals(row.fields().get("category")))
+                        .toList();
+        var personalIds = new HashSet<String>();
+        for (var link : personalLinks) personalIds.add(link.fields().get("contactId"));
+        var professionalContacts =
+                rows.get("Contact").stream()
+                        .filter(row -> professionalIds.contains(row.fields().get("id")))
+                        .toList();
+        var personalContacts =
+                rows.get("Contact").stream()
+                        .filter(
+                                row ->
+                                        !professionalIds.contains(row.fields().get("id"))
+                                                || personalIds.contains(row.fields().get("id")))
+                        .toList();
+        var professional =
+                new CdsExportProfessionalContactMapper()
+                        .map(
+                                patient,
+                                professionalLinks,
+                                professionalContacts,
+                                maximumRows,
+                                maximumBytes,
+                                checkpoint);
         var contacts =
                 new CdsExportPersonalContactMapper()
                         .map(
                                 patient,
-                                rows.get("DemographicContact"),
-                                rows.get("Contact"),
+                                personalLinks,
+                                personalContacts,
                                 maximumRows,
                                 maximumBytes,
                                 checkpoint);
         merge(fields, pharmacy.fields());
         merge(fields, contacts.fields());
+        merge(fields, professional.fields());
         var projection =
                 new CdsExportDemographicEnrolmentProjectionDto(
                         captureDigest,
@@ -236,7 +272,8 @@ public final class CdsExportNativeDemographicAssembler {
                         enrolment.fields());
         if (!projection.representable()
                 || !pharmacy.nativeRepresentable()
-                || !contacts.nativeRepresentable()) review();
+                || !contacts.nativeRepresentable()
+                || !professional.representable()) review();
         var expected = new ArrayList<CdsExportCapturedTextRowDto>();
         rows.values().forEach(expected::addAll);
         var closure =
@@ -248,6 +285,7 @@ public final class CdsExportNativeDemographicAssembler {
                 projection,
                 new CdsExportPharmacyProjectionService.Result(captureDigest, pharmacy),
                 new CdsExportPersonalContactProjectionService.Result(captureDigest, contacts),
+                professional,
                 fields);
     }
 

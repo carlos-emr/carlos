@@ -528,4 +528,98 @@ class CdsExportNativeDemographicAssemblerUnitTest {
                                         rows, proof, Set.of(CdsCategory.DEMOGRAPHICS), () -> {}))
                 .hasMessage("CDS_EXPORT_DEMOGRAPHIC_OCCURRENCE_SCOPE_INVALID");
     }
+
+    @Test
+    void shouldKeepClinicalDomainProvidersOutOfTheDemographicSlice_whileRejectingRawUnownedRows()
+            throws Exception {
+        var current = rows.get("demographic").getFirst();
+        var values = new LinkedHashMap<>(current.fields());
+        values.put("provider_no", "99");
+        rows.get("demographic")
+                .set(
+                        0,
+                        new CdsExportCapturedTextRowDto(
+                                current.table(), current.recordKey(), values));
+        for (String id : List.of("99", "17")) {
+            var provider = new LinkedHashMap<String, String>();
+            io.github.carlos_emr.carlos.commn.dto.CdsExportProviderRowDto.COLUMNS.forEach(
+                    c -> provider.put(c, null));
+            provider.putAll(Map.of("provider_no", id, "first_name", "Public", "last_name", id));
+            rows.get("provider")
+                    .add(
+                            new CdsExportCapturedTextRowDto(
+                                    "provider",
+                                    CdsExportPublicProviderSourceReader.key(id),
+                                    provider));
+        }
+        assertThatThrownBy(this::assemble).hasMessage("CDS_EXPORT_FIELD_ASSESSMENT_SCOPE_INVALID");
+        var selected = Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.MEDICATIONS_AND_TREATMENTS);
+        var own = CdsExportDemographicOccurrenceService.demographicRows(rows, selected);
+        assertThat(own.get("provider")).hasSize(1);
+        var result =
+                new CdsExportNativeDemographicAssembler()
+                        .assemble(27, selected, HASH, own, 100, 1L << 20, () -> {});
+        assertThat(result.demographic().demographic().primaryPhysician().lastName())
+                .isEqualTo("99");
+        assertThat(
+                        CdsExportDemographicOccurrenceService.demographicRows(
+                                        rows, Set.of(CdsCategory.DEMOGRAPHICS))
+                                .get("provider"))
+                .hasSize(2);
+    }
+
+    @Test
+    void shouldIntegrateNativeExternalFamilyPhysicians_withEveryContactFieldAccounted()
+            throws Exception {
+        rows.get("Contact").add(CdsExportProfessionalContactMapperUnitTest.contact(9));
+        rows.get("DemographicContact")
+                .add(CdsExportProfessionalContactMapperUnitTest.association(1, 9, "Family Doctor"));
+        var result = assemble();
+        assertThat(result.professional().physicians()).hasSize(1);
+        var bytes = new ByteArrayOutputStream();
+        new CdsExportXmlComposer()
+                .compose(
+                        bytes,
+                        HASH,
+                        HASH,
+                        "2026.08.0-test",
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        Set.of(CdsCategory.DEMOGRAPHICS),
+                        List.of(
+                                        new CdsExportXmlComposer.Section(
+                                                new CdsExportIdentityDto(
+                                                        HASH, CdsCategory.DEMOGRAPHICS, HASH),
+                                                xml ->
+                                                        new CdsExportDemographicXmlWriter()
+                                                                .writeWithRelated(
+                                                                        result.demographic(),
+                                                                        result.pharmacy(),
+                                                                        result.contacts(),
+                                                                        result.professional(),
+                                                                        "C27",
+                                                                        xml)))
+                                .iterator(),
+                        ignored -> {},
+                        1L << 20,
+                        () -> {});
+        new CdsExportXmlValidator()
+                .validate(
+                        new ByteArrayInputStream(bytes.toByteArray()),
+                        "C27",
+                        Set.of(CdsCategory.DEMOGRAPHICS),
+                        "2026.08.0-test",
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        CdsExportXmlLimitsDto.defaults(),
+                        ignored -> {},
+                        () -> {});
+        assertThat(bytes.toString(java.nio.charset.StandardCharsets.UTF_8))
+                .contains("<FamilyPhysician>", "Élodie😀 &amp; Bea");
+        assertThat(
+                        result.fields().keySet().stream()
+                                .filter(
+                                        k ->
+                                                k.table().equals("Contact")
+                                                        || k.table().equals("DemographicContact")))
+                .hasSize(40);
+    }
 }
