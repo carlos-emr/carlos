@@ -494,14 +494,11 @@ public class CommonLabResultData {
     /**
      * What one acknowledgement did, as the transaction saw it: the routing rows it cleared from
      * NEW and the ids of the versions it touched, so the inbox can update exactly those rows.
-     * Every older version is filed with the acknowledged one, so {@code retainedVersionIds} is
-     * always empty; the field is kept because the inbox reads it.
+     * Every older version is filed with the acknowledged one.
      */
-    public record ReportChainUpdate(int clearedCount, List<Integer> affectedVersionIds,
-            List<Integer> retainedVersionIds) {
+    public record ReportChainUpdate(int clearedCount, List<Integer> affectedVersionIds) {
         public ReportChainUpdate {
             affectedVersionIds = List.copyOf(affectedVersionIds);
-            retainedVersionIds = List.copyOf(retainedVersionIds);
         }
     }
 
@@ -561,7 +558,7 @@ public class CommonLabResultData {
                 updateReportStatusInTransaction(version, providerNo, 'F', "", labType, false, true);
             }
         }
-        return new ReportChainUpdate(clearedFromNew, new java.util.ArrayList<>(versions), List.of());
+        return new ReportChainUpdate(clearedFromNew, new java.util.ArrayList<>(versions));
     }
 
     /**

@@ -634,10 +634,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         const inboxhubRefreshChannel = new BroadcastChannel('inboxhub-refresh');
         inboxhubRefreshChannel.onmessage = function(event) {
             if (event && event.data && event.data.labType === 'HL7' && isInboxhubItemToken(event.data.compatibilityFor)) {
-                const generation = refreshedInboxhubItems[inboxhubItemKey(event.data.compatibilityFor, 'HL7')];
-                if (generation !== inboxhubResultSetGeneration && generation !== inboxhubResultSetGeneration + 1) {
-                    refreshInboxhubAfterHrmRevoke();
-                }
+                refreshInboxhubAfterHrmRevoke();
                 return;
             }
             if (event && event.data && event.data.action === 'hrm-revoked') {
@@ -918,8 +915,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      */
     var nextInboxhubItem = null;
     var previousInboxhubItem = null;
-    var retainedInboxhubVersions = [];
-    var refreshedInboxhubItems = Object.create(null);
     var legacyInboxhubRefreshPending = false;
 
     /**
@@ -945,11 +940,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     function forgetNextInboxhubItem() {
         nextInboxhubItem = null;
         previousInboxhubItem = null;
-        retainedInboxhubVersions = [];
     }
 
     function hasRememberedNextInboxhubItem() {
-        return retainedInboxhubVersions.length > 0 || nextInboxhubItem !== null || previousInboxhubItem !== null;
+        return nextInboxhubItem !== null || previousInboxhubItem !== null;
     }
 
     /**
@@ -960,12 +954,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      * @param {string} kind 'tr' for list rows or '.document-card' for preview cards
      */
     function nextInboxhubElement(kind) {
-        for (const version of retainedInboxhubVersions) {
-            const retained = inboxhubItemElement(version, 'HL7').filter(kind);
-            if (retained.length > 0) return retained.first();
-        }
-        // Wait for a retained source before advancing past its accession.
-        if (retainedInboxhubVersions.length && hasMoreData) return jQuery();
         if (nextInboxhubItem !== null) {
             const next = inboxhubItemElement(nextInboxhubItem.segmentId, nextInboxhubItem.labType).filter(kind);
             if (next.length > 0) { return next.first(); }
@@ -1078,16 +1066,16 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      * @param {string} segmentId segment id of the acknowledged lab, document or HRM report
      * @param {string} labType its report type; older senders may not supply one
      * @param {number} clearedCount routing rows the acknowledgement cleared; see above
-     * @param {Array} retainedVersionIds server-selected older versions still NEW for the actor
+     * @param {Array} versionMetadata empty compatibility marker from a current sender
      * @return {boolean} true when no additional caller refresh is needed (including an already
      *                   scheduled resync); false when the caller must re-fetch the result set
      */
-    function dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount, retainedVersionIds) {
+    function dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount, versionMetadata) {
         const itemEl = inboxhubItemElement(segmentId, labType);
         // A sender that predates the typed message — a popup running a cached script — gives
         // only an id, and then the rendered row is the one place the type can come from.
         const resolvedType = labType || (itemEl.length > 0 ? itemEl.data('labType') : null);
-        if (resolvedType === 'HL7' && !Array.isArray(retainedVersionIds)) {
+        if (resolvedType === 'HL7' && !Array.isArray(versionMetadata)) {
             // A cached sender may infer both rows and badge counts from an obsolete
             // chain. Re-submit once to replace the list AND server-owned totals.
             if (!legacyInboxhubRefreshPending) {
@@ -1101,21 +1089,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         // a filter while the popup was open. Row removal and counting are separate for that
         // reason, and the per-item key keeps this and removeReport from counting it twice.
         countAcknowledgedInboxhubItem(segmentId, resolvedType, clearedCount);
-        // A partial CML correction can leave earlier source observations NEW. The
-        // full result set can therefore still contain this accession under another ID.
-        // Refresh from the server even when every page was loaded. Cached senders
-        // without version metadata receive the same conservative recovery.
-        if (resolvedType === 'HL7' && retainedVersionIds.length > 0) {
-            const refreshKey = inboxhubItemKey(segmentId, resolvedType);
-            const generation = refreshedInboxhubItems[refreshKey];
-            if (generation === inboxhubResultSetGeneration || generation === inboxhubResultSetGeneration + 1) return true;
-            refreshedInboxhubItems[refreshKey] = inboxhubResultSetGeneration + 1;
-            retainedInboxhubVersions = Array.isArray(retainedVersionIds)
-                ? retainedVersionIds.filter(id => /^[1-9]\d*$/.test(String(id)) && Number(id) <= 2147483647).map(String).reverse()
-                : [];
-            if (rapidReviewState) armPendingRapidReview(inboxhubResultSetGeneration + 1);
-            return false;
-        }
         // Not "did THIS call remove something": the popup's direct window.opener route may
         // have removed it already, and that is just as much a reason to skip the re-fetch.
         if (!isInboxhubItemHandled(segmentId, resolvedType)) { return false; }

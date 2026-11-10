@@ -379,7 +379,7 @@ async function main() {
         }
 
         const frenchInput = JSON.parse(fs.readFileSync(path.join(__dirname,
-            '../docs/images/pr6102/configs/after-fr/qualified-results.json'), 'utf8'));
+            'fixtures/chart/french-date-ticks.json'), 'utf8'));
         await draw(page, frenchInput, 1000, 600);
         const localizedTicks = await page.evaluate(() => {
             const chart = Object.values(Chart.instances).find(item => item.canvas.isConnected && item.scales.x);

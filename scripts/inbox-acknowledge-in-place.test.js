@@ -856,29 +856,7 @@ for (const raw of ['not JSON', 'null', JSON.stringify({filter: '&demographicFilt
   });
 }
 
-for (const mode of ['list', 'preview']) {
-  test(mode + ' refreshes a fully loaded partial CML chain and prioritizes its retained source', () => {
-    const inbox = setup(mode, [['171','HL7'], ['190','HL7']], false, false);
-    inbox.context.rapidReviewState = true;
-    inbox.acknowledge({segmentID:'171',labType:'HL7',clearedCount:1,retainedVersionIds:[170]});
-    assert.equal(inbox.state.fetches,1);
-    assert.deepEqual(inbox.state.opens,[]);
-    inbox.render([['190','HL7'],['170','HL7']]);
-    inbox.context.hasMoreData = false;
-    if (mode === 'list') inbox.context.advancePendingRapidReview();
-    else inbox.context.settlePendingPreviewAdvance();
-    assert.equal(mode === 'list' ? inbox.state.opened : inbox.state.scrolledTo,'170');
-    // An opener call and its broadcast may carry the same acknowledgement.
-    inbox.acknowledge({segmentID:'171',labType:'HL7',clearedCount:1,retainedVersionIds:[170]});
-    inbox.acknowledge({action:'refresh',labType:'HL7',compatibilityFor:'171'});
-    assert.equal(inbox.state.fetches,1);
-    assert.equal(inbox.state.submits,0);
-    assert.equal(mode === 'list' ? inbox.state.opens.length : inbox.state.scrolls.length,1);
-    assert.ok(inbox.shown().includes('HL7:170'));
-    assert.equal(inbox.totals.totalLabsCount,4);
-  });
-}
-test('a cached HL7 sender without filing metadata refreshes instead of hiding uncovered results', () => {
+test('a cached HL7 sender without filing metadata refreshes to obtain current server totals', () => {
  const inbox=setup('list',twoLabs);
  inbox.acknowledgeLegacy({segmentID:'171',labType:'HL7',clearedCount:1});
  assert.equal(inbox.state.submits,1);

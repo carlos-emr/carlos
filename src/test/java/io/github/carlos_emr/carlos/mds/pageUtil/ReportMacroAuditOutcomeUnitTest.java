@@ -132,7 +132,7 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
             session.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
             routing.when(() -> CommonLabResultData.updateReportStatusWithOlderVersionsDetailed(123, "999998", 'A', expectedComment, "HL7", false, null))
-                    .thenReturn(new CommonLabResultData.ReportChainUpdate(3, java.util.List.of(121,122,123), java.util.List.of()));
+                    .thenReturn(new CommonLabResultData.ReportChainUpdate(3, java.util.List.of(121,122,123)));
             logActionMock.when(() -> LogAction.addLogSynchronous(anyString(), anyString(), anyString(), anyString(), anyString()))
                     .thenThrow(new IllegalStateException("PRIVATE_AUDIT_MESSAGE", new IllegalArgumentException("PRIVATE_AUDIT_CAUSE")));
             assertThat(new ReportMacro2Action().execute()).isEqualTo(ReportMacro2Action.NONE);
@@ -259,7 +259,7 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             session.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
             routing.when(() -> CommonLabResultData.updateReportStatusWithOlderVersionsDetailed(456, "999998", 'A', "reviewed", "DOC", false, null))
-                    .thenReturn(new CommonLabResultData.ReportChainUpdate(1, java.util.List.of(456), java.util.List.of()));
+                    .thenReturn(new CommonLabResultData.ReportChainUpdate(1, java.util.List.of(456)));
             var outcome = new ReportMacro2Action().runMacroOutcome(macro, request);
             assertThat(outcome.success()).isTrue();
             assertThat(outcome.acknowledged()).isTrue();

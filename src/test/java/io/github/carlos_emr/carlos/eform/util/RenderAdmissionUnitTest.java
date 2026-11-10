@@ -13,6 +13,46 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @Tag("unit")
 class RenderAdmissionUnitTest {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(RenderAdmission.Kind.class)
+    void shouldRefuseAFullQueue_andServeEveryAdmittedWaiterInOrder(RenderAdmission.Kind kind) throws Exception {
+        var slots = new Semaphore(0);
+        var admission = new RenderAdmission(slots);
+        int limit = kind == RenderAdmission.Kind.CHART ? 16 : 4;
+        var workers = new java.util.ArrayList<Thread>();
+        var results = new java.util.ArrayList<FutureTask<Boolean>>();
+        var served = java.util.Collections.synchronizedList(new java.util.ArrayList<Integer>());
+        try {
+            for (int i = 0; i < limit; i++) {
+                int position = i;
+                var task = new FutureTask<>(() -> {
+                    try (var lease = admission.acquire(kind, Duration.ofSeconds(30))) {
+                        if (lease == null) return false;
+                        served.add(position);
+                        return true;
+                    }
+                });
+                Thread worker = new Thread(task);
+                results.add(task); workers.add(worker); worker.start();
+                long deadline = System.nanoTime() + Duration.ofSeconds(2).toNanos();
+                while (worker.getState() != Thread.State.TIMED_WAITING && System.nanoTime() < deadline) Thread.yield();
+                assertThat(worker.getState()).isEqualTo(Thread.State.TIMED_WAITING);
+            }
+            // A long timeout proves queue saturation refuses promptly, rather than timing out.
+            var overflow = new FutureTask<>(() -> admission.acquire(kind, Duration.ofSeconds(30)));
+            Thread overflowWorker = new Thread(overflow);
+            workers.add(overflowWorker); overflowWorker.start();
+            assertThat(overflow.get(2, java.util.concurrent.TimeUnit.SECONDS)).isNull();
+            slots.release();
+            for (var result : results) assertThat(result.get(2, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            assertThat(served).containsExactlyElementsOf(java.util.stream.IntStream.range(0, limit).boxed().toList());
+            assertThat(slots.availablePermits()).isEqualTo(1);
+        } finally {
+            for (Thread worker : workers) worker.interrupt();
+            for (Thread worker : workers) { worker.join(2000); assertThat(worker.isAlive()).isFalse(); }
+        }
+    }
+
     @Test
     void shouldBoundBothClasses_withOneGlobalBudget() throws Exception {
         var slots = new Semaphore(2);

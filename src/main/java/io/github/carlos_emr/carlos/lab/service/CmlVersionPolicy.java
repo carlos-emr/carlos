@@ -88,21 +88,24 @@ public final class CmlVersionPolicy {
     /**
      * Orders the versions of one CML report, oldest first, newest last.
      *
-     * <p>Each report is ranked by its most advanced result: stage, then the lab's revision time,
-     * then whether it is a correction. Reports the lab's fields do not separate keep the order
-     * they were received in (their ids).
+     * <p>Each report is ranked by its most advanced result: stage, comparable OBR-22 revision
+     * times, correction, then final-result count. Within a stage, revision times are compared
+     * only when every version has one. Pairwise omission of a missing time would make the sort
+     * non-transitive. Collection dates never stand in for revision times. Reports still tied
+     * keep the order they were received in (their ids).
      *
      * @param reports the reports of the chain by id, each already parsed
      * @return every id of {@code reports}, oldest version first
      */
     public static List<Integer> order(Map<Integer, CMLHandler> reports) {
-        record Revision(int report, int stage, Instant time, int correction) { }
+        record Revision(int report, int stage, Instant time, int correction, int finalResults) { }
         List<Revision> revisions = new ArrayList<>();
         for (var entry : reports.entrySet()) {
             CMLHandler handler = entry.getValue();
             int stage = 0;
             int correction = 0;
             Instant time = Instant.MIN;
+            boolean dated = true;
             for (int i = 0; i < handler.getOBRCount(); i++) {
                 for (int j = 0; j < handler.getOBXCount(i); j++) {
                     String status = handler.getOBXResultStatus(i, j);
@@ -110,18 +113,29 @@ public final class CmlVersionPolicy {
                     if (nextStage == 0) continue;
                     Instant nextTime = timeOrEarliest(handler.getRevisionTimestamp(i, j));
                     int nextCorrection = correction(status);
-                    if (nextStage > stage || nextStage == stage && (nextTime.isAfter(time)
-                            || nextTime.equals(time) && nextCorrection > correction)) {
+                    if (nextStage > stage) {
                         stage = nextStage;
                         time = nextTime;
                         correction = nextCorrection;
+                        dated = !nextTime.equals(Instant.MIN);
+                    } else if (nextStage == stage) {
+                        if (nextTime.isAfter(time)) time = nextTime;
+                        correction = Math.max(correction, nextCorrection);
+                        dated &= !nextTime.equals(Instant.MIN);
                     }
                 }
             }
-            revisions.add(new Revision(entry.getKey(), stage, time, correction));
+            revisions.add(new Revision(entry.getKey(), stage, dated ? time : Instant.MIN,
+                    correction, handler.getOBXFinalResultCount()));
         }
-        revisions.sort(Comparator.comparingInt(Revision::stage).thenComparing(Revision::time)
-                .thenComparingInt(Revision::correction).thenComparingInt(Revision::report));
+        Map<Integer, Boolean> comparableTimes = new java.util.HashMap<>();
+        for (Revision revision : revisions) {
+            comparableTimes.merge(revision.stage(), !revision.time().equals(Instant.MIN), (left, right) -> left && right);
+        }
+        revisions.sort(Comparator.comparingInt(Revision::stage)
+                .thenComparing(revision -> comparableTimes.get(revision.stage()) ? revision.time() : Instant.MIN)
+                .thenComparingInt(Revision::correction).thenComparingInt(Revision::finalResults)
+                .thenComparingInt(Revision::report));
         return revisions.stream().map(Revision::report).toList();
     }
 }

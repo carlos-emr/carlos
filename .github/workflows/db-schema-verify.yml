@@ -29,6 +29,7 @@ on:
       - '.github/workflows/db-schema-verify.yml'
       - 'scripts/ci/verify-flyway-baseline.sh'
       - 'scripts/ci/fetch-flyway.sh'
+      - 'scripts/ci/prepare-ubuntu-apt.py'
       - '.claude/**'
 
 # Read-only job: it checks out the repo and talks to a local docker container.
@@ -48,11 +49,6 @@ jobs:
   flyway-baseline:
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    env:
-      # Keep the CLI aligned with flyway.version in pom.xml and the Debian launcher.
-      FLYWAY_VERSION: 13.12.0
-      # SHA256 published with the upstream release asset; also checked on cache hits.
-      FLYWAY_SHA256: e332704f4bbb16baba4ac565a822ccb24354003a284deaa11668c1be77013c34
     strategy:
       fail-fast: false
       matrix:
@@ -67,7 +63,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: /tmp/flyway.tgz
-          key: flyway-cli-${{ runner.os }}-${{ runner.arch }}-${{ env.FLYWAY_VERSION }}-${{ env.FLYWAY_SHA256 }}
+          key: flyway-cli-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/ci/fetch-flyway.sh') }}
 
       - name: Install MariaDB client and Flyway CLI
         run: |

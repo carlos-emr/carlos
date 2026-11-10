@@ -298,17 +298,36 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
             var action = frequencyAction();
             action.getClass().getMethod("set" + field, int[].class).invoke(action, (Object) null);
             assertThat(action.execute()).isEqualTo("input");
-            assertThat(action.getActionErrors()).containsExactly("oscarReport.CDMReport.msgInvalidSelection");
+            assertThat(action.getActionErrors()).containsExactly("oscarReport.CDMReport.msgInvalidValue");
             verifyNoInteractions(measurementDao, formsDao);
             verify(request, never()).setAttribute(eq("messages"), any());
         }
 
-        @Test
-        void shouldRefuseNegativeCounts_whenFrequencyRowIsSelected() throws Exception {
+        @ParameterizedTest
+        @ValueSource(strings = {"Exactly", "MoreThan", "LessThan"})
+        void shouldRefuseNegativeCounts_whenFrequencyRowIsSelected(String field) throws Exception {
             var action = frequencyAction();
-            action.setExactly(new int[]{-1});
+            action.getClass().getMethod("set" + field, int[].class).invoke(action, (Object) new int[]{-1});
             assertThat(action.execute()).isEqualTo("input");
             assertThat(action.getActionErrors()).containsExactly("oscarReport.CDMReport.msgInvalidValue");
+            verifyNoInteractions(measurementDao, formsDao);
+        }
+
+        @Test
+        void shouldRefuseExpiredFrequencyForm_beforeAnyReportQueries() throws Exception {
+            var action = frequencyAction();
+            request.setParameter(CdmReportContexts.PARAMETER, "00000000-0000-0000-0000-000000000000");
+            assertThat(action.execute()).isEqualTo("none");
+            verify(response).sendError(eq(409), eq("oscarReport.CDMReport.msgStaleForm"));
+            verifyNoInteractions(measurementDao, formsDao);
+        }
+
+        @Test
+        void shouldRefuseUnknownFrequencyRow_withoutProducingAPartialReport() throws Exception {
+            var action = frequencyAction();
+            action.setFrequencyCheckbox(new String[]{"9"});
+            assertThat(action.execute()).isEqualTo("input");
+            assertThat(action.getActionErrors()).containsExactly("oscarReport.CDMReport.msgInvalidSelection");
             verifyNoInteractions(measurementDao, formsDao);
         }
 

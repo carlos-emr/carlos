@@ -40,7 +40,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.PATHL7Handler;
 import org.apache.commons.lang3.StringUtils;
@@ -418,8 +417,9 @@ public class Hl7textResultsData {
         return projectableValue(result, "lab " + LogSafe.sanitize(lab) + ", OBX " + obr + "-" + obx);
     }
 
-    // FindSecBugs IMPROPER_UNICODE: lowercases a lab result with Locale.ROOT only to apply the clinic's extraction filter; not a security or authorization decision.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Locale.ROOT fold of a lab result to apply the extraction filter; not a security or authorization decision")
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "Locale.ROOT shadow matches the clinic's result filter; not an identity or authorization decision")
+    // Locale.ROOT folding is only for the clinic's result filter, never identity or authorization.
     private static String projectableValue(String result, String context) {
         if (result == null || result.isEmpty() || "DNR".equals(result)) return null;
         String trimmed = StringUtils.trimToEmpty(result).replaceAll("\\<br\\s?/?\\>", "").trim();
@@ -444,8 +444,9 @@ public class Hl7textResultsData {
     }
 
     /** Map a lowercase-shadow boundary without cutting a source character in half. */
-    // FindSecBugs IMPROPER_UNICODE: repeats the filter's Locale.ROOT fold solely to map match boundaries back onto the source text.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Repeats the extraction filter's Locale.ROOT fold solely to map match boundaries onto the source text")
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "Maps the Locale.ROOT filter shadow back onto original result text; not an identity or authorization decision")
+    // This fold maps the Locale.ROOT filter shadow to original text, never identity or authorization.
     private static int originalBoundary(String source, String shadow, int boundary, Locale locale) {
         if (boundary == 0) return 0;
         if (boundary == shadow.length()) return source.length();

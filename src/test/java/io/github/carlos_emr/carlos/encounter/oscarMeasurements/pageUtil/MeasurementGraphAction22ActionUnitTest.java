@@ -130,14 +130,16 @@ class MeasurementGraphAction22ActionUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @CsvSource({"<0.1,0.1", ">100,100", "<=5,5", ">=10,10", "≤5,5", "≥10,10",
-            "5 mmol/L,5", "5%,5", "'1,234',1234", "+5.2,5.2", "H 7.4,7.4"})
+            "5 mmol/L,5", "5%,5", "'1,234',1234", "+5.2,5.2", "H 7.4,7.4", "2+,2"})
     @DisplayName("should plot the number in a qualified result, as OSCAR 19 does")
     void shouldPlotTheNumberOfAQualifiedResult_inNumericSeries(String value, String plotted) {
         assertThat(MeasurementGraphAction22Action.numericResult(value)).isEqualTo(plotted);
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"Negative", "Pending", "NaN", "Infinity", "+", "-", ".", "+.", "5..2", "3-5"})
+    @ValueSource(strings = {"Negative", "Pending", "NaN", "Infinity", "+", "-", ".", "+.", "5..2", "3-5",
+            "1:160", "1:40", "12abc34", "2026/10/09", "1e3", "1e-3", "120/80", "0,500", "01,234", "1,23"})
+    @org.junit.jupiter.params.provider.NullAndEmptySource
     @DisplayName("should leave out a result that holds no single number")
     void shouldExcludeResultsWithoutOneNumber_fromNumericSeries(String value) {
         assertThat(MeasurementGraphAction22Action.numericResult(value)).isNull();
@@ -153,5 +155,6 @@ class MeasurementGraphAction22ActionUnitTest extends CarlosUnitTestBase {
     void shouldExcludeLongMalformedAndOverflowValues_fromNumericSeries() {
         assertThat(MeasurementGraphAction22Action.numericResult("1".repeat(1000000) + "x")).isNull();
         assertThat(MeasurementGraphAction22Action.numericResult("1".repeat(10000))).isNull();
+        assertThat(MeasurementGraphAction22Action.numericResult("9".repeat(400))).isNull();
     }
 }

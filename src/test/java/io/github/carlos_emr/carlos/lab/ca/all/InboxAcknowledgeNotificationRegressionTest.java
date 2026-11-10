@@ -267,7 +267,7 @@ class InboxAcknowledgeNotificationRegressionTest {
         // one left the badge one ahead of the figure the next page load computes.
         assertThat(read(COMMON_LAB_RESULT_DATA))
                 .as("the server must report how many routing rows it cleared")
-                .contains("return new ReportChainUpdate(clearedFromNew, new java.util.ArrayList<>(versions), List.of());");
+                .contains("return new ReportChainUpdate(clearedFromNew, new java.util.ArrayList<>(versions));");
         assertThat(read(REPORT_MACRO_ACTION))
                 .as("the macro response must carry that count to the browser")
                 .contains("result.put(\"clearedCount\", outcome.clearedCount());");
@@ -378,7 +378,7 @@ class InboxAcknowledgeNotificationRegressionTest {
                 .contains("return dropFromInboxhubDirectly(segmentId, labType, clearedCount, chain);");
         assertThat(labDisplay)
                 .as("the direct route does the whole job: row and counters, by the server's count")
-                .contains("inbox.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount, chain ? chain.retainedVersionIds : undefined) === true;")
+                .contains("inbox.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount, chain ? [] : undefined) === true;")
                 .as("reaching the inbox in preview mode as well as from a popup")
                 .contains("} else if (window.parent !== window")
                 .as("and re-fetching ONLY when the inbox could not deal with the item itself: it "

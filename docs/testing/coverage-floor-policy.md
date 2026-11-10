@@ -119,3 +119,17 @@ The baseline records the fresh JaCoCo XML hash and a test-report inventory
 hash: SHA-256 of compact, key-sorted JSON mapping each Surefire XML filename to
 the SHA-256 of its unchanged bytes. Counts use the repository's Surefire reader,
 which validates nested-container header collisions and counts every testcase.
+
+The PR #6102 review refresh binds the unchanged production tree at `d3234545d1849d582caa2ebd89cbfe94c8c6b6b7`
+(and test checkpoint `b91796b3d29b930bf82444eb91de0072a1f512f8`) to an Ubuntu 26.04 /
+OpenJDK 25.0.5.0.3 run: 35,964 actual cases, 35,758 passes, 206 exact registered
+routed/prerequisite skips, and zero failures/errors. All five permission cases pass
+separately. Same-class refusal and compatibility runs pass 367 and 132 cases without
+skips; their report inventories are recorded as additional runs, not unique additions
+to the full-suite count. All 6,301 compiled production classes match the source-built
+WAR. Every one of the 27 Java paths changed against PR #6102's release base meets its
+retained floors. Thresholds for those paths only rise; the other historical floors,
+required refusal lines and 80 unreviewed zero floors remain. The wider main/release
+comparison still has 190 unmet assertions pending the required native-lane union and
+review. This refresh establishes source freshness and measured PR coverage, not full
+release qualification, and introduces no waiver or lower threshold.

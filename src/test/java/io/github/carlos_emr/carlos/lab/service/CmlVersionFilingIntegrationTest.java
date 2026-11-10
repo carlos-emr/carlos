@@ -227,6 +227,32 @@ class CmlVersionFilingIntegrationTest extends CarlosTestBase {
         assertThat(archived()).isEqualTo(2);
     }
 
+    @Test
+    void shouldKeepCompleteMeasurements_whenAPartialFinalIsDeliveredLate() {
+        int complete = ingest("20260310", "F", "7010=5.1", "7020=9.2");
+        int partial = ingest("20260310", "F", "7010=5.1");
+        assertThat(filed()).containsExactly("5.1", "9.2");
+        assertThat(archived()).isZero();
+        assertThat(Hl7textResultsData.getMatchingLabs(Integer.toString(partial))).isEqualTo(partial + "," + complete);
+    }
+
+    @Test
+    void shouldFileACorrection_whenOnlyItsCollectionDateIsEarlier() {
+        ingest("20260311120000", "F", "7010=5.1");
+        String correction = CmlVersionPolicyUnitTest.body(accession, "20260310", "C", "7010=12.7");
+        String[] segments = correction.split("\\r");
+        for (int i = 0; i < segments.length; i++) {
+            if (segments[i].startsWith("OBR|")) {
+                String[] fields = segments[i].split("\\|", -1);
+                fields[22] = "";
+                segments[i] = String.join("|", fields);
+            }
+        }
+        ingestBody(String.join("\r", segments) + "\r", "C", 1);
+        assertThat(filed()).containsExactly("12.7");
+        assertThat(archived()).isEqualTo(1);
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"20260310", "20260310120000"})
     void shouldLetTheLaterArrivalReplace_whenTheLabFieldsDoNotSeparateVersions(String time) {

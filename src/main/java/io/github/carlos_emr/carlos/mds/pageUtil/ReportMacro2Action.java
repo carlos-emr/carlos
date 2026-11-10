@@ -142,7 +142,8 @@ public class ReportMacro2Action extends ActionSupport {
         result.put("acknowledged", outcome.acknowledged());
         result.put("clearedCount", outcome.clearedCount());
         result.set("affectedVersionIds", objectMapper.valueToTree(outcome.affectedVersionIds()));
-        result.set("retainedVersionIds", objectMapper.valueToTree(outcome.retainedVersionIds()));
+        // Empty wire alias keeps cached pre-upgrade scripts working; no versions are retained.
+        result.set("retainedVersionIds", objectMapper.createArrayNode());
         response.getWriter().write(result.toString());
         return NONE;
     }
@@ -158,13 +159,13 @@ public class ReportMacro2Action extends ActionSupport {
      *                     than assuming one per acknowledged item.
      */
     protected record MacroOutcome(boolean success, boolean acknowledged, int clearedCount,
-            java.util.List<Integer> affectedVersionIds, java.util.List<Integer> retainedVersionIds) {
+            java.util.List<Integer> affectedVersionIds) {
         protected MacroOutcome(boolean success, boolean acknowledged, int clearedCount) {
-            this(success, acknowledged, clearedCount, java.util.List.of(), java.util.List.of());
+            this(success, acknowledged, clearedCount, java.util.List.of());
         }
         static MacroOutcome ran(boolean acknowledged, int clearedCount, CommonLabResultData.ReportChainUpdate chain) {
             return chain == null ? ran(acknowledged, clearedCount)
-                    : new MacroOutcome(true, acknowledged, clearedCount, chain.affectedVersionIds(), chain.retainedVersionIds());
+                    : new MacroOutcome(true, acknowledged, clearedCount, chain.affectedVersionIds());
         }
         static MacroOutcome notRun() {
             return new MacroOutcome(false, false, 0);
@@ -189,8 +190,7 @@ public class ReportMacro2Action extends ActionSupport {
         MacroOutcome combinedWith(MacroOutcome other) {
             return new MacroOutcome(success || other.success(), acknowledged || other.acknowledged(),
                     Math.max(clearedCount, other.clearedCount()),
-                    java.util.stream.Stream.concat(affectedVersionIds.stream(), other.affectedVersionIds().stream()).distinct().toList(),
-                    java.util.stream.Stream.concat(retainedVersionIds.stream(), other.retainedVersionIds().stream()).distinct().toList());
+                    java.util.stream.Stream.concat(affectedVersionIds.stream(), other.affectedVersionIds().stream()).distinct().toList());
         }
     }
 

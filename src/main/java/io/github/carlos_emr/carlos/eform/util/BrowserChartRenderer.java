@@ -78,7 +78,7 @@ public final class BrowserChartRenderer {
             throw new ChartRenderFailure(ChartRenderFailure.Reason.INTERRUPTED, "Chart rendering interrupted");
         } catch (RuntimeException | io.github.carlos_emr.carlos.utility.PDFGenerationException failure) {
             // Browser errors can include clinical values; expose neither the reply nor its cause.
-            logger.warn("Chart rendering failed: reason={}", phase);
+            logger.warn("Chart rendering failed: reason={}, exception={}", phase, failure.getClass().getName());
             throw new ChartRenderFailure(phase, "Chart rendering failed");
         } finally {
             EFormBrowserPdfService.teardownQuietly(session);
