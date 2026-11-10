@@ -16,6 +16,12 @@
 
     @since 2026-11-06
 --%>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<%-- The same bundle the including page sets (showDocument.jsp); declared here too, as every
+     fragment that uses fmt:message does. --%>
+<fmt:setBundle basename="oscarResources"/>
 <c:set var="mycarlosSendCtx" value="${pageContext.request.contextPath}"/>
 <c:set var="mycarlosSendDoc" value="${pageScope.mycarlosSendDocumentId}"/>
 <link rel="stylesheet" href="${carlos:forHtmlAttribute(mycarlosSendCtx)}/share/css/mycarlos-send.css">
