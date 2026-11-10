@@ -44,7 +44,13 @@ class CdsExportDocumentInputStreamUnitTest {
     void setup() throws Exception {
         root =
                 Files.createTempDirectory(
-                        Path.of(System.getProperty("cds.export.test.documentRoot", "target"))
+                        // A checkout can have writable bind-mount ancestors. The source
+                        // reader must still reject those; place only this owned fixture
+                        // under the process home unless the harness supplies its root.
+                        Path.of(
+                                        System.getProperty(
+                                                "cds.export.test.documentRoot",
+                                                System.getProperty("user.home")))
                                 .toAbsolutePath(),
                         "owned-native-document-",
                         PosixFilePermissions.asFileAttribute(
@@ -110,7 +116,8 @@ class CdsExportDocumentInputStreamUnitTest {
                 "",
                 ".."
             })
-    void shouldRefuseTraversalAbsoluteAndAmbiguousPaths_forDocumentInputStreamContract(String name) {
+    void shouldRefuseTraversalAbsoluteAndAmbiguousPaths_forDocumentInputStreamContract(
+            String name) {
         assertThatThrownBy(() -> open(name)).hasMessage("CDS_EXPORT_DOCUMENT_SOURCE_UNAVAILABLE");
     }
 
@@ -146,7 +153,8 @@ class CdsExportDocumentInputStreamUnitTest {
     }
 
     @Test
-    void shouldRefuseAFileReplacedWhileItsOriginalDescriptorIsOpen_forDocumentInputStreamContract() throws Exception {
+    void shouldRefuseAFileReplacedWhileItsOriginalDescriptorIsOpen_forDocumentInputStreamContract()
+            throws Exception {
         try (var input = open("report.bin")) {
             input.read();
             Files.move(root.resolve("report.bin"), root.resolve("original.bin"));
