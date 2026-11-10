@@ -169,7 +169,10 @@ public class CmlProjectionService {
         for (int id : ids) {
             if (lock) providers.lockRoutingReport(id);
             var routes = lock ? patients.findForUpdate(id, "HL7") : patients.findByLabNoAndLabType(id, "HL7");
-            if (reason == Reason.READY && routes.isEmpty() && !(incoming && id == report)) reason = Reason.UNMATCHED;
+            // A version that was never matched (it arrived before the chart existed) is not in
+            // this patient's record. It must not stop the matched versions from being filed, and
+            // nothing is projected from it; matching it later reconciles the chain again.
+            boolean unrouted = routes.isEmpty() && !(incoming && id == report);
             for (var route : routes) {
                 fingerprint.append(CmlVersionPolicy.pack("route", Integer.toString(route.getId()), Integer.toString(id),
                         Objects.toString(route.getDemographicNo(), null), dateValue(route.getCreated()),
@@ -181,9 +184,9 @@ public class CmlProjectionService {
             if (message == null || !"CML".equals(message.getType()) || !(handler instanceof CMLHandler cml)
                     || !sameSourcePatient(selected, cml)) throw new CmlVersionPolicy.AmbiguousRevision("CML source identity requires review");
             reports.put(id, cml);
-            if (CmlVersionPolicy.hasUnsupportedStatus(cml)) reason = Reason.AMBIGUOUS_SOURCE;
+            if (!unrouted && CmlVersionPolicy.hasUnsupportedStatus(cml)) reason = Reason.AMBIGUOUS_SOURCE;
             fingerprint.append(CmlVersionPolicy.pack("source", Integer.toString(id), message.getBase64EncodedeMessage()));
-            var source = CmlVersionPolicy.observations(id, cml);
+            var source = unrouted ? List.<CmlVersionPolicy.Observation>of() : CmlVersionPolicy.observations(id, cml);
             observations.addAll(source);
             for (var observation : source) {
                 var value = expected(cml, observation);
@@ -205,8 +208,21 @@ public class CmlProjectionService {
                 }
             }
         }
+        record Tombstone(MeasurementsDeleted row, Map<String, String> extensions) { }
+        List<Tombstone> tombstones = new ArrayList<>();
+        // When each report's projection rows were written, whether they are still active or not.
+        Map<String, List<Date>> filed = new HashMap<>();
+        for (Row row : active) {
+            filed.computeIfAbsent(row.extensions().get("lab_no"), key -> new ArrayList<>()).add(row.measurement().getCreateDate());
+        }
         for (var archive : deleted.findByLabNumbers(ids.stream().map(String::valueOf).toList())) {
             Map<String, String> ext = extensionMap(archive.getOriginalId());
+            tombstones.add(new Tombstone(archive, ext));
+            filed.computeIfAbsent(ext.get("lab_no"), key -> new ArrayList<>()).add(archive.getDateEntered());
+        }
+        for (var tombstone : tombstones) {
+            var archive = tombstone.row();
+            Map<String, String> ext = tombstone.extensions();
             fingerprint.append(CmlVersionPolicy.pack("archive", Integer.toString(archive.getId()),
                     Integer.toString(archive.getOriginalId()), dateValue(archive.getDateDeleted()),
                     packMap(ext), archive.getType(), archive.getDataField(), archive.getProviderNo(),
@@ -217,6 +233,7 @@ public class CmlProjectionService {
                 String original = ext.get("lab_no") + ":" + ext.get("other_id");
                 var source = observations.stream().filter(row -> position(row).equals(original)).findFirst();
                 if (source.isEmpty()) reason = Reason.AMBIGUOUS_SOURCE;
+                else if (marker == null && legacySupersession(archive, ext.get("lab_no"), filed)) continue;
                 else protectedKeys.add(source.get().key());
                 if ("CLINICIAN".equals(marker)) protection = Reason.CLINICIAN_CHANGE;
                 else if (protection == Reason.READY) protection = Reason.LEGACY_DELETION;
@@ -269,7 +286,7 @@ public class CmlProjectionService {
             if (comments.length() > 0) comments.append('\n');
             comments.append(handler.getOBXComment(row.obr(), row.obx(), n));
         }
-        String comment = comments.toString().replaceAll("\\<br\\s?/?\\>", "");
+        String comment = Hl7textResultsData.measurementComment(comments.toString());
         Date observed = Hl7textResultsData.parseObservationDate(handler.getTimeStamp(row.obr(), row.obx()));
         if (observed == null && value != null && !row.withdrawn()) {
             throw new CmlVersionPolicy.AmbiguousRevision("CML observation time is unavailable");
@@ -322,6 +339,32 @@ public class CmlProjectionService {
                 && Objects.equals(expected.comments(), Objects.toString(m.getComments(), ""))
                 && Objects.equals(expected.observed(), m.getDateObserved())
                 && expected.source().equals(clinicalExtensions(row.extensions()));
+    }
+
+    /** How close a legacy deletion must be to another version's filing to be that version's doing. */
+    private static final long LEGACY_SUPERSESSION_WINDOW_MILLIS = 60_000L;
+
+    /**
+     * Recognises the unmarked deletions the pre-reconciliation import made. When a newer version
+     * arrived, that import moved every measurement of the earlier versions to
+     * {@code measurementsDeleted} and filed the newer version's in the same call, so such a row
+     * was deleted at the moment another report of the chain was filed. That is automatic
+     * supersession, not a clinician's decision, and protects nothing. An unmarked deletion made
+     * at any other time keeps its protection, because its intent is unknown.
+     */
+    private static boolean legacySupersession(MeasurementsDeleted archive, String sourceReport,
+            Map<String, List<Date>> filed) {
+        Date removed = archive.getDateDeleted();
+        if (removed == null) return false;
+        for (var entry : filed.entrySet()) {
+            if (Objects.equals(entry.getKey(), sourceReport)) continue;
+            for (Date written : entry.getValue()) {
+                if (written != null && Math.abs(removed.getTime() - written.getTime()) <= LEGACY_SUPERSESSION_WINDOW_MILLIS) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static String canonicalKey(String key) {

@@ -236,6 +236,53 @@ class CmlProjectionIntegrationTest extends CarlosTestBase {
         assertThat(service.preview(report,actor).reason()).isEqualTo(CmlProjectionService.Reason.LEGACY_DELETION);
         ingest("20260310120000","C","7010=12.7");assertThat(active()).isEmpty();
     }
+    @Test void shouldFileTheMatchedReport_whenAnEarlierVersionWasNeverMatched() {
+        // The first version arrived before the patient's chart existed: stored, but never routed.
+        tx.executeWithoutResult(status->add("20260310080000","F","7010=5.1","7020=9.2"));
+        int report=ingest("20260310120000","C","7010=12.7");
+        // The matched report is filed; nothing is projected from a report that is not in the chart.
+        assertThat(active()).extracting(Measurement::getDataField).containsExactly("12.7");
+        assertThat(service.status(report,actor).reason()).isEqualTo(CmlProjectionService.Reason.READY);
+        assertThat(service.status(report,actor).isChangeNeeded()).isFalse();
+    }
+    @Test void shouldFileAResult_whenItsCommentIsLongerThanAMeasurementHolds() {
+        String comment="RECOMMENDED RANGE ".repeat(17); // 306 characters; measurements.comments holds 255
+        int report=tx.execute(status->{Hl7ChainLocks.lock("CML",accession);
+            int id=addBody(CmlVersionPolicyUnitTest.body(accession,"20260310080000","F","7010=5.1")+"NTE|1|L|"+comment+"\r","F",1);
+            service.reconcile(id,patient);patients.persist(new PatientLabRouting(id,"HL7",patient));return id;});
+        assertThat(active()).singleElement().satisfies(row->{assertThat(row.getDataField()).isEqualTo("5.1");
+            assertThat(row.getComments()).isEqualTo(comment.substring(0,Measurement.COMMENTS_MAX_LENGTH));});
+        // The stored (cut) comment is the projection, not a clinician's edit: later corrections still apply.
+        assertThat(service.status(report,actor).reason()).isEqualTo(CmlProjectionService.Reason.READY);
+        ingest("20260310120000","C","7010=12.7");
+        assertThat(active()).extracting(Measurement::getDataField).containsExactly("12.7");
+    }
+    @Test void shouldApplyALaterCorrection_whenTheLegacyImportSupersededTheFirstVersion() {
+        ingest("20260310080000","F","7010=5.1");int first=active().getFirst().getId();
+        // Before this service existed, a newer version's arrival moved the previous version's
+        // measurements to measurementsDeleted with no marker, in the same call that filed its own.
+        int second=tx.execute(status->{int report=add("20260310120000","C","7010=12.7");
+            patients.persist(new PatientLabRouting(report,"HL7",patient));
+            var row=measurements.find(first);deleted.persist(new MeasurementsDeleted(row));measurements.remove(first);
+            Hl7textResultsData.projectMeasurements(Integer.toString(report),Integer.toString(patient),(i,j)->true);return report;});
+        assertThat(service.status(second,actor).reason()).isEqualTo(CmlProjectionService.Reason.READY);
+        ingest("20260310140000","C","7010=13.4");
+        assertThat(active()).extracting(Measurement::getDataField).containsExactly("13.4");
+    }
+    @Test void shouldRestoreAnOmittedObservation_whenTheLegacyImportDroppedItWithItsReport() {
+        ingest("20260310080000","F","7010=5.1","7020=9.2");var firstRows=active();
+        // The legacy import removed every measurement of the earlier version, including 7020,
+        // which the partial correction never mentioned.
+        int second=tx.execute(status->{int report=add("20260310120000","C","7010=12.7");
+            patients.persist(new PatientLabRouting(report,"HL7",patient));
+            for(var row:firstRows){deleted.persist(new MeasurementsDeleted(measurements.find(row.getId())));measurements.remove(row.getId());}
+            Hl7textResultsData.projectMeasurements(Integer.toString(report),Integer.toString(patient),(i,j)->true);return report;});
+        var preview=service.preview(second,actor);
+        assertThat(preview.reason()).isEqualTo(CmlProjectionService.Reason.READY);
+        assertThat(preview.createCount()).isEqualTo(1);assertThat(preview.archiveCount()).isZero();
+        service.apply(second,preview.fingerprint(),actor,"127.0.0.1");
+        assertThat(active()).extracting(Measurement::getDataField).containsExactlyInAnyOrder("12.7","9.2");
+    }
     @Test void shouldNameTheSecurityObject_whenAdminWriteIsMissing() {
         int report=ingest("20260310080000","F","7010=5.1");
         when(security.hasPrivilege(actor,"_admin","w",null)).thenReturn(false);

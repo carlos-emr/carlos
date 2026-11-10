@@ -273,8 +273,7 @@ public class Hl7textResultsData {
                     /*
                      * Remove HTML
                      */
-                    comments = comments.replaceAll("\\<br\\s?/?\\>", "");
-                    m.setComments(comments);
+                    m.setComments(measurementComment(comments));
                     measurementDao.persist(m);
 
                     int mId = m.getId();
@@ -386,6 +385,18 @@ public class Hl7textResultsData {
             }
         }
         measurementsExtDao.batchPersistAtomically(measurementsExts, 50);
+    }
+
+    /**
+     * A result's joined comment as a measurement stores it: handler line-break markers removed and
+     * cut to the column width. The packaged database cuts silently, so a writer that compares
+     * the stored row with its source (projection validation, repair) must use this same form;
+     * the full comment remains in the source report.
+     */
+    public static String measurementComment(String joinedComments) {
+        String comment = joinedComments.replaceAll("\\<br\\s?/?\\>", "");
+        return comment.codePointCount(0, comment.length()) <= Measurement.COMMENTS_MAX_LENGTH ? comment
+                : comment.substring(0, comment.offsetByCodePoints(0, Measurement.COMMENTS_MAX_LENGTH));
     }
 
     /** The unchanged configured extraction policy, shared with projection validation and repair. */
