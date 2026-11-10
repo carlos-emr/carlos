@@ -547,6 +547,7 @@
     ],
     "MedicationsAndTreatments": [
       "drugs",
+      "medication_reference",
       "partial_date",
       "prescription",
       "provider"

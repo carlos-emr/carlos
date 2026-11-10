@@ -71,6 +71,16 @@ public final class CdsExportNativeMedicationMapper {
             List<CdsExportCapturedTextRowDto> precision,
             Map<String, CdsExportCapturedTextRowDto> providers)
             throws IOException {
+        return map(patient, row, precision, providers, null);
+    }
+
+    public Result map(
+            int patient,
+            CdsExportCapturedTextRowDto row,
+            List<CdsExportCapturedTextRowDto> precision,
+            Map<String, CdsExportCapturedTextRowDto> providers,
+            CdsExportCapturedTextRowDto referenceRow)
+            throws IOException {
         var candidate =
                 new CdsExportMedicationMapper().candidate(patient, row, precision, providers);
         var values = new EnumMap<Field, String>(Field.class);
@@ -85,11 +95,15 @@ public final class CdsExportNativeMedicationMapper {
         boolean archived = flag(source.get("archived"));
         String custom = source.get("customName"), brand = source.get("BN");
         // RxPrescriptionData.isCustom/getDrugName gives an authored custom name precedence.
+        var reference = reference(row, referenceRow);
         String name = populated(custom) ? custom : brand;
-        if (!populated(name)
-                || !CdsExportNativeFieldAssessments.legal(name, Field.DrugName.maximum())) review();
-        values.put(Field.DrugName, name);
         values.remove(Field.DrugIdentificationNumber);
+        if (reference != null) values.put(Field.DrugIdentificationNumber, reference.din());
+        if (populated(name)
+                && CdsExportNativeFieldAssessments.legal(name, Field.DrugName.maximum()))
+            values.put(Field.DrugName, name);
+        else if (reference != null && !populated(custom)) values.remove(Field.DrugName);
+        else review();
         String strength = source.get("dosage");
         if (populated(strength)) {
             if (!CdsExportNativeFieldAssessments.legal(strength, Field.DrugDescription.maximum()))
@@ -120,7 +134,7 @@ public final class CdsExportNativeMedicationMapper {
             values.put(Field.PrescriptionInstructions, instructions);
         }
         String frequency = source.get("freqcode");
-        if ("OD".equals(frequency)) values.put(Field.Frequency, "daily");
+        if ("OD".equals(frequency)) values.put(Field.Frequency, "QD");
         if (populated(source.get("unit"))
                 && populated(source.get("unitName"))
                 && !source.get("unit").equals(source.get("unitName")))
@@ -154,6 +168,10 @@ public final class CdsExportNativeMedicationMapper {
             }
             if (assessment.outcome() == Outcome.REQUIRES_REVIEW
                     && !CONTEXT_RULES.contains(assessment.rule())
+                    && !(reference != null
+                            && Set.of("BN", "customName").contains(key.column())
+                            && Set.of("WIRE_TEXT_REQUIRES_REVIEW", "MEDICATION_IDENTITY_REQUIRED")
+                                    .contains(assessment.rule()))
                     && !(key.column().equals("start_date_unknown")
                             && assessment
                                     .rule()
@@ -173,15 +191,93 @@ public final class CdsExportNativeMedicationMapper {
         details.put("version", 1);
         details.put("fields", source);
         details.put("exactNumbers", row.exactNumbers());
-        details.put("regionalIdentifierAuthority", "UNQUALIFIED");
+        details.put(
+                "regionalIdentifierAuthority",
+                reference == null ? "UNQUALIFIED" : reference.authority());
+        if (referenceRow != null) {
+            details.put("reference", referenceRow.fields());
+            var assessments = new CdsExportNativeFieldAssessments(referenceRow, fields);
+            for (String column : referenceRow.fields().keySet())
+                assessments.set(
+                        column,
+                        Outcome.MAPPED,
+                        "MedicationsAndTreatments/ResidualInfo",
+                        "EXACT_FROZEN_PUBLIC_DRUG_REFERENCE");
+        }
         details.put("currentness", knownStatus ? status : "UNESTABLISHED");
         String metadata = JsonMapper.builder().build().writeValueAsString(details);
         if (!CdsExportNativeFieldAssessments.legal(metadata, 1 << 24)) review();
         var value =
                 new CdsExportMedicationDto(
-                        candidate.written(), start, null, null, candidate.prescriber(), values);
+                        candidate.written(),
+                        start,
+                        reference == null ? null : reference.components().getFirst().strength(),
+                        reference == null ? null : reference.components().getFirst().unit(),
+                        candidate.prescriber(),
+                        values);
         CdsExportMedicationXmlWriter.validate(value);
         return new Result(value, metadata, fields, archived);
+    }
+
+    private static CdsExportDrugReferenceDto reference(
+            CdsExportCapturedTextRowDto row, CdsExportCapturedTextRowDto reference)
+            throws IOException {
+        String catalogue = row.fields().get("GCN_SEQNO");
+        boolean selected;
+        try {
+            selected =
+                    catalogue != null
+                            && !catalogue.isEmpty()
+                            && new BigInteger(catalogue).signum() != 0;
+        } catch (NumberFormatException invalid) {
+            review();
+            return null;
+        }
+        if (!selected) {
+            if (reference != null) review();
+            return null;
+        }
+        if (reference == null
+                || !reference.table().equals("medication_reference")
+                || !reference.recordKey().equals(row.recordKey())
+                || !reference.fields().keySet().equals(CdsExportDrugReferenceSourceReader.COLUMNS)
+                || !Objects.equals(row.fields().get("drugid"), reference.fields().get("drugid"))
+                || !Objects.equals(catalogue, reference.fields().get("GCN_SEQNO"))
+                || !Objects.equals(
+                        row.fields().get("regional_identifier"),
+                        reference.fields().get("regional_identifier"))) review();
+        CdsExportDrugReferenceDto value;
+        try {
+            var json =
+                    JsonMapper.builder()
+                            .enable(
+                                    com.fasterxml.jackson.core.JsonParser.Feature
+                                            .STRICT_DUPLICATE_DETECTION)
+                            .enable(
+                                    com.fasterxml.jackson.databind.DeserializationFeature
+                                            .FAIL_ON_TRAILING_TOKENS)
+                            .build();
+            value =
+                    json.readValue(
+                            reference.fields().get("public_reference"),
+                            CdsExportDrugReferenceDto.class);
+        } catch (IOException | RuntimeException malformed) {
+            review();
+            return null;
+        }
+        if (value == null
+                || !value.din().equals(row.fields().get("regional_identifier"))
+                || value.components().isEmpty()) review();
+        var component = value.components().getFirst();
+        try {
+            if (new java.math.BigDecimal(component.strength()).signum() <= 0) review();
+        } catch (NumberFormatException invalid) {
+            review();
+        }
+        // Guide 10.1 permits representative DINs whose product/name differs. Guide 10.5
+        // requires the database's first ingredient amount, including combination products.
+        // Authored names and complete native strength text remain independent source values.
+        return value;
     }
 
     public void write(Result result, CdsExportXmlComposer.ContentWriter xml) throws IOException {
