@@ -4455,19 +4455,19 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             CaseManagementIssue iss = itr.next();
             rt = rt + "\n" + iss.getIssue().getDescription() + "\t\t\n";
             if (iss.isCertain())
-                rt = rt + "certain" + "  ";
+                rt = rt + ISSUE_CERTAIN + "  ";
             else
                 rt = rt + "uncertain" + "  ";
             if (iss.isAcute())
-                rt = rt + "acute" + "  ";
+                rt = rt + ISSUE_ACUTE + "  ";
             else
                 rt = rt + "chronic" + "  ";
             if (iss.isMajor())
-                rt = rt + "major" + "  ";
+                rt = rt + ISSUE_MAJOR + "  ";
             else
                 rt = rt + "not major" + "  ";
             if (iss.isResolved())
-                rt = rt + "resolved";
+                rt = rt + ISSUE_RESOLVED;
             else
                 rt = rt + "unresolved";
         }
