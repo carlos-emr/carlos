@@ -92,6 +92,68 @@ class PortalMyCarlosDeliverySyncMariaIntegrationTest {
         }
     }
 
+    // Events about something CARLOS has no record of (no binding for the recipient, and no accepted device
+    // or outbox copy they name) are passed over once older than UNKNOWN_SETTLED_SECONDS; anything CARLOS
+    // knows keeps every check above. The always-running counterpart is PortalMyCarlosDeliverySyncSkipUnitTest.
+    @Test void shouldPassOverSettledUnknownEvents_beforeCollectingTheKnownOne() throws Exception {
+        var h = harness();
+        var p = pair();
+        h.sender.stage(staff(), p.copy(), p.snapshot());
+        long before = checkpoint(h).through();
+        var picked = event(p.snapshot(), before + 3, receipt(p.snapshot(), UUID.randomUUID().toString()));
+        h.exchange.response = page(List.of(unknownDeviceRemoved(before + 1, NOW.get() - 3600),
+                unknownExpired(before + 2, NOW.get() - 3600), picked), before + 3);
+        assertEquals(PortalMyCarlosDeliverySyncService.Result.COLLECTED, h.sync.poll());
+        assertEquals(List.of(before + 3), h.exchange.acks);
+        assertEquals(before + 3, checkpoint(h).through());
+        assertEquals(PortalMyCarlosDeliveryOutboxService.DeliveryStatus.PICKED_UP,
+                h.sender.status(staff(), 123, p.snapshot().deliveryId(), p.snapshot().device().kid()));
+        assertEquals(List.of("device_removed:false", "expired:false", "picked_up:true"), eventRowsAfter(before));
+        assertNull(pageFailure(h.exchange.response));
+        assertExactPageRetained(h.exchange.response);
+    }
+
+    @Test void shouldQuarantineUnknownEvent_whileItsRequestMayStillBeOpen() throws Exception {
+        var h = harness();
+        long before = checkpoint(h).through();
+        h.exchange.response = page(List.of(unknownDeviceRemoved(before + 1, NOW.get() - 60)), before + 1);
+        assertEquals(PortalMyCarlosDeliverySyncService.Result.QUARANTINED, h.sync.poll());
+        assertTrue(h.exchange.acks.isEmpty());
+        assertEquals(before, checkpoint(h).through());
+        assertEquals("unknown_binding", pageFailure(h.exchange.response));
+        assertExactPageRetained(h.exchange.response);
+    }
+
+    @Test void shouldAcknowledgePassedOverPrefix_beforeQuarantiningABadProof() throws Exception {
+        var h = harness();
+        var p = pair();
+        h.sender.stage(staff(), p.copy(), p.snapshot());
+        long before = checkpoint(h).through();
+        var tampered = event(p.snapshot(), before + 2, receipt(p.snapshot(), UUID.randomUUID().toString()));
+        ((com.fasterxml.jackson.databind.node.ObjectNode) tampered.get("payload")).put("size", p.snapshot().sealedSize() + 1);
+        h.exchange.response = page(List.of(unknownDeviceRemoved(before + 1, NOW.get() - 3600), tampered), before + 2);
+        assertEquals(PortalMyCarlosDeliverySyncService.Result.QUARANTINED, h.sync.poll());
+        assertEquals(List.of(before + 1), h.exchange.acks);
+        assertEquals(before + 1, checkpoint(h).through());
+        assertEquals(PortalMyCarlosDeliveryOutboxService.DeliveryStatus.STAGED,
+                h.sender.status(staff(), 123, p.snapshot().deliveryId(), p.snapshot().device().kid()));
+        assertEquals("invalid_proof", pageFailure(h.exchange.response));
+    }
+
+    @Test void shouldPassOverUnknownEvent_fromExactlyTheSettledAge() throws Exception {
+        assertEquals(900, PortalMyCarlosDeliverySyncService.UNKNOWN_SETTLED_SECONDS);
+        var h = harness();
+        long before = checkpoint(h).through();
+        h.exchange.response = page(List.of(unknownDeviceRemoved(before + 1, NOW.get() - 900)), before + 1);
+        assertEquals(PortalMyCarlosDeliverySyncService.Result.COLLECTED, h.sync.poll());
+        assertEquals(before + 1, checkpoint(h).through());
+        var younger = harness();
+        younger.exchange.response = page(List.of(unknownDeviceRemoved(before + 2, NOW.get() - 899)), before + 2);
+        assertEquals(PortalMyCarlosDeliverySyncService.Result.QUARANTINED, younger.sync.poll());
+        assertTrue(younger.exchange.acks.isEmpty());
+        assertEquals(before + 1, checkpoint(younger).through());
+    }
+
     @Test void shouldRetryOnlyCommittedAckAfterRestart_whenAckReplyIsLost() throws Exception {
         var h = harness();
         var p = pair();
@@ -267,6 +329,43 @@ class PortalMyCarlosDeliverySyncMariaIntegrationTest {
         p.put("receipt", receipt);
         p.put("request_assertion", assertion);
         return e;
+    }
+    /** A device event for a recipient and device CARLOS has never had (FAKE identifiers). */
+    static com.fasterxml.jackson.databind.node.ObjectNode unknownDeviceRemoved(long sequence, long occurredAt) {
+        var e = JSON.createObjectNode();
+        e.put("sequence", Long.toString(sequence));
+        e.put("kind", "device_removed");
+        e.put("occurred_at", occurredAt);
+        e.put("recipient_id", "rcp-FAKE0009zzzzzzzzzzzz");
+        e.put("device_key_id", "A".repeat(43));
+        e.putNull("delivery_id");
+        e.putObject("payload");
+        return e;
+    }
+    /** A delivery event naming a delivery CARLOS never staged, for a recipient it has never had. */
+    static com.fasterxml.jackson.databind.node.ObjectNode unknownExpired(long sequence, long occurredAt) {
+        var e = JSON.createObjectNode();
+        e.put("sequence", Long.toString(sequence));
+        e.put("kind", "expired");
+        e.put("occurred_at", occurredAt);
+        e.put("recipient_id", "rcp-FAKE0009zzzzzzzzzzzz");
+        e.put("device_key_id", "A".repeat(43));
+        e.put("delivery_id", UUID.randomUUID().toString());
+        var payload = e.putObject("payload");
+        payload.put("ciphertext_sha256", "c".repeat(64));
+        payload.put("size", 4096);
+        payload.put("created_at", occurredAt - 3600);
+        payload.put("expires_at", occurredAt);
+        return e;
+    }
+    static List<String> eventRowsAfter(long sequence) throws Exception {
+        var rows = new ArrayList<String>();
+        try (var c = source.getConnection(); var q = c.prepareStatement(
+                "SELECT kind,verified FROM mycarlos_delivery_event WHERE clinic_id='clinic-a' AND sequence>? ORDER BY sequence")) {
+            q.setLong(1, sequence);
+            try (var r = q.executeQuery()) { while (r.next()) rows.add(r.getString(1) + ":" + r.getBoolean(2)); }
+        }
+        return rows;
     }
     static String page(List<?> events, long last) throws Exception { return JSON.writeValueAsString(Map.of("events", events, "last_sequence", Long.toString(last)))
             .replaceFirst("}$", ",\"next_cursor\":null}"); }
