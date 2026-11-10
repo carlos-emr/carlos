@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "e02e51fee738613c1bee27972829a65856b4985e",
-  "comparisonSha256": "73f15a4948959d1ee36c4cb06bc5accba81198f05b93ddbae2ea16767f1bf4d9",
-  "baselineCommit": "57834fb7e14143970dded500cbe6026abc517a14",
-  "baselineSourceTree": "e02e51fee738613c1bee27972829a65856b4985e",
-  "baselineReportSha256": "8baf307d8ca448b78352602920335e5c671373368bdf0dc19e163d5299bb969e",
-  "baselineLane": "JDK 25 candidate H2 run plus fresh MariaDB export execution with all 7,000 production class files byte-identical. H2 routed/prerequisite skips remain explicit. Higher historical floors and refusal lines retained; the complete required-lane union and zero-floor review remain unqualified.",
+  "sourceTree": "ecbe014aab5ab9715e0b4152367ca86df8fe3cf9",
+  "comparisonSha256": "447397f346332bab07345784305e1b234d1f9365ecb866c0f537f2284b185fea",
+  "baselineCommit": "3528ac5aea962ece28e11a1196239fdc02f5b476",
+  "baselineSourceTree": "ecbe014aab5ab9715e0b4152367ca86df8fe3cf9",
+  "baselineReportSha256": "f9333eea3d4fcf976629bbb3514e710685a6d46d8ca204ba469ecc4acc4187e1",
+  "baselineLane": "Passing JDK 25 H2 execution and all three passing native CDS shards at 3528ac5aea962ece28e11a1196239fdc02f5b476; 7,047 production class files individually byte-identical. H2 routed/prerequisite skips remain explicit. These overlapping executions are not unique-test sums. Higher historical floors and refusal lines retained; this refresh is not a complete all-release-lane coverage acceptance or a zero-floor waiver.",
   "baselineTestCounts": {
-    "tests": 38311,
-    "skipped": 376,
+    "tests": 38436,
+    "skipped": 386,
     "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "08c90804fb62a540b0ac6dd2d14e83568b1c3efef45eb9b3a1d400759eb4def6",
+  "baselineTestReportsSha256": "15e24196653d285f8ec5a1d2d651ab29225cb93f00c6352c7acbce4018e48b82",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -623,9 +623,9 @@
     },
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/CdsExportNoteAccessDao.java": {
       "lines": 95.17241379310344,
-      "instructions": 94.5578231292517,
+      "instructions": 94.72972972972973,
       "branches": 72.41379310344827,
-      "sourceBlob": "b43f007586984fe6b84ab4077f73e43bc60fe7c7"
+      "sourceBlob": "65ce9f795c1057a70317c965d410f2f9c5406a08"
     },
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/ClientImageDAOImpl.java": {
       "lines": 100.0,
@@ -849,11 +849,17 @@
       "branches": 68.42105263157895,
       "sourceBlob": "90b2ccc34cf741c2f5079be6368b306091fb0016"
     },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsExportIndirectPatientScopeReadSupport.java": {
+      "lines": 95.65217391304348,
+      "instructions": 96.875,
+      "branches": 88.23529411764706,
+      "sourceBlob": "22ecf1ef5818471c8c6e2a101aeb5b7b10523ab6"
+    },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsExportNativeMetadataReadSupport.java": {
-      "lines": 96.29629629629629,
-      "instructions": 97.17514124293785,
+      "lines": 98.48484848484848,
+      "instructions": 97.22991689750693,
       "branches": 75.0,
-      "sourceBlob": "6a526871ec71c61d138aa045f921812d9866a86e"
+      "sourceBlob": "33d94a4db551c6aa69b3a9800b3b3b72ec0c4e8e"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsExportPatientTableReadDao.java": {
       "lines": 0.0,
@@ -862,10 +868,10 @@
       "sourceBlob": "5ac3f63364f6dfe2c14799988272ea7438922a87"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsExportPatientTableReadSupport.java": {
-      "lines": 98.66412213740458,
+      "lines": 98.67172675521822,
       "instructions": 98.78132904115888,
       "branches": 79.71428571428571,
-      "sourceBlob": "3e3fd4e21d7bb9f260364f8c31794f2dd3c72ef1"
+      "sourceBlob": "490fedf0e92680d457923be6be1e70948337e9ed"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsExportPreventionDataReadDao.java": {
       "lines": 100.0,
@@ -877,7 +883,7 @@
       "lines": 96.55172413793103,
       "instructions": 94.34389140271493,
       "branches": 73.17073170731707,
-      "sourceBlob": "42a65ef06887e9aa8c8c6d59675f24b52fdd952e"
+      "sourceBlob": "b07aca72ddb08d32f80c6dcbd44bc1e4892b0067"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsExportRetainedTableReadDao.java": {
       "lines": 0.0,
@@ -892,75 +898,75 @@
       "sourceBlob": "02e7abd220e8c3d41ded0f608c46680eb0013bf3"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsExportSourceCatalogueDao.java": {
-      "lines": 98.50746268656717,
-      "instructions": 96.00665557404326,
-      "branches": 78.37837837837837,
-      "sourceBlob": "cc056f2f4625ea84baf8a5a99305c14a34d92583"
+      "lines": 98.54014598540147,
+      "instructions": 96.1038961038961,
+      "branches": 79.48717948717949,
+      "sourceBlob": "7ef7cc6c4dc4d72db6d7dc08dc92f71a5fef2f1d"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportAdmissionDao.java": {
-      "lines": 25.0,
-      "instructions": 11.764705882352942,
+      "lines": 50.0,
+      "instructions": 55.88235294117647,
       "branches": 100.0,
       "sourceBlob": "359c60eabb21a9c5d962245d2aa98c3a9d12c1bd"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportCheckpointDao.java": {
-      "lines": 8.695652173913043,
-      "instructions": 5.333333333333333,
+      "lines": 86.95652173913044,
+      "instructions": 90.66666666666667,
       "branches": 100.0,
       "sourceBlob": "7c9a0435b1cd234b84e7a06f31c428e154e72f83"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportDependencyDao.java": {
-      "lines": 10.0,
-      "instructions": 11.764705882352942,
+      "lines": 75.0,
+      "instructions": 66.17647058823529,
       "branches": 100.0,
       "sourceBlob": "5be42e3b412e2566e1ca295d5fc3cfbd2faa9e8b"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportDiagnosticDao.java": {
-      "lines": 53.191489361702125,
-      "instructions": 46.206896551724135,
-      "branches": 66.66666666666667,
+      "lines": 91.48936170212765,
+      "instructions": 90.34482758620689,
+      "branches": 100.0,
       "sourceBlob": "0e474f04b6d97e763cabf3d772de44f026102ac6"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportEventDao.java": {
-      "lines": 10.526315789473685,
-      "instructions": 6.25,
-      "branches": 0.0,
+      "lines": 42.10526315789474,
+      "instructions": 37.5,
+      "branches": 50.0,
       "sourceBlob": "0dec5effb29d89613559832cb431bd50a534175c"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportFieldDao.java": {
-      "lines": 31.57894736842105,
-      "instructions": 43.90243902439025,
+      "lines": 73.6842105263158,
+      "instructions": 75.60975609756098,
       "branches": 100.0,
       "sourceBlob": "ac508f6a335b27ce624e3848b912fb3566cccbf8"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportFileDao.java": {
-      "lines": 18.75,
-      "instructions": 27.272727272727273,
+      "lines": 87.5,
+      "instructions": 83.63636363636364,
       "branches": 100.0,
       "sourceBlob": "a46e817237cf6b807747a1c2d857b2b1dba43839"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportFileReferenceDao.java": {
-      "lines": 37.5,
-      "instructions": 40.0,
+      "lines": 68.75,
+      "instructions": 65.33333333333333,
       "branches": 100.0,
       "sourceBlob": "af154bea8fbd5d0eb0a3bbd82e0672237e2a6185"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportIdentityDao.java": {
-      "lines": 5.405405405405405,
-      "instructions": 3.1496062992125986,
-      "branches": 0.0,
+      "lines": 64.86486486486487,
+      "instructions": 60.62992125984252,
+      "branches": 40.0,
       "sourceBlob": "d6dd0d250010ec558a41371a5d7cec6ec9b502c4"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportLineageDao.java": {
-      "lines": 18.181818181818183,
-      "instructions": 10.526315789473685,
+      "lines": 63.63636363636363,
+      "instructions": 63.1578947368421,
       "branches": 100.0,
       "sourceBlob": "2a6d489bb517453ba754fcaa111b694b1ebe1113"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportPatientDao.java": {
-      "lines": 20.930232558139537,
-      "instructions": 19.548872180451127,
-      "branches": 0.0,
+      "lines": 90.69767441860465,
+      "instructions": 85.33834586466165,
+      "branches": 66.66666666666667,
       "sourceBlob": "91742ef26aba6f833bf78b9b4b76c0fea6b79a0c"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportPreparationDao.java": {
@@ -976,16 +982,16 @@
       "sourceBlob": "ae54567d90f8e1e69b90e3e739c6e9f731f5e6f2"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportRunDao.java": {
-      "lines": 19.387755102040817,
-      "instructions": 22.59036144578313,
-      "branches": 15.384615384615385,
+      "lines": 65.3061224489796,
+      "instructions": 60.54216867469879,
+      "branches": 19.23076923076923,
       "sourceBlob": "1e727898cff36ba04bc018c3dc6f4fe4c6d54337"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportUnitDao.java": {
-      "lines": 8.928571428571429,
-      "instructions": 12.254901960784315,
-      "branches": 0.0,
-      "sourceBlob": "2a6af74f34a8d8ff46736e51ca80aaf9a43b5e26"
+      "lines": 89.0625,
+      "instructions": 87.55186721991701,
+      "branches": 100.0,
+      "sourceBlob": "61a1349f8c8510fced9cc6583b5e53197710edb7"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsLaboratoryResultDao.java": {
       "lines": 100.0,
@@ -1177,13 +1183,13 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "ef6d05df81c05848cf22cf4b4d0adda38040d20e"
+      "sourceBlob": "771c52b8ca0a2310bc553a51b343a2346e5beeef"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/DrugDaoImpl.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "35f1f542077bc43a04531fd75fdd7db3813cfed1"
+      "sourceBlob": "399c24bdcdf5b41f0f4576a8decca5bdb8ad0655"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/DxresearchDAO.java": {
       "lines": 0.0,
@@ -1461,11 +1467,17 @@
       "branches": 100.0,
       "sourceBlob": "4ee16e54cce3ea8959aa32b52adad18a23efb5fd"
     },
-    "src/main/java/io/github/carlos_emr/carlos/commn/dao/PrescriptionDaoImpl.java": {
-      "lines": 0.0,
-      "instructions": 0.0,
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/PrescriptionDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "a73a71efc75a847a830a0131cfc109e067a174a0"
+      "sourceBlob": "e08c00efebea77c584b3425e3d4b95aa6dbf6496"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/PrescriptionDaoImpl.java": {
+      "lines": 71.42857142857143,
+      "instructions": 79.45205479452055,
+      "branches": 100.0,
+      "sourceBlob": "2bd7ce6df58f7fde370ec73b43656e6a550d0431"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/PreventionDao.java": {
       "lines": 100.0,
@@ -1647,6 +1659,12 @@
       "branches": 75.0,
       "sourceBlob": "9450b383ac04609ea3dd234f1d7e7f5cee5b4a96"
     },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dto/CdsExportDrugReferenceInputDto.java": {
+      "lines": 75.0,
+      "instructions": 80.0,
+      "branches": 60.0,
+      "sourceBlob": "7d6b84c8e67adb1a8b21be8e25180a7ed863d648"
+    },
     "src/main/java/io/github/carlos_emr/carlos/commn/dto/CdsExportProviderRowDto.java": {
       "lines": 75.0,
       "instructions": 87.14285714285714,
@@ -1688,6 +1706,12 @@
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "3b112244bf58b774b2b91dc3b09f02f1877344c9"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dto/CdsImportUnitMetadataDto.java": {
+      "lines": 50.0,
+      "instructions": 93.75,
+      "branches": 100.0,
+      "sourceBlob": "442a48b7fc29eb4f4cf5730f2e1464654c773224"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/hl7/v2/HL7A04Data.java": {
       "lines": 100.0,
@@ -1744,8 +1768,8 @@
       "sourceBlob": "6e40e8c7ac156f00a367fcc2b661af04969a219c"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/model/CdsImportCheckpoint.java": {
-      "lines": 0.0,
-      "instructions": 0.0,
+      "lines": 100.0,
+      "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "f75875063390edb8f099f43bd09c1e583369dd64"
     },
@@ -1762,8 +1786,8 @@
       "sourceBlob": "9de7af1f15131718757478bd626d80c37a26407f"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/model/CdsImportUnit.java": {
-      "lines": 0.0,
-      "instructions": 0.0,
+      "lines": 100.0,
+      "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "6951da9c09149af76537fcab793bce9ee6ac51fc"
     },
@@ -2128,9 +2152,9 @@
       "sourceBlob": "9369fb20a01ce1cc2d0f217406260b24de19b8bd"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsExactNumeric.java": {
-      "lines": 84.0909090909091,
-      "instructions": 84.61538461538461,
-      "branches": 69.6969696969697,
+      "lines": 90.9090909090909,
+      "instructions": 90.76923076923077,
+      "branches": 75.75757575757575,
       "sourceBlob": "ae0380369bd683fb79dba53b78cbdd9994a05b9b"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsHealthCardAuthority.java": {
@@ -2155,7 +2179,7 @@
       "lines": 100.0,
       "instructions": 95.23809523809524,
       "branches": 50.0,
-      "sourceBlob": "d0935891be3652a1ea11c937ae6d4244404d82f2"
+      "sourceBlob": "dd37cf6b2c65166374c5b588628ef42618e800c4"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeRowComparison.java": {
       "lines": 94.5945945945946,
@@ -2186,6 +2210,12 @@
       "instructions": 96.42857142857143,
       "branches": 81.81818181818181,
       "sourceBlob": "92ed17ca28810d67e790aa9a89d93619ff0821da"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPreparedHistoryDefaults.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 90.0,
+      "sourceBlob": "dc8e2690183e7c37264b21ea20305e8608818a4b"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java": {
       "lines": 93.00699300699301,
@@ -2230,9 +2260,9 @@
       "sourceBlob": "2335722cacf3c085de9465be08ce30820e6e4850"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/jdbc/CdsMariaDbBinaryRead.java": {
-      "lines": 74.48979591836735,
-      "instructions": 77.77777777777777,
-      "branches": 63.75,
+      "lines": 77.55102040816327,
+      "instructions": 80.24691358024691,
+      "branches": 67.5,
       "sourceBlob": "2898a41ac25ba29410a5b13b61eabefa13a701b8"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java": {
@@ -2254,9 +2284,9 @@
       "sourceBlob": "91fe38b75e132fdc7ec045a6d8899ee3615ec759"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/assembler/CdsExportViewModelAssembler.java": {
-      "lines": 0.0,
-      "instructions": 0.0,
-      "branches": 0.0,
+      "lines": 100.0,
+      "instructions": 94.11764705882354,
+      "branches": 75.0,
       "sourceBlob": "e1da34dceae03c8398b53d351a4e68ed902414b6"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/cli/CdsExportCli.java": {
@@ -2287,7 +2317,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "70a7eb02b04309608813f0858d1518326bd098d8"
+      "sourceBlob": "5a80cd94697d4defe39422b4a934f5f1cd29a345"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/cli/CdsExportSpringRuntime.java": {
       "lines": 0.0,
@@ -2433,6 +2463,12 @@
       "branches": 55.55555555555556,
       "sourceBlob": "9fd51fec20d04c153efc80e64dcc890b4e919c02"
     },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportDrugReferenceDto.java": {
+      "lines": 82.6086956521739,
+      "instructions": 87.27272727272727,
+      "branches": 53.125,
+      "sourceBlob": "d5d5d7fc5a6cd41cf1a1e7628b09e5cbbe1c3538"
+    },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportEnrolmentEventDto.java": {
       "lines": 83.33333333333333,
       "instructions": 96.15384615384616,
@@ -2522,6 +2558,12 @@
       "instructions": 82.5,
       "branches": 50.0,
       "sourceBlob": "73e1e617e254dd5dab96f5fd2f74c2af7c05b635"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportNativeHistoryDto.java": {
+      "lines": 85.71428571428571,
+      "instructions": 93.4065934065934,
+      "branches": 100.0,
+      "sourceBlob": "5b80f7e365a654ef16b8d0a6963fb686a47438e9"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportNativeRowReceiptDto.java": {
       "lines": 78.57142857142857,
@@ -2740,16 +2782,16 @@
       "sourceBlob": "659c0844c06b8ee49215b3021f174e380ff8dffe"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/engine/CdsExportRunControl.java": {
-      "lines": 66.66666666666667,
-      "instructions": 66.66666666666667,
+      "lines": 80.0,
+      "instructions": 84.375,
       "branches": 100.0,
-      "sourceBlob": "fa69407d3e0b2ed83457b21d88cfef5236232024"
+      "sourceBlob": "c4ea9453a6a87274cc7891c47932ad6a0633cca1"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAccessService.java": {
-      "lines": 94.02985074626865,
-      "instructions": 93.97849462365592,
-      "branches": 76.82926829268293,
-      "sourceBlob": "c1ad20a180801c0fc12142e02382180ec81aaf46"
+      "lines": 94.78260869565217,
+      "instructions": 94.42896935933148,
+      "branches": 77.31958762886597,
+      "sourceBlob": "7c7ef9876d6223891e81888bf0a3877c977feb8c"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportActivePlanService.java": {
       "lines": 96.55172413793103,
@@ -2875,7 +2917,7 @@
       "lines": 76.50602409638554,
       "instructions": 75.90711175616836,
       "branches": 62.5,
-      "sourceBlob": "20e595fe295a7b2edf47a5fcf70e50afc166447a"
+      "sourceBlob": "b66f8c465e5e34dc007bb328ccba276938e6c513"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAuditPersister.java": {
       "lines": 96.42857142857143,
@@ -2917,7 +2959,7 @@
       "lines": 12.895927601809955,
       "instructions": 12.237606074140242,
       "branches": 11.974110032362459,
-      "sourceBlob": "5422c35492c7bf06172e5baf4d73d8bb0f5d95a7"
+      "sourceBlob": "6442c796d2dad4475450c74c21ee97a47b9fc606"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportCareRetainedSource.java": {
       "lines": 92.82511210762331,
@@ -2959,7 +3001,7 @@
       "lines": 86.75496688741723,
       "instructions": 90.6614785992218,
       "branches": 59.195402298850574,
-      "sourceBlob": "a7b1a895cc7cf2f9980987857c7759d1bbc26ae7"
+      "sourceBlob": "e4ad848389e14b2ba1e650844be17d856de44aac"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportClinicalPackageService.java": {
       "lines": 93.45549738219896,
@@ -2980,10 +3022,10 @@
       "sourceBlob": "46ea770af4ace53661503081cb81a5e5ff604aa2"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportClinicalZoneSourceReader.java": {
-      "lines": 62.5,
-      "instructions": 57.377049180327866,
-      "branches": 37.5,
-      "sourceBlob": "7061d62c486ed08866ef652235ca4b0cafd9612e"
+      "lines": 73.46938775510205,
+      "instructions": 69.84126984126983,
+      "branches": 41.666666666666664,
+      "sourceBlob": "873fdd6c2d4054f234b32a78942731061a998e93"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportCohortService.java": {
       "lines": 93.08755760368663,
@@ -3037,7 +3079,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "0b07f197546ca596b577ce3dc9a7d43d3dfa50e2"
+      "sourceBlob": "a41caf37ea4420d9f90330b223e034dfd6dc4a2d"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDeliveryComposer.java": {
       "lines": 85.22727272727273,
@@ -3136,10 +3178,10 @@
       "sourceBlob": "35043cdf4555b0f0763870f435173240aeb0589d"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicOccurrenceService.java": {
-      "lines": 19.860627177700348,
-      "instructions": 23.996971990915974,
-      "branches": 32.407407407407405,
-      "sourceBlob": "9b8c9dc68b3fa059420069d70b9f646a7a2f3363"
+      "lines": 24.290220820189276,
+      "instructions": 29.069767441860463,
+      "branches": 35.483870967741936,
+      "sourceBlob": "9b790debabcaafdd4b0453a01611cad5793ca0ec"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicOptionalDateReconciler.java": {
       "lines": 90.51724137931035,
@@ -3210,8 +3252,8 @@
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicXmlWriter.java": {
       "lines": 93.45238095238095,
       "instructions": 92.37410071942446,
-      "branches": 70.0,
-      "sourceBlob": "442946c4d9e437846b10070e39fa23034e2b890b"
+      "branches": 70.33898305084746,
+      "sourceBlob": "9f0a4282bdc30e2fa7b9d86e13add30f2da8aae0"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDisclosurePolicyService.java": {
       "lines": 97.6470588235294,
@@ -3220,10 +3262,10 @@
       "sourceBlob": "ed66d9fbd2c9e5c8ca1137125ae7c81435b51185"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDisclosureScopeService.java": {
-      "lines": 85.21739130434783,
-      "instructions": 86.52631578947368,
+      "lines": 85.71428571428571,
+      "instructions": 86.85831622176592,
       "branches": 54.411764705882355,
-      "sourceBlob": "038d2e91902d8f7f944071e3b50aa47f9bed0ff0"
+      "sourceBlob": "b283a37ebf6e91ffd17315fe8b4c219544395b81"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDocumentFileSourceReader.java": {
       "lines": 52.54237288135593,
@@ -3248,6 +3290,24 @@
       "instructions": 58.333333333333336,
       "branches": 100.0,
       "sourceBlob": "5f3815329fe66c007fe9958f1df80b75104d3eb8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceLookupService.java": {
+      "lines": 87.17948717948718,
+      "instructions": 88.33333333333333,
+      "branches": 65.625,
+      "sourceBlob": "b23fae8a8ba59c410c162aa22b55b41a7612db78"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceProjectionService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "62d0c180f1d68ed8b0f63c5aefcf3ece3b08c743"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceSourceReader.java": {
+      "lines": 95.94594594594595,
+      "instructions": 95.23809523809524,
+      "branches": 75.0,
+      "sourceBlob": "9fbec8e667355802e101ec45e2357c3bbab23a70"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportEngineRegistry.java": {
       "lines": 100.0,
@@ -3283,7 +3343,7 @@
       "lines": 75.84269662921348,
       "instructions": 75.21613832853026,
       "branches": 63.46153846153846,
-      "sourceBlob": "5e2d0a83cde60b16d44d1e626f348c1957854788"
+      "sourceBlob": "0aa1fbb6e2e467b5aea64dca5ae30648de6728d8"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportHeaderComposer.java": {
       "lines": 100.0,
@@ -3292,8 +3352,8 @@
       "sourceBlob": "51538b5d9690f887859550e7ac71369eca65a1e1"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportHistoryCurrentContext.java": {
-      "lines": 94.11764705882354,
-      "instructions": 95.03030303030303,
+      "lines": 94.77124183006536,
+      "instructions": 96.24242424242425,
       "branches": 70.29702970297029,
       "sourceBlob": "9b3345e5d55f68cd0e106917b29a18d548d08bdb"
     },
@@ -3301,25 +3361,37 @@
       "lines": 63.56164383561644,
       "instructions": 65.4243119266055,
       "branches": 46.864686468646866,
-      "sourceBlob": "cd2030b4cad8247726bb2dd5cbfbf17df9ac2daf"
+      "sourceBlob": "69f16fa8ab57c6473c51af6e18c1876f65dd3ea1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportHistoryInventoryService.java": {
+      "lines": 35.714285714285715,
+      "instructions": 32.72727272727273,
+      "branches": 100.0,
+      "sourceBlob": "75760cfd2ef458116777fc4a984f2d651ea48271"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportHistoryNativeReconciler.java": {
+      "lines": 63.97849462365591,
+      "instructions": 62.06088992974239,
+      "branches": 44.44444444444444,
+      "sourceBlob": "58353d960b9ad1d799c8bbfdbe72fb7af42c1aa8"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportHistoryOccurrenceService.java": {
       "lines": 67.0886075949367,
       "instructions": 63.36898395721925,
       "branches": 48.113207547169814,
-      "sourceBlob": "5914899744e5a8501234c3bcdfb6bd47493dcda4"
+      "sourceBlob": "cde05c41b6bcbf80ab25dc9d9c6a0d650bdaa645"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportHistoryRetainedSource.java": {
-      "lines": 90.17341040462428,
-      "instructions": 88.48238482384824,
-      "branches": 76.33587786259542,
-      "sourceBlob": "0d0904cbb7def4cd97ff581e752c46e80122c38c"
+      "lines": 92.3076923076923,
+      "instructions": 90.3943377148635,
+      "branches": 77.33990147783251,
+      "sourceBlob": "3662e16b26bb7dfba8b7eb284a7d6ad561bbc0de"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportHospitalReportScopeSourceReader.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "a4428e6b9da7925fd27e2785611dcc2814a10f93"
+      "sourceBlob": "ad1a106b557661a68ef4c6820bb752b5c7557e24"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportImmunizationCaptureValidator.java": {
       "lines": 90.69767441860465,
@@ -3439,7 +3511,7 @@
       "lines": 19.571865443425075,
       "instructions": 20.16079158936302,
       "branches": 23.484848484848484,
-      "sourceBlob": "7781075905da4a39771f4936a8bf1b89c187004d"
+      "sourceBlob": "c017c3d21bcc4f42cec2deeadcfde832ed9c6920"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportLaboratoryRetainedSource.java": {
       "lines": 86.01398601398601,
@@ -3487,12 +3559,12 @@
       "lines": 89.04494382022472,
       "instructions": 91.63636363636364,
       "branches": 62.78195488721804,
-      "sourceBlob": "cb78e826e3a69d28a86c0f05522d76a74884679e"
+      "sourceBlob": "22077b3750135a62996e20921cfa3d3a10ee67f6"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMedicationMapper.java": {
       "lines": 96.19047619047619,
       "instructions": 97.0722186076773,
-      "branches": 80.41666666666667,
+      "branches": 80.83333333333333,
       "sourceBlob": "0602c27804847978adfea564dd53340a9557a452"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMedicationProjectionService.java": {
@@ -3511,7 +3583,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "fd743584113cf8af25df4a7b920682e31ab9c958"
+      "sourceBlob": "1fb619c83cb475c572e4ac2d2a6090896141089c"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMedicationXmlWriter.java": {
       "lines": 98.52941176470588,
@@ -3543,6 +3615,18 @@
       "branches": 61.21495327102804,
       "sourceBlob": "beb5d4c31544608d6604df9436b3dcbb882166b3"
     },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeCareMapper.java": {
+      "lines": 85.35031847133757,
+      "instructions": 91.08527131782945,
+      "branches": 70.83333333333333,
+      "sourceBlob": "6156fe52edddc8eb9be8af602d178d01a5ab6406"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeCarePlanner.java": {
+      "lines": 84.21052631578948,
+      "instructions": 82.87037037037037,
+      "branches": 66.66666666666667,
+      "sourceBlob": "8798de0793d748090060104b50856aefe00b0fa4"
+    },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeDateMapper.java": {
       "lines": 80.76923076923077,
       "instructions": 87.70491803278688,
@@ -3550,10 +3634,10 @@
       "sourceBlob": "a55eb40c85bead8f46fd19d4c91d69cc2db541ae"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeDemographicAssembler.java": {
-      "lines": 96.0,
+      "lines": 96.51741293532338,
       "instructions": 97.03337453646478,
       "branches": 65.3061224489796,
-      "sourceBlob": "20771fa76632cbaab4e1c23c5b95ba8c1fbc190d"
+      "sourceBlob": "d77ed9c2fbe80621edd022c49921d60efe063f31"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeFieldAssessmentValidator.java": {
       "lines": 98.27586206896552,
@@ -3567,11 +3651,47 @@
       "branches": 89.47368421052632,
       "sourceBlob": "db96f7fcddcebc05174151f1bfb88185c610c53f"
     },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeHistoryMapper.java": {
+      "lines": 81.14406779661017,
+      "instructions": 85.46819787985866,
+      "branches": 56.144578313253014,
+      "sourceBlob": "bc483a4095e31711672e20db0a3984075de1711e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeHistoryXmlWriter.java": {
+      "lines": 97.29729729729729,
+      "instructions": 97.05014749262537,
+      "branches": 86.11111111111111,
+      "sourceBlob": "73fc523ae4b4f8a597c0348a6060d12279f533dc"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeLaboratoryMapper.java": {
+      "lines": 85.63829787234043,
+      "instructions": 88.36509528585758,
+      "branches": 77.11864406779661,
+      "sourceBlob": "59899b4f8fa9686a6fb650cb63fbe0a3a3f21b19"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeLaboratoryParser.java": {
+      "lines": 85.0,
+      "instructions": 89.8488120950324,
+      "branches": 62.5,
+      "sourceBlob": "9d962e6139e923b3919083e489bab6af88bd5f43"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeMedicationMapper.java": {
+      "lines": 86.16352201257861,
+      "instructions": 90.84967320261438,
+      "branches": 66.41791044776119,
+      "sourceBlob": "e388178caa4230f728c457a95099a66f80d72bcb"
+    },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativePreventionDateMapper.java": {
       "lines": 100.0,
       "instructions": 92.6829268292683,
       "branches": 69.23076923076923,
       "sourceBlob": "9972a13a604b2669ae75bb79e44895a9b0e84ecf"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeReportMapper.java": {
+      "lines": 91.0828025477707,
+      "instructions": 94.67532467532467,
+      "branches": 61.98347107438016,
+      "sourceBlob": "ee25c0fd3df6264bb0aa8fd83379cc4f0e80f840"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeRowReceiptReader.java": {
       "lines": 93.43434343434343,
@@ -3589,7 +3709,7 @@
       "lines": 30.434782608695652,
       "instructions": 28.611898016997166,
       "branches": 38.75,
-      "sourceBlob": "f69eb7cf13cb2a9e1b22c868233fab2656bc3a3d"
+      "sourceBlob": "140bb9027ba09d2767ca66f307fb4b6241fb5082"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNoteExtensionSourceReader.java": {
       "lines": 66.66666666666667,
@@ -3695,9 +3815,9 @@
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPatientInventoryService.java": {
       "lines": 91.42857142857143,
-      "instructions": 91.14173228346456,
-      "branches": 61.111111111111114,
-      "sourceBlob": "ff8ea9b2503c06ca302205a9e3331825621cd479"
+      "instructions": 91.24839124839124,
+      "branches": 72.09302325581395,
+      "sourceBlob": "7d9ebe63a3a0a205c0724b2e8e04feee532ab238"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPatientNoteMapper.java": {
       "lines": 100.0,
@@ -3789,6 +3909,18 @@
       "branches": 76.66666666666667,
       "sourceBlob": "fd52c36c0ea487986cd3d280138a96afef5581db"
     },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPrescriptionOccurrenceService.java": {
+      "lines": 93.45794392523365,
+      "instructions": 95.71428571428571,
+      "branches": 66.66666666666667,
+      "sourceBlob": "8ea68e92781c020247ae2a0c2ab156d3277ca7c0"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPrescriptionSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "272de76aa025e26104bd0c44abfb14a8e3d81e9a"
+    },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPreventionAccessService.java": {
       "lines": 100.0,
       "instructions": 81.48148148148148,
@@ -3856,16 +3988,22 @@
       "sourceBlob": "a64510d50749f1e05df861b24fcc4e5fc0fe12a6"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPublicProviderMapper.java": {
-      "lines": 93.75,
-      "instructions": 94.60580912863071,
+      "lines": 94.11764705882354,
+      "instructions": 95.0381679389313,
       "branches": 75.0,
-      "sourceBlob": "18133ceab9974ff17bbc9f5495cd967523cd7a32"
+      "sourceBlob": "52ece911186b3984188ae3aba716ca7fe2d93c77"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPublicProviderReader.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 0.0,
+      "sourceBlob": "f87dd79bacfbd034ab3ad8ca41ce06350728db3b"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPublicProviderSourceReader.java": {
       "lines": 87.5,
       "instructions": 84.70588235294117,
       "branches": 60.714285714285715,
-      "sourceBlob": "3ea8f6ce8f85cdf615a9e0f23beaa41e788885e5"
+      "sourceBlob": "ffe4e41225fd2161d11a181779918153995a6317"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPublicProviderXmlWriter.java": {
       "lines": 94.11764705882354,
@@ -3889,7 +4027,7 @@
       "lines": 12.289156626506024,
       "instructions": 14.196891191709845,
       "branches": 22.18045112781955,
-      "sourceBlob": "3a7167f7fb16d218cd171c8424d0da1bad419965"
+      "sourceBlob": "36a20a6504da5626934721116118897f5bfa4292"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportReportPublicationEvidence.java": {
       "lines": 96.42857142857143,
@@ -4018,10 +4156,10 @@
       "sourceBlob": "91ff64158067edc18ec10bf9711309eca4dc27d3"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedPreparationReader.java": {
-      "lines": 94.36619718309859,
-      "instructions": 93.6082474226804,
-      "branches": 68.42105263157895,
-      "sourceBlob": "94d1a2b73491dd976be08e38b728ed41dd3b377f"
+      "lines": 94.47004608294931,
+      "instructions": 93.7246963562753,
+      "branches": 69.14285714285714,
+      "sourceBlob": "73394f55102f4b697f1d843bfc8ae01e8ab2c2e9"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedPreparationSourceReader.java": {
       "lines": 100.0,
@@ -4114,10 +4252,10 @@
       "sourceBlob": "8d192a52d5771ff7332c2bbe2cd878b5fcb86937"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSourceSchemaValidator.java": {
-      "lines": 94.64285714285714,
-      "instructions": 94.65116279069767,
-      "branches": 76.59574468085107,
-      "sourceBlob": "053c66355727c09578cd00c7ba7255c93df43301"
+      "lines": 94.82758620689656,
+      "instructions": 94.81981981981981,
+      "branches": 77.55102040816327,
+      "sourceBlob": "88da7d9e9a539607cd1eb1d5b4a700aae8d401bc"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSourceSnapshotService.java": {
       "lines": 69.56521739130434,
@@ -4252,15 +4390,15 @@
       "sourceBlob": "4e1d0bb3f8bf65a3e9222245a263b0a927ceec72"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/viewmodel/CdsExportViewModel.java": {
-      "lines": 28.571428571428573,
-      "instructions": 45.45454545454545,
+      "lines": 35.714285714285715,
+      "instructions": 59.09090909090909,
       "branches": 100.0,
       "sourceBlob": "b1967b6311e598184f75a88992992d7af46bcbd8"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/web/CdsExportControl2Action.java": {
-      "lines": 83.87096774193549,
-      "instructions": 67.42424242424242,
-      "branches": 55.55555555555556,
+      "lines": 93.54838709677419,
+      "instructions": 87.87878787878788,
+      "branches": 66.66666666666667,
       "sourceBlob": "c3adf83c1b97423817f4380f74d2ea2b7b37c7f7"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/web/CdsExportDownload2Action.java": {
@@ -4270,8 +4408,8 @@
       "sourceBlob": "5001e3c7a07de74cf2c1118ba2f056caf9977c7e"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/web/CdsExportReport2Action.java": {
-      "lines": 63.63636363636363,
-      "instructions": 48.10126582278481,
+      "lines": 100.0,
+      "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "3e4bda56de51ea27f62c0eeb6ac1e5040685ef17"
     },
@@ -4289,8 +4427,8 @@
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/web/CdsExportWebService.java": {
       "lines": 92.3076923076923,
-      "instructions": 92.36111111111111,
-      "branches": 74.19354838709677,
+      "instructions": 93.51851851851852,
+      "branches": 75.80645161290323,
       "sourceBlob": "c3472194fd09e7ffd22e209b41562a9852a922af"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/web/SubmitCdsExport2Action.java": {
@@ -4383,6 +4521,12 @@
       "branches": 50.0,
       "sourceBlob": "9de3733d0e3aafdecd48b9d4dbb596343e7fc9f3"
     },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsHistoryNativeDto.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "54ffed19bccbd10b3f6e2e2e38880a8994bb11e7"
+    },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsImportCleanupDto.java": {
       "lines": 83.33333333333333,
       "instructions": 85.71428571428571,
@@ -4394,6 +4538,12 @@
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "1d4398dcb566e31419e7cf7b815e08694750fc91"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsMedicationNativeDto.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6e61264621f8e9d870728be778051b11def7e969"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java": {
       "lines": 100.0,
@@ -4439,15 +4589,15 @@
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCarePersister.java": {
       "lines": 50.0,
-      "instructions": 44.30379746835443,
-      "branches": 31.25,
+      "instructions": 45.56962025316456,
+      "branches": 37.5,
       "sourceBlob": "eb62fd89cd3767ce5b0df75284373297e02a3762"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java": {
       "lines": 94.89795918367346,
       "instructions": 94.06952965235173,
       "branches": 75.86206896551724,
-      "sourceBlob": "1201749284d07681bc6fca288b751aa857daf7fb"
+      "sourceBlob": "5778e3fc02cb99a5d7d30fce7432c37227cc624d"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalSourceService.java": {
       "lines": 90.0,
@@ -4468,9 +4618,9 @@
       "sourceBlob": "e81224eb9f614dee6b501e1ba9877c60ee14fe51"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsContactPersister.java": {
-      "lines": 50.0,
-      "instructions": 46.32768361581921,
-      "branches": 28.571428571428573,
+      "lines": 59.09090909090909,
+      "instructions": 58.75706214689266,
+      "branches": 50.0,
       "sourceBlob": "30ad60e7f9e6d0e32d1d32326188873c8a1e43d8"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCorrectionLookupService.java": {
@@ -4503,6 +4653,18 @@
       "branches": 64.68531468531468,
       "sourceBlob": "09299718a711acccd116448cc66a788c92085e8a"
     },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java": {
+      "lines": 100.0,
+      "instructions": 95.55555555555556,
+      "branches": 87.5,
+      "sourceBlob": "2422339d4cd144ddcdd0d37fdd76674ef9f93903"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryResidualReader.java": {
+      "lines": 86.95652173913044,
+      "instructions": 89.77635782747603,
+      "branches": 78.37837837837837,
+      "sourceBlob": "d813e99ab5205cc1f678547e7f9c77f968d9bbe5"
+    },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java": {
       "lines": 100.0,
       "instructions": 100.0,
@@ -4516,9 +4678,9 @@
       "sourceBlob": "1825169cfbc86edd06f00f9d5f4d8429769bca40"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportExecutionService.java": {
-      "lines": 76.7080745341615,
-      "instructions": 75.2420470262794,
-      "branches": 51.666666666666664,
+      "lines": 87.88819875776397,
+      "instructions": 86.30705394190872,
+      "branches": 60.55555555555556,
       "sourceBlob": "f09463d39463688dea9c56701adf87c96636d40b"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFailureEvidenceService.java": {
@@ -4528,15 +4690,15 @@
       "sourceBlob": "622bc23de6d0cd18f0cf1988c81f4d7e42588f95"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java": {
-      "lines": 26.21359223300971,
-      "instructions": 20.0,
-      "branches": 8.333333333333334,
+      "lines": 83.49514563106796,
+      "instructions": 75.34883720930233,
+      "branches": 40.0,
       "sourceBlob": "c5ce34f2a212fca31a90429b8cc68bfbd4b93081"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFileService.java": {
-      "lines": 0.0,
-      "instructions": 0.0,
-      "branches": 0.0,
+      "lines": 63.80368098159509,
+      "instructions": 60.07702182284981,
+      "branches": 32.72727272727273,
       "sourceBlob": "3e91072fc4e41213caa65016e91fce8c4e3d19ba"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportJobService.java": {
@@ -4546,22 +4708,22 @@
       "sourceBlob": "a2d1e66a8b1dcf3d35fc7e444940cc37c11fa91f"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportLedgerService.java": {
-      "lines": 20.58492688413948,
-      "instructions": 20.94975278831781,
-      "branches": 15.94059405940594,
-      "sourceBlob": "520ecd57bef6aee0f97a5e8e025b0cfaa6d391ea"
+      "lines": 82.82997762863535,
+      "instructions": 81.36254157586879,
+      "branches": 61.08910891089109,
+      "sourceBlob": "4f987275e20dd0b9fad936f6178b1554b016e4c1"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportMaintenanceService.java": {
-      "lines": 0.0,
-      "instructions": 0.0,
-      "branches": 0.0,
+      "lines": 78.62595419847328,
+      "instructions": 78.72340425531915,
+      "branches": 50.0,
       "sourceBlob": "9e10394fa1a7bd06b5a3751b17f4180a1c9148ee"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java": {
       "lines": 80.0,
       "instructions": 76.0,
       "branches": 100.0,
-      "sourceBlob": "81f1768d801609d7f3293435d6934c7bb13ad7fc"
+      "sourceBlob": "6227ee1bb919f8c59cdc89fab2ab59f1bfebe137"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportPlanningService.java": {
       "lines": 70.78353253652058,
@@ -4576,9 +4738,9 @@
       "sourceBlob": "e1edc2080124253912b9f716c2b7d0efdd62f471"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportReportService.java": {
-      "lines": 0.0,
-      "instructions": 0.0,
-      "branches": 0.0,
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 75.0,
       "sourceBlob": "892f50e3df1ea640d689870d211e5e19c921e51d"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportResultService.java": {
@@ -4588,27 +4750,27 @@
       "sourceBlob": "599ff843eb84a701511b5f824ff3c997d20b94ee"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportReviewService.java": {
-      "lines": 87.08891595615104,
-      "instructions": 85.31767218366258,
-      "branches": 58.48623853211009,
+      "lines": 87.21071863580998,
+      "instructions": 85.50453817405233,
+      "branches": 59.403669724770644,
       "sourceBlob": "7e4113da7af997dacc8c328e35a63f4ffbe2e463"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportService.java": {
-      "lines": 43.29004329004329,
-      "instructions": 42.71217712177122,
-      "branches": 48.93617021276596,
+      "lines": 48.05194805194805,
+      "instructions": 47.4169741697417,
+      "branches": 52.12765957446808,
       "sourceBlob": "51950f541bf4bb90d80bde458a0e1bc7666341e2"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportTargetSafetyService.java": {
-      "lines": 2.8776978417266186,
-      "instructions": 1.4331210191082802,
-      "branches": 0.0,
+      "lines": 62.589928057553955,
+      "instructions": 64.49044585987261,
+      "branches": 38.372093023255815,
       "sourceBlob": "4ec3e6ae8f86238bc1082ae729b313285b5f8d31"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportUnitService.java": {
-      "lines": 0.8620689655172413,
-      "instructions": 0.43383947939262474,
-      "branches": 0.0,
+      "lines": 87.93103448275862,
+      "instructions": 84.81561822125813,
+      "branches": 61.666666666666664,
       "sourceBlob": "ca97fdc8270101c6f267c988f3640aec0d60108a"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryImportService.java": {
@@ -4623,16 +4785,28 @@
       "branches": 75.0,
       "sourceBlob": "77ea0cc78689861c855d06a8e92206d7c0f3484c"
     },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java": {
+      "lines": 78.72340425531915,
+      "instructions": 72.3076923076923,
+      "branches": 68.42105263157895,
+      "sourceBlob": "064be92ca959c375808df3d4b905aec6bdd249ce"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationResidualReader.java": {
+      "lines": 84.12698412698413,
+      "instructions": 86.21908127208481,
+      "branches": 65.71428571428571,
+      "sourceBlob": "e813065f94d397afa2624d9ad72eb7765715a26b"
+    },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativePreparationService.java": {
-      "lines": 93.10344827586206,
-      "instructions": 94.67787114845939,
-      "branches": 61.76470588235294,
-      "sourceBlob": "fd69d7bf71ac07ee5e7905a5f1d5cc3ba26dd559"
+      "lines": 93.25842696629213,
+      "instructions": 94.8509485094851,
+      "branches": 65.0,
+      "sourceBlob": "7c7dce2af7da7ca0c66d271f1943bdfdcd25dae5"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsPatientIdentityResolver.java": {
-      "lines": 4.385964912280702,
-      "instructions": 3.218390804597701,
-      "branches": 2.857142857142857,
+      "lines": 74.56140350877193,
+      "instructions": 74.48275862068965,
+      "branches": 54.285714285714285,
       "sourceBlob": "a7059743e41667aca5f4dd829909b7ee0c2d42c8"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsPreacceptService.java": {
@@ -4678,9 +4852,9 @@
       "sourceBlob": "eec99b2f9d81aa072fc43def1689975a5fe43463"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTargetReceiptService.java": {
-      "lines": 71.48760330578513,
-      "instructions": 72.30483271375465,
-      "branches": 52.77777777777778,
+      "lines": 80.16528925619835,
+      "instructions": 81.22676579925651,
+      "branches": 68.05555555555556,
       "sourceBlob": "c52fde49051b64d5876ba0e6c975bc98bc66fd29"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsUnwrittenRevisionReviewService.java": {
@@ -4732,9 +4906,9 @@
       "sourceBlob": "da6d113d4904e525323285c17b6ccd74ad6c8074"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionState.java": {
-      "lines": 41.37931034482759,
-      "instructions": 22.377622377622377,
-      "branches": 13.636363636363637,
+      "lines": 79.3103448275862,
+      "instructions": 82.51748251748252,
+      "branches": 63.63636363636363,
       "sourceBlob": "29366237ee51b3b4a41d8d858b575b4396cef382"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsUploadException.java": {
@@ -5542,8 +5716,8 @@
       "sourceBlob": "375b9f2d3e6be50a85981318c0a5c749da6f1af8"
     },
     "src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/HRMFixMissingReportHelper.java": {
-      "lines": 0.0,
-      "instructions": 0.0,
+      "lines": 33.333333333333336,
+      "instructions": 30.76923076923077,
       "branches": 100.0,
       "sourceBlob": "e1d2fa7f0433445f1d012842a10a65b62a06e6ae"
     },
@@ -5557,7 +5731,7 @@
       "lines": 100.0,
       "instructions": 86.84210526315789,
       "branches": 75.0,
-      "sourceBlob": "99363edf201f06eb876db06c5dbc42e9b49691f6"
+      "sourceBlob": "a7b06f2268291da47424fa54ba870f40f1bcd2fe"
     },
     "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptor.java": {
       "lines": 100.0,
@@ -6760,9 +6934,9 @@
       "sourceBlob": "3da5836aab13fc921b8265500eb6006a13b97df5"
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java": {
-      "lines": 57.48502994011976,
-      "instructions": 52.09865858935526,
-      "branches": 36.408977556109726,
+      "lines": 61.07784431137725,
+      "instructions": 54.91129381220251,
+      "branches": 40.89775561097257,
       "sourceBlob": "7d8ef1cd172c62ed4f65f62a1065943e832aae47"
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibility.java": {
@@ -7662,24 +7836,63 @@
   "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
   "baselineAdditionalExecution": {
     "direction": "export",
-    "tests": 2304,
-    "suites": 185,
+    "tests": 2416,
+    "suites": 198,
     "skipped": 0,
     "failures": 0,
     "errors": 0,
-    "sourceCommit": "fea89675daa9445b650d69aafb30f74cff061d22"
+    "sourceCommit": "3528ac5aea962ece28e11a1196239fdc02f5b476"
   },
-  "baselineProductionClassManifestSha256": "8e98bcdd218c2bc5086e86f5a4fe82e8dc7b2e0a440cf1ba7ed3b47e672e0ee8",
+  "baselineProductionClassManifestSha256": "dd64fa492bf9627b2d5e75bad4e5c03f70714d189b1e9230c3f8058f179ea6b4",
   "baselineCoverageInputs": [
     {
       "lane": "java-all",
-      "sourceCommit": "57834fb7e14143970dded500cbe6026abc517a14",
-      "executionSha256": "da72f31c0de1e5c97297fee45685f84e4e0a3be9fced69fb4fd9920c610d7560"
+      "sourceCommit": "3528ac5aea962ece28e11a1196239fdc02f5b476",
+      "executionSha256": "251ed25e88f2683077131dac9663881a6e7daecc2f3118b6bc9555ae849ab3e7"
     },
     {
       "lane": "java-cds-transfer-export",
-      "sourceCommit": "fea89675daa9445b650d69aafb30f74cff061d22",
-      "executionSha256": "68bca782ace7be89cee751aa9e5765a1936325e72dafd369fff0da11bf746d84"
+      "sourceCommit": "3528ac5aea962ece28e11a1196239fdc02f5b476",
+      "executionSha256": "619497ed1a6a658947b338fd2ea076665cd9bdb00981f2c1fd8b2f1a02cdadb1"
+    },
+    {
+      "lane": "java-cds-transfer-import",
+      "sourceCommit": "3528ac5aea962ece28e11a1196239fdc02f5b476",
+      "executionSha256": "5a932259e7e870cd199aa12a12188fab32c8daca34da07a5fa1c5b49ce776951"
+    },
+    {
+      "lane": "java-cds-transfer-shared",
+      "sourceCommit": "3528ac5aea962ece28e11a1196239fdc02f5b476",
+      "executionSha256": "18672714fb1c9f5c050c787bcee58bade2886c970caa82ba98b9bb49d7a2c5df"
+    }
+  ],
+  "baselineAdditionalExecutions": [
+    {
+      "direction": "export",
+      "tests": 2416,
+      "suites": 198,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0,
+      "sourceCommit": "3528ac5aea962ece28e11a1196239fdc02f5b476"
+    },
+    {
+      "direction": "import",
+      "tests": 1189,
+      "suites": 94,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0,
+      "sourceCommit": "3528ac5aea962ece28e11a1196239fdc02f5b476"
+    },
+    {
+      "direction": "shared",
+      "tests": 392,
+      "suites": 30,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0,
+      "sourceCommit": "3528ac5aea962ece28e11a1196239fdc02f5b476"
     }
   ]
 }

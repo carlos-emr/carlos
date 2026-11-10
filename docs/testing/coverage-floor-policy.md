@@ -129,3 +129,20 @@ counts every distinct container/case and records the known Surefire 3.5.6 nested
 method-name header collision; other inconsistent counters, duplicate cases,
 failures and reruns remain refusals. The report-manifest hash uses sorted
 name/SHA-256 entries encoded as compact canonical JSON plus a final newline.
+
+The `3528ac5aea96` CDS checkpoint records 38,436 distinct H2 cases across
+2,856 suites, including 386 explicit routed/prerequisite skips and no failures
+or errors. Its three passing MariaDB CDS executions record 2,416 export cases
+across 198 suites, 1,189 import cases across 94 suites and 392 shared cases
+across 30 suites, each without skips, failures or errors. All 7,047 production
+class files are individually byte-identical between the H2 and native builds.
+The baseline records the four execution hashes, the merged JaCoCo report and
+the production-class manifest. These executions overlap and are not summed as
+unique tests.
+
+This refresh binds 1,292 changed Java paths and the same nine nonexecutable
+exclusions. It preserves 191 higher historical metric assertions and all
+required refusal lines. Source freshness passes, while 92 executable zero
+floors and unmet historical assertions remain subject to the coverage gate.
+No waiver or lower threshold is introduced. This CDS evidence does not replace
+the complete release-lane union required for release coverage acceptance.
