@@ -57,6 +57,26 @@ class CdsExportNativeMedicationMapperUnitTest {
     }
 
     @Test
+    void shouldPreserveThePrintedNativeSigAndPharmacyInstructions_inTheirOwnLabeledValues()
+            throws Exception {
+        var fields = source();
+        fields.put("special", "Authored native SIG café 😀");
+        fields.put("special_instruction", "Exact pharmacy instruction");
+        var result = mapper.map(27, medication(fields), List.of(), Map.of());
+        assertThat(result.value().fields())
+                .containsEntry(
+                        Field.PrescriptionInstructions,
+                        "Authored native SIG café 😀\n"
+                            + "[Native pharmacy instructions]\n"
+                            + "Exact pharmacy instruction");
+        assertThat(result.metadata())
+                .contains("Authored native SIG café 😀", "Exact pharmacy instruction");
+        fields.put("archived", null);
+        assertThatThrownBy(() -> mapper.map(27, medication(fields), List.of(), Map.of()))
+                .isInstanceOf(java.io.IOException.class);
+    }
+
+    @Test
     void
             shouldPreserveTheEntireOrdinaryNativePrescription_withoutInventingCodeAuthorityOrCurrentness()
                     throws Exception {

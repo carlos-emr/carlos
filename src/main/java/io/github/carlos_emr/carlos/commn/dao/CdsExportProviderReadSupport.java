@@ -160,8 +160,9 @@ public final class CdsExportProviderReadSupport {
                             + " a.provider_no=d.provider_no))");
         if (categories.contains("MedicationsAndTreatments"))
             selected.add(
-                    "exists (select 1 from drugs a where a.demographic_no=:patient and"
-                            + " a.provider_no=d.provider_no)");
+                    "(exists (select 1 from drugs a where a.demographic_no=:patient and"
+                        + " a.provider_no=d.provider_no) or exists (select 1 from prescription s"
+                        + " where s.demographic_no=:patient and s.provider_no=d.provider_no))");
         if (categories.containsAll(HISTORY))
             selected.add(
                     "exists (select 1 from casemgmt_note n where n.demographic_no=:patient and"

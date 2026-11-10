@@ -89,6 +89,7 @@ public class CdsExportPublicProviderSourceReader implements CdsExportNativeSourc
         var required = new java.util.HashSet<String>();
         if (!java.util.Collections.disjoint(selected, CdsExportNoteSourceReader.CATEGORIES))
             required.add("casemgmt_note");
+        if (selected.contains(CdsCategory.MEDICATIONS_AND_TREATMENTS)) required.add("prescription");
         if (selected.contains(CdsCategory.REPORTS))
             required.addAll(Set.of("document", "ctl_document"));
         return Set.copyOf(required);

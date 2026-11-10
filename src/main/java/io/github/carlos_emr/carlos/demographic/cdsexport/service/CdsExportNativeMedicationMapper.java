@@ -108,6 +108,17 @@ public final class CdsExportNativeMedicationMapper {
                             .multiply(BigInteger.valueOf(unit.equals("W") ? 7 : 30))
                             .toString());
         }
+        String sig = source.get("special");
+        if (populated(sig)) {
+            String pharmacy = source.get("special_instruction");
+            String instructions =
+                    populated(pharmacy) && !pharmacy.equals(sig)
+                            ? sig + "\n[Native pharmacy instructions]\n" + pharmacy
+                            : sig;
+            if (!CdsExportNativeFieldAssessments.legal(
+                    instructions, Field.PrescriptionInstructions.maximum())) review();
+            values.put(Field.PrescriptionInstructions, instructions);
+        }
         String frequency = source.get("freqcode");
         if ("OD".equals(frequency)) values.put(Field.Frequency, "daily");
         if (populated(source.get("unit"))
@@ -197,8 +208,8 @@ public final class CdsExportNativeMedicationMapper {
     }
 
     private static boolean flag(String value) throws IOException {
-        if (value == null || value.equals("0")) return false;
-        if (value.equals("1")) return true;
+        if ("0".equals(value)) return false;
+        if ("1".equals(value)) return true;
         review();
         return false;
     }

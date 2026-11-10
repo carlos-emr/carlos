@@ -39,7 +39,30 @@ public class CdsExportPrescriptionOccurrenceService {
         rows = new CdsExportCapturedTextRowsReader(Objects.requireNonNull(captures));
     }
 
-    public List<CdsExportCapturedTextRowDto> sources(
+    public record Source(
+            CdsExportCapturedTextRowDto prescription, CdsExportCapturedTextRowDto author) {
+        public Source {
+            Objects.requireNonNull(prescription);
+            if (!prescription.table().equals("prescription")
+                    || author != null
+                            && (!author.table().equals("provider")
+                                    || !Objects.equals(
+                                            prescription.fields().get("provider_no"),
+                                            author.fields().get("provider_no"))))
+                throw new IllegalArgumentException("CDS_EXPORT_PRESCRIPTION_AUTHOR_SCOPE_INVALID");
+        }
+
+        public java.util.List<CdsExportCapturedTextRowDto> rows() {
+            return author == null ? List.of(prescription) : List.of(prescription, author);
+        }
+
+        @Override
+        public String toString() {
+            return "CdsExportPrescriptionOccurrenceService.Source[protected]";
+        }
+    }
+
+    public List<Source> sources(
             CdsExportLeaseDto lease,
             CdsExportCohortService.Patient patient,
             Set<String> tables,
@@ -58,7 +81,27 @@ public class CdsExportPrescriptionOccurrenceService {
             throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
                     .CdsExportMappingReviewException(
                     "CDS_EXPORT_PRESCRIPTION_SUPPORTING_CATEGORY_REQUIRED");
-        return List.copyOf(parents);
+        if (parents.isEmpty()) return List.of();
+        var providers = new HashMap<String, CdsExportCapturedTextRowDto>();
+        for (var provider : read(lease, patient, tables, source, bounds, control, "provider")) {
+            String id = provider.fields().get("provider_no");
+            if (!provider.fields()
+                            .keySet()
+                            .equals(
+                                    io.github.carlos_emr.carlos.commn.dto.CdsExportProviderRowDto
+                                            .COLUMNS)
+                    || id == null
+                    || !CdsExportPublicProviderSourceReader.key(id).equals(provider.recordKey())
+                    || providers.putIfAbsent(id, provider) != null) invalid();
+        }
+        var contexts = new ArrayList<Source>();
+        for (var parent : parents) {
+            String id = parent.fields().get("provider_no");
+            var author = id == null || id.isEmpty() ? null : providers.get(id);
+            if (id != null && !id.isEmpty() && author == null) invalid();
+            contexts.add(new Source(parent, author));
+        }
+        return List.copyOf(contexts);
     }
 
     private List<CdsExportCapturedTextRowDto> read(
@@ -70,8 +113,9 @@ public class CdsExportPrescriptionOccurrenceService {
             CdsExportRunControl control,
             String table)
             throws IOException {
-        if (!tables.contains(table)
-                || source.capture().tables().get(table).rows() > bounds.nativeRows()) invalid();
+        int maximum = table.equals("provider") ? bounds.lookupRows() : bounds.nativeRows();
+        if (!tables.contains(table) || source.capture().tables().get(table).rows() > maximum)
+            invalid();
         var found = new ArrayList<CdsExportCapturedTextRowDto>();
         var captured =
                 rows.forEach(
@@ -85,7 +129,7 @@ public class CdsExportPrescriptionOccurrenceService {
                         67_108_864,
                         control,
                         row -> {
-                            if (found.size() >= bounds.nativeRows()) invalid();
+                            if (found.size() >= maximum) invalid();
                             found.add(row);
                         });
         if (!captured.equals(source.capture())
@@ -99,6 +143,7 @@ public class CdsExportPrescriptionOccurrenceService {
             List<CdsExportCapturedTextRowDto> parents,
             List<CdsExportCapturedTextRowDto> drugs)
             throws IOException {
+        if (patient < 1) invalid();
         var ids = new HashSet<String>();
         for (var row : parents) {
             if (!row.table().equals("prescription")
@@ -126,23 +171,25 @@ public class CdsExportPrescriptionOccurrenceService {
     public static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assessments(
             CdsExportCapturedTextRowDto row) {
         var result = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
-        var state = new CdsExportNativeFieldAssessments(row, result);
-        for (String column : row.fields().keySet())
-            state.set(
-                    column,
-                    CdsExportFieldAssessmentDto.Outcome.MAPPED,
-                    "NewCategory/ResidualInfo",
-                    "EXACT_NATIVE_PRESCRIPTION_CONTEXT");
+        for (var row : source.rows()) {
+            var state = new CdsExportNativeFieldAssessments(row, result);
+            for (String column : row.fields().keySet())
+                state.set(
+                        column,
+                        CdsExportFieldAssessmentDto.Outcome.MAPPED,
+                        "NewCategory/ResidualInfo",
+                        "EXACT_NATIVE_PRESCRIPTION_CONTEXT");
+        }
         return Map.copyOf(result);
     }
 
-    public static void write(
-            CdsExportCapturedTextRowDto row, CdsExportXmlComposer.ContentWriter xml)
+    public static void write(Source source, CdsExportXmlComposer.ContentWriter xml)
             throws IOException {
-        String json =
-                JsonMapper.builder()
-                        .build()
-                        .writeValueAsString(Map.of("version", 1, "fields", row.fields()));
+        var context = new LinkedHashMap<String, Object>();
+        context.put("version", 1);
+        context.put("fields", source.prescription().fields());
+        context.put("publicAuthor", source.author() == null ? null : source.author().fields());
+        String json = JsonMapper.builder().build().writeValueAsString(context);
         if (!CdsExportNativeFieldAssessments.legal(json, 1 << 24)) invalid();
         xml.element("cds", "CategoryName", "CARLOS.NativePrescription.v1");
         xml.element("cds", "CategoryDescription", "Native printed prescription and source context");

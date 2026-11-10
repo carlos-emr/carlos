@@ -229,7 +229,7 @@ public class CdsExportPatientInventoryService {
                             patientKey,
                             CdsCategory.NEW_CATEGORY,
                             "prescription",
-                            prescription.fields().get("script_no")),
+                            prescription.prescription().fields().get("script_no")),
                     budget);
         }
         var mapper = new CdsExportRetainedFieldMapper();

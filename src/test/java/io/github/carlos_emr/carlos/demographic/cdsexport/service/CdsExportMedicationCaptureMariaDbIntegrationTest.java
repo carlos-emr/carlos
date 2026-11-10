@@ -194,14 +194,14 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
                         "delete from partial_date where id between ? and ?", patient, patient + 6);
                 sql.update(
                         "delete from allergies where allergyid in (?,?) and demographic_no in"
-                            + " (?,?)",
+                                + " (?,?)",
                         patient,
                         patient + 40,
                         patient,
                         patient + 1);
                 sql.update(
                         "delete from drugs where demographic_no in (?,?) and drugid between ? and"
-                            + " ?",
+                                + " ?",
                         patient,
                         patient + 1,
                         patient,
@@ -209,7 +209,7 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
                 if (providerInserted)
                     sql.update(
                             "delete from provider where provider_no=? and first_name='Synthetic'"
-                                + " and last_name='Prescriber'",
+                                    + " and last_name='Prescriber'",
                             provider);
             }
         } finally {
@@ -268,10 +268,11 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
                                         prescriptions.readCdsExportValueChunk(
                                                 patient, patient, "rx_comments", 0, 4096))
                                 .isEqualTo(java.util.Arrays.copyOf(expected, 4096));
-                        assertThat(
-                                        prescriptions.readCdsExportValueChunk(
-                                                patient, patient + 1, "rx_comments", 0, 32))
-                                .isNull();
+                        assertThatThrownBy(
+                                        () ->
+                                                prescriptions.readCdsExportValueChunk(
+                                                        patient, patient + 1, "rx_comments", 0, 32))
+                                .isInstanceOf(IllegalArgumentException.class);
                     });
         } finally {
             sql.update(
@@ -659,7 +660,7 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
                             var update =
                                     writer.prepareStatement(
                                             "update drugs set special_instruction='Later native"
-                                                + " edit' where drugid=?")) {
+                                                    + " edit' where drugid=?")) {
                         update.setInt(1, patient);
                         assertThat(update.executeUpdate()).isEqualTo(1);
                     } catch (java.sql.SQLException failed) {
@@ -751,7 +752,7 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
     private void precision(int n, int owner, int parent, int field, String format) {
         sql.update(
                 "insert into partial_date(id,table_name,table_id,field_name,format)"
-                    + " values(?,?,?,?,?)",
+                        + " values(?,?,?,?,?)",
                 patient + n,
                 owner,
                 parent,

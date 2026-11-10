@@ -283,6 +283,14 @@ public class CdsImportNativeService {
                                 command,
                                 CdsMedicationNativeDto.class);
                 var source = prepared.source();
+                if (prepared.archived())
+                    notice(
+                            run,
+                            epoch,
+                            unit,
+                            "WARNING",
+                            "CDS_MEDICATION_VENDOR_ARCHIVE_CONTEXT",
+                            "ResidualInfo");
                 if (!prepared.provider().matched())
                     notice(
                             run,

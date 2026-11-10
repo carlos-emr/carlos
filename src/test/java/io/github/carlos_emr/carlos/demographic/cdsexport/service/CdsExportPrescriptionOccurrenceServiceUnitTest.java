@@ -44,6 +44,47 @@ class CdsExportPrescriptionOccurrenceServiceUnitTest {
     }
 
     @Test
+    void shouldFreezeTheExactPublicParentAuthor_withoutExposingPrivateProviderFields()
+            throws Exception {
+        var fields = new LinkedHashMap<>(parent(27).fields());
+        fields.put("provider_no", "p27");
+        var parent = new CdsExportCapturedTextRowDto("prescription", "0000000071", fields);
+        var author =
+                new CdsExportCapturedTextRowDto(
+                        "provider",
+                        CdsExportPublicProviderSourceReader.key("p27"),
+                        Map.of(
+                                "provider_no",
+                                "p27",
+                                "first_name",
+                                "Native",
+                                "last_name",
+                                "Script Author",
+                                "ohip_no",
+                                "001234",
+                                "practitionerNo",
+                                "",
+                                "practitionerNoType",
+                                ""));
+        var source = new CdsExportPrescriptionOccurrenceService.Source(parent, author);
+        var assessments = CdsExportPrescriptionOccurrenceService.assessments(source);
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(source.rows(), assessments, 1000, () -> {});
+        render(
+                CdsCategory.NEW_CATEGORY,
+                xml -> CdsExportPrescriptionOccurrenceService.write(source, xml));
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportPrescriptionOccurrenceService.Source(
+                                        parent,
+                                        new CdsExportCapturedTextRowDto(
+                                                "provider",
+                                                "pbad",
+                                                Map.of("provider_no", "different"))))
+                .hasMessage("CDS_EXPORT_PRESCRIPTION_AUTHOR_SCOPE_INVALID");
+    }
+
+    @Test
     void shouldKeepLinkedAndStandaloneScriptHistoryAsIndependentlyAccountedClinicalContext()
             throws Exception {
         var parent = parent(27);
@@ -52,12 +93,17 @@ class CdsExportPrescriptionOccurrenceServiceUnitTest {
                         CdsExportNativeMedicationMapperUnitTest.source());
         CdsExportPrescriptionOccurrenceService.requireOwnership(27, List.of(parent), List.of(drug));
         CdsExportPrescriptionOccurrenceService.requireOwnership(27, List.of(parent), List.of());
-        var fields = CdsExportPrescriptionOccurrenceService.assessments(parent);
+        var fields =
+                CdsExportPrescriptionOccurrenceService.assessments(
+                        new CdsExportPrescriptionOccurrenceService.Source(parent, null));
         new CdsExportNativeFieldAssessmentValidator()
                 .requireRepresentable(List.of(parent), fields, 1000, () -> {});
         render(
                 CdsCategory.NEW_CATEGORY,
-                xml -> CdsExportPrescriptionOccurrenceService.write(parent, xml));
+                xml ->
+                        CdsExportPrescriptionOccurrenceService.write(
+                                new CdsExportPrescriptionOccurrenceService.Source(parent, null),
+                                xml));
     }
 
     @Test

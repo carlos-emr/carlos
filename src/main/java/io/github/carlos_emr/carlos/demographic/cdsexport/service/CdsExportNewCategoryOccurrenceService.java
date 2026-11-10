@@ -319,7 +319,7 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                                 CdsExportPrescriptionOccurrenceService.assessments(prescription);
                         new CdsExportNativeFieldAssessmentValidator()
                                 .requireRepresentable(
-                                        List.of(prescription),
+                                        prescription.rows(),
                                         assessments,
                                         1_000_000,
                                         control::checkpoint);
@@ -330,7 +330,10 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                                         CdsImportKeys.hash(
                                                 "carlos-native-occurrence-v1",
                                                 "prescription",
-                                                prescription.fields().get("script_no")));
+                                                prescription
+                                                        .prescription()
+                                                        .fields()
+                                                        .get("script_no")));
                         streams.requireActive();
                         control.authorizeCategory(
                                 patient.patient(), CdsCategory.MEDICATIONS_AND_TREATMENTS, false);
@@ -346,7 +349,7 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                                         identity,
                                         index.sourceManifestSha256(),
                                         "prescription",
-                                        prescription.fields().get("script_no"),
+                                        prescription.prescription().fields().get("script_no"),
                                         null,
                                         assessments,
                                         Set.of(),
