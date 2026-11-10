@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
@@ -86,6 +87,124 @@ class CdsExportWebActionsUnitTest {
     @AfterEach
     void clear() {
         ActionContext.clear();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"absent", "revoked"})
+    void shouldRefuseEveryExportRoute_whenTheSessionIsMissingOrItsLiveIdentityIsRevoked(
+            String state) throws Exception {
+        if (state.equals("absent")) request.getSession().invalidate();
+        else
+            org.mockito.Mockito.doThrow(new SecurityException("private identity context"))
+                    .when(access)
+                    .operatorSession(viewer);
+        var artifacts =
+                mock(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                .CdsExportArtifactService.class);
+        for (ActionSupport action :
+                java.util.List.of(
+                        submission(),
+                        new CdsExportControl2Action(web, exports, security),
+                        new CdsExportStatus2Action(web, exports, security),
+                        new CdsExportDownload2Action(web, exports, artifacts, security),
+                        new CdsExportReport2Action(web, exports, security))) {
+            request.setMethod(action instanceof CdsExportStatus2Action ? "GET" : "POST");
+            response = new MockHttpServletResponse();
+            ActionContext.getContext().withServletResponse(response);
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(response.getContentAsString()).doesNotContain("private identity context");
+        }
+        request.setMethod("GET");
+        var assembler = mock(CdsExportViewModelAssembler.class);
+        assertThatThrownBy(() -> new ViewCdsExport2Action(web, assembler, security).execute())
+                .isInstanceOf(SecurityException.class);
+        verifyNoInteractions(exports, artifacts, assembler);
+        if (state.equals("absent")) verifyNoInteractions(access, security);
+    }
+
+    @Test
+    void shouldResumeOnlyTheObservedJobRevision_andReturnItsDurableState() throws Exception {
+        request.setMethod("POST");
+        var job = job();
+        var action = new CdsExportControl2Action(web, exports, security);
+        action.setRunId(job.id());
+        action.setOperation("resume");
+        action.setExpectedRevision(12);
+        when(exports.resume(viewer, job.id(), 12)).thenReturn(job);
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsString()).contains("\"ok\":true", job.id());
+        verify(exports).resume(viewer, job.id(), 12);
+        verify(exports, org.mockito.Mockito.never()).cancel(any(), anyString(), anyLong());
+    }
+
+    @Test
+    void shouldReturnTheAuthorizedDiagnosticReport_withSafeDownloadHeaders() throws Exception {
+        request.setMethod("POST");
+        var id = job().id();
+        var report =
+                new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDiagnosticDto(
+                        1,
+                        "REPORT",
+                        id,
+                        "COMPLETED",
+                        1,
+                        1L,
+                        1,
+                        0,
+                        false,
+                        true,
+                        true,
+                        null,
+                        "2026-11-10T00:00:00Z",
+                        "2026-11-10T00:00:01Z",
+                        false,
+                        java.util.List.of());
+        when(exports.report(viewer, id)).thenReturn(report);
+        var action = new CdsExportReport2Action(web, exports, security);
+        action.setRunId(id);
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getHeader("Content-Disposition"))
+                .isEqualTo("attachment; filename=\"cds-export-diagnostic.json\"");
+        assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+        assertThat(response.getContentAsString()).contains("\"report\":", "\"complete\":true");
+        verify(exports).report(viewer, id);
+    }
+
+    @Test
+    void shouldExposeOnlyQualifiedProfilesAndCurrentDispatcherState_usingTheRealAssembler() {
+        var configuration =
+                mock(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                .CdsExportConfigurationService.class);
+        var assembler = new CdsExportViewModelAssembler(configuration, exports);
+        when(configuration.enabled()).thenReturn(true);
+        when(exports.dispatcherRunning()).thenReturn(true);
+        when(exports.qualifiedProfiles())
+                .thenReturn(
+                        java.util.Set.of(
+                                io.github.carlos_emr.carlos.demographic.cds.contract
+                                        .CdsLogicalProfile.ONTARIO_MD_5_2));
+        var model = assembler.assemble(viewer);
+        assertThat(model.enabled()).isTrue();
+        assertThat(model.dispatcherRunning()).isTrue();
+        assertThat(model.operatorKey()).isEqualTo("web-7");
+        assertThat(model.providerNo()).isEqualTo("999998");
+        assertThat(model.facilityId()).isEmpty();
+        assertThat(model.profiles())
+                .extracting(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.viewmodel
+                                        .CdsExportViewModel.Option
+                                ::value)
+                .containsExactly("omd-5.2");
+        assertThat(model.categories()).hasSize(16);
+        when(exports.qualifiedProfiles()).thenReturn(java.util.Set.of());
+        assertThat(assembler.assemble(viewer).enabled()).isFalse();
+        when(configuration.enabled()).thenReturn(false);
+        assertThat(assembler.assemble(viewer).enabled()).isFalse();
     }
 
     @ParameterizedTest
