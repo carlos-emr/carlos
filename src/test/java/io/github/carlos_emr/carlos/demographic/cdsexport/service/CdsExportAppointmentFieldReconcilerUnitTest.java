@@ -1,23 +1,20 @@
 /**
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  *
- * This software is published under the GPL GNU General Public License.
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * <p>This software is published under the GPL GNU General Public License. This program is free
+ * software; you can redistribute it and/or modify it under the terms of the GNU General Public
+ * License as published by the Free Software Foundation; either version 2 of the License, or (at
+ * your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * <p>This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>You should have received a copy of the GNU General Public License along with this program; if
+ * not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  *
- * CARLOS EMR Project
- * https://github.com/carlos-emr/carlos
+ * <p>CARLOS EMR Project https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
@@ -40,7 +37,10 @@ import java.util.*;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
 
-/** Exact projection/current edits and actual receiving parser; native-driver qualification is separate. */
+/**
+ * Exact projection/current edits and actual receiving parser; native-driver qualification is
+ * separate.
+ */
 class CdsExportAppointmentFieldReconcilerUnitTest {
     private static final String HASH = "a".repeat(64),
             RUN = "123e4567-e89b-12d3-a456-426614174000",
@@ -114,10 +114,9 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void shouldDeriveOnlyAnExactlyMatchedLegacyReceipt_whenTheAddedLocationColumnIsNull()
+    void shouldUseOnlyAnExactlyMatchedLegacyReleaseReceipt_withoutBackfillingItsBaseline()
             throws Exception {
         baseline = false;
-        old.remove("locationCode");
         var result = reconcile();
         assertThat(result.mapping().nativeRowRepresentable()).isTrue();
         assertThat(result.mapping().value().notes()).isEqualTo(originalNotes);
@@ -128,7 +127,6 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     @Test
     void shouldRejectAnEditedLegacyRow_whenNoRecordedFieldBaselineCanProveThePriorValues() {
         baseline = false;
-        old.remove("locationCode");
         current.put("notes", "An edit cannot be backfilled as an original value");
         assertThatThrownBy(this::reconcile)
                 .hasMessage("CDS_EXPORT_APPOINTMENT_FIELD_BASELINE_REQUIRED");
@@ -137,44 +135,32 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     @Test
     void shouldRejectAPopulatedLocationReference_whenDerivingAnOldUnchangedReceipt() {
         baseline = false;
-        old.remove("locationCode");
         current.put("locationCode", "17");
         assertThatThrownBy(this::reconcile)
-                .hasMessage("CDS_EXPORT_APPOINTMENT_FIELD_BASELINE_REQUIRED");
+                .hasMessage("CDS_EXPORT_APPOINTMENT_PROJECTION_EVIDENCE_INVALID");
     }
 
     @Test
     void shouldRejectAnUnknownLegacyShape_insteadOfDroppingAnotherCapturedColumn() {
         baseline = false;
-        old.remove("locationCode");
         old.remove("billing");
         assertThatThrownBy(this::reconcile)
                 .hasMessage("CDS_EXPORT_APPOINTMENT_FIELD_BASELINE_REQUIRED");
     }
 
     @Test
-    void shouldReconcileAPreLocationListReceipt_whenOnlyTheNewNullableColumnIsAdded()
+    void shouldReconcileTheReleaseReceipt_withoutInventingADevelopLocationColumn()
             throws Exception {
-        old.remove("locationCode");
         var result = reconcile();
         assertThat(result.mapping().nativeRowRepresentable()).isTrue();
         assertThat(result.mapping().value().notes()).isEqualTo(originalNotes);
         assertThat(result.preparedPaths()).contains("AppointmentNotes", "AppointmentPurpose");
-        assertThat(
-                        result.mapping()
-                                .fields()
-                                .get(
-                                        new CdsExportNativeFieldKeyDto(
-                                                "appointment",
-                                                row(current).recordKey(),
-                                                "locationCode"))
-                                .outcome())
-                .isEqualTo(CdsExportFieldAssessmentDto.Outcome.ABSENT);
+        assertThat(result.mapping().fields().keySet())
+                .noneMatch(key -> key.column().equals("locationCode"));
     }
 
     @Test
-    void shouldPreserveCurrentEdits_acrossTheKnownNullableLocationColumnUpgrade() throws Exception {
-        old.remove("locationCode");
+    void shouldPreserveCurrentEdits_withTheRecordedReleaseColumnSet() throws Exception {
         current.put("notes", "Edited after the schema upgrade");
         var result = reconcile();
         assertThat(result.mapping().value().notes()).isEqualTo("Edited after the schema upgrade");
@@ -183,15 +169,13 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
 
     @Test
     void shouldRequireReviewForAPopulatedAddedLocationReference_insteadOfIgnoringIt() {
-        old.remove("locationCode");
         current.put("locationCode", "17");
         assertThatThrownBy(this::reconcile)
-                .hasMessage("CDS_EXPORT_APPOINTMENT_FIELD_CODEC_REQUIRES_REVIEW");
+                .hasMessage("CDS_EXPORT_APPOINTMENT_PROJECTION_EVIDENCE_INVALID");
     }
 
     @Test
-    void shouldRefuseAnotherMissingBaselineColumn_insteadOfTreatingItAsTheLocationUpgrade() {
-        old.remove("locationCode");
+    void shouldRefuseAMissingBaselineColumn_insteadOfAssumingItIsStorageMetadata() {
         old.remove("billing");
         assertThatThrownBy(this::reconcile)
                 .hasMessage("CDS_EXPORT_APPOINTMENT_FIELD_CODEC_REQUIRES_REVIEW");

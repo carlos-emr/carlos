@@ -1,23 +1,20 @@
 /**
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  *
- * This software is published under the GPL GNU General Public License.
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * <p>This software is published under the GPL GNU General Public License. This program is free
+ * software; you can redistribute it and/or modify it under the terms of the GNU General Public
+ * License as published by the Free Software Foundation; either version 2 of the License, or (at
+ * your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * <p>This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>You should have received a copy of the GNU General Public License along with this program; if
+ * not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  *
- * CARLOS EMR Project
- * https://github.com/carlos-emr/carlos
+ * <p>CARLOS EMR Project https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
@@ -29,7 +26,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-/** Exact appointment scalar witnesses. No display-normalized comparison or current-setting recipe. */
+/**
+ * Exact appointment scalar witnesses. No display-normalized comparison or current-setting recipe.
+ */
 final class CdsExportAppointmentProjectionEvidence {
     private CdsExportAppointmentProjectionEvidence() {}
 
@@ -86,10 +85,10 @@ final class CdsExportAppointmentProjectionEvidence {
     }
 
     /**
-     * A pre-Location-List receipt may lack only the new nullable picker identity. Its
-     * original digest is still checked by the caller. Compare the common physical fields
-     * only when the captured added value is SQL NULL; no stored receipt is rewritten.
-     * A populated added value, another missing column or any metadata change stays review.
+     * A pre-Location-List receipt may lack only the new nullable picker identity. Its original
+     * digest is still checked by the caller. Compare the common physical fields only when the
+     * captured added value is SQL NULL; no stored receipt is rewritten. A populated added value,
+     * another missing column or any metadata change stays review.
      */
     static CdsNativeRowComparison compare(CdsNativeRowState original, CdsNativeRowState current) {
         var compatible = withoutAddedNullLocation(current);
@@ -100,7 +99,9 @@ final class CdsExportAppointmentProjectionEvidence {
         return CdsNativeRowComparison.compare(original, current);
     }
 
-    /** Derivation is evidence only when its exact old physical digest matches the recorded receipt. */
+    /**
+     * Derivation is evidence only when its exact old physical digest matches the recorded receipt.
+     */
     static CdsNativeRowState legacyNullLocationBaseline(
             CdsNativeRowState current, String recordedDigest) {
         var compatible = withoutAddedNullLocation(current);
@@ -113,6 +114,7 @@ final class CdsExportAppointmentProjectionEvidence {
         if (!current.table().equals("appointment") || !Set.copyOf(names).equals(expected))
             return null;
         int added = names.indexOf("locationCode");
+        if (added < 0) return null; // This release has no Location List schema addition.
         if (!current.cells().get(added).sqlNull()
                 || CdsExactNumeric.codec(current.columns().get(added).type()) != null) return null;
         var columns = new ArrayList<>(current.columns());

@@ -71,7 +71,7 @@ class CdsExportNoteAccessDaoMariaDbIntegrationTest {
         if (!"true".equals(properties.getProperty("ownedDisposableDatabase"))
                 || !properties
                         .getProperty("jdbcUrl", "")
-                        .matches("jdbc:mysql://[^/]+/cds_export_test(?:\\?.*)?"))
+                        .matches("jdbc:mariadb://[^/]+/cds_export_test(?:\\?.*)?"))
             throw new IllegalArgumentException("Owned fixture database only");
         source = new BasicDataSource();
         source.setMaxTotal(3);

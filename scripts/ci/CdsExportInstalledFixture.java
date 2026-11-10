@@ -5,7 +5,6 @@ package io.github.carlos_emr.carlos.login;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.managers.OutboundEmailArchiveKeyringService;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import java.math.BigInteger;
 import java.nio.file.*;
@@ -25,12 +24,11 @@ import org.bouncycastle.cms.CMSAuthEnvelopedData;
 import org.bouncycastle.cms.jcajce.*;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 /**
- * An ordinary native chart in an exclusively owned, freshly migrated CI database.
- * No import metadata, mock session, lease or publication is inserted. Production
- * prerequisites run their real zero-census guards before creating missing keys.
+ * An ordinary native chart in an exclusively owned, freshly migrated CI database. No import
+ * metadata, mock session, lease or publication is inserted. The release prerequisites use the
+ * ordinary persisted-key API on this verified fresh fixture.
  */
 public final class CdsExportInstalledFixture {
     private static final ObjectMapper JSON = new ObjectMapper();
@@ -89,7 +87,8 @@ public final class CdsExportInstalledFixture {
                             .orElse("unknown");
             // Disposable CI helper emits only a fixed code, class and its own method/line;
             // no message, value or full stack is rendered.
-            // nosemgrep: java.lang.security.audit.active-debug-code-getstacktrace.active-debug-code-getstacktrace
+            // nosemgrep:
+            // java.lang.security.audit.active-debug-code-getstacktrace.active-debug-code-getstacktrace
             System.err.println(
                     "CDS_EXPORT_INSTALLED_FIXTURE_FAILED:"
                             + failure.getClass().getSimpleName()
@@ -136,14 +135,18 @@ public final class CdsExportInstalledFixture {
         try {
             update(
                     db,
-                    "INSERT INTO provider(provider_no,last_name,first_name,provider_type,specialty,sex,status,ohip_no,lastUpdateDate) VALUES (?,'Native Export','Synthetic','doctor','','U','1','999891',NOW())",
+                    "INSERT INTO"
+                        + " provider(provider_no,last_name,first_name,provider_type,specialty,sex,status,ohip_no,lastUpdateDate)"
+                        + " VALUES (?,'Native"
+                        + " Export','Synthetic','doctor','','U','1','999891',NOW())",
                     PROVIDER);
             for (String role : List.of("doctor", "admin")) {
                 if (count(db, "SELECT COUNT(*) FROM secRole WHERE role_name=?", role) != 1)
                     throw new IllegalStateException("Migrated role required");
                 update(
                         db,
-                        "INSERT INTO secUserRole(provider_no,role_name,activeyn,lastUpdateDate) VALUES (?,?,1,NOW())",
+                        "INSERT INTO secUserRole(provider_no,role_name,activeyn,lastUpdateDate)"
+                            + " VALUES (?,?,1,NOW())",
                         PROVIDER,
                         role);
             }
@@ -152,7 +155,9 @@ public final class CdsExportInstalledFixture {
             if (facility == 0) {
                 update(
                         db,
-                        "INSERT INTO Facility(name,hic,disabled,orgId,sectorId,enableHealthNumberRegistry,enableDigitalSignatures,enableOcanForms,enableCbiForm,enableAnonymous,enablePhoneEncounter,lastUpdated,enableEncounterTime,enableEncounterTransportationTime,rxInteractionWarningLevel,displayAllVacancies) VALUES('CDS native CI',0,0,0,0,1,0,0,0,0,0,NOW(),0,0,0,0)");
+                        "INSERT INTO"
+                            + " Facility(name,hic,disabled,orgId,sectorId,enableHealthNumberRegistry,enableDigitalSignatures,enableOcanForms,enableCbiForm,enableAnonymous,enablePhoneEncounter,lastUpdated,enableEncounterTime,enableEncounterTransportationTime,rxInteractionWarningLevel,displayAllVacancies)"
+                            + " VALUES('CDS native CI',0,0,0,0,1,0,0,0,0,0,NOW(),0,0,0,0)");
                 facility = (int) count(db, "SELECT LAST_INSERT_ID()");
             }
             update(
@@ -162,7 +167,9 @@ public final class CdsExportInstalledFixture {
                     facility);
             update(
                     db,
-                    "INSERT INTO security(user_name,password,pin,provider_no,b_ExpireSet,b_LocalLockSet,b_RemoteLockSet,forcePasswordReset,passwordUpdateDate,pinUpdateDate) VALUES (?,?,?,?,0,0,0,0,NOW(),NOW())",
+                    "INSERT INTO"
+                        + " security(user_name,password,pin,provider_no,b_ExpireSet,b_LocalLockSet,b_RemoteLockSet,forcePasswordReset,passwordUpdateDate,pinUpdateDate)"
+                        + " VALUES (?,?,?,?,0,0,0,0,NOW(),NOW())",
                     username,
                     EncryptionUtils.hash(password),
                     EncryptionUtils.hash(pin),
@@ -170,7 +177,11 @@ public final class CdsExportInstalledFixture {
             int security = (int) count(db, "SELECT LAST_INSERT_ID()");
             update(
                     db,
-                    "INSERT INTO demographic(last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,address,city,province,postal,phone,provider_no,lastUpdateDate) VALUES ('SYNTHETIC Native Export','Native','2000','01','02','F','AC','17 Native Fixture Road','Ottawa','ON','K1A0B1','613-555-0198',?,NOW())",
+                    "INSERT INTO"
+                        + " demographic(last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,address,city,province,postal,phone,provider_no,lastUpdateDate)"
+                        + " VALUES ('SYNTHETIC Native"
+                        + " Export','Native','2000','01','02','F','AC','17 Native Fixture"
+                        + " Road','Ottawa','ON','K1A0B1','613-555-0198',?,NOW())",
                     PROVIDER);
             patient = (int) count(db, "SELECT LAST_INSERT_ID()");
             update(
@@ -259,41 +270,20 @@ public final class CdsExportInstalledFixture {
         config.setProperty(
                 "carlos.flyway.locations",
                 "classpath:db/migration/common,classpath:db/migration/on");
-        config.setProperty(
-                "email.archive.keyring.file",
-                ROOT.resolve("documents/email-keyring.json").toString());
         Files.createDirectories(CONFIG.getParent());
         try (var out = Files.newOutputStream(CONFIG, StandardOpenOption.CREATE_NEW)) {
             config.store(out, "Owned ordinary native CDS export CI");
         }
         groupReadable(CONFIG);
         CarlosProperties properties = CarlosProperties.getInstance();
-        properties.applyParsedDeploymentProperties(config, CONFIG.toString());
-        String generated =
-                properties.getOrCreateEncryptionKey(
-                        () -> {
-                            var census = EncryptedDataCountLoader.fromProperties(properties).load();
-                            if (!census.complete() || census.total() != 0)
-                                throw new IllegalStateException(
-                                        "Complete empty encryption census required");
-                        });
+        // Exercise this release's ordinary file loader and persisted-key API.
+        // The harness has already created and verified this exclusively owned,
+        // fresh database; no installed clinic or pre-existing key is used.
+        properties.readFromFile(CONFIG.toString());
+        String generated = properties.getOrCreateEncryptionKey();
         properties.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, generated);
-        var source =
-                new DriverManagerDataSource(
-                        url, jdbc.getProperty("jdbcUser"), jdbc.getProperty("jdbcPassword"));
-        var keyring = new OutboundEmailArchiveKeyringService(source);
-        keyring
-                .afterPropertiesSet(); // Real orphan-protection census, no acknowledgement or
-                                       // rotation.
-        Path emailKey = ROOT.resolve("documents/email-keyring.json");
-        Files.setOwner(
-                emailKey,
-                emailKey.getFileSystem()
-                        .getUserPrincipalLookupService()
-                        .lookupPrincipalByName("carlos"));
-        Files.setPosixFilePermissions(emailKey, PosixFilePermissions.fromString("rw-------"));
         System.out.println(
-                "{\"prepared\":true,\"nativePatients\":1,\"importRuns\":0,\"guardedFreshKeys\":true}");
+                "{\"prepared\":true,\"nativePatients\":1,\"importRuns\":0,\"releaseKeyInitialized\":true}");
     }
 
     private static void policy() throws Exception {
@@ -407,7 +397,10 @@ public final class CdsExportInstalledFixture {
         for (String run : List.of(cliRun, browserRun)) {
             if (count(
                             db,
-                            "SELECT COUNT(*) FROM cds_export_run WHERE id=? AND state='READY' AND expected_patients=1 AND processed_patients=1 AND blocked_patients=0 AND cancel_requested=0 AND artifact_bytes>0 AND owner_token IS NULL",
+                            "SELECT COUNT(*) FROM cds_export_run WHERE id=? AND state='READY' AND"
+                                + " expected_patients=1 AND processed_patients=1 AND"
+                                + " blocked_patients=0 AND cancel_requested=0 AND artifact_bytes>0"
+                                + " AND owner_token IS NULL",
                             run)
                     != 1) throw new IllegalStateException("Real complete ledger required");
             String operator = text(db, "SELECT operator FROM cds_export_run WHERE id=?", run);
@@ -427,7 +420,13 @@ public final class CdsExportInstalledFixture {
             throw new IllegalStateException("CLI and browser compatibility differ");
         if (count(
                                 db,
-                                "SELECT COUNT(*) FROM demographic WHERE demographic_no=? AND BINARY first_name=BINARY 'Native' AND BINARY last_name=BINARY 'SYNTHETIC Native Export' AND year_of_birth='2000' AND month_of_birth='01' AND date_of_birth='02' AND sex='F' AND patient_status='AC' AND address='17 Native Fixture Road' AND city='Ottawa' AND province='ON' AND postal='K1A0B1' AND phone='613-555-0198' AND provider_no=?",
+                                "SELECT COUNT(*) FROM demographic WHERE demographic_no=? AND BINARY"
+                                    + " first_name=BINARY 'Native' AND BINARY last_name=BINARY"
+                                    + " 'SYNTHETIC Native Export' AND year_of_birth='2000' AND"
+                                    + " month_of_birth='01' AND date_of_birth='02' AND sex='F' AND"
+                                    + " patient_status='AC' AND address='17 Native Fixture Road'"
+                                    + " AND city='Ottawa' AND province='ON' AND postal='K1A0B1' AND"
+                                    + " phone='613-555-0198' AND provider_no=?",
                                 patient,
                                 PROVIDER)
                         != 1
@@ -435,7 +434,8 @@ public final class CdsExportInstalledFixture {
                         .equals(
                                 text(
                                         db,
-                                        "SELECT content FROM demographiccust WHERE demographic_no=?",
+                                        "SELECT content FROM demographiccust WHERE"
+                                            + " demographic_no=?",
                                         patient)))
             throw new IllegalStateException("Native chart changed");
         System.out.println(

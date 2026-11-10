@@ -404,7 +404,7 @@ print(json.dumps({'verified':True,'files':len(expected),'warSha256':manifest['wa
                 raise RuntimeError("Loopback-only test TLS listener required")
             base_url = "https://" + mappings + "/carlos"
             fixture_command = ["java", "-Xmx256m", "-cp", runtime_cp, FIXTURE]
-            stage("ORDINARY_NATIVE_CHART_AND_GUARDED_FRESH_KEYS")
+            stage("ORDINARY_NATIVE_CHART_AND_RELEASE_PERSISTED_KEY")
             prepared = json_result(
                 run(
                     fixture_command
@@ -414,7 +414,7 @@ print(json.dumps({'verified':True,'files':len(expected),'warSha256':manifest['wa
             )
             if (
                 prepared.get("prepared") is not True
-                or prepared.get("guardedFreshKeys") is not True
+                or prepared.get("releaseKeyInitialized") is not True
             ):
                 raise RuntimeError("Native fixture preparation incomplete")
             fixture = read_json(PRIVATE + "/fixture.json")

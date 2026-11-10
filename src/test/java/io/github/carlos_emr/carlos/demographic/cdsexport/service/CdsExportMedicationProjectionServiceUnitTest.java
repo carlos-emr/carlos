@@ -83,7 +83,7 @@ class CdsExportMedicationProjectionServiceUnitTest {
                                 mappings::add);
         assertThat(result.rows()).isEqualTo(2);
         assertThat(result.blockedRows()).isZero();
-        assertThat(result.assessedFields()).isEqualTo(138);
+        assertThat(result.assessedFields()).isEqualTo(140);
         assertThat(mappings).hasSize(2);
         assertThat(mappings.getFirst().value().written().precision())
                 .isEqualTo(CdsExportDateDto.Precision.YEAR);
