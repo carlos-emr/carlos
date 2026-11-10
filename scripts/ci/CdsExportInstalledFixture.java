@@ -8,6 +8,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import java.math.BigInteger;
 import java.nio.file.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.attribute.*;
 import java.security.*;
 import java.security.cert.*;
