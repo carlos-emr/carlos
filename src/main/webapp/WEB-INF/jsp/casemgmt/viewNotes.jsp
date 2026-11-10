@@ -179,8 +179,8 @@
             while (iter.hasNext()) {
                 CaseManagementIssue iss = iter.next();
                 strNoteIssues.append(iss.getIssue_id()).append(";")
-                             .append(iss.getIssue().getCode()).append(";")
-                             .append(SafeEncode.forJavaScript(iss.getIssue().getDescription()));
+                             .append(SafeEncode.forUriComponent(iss.getIssue().getCode())).append(";")
+                             .append(SafeEncode.forUriComponent(iss.getIssue().getDescription()));
                 if (iter.hasNext()) {
                     strNoteIssues.append(";");
                 }
