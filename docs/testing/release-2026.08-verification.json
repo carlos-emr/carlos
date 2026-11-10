@@ -1216,7 +1216,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 389,
+      "minimumCases": 390,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1610,7 +1610,7 @@
         "{run}/node.json"
       ],
       "timeoutSeconds": 900,
-      "minimumCases": 7742,
+      "minimumCases": 7858,
       "requiresEnvironment": [
         "CARLOS_CTL_SRC"
       ],

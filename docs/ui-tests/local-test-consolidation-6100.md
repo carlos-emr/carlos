@@ -406,3 +406,27 @@ are preserved. The complete updated tooling suite passes 386 cases; the
 eight manifest cases also pass with explicit rejection of unrelated exception
 output. The matrix retains 40 workstreams and 92 checks. These bounded results
 do not qualify the still-required published-predecessor lifecycle matrix.
+
+The `1980fc9b3321` checkpoint integrates the released lab/inbox integrity
+changes from `0f73961b3804` (#6104). Conflict resolution retains the finite
+ASCII-decimal parser, both routing regression names, the grouped-history case,
+all independent required-case checks, and the stricter native family floors.
+A clean Ubuntu 26.04/JDK 25 build produces 6,291 production classes. The fresh
+full H2 run passes 35,683 cases with 211 registered routed/prerequisite skips
+(35,894 total), zero failures/errors; all five permission cases and 274 focused
+Java cases pass without skips. Production class hashes are unchanged across
+these executions. Node 22 passes all 7,858 cases in 556 files with zero skips,
+cancellations or TODOs, and its committed inventory matches the actual report.
+All 390 Python tooling, 30 coverage-policy and 24 native-evidence policy tests
+pass. The release matrix retains 40 workstreams and 92 checks.
+
+The source-built WAR and supported external-WAR snapshot29 Debian build pass,
+including lintian. All 6,291 class bytes and checked changed web/resource files
+match the WAR/package payload. Fresh coverage evidence retains 710 floors,
+six nonexecutable exclusions, 52 higher historical metrics, all four ZIP
+refusal lines and zero waivers. All 15 Java paths changed by the PR relative
+to release `0f73961b3804` meet their floors. The broader comparison retains
+80 unreviewed zero floors and 112 unmet metric assertions as explicit failures;
+this H2 refresh does not qualify the full same-source native coverage union.
+Installed ON/BC and lifecycle receipts from earlier sources remain historical;
+the current package requires its own complete strict installed retakes.

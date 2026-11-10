@@ -92,3 +92,17 @@ refusal lines are retained. Every Java file changed by PR #6100 meets its
 retained floors. The full comparison still refuses 79 unreviewed zero floors
 and misses 34 line, 42 instruction and 31 branch floors. These failures remain
 open; this refresh adds no waiver and does not qualify full release coverage.
+
+The `1980fc9b3321` checkpoint integrates release `0f73961b3804` (#6104).
+Its clean Ubuntu 26.04/JDK 25 H2 run passes 35,683 cases with 211 explicitly
+registered routed/prerequisite skips (35,894 total), zero failures/errors, and
+all five permission cases pass separately without skips. All 6,291 compiled
+production classes remain byte-identical across the focused, permission and
+full H2 executions and the source-built WAR/Debian payload. The fresh baseline
+binds 710 floors and six nonexecutable exclusions to this source and report,
+preserving higher historical metrics for 52 files and all four ZIP refusal
+lines. All 15 Java paths changed relative to the current PR base meet their
+retained floors. The wider currentMain comparison still refuses 80 unreviewed
+zero floors and misses 36 line, 44 instruction and 32 branch assertions.
+These are retained failures; no waiver or lower threshold is introduced.
+The complete same-source native-lane coverage union remains required.

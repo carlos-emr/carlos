@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "018af534f8ea59110cfc5f607681b36dcc93eb68",
-  "comparisonSha256": "5b23399aed635aafbd2eb1696e44924f8a43ea9954dca6e6ba321d9e7121e487",
-  "baselineCommit": "4159843ab31c8dd6014eb65ef5159e46fb3a795d",
-  "baselineSourceTree": "018af534f8ea59110cfc5f607681b36dcc93eb68",
-  "baselineReportSha256": "70575960de3eb9d80e8bb763a29fcc8876d9089eda021120733a2332f26382da",
+  "sourceTree": "e7d8a333e971c2586e4c14d2f5f0d5024e49d81b",
+  "comparisonSha256": "74f58959df6e614defeb4fb561649b0b3cf4c74ca0c6c351dd34d8825664e23d",
+  "baselineCommit": "1980fc9b3321dce877d6298e5981c320a66c46d0",
+  "baselineSourceTree": "e7d8a333e971c2586e4c14d2f5f0d5024e49d81b",
+  "baselineReportSha256": "1e9533c9644a07ed1c9863ab7f9f86ee46a355adeb130abcc3986d23874a6d5f",
   "baselineLane": "Candidate Ubuntu 26.04/JDK 25 H2 baseline. Routed/prerequisite skips remain explicit. Previous higher floors and refusal lines are retained; native-lane union qualification and zero-floor review remain required.",
   "baselineTestCounts": {
-    "tests": 35804,
+    "tests": 35894,
+    "skipped": 211,
     "failures": 0,
-    "errors": 0,
-    "skipped": 216
+    "errors": 0
   },
-  "baselineTestReportsSha256": "f647376b84457a8838931b08483d3a70c5ef5b68433fda1792794aa3eecfc1c1",
+  "baselineTestReportsSha256": "aa3442b5306d8dc45b83bd5b8c1b6ff67d4fcd045eb1737cbf6cbdad024dc1be",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -970,10 +970,10 @@
       "sourceBlob": "103890e9eb99b657553de12cab0a5c7c0feb0326"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/InboxCategoryDao.java": {
-      "lines": 73.99267399267399,
-      "instructions": 74.00768245838668,
-      "branches": 58.031088082901555,
-      "sourceBlob": "3b0fc4a156e2e1a1bd66fded3a72be74c239ce47"
+      "lines": 82.97101449275362,
+      "instructions": 84.08215661103979,
+      "branches": 68.85245901639344,
+      "sourceBlob": "e4bc18a4c1a6712d8bc0ad8148ef677e1a00395c"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/InboxResultsDaoImpl.java": {
       "lines": 100.0,
@@ -982,10 +982,10 @@
       "sourceBlob": "1427a70abb44e92e6981e20d471fc897ee64be4c"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/LabRoutingLookupDao.java": {
-      "lines": 94.36619718309859,
-      "instructions": 93.36283185840708,
-      "branches": 80.35714285714286,
-      "sourceBlob": "19553ec631bc40318f51a68e9b3bb7ef40d72cfd"
+      "lines": 94.52054794520548,
+      "instructions": 93.63057324840764,
+      "branches": 82.8125,
+      "sourceBlob": "52bfeb5c22fa56864ddada0fcead034c0518ccbc"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/MeasurementsExtDao.java": {
       "lines": 100.0,
@@ -1651,7 +1651,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "1a89abb7629eb401f15133faf5c835d92438ee80"
+      "sourceBlob": "9fab059ad7c661f9287d04492cae7efac095558f"
     },
     "src/main/java/io/github/carlos_emr/carlos/documentManager/actions/DocumentPreview2Action.java": {
       "lines": 100.0,
@@ -1924,16 +1924,22 @@
       "sourceBlob": "daf719bdb73f8f3eae3d5ce3bed5b2acc1062acc"
     },
     "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/MeasurementGraphAction22Action.java": {
-      "lines": 74.07407407407408,
-      "instructions": 71.13821138211382,
-      "branches": 62.18487394957983,
-      "sourceBlob": "f8b1b2ba3ac97c1ae68a336da874ff424703b86a"
+      "lines": 74.37185929648241,
+      "instructions": 71.94525904203323,
+      "branches": 64.34108527131782,
+      "sourceBlob": "e6ddeaa67a45bc56cdb9436e9a388a816a86f444"
     },
     "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/ScatterPlotChartServlet.java": {
       "lines": 50.0,
       "instructions": 52.56410256410256,
       "branches": 37.5,
       "sourceBlob": "66bc4adb55462038337966e6b6631ea8d01d0144"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/util/MeasurementDSHelper.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0,
+      "sourceBlob": "877a6483b1876b6eab29bc8b89c494392ea4bb80"
     },
     "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayAction.java": {
       "lines": 93.75,
@@ -2476,10 +2482,10 @@
       "sourceBlob": "ebec8b840d7d248c98380d751c48b62db85cd7ae"
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/upload/handlers/HL7Handler.java": {
-      "lines": 0.0,
-      "instructions": 0.0,
-      "branches": 0.0,
-      "sourceBlob": "fe9313c7386f524997799f40da228672af6112ca"
+      "lines": 96.42857142857143,
+      "instructions": 92.90322580645162,
+      "branches": 78.57142857142857,
+      "sourceBlob": "3c034b0133769f6c75091f11753cc12236642484"
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/upload/handlers/IHAHandler.java": {
       "lines": 0.0,
@@ -2542,10 +2548,10 @@
       "sourceBlob": "b5ed16d9784484185fb8203b648744475135aaf9"
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/ca/on/CML/ABCDParser.java": {
-      "lines": 73.33333333333333,
-      "instructions": 65.53672316384181,
-      "branches": 21.428571428571427,
-      "sourceBlob": "7ff21c5881e0cfa56308c218e117cfa2ad7486a3"
+      "lines": 79.6875,
+      "instructions": 79.59183673469387,
+      "branches": 55.55555555555556,
+      "sourceBlob": "1943ce50b1f69814193771fbe1dd75f32f493168"
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/ca/on/CML/Upload/LabUpload2Action.java": {
       "lines": 100.0,
@@ -2848,10 +2854,10 @@
       "sourceBlob": "c4f1b9cea6f9a0559955cb0a7b3f5e2988360c8a"
     },
     "src/main/java/io/github/carlos_emr/carlos/mds/data/CategoryData.java": {
-      "lines": 86.66666666666667,
-      "instructions": 88.50574712643679,
-      "branches": 90.0,
-      "sourceBlob": "b7bafee0dae8f519d86b0846a929d8b0eecf62a8"
+      "lines": 93.02325581395348,
+      "instructions": 94.16666666666667,
+      "branches": 100.0,
+      "sourceBlob": "0d43dde9b7fe82b3fc6ff513e6b5a6f228a03a2d"
     },
     "src/main/java/io/github/carlos_emr/carlos/messenger/docxfer/send/MsgGenerate.java": {
       "lines": 100.0,
@@ -2995,7 +3001,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "84a9b73453e8db14433942764c559190e8c07ad2"
+      "sourceBlob": "ac7acdb7b78d763d206b1c94534075415ba1f441"
     },
     "src/main/java/io/github/carlos_emr/carlos/prevention/PreventionDSImpl.java": {
       "lines": 0.0,
@@ -3014,6 +3020,36 @@
       "instructions": 95.65217391304348,
       "branches": 75.0,
       "sourceBlob": "0993f5dc4383bd9f5b36f60364998ff52f00694b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prevention/reports/ChildImmunizationReport.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0,
+      "sourceBlob": "8a6de5e0c8252e0f7e3656b78210a1c59205e4b4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prevention/reports/FOBTReport.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "1cd0788d64b2203305cfe4367dd2fef90dffe701"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prevention/reports/FluReport.java": {
+      "lines": 50.0,
+      "instructions": 50.0,
+      "branches": 100.0,
+      "sourceBlob": "eff58634051bd97790aee5a5a28101352838e220"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prevention/reports/MammogramReport.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f1f1723845b0f48bce4c2f8a228657bdf308c207"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prevention/reports/PapReport.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "52328b76895d8be0b7541b732b105cf175274309"
     },
     "src/main/java/io/github/carlos_emr/carlos/provider/model/PreventionManager.java": {
       "lines": 100.0,
@@ -3049,7 +3085,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "b6234a12e1b65c693b53c187350b8f24f41e98cf"
+      "sourceBlob": "29495e11a269c8dcf21a8217dd036a853b2237b6"
     },
     "src/main/java/io/github/carlos_emr/carlos/report/ClinicalReports/SQLDenominator.java": {
       "lines": 100.0,
