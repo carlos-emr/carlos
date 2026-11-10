@@ -25,9 +25,12 @@ async function assertUnavailableHistory(root,actual) {
   h.assert(text.includes('Pending')&&text.length>60,'Unsupported history omitted its clinical explanation');
 }
 const HGB={code:'2010',name:'HEMOGLOBIN',unit:'g/L',low:'120',high:'160',flag:'N'};
+const HCT={code:'2013',name:'HEMATOCRIT',unit:'L/L',low:'0.36',high:'0.46',flag:'N'};
 const CHOL={code:'3120',name:'CHOLESTEROL',unit:'mmol/L',low:'3',high:'7',flag:'N'};
-const PANEL=[{...HGB,value:'<0.1',flag:'A'},
-  {code:'2013',name:'HEMATOCRIT',value:'>100',unit:'L/L',low:'0.36',high:'0.46',flag:'A'},
+// Explicit fixture projections retain the PR's OSCAR 19 plotting contract pending #6118/#6120.
+// Raw source, history and PDF assertions continue to require the qualified literals.
+const PANEL=[{...HGB,value:'<0.1',plotValue:'0.1',flag:'A'},
+  {...HCT,value:'>100',plotValue:'100',flag:'A'},
   {code:'3210',name:'SODIUM',value:'Negative',unit:'qual-Na',low:'0',high:'1',flag:'N'},
   {code:'3007',name:'GLUCOSE FASTING-SER',gridName:'GLUCOSE-FASTING',value:'Pending',unit:'qual-glucose',low:'2',high:'4',flag:'N'},
   {...CHOL,value:'5.7'}];
@@ -54,8 +57,8 @@ async function workflow(s){
     {date:'2021-01-01',tests:PANEL},
     {date:'2022-05-07',tests:[{...HGB,value:'Negative'}]},
     {date:'2023-12-29',tests:[{...HGB,value:'137'}]},
-    {date:'2025-10-02',tests:[{...HGB,value:'>100',flag:'A'}]},
-    {date:'2026-11-01',tests:[{...HGB,value:'145'},{...CHOL,value:'6.2'}]},
+    {date:'2025-10-02',tests:[{...HGB,value:'>100',plotValue:'100',flag:'A'}]},
+    {date:'2026-11-01',tests:[{...HGB,value:'145'},{...CHOL,value:'6.2'},{...HCT,value:'0.42'}]},
   ].map((lab,index)=>({...lab,accession:'QL'+stamp+index,owner:patient,marker}));
   const controlLab={date:'2024-08-09',tests:[{...HGB,value:'999.37'}],accession:'QL'+stamp+'C',owner:control,marker:controlMarker},all=[...labs,controlLab];
   for(const lab of all)h.assert(sql.value('SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=?',[lab.accession])==='0','Qualified lab accession namespace already exists');
@@ -96,7 +99,7 @@ async function workflow(s){
         await checks.check(test.name+(isUnfiledLiteral(test)?' visibly unsupported measurement history':' native value history'),async()=>{const rows=await value.locator('#tblDiscs tbody tr').evaluateAll(rows=>rows.map(row=>[...row.querySelectorAll('td')].map(cell=>cell.innerText.trim())).filter(cells=>cells.length===6));if(isUnfiledLiteral(test)){await assertUnavailableHistory(value,rows);return;}h.assert(rows.length===history.length,'Value history lost or duplicated qualified/qualitative observations');for(const expected of history)h.assert(rows.some(row=>row[0]===test.name&&row[1]===expected.value&&row[2]===expected.flag&&row[3]===expected.low+' - '+expected.high&&row[4]===expected.unit&&row[5].startsWith(expected.date)),'Value history changed a literal/date/unit/range/flag association');});
         const offered=await value.getByRole('button',{name:'Plot',exact:true}).count();
         if(!offered)console.log('  EVIDENCE native Plot is not offered for '+test.name+'; its literal-history assertion remains independently required');
-        else await checks.check(test.name+' native Plot handles only exact numeric observations',async()=>{const start=guard.records.length;await ui.clickAndAwaitReload(value,value.getByRole('button',{name:'Plot',exact:true}),{timeout:30000,label:'native lab Plot'});const receipt=await guard.wait(record=>guard.records.indexOf(record)>=start&&record.kind==='plot'&&record.code===test.code&&record.state==='acknowledged');h.assert(receipt.status===200&&(receipt.headers['content-type']||'').startsWith('image/png'),'Native lab graph did not return PNG');if(process.env.LAB_QUALIFIED_ARTIFACT_DIR)fs.writeFileSync(h.buildArtifactPath(process.env.LAB_QUALIFIED_ARTIFACT_DIR,marker+'-'+test.code,'.png'),receipt.body,{flag:'wx',mode:0o600});const numeric=history.filter(row=>/^-?\d+(?:\.\d+)?$/.test(row.value));if(numeric.length)verifyGeometry(inspectPlot(receipt.body),numeric);else assertNoNumericPoints(receipt.body);});
+        else await checks.check(test.name+' native Plot retains the declared legacy numeric projections',async()=>{const start=guard.records.length;await ui.clickAndAwaitReload(value,value.getByRole('button',{name:'Plot',exact:true}),{timeout:30000,label:'native lab Plot'});const receipt=await guard.wait(record=>guard.records.indexOf(record)>=start&&record.kind==='plot'&&record.code===test.code&&record.state==='acknowledged');h.assert(receipt.status===200&&(receipt.headers['content-type']||'').startsWith('image/png'),'Native lab graph did not return PNG');if(process.env.LAB_QUALIFIED_ARTIFACT_DIR)fs.writeFileSync(h.buildArtifactPath(process.env.LAB_QUALIFIED_ARTIFACT_DIR,marker+'-'+test.code,'.png'),receipt.body,{flag:'wx',mode:0o600});const numeric=history.map(row=>({...row,value:row.plotValue??row.value})).filter(row=>/^-?\d+(?:\.\d+)?$/.test(row.value));if(numeric.length)verifyGeometry(inspectPlot(receipt.body),numeric);else assertNoNumericPoints(receipt.body);});
         await value.waitForLoadState('networkidle');await value.close();
       }
       await checks.check(lab.date+' actual native report PDF preserves literals',async()=>{const start=guard.records.length;await report.locator('input[onclick^="printPDF("]').first().click();const receipt=await guard.wait(record=>guard.records.indexOf(record)>=start&&record.kind==='print'&&record.labId===lab.id&&record.state==='acknowledged');h.assert(receipt.status===200&&(receipt.headers['content-type']||'').startsWith('application/pdf'),'Native Print did not serve a PDF');const text=Array.from({length:graph.pageCount(receipt.body)},(_,i)=>graph.pageText(receipt.body,i+1)).join('\n');if(process.env.LAB_QUALIFIED_ARTIFACT_DIR)fs.writeFileSync(h.buildArtifactPath(process.env.LAB_QUALIFIED_ARTIFACT_DIR,marker+'-'+lab.id,'.pdf'),receipt.body,{flag:'wx',mode:0o600});assertPdf(receipt.body,{...lab,marker,controlMarker});});
