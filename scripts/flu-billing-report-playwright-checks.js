@@ -709,7 +709,9 @@ installCleanupSignalHandlers(() => {
   runCleanupOnce().forEach((failure) => console.error(`WARN ${failure}`));
 });
 
-run().catch((error) => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('flu-billing-report', async () => {
+  await run().catch((error) => {
   console.error('FAIL CARLOS EMR Flu Billing Report Playwright check');
   console.error(error.stack || error.message);
   // A row mismatch is usually caused by something the page already reported —
@@ -718,5 +720,6 @@ run().catch((error) => {
   if (browserFindings.length) {
     console.error(`Browser findings during the run: ${JSON.stringify(browserFindings, null, 2)}`);
   }
-  process.exit(1);
+  process.exitCode = 1;
 });
+}, {existingSignalHandlers:true});

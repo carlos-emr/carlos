@@ -699,6 +699,7 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     private static final Set<String> CONDITIONAL_MUTATORS =
             Set.of(
+                    "io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action",
                     "io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteGroups2Action",
                     // Demographic report favourites and patient sets (#4225) are POST-only;
                     // report display/run/load remain GET-compatible. Focused
@@ -1057,6 +1058,7 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES =
             Set.of(
+                    "io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action",
                     "io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteGroups2Action",
                     "io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action",
                     "io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfigDeleteImmuSet2Action",

@@ -302,6 +302,9 @@ cmd_up() {
     *) die "systemd did not come up in $CONTAINER (state '${state:-none}')" ;;
   esac
 
+  docker exec -e CARLOS_DISPOSABLE_HOST=true "$CONTAINER" \
+    bash /root/carlos/scripts/ci/prepare-container-securityfs.sh
+
   preseed | docker exec -i "$CONTAINER" debconf-set-selections
   say "installing $emr, $drugref and $ctl (log: $LOG_DIR/install.log)"
   # The proxy is exported only for apt here; the running EMR never sees it.
@@ -359,6 +362,10 @@ stage_fixtures() {
   in_container "
     set -e
     P=/etc/carlos-emr/carlos.properties
+    # Browser/PDF fixtures snapshot a real renderer store before their first render.
+    # The production renderer creates this lazily; prepare the disposable fixture.
+    install -d -o carlos -g carlos -m 0750 /var/lib/carlos-emr/catalina/work/carlos
+    install -d -o carlos -g carlos -m 0700 /var/lib/carlos-emr/catalina/work/carlos/eform-browser-pdf-temp
     for d in /var/lib/carlos-emr/CarlosDocument/carlos/eform/images /var/lib/carlos-emr/CarlosDocument/eform/images; do
       install -d -o carlos -g carlos -m 0750 \"\$d\"
       install -o carlos -g carlos -m 0640 /root/carlos/release/4422-84v9-1.png \"\$d/consult_sig_999998.png\"
@@ -534,7 +541,7 @@ cmd_suite() {
   for arg in "$@"; do [ "$prev" = --profile ] && requested=$arg; prev=$arg; done
   local managed=false
   case "$requested" in
-    address-lock|no-pin|multisite|caisi-admin|legacy-contacts|private-consent|appointment-options) managed=true ;;
+    address-lock|no-pin|multisite|caisi-admin|legacy-contacts|private-consent|appointment-options|appointment-lock-expiry|native-pathnet|first-nations|first-nations-encoding) managed=true ;;
   esac
   if [ "$managed" = true ]; then
     [ -z "$active" ] || die "restore the manual profile before running an automatic profile"
@@ -554,7 +561,7 @@ cmd_suite() {
   quoted=$(printf '%q ' "$@")
   stamp=$(date -u +%Y%m%dT%H%M%SZ)
   before=$(in_container 'systemctl show carlos-emr -p NRestarts --value')
-  in_container ". /root/suite-env.sh; CARLOS_DISPOSABLE_HOST=true python3 scripts/ci/run-installed-error-sanitization.py -- node scripts/run-playwright-suite.js $quoted --junit /root/suite-$stamp.xml" \
+  in_container ". /root/suite-env.sh; CARLOS_DISPOSABLE_HOST=true node scripts/run-playwright-suite.js $quoted --junit /root/suite-$stamp.xml" \
     2>&1 | tee "$LOG_DIR/suite-$stamp.log" || rc=$?
   docker cp "$CONTAINER:/root/suite-$stamp.xml" "$LOG_DIR/" >/dev/null 2>&1 || {
     echo "FAIL required suite JUnit report could not be retained" >&2

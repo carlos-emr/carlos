@@ -792,4 +792,96 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldKeepEachVisibleHl7Report_whenCmlSourcesAreIncomplete() {
+        registerStaticInitializerMocks();
+        LabResultData first = visibleLab("HL7", 41);
+        LabResultData second = visibleLab("HL7", 42);
+        var failure = mock(Hl7textResultsData.IncompleteCmlVersionChainException.class);
+        try (var hl7 = mockStatic(Hl7textResultsData.class)) {
+            hl7.when(() -> Hl7textResultsData.getMatchingLabs("41")).thenThrow(failure);
+            hl7.when(() -> Hl7textResultsData.getMatchingLabs("42")).thenThrow(failure);
+            assertThat(CommonLabResultData.latestVisibleVersions(List.of(first, second)))
+                    .containsExactly(first, second);
+            assertThatThrownBy(() -> new CommonLabResultData().getMatchingLabsForMutation("41", "HL7"))
+                    .isSameAs(failure);
+            assertThatThrownBy(() -> new CommonLabResultData().getMatchingLabs("41", "HL7"))
+                    .isSameAs(failure);
+        }
+    }
+
+    @Test
+    void shouldOmitAggregateAcknowledgements_whenCmlSourcesAreIncomplete() {
+        registerStaticInitializerMocks();
+        LabResultData report = visibleLab("HL7", 41);
+        report.setAckCount(3);
+        var failure = mock(Hl7textResultsData.IncompleteCmlVersionChainException.class);
+        when(failure.getMessage()).thenReturn("PRIVATE_SOURCE_CONTENT");
+        try (var hl7 = mockStatic(Hl7textResultsData.class);
+                var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(LabResultData.class)) {
+            hl7.when(() -> Hl7textResultsData.getMatchingLabs("41")).thenThrow(failure);
+            assertThat(report.getMultipleAckCount()).isEqualTo(-1);
+            assertThat(report.getMultipleAckCount()).isEqualTo(-1);
+            assertThat(report.getAckCount()).isEqualTo(3);
+            hl7.verify(() -> Hl7textResultsData.getMatchingLabs("41"), Mockito.times(1));
+            assertThat(logs.messages()).anyMatch(message -> message.contains("aggregate count withheld"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_SOURCE_CONTENT");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+            assertThatThrownBy(() -> new CommonLabResultData().getMatchingLabsForMutation("41", "HL7"))
+                    .isSameAs(failure);
+        }
+    }
+
+    @Test
+    void shouldPropagateAggregateLookupFailures_withoutCachingAnUnavailableCount() {
+        registerStaticInitializerMocks();
+        LabResultData report = visibleLab("HL7", 41);
+        var failure = new IllegalStateException("synthetic unavailable database");
+        try (var hl7 = mockStatic(Hl7textResultsData.class)) {
+            hl7.when(() -> Hl7textResultsData.getMatchingLabs("41")).thenThrow(failure);
+            assertThatThrownBy(report::getMultipleAckCount).isSameAs(failure);
+            assertThatThrownBy(report::getMultipleAckCount).isSameAs(failure);
+            hl7.verify(() -> Hl7textResultsData.getMatchingLabs("41"), Mockito.times(2));
+        }
+    }
+
+    @Test
+    void shouldSumAndCacheAcknowledgements_whenTheVersionChainIsComplete() {
+        registerStaticInitializerMocks();
+        LabResultData report = visibleLab("HL7", 41);
+        try (var data = Mockito.mockConstruction(CommonLabResultData.class, (mock, context) -> {
+            when(mock.getMatchingLabs("41", "HL7")).thenReturn("41,42");
+            when(mock.getAckCount("41", "HL7")).thenReturn(2);
+            when(mock.getAckCount("42", "HL7")).thenReturn(3);
+        })) {
+            assertThat(report.getMultipleAckCount()).isEqualTo(5);
+            assertThat(report.getMultipleAckCount()).isEqualTo(5);
+            assertThat(data.constructed()).hasSize(1);
+            Mockito.verify(data.constructed().getFirst()).getAckCount("41", "HL7");
+            Mockito.verify(data.constructed().getFirst()).getAckCount("42", "HL7");
+        }
+    }
+
+    @Test
+    void shouldOmitAggregateAcknowledgements_whenThereIsOnlyOneVersion() {
+        registerStaticInitializerMocks();
+        LabResultData report = visibleLab("HL7", 41);
+        try (var data = Mockito.mockConstruction(CommonLabResultData.class, (mock, context) ->
+                when(mock.getMatchingLabs("41", "HL7")).thenReturn("41"))) {
+            assertThat(report.getMultipleAckCount()).isEqualTo(-1);
+            Mockito.verify(data.constructed().getFirst(), never()).getAckCount(anyString(), anyString());
+        }
+    }
+
+    @Test
+    void shouldPropagateOtherLookupFailures_withoutSilentlyQualifyingThePatientList() {
+        registerStaticInitializerMocks();
+        var failure = new IllegalStateException("synthetic unavailable database");
+        try (var hl7 = mockStatic(Hl7textResultsData.class)) {
+            hl7.when(() -> Hl7textResultsData.getMatchingLabs("41")).thenThrow(failure);
+            assertThatThrownBy(() -> CommonLabResultData.latestVisibleVersions(List.of(visibleLab("HL7", 41))))
+                    .isSameAs(failure);
+        }
+    }
+
 }

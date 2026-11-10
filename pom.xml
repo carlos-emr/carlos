@@ -2514,6 +2514,28 @@
                                     </excludes>
                                 </configuration>
                             </execution>
+                            <execution>
+                                <id>jspc-dispatched-fragments</id>
+                                <goals><goal>compile</goal></goals>
+                                <configuration>
+                                    <webAppSourceDirectory>${project.basedir}/src/main/webapp</webAppSourceDirectory>
+                                    <classesDirectory>${project.build.outputDirectory}</classesDirectory>
+                                    <generatedClasses>${project.build.directory}/jspc-fragments/classes</generatedClasses>
+                                    <webXmlFragment>${project.build.directory}/jspc-fragments/webfrag.xml</webXmlFragment>
+                                    <mergeFragment>false</mergeFragment>
+                                    <!-- These fragments are independent runtime translation units. -->
+                                    <includes>
+                                        <include>WEB-INF/jsp/admin/emailStatusResults.jspf</include>
+                                        <include>WEB-INF/jsp/admin/faxStatusResults.jspf</include>
+                                        <include>WEB-INF/jsp/provider/appointmentFormsLinks.jspf</include>
+                                        <include>WEB-INF/jsp/provider/appointmentPregnancy.jspf</include>
+                                        <include>WEB-INF/jsp/encounter/oscarMeasurements/HealthTrackerPage.jspf</include>
+                                        <include>WEB-INF/jsp/encounter/oscarMeasurements/TemplateFlowSheetPage.jspf</include>
+                                        <include>WEB-INF/jsp/includes/spinner.jspf</include>
+                                        <include>WEB-INF/jsp/eform/eformFloatingToolbar/eform_floating_toolbar.jspf</include>
+                                    </includes>
+                                </configuration>
+                            </execution>
                         </executions>
                     </plugin>
                     <!-- Dependency lock is already validated in the build job;

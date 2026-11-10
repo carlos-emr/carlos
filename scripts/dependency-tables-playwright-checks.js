@@ -69,7 +69,8 @@ async function main() {
             document.querySelector('#fixture').addEventListener('submit', event => {
                 event.preventDefault(); window.submits++;
             });
-            document.querySelectorAll('.edit').forEach(button => button.addEventListener('click', () => {
+            document.querySelectorAll('.edit').forEach(button => button.addEventListener('click', event => {
+                event.preventDefault();
                 window.edited = button.dataset.id;
             }));
         });
@@ -214,4 +215,7 @@ async function checkRegistryResults(browser) {
     assert.deepEqual(errors, []);
     await page.close();
 }
-main().catch(error => { console.error(error); process.exitCode = 1; });
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('dependency-tables', async () => {
+  await main().catch(error => { console.error(error); process.exitCode = 1; });
+});
