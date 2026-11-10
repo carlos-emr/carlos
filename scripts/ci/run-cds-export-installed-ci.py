@@ -35,6 +35,12 @@ PRIVATE = "/run/cds-export-ci"
 FIXTURE = "io.github.carlos_emr.carlos.login.CdsExportInstalledFixture"
 
 
+def runtime_command(docker, runtime, command, *, detached=False):
+    """All owned setup helpers require root; the runtime image defaults to carlos."""
+    return [*docker, "exec", "--user", "0", "--workdir", "/workspace",
+            *(["--detach"] if detached else []), runtime, *command]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cli-source", type=Path, required=True)
@@ -104,19 +110,7 @@ def main() -> int:
                 )
 
             def run(command, **kw):
-                return execute(
-                    docker
-                    + [
-                        "exec",
-                        "--user",
-                        "0",
-                        "--workdir",
-                        "/workspace",
-                        runtime,
-                        *command,
-                    ],
-                    **kw,
-                )
+                return execute(runtime_command(docker, runtime, command), **kw)
 
             def read_json(path):
                 result = run(
@@ -425,8 +419,8 @@ print(json.dumps({'verified':True,'files':len(expected),'warSha256':manifest['wa
                 raise RuntimeError("Native fixture preparation incomplete")
             fixture = read_json(PRIVATE + "/fixture.json")
             stage("OWNED_LOOPBACK_PUBLIC_DRUG_REFERENCE")
-            execute(docker + ["exec", "--detach", runtime, *fixture_command,
-                              "drugref", "/run/cds-ci/jdbc.properties"])
+            execute(runtime_command(docker, runtime, fixture_command
+                    + ["drugref", "/run/cds-ci/jdbc.properties"], detached=True))
             run(["python3", "-c", """import time,urllib.request
 end=time.monotonic()+15
 while True:
