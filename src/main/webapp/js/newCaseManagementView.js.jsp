@@ -2142,9 +2142,6 @@ function updateCPPNote() {
         $(txt).insertAdjacentHTML('afterbegin', line);
 
 
-        //img = "<img title='Print' id='print" + nId + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/printer.png'>";
-        //$(txt).insertAdjacentHTML('afterbegin', img);
-
         var print = 'print' + nId;
         var func;
         var editWarn = "editWarn" + nId;
@@ -2537,7 +2534,7 @@ function updateCPPNote() {
 
         var input = createNoteTextarea(caseNote, payload, true);
         $(txt).insertBefore(input, $(txt).firstChild);
-        var printimg = "<div class='tool-button print-button'><img title='Print' id='print" + nId + "' alt='Toggle Print Note' onclick='togglePrint(this.id.substr(5), event)' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/printer.png'></div>";
+        var printimg = "<div class='tool-button print-button'><img title='Print' id='print" + nId + "' alt='Toggle Print Note' role='button' tabindex='0' aria-label='Toggle Print Note' aria-pressed='false' onclick='togglePrint(this.id.substr(5), event)' onkeydown='if (event.key === \"Enter\" || event.key === \" \") { event.preventDefault(); if (!event.repeat) togglePrint(this.id.substr(5), event); }' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/printer.png'></div>";
 
         var strNid = "" + nId;
         if (strNid.substr(0, 1) != "0")
@@ -4091,6 +4088,13 @@ function autoSave() {
         return foundIdx;
     }
 
+    function setPrintControlSelected(control, selected, source) {
+        control.src = source;
+        if (control.getAttribute("role") === "button") {
+            control.setAttribute("aria-pressed", String(selected));
+        }
+    }
+
     function togglePrint(noteId, e) {
         e.preventDefault();
         var selected = ctx + "/encounter/graphics/printerGreen.png";
@@ -4108,7 +4112,7 @@ function autoSave() {
         //else insert note into print queue
         idx = noteIsQeued(noteId);
         if (idx >= 0) {
-            $(imgId).src = unselected;
+            setPrintControlSelected($(imgId), false, unselected);
 
             //if we're slicing first note off list
             if (idx == 0) {
@@ -4132,7 +4136,7 @@ function autoSave() {
 
             $("notes2print").value = tmp;
         } else {
-            $(imgId).src = selected;
+            setPrintControlSelected($(imgId), true, selected);
             if ($F("notes2print").length > 0)
                 $("notes2print").value += "," + noteId;
             else
@@ -4146,8 +4150,7 @@ function autoSave() {
     function addPrintQueue(noteId) {
         var imgId = "print" + noteId;
 
-        //$(imgId).src = ctx + "/encounter/graphics/printerGreen.png"; //imgPrintgreen.src;
-        $(imgId).src = imgPrintgreen.src;
+        setPrintControlSelected($(imgId), true, imgPrintgreen.src);
         if ($F("notes2print").length > 0)
             $("notes2print").value += "," + noteId;
         else
@@ -4161,7 +4164,7 @@ function autoSave() {
         var tmp = "";
         var idx2;
 
-        $(imgId).src = unselected; //imgPrintgrey.src;
+        setPrintControlSelected($(imgId), false, unselected);
 
         //if we're slicing first note off list
         if (idx == 0) {

@@ -9,6 +9,7 @@ import io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -262,7 +263,7 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"issueChange", "issueDelete", "ajaxChangeDiagnosis", "submitChangeDiagnosis"})
-    void shouldRefuseIssueMutationWithoutModelMutation_whenFreshIssuePermissionIsDenied(String operation) throws Exception {
+    void shouldRefuseIssueMutationWithoutModelMutation_whenFreshIssuePermissionIsDenied(String operation) {
         var fixture = issueFixture(true);
         fixture.action.request.getSession().setAttribute(
                 io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.class.getName() + ".101", "23");
@@ -285,14 +286,13 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         doReturn("").when(fixture.action).getDemoName(anyString());
         doReturn("").when(fixture.action).getDemoAge(anyString());
         doReturn("").when(fixture.action).getDemoDOB(anyString());
-        assertThatThrownBy(() -> {
-            switch (operation) {
-                case "issueChange" -> fixture.action.issueChange();
-                case "issueDelete" -> fixture.action.issueDelete();
-                case "ajaxChangeDiagnosis" -> fixture.action.ajaxChangeDiagnosis();
-                default -> fixture.action.submitChangeDiagnosis();
-            }
-        }).isInstanceOf(SecurityException.class);
+        ThrowingCallable mutation = switch (operation) {
+            case "issueChange" -> fixture.action::issueChange;
+            case "issueDelete" -> fixture.action::issueDelete;
+            case "ajaxChangeDiagnosis" -> fixture.action::ajaxChangeDiagnosis;
+            default -> fixture.action::submitChangeDiagnosis;
+        };
+        assertThatThrownBy(mutation).isInstanceOf(SecurityException.class);
 
         verify(fresh).isWriteAccess("999998", 23);
         verifyNoInteractions(fixture.manager);

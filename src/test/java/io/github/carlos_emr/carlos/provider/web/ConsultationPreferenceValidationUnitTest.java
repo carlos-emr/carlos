@@ -15,7 +15,6 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -55,7 +54,8 @@ class ConsultationPreferenceValidationUnitTest extends CarlosUnitTestBase {
             doReturn("Enter a positive whole number of months").when(action).getText("provider.consultationWarning.invalid");
             assertThat(action.saveGeneral()).isEqualTo("form");
             assertThat(response.getStatus()).isEqualTo(400);
-            assertThat(((Map<?, ?>) request.getAttribute("prefs")).get("pref.colour")).isEqualTo("blue");
+            assertThat(request.getAttribute("prefs")).asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP)
+                    .containsEntry("pref.colour", "blue");
             assertThat(request.getAttribute("preferenceValidationError")).isNotNull();
             verify(properties, never()).saveProp(any(UserProperty.class));
             assertThat(Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/provider/UserPreferences.jsp")))

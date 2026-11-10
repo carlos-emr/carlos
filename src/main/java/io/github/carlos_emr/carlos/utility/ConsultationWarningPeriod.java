@@ -9,10 +9,10 @@ public final class ConsultationWarningPeriod {
     public static boolean isValid(String value) {
         if (value == null || value.isBlank()) return true;
         String normalized = value.trim();
-        if (!normalized.matches("[0-9]{1,10}")) return false;
+        if (!normalized.matches("\\d{1,10}")) return false;
         try {
             return Integer.parseInt(normalized) > 0;
-        } catch (NumberFormatException invalid) {
+        } catch (NumberFormatException _) {
             return false;
         }
     }

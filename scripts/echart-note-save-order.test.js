@@ -419,4 +419,35 @@ test('the editable note Print control follows its committed revision after an ac
   const handler = context.printimg.match(/onclick='([^']+)'/)[1];
   vm.runInContext(`(function(event) { ${handler}; }).call(control, event);`, context);
   assert.deepEqual(calls, ['202']);
+  assert.ok(context.printimg.includes("role='button'") && context.printimg.includes("tabindex='0'"));
+  const keyboard = context.printimg.match(/onkeydown='([^']+)'/)[1];
+  for (const key of ['Enter', ' ', 'ArrowDown']) {
+    context.event = {key, repeat: false, preventDefault() {}};
+    vm.runInContext(`(function(event) { ${keyboard}; }).call(control, event);`, context);
+  }
+  assert.deepEqual(calls, ['202', '202', '202'], 'Enter and Space activate the current revision; other keys do not');
+});
+
+test('individual and bulk Print selection keep the queue, icon and accessible state consistent', () => {
+  for (const interactive of [false, true]) {
+    const attrs = interactive ? {role: 'button'} : {};
+    const icon = {getAttribute: name => attrs[name], setAttribute: (name, value) => { attrs[name] = value; }};
+    const fields = {print101: icon, notes2print: {value: ''}};
+    const context = {ctx: '/carlos', $: id => fields[id], $F: id => fields[id].value,
+      Event: {stop() {}}, Image: class {}};
+    vm.createContext(context);
+    vm.runInContext(source.slice(source.indexOf('    function noteIsQeued('), source.indexOf('    var printDateMsg;')), context);
+    context.imgPrintgreen.src = '/carlos/encounter/graphics/printerGreen.png';
+    const event = {preventDefault() {}};
+    for (const select of [() => context.togglePrint('101', event), () => context.addPrintQueue('101')]) {
+      select();
+      assert.equal(fields.notes2print.value, '101');
+      assert.equal(icon.src, context.imgPrintgreen.src);
+      assert.equal(attrs['aria-pressed'], interactive ? 'true' : undefined);
+      context.removePrintQueue('101', 0);
+      assert.equal(fields.notes2print.value, '');
+      assert.equal(icon.src, '/carlos/encounter/graphics/printer.png');
+      assert.equal(attrs['aria-pressed'], interactive ? 'false' : undefined);
+    }
+  }
 });

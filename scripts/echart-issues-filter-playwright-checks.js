@@ -476,6 +476,7 @@ async function workflow(s) {
       const oldId = notes.b;
       const uuid = sql.value(`SELECT uuid FROM casemgmt_note WHERE note_id=${oldId} AND demographic_no=${patient}`);
       const text = await noteField(chart).inputValue();
+      await chart.locator(`#print${oldId}`).click({timeout: TIMEOUT});
       const priorType = await chart.locator('select.encTypeCombo').inputValue();
       const encounterType = priorType === 'telephone encounter with client'
         ? 'email encounter with client' : 'telephone encounter with client';
@@ -515,13 +516,18 @@ async function workflow(s) {
         h.assert(sql.value(`SELECT encounter_type FROM casemgmt_note WHERE note_id=${oldId} AND demographic_no=${patient}`) === priorType,
           'The encounter type edit rewrote the prior revision');
         h.assert(await noteField(chart).getAttribute('id') === `caseNote_note${notes.b}`, 'The editor retained a stale revision identity');
+        h.assert(await chart.locator(`#print${notes.b}`).getAttribute('aria-pressed') === 'false',
+          'The new revision inherited the previous revision\'s Print selection');
         const queueBefore = await chart.locator('#notes2print').inputValue();
         await chart.locator(`#print${notes.b}`).click({timeout: TIMEOUT});
         const queued = (await chart.locator('#notes2print').inputValue()).split(',');
         h.assert(queued.includes(notes.b) && queued.includes(oldId) === queueBefore.split(',').includes(oldId),
           'The preserved Print control did not queue the committed revision');
-        await chart.locator(`#print${notes.b}`).click({timeout: TIMEOUT});
+        h.assert(await chart.locator(`#print${notes.b}`).getAttribute('aria-pressed') === 'true', 'Print selection was not announced');
+        await chart.locator(`#print${notes.b}`).focus();
+        await chart.locator(`#print${notes.b}`).press('Space');
         h.assert(await chart.locator('#notes2print').inputValue() === queueBefore, 'Print selection did not restore its original queue');
+        h.assert(await chart.locator(`#print${notes.b}`).getAttribute('aria-pressed') === 'false', 'Keyboard deselection was not announced');
       } finally {
         await chart.unroute('**/CaseManagementEntry*', failChart);
       }

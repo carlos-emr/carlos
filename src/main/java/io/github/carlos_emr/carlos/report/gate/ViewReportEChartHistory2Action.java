@@ -92,7 +92,7 @@ public final class ViewReportEChartHistory2Action extends ActionSupport {
             offset = pageNumber(request.getParameter("limit1"), 0);
             size = pageNumber(request.getParameter("limit2"), 10);
             if (size < 1 || size > 100) throw new NumberFormatException();
-        } catch (NumberFormatException invalidPage) {
+        } catch (NumberFormatException _) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid historical chart page");
             return NONE;
         }
@@ -107,7 +107,7 @@ public final class ViewReportEChartHistory2Action extends ActionSupport {
     }
     private static int pageNumber(String value, int defaultValue) {
         if (value == null) return defaultValue;
-        if (!value.matches("[0-9]{1,10}")) throw new NumberFormatException();
+        if (!value.matches("\\d{1,10}")) throw new NumberFormatException();
         return Integer.parseInt(value);
     }
 }

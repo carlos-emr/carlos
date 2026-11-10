@@ -164,3 +164,13 @@ ID. A compact-save acknowledgement renames that control; retaining a captured pr
 ID broke printing after a failed chart refresh. The regression first reproduced the
 old-ID dispatch, and the installed recovery check now toggles Print, verifies that the
 committed revision enters the print queue, and restores the original selection.
+
+Sonar's new-code gate identified an obsolete commented Print template as a duplicate
+HTML ID, and flagged keyboard access on the retained editor's Print image. The dead
+template is removed. The live control now has a button role, keyboard activation and
+an announced pressed state kept consistent by individual and bulk queue operations.
+An acknowledgement resets that control to the new revision's queue state while retaining
+an explicitly selected historical revision. The installed recovery regression verifies
+mouse selection, Space-key deselection, state announcements and the unchanged old queue.
+The Java findings are corrected with direct validated-index diagnosis updates, removal
+of redundant conditions, unused catch bindings, and narrower test assertions/callables.

@@ -282,7 +282,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         Integer patient;
         try {
             patient = Integer.valueOf(demographicNo);
-        } catch (NumberFormatException invalid) {
+        } catch (NumberFormatException _) {
             throw new SecurityException("missing required patient scope for issue write");
         }
         if (user == null || patient <= 0
@@ -2977,7 +2977,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         int index;
         try {
             index = Integer.parseInt(strIndex);
-        } catch (NumberFormatException invalid) {
+        } catch (NumberFormatException _) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
@@ -3003,30 +3003,26 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         if (substitution != null) {
-            for (int x = 0; x < oldList.size(); x++) {
-                if (x == index) {
+            Issue oldIssue = currentIssue.getIssue();
+            origIssueDesc = oldIssue.getDescription();
 
-                    Issue oldIssue = currentIssue.getIssue();
-                    origIssueDesc = oldIssue.getDescription();
-
-                    Issue newIssue = caseManagementMgr.getIssue(String.valueOf(substitution.getIssue().getId().longValue()));
-                    if (newIssue == null) {
-                        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                        return NONE;
-                    }
-                    newIssueDesc = newIssue.getDescription();
-
-                    oldList.get(x).setIssue(currentIssue);
-                    oldList.get(x).getIssue().setIssue(newIssue);
-                    oldList.get(x).getIssue().setIssue_id(substitution.getIssue().getId().longValue());
-                    oldList.get(x).getIssue().setType(newIssue.getType());
-                    oldList.get(x).getIssueDisplay().setCode(newIssue.getCode());
-                    oldList.get(x).getIssueDisplay().setCodeType(newIssue.getType());
-                    oldList.get(x).getIssueDisplay().setDescription(newIssue.getDescription());
-
-                    caseManagementMgr.saveCaseIssue(oldList.get(x).getIssue());
-                }
+            Issue newIssue = caseManagementMgr.getIssue(String.valueOf(substitution.getIssue().getId().longValue()));
+            if (newIssue == null) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
             }
+            newIssueDesc = newIssue.getDescription();
+
+            CheckBoxBean selected = oldList.get(index);
+            selected.setIssue(currentIssue);
+            selected.getIssue().setIssue(newIssue);
+            selected.getIssue().setIssue_id(substitution.getIssue().getId().longValue());
+            selected.getIssue().setType(newIssue.getType());
+            selected.getIssueDisplay().setCode(newIssue.getCode());
+            selected.getIssueDisplay().setCodeType(newIssue.getType());
+            selected.getIssueDisplay().setDescription(newIssue.getDescription());
+
+            caseManagementMgr.saveCaseIssue(selected.getIssue());
         }
 
         this.setIssueCheckList(oldList);
@@ -3050,7 +3046,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         int idx;
         try {
             idx = Integer.parseInt(strIndex);
-        } catch (NumberFormatException invalid) {
+        } catch (NumberFormatException _) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
@@ -3066,7 +3062,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         CaseManagementIssue currentIssue = requireCurrentIssueWriteAccess(curIssues.get(idx).getIssue(), getDemographicNo(request));
 
-        if (substitution != null && curIssues != null && idx < curIssues.size()) {
+        if (substitution != null) {
 
             Issue iss = caseManagementMgr.getIssue(substitution);
             if (iss == null) {
@@ -3087,9 +3083,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             sessionFrm.getCaseNote().setIssues(issueset);
         }
 
-        if (curIssues != null) {
-            sessionFrm.setIssueCheckList(curIssues);
-        }
+        sessionFrm.setIssueCheckList(curIssues);
         request.setAttribute("caseManagementEntryForm", sessionFrm);
 
         return ISSUE_LIST_AJAX_RESULT;
@@ -3228,7 +3222,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         int ind;
         try {
             ind = Integer.parseInt(this.getLineId());
-        } catch (NumberFormatException invalid) {
+        } catch (NumberFormatException _) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
@@ -4210,7 +4204,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         try {
             if (raw == null || !raw.matches("[1-9]\\d*")) throw new NumberFormatException();
             id = Integer.valueOf(raw);
-        } catch (NumberFormatException invalid) {
+        } catch (NumberFormatException _) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return null;
         }

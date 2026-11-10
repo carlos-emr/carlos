@@ -498,6 +498,12 @@
                 origCaseNote = editor.value;
                 origObservationDate = $("observationDate").value;
                 noteIssuesChanged = false;
+                var printControl = $("print" + newId);
+                if (printControl) {
+                    var printSelected = noteIsQeued(newId) >= 0;
+                    setPrintControlSelected(printControl, printSelected,
+                            ctx + "/encounter/graphics/" + (printSelected ? "printerGreen.png" : "printer.png"));
+                }
                 initializeIssueAutocomplete(document.getElementById('noteIssues'));
             </c:when>
             <c:otherwise>
