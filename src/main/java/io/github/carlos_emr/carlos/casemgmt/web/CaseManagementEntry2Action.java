@@ -181,9 +181,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     /** The single issue attribute an issue-change click sets, and its strict true/false value. */
     static final String ISSUE_FIELD_PARAM = "issueField";
     static final String ISSUE_VALUE_PARAM = "issueValue";
-    private static final Set<String> ISSUE_CHANGE_FIELDS = Set.of("acute", "certain", "major", "resolved");
+    /** Issue attribute names, as the editor posts them and as IssueDisplay shows a set flag. */
+    private static final String ISSUE_ACUTE = "acute";
+    private static final String ISSUE_CERTAIN = "certain";
+    private static final String ISSUE_MAJOR = "major";
+    private static final String ISSUE_RESOLVED = "resolved";
+    private static final Set<String> ISSUE_CHANGE_FIELDS = Set.of(ISSUE_ACUTE, ISSUE_CERTAIN, ISSUE_MAJOR, ISSUE_RESOLVED);
     /** Attributes the editor offers only when the issue is writable for this provider. */
-    private static final Set<String> WRITE_ACCESS_ISSUE_FIELDS = Set.of("certain", "major");
+    private static final Set<String> WRITE_ACCESS_ISSUE_FIELDS = Set.of(ISSUE_CERTAIN, ISSUE_MAJOR);
     private static final Set<String> ALLOWED_CHAIN_RESULT_NAMES = Set.of("list", "view", ISSUE_LIST_AJAX_RESULT);
     private static final Set<String> NOTE_WRITE_METHODS = Set.of(
             "issueNoteSave", "issueNoteSaveJson", "ajaxsave", "save", "saveAndExit", "ticklerSaveNote");
@@ -2010,10 +2015,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     private void copyIssueDisplayToCaseManagementIssue(CaseManagementIssue caseManagementIssue, IssueDisplay issueDisplay) {
-        caseManagementIssue.setAcute("acute".equals(issueDisplay.acute));
-        caseManagementIssue.setCertain("certain".equals(issueDisplay.certain));
-        caseManagementIssue.setMajor("major".equals(issueDisplay.major));
-        caseManagementIssue.setResolved("resolved".equals(issueDisplay.resolved));
+        caseManagementIssue.setAcute(ISSUE_ACUTE.equals(issueDisplay.acute));
+        caseManagementIssue.setCertain(ISSUE_CERTAIN.equals(issueDisplay.certain));
+        caseManagementIssue.setMajor(ISSUE_MAJOR.equals(issueDisplay.major));
+        caseManagementIssue.setResolved(ISSUE_RESOLVED.equals(issueDisplay.resolved));
     }
 
     private String prepareCheckedIssues(HttpServletRequest request, String demo, List<CaseManagementIssue> issuelist,
@@ -3239,13 +3244,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             return null;
         }
         String field = request.getParameter(ISSUE_FIELD_PARAM);
-        Boolean value = parseIssueFlag(request.getParameter(ISSUE_VALUE_PARAM));
+        Optional<Boolean> value = parseIssueFlag(request.getParameter(ISSUE_VALUE_PARAM));
         String demono = getDemographicNo(request);
         String sessionFrmName = ChartProgramContext.formKey(request, demono);
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
         // Resolve the clicked issue by identity before touching the session editor, so a
         // refused or stale request leaves the note times and every issue unchanged.
-        CheckBoxBean target = issueChangeTarget(sessionFrm, demono, field, value);
+        CheckBoxBean target = issueChangeTarget(sessionFrm, demono, field, value.isPresent());
         if (target == null) return NONE;
 
         request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
@@ -3257,7 +3262,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         request.setAttribute("demoAge", getDemoAge(demono));
         request.setAttribute("demoDOB", getDemoDOB(demono));
 
-        CaseManagementIssue changed = applyIssueFlag(target.getIssue(), field, value);
+        CaseManagementIssue changed = applyIssueFlag(target.getIssue(), field, value.orElseThrow());
         caseManagementMgr.saveAndUpdateCaseIssues(new ArrayList<>(List.of(changed)));
         // Change issueDisplay if this issue is successfully saved.
         showIssueFlags(target.getIssueDisplay(), changed);
@@ -3289,9 +3294,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
      */
     private static CaseManagementIssue applyIssueFlag(CaseManagementIssue issue, String field, boolean value) {
         switch (field) {
-            case "acute" -> issue.setAcute(value);
-            case "certain" -> issue.setCertain(value);
-            case "major" -> issue.setMajor(value);
+            case ISSUE_ACUTE -> issue.setAcute(value);
+            case ISSUE_CERTAIN -> issue.setCertain(value);
+            case ISSUE_MAJOR -> issue.setMajor(value);
             default -> issue.setResolved(value);
         }
         issue.setUpdate_date(new Date());
@@ -3300,10 +3305,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     private static void showIssueFlags(IssueDisplay display, CaseManagementIssue issue) {
         if (display == null) return;
-        display.setAcute(issue.isAcute() ? "acute" : "chronic");
-        display.setCertain(issue.isCertain() ? "certain" : "uncertain");
-        display.setMajor(issue.isMajor() ? "major" : "not major");
-        display.setResolved(issue.isResolved() ? "resolved" : "unresolved");
+        display.setAcute(issue.isAcute() ? ISSUE_ACUTE : "chronic");
+        display.setCertain(issue.isCertain() ? ISSUE_CERTAIN : "uncertain");
+        display.setMajor(issue.isMajor() ? ISSUE_MAJOR : "not major");
+        display.setResolved(issue.isResolved() ? ISSUE_RESOLVED : "unresolved");
     }
 
     /**
@@ -3315,8 +3320,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
      * @return the clicked issue's entry, or {@code null} after the response status has been set
      */
     private CheckBoxBean issueChangeTarget(CaseManagementEntryFormBean sessionFrm, String demographicNo,
-                                           String field, Boolean value) {
-        if (field == null || !ISSUE_CHANGE_FIELDS.contains(field) || value == null
+                                           String field, boolean valueIsFlag) {
+        if (field == null || !ISSUE_CHANGE_FIELDS.contains(field) || !valueIsFlag
                 || sessionFrm == null || sessionFrm.getIssueCheckList() == null) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return null;
@@ -3335,11 +3340,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 && !target.getIssueDisplay().isWriteAccess();
     }
 
-    /** Parses an issue attribute value strictly; anything but {@code true}/{@code false} is refused. */
-    static Boolean parseIssueFlag(String raw) {
-        if ("true".equals(raw)) return Boolean.TRUE;
-        if ("false".equals(raw)) return Boolean.FALSE;
-        return null;
+    /** Parses an issue attribute value strictly; anything but {@code true}/{@code false} is empty. */
+    static Optional<Boolean> parseIssueFlag(String raw) {
+        if ("true".equals(raw)) return Optional.of(Boolean.TRUE);
+        if ("false".equals(raw)) return Optional.of(Boolean.FALSE);
+        return Optional.empty();
     }
 
     /**
@@ -3385,10 +3390,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     private static Long parsePositiveIssueId(String raw) {
-        if (raw == null || !raw.matches("[1-9][0-9]{0,18}")) return null;
+        if (raw == null || !raw.matches("[1-9]\\d{0,18}")) return null;
         try {
             return Long.valueOf(raw);
-        } catch (NumberFormatException overflow) {
+        } catch (NumberFormatException _) {
+            // Nineteen digits can still exceed Long.MAX_VALUE.
             return null;
         }
     }

@@ -53,7 +53,7 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
     private MockedStatic<CarlosProperties> config;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         action = mock(CaseManagementEntry2Action.class, CALLS_REAL_METHODS);
         request = new MockHttpServletRequest("POST", "/CaseManagementEntry");
         response = new MockHttpServletResponse();
@@ -276,7 +276,7 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRefuseAnotherPatientsIssue_evenWhenTheIdIsInTheSessionList() throws Exception {
+    void shouldRefuseAnotherPatientsIssue_evenWhenTheIdIsInTheSessionList() {
         issue(41).getIssue().setDemographic_no(102);
         click("41", "acute", "true");
 
@@ -341,7 +341,7 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRecodeTheIssueChosenByItsChangeLink_whenARefreshReorderedTheList() throws Exception {
+    void shouldRecodeTheIssueChosenByItsChangeLink_whenARefreshReorderedTheList() {
         CheckBoxBean first = issue(41);
         CheckBoxBean second = issue(42);
         reorder(second, first);
@@ -365,7 +365,7 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRefuseRecodeWithConflict_whenTheChosenIssueIsGone() throws Exception {
+    void shouldRefuseRecodeWithConflict_whenTheChosenIssueIsGone() {
         CheckBoxBean remaining = issue(42);
         request.setParameter("change_diagnosis_id", "41");
         request.setParameter("newIssueId", "777");
@@ -380,7 +380,7 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"0", "abc", "778"})
-    void shouldRefuseRecode_whenTheReplacementDiagnosisIsNotAKnownIssue(String newIssueId) throws Exception {
+    void shouldRefuseRecode_whenTheReplacementDiagnosisIsNotAKnownIssue(String newIssueId) {
         CheckBoxBean entry = issue(41);
         if (newIssueId != null) request.setParameter("newIssueId", newIssueId);
         request.setParameter("change_diagnosis_id", "41");
@@ -393,7 +393,7 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldCarryThePatientIssueId_toTheLegacyIssueSearchPage() throws Exception {
+    void shouldCarryThePatientIssueId_toTheLegacyIssueSearchPage() {
         issue(41);
         request.setParameter("caseIssueId", "41");
 
@@ -405,7 +405,7 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"0", "1;2"})
-    void shouldRefuseTheLegacyIssueSearchPage_withoutAPatientIssueId(String id) throws Exception {
+    void shouldRefuseTheLegacyIssueSearchPage_withoutAPatientIssueId(String id) {
         if (id != null) request.setParameter("caseIssueId", id);
 
         assertThat(action.changeDiagnosis()).isEqualTo("none");
