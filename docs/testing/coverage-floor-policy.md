@@ -159,3 +159,18 @@ The driver's floors rise again to 54.08/53.09/48.79 percent; only that row and
 the source/report provenance change. Other floors, refusal lines and the
 comparison-wide qualification requirements remain intact, with no lower floor
 or new waiver.
+
+The `6b679afc3659` checkpoint extends the same TINYINT(1) truth rule to
+`transformedBitIsBoolean=true`. The seven boundary/NULL unit cases exercise
+both BIT and BOOLEAN metadata, and the physical cases exercise all four
+`tinyInt1isBit`/`transformedBitIsBoolean` combinations in both protocols,
+including the integer-object controls. The original Connector/J 9.6.0 oracle
+agrees throughout that configuration matrix. Its clean Ubuntu 26.04/JDK 25
+H2 execution again passes 36,087 actual cases, with 213 explicitly registered
+skips, zero failures/errors and 2,643 reports accepted by the release evidence
+parser. All 6,292 production class hashes match the separate 60-case
+adapter/physical MariaDB execution and the source-built packaged WAR. The
+driver's floors rise to 54.20/53.32/49.00 percent; its source blob and the
+source/report provenance are refreshed. Every other floor and refusal line
+is retained, including the comparison-wide qualification requirements and
+80 unreviewed zero floors. No floor is lowered and no waiver is added.

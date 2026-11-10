@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "a6f9f9c65e3d3fad61afabdd3941c0bd198dcd0e",
-  "comparisonSha256": "336ad3e304194d26de00c04711994b8f82913a8683666fdd5cb6a5a3c737413b",
-  "baselineCommit": "2766d0fffb8938c4fbe7eb3fa6fbec1017c72728",
-  "baselineSourceTree": "a6f9f9c65e3d3fad61afabdd3941c0bd198dcd0e",
-  "baselineReportSha256": "4d815e4de09970b53366a52ac217e0861a7d4098c5d1162f79fca27a3b19d15d",
+  "sourceTree": "552046cdebc8fc7924fd29a3e3fbbbdf66e57ffd",
+  "comparisonSha256": "4ab99c69da28f2bddd19e6896ddb5c5d1ae5bb05c9098750cef180d949cb58fc",
+  "baselineCommit": "6b679afc365952e0d38d8636e3d6e80633021950",
+  "baselineSourceTree": "552046cdebc8fc7924fd29a3e3fbbbdf66e57ffd",
+  "baselineReportSha256": "977259135f27d0a99d4805812d7bdc3cff861c219d25e33da7ffd44e6948d33f",
   "baselineLane": "Candidate Ubuntu 26.04/JDK 25 H2 baseline. Routed/prerequisite skips remain explicit. Previous higher floors and refusal lines are retained; native-lane union qualification and zero-floor review remain required.",
   "baselineTestCounts": {
     "tests": 36087,
@@ -13,7 +13,7 @@
     "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "960a67c3cb5aac6decf95999a38147fc66ec257ec52ec92e11ad018681b589dc",
+  "baselineTestReportsSha256": "a7f4bde86e9d5f1716c5bd56991ffafcfb8be27d18db3e25bd83973d54e68035",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -3454,10 +3454,10 @@
       "sourceBlob": "3da5836aab13fc921b8265500eb6006a13b97df5"
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java": {
-      "lines": 54.08163265306123,
-      "instructions": 53.092399403874815,
-      "branches": 48.79032258064516,
-      "sourceBlob": "79121e322271c919678476d86e4af4c198a16434"
+      "lines": 54.19847328244275,
+      "instructions": 53.31850203930293,
+      "branches": 49.0,
+      "sourceBlob": "8af5b76285c51d866d6c1ff6a366770c5483b2eb"
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibility.java": {
       "lines": 97.77227722772277,
