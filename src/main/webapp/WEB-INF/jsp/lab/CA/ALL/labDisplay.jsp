@@ -802,8 +802,12 @@ input[id^='acklabel_']{
             return confirm('${carlos:forJavaScript(msgAckUnmatched)}');
         }
 
+        /** Submits one unlink per report at a time, retaining failed reasons and separating success from refresh errors. */
         function unlinkDemographic(labNo) {
-            var reason = "Incorrect demographic";
+            var inFlight = unlinkDemographic.inFlight || (unlinkDemographic.inFlight = new Set());
+            if (inFlight.has(String(labNo))) return false;
+            var reasons = unlinkDemographic.reasons || (unlinkDemographic.reasons = Object.create(null));
+            var reason = reasons[String(labNo)] || "Incorrect demographic";
             reason = prompt('${carlos:forJavaScript(msgUnlink)}', reason);
 
             //must include reason
@@ -811,25 +815,51 @@ input[id^='acklabel_']{
                 return false;
             }
 
+            reasons[String(labNo)] = reason;
             var urlStr = '<%=request.getContextPath()%>' + "/lab/CA/ALL/UnlinkDemographic";
             var dataStr = "reason=" + encodeURIComponent(reason) + "&labNo=" + encodeURIComponent(labNo) + "&CSRF-TOKEN=" + encodeURIComponent(getCsrfToken());
-            fetch(urlStr, {
+            inFlight.add(String(labNo));
+            Promise.resolve().then(function() { return fetch(urlStr, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                 body: dataStr
+            }); })
+            .then(function(response) {
+                return response.json().then(function(data) {
+                    if (!response.ok || data.success !== true) {
+                        throw new Error('The lab could not be unlinked.');
+                    }
+                    return data;
+                });
             })
-            .then(function(response) { return response.json(); })
             .then(function(data) {
                 if (data.success) {
-                    // refresh the opening page with new results
-                    top.opener.location.reload();
-                    // refresh the lab display page and offer dialog to rematch.
-                    window.location.reload();
+                    delete reasons[String(labNo)];
+                    // A navigation problem must not undo a confirmed unlink outcome.
+                    var refreshFailed = false;
+                    try {
+                        if (top.opener && !top.opener.closed) top.opener.location.reload();
+                    } catch (refreshError) {
+                        refreshFailed = true;
+                        console.error('Lab unlinked; inbox refresh failed:', refreshError);
+                    }
+                    try {
+                        window.location.reload();
+                    } catch (refreshError) {
+                        refreshFailed = true;
+                        console.error('Lab unlinked; report refresh failed:', refreshError);
+                    }
+                    if (refreshFailed) {
+                        alert('The lab was unlinked. Refresh the report and inbox manually to update their displayed status.');
+                    }
                 }
             })
             .catch(function(error) {
                 console.error('Failed to unlink demographic:', error);
-                alert('An error occurred while unlinking the demographic. Please refresh and try again.');
+                alert('The unlink could not be confirmed. Your reason is retained on this page for retry. Refreshing will clear the reason.');
+            })
+            .finally(function() {
+                inFlight.delete(String(labNo));
             });
         }
 
