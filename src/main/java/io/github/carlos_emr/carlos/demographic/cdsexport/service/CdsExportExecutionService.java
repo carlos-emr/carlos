@@ -165,6 +165,7 @@ public class CdsExportExecutionService {
                     LogSafe.exceptionTrace(review));
         } catch (SecurityException denied) {
             stop(lease, CdsExportState.REVIEW_REQUIRED, "CDS_EXPORT_ACCESS_CHANGED");
+            technicalFailure(denied);
         } catch (
                 io.github.carlos_emr.carlos.demographic.cdsexport.support
                                 .CdsExportMappingReviewException
