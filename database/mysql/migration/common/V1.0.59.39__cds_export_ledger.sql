@@ -56,11 +56,15 @@ INSERT INTO secObjectName (objectName,description,orgapplicable)
 SELECT '_cds_export','Run approved clinical data exports',0
 WHERE NOT EXISTS (SELECT 1 FROM secObjectName WHERE objectName='_cds_export');
 
--- Administrators receive the independent bulk-export permission. Admission and
+-- Full administrators receive the independent bulk-export permission. Admission and
 -- approved recipient/audit policy remain disabled until separately configured.
 -- Preserve an existing customized admin grant or denial on replay.
 INSERT INTO secObjPrivilege (roleUserGroup,objectName,privilege,priority)
 SELECT 'admin','_cds_export','|x|',0
-WHERE NOT EXISTS (
+WHERE EXISTS (
+    SELECT 1 FROM secObjPrivilege
+    WHERE roleUserGroup='admin' AND objectName='_admin' AND privilege IN ('x','w','|x|','|w|')
+)
+AND NOT EXISTS (
     SELECT 1 FROM secObjPrivilege WHERE roleUserGroup='admin' AND objectName='_cds_export'
 );

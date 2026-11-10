@@ -50,12 +50,12 @@ public final class CdsExportSourceReadLock implements AutoCloseable {
         return acquireUnpooled(connection, 150_000);
     }
 
-    /** A shorter caller budget may tighten, never extend, the fixed source-capture ceiling. */
+    /** An explicit capture budget may vary within the finite two-hour capture plus cleanup ceiling. */
     public static CdsExportSourceReadLock acquireUnpooled(Connection connection, long maximumMillis)
             throws SQLException {
         var lease = new CdsExportSourceReadLock(Objects.requireNonNull(connection));
         try {
-            if (maximumMillis < 1 || maximumMillis > 150_000)
+            if (maximumMillis < 1 || maximumMillis > 7_230_000)
                 throw new SQLException("CDS_EXPORT_SOURCE_READ_LOCK_BUDGET_INVALID");
             lease.maximumMillis = maximumMillis;
             if (CURRENT.get() != null || !connection.getAutoCommit())

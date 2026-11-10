@@ -35,6 +35,7 @@ public final class CdsExportSourceCatalogue {
         MAPPED_SOURCE,
         OPERATIONAL,
         REFERENCE,
+        ACCESS_CONTROL,
         REQUIRE_EMPTY
     }
 
@@ -48,6 +49,8 @@ public final class CdsExportSourceCatalogue {
             Map<String, Disposition> tables,
             List<Profile> profiles,
             Map<String, Set<String>> requiredScopes,
+            Map<String, List<String>> patientScopes,
+            Map<String, List<String>> clinicalRemainders,
             CdsExportTableSchemaDto scope) {
         public Snapshot {
             tables = Map.copyOf(tables);
@@ -55,6 +58,14 @@ public final class CdsExportSourceCatalogue {
             var copy = new HashMap<String, Set<String>>();
             requiredScopes.forEach((name, values) -> copy.put(name, Set.copyOf(values)));
             requiredScopes = Map.copyOf(copy);
+            patientScopes = copyColumns(patientScopes);
+            clinicalRemainders = copyColumns(clinicalRemainders);
+        }
+
+        private static Map<String, List<String>> copyColumns(Map<String, List<String>> source) {
+            var result = new HashMap<String, List<String>>();
+            source.forEach((table, columns) -> result.put(table, List.copyOf(columns)));
+            return Map.copyOf(result);
         }
 
         public Set<String> required(Set<CdsCategory> selected) {
@@ -184,6 +195,13 @@ public final class CdsExportSourceCatalogue {
             profiles.add(new Profile(province, tables));
         }
         if (!union.equals(rulings.keySet())) invalid();
+        var patientScopes = scopedColumns(root.path("patientScopes"), profiles, rulings, true);
+        var clinicalRemainders =
+                scopedColumns(root.path("clinicalRemainders"), profiles, rulings, false);
+        for (var entry : rulings.entrySet())
+            if (entry.getValue() == Disposition.ACCESS_CONTROL
+                    && (!patientScopes.containsKey(entry.getKey())
+                            || !clinicalRemainders.containsKey(entry.getKey()))) invalid();
         var required = new HashMap<String, Set<String>>();
         for (var field : root.path("requiredScopes").properties()) {
             if (!CdsCategory.wireNames().contains(field.getKey())
@@ -216,7 +234,54 @@ public final class CdsExportSourceCatalogue {
                         CdsExportTableSchemaDto.class);
         if (scope.columns().size() != 1
                 || !sha(bytes).equals(scope.columns().getFirst().expression())) invalid();
-        return new Snapshot(rulings, profiles, required, scope);
+        return new Snapshot(rulings, profiles, required, patientScopes, clinicalRemainders, scope);
+    }
+
+    private static Map<String, List<String>> scopedColumns(
+            JsonNode document,
+            List<Profile> profiles,
+            Map<String, Disposition> rulings,
+            boolean owner)
+            throws IOException {
+        if (!document.isObject() || document.size() > 1024) invalid();
+        var result = new HashMap<String, List<String>>();
+        for (var field : document.properties()) {
+            String table = field.getKey();
+            identifier(table);
+            var ruling = rulings.get(table);
+            if (ruling == null
+                    || (owner
+                            ? ruling != Disposition.REQUIRE_EMPTY
+                                    && ruling != Disposition.ACCESS_CONTROL
+                            : ruling != Disposition.ACCESS_CONTROL)) invalid();
+            if (!field.getValue().isArray()
+                    || field.getValue().isEmpty()
+                    || field.getValue().size() > 4) invalid();
+            var columns = new ArrayList<String>();
+            for (var value : field.getValue()) {
+                if (!value.isTextual()) invalid();
+                String column = value.asText();
+                identifier(column);
+                if (columns.contains(column)) invalid();
+                for (var profile : profiles) {
+                    var schema = profile.tables().get(table);
+                    if (schema == null) continue;
+                    var match =
+                            schema.columns().stream().filter(c -> c.name().equals(column)).toList();
+                    if (match.size() != 1
+                            || owner
+                                    && !match.getFirst()
+                                            .type()
+                                            .matches(
+                                                    "(?:tinyint|smallint|mediumint|int|bigint)\\([0-9]{1,3}\\)(?:"
+                                                        + " unsigned)?|varchar\\([0-9]{1,3}\\)"))
+                        invalid();
+                }
+                columns.add(column);
+            }
+            result.put(table, List.copyOf(columns));
+        }
+        return Map.copyOf(result);
     }
 
     private static String optional(JsonNode value) {

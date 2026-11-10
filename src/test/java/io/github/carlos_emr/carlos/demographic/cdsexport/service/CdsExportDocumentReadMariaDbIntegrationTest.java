@@ -155,14 +155,18 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                         status -> {
                             for (int i = 0; i < 36; i++) {
                                 sql.update(
-                                        "insert into document(document_no,docdesc,doctype,docfilename,doccreator,contenttype,responsible,public1,abnormal,status,restrictToProgram,docxml,source) values(?,?,?,'owned-source.txt','','text/plain','','0','0','A',0,?,?)",
+                                        "insert into"
+                                            + " document(document_no,docdesc,doctype,docfilename,doccreator,contenttype,responsible,public1,abnormal,status,restrictToProgram,docxml,source)"
+                                            + " values(?,?,?,'owned-source.txt','','text/plain','','0','0','A',0,?,?)",
                                         patient + i,
                                         marker,
                                         marker,
                                         body,
                                         i == 0 ? null : "");
                                 sql.update(
-                                        "insert into ctl_document(module,module_id,document_no,status) values('demographic',?,?,'A')",
+                                        "insert into"
+                                            + " ctl_document(module,module_id,document_no,status)"
+                                            + " values('demographic',?,?,'A')",
                                         i == 35 ? patient + 1 : patient,
                                         patient + i);
                             }
@@ -187,11 +191,13 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                         patient,
                         patient);
                 sql.update(
-                        "delete from document_review where id=? and document_no=? and provider_no='989875'",
+                        "delete from document_review where id=? and document_no=? and"
+                            + " provider_no='989875'",
                         patient,
                         patient);
                 sql.update(
-                        "delete from DocumentExtraReviewer where id=? and documentNo=? and reviewerProviderNo='989879'",
+                        "delete from DocumentExtraReviewer where id=? and documentNo=? and"
+                            + " reviewerProviderNo='989879'",
                         patient,
                         patient);
                 sql.update(
@@ -199,12 +205,15 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                         patient,
                         patient);
                 sql.update(
-                        "delete c from ctl_document c join document d on d.document_no=c.document_no where d.document_no between ? and ? and d.doctype=?",
+                        "delete c from ctl_document c join document d on"
+                            + " d.document_no=c.document_no where d.document_no between ? and ? and"
+                            + " d.doctype=?",
                         patient,
                         patient + 35,
                         marker);
                 sql.update(
-                        "delete from ctl_document where module='demographic' and module_id=? and document_no=?",
+                        "delete from ctl_document where module='demographic' and module_id=? and"
+                            + " document_no=?",
                         patient,
                         patient + 100);
                 sql.update(
@@ -215,7 +224,9 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                 if (ownedReviewer)
                     assertThat(
                                     sql.update(
-                                            "delete from provider where provider_no='989875' and first_name='OwnedDocSource' and last_name='CDS source fixture'"))
+                                            "delete from provider where provider_no='989875' and"
+                                                + " first_name='OwnedDocSource' and last_name='CDS"
+                                                + " source fixture'"))
                             .isEqualTo(1);
             }
         } finally {
@@ -231,7 +242,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
         try {
             assertThat(
                             sql.update(
-                                    "insert into site(site_id,name,short_name,bg_color,status) values(?,?,?,'white',1)",
+                                    "insert into site(site_id,name,short_name,bg_color,status)"
+                                        + " values(?,?,?,'white',1)",
                                     patient,
                                     marker,
                                     "CDS-owned"))
@@ -239,7 +251,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
             siteCreated = true;
             assertThat(
                             sql.update(
-                                    "insert into providersite(provider_no,site_id) values('999998',?)",
+                                    "insert into providersite(provider_no,site_id)"
+                                        + " values('999998',?)",
                                     patient))
                     .isEqualTo(1);
             linkCreated = true;
@@ -253,7 +266,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                                     }));
             // A clinical source remains subject to the same fail-closed closure check.
             sql.update(
-                    "insert into casemgmt_cpp(id,demographic_no,socialHistory,provider_no) values(?,?,?,'989879')",
+                    "insert into casemgmt_cpp(id,demographic_no,socialHistory,provider_no)"
+                        + " values(?,?,?,'989879')",
                     patient,
                     Integer.toString(patient),
                     "Owned unsupported clinical fact");
@@ -279,7 +293,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
             if (linkCreated)
                 assertThat(
                                 sql.update(
-                                        "delete from providersite where provider_no='999998' and site_id=?",
+                                        "delete from providersite where provider_no='999998' and"
+                                            + " site_id=?",
                                         patient))
                         .isEqualTo(1);
             if (siteCreated)
@@ -299,7 +314,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                 patient,
                 marker);
         sql.update(
-                "update ctl_document set status='D' where module='demographic' and module_id=? and document_no=?",
+                "update ctl_document set status='D' where module='demographic' and module_id=? and"
+                    + " document_no=?",
                 patient,
                 patient);
         read.executeWithoutResult(
@@ -383,7 +399,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     @Test
     void shouldRefuseSharedDocuments_forEitherPatientBeforeReturningHeaders() {
         sql.update(
-                "insert into ctl_document(module,module_id,document_no,status) values('demographic',?,?,'A')",
+                "insert into ctl_document(module,module_id,document_no,status)"
+                    + " values('demographic',?,?,'A')",
                 patient + 1,
                 patient);
         assertThatThrownBy(() -> read.execute(status -> documents.countCdsExportRows(patient)))
@@ -400,7 +417,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     @Test
     void shouldRefuseDanglingLinks_insteadOfSilentlyDroppingAnOccurrence() {
         sql.update(
-                "insert into ctl_document(module,module_id,document_no,status) values('demographic',?,?,'A')",
+                "insert into ctl_document(module,module_id,document_no,status)"
+                    + " values('demographic',?,?,'A')",
                 patient,
                 patient + 100);
         assertThatThrownBy(() -> read.execute(status -> documents.countCdsExportRows(patient)))
@@ -410,7 +428,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     @Test
     void shouldRequireReviewForUnqualifiedProgramRestrictions_beforeAnyDocumentPayload() {
         sql.update(
-                "update document set restrictToProgram=1,program_id=57 where document_no=? and doctype=?",
+                "update document set restrictToProgram=1,program_id=57 where document_no=? and"
+                    + " doctype=?",
                 patient,
                 marker);
         assertThatThrownBy(
@@ -432,10 +451,14 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                                 Long.class))
                 .isZero();
         sql.update(
-                "insert into provider(provider_no,first_name,last_name,provider_type,specialty,sex,status,lastUpdateDate) values('989875','OwnedDocSource','CDS source fixture','doctor','','U','1',CURRENT_TIMESTAMP)");
+                "insert into"
+                    + " provider(provider_no,first_name,last_name,provider_type,specialty,sex,status,lastUpdateDate)"
+                    + " values('989875','OwnedDocSource','CDS source"
+                    + " fixture','doctor','','U','1',CURRENT_TIMESTAMP)");
         ownedReviewer = true;
         sql.update(
-                "insert into document_review(id,document_no,provider_no,date_reviewed) values(?,?,'989875',CURRENT_TIMESTAMP)",
+                "insert into document_review(id,document_no,provider_no,date_reviewed)"
+                    + " values(?,?,'989875',CURRENT_TIMESTAMP)",
                 patient,
                 patient);
         assertThatThrownBy(() -> read.execute(status -> documents.countCdsExportRows(patient)))
@@ -445,7 +468,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     @Test
     void shouldRequireReview_forAdditionalNativeReviewerAssociations() {
         sql.update(
-                "insert into DocumentExtraReviewer(id,documentNo,reviewerProviderNo,reviewDateTime) values(?,?,'989879',CURRENT_TIMESTAMP)",
+                "insert into DocumentExtraReviewer(id,documentNo,reviewerProviderNo,reviewDateTime)"
+                    + " values(?,?,'989879',CURRENT_TIMESTAMP)",
                 patient,
                 patient);
         assertThatThrownBy(() -> read.execute(status -> links.countCdsExportRows(patient)))
@@ -455,7 +479,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     @Test
     void shouldRequireReview_forUnqualifiedDatabaseFileStorage() {
         sql.update(
-                "insert into document_storage(id,documentNo,fileContents,uploadDate) values(?,?,?,CURRENT_TIMESTAMP)",
+                "insert into document_storage(id,documentNo,fileContents,uploadDate)"
+                    + " values(?,?,?,CURRENT_TIMESTAMP)",
                 patient,
                 patient,
                 body.getBytes(StandardCharsets.UTF_8));
@@ -524,7 +549,9 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                             writer.submit(
                                             () ->
                                                     sql.update(
-                                                            "update document set docxml='Owned concurrent edit' where document_no=? and doctype=?",
+                                                            "update document set docxml='Owned"
+                                                                + " concurrent edit' where"
+                                                                + " document_no=? and doctype=?",
                                                             patient,
                                                             marker))
                                     .get(10, java.util.concurrent.TimeUnit.SECONDS);
@@ -555,7 +582,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
 
     private void hospitalReportLink(String owner) {
         sql.update(
-                "insert into HRMDocumentToDemographic(id,demographicNo,hrmDocumentId,timeAssigned) values(?,?,?,CURRENT_TIMESTAMP)",
+                "insert into HRMDocumentToDemographic(id,demographicNo,hrmDocumentId,timeAssigned)"
+                    + " values(?,?,?,CURRENT_TIMESTAMP)",
                 patient,
                 owner,
                 Integer.toString(patient + 500));
@@ -596,7 +624,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
         for (String alias :
                 List.of("0" + patient, "+" + patient, patient + "suffix", " " + patient)) {
             sql.update(
-                    "update HRMDocumentToDemographic set demographicNo=? where id=? and hrmDocumentId=?",
+                    "update HRMDocumentToDemographic set demographicNo=? where id=? and"
+                        + " hrmDocumentId=?",
                     alias,
                     patient,
                     Integer.toString(patient + 500));
@@ -665,7 +694,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     @Test
     void shouldRefuseUnclassifiedClinicalSourceRows_insteadOfTreatingTheChartAsFullyCovered() {
         sql.update(
-                "insert into casemgmt_cpp(id,demographic_no,socialHistory,provider_no) values(?,?,?,'989879')",
+                "insert into casemgmt_cpp(id,demographic_no,socialHistory,provider_no)"
+                    + " values(?,?,?,'989879')",
                 patient,
                 Integer.toString(patient),
                 "Owned unrepresented clinical source");
@@ -728,6 +758,126 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
         }
     }
 
+    private void requireCatalogueScope() {
+        stableLegacy(
+                () ->
+                        read.executeWithoutResult(
+                                status -> {
+                                    catalogue.readSourceSchema();
+                                    catalogue.requireUnclassifiedSourcesEmpty(patient, () -> {});
+                                }));
+    }
+
+    @Test
+    void shouldIgnoreAnotherPatientsUnsupportedRecord_andRefuseTheSelectedPatientsRecord() {
+        sql.update(
+                "insert into CdsHospitalisationDays(id,clientId,admitted) values(?,?,'2024-02-29')",
+                patient,
+                patient + 77);
+        try {
+            requireCatalogueScope();
+            sql.update("update CdsHospitalisationDays set clientId=? where id=?", patient, patient);
+            assertThatThrownBy(this::requireCatalogueScope)
+                    .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED");
+        } finally {
+            sql.update(
+                    "delete from CdsHospitalisationDays where id=? and clientId in (?,?)",
+                    patient,
+                    patient,
+                    patient + 77);
+        }
+    }
+
+    @Test
+    void shouldRefuseANumericTextPatientAlias_withoutHidingItBehindCanonicalStringEquality() {
+        String alias = "0" + patient;
+        sql.update(
+                "insert into casemgmt_cpp(id,demographic_no,socialHistory) values(?,?,?)",
+                patient,
+                alias,
+                "OWNED_SOURCE_ALIAS");
+        try {
+            assertThatThrownBy(this::requireCatalogueScope)
+                    .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED");
+        } finally {
+            sql.update("delete from casemgmt_cpp where id=? and demographic_no=?", patient, alias);
+        }
+    }
+
+    @Test
+    void shouldCheckBothRelationshipEndpoints_beforeClaimingPatientSourceAbsence() {
+        sql.update(
+                "insert into relationships(id,demographic_no,relation_demographic_no,notes)"
+                    + " values(?,?,?,?)",
+                patient,
+                patient + 77,
+                patient,
+                "OWNED_RELATED_PATIENT_FACT");
+        try {
+            assertThatThrownBy(this::requireCatalogueScope)
+                    .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED");
+        } finally {
+            sql.update(
+                    "delete from relationships where id=? and relation_demographic_no=?",
+                    patient,
+                    patient);
+        }
+    }
+
+    @Test
+    void shouldAllowProgramAccessMetadata_butRefuseEveryPopulatedClinicalRemainder() {
+        sql.update(
+                "insert into admission(am_id,client_id,program_id,admission_status,admission_date) "
+                        + "values(?, ?, 1, 'admitted', '2024-02-29 00:00:00')",
+                patient,
+                patient);
+        try {
+            requireCatalogueScope();
+            for (String update :
+                    List.of(
+                            "update admission set"
+                                + " admission_notes='OWNED',discharge_notes=NULL,radioDischargeReason=NULL"
+                                + " where am_id=?",
+                            "update admission set"
+                                + " admission_notes=NULL,discharge_notes='OWNED',radioDischargeReason=NULL"
+                                + " where am_id=?",
+                            "update admission set"
+                                + " admission_notes=NULL,discharge_notes=NULL,radioDischargeReason='OWNED'"
+                                + " where am_id=?")) {
+                sql.update(update, patient);
+                assertThatThrownBy(this::requireCatalogueScope)
+                        .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED");
+            }
+        } finally {
+            sql.update("delete from admission where am_id=? and client_id=?", patient, patient);
+        }
+    }
+
+    @Test
+    void shouldAcceptALongerFiniteLegacySnapshotBudget_andStillRefuseAnUnboundedBudget()
+            throws Exception {
+        try (var held =
+                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceReadLock
+                        .acquireUnpooled(
+                                java.sql.DriverManager.getConnection(
+                                        source.getUrl(),
+                                        source.getUsername(),
+                                        source.getPassword()),
+                                600_000)) {
+            held.verify();
+        }
+        var connection =
+                java.sql.DriverManager.getConnection(
+                        source.getUrl(), source.getUsername(), source.getPassword());
+        assertThatThrownBy(
+                        () ->
+                                io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                        .CdsExportSourceReadLock.acquireUnpooled(
+                                        connection, 7_230_001))
+                .hasMessage("CDS_EXPORT_SOURCE_READ_LOCK_BUDGET_INVALID");
+        assertThat(connection.isClosed()).isTrue();
+    }
+
     @Test
     void shouldRefuseAnUnpinnedNontransactionalSource_evenWhenItsCurrentCountIsZero() {
         assertThatThrownBy(() -> read.executeWithoutResult(status -> catalogue.readSourceSchema()))
@@ -735,8 +885,9 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldKeepTheLegacyTableStableUntilThePatientSnapshotReleasesItsReadLock_forDocumentReadContract()
-            throws Exception {
+    void
+            shouldKeepTheLegacyTableStableUntilThePatientSnapshotReleasesItsReadLock_forDocumentReadContract()
+                    throws Exception {
         sql.update(
                 "insert into formRourke2009(ID,demographic_no,provider_no) values(?,?,'989879')",
                 patient,
@@ -760,7 +911,9 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                                         writerId.set(ids.getLong(1));
                                         try (var statement =
                                                 connection.prepareStatement(
-                                                        "update formRourke2009 set formCreated='2000-01-01' where ID=? and demographic_no=?")) {
+                                                        "update formRourke2009 set"
+                                                            + " formCreated='2000-01-01' where ID=?"
+                                                            + " and demographic_no=?")) {
                                             statement.setQueryTimeout(10);
                                             statement.setInt(1, patient);
                                             statement.setInt(2, patient);
@@ -799,7 +952,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
             assertThat(pending.get(10, java.util.concurrent.TimeUnit.SECONDS)).isEqualTo(1);
             assertThat(
                             sql.queryForObject(
-                                    "select CAST(formCreated AS CHAR) from formRourke2009 where ID=? and demographic_no=?",
+                                    "select CAST(formCreated AS CHAR) from formRourke2009 where"
+                                        + " ID=? and demographic_no=?",
                                     String.class,
                                     patient,
                                     patient))
@@ -855,7 +1009,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                             () -> {
                                 started.countDown();
                                 return sql.update(
-                                        "update formRourke2009 set formCreated='2000-01-01' where ID=? and demographic_no=?",
+                                        "update formRourke2009 set formCreated='2000-01-01' where"
+                                            + " ID=? and demographic_no=?",
                                         patient,
                                         patient);
                             });

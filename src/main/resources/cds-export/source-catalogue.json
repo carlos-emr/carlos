@@ -13,9 +13,9 @@
     "AppUser": "OPERATIONAL",
     "CVCImmunization": "MAPPED_SOURCE",
     "CVCMapping": "MAPPED_SOURCE",
-    "CVCMedication": "REQUIRE_EMPTY",
-    "CVCMedicationGTIN": "REQUIRE_EMPTY",
-    "CVCMedicationLotNumber": "REQUIRE_EMPTY",
+    "CVCMedication": "REFERENCE",
+    "CVCMedicationGTIN": "REFERENCE",
+    "CVCMedicationLotNumber": "REFERENCE",
     "CdsClientForm": "REQUIRE_EMPTY",
     "CdsClientFormData": "REQUIRE_EMPTY",
     "CdsFormOption": "REFERENCE",
@@ -28,7 +28,7 @@
     "CtlRelationships": "REFERENCE",
     "DHIRSubmissionLog": "OPERATIONAL",
     "DemographicContact": "MAPPED_SOURCE",
-    "Department": "REQUIRE_EMPTY",
+    "Department": "REFERENCE",
     "DigitalSignature": "REQUIRE_EMPTY",
     "DocumentExtraReviewer": "REQUIRE_EMPTY",
     "DrugProduct": "REQUIRE_EMPTY",
@@ -38,7 +38,7 @@
     "Facility": "REFERENCE",
     "FaxClientLog": "OPERATIONAL",
     "FlowSheetUserCreated": "REQUIRE_EMPTY",
-    "Flowsheet": "REQUIRE_EMPTY",
+    "Flowsheet": "REFERENCE",
     "FunctionalCentre": "REFERENCE",
     "GroupNoteLink": "REQUIRE_EMPTY",
     "HL7HandlerMSHMapping": "REFERENCE",
@@ -48,31 +48,31 @@
     "HRMDocumentSubClass": "REQUIRE_EMPTY",
     "HRMDocumentToDemographic": "MAPPED_SOURCE",
     "HRMDocumentToProvider": "REQUIRE_EMPTY",
-    "HRMProviderConfidentialityStatement": "REQUIRE_EMPTY",
-    "HRMSubClass": "REQUIRE_EMPTY",
+    "HRMProviderConfidentialityStatement": "OPERATIONAL",
+    "HRMSubClass": "REFERENCE",
     "HnrDataValidation": "OPERATIONAL",
-    "ISO36612": "REQUIRE_EMPTY",
+    "ISO36612": "REFERENCE",
     "Icd9Synonym": "REFERENCE",
-    "Institution": "REQUIRE_EMPTY",
-    "InstitutionDepartment": "REQUIRE_EMPTY",
-    "IssueGroup": "REQUIRE_EMPTY",
-    "IssueGroupIssues": "REQUIRE_EMPTY",
-    "LookupCodeValue": "REQUIRE_EMPTY",
+    "Institution": "REFERENCE",
+    "InstitutionDepartment": "REFERENCE",
+    "IssueGroup": "REFERENCE",
+    "IssueGroupIssues": "REFERENCE",
+    "LookupCodeValue": "REFERENCE",
     "LookupList": "REFERENCE",
     "LookupListItem": "REFERENCE",
     "MyGroupAccessRestriction": "REQUIRE_EMPTY",
-    "OceanSetting": "REQUIRE_EMPTY",
+    "OceanSetting": "OPERATIONAL",
     "OscarCode": "REFERENCE",
     "OscarJob": "OPERATIONAL",
     "OscarJobType": "OPERATIONAL",
     "PageMonitor": "OPERATIONAL",
     "PreventionReport": "REQUIRE_EMPTY",
-    "PreventionsLotNrs": "REQUIRE_EMPTY",
+    "PreventionsLotNrs": "REFERENCE",
     "PrintResourceLog": "OPERATIONAL",
     "ProviderPreference": "OPERATIONAL",
-    "ProviderPreferenceAppointmentScreenEForm": "REQUIRE_EMPTY",
-    "ProviderPreferenceAppointmentScreenForm": "REQUIRE_EMPTY",
-    "ProviderPreferenceAppointmentScreenQuickLink": "REQUIRE_EMPTY",
+    "ProviderPreferenceAppointmentScreenEForm": "REFERENCE",
+    "ProviderPreferenceAppointmentScreenForm": "REFERENCE",
+    "ProviderPreferenceAppointmentScreenQuickLink": "REFERENCE",
     "RemoteDataLog": "OPERATIONAL",
     "RemoteReferral": "REQUIRE_EMPTY",
     "ResourceStorage": "REQUIRE_EMPTY",
@@ -85,61 +85,61 @@
     "SystemMessage": "OPERATIONAL",
     "SystemPreferences": "OPERATIONAL",
     "access_type": "REFERENCE",
-    "admission": "REQUIRE_EMPTY",
+    "admission": "ACCESS_CONTROL",
     "agency": "REFERENCE",
     "allergies": "MAPPED_SOURCE",
     "app_lookuptable": "REFERENCE",
     "app_lookuptable_fields": "REFERENCE",
     "appointment": "MAPPED_SOURCE",
     "appointmentArchive": "MAPPED_SOURCE",
-    "appointmentType": "REQUIRE_EMPTY",
+    "appointmentType": "REFERENCE",
     "appointment_status": "MAPPED_SOURCE",
     "batchEligibility": "REFERENCE",
-    "batch_billing": "REQUIRE_EMPTY",
-    "bcpEligibleCodes": "REQUIRE_EMPTY",
-    "bed": "REQUIRE_EMPTY",
+    "batch_billing": "OPERATIONAL",
+    "bcpEligibleCodes": "OPERATIONAL",
+    "bed": "OPERATIONAL",
     "bed_type": "REFERENCE",
-    "bill_recipients": "REQUIRE_EMPTY",
-    "billactivity": "REQUIRE_EMPTY",
+    "bill_recipients": "OPERATIONAL",
+    "billactivity": "OPERATIONAL",
     "billcenter": "REFERENCE",
-    "billing": "REQUIRE_EMPTY",
-    "billing_cdm_service_codes": "REQUIRE_EMPTY",
+    "billing": "OPERATIONAL",
+    "billing_cdm_service_codes": "OPERATIONAL",
     "billing_filename_import": "OPERATIONAL",
-    "billing_history": "REQUIRE_EMPTY",
-    "billing_msp_servicecode_times": "REQUIRE_EMPTY",
-    "billing_on_3rdPartyAddress": "REQUIRE_EMPTY",
-    "billing_on_cheader1": "REQUIRE_EMPTY",
-    "billing_on_cheader2": "REQUIRE_EMPTY",
-    "billing_on_diskname": "REQUIRE_EMPTY",
-    "billing_on_eareport": "REQUIRE_EMPTY",
+    "billing_history": "OPERATIONAL",
+    "billing_msp_servicecode_times": "OPERATIONAL",
+    "billing_on_3rdPartyAddress": "OPERATIONAL",
+    "billing_on_cheader1": "OPERATIONAL",
+    "billing_on_cheader2": "OPERATIONAL",
+    "billing_on_diskname": "OPERATIONAL",
+    "billing_on_eareport": "OPERATIONAL",
     "billing_on_errorCode": "REFERENCE",
-    "billing_on_ext": "REQUIRE_EMPTY",
-    "billing_on_favourite": "REQUIRE_EMPTY",
-    "billing_on_filename": "REQUIRE_EMPTY",
-    "billing_on_header": "REQUIRE_EMPTY",
-    "billing_on_item": "REQUIRE_EMPTY",
-    "billing_on_item_payment": "REQUIRE_EMPTY",
-    "billing_on_payment": "REQUIRE_EMPTY",
-    "billing_on_premium": "REQUIRE_EMPTY",
-    "billing_on_proc": "REQUIRE_EMPTY",
-    "billing_on_repo": "REQUIRE_EMPTY",
-    "billing_on_transaction": "REQUIRE_EMPTY",
+    "billing_on_ext": "OPERATIONAL",
+    "billing_on_favourite": "OPERATIONAL",
+    "billing_on_filename": "OPERATIONAL",
+    "billing_on_header": "OPERATIONAL",
+    "billing_on_item": "OPERATIONAL",
+    "billing_on_item_payment": "OPERATIONAL",
+    "billing_on_payment": "OPERATIONAL",
+    "billing_on_premium": "OPERATIONAL",
+    "billing_on_proc": "OPERATIONAL",
+    "billing_on_repo": "OPERATIONAL",
+    "billing_on_transaction": "OPERATIONAL",
     "billing_payment_type": "REFERENCE",
-    "billing_preferences": "REQUIRE_EMPTY",
-    "billing_private_transactions": "REQUIRE_EMPTY",
-    "billing_service_code_conditions": "REQUIRE_EMPTY",
-    "billing_trayfees": "REQUIRE_EMPTY",
-    "billingdetail": "REQUIRE_EMPTY",
-    "billinginr": "REQUIRE_EMPTY",
-    "billinglocation": "REQUIRE_EMPTY",
-    "billingmaster": "REQUIRE_EMPTY",
-    "billingnote": "REQUIRE_EMPTY",
-    "billingperclimit": "REQUIRE_EMPTY",
-    "billingreferral": "REQUIRE_EMPTY",
+    "billing_preferences": "OPERATIONAL",
+    "billing_private_transactions": "OPERATIONAL",
+    "billing_service_code_conditions": "OPERATIONAL",
+    "billing_trayfees": "OPERATIONAL",
+    "billingdetail": "OPERATIONAL",
+    "billinginr": "OPERATIONAL",
+    "billinglocation": "OPERATIONAL",
+    "billingmaster": "OPERATIONAL",
+    "billingnote": "OPERATIONAL",
+    "billingperclimit": "OPERATIONAL",
+    "billingreferral": "OPERATIONAL",
     "billingservice": "REFERENCE",
-    "billingstatus_types": "REQUIRE_EMPTY",
-    "billingtypes": "REQUIRE_EMPTY",
-    "billingvisit": "REQUIRE_EMPTY",
+    "billingstatus_types": "OPERATIONAL",
+    "billingtypes": "OPERATIONAL",
+    "billingvisit": "OPERATIONAL",
     "caisi_form": "REQUIRE_EMPTY",
     "caisi_form_data": "REQUIRE_EMPTY",
     "caisi_form_data_tmpsave": "REQUIRE_EMPTY",
@@ -151,7 +151,7 @@
     "casemgmt_note": "MAPPED_SOURCE",
     "casemgmt_note_ext": "MAPPED_SOURCE",
     "casemgmt_note_link": "REQUIRE_EMPTY",
-    "casemgmt_note_lock": "REQUIRE_EMPTY",
+    "casemgmt_note_lock": "OPERATIONAL",
     "casemgmt_tmpsave": "REQUIRE_EMPTY",
     "cds_export_attempt": "OPERATIONAL",
     "cds_export_event": "OPERATIONAL",
@@ -193,18 +193,18 @@
     "criteria_selection_option": "REQUIRE_EMPTY",
     "criteria_type": "REFERENCE",
     "criteria_type_option": "REFERENCE",
-    "cssStyles": "REQUIRE_EMPTY",
+    "cssStyles": "REFERENCE",
     "ctl_billingservice": "REFERENCE",
-    "ctl_billingservice_age_rules": "REQUIRE_EMPTY",
+    "ctl_billingservice_age_rules": "OPERATIONAL",
     "ctl_billingservice_premium": "REFERENCE",
-    "ctl_billingservice_sex_rules": "REQUIRE_EMPTY",
-    "ctl_billingtype": "REQUIRE_EMPTY",
+    "ctl_billingservice_sex_rules": "OPERATIONAL",
+    "ctl_billingtype": "OPERATIONAL",
     "ctl_diagcode": "REFERENCE",
     "ctl_doc_class": "REFERENCE",
     "ctl_doctype": "REFERENCE",
     "ctl_document": "MAPPED_SOURCE",
     "ctl_frequency": "REFERENCE",
-    "ctl_servicecodes_dxcodes": "REQUIRE_EMPTY",
+    "ctl_servicecodes_dxcodes": "OPERATIONAL",
     "ctl_specialinstructions": "REFERENCE",
     "custom_filter": "REQUIRE_EMPTY",
     "custom_filter_assignees": "REQUIRE_EMPTY",
@@ -233,21 +233,21 @@
     "documentDescriptionTemplate": "REFERENCE",
     "document_review": "REQUIRE_EMPTY",
     "document_storage": "REQUIRE_EMPTY",
-    "drugReason": "REQUIRE_EMPTY",
+    "drugReason": "REFERENCE",
     "drugs": "MAPPED_SOURCE",
-    "dsGuidelineProviderMap": "REQUIRE_EMPTY",
-    "dsGuidelines": "REQUIRE_EMPTY",
+    "dsGuidelineProviderMap": "REFERENCE",
+    "dsGuidelines": "REFERENCE",
     "dxCodeTranslations": "REFERENCE",
     "dx_associations": "REQUIRE_EMPTY",
     "dxphcpgroup": "REFERENCE",
     "dxresearch": "REQUIRE_EMPTY",
     "eChart": "REQUIRE_EMPTY",
-    "eform": "REQUIRE_EMPTY",
+    "eform": "REFERENCE",
     "eform_data": "REQUIRE_EMPTY",
-    "eform_groups": "REQUIRE_EMPTY",
+    "eform_groups": "REFERENCE",
     "eform_values": "REQUIRE_EMPTY",
     "emailAttachment": "REQUIRE_EMPTY",
-    "emailConfig": "REQUIRE_EMPTY",
+    "emailConfig": "OPERATIONAL",
     "emailLog": "REQUIRE_EMPTY",
     "encounter": "REQUIRE_EMPTY",
     "encounterForm": "REFERENCE",
@@ -256,14 +256,14 @@
     "erefer_attachment": "REQUIRE_EMPTY",
     "erefer_attachment_data": "REQUIRE_EMPTY",
     "facility_message": "REQUIRE_EMPTY",
-    "favorites": "REQUIRE_EMPTY",
-    "favoritesprivilege": "REQUIRE_EMPTY",
+    "favorites": "REFERENCE",
+    "favoritesprivilege": "REFERENCE",
     "fax_config": "OPERATIONAL",
     "faxes": "REQUIRE_EMPTY",
     "fileUploadCheck": "REQUIRE_EMPTY",
-    "flowsheet_customization": "REQUIRE_EMPTY",
-    "flowsheet_drug": "REQUIRE_EMPTY",
-    "flowsheet_dx": "REQUIRE_EMPTY",
+    "flowsheet_customization": "REFERENCE",
+    "flowsheet_drug": "REFERENCE",
+    "flowsheet_dx": "REFERENCE",
     "form": "REQUIRE_EMPTY",
     "form2MinWalk": "REQUIRE_EMPTY",
     "formAdfV2": "REQUIRE_EMPTY",
@@ -334,7 +334,7 @@
     "formchf": "REQUIRE_EMPTY",
     "formreceptionassessment": "REQUIRE_EMPTY",
     "frm_labreq_preset": "REFERENCE",
-    "functional_user_type": "REQUIRE_EMPTY",
+    "functional_user_type": "OPERATIONAL",
     "groupMembers_tbl": "REQUIRE_EMPTY",
     "groups_tbl": "REFERENCE",
     "gstControl": "REFERENCE",
@@ -356,8 +356,8 @@
     "icd9": "REFERENCE",
     "ichppccode": "REFERENCE",
     "immunizations": "REQUIRE_EMPTY",
-    "incomingLabRules": "REQUIRE_EMPTY",
-    "incomingLabRulesType": "REQUIRE_EMPTY",
+    "incomingLabRules": "REFERENCE",
+    "incomingLabRulesType": "REFERENCE",
     "indicatorTemplate": "REQUIRE_EMPTY",
     "issue": "MAPPED_SOURCE",
     "joint_admissions": "REQUIRE_EMPTY",
@@ -388,7 +388,7 @@
     "mdsZMC": "REQUIRE_EMPTY",
     "mdsZMN": "REQUIRE_EMPTY",
     "mdsZRG": "REQUIRE_EMPTY",
-    "measurementCSSLocation": "REQUIRE_EMPTY",
+    "measurementCSSLocation": "REFERENCE",
     "measurementGroup": "REFERENCE",
     "measurementGroupStyle": "REFERENCE",
     "measurementMap": "REFERENCE",
@@ -417,25 +417,25 @@
     "professionalSpecialists": "REQUIRE_EMPTY",
     "program": "REFERENCE",
     "programSignature": "REQUIRE_EMPTY",
-    "program_access": "REQUIRE_EMPTY",
-    "program_access_roles": "REQUIRE_EMPTY",
+    "program_access": "OPERATIONAL",
+    "program_access_roles": "OPERATIONAL",
     "program_client_restriction": "REQUIRE_EMPTY",
-    "program_clientstatus": "REQUIRE_EMPTY",
-    "program_functional_user": "REQUIRE_EMPTY",
+    "program_clientstatus": "OPERATIONAL",
+    "program_functional_user": "OPERATIONAL",
     "program_provider": "REFERENCE",
-    "program_provider_team": "REQUIRE_EMPTY",
+    "program_provider_team": "OPERATIONAL",
     "program_queue": "REQUIRE_EMPTY",
-    "program_team": "REQUIRE_EMPTY",
+    "program_team": "OPERATIONAL",
     "property": "OPERATIONAL",
     "provider": "MAPPED_SOURCE",
-    "providerArchive": "REQUIRE_EMPTY",
-    "providerExt": "REQUIRE_EMPTY",
+    "providerArchive": "OPERATIONAL",
+    "providerExt": "OPERATIONAL",
     "providerLabRouting": "REQUIRE_EMPTY",
-    "providerLabRoutingFavorites": "REQUIRE_EMPTY",
-    "providerLabRoutingLock": "REQUIRE_EMPTY",
+    "providerLabRoutingFavorites": "OPERATIONAL",
+    "providerLabRoutingLock": "OPERATIONAL",
     "provider_default_program": "REQUIRE_EMPTY",
     "provider_facility": "OPERATIONAL",
-    "providerbillcenter": "REQUIRE_EMPTY",
+    "providerbillcenter": "OPERATIONAL",
     "providersite": "REFERENCE",
     "providerstudy": "REQUIRE_EMPTY",
     "publicKeys": "OPERATIONAL",
@@ -443,8 +443,8 @@
     "queue_document_link": "REQUIRE_EMPTY",
     "quickList": "REFERENCE",
     "quickListUser": "REQUIRE_EMPTY",
-    "radetail": "REQUIRE_EMPTY",
-    "raheader": "REQUIRE_EMPTY",
+    "radetail": "OPERATIONAL",
+    "raheader": "OPERATIONAL",
     "rbt_groups": "REQUIRE_EMPTY",
     "recyclebin": "REQUIRE_EMPTY",
     "rehabStudy2004": "REQUIRE_EMPTY",
@@ -463,12 +463,12 @@
     "reportagesex": "REQUIRE_EMPTY",
     "reportprovider": "REFERENCE",
     "reporttemp": "REQUIRE_EMPTY",
-    "room": "REQUIRE_EMPTY",
-    "rschedule": "REQUIRE_EMPTY",
-    "rx_favorite_group": "REQUIRE_EMPTY",
-    "rx_favorite_group_member": "REQUIRE_EMPTY",
+    "room": "OPERATIONAL",
+    "rschedule": "OPERATIONAL",
+    "rx_favorite_group": "REFERENCE",
+    "rx_favorite_group_member": "REFERENCE",
     "rx_submission_receipt": "OPERATIONAL",
-    "scheduledate": "REQUIRE_EMPTY",
+    "scheduledate": "OPERATIONAL",
     "scheduleholiday": "REFERENCE",
     "scheduletemplate": "REFERENCE",
     "scheduletemplatecode": "REFERENCE",
@@ -488,17 +488,17 @@
     "studylogin": "REQUIRE_EMPTY",
     "survey": "REQUIRE_EMPTY",
     "surveyData": "REQUIRE_EMPTY",
-    "table_modification": "REQUIRE_EMPTY",
-    "teleplanC12": "REQUIRE_EMPTY",
-    "teleplanS00": "REQUIRE_EMPTY",
-    "teleplanS21": "REQUIRE_EMPTY",
-    "teleplanS22": "REQUIRE_EMPTY",
-    "teleplanS23": "REQUIRE_EMPTY",
-    "teleplanS25": "REQUIRE_EMPTY",
-    "teleplan_adj_codes": "REQUIRE_EMPTY",
-    "teleplan_refusal_code": "REQUIRE_EMPTY",
-    "teleplan_response_log": "REQUIRE_EMPTY",
-    "teleplan_submission_link": "REQUIRE_EMPTY",
+    "table_modification": "OPERATIONAL",
+    "teleplanC12": "OPERATIONAL",
+    "teleplanS00": "OPERATIONAL",
+    "teleplanS21": "OPERATIONAL",
+    "teleplanS22": "OPERATIONAL",
+    "teleplanS23": "OPERATIONAL",
+    "teleplanS25": "OPERATIONAL",
+    "teleplan_adj_codes": "OPERATIONAL",
+    "teleplan_refusal_code": "OPERATIONAL",
+    "teleplan_response_log": "OPERATIONAL",
+    "teleplan_submission_link": "OPERATIONAL",
     "tickler": "REQUIRE_EMPTY",
     "tickler_category": "REFERENCE",
     "tickler_comments": "REQUIRE_EMPTY",
@@ -507,9 +507,9 @@
     "tickler_update": "REQUIRE_EMPTY",
     "ticklerdocs": "REQUIRE_EMPTY",
     "user_ds_message_prefs": "REQUIRE_EMPTY",
-    "vacancy": "REQUIRE_EMPTY",
+    "vacancy": "OPERATIONAL",
     "vacancy_client_match": "REQUIRE_EMPTY",
-    "vacancy_template": "REQUIRE_EMPTY",
+    "vacancy_template": "OPERATIONAL",
     "validations": "REFERENCE",
     "view": "REQUIRE_EMPTY",
     "waitingList": "REQUIRE_EMPTY",
@@ -643,5 +643,494 @@
       "issue",
       "provider"
     ]
+  },
+  "patientScopes": {
+    "CdsClientForm": [
+      "clientId"
+    ],
+    "CdsHospitalisationDays": [
+      "clientId"
+    ],
+    "ClientLink": [
+      "clientId"
+    ],
+    "Consent": [
+      "demographic_no"
+    ],
+    "DigitalSignature": [
+      "demographicId"
+    ],
+    "Episode": [
+      "demographicNo"
+    ],
+    "GroupNoteLink": [
+      "demographicNo"
+    ],
+    "RemoteReferral": [
+      "demographicId"
+    ],
+    "admission": [
+      "client_id"
+    ],
+    "caisi_form_instance": [
+      "client_id"
+    ],
+    "casemgmt_cpp": [
+      "demographic_no"
+    ],
+    "casemgmt_tmpsave": [
+      "demographic_no"
+    ],
+    "client_image": [
+      "demographic_no"
+    ],
+    "client_referral": [
+      "client_id"
+    ],
+    "consultationRequests": [
+      "demographicNo"
+    ],
+    "consultationRequestsArchive": [
+      "demographicNo"
+    ],
+    "consultationResponse": [
+      "demographicNo"
+    ],
+    "custom_filter": [
+      "demographic_no"
+    ],
+    "demographicExtArchive": [
+      "demographic_no"
+    ],
+    "demographicSets": [
+      "demographic_no"
+    ],
+    "demographicaccessory": [
+      "demographic_no"
+    ],
+    "demographiccustArchive": [
+      "demographic_no"
+    ],
+    "demographicstudy": [
+      "demographic_no"
+    ],
+    "desannualreviewplan": [
+      "demographic_no"
+    ],
+    "desaprisk": [
+      "demographic_no"
+    ],
+    "diseases": [
+      "demographic_no"
+    ],
+    "dxresearch": [
+      "demographic_no"
+    ],
+    "eChart": [
+      "demographicNo"
+    ],
+    "eform_data": [
+      "demographic_no"
+    ],
+    "eform_values": [
+      "demographic_no"
+    ],
+    "emailLog": [
+      "demographicNo"
+    ],
+    "encounter": [
+      "demographic_no"
+    ],
+    "erefer_attachment": [
+      "demographic_no"
+    ],
+    "faxes": [
+      "demographicNo"
+    ],
+    "form": [
+      "demographic_no"
+    ],
+    "form2MinWalk": [
+      "demographic_no"
+    ],
+    "formAdfV2": [
+      "demographic_no"
+    ],
+    "formAlpha": [
+      "demographic_no"
+    ],
+    "formAnnual": [
+      "demographic_no"
+    ],
+    "formAnnualV2": [
+      "demographic_no"
+    ],
+    "formBCAR": [
+      "demographic_no"
+    ],
+    "formBCAR2007": [
+      "demographic_no"
+    ],
+    "formBCAR2012": [
+      "demographic_no"
+    ],
+    "formBCAR2020": [
+      "demographic_no"
+    ],
+    "formBCBirthSumMo": [
+      "demographic_no"
+    ],
+    "formBCBirthSumMo2008": [
+      "demographic_no"
+    ],
+    "formBCClientChartChecklist": [
+      "demographic_no"
+    ],
+    "formBCHP": [
+      "demographic_no"
+    ],
+    "formBCINR": [
+      "demographic_no"
+    ],
+    "formBCNewBorn": [
+      "demographic_no"
+    ],
+    "formBCNewBorn2008": [
+      "demographic_no"
+    ],
+    "formBPMH": [
+      "demographic_no"
+    ],
+    "formCESD": [
+      "demographic_no"
+    ],
+    "formCaregiver": [
+      "demographic_no"
+    ],
+    "formConsult": [
+      "demographic_no"
+    ],
+    "formCostQuestionnaire": [
+      "demographic_no"
+    ],
+    "formCounseling": [
+      "demographic_no"
+    ],
+    "formDischargeSummary": [
+      "demographic_no"
+    ],
+    "formECARES": [
+      "demographic_no"
+    ],
+    "formFalls": [
+      "demographic_no"
+    ],
+    "formGripStrength": [
+      "demographic_no"
+    ],
+    "formGrowth0_36": [
+      "demographic_no"
+    ],
+    "formGrowthChart": [
+      "demographic_no"
+    ],
+    "formHomeFalls": [
+      "demographic_no"
+    ],
+    "formImmunAllergy": [
+      "demographic_no"
+    ],
+    "formIntakeInfo": [
+      "demographic_no"
+    ],
+    "formInternetAccess": [
+      "demographic_no"
+    ],
+    "formLabReq": [
+      "demographic_no"
+    ],
+    "formLabReq07": [
+      "demographic_no"
+    ],
+    "formLabReq10": [
+      "demographic_no"
+    ],
+    "formLateLifeFDIDisability": [
+      "demographic_no"
+    ],
+    "formLateLifeFDIFunction": [
+      "demographic_no"
+    ],
+    "formMMSE": [
+      "demographic_no"
+    ],
+    "formMentalHealth": [
+      "demographic_no"
+    ],
+    "formMentalHealthForm1": [
+      "demographic_no"
+    ],
+    "formMentalHealthForm14": [
+      "demographic_no"
+    ],
+    "formMentalHealthForm42": [
+      "demographic_no"
+    ],
+    "formNoShowPolicy": [
+      "demographic_no"
+    ],
+    "formPalliativeCare": [
+      "demographic_no"
+    ],
+    "formPeriMenopausal": [
+      "demographic_no"
+    ],
+    "formPositionHazard": [
+      "demographic_no"
+    ],
+    "formRhImmuneGlobulin": [
+      "demographic_no"
+    ],
+    "formRourke": [
+      "demographic_no"
+    ],
+    "formRourke2006": [
+      "demographic_no"
+    ],
+    "formRourke2009": [
+      "demographic_no"
+    ],
+    "formRourke2017": [
+      "demographic_no"
+    ],
+    "formRourke2020": [
+      "demographic_no"
+    ],
+    "formSF36": [
+      "demographic_no"
+    ],
+    "formSF36Caregiver": [
+      "demographic_no"
+    ],
+    "formSatisfactionScale": [
+      "demographic_no"
+    ],
+    "formSelfAdministered": [
+      "demographic_no"
+    ],
+    "formSelfAssessment": [
+      "demographic_no"
+    ],
+    "formSelfEfficacy": [
+      "demographic_no"
+    ],
+    "formSelfManagement": [
+      "demographic_no"
+    ],
+    "formTreatmentPref": [
+      "demographic_no"
+    ],
+    "formVTForm": [
+      "demographic_no"
+    ],
+    "formWCB": [
+      "demographic_no"
+    ],
+    "form_hsfo2_visit": [
+      "demographic_no"
+    ],
+    "formchf": [
+      "demographic_no"
+    ],
+    "formreceptionassessment": [
+      "demographic_no"
+    ],
+    "health_safety": [
+      "demographic_no"
+    ],
+    "hl7_link": [
+      "demographic_no"
+    ],
+    "immunizations": [
+      "demographic_no"
+    ],
+    "joint_admissions": [
+      "client_id"
+    ],
+    "mdsMSH": [
+      "demographic_no"
+    ],
+    "msgDemoMap": [
+      "demographic_no"
+    ],
+    "prescribe": [
+      "demographic_no"
+    ],
+    "prescription": [
+      "demographic_no"
+    ],
+    "program_client_restriction": [
+      "demographic_no"
+    ],
+    "program_queue": [
+      "client_id"
+    ],
+    "rehabStudy2004": [
+      "demographic_no"
+    ],
+    "relationships": [
+      "demographic_no",
+      "relation_demographic_no"
+    ],
+    "remoteAttachments": [
+      "demographic_no"
+    ],
+    "reportagesex": [
+      "demographic_no"
+    ],
+    "reporttemp": [
+      "demographic_no"
+    ],
+    "studydata": [
+      "demographic_no"
+    ],
+    "surveyData": [
+      "demographic_no"
+    ],
+    "tickler": [
+      "demographic_no"
+    ],
+    "vacancy_client_match": [
+      "client_id"
+    ],
+    "waitingList": [
+      "demographic_no"
+    ],
+    "wcb": [
+      "demographic_no"
+    ],
+    "workflow": [
+      "demographic_no"
+    ]
+  },
+  "clinicalRemainders": {
+    "admission": [
+      "admission_notes",
+      "discharge_notes",
+      "radioDischargeReason"
+    ]
+  },
+  "rulingNotes": {
+    "CVCMedication": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "CVCMedicationGTIN": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "CVCMedicationLotNumber": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "Department": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "Flowsheet": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "HRMProviderConfidentialityStatement": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
+    "HRMSubClass": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "ISO36612": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "Institution": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "InstitutionDepartment": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "IssueGroup": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "IssueGroupIssues": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "LookupCodeValue": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "OceanSetting": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
+    "PreventionsLotNrs": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "ProviderPreferenceAppointmentScreenEForm": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "ProviderPreferenceAppointmentScreenForm": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "ProviderPreferenceAppointmentScreenQuickLink": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "admission": "Program access membership is metadata. Any admission/discharge narrative or discharge-reason code for the selected patient still requires a qualified clinical carrier and blocks this exporter.",
+    "appointmentType": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "batch_billing": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "bcpEligibleCodes": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "bed": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
+    "bill_recipients": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billactivity": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_cdm_service_codes": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_history": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_msp_servicecode_times": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_on_3rdPartyAddress": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_on_cheader1": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_on_cheader2": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_on_diskname": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_on_eareport": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_on_ext": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_on_favourite": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_on_filename": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_on_header": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_on_item": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_on_item_payment": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_on_payment": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_on_premium": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_on_proc": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_on_repo": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_on_transaction": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_preferences": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_private_transactions": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_service_code_conditions": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billing_trayfees": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billingdetail": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billinginr": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billinglocation": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billingmaster": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billingnote": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billingperclimit": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billingreferral": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billingstatus_types": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billingtypes": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "billingvisit": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "casemgmt_note_lock": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
+    "cssStyles": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "ctl_billingservice_age_rules": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "ctl_billingservice_sex_rules": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "ctl_billingtype": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "ctl_servicecodes_dxcodes": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "drugReason": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "dsGuidelineProviderMap": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "dsGuidelines": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "eform": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "eform_groups": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "emailConfig": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
+    "favorites": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "favoritesprivilege": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "flowsheet_customization": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "flowsheet_drug": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "flowsheet_dx": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "functional_user_type": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
+    "incomingLabRules": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "incomingLabRulesType": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "measurementCSSLocation": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "program_access": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
+    "program_access_roles": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
+    "program_clientstatus": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
+    "program_functional_user": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
+    "program_provider_team": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
+    "program_team": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
+    "providerArchive": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
+    "providerExt": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
+    "providerLabRoutingFavorites": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
+    "providerLabRoutingLock": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
+    "providerbillcenter": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "radetail": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "raheader": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "room": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
+    "rschedule": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
+    "rx_favorite_group": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "rx_favorite_group_member": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "scheduledate": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
+    "table_modification": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
+    "teleplanC12": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "teleplanS00": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "teleplanS21": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "teleplanS22": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "teleplanS23": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "teleplanS25": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "teleplan_adj_codes": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "teleplan_refusal_code": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "teleplan_response_log": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "teleplan_submission_link": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
+    "vacancy": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence.",
+    "vacancy_template": "Provider/system configuration, access/resource scheduling, secret or concurrency metadata; not a patient clinical occurrence."
   }
 }

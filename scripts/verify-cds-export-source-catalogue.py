@@ -23,9 +23,11 @@ def main():
     catalogue = json.loads(CATALOGUE.read_text())
     assert catalogue['format'] == 1
     actual = set()
+    contracts = {}
     for province in ('on', 'bc'):
         path = ROOT / 'database/mysql/schema-contract' / (province + '.json')
         contract = json.loads(path.read_text())
+        contracts[province] = contract
         assert contract['format'] == 2 and contract['province'] == province
         actual.update(row[0] for row in contract['schema']['tables'])
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -34,7 +36,26 @@ def main():
         else:
             assert catalogue['profiles'][province]['physicalContractSha256'] == digest, province + ' contract drift'
     assert actual == set(catalogue['tables']), 'Every physical table requires its own explicit ruling'
-    assert set(catalogue['tables'].values()) <= {'MAPPED_SOURCE', 'REFERENCE', 'OPERATIONAL', 'REQUIRE_EMPTY'}
+    assert set(catalogue['tables'].values()) <= {'MAPPED_SOURCE', 'REFERENCE', 'OPERATIONAL', 'ACCESS_CONTROL', 'REQUIRE_EMPTY'}
+    for field, allowed in [('patientScopes', {'REQUIRE_EMPTY', 'ACCESS_CONTROL'}),
+                           ('clinicalRemainders', {'ACCESS_CONTROL'})]:
+        mapping = catalogue[field]
+        assert isinstance(mapping, dict)
+        for table, names in mapping.items():
+            assert catalogue['tables'][table] in allowed
+            assert isinstance(names, list) and 1 <= len(names) <= 4 and len(set(names)) == len(names)
+            for province in ('on', 'bc'):
+                contract = contracts[province]
+                if table not in {row[0] for row in contract['schema']['tables']}:
+                    continue
+                columns = {row[1]: row[2] for row in contract['schema']['columns'] if row[0] == table}
+                assert set(names) <= set(columns), table + ' scope column drift'
+                if field == 'patientScopes':
+                    assert all(columns[name].startswith(('tinyint(', 'smallint(', 'mediumint(', 'int(', 'bigint(', 'varchar('))
+                               for name in names), table + ' owner type drift'
+    for table, disposition in catalogue['tables'].items():
+        if disposition == 'ACCESS_CONTROL':
+            assert table in catalogue['patientScopes'] and table in catalogue['clinicalRemainders']
     declared = {name for names in catalogue['requiredScopes'].values() for name in names}
     mapped = set()
     for name in declared:
