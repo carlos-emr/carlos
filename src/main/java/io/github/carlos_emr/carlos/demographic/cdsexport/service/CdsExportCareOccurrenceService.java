@@ -123,14 +123,13 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                 || !lease.document().command().categories().contains(category())
                 || !tables.containsAll(TABLES)
                 || !tables.equals(source.capture().tables().keySet())) invalid();
-        if (source.capture().tables().get("measurementsDeleted").rows() != 0) review();
         new CdsExportMergeScopeValidator(captures)
                 .requireUnmerged(
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
         var captured = captureCareRows(lease, patient, tables, source, bounds, control);
         var current = captured.current();
         var exact = captured.exact();
-        long[] totals = {0, 0};
+        long[] totals = {0, 0, 0};
         values.withValues(
                 lease,
                 patient,
@@ -358,6 +357,66 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                         totals[0]++;
                         totals[1] = Math.addExact(totals[1], sourceValues.sourceFields().size());
                     }
+                    for (var nativeSource :
+                            new CdsExportNativeCarePlanner()
+                                    .plan(index, current, control::checkpoint)) {
+                        if (!lease.document()
+                                .command()
+                                .categories()
+                                .contains(CdsCategory.NEW_CATEGORY)) review();
+                        var mapped =
+                                new CdsExportNativeCareMapper()
+                                        .map(
+                                                patient.patient(),
+                                                nativeSource.observation(),
+                                                nativeSource.extensions(),
+                                                nativeSource.definitions(),
+                                                nativeSource.table().equals("measurementsDeleted"));
+                        for (var row : mapped.rows()) {
+                            String rowKey = key(row.table(), id(row));
+                            if (row.table().equals("measurementType")) dictionary.add(rowKey);
+                            else if (!row.table().equals("measurementsDeleted")
+                                    && !owned.add(rowKey)) invalid();
+                        }
+                        if (nativeSource.element() != null
+                                && !nativeSource.element().equals(mapped.element())) review();
+                        new CdsExportNativeFieldAssessmentValidator()
+                                .requireRepresentable(
+                                        mapped.rows(),
+                                        mapped.fields(),
+                                        1_000_000,
+                                        control::checkpoint);
+                        if (mapped.element() == null) continue;
+                        var identity =
+                                new CdsExportIdentityDto(
+                                        patientKey,
+                                        category(),
+                                        CdsImportKeys.hash(
+                                                "carlos-native-occurrence-v1",
+                                                nativeSource.table(),
+                                                nativeSource.id()));
+                        streams.requireActive();
+                        control.authorizeCategory(patient.patient(), category(), false);
+                        xml.emit(
+                                new CdsExportXmlComposer.Section(
+                                        identity,
+                                        body ->
+                                                new CdsExportNativeCareMapper()
+                                                        .writeCare(mapped, body)));
+                        output.accept(
+                                new CdsExportClinicalOccurrenceService.Receipt(
+                                        identity,
+                                        index.sourceManifestSha256(),
+                                        nativeSource.table(),
+                                        nativeSource.id(),
+                                        null,
+                                        mapped.fields(),
+                                        Set.of(),
+                                        Set.of()));
+                        control.authorizeCategory(patient.patient(), category(), false);
+                        totals[0]++;
+                        totals[2]++;
+                    }
                     var expectedNative = new HashSet<String>();
                     current.forEach(
                             (key, row) -> {
@@ -387,8 +446,8 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                 source.manifest().plaintextSha256(),
                 category(),
                 totals[0],
-                totals[0],
-                0,
+                totals[0] - totals[2],
+                totals[2],
                 totals[1]);
     }
 
@@ -517,6 +576,31 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                 expectedChildren.add(entry.getKey());
         if (!children.keySet().equals(expectedChildren)) review();
         return new Dependencies(units, parents, children, expectedChildren);
+    }
+
+    /** Complete source membership for inventory/supporting data, without reading mapper output. */
+    List<CdsExportNativeCarePlanner.Occurrence> nativeSources(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportRetainedIndexDto index,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control)
+            throws IOException {
+        if (!lease.document().command().categories().contains(CdsCategory.CARE_ELEMENTS))
+            return List.of();
+        if (!tables.containsAll(TABLES)) invalid();
+        if (source.capture().tables().get("measurements").rows() == 0
+                && source.capture().tables().get("measurementsDeleted").rows() == 0)
+            return List.of();
+        control.authorizeCategory(patient.patient(), category(), false);
+        var captured = captureCareRows(lease, patient, tables, source, bounds, control);
+        var result =
+                new CdsExportNativeCarePlanner()
+                        .plan(index, captured.current(), control::checkpoint);
+        control.authorizeCategory(patient.patient(), category(), false);
+        return result;
     }
 
     private record CapturedCare(

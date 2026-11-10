@@ -184,6 +184,7 @@ public final class CdsExportInstalledFixture {
                     patient,
                     "<unotes>" + NOTE + "</unotes>");
             nativeHistory(db, patient);
+            nativeCare(db, patient);
             db.commit();
             writePrivate(
                     PRIVATE.resolve("fixture.json"),
@@ -379,6 +380,19 @@ public final class CdsExportInstalledFixture {
     }
 
     /** The native chart deliberately has no CDS import parent or retained fields. */
+    private static void nativeCare(Connection db,int patient) throws Exception {
+        for(var entry:List.of(new String[]{"WT","70.000","kg"},new String[]{"HT","175","cm"},
+                new String[]{"BP","120/80","mmHg"},new String[]{"TEMP","37.1","C"})) {
+            if(count(db,"SELECT COUNT(*) FROM measurementType WHERE BINARY type=BINARY ? AND BINARY measuringInstruction=BINARY ?",entry[0],entry[2])==0)
+                update(db,"INSERT INTO measurementType(type,typeDescription,typeDisplayName,measuringInstruction,validation,createDate) VALUES(?,?,?,?,0,'2026-07-10 12:30:00')",
+                        entry[0],"Native "+entry[0],"Native "+entry[0],entry[2]);
+            update(db,"INSERT INTO measurements(demographicNo,type,dataField,measuringInstruction,comments,providerNo,dateObserved,dateEntered,appointmentNo) VALUES(?,?,?,?,?,?,'2026-07-09 14:35:00','2026-07-10 12:30:00',0)",
+                    patient,entry[0],entry[1],entry[2],"Native measurement comment café 😀",PROVIDER);
+        }
+        update(db,"INSERT INTO measurementsDeleted(demographicNo,type,dataField,measuringInstruction,comments,providerNo,dateObserved,dateEntered,dateDeleted,originalId) VALUES(?,'WT','80','kg',?,?,'2026-07-08 14:35:00','2026-07-09 12:30:00','2026-07-10 14:00:00',999999)",
+                patient,"Deleted native measurement comment café 😀",PROVIDER);
+    }
+
     private static void nativeHistory(Connection db, int patient) throws Exception {
         for (String tag : List.of("SocHistory", "FamHistory", "MedHistory", "Concerns", "RiskFactors", "Reminders")) {
             long issue = count(db, "SELECT COUNT(*) FROM issue WHERE BINARY code=BINARY ?", tag);
@@ -470,6 +484,9 @@ public final class CdsExportInstalledFixture {
                 || count(db,"SELECT COUNT(*) FROM casemgmt_issue WHERE demographic_no=?",patient)!=6
                 || count(db,"SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=? AND archived=1",patient)!=1)
             throw new IllegalStateException("Native history changed");
+        if(count(db,"SELECT COUNT(*) FROM measurements WHERE demographicNo=?",patient)!=4
+                || count(db,"SELECT COUNT(*) FROM measurementsDeleted WHERE demographicNo=?",patient)!=1)
+            throw new IllegalStateException("Native observations changed");
         System.out.println(
                 JSON.writeValueAsString(
                         Map.of(

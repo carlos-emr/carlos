@@ -120,8 +120,10 @@ class CdsExportPatientInventoryServiceUnitTest {
                         new CdsExportRetainedIndexDto.Reference(
                                 "casemgmt_note", "11", CdsExportPatientPipelineFixture.HASH)));
         when(f.historyInventory.plan(any(), any(), anySet(), any(), any(), any(), any()))
-                .thenReturn(List.of(new CdsExportHistoryOccurrenceService.Occurrence(
-                        CdsCategory.CLINICAL_NOTES, "retained", 11)));
+                .thenReturn(
+                        List.of(
+                                new CdsExportHistoryOccurrenceService.Occurrence(
+                                        CdsCategory.CLINICAL_NOTES, "retained", 11)));
         assertThat(capture(f).identities()).hasSize(2);
     }
 
@@ -168,5 +170,50 @@ class CdsExportPatientInventoryServiceUnitTest {
         var f = fixture();
         doThrow(new SecurityException("REVOKED")).when(f.control).authorizePatient(27);
         assertThatThrownBy(() -> capture(f)).hasMessage("REVOKED");
+    }
+
+    @Test
+    void shouldInventoryNativeCareAndItsSupportingContext_withoutAnImportedParent()
+            throws Exception {
+        var f = fixture(CdsCategory.CARE_ELEMENTS, CdsCategory.NEW_CATEGORY);
+        var observation = CdsExportNativeCareMapperUnitTest.observation("WT", "70", "kg");
+        when(f.careInventory.nativeSources(any(), any(), anySet(), any(), any(), any(), any()))
+                .thenReturn(
+                        List.of(
+                                new CdsExportNativeCarePlanner.Occurrence(
+                                        "measurements",
+                                        "91",
+                                        "Weight",
+                                        observation,
+                                        List.of(),
+                                        List.of())));
+        var inventory = capture(f);
+        assertThat(inventory.identities()).hasSize(3);
+        assertThat(
+                        inventory.identities().stream()
+                                .filter(i -> i.category() == CdsCategory.CARE_ELEMENTS))
+                .hasSize(1);
+        assertThat(
+                        inventory.identities().stream()
+                                .filter(i -> i.category() == CdsCategory.NEW_CATEGORY))
+                .hasSize(1);
+    }
+
+    @Test
+    void shouldRefuseNativeObservationsWhenTheirSupportingClinicalContextIsExcluded()
+            throws Exception {
+        var f = fixture(CdsCategory.CARE_ELEMENTS);
+        var observation = CdsExportNativeCareMapperUnitTest.observation("WT", "70", "kg");
+        when(f.careInventory.nativeSources(any(), any(), anySet(), any(), any(), any(), any()))
+                .thenReturn(
+                        List.of(
+                                new CdsExportNativeCarePlanner.Occurrence(
+                                        "measurements",
+                                        "91",
+                                        "Weight",
+                                        observation,
+                                        List.of(),
+                                        List.of())));
+        assertThatThrownBy(() -> capture(f)).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }
 }

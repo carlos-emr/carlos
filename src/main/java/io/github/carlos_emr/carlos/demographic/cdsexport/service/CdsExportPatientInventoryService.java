@@ -50,13 +50,17 @@ public class CdsExportPatientInventoryService {
     private final CdsExportRetainedIndexService indices;
     private final CdsExportNativeRowReceiptReader rows;
     private final CdsExportHistoryInventoryService histories;
+    private final CdsExportCareOccurrenceService care;
 
     public CdsExportPatientInventoryService(
-            CdsExportRetainedIndexService indices, CdsExportNativeRowReceiptReader rows,
-            CdsExportHistoryInventoryService histories) {
+            CdsExportRetainedIndexService indices,
+            CdsExportNativeRowReceiptReader rows,
+            CdsExportHistoryInventoryService histories,
+            CdsExportCareOccurrenceService care) {
         this.indices = Objects.requireNonNull(indices);
         this.rows = Objects.requireNonNull(rows);
         this.histories = Objects.requireNonNull(histories);
+        this.care = Objects.requireNonNull(care);
     }
 
     public Inventory capture(
@@ -132,17 +136,48 @@ public class CdsExportPatientInventoryService {
                         budget);
             }
         }
-        if (!Collections.disjoint(lease.document().command().categories(), CdsExportNoteSourceReader.CATEGORIES)) {
+        if (!Collections.disjoint(
+                lease.document().command().categories(), CdsExportNoteSourceReader.CATEGORIES)) {
             var classified = new HashSet<String>();
-            for (var occurrence : histories.plan(lease, patient, tables, source, index, bounds, control)) {
-                if (!lease.document().command().categories().contains(occurrence.category())) invalid();
+            for (var occurrence :
+                    histories.plan(lease, patient, tables, source, index, bounds, control)) {
+                if (!lease.document().command().categories().contains(occurrence.category()))
+                    invalid();
                 for (long id : occurrence.revisions())
                     if (!classified.add(Long.toString(id))) invalid();
-                add(expected, nativeIdentity(patientKey, occurrence.category(), occurrence.table(),
-                        occurrence.nativeId()), budget);
+                add(
+                        expected,
+                        nativeIdentity(
+                                patientKey,
+                                occurrence.category(),
+                                occurrence.table(),
+                                occurrence.nativeId()),
+                        budget);
             }
             if (!notes.equals(classified)) review();
         } else if (!notes.isEmpty()) invalid();
+        for (var observation :
+                care.nativeSources(lease, patient, tables, source, index, bounds, control)) {
+            if (!lease.document().command().categories().contains(CdsCategory.NEW_CATEGORY))
+                review();
+            if (observation.element() != null)
+                add(
+                        expected,
+                        nativeIdentity(
+                                patientKey,
+                                CdsCategory.CARE_ELEMENTS,
+                                observation.table(),
+                                observation.id()),
+                        budget);
+            add(
+                    expected,
+                    nativeIdentity(
+                            patientKey,
+                            CdsCategory.NEW_CATEGORY,
+                            observation.table(),
+                            observation.id()),
+                    budget);
+        }
         var mapper = new CdsExportRetainedFieldMapper();
         for (var row : index.tables().getOrDefault("cds_import_field", Map.of()).values()) {
             control.checkpoint();

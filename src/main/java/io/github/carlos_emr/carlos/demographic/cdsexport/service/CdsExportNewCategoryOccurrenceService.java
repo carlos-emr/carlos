@@ -31,21 +31,24 @@ import java.io.IOException;
 import java.util.*;
 import org.springframework.stereotype.Service;
 
-/** Standard NewCategory occurrences remain original typed source data; no unrelated native values are moved into them. */
+/** Retained supporting categories and complete source context accompanying native clinical observations. */
 @Service
 public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryOccurrenceAssembler {
     private final CdsExportRetainedValuesService values;
     private final CdsExportRetainedReceiptVerificationService verification;
     private final CdsExportNativeCaptureService captures;
     private final CdsExportCapturedTextRowsReader rows;
+    private final CdsExportCareOccurrenceService care;
 
     public CdsExportNewCategoryOccurrenceService(
             CdsExportRetainedValuesService values,
             CdsExportRetainedReceiptVerificationService verification,
-            CdsExportNativeCaptureService captures) {
+            CdsExportNativeCaptureService captures,
+            CdsExportCareOccurrenceService care) {
         this.values = Objects.requireNonNull(values);
         this.verification = Objects.requireNonNull(verification);
         this.captures = Objects.requireNonNull(captures);
+        this.care = Objects.requireNonNull(care);
         rows = new CdsExportCapturedTextRowsReader(captures);
     }
 
@@ -132,7 +135,7 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
         if (!read.equals(source.capture())
                 || demographic[0] != 1
                 || source.capture().tables().get("demographic").rows() != 1) invalid();
-        long[] counts = {0, 0};
+        long[] counts = {0, 0, 0};
         values.withValues(
                 lease,
                 patient,
@@ -208,6 +211,57 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                         counts[0]++;
                         counts[1] = Math.addExact(counts[1], all.size());
                     }
+                    for (var nativeSource :
+                            care.nativeSources(
+                                    lease, patient, tables, source, index, bounds, control)) {
+                        var mapped =
+                                new CdsExportNativeCareMapper()
+                                        .map(
+                                                patient.patient(),
+                                                nativeSource.observation(),
+                                                nativeSource.extensions(),
+                                                nativeSource.definitions(),
+                                                nativeSource.table().equals("measurementsDeleted"));
+                        new CdsExportNativeFieldAssessmentValidator()
+                                .requireRepresentable(
+                                        mapped.rows(),
+                                        mapped.fields(),
+                                        1_000_000,
+                                        control::checkpoint);
+                        var identity =
+                                new CdsExportIdentityDto(
+                                        patientKey,
+                                        category(),
+                                        CdsImportKeys.hash(
+                                                "carlos-native-occurrence-v1",
+                                                nativeSource.table(),
+                                                nativeSource.id()));
+                        streams.requireActive();
+                        control.authorizeCategory(
+                                patient.patient(), CdsCategory.CARE_ELEMENTS, false);
+                        control.authorizeCategory(patient.patient(), category(), false);
+                        xml.emit(
+                                new CdsExportXmlComposer.Section(
+                                        identity,
+                                        body ->
+                                                new CdsExportNativeCareMapper()
+                                                        .writeSupporting(mapped, body)));
+                        output.accept(
+                                new CdsExportClinicalOccurrenceService.Receipt(
+                                        identity,
+                                        index.sourceManifestSha256(),
+                                        nativeSource.table(),
+                                        nativeSource.id(),
+                                        null,
+                                        mapped.fields(),
+                                        Set.of(),
+                                        Set.of()));
+                        control.authorizeCategory(
+                                patient.patient(), CdsCategory.CARE_ELEMENTS, false);
+                        control.authorizeCategory(patient.patient(), category(), false);
+                        counts[0]++;
+                        counts[2]++;
+                    }
                     var expected = new HashSet<String>();
                     for (var field : retained)
                         if (field.category() == category()) expected.add(field.id());
@@ -222,8 +276,8 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                 source.manifest().plaintextSha256(),
                 category(),
                 counts[0],
-                counts[0],
-                0,
+                counts[0] - counts[2],
+                counts[2],
                 counts[1]);
     }
 
