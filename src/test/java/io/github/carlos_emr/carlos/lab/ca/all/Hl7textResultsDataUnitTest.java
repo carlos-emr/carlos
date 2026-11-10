@@ -248,6 +248,50 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         return measurement;
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @ValueSource(strings = {"DNR"})
+    void shouldLeaveMeasurementsAbsent_whenTheSourceHasNoReportableValue(String result) {
+        assertThat(fileResult(result, ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00"))).isNull();
+        verify(measurementDao, never()).persist(any(Measurement.class));
+    }
+
+    @Test
+    void shouldKeepTheLegacyPreviousVersionScope_forANonCmlSource() {
+        try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("1111,2222,4616");
+            assertThat(fileResult("6.1", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00")))
+                    .isNotNull();
+        }
+        verify(measurementDao).findByValue("lab_no", "2222");
+        verify(measurementDao, never()).findByValue("lab_no", "1111");
+    }
+
+    @Test
+    void shouldPreserveTheOriginalTail_whenSeveralCharactersFollowACaseExpansion() {
+        assertThat(fileResult("İAB", "b$", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00")))
+                .extracting(Measurement::getDataField).isEqualTo("B");
+    }
+
+    @Test
+    void shouldRefuseUnmappableFilterBoundaries_withoutLoggingWhenNoContextWasProvided() throws Exception {
+        var value = Hl7textResultsData.class.getDeclaredMethod("projectableValue", String.class, String.class);
+        value.setAccessible(true);
+        CarlosProperties properties = mock(CarlosProperties.class);
+        try (var settings = mockStatic(CarlosProperties.class); var logs = LogCapture.forLogger(Hl7textResultsData.class)) {
+            settings.when(CarlosProperties::getInstance).thenReturn(properties);
+            when(properties.getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).thenReturn("i");
+            assertThat(value.invoke(null, "İ", null)).isNull();
+            when(properties.getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).thenReturn(".*");
+            for (String missing : new String[]{null, "", "DNR"}) assertThat(value.invoke(null, missing, null)).isNull();
+            assertThat(value.invoke(null, "1".repeat(Measurement.DATA_FIELD_MAX_LENGTH + 1), null)).isNull();
+            assertThat(logs.messages()).isEmpty();
+        }
+        var boundary = Hl7textResultsData.class.getDeclaredMethod("originalBoundary", String.class, String.class, int.class, java.util.Locale.class);
+        boundary.setAccessible(true);
+        assertThat(boundary.invoke(null, "İ", "inconsistent-shadow", 10, java.util.Locale.ROOT)).isEqualTo(-1);
+    }
+
     @Test
     void shouldPreserveTheOriginalUnicodeLiteral_whenItsWholeCaseMappingMatches() {
         Measurement value = fileResult("\u0130", "i\u0307", "2026-03-10 12:00:00",

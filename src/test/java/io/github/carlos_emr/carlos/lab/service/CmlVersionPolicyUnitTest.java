@@ -141,8 +141,30 @@ class CmlVersionPolicyUnitTest {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"F", "f", "C", "c"})
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"F", "f", "Final", "C", "c"})
     void shouldCountAsciiFinalAndCorrectionStatuses_withoutUnicodeCaseFolding(String status) throws Exception {
         assertThat(handler("20260310120000", status, "7010=12.7").getOBXFinalResultCount()).isEqualTo(1);
+    }
+
+    @Test void shouldLeaveRevisionTimeMissing_whenTheSourceCannotBeRead() {
+        assertThat(new CMLHandler().getRevisionTimestamp(0, 0)).isEmpty();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"F", "f"})
+    void shouldCountFinalAliases_whenAHandlerReturnsRawAsciiStatus(String status) {
+        CMLHandler source = new CMLHandler() {
+            @Override public int getOBRCount() { return 1; }
+            @Override public int getOBXCount(int obr) { return 1; }
+            @Override public String getOBXResultStatus(int obr, int obx) { return status; }
+        };
+        assertThat(source.getOBXFinalResultCount()).isEqualTo(1);
+    }
+
+    @Test void shouldRejectAnImpossibleCalendarDate_inHandlerDisplayFormatting() {
+        class DisplayHandler extends CMLHandler {
+            String display(String timestamp) { return formatDateTime(timestamp); }
+        }
+        assertThat(new DisplayHandler().display("20260230")).isEmpty();
     }
 }

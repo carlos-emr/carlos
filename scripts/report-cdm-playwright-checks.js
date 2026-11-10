@@ -98,6 +98,11 @@ async function workflow(s) {
   h.assert(sql.value(`SELECT COUNT(*) FROM measurements WHERE type=${q(type)}`) === '4', 'The reading fixtures were not created');
   const [narrowStart, narrowEnd] = sql.rows('SELECT CURDATE() - INTERVAL 45 DAY, CURDATE() - INTERVAL 20 DAY')[0];
   const line = `${type} ${INSTRUCTION} -> `;
+  async function secondGroupTab(forward) {
+    const other = sql.value(`SELECT name FROM measurementGroup WHERE name<>${q(group)} ORDER BY name LIMIT 1`);
+    h.assert(other, 'A second CDM group is needed for the shared-session controls');
+    return openScreen(s, other, forward);
+  }
 
   await s.step('"Patients who met guideline" counts the latest in-window reading of each owned patient (> 6: 1 of 2)', async () => {
     const page = await openScreen(s, group, 'patientWhoMetGuideline');
@@ -106,9 +111,11 @@ async function workflow(s) {
     await page.locator(`input[name="guidelineCheckbox"][value="${row}"]`).check();
     await page.locator('input[name="guidelineB"]').nth(row).fill('6');
     await page.locator(`input[name="value(aboveBelow${row})"][value=">"]`).check();
+    const otherTab = await secondGroupTab('patientWhoMetGuideline');
     const text = await generate(page, 'InitializePatientsMetGuidelineCDMReport');
     const [met, total] = counts(text, line, 'met-guideline');
     h.assert(met === 1 && total === 2, `Met guideline > 6 counted ${met} of ${total}; SQL fixtures give 1 of 2`);
+    await otherTab.close();
     await page.close();
   });
 
@@ -141,9 +148,11 @@ async function workflow(s) {
     await page.locator(`input[name="abnormalCheckbox"][value="${row}"]`).check();
     await page.locator('input[name="lowerBound"]').nth(row).fill('3');
     await page.locator('input[name="upperBound"]').nth(row).fill('5');
+    const otherTab = await secondGroupTab('patientInAbnormalRange');
     const text = await generate(page, 'InitializePatientsInAbnormalRangeCDMReport');
     const [inRange, total] = counts(text, `${line}From 3 to 5: `, 'abnormal-range');
     h.assert(inRange === 1 && total === 2, `Abnormal range 3..5 counted ${inRange} of ${total}; SQL fixtures give 1 of 2`);
+    await otherTab.close();
     await page.close();
   });
 
@@ -237,6 +246,7 @@ async function workflow(s) {
     await page.locator('input[name="exactly"]').nth(row).fill('2');
     await page.locator('input[name="moreThan"]').nth(row).fill('0');
     await page.locator('input[name="lessThan"]').nth(row).fill('1');
+    const otherTab = await secondGroupTab('freqencyOfReleventTests');
     const seenBefore = Number(sql.value(seenSql));
     const text = await generate(page, 'InitializeFrequencyOfRelevantTestsCDMReport');
     const seenAfter = Number(sql.value(seenSql));
@@ -269,6 +279,7 @@ async function workflow(s) {
       if (!inBracket(less[1])) defects.push(`the less-than denominator is ${less[1]}; SQL counts ${seenBefore}..${seenAfter}`);
     }
     h.assert(!defects.length, `CDM report defects: ${defects.join('; ')}`);
+    await otherTab.close();
     await page.close();
   });
   await s.step('A frequency conversion failure preserves authorized access and refuses an unprivileged user', async () => {
