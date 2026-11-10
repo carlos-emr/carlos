@@ -157,6 +157,7 @@ public class CdsExportExecutionService {
             finishUninterrupted(() -> ledger.release(lease));
         } catch (CdsExportReviewException review) {
             stop(lease, CdsExportState.REVIEW_REQUIRED, review.reason().code());
+            technicalFailure(review);
             LOG.warn(
                     "CDS_EXPORT_REVIEW_REQUIRED run={} epoch={} code={} {}",
                     runId,
@@ -171,6 +172,7 @@ public class CdsExportExecutionService {
                                 .CdsExportMappingReviewException
                         review) {
             stop(lease, CdsExportState.REVIEW_REQUIRED, "CDS_EXPORT_UNMAPPED_DATA");
+            technicalFailure(review);
             LOG.warn(
                     "CDS_EXPORT_REVIEW_REQUIRED run={} epoch={} code=CDS_EXPORT_UNMAPPED_DATA {}",
                     runId,
