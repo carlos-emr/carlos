@@ -39,6 +39,12 @@ import static org.mockito.Mockito.when;
  * comments, directives and scriptlets removed, expressions replaced by a placeholder), and must come out carrying the
  * client script, unless it bootstraps the token itself with {@code csrf-token.jspf}.
  *
+ * <p>This is a source-level approximation, not a JSP render: {@code <%@ include %>} and
+ * {@code <jsp:include>} are not expanded. A page that took its {@code </head>} or {@code </body>}
+ * from an included file would be reported as a fragment, and the check would have to learn to
+ * follow that include. The rendered behaviour is pinned separately for the Issue Editor by the
+ * {@code admin-issue-editor-save} Playwright check.
+ *
  * @since 2026-11-09
  */
 @DisplayName("CAISI admin pages with a POST form receive the CSRFGuard client")
