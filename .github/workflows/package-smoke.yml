@@ -55,7 +55,9 @@ jobs:
           printf '%s\n' 'Acquire::https::CaInfo "/run/carlos-ci-ca.crt";' \
             'Acquire::Retries "3";' 'Acquire::https::Timeout "30";' \
             > /etc/apt/apt.conf.d/80-carlos-ci
-          sed -i 's#http://#https://#g' /etc/apt/sources.list.d/ubuntu.sources
+          sed -i -e 's#http://#https://#g' \
+            -e 's#https://security.ubuntu.com/ubuntu#https://archive.ubuntu.com/ubuntu#g' \
+            /etc/apt/sources.list.d/ubuntu.sources
           for attempt in 1 2 3; do
             apt-get -o Acquire::Retries=3 -o Acquire::http::No-Cache=true \
               -o Acquire::By-Hash=force -o APT::Update::Error-Mode=any update && break

@@ -3,7 +3,9 @@
 FROM ubuntu:26.04@sha256:19fcd1bf268f02b60aca3bd30bd8a6d9a11759a430e32921833e65f16d87348a AS cli-builder
 ENV DEBIAN_FRONTEND=noninteractive
 RUN --mount=type=secret,id=ci_ca,required=true,mode=0444 \
-    sed -i 's#http://#https://#g' /etc/apt/sources.list.d/ubuntu.sources \
+    sed -i -e 's#http://#https://#g' \
+      -e 's#https://security.ubuntu.com/ubuntu#https://archive.ubuntu.com/ubuntu#g' \
+      /etc/apt/sources.list.d/ubuntu.sources \
     && for attempt in 1 2 3; do \
       apt-get -o Acquire::https::CaInfo=/run/secrets/ci_ca -o Acquire::https::Timeout=30 -o Acquire::Retries=3 -o Acquire::http::No-Cache=true -o Acquire::By-Hash=force -o APT::Update::Error-Mode=any update && break; \
       test "$attempt" -lt 3 || exit 1; \
@@ -21,7 +23,9 @@ RUN dpkg-buildpackage -us -uc -b
 FROM ubuntu:26.04@sha256:19fcd1bf268f02b60aca3bd30bd8a6d9a11759a430e32921833e65f16d87348a
 ENV DEBIAN_FRONTEND=noninteractive
 RUN --mount=type=secret,id=ci_ca,required=true,mode=0444 \
-    sed -i 's#http://#https://#g' /etc/apt/sources.list.d/ubuntu.sources \
+    sed -i -e 's#http://#https://#g' \
+      -e 's#https://security.ubuntu.com/ubuntu#https://archive.ubuntu.com/ubuntu#g' \
+      /etc/apt/sources.list.d/ubuntu.sources \
     && for attempt in 1 2 3; do \
       apt-get -o Acquire::https::CaInfo=/run/secrets/ci_ca -o Acquire::https::Timeout=30 -o Acquire::Retries=3 -o Acquire::http::No-Cache=true -o Acquire::By-Hash=force -o APT::Update::Error-Mode=any update && break; \
       test "$attempt" -lt 3 || exit 1; \
