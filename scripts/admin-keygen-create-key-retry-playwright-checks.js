@@ -105,11 +105,12 @@ async function workflow(s) {
   await s.step('creating a client key is refused until the CARLOS key pair exists and stores nothing', async () => {
     const shown = await submitForPage(service);
     await shot('1-missing-carlos-key');
+    // The stored row first: it is issue #6009 itself, whatever the page says.
+    h.assert(clientRows() === '0', 'The refused attempt stored the client key, so its service name can no longer be used');
+    h.assert(sql.value(CARLOS_KEY) === '0', 'The refused attempt created the CARLOS key pair');
     h.assert(shown.includes('The CARLOS key pair has not been created yet')
       && shown.includes("service name 'oscar'") && shown.includes(service),
     `The refusal does not say to create the CARLOS key pair first: "${shown}"`);
-    h.assert(clientRows() === '0', 'The refused attempt stored the client key, so its service name can no longer be used');
-    h.assert(sql.value(CARLOS_KEY) === '0', 'The refused attempt created the CARLOS key pair');
   });
 
   await s.step("the page creates the CARLOS key pair under the service name 'oscar'", async () => {

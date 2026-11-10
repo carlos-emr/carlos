@@ -16,6 +16,14 @@ packages installed on Ubuntu 26.04 through the packaged front door, with no
 fixture residue. See [PR #5598 validation](pr5598-validation.md) for the original
 selector failure, current compose contracts, package inputs and test configuration.
 
+The 2026-11-10 focused validation for issue #6009 (Key Pair Creation stored a client key
+before finding the CARLOS key missing) ran on source-built snapshot27 packages installed
+fresh on Ubuntu 26.04 through the packaged front door. `admin-keygen-create-key-retry`
+passed on the fixed package and failed with the pre-fix `createKey.jsp` swapped in. A fresh
+install has no CARLOS key pair, so it starts in the state the issue describes. See
+[PR #6112 validation](pr6112-validation.md) for the before/after screenshots and the
+unrelated smoke-tier failures on that install.
+
 It is the procedure that first surfaced the WAF false positives on note-saving
 and eForm saves, the add-patient validation regression, the nullable-column
 500s on the consultation surfaces, and the empty Consultations inbox on the demo
