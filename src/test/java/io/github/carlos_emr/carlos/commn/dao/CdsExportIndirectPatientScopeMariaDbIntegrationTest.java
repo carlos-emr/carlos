@@ -120,12 +120,12 @@ class CdsExportIndirectPatientScopeMariaDbIntegrationTest {
         int parent =
                 insert(
                         "INSERT INTO"
-                            + " CdsClientForm(clientId,cdsFormVersion,facilityId,providerNo,created)"
-                            + " VALUES(?,'scope-test',0,'999998',NOW())",
+                            + " CdsClientForm(clientId,cdsFormVersion,facilityId,providerNo,created,signed)"
+                            + " VALUES(?,'scope-test',0,'999998',NOW(),0)",
                         other);
         insert(
                 "INSERT INTO CdsClientFormData(cdsClientFormId,question,answer)"
-                    + " VALUES(?,'synthetic','value')",
+                        + " VALUES(?,'synthetic','value')",
                 parent);
         assertThat(blocked("CdsClientFormData", selected)).isFalse();
         assertThat(blocked("CdsClientFormData", other)).isTrue();
@@ -141,16 +141,16 @@ class CdsExportIndirectPatientScopeMariaDbIntegrationTest {
         int document =
                 insert(
                         "INSERT INTO"
-                            + " document(doctype,docdesc,docxml,docfilename,doccreator,responsible,status,contenttype,public1,number_of_pages)"
-                            + " VALUES('scope','synthetic','','scope-unused.txt','999998','999998','A','text/plain',0,1)");
+                            + " document(doctype,docdesc,docxml,docfilename,doccreator,responsible,status,contenttype,public1,number_of_pages,restrictToProgram)"
+                            + " VALUES('scope','synthetic','','scope-unused.txt','999998','999998','A','text/plain',0,1,0)");
         update(
                 "INSERT INTO ctl_document(module,module_id,document_no,status)"
-                    + " VALUES('demographic',?,?,'A')",
+                        + " VALUES('demographic',?,?,'A')",
                 other,
                 document);
         insert(
                 "INSERT INTO DocumentExtraReviewer(documentNo,reviewerProviderNo,reviewDateTime)"
-                    + " VALUES(?,'999998',NOW())",
+                        + " VALUES(?,'999998',NOW())",
                 document);
         assertThat(blocked("DocumentExtraReviewer", selected)).isFalse();
         assertThat(blocked("DocumentExtraReviewer", other)).isTrue();
@@ -173,12 +173,12 @@ class CdsExportIndirectPatientScopeMariaDbIntegrationTest {
                         other);
         insert(
                 "INSERT INTO patientLabRouting(lab_no,lab_type,demographic_no,created,dateModified)"
-                    + " VALUES(?,'MDS',?,NOW(),NOW())",
+                        + " VALUES(?,'MDS',?,NOW(),NOW())",
                 lab,
                 selected);
         insert(
                 "INSERT INTO providerLabRouting(lab_no,lab_type,provider_no,status,timestamp)"
-                    + " VALUES(?,'HL7','999998','N',NOW())",
+                        + " VALUES(?,'HL7','999998','N',NOW())",
                 lab);
         assertThat(blocked("providerLabRouting", selected)).isFalse();
         assertThat(blocked("providerLabRouting", other)).isTrue();
