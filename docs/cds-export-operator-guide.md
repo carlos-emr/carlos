@@ -93,6 +93,25 @@ the page does not cancel an accepted export.
 Run as an authorized Unix operator through sudo. Root-issued delegation is bound
 to the exact arguments, and the provider still needs current clinical permissions.
 
+Native chart support includes demographics/external physicians, all seven history/note
+categories, prescriptions and printed scripts, current/deleted measurements, supported
+HL7 ORU results, and document reports with their attachments. Revised notes retain
+the original and edits in one clinical occurrence.
+
+Choose all seven history/note categories together: PersonalHistory, FamilyHistory,
+PastHealth, ProblemList, RiskFactors, AlertsAndSpecialNeeds and ClinicalNotes. Select
+NewCategory when exporting native measurements/labs or printed prescription context.
+It carries generic observations, deletion history, complete original lab messages and
+printed script history. Excluding a required supporting category requests review;
+the exporter does not silently expand the accepted selection.
+
+Database-selected prescriptions require a working configured `drugref_url`. Public
+DIN qualification sends the DIN and lookup option only. The clinician's authored name
+and complete compound-strength text remain intact; the standard strength uses the
+database's first ingredient. Missing/ambiguous reference data requires review, and
+an unavailable reference service produces an explicit failure. Inspect diagnostics
+and restore that dependency before resuming; no DIN-free fallback hides an outage.
+
 A protected UTF-8 selection file directly inside the configured selection root
 has this shape:
 
@@ -180,9 +199,13 @@ private keys to CARLOS or send keys/passwords through the export form.
 
 ## Review, retention and support
 
-An unknown, changed, deleted, ambiguous, inaccessible or unrepresented clinical
-fact prevents a complete migration. Native-only history, unqualified archival
-carriers and unsupported source domains can require review. The exporter neither
+An unsupported, inconsistent, ambiguous, inaccessible or unrepresented clinical
+fact prevents a complete migration. Preserved native history and deletion context
+are supported; unsupported legacy formats and archival carriers can require review.
+Known patient/parent relationships keep unrelated charts outside the selection.
+An unresolved owner or an unclassified clinical source can still require clinic-wide
+review because its relationship to the selected charts cannot be established.
+The exporter neither
 silently omits those facts nor inserts them into generic notes. Review the safe
 diagnostic code and source/mapping evidence with an authorized clinical reviewer.
 Do not delete source rows, restamp original import metadata or manually set a
@@ -210,3 +233,8 @@ publication, compatibility and recorded verification boundaries.
 The approved V1.0.59.41 forward migration seeds independent `_cds_import=x` only for an existing `admin` role with `_admin=x` or `_admin=w`, preserving every existing import grant or denial. Other roles receive no grant. `provider_no` is permission-row metadata, not a scope restriction used by the privilege evaluator. This durable independent import grant requires separate revocation if administration is later removed.
 
 The clinic `site` directory and `providersite` membership are reference configuration, like `clinic` and `program`; normal web startup creates them. The exporter still pins their entire physical schema, while patient/provider facts and sender context use their owning projections. Populated unsupported clinical tables continue to require review. Protected logs identify the pinned source-table name that blocks closure, without row identifiers or values.
+
+Reviewed provider preferences, report definitions, referral directories and messaging
+locks do not block a clinical export merely by existing. Their contents are not
+published or executed. The [source rulings](cds-export-source-rulings.md) identify
+the exact tables and owning evidence; clinical instances remain separately gated.
