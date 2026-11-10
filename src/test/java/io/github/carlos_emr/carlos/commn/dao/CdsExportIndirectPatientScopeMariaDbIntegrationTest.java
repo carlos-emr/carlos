@@ -203,10 +203,19 @@ class CdsExportIndirectPatientScopeMariaDbIntegrationTest {
                     var granted =
                             check.executeQuery(
                                     "SELECT COUNT(*) FROM secObjPrivilege WHERE"
-                                        + " objectName='_lab_sensitive' AND privilege='r' AND"
-                                        + " roleUserGroup=provider_no")) {
+                                            + " objectName='_lab_sensitive' AND privilege='r' AND"
+                                            + " roleUserGroup=provider_no")) {
                 assertThat(granted.next()).isTrue();
                 assertThat(granted.getInt(1)).isEqualTo(1);
+            }
+            var prescriptions =
+                    type.getDeclaredMethod("nativeMedications", Connection.class, int.class);
+            prescriptions.setAccessible(true);
+            try {
+                prescriptions.invoke(null, db, selected);
+            } catch (java.lang.reflect.InvocationTargetException failure) {
+                if (failure.getCause() instanceof Exception cause) throw cause;
+                throw failure;
             }
             var prepare = type.getDeclaredMethod("nativeLaboratory", Connection.class, int.class);
             prepare.setAccessible(true);

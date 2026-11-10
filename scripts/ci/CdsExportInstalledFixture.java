@@ -191,6 +191,7 @@ public final class CdsExportInstalledFixture {
             nativeCare(db, patient);
             nativeReport(db, patient);
             nativeLaboratory(db, patient);
+            nativeMedications(db, patient);
             db.commit();
             writePrivate(
                     PRIVATE.resolve("fixture.json"),
@@ -391,6 +392,18 @@ public final class CdsExportInstalledFixture {
     }
 
     /** The native chart deliberately has no CDS import parent or retained fields. */
+    private static void nativeMedications(Connection db, int patient) throws Exception {
+        update(db, "INSERT INTO prescription(provider_no,demographic_no,date_prescribed,date_printed,dates_reprinted,rx_comments,textView,lastUpdateDate)"
+                + " VALUES(?,?,'2026-07-10','2026-07-11','2026-07-12','Native script comment café 😀','Native printed prescription SIG café 😀','2026-07-12 12:30:00')", PROVIDER, patient);
+        long script = count(db, "SELECT LAST_INSERT_ID()");
+        update(db, "INSERT INTO prescription(provider_no,demographic_no,date_prescribed,rx_comments,textView,lastUpdateDate)"
+                + " VALUES(?,?,'2026-06-01','Standalone native script comment','Historical printed script without remaining drug rows','2026-07-12 12:30:00')", PROVIDER, patient);
+        update(db, "INSERT INTO drugs(provider_no,demographic_no,script_no,GCN_SEQNO,customName,BN,regional_identifier,dosage,takemin,takemax,unit,unitName,route,freqcode,duration,durunit,quantity,`repeat`,prn,archived,archived_reason,past_med,rxStatus,position,dispenseInternal,lastUpdateDate,written_date,rx_date,comment,special,special_instruction)"
+                + " VALUES(?,?,?,0,?,'Independent native brand','00123456','5 mg',0.5,1,'tablet','tablet','PO','OD','2','W','30',2,0,1,'Native display archive',0,'Active',0,0,'2026-07-12 12:30:00','2026-07-10','2026-07-11','Native medication provider note café 😀','Authored native SIG café 😀','Take after food')", PROVIDER, patient, script, "Native archived treatment");
+        update(db, "INSERT INTO drugs(provider_no,demographic_no,script_no,GCN_SEQNO,BN,regional_identifier,dosage,unit,unitName,route,freqcode,duration,durunit,quantity,`repeat`,prn,archived,past_med,position,dispenseInternal,lastUpdateDate,written_date,rx_date,comment)"
+                + " VALUES(?,?,?,0,'Native status unknown treatment','00012345','2 mg','tablet','tablet','PO','BID','1','M','10',0,0,0,0,1,0,'2026-07-12 12:30:00','2026-07-10','2026-07-12','Native unknown-currentness source note')", PROVIDER, patient, script);
+    }
+
     private static void nativeLaboratory(Connection db, int patient) throws Exception {
         String message = "MSH|^~\\&|LABAPP|Native Lab|CARLOS|Clinic|20260710123000-0400||ORU^R01|native-1|P|2.5\r"
                 + "PID|1||EXTERNAL-27^^^LAB^MR||Synthetic^Native||20000102|F\r"
@@ -534,6 +547,10 @@ public final class CdsExportInstalledFixture {
         if (count(db,"SELECT COUNT(*) FROM patientLabRouting WHERE demographic_no=? AND lab_type='HL7'",patient)!=1
                 || count(db,"SELECT COUNT(*) FROM cds_laboratory_result WHERE demographicNo=?",patient)!=0)
             throw new IllegalStateException("Native laboratory changed");
+        if (count(db,"SELECT COUNT(*) FROM drugs WHERE demographic_no=?",patient)!=2
+                || count(db,"SELECT COUNT(*) FROM drugs WHERE demographic_no=? AND archived=1 AND rxStatus='Active'",patient)!=1
+                || count(db,"SELECT COUNT(*) FROM prescription WHERE demographic_no=?",patient)!=2)
+            throw new IllegalStateException("Native prescriptions changed");
         System.out.println(
                 JSON.writeValueAsString(
                         Map.of(

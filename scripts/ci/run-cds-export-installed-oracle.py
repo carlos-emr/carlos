@@ -215,15 +215,92 @@ def report_equal(record) -> bool:
             and context["publicReviewer"]["lastName"] == "Native Export")
 
 
+def medication_expected() -> list[dict[str, str]]:
+    author = {"c:PrescribedBy/c:Name/d:FirstName": "Synthetic",
+              "c:PrescribedBy/c:Name/d:LastName": "Native Export", "c:PrescribedBy/c:OHIPPhysicianId": "999891",
+              "c:PrescriptionWrittenDate/d:FullDate": "2026-07-10", "c:DosageUnitOfMeasure": "tablet", "c:Route": "PO"}
+    return [
+        {**author, "c:DrugName": "Native archived treatment", "c:DrugDescription": "5 mg", "c:Dosage": "0.5-1",
+         "c:Frequency": "daily", "c:Duration": "14", "c:Quantity": "30", "c:NumberOfRefills": "2",
+         "c:PrescriptionStatus": "Active", "c:PastMedications/d:ynIndicatorsimple": "N",
+         "c:StartDate/d:FullDate": "2026-07-11", "c:Notes": "Native medication provider note café 😀",
+         "c:PrescriptionInstructions": "Authored native SIG café 😀\n[Native pharmacy instructions]\nTake after food"},
+        {**author, "c:DrugName": "Native status unknown treatment", "c:DrugDescription": "2 mg", "c:Frequency": "BID",
+         "c:Duration": "30", "c:Quantity": "10", "c:NumberOfRefills": "0", "c:StartDate/d:FullDate": "2026-07-12",
+         "c:Notes": "Native unknown-currentness source note"},
+    ]
+
+
+def medication_equal(record, patient: int) -> bool:
+    medications = record.findall("c:MedicationsAndTreatments", NS)
+    if len(medications) != 2:
+        return False
+    contexts = []
+    for index, (medication, expected_values) in enumerate(zip(medications, medication_expected(), strict=True)):
+        if any(len(medication.findall(path, NS)) != 1 or medication.find(path, NS).text != value
+               for path, value in expected_values.items()):
+            return False
+        if medication.find("c:DrugIdentificationNumber", NS) is not None or medication.find("c:Strength", NS) is not None:
+            return False
+        if index == 1 and any(medication.find("c:" + name, NS) is not None
+                              for name in ("PrescriptionStatus", "PastMedications", "Dosage")):
+            return False
+        archive = medication.find("c:ResidualInfo/d:DataElement[d:Name='CARLOS.Medication.Archived.v1']/d:Content", NS)
+        if archive is None or archive.text != ("true" if index == 0 else "false"):
+            return False
+        context = json.loads(medication.find("c:ResidualInfo/d:DataElement[d:Name='CARLOS.Medication.Source.v1']/d:Content", NS).text)
+        fields = context["fields"]
+        if (context.get("version") != 1 or context.get("regionalIdentifierAuthority") != "UNQUALIFIED"
+                or fields["demographic_no"] != str(patient)
+                or fields["regional_identifier"] != ("00123456" if index == 0 else "00012345")
+                or fields["archived"] != ("1" if index == 0 else "0")
+                or fields["cds_currentness"] is not None or fields["cds_dose_text"] is not None):
+            return False
+        contexts.append(context)
+    if (contexts[0]["exactNumbers"]["takemin"]["bits"] != "3f000000"
+            or contexts[0]["exactNumbers"]["takemax"]["bits"] != "3f800000"
+            or contexts[1]["currentness"] != "UNESTABLISHED"):
+        return False
+    scripts = [entry for entry in record.findall("c:NewCategory", NS)
+               if entry.find("c:CategoryName", NS).text == "CARLOS.NativePrescription.v1"]
+    if len(scripts) != 2:
+        return False
+    actual = {}
+    for script in scripts:
+        context = json.loads(script.find("c:ResidualInfo/d:DataElement[d:Name='CARLOS.Prescription.v1']/d:Content", NS).text)
+        fields, author = context["fields"], context["publicAuthor"]
+        if (context.get("version") != 1 or fields["demographic_no"] != str(patient)
+                or author["first_name"] != "Synthetic" or author["last_name"] != "Native Export"
+                or author["ohip_no"] != "999891" or fields["provider_no"] != author["provider_no"]
+                or fields["rx_comments"] in actual):
+            return False
+        actual[fields["rx_comments"]] = fields
+    expected_scripts = {"Native script comment café 😀": "Native printed prescription SIG café 😀",
+                        "Standalone native script comment": "Historical printed script without remaining drug rows"}
+    if set(actual) != set(expected_scripts) or any(actual[k]["textView"] != v for k, v in expected_scripts.items()):
+        return False
+    parent = actual["Native script comment café 😀"]
+    return (all(context["fields"]["script_no"] == parent["script_no"] for context in contexts)
+            and parent["date_prescribed"] == "2026-07-10" and parent["date_printed"] == "2026-07-11"
+            and parent["dates_reprinted"] == "2026-07-12")
+
+
 def clinically_equal(root, patient: int) -> bool:
+    try:
+        return _clinically_equal(root, patient)
+    except (ValueError, TypeError, KeyError, AttributeError):
+        return False
+
+
+def _clinically_equal(root, patient: int) -> bool:
     if root.tag != "{cds}OmdCds" or len(root.findall("./c:PatientRecord", NS)) != 1:
         return False
     record = root.find("./c:PatientRecord", NS)
     categories = ["Demographics", "PersonalHistory", "FamilyHistory", "PastHealth", "ProblemList",
-                  "RiskFactors"] + ["LaboratoryResults"] * 4 + ["ClinicalNotes", "Reports"] + ["CareElements"] * 3 + ["AlertsAndSpecialNeeds"] + ["NewCategory"] * 6
+                  "RiskFactors"] + ["MedicationsAndTreatments"] * 2 + ["LaboratoryResults"] * 4 + ["ClinicalNotes", "Reports"] + ["CareElements"] * 3 + ["AlertsAndSpecialNeeds"] + ["NewCategory"] * 8
     if [item.tag for item in record] != ["{cds}" + name for name in categories]:
         return False
-    return history_equal(record) and report_equal(record) and laboratory_equal(record) and care_equal(record, patient) and all(len(root.findall(BASE + path, NS)) == 1 and root.find(BASE + path, NS).text == value
+    return medication_equal(record, patient) and history_equal(record) and report_equal(record) and laboratory_equal(record) and care_equal(record, patient) and all(len(root.findall(BASE + path, NS)) == 1 and root.find(BASE + path, NS).text == value
                for path, value in expected(patient).items())
 
 
@@ -286,6 +363,10 @@ def main() -> int:
             ("../c:FamilyHistory/c:ResidualInfo/d:DataElement[d:Name='CARLOS.History.Archived.v1']/d:Content", "false"),
             ("../c:Reports/c:SourceAuthorPhysician/c:AuthorFreeText", "Wrong author"),
             ("../c:LaboratoryResults[1]/c:Result/c:Value", "6.4"),
+            ("../c:MedicationsAndTreatments[1]/c:Dosage", "0.5-2"),
+            ("../c:MedicationsAndTreatments[1]/c:ResidualInfo/d:DataElement[d:Name='CARLOS.Medication.Archived.v1']/d:Content", "false"),
+            ("../c:MedicationsAndTreatments[1]/c:PrescriptionStatus", "Completed"),
+            ("../c:NewCategory[c:CategoryName='CARLOS.NativePrescription.v1']/c:ResidualInfo/d:DataElement/d:Content", "{}"),
         )
         detected = 0
         for index, (path, replacement) in enumerate(mutations):
@@ -301,12 +382,12 @@ def main() -> int:
                 raise RuntimeError("Independent oracle missed a schema-valid clinical mutation")
             detected += 1
     args.proof.write_text(json.dumps({
-        "protocol": 1, "status": "PASSED", "independentExpectedFacts": len(expected(patient)) + len(history_expected()) + len(report_expected()) + sum(map(len, laboratory_expected())),
+        "protocol": 1, "status": "PASSED", "independentExpectedFacts": len(expected(patient)) + len(history_expected()) + len(report_expected()) + sum(map(len, laboratory_expected())) + sum(map(len, medication_expected())),
         "schemaValidClinicalMutantsDetected": detected, "zipMembers": len(names), "patientXmlMembers": 1,
         "pinnedSchemaValid": True, "plaintextZipSha256": hashlib.sha256(args.archive.read_bytes()).hexdigest(),
         "patientXmlSha256": hashlib.sha256(xml_bytes).hexdigest()
     }, sort_keys=True, indent=2))
-    print("PASS independent native clinical oracle:", len(expected(patient)) + len(history_expected()) + len(report_expected()) + sum(map(len, laboratory_expected())), "facts and", detected, "schema-valid mutants")
+    print("PASS independent native clinical oracle:", len(expected(patient)) + len(history_expected()) + len(report_expected()) + sum(map(len, laboratory_expected())) + sum(map(len, medication_expected())), "facts and", detected, "schema-valid mutants")
     return 0
 
 
