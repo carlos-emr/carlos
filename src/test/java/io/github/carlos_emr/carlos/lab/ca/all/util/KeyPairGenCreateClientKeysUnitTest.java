@@ -205,4 +205,24 @@ class KeyPairGenCreateClientKeysUnitTest extends CarlosUnitTestBase {
         assertThat(result.toString()).isEqualTo("ClientKeys[status=CREATED]")
                 .doesNotContain(result.clientPrivateKey());
     }
+
+    @Test
+    @DisplayName("should refuse a result whose keys do not match its status")
+    void shouldRefuseResult_whenKeysDoNotMatchStatus() {
+        // A CREATED result without keys would have the page write "null" into the key file.
+        assertThatThrownBy(() -> new ClientKeys(ClientKeyStatus.CREATED, null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new ClientKeys(ClientKeyStatus.CREATED, "FAKE-client-private-key", null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new ClientKeys(ClientKeyStatus.CARLOS_KEY_MISSING, "FAKE-client-private-key", null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new ClientKeys(ClientKeyStatus.FAILED, null, CARLOS_PUBLIC_KEY))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new ClientKeys(null, null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(new ClientKeys(ClientKeyStatus.FAILED, null, null).status()).isEqualTo(ClientKeyStatus.FAILED);
+        assertThat(new ClientKeys(ClientKeyStatus.CREATED, "FAKE-client-private-key", CARLOS_PUBLIC_KEY).carlosPublicKey())
+                .isEqualTo(CARLOS_PUBLIC_KEY);
+    }
 }

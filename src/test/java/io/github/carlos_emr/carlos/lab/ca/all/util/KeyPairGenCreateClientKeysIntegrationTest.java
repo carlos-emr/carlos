@@ -76,6 +76,7 @@ import static org.mockito.Mockito.mockStatic;
  * @since 2026-11-09
  */
 @Tag("integration")
+@Tag("dao")
 @Tag("lab")
 @DisplayName("KeyPairGen.createClientKeys against a real database")
 class KeyPairGenCreateClientKeysIntegrationTest {

@@ -94,7 +94,8 @@
                             + " service name 'oscar', then create the key pair for '" + name + "' again";
                     error = "true";
                 } else if (keys.status() != KeyPairGen.ClientKeyStatus.CREATED) {
-                    message = "Failed: Could not create key pair";
+                    // An unreadable or blank CARLOS key, or a failed save: the log says which.
+                    message = "Failed: Could not create key pair. The server log records the cause";
                     error = "true";
                 } else {
                     String clientKey = keys.clientPrivateKey();

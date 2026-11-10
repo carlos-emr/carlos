@@ -56,6 +56,10 @@ public final class KeyPairGen {
 
     /**
      * Create a key pair for the specified service and store it in the database
+     *
+     * <p>For a client service, call {@link #createClientKeys(String, String)} instead: this
+     * method stores the client key without checking that the CARLOS key exists, and a stored
+     * key takes its service name for good (issue #6009).</p>
      */
     public static String createKeys(String name, String type) {
         byte[] pubKey;
@@ -167,6 +171,22 @@ public final class KeyPairGen {
      * @since 2026-11-09
      */
     public record ClientKeys(ClientKeyStatus status, String clientPrivateKey, String carlosPublicKey) {
+
+        /**
+         * Keys go with {@code CREATED} and only with it: a {@code CREATED} result without them
+         * would have the page write "null" into the client's key file.
+         *
+         * @throws IllegalArgumentException if the status is missing or does not match the keys
+         */
+        public ClientKeys {
+            if (status == null) {
+                throw new IllegalArgumentException("A client key result needs a status");
+            }
+            boolean created = status == ClientKeyStatus.CREATED;
+            if (created != (clientPrivateKey != null) || created != (carlosPublicKey != null)) {
+                throw new IllegalArgumentException("Only a CREATED result carries keys, and it carries both");
+            }
+        }
 
         /** Leaves the private key out, so a logged or debugged result never prints it. */
         @Override

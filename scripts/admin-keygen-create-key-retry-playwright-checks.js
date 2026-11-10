@@ -54,20 +54,19 @@ async function workflow(s) {
   const service = `${marker}.lab`;
   const owned = `service=${h.sqlString(service)}`;
   const contextPath = new URL(config.baseUrl).pathname.replace(/\/+$/, '');
-  // Set before the page is asked to create the CARLOS key pair, and its public key recorded as
-  // soon as it is stored. The preflight found none and the suite runs one check at a time, so a
-  // CARLOS key pair present at cleanup after that request is this run's.
-  let carlosKeyRequested = false;
+  // The public key of the CARLOS key pair this run had the page create, read back as soon as
+  // that request returns (the preflight found none). Cleanup removes only that pair: a CARLOS
+  // key pair it cannot match may be in use, so it is left in place and the cleanup fails.
   let createdCarlosKey = null;
   s.cleanup(() => {
     sql.execute(`DELETE FROM publicKeys WHERE ${owned}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM publicKeys WHERE ${owned}`) === '0', 'The owned client key row was not removed');
-    if (!carlosKeyRequested || sql.value(CARLOS_KEY) === '0') return;
-    const stored = sql.value(`SELECT COALESCE(pubKey,'') FROM oscarKeys WHERE name='oscar'`);
-    h.assert(createdCarlosKey === null || stored === createdCarlosKey,
-      'The CARLOS key pair was replaced during the run; it is left in place');
-    sql.execute(`DELETE FROM oscarKeys WHERE name='oscar' AND COALESCE(pubKey,'')=${h.sqlString(stored)}`);
-    h.assert(sql.value(CARLOS_KEY) === '0', 'The CARLOS key pair this run created was not removed');
+    if (createdCarlosKey !== null) {
+      sql.execute(`DELETE FROM oscarKeys WHERE name='oscar' AND pubKey=${h.sqlString(createdCarlosKey)}`);
+    }
+    h.assert(sql.value(CARLOS_KEY) === '0', createdCarlosKey === null
+      ? 'A CARLOS key pair this run cannot show it created is present; it is left in place'
+      : 'The CARLOS key pair was replaced during the run; it is left in place');
   });
 
   const page = await s.context.newPage();
@@ -114,9 +113,13 @@ async function workflow(s) {
   });
 
   await s.step("the page creates the CARLOS key pair under the service name 'oscar'", async () => {
-    carlosKeyRequested = true;
-    const shown = await submitForPage('oscar');
-    createdCarlosKey = sql.value(`SELECT COALESCE(pubKey,'') FROM oscarKeys WHERE name='oscar'`) || null;
+    let shown;
+    try {
+      shown = await submitForPage('oscar');
+    } finally {
+      // Before any assertion, so cleanup knows the pair this request stored even if it then fails.
+      createdCarlosKey = sql.value(`SELECT COALESCE(pubKey,'') FROM oscarKeys WHERE name='oscar'`) || null;
+    }
     await shot('2-carlos-key-created');
     h.assert(shown === 'CARLOS key pair created successfully', `Creating the CARLOS key pair showed "${shown}"`);
     h.assert(createdCarlosKey, 'The CARLOS key pair was not stored');
