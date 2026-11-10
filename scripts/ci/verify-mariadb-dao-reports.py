@@ -99,7 +99,7 @@ REQUIRED_CASES = {
 # unordered page in secondary-index order, so its paging cases must execute on the physical server.
 # CaseManagementIssueDAO adds one duplicate-link case on the legacy Flyway schema only.
 REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 6, "LabRoutingLookupDaoIntegrationTest": 4, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
-                          "JdbcConnectorMariaDbIntegrationTest": 32,
+                          "JdbcConnectorMariaDbIntegrationTest": 35,
                           "BillingHistoryDaoIntegrationTest": 1, "LookupDaoIntegrationTest": 1,
                           "AbstractDaoFindAllOrderingIntegrationTest": 6,
                           "CaseManagementIssueDAOIntegrationTest": 21,

@@ -51,6 +51,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  *
  * <p>MariaDB's own {@link Configuration#parse} is the oracle: it is the parser that refused these
  * values and that the pool, Flyway runner, Query by Example and CDS connections all reach.
+ *
+ * @since 2026-11-09
  */
 @Tag("unit")
 @DisplayName("Legacy yes/no values for MariaDB Boolean options (#5969)")
