@@ -80,9 +80,27 @@ without the CARLOS key, then as `oscar`, then again.
   nested types), `createKey.jsp` and `buildNumber.properties`, compared entry by entry by
   CRC. So the `document-upload` failure and the residue do not come from this change.
 
+## Re-validation after the review fixes (`05e926571c`)
+
+The review pass changed application code: `ClientKeys` checks its own consistency, and a
+failed create names the server log. So the packages were rebuilt at `05e926571c` the same way,
+and installed fresh in a new container. The packaged `createKey.jsp` matches the source
+(SHA256 `01dde8cc…ba30`), and the fresh install again had no CARLOS key pair.
+
+- `admin-keygen-create-key-retry`: **PASS** 5/5, no residue.
+- `admin-api-keygen`: all steps pass except its pinned finding-163 step (`known-fail`).
+- `lab-upload-signed-feed`: **PASS**, no residue, once the `_portal.booking_prompt` grants
+  were restricted. Before that it hit the same master-record portal 503 as above.
+- A stored CARLOS row with a blank public key, driven through the page by an ad-hoc script:
+  - the page shows "Failed: Could not create key pair. The server log records the cause";
+  - no `publicKeys` row is stored;
+  - the CARLOS journal holds one "The CARLOS key pair is stored without a public key" entry.
+
+  The script then removed its row.
+
 ## Source-level tests
 
-- `mvn test -Dtest='KeyPairGen*Test'`: 11/11.
+- `mvn test -Dtest='KeyPairGen*Test'`: 12/12 at `05e926571c` (11/11 before the review fixes added the result-consistency test).
   - `KeyPairGenCreateClientKeysIntegrationTest` uses the real DAOs and Spring
     transactions on H2 tables created from the Flyway baseline `CREATE TABLE` statements.
   - With the pre-fix order (store first) put back into `createClientKeys`, 7 of the 10
