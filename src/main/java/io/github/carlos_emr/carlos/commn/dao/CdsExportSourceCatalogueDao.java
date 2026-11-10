@@ -119,20 +119,59 @@ public class CdsExportSourceCatalogueDao {
             checkpoint.run();
             if (!profile.tables().get(table).engine().equals("InnoDB"))
                 CdsExportSourceReadLock.requirePinned();
-            if (catalogue.tables().get(table) == CdsExportSourceCatalogue.Disposition.REQUIRE_EMPTY
-                    && !entityManager
-                            .createNativeQuery("select 1,1 from `" + table + "`")
-                            .setMaxResults(1)
-                            .setHint("org.hibernate.timeout", 120)
-                            .getResultList()
-                            .isEmpty()) {
-                // A name from the pinned physical catalogue, with no clinical values or row
-                // identifiers.
-                LOG.warn("CDS_EXPORT_SOURCE_CATALOGUE_REQUIRES_REVIEW table={}", table);
-                review();
+            var disposition = catalogue.tables().get(table);
+            if (disposition == CdsExportSourceCatalogue.Disposition.REQUIRE_EMPTY
+                    || disposition == CdsExportSourceCatalogue.Disposition.ACCESS_CONTROL) {
+                var query =
+                        entityManager.createNativeQuery(presenceQuery(table, profile, catalogue));
+                if (catalogue.patientScopes().containsKey(table))
+                    query.setParameter("patient", patient);
+                if (!query.setMaxResults(1)
+                        .setHint("org.hibernate.timeout", 120)
+                        .getResultList()
+                        .isEmpty()) {
+                    // A name from the pinned physical catalogue, with no clinical values or row
+                    // identifiers.
+                    LOG.warn("CDS_EXPORT_SOURCE_CATALOGUE_REQUIRES_REVIEW table={}", table);
+                    review();
+                }
             }
         }
         checkpoint.run();
+    }
+
+    /** Patient ownership is a reviewed read scope, never approval to omit a selected clinical row. */
+    private static String presenceQuery(
+            String table,
+            CdsExportSourceCatalogue.Profile profile,
+            CdsExportSourceCatalogue.Snapshot catalogue) {
+        String query = "select 1,1 from `" + table + "` d";
+        var owners = catalogue.patientScopes().get(table);
+        if (owners != null) {
+            var clauses = new ArrayList<String>();
+            for (String owner : owners) {
+                var column =
+                        profile.tables().get(table).columns().stream()
+                                .filter(c -> c.name().equals(owner))
+                                .findFirst()
+                                .orElseThrow();
+                String value = "d.`" + owner + "`";
+                // Numeric text aliases cannot disappear behind an indexed canonical-string
+                // comparison.
+                if (column.type().startsWith("varchar("))
+                    value = "CAST(" + value + " AS DECIMAL(65,0))";
+                clauses.add(value + "=:patient");
+            }
+            query += " where (" + String.join(" or ", clauses) + ")";
+        }
+        var remainder = catalogue.clinicalRemainders().get(table);
+        if (remainder != null) {
+            var clauses = new ArrayList<String>();
+            for (String column : remainder)
+                clauses.add("COALESCE(OCTET_LENGTH(d.`" + column + "`),0)>0");
+            query += " and (" + String.join(" or ", clauses) + ")";
+        }
+        return query;
     }
 
     /** A filtered metadata catalogue cannot establish that no unreadable clinical table exists. */
@@ -148,7 +187,7 @@ public class CdsExportSourceCatalogueDao {
         if (schema.isEmpty()
                 && rows(
                                 "select 1,1 from information_schema.USER_PRIVILEGES where"
-                                    + " PRIVILEGE_TYPE='SELECT' and GRANTEE="
+                                        + " PRIVILEGE_TYPE='SELECT' and GRANTEE="
                                         + grantee,
                                 2)
                         .isEmpty()) review();
@@ -171,7 +210,7 @@ public class CdsExportSourceCatalogueDao {
             value = "IMPROPER_UNICODE",
             justification =
                     "ASCII SQL identifiers folded only according to MariaDB's configured table-name"
-                        + " case mode")
+                            + " case mode")
     private static String tableKey(String table, int caseMode) {
         if (table == null || !table.matches("[A-Za-z_][A-Za-z0-9_]*")) review();
         return caseMode == 0 ? table : table.toLowerCase(Locale.ROOT);
@@ -182,7 +221,7 @@ public class CdsExportSourceCatalogueDao {
         for (var row :
                 rows(
                         "select TABLE_NAME,ENGINE from information_schema.TABLES where"
-                            + " TABLE_SCHEMA=DATABASE() and TABLE_TYPE='BASE TABLE'",
+                                + " TABLE_SCHEMA=DATABASE() and TABLE_TYPE='BASE TABLE'",
                         1026)) {
             String table = tableKey((String) row[0], caseMode);
             if (table.equals("flyway_schema_history")) continue;

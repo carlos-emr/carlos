@@ -31,6 +31,16 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Service
 public class CdsExportSourceSnapshotService {
     private final OscarTrackingBasicDataSource source;
+    private final java.util.Properties settings = new java.util.Properties();
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CdsExportSourceSnapshotService(
+            OscarTrackingBasicDataSource source,
+            @org.springframework.beans.factory.annotation.Qualifier("cdsExportProperties")
+                    java.util.Properties settings) {
+        this(source);
+        this.settings.putAll(java.util.Objects.requireNonNull(settings));
+    }
 
     public CdsExportSourceSnapshotService(OscarTrackingBasicDataSource source) {
         this.source = source;
@@ -40,9 +50,12 @@ public class CdsExportSourceSnapshotService {
         if (TransactionSynchronizationManager.isActualTransactionActive())
             throw new IllegalStateException("CDS_EXPORT_AMBIENT_TRANSACTION_REFUSED");
         checkpoint.run();
+        long captureSeconds =
+                CdsExportActivePlanService.number(settings, "captureTimeoutSeconds", 120, 1, 7200);
         var lease =
                 CdsExportSourceReadLock.acquireUnpooled(
-                        source.openUnpooledCdsMaintenanceConnection());
+                        source.openUnpooledCdsMaintenanceConnection(),
+                        (captureSeconds + 30) * 1000L);
         try {
             checkpoint.run();
             return lease;

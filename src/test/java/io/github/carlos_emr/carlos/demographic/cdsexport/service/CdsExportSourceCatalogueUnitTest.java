@@ -78,7 +78,8 @@ class CdsExportSourceCatalogueUnitTest {
     }
 
     @Test
-    void shouldKeepTheReaderRecipeIndependentOfTheCurrentlyRegisteredBeanList_forSourceCatalogueContract() {
+    void
+            shouldKeepTheReaderRecipeIndependentOfTheCurrentlyRegisteredBeanList_forSourceCatalogueContract() {
         var catalogue = CdsExportSourceCatalogue.current();
         var installed = new ArrayList<CdsExportNativeSourceReader>();
         installed.add(reader);
@@ -112,6 +113,24 @@ class CdsExportSourceCatalogueUnitTest {
                         () -> incomplete.requiredTables(command(Set.of(CdsCategory.DEMOGRAPHICS))))
                 .hasMessage("CDS_EXPORT_CAPTURE_DEPENDENCY_MISSING");
         verifyNoInteractions(source);
+    }
+
+    @Test
+    void shouldScopeUnmappedPatientRecords_withoutApprovingTheirClinicalContent() {
+        var catalogue = CdsExportSourceCatalogue.current();
+        assertThat(catalogue.patientScopes().get("form2MinWalk")).containsExactly("demographic_no");
+        assertThat(catalogue.tables().get("form2MinWalk"))
+                .isEqualTo(CdsExportSourceCatalogue.Disposition.REQUIRE_EMPTY);
+        assertThat(catalogue.patientScopes().get("relationships"))
+                .containsExactly("demographic_no", "relation_demographic_no");
+        assertThat(catalogue.tables().get("admission"))
+                .isEqualTo(CdsExportSourceCatalogue.Disposition.ACCESS_CONTROL);
+        assertThat(catalogue.clinicalRemainders().get("admission"))
+                .containsExactly("admission_notes", "discharge_notes", "radioDischargeReason");
+        assertThatThrownBy(() -> catalogue.patientScopes().clear())
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> catalogue.patientScopes().get("relationships").clear())
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test

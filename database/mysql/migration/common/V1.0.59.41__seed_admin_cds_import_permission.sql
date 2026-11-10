@@ -4,10 +4,10 @@
 -- Preserve every existing explicit grant or denial. provider_no is row metadata,
 -- not a restriction evaluated by the role privilege service.
 INSERT INTO secObjPrivilege (roleUserGroup,objectName,privilege,priority)
-SELECT 'admin','_cds_import','x',0
+SELECT 'admin','_cds_import','|x|',0
 WHERE EXISTS (
     SELECT 1 FROM secObjPrivilege
-    WHERE roleUserGroup='admin' AND objectName='_admin' AND privilege IN ('x','w')
+    WHERE roleUserGroup='admin' AND objectName='_admin' AND privilege IN ('x','w','|x|','|w|')
 )
 AND NOT EXISTS (
     SELECT 1 FROM secObjPrivilege WHERE roleUserGroup='admin' AND objectName='_cds_import'
