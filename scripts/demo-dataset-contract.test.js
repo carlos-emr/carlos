@@ -214,9 +214,14 @@ function applyPrivilegeStatements(table, sql, label) {
     } else {
       const prerequisite = /^\s*SELECT\s+([\s\S]*?)\s+WHERE\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+`?secObjPrivilege`?\s+WHERE\s+([\s\S]*?)\)\s+AND\s+NOT\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+`?secObjPrivilege`?\s+WHERE\s+([\s\S]*?)\)\s*$/i.exec(rest);
       if (prerequisite) {
-        const conditions = /^([\s\S]+?)\s+AND\s+`?privilege`?\s+IN\s*\(\s*'x'\s*,\s*'w'\s*\)\s*$/i.exec(prerequisite[2]);
+        const conditions = /^([\s\S]+?)\s+AND\s+`?privilege`?\s+IN\s*(\([^()]*\))\s*$/i.exec(prerequisite[2]);
         assert.ok(conditions, `${where}: the prerequisite predicate is not understood`);
-        authority = equalityConditions(conditions[1], where);
+        const alternatives = readTuples(conditions[2], 0).rows;
+        assert.ok(alternatives.length === 1 && [
+          ['x', 'w'], ['x', 'w', '|x|', '|w|'],
+        ].some((known) => JSON.stringify(known) === JSON.stringify(alternatives[0])),
+        `${where}: the prerequisite privilege alternatives are not understood`);
+        authority = {conditions: equalityConditions(conditions[1], where), privileges: alternatives[0]};
         rest = `SELECT ${prerequisite[1]} WHERE NOT EXISTS (SELECT 1 FROM secObjPrivilege WHERE ${prerequisite[3]})`;
       }
       const select = /^\s*SELECT\s+([\s\S]*?)\s+WHERE\s+NOT\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+`?secObjPrivilege`?\s+WHERE\s+([\s\S]*?)\s*\)\s*$/i.exec(rest);
@@ -238,8 +243,8 @@ function applyPrivilegeStatements(table, sql, label) {
     for (const values of rows) {
       const row = Object.fromEntries(PRIVILEGE_COLUMNS.map((name) => [name, columns.includes(name) ? values[columns.indexOf(name)] : null]));
       const key = privilegeKey(row);
-      if (authority && ![...table.values()].some((existing) => authority.every(([column, value]) => sameText(existing[column], value))
-          && ['x', 'w'].some((value) => sameText(existing.privilege, value)))) continue;
+      if (authority && ![...table.values()].some((existing) => authority.conditions.every(([column, value]) => sameText(existing[column], value))
+          && authority.privileges.some((value) => sameText(existing.privilege, value)))) continue;
       if (guard && [...table.values()].some((existing) => guard.every(([column, value]) => sameText(existing[column], value)))) continue;
       if (table.has(key)) {
         if (/IGNORE/.test(verb)) continue;
@@ -521,14 +526,14 @@ test('shouldRefuseToReplay_whenAStatementShapeIsNotUnderstood', () => {
 test('shouldReplayTheActualIndependentImportSeed_withoutOverwritingExplicitDecisions', () => {
   const sql = fs.readFileSync(path.join(MIGRATION_DIR, 'common', 'V1.0.59.41__seed_admin_cds_import_permission.sql'), 'utf8');
   const row = (roleUserGroup, objectName, privilege) => ({roleUserGroup, objectName, privilege, priority: '17', provider_no: '999998'});
-  for (const privilege of ['x', 'w', 'r', 'o', '|o|']) {
+  for (const privilege of ['x', 'w', '|x|', '|w|', 'r', '|r|', 'o', '|o|']) {
     const admin = row('admin', '_admin', privilege);
     const table = new Map([[privilegeKey(admin), admin]]);
     applyPrivilegeStatements(table, sql, 'actual import seed');
     applyPrivilegeStatements(table, sql, 'idempotent import seed');
     const grants = [...table.values()].filter((entry) => entry.objectName === '_cds_import');
-    assert.equal(grants.length, ['x', 'w'].includes(privilege) ? 1 : 0);
-    if (grants.length) assert.equal(grants[0].privilege, 'x');
+    assert.equal(grants.length, ['x', 'w', '|x|', '|w|'].includes(privilege) ? 1 : 0);
+    if (grants.length) assert.equal(grants[0].privilege, '|x|');
     assert.deepEqual(table.get(privilegeKey(admin)), admin);
     const explicit = row('admin', '_cds_import', privilege);
     const preserved = new Map([[privilegeKey(admin), {...admin, privilege: 'x'}], [privilegeKey(explicit), explicit]]);
@@ -539,7 +544,7 @@ test('shouldReplayTheActualIndependentImportSeed_withoutOverwritingExplicitDecis
   const otherRole = new Map([[privilegeKey(doctor), doctor]]);
   applyPrivilegeStatements(otherRole, sql, 'different role');
   assert.equal(otherRole.size, 1);
-  assert.throws(() => applyPrivilegeStatements(new Map(), sql.replace("IN ('x','w')", "IN ('x','w','r')"), 'unknown predicate'), /not understood/);
+  assert.throws(() => applyPrivilegeStatements(new Map(), sql.replace("IN ('x','w','|x|','|w|')", "IN ('x','w','r')"), 'unknown predicate'), /not understood/);
 });
 
 test('shouldApplyEveryPrivilegeMigration_inFlywayVersionOrder', () => {
