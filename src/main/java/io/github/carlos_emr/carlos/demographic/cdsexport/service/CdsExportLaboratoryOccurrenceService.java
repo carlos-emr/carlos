@@ -36,8 +36,8 @@ import java.util.*;
 import org.springframework.stereotype.Service;
 
 /**
- * Coordinates structured imported laboratories with every captured HL7 target and retained field.
- * Changed mirrors and native-only HL7 require review; they never fall back to stale retained XML.
+ * Coordinates imported laboratory projections and ordinary native HL7 observations.
+ * Changed imported mirrors require review; native results have separate structural membership and complete supporting context.
  * This bounded occurrence component alone does not qualify the complete laboratory source catalogue.
  */
 @Service
@@ -122,63 +122,10 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
         new CdsExportMergeScopeValidator(captures)
                 .requireUnmerged(
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
-        var current = new TreeMap<String, CdsExportCapturedTextRowDto>();
-        var exact = new HashMap<String, CdsExportNativeRowReceiptDto>();
-        long[] memory = {0};
-        var read =
-                rows.forEachTable(
-                        lease,
-                        patient,
-                        tables,
-                        TABLES,
-                        source.manifest(),
-                        bounds.fields(),
-                        bounds.bytes(),
-                        67_108_864,
-                        control,
-                        row -> {
-                            control.checkpoint();
-                            String id = nativeId(row);
-                            var plan = plan(row.table());
-                            if (!row.fields().keySet().equals(Set.copyOf(plan.columns()))
-                                    || !row.exactNumbers().isEmpty()) invalid();
-                            if (current.size() >= bounds.nativeRows()) limit();
-                            for (var value : row.fields().values())
-                                if (value != null)
-                                    memory[0] =
-                                            Math.addExact(
-                                                    memory[0],
-                                                    value.getBytes(StandardCharsets.UTF_8).length
-                                                            + 64L);
-                            memory[0] =
-                                    Math.addExact(memory[0], 1024L + row.fields().size() * 256L);
-                            if (memory[0] > bounds.indexBytes()) limit();
-                            if (current.putIfAbsent(key(row.table(), id), row) != null) invalid();
-                        });
-        if (!read.equals(source.capture())) invalid();
-        var scanned =
-                witnesses.scan(
-                        lease,
-                        patient,
-                        tables,
-                        source,
-                        bounds.fields(),
-                        bounds.bytes(),
-                        control,
-                        witness -> {
-                            if (!TABLES.contains(witness.table())) return;
-                            if (exact.size() >= bounds.nativeRows()) limit();
-                            if (exact.putIfAbsent(key(witness.table(), witness.id()), witness)
-                                    != null) invalid();
-                        });
-        if (!scanned.sourceManifestSha256().equals(source.manifest().plaintextSha256())
-                || !current.keySet().equals(exact.keySet())) invalid();
-        for (var entry : current.entrySet()) verify(entry.getValue(), exact.get(entry.getKey()));
-        for (String table : TABLES)
-            if (current.values().stream().filter(row -> row.table().equals(table)).count()
-                    != source.capture().tables().get(table).rows()) invalid();
-        requireOwnership(patient.patient(), current);
-        long[] counts = {0, 0};
+        var captured = readCurrent(lease, patient, tables, source, bounds, control);
+        var current = captured.rows();
+        var exact = captured.witnesses();
+        long[] counts = {0, 0, 0};
         values.withValues(
                 lease,
                 patient,
@@ -350,6 +297,69 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                         counts[0]++;
                         counts[1] = Math.addExact(counts[1], sourceValue.sourceFields().size());
                     }
+                    var nativeSources =
+                            nativeSources(patient.patient(), current, index, control::checkpoint);
+                    if (!nativeSources.isEmpty()
+                            && !lease.document()
+                                    .command()
+                                    .categories()
+                                    .contains(CdsCategory.NEW_CATEGORY)) review();
+                    var zone =
+                            nativeSources.isEmpty()
+                                    ? null
+                                    : new CdsExportClinicalZoneService(captures)
+                                            .read(
+                                                    lease,
+                                                    patient,
+                                                    tables,
+                                                    source,
+                                                    bounds.fields(),
+                                                    bounds.bytes(),
+                                                    control)
+                                            .zone();
+                    for (var nativeSource : nativeSources) {
+                        var mapper = new CdsExportNativeLaboratoryMapper();
+                        var assessments = CdsExportNativeLaboratoryMapper.assessments(nativeSource);
+                        new CdsExportNativeFieldAssessmentValidator()
+                                .requireRepresentable(
+                                        nativeSource.rows(),
+                                        assessments,
+                                        1_000_000,
+                                        control::checkpoint);
+                        for (var row : nativeSource.rows())
+                            if (!owned.add(key(row.table(), nativeId(row)))) invalid();
+                        var mapped = mapper.map(nativeSource, zone);
+                        if (mapped.size() != nativeSource.parsed().observations().size()) invalid();
+                        for (var value : mapped) {
+                            String id = nativeSource.id() + ":" + value.ordinal();
+                            var identity =
+                                    new CdsExportIdentityDto(
+                                            patientKey,
+                                            CATEGORY,
+                                            CdsImportKeys.hash(
+                                                    "carlos-native-occurrence-v1",
+                                                    "hl7TextMessage",
+                                                    id));
+                            streams.requireActive();
+                            control.authorizeCategory(patient.patient(), CATEGORY, true);
+                            xml.emit(
+                                    new CdsExportXmlComposer.Section(
+                                            identity, body -> mapper.write(value, body)));
+                            output.accept(
+                                    new CdsExportClinicalOccurrenceService.Receipt(
+                                            identity,
+                                            index.sourceManifestSha256(),
+                                            "hl7TextMessage",
+                                            id,
+                                            null,
+                                            assessments,
+                                            Set.of(),
+                                            Set.of()));
+                            control.authorizeCategory(patient.patient(), CATEGORY, true);
+                            counts[0]++;
+                            counts[2]++;
+                        }
+                    }
                     var expectedFields = new HashSet<String>();
                     for (var field : retained)
                         if (field.category() == CATEGORY) expectedFields.add(field.id());
@@ -362,7 +372,169 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                     control.checkpoint();
                 });
         return new CdsExportClinicalOccurrenceService.Result(
-                source.manifest().plaintextSha256(), CATEGORY, counts[0], counts[0], 0, counts[1]);
+                source.manifest().plaintextSha256(),
+                CATEGORY,
+                counts[0],
+                counts[0] - counts[2],
+                counts[2],
+                counts[1]);
+    }
+
+    record NativeSource(
+            String id,
+            CdsExportCapturedTextRowDto message,
+            CdsExportCapturedTextRowDto information,
+            CdsExportCapturedTextRowDto routing,
+            CdsExportNativeLaboratoryParser.Parsed parsed) {
+        List<CdsExportCapturedTextRowDto> rows() {
+            return List.of(message, information, routing);
+        }
+
+        @Override
+        public String toString() {
+            return "NativeSource[protected]";
+        }
+    }
+
+    List<NativeSource> nativeSources(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportRetainedIndexDto index,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control)
+            throws IOException {
+        if (!lease.document().command().categories().contains(CATEGORY)) return List.of();
+        patient.require(lease);
+        control.authorizeCategory(patient.patient(), CATEGORY, true);
+        if (!tables.containsAll(TABLES)
+                || !tables.equals(source.capture().tables().keySet())
+                || !source.manifest().plaintextSha256().equals(index.sourceManifestSha256()))
+            invalid();
+        new CdsExportMergeScopeValidator(captures)
+                .requireUnmerged(
+                        lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
+        var result =
+                nativeSources(
+                        patient.patient(),
+                        readCurrent(lease, patient, tables, source, bounds, control).rows(),
+                        index,
+                        control::checkpoint);
+        control.authorizeCategory(patient.patient(), CATEGORY, true);
+        return result;
+    }
+
+    static List<NativeSource> nativeSources(
+            int patient,
+            Map<String, CdsExportCapturedTextRowDto> current,
+            CdsExportRetainedIndexDto index,
+            Runnable checkpoint)
+            throws IOException {
+        requireOwnership(patient, current);
+        var imported = new HashSet<String>();
+        for (var address : index.appliedUnits())
+            for (var ref : index.references().getOrDefault(address, List.of()))
+                if (ref.table().equals("hl7TextMessage")) imported.add(ref.id());
+        var mirrors = new HashSet<String>();
+        var information = new HashMap<String, CdsExportCapturedTextRowDto>();
+        var routing = new HashMap<String, CdsExportCapturedTextRowDto>();
+        for (var row : current.values()) {
+            if (row.table().equals("cds_laboratory_result")
+                    && row.fields().get("nativeLabNo") != null)
+                mirrors.add(row.fields().get("nativeLabNo"));
+            if (row.table().equals("hl7TextInfo")) information.put(row.fields().get("lab_no"), row);
+            if (row.table().equals("patientLabRouting"))
+                routing.put(row.fields().get("lab_no"), row);
+        }
+        var sources = new ArrayList<NativeSource>();
+        for (var row : current.values()) {
+            checkpoint.run();
+            if (!row.table().equals("hl7TextMessage")) continue;
+            String id = nativeId(row);
+            if (mirrors.contains(id)) {
+                if (!imported.contains(id)) review();
+                else continue;
+            }
+            if (imported.contains(id)) review();
+            var parsed =
+                    new CdsExportNativeLaboratoryParser()
+                            .parse(row.fields().get("message"), checkpoint);
+            sources.add(new NativeSource(id, row, information.get(id), routing.get(id), parsed));
+        }
+        sources.sort(Comparator.comparing(NativeSource::id));
+        return List.copyOf(sources);
+    }
+
+    private record Captured(
+            Map<String, CdsExportCapturedTextRowDto> rows,
+            Map<String, CdsExportNativeRowReceiptDto> witnesses) {}
+
+    private Captured readCurrent(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control)
+            throws IOException {
+        var current = new TreeMap<String, CdsExportCapturedTextRowDto>();
+        var exact = new HashMap<String, CdsExportNativeRowReceiptDto>();
+        long[] memory = {0};
+        var read =
+                rows.forEachTable(
+                        lease,
+                        patient,
+                        tables,
+                        TABLES,
+                        source.manifest(),
+                        bounds.fields(),
+                        bounds.bytes(),
+                        67_108_864,
+                        control,
+                        row -> {
+                            control.checkpoint();
+                            String id = nativeId(row);
+                            var plan = plan(row.table());
+                            if (!row.fields().keySet().equals(Set.copyOf(plan.columns()))
+                                    || !row.exactNumbers().isEmpty()) invalid();
+                            if (current.size() >= bounds.nativeRows()) limit();
+                            for (var value : row.fields().values())
+                                if (value != null)
+                                    memory[0] =
+                                            Math.addExact(
+                                                    memory[0],
+                                                    value.getBytes(StandardCharsets.UTF_8).length
+                                                            + 64L);
+                            memory[0] =
+                                    Math.addExact(memory[0], 1024L + row.fields().size() * 256L);
+                            if (memory[0] > bounds.indexBytes()) limit();
+                            if (current.putIfAbsent(key(row.table(), id), row) != null) invalid();
+                        });
+        if (!read.equals(source.capture())) invalid();
+        var scanned =
+                witnesses.scan(
+                        lease,
+                        patient,
+                        tables,
+                        source,
+                        bounds.fields(),
+                        bounds.bytes(),
+                        control,
+                        witness -> {
+                            if (!TABLES.contains(witness.table())) return;
+                            if (exact.size() >= bounds.nativeRows()) limit();
+                            if (exact.putIfAbsent(key(witness.table(), witness.id()), witness)
+                                    != null) invalid();
+                        });
+        if (!scanned.sourceManifestSha256().equals(source.manifest().plaintextSha256())
+                || !current.keySet().equals(exact.keySet())) invalid();
+        for (var entry : current.entrySet()) verify(entry.getValue(), exact.get(entry.getKey()));
+        for (String table : TABLES)
+            if (current.values().stream().filter(row -> row.table().equals(table)).count()
+                    != source.capture().tables().get(table).rows()) invalid();
+        requireOwnership(patient.patient(), current);
+        return new Captured(Map.copyOf(current), Map.copyOf(exact));
     }
 
     private static CdsExportPatientTableReadSupport.Plan plan(String table) throws IOException {
@@ -465,7 +637,7 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
         }
         if (!messages.equals(routes.keySet())
                 || !messages.equals(information.keySet())
-                || !messages.equals(results.keySet())) review();
+                || !messages.containsAll(results.keySet())) review();
     }
 
     private static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assess(

@@ -151,9 +151,9 @@ class CdsExportLaboratoryOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseANativeOnlyHl7_withoutReplayingUnrelatedRetainedXml() {
+    void shouldQualifyNativeOnlyHl7Ownership_beforeItsSeparateStructuralMapping() {
         current.remove("cds_laboratory_result:" + ID);
-        assertThatThrownBy(this::ownership).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        assertThatCode(this::ownership).doesNotThrowAnyException();
     }
 
     @Test
@@ -163,7 +163,8 @@ class CdsExportLaboratoryOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseTwoStructuredResultsSharingOneMessage_forLaboratoryOccurrenceServiceContract() {
+    void
+            shouldRefuseTwoStructuredResultsSharingOneMessage_forLaboratoryOccurrenceServiceContract() {
         String other = "b".repeat(64);
         put(
                 "cds_laboratory_result",

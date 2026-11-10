@@ -51,16 +51,19 @@ public class CdsExportPatientInventoryService {
     private final CdsExportNativeRowReceiptReader rows;
     private final CdsExportHistoryInventoryService histories;
     private final CdsExportCareOccurrenceService care;
+    private final CdsExportLaboratoryOccurrenceService laboratories;
 
     public CdsExportPatientInventoryService(
             CdsExportRetainedIndexService indices,
             CdsExportNativeRowReceiptReader rows,
             CdsExportHistoryInventoryService histories,
-            CdsExportCareOccurrenceService care) {
+            CdsExportCareOccurrenceService care,
+            CdsExportLaboratoryOccurrenceService laboratories) {
         this.indices = Objects.requireNonNull(indices);
         this.rows = Objects.requireNonNull(rows);
         this.histories = Objects.requireNonNull(histories);
         this.care = Objects.requireNonNull(care);
+        this.laboratories = Objects.requireNonNull(laboratories);
     }
 
     public Inventory capture(
@@ -190,6 +193,29 @@ public class CdsExportPatientInventoryService {
                             CdsCategory.NEW_CATEGORY,
                             observation.table(),
                             observation.id()),
+                    budget);
+        }
+        for (var laboratory :
+                laboratories.nativeSources(
+                        lease, patient, tables, source, index, bounds, control)) {
+            if (!lease.document().command().categories().contains(CdsCategory.NEW_CATEGORY))
+                review();
+            for (var observation : laboratory.parsed().observations())
+                add(
+                        expected,
+                        nativeIdentity(
+                                patientKey,
+                                CdsCategory.LABORATORY_RESULTS,
+                                "hl7TextMessage",
+                                laboratory.id() + ":" + observation.ordinal()),
+                        budget);
+            add(
+                    expected,
+                    nativeIdentity(
+                            patientKey,
+                            CdsCategory.NEW_CATEGORY,
+                            "hl7TextMessage",
+                            laboratory.id()),
                     budget);
         }
         var mapper = new CdsExportRetainedFieldMapper();

@@ -65,6 +65,7 @@ public class CdsExportClinicalZoneSourceReader implements CdsExportNativeSourceR
         categories.add(CdsCategory.APPOINTMENTS);
         categories.add(CdsCategory.IMMUNIZATIONS);
         categories.add(CdsCategory.REPORTS);
+        categories.add(CdsCategory.LABORATORY_RESULTS);
         return Set.copyOf(categories);
     }
 

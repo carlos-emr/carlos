@@ -173,6 +173,40 @@ class CdsExportPatientInventoryServiceUnitTest {
     }
 
     @Test
+    void shouldInventoryEveryNativeLabObservationRepetition_andItsSeparateSourceContext()
+            throws Exception {
+        var f = fixture(CdsCategory.LABORATORY_RESULTS, CdsCategory.NEW_CATEGORY);
+        var source =
+                CdsExportNativeLaboratoryMapperUnitTest.source(
+                        CdsExportNativeLaboratoryMapperUnitTest.message());
+        when(f.laboratoryInventory.nativeSources(
+                        any(), any(), anySet(), any(), any(), any(), any()))
+                .thenReturn(List.of(source));
+        var result = capture(f);
+        assertThat(result.identities()).hasSize(6);
+        assertThat(
+                        result.identities().stream()
+                                .filter(i -> i.category() == CdsCategory.LABORATORY_RESULTS))
+                .hasSize(4);
+        assertThat(
+                        result.identities().stream()
+                                .filter(i -> i.category() == CdsCategory.NEW_CATEGORY))
+                .hasSize(1);
+    }
+
+    @Test
+    void shouldRequireTheExplicitSupportingCategory_forNativeLabSourceContext() throws Exception {
+        var f = fixture(CdsCategory.LABORATORY_RESULTS);
+        var source =
+                CdsExportNativeLaboratoryMapperUnitTest.source(
+                        CdsExportNativeLaboratoryMapperUnitTest.message());
+        when(f.laboratoryInventory.nativeSources(
+                        any(), any(), anySet(), any(), any(), any(), any()))
+                .thenReturn(List.of(source));
+        assertThatThrownBy(() -> capture(f)).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+    }
+
+    @Test
     void shouldInventoryNativeCareAndItsSupportingContext_withoutAnImportedParent()
             throws Exception {
         var f = fixture(CdsCategory.CARE_ELEMENTS, CdsCategory.NEW_CATEGORY);

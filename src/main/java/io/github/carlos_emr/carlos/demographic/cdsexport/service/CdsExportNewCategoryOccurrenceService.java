@@ -39,16 +39,19 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
     private final CdsExportNativeCaptureService captures;
     private final CdsExportCapturedTextRowsReader rows;
     private final CdsExportCareOccurrenceService care;
+    private final CdsExportLaboratoryOccurrenceService laboratories;
 
     public CdsExportNewCategoryOccurrenceService(
             CdsExportRetainedValuesService values,
             CdsExportRetainedReceiptVerificationService verification,
             CdsExportNativeCaptureService captures,
-            CdsExportCareOccurrenceService care) {
+            CdsExportCareOccurrenceService care,
+            CdsExportLaboratoryOccurrenceService laboratories) {
         this.values = Objects.requireNonNull(values);
         this.verification = Objects.requireNonNull(verification);
         this.captures = Objects.requireNonNull(captures);
         this.care = Objects.requireNonNull(care);
+        this.laboratories = Objects.requireNonNull(laboratories);
         rows = new CdsExportCapturedTextRowsReader(captures);
     }
 
@@ -258,6 +261,50 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                                         Set.of()));
                         control.authorizeCategory(
                                 patient.patient(), CdsCategory.CARE_ELEMENTS, false);
+                        control.authorizeCategory(patient.patient(), category(), false);
+                        counts[0]++;
+                        counts[2]++;
+                    }
+                    for (var nativeSource :
+                            laboratories.nativeSources(
+                                    lease, patient, tables, source, index, bounds, control)) {
+                        var assessments = CdsExportNativeLaboratoryMapper.assessments(nativeSource);
+                        new CdsExportNativeFieldAssessmentValidator()
+                                .requireRepresentable(
+                                        nativeSource.rows(),
+                                        assessments,
+                                        1_000_000,
+                                        control::checkpoint);
+                        var identity =
+                                new CdsExportIdentityDto(
+                                        patientKey,
+                                        category(),
+                                        CdsImportKeys.hash(
+                                                "carlos-native-occurrence-v1",
+                                                "hl7TextMessage",
+                                                nativeSource.id()));
+                        streams.requireActive();
+                        control.authorizeCategory(
+                                patient.patient(), CdsCategory.LABORATORY_RESULTS, true);
+                        control.authorizeCategory(patient.patient(), category(), false);
+                        xml.emit(
+                                new CdsExportXmlComposer.Section(
+                                        identity,
+                                        body ->
+                                                new CdsExportNativeLaboratoryMapper()
+                                                        .writeSupporting(nativeSource, body)));
+                        output.accept(
+                                new CdsExportClinicalOccurrenceService.Receipt(
+                                        identity,
+                                        index.sourceManifestSha256(),
+                                        "hl7TextMessage",
+                                        nativeSource.id(),
+                                        null,
+                                        assessments,
+                                        Set.of(),
+                                        Set.of()));
+                        control.authorizeCategory(
+                                patient.patient(), CdsCategory.LABORATORY_RESULTS, true);
                         control.authorizeCategory(patient.patient(), category(), false);
                         counts[0]++;
                         counts[2]++;

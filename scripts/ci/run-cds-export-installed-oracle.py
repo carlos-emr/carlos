@@ -3,6 +3,7 @@
 """Independent native-chart oracle and schema-valid mutation check for owned CI artifacts."""
 from __future__ import annotations
 import argparse
+import base64
 import copy
 import hashlib
 import json
@@ -94,7 +95,8 @@ def care_equal(record, patient: int) -> bool:
         values = record.findall("c:CareElements/c:" + name, NS)
         if len(values) != 1 or {child.tag.split("}")[-1]: child.text for child in values[0]} != expected_value:
             return False
-    supporting = record.findall("c:NewCategory", NS)
+    supporting = [entry for entry in record.findall("c:NewCategory", NS)
+                  if entry.find("c:CategoryName", NS).text == "CARLOS.NativeObservation.v1"]
     if len(supporting) != 5:
         return False
     active, deleted = {}, []
@@ -125,6 +127,58 @@ def care_equal(record, patient: int) -> bool:
             return False
     return all(deleted[0].get(k) == v for k, v in {"dataField": "80", "type": "WT", "dateDeleted": "2026-07-10 14:00:00",
         "comments": "Deleted native measurement comment café 😀"}.items())
+
+
+def laboratory_expected() -> list[dict[str, str]]:
+    return [
+        {"c:LaboratoryName": "Native Lab", "c:TestNameReportedByLab": "Glucose",
+         "c:LabTestCode": "2345-7", "c:AccessionNumber": "ACC-1", "c:Result/c:Value": "5.4",
+         "c:Result/c:UnitOfMeasure": "mmol/L", "c:ReferenceRange/c:ReferenceRangeText": "3.5-7.8",
+         "c:CollectionDateTime/d:FullDateTime": "2026-07-09T14:35:00-04:00",
+         "c:LabRequisitionDateTime/d:FullDateTime": "2026-07-08T10:00:00-04:00",
+         "c:ResultNormalAbnormalFlag/d:resultNormalAbnormalFlagAsEnum": "N",
+         "c:NotesFromLab": "Exact café | details 😀", "c:TestResultStatus": "F"},
+        {"c:LaboratoryName": "Native Lab", "c:TestNameReportedByLab": "Narrative",
+         "c:LabTestCode": "COMMENT", "c:AccessionNumber": "ACC-1", "c:Result/c:Value": "A&B",
+         "c:CollectionDateTime/d:FullDateTime": "2026-07-09T14:35:00-04:00",
+         "c:ResultNormalAbnormalFlag/d:resultNormalAbnormalFlagAsEnum": "A", "c:TestResultStatus": "F"},
+        *[{"c:LaboratoryName": "Native Lab", "c:TestNameReportedByLab": "Repeated native result",
+           "c:LabTestCode": "NATIVE", "c:AccessionNumber": "ACC-2", "c:Result/c:Value": value,
+           "c:Result/c:UnitOfMeasure": "mg/L", "c:CollectionDateTime/d:FullDate": "2026-07-09",
+           "c:ResultNormalAbnormalFlag/d:resultNormalAbnormalFlagAsPlainText": "", "c:TestResultStatus": "P"}
+          for value in ("10", "11")],
+    ]
+
+
+def laboratory_equal(record) -> bool:
+    laboratories = record.findall("c:LaboratoryResults", NS)
+    if len(laboratories) != 4:
+        return False
+    for result, expected_value in zip(laboratories, laboratory_expected(), strict=True):
+        if any(len(result.findall(path, NS)) != 1 or (result.find(path, NS).text or "") != value
+               for path, value in expected_value.items()):
+            return False
+    supporting = [entry for entry in record.findall("c:NewCategory", NS)
+                  if entry.find("c:CategoryName", NS).text == "CARLOS.NativeLaboratory.v1"]
+    if len(supporting) != 1:
+        return False
+    context = json.loads(supporting[0].find("c:ResidualInfo/d:DataElement[d:Name='CARLOS.Laboratory.v1']/d:Content", NS).text)
+    if context.get("version") != 1 or len(context.get("rows", [])) != 3:
+        return False
+    rows = {row["table"]: row["fields"] for row in context["rows"]}
+    expected_message = (
+        "MSH|^~\\&|LABAPP|Native Lab|CARLOS|Clinic|20260710123000-0400||ORU^R01|native-1|P|2.5\r"
+        "PID|1||EXTERNAL-27^^^LAB^MR||Synthetic^Native||20000102|F\r"
+        "OBR|1||ACC-1|PANEL^Metabolic panel^L||20260708100000-0400|20260709143500-0400\r"
+        "OBX|1|NM|2345-7^Glucose^LN||5.4|mmol/L|3.5-7.8|N|||F|||20260709143500-0400\r"
+        "NTE|1||Exact café \\F\\ details 😀\r"
+        "OBX|2|ST|COMMENT^Narrative^L||A\\T\\B|||A|||F|||20260709143500-0400\r"
+        "OBR|2||ACC-2|OTHER^Other panel^L|||20260709\r"
+        "OBX|1|NM|NATIVE^Repeated native result^L||10~11|mg/L|||||P\r"
+    ).encode("utf-8")
+    return (set(rows) == {"hl7TextMessage", "hl7TextInfo", "patientLabRouting"}
+            and base64.b64decode(rows["hl7TextMessage"]["message"], validate=True) == expected_message
+            and rows["hl7TextInfo"]["sending_facility"] == "Native Lab")
 
 
 def report_expected() -> dict[str, str]:
@@ -166,10 +220,10 @@ def clinically_equal(root, patient: int) -> bool:
         return False
     record = root.find("./c:PatientRecord", NS)
     categories = ["Demographics", "PersonalHistory", "FamilyHistory", "PastHealth", "ProblemList",
-                  "RiskFactors", "ClinicalNotes", "Reports"] + ["CareElements"] * 3 + ["AlertsAndSpecialNeeds"] + ["NewCategory"] * 5
+                  "RiskFactors"] + ["LaboratoryResults"] * 4 + ["ClinicalNotes", "Reports"] + ["CareElements"] * 3 + ["AlertsAndSpecialNeeds"] + ["NewCategory"] * 6
     if [item.tag for item in record] != ["{cds}" + name for name in categories]:
         return False
-    return history_equal(record) and report_equal(record) and care_equal(record, patient) and all(len(root.findall(BASE + path, NS)) == 1 and root.find(BASE + path, NS).text == value
+    return history_equal(record) and report_equal(record) and laboratory_equal(record) and care_equal(record, patient) and all(len(root.findall(BASE + path, NS)) == 1 and root.find(BASE + path, NS).text == value
                for path, value in expected(patient).items())
 
 
@@ -231,6 +285,7 @@ def main() -> int:
             ("../c:ClinicalNotes/c:MyClinicalNotesContent", "Edited native clinical note café 😀"),
             ("../c:FamilyHistory/c:ResidualInfo/d:DataElement[d:Name='CARLOS.History.Archived.v1']/d:Content", "false"),
             ("../c:Reports/c:SourceAuthorPhysician/c:AuthorFreeText", "Wrong author"),
+            ("../c:LaboratoryResults[1]/c:Result/c:Value", "6.4"),
         )
         detected = 0
         for index, (path, replacement) in enumerate(mutations):
@@ -246,12 +301,12 @@ def main() -> int:
                 raise RuntimeError("Independent oracle missed a schema-valid clinical mutation")
             detected += 1
     args.proof.write_text(json.dumps({
-        "protocol": 1, "status": "PASSED", "independentExpectedFacts": len(expected(patient)) + len(history_expected()) + len(report_expected()),
+        "protocol": 1, "status": "PASSED", "independentExpectedFacts": len(expected(patient)) + len(history_expected()) + len(report_expected()) + sum(map(len, laboratory_expected())),
         "schemaValidClinicalMutantsDetected": detected, "zipMembers": len(names), "patientXmlMembers": 1,
         "pinnedSchemaValid": True, "plaintextZipSha256": hashlib.sha256(args.archive.read_bytes()).hexdigest(),
         "patientXmlSha256": hashlib.sha256(xml_bytes).hexdigest()
     }, sort_keys=True, indent=2))
-    print("PASS independent native clinical oracle:", len(expected(patient)) + len(history_expected()) + len(report_expected()), "facts and", detected, "schema-valid mutants")
+    print("PASS independent native clinical oracle:", len(expected(patient)) + len(history_expected()) + len(report_expected()) + sum(map(len, laboratory_expected())), "facts and", detected, "schema-valid mutants")
     return 0
 
 

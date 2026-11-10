@@ -187,6 +187,7 @@ public final class CdsExportInstalledFixture {
             nativeHistory(db, patient);
             nativeCare(db, patient);
             nativeReport(db, patient);
+            nativeLaboratory(db, patient);
             db.commit();
             writePrivate(
                     PRIVATE.resolve("fixture.json"),
@@ -382,6 +383,23 @@ public final class CdsExportInstalledFixture {
     }
 
     /** The native chart deliberately has no CDS import parent or retained fields. */
+    private static void nativeLaboratory(Connection db, int patient) throws Exception {
+        String message = "MSH|^~\\&|LABAPP|Native Lab|CARLOS|Clinic|20260710123000-0400||ORU^R01|native-1|P|2.5\r"
+                + "PID|1||EXTERNAL-27^^^LAB^MR||Synthetic^Native||20000102|F\r"
+                + "OBR|1||ACC-1|PANEL^Metabolic panel^L||20260708100000-0400|20260709143500-0400\r"
+                + "OBX|1|NM|2345-7^Glucose^LN||5.4|mmol/L|3.5-7.8|N|||F|||20260709143500-0400\r"
+                + "NTE|1||Exact café \\F\\ details 😀\r"
+                + "OBX|2|ST|COMMENT^Narrative^L||A\\T\\B|||A|||F|||20260709143500-0400\r"
+                + "OBR|2||ACC-2|OTHER^Other panel^L|||20260709\r"
+                + "OBX|1|NM|NATIVE^Repeated native result^L||10~11|mg/L|||||P\r";
+        update(db, "INSERT INTO hl7TextMessage(message,type,created) VALUES(?,'GENERIC','2026-07-10 12:30:00')",
+                Base64.getEncoder().encodeToString(message.getBytes(StandardCharsets.UTF_8)));
+        int lab = (int) count(db, "SELECT LAST_INSERT_ID()");
+        update(db, "INSERT INTO hl7TextInfo(lab_no,accessionNum,first_name,last_name,health_no,sex,sending_facility,result_status,final_result_count,obr_date)"
+                + " VALUES(?,'ACC-1','Native','Synthetic','','F','Native Lab','F',4,'2026-07-09 14:35:00')", lab);
+        update(db, "INSERT INTO patientLabRouting(demographic_no,lab_no,lab_type,created,dateModified) VALUES(?,?,'HL7','2026-07-10 12:30:00','2026-07-10 12:30:00')", patient, lab);
+    }
+
     private static void nativeReport(Connection db, int patient) throws Exception {
         writePrivate(ROOT.resolve("documents/native-report.txt"),
                 "Native consultation report café 😀\nIndependent attachment bytes\n".getBytes(StandardCharsets.UTF_8), true);
@@ -503,6 +521,9 @@ public final class CdsExportInstalledFixture {
                 || !Files.readString(ROOT.resolve("documents/native-report.txt"), StandardCharsets.UTF_8)
                         .equals("Native consultation report café 😀\nIndependent attachment bytes\n"))
             throw new IllegalStateException("Native report changed");
+        if (count(db,"SELECT COUNT(*) FROM patientLabRouting WHERE demographic_no=? AND lab_type='HL7'",patient)!=1
+                || count(db,"SELECT COUNT(*) FROM cds_laboratory_result WHERE demographicNo=?",patient)!=0)
+            throw new IllegalStateException("Native laboratory changed");
         System.out.println(
                 JSON.writeValueAsString(
                         Map.of(

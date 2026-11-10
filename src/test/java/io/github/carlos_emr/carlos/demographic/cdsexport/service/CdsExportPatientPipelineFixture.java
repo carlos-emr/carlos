@@ -43,8 +43,11 @@ final class CdsExportPatientPipelineFixture {
     final CdsExportNativeCaptureService captures = mock(CdsExportNativeCaptureService.class);
     final CdsExportRetainedIndexService indices = mock(CdsExportRetainedIndexService.class);
     final CdsExportNativeRowReceiptReader witnesses = mock(CdsExportNativeRowReceiptReader.class);
-    final CdsExportHistoryInventoryService historyInventory = mock(CdsExportHistoryInventoryService.class);
+    final CdsExportHistoryInventoryService historyInventory =
+            mock(CdsExportHistoryInventoryService.class);
     final CdsExportCareOccurrenceService careInventory = mock(CdsExportCareOccurrenceService.class);
+    final CdsExportLaboratoryOccurrenceService laboratoryInventory =
+            mock(CdsExportLaboratoryOccurrenceService.class);
     final CdsExportCohortService.Patient patient = mock(CdsExportCohortService.Patient.class);
     final CdsExportRunControl control = mock(CdsExportRunControl.class);
     final CdsExportDemographicOccurrenceService demographics =
@@ -166,7 +169,9 @@ final class CdsExportPatientPipelineFixture {
                                     0,
                                     Set.of());
                         });
-        inventories = new CdsExportPatientInventoryService(indices, witnesses, historyInventory, careInventory);
+        inventories =
+                new CdsExportPatientInventoryService(
+                        indices, witnesses, historyInventory, careInventory, laboratoryInventory);
         when(demographics.append(
                         any(),
                         any(),
