@@ -60,7 +60,7 @@
 %>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <title>MyIssues ~ Issue Details</title>
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
