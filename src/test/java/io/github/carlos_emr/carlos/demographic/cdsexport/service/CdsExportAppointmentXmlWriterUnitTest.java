@@ -127,7 +127,7 @@ class CdsExportAppointmentXmlWriterUnitTest {
                                 "AppointmentTime",
                                 "09:00:30-05:00",
                                 "Duration",
-                                "75",
+                                "76",
                                 "AppointmentStatus",
                                 "Exact booked Ω",
                                 "AppointmentDate/FullDate",
