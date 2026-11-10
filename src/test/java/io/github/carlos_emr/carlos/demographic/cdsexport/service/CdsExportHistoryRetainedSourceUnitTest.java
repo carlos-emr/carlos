@@ -43,10 +43,12 @@ class CdsExportHistoryRetainedSourceUnitTest {
     private CdsCategory category;
     private CdsHistoryNativeDto prepared;
     private int shift;
+    private final Map<String, String> retainedLargeValues = new HashMap<>();
 
     @BeforeEach
     void setup() throws Exception {
         fields.clear();
+        retainedLargeValues.clear();
         shift = 0;
         category = CdsCategory.FAMILY_HISTORY;
         values = mock(CdsExportRetainedSectionWriter.Values.class);
@@ -56,7 +58,9 @@ class CdsExportHistoryRetainedSourceUnitTest {
                             CdsExportRetainedFieldDto field = call.getArgument(0);
                             return new StringReader(
                                     field.logicalInline() == null
-                                            ? field.originalInline()
+                                            ? field.originalInline() == null
+                                                    ? retainedLargeValues.get(field.id())
+                                                    : field.originalInline()
                                             : field.logicalInline());
                         });
         add("ProblemDiagnosisProcedureDescription[1]", "Exact <clinical> & literal text");
@@ -228,7 +232,9 @@ class CdsExportHistoryRetainedSourceUnitTest {
             shouldKeepTheCompleteOversizedNarrative_asSourceWithoutUsingItsNativePlaceholderAsClinicalText()
                     throws Exception {
         String marker =
-                "[CDS FamilyHistory: narrative exceeds the bounded native projection. Read the complete original and normalized values in this clinical category's CDS source fields. No narrative excerpt was substituted.]";
+                "[CDS FamilyHistory: narrative exceeds the bounded native projection. Read the"
+                        + " complete original and normalized values in this clinical category's CDS"
+                        + " source fields. No narrative excerpt was substituted.]";
         prepared =
                 new CdsHistoryNativeDto(
                         marker,
@@ -268,7 +274,8 @@ class CdsExportHistoryRetainedSourceUnitTest {
         add("ResidualInfo[1]/DataElement[1]/Content[1]", "Complete original content");
         prepared =
                 new CdsHistoryNativeDto(
-                        "[CDS PersonalHistory: no narrative body supplied. Separate clinical source fields retain this occurrence's complete values.]",
+                        "[CDS PersonalHistory: no narrative body supplied. Separate clinical source"
+                                + " fields retain this occurrence's complete values.]",
                         "SocHistory",
                         null,
                         null,
@@ -282,6 +289,90 @@ class CdsExportHistoryRetainedSourceUnitTest {
         assertThat(read().sourceFields()).hasSize(3);
         assertThat(read().dates()).isEmpty();
         assertThat(read().changes()).isEmpty();
+    }
+
+    @Test
+    void shouldVerifyPersonalHistoryNarrativeAndArchiveCarriers_fromTheirSealedNativePreparation()
+            throws Exception {
+        fields.clear();
+        category = CdsCategory.PERSONAL_HISTORY;
+        add("ResidualInfo[1]/DataElement[1]/Name[1]", " CARLOS.History.PersonalNarrative.v1\t");
+        add("ResidualInfo[1]/DataElement[1]/DataType[1]", " string ");
+        add("ResidualInfo[1]/DataElement[1]/Content[1]", "Authored personal history café 😀");
+        add("ResidualInfo[1]/DataElement[2]/Name[1]", "CARLOS.History.Archived.v1");
+        add("ResidualInfo[1]/DataElement[2]/DataType[1]", "boolean");
+        add("ResidualInfo[1]/DataElement[2]/Content[1]", "1");
+        prepared =
+                new CdsHistoryNativeDto(
+                        "Authored personal history café 😀",
+                        "SocHistory",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        List.of(),
+                        true);
+        assertThat(read().sourceFields()).hasSize(6);
+        prepared =
+                new CdsHistoryNativeDto(
+                        "Edited before seal",
+                        "SocHistory",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        List.of(),
+                        true);
+        assertThatThrownBy(this::read).hasMessage("CDS_EXPORT_HISTORY_SOURCE_INVALID");
+    }
+
+    @Test
+    void shouldRecognizeOversizedPersonalNarratives_withoutTreatingTheirPlaceholderAsTheSource()
+            throws Exception {
+        fields.clear();
+        category = CdsCategory.PERSONAL_HISTORY;
+        add("ResidualInfo[1]/DataElement[1]/Name[1]", "CARLOS.History.PersonalNarrative.v1");
+        add("ResidualInfo[1]/DataElement[1]/DataType[1]", "string");
+        add("ResidualInfo[1]/DataElement[1]/Content[1]", "Full source narrative".repeat(20000));
+        prepared =
+                new CdsHistoryNativeDto(
+                        "[CDS PersonalHistory: narrative exceeds the bounded native projection."
+                            + " Read the complete original and normalized values in this clinical"
+                            + " category's CDS source fields. No narrative excerpt was"
+                            + " substituted.]",
+                        "SocHistory",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        List.of(
+                                new CdsClinicalDiagnosticDto(
+                                        "CDS_NOTE_COMPLETE_TEXT_SOURCE_VIEW", "ResidualInfo")));
+        assertThat(read().sourceFields()).hasSize(3);
+        verify(values, never()).text(fields.getLast());
+    }
+
+    @Test
+    void shouldAuthenticateLongUnrecognizedCarrierNames_andRejectDuplicateKnownNames()
+            throws Exception {
+        fields.clear();
+        category = CdsCategory.PERSONAL_HISTORY;
+        add("ResidualInfo[1]/DataElement[1]/Name[1]", "Unrelated." + "x".repeat(20000));
+        add("ResidualInfo[1]/DataElement[1]/DataType[1]", "string");
+        add("ResidualInfo[1]/DataElement[1]/Content[1]", "Unrelated value");
+        add("ResidualInfo[1]/DataElement[2]/Name[1]", "CARLOS.History.PersonalNarrative.v1");
+        add("ResidualInfo[1]/DataElement[2]/DataType[1]", "string");
+        add("ResidualInfo[1]/DataElement[2]/Content[1]", "Authored history");
+        prepare("Authored history", null, null);
+        assertThat(read().sourceFields()).hasSize(6);
+        verify(values, atLeastOnce()).text(fields.getFirst());
+        add("ResidualInfo[1]/DataElement[3]/Name[1]", "CARLOS.History.PersonalNarrative.v1");
+        add("ResidualInfo[1]/DataElement[3]/DataType[1]", "string");
+        add("ResidualInfo[1]/DataElement[3]/Content[1]", "Duplicate history");
+        assertThatThrownBy(this::read).hasMessage("CDS_EXPORT_HISTORY_SOURCE_INVALID");
     }
 
     @Test
@@ -526,9 +617,11 @@ class CdsExportHistoryRetainedSourceUnitTest {
                 type = type.child(namespace, name);
             }
         String root = "/OmdCds[1]/PatientRecord[1]/" + category.wireName() + "[1]";
+        String id = CdsImportKeys.hash(path, Integer.toString(fields.size()));
+        if (value.length() > 32768) retainedLargeValues.put(id, value);
         fields.add(
                 new CdsExportRetainedFieldDto(
-                        CdsImportKeys.hash(path, Integer.toString(fields.size())),
+                        id,
                         RUN,
                         HASH,
                         HASH,
@@ -538,8 +631,15 @@ class CdsExportHistoryRetainedSourceUnitTest {
                         namespace,
                         "{" + type.getTypeNamespace() + "}" + type.getTypeName(),
                         null,
-                        value,
-                        value,
-                        null));
+                        value.length() <= 32768 ? value : null,
+                        value.length() <= 32768 ? value : null,
+                        value.length() <= 32768
+                                ? null
+                                : new CdsExportRetainedFieldDto.Payload(
+                                        "/synthetic/retained-value",
+                                        HASH,
+                                        0,
+                                        value.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+                                                .length)));
     }
 }

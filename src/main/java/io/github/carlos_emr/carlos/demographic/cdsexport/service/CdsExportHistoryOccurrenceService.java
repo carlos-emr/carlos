@@ -230,15 +230,12 @@ public class CdsExportHistoryOccurrenceService {
                                                 control);
                                 var occurrences =
                                         plan(index, inventory, context, control::checkpoint);
-                                boolean nativeHistory =
-                                        occurrences.stream()
-                                                .anyMatch(
-                                                        o ->
-                                                                o.issueId() == null
-                                                                        && (o.address() == null
-                                                                                || o.revisions()
-                                                                                                .size()
-                                                                                        > 1));
+                                boolean nativeHistory = false;
+                                for (var occurrence : occurrences)
+                                    if (requiresNativeContext(occurrence, context)) {
+                                        nativeHistory = true;
+                                        break;
+                                    }
                                 var providers =
                                         nativeHistory
                                                 ? new CdsExportPublicProviderReader(captures)
@@ -435,7 +432,7 @@ public class CdsExportHistoryOccurrenceService {
                         }
                         CdsExportHistoryFieldReconciler.Result decision;
                         CdsExportNativeHistoryMapper.Result nativeHistory = null;
-                        if (occurrence.revisions().size() > 1) {
+                        if (requiresNativeContext(occurrence, context)) {
                             var current = new ArrayList<CdsExportHistoryFieldReconciler.Current>();
                             for (long id : occurrence.revisions()) {
                                 control.authorizeNote(category, context.scope(id));
@@ -677,6 +674,32 @@ public class CdsExportHistoryOccurrenceService {
             throws IOException {
         var prior = rows.putIfAbsent(row.table() + "/" + row.recordKey(), row);
         if (prior != null && !prior.equals(row)) invalid();
+    }
+
+    private static boolean requiresNativeContext(
+            Occurrence occurrence, CdsExportHistoryCurrentContext context) throws IOException {
+        if (occurrence.issueId() != null) return false;
+        if (occurrence.address() == null || occurrence.revisions().size() > 1) return true;
+        // A single imported revision can acquire archive, signature or encounter context too.
+        // Route it through the same qualified native carrier used for complete revision chains.
+        var fields = context.note(occurrence.noteId()).note().value().fields();
+        for (String column :
+                List.of(
+                        "archived",
+                        "signed",
+                        "signing_provider_no",
+                        "history",
+                        "encounter_type",
+                        "billing_code",
+                        "appointmentNo",
+                        "hourOfEncounterTime",
+                        "minuteOfEncounterTime",
+                        "hourOfEncTransportationTime",
+                        "minuteOfEncTransportationTime")) {
+            String value = fields.get(column);
+            if (value != null && !value.isEmpty() && !value.equals("0")) return true;
+        }
+        return occurrence.category() == CdsCategory.PERSONAL_HISTORY;
     }
 
     private static void invalid() throws IOException {

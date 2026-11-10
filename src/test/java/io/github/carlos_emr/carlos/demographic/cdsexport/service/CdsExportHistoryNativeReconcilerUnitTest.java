@@ -38,6 +38,8 @@ import org.junit.jupiter.api.*;
 class CdsExportHistoryNativeReconcilerUnitTest {
     private static final String HASH = "a".repeat(64), RUN = "11111111-1111-4111-8111-111111111111";
 
+    private final Map<String, String> retainedValues = new HashMap<>();
+
     private CdsExportRetainedFieldDto field(CdsCategory category, String path, String value)
             throws Exception {
         var type =
@@ -56,8 +58,10 @@ class CdsExportHistoryNativeReconcilerUnitTest {
             namespace = expanded.namespace();
             type = type.child(namespace, name);
         }
+        String id = CdsImportKeys.hash(path);
+        retainedValues.put(id, value);
         return new CdsExportRetainedFieldDto(
-                CdsImportKeys.hash(path),
+                id,
                 RUN,
                 HASH,
                 HASH,
@@ -67,15 +71,21 @@ class CdsExportHistoryNativeReconcilerUnitTest {
                 namespace,
                 "{" + type.getTypeNamespace() + "}" + type.getTypeName(),
                 null,
-                value,
-                value,
-                null);
+                value.length() <= 32768 ? value : null,
+                value.length() <= 32768 ? value : null,
+                value.length() <= 32768
+                        ? null
+                        : new CdsExportRetainedFieldDto.Payload(
+                                "/synthetic/retained-value",
+                                HASH,
+                                0,
+                                value.getBytes(StandardCharsets.UTF_8).length));
     }
 
     private final CdsExportRetainedSectionWriter.Values streams =
             new CdsExportRetainedSectionWriter.Values() {
                 public Reader text(CdsExportRetainedFieldDto field) {
-                    return new StringReader(field.logicalInline());
+                    return new StringReader(retainedValues.get(field.id()));
                 }
 
                 public InputStream binary(CdsExportRetainedFieldDto field) throws IOException {
@@ -126,6 +136,58 @@ class CdsExportHistoryNativeReconcilerUnitTest {
                                 () -> {});
         return new CdsExportRetainedSectionWriter()
                 .prepareChanges(fields, streams, result.changes(), () -> {});
+    }
+
+    @Test
+    void shouldStreamTheEntireRetainedNarrative_whenTheImportedNativeNoteWasOnlyAPlaceholder()
+            throws Exception {
+        String narrative =
+                "Complete retained clinical text café 😀\n".repeat(18000)
+                        + "END_OF_COMPLETE_ORIGINAL_SOURCE";
+        var fields =
+                List.of(field(CdsCategory.CLINICAL_NOTES, "MyClinicalNotesContent[1]", narrative));
+        var result = reconcile(CdsCategory.CLINICAL_NOTES, null, fields);
+        String xml =
+                new String(
+                        render(CdsCategory.CLINICAL_NOTES, result.content()),
+                        StandardCharsets.UTF_8);
+        assertThat(xml)
+                .contains(
+                        narrative,
+                        "Current edited narrative",
+                        "[Current CARLOS native note revisions and source context]");
+        assertThat(result.replacedFields()).containsExactly(fields.getFirst().id());
+    }
+
+    @Test
+    void shouldRetainUnrelatedLongVendorNames_whileAddingKnownNativeHistoryMarkers()
+            throws Exception {
+        String vendorName = "Unrelated.Vendor." + "x".repeat(20000);
+        var fields =
+                List.of(
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ProblemDiagnosisProcedureDescription[1]",
+                                "Original imported narrative"),
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ResidualInfo[1]/DataElement[1]/Name[1]",
+                                vendorName),
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ResidualInfo[1]/DataElement[1]/DataType[1]",
+                                "string"),
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ResidualInfo[1]/DataElement[1]/Content[1]",
+                                "Vendor content"));
+        var result = reconcile(CdsCategory.FAMILY_HISTORY, "FamHistory", fields);
+        assertThat(
+                        new String(
+                                render(CdsCategory.FAMILY_HISTORY, result.content()),
+                                StandardCharsets.UTF_8))
+                .contains(
+                        vendorName, "Vendor content", CdsNativeExtensionContract.HISTORY_ARCHIVED);
     }
 
     @Test

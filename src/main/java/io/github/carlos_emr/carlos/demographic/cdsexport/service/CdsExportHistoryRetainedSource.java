@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsHistoryNativeDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsTemporal;
@@ -149,7 +150,34 @@ public final class CdsExportHistoryRetainedSource {
             if (relative.putIfAbsent(path, field) != null) invalid();
         }
         String body = body(category);
-        var descriptor = body == null ? null : relative.get(body + "[1]");
+        var descriptor =
+                category == CdsCategory.PERSONAL_HISTORY
+                        ? marker(
+                                fields,
+                                CdsNativeExtensionContract.HISTORY_PERSONAL_NARRATIVE,
+                                "string",
+                                values,
+                                checkpoint)
+                        : body == null ? null : relative.get(body + "[1]");
+        if (category != CdsCategory.CLINICAL_NOTES) {
+            var archive =
+                    marker(
+                            fields,
+                            CdsNativeExtensionContract.HISTORY_ARCHIVED,
+                            "boolean",
+                            values,
+                            checkpoint);
+            if (archive == null
+                    ? prepared.archived()
+                    : !(tokenEquals(
+                                    archive,
+                                    Boolean.toString(prepared.archived()),
+                                    values,
+                                    checkpoint)
+                            || tokenEquals(
+                                    archive, prepared.archived() ? "1" : "0", values, checkpoint)))
+                invalid();
+        }
         verifyBody(category, prepared, descriptor, values, checkpoint);
         Pattern datePath = datePattern(category);
         var temporal = new LinkedHashMap<String, CdsTemporalDto>();
@@ -265,7 +293,13 @@ public final class CdsExportHistoryRetainedSource {
                         .anyMatch(
                                 value ->
                                         value.code().equals("CDS_NOTE_COMPLETE_TEXT_SOURCE_VIEW")
-                                                && value.field().equals(body(category)));
+                                                && value.field()
+                                                        .equals(
+                                                                category
+                                                                                == CdsCategory
+                                                                                        .PERSONAL_HISTORY
+                                                                        ? "ResidualInfo"
+                                                                        : body(category)));
         if (body == null) {
             if (!structured
                     || oversized
@@ -273,7 +307,9 @@ public final class CdsExportHistoryRetainedSource {
                             .equals(
                                     "[CDS "
                                             + section
-                                            + ": no narrative body supplied. Separate clinical source fields retain this occurrence's complete values.]"))
+                                            + ": no narrative body supplied. Separate clinical"
+                                            + " source fields retain this occurrence's complete"
+                                            + " values.]"))
                 invalid();
         } else if (oversized) {
             if (structured
@@ -281,7 +317,10 @@ public final class CdsExportHistoryRetainedSource {
                             .equals(
                                     "[CDS "
                                             + section
-                                            + ": narrative exceeds the bounded native projection. Read the complete original and normalized values in this clinical category's CDS source fields. No narrative excerpt was substituted.]"))
+                                            + ": narrative exceeds the bounded native projection."
+                                            + " Read the complete original and normalized values in"
+                                            + " this clinical category's CDS source fields. No"
+                                            + " narrative excerpt was substituted.]"))
                 invalid();
         } else {
             if (structured) invalid();
@@ -299,6 +338,79 @@ public final class CdsExportHistoryRetainedSource {
                 Arrays.fill(buffer, '\0');
             }
         }
+    }
+
+    /** Recognizes only the shared, versioned carrier; unrelated vendor values remain opaque. */
+    static CdsExportRetainedFieldDto marker(
+            List<CdsExportRetainedFieldDto> fields,
+            String name,
+            String type,
+            CdsExportRetainedSectionWriter.Values values,
+            Runnable checkpoint)
+            throws IOException {
+        String root =
+                CdsExportRetainedOccurrencePath.root(
+                        fields.getFirst(), fields.getFirst().category());
+        String prefix = root + "/ResidualInfo[1]/DataElement[";
+        CdsExportRetainedFieldDto result = null;
+        for (var field : fields) {
+            if (!field.sourcePath().startsWith(prefix) || !field.sourcePath().endsWith("/Name[1]"))
+                continue;
+            if (!tokenEquals(field, name, values, checkpoint)) continue;
+            if (result != null) invalid();
+            String group =
+                    field.sourcePath()
+                            .substring(0, field.sourcePath().length() - "/Name[1]".length());
+            CdsExportRetainedFieldDto dataType = null, content = null;
+            for (var candidate : fields) {
+                if (candidate.sourcePath().equals(group + "/DataType[1]")) {
+                    if (dataType != null) invalid();
+                    dataType = candidate;
+                }
+                if (candidate.sourcePath().equals(group + "/Content[1]")) {
+                    if (content != null) invalid();
+                    content = candidate;
+                }
+            }
+            if (dataType == null
+                    || content == null
+                    || !tokenEquals(dataType, type, values, checkpoint)) invalid();
+            result = content;
+        }
+        return result;
+    }
+
+    /** Bounded token comparison still reads through authenticated EOF on a mismatch or long name. */
+    static boolean tokenEquals(
+            CdsExportRetainedFieldDto field,
+            String expected,
+            CdsExportRetainedSectionWriter.Values values,
+            Runnable checkpoint)
+            throws IOException {
+        char[] buffer = new char[4096];
+        int offset = 0;
+        boolean mismatch = false, trailing = false;
+        try (var reader = values.text(field)) {
+            for (int count; (count = reader.read(buffer)) != -1; ) {
+                checkpoint.run();
+                if (count == 0) invalid();
+                for (int i = 0; i < count; i++) {
+                    char value = buffer[i];
+                    boolean space = value == ' ' || value == '\t' || value == '\r' || value == '\n';
+                    if (space) {
+                        if (offset > 0) trailing = true;
+                    } else {
+                        if (trailing
+                                || offset >= expected.length()
+                                || expected.charAt(offset) != value) mismatch = true;
+                        if (offset < expected.length()) offset++;
+                    }
+                }
+            }
+        } finally {
+            Arrays.fill(buffer, '\0');
+        }
+        return !mismatch && offset == expected.length();
     }
 
     private static String text(

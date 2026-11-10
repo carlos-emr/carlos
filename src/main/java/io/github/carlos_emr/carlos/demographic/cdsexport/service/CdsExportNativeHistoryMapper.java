@@ -666,6 +666,8 @@ public final class CdsExportNativeHistoryMapper {
             if (zone == null) review("CDS_EXPORT_NATIVE_HISTORY_ZONE_REQUIRED");
             var offsets = zone.getRules().getValidOffsets(local);
             if (offsets.size() != 1) review("CDS_EXPORT_NATIVE_HISTORY_CLOCK_AMBIGUOUS");
+            if (offsets.getFirst().getTotalSeconds() % 60 != 0)
+                review("CDS_EXPORT_NATIVE_HISTORY_OFFSET_NOT_REPRESENTABLE");
             return new CdsExportDateDto(
                     CdsExportDateDto.Precision.DATE_TIME,
                     java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(

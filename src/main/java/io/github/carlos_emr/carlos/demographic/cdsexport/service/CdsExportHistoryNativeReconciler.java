@@ -62,11 +62,26 @@ final class CdsExportHistoryNativeReconciler {
         for (var change : source.changes()) changes.put(change.relativePath(), change);
         var nativeValue = mapped.value();
         if (category == CdsCategory.CLINICAL_NOTES) {
+            String root = CdsExportRetainedOccurrencePath.root(sourceFields.getFirst(), category);
+            var originalBodies =
+                    sourceFields.stream()
+                            .filter(f -> f.sourcePath().equals(root + "/MyClinicalNotesContent[1]"))
+                            .toList();
+            if (originalBodies.size() != 1)
+                throw new IOException("CDS_EXPORT_HISTORY_SOURCE_FIELD_AMBIGUOUS");
             replace(
                     changes,
                     sourceFields,
                     "MyClinicalNotesContent[1]",
-                    xml -> xml.text(nativeValue.text().get("MyClinicalNotesContent")));
+                    xml -> {
+                        // The native projection may be only a placeholder for an arbitrarily long
+                        // source narrative. Preserve the original logical value as a stream.
+                        try (var reader = values.text(originalBodies.getFirst())) {
+                            xml.text(reader);
+                        }
+                        xml.text("\n\n[Current CARLOS native note revisions and source context]\n");
+                        xml.text(nativeValue.text().get("MyClinicalNotesContent"));
+                    });
             if (nativeValue.text().containsKey("NoteType"))
                 replace(
                         changes,
@@ -172,7 +187,16 @@ final class CdsExportHistoryNativeReconciler {
                     CdsNativeExtensionContract.HISTORY_ARCHIVED,
                     Boolean.toString(nativeValue.archived()));
             if (category == CdsCategory.PERSONAL_HISTORY
-                    && nativeValue.text().containsKey("NativePersonalNarrative"))
+                    && nativeValue.text().containsKey("NativePersonalNarrative")
+                    && !(prepared.diagnostics().stream()
+                                    .anyMatch(
+                                            d ->
+                                                    d.code()
+                                                                    .equals(
+                                                                            "CDS_HISTORY_STRUCTURED_SOURCE_FIELDS")
+                                                            && d.field().equals("PersonalHistory"))
+                            && CdsExportCaseManagementProjectionEvidence.matches(
+                                    original, "note", current.note().value().fields().get("note"))))
                 markers.put(
                         CdsNativeExtensionContract.HISTORY_PERSONAL_NARRATIVE,
                         nativeValue.text().get("NativePersonalNarrative"));
@@ -207,37 +231,18 @@ final class CdsExportHistoryNativeReconciler {
                             xml.element("cds_dt", "Content", metadata);
                         });
                 for (var marker : markers.entrySet()) {
-                    String existing = null;
-                    for (var field : sourceFields) {
-                        String relative = field.sourcePath().substring(root.length() + 1);
-                        if (!relative.startsWith("ResidualInfo[1]/DataElement[")
-                                || !relative.endsWith("/Name[1]")) continue;
-                        // A name longer than this exact marker cannot identify it. The retained
-                        // writer still authenticates every untouched field to EOF.
-                        if (field.logicalInline() != null && field.logicalInline().length() > 128)
-                            continue;
-                        String name = read(sourceFields, relative, values, 128, checkpoint);
-                        if (!marker.getKey().equals(name)) continue;
-                        if (existing != null) review("CDS_EXPORT_HISTORY_NATIVE_MARKER_AMBIGUOUS");
-                        existing = relative.substring(0, relative.length() - "/Name[1]".length());
-                    }
                     String type =
                             marker.getKey().equals(CdsNativeExtensionContract.HISTORY_ARCHIVED)
                                     ? "boolean"
                                     : "string";
+                    var existing =
+                            CdsExportHistoryRetainedSource.marker(
+                                    sourceFields, marker.getKey(), type, values, checkpoint);
                     if (existing != null) {
-                        if (!type.equals(
-                                read(
-                                        sourceFields,
-                                        existing + "/DataType[1]",
-                                        values,
-                                        7,
-                                        checkpoint)))
-                            review("CDS_EXPORT_HISTORY_NATIVE_MARKER_TYPE_INVALID");
                         replace(
                                 changes,
                                 sourceFields,
-                                existing + "/Content[1]",
+                                existing.sourcePath().substring(root.length() + 1),
                                 xml -> xml.text(marker.getValue()));
                     } else {
                         replace(
@@ -253,11 +258,22 @@ final class CdsExportHistoryNativeReconciler {
                 }
             }
         }
+        var assessments = new LinkedHashMap<>(mapped.fields());
+        if (category == CdsCategory.CLINICAL_NOTES)
+            assessments.replaceAll(
+                    (key, assessment) ->
+                            assessment.destination().contains("ParticipatingProviders")
+                                    ? new CdsExportFieldAssessmentDto(
+                                            assessment.presence(),
+                                            assessment.outcome(),
+                                            "MyClinicalNotesContent",
+                                            "NATIVE_AUTHORS_IN_REVISION_CONTEXT_ORIGINAL_PARTICIPANTS_RETAINED")
+                                    : assessment);
         return new CdsExportHistoryFieldReconciler.Result(
                 manifest,
                 address,
                 category,
-                mapped.fields(),
+                assessments,
                 new ArrayList<>(changes.values()),
                 source.sourceFields());
     }

@@ -257,6 +257,38 @@ public final class CdsExportHistoryFieldReconciler {
                                 checked,
                                 retained,
                                 control::checkpoint);
+        if (nativeHistory != null) {
+            // Native revision context qualifies audit and narrative changes, but must not bypass
+            // retained-source date precision or coded issue reconciliation.
+            var guard =
+                    choose(
+                            patient,
+                            category,
+                            prepared,
+                            oldNote,
+                            current,
+                            references,
+                            baseline,
+                            fields,
+                            source.changes(),
+                            source.sourceFields(),
+                            index.sourceManifestSha256(),
+                            address,
+                            control::checkpoint);
+            var nativeRules =
+                    Set.of(
+                            "ARCHIVED_CLINICAL_CONTEXT_REQUIRES_REVIEW",
+                            "CLINICAL_OR_AUDIT_CARRIER_REQUIRED",
+                            "CHANGED_AUTHOR_OR_SIGNATURE_REQUIRES_RECONCILIATION",
+                            "STRUCTURED_PERSONAL_HISTORY_EDIT_REQUIRES_REVIEW",
+                            "CURRENT_NARRATIVE_NOT_REPRESENTABLE");
+            if (guard.fields().values().stream()
+                    .anyMatch(
+                            f ->
+                                    f.outcome() == Outcome.REQUIRES_REVIEW
+                                            && !nativeRules.contains(f.rule())))
+                review("CDS_EXPORT_HISTORY_NATIVE_SOURCE_RECONCILIATION_REQUIRED");
+        }
         var result =
                 nativeHistory == null
                         ? choose(
