@@ -106,3 +106,26 @@ retained floors. The wider currentMain comparison still refuses 80 unreviewed
 zero floors and misses 36 line, 44 instruction and 32 branch assertions.
 These are retained failures; no waiver or lower threshold is introduced.
 The complete same-source native-lane coverage union remains required.
+
+The CDS release integration measures 38,311 Java cases at `57834fb7e141`
+(37,935 passes, 376 explicit routed/prerequisite skips, no failures or errors).
+Its coverage baseline also includes the fresh MariaDB export run at
+`fea89675daa9`: 2,304 cases across 185 suites, with no skips, failures or errors.
+All 7,000 production class files were compared individually and are byte-identical
+between those runs; the baseline records that manifest and both execution hashes.
+These overlapping executions are separate evidence, not 40,615 unique tests.
+
+The regenerated baseline binds 1,263 changed Java paths and nine nonexecutable
+package-documentation exclusions. The three new exclusions contain documentation
+only and name their concrete contract tests. Historical floors follow the two
+schema-parser classes moved into the shared CDS contract package. All 137 higher
+historical metric assertions and the required ZIP refusal lines remain intact.
+No zero-coverage waiver is added. The source-freshness check passes, while 95
+unreviewed zero floors and any unmet higher assertions remain refused by the
+coverage gate. This is not full release-coverage qualification.
+
+Test counts use the existing strict `junit_evidence.read_surefire` reader. It
+counts every distinct container/case and records the known Surefire 3.5.6 nested
+method-name header collision; other inconsistent counters, duplicate cases,
+failures and reruns remain refusals. The report-manifest hash uses sorted
+name/SHA-256 entries encoded as compact canonical JSON plus a final newline.

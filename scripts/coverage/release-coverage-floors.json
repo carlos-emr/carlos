@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "e7d8a333e971c2586e4c14d2f5f0d5024e49d81b",
-  "comparisonSha256": "74f58959df6e614defeb4fb561649b0b3cf4c74ca0c6c351dd34d8825664e23d",
-  "baselineCommit": "1980fc9b3321dce877d6298e5981c320a66c46d0",
-  "baselineSourceTree": "e7d8a333e971c2586e4c14d2f5f0d5024e49d81b",
-  "baselineReportSha256": "1e9533c9644a07ed1c9863ab7f9f86ee46a355adeb130abcc3986d23874a6d5f",
-  "baselineLane": "Candidate Ubuntu 26.04/JDK 25 H2 baseline. Routed/prerequisite skips remain explicit. Previous higher floors and refusal lines are retained; native-lane union qualification and zero-floor review remain required.",
+  "sourceTree": "e02e51fee738613c1bee27972829a65856b4985e",
+  "comparisonSha256": "73f15a4948959d1ee36c4cb06bc5accba81198f05b93ddbae2ea16767f1bf4d9",
+  "baselineCommit": "57834fb7e14143970dded500cbe6026abc517a14",
+  "baselineSourceTree": "e02e51fee738613c1bee27972829a65856b4985e",
+  "baselineReportSha256": "8baf307d8ca448b78352602920335e5c671373368bdf0dc19e163d5299bb969e",
+  "baselineLane": "JDK 25 candidate H2 run plus fresh MariaDB export execution with all 7,000 production class files byte-identical. H2 routed/prerequisite skips remain explicit. Higher historical floors and refusal lines retained; the complete required-lane union and zero-floor review remain unqualified.",
   "baselineTestCounts": {
-    "tests": 35894,
-    "skipped": 211,
+    "tests": 38311,
+    "skipped": 376,
     "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "aa3442b5306d8dc45b83bd5b8c1b6ff67d4fcd045eb1737cbf6cbdad024dc1be",
+  "baselineTestReportsSha256": "08c90804fb62a540b0ac6dd2d14e83568b1c3efef45eb9b3a1d400759eb4def6",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -44,6 +44,18 @@
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "04b7e13df8fe78013fb3f7937cae4ff52a7e54f7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/PMmodule/dao/ProviderDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "72d79ad910eaca4a0a7a787cc02b065b0d63dac8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/PMmodule/dao/ProviderDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "2c4ac772a587252442448aff83cd550c6c2082c7"
     },
     "src/main/java/io/github/carlos_emr/carlos/admin/lookUpLists/LookupListManager2Action.java": {
       "lines": 100.0,
@@ -577,31 +589,67 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "655b293873f44d41e2c0422b12a0e8345b526d7f"
+      "sourceBlob": "24c5520a42177d84899e17f39e3378a1bf069b64"
     },
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/CaseManagementIssueDAOImpl.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "640c802b2486f9c2a5b92647ce57b23e3ee8590f"
+      "sourceBlob": "2ed01852119359bb62524ad5952ebbedc9ece23d"
     },
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/CaseManagementNoteDAO.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "065a2524095d72a849b8e1ea35900f2f2128c8e1"
+      "sourceBlob": "1856942f42a4e530001b48da4b4963403e7704d0"
     },
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/CaseManagementNoteDAOImpl.java": {
-      "lines": 0.0,
-      "instructions": 0.0,
+      "lines": 75.0,
+      "instructions": 76.71232876712328,
       "branches": 0.0,
-      "sourceBlob": "40e3009db398a9cfd7aa18d1f8c5706821dbdbff"
+      "sourceBlob": "b19a9a92be84b7e00681845f99050f74d5447cae"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/CaseManagementNoteExtDAO.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "37ad3b7e59f69c26e5de3c767c143b0f232f7d78"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/CaseManagementNoteExtDAOImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0334c6bd30e5574a3698eae8d146003bd1f7334c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/CdsExportNoteAccessDao.java": {
+      "lines": 95.17241379310344,
+      "instructions": 94.5578231292517,
+      "branches": 72.41379310344827,
+      "sourceBlob": "b43f007586984fe6b84ab4077f73e43bc60fe7c7"
     },
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/ClientImageDAOImpl.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "53ddd13488689825decdf1274ff8437197fd1a9c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/IssueDAO.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "97e57476be543469c505904aed0e35a67b39e532"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/IssueDAOImpl.java": {
+      "lines": 80.0,
+      "instructions": 70.58823529411765,
+      "branches": 100.0,
+      "sourceBlob": "86a6d97058f8133f56d52be1abcd5a0b2e5d5f5d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/dto/CdsExportNoteIssueLinkDto.java": {
+      "lines": 50.0,
+      "instructions": 81.81818181818181,
+      "branches": 100.0,
+      "sourceBlob": "171fae00c22a38f8e2a5cc5b51056aa6020b999e"
     },
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/model/CaseManagementCPP.java": {
       "lines": 100.0,
@@ -675,6 +723,18 @@
       "branches": 100.0,
       "sourceBlob": "203103848ebf0d6f539263d5e13c8add48a1de7d"
     },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/AllergyDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "4385aef12b9b7402e978dc913098ab68851d96cf"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/AllergyDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0e7a3b8d0eb0cb8522f4bb5a4493d24f17bdaa85"
+    },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/AntenatalReportDao.java": {
       "lines": 100.0,
       "instructions": 100.0,
@@ -685,19 +745,31 @@
       "lines": 0.0,
       "instructions": 0.0,
       "branches": 100.0,
-      "sourceBlob": "93ae3f0cd204bee5b4f2b97fb6bcbe201b06ce13"
+      "sourceBlob": "ab9e4a4c4a0bec521b3b91faea87afd80878873b"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/AppointmentArchiveDaoImpl.java": {
-      "lines": 16.666666666666668,
-      "instructions": 8.0,
+      "lines": 50.0,
+      "instructions": 57.407407407407405,
       "branches": 100.0,
-      "sourceBlob": "d9fbff9986e6ed9731ecc0cf86f37921156cdace"
+      "sourceBlob": "11bafd02d54fefc760aaebb00062a2646fa43c9e"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/AppointmentDaySheetRow.java": {
       "lines": 14.285714285714286,
       "instructions": 38.764044943820224,
       "branches": 0.0,
       "sourceBlob": "e4fb8b2051d431303a744181662c0a8985fd7f2e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/AppointmentStatusDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "df3fcf10ec2c11f63b005529fe2c51067c3c180e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/AppointmentStatusDaoImpl.java": {
+      "lines": 75.0,
+      "instructions": 65.51724137931035,
+      "branches": 100.0,
+      "sourceBlob": "5c986d3d73fd31c28c968e263f2e6ade10d9c30c"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/BilledProviderReportDao.java": {
       "lines": 6.122448979591836,
@@ -735,6 +807,192 @@
       "branches": 0.0,
       "sourceBlob": "d986dc8a654089304e529ead82893e6f060f5f98"
     },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CVCImmunizationDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6c8fa612557f6cac26e350f96d2b0c609aa9a88f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CVCImmunizationDaoImpl.java": {
+      "lines": 80.0,
+      "instructions": 70.58823529411765,
+      "branches": 100.0,
+      "sourceBlob": "9e3122c4732ccfb8e63d73bb16d3f10099149e9d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CVCMappingDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "ce3f4ac374aec30b7808cec074cb6359fc1d46e4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CVCMappingDaoImpl.java": {
+      "lines": 80.0,
+      "instructions": 70.58823529411765,
+      "branches": 100.0,
+      "sourceBlob": "624443aaf80561614e5f99f058349521e5e1cd04"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsExportAttemptDao.java": {
+      "lines": 75.0,
+      "instructions": 76.04166666666667,
+      "branches": 50.0,
+      "sourceBlob": "8bebe0519490d4185d537f69bb49108a71e8491e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsExportEventDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "9b236508b446e16fc175b602a5f9f93e01b04472"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsExportExactNumericReadSupport.java": {
+      "lines": 92.5925925925926,
+      "instructions": 95.01915708812261,
+      "branches": 68.42105263157895,
+      "sourceBlob": "90b2ccc34cf741c2f5079be6368b306091fb0016"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsExportNativeMetadataReadSupport.java": {
+      "lines": 96.29629629629629,
+      "instructions": 97.17514124293785,
+      "branches": 75.0,
+      "sourceBlob": "6a526871ec71c61d138aa045f921812d9866a86e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsExportPatientTableReadDao.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0,
+      "sourceBlob": "5ac3f63364f6dfe2c14799988272ea7438922a87"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsExportPatientTableReadSupport.java": {
+      "lines": 98.66412213740458,
+      "instructions": 98.78132904115888,
+      "branches": 79.71428571428571,
+      "sourceBlob": "3e3fd4e21d7bb9f260364f8c31794f2dd3c72ef1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsExportPreventionDataReadDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "bb4199751ce4f764fc74b59c884a81511b9e01d8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsExportProviderReadSupport.java": {
+      "lines": 96.55172413793103,
+      "instructions": 94.34389140271493,
+      "branches": 73.17073170731707,
+      "sourceBlob": "42a65ef06887e9aa8c8c6d59675f24b52fdd952e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsExportRetainedTableReadDao.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0,
+      "sourceBlob": "acf2d840af366b2caec3bde70814a9cfbb71b26e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsExportRunDao.java": {
+      "lines": 98.61111111111111,
+      "instructions": 95.47511312217195,
+      "branches": 64.28571428571429,
+      "sourceBlob": "02e7abd220e8c3d41ded0f608c46680eb0013bf3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsExportSourceCatalogueDao.java": {
+      "lines": 98.50746268656717,
+      "instructions": 96.00665557404326,
+      "branches": 78.37837837837837,
+      "sourceBlob": "cc056f2f4625ea84baf8a5a99305c14a34d92583"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportAdmissionDao.java": {
+      "lines": 25.0,
+      "instructions": 11.764705882352942,
+      "branches": 100.0,
+      "sourceBlob": "359c60eabb21a9c5d962245d2aa98c3a9d12c1bd"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportCheckpointDao.java": {
+      "lines": 8.695652173913043,
+      "instructions": 5.333333333333333,
+      "branches": 100.0,
+      "sourceBlob": "7c9a0435b1cd234b84e7a06f31c428e154e72f83"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportDependencyDao.java": {
+      "lines": 10.0,
+      "instructions": 11.764705882352942,
+      "branches": 100.0,
+      "sourceBlob": "5be42e3b412e2566e1ca295d5fc3cfbd2faa9e8b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportDiagnosticDao.java": {
+      "lines": 53.191489361702125,
+      "instructions": 46.206896551724135,
+      "branches": 66.66666666666667,
+      "sourceBlob": "0e474f04b6d97e763cabf3d772de44f026102ac6"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportEventDao.java": {
+      "lines": 10.526315789473685,
+      "instructions": 6.25,
+      "branches": 0.0,
+      "sourceBlob": "0dec5effb29d89613559832cb431bd50a534175c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportFieldDao.java": {
+      "lines": 31.57894736842105,
+      "instructions": 43.90243902439025,
+      "branches": 100.0,
+      "sourceBlob": "ac508f6a335b27ce624e3848b912fb3566cccbf8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportFileDao.java": {
+      "lines": 18.75,
+      "instructions": 27.272727272727273,
+      "branches": 100.0,
+      "sourceBlob": "a46e817237cf6b807747a1c2d857b2b1dba43839"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportFileReferenceDao.java": {
+      "lines": 37.5,
+      "instructions": 40.0,
+      "branches": 100.0,
+      "sourceBlob": "af154bea8fbd5d0eb0a3bbd82e0672237e2a6185"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportIdentityDao.java": {
+      "lines": 5.405405405405405,
+      "instructions": 3.1496062992125986,
+      "branches": 0.0,
+      "sourceBlob": "d6dd0d250010ec558a41371a5d7cec6ec9b502c4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportLineageDao.java": {
+      "lines": 18.181818181818183,
+      "instructions": 10.526315789473685,
+      "branches": 100.0,
+      "sourceBlob": "2a6d489bb517453ba754fcaa111b694b1ebe1113"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportPatientDao.java": {
+      "lines": 20.930232558139537,
+      "instructions": 19.548872180451127,
+      "branches": 0.0,
+      "sourceBlob": "91742ef26aba6f833bf78b9b4b76c0fea6b79a0c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportPreparationDao.java": {
+      "lines": 50.0,
+      "instructions": 37.5,
+      "branches": 100.0,
+      "sourceBlob": "18bc5c7cf4b1bc3a1de5d0ed859a31ba1835a28a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportReviewDao.java": {
+      "lines": 32.432432432432435,
+      "instructions": 29.79591836734694,
+      "branches": 18.75,
+      "sourceBlob": "ae54567d90f8e1e69b90e3e739c6e9f731f5e6f2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportRunDao.java": {
+      "lines": 19.387755102040817,
+      "instructions": 22.59036144578313,
+      "branches": 15.384615384615385,
+      "sourceBlob": "1e727898cff36ba04bc018c3dc6f4fe4c6d54337"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportUnitDao.java": {
+      "lines": 8.928571428571429,
+      "instructions": 12.254901960784315,
+      "branches": 0.0,
+      "sourceBlob": "2a6af74f34a8d8ff46736e51ca80aaf9a43b5e26"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsLaboratoryResultDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "7143f78010f63cc280e0acb63f05d6b4ebfd8aa5"
+    },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/ClinicalDataRow.java": {
       "lines": 100.0,
       "instructions": 100.0,
@@ -771,41 +1029,113 @@
       "branches": 100.0,
       "sourceBlob": "7329590b06daa83b1fbd506bec666774f9f1e805"
     },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ContactDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "b30b15fb4d64b7c5851a334716fdbe9aa60e0928"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ContactDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "9c38d5b457d6e9c4b93618d19ca7cdfcec3faca9"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CtlDocumentDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "2e5db5d28968b85077ad29c98c0675d424f613f7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CtlDocumentDaoImpl.java": {
+      "lines": 87.5,
+      "instructions": 78.26086956521739,
+      "branches": 100.0,
+      "sourceBlob": "39f4d43dfadac3e920e2ec62ba18f827743af0cf"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicArchiveDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "56cc40a2c91462e36a417ed6ebb0f4d2cffb2de9"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicArchiveDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 87.8048780487805,
+      "branches": 50.0,
+      "sourceBlob": "36976276ccf91a38a718036192182c518ec5cb25"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicContactDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "bf9829eee184c71122724906f75bb63ce6159a5f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicContactDaoImpl.java": {
+      "lines": 80.0,
+      "instructions": 70.58823529411765,
+      "branches": 100.0,
+      "sourceBlob": "668b759145d8a9c96fcba6cc5ebe2c868480accb"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicCustDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "39f37add12886058588abca92c12dc21614537e3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicCustDaoImpl.java": {
+      "lines": 83.33333333333333,
+      "instructions": 88.0952380952381,
+      "branches": 100.0,
+      "sourceBlob": "87905cf2c9be8858552310eff900a02655c815a4"
+    },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicDao.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "9cab300e5de9d79e6cb0f8b409725017a99e6f14"
+      "sourceBlob": "8c4620d6d38201f66c37b0218347772b1ea1875e"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicDaoImpl.java": {
-      "lines": 75.0,
-      "instructions": 80.38379530916845,
+      "lines": 80.59701492537313,
+      "instructions": 83.14220183486239,
       "branches": 69.86301369863014,
-      "sourceBlob": "405b0f2a74537740e6b4b211c2f36b7bcccf4e04"
+      "sourceBlob": "582423fc2ed6066c4935f01d52c1a26c1a5a89a6"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicExtDao.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "2fc207d0790588755697e17869724a6a6cea032c"
+      "sourceBlob": "fd6a7e82515ef45e0ceb0612c7fe87d209b65077"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicExtDaoImpl.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "e049bc2ff75b10b82c1c1b6f3a5029dc6bbc6b4a"
+      "sourceBlob": "6b353058b8b1c4ff41b8d78d98f3e2039b867ec3"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicMergedDao.java": {
       "lines": 0.0,
       "instructions": 0.0,
       "branches": 0.0,
-      "sourceBlob": "a983653c5f5aed63f04bf07544fae5ff6e9c02f6"
+      "sourceBlob": "587462f6adb49dd3da671a7e4f2fbd161c28c50e"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicMergedDaoImpl.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "c50efecf10850e0857fa84a2df2f0ecd70e1f3f1"
+      "sourceBlob": "a298b143b1f8cce4e2b186ba27819d092777c59b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicPharmacyDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "819d99274260ea4ce1c0db0f486973c061d327e1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicPharmacyDaoImpl.java": {
+      "lines": 60.0,
+      "instructions": 47.05882352941177,
+      "branches": 100.0,
+      "sourceBlob": "9d882bdf08d3a156acb19f71bf3cd4658dc32b8a"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicSetsDao.java": {
       "lines": 0.0,
@@ -819,6 +1149,18 @@
       "branches": 100.0,
       "sourceBlob": "f84a45e78f982de062b1e0f333800275541be31c"
     },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DocumentDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "c8ca69b58c91fe95254793c499f2316c770cf67e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DocumentDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "c2cb7bdd44cabdb413d2dfc347ac56f14c4f59de"
+    },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/DocumentResultsDaoImpl.java": {
       "lines": 100.0,
       "instructions": 100.0,
@@ -831,11 +1173,17 @@
       "branches": 100.0,
       "sourceBlob": "9e9ac18282cba1f14aecca51daad6245972125a0"
     },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DrugDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "ef6d05df81c05848cf22cf4b4d0adda38040d20e"
+    },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/DrugDaoImpl.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "15cb68441dfaaa05a27567e70f39fe6e41713c4a"
+      "sourceBlob": "35f1f542077bc43a04531fd75fdd7db3813cfed1"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/DxresearchDAO.java": {
       "lines": 0.0,
@@ -961,13 +1309,25 @@
       "lines": 0.0,
       "instructions": 0.0,
       "branches": 100.0,
-      "sourceBlob": "12793e3edd54c56812cbef6caea0d9761280f1e7"
+      "sourceBlob": "a7d445df73322e07d6fb161639b9f341eb46262e"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/Hl7TextInfoDaoImpl.java": {
-      "lines": 0.0,
-      "instructions": 0.0,
+      "lines": 21.05263157894737,
+      "instructions": 17.54385964912281,
       "branches": 100.0,
-      "sourceBlob": "103890e9eb99b657553de12cab0a5c7c0feb0326"
+      "sourceBlob": "5c925a0dd0adbbe69acf646255cc7b74ccf1b6ad"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/Hl7TextMessageDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "b2eec3111860affd8e10d7d99c0fe3adb60dbaa9"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/Hl7TextMessageDaoImpl.java": {
+      "lines": 50.0,
+      "instructions": 43.47826086956522,
+      "branches": 100.0,
+      "sourceBlob": "9f3aa12f1797bfbaba172b0086c7ebbccf689cf2"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/InboxCategoryDao.java": {
       "lines": 82.97101449275362,
@@ -987,17 +1347,53 @@
       "branches": 82.8125,
       "sourceBlob": "52bfeb5c22fa56864ddada0fcead034c0518ccbc"
     },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/MeasurementDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "5b578d3c18d62ccfe0eaaebeaf46cf4ddacb3b33"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/MeasurementDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "19f0e991ffd5b342a30043cb87adf362048c404a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/MeasurementTypeDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "4b3485deb21cac1d0ef3bafd4d32dd95ef8d4bef"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/MeasurementTypeDaoImpl.java": {
+      "lines": 75.0,
+      "instructions": 69.56521739130434,
+      "branches": 100.0,
+      "sourceBlob": "7e37745657bd8b8b9d1f6f198c5028e1ac530445"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/MeasurementsDeletedDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d35ff8d176594d9b29bca2165060e476b7afa5a2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/MeasurementsDeletedDaoImpl.java": {
+      "lines": 50.0,
+      "instructions": 43.47826086956522,
+      "branches": 100.0,
+      "sourceBlob": "a907390f90ff0323a55bdbf50ae684fe0dd808c2"
+    },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/MeasurementsExtDao.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "1106bc65c5342a1e581c8dacf96cb43982ec036f"
+      "sourceBlob": "f7656b1882746ddc6cf01acb08f5041f0f9d1627"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/MeasurementsExtDaoImpl.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "e32cbc33523d1bcd666319a199629a44e9d5cc0b"
+      "sourceBlob": "54fa8c0058a3a74901912a440549071cecdcc662"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/MyGroupDao.java": {
       "lines": 100.0,
@@ -1015,19 +1411,85 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "f1414abc7420890f86b0ee56aa7208aa3c862f43"
+      "sourceBlob": "7f7c8020cfd51b1ce657e7520722300552098049"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/OscarAppointmentDaoImpl.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "7738434de50ddc289d396d0cd4a47e7ed550bb51"
+      "sourceBlob": "70f7f38f3b493abcf3da6c1b28ef7525dd9b54d6"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/OscarLogDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "675d762f1e419759a1fa61ff8dc9b14a6b18852c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/PartialDateDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "01530a6e20d4e946a4c5e45d79785adb3f84972b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/PartialDateDaoImpl.java": {
+      "lines": 63.63636363636363,
+      "instructions": 55.932203389830505,
+      "branches": 50.0,
+      "sourceBlob": "c9407753db116a3a23f91c58f7e52f0858ecf4d1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/PatientLabRoutingDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d59222282d274a8f3c62ed5eecb58b75554f2a5c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/PatientLabRoutingDaoImpl.java": {
+      "lines": 50.0,
+      "instructions": 43.47826086956522,
+      "branches": 100.0,
+      "sourceBlob": "e87f1048e33553156b0371fbb2ee533ca1de6748"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/PharmacyInfoDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "a9f8a497dd162fbd2dfc9920c3d852ab1e89e9b8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/PharmacyInfoDaoImpl.java": {
+      "lines": 80.0,
+      "instructions": 70.58823529411765,
+      "branches": 100.0,
+      "sourceBlob": "4ee16e54cce3ea8959aa32b52adad18a23efb5fd"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/PrescriptionDaoImpl.java": {
       "lines": 0.0,
       "instructions": 0.0,
       "branches": 100.0,
       "sourceBlob": "a73a71efc75a847a830a0131cfc109e067a174a0"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/PreventionDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "a18877217092ca2f55040bf8ff967d87fd86d1aa"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/PreventionDaoImpl.java": {
+      "lines": 88.88888888888889,
+      "instructions": 69.62962962962963,
+      "branches": 50.0,
+      "sourceBlob": "5558030a6e5b8a8943711e3533ff098cc76f4462"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/PreventionExtDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "86d35c89b4c06a93f9087ac3644029b50dfe6923"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/PreventionExtDaoImpl.java": {
+      "lines": 80.0,
+      "instructions": 70.14925373134328,
+      "branches": 50.0,
+      "sourceBlob": "7850a96e580eb1152e3a574337b62da5951d69b2"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/ProfessionalSpecialistDao.java": {
       "lines": 100.0,
@@ -1173,6 +1635,60 @@
       "branches": 100.0,
       "sourceBlob": "5b22b30565c324db623660fe2951a2f1f75361c8"
     },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dto/CdsExportAuditRowDto.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f53ab1a7c2905c7f6794ef8a7f0df9d2e8a2d6b2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dto/CdsExportDemographicRowDto.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 75.0,
+      "sourceBlob": "9450b383ac04609ea3dd234f1d7e7f5cee5b4a96"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dto/CdsExportProviderRowDto.java": {
+      "lines": 75.0,
+      "instructions": 87.14285714285714,
+      "branches": 55.55555555555556,
+      "sourceBlob": "94181947821e2c0bb540c88ca0a6eb222925347e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dto/CdsExportRawCellDto.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 72.91666666666667,
+      "sourceBlob": "174e9016639a184222e267441b746301333cb1c3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dto/CdsExportRawKeyRowDto.java": {
+      "lines": 75.0,
+      "instructions": 84.7457627118644,
+      "branches": 50.0,
+      "sourceBlob": "9b689603cdf806c53dd4b1da6b8915e6d7454f78"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dto/CdsExportRawRowDto.java": {
+      "lines": 71.42857142857143,
+      "instructions": 83.01886792452831,
+      "branches": 50.0,
+      "sourceBlob": "38f45a487151a4a189b67b87523dc8b5a5747fb2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dto/CdsExportRunOwnerRowDto.java": {
+      "lines": 50.0,
+      "instructions": 88.23529411764706,
+      "branches": 100.0,
+      "sourceBlob": "5dc4ebaddf3a12e79a838561487f08d1eb305f5d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dto/CdsExportSelectionRowDto.java": {
+      "lines": 50.0,
+      "instructions": 81.81818181818181,
+      "branches": 100.0,
+      "sourceBlob": "b2cd379e388d0bbe2e4a1c354fd903caf4f22455"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dto/CdsExportTableSchemaDto.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "3b112244bf58b774b2b91dc3b09f02f1877344c9"
+    },
     "src/main/java/io/github/carlos_emr/carlos/commn/hl7/v2/HL7A04Data.java": {
       "lines": 100.0,
       "instructions": 100.0,
@@ -1209,6 +1725,48 @@
       "branches": 100.0,
       "sourceBlob": "9777fe60ed2856920580644ca9b093db2fd42be5"
     },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/CdsExportAttempt.java": {
+      "lines": 80.55555555555556,
+      "instructions": 83.06451612903226,
+      "branches": 100.0,
+      "sourceBlob": "117d8d544a769a95c46892b65c6c8e367fdcdd52"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/CdsExportEvent.java": {
+      "lines": 50.0,
+      "instructions": 57.407407407407405,
+      "branches": 100.0,
+      "sourceBlob": "d6b84e447b2187f5e352764a76bff902d5f8a100"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/CdsExportRun.java": {
+      "lines": 96.42857142857143,
+      "instructions": 96.90721649484536,
+      "branches": 100.0,
+      "sourceBlob": "6e40e8c7ac156f00a367fcc2b661af04969a219c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/CdsImportCheckpoint.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0,
+      "sourceBlob": "f75875063390edb8f099f43bd09c1e583369dd64"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/CdsImportPreparation.java": {
+      "lines": 96.42857142857143,
+      "instructions": 96.92307692307692,
+      "branches": 100.0,
+      "sourceBlob": "a8696d5dd10931633ca51d24954ae2841ccbb783"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/CdsImportReview.java": {
+      "lines": 87.8048780487805,
+      "instructions": 85.86387434554973,
+      "branches": 100.0,
+      "sourceBlob": "9de7af1f15131718757478bd626d80c37a26407f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/CdsImportUnit.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0,
+      "sourceBlob": "6951da9c09149af76537fcab793bce9ee6ac51fc"
+    },
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Clinic.java": {
       "lines": 100.0,
       "instructions": 100.0,
@@ -1226,6 +1784,12 @@
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "01ee2514b396170fe296ea2a5c5f50db8358c624"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/DemographicArchive.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "19d55ec816d2e979abc5b2dc06aed6ff6c837a70"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java": {
       "lines": 100.0,
@@ -1521,11 +2085,2339 @@
       "branches": 100.0,
       "sourceBlob": "7a578f83e01a4b8a2549f8a550674a4fd135ebd4"
     },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/cli/CdsProcessConfiguration.java": {
+      "lines": 66.66666666666667,
+      "instructions": 62.5,
+      "branches": 34.61538461538461,
+      "sourceBlob": "c156cc01c0080a851283a62bb9ae8a10b3f2cc92"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/cli/CdsProcessDelegationVerifier.java": {
+      "lines": 66.27906976744185,
+      "instructions": 62.55506607929515,
+      "branches": 50.0,
+      "sourceBlob": "c29641d62431ab07b56b8acd796a910364cc8b9e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/cli/CdsProcessLogging.java": {
+      "lines": 81.63265306122449,
+      "instructions": 82.53424657534246,
+      "branches": 75.64102564102564,
+      "sourceBlob": "0e1b876db779a3e14bdea53ad75b3170db44c61f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/cli/CdsProcessPersistence.java": {
+      "lines": 92.45283018867924,
+      "instructions": 94.07114624505928,
+      "branches": 40.0,
+      "sourceBlob": "c5e550b288a33d2f8842392153d989113c33157e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/cli/CdsProcessScope.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "cbb9cce5a156221c981180e49a3d836684d04582"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsCareScalarContract.java": {
+      "lines": 100.0,
+      "instructions": 97.6470588235294,
+      "branches": 83.33333333333333,
+      "sourceBlob": "53e99b7fdaf818c3af6fe375689b8bc2788a8063"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsCategory.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "9369fb20a01ce1cc2d0f217406260b24de19b8bd"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsExactNumeric.java": {
+      "lines": 84.0909090909091,
+      "instructions": 84.61538461538461,
+      "branches": 69.6969696969697,
+      "sourceBlob": "ae0380369bd683fb79dba53b78cbdd9994a05b9b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsHealthCardAuthority.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "525a5a2e858fdda510fe2a909a90ef81bfe42f1b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsLogicalProfile.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "8ce674a7888afa30f3fe8e6b42fa59a3d8a7add7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeBaselineCodec.java": {
+      "lines": 96.7741935483871,
+      "instructions": 94.64285714285714,
+      "branches": 63.72549019607843,
+      "sourceBlob": "f9b2a7645cd7df4a3b91a557f7ef03a70f25ee47"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeExtensionContract.java": {
+      "lines": 100.0,
+      "instructions": 95.23809523809524,
+      "branches": 50.0,
+      "sourceBlob": "d0935891be3652a1ea11c937ae6d4244404d82f2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeRowComparison.java": {
+      "lines": 94.5945945945946,
+      "instructions": 96.56862745098039,
+      "branches": 86.53846153846153,
+      "sourceBlob": "76c70e4aaec8d5009b9e9ab245f81be3c5427e2e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeRowDigest.java": {
+      "lines": 93.75,
+      "instructions": 96.36363636363636,
+      "branches": 73.07692307692308,
+      "sourceBlob": "ba539df243a09208942ba8f973a153a2a21ad4e1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeRowState.java": {
+      "lines": 88.88888888888889,
+      "instructions": 96.31901840490798,
+      "branches": 67.5,
+      "sourceBlob": "78611a4c93acdb4df9ffa7878eef817f47d8ea32"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPreparationSeal.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "20b00209c65b9c388ee24699a6033c7acd33797e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPreparedAllergyDefaults.java": {
+      "lines": 100.0,
+      "instructions": 96.42857142857143,
+      "branches": 81.81818181818181,
+      "sourceBlob": "92ed17ca28810d67e790aa9a89d93619ff0821da"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java": {
+      "lines": 93.00699300699301,
+      "instructions": 90.29126213592232,
+      "branches": 82.44680851063829,
+      "sourceBlob": "500055936713ff25af1f398efcc1fe551f3350a0"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java": {
+      "lines": 94.44444444444444,
+      "instructions": 90.65656565656566,
+      "branches": 67.10526315789474,
+      "sourceBlob": "b8c397f8c3d0920f29d2b45ec419907580262d5e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java": {
+      "lines": 95.74468085106383,
+      "instructions": 95.49702633814783,
+      "branches": 75.67567567567568,
+      "sourceBlob": "58ee41b13c7c83c47996ddfe5d19c4f9cc88d9a1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java": {
+      "lines": 100.0,
+      "instructions": 97.20930232558139,
+      "branches": 93.33333333333333,
+      "sourceBlob": "1165f64b27e2cee2eae85803e9b2e67272633593"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java": {
+      "lines": 72.1311475409836,
+      "instructions": 69.16666666666667,
+      "branches": 50.0,
+      "sourceBlob": "9af053d719a271784d0eaa5f97976a0085aad7f5"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java": {
+      "lines": 92.95774647887323,
+      "instructions": 92.87671232876713,
+      "branches": 84.375,
+      "sourceBlob": "cc878b5665ed739f08d3fb823695ca5890dd072a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/jdbc/CdsBinaryReads.java": {
+      "lines": 81.81818181818181,
+      "instructions": 79.3103448275862,
+      "branches": 58.333333333333336,
+      "sourceBlob": "2335722cacf3c085de9465be08ce30820e6e4850"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/jdbc/CdsMariaDbBinaryRead.java": {
+      "lines": 74.48979591836735,
+      "instructions": 77.77777777777777,
+      "branches": 63.75,
+      "sourceBlob": "2898a41ac25ba29410a5b13b61eabefa13a701b8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "2bce0ea68b1aa9095aff4dae87754608bc131481"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsFreshAuthorizationReadAspect.java": {
+      "lines": 76.19047619047619,
+      "instructions": 66.15384615384616,
+      "branches": 41.666666666666664,
+      "sourceBlob": "47b01157b0577fd111509635f55a7ba6197cd1b5"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/CdsExport.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0,
+      "sourceBlob": "91fe38b75e132fdc7ec045a6d8899ee3615ec759"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/assembler/CdsExportViewModelAssembler.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 0.0,
+      "sourceBlob": "e1da34dceae03c8398b53d351a4e68ed902414b6"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/cli/CdsExportCli.java": {
+      "lines": 67.05882352941177,
+      "instructions": 74.0095087163233,
+      "branches": 68.18181818181819,
+      "sourceBlob": "965abc24f4329b0fbb03bb70c4727a4847a7158a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/cli/CdsExportCliArguments.java": {
+      "lines": 88.11881188118812,
+      "instructions": 90.27303754266211,
+      "branches": 71.27659574468085,
+      "sourceBlob": "339ae04dc89e008cb86210dcd7b01c20a494960c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/cli/CdsExportCliOutput.java": {
+      "lines": 87.03703703703704,
+      "instructions": 88.14432989690722,
+      "branches": 50.0,
+      "sourceBlob": "3421325494d9b1bcb673f579694844d616c8ac10"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/cli/CdsExportCliRuntime.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "60ad80819d761585cc42934bdc0464200ccf4523"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/cli/CdsExportCliSpringConfiguration.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "70a7eb02b04309608813f0858d1518326bd098d8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/cli/CdsExportSpringRuntime.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 0.0,
+      "sourceBlob": "a26b988ca0371a5307b9e12a05654cd70c1ac313"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/command/CdsExportCommand.java": {
+      "lines": 89.65517241379311,
+      "instructions": 89.1891891891892,
+      "branches": 51.851851851851855,
+      "sourceBlob": "3786ad3949e4819c0efa4b62f647866cccaecfc7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportActorDto.java": {
+      "lines": 80.0,
+      "instructions": 88.40579710144928,
+      "branches": 63.63636363636363,
+      "sourceBlob": "5e02454029e98a672e353bea9113fa8e34c02fcd"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportAllergyDto.java": {
+      "lines": 80.0,
+      "instructions": 92.55319148936171,
+      "branches": 75.0,
+      "sourceBlob": "1a1facd08a3f0283e2c8bc8bce2d93dd571b8182"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportAllergyMappingDto.java": {
+      "lines": 75.0,
+      "instructions": 80.0,
+      "branches": 70.0,
+      "sourceBlob": "af7d6c7bba113ce772ee77233c948e063d72cc97"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportAllergyProjectionDto.java": {
+      "lines": 75.0,
+      "instructions": 88.0952380952381,
+      "branches": 50.0,
+      "sourceBlob": "0ee1561b433c6492261d022ae44153ceb54561f6"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportAppointmentDto.java": {
+      "lines": 85.71428571428571,
+      "instructions": 96.29629629629629,
+      "branches": 85.71428571428571,
+      "sourceBlob": "f9bed5782b334f1e38e21640ac2459265db38e78"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportAppointmentLookupsDto.java": {
+      "lines": 80.0,
+      "instructions": 86.0,
+      "branches": 50.0,
+      "sourceBlob": "3e1792580c09627a839eb327a21dfc05ae1b70df"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportAppointmentMappingDto.java": {
+      "lines": 75.0,
+      "instructions": 80.0,
+      "branches": 70.0,
+      "sourceBlob": "fed662908108f5a6f49470a0f372944b101b23b0"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportAppointmentProjectionDto.java": {
+      "lines": 75.0,
+      "instructions": 88.0952380952381,
+      "branches": 50.0,
+      "sourceBlob": "7d2c80d31f26448d5b63dbaa6c50071b9d13e962"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportAppointmentTimingDto.java": {
+      "lines": 75.0,
+      "instructions": 83.33333333333333,
+      "branches": 50.0,
+      "sourceBlob": "66259f4e4e3ca185995a47359e5a6ac0eef9d1cb"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportArtifactContextDto.java": {
+      "lines": 84.21052631578948,
+      "instructions": 94.66666666666667,
+      "branches": 57.35294117647059,
+      "sourceBlob": "e61e4fdaa87de5338f26f50b293f49a6ac9106f1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportCapturedFieldDto.java": {
+      "lines": 90.9090909090909,
+      "instructions": 94.96402877697842,
+      "branches": 57.142857142857146,
+      "sourceBlob": "921fc716a0052db5ee73197cc9695a97aaadb614"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportCapturedTableDto.java": {
+      "lines": 93.93939393939394,
+      "instructions": 92.15686274509804,
+      "branches": 63.888888888888886,
+      "sourceBlob": "510f91d53940c6bc0f0a799bb665f306ecee55aa"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportCapturedTextRowDto.java": {
+      "lines": 78.57142857142857,
+      "instructions": 81.25,
+      "branches": 50.0,
+      "sourceBlob": "74ea01b57374bcb09198f11ed6ac151aac339ecf"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportCohortManifestDto.java": {
+      "lines": 66.66666666666667,
+      "instructions": 87.5,
+      "branches": 50.0,
+      "sourceBlob": "e8f11e0b531c1b974dfea720fd8378df729345fd"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportCoverageDto.java": {
+      "lines": 77.77777777777777,
+      "instructions": 91.46341463414635,
+      "branches": 59.375,
+      "sourceBlob": "43baf9f3a1a136e7f203561aaca637ac250bd177"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportDateDto.java": {
+      "lines": 83.33333333333333,
+      "instructions": 89.0625,
+      "branches": 83.33333333333333,
+      "sourceBlob": "01410114071c8eadc5d1c2fe645b3dbe98efa899"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportDeliveryDto.java": {
+      "lines": 50.0,
+      "instructions": 91.30434782608695,
+      "branches": 100.0,
+      "sourceBlob": "0828edb43e5d01814418778bb963355d72a253d0"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportDemographicEnrolmentProjectionDto.java": {
+      "lines": 96.66666666666667,
+      "instructions": 96.61971830985915,
+      "branches": 71.95121951219512,
+      "sourceBlob": "81ede1e2fdca66980631e0bd5cc9bfd183b4e994"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportDemographicMappingDto.java": {
+      "lines": 90.69767441860465,
+      "instructions": 95.05766062602966,
+      "branches": 77.5,
+      "sourceBlob": "078ba1b4f16e059f2810455ffe2110c780afb3ae"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportDemographicNoteProjectionDto.java": {
+      "lines": 85.71428571428571,
+      "instructions": 97.26027397260275,
+      "branches": 80.76923076923077,
+      "sourceBlob": "4ef310f1cedcf534e8542fac27cb4c8b84b9b0b4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportDiagnosticDto.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "11cfefa9d02ea13a502e0bde988f8d47915e976e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportDispositionDto.java": {
+      "lines": 86.66666666666667,
+      "instructions": 88.37209302325581,
+      "branches": 55.55555555555556,
+      "sourceBlob": "9fd51fec20d04c153efc80e64dcc890b4e919c02"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportEnrolmentEventDto.java": {
+      "lines": 83.33333333333333,
+      "instructions": 96.15384615384616,
+      "branches": 66.66666666666667,
+      "sourceBlob": "a31c8854a186e329a0e2507989a557bd31ad2eaa"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportFieldAssessmentDto.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f5d3389802a148be53149fa5c427013e7eca2744"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportIdentityDto.java": {
+      "lines": 90.9090909090909,
+      "instructions": 92.06349206349206,
+      "branches": 66.66666666666667,
+      "sourceBlob": "fc0c6893e31bebfea77c32a2edab0a274e02b8a3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportImmunizationDto.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "5ec21f74aa33d452c3cd431f235f1ee728795e3f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportImmunizationMappingDto.java": {
+      "lines": 100.0,
+      "instructions": 84.44444444444444,
+      "branches": 70.0,
+      "sourceBlob": "4ef8a6c64ca05ef34dcbeae92ba82b9472d82b4a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportImmunizationProjectionDto.java": {
+      "lines": 75.0,
+      "instructions": 84.0909090909091,
+      "branches": 50.0,
+      "sourceBlob": "39b3e4358800f2d74309fb2c3321e9f20e6e0354"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportJobDocumentDto.java": {
+      "lines": 75.0,
+      "instructions": 95.0,
+      "branches": 100.0,
+      "sourceBlob": "502457a9013e991d93d7b9864349706aff809208"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportJobDto.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 77.77777777777777,
+      "sourceBlob": "60c7308368e42199a5db16fb86b8bc1506cb4701"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportJobOwnerDto.java": {
+      "lines": 50.0,
+      "instructions": 85.71428571428571,
+      "branches": 100.0,
+      "sourceBlob": "bd704aeef9bbf3d421255f66262cda7086ffcefc"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportLeaseDto.java": {
+      "lines": 50.0,
+      "instructions": 88.23529411764706,
+      "branches": 100.0,
+      "sourceBlob": "dfa77e76415c4422ae2cd9e18261ea08e223d6f2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportMedicationDto.java": {
+      "lines": 93.18181818181819,
+      "instructions": 96.09929078014184,
+      "branches": 80.0,
+      "sourceBlob": "115dd0258e46ef827ce7d91b3bc33da9d13b2933"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportMedicationMappingDto.java": {
+      "lines": 75.0,
+      "instructions": 80.0,
+      "branches": 70.0,
+      "sourceBlob": "1825ac6db6d4816717bdfc4612c01787c07f8c01"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportMedicationProjectionDto.java": {
+      "lines": 75.0,
+      "instructions": 88.0952380952381,
+      "branches": 50.0,
+      "sourceBlob": "9f8d6a043a3c6e12112d7bc7d4e560475eacae04"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportNativeCaptureDto.java": {
+      "lines": 90.0,
+      "instructions": 93.80530973451327,
+      "branches": 61.29032258064516,
+      "sourceBlob": "f02b9d62831f5b9d0bd3cfab386b15c75483bf8a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportNativeFieldKeyDto.java": {
+      "lines": 66.66666666666667,
+      "instructions": 82.5,
+      "branches": 50.0,
+      "sourceBlob": "73e1e617e254dd5dab96f5fd2f74c2af7c05b635"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportNativeRowReceiptDto.java": {
+      "lines": 78.57142857142857,
+      "instructions": 90.97744360902256,
+      "branches": 66.66666666666667,
+      "sourceBlob": "05698f64cda68e5d28135f7c240acf4b5838f90e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportNativeRowReceiptsDto.java": {
+      "lines": 84.21052631578948,
+      "instructions": 88.78504672897196,
+      "branches": 61.111111111111114,
+      "sourceBlob": "d0d5da813d10d4444c8f68d5ec297e7a15ba4cac"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportNoteAccessDto.java": {
+      "lines": 90.9090909090909,
+      "instructions": 96.84210526315789,
+      "branches": 85.29411764705883,
+      "sourceBlob": "14a4790118ff2c7b9d09405f35daa3c56d449109"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportNoteRevisionDto.java": {
+      "lines": 87.5,
+      "instructions": 89.69072164948453,
+      "branches": 64.28571428571429,
+      "sourceBlob": "dcd800ec87a225e0f47a9c7a50678ffb0f0833c8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportPackageDto.java": {
+      "lines": 71.42857142857143,
+      "instructions": 87.5,
+      "branches": 50.0,
+      "sourceBlob": "8a91db4a2d1bde9be648081fe64ff6c2baa533f6"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportPackageMemberDto.java": {
+      "lines": 80.0,
+      "instructions": 88.23529411764706,
+      "branches": 100.0,
+      "sourceBlob": "0132e33d89dcfe5949b599ea64bf45d729671a2c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportPackageMetadataDto.java": {
+      "lines": 50.0,
+      "instructions": 94.28571428571429,
+      "branches": 100.0,
+      "sourceBlob": "c5b48ff3ab8ce7f60b96d517cb49ec996d45d693"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportPartialRowComparisonDto.java": {
+      "lines": 91.66666666666667,
+      "instructions": 90.19607843137256,
+      "branches": 50.0,
+      "sourceBlob": "8166802f337862302dd8c2ffe67b04b6102fb529"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportPathDto.java": {
+      "lines": 50.0,
+      "instructions": 81.81818181818181,
+      "branches": 100.0,
+      "sourceBlob": "869422e9a391c6ec44e114433817684411c9f11d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportPatientCaptureDto.java": {
+      "lines": 88.88888888888889,
+      "instructions": 87.8048780487805,
+      "branches": 50.0,
+      "sourceBlob": "b07626178b5d3429b5377af955fdbe05a30c354a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportPatientFileDto.java": {
+      "lines": 50.0,
+      "instructions": 92.3076923076923,
+      "branches": 100.0,
+      "sourceBlob": "bdad71a7877b4f187bd327468f4c8fde62a0964f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportPatientNoteMappingDto.java": {
+      "lines": 92.85714285714286,
+      "instructions": 89.01734104046243,
+      "branches": 59.375,
+      "sourceBlob": "8fb361384e25539a3e848c03befd401625d1d48f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportPatientSummaryDto.java": {
+      "lines": 71.42857142857143,
+      "instructions": 83.92857142857143,
+      "branches": 50.0,
+      "sourceBlob": "f4931348e2be35e966f595633f0234fe9d691969"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportPersonalContactDto.java": {
+      "lines": 97.05882352941177,
+      "instructions": 95.6043956043956,
+      "branches": 66.12903225806451,
+      "sourceBlob": "88a23ada092e434b89fec7373d25e4b3f6da63a4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportPhysicianSummaryDto.java": {
+      "lines": 75.0,
+      "instructions": 73.07692307692308,
+      "branches": 50.0,
+      "sourceBlob": "602332434daf0a38507a2b12dff65712d180b2f8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportPreferredPharmacyDto.java": {
+      "lines": 100.0,
+      "instructions": 94.0909090909091,
+      "branches": 64.8936170212766,
+      "sourceBlob": "9511d5b028fe020c524efa3e1c83a3e302226e61"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportPreventionConfigurationDto.java": {
+      "lines": 83.33333333333333,
+      "instructions": 96.36363636363636,
+      "branches": 61.111111111111114,
+      "sourceBlob": "9865245e957ac5c4fb049a22b272978d05c60487"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportProvenanceDto.java": {
+      "lines": 93.75,
+      "instructions": 94.50549450549451,
+      "branches": 75.0,
+      "sourceBlob": "fa7a88a72530604ac2e56e7dec2d487f7f0e60ab"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportPublicProviderDto.java": {
+      "lines": 84.61538461538461,
+      "instructions": 93.63636363636364,
+      "branches": 61.111111111111114,
+      "sourceBlob": "147a340d09850fc8a2ba130c26f8bf55910e9212"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportPublicProviderLookupsDto.java": {
+      "lines": 83.33333333333333,
+      "instructions": 86.53846153846153,
+      "branches": 66.66666666666667,
+      "sourceBlob": "61349bee434b91e705fbc0699187e7d341a3e812"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportPublicProviderMappingDto.java": {
+      "lines": 71.42857142857143,
+      "instructions": 80.0,
+      "branches": 70.0,
+      "sourceBlob": "12695a1694d7ea05ef84b820b36553791cbe2271"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportReconciliationDto.java": {
+      "lines": 90.9090909090909,
+      "instructions": 89.24731182795699,
+      "branches": 67.74193548387096,
+      "sourceBlob": "d6d82f2dc5fdc612826f963bc206c7a9b2beb951"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportReportReferenceDto.java": {
+      "lines": 50.0,
+      "instructions": 85.71428571428571,
+      "branches": 100.0,
+      "sourceBlob": "b0be3140c59e9597e2e1f677734e144fe76ed2b6"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportRetainedFieldDto.java": {
+      "lines": 100.0,
+      "instructions": 96.3963963963964,
+      "branches": 57.5,
+      "sourceBlob": "83804b9a6d904140e4afe4aa545d1643fa578aa2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportRetainedIndexDto.java": {
+      "lines": 88.0,
+      "instructions": 90.34482758620689,
+      "branches": 50.0,
+      "sourceBlob": "759f774f472927136db53c6e994b77b19d014ad0"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportRetainedPayloadCaptureDto.java": {
+      "lines": 80.0,
+      "instructions": 94.48818897637796,
+      "branches": 50.0,
+      "sourceBlob": "b385dcbc4b4a51a5f484d6aabe8ecadc0a07a593"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportRetainedPayloadReceiptDto.java": {
+      "lines": 66.66666666666667,
+      "instructions": 82.05128205128206,
+      "branches": 50.0,
+      "sourceBlob": "6c8bfdddb7c3be1d8cc5e8ba8ad81955770ad50b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportRetainedReceiptVerificationDto.java": {
+      "lines": 94.33962264150944,
+      "instructions": 96.21451104100946,
+      "branches": 72.5,
+      "sourceBlob": "97f6ef6dde1886b802a1cfa3480c4e70a21a020c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportSelectionDto.java": {
+      "lines": 85.71428571428571,
+      "instructions": 96.36363636363636,
+      "branches": 61.111111111111114,
+      "sourceBlob": "ee96a663f796f3a9c3acde8badf13e07f1f64fcd"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportStagedFileDto.java": {
+      "lines": 71.42857142857143,
+      "instructions": 84.0909090909091,
+      "branches": 50.0,
+      "sourceBlob": "b324cfbff5d1a8a188d40634690d89107b90aa4e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportState.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 83.33333333333333,
+      "sourceBlob": "eff762251d83e697e376b68a53451d10dae75c13"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportStorageBindingDto.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 75.0,
+      "sourceBlob": "6d8eb84f7ffc9f2e807600b10f312d878fbd1d23"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportXmlLimitsDto.java": {
+      "lines": 80.0,
+      "instructions": 93.24324324324324,
+      "branches": 50.0,
+      "sourceBlob": "a72fa457e2f2705ff371a9852807573e02a39670"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportXmlValidationDto.java": {
+      "lines": 50.0,
+      "instructions": 94.73684210526316,
+      "branches": 100.0,
+      "sourceBlob": "2d162eb2f863e8381ced9898d69765630d262c6f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/engine/CdsExportClinicalEngine.java": {
+      "lines": 41.1764705882353,
+      "instructions": 33.333333333333336,
+      "branches": 0.0,
+      "sourceBlob": "8247f98ab497b80df85b8abe055b5b908d1cfdb3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/engine/CdsExportEngine.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "659c0844c06b8ee49215b3021f174e380ff8dffe"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/engine/CdsExportRunControl.java": {
+      "lines": 66.66666666666667,
+      "instructions": 66.66666666666667,
+      "branches": 100.0,
+      "sourceBlob": "fa69407d3e0b2ed83457b21d88cfef5236232024"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAccessService.java": {
+      "lines": 94.02985074626865,
+      "instructions": 93.97849462365592,
+      "branches": 76.82926829268293,
+      "sourceBlob": "c1ad20a180801c0fc12142e02382180ec81aaf46"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportActivePlanService.java": {
+      "lines": 96.55172413793103,
+      "instructions": 96.36963696369637,
+      "branches": 81.81818181818181,
+      "sourceBlob": "9d6637718cdc7e33bcdf0924019d3889e60fb348"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAllergyFieldReconciler.java": {
+      "lines": 89.84375,
+      "instructions": 91.07142857142857,
+      "branches": 63.41463414634146,
+      "sourceBlob": "c0c2cf6a964c748e6d7281d7ab969d09ee0572d3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAllergyMapper.java": {
+      "lines": 95.97701149425288,
+      "instructions": 95.82366589327147,
+      "branches": 76.5625,
+      "sourceBlob": "7a65ab41de5a5c686194d9a6076153ec48123bcf"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAllergyProjectionService.java": {
+      "lines": 85.18518518518519,
+      "instructions": 90.70631970260223,
+      "branches": 60.0,
+      "sourceBlob": "e1a09e9a1320fce32b25baf04a9ac86401ead89f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAllergyRetainedAssembler.java": {
+      "lines": 85.87570621468926,
+      "instructions": 87.5462392108508,
+      "branches": 74.3801652892562,
+      "sourceBlob": "0b82f6b5a18f7e683822382a08a0a52bc5b1c474"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAllergySourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "c40be051607c6280893b703efb2672bca2884e8d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAllergyXmlWriter.java": {
+      "lines": 95.09803921568627,
+      "instructions": 92.88702928870293,
+      "branches": 68.75,
+      "sourceBlob": "d0540e11d8fafdf21aa8e41facdfc55052814ddb"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAppointmentArchiveSourceReader.java": {
+      "lines": 66.66666666666667,
+      "instructions": 70.0,
+      "branches": 100.0,
+      "sourceBlob": "85289440886ed6ed4a0e2159291a1f5d7f2e1a42"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAppointmentFieldReconciler.java": {
+      "lines": 89.22155688622755,
+      "instructions": 95.06781750924785,
+      "branches": 77.34375,
+      "sourceBlob": "b0a7d317e333a44ba03bf657758974e7af64134e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAppointmentMapper.java": {
+      "lines": 90.43478260869566,
+      "instructions": 93.90018484288355,
+      "branches": 73.61111111111111,
+      "sourceBlob": "ec56c848be3e2f31b28d756f3a75c30cc9d38c3b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAppointmentNativeMetadata.java": {
+      "lines": 96.875,
+      "instructions": 94.6236559139785,
+      "branches": 71.42857142857143,
+      "sourceBlob": "8118eca71d6d4f28cd184bbd97c810f0f6438ca4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAppointmentOccurrenceService.java": {
+      "lines": 95.1219512195122,
+      "instructions": 96.16639477977162,
+      "branches": 62.5,
+      "sourceBlob": "03fe5c04cd0d6bc5598fd24a792a0d67de79c542"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAppointmentOriginalValues.java": {
+      "lines": 93.42105263157895,
+      "instructions": 95.96273291925466,
+      "branches": 67.5,
+      "sourceBlob": "b12ef028c00786b0eccd0cfbefff92ad8994bafc"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAppointmentProjectionEvidence.java": {
+      "lines": 78.46153846153847,
+      "instructions": 74.34210526315789,
+      "branches": 51.470588235294116,
+      "sourceBlob": "4008bcc659a97b1995f178a04c689ef6139a6fac"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAppointmentProjectionService.java": {
+      "lines": 96.5909090909091,
+      "instructions": 97.06546275395034,
+      "branches": 71.15384615384616,
+      "sourceBlob": "cfd675b08ca26dedac08fd8d9f0fd4597b2da65e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAppointmentRetainedAssembler.java": {
+      "lines": 92.85714285714286,
+      "instructions": 92.93286219081273,
+      "branches": 67.6470588235294,
+      "sourceBlob": "168cd8a23cd5a0d72a33208b6818514213e0a64a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAppointmentSourceReader.java": {
+      "lines": 66.66666666666667,
+      "instructions": 70.0,
+      "branches": 100.0,
+      "sourceBlob": "1b7a529624220b35ee065b16d8fd241c1b021398"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAppointmentStatusSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "4d4b04107817ec872dba488773674524665ac8e7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAppointmentTimingMapper.java": {
+      "lines": 91.42857142857143,
+      "instructions": 95.93023255813954,
+      "branches": 77.77777777777777,
+      "sourceBlob": "0e8f9856e50f4e792bc86e5fcf65173fa1adb2c4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAppointmentXmlWriter.java": {
+      "lines": 96.7741935483871,
+      "instructions": 96.2406015037594,
+      "branches": 72.22222222222223,
+      "sourceBlob": "5bd53e0bc2971b5037b6bcbeb71dd3ba7439f219"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportArtifactService.java": {
+      "lines": 76.50602409638554,
+      "instructions": 75.90711175616836,
+      "branches": 62.5,
+      "sourceBlob": "20e595fe295a7b2edf47a5fcf70e50afc166447a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAuditPersister.java": {
+      "lines": 96.42857142857143,
+      "instructions": 93.51851851851852,
+      "branches": 58.333333333333336,
+      "sourceBlob": "66282d9bbc37d80c6796bef4bdf456ccf87f8a26"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportAuthenticatedRangeInputStream.java": {
+      "lines": 89.74358974358974,
+      "instructions": 88.03986710963456,
+      "branches": 73.80952380952381,
+      "sourceBlob": "9c6d0c50881ecc590bf4ede439380c50592c7176"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportCapturedDocumentFiles.java": {
+      "lines": 94.04761904761905,
+      "instructions": 96.05633802816901,
+      "branches": 62.06896551724138,
+      "sourceBlob": "4214acfd0876aad48759c7d0241ff0c3abe2e29f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportCapturedNoteScopeValidator.java": {
+      "lines": 92.3076923076923,
+      "instructions": 86.22327790973871,
+      "branches": 64.63414634146342,
+      "sourceBlob": "614d50b4398738756fdcd959fe7e112235096b88"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportCapturedTextRowsReader.java": {
+      "lines": 93.18181818181819,
+      "instructions": 87.10359408033827,
+      "branches": 60.9375,
+      "sourceBlob": "c7dc57ea20dc2da171052c3f0e9d7938b7a57f63"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportCapturedTextWitness.java": {
+      "lines": 97.43589743589743,
+      "instructions": 95.53072625698324,
+      "branches": 76.3157894736842,
+      "sourceBlob": "8c49e462e6fca8ae50b23a1fbb36f35e7a86d209"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportCareOccurrenceService.java": {
+      "lines": 12.895927601809955,
+      "instructions": 12.237606074140242,
+      "branches": 11.974110032362459,
+      "sourceBlob": "5422c35492c7bf06172e5baf4d73d8bb0f5d95a7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportCareRetainedSource.java": {
+      "lines": 92.82511210762331,
+      "instructions": 94.60946094609461,
+      "branches": 68.75,
+      "sourceBlob": "0ed3ae828cc444caf76ff664bac740c036ff920e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportCaseIssueSourceReader.java": {
+      "lines": 33.333333333333336,
+      "instructions": 35.294117647058826,
+      "branches": 100.0,
+      "sourceBlob": "474a9d8766530ccec891fb5b324e3ce1691eaee9"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportCaseManagementProjectionEvidence.java": {
+      "lines": 93.93939393939394,
+      "instructions": 95.36423841059603,
+      "branches": 71.23287671232876,
+      "sourceBlob": "36b10af3f73882e93f09aa7fe3a05defa1e77dfe"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportCategoryOccurrenceAssembler.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "b9335fedbd6182b2195de599af1eacc50be85a27"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportCategoryOccurrenceRegistry.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "c3b72fb20bd94da9a70e27e7bd7c1a2bbe94b811"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportClinicalJobService.java": {
+      "lines": 97.6470588235294,
+      "instructions": 97.0059880239521,
+      "branches": 67.85714285714286,
+      "sourceBlob": "7020a7a894f4a2f4df52d45a5499aa3dddb33a37"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportClinicalOccurrenceService.java": {
+      "lines": 86.75496688741723,
+      "instructions": 90.6614785992218,
+      "branches": 59.195402298850574,
+      "sourceBlob": "a7b1a895cc7cf2f9980987857c7759d1bbc26ae7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportClinicalPackageService.java": {
+      "lines": 93.45549738219896,
+      "instructions": 91.81155356141335,
+      "branches": 58.97435897435897,
+      "sourceBlob": "95a4ce503854b401f2b41e98f281e83194d4d3fa"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportClinicalZone.java": {
+      "lines": 86.20689655172414,
+      "instructions": 93.84615384615384,
+      "branches": 78.57142857142857,
+      "sourceBlob": "6194acf97e3f5bedc3f5ca00546e7ada4ea8be6d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportClinicalZoneService.java": {
+      "lines": 93.87755102040816,
+      "instructions": 95.41666666666667,
+      "branches": 65.0,
+      "sourceBlob": "46ea770af4ace53661503081cb81a5e5ff604aa2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportClinicalZoneSourceReader.java": {
+      "lines": 62.5,
+      "instructions": 57.377049180327866,
+      "branches": 37.5,
+      "sourceBlob": "7061d62c486ed08866ef652235ca4b0cafd9612e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportCohortService.java": {
+      "lines": 93.08755760368663,
+      "instructions": 93.86160714285714,
+      "branches": 72.38805970149254,
+      "sourceBlob": "a73c894d959f67a3f5568a3738eac62f1f0f462c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportConfigurationService.java": {
+      "lines": 88.88888888888889,
+      "instructions": 92.88256227758008,
+      "branches": 71.42857142857143,
+      "sourceBlob": "fb77d0a9d7c1727cd098ec8e467cd9c119fc1f31"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportContactFieldReconciler.java": {
+      "lines": 93.71584699453553,
+      "instructions": 93.96825396825396,
+      "branches": 72.79411764705883,
+      "sourceBlob": "3d6a6a73e4ae4020a05b5203c2bbb5f82d55063a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportContactRetainedAssembler.java": {
+      "lines": 97.1264367816092,
+      "instructions": 94.5578231292517,
+      "branches": 62.71186440677966,
+      "sourceBlob": "4c03d7fd2e014209d2eff94c168793e6f7b994e4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportContactSourceReader.java": {
+      "lines": 50.0,
+      "instructions": 55.55555555555556,
+      "branches": 100.0,
+      "sourceBlob": "ec318697fc49ce3b49e98e7fc908d5c8a6c04208"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportCvcImmunizationSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d08f135a294588161164c41fe60908fe6c89f0a5"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportCvcMappingSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "79f4c7ddf6d1d6f2728831dfbd3450666cd38b62"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDateXmlWriter.java": {
+      "lines": 87.5,
+      "instructions": 80.0,
+      "branches": 77.77777777777777,
+      "sourceBlob": "76a467b0b97a249f067dbaf237bf2134dcbfe143"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDeletedMeasurementSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0b07f197546ca596b577ce3dc9a7d43d3dfa50e2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDeliveryComposer.java": {
+      "lines": 85.22727272727273,
+      "instructions": 85.9504132231405,
+      "branches": 58.69565217391305,
+      "sourceBlob": "0d95425f3705f532b2964d66b2dda8ad9183d2c5"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDeliveryService.java": {
+      "lines": 90.625,
+      "instructions": 93.43832020997375,
+      "branches": 56.0,
+      "sourceBlob": "3b826f60913265d065363bffe027d1c942dfb947"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicAddressReconciler.java": {
+      "lines": 93.93939393939394,
+      "instructions": 94.30756159728122,
+      "branches": 78.7128712871287,
+      "sourceBlob": "cc2d9be07df91cc48878ea6be880e700c8fdde0e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicAncillaryReconciler.java": {
+      "lines": 97.16981132075472,
+      "instructions": 96.5391621129326,
+      "branches": 79.0,
+      "sourceBlob": "a52b20af3e20242e6f2788b611225064977cc7d7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicArchiveSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "ce89ac4b2a39c0eb3a1593da823346e3b69b2b28"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicAssembler.java": {
+      "lines": 76.74418604651163,
+      "instructions": 80.30592734225621,
+      "branches": 82.14285714285714,
+      "sourceBlob": "260b2a469bac084d9d5778993020cfb59e76d443"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicBirthDateReconciler.java": {
+      "lines": 95.87628865979381,
+      "instructions": 94.11764705882354,
+      "branches": 69.81132075471699,
+      "sourceBlob": "13d8e320c1bd16f96433d8ddc02d5078eb936019"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicCaptureReader.java": {
+      "lines": 86.76470588235294,
+      "instructions": 82.59668508287292,
+      "branches": 54.76190476190476,
+      "sourceBlob": "88a7f695d58db5720421e4f515be2fc1d5754c6d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicCareAssembler.java": {
+      "lines": 45.3125,
+      "instructions": 39.568345323741006,
+      "branches": 36.04651162790697,
+      "sourceBlob": "0fa6c544b715373d7f5fc171bd46d032d30dc921"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicContactSourceReader.java": {
+      "lines": 50.0,
+      "instructions": 62.5,
+      "branches": 100.0,
+      "sourceBlob": "b6342c98c0f71e98be8323a08d4a578e248a8a11"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicCustSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "cc108aecfdddde62472a82f61504aaadd3eb144f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicExtSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "426f597e42f52d6152443f9e1ffd188831a0db56"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicHealthCardReconciler.java": {
+      "lines": 93.93939393939394,
+      "instructions": 95.03424657534246,
+      "branches": 83.33333333333333,
+      "sourceBlob": "6f85134604c198446c3cc264839911ced4f8b73d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicMapper.java": {
+      "lines": 98.05825242718447,
+      "instructions": 96.84838160136286,
+      "branches": 83.33333333333333,
+      "sourceBlob": "4358a0a54ccbc7692c494a11ea69629df795a6ca"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicMergeSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "8336a5cecb87de175f66c0aabf3bdbb7ef393e1c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicNamesReconciler.java": {
+      "lines": 95.58823529411765,
+      "instructions": 95.0,
+      "branches": 84.84848484848484,
+      "sourceBlob": "35043cdf4555b0f0763870f435173240aeb0589d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicOccurrenceService.java": {
+      "lines": 19.860627177700348,
+      "instructions": 23.996971990915974,
+      "branches": 32.407407407407405,
+      "sourceBlob": "9b8c9dc68b3fa059420069d70b9f646a7a2f3363"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicOptionalDateReconciler.java": {
+      "lines": 90.51724137931035,
+      "instructions": 91.61904761904762,
+      "branches": 84.72222222222223,
+      "sourceBlob": "236aea81544b55987ec59ee2f369d0a3081480fe"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicPhoneProjectionService.java": {
+      "lines": 94.02985074626865,
+      "instructions": 96.15384615384616,
+      "branches": 63.333333333333336,
+      "sourceBlob": "9c8fb4987907f7df06ee8a98d5207e750ba954f4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicPhonesMapper.java": {
+      "lines": 96.32352941176471,
+      "instructions": 98.04511278195488,
+      "branches": 84.0,
+      "sourceBlob": "21ffdafec74f8099e1fb2eb4e5dbb03f2bfa532c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicPrimaryPhysicianReconciler.java": {
+      "lines": 96.07843137254902,
+      "instructions": 95.08196721311475,
+      "branches": 81.53846153846153,
+      "sourceBlob": "8076519eff97b64725df9b2340cc66986c899d05"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicProjectionEvidence.java": {
+      "lines": 96.91780821917808,
+      "instructions": 97.60348583877996,
+      "branches": 69.42446043165468,
+      "sourceBlob": "3ed430b7122760e33113d5498efb2b8231c329d4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicProjectionService.java": {
+      "lines": 90.0,
+      "instructions": 90.14778325123153,
+      "branches": 61.111111111111114,
+      "sourceBlob": "52992400bb9f6daa953b2466f587cbb71540acbc"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicRetainedCoreReconciler.java": {
+      "lines": 87.85425101214575,
+      "instructions": 87.80663780663781,
+      "branches": 80.28169014084507,
+      "sourceBlob": "263b206ea591962a321146d7917f1ac6bf907211"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicRetainedNoteReconciler.java": {
+      "lines": 94.21965317919076,
+      "instructions": 93.12101910828025,
+      "branches": 71.12676056338029,
+      "sourceBlob": "d38c72db68a1d240343bebb6e2bb91138ffc2c18"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicRetainedPhonesReconciler.java": {
+      "lines": 93.78531073446328,
+      "instructions": 94.87934078869924,
+      "branches": 77.85234899328859,
+      "sourceBlob": "b5a2a8a4ea36ea85e292670f31f488cd7617e0b0"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicScalarReconciler.java": {
+      "lines": 98.1981981981982,
+      "instructions": 98.82121807465619,
+      "branches": 95.0,
+      "sourceBlob": "a7bece558e4950aa891dbcdb8b238618e6e3efcb"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicSourceReader.java": {
+      "lines": 89.47368421052632,
+      "instructions": 83.9080459770115,
+      "branches": 50.0,
+      "sourceBlob": "e24bd0a9a14f579cacd2789785ba27cf4c018d57"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicXmlWriter.java": {
+      "lines": 93.45238095238095,
+      "instructions": 92.37410071942446,
+      "branches": 70.0,
+      "sourceBlob": "442946c4d9e437846b10070e39fa23034e2b890b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDisclosurePolicyService.java": {
+      "lines": 97.6470588235294,
+      "instructions": 95.4337899543379,
+      "branches": 60.95890410958904,
+      "sourceBlob": "ed66d9fbd2c9e5c8ca1137125ae7c81435b51185"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDisclosureScopeService.java": {
+      "lines": 85.21739130434783,
+      "instructions": 86.52631578947368,
+      "branches": 54.411764705882355,
+      "sourceBlob": "038d2e91902d8f7f944071e3b50aa47f9bed0ff0"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDocumentFileSourceReader.java": {
+      "lines": 52.54237288135593,
+      "instructions": 54.8780487804878,
+      "branches": 40.0,
+      "sourceBlob": "a636582f9f386a7675be2d52edecff956bde50a3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDocumentInputStream.java": {
+      "lines": 90.0,
+      "instructions": 91.25766871165644,
+      "branches": 68.96551724137932,
+      "sourceBlob": "83ed3543195e1cdf5c2064915420f75958bcddd2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDocumentLinkSourceReader.java": {
+      "lines": 66.66666666666667,
+      "instructions": 58.333333333333336,
+      "branches": 100.0,
+      "sourceBlob": "353958378c38ae4b625b15a9af195d675a3185ee"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDocumentSourceReader.java": {
+      "lines": 66.66666666666667,
+      "instructions": 58.333333333333336,
+      "branches": 100.0,
+      "sourceBlob": "5f3815329fe66c007fe9958f1df80b75104d3eb8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportEngineRegistry.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 95.0,
+      "sourceBlob": "df9c40de18550f9d32cf0188c2bbf856858772da"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportEnrolmentHistory.java": {
+      "lines": 94.50549450549451,
+      "instructions": 95.17102615694165,
+      "branches": 80.48780487804878,
+      "sourceBlob": "8c81497612a8f3ca106796fa67fb24448f326344"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportEnrolmentMapper.java": {
+      "lines": 95.41284403669725,
+      "instructions": 97.59036144578313,
+      "branches": 91.2280701754386,
+      "sourceBlob": "94f04095f8bf35dad53307ff201b5343c46546b2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportEnrolmentProjectionService.java": {
+      "lines": 95.51282051282051,
+      "instructions": 94.3012211668928,
+      "branches": 62.903225806451616,
+      "sourceBlob": "5714bfd2352ef5ea490a21136902da58b93dfb88"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportEnrolmentXmlWriter.java": {
+      "lines": 96.29629629629629,
+      "instructions": 95.32710280373831,
+      "branches": 85.71428571428571,
+      "sourceBlob": "44882ace44ad0b2a6ac9f8e0dc6220720c0c0d12"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportExecutionService.java": {
+      "lines": 75.84269662921348,
+      "instructions": 75.21613832853026,
+      "branches": 63.46153846153846,
+      "sourceBlob": "5e2d0a83cde60b16d44d1e626f348c1957854788"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportHeaderComposer.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 62.5,
+      "sourceBlob": "51538b5d9690f887859550e7ac71369eca65a1e1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportHistoryCurrentContext.java": {
+      "lines": 94.11764705882354,
+      "instructions": 95.03030303030303,
+      "branches": 70.29702970297029,
+      "sourceBlob": "9b3345e5d55f68cd0e106917b29a18d548d08bdb"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportHistoryFieldReconciler.java": {
+      "lines": 63.56164383561644,
+      "instructions": 65.4243119266055,
+      "branches": 46.864686468646866,
+      "sourceBlob": "cd2030b4cad8247726bb2dd5cbfbf17df9ac2daf"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportHistoryOccurrenceService.java": {
+      "lines": 67.0886075949367,
+      "instructions": 63.36898395721925,
+      "branches": 48.113207547169814,
+      "sourceBlob": "5914899744e5a8501234c3bcdfb6bd47493dcda4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportHistoryRetainedSource.java": {
+      "lines": 90.17341040462428,
+      "instructions": 88.48238482384824,
+      "branches": 76.33587786259542,
+      "sourceBlob": "0d0904cbb7def4cd97ff581e752c46e80122c38c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportHospitalReportScopeSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "a4428e6b9da7925fd27e2785611dcc2814a10f93"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportImmunizationCaptureValidator.java": {
+      "lines": 90.69767441860465,
+      "instructions": 92.39904988123516,
+      "branches": 67.91044776119404,
+      "sourceBlob": "6eb6d182f1bd693bac612c466c58ab3fce469465"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportImmunizationDateProjection.java": {
+      "lines": 93.10344827586206,
+      "instructions": 93.45794392523365,
+      "branches": 80.0,
+      "sourceBlob": "c1a37ddd8c60b8f9c1f8b9b55a77733e545e6842"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportImmunizationExtSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "dcef097db3d60f8bf7c41612582861e7c1c93a03"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportImmunizationFieldReconciler.java": {
+      "lines": 91.63987138263666,
+      "instructions": 93.23262839879155,
+      "branches": 75.09727626459144,
+      "sourceBlob": "a82d6a8aec072665cb751a86aabce7f248ae30fa"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportImmunizationMapper.java": {
+      "lines": 95.9090909090909,
+      "instructions": 96.2738301559792,
+      "branches": 79.88505747126437,
+      "sourceBlob": "36e0b8bb42a4107f9222e6768f92804a98c4fba7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportImmunizationOccurrenceService.java": {
+      "lines": 92.0863309352518,
+      "instructions": 93.93706830391405,
+      "branches": 65.54054054054055,
+      "sourceBlob": "fa9b1609f760f4cccff009794065738aae4d4c05"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportImmunizationPrecisionSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d1f78b5a44e68a5b16239110f5612374c1a8033f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportImmunizationProjectionEvidence.java": {
+      "lines": 94.28571428571429,
+      "instructions": 96.13095238095238,
+      "branches": 74.13793103448276,
+      "sourceBlob": "8cd5eca4e8ff81c599779823b069d81eae7e1831"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportImmunizationProjectionService.java": {
+      "lines": 90.67796610169492,
+      "instructions": 90.53156146179403,
+      "branches": 59.21052631578947,
+      "sourceBlob": "df3138755efe2a38ea8cc72f2d6db0a3414d180a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportImmunizationRetainedAssembler.java": {
+      "lines": 84.81012658227849,
+      "instructions": 88.6842105263158,
+      "branches": 68.18181818181819,
+      "sourceBlob": "90be52c359119f636f6ea63c3dbfea3eea6c9fa7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportImmunizationSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "512212be5a2ce91dbc520380e11f6356eba2d2c4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportImmunizationVocabulary.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "e83bea43a5d7bc61c40fd2ae242c5749609869be"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportImmunizationXmlWriter.java": {
+      "lines": 95.83333333333333,
+      "instructions": 98.0952380952381,
+      "branches": 96.15384615384616,
+      "sourceBlob": "a4fdb8d02bb58ad7ab7c0922f0c60648b19fe209"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportImplementationIdentityService.java": {
+      "lines": 93.10344827586206,
+      "instructions": 90.02375296912113,
+      "branches": 58.8235294117647,
+      "sourceBlob": "1510120f28462c7e8362fff59c6250a983f33592"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportImportOptionsSourceReader.java": {
+      "lines": 88.76404494382022,
+      "instructions": 89.28571428571429,
+      "branches": 63.04347826086956,
+      "sourceBlob": "05025929438309ae00eea0e1e1cbc62b0beccd25"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportIssueCatalogueSourceReader.java": {
+      "lines": 33.333333333333336,
+      "instructions": 35.294117647058826,
+      "branches": 100.0,
+      "sourceBlob": "15b88dd4f5a675aa7836ba32cdf3d30e428ccaf5"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportJsonLines.java": {
+      "lines": 96.875,
+      "instructions": 90.4,
+      "branches": 68.18181818181819,
+      "sourceBlob": "46d8e57d8e64c3f65ba808e03b886c55052b986a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportLaboratoryInfoSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "fd1c045537b8be643ee298a2d1941d0fab24a6f6"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportLaboratoryMessageSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "779d6371193d1f6af3e5edec7abb7f28622c7d3e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportLaboratoryOccurrenceService.java": {
+      "lines": 19.571865443425075,
+      "instructions": 20.16079158936302,
+      "branches": 23.484848484848484,
+      "sourceBlob": "7781075905da4a39771f4936a8bf1b89c187004d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportLaboratoryRetainedSource.java": {
+      "lines": 86.01398601398601,
+      "instructions": 85.62691131498471,
+      "branches": 70.3125,
+      "sourceBlob": "ffa6a835e1d5365ad72e7df2e2de6a7eb174ecfd"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportLaboratoryRoutingSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "84a010975deb0b383893c107d31fd1deff42f76c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportLaboratorySourceReader.java": {
+      "lines": 94.11764705882354,
+      "instructions": 95.0,
+      "branches": 80.0,
+      "sourceBlob": "83bf7b27e169425fa5bdb6a30e05b5ac967988aa"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportLedgerService.java": {
+      "lines": 90.82125603864735,
+      "instructions": 89.68163729391699,
+      "branches": 64.8471615720524,
+      "sourceBlob": "1f525b23f70c66b0e1c359f742e100eb9c8ae703"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMeasurementExtensionSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "57d5b4e9310bc873254c562c1400dcf8124f2e4b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMeasurementSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "736a53abe0997a55d66103acbb7e99e119ccd8f6"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMeasurementTypeSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "4d2d1ef3bea9b3a3007b3897bf77bd9992e3c72e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMedicationFieldReconciler.java": {
+      "lines": 89.04494382022472,
+      "instructions": 91.63636363636364,
+      "branches": 62.78195488721804,
+      "sourceBlob": "cb78e826e3a69d28a86c0f05522d76a74884679e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMedicationMapper.java": {
+      "lines": 96.19047619047619,
+      "instructions": 97.0722186076773,
+      "branches": 80.41666666666667,
+      "sourceBlob": "0602c27804847978adfea564dd53340a9557a452"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMedicationProjectionService.java": {
+      "lines": 65.38461538461539,
+      "instructions": 71.80156657963447,
+      "branches": 40.38461538461539,
+      "sourceBlob": "20ca4eda39e7499e1bd028e4db4b04f877359976"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMedicationRetainedAssembler.java": {
+      "lines": 82.56880733944953,
+      "instructions": 86.45598194130926,
+      "branches": 67.6470588235294,
+      "sourceBlob": "7c7319cb79faaa24c6d6de98caed3a8c8455d813"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMedicationSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "fd743584113cf8af25df4a7b920682e31ab9c958"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMedicationXmlWriter.java": {
+      "lines": 98.52941176470588,
+      "instructions": 98.3173076923077,
+      "branches": 73.4375,
+      "sourceBlob": "947c6733d8f80614b6886faa58fb64d578cd309b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMergeScopeValidator.java": {
+      "lines": 91.66666666666667,
+      "instructions": 93.17073170731707,
+      "branches": 67.85714285714286,
+      "sourceBlob": "b52fcc52c9286b2c5d031045a4aeb733e30fa4d7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeCaptureComposer.java": {
+      "lines": 95.65217391304348,
+      "instructions": 96.05263157894737,
+      "branches": 66.94915254237289,
+      "sourceBlob": "7ee5f23b04fcf1f1df0f87be1f3a9f4ad3d1148d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeCaptureReader.java": {
+      "lines": 95.02762430939227,
+      "instructions": 95.4639175257732,
+      "branches": 66.0,
+      "sourceBlob": "dce026cf286033afab1def1e84cdd33576b4aea0"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeCaptureService.java": {
+      "lines": 85.42199488491049,
+      "instructions": 84.23848878394332,
+      "branches": 61.21495327102804,
+      "sourceBlob": "beb5d4c31544608d6604df9436b3dcbb882166b3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeDateMapper.java": {
+      "lines": 80.76923076923077,
+      "instructions": 87.70491803278688,
+      "branches": 75.0,
+      "sourceBlob": "a55eb40c85bead8f46fd19d4c91d69cc2db541ae"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeDemographicAssembler.java": {
+      "lines": 96.0,
+      "instructions": 97.03337453646478,
+      "branches": 65.3061224489796,
+      "sourceBlob": "20771fa76632cbaab4e1c23c5b95ba8c1fbc190d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeFieldAssessmentValidator.java": {
+      "lines": 98.27586206896552,
+      "instructions": 97.54601226993866,
+      "branches": 75.80645161290323,
+      "sourceBlob": "78e02816a2041664c3c1981ceca29b8408c9edfc"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeFieldAssessments.java": {
+      "lines": 97.22222222222223,
+      "instructions": 97.10982658959537,
+      "branches": 89.47368421052632,
+      "sourceBlob": "db96f7fcddcebc05174151f1bfb88185c610c53f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativePreventionDateMapper.java": {
+      "lines": 100.0,
+      "instructions": 92.6829268292683,
+      "branches": 69.23076923076923,
+      "sourceBlob": "9972a13a604b2669ae75bb79e44895a9b0e84ecf"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeRowReceiptReader.java": {
+      "lines": 93.43434343434343,
+      "instructions": 94.2173479561316,
+      "branches": 73.61111111111111,
+      "sourceBlob": "f548bbc1a94344740db029e2df8e5cf863231b6f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "a8e67efb4b1479bc6ac498566eb883e5f5d5e179"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNewCategoryOccurrenceService.java": {
+      "lines": 30.434782608695652,
+      "instructions": 28.611898016997166,
+      "branches": 38.75,
+      "sourceBlob": "f69eb7cf13cb2a9e1b22c868233fab2656bc3a3d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNoteExtensionSourceReader.java": {
+      "lines": 66.66666666666667,
+      "instructions": 66.66666666666667,
+      "branches": 100.0,
+      "sourceBlob": "fb164133d254858000ff15ab35ffcb867c2eb06a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNoteIssueLinkSourceReader.java": {
+      "lines": 88.88888888888889,
+      "instructions": 87.03703703703704,
+      "branches": 75.0,
+      "sourceBlob": "a870c23e25f7def6eb8c8b769c13e7fa568dca88"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNoteRevisionInventoryService.java": {
+      "lines": 95.08196721311475,
+      "instructions": 95.71428571428571,
+      "branches": 54.76190476190476,
+      "sourceBlob": "717dd88cd5fcf905f0f12e68e8fcb7fd2679380e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNoteRevisionPlanner.java": {
+      "lines": 91.97080291970804,
+      "instructions": 91.94915254237289,
+      "branches": 63.768115942028984,
+      "sourceBlob": "36b903e23f93e6f018bf8bdd396b06096f11f1ae"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNoteRevisionReader.java": {
+      "lines": 91.0,
+      "instructions": 94.23868312757202,
+      "branches": 68.42105263157895,
+      "sourceBlob": "b90de26a5ffde294d2cd2364b4be316016682868"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNoteScopeProjectionService.java": {
+      "lines": 50.0,
+      "instructions": 57.142857142857146,
+      "branches": 100.0,
+      "sourceBlob": "99a2a61c03c9265ada2f4c9985048b0e297875de"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNoteSourceReader.java": {
+      "lines": 89.36170212765957,
+      "instructions": 90.47619047619048,
+      "branches": 76.66666666666667,
+      "sourceBlob": "071f6f77440a31fc2c2ff33662a47e23617716d0"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPackageComposer.java": {
+      "lines": 87.30964467005076,
+      "instructions": 87.2258064516129,
+      "branches": 57.89473684210526,
+      "sourceBlob": "2c54f5b098f8c6ad76d5bbbfa33e96077e1c219a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPackageInventoryService.java": {
+      "lines": 88.32684824902724,
+      "instructions": 90.70990359333918,
+      "branches": 65.625,
+      "sourceBlob": "777a5b76f28222ec2f0a1feb3a2d95c0fdcec20e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPackageMembers.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "40ce3be975f9fc21743c16d69633536cce0d6b98"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPackagePaths.java": {
+      "lines": 97.43589743589743,
+      "instructions": 97.34042553191489,
+      "branches": 80.35714285714286,
+      "sourceBlob": "32c621d6e34a7d054625a55f58f76d4bca9a40ac"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPartialDateSourceReader.java": {
+      "lines": 93.75,
+      "instructions": 87.91208791208791,
+      "branches": 100.0,
+      "sourceBlob": "ad259027fd59d4b10b4979e5380c18607c7c42d0"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPartialRowComparator.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 83.33333333333333,
+      "sourceBlob": "064533981592b5abaf3ea7e283883401ca0cf6a3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPathComposer.java": {
+      "lines": 85.71428571428571,
+      "instructions": 90.0,
+      "branches": 70.83333333333333,
+      "sourceBlob": "13bc74464210b451c19d426664bb19113d11be2b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPatientDocumentService.java": {
+      "lines": 86.48648648648648,
+      "instructions": 86.431718061674,
+      "branches": 59.183673469387756,
+      "sourceBlob": "95927ba849bdd4924f92a5eb188b91cdf5991241"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPatientFileBindingService.java": {
+      "lines": 57.142857142857146,
+      "instructions": 54.30107526881721,
+      "branches": 46.15384615384615,
+      "sourceBlob": "4e0afff4512aca8a58ef666ce9e3d24f7d8cb1df"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPatientIdentityReconciler.java": {
+      "lines": 98.18181818181819,
+      "instructions": 94.19953596287704,
+      "branches": 63.23529411764706,
+      "sourceBlob": "2ed0e6ea9544c8617bd1843e634022a837e9e384"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPatientInventoryService.java": {
+      "lines": 91.42857142857143,
+      "instructions": 91.14173228346456,
+      "branches": 61.111111111111114,
+      "sourceBlob": "ff8ea9b2503c06ca302205a9e3331825621cd479"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPatientNoteMapper.java": {
+      "lines": 100.0,
+      "instructions": 99.1304347826087,
+      "branches": 80.43478260869566,
+      "sourceBlob": "e89ac0b14e1ed10e89c47dfe9cb1272a4137d53b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPatientNoteProjectionReader.java": {
+      "lines": 90.0,
+      "instructions": 89.95983935742971,
+      "branches": 69.76744186046511,
+      "sourceBlob": "598c11a6bbe02086552dc9872d5e5c5d2f039e50"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPatientTableSourceReader.java": {
+      "lines": 80.32786885245902,
+      "instructions": 84.92647058823529,
+      "branches": 75.0,
+      "sourceBlob": "e1959bd8453db04dba83f23f2bd9781915dbe76d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPersonalContactMapper.java": {
+      "lines": 95.850622406639,
+      "instructions": 96.66413949962093,
+      "branches": 81.13207547169812,
+      "sourceBlob": "23f724f36f5369bbcb22a56f960f75c662d9949c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPersonalContactProjectionService.java": {
+      "lines": 96.82539682539682,
+      "instructions": 95.77922077922078,
+      "branches": 73.33333333333333,
+      "sourceBlob": "b3fb89fc1ac0dac3d0382d793acbbc01f8e5717a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPersonalContactXmlWriter.java": {
+      "lines": 97.14285714285714,
+      "instructions": 96.57534246575342,
+      "branches": 85.71428571428571,
+      "sourceBlob": "358778aacee651fb4c7df64c05dd5420a57efe51"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPharmacyLinkSourceReader.java": {
+      "lines": 66.66666666666667,
+      "instructions": 75.0,
+      "branches": 100.0,
+      "sourceBlob": "9656b7f604fc16828368f2dc8c96a5d7789ae7a7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPharmacyMapper.java": {
+      "lines": 95.65217391304348,
+      "instructions": 95.58974358974359,
+      "branches": 78.57142857142857,
+      "sourceBlob": "1fa2f091f58616ce47fa33c8297dcdf11454377c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPharmacyProjectionService.java": {
+      "lines": 96.82539682539682,
+      "instructions": 95.77922077922078,
+      "branches": 73.33333333333333,
+      "sourceBlob": "fd81e9342a47bfed2cb035c728cccbf491b35436"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPharmacySourceReader.java": {
+      "lines": 66.66666666666667,
+      "instructions": 69.23076923076923,
+      "branches": 100.0,
+      "sourceBlob": "9bada0903952a5522e770e6c3c488c5c00fc373d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPharmacyXmlWriter.java": {
+      "lines": 96.07843137254902,
+      "instructions": 93.95604395604396,
+      "branches": 65.0,
+      "sourceBlob": "7f226a43f60e00421e99072f7bc1b22921240741"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPreparedAllergyMapper.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "7d931459b472d0c6a7808c85a30f4c69caeb988f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPreparedImmunizationMapper.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "97f166b83e7220800cc4bc2813b7e8a802ae43a3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPreparedMedicationMapper.java": {
+      "lines": 90.74074074074075,
+      "instructions": 92.71255060728745,
+      "branches": 50.0,
+      "sourceBlob": "3339755d052edc326a3e21a5a6d4d2b41962e5b1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPreparedTemporalMapper.java": {
+      "lines": 100.0,
+      "instructions": 97.48427672955975,
+      "branches": 76.66666666666667,
+      "sourceBlob": "fd52c36c0ea487986cd3d280138a96afef5581db"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPreventionAccessService.java": {
+      "lines": 100.0,
+      "instructions": 81.48148148148148,
+      "branches": 75.0,
+      "sourceBlob": "4a532436b85d6f85125ada2dd2b3a237d2a4c350"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPreventionClassificationService.java": {
+      "lines": 95.0,
+      "instructions": 95.4337899543379,
+      "branches": 83.33333333333333,
+      "sourceBlob": "66b234c58b0e605ecc5c30b408b07510d22b34a0"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPreventionClassifier.java": {
+      "lines": 93.80952380952381,
+      "instructions": 96.1100569259962,
+      "branches": 86.15384615384616,
+      "sourceBlob": "fc27600425c1376ae4ab2adfba30472c3ab7b503"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPreventionConfigurationLoader.java": {
+      "lines": 96.96969696969697,
+      "instructions": 95.86206896551724,
+      "branches": 57.142857142857146,
+      "sourceBlob": "7b05c2a0c5a1db2810bb94685f284d6c536e5cdf"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPreventionConfigurationService.java": {
+      "lines": 95.0,
+      "instructions": 95.60906515580737,
+      "branches": 60.0,
+      "sourceBlob": "c2fe48210fe5d84edbbbf67d4b5081a1b6b48c33"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPreventionConfigurationSourceReader.java": {
+      "lines": 76.92307692307692,
+      "instructions": 70.2127659574468,
+      "branches": 50.0,
+      "sourceBlob": "efee268e2b8e58f88d914ac5ac5fe036a402337f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPreventionScopePlanner.java": {
+      "lines": 89.76377952755905,
+      "instructions": 92.66666666666667,
+      "branches": 73.41772151898734,
+      "sourceBlob": "b4388a9004238aa743c36101a15a651e7ec71f06"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPreventionScopeSourceReader.java": {
+      "lines": 85.0,
+      "instructions": 89.39393939393939,
+      "branches": 100.0,
+      "sourceBlob": "5f247dff938303a884bb019c09010c3f9380cc69"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPreventionSnapshotService.java": {
+      "lines": 89.53488372093024,
+      "instructions": 90.32738095238095,
+      "branches": 70.51282051282051,
+      "sourceBlob": "d2e42129247780b009c71c86af6ec6c754064b00"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportProfessionalContactMapper.java": {
+      "lines": 94.08866995073892,
+      "instructions": 95.10426110607435,
+      "branches": 70.88607594936708,
+      "sourceBlob": "e9cc7dad35384b01f845cc74dc1af17e3568c0de"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportProfessionalContactXmlWriter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "a64510d50749f1e05df861b24fcc4e5fc0fe12a6"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPublicProviderMapper.java": {
+      "lines": 93.75,
+      "instructions": 94.60580912863071,
+      "branches": 75.0,
+      "sourceBlob": "18133ceab9974ff17bbc9f5495cd967523cd7a32"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPublicProviderSourceReader.java": {
+      "lines": 87.5,
+      "instructions": 84.70588235294117,
+      "branches": 60.714285714285715,
+      "sourceBlob": "3ea8f6ce8f85cdf615a9e0f23beaa41e788885e5"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPublicProviderXmlWriter.java": {
+      "lines": 94.11764705882354,
+      "instructions": 93.15068493150685,
+      "branches": 70.0,
+      "sourceBlob": "b6f47547211f707e3693c31af9b944b8f69036dc"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPublicationService.java": {
+      "lines": 89.74358974358974,
+      "instructions": 89.0909090909091,
+      "branches": 50.0,
+      "sourceBlob": "75dfcaa3635831ff9a79561c1402bc403c1ee869"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRawValueInputStream.java": {
+      "lines": 90.56603773584905,
+      "instructions": 91.95402298850574,
+      "branches": 87.5,
+      "sourceBlob": "a9a8bc0242a5908e00d05ea0978135c272049e9e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportReportOccurrenceService.java": {
+      "lines": 12.289156626506024,
+      "instructions": 14.196891191709845,
+      "branches": 22.18045112781955,
+      "sourceBlob": "3a7167f7fb16d218cd171c8424d0da1bad419965"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportReportPublicationEvidence.java": {
+      "lines": 96.42857142857143,
+      "instructions": 95.07829977628636,
+      "branches": 71.42857142857143,
+      "sourceBlob": "72b6209213c1cd7b45da3cfe89929783fa08fc3f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportReportRetainedSource.java": {
+      "lines": 85.4077253218884,
+      "instructions": 86.49669499527856,
+      "branches": 66.86746987951807,
+      "sourceBlob": "f1b45633d15bfdb828e4c31be21eee61ef3a313a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedCalendarMapper.java": {
+      "lines": 96.0,
+      "instructions": 98.27586206896552,
+      "branches": 100.0,
+      "sourceBlob": "54519f1662017c34de137b242c2fc8b9ef8fba2d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedContactBinding.java": {
+      "lines": 95.23809523809524,
+      "instructions": 96.36075949367088,
+      "branches": 61.47540983606557,
+      "sourceBlob": "4604a36f0eefed022f0285aa1ac6a6087116c26e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedDependencySourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "91af5cd2774a6e9e78bd7006a0dbc6d1479d0be2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedEnrolmentReconciler.java": {
+      "lines": 96.86411149825784,
+      "instructions": 93.04471256210078,
+      "branches": 71.9298245614035,
+      "sourceBlob": "7edffc048c957fb8c51802a7f925949ac2c2685f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedEnrolmentSource.java": {
+      "lines": 93.16770186335404,
+      "instructions": 94.27792915531334,
+      "branches": 73.38709677419355,
+      "sourceBlob": "b3f62497dab60509fd6b9838c56078495127895e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedFieldMapper.java": {
+      "lines": 93.87755102040816,
+      "instructions": 95.23809523809524,
+      "branches": 69.23076923076923,
+      "sourceBlob": "5240da8c2e2320f017df347d311e7677519c6814"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedFieldSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "367a7e7f8c3c9327ff40a35ef82342e2642a6f11"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedFileReferenceSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "9cc88e6b8aee028872cb372fec5e7e1401a59163"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedFileSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d473bf09e8bc687d401a80c17924a669b869dc6d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedImportOptionsReader.java": {
+      "lines": 93.20754716981132,
+      "instructions": 91.40690817186184,
+      "branches": 65.57377049180327,
+      "sourceBlob": "0d56b67a3ab147209cdc295885505fc880af2176"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedIndexService.java": {
+      "lines": 96.0122699386503,
+      "instructions": 96.23655913978494,
+      "branches": 68.44262295081967,
+      "sourceBlob": "4feaa13bdb1106bff95bf918a54d8cf4b5a31662"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedOccurrenceFields.java": {
+      "lines": 85.71428571428571,
+      "instructions": 86.34920634920636,
+      "branches": 65.21739130434783,
+      "sourceBlob": "554c5a93c122088e647e2d7df9dfc680ac33326b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedOccurrencePath.java": {
+      "lines": 100.0,
+      "instructions": 94.5945945945946,
+      "branches": 70.0,
+      "sourceBlob": "f9930b690bae9c903301c649821a9b827472080a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedPatientSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "1ae6d0c25c1cb05d81a047ada44b7baec308f40d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedPayloadInputStream.java": {
+      "lines": 79.16666666666667,
+      "instructions": 79.54545454545455,
+      "branches": 58.8235294117647,
+      "sourceBlob": "bda6cbe3f754db9b3ee54d82d7c62d5c237db309"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedPayloadService.java": {
+      "lines": 97.29729729729729,
+      "instructions": 98.06243272335846,
+      "branches": 66.66666666666667,
+      "sourceBlob": "aebc201461d17fdc6ca97d4557c2205242604db8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedPharmacyAddressReconciler.java": {
+      "lines": 81.08108108108108,
+      "instructions": 71.57894736842105,
+      "branches": 61.8421052631579,
+      "sourceBlob": "490347b4a6848747965174005196833d4b7d90e4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedPharmacyBinding.java": {
+      "lines": 92.3076923076923,
+      "instructions": 88.52157943067034,
+      "branches": 64.13793103448276,
+      "sourceBlob": "20eea7c9e19410acfc70c9d8dc54ceb66e89c08c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedPharmacyReconciler.java": {
+      "lines": 92.0,
+      "instructions": 86.54088050314465,
+      "branches": 66.96428571428571,
+      "sourceBlob": "91ff64158067edc18ec10bf9711309eca4dc27d3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedPreparationReader.java": {
+      "lines": 94.36619718309859,
+      "instructions": 93.6082474226804,
+      "branches": 68.42105263157895,
+      "sourceBlob": "94d1a2b73491dd976be08e38b728ed41dd3b377f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedPreparationSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "56fca49ccc7a68cf4080000ce0510ae72145d4be"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedProfessionalContactBinding.java": {
+      "lines": 92.3076923076923,
+      "instructions": 91.5041782729805,
+      "branches": 67.24137931034483,
+      "sourceBlob": "4fae1f6bbde9f0ced868125ff460610bb571dc1d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedProfessionalContactReconciler.java": {
+      "lines": 94.44444444444444,
+      "instructions": 92.79711884753901,
+      "branches": 76.3157894736842,
+      "sourceBlob": "cbcbfaf49b4ab64cbb5a75b0fbe0f9206e66dfb4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedReceiptVerificationService.java": {
+      "lines": 99.3103448275862,
+      "instructions": 98.72611464968153,
+      "branches": 83.33333333333333,
+      "sourceBlob": "790e2590e47b4f872cdea739d5731dcfdb3f53b7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedRunSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "97de83926bcce258c676e706dd387e626a09aa48"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedSectionWriter.java": {
+      "lines": 96.2406015037594,
+      "instructions": 95.56420233463035,
+      "branches": 74.72527472527473,
+      "sourceBlob": "1b30215d056ab6777e96d73e53cfe9a05b1ece21"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedTableSourceReader.java": {
+      "lines": 73.07692307692308,
+      "instructions": 75.10917030567686,
+      "branches": 77.27272727272727,
+      "sourceBlob": "49905d01b695f71fb86e8a7ba94009717aee2c5a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedUnitSourceReader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "211d5ea60985d32c0c55aa0ebae6c0ee2910e9e5"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedValuesService.java": {
+      "lines": 89.1566265060241,
+      "instructions": 89.51367781155015,
+      "branches": 60.526315789473685,
+      "sourceBlob": "4d2ddaa1fb19e3b413c5a59a644f4e7d984ce07c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetentionService.java": {
+      "lines": 73.33333333333333,
+      "instructions": 76.66666666666667,
+      "branches": 66.66666666666667,
+      "sourceBlob": "26e976eba47d6f98fc821ae6081ce79b3df1d92a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSelectedPreventionSourceReader.java": {
+      "lines": 70.0,
+      "instructions": 76.85185185185185,
+      "branches": 75.0,
+      "sourceBlob": "23049f379be63d53871c32f4ed9c6aa8152d6515"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSelectionFileService.java": {
+      "lines": 100.0,
+      "instructions": 96.47435897435898,
+      "branches": 70.0,
+      "sourceBlob": "ee1d65b8da5b2ec772713248a2d2f7c6e6a3cd98"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSelectionService.java": {
+      "lines": 91.57894736842105,
+      "instructions": 90.07633587786259,
+      "branches": 69.56521739130434,
+      "sourceBlob": "cef4acc1a1b14f1bd153078f5d23b70bedcada66"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportService.java": {
+      "lines": 55.0,
+      "instructions": 55.21155830753354,
+      "branches": 47.916666666666664,
+      "sourceBlob": "fd7692092e37c492cffe739a01a12bf4b537a3d2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSourceCatalogueReader.java": {
+      "lines": 52.63157894736842,
+      "instructions": 52.857142857142854,
+      "branches": 100.0,
+      "sourceBlob": "8d192a52d5771ff7332c2bbe2cd878b5fcb86937"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSourceSchemaValidator.java": {
+      "lines": 94.64285714285714,
+      "instructions": 94.65116279069767,
+      "branches": 76.59574468085107,
+      "sourceBlob": "053c66355727c09578cd00c7ba7255c93df43301"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSourceSnapshotService.java": {
+      "lines": 69.56521739130434,
+      "instructions": 75.80645161290323,
+      "branches": 50.0,
+      "sourceBlob": "a86bb6514393a185c4122a7be6c0789b2864ab57"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportStagingFactory.java": {
+      "lines": 3.597122302158273,
+      "instructions": 2.4630541871921183,
+      "branches": 0.0,
+      "sourceBlob": "2bfb2ef0ca0841c41d9dffc6a42c59124792f49f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportStagingService.java": {
+      "lines": 92.63657957244655,
+      "instructions": 91.18268215417106,
+      "branches": 72.77227722772277,
+      "sourceBlob": "e659e3bd70da73401597df4962a8939830b4b226"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSupportingFilesComposer.java": {
+      "lines": 95.13888888888889,
+      "instructions": 93.4640522875817,
+      "branches": 75.0,
+      "sourceBlob": "7499c524360f4806130d67945359ffb0dea26f84"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportXmlComposer.java": {
+      "lines": 89.55696202531645,
+      "instructions": 87.11111111111111,
+      "branches": 72.7810650887574,
+      "sourceBlob": "60f163b6772eca6c34aacbcf64ef3504cd5bf2b4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/support/CdsExportArtifactUnavailableException.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "8a0d865d9c38483feab37a5e62bf000e862ec190"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/support/CdsExportControlOutcomeUnknownException.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "2af7bf678d29473bdf4a248a6ba4796810cf2ef4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/support/CdsExportEmailLexical.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "70a01e104f3a07a6d41d3f5af0cc34bc73e42c82"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/support/CdsExportMappingReviewException.java": {
+      "lines": 80.0,
+      "instructions": 72.22222222222223,
+      "branches": 50.0,
+      "sourceBlob": "9d4ca69fa7f6ac2374edde54f7ac2d3223ae2521"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/support/CdsExportOwnerFencedException.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "e6c43889c882b52a4ccc0bf3acb4ad35bcba66fe"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/support/CdsExportProtectedFiles.java": {
+      "lines": 50.0,
+      "instructions": 50.672645739910315,
+      "branches": 40.38461538461539,
+      "sourceBlob": "2e90ebce4f236970593daf827fd4c7e27b157432"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/support/CdsExportReviewException.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "59793fd7791487ce0b6c89cf17a6e7aa51330cfb"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/support/CdsExportSourceCatalogue.java": {
+      "lines": 95.65217391304348,
+      "instructions": 95.77735124760076,
+      "branches": 65.06024096385542,
+      "sourceBlob": "a3da58f3ebda62a6cecddea7bd2aad628960792c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/support/CdsExportSourceReadLock.java": {
+      "lines": 81.89655172413794,
+      "instructions": 82.70142180094787,
+      "branches": 63.888888888888886,
+      "sourceBlob": "3cced89e81f6453ddff85cb4c3158672b210ae0a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/support/CdsExportStaleControlException.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "1fc8b8721b47f6e4f664ec2b617d7b804cab0087"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/support/CdsExportSubmissionConflictException.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f06d531f1e07692560ac75f5e385600b5d3a1319"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/validator/CdsExportCoverageValidator.java": {
+      "lines": 100.0,
+      "instructions": 98.1203007518797,
+      "branches": 94.73684210526316,
+      "sourceBlob": "a6cc2e4eb6fb86861572c7c2f1960b0127d0fce1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/validator/CdsExportDemographicClosureValidator.java": {
+      "lines": 100.0,
+      "instructions": 95.78313253012048,
+      "branches": 71.05263157894737,
+      "sourceBlob": "b81ab3573622386c73f2dc56c02034f0bccd685c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/validator/CdsExportPackageValidator.java": {
+      "lines": 92.0,
+      "instructions": 86.22754491017965,
+      "branches": 50.943396226415096,
+      "sourceBlob": "5a5f21e73b16d7982bf26cd607b938236272bb53"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/validator/CdsExportReconciliationValidator.java": {
+      "lines": 100.0,
+      "instructions": 96.81528662420382,
+      "branches": 90.3225806451613,
+      "sourceBlob": "07beddef5b79cb0ca7840ebd93bc7341e14ba1cf"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/validator/CdsExportSupportingFilesValidator.java": {
+      "lines": 92.5,
+      "instructions": 92.31464737793851,
+      "branches": 61.5,
+      "sourceBlob": "6269efc85f58a9d67f5b8be48f66a5da30079ec3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/validator/CdsExportXmlValidator.java": {
+      "lines": 83.33333333333333,
+      "instructions": 84.97536945812809,
+      "branches": 72.55639097744361,
+      "sourceBlob": "4e1d0bb3f8bf65a3e9222245a263b0a927ceec72"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/viewmodel/CdsExportViewModel.java": {
+      "lines": 28.571428571428573,
+      "instructions": 45.45454545454545,
+      "branches": 100.0,
+      "sourceBlob": "b1967b6311e598184f75a88992992d7af46bcbd8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/web/CdsExportControl2Action.java": {
+      "lines": 83.87096774193549,
+      "instructions": 67.42424242424242,
+      "branches": 55.55555555555556,
+      "sourceBlob": "c3adf83c1b97423817f4380f74d2ea2b7b37c7f7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/web/CdsExportDownload2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "5001e3c7a07de74cf2c1118ba2f056caf9977c7e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/web/CdsExportReport2Action.java": {
+      "lines": 63.63636363636363,
+      "instructions": 48.10126582278481,
+      "branches": 100.0,
+      "sourceBlob": "3e4bda56de51ea27f62c0eeb6ac1e5040685ef17"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/web/CdsExportStatus2Action.java": {
+      "lines": 66.66666666666667,
+      "instructions": 62.735849056603776,
+      "branches": 57.142857142857146,
+      "sourceBlob": "6035b773b1835a8bce817d71d312eaba684dbe3e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/web/CdsExportWebCommandParser.java": {
+      "lines": 93.10344827586206,
+      "instructions": 89.92248062015504,
+      "branches": 77.27272727272727,
+      "sourceBlob": "928426bcc01894f154678a7af36ab801c81c2189"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/web/CdsExportWebService.java": {
+      "lines": 92.3076923076923,
+      "instructions": 92.36111111111111,
+      "branches": 74.19354838709677,
+      "sourceBlob": "c3472194fd09e7ffd22e209b41562a9852a922af"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/web/SubmitCdsExport2Action.java": {
+      "lines": 91.48936170212765,
+      "instructions": 94.73684210526316,
+      "branches": 100.0,
+      "sourceBlob": "556ed97a8f2b7698d7fbc2cf235272e958fde427"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/web/ViewCdsExport2Action.java": {
+      "lines": 82.3529411764706,
+      "instructions": 85.71428571428571,
+      "branches": 50.0,
+      "sourceBlob": "c185e84c348fe3ab06385c93323937cdb8ed2bdc"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/assembler/CdsImportViewModelAssembler.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 0.0,
+      "sourceBlob": "4d3763f204e0a9832b5b49b72999f73b6f5f9724"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/assembler/CdsSourceFieldsViewModelAssembler.java": {
+      "lines": 97.82608695652173,
+      "instructions": 88.26815642458101,
+      "branches": 70.83333333333333,
+      "sourceBlob": "212f755e4ff77cf0ae8eaeae0b6b6b3a67112312"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/cli/CdsCliBootstrapException.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0,
+      "sourceBlob": "045e1702cf4d434376076b09e3b0e081cea166ca"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/cli/CdsCliConfiguration.java": {
+      "lines": 40.0,
+      "instructions": 59.25925925925926,
+      "branches": 100.0,
+      "sourceBlob": "b8bb1365ce085dd4fdba6e4ffa66127bf1825469"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/cli/CdsCliLogging.java": {
+      "lines": 90.625,
+      "instructions": 93.16770186335404,
+      "branches": 66.66666666666667,
+      "sourceBlob": "419ae67504aee66a79c319ed51e42d0f7131643a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/cli/CdsCliSpringConfiguration.java": {
+      "lines": 20.0,
+      "instructions": 17.647058823529413,
+      "branches": 100.0,
+      "sourceBlob": "b66fbab41352b8fe593236465f914050da70565e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/cli/CdsDelegationVerifier.java": {
+      "lines": 66.66666666666667,
+      "instructions": 68.57142857142857,
+      "branches": 100.0,
+      "sourceBlob": "6f37c6b465a6bf588747b011f7eaee9cd73441f7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/cli/CdsImportCli.java": {
+      "lines": 57.407407407407405,
+      "instructions": 83.01043219076006,
+      "branches": 76.78571428571429,
+      "sourceBlob": "30a775e78d2c830dffba759d71c614c9197d51bb"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/cli/CdsSpringRuntime.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 0.0,
+      "sourceBlob": "c9d31289e560ddbe5d2551b666cd0e6bfe0edeeb"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/command/CdsImportCommand.java": {
+      "lines": 91.66666666666667,
+      "instructions": 96.55172413793103,
+      "branches": 71.875,
+      "sourceBlob": "ebb9b38bca53a172d7882f5468e746dfe9e8b61d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsAllergyDto.java": {
+      "lines": 91.66666666666667,
+      "instructions": 95.6140350877193,
+      "branches": 66.66666666666667,
+      "sourceBlob": "7b2035bd8e96193129078c22e2e0e19945077c4e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsContactDto.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0482d7d629789b01fadbb17e5ebb4fa2a7439c50"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsDemographicRelationsDto.java": {
+      "lines": 90.47619047619048,
+      "instructions": 80.51948051948052,
+      "branches": 50.0,
+      "sourceBlob": "9de3733d0e3aafdecd48b9d4dbb596343e7fc9f3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsImportCleanupDto.java": {
+      "lines": 83.33333333333333,
+      "instructions": 85.71428571428571,
+      "branches": 50.0,
+      "sourceBlob": "c5d32e2437068b40fc7424ee2e86a0f3fc9801f6"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsImportReceiptDto.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "1d4398dcb566e31419e7cf7b815e08694750fc91"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java": {
+      "lines": 100.0,
+      "instructions": 98.74476987447699,
+      "branches": 73.6842105263158,
+      "sourceBlob": "77375ce61d3d10331c49dbcc7e9107a8a333abfe"
+    },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalNativeDateDto.java": {
       "lines": 100.0,
       "instructions": 95.65217391304348,
       "branches": 75.0,
       "sourceBlob": "80f00c335147e648e167cf2b4f654af20f3d1ea2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAllergyPersister.java": {
+      "lines": 71.42857142857143,
+      "instructions": 77.66990291262135,
+      "branches": 76.19047619047619,
+      "sourceBlob": "9100068a21d16ffc5b787e05df5616a5e06ea4b5"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAllergyResidualReader.java": {
+      "lines": 93.4065934065934,
+      "instructions": 92.17171717171718,
+      "branches": 80.3921568627451,
+      "sourceBlob": "edb278e37edc6910f43b05f8677d3aa40d1e99b5"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAppointmentPersister.java": {
       "lines": 100.0,
@@ -1533,11 +4425,233 @@
       "branches": 83.33333333333333,
       "sourceBlob": "0adbd6cd34335ee4d091e13f66ded78410bc9bed"
     },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCareImportService.java": {
+      "lines": 84.61538461538461,
+      "instructions": 78.72340425531915,
+      "branches": 100.0,
+      "sourceBlob": "8dd95fe8c26ca8a134cb266e0f86515f001f6083"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCareNormalizationService.java": {
+      "lines": 91.48936170212765,
+      "instructions": 89.35574229691876,
+      "branches": 73.52941176470588,
+      "sourceBlob": "c5dde82863a450f11e839d036fdd5e49de068787"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCarePersister.java": {
+      "lines": 50.0,
+      "instructions": 44.30379746835443,
+      "branches": 31.25,
+      "sourceBlob": "eb62fd89cd3767ce5b0df75284373297e02a3762"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java": {
+      "lines": 94.89795918367346,
+      "instructions": 94.06952965235173,
+      "branches": 75.86206896551724,
+      "sourceBlob": "1201749284d07681bc6fca288b751aa857daf7fb"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalSourceService.java": {
+      "lines": 90.0,
+      "instructions": 92.08333333333333,
+      "branches": 68.57142857142857,
+      "sourceBlob": "426b6112e99501b971c79af5f302fd7f55150e00"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsContactImportService.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0,
+      "sourceBlob": "4ca7bb22843b6445b43e4a063c866b4e396f1259"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsContactNormalizationService.java": {
+      "lines": 82.92682926829268,
+      "instructions": 87.05035971223022,
+      "branches": 73.46938775510205,
+      "sourceBlob": "e81224eb9f614dee6b501e1ba9877c60ee14fe51"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsContactPersister.java": {
+      "lines": 50.0,
+      "instructions": 46.32768361581921,
+      "branches": 28.571428571428573,
+      "sourceBlob": "30ad60e7f9e6d0e32d1d32326188873c8a1e43d8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCorrectionLookupService.java": {
+      "lines": 14.893617021276595,
+      "instructions": 10.619469026548673,
+      "branches": 1.6129032258064515,
+      "sourceBlob": "bce2ce7a9f6fd69d06b17cc4c81677a22e33fa74"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCourseService.java": {
+      "lines": 41.55844155844156,
+      "instructions": 41.19496855345912,
+      "branches": 34.21052631578947,
+      "sourceBlob": "f1fc479c7a10c99fcb1347c19cb0a7e1158eadae"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsService.java": {
+      "lines": 93.71428571428571,
+      "instructions": 95.30355097365407,
+      "branches": 72.61904761904762,
+      "sourceBlob": "b9447a6c087cac62f462762c0f9d15910c762800"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDocumentPublicationService.java": {
+      "lines": 89.41176470588235,
+      "instructions": 92.01995012468828,
+      "branches": 53.44827586206897,
+      "sourceBlob": "7c84188e32f05ed8453a4d59f80cd6ed3f0d9b4b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsFieldParser.java": {
+      "lines": 88.38268792710706,
+      "instructions": 89.28384736016727,
+      "branches": 64.68531468531468,
+      "sourceBlob": "09299718a711acccd116448cc66a788c92085e8a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "ca0785bd74b759e3241f5003458d59eb749f3499"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportCleanupService.java": {
+      "lines": 66.99346405228758,
+      "instructions": 68.97018970189701,
+      "branches": 46.846846846846844,
+      "sourceBlob": "1825169cfbc86edd06f00f9d5f4d8429769bca40"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportExecutionService.java": {
+      "lines": 76.7080745341615,
+      "instructions": 75.2420470262794,
+      "branches": 51.666666666666664,
+      "sourceBlob": "f09463d39463688dea9c56701adf87c96636d40b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFailureEvidenceService.java": {
+      "lines": 91.81818181818181,
+      "instructions": 93.13543599257885,
+      "branches": 58.13953488372093,
+      "sourceBlob": "622bc23de6d0cd18f0cf1988c81f4d7e42588f95"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java": {
+      "lines": 26.21359223300971,
+      "instructions": 20.0,
+      "branches": 8.333333333333334,
+      "sourceBlob": "c5ce34f2a212fca31a90429b8cc68bfbd4b93081"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFileService.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 0.0,
+      "sourceBlob": "3e91072fc4e41213caa65016e91fce8c4e3d19ba"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportJobService.java": {
+      "lines": 86.55172413793103,
+      "instructions": 84.19090231170767,
+      "branches": 57.76699029126213,
+      "sourceBlob": "a2d1e66a8b1dcf3d35fc7e444940cc37c11fa91f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportLedgerService.java": {
+      "lines": 20.58492688413948,
+      "instructions": 20.94975278831781,
+      "branches": 15.94059405940594,
+      "sourceBlob": "520ecd57bef6aee0f97a5e8e025b0cfaa6d391ea"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportMaintenanceService.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 0.0,
+      "sourceBlob": "9e10394fa1a7bd06b5a3751b17f4180a1c9148ee"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java": {
+      "lines": 80.0,
+      "instructions": 76.0,
+      "branches": 100.0,
+      "sourceBlob": "81f1768d801609d7f3293435d6934c7bb13ad7fc"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportPlanningService.java": {
+      "lines": 70.78353253652058,
+      "instructions": 69.86183074265976,
+      "branches": 49.70238095238095,
+      "sourceBlob": "6cbd347a64cb68705634000b5a53ac5b627da3dd"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportReportControl.java": {
+      "lines": 100.0,
+      "instructions": 99.23664122137404,
+      "branches": 87.5,
+      "sourceBlob": "e1edc2080124253912b9f716c2b7d0efdd62f471"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportReportService.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 0.0,
+      "sourceBlob": "892f50e3df1ea640d689870d211e5e19c921e51d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportResultService.java": {
+      "lines": 82.02898550724638,
+      "instructions": 80.2647412755716,
+      "branches": 65.33333333333333,
+      "sourceBlob": "599ff843eb84a701511b5f824ff3c997d20b94ee"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportReviewService.java": {
+      "lines": 87.08891595615104,
+      "instructions": 85.31767218366258,
+      "branches": 58.48623853211009,
+      "sourceBlob": "7e4113da7af997dacc8c328e35a63f4ffbe2e463"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportService.java": {
+      "lines": 43.29004329004329,
+      "instructions": 42.71217712177122,
+      "branches": 48.93617021276596,
+      "sourceBlob": "51950f541bf4bb90d80bde458a0e1bc7666341e2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportTargetSafetyService.java": {
+      "lines": 2.8776978417266186,
+      "instructions": 1.4331210191082802,
+      "branches": 0.0,
+      "sourceBlob": "4ec3e6ae8f86238bc1082ae729b313285b5f8d31"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportUnitService.java": {
+      "lines": 0.8620689655172413,
+      "instructions": 0.43383947939262474,
+      "branches": 0.0,
+      "sourceBlob": "ca97fdc8270101c6f267c988f3640aec0d60108a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryImportService.java": {
+      "lines": 96.58536585365853,
+      "instructions": 96.56218402426694,
+      "branches": 78.84615384615384,
+      "sourceBlob": "f585352a33af188b12e6687240747d16594a57c0"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryReadService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 75.0,
+      "sourceBlob": "77ea0cc78689861c855d06a8e92206d7c0f3484c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativePreparationService.java": {
+      "lines": 93.10344827586206,
+      "instructions": 94.67787114845939,
+      "branches": 61.76470588235294,
+      "sourceBlob": "fd69d7bf71ac07ee5e7905a5f1d5cc3ba26dd559"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsPatientIdentityResolver.java": {
+      "lines": 4.385964912280702,
+      "instructions": 3.218390804597701,
+      "branches": 2.857142857142857,
+      "sourceBlob": "a7059743e41667aca5f4dd829909b7ee0c2d42c8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsPreacceptService.java": {
+      "lines": 83.2155477031802,
+      "instructions": 80.99003093846683,
+      "branches": 54.36046511627907,
+      "sourceBlob": "d06fee4d6fb5c72bddad78cccb2d8b0aca4da07d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsPreflightIdentityService.java": {
+      "lines": 92.98245614035088,
+      "instructions": 92.02898550724638,
+      "branches": 61.36363636363637,
+      "sourceBlob": "f0901bbc9904fe5ca8c548579ff39775046af89b"
+    },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsRulesetFingerprint.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "d402ef3a12cb982ad196d20514af0e6444bfc7ee"
+      "sourceBlob": "9a50aa78711ea9896ed52c3d11fbf505ed7c0cde"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsRuntimeIdentity.java": {
       "lines": 40.0,
@@ -1545,47 +4659,185 @@
       "branches": 100.0,
       "sourceBlob": "b4e4571c853ce649164d70d102bbf255b9675c48"
     },
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaModel.java": {
-      "lines": 95.74468085106383,
-      "instructions": 95.49702633814783,
-      "branches": 75.67567567567568,
-      "sourceBlob": "e194a2d6e68fe366a1a98c1287264db548678d29"
-    },
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaTypeCursor.java": {
-      "lines": 100.0,
-      "instructions": 97.2027972027972,
-      "branches": 93.33333333333333,
-      "sourceBlob": "5a7e92304731a14100f2dcf12bf55ea2e992b77b"
-    },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java": {
-      "lines": 71.42857142857143,
-      "instructions": 80.3921568627451,
+      "lines": 100.0,
+      "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "978aec1cfffcdc9e2901136bc02c4cdf4554945c"
+      "sourceBlob": "406cc9bf8d22e22b5ddc0670835cc2d8e927527d"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSnapshotService.java": {
-      "lines": 86.71875,
-      "instructions": 86.87727825030376,
-      "branches": 63.0,
-      "sourceBlob": "6e79b76e83de7c21121e25ef66040050044d7972"
+      "lines": 88.38862559241706,
+      "instructions": 89.39165409753645,
+      "branches": 65.15151515151516,
+      "sourceBlob": "fdcc394fa9fd6bcc3451fbd33b4d4c2a5d6bf1c5"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 0.0,
+      "sourceBlob": "eec99b2f9d81aa072fc43def1689975a5fe43463"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTargetReceiptService.java": {
+      "lines": 71.48760330578513,
+      "instructions": 72.30483271375465,
+      "branches": 52.77777777777778,
+      "sourceBlob": "c52fde49051b64d5876ba0e6c975bc98bc66fd29"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsUnwrittenRevisionReviewService.java": {
+      "lines": 86.82634730538922,
+      "instructions": 89.23076923076923,
+      "branches": 58.333333333333336,
+      "sourceBlob": "22dade5406d7e28e867a4dcae27ea4a02ac8e5d7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsUploadService.java": {
+      "lines": 87.42138364779875,
+      "instructions": 88.12233285917496,
+      "branches": 69.1919191919192,
+      "sourceBlob": "1ae12ca23bac9c141169045585fd708f689f4b25"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java": {
       "lines": 96.7741935483871,
       "instructions": 91.77489177489177,
       "branches": 89.58333333333333,
-      "sourceBlob": "a45518289268fd21358b177e1edd589abeb5010a"
+      "sourceBlob": "ad225591ff6e65f619aa248643884127027eebdc"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsBase64ValueParser.java": {
+      "lines": 78.26086956521739,
+      "instructions": 77.92207792207792,
+      "branches": 69.6969696969697,
+      "sourceBlob": "11858ca41bdd7a7e63e87c5c29d8c9dce4db7b20"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsCorrectionFiles.java": {
+      "lines": 79.06976744186046,
+      "instructions": 73.82198952879581,
+      "branches": 40.476190476190474,
+      "sourceBlob": "8de20aaa8a85464461f48f49584d479a99088bae"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsHealthCardAuthority.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "799a774d6b7e78f2c629357d985151bb23444708"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionGuard.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "3473d9ee59f19a4a9179bd86672041174e963c97"
+      "sourceBlob": "332142c6ade21a187f8efaf45fc10aa4e61eef99"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionInitializer.java": {
+      "lines": 75.0,
+      "instructions": 70.3125,
+      "branches": 50.0,
+      "sourceBlob": "da6d113d4904e525323285c17b6ccd74ad6c8074"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionState.java": {
+      "lines": 41.37931034482759,
+      "instructions": 22.377622377622377,
+      "branches": 13.636363636363637,
+      "sourceBlob": "29366237ee51b3b4a41d8d858b575b4396cef382"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsUploadException.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "dcad68486317078c8700cabcdce6dce2d40cf6c0"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java": {
+      "lines": 95.89041095890411,
+      "instructions": 96.14740368509213,
+      "branches": 72.94117647058823,
+      "sourceBlob": "83f7f6dc4d11a380254093af06854c864258da58"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsZipDirectory.java": {
+      "lines": 63.2183908045977,
+      "instructions": 66.07538802660754,
+      "branches": 38.095238095238095,
+      "sourceBlob": "e8636ed2d42d266c5e4d2a3a0947ddf997e8693b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/viewmodel/CdsSourceFieldsViewModel.java": {
+      "lines": 91.89189189189189,
+      "instructions": 96.82539682539682,
+      "branches": 100.0,
+      "sourceBlob": "e7e156c05bfaadf040d6f5a859312d0ee873a953"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/CdsImportControl2Action.java": {
+      "lines": 43.90243902439025,
+      "instructions": 42.465753424657535,
+      "branches": 66.66666666666667,
+      "sourceBlob": "27af4086d7cf17b7712ea15d908340858a47f3c2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/CdsImportMaintenanceFilter.java": {
+      "lines": 86.0,
+      "instructions": 93.90243902439025,
+      "branches": 80.95238095238095,
+      "sourceBlob": "6a0bebf8bfc7df98fa1dd3ce99209befcca77f36"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/CdsImportReport2Action.java": {
+      "lines": 89.28571428571429,
+      "instructions": 90.81632653061224,
+      "branches": 75.0,
+      "sourceBlob": "7870ac87e09b76499fc27d9ad057fa18f425b7ed"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/CdsImportStatus2Action.java": {
+      "lines": 42.5,
+      "instructions": 36.170212765957444,
+      "branches": 42.857142857142854,
+      "sourceBlob": "e415dc43c6e3c931d60360c22241c9aee264d10a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/CdsSourceFieldContent2Action.java": {
+      "lines": 87.87878787878788,
+      "instructions": 90.67796610169492,
+      "branches": 75.0,
+      "sourceBlob": "2e71d97680fe87a84077c87f3720a2bc17d365fe"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/CdsUpload2Action.java": {
+      "lines": 47.5,
+      "instructions": 44.85294117647059,
+      "branches": 41.666666666666664,
+      "sourceBlob": "7fa33769d7eb64a413cbe381b4190618328bbd2a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/CdsWebService.java": {
+      "lines": 85.71428571428571,
+      "instructions": 84.32671081677704,
+      "branches": 77.58620689655173,
+      "sourceBlob": "42174fc16f5682c4fd9fb60fbdb2e77eb8116208"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/LegacyCdsImportLog2Action.java": {
+      "lines": 100.0,
+      "instructions": 94.5945945945946,
+      "branches": 75.0,
+      "sourceBlob": "ca012306f466e973966e6875ed271911d7b09b2f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/SubmitCdsImport2Action.java": {
+      "lines": 57.5,
+      "instructions": 79.76190476190476,
+      "branches": 75.0,
+      "sourceBlob": "42a3a984f9a7818760e064a054a59607726a9137"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/ViewCdsImport2Action.java": {
+      "lines": 90.0,
+      "instructions": 94.11764705882354,
+      "branches": 75.0,
+      "sourceBlob": "64fa1871ff8fb07e94f4e755ef28867e02977d86"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/ViewCdsSourceFields2Action.java": {
+      "lines": 70.58823529411765,
+      "instructions": 77.19298245614036,
+      "branches": 66.66666666666667,
+      "sourceBlob": "c520e3a5e948014ae90204fc0d63edee097a03a3"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/data/DemographicMerged.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "4d9dca3d79b2426ab76a8acf8eae2293fa6006aa"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/pageUtil/DemographicAddRecord2Action.java": {
+      "lines": 84.50704225352112,
+      "instructions": 84.9624060150376,
+      "branches": 50.0,
+      "sourceBlob": "7b66e90295cf0d41d8adb21d8dbba3c44eb48a73"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/pageUtil/DemographicExportAction42Action.java": {
       "lines": 0.0,
@@ -1767,6 +5019,12 @@
       "branches": 68.18181818181819,
       "sourceBlob": "1621e35e3e0bcba6944f1b40acf7e9398f17d514"
     },
+    "src/main/java/io/github/carlos_emr/carlos/eform/util/EFormBrowserRenderPageServlet.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "e307488cc8997bf2f09e02287d2dc76bd87f89c4"
+    },
     "src/main/java/io/github/carlos_emr/carlos/eform/util/EFormBrowserRendererStartupValidator.java": {
       "lines": 100.0,
       "instructions": 100.0,
@@ -1777,7 +5035,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "ecd3fd5b6f393a3394177a40a46fc7c4dcf70a93"
+      "sourceBlob": "d53b819e3147871066c5d6a93a9cf0be8e8fcd41"
     },
     "src/main/java/io/github/carlos_emr/carlos/eform/util/EFormPDFServlet.java": {
       "lines": 50.0,
@@ -1790,6 +5048,12 @@
       "instructions": 50.0,
       "branches": 100.0,
       "sourceBlob": "ca5543e1ff92cb42b141d6887989221544493e25"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/eform/util/EFormSignatureViewForPdfGenerationServlet.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0147c26feb8f85c1ba99276231c4be464d15847c"
     },
     "src/main/java/io/github/carlos_emr/carlos/eform/util/RenderBrowser.java": {
       "lines": 94.64285714285714,
@@ -2109,6 +5373,12 @@
       "branches": 100.0,
       "sourceBlob": "b2ef5ac4228a9ed7c9820902969c59e6e3416ea6"
     },
+    "src/main/java/io/github/carlos_emr/carlos/fax/admin/ManageFaxes2Action.java": {
+      "lines": 50.0,
+      "instructions": 50.0,
+      "branches": 100.0,
+      "sourceBlob": "4285e133cbebfc4cbbee9b6d36e776a878a94756"
+    },
     "src/main/java/io/github/carlos_emr/carlos/fax/core/FaxImporter.java": {
       "lines": 100.0,
       "instructions": 100.0,
@@ -2149,7 +5419,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "298de1b4a42ee302432c10709d3d13208fcacd0f"
+      "sourceBlob": "11af4d93d1fdfef453c6fca9589e9c8936bb5ce2"
     },
     "src/main/java/io/github/carlos_emr/carlos/form/FrmBCAR20202Action.java": {
       "lines": 100.0,
@@ -2283,6 +5553,12 @@
       "branches": 100.0,
       "sourceBlob": "b2ac845d6ed344993961668f8470326d8860c753"
     },
+    "src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/dao/HRMDocumentToDemographicDao.java": {
+      "lines": 100.0,
+      "instructions": 86.84210526315789,
+      "branches": 75.0,
+      "sourceBlob": "99363edf201f06eb876db06c5dbc42e9b49691f6"
+    },
     "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptor.java": {
       "lines": 100.0,
       "instructions": 100.0,
@@ -2336,6 +5612,12 @@
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "1ee0c004464b5d0508ed3bf1ad5a0d354ac40c19"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/fhir/manager/OscarFhirResourceManager.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0,
+      "sourceBlob": "b7c21b24010e323c1e727ff141a67c2d4ed72a81"
     },
     "src/main/java/io/github/carlos_emr/carlos/integration/fhir/model/AbstractOscarFhirResource.java": {
       "lines": 100.0,
@@ -2450,6 +5732,12 @@
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "4ca2bd6d3df6b0a77a816cc63ba05546d46fd6bf"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/parsers/CdsLaboratoryMessageParser.java": {
+      "lines": 80.71428571428571,
+      "instructions": 80.27777777777777,
+      "branches": 76.92307692307692,
+      "sourceBlob": "4641decb9e31e90ac8caf79c2382b5385173abad"
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/parsers/MDSHandler.java": {
       "lines": 0.0,
@@ -2611,7 +5899,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "18e8adbe0cb02f77920817f3bd94d109fa721628"
+      "sourceBlob": "d841ef24cb43b56bbcd827f75940502122cf7ac3"
     },
     "src/main/java/io/github/carlos_emr/carlos/login/OscarRequestTokenService.java": {
       "lines": 100.0,
@@ -3009,6 +6297,12 @@
       "branches": 100.0,
       "sourceBlob": "65269043848b2f138783f8a987b9c7c0faefb3b0"
     },
+    "src/main/java/io/github/carlos_emr/carlos/prevention/PreventionData.java": {
+      "lines": 100.0,
+      "instructions": 92.45283018867924,
+      "branches": 50.0,
+      "sourceBlob": "9938cb773d6e5ff9dd77342717cfd400415e6c5b"
+    },
     "src/main/java/io/github/carlos_emr/carlos/prevention/PreventionDisplayConfig.java": {
       "lines": 98.33333333333333,
       "instructions": 99.28057553956835,
@@ -3139,7 +6433,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "0efce53ddd683fe9d6b15b9a292c0a3ff0226fb3"
+      "sourceBlob": "aa07476ecdfb683bde1389476e6ac22d25b9988d"
     },
     "src/main/java/io/github/carlos_emr/carlos/report/data/ReportingConnectionService.java": {
       "lines": 50.0,
@@ -3303,6 +6597,12 @@
       "branches": 100.0,
       "sourceBlob": "c4e2037b0ecf7e00f99210b90fbf1aafdb61c159"
     },
+    "src/main/java/io/github/carlos_emr/carlos/util/BackupDownload.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "88c6ec1d1b3c4f9fc59ebc6967cfbaaeb261c659"
+    },
     "src/main/java/io/github/carlos_emr/carlos/util/DateUtils.java": {
       "lines": 25.0,
       "instructions": 30.76923076923077,
@@ -3331,7 +6631,7 @@
       "lines": 83.33333333333333,
       "instructions": 83.63636363636364,
       "branches": 75.0,
-      "sourceBlob": "efec6414bc3b23d96dc590d875cb1d326d546d74"
+      "sourceBlob": "21be9b59a410dbf11af404a7340ecdb517ea8228"
     },
     "src/main/java/io/github/carlos_emr/carlos/util/OscarRoleObjectPrivilege.java": {
       "lines": 100.0,
@@ -3371,9 +6671,9 @@
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/CdsJdbcConnectionTimeouts.java": {
       "lines": 98.11320754716981,
-      "instructions": 94.78527607361963,
-      "branches": 75.0,
-      "sourceBlob": "22db5765fbf171bf6476531712bfe4fa1d902161"
+      "instructions": 95.65217391304348,
+      "branches": 76.47058823529412,
+      "sourceBlob": "f8892f075bcf61f5b1e5c1de2a1dd4959becc5c5"
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/ClinicLogoUtility.java": {
       "lines": 0.0,
@@ -3392,6 +6692,12 @@
       "instructions": 88.67924528301887,
       "branches": 100.0,
       "sourceBlob": "04368168c0d7da70f0952d3d616266a12868efd7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/ContextStartupListener.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "a1573b9363bbe0a5fe2ff782820c48a553f5d018"
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/CustomInterfaceTag.java": {
       "lines": 0.0,
@@ -3454,15 +6760,15 @@
       "sourceBlob": "3da5836aab13fc921b8265500eb6006a13b97df5"
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java": {
-      "lines": 3.2934131736526946,
-      "instructions": 2.4664647338814367,
-      "branches": 1.2468827930174564,
+      "lines": 57.48502994011976,
+      "instructions": 52.09865858935526,
+      "branches": 36.408977556109726,
       "sourceBlob": "7d8ef1cd172c62ed4f65f62a1065943e832aae47"
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibility.java": {
       "lines": 95.36082474226804,
       "instructions": 96.24122263527468,
-      "branches": 88.33746898263027,
+      "branches": 88.58560794044665,
       "sourceBlob": "9675b8102a4db0c5ef691e65ab84f51841fc9e66"
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbPreferredTlsPlugin.java": {
@@ -3657,6 +6963,12 @@
       "branches": 100.0,
       "sourceBlob": "95a37855cfbea79a92515b64ba29eec885f27e5a"
     },
+    "src/main/java/io/github/carlos_emr/carlos/web/eform/EformViewForPdfGenerationServlet.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "98c09b85713724d09ce6222960003427347ca807"
+    },
     "src/main/java/io/github/carlos_emr/carlos/webserv/DemographicWs.java": {
       "lines": 100.0,
       "instructions": 100.0,
@@ -3692,6 +7004,12 @@
       "instructions": 46.15384615384615,
       "branches": 100.0,
       "sourceBlob": "684f45b77f3b1e62041189058a2bd4de62f67779"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/LoopbackOnlyInInterceptor.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0,
+      "sourceBlob": "8ea919965288c5bd3bdec77a7d76a4eb7adac811"
     },
     "src/main/java/io/github/carlos_emr/carlos/webserv/OscarUsernameTokenValidator.java": {
       "lines": 100.0,
@@ -4295,6 +7613,24 @@
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java"
       ]
     },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/package-info.java": {
+      "reason": "Package documentation only; no executable Java statements or bytecode. The referenced contract test exercises the package boundary.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsContractUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/package-info.java": {
+      "reason": "Package documentation only; no executable Java statements or bytecode. The referenced contract test exercises the package boundary.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/validator/CdsExportCoverageValidatorUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/validator/package-info.java": {
+      "reason": "Package documentation only; no executable Java statements or bytecode. The referenced contract test exercises the package boundary.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/validator/CdsExportCoverageValidatorUnitTest.java"
+      ]
+    },
     "src/main/java/io/github/carlos_emr/carlos/model/package-info.java": {
       "reason": "Package-level XML/model annotations have no executable Java bytecode; preserved through JAXB/ORM contract tests.",
       "tests": [
@@ -4320,5 +7656,30 @@
       ]
     }
   },
-  "zeroCoverageWaivers": {}
+  "zeroCoverageWaivers": {},
+  "baselineReportHeaderCollisions": 53,
+  "baselineReportCounting": "Existing strict read_surefire parser counts each distinct executed container/case; only its explicit Surefire 3.5.6 nested-name header collision rule is accepted. Failures, reruns, duplicates and other counter mismatches remain refusals.",
+  "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
+  "baselineAdditionalExecution": {
+    "direction": "export",
+    "tests": 2304,
+    "suites": 185,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "sourceCommit": "fea89675daa9445b650d69aafb30f74cff061d22"
+  },
+  "baselineProductionClassManifestSha256": "8e98bcdd218c2bc5086e86f5a4fe82e8dc7b2e0a440cf1ba7ed3b47e672e0ee8",
+  "baselineCoverageInputs": [
+    {
+      "lane": "java-all",
+      "sourceCommit": "57834fb7e14143970dded500cbe6026abc517a14",
+      "executionSha256": "da72f31c0de1e5c97297fee45685f84e4e0a3be9fced69fb4fd9920c610d7560"
+    },
+    {
+      "lane": "java-cds-transfer-export",
+      "sourceCommit": "fea89675daa9445b650d69aafb30f74cff061d22",
+      "executionSha256": "68bca782ace7be89cee751aa9e5765a1936325e72dafd369fff0da11bf746d84"
+    }
+  ]
 }

@@ -1616,7 +1616,7 @@
         "{run}/node.json"
       ],
       "timeoutSeconds": 900,
-      "minimumCases": 7858,
+      "minimumCases": 7875,
       "requiresEnvironment": [
         "CARLOS_CTL_SRC"
       ],
@@ -3172,11 +3172,6 @@
           "check": "java-cds-transfer-shared",
           "cases": [
             {
-              "name": "shouldLeaveARestrictedAdministrator_withoutANewImportGrant",
-              "container": "",
-              "check": "java-cds-transfer-shared"
-            },
-            {
               "name": "shouldAuthorizeBothIndependentPermissions_fromActualFreshMigrationRows",
               "container": "",
               "check": "java-cds-transfer-shared"
@@ -3187,7 +3182,12 @@
               "check": "java-cds-transfer-shared"
             },
             {
-              "name": "shouldPreserveExplicitImportGrantsAndDenials_withoutChangingTheirMetadata",
+              "name": "shouldLeaveARestrictedAdministrator_withoutNewTransferGrants",
+              "container": "",
+              "check": "java-cds-transfer-shared"
+            },
+            {
+              "name": "shouldPreserveExplicitTransferGrantsAndDenials_withoutChangingTheirMetadata",
               "container": "",
               "check": "java-cds-transfer-shared"
             }
@@ -3593,6 +3593,31 @@
             },
             {
               "name": "shouldKeepChunksInTheirCapturedSnapshot_afterConcurrentDocumentEdit",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldAcceptALongerFiniteLegacySnapshotBudget_andStillRefuseAnUnboundedBudget",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldAllowProgramAccessMetadata_butRefuseEveryPopulatedClinicalRemainder",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldCheckBothRelationshipEndpoints_beforeClaimingPatientSourceAbsence",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldIgnoreAnotherPatientsUnsupportedRecord_andRefuseTheSelectedPatientsRecord",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRefuseANumericTextPatientAlias_withoutHidingItBehindCanonicalStringEquality",
               "container": "",
               "check": "java-cds-transfer-export"
             }
@@ -6846,7 +6871,7 @@
         "CdsCategoryProjectionBoundaryUnitTest": 4,
         "CdsCliProtocolUnitTest": 77,
         "CdsClinicalNormalizationServiceUnitTest": 31,
-        "CdsClinicalPersisterUnitTest": 25,
+        "CdsClinicalPersisterUnitTest": 26,
         "CdsClinicalReadAccessUnitTest": 6,
         "CdsClinicalSourceServiceUnitTest": 8,
         "CdsClinicalStorageMariaDbIntegrationTest": 13,
@@ -6932,7 +6957,7 @@
         "CdsXmlParserUnitTest": 14,
         "CdsXmlTransportControlUnitTest": 7
       },
-      "minimumCases": 1176,
+      "minimumCases": 1177,
       "requireCoverage": true,
       "requireClassIdentity": true,
       "runtimeConstraints": {
@@ -6987,7 +7012,7 @@
         "CdsExportAppointmentMapperUnitTest": 10,
         "CdsExportAppointmentOccurrenceServiceUnitTest": 12,
         "CdsExportAppointmentProjectionServiceUnitTest": 7,
-        "CdsExportAppointmentTimingMapperUnitTest": 6,
+        "CdsExportAppointmentTimingMapperUnitTest": 7,
         "CdsExportAppointmentXmlWriterUnitTest": 4,
         "CdsExportArtifactServiceUnitTest": 10,
         "CdsExportAuthenticatedRangeInputStreamUnitTest": 3,
@@ -7028,7 +7053,7 @@
         "CdsExportDemographicHealthCardReconcilerUnitTest": 10,
         "CdsExportDemographicHistoryAssemblyUnitTest": 4,
         "CdsExportDemographicMapperUnitTest": 12,
-        "CdsExportDemographicNamesReconcilerUnitTest": 12,
+        "CdsExportDemographicNamesReconcilerUnitTest": 13,
         "CdsExportDemographicOccurrenceServiceUnitTest": 6,
         "CdsExportDemographicOptionalDateReconcilerUnitTest": 10,
         "CdsExportDemographicPhoneProjectionServiceUnitTest": 10,
@@ -7046,13 +7071,13 @@
         "CdsExportDisclosureScopeServiceUnitTest": 9,
         "CdsExportDocumentFileSourceReaderUnitTest": 12,
         "CdsExportDocumentInputStreamUnitTest": 21,
-        "CdsExportDocumentReadMariaDbIntegrationTest": 25,
+        "CdsExportDocumentReadMariaDbIntegrationTest": 30,
         "CdsExportDocumentReceiptUnitTest": 11,
         "CdsExportEmailLexicalUnitTest": 4,
         "CdsExportEngineRegistryUnitTest": 5,
         "CdsExportEnrolmentHistoryUnitTest": 25,
         "CdsExportEnrolmentProjectionServiceUnitTest": 12,
-        "CdsExportExecutionServiceUnitTest": 12,
+        "CdsExportExecutionServiceUnitTest": 13,
         "CdsExportFreshAuthorizationIntegrationTest": 1,
         "CdsExportHistoryCurrentContextUnitTest": 22,
         "CdsExportHistoryFieldReconcilerUnitTest": 20,
@@ -7076,15 +7101,15 @@
         "CdsExportLaboratoryRetainedSourceUnitTest": 14,
         "CdsExportLaboratorySourceReaderUnitTest": 10,
         "CdsExportLayoutUnitTest": 6,
-        "CdsExportLedgerIntegrationTest": 50,
-        "CdsExportLegacyDaoWiringUnitTest": 1,
+        "CdsExportLedgerIntegrationTest": 53,
+        "CdsExportLegacyDaoWiringUnitTest": 4,
         "CdsExportMeasurementReadMariaDbIntegrationTest": 10,
         "CdsExportMeasurementSourceReaderUnitTest": 8,
         "CdsExportMedicationCaptureMariaDbIntegrationTest": 7,
-        "CdsExportMedicationFieldReconcilerUnitTest": 8,
+        "CdsExportMedicationFieldReconcilerUnitTest": 10,
         "CdsExportMedicationMapperUnitTest": 11,
         "CdsExportMedicationProjectionServiceUnitTest": 5,
-        "CdsExportMedicationRetainedAssemblerUnitTest": 4,
+        "CdsExportMedicationRetainedAssemblerUnitTest": 7,
         "CdsExportNativeCaptureServiceUnitTest": 46,
         "CdsExportNativeCaptureUnitTest": 14,
         "CdsExportNativeDateMapperUnitTest": 6,
@@ -7107,7 +7132,7 @@
         "CdsExportPatientIdentityReconcilerUnitTest": 15,
         "CdsExportPatientInventoryServiceUnitTest": 10,
         "CdsExportPatientNoteMapperUnitTest": 12,
-        "CdsExportPersonalContactMapperUnitTest": 28,
+        "CdsExportPersonalContactMapperUnitTest": 30,
         "CdsExportPersonalContactProjectionServiceUnitTest": 8,
         "CdsExportPharmacyMapperUnitTest": 28,
         "CdsExportPharmacyProjectionServiceUnitTest": 8,
@@ -7149,8 +7174,8 @@
         "CdsExportSchemaVisibilityMariaDbIntegrationTest": 2,
         "CdsExportSelectionFileServiceUnitTest": 5,
         "CdsExportSelectionIntegrationTest": 20,
-        "CdsExportServiceUnitTest": 12,
-        "CdsExportSourceCatalogueUnitTest": 4,
+        "CdsExportServiceUnitTest": 14,
+        "CdsExportSourceCatalogueUnitTest": 5,
         "CdsExportSourceRecipeUnitTest": 8,
         "CdsExportStagingServiceUnitTest": 14,
         "CdsExportStorageProtocolUnitTest": 3,
@@ -7163,7 +7188,7 @@
         "CdsExportXmlValidatorUnitTest": 19,
         "CdsExportZip64IntegrationTest": 1
       },
-      "minimumCases": 2282,
+      "minimumCases": 2306,
       "requireCoverage": true,
       "requireClassIdentity": true,
       "runtimeConstraints": {
@@ -7234,11 +7259,11 @@
         "CdsTransferPermissionSeedMariaDbIntegrationTest": 4,
         "CdsXmlTextUnitTest": 6,
         "ContextStartupListenerUnitTest": 5,
-        "MutatorActionGetRejectionContractUnitTest": 157,
+        "MutatorActionGetRejectionContractUnitTest": 158,
         "QueryByExampleSqlValidatorUnitTest": 80,
         "ViewCds4ReportResults2ActionUnitTest": 5
       },
-      "minimumCases": 388,
+      "minimumCases": 389,
       "requireCoverage": true,
       "requireClassIdentity": true,
       "runtimeConstraints": {
