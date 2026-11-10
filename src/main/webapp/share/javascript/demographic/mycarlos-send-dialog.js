@@ -20,9 +20,13 @@
     // wrong) shows. Set to true to let the dialog close at once; reopening reads the state again.
     const CLOSE_WHILE_SENDING = false;
 
+    // The dialogs held open by a running send.
+    const holding = new Set();
+
     function wire(dialog) {
         if (dialog.mycarlosDialog) return dialog.mycarlosDialog;
         const close = dialog.querySelector('[data-mycarlos-part="close"]');
+        const status = dialog.querySelector('[data-mycarlos-part="message"]');
         let sending = false;
         const held = () => sending && !CLOSE_WHILE_SENDING;
         const sender = window.CarlosMyCarlosSend.mount(dialog, {
@@ -30,17 +34,31 @@
             onBusyChange: (busy, operation) => {
                 if (operation !== 'send') return;
                 sending = busy;
+                if (held()) holding.add(dialog); else holding.delete(dialog);
                 if (close) close.disabled = held();
+                // The Send (or Retry) button just pressed is disabled while the send runs, and a
+                // browser then drops the focus out of the dialog. The status line, which says what
+                // is happening and then how it went, takes the focus instead, so the keyboard and
+                // Esc stay with the dialog.
+                if (busy && status) {
+                    status.tabIndex = -1;
+                    status.focus();
+                }
             }
         });
         if (close) close.addEventListener('click', () => { if (!held()) dialog.close(); });
-        // Esc: the close request is refused while a send runs.
+        // Esc: the close request is refused while a send runs (see also the page-wide guard below).
         dialog.addEventListener('keydown', event => { if (event.key === 'Escape' && held()) event.preventDefault(); });
         dialog.addEventListener('cancel', event => { if (held()) event.preventDefault(); });
         dialog.addEventListener('close', () => {
+            holding.delete(dialog);
             const opener = dialog.mycarlosOpener;
             dialog.mycarlosOpener = null;
-            if (opener && opener.isConnected) opener.focus();
+            // The button that opened it, or, if the page redrew the document meanwhile, its Send
+            // button now.
+            const target = opener && opener.isConnected ? opener
+                : document.getElementById('mycarlos-document-send-' + dialog.dataset.document);
+            if (target) target.focus();
         });
         dialog.mycarlosDialog = {sender, held};
         return dialog.mycarlosDialog;
@@ -60,7 +78,19 @@
         return true;
     }
 
+    // Esc while a send runs, wherever the focus is. A browser may stop honouring a dialog's refused
+    // cancel when Esc is pressed again without other input, so the key itself is refused here, before
+    // it can become a close request.
+    document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape') return;
+        if (Array.from(holding).some(dialog => dialog.open)) event.preventDefault();
+    }, true);
+
     document.addEventListener('click', event => {
+        // A Ctrl, Cmd, Shift or Alt click, or another mouse button, opens the standalone page, as any
+        // link does.
+        if (event.defaultPrevented || (event.button !== undefined && event.button !== 0)
+                || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
         const opener = event.target && event.target.closest ? event.target.closest('[data-mycarlos-dialog]') : null;
         if (!opener || !window.CarlosMyCarlosSend) return;
         const dialog = document.getElementById(opener.dataset.mycarlosDialog);

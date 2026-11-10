@@ -33,7 +33,7 @@ class Element {
         (this.listeners[type] || []).forEach(handler => handler(event));
         return event;
     }
-    click() { if (!this.disabled) return this.owner.dispatchClick(this); return null; }
+    click(fields = {}) { if (!this.disabled) return this.owner.dispatchClick(this, fields); return null; }
     focus() { this.owner.focused = this; }
     descendants() { return this.children.flatMap(child => [child, ...child.descendants()]); }
     matches(selector) {
@@ -52,16 +52,19 @@ class Element {
 class Dialog extends Element {
     constructor(owner) { super(owner, 'dialog'); this.open = false; this.showModal = () => { this.open = true; }; }
     close() { if (!this.open) return; this.open = false; this.dispatch('close'); }
-    // What a browser does for Esc: keydown, then a cancelable cancel, then close.
-    pressEscape() {
-        if (this.dispatch('keydown', {key: 'Escape'}).defaultPrevented) return false;
-        if (this.dispatch('cancel').defaultPrevented) return false;
+    // What a browser does for Esc: keydown (the page's capturing listeners first, then the dialog's,
+    // when the focus is inside it), then a cancel, then close. A browser may make a repeated cancel
+    // without other input not cancelable, so a refused one closes anyway.
+    pressEscape({focusInside = true, cancelable = true} = {}) {
+        if (this.owner.dispatchKey({key: 'Escape'}).defaultPrevented) return false;
+        if (focusInside && this.dispatch('keydown', {key: 'Escape'}).defaultPrevented) return false;
+        if (this.dispatch('cancel', {cancelable}).defaultPrevented && cancelable) return false;
         this.close(); return true;
     }
 }
 
 class FakeDocument {
-    constructor() { this.ids = {}; this.clickHandlers = []; this.focused = null; this.pageInputs = []; }
+    constructor() { this.ids = {}; this.clickHandlers = []; this.keyHandlers = []; this.focused = null; this.pageInputs = []; }
     getElementById(id) { return this.ids[id] || null; }
     createElement(tag) { return new Element(this, tag); }
     querySelectorAll(selector) {
@@ -69,9 +72,17 @@ class FakeDocument {
         return [...this.pageInputs, ...Object.values(this.ids).flatMap(root => root.querySelectorAll(selector))];
     }
     querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
-    addEventListener(type, handler) { if (type === 'click') this.clickHandlers.push(handler); }
-    dispatchClick(target) {
-        const event = target.dispatch('click');
+    addEventListener(type, handler) {
+        if (type === 'click') this.clickHandlers.push(handler);
+        else if (type === 'keydown') this.keyHandlers.push(handler);
+    }
+    dispatchKey(fields) {
+        const event = {type: 'keydown', defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...fields};
+        this.keyHandlers.forEach(handler => handler(event));
+        return event;
+    }
+    dispatchClick(target, fields = {}) {
+        const event = target.dispatch('click', fields);
         this.clickHandlers.forEach(handler => handler(event));
         return event;
     }
