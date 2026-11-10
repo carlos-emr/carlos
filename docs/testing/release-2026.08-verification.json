@@ -3121,7 +3121,7 @@
         "-DexcludedGroups=flyway-schema",
         "-Dcarlos.test.schema.expected=generated"
       ],
-      "minimumCases": 2572,
+      "minimumCases": 2575,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "RxCorrectionSaveRollbackIntegrationTest": 2,
@@ -3134,8 +3134,8 @@
         "MeasurementsExtDaoIntegrationTest": 1,
         "ProviderLabRoutingDaoIntegrationTest": 1,
         "BillingONCHeader1DaoIntegrationTest": 1,
-        "LegacyLabUploadDaoIntegrationTest": 6,
-        "LabRoutingLookupDaoIntegrationTest": 4,
+        "LegacyLabUploadDaoIntegrationTest": 8,
+        "LabRoutingLookupDaoIntegrationTest": 5,
         "MeasurementPatientMatchMariaDbIntegrationTest": 10,
         "BillingHistoryDaoIntegrationTest": 1,
         "LookupDaoIntegrationTest": 1,
@@ -3197,7 +3197,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 157,
+      "minimumCases": 160,
       "requiredFamilies": {
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
@@ -3211,8 +3211,8 @@
         "MeasurementsExtDaoIntegrationTest": 1,
         "ProviderLabRoutingDaoIntegrationTest": 1,
         "BillingONCHeader1DaoIntegrationTest": 1,
-        "LegacyLabUploadDaoIntegrationTest": 6,
-        "LabRoutingLookupDaoIntegrationTest": 4,
+        "LegacyLabUploadDaoIntegrationTest": 8,
+        "LabRoutingLookupDaoIntegrationTest": 5,
         "LegacyLabNativeMariaDbIntegrationTest": 7,
         "ArchiveAuditTimestampIntegrationTest": 2,
         "Growth0To36FormPersistenceIntegrationTest": 19,
@@ -3264,7 +3264,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 186,
+      "minimumCases": 187,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 22,
@@ -3272,7 +3272,7 @@
         "DemographicMergeMariaDbIntegrationTest": 9,
         "CaseManagementNoteLockMariaDbIntegrationTest": 15,
         "ConsultationArchiveDaoIntegrationTest": 1,
-        "LabRoutingLookupDaoIntegrationTest": 4,
+        "LabRoutingLookupDaoIntegrationTest": 5,
         "LegacyLabNativeMariaDbIntegrationTest": 7,
         "ArchiveAuditTimestampIntegrationTest": 2,
         "FormXmlImportServiceIntegrationTest": 7,

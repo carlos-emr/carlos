@@ -100,32 +100,36 @@ public class ABCDParser {
         }
     }
 
-    //This method is to enter the lab into the providerLabTable
+    /** Routes this report using an exact provider identifier before the legacy check-digit fallback. */
     private void addToProviderLabTable(String docNum, HashMap<String, String> htable, String labId) throws SQLException {
 
-        String providerNo = htable.get(docNum);
-
-        if (providerNo == null || providerNo.equals("null")) {
-            logger.info("Could not find provider " + docNum + " now trying provider " + docNum.substring(0, (docNum.length() - 1)) + "  for lab: " + labId);
-            providerNo = htable.get(docNum.substring(0, (docNum.length() - 1)));
-
-        }
-
-        if (providerNo == null || providerNo.equals("null")) {
-            logger.info("Could not find provider " + docNum.substring(0, (docNum.length() - 1)) + "either  for lab: " + labId);
-            logger.info("Setting Provider No to 0");
-            providerNo = "0";
-
-        }
-
+        String providerNo = resolveProvider(docNum, htable);
 
         ProviderLabRouting router = new ProviderLabRouting();
         router.route(labId, providerNo, "CML");
     }
 
+    /** Preserve exact short identifiers; strip a check digit only from longer identifiers. */
+    static String resolveProvider(String doctorNumber, HashMap<String, String> providers) {
+        String provider = doctorNumber == null ? null : providers.get(doctorNumber);
+        if ((provider == null || "null".equals(provider)) && doctorNumber != null && doctorNumber.length() > 1) {
+            provider = providers.get(doctorNumber.substring(0, doctorNumber.length() - 1));
+        }
+        return provider == null || "null".equals(provider) ? "0" : provider;
+    }
+
     /////
 
 
+    /**
+     * Routes a CML report only to an unambiguous patient head; a missing HIN always stays unmatched.
+     * @param labId legacy CML report identity
+     * @param lastName supplied patient surname
+     * @param firstName supplied patient given name
+     * @param sex supplied patient sex
+     * @param dob supplied patient birth date
+     * @param hin supplied health identifier, which may be missing or UNKNOWN
+     */
     public void patientRouteReport(String labId, String lastName, String firstName, String sex, String dob, String hin) {
 
         String demo = "0";
@@ -133,7 +137,7 @@ public class ABCDParser {
         String dobYear = "%";
         String dobMonth = "%";
         String dobDay = "%";
-        String hinMod = new String(hin);
+        String hinMod = hin == null ? "" : hin;
 
         if (hinMod.length() == 12) {
             hinMod = hinMod.substring(0, 10);
@@ -146,7 +150,8 @@ public class ABCDParser {
         }
 
         int[] countHolder = new int[] { 0 };
-        java.util.List<LabRoutingLookupDao.Patient> matches = SpringUtils.getBean(LabRoutingLookupDao.class)
+        java.util.List<LabRoutingLookupDao.Patient> matches = LabRoutingLookupDao.isMissingCmlHin(hinMod)
+                ? java.util.List.of() : SpringUtils.getBean(LabRoutingLookupDao.class)
                 .findCmlPatients(hinMod, dobYear, dobMonth, dobDay, sex, lastName, firstName,
                         CarlosProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes"));
         demo = executePatientLookup(matches, countHolder);
@@ -170,6 +175,7 @@ public class ABCDParser {
     /** Resolve distinct patient heads; ambiguous or cyclic matches stay unmatched. */
     private static String executePatientLookup(java.util.List<LabRoutingLookupDao.Patient> matches, int[] countHolder) {
         String demo = "0";
+        if (matches.isEmpty()) return demo;
         DemographicMerged mergeChain = new DemographicMerged();
         Set<Integer> matchedHeads = new HashSet<>();
         boolean unresolvedChain = false;
@@ -293,31 +299,33 @@ public class ABCDParser {
     }
 
     class Btype { //line: Patient and Physician information
+        /** Populates exactly one complete 22-field patient/physician record; malformed records fail before routing. */
         void populate(ArrayList<String> lst) {
-            if (lst.size() == 22) { // must equal 22
-                this.accessionNum = lst.get(1);
-                this.physicianAccountNum = lst.get(2);
-                this.serviceDate = lst.get(3);
-                this.pFirstName = lst.get(4);
-                this.pLastName = lst.get(5);
-                this.pSex = lst.get(6);
-                this.pHealthNum = lst.get(7);
-                this.pDOB = lst.get(8);
-                this.status = lst.get(9);
-                this.docNum = lst.get(10);
-                this.docName = lst.get(11);
-                this.docAddr1 = lst.get(12);
-                this.docAddr2 = lst.get(13);
-                this.docAddr3 = lst.get(14);
-                this.docPostal = lst.get(15);
-                this.docRoute = lst.get(16);
-                this.comment1 = lst.get(17);
-                this.comment2 = lst.get(18);
-                this.pPhone = lst.get(19);
-                this.docPhone = lst.get(20);
-                this.collectionDate = lst.get(21);
-                MiscUtils.getLogger().debug("B " + pFirstName + " " + pLastName + " " + pHealthNum + " " + docRoute + docNum);
+            if (lst.size() != 22) {
+                throw new IllegalArgumentException("CML B record must contain exactly 22 fields");
             }
+            this.accessionNum = lst.get(1);
+            this.physicianAccountNum = lst.get(2);
+            this.serviceDate = lst.get(3);
+            this.pFirstName = lst.get(4);
+            this.pLastName = lst.get(5);
+            this.pSex = lst.get(6);
+            this.pHealthNum = lst.get(7);
+            this.pDOB = lst.get(8);
+            this.status = lst.get(9);
+            this.docNum = lst.get(10);
+            this.docName = lst.get(11);
+            this.docAddr1 = lst.get(12);
+            this.docAddr2 = lst.get(13);
+            this.docAddr3 = lst.get(14);
+            this.docPostal = lst.get(15);
+            this.docRoute = lst.get(16);
+            this.comment1 = lst.get(17);
+            this.comment2 = lst.get(18);
+            this.pPhone = lst.get(19);
+            this.docPhone = lst.get(20);
+            this.collectionDate = lst.get(21);
+            MiscUtils.getLogger().debug("B " + pFirstName + " " + pLastName + " " + pHealthNum + " " + docRoute + docNum);
         }
 
         public String save(String id) {

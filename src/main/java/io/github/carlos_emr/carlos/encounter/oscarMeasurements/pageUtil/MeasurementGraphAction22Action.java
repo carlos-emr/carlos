@@ -80,7 +80,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
     private static final Logger log = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private static final String NUMERIC_REGEX = "[^-.\\d]";
     private static final String WHITE = "#ffffff";
     private static final String VALUE_DATE_LABEL = "{1} \n {2}";
     private static final String SYSTOLIC = "Systolic";
@@ -312,16 +311,34 @@ public class MeasurementGraphAction22Action extends ActionSupport {
     }
 
     /**
-     * The number a stored result is plotted as. Everything but digits, the minus sign and the
-     * decimal point is removed first, so a qualified result such as {@code <5} is plotted as 5,
-     * as OSCAR always did. Whether a bound should be drawn as an exact point is tracked in #5827.
+     * Accepts a complete finite signed ASCII decimal without extracting numbers from clinical qualifiers or text.
+     * @param result source measurement literal
+     * @return the trimmed decimal, or null if it cannot safely represent a plotted numeric value
      */
-    private static String numericResult(String result) {
+    static String numericResult(String result) {
         if (StringUtils.isEmpty(result)) {
             return null;
         }
-        String numeric = result.replaceAll(NUMERIC_REGEX, "");
-        return NumberUtils.isParsable(numeric) ? numeric : null;
+        String numeric = result.trim();
+        int digits = 0;
+        boolean decimal = false;
+        int start = !numeric.isEmpty() && (numeric.charAt(0) == '+' || numeric.charAt(0) == '-') ? 1 : 0;
+        for (int i = start; i < numeric.length(); i++) {
+            char character = numeric.charAt(i);
+            if (character >= '0' && character <= '9') {
+                digits++;
+            } else if (character == '.' && !decimal) {
+                decimal = true;
+            } else {
+                return null;
+            }
+        }
+        if (digits == 0) return null;
+        try {
+            return Double.isFinite(Double.parseDouble(numeric)) ? numeric : null;
+        } catch (NumberFormatException invalid) {
+            return null;
+        }
     }
 
     private List<ReferenceRange> measurementReferenceRanges(List<EctMeasurementsDataBean> measurements, String typeIdName) {
