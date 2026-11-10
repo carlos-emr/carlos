@@ -293,7 +293,10 @@ public class CdsExportRetainedPreparationReader {
 
     private static <T> T readRequired(CdsExportCapturedTextRowDto row, Class<T> type)
             throws IOException {
-        T value = JSON.readValue(row.fields().get("payload"), type);
+        T value = type == io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsHistoryNativeDto.class
+                ? JSON.treeToValue(io.github.carlos_emr.carlos.demographic.cds.contract.CdsPreparedHistoryDefaults.apply(
+                        JSON.readTree(row.fields().get("payload"))), type)
+                : JSON.readValue(row.fields().get("payload"), type);
         if (value == null) invalid();
         return value;
     }

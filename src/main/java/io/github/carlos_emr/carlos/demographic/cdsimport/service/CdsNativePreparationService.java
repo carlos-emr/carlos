@@ -183,7 +183,8 @@ public class CdsNativePreparationService {
                                         prepared.getPayload()))) {
             throw new CdsImportException("NATIVE_PREPARATION_VERIFICATION_FAILED");
         }
-        if (type == io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAllergyDto.class) {
+        if (type == io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAllergyDto.class
+                || type == io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsHistoryNativeDto.class) {
             var value =
                     JSON.reader()
                             .with(
@@ -193,8 +194,9 @@ public class CdsNativePreparationService {
             // Shared import/export defaults preserve the original payload bytes and seal.
             try {
                 return JSON.treeToValue(
-                        io.github.carlos_emr.carlos.demographic.cds.contract
-                                .CdsPreparedAllergyDefaults.apply(value),
+                        type == io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAllergyDto.class
+                                ? io.github.carlos_emr.carlos.demographic.cds.contract.CdsPreparedAllergyDefaults.apply(value)
+                                : io.github.carlos_emr.carlos.demographic.cds.contract.CdsPreparedHistoryDefaults.apply(value),
                         type);
             } catch (IllegalArgumentException invalid) {
                 throw new CdsImportException("NATIVE_PREPARATION_VERIFICATION_FAILED");

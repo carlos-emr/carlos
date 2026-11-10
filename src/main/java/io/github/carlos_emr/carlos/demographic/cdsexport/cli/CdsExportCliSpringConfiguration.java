@@ -138,6 +138,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     SecurityInfoManagerImpl.class,
     CdsExportNoteExtensionSourceReader.class,
     CdsExportHistoryOccurrenceService.class,
+    CdsExportHistoryInventoryService.class,
     CdsExportNoteRevisionInventoryService.class,
     CdsExportNoteIssueLinkSourceReader.class,
     CdsExportCaseIssueSourceReader.class,
