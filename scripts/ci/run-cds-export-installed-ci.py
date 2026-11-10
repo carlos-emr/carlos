@@ -835,11 +835,16 @@ print(json.dumps({'verified':True,'files':len(expected),'warSha256':manifest['wa
                 r"\bat (?:io\.github\.carlos_emr\.[A-Za-z0-9_.$]+)\([A-Za-z0-9_.]+:\d+\)",
                 data,
             )
+            technical_frames = re.findall(
+                r"\bio\.github\.carlos_emr\.[A-Za-z0-9_.$]+#[A-Za-z_$][A-Za-z0-9_$]*:[0-9]+\b",
+                data,
+            )
             compile_locations = re.findall(r"[\w/.-]+\.java:\d+(?::\d+)?", data)
             diagnostics = {
                 "codes": list(dict.fromkeys(codes))[-100:],
                 "exceptionClasses": list(dict.fromkeys(classes))[-100:],
                 "applicationFrames": list(dict.fromkeys(frames))[-100:],
+                "technicalFrames": list(dict.fromkeys(technical_frames))[-100:],
                 "compileLocations": list(dict.fromkeys(compile_locations))[-50:],
             }
             (public / "failure-codes.json").write_text(

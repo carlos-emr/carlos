@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportContro
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportOwnerFencedException;
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.demographic.cds.cli.CdsProcessLogging;
 import java.io.IOException;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -179,6 +180,7 @@ public class CdsExportExecutionService {
                 finishUninterrupted(() -> ledger.release(lease));
             else {
                 stop(lease, CdsExportState.FAILED, "CDS_EXPORT_IO_FAILED");
+                technicalFailure(failed);
                 LOG.error(
                         "CDS_EXPORT_IO_FAILED run={} epoch={} {}",
                         runId,
@@ -190,6 +192,7 @@ public class CdsExportExecutionService {
                 finishUninterrupted(() -> ledger.release(lease));
             else {
                 stop(lease, CdsExportState.FAILED, "CDS_EXPORT_EXECUTION_FAILED");
+                technicalFailure(failed);
                 LOG.error(
                         "CDS_EXPORT_EXECUTION_FAILED run={} epoch={} {}",
                         runId,
@@ -201,6 +204,16 @@ public class CdsExportExecutionService {
             throw failed;
         }
         return true;
+    }
+
+    /** The CLI disables framework logging; this channel accepts only the bounded metadata projection. */
+    private static void technicalFailure(Throwable failure) {
+        LogManager.getLogger("carlos.cds.safeTechnical")
+                .error(
+                        "CDS_TECHNICAL: {}",
+                        new String(
+                                CdsProcessLogging.failureSummary(failure, false),
+                                java.nio.charset.StandardCharsets.UTF_8));
     }
 
     private void stop(CdsExportLeaseDto lease, CdsExportState state, String code) {
