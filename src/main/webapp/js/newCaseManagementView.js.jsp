@@ -2537,7 +2537,7 @@ function updateCPPNote() {
 
         var input = createNoteTextarea(caseNote, payload, true);
         $(txt).insertBefore(input, $(txt).firstChild);
-        var printimg = "<div class='tool-button print-button'><img title='Print' id='print" + nId + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/printer.png'></div>";
+        var printimg = "<div class='tool-button print-button'><img title='Print' id='print" + nId + "' alt='Toggle Print Note' onclick='togglePrint(this.id.substr(5), event)' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/printer.png'></div>";
 
         var strNid = "" + nId;
         if (strNid.substr(0, 1) != "0")

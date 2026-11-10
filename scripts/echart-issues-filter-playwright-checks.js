@@ -515,6 +515,13 @@ async function workflow(s) {
         h.assert(sql.value(`SELECT encounter_type FROM casemgmt_note WHERE note_id=${oldId} AND demographic_no=${patient}`) === priorType,
           'The encounter type edit rewrote the prior revision');
         h.assert(await noteField(chart).getAttribute('id') === `caseNote_note${notes.b}`, 'The editor retained a stale revision identity');
+        const queueBefore = await chart.locator('#notes2print').inputValue();
+        await chart.locator(`#print${notes.b}`).click({timeout: TIMEOUT});
+        const queued = (await chart.locator('#notes2print').inputValue()).split(',');
+        h.assert(queued.includes(notes.b) && queued.includes(oldId) === queueBefore.split(',').includes(oldId),
+          'The preserved Print control did not queue the committed revision');
+        await chart.locator(`#print${notes.b}`).click({timeout: TIMEOUT});
+        h.assert(await chart.locator('#notes2print').inputValue() === queueBefore, 'Print selection did not restore its original queue');
       } finally {
         await chart.unroute('**/CaseManagementEntry*', failChart);
       }

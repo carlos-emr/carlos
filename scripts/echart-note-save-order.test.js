@@ -408,3 +408,15 @@ test('a fresh checklist button opens its AJAX-replaced controls even when the pr
   context.toggleIssueChecklist(replacement);
   assert.equal(fields['noteIssues-unresolved'].style.display, 'none');
 });
+
+test('the editable note Print control follows its committed revision after an acknowledgement renames its id', () => {
+  const calls = [];
+  const context = {nId: '101', ctx: '/carlos', event: {}, control: {id: 'print202'},
+    togglePrint: (id, event) => calls.push(String(id))};
+  vm.createContext(context);
+  const start = source.indexOf('        var printimg =', source.indexOf('    function editNote('));
+  vm.runInContext(source.slice(start, source.indexOf('\n', start)), context);
+  const handler = context.printimg.match(/onclick='([^']+)'/)[1];
+  vm.runInContext(`(function(event) { ${handler}; }).call(control, event);`, context);
+  assert.deepEqual(calls, ['202']);
+});

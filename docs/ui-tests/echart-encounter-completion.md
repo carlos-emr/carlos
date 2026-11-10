@@ -158,3 +158,9 @@ all deployment health checks and preserves the encounter-table snapshot exactly.
 Optional sidebar failures use their own localized presentation message. They no
 longer display the clinical-refusal message while a confirmed queued save proceeds.
 The regression checks both the distinct feedback and continued Save/Sign behavior.
+
+The retained editor's Print callback now derives the revision from its current DOM
+ID. A compact-save acknowledgement renames that control; retaining a captured prior
+ID broke printing after a failed chart refresh. The regression first reproduced the
+old-ID dispatch, and the installed recovery check now toggles Print, verifies that the
+committed revision enters the print queue, and restores the original selection.
