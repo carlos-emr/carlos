@@ -578,16 +578,30 @@ def check_sql_injection_patterns(content: str) -> list[str]:
     sql_keywords = r'(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|INTO|VALUES|SET|JOIN|ORDER\s+BY|GROUP\s+BY)'
 
     # Pattern 1: String concatenation with SQL keywords
-    concat_pattern = rf'["\'][^"\']*{sql_keywords}[^"\']*["\']\s*\+\s*\w+'
-    concat_pattern2 = rf'\w+\s*\+\s*["\'][^"\']*{sql_keywords}'
-    concat_pattern3 = rf'["\'][^"\']*{sql_keywords}[^"\']*["\']\s*\+\s*["\'][^"\']*["\']\s*\+\s*\w+'
+    # Literal bodies exclude only '"' and ';' (not "'"): an embedded SQL quote such
+    # as "... last_name = '" is part of the literal, not its terminator. The ';'
+    # stops a match from crossing into the next statement, where a char literal
+    # such as 'x' would otherwise pair with a later unrelated string.
+    concat_pattern = rf'["\'][^";]*{sql_keywords}[^";]*["\']\s*\+\s*\w+'
+    concat_pattern2 = rf'\w+\s*\+\s*["\'][^";]*{sql_keywords}'
+    concat_pattern3 = rf'["\'][^";]*{sql_keywords}[^";]*["\']\s*\+\s*["\'][^";]*["\']\s*\+\s*\w+'
 
-    # Pattern 2: String.format with SQL
-    format_pattern = rf'String\s*\.\s*format\s*\(\s*["\'][^"\']*{sql_keywords}'
+    # Pattern 2: String.format with SQL, and text blocks filled with .formatted(args).
+    # .formatted() only counts when the literal has a real SQL clause shape, so
+    # free text such as "Update your profile: %s".formatted(x) is not flagged.
+    format_pattern = rf'String\s*\.\s*format\s*\(\s*["\'][^";]*{sql_keywords}'
+    formatted_shape = (
+        r'(?:SELECT\b[^";]*\bFROM\b|INSERT\s+INTO\b|UPDATE\s+\w+\s+SET\b'
+        r'|DELETE\s+FROM\b|WHERE\s+\w+\s*(?:=|<|>|!=|<>|\bLIKE\b|\bIN\b))'
+    )
+    formatted_pattern = rf'["\'][^";]*{formatted_shape}[^";]*["\']\s*\.\s*formatted\s*\(\s*(?!\))'
 
     # Pattern 3: StringBuilder/StringBuffer append with SQL
-    builder_pattern = rf'(?:StringBuilder|StringBuffer)\s*\(\s*["\'][^"\']*{sql_keywords}'
-    append_pattern = rf'\.append\s*\(\s*["\'][^"\']*{sql_keywords}'
+    builder_pattern = rf'(?:StringBuilder|StringBuffer)\s*\(\s*["\'][^";]*{sql_keywords}'
+    append_pattern = rf'\.append\s*\(\s*["\'][^";]*{sql_keywords}'
+    # A literal ending in a quote (e.g. "... = '") appended before a non-literal
+    # argument: the quote opens a sandwich around the appended value.
+    append_sandwich_pattern = r'\.\s*append\s*\(\s*"[^"]*\'"\s*\)\s*\.\s*append\s*\(\s*(?![\s"\d)])'
 
     # Pattern 4: executeQuery/executeUpdate with concatenation
     execute_concat = rf'(?:executeQuery|executeUpdate|execute)\s*\(\s*["\'][^"\']*{sql_keywords}[^"\']*["\']\s*\+'
@@ -606,7 +620,8 @@ def check_sql_injection_patterns(content: str) -> list[str]:
     # In Java source, this appears as a string ending with ' (single-quote before
     # the closing double-quote), then + variable +, then a string starting with '
     # Example: "WHERE name = '" + patientName + "' AND ..."
-    quote_sandwich = r"""'"\s*\+\s*\w+\s*\+\s*"'"""
+    # The embedded value may be a dotted field or a call (request.getParameter("x")).
+    quote_sandwich = r"""'"\s*\+\s*""" + _OPERAND_CHAIN + r"""\s*\+\s*"'"""
 
     patterns_to_check = [
         (concat_pattern, "String concatenation in SQL query", False),
@@ -615,6 +630,8 @@ def check_sql_injection_patterns(content: str) -> list[str]:
         (format_pattern, "String.format() with SQL query", False),
         (builder_pattern, "StringBuilder with SQL query", False),
         (append_pattern, "StringBuilder.append() with SQL fragment", False),
+        (formatted_pattern, "String.formatted() with SQL query", False),
+        (append_sandwich_pattern, "StringBuilder.append() value embedded between SQL quotes", False),
         (execute_concat, "executeQuery() with string concatenation", False),
         (execute_concat2, "executeQuery() with string concatenation", False),
         (create_query_concat, "createQuery() with string concatenation", False),
@@ -664,6 +681,15 @@ def check_sql_injection_patterns(content: str) -> list[str]:
         # A SQL fragment concatenated with a variable during query assignment.
         (rf'\w+\s*=\s*["\'][^"\']*{sql_keywords}[^"\']*["\']\s*\+',
          "SQL query built with string concatenation", False),
+        # Keyword-less predicate fragment: " AND d.demographic_no = " + demoNo.
+        # The literal must open an expression (assignment, paren, comma, '+',
+        # statement start or return), and its column must look like a SQL column
+        # (qualified alias.column or snake_case), so free text such as
+        # "ALL OR NONE = " + count or " OR count = " + count is not treated as SQL.
+        # Only the statement's raw operand decides, so placeholders still allowlist.
+        (r'(?:[=(,+;{]|\breturn)\s*["\']\s*(?:AND|OR)\s+(?:\w+\.\w+|\w+_\w+)\s*'
+         r'(?:<>|!=|<=|>=|=|<|>|\bLIKE\b|\bIN\b)\s*["\']?\s*\+(?![+=])',
+         "SQL predicate built with string concatenation", False),
     ]
 
     for pattern, description, always_unsafe in raw_query_patterns:

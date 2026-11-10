@@ -180,6 +180,18 @@
     }
   },
   {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-issue6085-1: keyword-less AND predicate with a named parameter stays allowed",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/DemographicDaoImpl.java",
+        "content": "public class D {\n void f(String name, Query query) {\n  String filter = \" AND d.last_name = :\" + \"lastName\";\n  query.setParameter(\"lastName\", name);\n }\n}"
+      }
+    }
+  },
+  {
     "section": "True Positives (should be BLOCKED, exit 2)",
     "description": "TP-1: Direct value injection (userId)",
     "expected_exit": 2,
@@ -380,6 +392,138 @@
       "tool_input": {
         "file_path": "/path/to/Dao.java",
         "new_string": "String sql = \"\"\"\n    SELECT * FROM demographic WHERE last_name = '\"\"\" + lastName + \"\"\"'\n    \"\"\";\nstatement.executeQuery(sql);"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-issue6085-2: free-text OR predicate with a raw count is not SQL and stays allowed",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/Counter.java",
+        "content": "public class C {\n void f(int count) {\n  String msg = \"ALL OR NONE = \" + count;\n  log(msg);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-issue6085-1: quote sandwich around request.getParameter() with sink in a later statement",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/DemographicDaoImpl.java",
+        "content": "public class D {\n void f(HttpServletRequest request, Statement stmt) throws Exception {\n  String sql = \"SELECT * FROM demographic WHERE last_name = '\" + request.getParameter(\"name\") + \"'\";\n  stmt.executeQuery(sql);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-issue6085-2: quote sandwich around a dotted form field",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/DemographicDaoImpl.java",
+        "content": "public class D {\n void f(LastNameForm form, Statement stmt) throws Exception {\n  String sql = \"SELECT * FROM demographic WHERE last_name = '\" + form.lastName + \"'\";\n  stmt.executeQuery(sql);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-issue6085-3: keyword-less AND predicate concatenated with a raw variable",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/DemographicDaoImpl.java",
+        "content": "public class D {\n void f(String demoNo) {\n  String filter = \" AND d.demographic_no = \" + demoNo;\n  this.filter = filter;\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-issue6085-4: StringBuilder append of a value between SQL quotes",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/DemographicDaoImpl.java",
+        "content": "public class D {\n void f(StringBuilder sql, String name) {\n  sql.append(\" AND last_name = '\").append(name).append(\"'\");\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-issue6085-5: text block filled with .formatted(name)",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/DemographicDaoImpl.java",
+        "content": "public class D {\n void f(String name, Statement stmt) throws Exception {\n  String q = \"\"\"\n    SELECT * FROM demographic WHERE last_name = '%s'\n    \"\"\".formatted(name);\n  stmt.executeQuery(q);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-issue6085-3: free-text OR with a bare word operand is not a SQL predicate",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/Counter.java",
+        "content": "public class C {\n void f(int count) {\n  String msg = \" OR count = \" + count;\n  log(msg);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-issue6085-4: append of a quote followed by a literal is not a sandwich",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/Formatter.java",
+        "content": "public class F {\n void f(StringBuilder sb) {\n  sb.append(\"'\").append(\"x\").append(\"'\");\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-issue6085-5: .formatted() on non-SQL text containing an operator word stays allowed",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/Labels.java",
+        "content": "public class L {\n void f(String x) {\n  String label = \"Update your profile: %s\".formatted(x);\n  log(label);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-issue6085-6: a char literal earlier in the file does not pair with a later string",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/Greeting.java",
+        "content": "public class G {\n void f(String name) {\n  char q = 'x';\n  int from = 2;\n  String s = \"Hi \" + name;\n  log(s + from + q);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-issue6085-6: keyword-less AND predicate returned directly with a raw variable",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/DemographicDaoImpl.java",
+        "content": "public class D {\n String f(String demoNo) {\n  return \" AND d.demographic_no = \" + demoNo;\n }\n}"
       }
     }
   },
