@@ -12928,7 +12928,8 @@
    "id",
    "demographicNo",
    "hrmDocumentId",
-   "timeAssigned"
+   "timeAssigned",
+   "cds_patient_key"
   ],
   "HRMDocumentToProvider": [
    "id",
@@ -42981,7 +42982,8 @@
      "id",
      "demographicNo",
      "hrmDocumentId",
-     "timeAssigned"
+     "timeAssigned",
+     "cds_patient_key"
     ],
     "HRMDocumentToProvider": [
      "id",

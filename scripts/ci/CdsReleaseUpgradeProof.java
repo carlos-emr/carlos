@@ -98,7 +98,7 @@ public final class CdsReleaseUpgradeProof {
         upgraded.validate();
         require(upgraded.info().pending().length == 0, "PENDING_REMAINS");
         int applied = upgraded.info().applied().length;
-        require(applied == (province.equals("on") ? 82 : 81), "HEAD_HISTORY_COUNT");
+        require(applied == (province.equals("on") ? 83 : 82), "HEAD_HISTORY_COUNT");
         verifyRetained(source, before);
         removeSyntheticFixture(source);
         Files.writeString(
