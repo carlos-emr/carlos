@@ -34,6 +34,28 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("integration")
 class CdsTargetReceiptMariaDbIntegrationTest {
     @Test
+    @org.junit.jupiter.api.Timeout(15)
+    void shouldCancelASlowBinaryRead_whenTimeoutIsSetAfterItsMetadataPrepare() throws Exception {
+        try (Connection connection = connection()) {
+            connection.setNetworkTimeout(Runnable::run, 8000);
+            try (var statement =
+                    io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard
+                            .prepareBinaryRead(connection, "SELECT SLEEP(?)")) {
+                // prepareBinaryRead already prepares parameter metadata. Connector/J must
+                // invalidate that preparation when the owning reader supplies its deadline.
+                assertThat(statement.getParameterMetaData().getParameterCount()).isEqualTo(1);
+                statement.setInt(1, 10);
+                statement.setQueryTimeout(1);
+                long started = System.nanoTime();
+                assertThatThrownBy(statement::executeQuery)
+                        .isInstanceOf(java.sql.SQLTimeoutException.class);
+                assertThat(java.time.Duration.ofNanos(System.nanoTime() - started))
+                        .isLessThan(java.time.Duration.ofSeconds(8));
+            }
+        }
+    }
+
+    @Test
     void shouldDetectChangedNoteDatePrecision_inTheActualNativeReceipt() throws Exception {
         try (Connection connection = connection()) {
             connection.setAutoCommit(false);
@@ -58,7 +80,7 @@ class CdsTargetReceiptMariaDbIntegrationTest {
                 try (var insert =
                         connection.prepareStatement(
                                 "INSERT INTO casemgmt_note_ext (note_id,key_val,`value`) VALUES"
-                                    + " (?,?,?)",
+                                        + " (?,?,?)",
                                 java.sql.Statement.RETURN_GENERATED_KEYS)) {
                     insert.setLong(1, note);
                     insert.setString(2, "cdsDatePrecision");
@@ -112,8 +134,8 @@ class CdsTargetReceiptMariaDbIntegrationTest {
             connection.setAutoCommit(false);
             statement.execute(
                     "CREATE TEMPORARY TABLE demographic (demographic_no INT PRIMARY KEY, content"
-                        + " MEDIUMTEXT CHARACTER SET utf8mb4, absent VARCHAR(10), bytes"
-                        + " MEDIUMBLOB)");
+                            + " MEDIUMTEXT CHARACTER SET utf8mb4, absent VARCHAR(10), bytes"
+                            + " MEDIUMBLOB)");
             try {
                 try (var insert =
                         connection.prepareStatement(
@@ -190,12 +212,12 @@ class CdsTargetReceiptMariaDbIntegrationTest {
                 var statement = connection.createStatement()) {
             statement.execute(
                     "CREATE TEMPORARY TABLE demographic (demographic_no INT PRIMARY KEY, n INT,"
-                        + " amount DECIMAL(10,3), event_time DATETIME(6), content MEDIUMTEXT"
-                        + " CHARACTER SET utf8mb4, bytes MEDIUMBLOB, absent VARCHAR(10))");
+                            + " amount DECIMAL(10,3), event_time DATETIME(6), content MEDIUMTEXT"
+                            + " CHARACTER SET utf8mb4, bytes MEDIUMBLOB, absent VARCHAR(10))");
             try (var insert =
                     connection.prepareStatement(
                             "INSERT INTO demographic VALUES (1,42,12.340,'2026-01-02"
-                                + " 03:04:05.123456',?,?,NULL)")) {
+                                    + " 03:04:05.123456',?,?,NULL)")) {
                 insert.setString(1, "Complete Unicode 😀\n".repeat(10000));
                 insert.setBytes(2, new byte[] {0, 1, (byte) 255});
                 insert.executeUpdate();
@@ -210,7 +232,7 @@ class CdsTargetReceiptMariaDbIntegrationTest {
             assertThat(empty).isNotEqualTo(original);
             statement.executeUpdate(
                     "UPDATE demographic SET event_time='2026-01-02 03:04:05.123457' WHERE"
-                        + " demographic_no=1");
+                            + " demographic_no=1");
             String fraction = CdsTargetReceiptService.rowDigest(connection, "demographic", "1");
             assertThat(fraction).isNotEqualTo(empty);
             statement.executeUpdate(
@@ -234,7 +256,7 @@ class CdsTargetReceiptMariaDbIntegrationTest {
                 var statement = connection.createStatement()) {
             statement.execute(
                     "CREATE TEMPORARY TABLE cds_import_file (id VARCHAR(36) PRIMARY KEY, digest"
-                        + " CHAR(64), byte_length BIGINT, verified_epoch BIGINT)");
+                            + " CHAR(64), byte_length BIGINT, verified_epoch BIGINT)");
             statement.executeUpdate(
                     "INSERT INTO cds_import_file VALUES ('fixture',REPEAT('a',64),123,1)");
             String original =
@@ -290,7 +312,7 @@ class CdsTargetReceiptMariaDbIntegrationTest {
                 try (var update =
                         connection.prepareStatement(
                                 "UPDATE admission SET admission_status='discharged' WHERE"
-                                    + " am_id=?")) {
+                                        + " am_id=?")) {
                     update.setString(1, id);
                     assertThat(update.executeUpdate()).isEqualTo(1);
                 }
@@ -308,7 +330,7 @@ class CdsTargetReceiptMariaDbIntegrationTest {
                 var statement = connection.createStatement()) {
             statement.execute(
                     "CREATE TEMPORARY TABLE demographic (demographic_no INT PRIMARY KEY, dose FLOAT"
-                        + " NULL, other DOUBLE NULL)");
+                            + " NULL, other DOUBLE NULL)");
             statement.executeUpdate("INSERT INTO demographic VALUES (1,0.1,0.1)");
             var entityManager = org.mockito.Mockito.mock(jakarta.persistence.EntityManager.class);
             var session = org.mockito.Mockito.mock(org.hibernate.Session.class);
