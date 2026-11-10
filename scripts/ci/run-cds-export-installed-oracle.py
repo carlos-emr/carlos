@@ -297,6 +297,45 @@ def clinically_equal(root, patient: int) -> bool:
         return False
 
 
+def clinical_mismatches(root, patient: int) -> list[str]:
+    """Publish trusted expected field paths only, never actual names, values or XML."""
+    if root.tag != "{cds}OmdCds" or len(root.findall("./c:PatientRecord", NS)) != 1:
+        return ["PATIENT_RECORD_SHAPE"]
+    record = root.find("./c:PatientRecord", NS)
+    issues = []
+
+    def check_fields(node, prefix, fields):
+        for path, value in fields.items():
+            found = [] if node is None else node.findall(path, NS)
+            if len(found) != 1 or (found[0].text or "") != value:
+                issues.append(prefix + "/" + path)
+
+    check_fields(record.find("c:Demographics", NS), "Demographics", expected(patient))
+    check_fields(record, "PatientRecord", history_expected())
+    reports = record.findall("c:Reports", NS)
+    check_fields(reports[0] if len(reports) == 1 else None, "Reports", report_expected())
+    for category, values in (("MedicationsAndTreatments", medication_expected()),
+                             ("LaboratoryResults", laboratory_expected())):
+        actual = record.findall("c:" + category, NS)
+        if len(actual) != len(values):
+            issues.append(category + "/OCCURRENCE_COUNT")
+        for index, fields in enumerate(values):
+            check_fields(actual[index] if index < len(actual) else None,
+                         category + "[" + str(index + 1) + "]", fields)
+    for label, check in (("HISTORY_CONTEXT", lambda: history_equal(record)),
+                         ("CARE_CONTEXT", lambda: care_equal(record, patient)),
+                         ("LABORATORY_CONTEXT", lambda: laboratory_equal(record)),
+                         ("MEDICATION_CONTEXT", lambda: medication_equal(record, patient)),
+                         ("REPORT_CONTEXT", lambda: report_equal(record))):
+        try:
+            matches = check()
+        except (ValueError, TypeError, KeyError, AttributeError):
+            matches = False
+        if not matches:
+            issues.append(label)
+    return issues[:200] or ["PATIENT_CATEGORY_SEQUENCE"]
+
+
 def _clinically_equal(root, patient: int) -> bool:
     if root.tag != "{cds}OmdCds" or len(root.findall("./c:PatientRecord", NS)) != 1:
         return False
@@ -351,7 +390,12 @@ def main() -> int:
     if root.find("./c:PatientRecord/c:Reports/c:FilePath", NS).text != report_members[0]:
         raise RuntimeError("Native report path differs from its exact attachment member")
     if not clinically_equal(root, patient):
-        raise RuntimeError("Independent native clinical expectations differ")
+        args.proof.write_text(json.dumps({
+            "protocol": 1, "status": "FAILED", "reason": "CLINICAL_EXPECTATIONS_DIFFER",
+            "mismatchedFacts": clinical_mismatches(root, patient)
+        }, sort_keys=True, indent=2))
+        print("FAIL independent native clinical expectations; see value-free field-path proof")
+        return 1
     with tempfile.TemporaryDirectory(prefix="cds-independent-oracle-", dir=args.proof.parent) as work:
         xml_path = Path(work) / "patient.xml"
         xml_path.write_bytes(xml_bytes)

@@ -507,6 +507,14 @@ while True:
             after = run(["sha256sum", destination], capture=True).stdout.split()[0]
             if refused.returncode == 0 or before != after:
                 raise RuntimeError("CLI replaced an existing delivery destination")
+            status["cli"] = {
+                "rootDelegation": True, "foregroundReady": True,
+                "independentStatus": True, "submissionRecovery": True,
+                "authorizedDownload": True, "existingOutputRefusedUnchanged": True,
+                "ciphertextSha256": before,
+            }
+            save()
+            stage("RECIPIENT_DECRYPT_CLI_ARTIFACT")
             run(["cp", destination, PRIVATE + "/cli.bin"])
             json_result(
                 run(
@@ -529,16 +537,20 @@ while True:
                 WEB
                 + "/WEB-INF/classes/cds-import/schema/EMR_Data_Migration_Schema.xsd",
             ]
-            run(
+            stage("INDEPENDENT_NATIVE_CLI_ORACLE")
+            checked_oracle = run(
                 oracle
                 + [
                     "--archive",
                     PRIVATE + "/cli.zip",
                     "--proof",
                     PRIVATE + "/cli-oracle.json",
-                ]
+                ], check=False,
             )
             status["cliOracle"] = read_json(PRIVATE + "/cli-oracle.json")
+            save()
+            if checked_oracle.returncode != 0 or status["cliOracle"].get("status") != "PASSED":
+                raise RuntimeError("Independent native clinical oracle did not pass")
             status["cli"] = {
                 "rootDelegation": True,
                 "foregroundReady": True,
