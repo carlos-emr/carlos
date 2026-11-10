@@ -182,8 +182,10 @@ async function holdResponses(chart, method) {
       h.assert(held.length >= count, `No ${method} response arrived to hold`);
     },
     async release() {
+      // Answer the held requests before removing the route: unrouting first lets Playwright
+      // continue them itself, and a later fulfil then fails as already handled.
+      await Promise.all(held.splice(0).map(fulfil => fulfil()));
       await chart.unroute(ENTRY, handler);
-      held.splice(0).forEach(fulfil => fulfil());
     },
   };
 }
@@ -244,7 +246,11 @@ async function deleteTwoFromOneRendering(t) {
   await (await deleteLink(t.issues.C)).click({ timeout: TIMEOUT });
   await hold.arrived();
   // The second click comes from the same rendering, while the first deletion's answer is held.
-  await (await deleteLink(t.issues.D)).click({ timeout: TIMEOUT });
+  // A link the page marks aria-disabled gets a script click (Playwright will not click it); its
+  // handler must still refuse, which is what a clinician's click on it meets.
+  const second = await deleteLink(t.issues.D);
+  if (await second.getAttribute('aria-disabled') === 'true') await chart.evaluate(el => el.click(), await second.elementHandle());
+  else await second.click({ timeout: TIMEOUT });
   await chart.waitForTimeout(500);
   const sent = t.mutations.slice(before);
   console.log(`  delete requests behind the held response: ${JSON.stringify(sent)}`);
