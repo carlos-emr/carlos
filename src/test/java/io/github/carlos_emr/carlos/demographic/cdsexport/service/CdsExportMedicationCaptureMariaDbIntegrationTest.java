@@ -272,7 +272,7 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
                                         () ->
                                                 prescriptions.readCdsExportValueChunk(
                                                         patient, patient + 1, "rx_comments", 0, 32))
-                                .isInstanceOf(IllegalArgumentException.class);
+                                .isInstanceOf(IllegalStateException.class);
                     });
         } finally {
             sql.update(
