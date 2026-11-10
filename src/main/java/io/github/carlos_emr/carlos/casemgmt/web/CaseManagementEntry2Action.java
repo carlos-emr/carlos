@@ -3050,11 +3050,17 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             Issue oldIssue = target.getIssue().getIssue();
             origIssueDesc = oldIssue == null ? null : oldIssue.getDescription();
 
-            Issue newIssue = caseManagementMgr.getIssue(String.valueOf(substitution.getIssue().getId().longValue()));
+            // An unknown replacement is refused before anything changes, as ajaxChangeDiagnosis does.
+            Long substitutionId = substitution.getIssue() == null ? null : substitution.getIssue().getId();
+            Issue newIssue = substitutionId == null ? null : caseManagementMgr.getIssue(String.valueOf(substitutionId));
+            if (newIssue == null) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
             newIssueDesc = newIssue.getDescription();
 
             target.getIssue().setIssue(newIssue);
-            target.getIssue().setIssue_id(substitution.getIssue().getId().longValue());
+            target.getIssue().setIssue_id(substitutionId);
             target.getIssue().setType(newIssue.getType());
             target.getIssueDisplay().setCode(newIssue.getCode());
             target.getIssueDisplay().setCodeType(newIssue.getType());

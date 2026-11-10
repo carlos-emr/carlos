@@ -38,6 +38,8 @@ import static org.mockito.Mockito.*;
  * clicked (its casemgmt_issue id) and the server resolves that id in the editor's session list.
  * A list position from the rendered page is never used, because an editor refresh can rebuild
  * and reorder the session list between the rendering and the request.
+ *
+ * @since 2026-11-09
  */
 @Tag("unit")
 @Tag("casemgmt")
@@ -223,7 +225,7 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"TRUE", "1", "on", "yes", "true "})
-    void shouldRefuseValuesOtherThanTrueOrFalse(String value) throws Exception {
+    void shouldRefuseIssueValues_otherThanTrueOrFalse(String value) throws Exception {
         CheckBoxBean entry = issue(41);
         click("41", "acute", null);
         if (value != null) request.setParameter("issueValue", value);
@@ -390,6 +392,52 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(entry.getIssue().getIssue_id()).isEqualTo(9041L);
         verify(manager, never()).saveCaseIssue(any());
+    }
+
+    /** The legacy IssueSearch page posts the chosen replacement as a checked new-issue row. */
+    private void chooseLegacyReplacement(long issueId) {
+        Issue chosen = new Issue();
+        chosen.setId(issueId);
+        CheckIssueBoxBean row = new CheckIssueBoxBean();
+        row.setIssue(chosen);
+        row.setChecked(true);
+        action.setNewIssueCheckList(new CheckIssueBoxBean[] {row});
+        injectDependency(action, "issueCheckList", form.getIssueCheckList());
+    }
+
+    @Test
+    void shouldRecodeTheNamedIssue_whenTheLegacyIssueSearchPageSubmitsAfterAReorder() {
+        CheckBoxBean first = issue(41);
+        CheckBoxBean second = issue(42);
+        reorder(second, first);
+        Issue replacement = new Issue();
+        replacement.setId(777L);
+        replacement.setCode("FAKE777");
+        replacement.setDescription("FAKE replacement diagnosis");
+        when(manager.getIssue("777")).thenReturn(replacement);
+        request.setParameter("change_diagnosis_id", "41");
+        chooseLegacyReplacement(777L);
+
+        assertThat(action.submitChangeDiagnosis()).isEqualTo("view");
+
+        assertThat(first.getIssue().getIssue_id()).isEqualTo(777L);
+        assertThat(first.getIssueDisplay().getDescription()).isEqualTo("FAKE replacement diagnosis");
+        assertThat(second.getIssue().getIssue_id()).isEqualTo(9042L);
+        verify(manager).saveCaseIssue(first.getIssue());
+    }
+
+    @Test
+    void shouldRefuseTheLegacyRecode_whenTheReplacementDiagnosisIsUnknown() {
+        CheckBoxBean entry = issue(41);
+        request.setParameter("change_diagnosis_id", "41");
+        chooseLegacyReplacement(778L);
+
+        assertThat(action.submitChangeDiagnosis()).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(entry.getIssue().getIssue_id()).isEqualTo(9041L);
+        verify(manager, never()).saveCaseIssue(any());
+        verify(manager, never()).changeIssueInCPP(any(), any(), any());
     }
 
     @Test

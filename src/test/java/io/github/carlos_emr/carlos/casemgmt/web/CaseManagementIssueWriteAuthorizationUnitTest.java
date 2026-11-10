@@ -266,7 +266,9 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         var request=new MockHttpServletRequest("POST","/CaseManagementEntry");action.request=request;
         action.response=new MockHttpServletResponse();request.setParameter("demographicNo","101");
         // The page sends the clicked patient issue and the one value chosen, never a row index (#6090).
-        request.setParameter("caseIssueId","71");request.setParameter("issueField","resolved");request.setParameter("issueValue","true");
+        request.setParameter("caseIssueId", "71");
+        request.setParameter("issueField", "resolved");
+        request.setParameter("issueValue", "true");
         request.getSession().setAttribute("userrole","doctor");
         var user=mock(LoggedInInfo.class);when(user.getLoggedInProviderNo()).thenReturn("999998");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(),user);
@@ -277,7 +279,9 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         injectDependency(action,"securityInfoManager",permissions);
         var manager=mock(CaseManagementManager.class);action.caseManagementMgr=manager;
         var form=new CaseManagementEntryFormBean();var box=new CheckBoxBean();
-        box.getIssue().setId(71L);box.getIssue().setDemographic_no(101);form.setIssueCheckList(new ArrayList<>(List.of(box)));
+        box.getIssue().setId(71L);
+        box.getIssue().setDemographic_no(101);
+        form.setIssueCheckList(new ArrayList<>(List.of(box)));
         request.getSession().setAttribute("caseManagementEntryForm101",form);
         request.getSession().setAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.class.getName() + ".101", "0");
         return new Fixture(action,manager,form);
