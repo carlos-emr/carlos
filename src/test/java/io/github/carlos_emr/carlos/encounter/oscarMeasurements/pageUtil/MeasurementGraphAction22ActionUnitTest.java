@@ -66,6 +66,12 @@ class MeasurementGraphAction22ActionUnitTest extends CarlosUnitTestBase {
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
 
+    @ParameterizedTest
+    @ValueSource(strings = {"0.1", "100", "-5.25", "0"})
+    void shouldPreserveExactNumericResults_forNumericInput(String result) {
+        assertThat(MeasurementGraphAction22Action.numericResult(result)).isEqualTo(result);
+    }
+
     @BeforeEach
     void setUp() {
         request = new MockHttpServletRequest();
@@ -123,7 +129,8 @@ class MeasurementGraphAction22ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @CsvSource({"<0.1,0.1", ">100,100", "<=5,5", "5 mmol/L,5", "5%,5", "'1,234',1234", "+5.2,5.2", "H 7.4,7.4"})
+    @CsvSource({"<0.1,0.1", ">100,100", "<=5,5", ">=10,10", "≤5,5", "≥10,10",
+            "5 mmol/L,5", "5%,5", "'1,234',1234", "+5.2,5.2", "H 7.4,7.4"})
     @DisplayName("should plot the number in a qualified result, as OSCAR 19 does")
     void shouldPlotTheNumberOfAQualifiedResult_inNumericSeries(String value, String plotted) {
         assertThat(MeasurementGraphAction22Action.numericResult(value)).isEqualTo(plotted);

@@ -463,6 +463,8 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // Lookup management permits reads; order/add/remove require POST. See LookupListManager2ActionUnitTest.
+        "io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action",
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteGroups2Action",
         // Demographic report favourites and patient sets (#4225) are POST-only;
         // report display/run/load remain GET-compatible. Focused RptDemographicReport2ActionUnitTest.
@@ -739,6 +741,7 @@ class MutatorActionGetRejectionContractUnitTest {
      * manifests above and participates in discovery drift checks.
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
+        "io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action",
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteGroups2Action",
         "io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action",
         "io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfigDeleteImmuSet2Action",

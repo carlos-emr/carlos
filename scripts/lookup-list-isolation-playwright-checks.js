@@ -142,12 +142,20 @@ async function workflow(s) {
   // Qualify the native feature before adding any clinic-wide lookup item.
   const prerequisite=await consumer(lists.find(list=>list.name==='consultApptInst'),{preflight:true});
   if(prerequisite.page!==s.schedule&&prerequisite.page!==s.master)await prerequisite.page.close();
-  const optionRows=select=>select.locator('option').evaluateAll(options=>options.map(o=>({value:o.value,id:o.id,text:o.textContent.trim()})));
+  const optionRows=select=>select.locator('option').evaluateAll(options=>options.map(o=>({value:o.value,id:o.id,text:o.textContent.trim(),retired:o.dataset.retired==='true',selected:o.selected})));
   const expectedValue=(list,item)=>list.name==='reasonCode'?item.id:item.value;
   async function offered(list,items,absent=[]) {
     const {page,select}=await consumer(list), options=await optionRows(select);
     for(const item of items)h.assert(options.filter(o=>o.value===expectedValue(list,item)&&o.text===item.label&&(list.name!=='reasonCode'||o.id===item.value)).length===1,'Consumer lost exact lookup value/label/list identity: '+list.name);
-    for(const item of absent)h.assert(!options.some(o=>o.value===expectedValue(list,item)),'Consumer retained removed item without cache eviction: '+list.name);
+    for(const item of absent) {
+      const matches=options.filter(o=>o.value===expectedValue(list,item));
+      const currentRetired=list.name==='practitionerNoType'&&sql.value(`SELECT practitionerNoType FROM provider WHERE provider_no=${q(fixture.providerNo)}`)===item.value;
+      if(currentRetired) {
+        h.assert(matches.length===1&&matches[0].retired&&matches[0].selected
+          &&matches[0].text.startsWith(item.label+' (')&&matches[0].text.endsWith(')'),
+          'Stored retired provider identity must remain selected and visibly marked inactive');
+      }else h.assert(matches.length===0,'Consumer retained removed item without cache eviction: '+list.name);
+    }
     if(!['practitionerNoType','phu'].includes(list.name))await page.close();
   }
   const items=[];let primary,duplicate;
@@ -204,6 +212,9 @@ async function workflow(s) {
   for(const list of lists)for(const [id,value,text,order,active] of rows(list))if(active==='1')try{await remove(list,{id,value,label:text,order});}catch(error){failures.push(error);}
   if(items.length===lists.length&&duplicate&&!failures.length)try{await s.step('all native removals evict each consumer cache before SQL cleanup',async()=>{
     for(let i=0;i<lists.length;i++)await offered(lists[i],[],i===2?[items[i],duplicate]:[items[i]]);
+    const add=await section('Add a Provider Record','select#practitionerNoType');
+    const options=await optionRows(add.locator('#practitionerNoType'));
+    h.assert(!options.some(o=>[items[2].value,duplicate.value].includes(o.value)||o.retired),'New provider offers an inactive identity type');
   });}catch(error){failures.push(error);}
   if(items[1]&&!failures.some(error=>error.message.includes('Native removal')))try{await s.step('tokenless POST and authenticated GET cannot reorder a lookup row',async()=>{
     const item=items[1], before=JSON.stringify(rows(lists[1]));

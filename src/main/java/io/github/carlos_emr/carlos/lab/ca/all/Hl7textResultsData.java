@@ -40,7 +40,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.PATHL7Handler;
 import org.apache.commons.lang3.StringUtils;
@@ -124,14 +123,17 @@ public class Hl7textResultsData {
             k++;
         }
 
+        if (k == matchingLabs.length) {
+            throw new IllegalStateException("The incoming lab is absent from its resolved version chain");
+        }
+        // A late historical delivery must not replace the current version's measurements.
+        if (k != matchingLabs.length - 1) return;
+
         List<String> superseded = new ArrayList<>();
-        if (h instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler && k < matchingLabs.length) {
+        if (h instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler) {
             // An older version delivered after a newer one is history: it used to remove the
             // newer version's measurements and file its own stale values (#5820). The newest
             // version replaces every version before it, including any left by that defect.
-            if (k != matchingLabs.length - 1) {
-                return;
-            }
             superseded.addAll(java.util.Arrays.asList(matchingLabs).subList(0, k));
         } else if (k != 0) {
             superseded.add(matchingLabs[k - 1]);
@@ -415,12 +417,10 @@ public class Hl7textResultsData {
         return projectableValue(result, "lab " + LogSafe.sanitize(lab) + ", OBX " + obr + "-" + obx);
     }
 
-    // FindSecBugs IMPROPER_UNICODE: lowercases a lab result in the server locale to apply the clinic's existing extraction filter; not a security or authorization decision.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Preserve the existing server-locale extraction policy")
     private static String projectableValue(String result, String context) {
         if (result == null || result.isEmpty() || "DNR".equals(result)) return null;
         String trimmed = StringUtils.trimToEmpty(result).replaceAll("\\<br\\s?/?\\>", "").trim();
-        Locale locale = Locale.getDefault();
+        Locale locale = Locale.ROOT;
         String shadow = trimmed.toLowerCase(locale);
         Matcher match = Pattern.compile(CarlosProperties.getInstance()
                 .getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).matcher(shadow);
@@ -428,7 +428,7 @@ public class Hl7textResultsData {
         int start = originalBoundary(trimmed, shadow, match.start(), locale);
         int end = originalBoundary(trimmed, shadow, match.end(), locale);
         if (start < 0 || end < 0) {
-            if (context != null) logger.warn("HL7 measurement filter splits a case-mapped character; not filing an ambiguous literal ({})", context);
+            if (context != null) logger.warn("Result filter split a Unicode case mapping; not filed as a measurement ({})", context);
             return null;
         }
         String value = trimmed.substring(start, end);
@@ -441,8 +441,6 @@ public class Hl7textResultsData {
     }
 
     /** Map a lowercase-shadow boundary without cutting a source character in half. */
-    // FindSecBugs IMPROPER_UNICODE: folds with the same server locale as the extraction filter, solely to map match boundaries back onto the source text.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Use the same server locale as the original extraction filter solely to map source-text boundaries")
     private static int originalBoundary(String source, String shadow, int boundary, Locale locale) {
         if (boundary == 0) return 0;
         if (boundary == shadow.length()) return source.length();
@@ -456,34 +454,6 @@ public class Hl7textResultsData {
             original = next;
         }
         return -1;
-    }
-
-    /**
-     * Puts the versions of a CML report in the lab's own order (see {@code CmlVersionPolicy}).
-     * Membership is unchanged. A member that cannot be read as CML keeps its place at the front,
-     * so nothing is dropped and nothing is refused.
-     */
-    private static String cmlVersionOrder(String chain) {
-        List<String> unread = new ArrayList<>();
-        java.util.Map<Integer, io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler> versions = new java.util.LinkedHashMap<>();
-        for (String id : chain.split(",")) {
-            MessageHandler handler = null;
-            try {
-                handler = Factory.getHandler(id);
-            } catch (RuntimeException unreadable) {
-                logger.debug("CML version order: a version could not be parsed");
-            }
-            if (handler instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler cml) {
-                versions.put(Integer.valueOf(id), cml);
-            } else {
-                unread.add(id);
-            }
-        }
-        List<String> ordered = new ArrayList<>(unread);
-        for (Integer id : io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.order(versions)) {
-            ordered.add(String.valueOf(id));
-        }
-        return String.join(",", ordered);
     }
 
     public static String getMatchingLabs_CLS(String lab_no) {
@@ -529,6 +499,32 @@ public class Hl7textResultsData {
         return sb.toString();
     }
 
+    /** Missing CML source evidence prevents chain-dependent writes, but not viewing the selected report. */
+    public static final class IncompleteCmlVersionChainException extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+
+        private IncompleteCmlVersionChainException(String message) {
+            super(message);
+        }
+    }
+
+    /** A display fallback never certifies the complete chain for a mutation. */
+    public record DisplayLabVersions(String labIds, boolean reliable) { }
+
+    /**
+     * Retains the selected report when a related CML source is unavailable.
+     * Callers must explain the incomplete history and disable mutation controls.
+     * Database failures and invalid source identifiers still propagate.
+     */
+    public static DisplayLabVersions getMatchingLabsForDisplay(String labNo) {
+        try {
+            return new DisplayLabVersions(getMatchingLabs(labNo), true);
+        } catch (IncompleteCmlVersionChainException incomplete) {
+            logger.warn("CML version chain is incomplete; only the selected report may be displayed read-only");
+            return new DisplayLabVersions(labNo, false);
+        }
+    }
+
     public static String getMatchingLabs(String lab_no) {
         String ret = "";
         int monthsBetween = 0;
@@ -537,6 +533,10 @@ public class Hl7textResultsData {
         if (hl7Msg != null && "CLS".equals(hl7Msg.getType())) {
             return getMatchingLabs_CLS(lab_no);
         }
+
+        boolean cml = hl7Msg != null && "CML".equals(hl7Msg.getType());
+        java.util.Map<Integer, io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler> cmlVersions = new java.util.LinkedHashMap<>();
+        java.util.Set<Integer> seenVersions = new java.util.HashSet<>();
 
         for (Object[] o : hl7TxtInfoDao.findByLabIdViaMagic(ConversionUtils.fromIntString(lab_no))) {
             Hl7TextInfo a = (Hl7TextInfo) o[0];
@@ -562,13 +562,29 @@ public class Hl7textResultsData {
             logger.debug("lab_no: " + labNo + " lab: " + lab_no);
 
             if (monthsBetween < 4) {
-                if (ret.equals("")) ret = "" + labNo;
-                else ret = ret + "," + labNo;
+                if (cml) {
+                    if (!seenVersions.add(labNo)) continue;
+                    Hl7TextMessage version = labNo == Integer.parseInt(lab_no)
+                            ? hl7Msg : hl7TxtMsgDao.find(labNo);
+                    if (version == null) throw new IncompleteCmlVersionChainException("A CML version has no stored source message");
+                    if ("CML".equals(version.getType())) {
+                        MessageHandler parser = Factory.getHandler(version);
+                        if (!(parser instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler cmlHandler)) {
+                            throw new IncompleteCmlVersionChainException("A stored CML version cannot be parsed");
+                        }
+                        // Order by the lab's revision evidence, never stale persisted completeness.
+                        cmlVersions.put(labNo, cmlHandler);
+                    }
+                } else {
+                    if (ret.equals("")) ret = "" + labNo;
+                    else ret = ret + "," + labNo;
+                }
             }
         }
 
-        if (hl7Msg != null && "CML".equals(hl7Msg.getType()) && ret.contains(",")) {
-            ret = cmlVersionOrder(ret);
+        if (cml) {
+            ret = io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.order(cmlVersions).stream()
+                    .map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
         }
         if (ret.equals("")) return (lab_no);
         else return (ret);

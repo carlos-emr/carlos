@@ -1066,7 +1066,16 @@ public class CommonLabResultData {
             if (seen.contains(prefix + lab.getSegmentID())) continue;
             String chain = lab.getSegmentID();
             if ("CML".equals(lab.labType)) chain = new MDSResultsData().getMatchingCMLLabs(lab.getSegmentID());
-            else if ("HL7".equals(lab.labType)) chain = Hl7textResultsData.getMatchingLabs(lab.getSegmentID());
+            else if ("HL7".equals(lab.labType)) {
+                try {
+                    chain = Hl7textResultsData.getMatchingLabs(lab.getSegmentID());
+                } catch (Hl7textResultsData.IncompleteCmlVersionChainException unavailable) {
+                    // Keep every visible report instead of losing the entire patient list.
+                    // Opening a report explains the missing chain; writes still use the
+                    // strict lookup and cannot acknowledge/file a guessed single version.
+                    logger.warn("CML version evidence is incomplete; retaining individual visible reports");
+                }
+            }
             List<String> ids = chain == null ? List.of() : java.util.Arrays.asList(chain.split(","));
             if (!ids.contains(lab.getSegmentID())) ids = List.of(lab.getSegmentID());
             LabResultData newestVisible = lab;

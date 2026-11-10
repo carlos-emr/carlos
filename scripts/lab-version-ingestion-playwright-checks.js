@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 'use strict';
-// #5726: ingest genuine original/correction/older messages; never seed a chain.
+// #5726: ingest genuine reports with owned legacy-counter and unreadable-source recovery probes.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const h=require('./lib/playwright-harness'),ui=require('./lib/playwright-ui');
 const {runWorkflow}=require('./lib/workflow-session');
@@ -20,6 +20,7 @@ const VERSIONS={
   original:{key:'ORIGINAL',time:'20260310080000',date:'2026-03-10 08:00:00',value:'5.1',flag:'N',status:'F'},
   corrected:{key:'CORRECTION',time:'20260310120000',date:'2026-03-10 12:00:00',value:'12.7',flag:'H',status:'C'},
   older:{key:'OLDER',time:'20260310070000',date:'2026-03-10 07:00:00',value:'4.3',flag:'N',status:'F'},
+  lateFinal:{key:'LATE_FINAL',time:'20260310120000',date:'2026-03-10 12:00:00',value:'8.6',flag:'N',status:'F'},
 };
 
 /** CML ORU^R01: explicit OBR-7/22/25 and OBX-5/8/11/14, one accession. */
@@ -83,9 +84,10 @@ async function workflow(s) {
       const {accession,filePath,fileName}=source,known=new Map();
       const sourceRows=()=>sql.rows(`SELECT lab_no,obr_date,report_status,final_result_count FROM hl7TextInfo WHERE accessionNum=${q(accession)} ORDER BY lab_no`);
       function capture(version) {
-        const rows=sourceRows().filter(row=>row[1]===version.date);h.assert(rows.length===1,'Version metadata did not retain its exact observation time');
+        const rows=sourceRows().filter(row=>row[1]===version.date&&!known.has(row[0]));h.assert(rows.length===1,'Version metadata did not retain one new source at its exact observation time');
         const [id,date,status,finals]=rows[0];h.assert(/^[1-9]\d*$/.test(id),'Invalid ingested version ID');
         record(status===version.status,version.key+': stored report status differs');
+        record(finals==='1',version.key+': completed observation was not counted');
         const raw=Buffer.from(sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${id}`),'base64').toString('latin1');
         h.assert(raw.includes(`|${version.value}|mmol/L|3-8|${version.flag}|||${version.status}|`),version.key+': raw observation value/flag/status changed');
         h.assert(sql.value(`SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='HL7' AND lab_no=${id} AND demographic_no=${patient}`)==='1'
@@ -98,6 +100,11 @@ async function workflow(s) {
       }
       const original=capture(VERSIONS.original);
       async function inspect(report,id,label) {
+        // The shared navigation helpers tolerate idle timeouts. This matrix
+        // must finish loading each version before another navigation or close
+        // can cancel its scripts; a stalled resource remains a hard failure.
+        await report.waitForLoadState('load',{timeout:30000});
+        await report.waitForLoadState('networkidle',{timeout:30000});
         const version=known.get(id);h.assert(version,'Native report rendered an unowned version');
         const rendered=await report.locator('form[id^="acknowledgeForm_"]').evaluateAll(forms=>forms.map(form=>form.id.replace('acknowledgeForm_','')));
         h.assert(JSON.stringify(rendered)===JSON.stringify([id]),label+': report mixed or changed source identities');
@@ -126,10 +133,10 @@ async function workflow(s) {
         }
         if(s.schedule.isClosed())s.schedule=await s.context.newPage();
         await settled(s.schedule);
-        await s.schedule.waitForFunction(()=>window.jQuery&&window.jQuery.active===0);
         h.relabelStrictPage(s.schedule,'ingested-versions-schedule');
-        if(s.schedule.url()!==s.scheduleUrl)await s.schedule.goto(s.scheduleUrl,{waitUntil:'load'});
-        await s.schedule.locator('#inboxLink').waitFor({state:'attached'});
+        if(s.schedule.url()!==s.scheduleUrl)await s.schedule.goto(s.scheduleUrl,{waitUntil:'networkidle'});
+        await s.schedule.locator('#inboxLink').waitFor({state:'visible'});
+        await s.schedule.waitForFunction(()=>typeof window.jQuery==='function'&&window.jQuery.active===0);
       }
       let opened=await inboxReport(original);await inspect(opened.report,original,'Original before review');
       await s.step('native acknowledgment reviews the original before any correction is ingested',async()=>{
@@ -187,7 +194,7 @@ async function workflow(s) {
         checkControl();h.assertStrictPage(s.recorder);console.log('  Observed '+label+': selected correction, every historical native source, chart current selection and independent control checked');
       }
       let corrected;
-      for(const version of [VERSIONS.corrected,VERSIONS.older]) {
+      for(const version of [VERSIONS.corrected,VERSIONS.older,VERSIONS.lateFinal]) {
         fs.writeFileSync(filePath,Buffer.from(versionMessage(accession,marker,version),'latin1'));
         h.assert(await uploadThroughPopup(s,filePath,fileName)==='Uploaded successfully',version.key+': changed message was not ingested');
         const id=capture(version);if(version===VERSIONS.corrected)corrected=id;
@@ -198,7 +205,85 @@ async function workflow(s) {
         record(JSON.stringify(active)===JSON.stringify([[patient,VERSIONS.corrected.value,VERSIONS.corrected.date,corrected]]),version.key+': active derived measurements do not retain only the corrected value/source');
         console.log('  Observed '+version.key+' source metadata: '+JSON.stringify({versions:sourceRows(),activeMeasurements:active}));
         await verifySurfaces(corrected,version.key+' ingestion');
+        if(version===VERSIONS.corrected){
+          // Existing pre-fix corrections have this persisted counter even though their
+          // immutable C source is complete. Do not manufacture a version chain.
+          sql.execute(`UPDATE hl7TextInfo SET final_result_count=0 WHERE lab_no=${corrected} AND accessionNum=${q(accession)} AND report_status='C' AND final_result_count=1`);
+          h.assert(sql.value(`SELECT final_result_count FROM hl7TextInfo WHERE lab_no=${corrected}`)==='0','Owned legacy completeness fixture was not established');
+          await verifySurfaces(corrected,'historical zero-count correction metadata');
+          record(sql.value(`SELECT final_result_count FROM hl7TextInfo WHERE lab_no=${corrected}`)==='0','A read rewrote historical completeness metadata');
+        }
       }
+      h.assert(known.size===4,'Native version matrix omitted an original, correction, older delivery or same-time late final');
+      await s.step('a missing historical source preserves selected-report and patient-list reads',async()=>{
+        const before=labState(accession),clinical=readPatientState(sql,patient);
+        const stored=sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${original} AND type='CML'`);
+        h.assert(stored,'Owned historical source is missing before the refusal probe');
+        let cleared=false,probe,healthy;
+        const macroRows=()=>sql.rows(`SELECT id,value IS NULL,IFNULL(HEX(value),'') FROM property WHERE provider_no=${q(provider)} AND name='labMacroJSON' ORDER BY id`);
+        const macrosBefore=macroRows();h.assert(macrosBefore.length<=1,'Macro preferences are ambiguous before the owned probe');
+        const macroValue=JSON.stringify([{name:marker+' read-only macro',acknowledge:{comment:'SYNTHETIC READ ONLY PROBE'},closeOnSuccess:false}]);
+        const macroHex=Buffer.from(macroValue,'utf8').toString('hex').toUpperCase();
+        let macrosClaimed=false;
+        const restoreMacros=()=>{
+          if(!macrosClaimed)return;
+          const current=macroRows();
+          if(JSON.stringify(current)===JSON.stringify(macrosBefore)){macrosClaimed=false;return;}
+          h.assert(current.length===1&&current[0][2]===macroHex,'Owned macro preferences changed outside the read-only probe');
+          const id=current[0][0];h.assert(/^[1-9]\d*$/.test(id),'Owned macro property has no valid identity');
+          if(macrosBefore.length){
+            h.assert(id===macrosBefore[0][0],'Macro property ownership changed');
+            sql.execute(`UPDATE property SET value=${macrosBefore[0][1]==='1'?'NULL':`UNHEX(${q(macrosBefore[0][2])})`} WHERE id=${id}`);
+          }else sql.execute(`DELETE FROM property WHERE id=${id} AND provider_no=${q(provider)} AND name='labMacroJSON' AND HEX(value)=${q(macroHex)}`);
+          h.assert(JSON.stringify(macroRows())===JSON.stringify(macrosBefore),'Macro preferences were not restored exactly');
+          macrosClaimed=false;
+        };
+        s.cleanup(restoreMacros);
+        const restore=()=>{
+          if(!cleared)return;
+          const current=sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${original} AND type='CML'`);
+          h.assert(current==='','Historical source changed outside the owned missing-body probe');
+          sql.execute(`UPDATE hl7TextMessage SET message=${q(stored)} WHERE lab_id=${original} AND type='CML' AND message=''`);
+          h.assert(sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${original}`)===stored,'Historical source restoration failed');
+          cleared=false;
+        };
+        s.cleanup(restore);
+        try{
+          macrosClaimed=true;
+          if(macrosBefore.length)sql.execute(`UPDATE property SET value=${q(macroValue)} WHERE id=${macrosBefore[0][0]} AND provider_no=${q(provider)} AND name='labMacroJSON'`);
+          else sql.execute(`INSERT INTO property(provider_no,name,value) VALUES(${q(provider)},'labMacroJSON',${q(macroValue)})`);
+          healthy=await inboxReport(corrected);
+          h.assert(await healthy.inbox.locator(`#labdoc_HL7_${corrected} input[name="flaggedLabs"]`).isEnabled(),'Healthy correction is not selectable in the inbox');
+          h.assert(await healthy.report.locator('.macro-dropdown').isVisible()&&await healthy.report.locator('.macro-dropdown a').filter({hasText:marker+' read-only macro'}).count()===1,'Configured macro menu precondition was not established');
+          await retireReports(healthy);healthy=null;
+          cleared=true;
+          sql.execute(`UPDATE hl7TextMessage SET message='' WHERE lab_id=${original} AND type='CML' AND message=${q(stored)}`);
+          h.assert(sql.value(`SELECT LENGTH(message) FROM hl7TextMessage WHERE lab_id=${original}`)==='0','Missing-body probe was not established');
+          probe=await inboxReport(corrected);await inspect(probe.report,corrected,'Incomplete history');
+          await probe.inbox.locator('input[name="checkA"]').first().check();
+          for(const id of known.keys()){
+            const inboxRow=probe.inbox.locator(`#labdoc_HL7_${id}`);
+            h.assert(await inboxRow.locator('[data-carlos-cml-count-warning="unavailable"]').isVisible(),'Incomplete acknowledgement history has no inbox warning for source '+id);
+            const selection=inboxRow.locator('input[name="flaggedLabs"]');
+            h.assert(await selection.isDisabled()&&!await selection.isChecked(),'Incomplete history remains selectable through bulk Select All for source '+id);
+          }
+          const warning=probe.report.locator('[data-carlos-hl7-chain-warning="unavailable"]');
+          h.assert(await warning.isVisible()&&(await warning.innerText()).length>60,'Incomplete history has no visible explanation');
+          h.assert(await probe.report.locator('.macro-dropdown').count()===0,'Incomplete history still exposes configured macro anchors');
+          h.assert(await probe.report.locator('input[onclick*="ackLab"],button[onclick*="ackLab"],input[onclick*="ForwardSelectedRows"],input[onclick*="unlinkDemographic"],a[href*="SearchPatient"],input[onclick*="SearchPatient"]').count()===0,'Incomplete history still offers a chain-dependent mutation');
+          h.assert(await probe.report.locator('input[onclick*="printPDF"]:enabled').count()===0,'Unverified version headers are still printable');
+          const chart=await s.chart();await chart.reload({waitUntil:'domcontentloaded'});await waitForNavbars(chart,30000);
+          const hrefs=await chart.locator('#leftNavBar a,#rightNavBar a').evaluateAll(nodes=>nodes.map(node=>(node.getAttribute('onclick')||'')+' '+(node.getAttribute('href')||'')));
+          const visible=new Set(hrefs.flatMap(text=>[...text.matchAll(/[?&]segmentID=([1-9]\d*)(?=&|['"]|$)/g)].map(match=>match[1])).filter(id=>known.has(id)));
+          h.assert(visible.size===known.size,'Incomplete history lost a visible patient report');
+          assertPatientStateUnchanged(clinical,readPatientState(sql,patient),'Incomplete history read');checkControl();
+        }finally{
+          try{restore();}finally{restoreMacros();}
+          if(healthy)await retireReports(healthy);
+          if(probe)await retireReports(probe);
+        }
+        h.assert(JSON.stringify(labState(accession))===JSON.stringify(before),'Missing-history read or restoration changed lab state');
+      });
       const beforeReplay=labState(accession),clinicalBeforeReplay=readPatientState(sql,patient);
       fs.writeFileSync(filePath,Buffer.from(versionMessage(accession,marker,VERSIONS.corrected),'latin1'));
       h.assert(await uploadThroughPopup(s,filePath,fileName)==='Already uploaded','Repeated correction was not recognized byte-for-byte');
@@ -206,9 +291,35 @@ async function workflow(s) {
       for(const [id,version] of known)h.assert(Buffer.from(sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${id}`),'base64').toString('latin1')===version.raw,'A historical raw source changed');
       const derived=sql.rows(`SELECT m.id,m.demographicNo,e.val FROM measurements m JOIN measurementsExt e ON e.measurement_id=m.id WHERE e.keyval='lab_no' AND e.val IN (${[...known.keys()].map(q).join(',')})`);
       h.assert(derived.every(([,owner,sourceId])=>owner===patient&&known.has(sourceId)),'Derived measurements refer to the wrong patient/source');checkControl();
-      h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE filename LIKE ${q('%'+fileName+'%')}`)==='3','Correction replay changed checksum identities');
-      h.assert(fs.readdirSync(process.env.LAB_UPLOAD_DOCUMENT_STORE).filter(name=>name.startsWith('LabUpload.'+fileName+'.')).length===3,'Correction replay changed archived-upload count');
+      h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE filename LIKE ${q('%'+fileName+'%')}`)==='4','Correction replay changed checksum identities');
+      h.assert(fs.readdirSync(process.env.LAB_UPLOAD_DOCUMENT_STORE).filter(name=>name.startsWith('LabUpload.'+fileName+'.')).length===4,'Correction replay changed archived-upload count');
       console.log('  Observed exact correction replay: no new version, route, clinical or measurement effect; original raw history preserved');
+      await s.step('the Ajax report route also retains a warned read-only selected report',async()=>{
+        const originalBody=sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${original}`);
+        const before=labState(accession),clinicalBefore=readPatientState(sql,patient);
+        let report;
+        try {
+          // This separate route renders labDisplayAjax.jsp, rather than the
+          // Inbox report popup tested above. Both must refuse write controls.
+          sql.execute(`UPDATE hl7TextMessage SET message='' WHERE lab_id=${original} AND message=${q(originalBody)}`);
+          h.assert(sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${original}`)==='','Owned incomplete source was not established');
+          const incomplete=labState(accession);
+          report=await s.context.newPage();h.relabelStrictPage(report,'incomplete-cml-selected-report');
+          const response=await report.goto(h.appUrl(s.config.baseUrl,`/lab/CA/ALL/ViewLabDisplayAjax?segmentID=${corrected}&showLatest=true`),{waitUntil:'networkidle'});
+          h.assert(response&&response.status()===200,'Incomplete history prevented selected-report display');
+          await inspect(report,corrected,'Incomplete CML history');
+          h.assert(await report.locator('[data-carlos-cml-chain="unavailable"]').isVisible(),'Incomplete history was silently presented as complete');
+          const controls=report.locator('form input,form button,form select,form textarea');
+          h.assert(await controls.count()>0,'Read-only recovery has no guarded report controls');
+          for(const control of await controls.all())h.assert(await control.isDisabled(),'Incomplete history left a report control enabled');
+          h.assert(JSON.stringify(labState(accession))===JSON.stringify(incomplete),'Read-only recovery changed lab sources, reviews or measurements');
+          assertPatientStateUnchanged(clinicalBefore,readPatientState(sql,patient),'Incomplete CML history display');checkControl();
+        } finally {
+          sql.execute(`UPDATE hl7TextMessage SET message=${q(originalBody)} WHERE lab_id=${original} AND message=''`);
+          h.assert(JSON.stringify(labState(accession))===JSON.stringify(before),'Owned historical source was not restored exactly');
+          if(report&&!report.isClosed()){await report.waitForLoadState('networkidle',{timeout:30000});await report.close();}
+        }
+      });
     }});
     checkControl();
   }});

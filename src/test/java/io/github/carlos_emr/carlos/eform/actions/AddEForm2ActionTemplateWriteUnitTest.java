@@ -203,6 +203,43 @@ class AddEForm2ActionTemplateWriteUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRetainExplicitClearsInSavedMarkup_withoutClearingAbsentFields() throws Exception {
+        eFormUtilMock.close();
+        eFormUtilMock = mockStatic(EFormUtil.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+        eFormUtilMock.when(() -> EFormUtil.addEFormValues(any(), any(), anyInt(), anyInt(), anyInt()))
+                .then(invocation -> null);
+        eFormUtilMock.when(() -> EFormUtil.writeEformTemplate(any(), any(), any(), any(), anyString(), anyString(), anyString()))
+                .then(invocation -> null);
+        HashMap<String, Object> template = new HashMap<>();
+        template.put("formName", "Clear defaults");
+        template.put("formHtml", "<html><body><input name='cleared' value='X'><input name='absent' value='X'></body></html>");
+        template.put("formSubject", "");
+        template.put("formDate", "");
+        template.put("formFileName", "clear.html");
+        template.put("formCreator", "doc1");
+        eFormUtilMock.when(() -> EFormUtil.loadEForm(anyString())).thenReturn(template);
+        mockRequest.setParameter("cleared", "");
+        mockRequest.setParameter("whitespace", " \t ");
+        mockRequest.setParameter("retained", " X ");
+        mockRequest.setParameter("saveAsEdoc", "true");
+        doThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("synthetic render failure"))
+                .when(mockDocumentAttachmentManager).saveEFormAsEDoc(any(), any());
+        AddEForm2Action action = spy(new AddEForm2Action());
+        doReturn("Synthetic post-save failure").when(action).getText(anyString());
+        action.execute();
+        var names = org.mockito.ArgumentCaptor.forClass(java.util.ArrayList.class);
+        var values = org.mockito.ArgumentCaptor.forClass(java.util.ArrayList.class);
+        eFormUtilMock.verify(() -> EFormUtil.addEFormValues(names.capture(), values.capture(), eq(42), eq(1), eq(123)));
+        assertThat(names.getValue()).doesNotContain("cleared", "whitespace", "absent");
+        assertThat(values.getValue().get(names.getValue().indexOf("retained"))).isEqualTo(" X ");
+        var savedForm = org.mockito.ArgumentCaptor.forClass(io.github.carlos_emr.carlos.eform.data.EForm.class);
+        verify(mockEformDataManager).saveEformData(any(LoggedInInfo.class), savedForm.capture());
+        org.jsoup.nodes.Document html = org.jsoup.Jsoup.parse(savedForm.getValue().getFormHtml());
+        assertThat(html.selectFirst("input[name=cleared]").val()).isEmpty();
+        assertThat(html.selectFirst("input[name=absent]").val()).isEqualTo("X");
+    }
+
+    @Test
     void shouldWriteChartTemplateOnlyOnce_whenSubmissionIsReplayed() throws Exception {
         mockRequest.setParameter("saveAsEdoc", "true");
         doThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("synthetic render failure"))

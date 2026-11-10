@@ -94,6 +94,19 @@ class CaseManagementGroupNoteHistoryUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("showStoredNoteHistory")).isNull();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"notehistory", "history"})
+    void shouldWithholdSharedHistory_whenTheReadAuditCannotBePersisted(String route) {
+        logActionMock.when(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(user,
+                "read", "CME note", "502", "101", null))
+                .thenThrow(new IllegalStateException("synthetic unavailable audit"));
+        assertThat("history".equals(route) ? action.history() : action.notehistory()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(request.getAttribute("history")).isNull();
+        assertThat(request.getAttribute("demoName")).isNull();
+        assertThat(request.getAttribute("showStoredNoteHistory")).isNull();
+    }
+
     @Test
     void shouldAllowSharedRevision_whenOwnerChartIsUnavailableToRecipient() {
         request.getSession().setAttribute("case_program_id", "7");
@@ -126,7 +139,8 @@ class CaseManagementGroupNoteHistoryUnitTest extends CarlosUnitTestBase {
         assertThat(visible).extracting(CaseManagementNote::getId).containsExactly(502L);
         assertThat(visible.getFirst().getHistory()).isNull();
         assertThat(request.getAttribute("showStoredNoteHistory")).isEqualTo(false);
-        logActionMock.verifyNoInteractions();
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(
+                user, "read", "CME note", "502", "101", null));
     }
 
     @Test

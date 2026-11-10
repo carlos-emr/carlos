@@ -1044,8 +1044,8 @@ public class DemographicManagerImpl implements DemographicManager {
 
         List<Integer> ids = demographicDao.getMergedDemographics(demographicNo);
 
-        LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.getMergedDemographics",
-                "demographicNo=" + demographicNo);
+        LogAction.addLogStrict(loggedInInfo, "DemographicManager.getMergedDemographics", null, null,
+                demographicNo == null ? null : demographicNo.toString(), "demographicNo=" + demographicNo);
 
         return ids;
     }

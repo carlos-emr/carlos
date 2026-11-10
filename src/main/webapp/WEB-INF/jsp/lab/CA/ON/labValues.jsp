@@ -227,6 +227,11 @@
             </tr>
             <tr>
                 <td>
+                    <% if (list == null || list.isEmpty()) { %>
+                    <p class="alert alert-info" data-carlos-lab-history-unavailable="true">
+                        <fmt:message key="lab.measurementHistory.unavailable"/>
+                    </p>
+                    <% } %>
                     <table name="tblDiscs" id="tblDiscs" class="table table-sm table-striped">
                         <thead>
                         <tr class="Field2">
