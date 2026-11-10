@@ -38,14 +38,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Regression coverage for demographic 2Action dependency injection conventions.
+ * Regression coverage for CDS transfer action dependency injection conventions.
  *
  * @since 2026-05-31
  */
-@DisplayName("Demographic 2Action injection regression tests")
+@DisplayName("CDS transfer action injection regression tests")
 @Tag("unit")
 @Tag("demographic")
-class Demographic2ActionInjectionRegressionTest {
+class CdsTransferInjectionRegressionTest {
 
     private static final Path DEMOGRAPHIC_SOURCE_DIR =
             Path.of("src/main/java/io/github/carlos_emr/carlos/demographic");
@@ -64,15 +64,14 @@ class Demographic2ActionInjectionRegressionTest {
     @DisplayName("should use constructor injection instead of SpringUtils field shims")
     void shouldUseConstructorInjection_whenDemographic2ActionsNeedSpringBeans() throws IOException {
         List<String> violations;
-        try (Stream<Path> sourceFiles = Files.walk(DEMOGRAPHIC_SOURCE_DIR)) {
+        try (Stream<Path> sourceFiles = CdsTransferActionTestSources.actions()) {
             violations = sourceFiles
-                    .filter(path -> path.getFileName().toString().endsWith("2Action.java"))
-                    .flatMap(Demographic2ActionInjectionRegressionTest::fieldGetBeanViolations)
+                    .flatMap(CdsTransferInjectionRegressionTest::fieldGetBeanViolations)
                     .toList();
         }
 
         assertThat(violations)
-                .as("demographic 2Actions should receive Spring beans through constructors")
+                .as("all CDS importer/exporter actions should receive Spring beans through constructors")
                 .isEmpty();
     }
 

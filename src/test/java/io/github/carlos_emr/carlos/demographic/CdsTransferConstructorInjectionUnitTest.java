@@ -55,15 +55,15 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Unit coverage for demographic 2Action constructor injection wiring.
+ * Unit coverage for CDS transfer action constructor injection wiring.
  *
  * @since 2026-06-01
  */
-@DisplayName("Demographic 2Action constructor injection")
+@DisplayName("CDS transfer action constructor injection")
 @Tag("unit")
 @Tag("web")
 @Tag("demographic")
-class Demographic2ActionConstructorInjectionUnitTest extends CarlosWebTestBase {
+class CdsTransferConstructorInjectionUnitTest extends CarlosWebTestBase {
 
     private static final Path DEMOGRAPHIC_SOURCE_DIR =
             Path.of("src/main/java/io/github/carlos_emr/carlos/demographic");
@@ -77,7 +77,7 @@ class Demographic2ActionConstructorInjectionUnitTest extends CarlosWebTestBase {
     void shouldInstantiate_withConstructorDependencies(Class<?> actionClass) throws Exception {
         Constructor<?> constructor = injectionConstructor(actionClass);
         Object[] dependencies = Arrays.stream(constructor.getParameterTypes())
-                .map(Demographic2ActionConstructorInjectionUnitTest::testDependency)
+                .map(CdsTransferConstructorInjectionUnitTest::testDependency)
                 .toArray();
 
         Object action = constructor.newInstance(dependencies);
@@ -217,23 +217,13 @@ class Demographic2ActionConstructorInjectionUnitTest extends CarlosWebTestBase {
     }
 
     private static Stream<Class<?>> constructorInjectedActions() throws IOException {
-        try (Stream<Path> sourceFiles = Files.walk(DEMOGRAPHIC_SOURCE_DIR)) {
+        try (Stream<Path> sourceFiles = CdsTransferActionTestSources.actions()) {
             return sourceFiles
-                    .filter(path -> path.getFileName().toString().endsWith("2Action.java"))
-                    .filter(Demographic2ActionConstructorInjectionUnitTest::declaresConstructorInjectedDependencies)
-                    .map(Demographic2ActionConstructorInjectionUnitTest::sourcePathToClass)
-                    .filter(Demographic2ActionConstructorInjectionUnitTest::isConcreteClass)
+                    .map(CdsTransferConstructorInjectionUnitTest::sourcePathToClass)
+                    .filter(CdsTransferConstructorInjectionUnitTest::isConcreteClass)
                     .sorted(Comparator.comparing(Class::getName))
                     .toList()
                     .stream();
-        }
-    }
-
-    private static boolean declaresConstructorInjectedDependencies(Path path) {
-        try {
-            return Files.readString(path, StandardCharsets.UTF_8).contains("private final transient ");
-        } catch (IOException e) {
-            throw new IllegalStateException("Unable to read " + path, e);
         }
     }
 

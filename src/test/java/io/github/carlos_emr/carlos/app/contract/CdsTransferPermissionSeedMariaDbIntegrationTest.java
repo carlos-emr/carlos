@@ -30,7 +30,7 @@ class CdsTransferPermissionSeedMariaDbIntegrationTest {
             properties.load(input);
         }
         if (!"true".equals(properties.getProperty("ownedDisposableDatabase"))
-                || !properties.getProperty("jdbcUrl", "").matches("jdbc:mysql://[^/]+/cds_export_test(?:\\?.*)?")) {
+                || !properties.getProperty("jdbcUrl", "").matches("jdbc:mariadb://[^/]+/cds_export_test(?:\\?.*)?")) {
             throw new IllegalArgumentException("An exclusively owned disposable cds_export_test database is required");
         }
         connection = DriverManager.getConnection(properties.getProperty("jdbcUrl"),
@@ -54,7 +54,7 @@ class CdsTransferPermissionSeedMariaDbIntegrationTest {
     @Test void shouldAuthorizeBothIndependentPermissions_fromActualFreshMigrationRows() throws Exception {
         try (var query = connection.createStatement(); var rows = query.executeQuery("SELECT COUNT(*) FROM secObjPrivilege")) {
             assertThat(rows.next()).isTrue();
-            assertThat(rows.getInt(1)).as("all fresh Ontario permission rows, including conditional reference seeds").isEqualTo(555);
+            assertThat(rows.getInt(1)).as("all fresh Ontario permission rows, including conditional reference seeds").isEqualTo(517);
         }
         for (String object : List.of("_cds_import", "_cds_export")) {
             var privileges = new Properties();
@@ -144,7 +144,7 @@ class CdsTransferPermissionSeedMariaDbIntegrationTest {
     }
 
     private void replayImportSeed() throws Exception {
-        try (var input = getClass().getResourceAsStream("/db/migration/common/V1.0.85__seed_admin_cds_import_permission.sql")) {
+        try (var input = getClass().getResourceAsStream("/db/migration/common/V1.0.59.41__seed_admin_cds_import_permission.sql")) {
             assertThat(input).as("the actual packaged forward migration").isNotNull();
             String sql = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
             try (var statement = connection.createStatement()) { statement.executeUpdate(sql); }

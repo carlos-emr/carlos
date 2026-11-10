@@ -54,7 +54,7 @@ jobs:
           docker exec carlos-tomcat-dev mvn -B -DskipTests test-compile
       - name: Verify canonical web DAO and Struts action wiring
         if: matrix.shard == 'export'
-        run: docker exec carlos-tomcat-dev mvn -B -Dtest=CdsExportLegacyDaoWiringUnitTest,Demographic2ActionConstructorInjectionUnitTest,Demographic2ActionInjectionRegressionTest surefire:test
+        run: docker exec carlos-tomcat-dev mvn -B -Dtest=CdsExportLegacyDaoWiringUnitTest,CdsTransferConstructorInjectionUnitTest,CdsTransferInjectionRegressionTest surefire:test
       - name: Prepare harness workspace ownership
         run: sudo chown -R "$(id -u):$(id -g)" target
       - name: Install hash-pinned harness dependencies
