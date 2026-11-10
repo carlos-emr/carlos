@@ -424,6 +424,20 @@ print(json.dumps({'verified':True,'files':len(expected),'warSha256':manifest['wa
             ):
                 raise RuntimeError("Native fixture preparation incomplete")
             fixture = read_json(PRIVATE + "/fixture.json")
+            stage("OWNED_LOOPBACK_PUBLIC_DRUG_REFERENCE")
+            execute(docker + ["exec", "--detach", runtime, *fixture_command,
+                              "drugref", "/run/cds-ci/jdbc.properties"])
+            run(["python3", "-c", """import time,urllib.request
+end=time.monotonic()+15
+while True:
+ try:
+  with urllib.request.urlopen('http://127.0.0.1:9181/health',timeout=1) as response:
+   assert response.status==200 and response.read()==b'ready'
+  break
+ except Exception:
+  if time.monotonic()>end: raise RuntimeError('Owned public dictionary did not start')
+  time.sleep(0.1)
+"""])
             cli = ["carlos-ctl", "cds-export", "--provider", fixture["provider"]]
             stage("ACTUAL_ROOT_DELEGATED_CLINICAL_CLI")
             submitted_result = run(

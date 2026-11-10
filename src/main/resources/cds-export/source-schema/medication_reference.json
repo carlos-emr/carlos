@@ -1,0 +1,41 @@
+{
+  "table": "medication_reference",
+  "engine": "TRUSTED_PUBLIC_REFERENCE",
+  "columns": [
+    {
+      "name": "GCN_SEQNO",
+      "type": "reference_text_v1",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "drugid",
+      "type": "reference_text_v1",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "public_reference",
+      "type": "reference_json_v1",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "regional_identifier",
+      "type": "reference_text_v1",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    }
+  ],
+  "primaryKeyColumns": [
+    "drugid"
+  ]
+}

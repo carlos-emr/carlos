@@ -47,6 +47,7 @@ public final class CdsExportInstalledFixture {
                             != 0) {
                 throw new IllegalStateException("Disposable root container required");
             }
+            if (args[0].equals("drugref")) { publicDrugReference(); return; }
             Properties jdbc = new Properties();
             Path file = Path.of(args[1]);
             if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)
@@ -245,6 +246,7 @@ public final class CdsExportInstalledFixture {
         config.setProperty("billregion", "ON");
         config.setProperty("carlos.flyway.onBoot", "validate");
         config.setProperty("db_default_use_information_schema", "false");
+        config.setProperty("drugref_url", "http://127.0.0.1:9181/RPC2");
         config.setProperty("cds.export.enabled", "true");
         config.setProperty("cds.export.worker.enabled", "true");
         config.setProperty("cds.import.worker.enabled", "false");
@@ -392,6 +394,57 @@ public final class CdsExportInstalledFixture {
     }
 
     /** The native chart deliberately has no CDS import parent or retained fields. */
+    /** Public synthetic dictionary only. This helper is external to the immutable installed WAR. */
+    private static com.sun.net.httpserver.HttpServer publicDrugReference() throws Exception {
+        var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1",9181),0);
+        server.createContext("/health", exchange -> {
+            byte[] body="ready".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200,body.length);
+            try(var out=exchange.getResponseBody()) { out.write(body); }
+        });
+        server.createContext("/RPC2", exchange -> {
+            try {
+                if (!exchange.getRequestMethod().equals("POST")) { exchange.sendResponseHeaders(405,-1); return; }
+                byte[] request;
+                try(var input=exchange.getRequestBody()) { request=input.readNBytes(8193); }
+                if(request.length>8192) { exchange.sendResponseHeaders(413,-1); return; }
+                var factory=javax.xml.parsers.DocumentBuilderFactory.newInstance();
+                factory.setFeature(javax.xml.XMLConstants.FEATURE_SECURE_PROCESSING,true);
+                factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl",true);
+                factory.setAttribute(javax.xml.XMLConstants.ACCESS_EXTERNAL_DTD,"");
+                factory.setAttribute(javax.xml.XMLConstants.ACCESS_EXTERNAL_SCHEMA,"");
+                var document=factory.newDocumentBuilder().parse(new java.io.ByteArrayInputStream(request));
+                var methods=document.getElementsByTagName("methodName");
+                var params=document.getElementsByTagName("param");
+                if(methods.getLength()!=1 || !methods.item(0).getTextContent().equals("get_drug_by_DIN") || params.getLength()!=2
+                        || !params.item(0).getTextContent().strip().equals("00999999")
+                        || !Set.of("0","false").contains(params.item(1).getTextContent().strip())) {
+                    exchange.sendResponseHeaders(400,-1); return;
+                }
+                String xml="<?xml version=\"1.0\"?><methodResponse><params><param><value><array><data><value><struct>"
+                        +"<member><name>regional_identifier</name><value><string>00999999</string></value></member>"
+                        +"<member><name>product</name><value><string>Native reference tablet</string></value></member>"
+                        +"<member><name>components</name><value><array><data><value><struct>"
+                        +"<member><name>name</name><value><string>Native ingredient</string></value></member>"
+                        +"<member><name>strength</name><value><string>5</string></value></member>"
+                        +"<member><name>unit</name><value><string>mg</string></value></member>"
+                        +"</struct></value><value><struct>"
+                        +"<member><name>name</name><value><string>Second ingredient</string></value></member>"
+                        +"<member><name>strength</name><value><string>125</string></value></member>"
+                        +"<member><name>unit</name><value><string>mg</string></value></member>"
+                        +"</struct></value></data></array></value></member>"
+                        +"</struct></value></data></array></value></param></params></methodResponse>";
+                byte[] response=xml.getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().set("Content-Type","text/xml; charset=UTF-8");
+                exchange.sendResponseHeaders(200,response.length);
+                try(var out=exchange.getResponseBody()) { out.write(response); }
+            } catch(Exception failure) { exchange.sendResponseHeaders(500,-1); }
+            finally { exchange.close(); }
+        });
+        server.start();
+        return server;
+    }
+
     private static void nativeMedications(Connection db, int patient) throws Exception {
         update(db, "INSERT INTO prescription(provider_no,demographic_no,date_prescribed,date_printed,dates_reprinted,rx_comments,textView,lastUpdateDate)"
                 + " VALUES(?,?,'2026-07-10','2026-07-11','2026-07-12','Native script comment café 😀','Native printed prescription SIG café 😀','2026-07-12 12:30:00')", PROVIDER, patient);
@@ -402,6 +455,8 @@ public final class CdsExportInstalledFixture {
                 + " VALUES(?,?,?,0,?,'Independent native brand','00123456','5 mg',0.5,1,'tablet','tablet','PO','OD','2','W','30',2,0,1,'Native display archive',0,'Active',0,0,'2026-07-12 12:30:00','2026-07-10','2026-07-11','Native medication provider note café 😀','Authored native SIG café 😀','Take after food')", PROVIDER, patient, script, "Native archived treatment");
         update(db, "INSERT INTO drugs(provider_no,demographic_no,script_no,GCN_SEQNO,BN,regional_identifier,dosage,unit,unitName,route,freqcode,duration,durunit,quantity,`repeat`,prn,archived,past_med,position,dispenseInternal,lastUpdateDate,written_date,rx_date,comment)"
                 + " VALUES(?,?,?,0,'Native status unknown treatment','00012345','2 mg','tablet','tablet','PO','BID','1','M','10',0,0,0,0,1,0,'2026-07-12 12:30:00','2026-07-10','2026-07-12','Native unknown-currentness source note')", PROVIDER, patient, script);
+        update(db, "INSERT INTO drugs(provider_no,demographic_no,script_no,GCN_SEQNO,BN,regional_identifier,dosage,takemin,takemax,unit,unitName,route,freqcode,duration,durunit,quantity,`repeat`,prn,archived,past_med,rxStatus,position,dispenseInternal,lastUpdateDate,written_date,rx_date,comment)"
+                + " VALUES(?,?,?,17,'Authored generic medication','00999999','5 mg / 125 mg',1,1,'tablet','tablet','PO','OD','2','D','20',0,0,0,0,'Active',2,0,'2026-07-12 12:30:00','2026-07-10','2026-07-12','Native verified catalogue prescription')", PROVIDER, patient, script);
     }
 
     private static void nativeLaboratory(Connection db, int patient) throws Exception {
@@ -547,7 +602,7 @@ public final class CdsExportInstalledFixture {
         if (count(db,"SELECT COUNT(*) FROM patientLabRouting WHERE demographic_no=? AND lab_type='HL7'",patient)!=1
                 || count(db,"SELECT COUNT(*) FROM cds_laboratory_result WHERE demographicNo=?",patient)!=0)
             throw new IllegalStateException("Native laboratory changed");
-        if (count(db,"SELECT COUNT(*) FROM drugs WHERE demographic_no=?",patient)!=2
+        if (count(db,"SELECT COUNT(*) FROM drugs WHERE demographic_no=?",patient)!=3
                 || count(db,"SELECT COUNT(*) FROM drugs WHERE demographic_no=? AND archived=1 AND rxStatus='Active'",patient)!=1
                 || count(db,"SELECT COUNT(*) FROM prescription WHERE demographic_no=?",patient)!=2)
             throw new IllegalStateException("Native prescriptions changed");

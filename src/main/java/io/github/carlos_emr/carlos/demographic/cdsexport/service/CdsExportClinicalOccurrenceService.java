@@ -485,6 +485,8 @@ public class CdsExportClinicalOccurrenceService {
                             readLookups(lease, patient, tables, source, bounds, control, table);
                     var precision = lookups.precision();
                     var providers = lookups.providers();
+                    var references = lookups.references();
+                    var referenceRows = Map.copyOf(references);
                     var usedFields = new HashSet<String>();
                     var finished =
                             rows.forEach(
@@ -518,7 +520,8 @@ public class CdsExportClinicalOccurrenceService {
                                                                         patient.patient(),
                                                                         row,
                                                                         dates,
-                                                                        providers);
+                                                                        providers,
+                                                                        references.remove(id));
                                                 fields = mapping.fields();
                                                 content =
                                                         writer ->
@@ -596,6 +599,9 @@ public class CdsExportClinicalOccurrenceService {
                                         assessedRows.add(row);
                                         assessedRows.addAll(dates);
                                         if (table.equals("drugs")) {
+                                            var reference = referenceRows.get(id);
+                                            if (reference != null && importedUnit == null)
+                                                assessedRows.add(reference);
                                             String provider = row.fields().get("provider_no");
                                             if (provider != null && !provider.isEmpty()) {
                                                 var resolved = providers.get(provider);
@@ -644,6 +650,7 @@ public class CdsExportClinicalOccurrenceService {
                     if (!finished.equals(source.capture())
                             || !precision.isEmpty()
                             || !exact.isEmpty()
+                            || !references.isEmpty()
                             || counts[0] != source.capture().tables().get(table).rows()) scope();
                     if (!imported.isEmpty()) review();
                     var expectedFields = new HashSet<String>();
@@ -666,7 +673,8 @@ public class CdsExportClinicalOccurrenceService {
 
     private record Lookups(
             Map<String, List<CdsExportCapturedTextRowDto>> precision,
-            Map<String, CdsExportCapturedTextRowDto> providers) {
+            Map<String, CdsExportCapturedTextRowDto> providers,
+            Map<String, CdsExportCapturedTextRowDto> references) {
         @Override
         public String toString() {
             return "Lookups[protected]";
@@ -684,9 +692,14 @@ public class CdsExportClinicalOccurrenceService {
             throws IOException {
         var precision = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
         var providers = new HashMap<String, CdsExportCapturedTextRowDto>();
+        var references = new HashMap<String, CdsExportCapturedTextRowDto>();
         long[] lookup = new long[2];
-        var lookupTables =
-                table.equals("drugs") ? Set.of("partial_date", "provider") : Set.of("partial_date");
+        var lookupTables = new HashSet<String>();
+        lookupTables.add("partial_date");
+        if (table.equals("drugs")) {
+            lookupTables.add("provider");
+            if (tables.contains("medication_reference")) lookupTables.add("medication_reference");
+        }
         var first =
                 rows.forEachTable(
                         lease,
@@ -696,7 +709,7 @@ public class CdsExportClinicalOccurrenceService {
                         source.manifest(),
                         bounds.fields(),
                         bounds.bytes(),
-                        65_536,
+                        262_144,
                         control,
                         row -> {
                             if (++lookup[0] > bounds.lookupRows()) limit();
@@ -708,6 +721,11 @@ public class CdsExportClinicalOccurrenceService {
                                                     value.getBytes(StandardCharsets.UTF_8).length
                                                             + 64L);
                             if (lookup[1] > bounds.indexBytes()) limit();
+                            if (row.table().equals("medication_reference")) {
+                                String id = row.fields().get("drugid");
+                                if (id == null || references.putIfAbsent(id, row) != null) scope();
+                                return;
+                            }
                             if (row.table().equals("provider")) {
                                 String id = row.fields().get("provider_no");
                                 if (id == null
@@ -743,7 +761,7 @@ public class CdsExportClinicalOccurrenceService {
                                     .add(row);
                         });
         if (!first.equals(source.capture())) scope();
-        return new Lookups(precision, providers);
+        return new Lookups(precision, providers, references);
     }
 
     private Map<String, CdsExportNativeRowReceiptDto> scanWitnesses(

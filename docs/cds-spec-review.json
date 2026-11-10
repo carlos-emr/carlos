@@ -2890,10 +2890,16 @@
       "disposition": "native-and-source",
       "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
       "implementation": [
+        "src/main/java/io/github/carlos_emr/carlos/commn/dao/DrugDaoImpl.java#readCdsExportDrugReferenceInputs",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportDrugReferenceDto.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceLookupService.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceProjectionService.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceSourceReader.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeMedicationMapper.java",
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java"
       ],
-      "normalization": "Source product identity is literal; no inferred local code.",
+      "normalization": "Source product identity is literal; no inferred local code. Native export qualifies database-selected DINs using a frozen configured DrugRef unique-DIN lookup, outside any clinical transaction and bound to unchanged scalar patient drug identities/code/catalogue keys. Representative DINs may differ from authored names and native strength text (guide10.1); those source values are never replaced. Guide10.5 requires the amount of the first database ingredient, including combination products; the entire ordered ingredient reference and original native strength remain source context. Unqualified custom identifiers never become DINs. Missing/invalid reference data requires review; transport/protocol outages are distinct I/O failures. Native OD maps to CT-024 QD; original codes remain exact source context.",
       "normativeBasis": [
         "EMR Data Migration Implementation Guide v1.1 section 10 (MedicationsAndTreatments)",
         "EMR Data Migration Requirements v1.1 DP02.01",
@@ -2913,6 +2919,10 @@
       ],
       "testScope": "Named tests cover representative projections, refusal and reader semantics. The separate all-choice corpus proves every listed structural path reaches the real schema validator/parser; it does not claim a native round-trip assertion per leaf.",
       "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceLookupServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceProtocolUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceSourceReaderUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeMedicationMapperUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/CdsXmlParserUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/assembler/CdsSourceFieldsViewModelAssemblerUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
@@ -3173,10 +3183,16 @@
       "disposition": "native-and-source",
       "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
       "implementation": [
+        "src/main/java/io/github/carlos_emr/carlos/commn/dao/DrugDaoImpl.java#readCdsExportDrugReferenceInputs",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportDrugReferenceDto.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceLookupService.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceProjectionService.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceSourceReader.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeMedicationMapper.java",
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java"
       ],
-      "normalization": "Each component has a 32768-codepoint preparation budget; oversized component uses visible full-source reference and reconciliation flag, not a prefix.",
+      "normalization": "Each component has a 32768-codepoint preparation budget; oversized component uses visible full-source reference and reconciliation flag, not a prefix. Native export qualifies database-selected DINs using a frozen configured DrugRef unique-DIN lookup, outside any clinical transaction and bound to unchanged scalar patient drug identities/code/catalogue keys. Representative DINs may differ from authored names and native strength text (guide10.1); those source values are never replaced. Guide10.5 requires the amount of the first database ingredient, including combination products; the entire ordered ingredient reference and original native strength remain source context. Unqualified custom identifiers never become DINs. Missing/invalid reference data requires review; transport/protocol outages are distinct I/O failures. Native OD maps to CT-024 QD; original codes remain exact source context.",
       "normativeBasis": [
         "EMR Data Migration Implementation Guide v1.1 section 10 (MedicationsAndTreatments)",
         "EMR Data Migration Requirements v1.1 DP02.01",
@@ -3196,6 +3212,10 @@
       ],
       "testScope": "Named tests cover representative projections, refusal and reader semantics. The separate all-choice corpus proves every listed structural path reaches the real schema validator/parser; it does not claim a native round-trip assertion per leaf.",
       "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceLookupServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceProtocolUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceSourceReaderUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeMedicationMapperUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/CdsXmlParserUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/assembler/CdsSourceFieldsViewModelAssemblerUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
@@ -3918,12 +3938,14 @@
     "REST/SOAP identifier minimization review: the shared DemographicService changes affect bulk patient-selection DTOs and the locked identifier-preserving write boundary. Existing single-patient HIN disclosure remains behind its scoped demographic read check; SIN is omitted by the named DTO converters. CDS category authorization, source-only disclosure, native/source field dispositions and temporal read semantics are unchanged. The source hash is refreshed for this resource only; schema pins, path classifications, choice evidence and structural fixture bytes remain unchanged. Final-head Java/Python and native acceptance results are recorded in the REST/SOAP acceptance ledger.",
     "Release exporter review: verified DIN-only standard allergy Code against guide section 9; added explicit ATC residual import/export with strict duplicate/conflict/value checks and native class storage. Existing sealed preparation bytes and legacy ATC projection remain unchanged through an omitted-default provenance flag, applied only after seal verification. Archived residual state now emits an explicit warning. Reviewed the changed normalization, persister and import warning paths and the five named preparation/round-trip suites; refreshed only specification review bindings. Native receipts, accepted preparation seals, schema pins and synthetic structural fixture bytes are not rewritten.",
     "2026-11-10 native medication carrier review: the pinned XSD explicitly permits MedicationsAndTreatments/ResidualInfo. Reviewed the exact archive boolean parser, separate clinical-status/archive behavior, unchanged original payload verification before default application, strict unknown/duplicate handling and complete opaque source preservation. The 101 focused native/receiving/coordinated tests pass; this review does not assert vendor-context interpretation by other receivers or qualify unlabelled regional identifiers as DINs.",
-    "Native medication archive carrier handling also emits an explicit vendor archive context warning during the existing import unit. This notice does not alter the independent clinical status/currentness projection or preparation seal verification."
+    "Native medication archive carrier handling also emits an explicit vendor archive context warning during the existing import unit. This notice does not alter the independent clinical status/currentness projection or preparation seal verification.",
+    "2026-11-10 DIN/strength/frequency review against the supplied OntarioMD dictionary rows144-147/153 and implementation guide10.1/10.5: typed DrugRef authority is frozen before the source transaction and rebound to actual captured scalar drug identities, with no network request inside that transaction and no patient data sent to DrugRef. Representative DIN name differences are valid. Standard strength uses the first database ingredient for coded medications, with every component and the original native strength preserved independently. CT-024 explicitly lists QD for once daily. Actual XML-RPC protocol and native mapping tests exercise the external installed dictionary fixture."
   ],
   "reviewedImplementationSha256": {
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/CaseManagementNoteDAOImpl.java": "c085f5c85d5795d0009130c5e373fc1e8c849d954a37eb6744d2372dcecbbe7e",
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/model/CaseManagementNote.java": "5b70829b90de1a57bfabae506840a8ff93d17e93af2adba7b0ea6a38b2b6f9cb",
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/model/CaseManagementNoteExt.java": "fcb75e43347139bf853c54f7e646226c93c20c71e7ebb1006a3fe8b9e7798a5b",
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DrugDaoImpl.java": "099df21e9db8c17d6faf134a9996740e59d0e0523df05d9537cdc7b064806665",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Appointment.java": "7969638419911fc8f21364e754fee8d65134f0381a575212e4fd0c82fca1d9d4",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Contact.java": "d99fcad3390fc32ccc49a5bd6b834ef68ab22ee87c2b2dc665fc340aa18cc1ad",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Demographic.java": "11c53bb30e924c6b483e2a81b2bcfe922c33ed5759c3aee078dde4e99800c782",
@@ -3934,6 +3956,11 @@
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeExtensionContract.java": "72acb519cac1b1e42beb0e881315580847c8283703b4c9b902a44e398a69bf52",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPreparedAllergyDefaults.java": "21d0efa50e05aadfb9d823c026e3f9f663aad9465b5be2b100a1523583cd7477",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPreparedHistoryDefaults.java": "acf6c0755d5e794e3ed2576afb82ff7f5985747781c91a1b2a2bd3ea175d7c48",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportDrugReferenceDto.java": "5043e4045ffc6bca0268d686465fca46f23947a91aff600c186faae0f6f309e8",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceLookupService.java": "b2e745d4568d3db9bc193415e49e6a70f84fcba09cc1929ac63de16ffb0fc91b",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceProjectionService.java": "c2085c72cd13965a577731eadb067fe82f744980818ba0a234ad72d8eb53a357",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceSourceReader.java": "b6c198929cbd84627e4c3409a7e7dcd70d8aa16fe6e3454d63dfb20fd99b0d9d",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeMedicationMapper.java": "964e224f17cdc6a74f77bdc456ffd7c0b0a0eea4f6e22ed0d1eafbb13c60c863",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsAllergyDto.java": "9f081a1e16b6cab9d4eb5b8c924046c95e84584bcd018720508706ef6476f66f",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsDemographicNativeDto.java": "3f903623636da5d822c5d539167f4efbb10220f0c8ef69727e698460c3e5e911",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsHistoryNativeDto.java": "e193e07f9a4737553b8cdbcdcb8aeb082deb054382e735b1bf741f89e47cd6a0",

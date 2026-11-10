@@ -56,6 +56,112 @@ class CdsExportNativeMedicationMapperUnitTest {
         return fields;
     }
 
+    private static CdsExportCapturedTextRowDto publicReference(Map<String, String> source)
+            throws Exception {
+        return new CdsExportCapturedTextRowDto(
+                "medication_reference",
+                CdsExportPatientTableSourceReader.key(51),
+                Map.of(
+                        "drugid",
+                        "51",
+                        "GCN_SEQNO",
+                        source.get("GCN_SEQNO"),
+                        "regional_identifier",
+                        source.get("regional_identifier"),
+                        "public_reference",
+                        JsonMapper.builder()
+                                .build()
+                                .writeValueAsString(
+                                        CdsExportDrugReferenceSourceReaderUnitTest.reference())));
+    }
+
+    @Test
+    void
+            shouldPreserveRepresentativeDinNamesAndCompleteCombinationStrength_withoutCatalogueSubstitution()
+                    throws Exception {
+        var fields = source();
+        fields.put("GCN_SEQNO", "17");
+        fields.put("customName", "Authored generic name");
+        fields.put("BN", "Historical source brand");
+        fields.put("dosage", "5 mg / 125 mg");
+        var reference =
+                new CdsExportDrugReferenceDto(
+                        1,
+                        CdsExportDrugReferenceDto.AUTHORITY,
+                        "00123456",
+                        "Different representative brand",
+                        List.of(
+                                new CdsExportDrugReferenceDto.Component(
+                                        "First ingredient", "5", "mg"),
+                                new CdsExportDrugReferenceDto.Component(
+                                        "Second ingredient", "125", "mg")));
+        var proof =
+                new CdsExportCapturedTextRowDto(
+                        "medication_reference",
+                        CdsExportPatientTableSourceReader.key(51),
+                        Map.of(
+                                "drugid",
+                                "51",
+                                "GCN_SEQNO",
+                                "17",
+                                "regional_identifier",
+                                "00123456",
+                                "public_reference",
+                                JsonMapper.builder().build().writeValueAsString(reference)));
+        var result = mapper.map(27, medication(fields), List.of(), Map.of(), proof);
+        assertThat(result.value().fields())
+                .containsEntry(Field.DrugName, "Authored generic name")
+                .containsEntry(Field.DrugDescription, "5 mg / 125 mg")
+                .containsEntry(Field.DrugIdentificationNumber, "00123456");
+        assertThat(result.value().strengthAmount()).isEqualTo("5");
+        assertThat(result.metadata())
+                .contains("Historical source brand", "Second ingredient", "125");
+        render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(result, xml));
+    }
+
+    @Test
+    void shouldEmitTheVerifiedDinAndTypedIngredientStrength_forDatabaseSelectedMedication()
+            throws Exception {
+        var fields = source();
+        fields.put("GCN_SEQNO", "17");
+        fields.put("customName", null);
+        fields.put("BN", "Native reference tablet");
+        fields.put("dosage", "5 mg");
+        var result =
+                mapper.map(27, medication(fields), List.of(), Map.of(), publicReference(fields));
+        assertThat(result.value().fields())
+                .containsEntry(Field.DrugIdentificationNumber, "00123456");
+        assertThat(result.value().strengthAmount()).isEqualTo("5");
+        assertThat(result.value().strengthUnit()).isEqualTo("mg");
+        var assessed = List.of(medication(fields), publicReference(fields));
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(assessed, result.fields(), 1000, () -> {});
+        render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(result, xml));
+    }
+
+    @Test
+    void shouldRefuseStaleOrConflictingDrugReferenceEvidence_insteadOfInventingAuthority()
+            throws Exception {
+        var fields = source();
+        fields.put("GCN_SEQNO", "17");
+        fields.put("customName", null);
+        fields.put("BN", "Native reference tablet");
+        fields.put("dosage", "5 mg");
+        assertThatThrownBy(() -> mapper.map(27, medication(fields), List.of(), Map.of()))
+                .isInstanceOf(java.io.IOException.class);
+        var reference = publicReference(fields);
+        for (var change :
+                List.of(Map.of("regional_identifier", "99999999"), Map.of("GCN_SEQNO", "18"))) {
+            var edited = new LinkedHashMap<>(fields);
+            edited.putAll(change);
+            assertThatThrownBy(
+                            () ->
+                                    mapper.map(
+                                            27, medication(edited), List.of(), Map.of(), reference))
+                    .isInstanceOf(java.io.IOException.class);
+        }
+    }
+
     @Test
     void shouldPreserveThePrintedNativeSigAndPharmacyInstructions_inTheirOwnLabeledValues()
             throws Exception {
@@ -67,8 +173,8 @@ class CdsExportNativeMedicationMapperUnitTest {
                 .containsEntry(
                         Field.PrescriptionInstructions,
                         "Authored native SIG café 😀\n"
-                            + "[Native pharmacy instructions]\n"
-                            + "Exact pharmacy instruction");
+                                + "[Native pharmacy instructions]\n"
+                                + "Exact pharmacy instruction");
         assertThat(result.metadata())
                 .contains("Authored native SIG café 😀", "Exact pharmacy instruction");
         fields.put("archived", null);
@@ -85,7 +191,7 @@ class CdsExportNativeMedicationMapperUnitTest {
         assertThat(result.value().fields())
                 .containsEntry(Field.DrugDescription, "5 mg / 10 mL")
                 .containsEntry(Field.Duration, "14")
-                .containsEntry(Field.Frequency, "daily")
+                .containsEntry(Field.Frequency, "QD")
                 .doesNotContainKeys(
                         Field.DrugIdentificationNumber,
                         Field.PastMedications,

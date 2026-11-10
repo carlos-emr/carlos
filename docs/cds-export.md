@@ -1764,7 +1764,7 @@ empty text and IEEE dose witnesses, is also preserved in `CARLOS.Medication.Sour
 pinned medication `ResidualInfo`. Unstructured strength remains exact `DrugDescription` and
 source context; it is never split into an invented amount/unit. An unlabelled native regional
 identifier stays explicitly unqualified source context and is not asserted as a Health Canada
-DIN. Native `OD` is daily; native duration weeks/months use the prescription calculator's exact
+DIN. Native `OD` maps to CT-024 `QD`; native duration weeks/months use the prescription calculator's exact
 7/30-day rules without multiplying refills. Unknown status and a false past-medication flag do
 not establish current treatment. Unbound import-provenance markers require review.
 
@@ -1784,3 +1784,19 @@ signature identifiers remain non-executable context and actual signature payload
 separate source-catalogue gate. The complete-table source descriptor is generated with
 `python scripts/generate-cds-export-source-schema.py --table prescription`; both pinned physical
 profiles must agree, and the table ruling/ownership/mapping remain explicit review inputs.
+
+Database-selected native prescriptions also capture an immutable public DrugRef reference. A
+short scalar discovery transaction closes before any network call. Only the DIN and the public
+lookup option enter the existing native XML-RPC protocol; patient identity, names, dose, SIG and
+chart data are never sent. Capture compares the prepared scalar identities/code/catalogue keys
+with the actual patient snapshot. Changed inputs, unknown codes and malformed reference products
+refuse qualification; network/protocol outages remain distinct I/O failures. Custom prescriptions
+with no native catalogue selection keep unqualified identifiers as source context.
+
+Representative DINs may legitimately differ from the authored medication name and native
+strength text (guide10.1). The exporter preserves those source values and, as guide10.5 requires,
+exports the first database ingredient's typed strength amount/unit for a database-selected DIN,
+including combination products. It retains the complete ordered ingredient reference separately;
+it never splits free text or replaces an authored name with a catalogue product name. The actual
+installed fixture includes a representative-DIN combination product and verifies the real
+XML-RPC client against an owned loopback public dictionary outside the immutable WAR.

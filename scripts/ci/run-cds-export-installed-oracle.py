@@ -221,26 +221,31 @@ def medication_expected() -> list[dict[str, str]]:
               "c:PrescriptionWrittenDate/d:FullDate": "2026-07-10", "c:DosageUnitOfMeasure": "tablet", "c:Route": "PO"}
     return [
         {**author, "c:DrugName": "Native archived treatment", "c:DrugDescription": "5 mg", "c:Dosage": "0.5-1",
-         "c:Frequency": "daily", "c:Duration": "14", "c:Quantity": "30", "c:NumberOfRefills": "2",
+         "c:Frequency": "QD", "c:Duration": "14", "c:Quantity": "30", "c:NumberOfRefills": "2",
          "c:PrescriptionStatus": "Active", "c:PastMedications/d:ynIndicatorsimple": "N",
          "c:StartDate/d:FullDate": "2026-07-11", "c:Notes": "Native medication provider note café 😀",
          "c:PrescriptionInstructions": "Authored native SIG café 😀\n[Native pharmacy instructions]\nTake after food"},
         {**author, "c:DrugName": "Native status unknown treatment", "c:DrugDescription": "2 mg", "c:Frequency": "BID",
          "c:Duration": "30", "c:Quantity": "10", "c:NumberOfRefills": "0", "c:StartDate/d:FullDate": "2026-07-12",
          "c:Notes": "Native unknown-currentness source note"},
+        {**author, "c:DrugName": "Authored generic medication", "c:DrugIdentificationNumber": "00999999",
+         "c:Strength/d:Amount": "5", "c:Strength/d:UnitOfMeasure": "mg", "c:Dosage": "1",
+         "c:DrugDescription": "5 mg / 125 mg", "c:Frequency": "QD", "c:Duration": "2", "c:Quantity": "20",
+         "c:NumberOfRefills": "0", "c:PrescriptionStatus": "Active", "c:PastMedications/d:ynIndicatorsimple": "N",
+         "c:StartDate/d:FullDate": "2026-07-12", "c:Notes": "Native verified catalogue prescription"},
     ]
 
 
 def medication_equal(record, patient: int) -> bool:
     medications = record.findall("c:MedicationsAndTreatments", NS)
-    if len(medications) != 2:
+    if len(medications) != 3:
         return False
     contexts = []
     for index, (medication, expected_values) in enumerate(zip(medications, medication_expected(), strict=True)):
         if any(len(medication.findall(path, NS)) != 1 or medication.find(path, NS).text != value
                for path, value in expected_values.items()):
             return False
-        if medication.find("c:DrugIdentificationNumber", NS) is not None or medication.find("c:Strength", NS) is not None:
+        if index != 2 and (medication.find("c:DrugIdentificationNumber", NS) is not None or medication.find("c:Strength", NS) is not None):
             return False
         if index == 1 and any(medication.find("c:" + name, NS) is not None
                               for name in ("PrescriptionStatus", "PastMedications", "Dosage")):
@@ -250,9 +255,9 @@ def medication_equal(record, patient: int) -> bool:
             return False
         context = json.loads(medication.find("c:ResidualInfo/d:DataElement[d:Name='CARLOS.Medication.Source.v1']/d:Content", NS).text)
         fields = context["fields"]
-        if (context.get("version") != 1 or context.get("regionalIdentifierAuthority") != "UNQUALIFIED"
+        if (context.get("version") != 1 or context.get("regionalIdentifierAuthority") != ("HEALTH_CANADA_DIN_VIA_DRUGREF" if index == 2 else "UNQUALIFIED")
                 or fields["demographic_no"] != str(patient)
-                or fields["regional_identifier"] != ("00123456" if index == 0 else "00012345")
+                or fields["regional_identifier"] != ("00123456", "00012345", "00999999")[index]
                 or fields["archived"] != ("1" if index == 0 else "0")
                 or fields["cds_currentness"] is not None or fields["cds_dose_text"] is not None):
             return False
@@ -297,7 +302,7 @@ def _clinically_equal(root, patient: int) -> bool:
         return False
     record = root.find("./c:PatientRecord", NS)
     categories = ["Demographics", "PersonalHistory", "FamilyHistory", "PastHealth", "ProblemList",
-                  "RiskFactors"] + ["MedicationsAndTreatments"] * 2 + ["LaboratoryResults"] * 4 + ["ClinicalNotes", "Reports"] + ["CareElements"] * 3 + ["AlertsAndSpecialNeeds"] + ["NewCategory"] * 8
+                  "RiskFactors"] + ["MedicationsAndTreatments"] * 3 + ["LaboratoryResults"] * 4 + ["ClinicalNotes", "Reports"] + ["CareElements"] * 3 + ["AlertsAndSpecialNeeds"] + ["NewCategory"] * 8
     if [item.tag for item in record] != ["{cds}" + name for name in categories]:
         return False
     return medication_equal(record, patient) and history_equal(record) and report_equal(record) and laboratory_equal(record) and care_equal(record, patient) and all(len(root.findall(BASE + path, NS)) == 1 and root.find(BASE + path, NS).text == value
@@ -366,6 +371,8 @@ def main() -> int:
             ("../c:MedicationsAndTreatments[1]/c:Dosage", "0.5-2"),
             ("../c:MedicationsAndTreatments[1]/c:ResidualInfo/d:DataElement[d:Name='CARLOS.Medication.Archived.v1']/d:Content", "false"),
             ("../c:MedicationsAndTreatments[1]/c:PrescriptionStatus", "Completed"),
+            ("../c:MedicationsAndTreatments[3]/c:DrugIdentificationNumber", "00000001"),
+            ("../c:MedicationsAndTreatments[3]/c:Strength/d:Amount", "10"),
             ("../c:NewCategory[c:CategoryName='CARLOS.NativePrescription.v1']/c:ResidualInfo/d:DataElement/d:Content", "{}"),
         )
         detected = 0

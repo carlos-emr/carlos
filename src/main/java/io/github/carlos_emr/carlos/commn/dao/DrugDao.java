@@ -38,6 +38,10 @@ import io.github.carlos_emr.carlos.prescript.dto.DrugListItemDTO;
 
 public interface DrugDao extends AbstractDao<Drug>, CdsExportPatientTableReadDao {
 
+    /** Scalar discovery for authorized export; callers own a short read-only transaction. */
+    java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportDrugReferenceInputDto>
+            readCdsExportDrugReferenceInputs(int patient, int maximum);
+
     public boolean addNewDrug(Drug d);
 
     /** Atomically archives an active drug owned by the patient; returns one only to the winning request. */

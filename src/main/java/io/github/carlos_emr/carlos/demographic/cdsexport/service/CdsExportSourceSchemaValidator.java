@@ -69,6 +69,7 @@ public final class CdsExportSourceSchemaValidator {
                     "demographicArchive",
                     "drugs",
                     "prescription",
+                    "medication_reference",
                     "appointmentArchive",
                     "provider",
                     "appointment_status",
@@ -127,14 +128,16 @@ public final class CdsExportSourceSchemaValidator {
                                 ? "TRUSTED_SOURCE_CATALOGUE"
                                 : scope.equals("native_document_files")
                                         ? "TRUSTED_NATIVE_DOCUMENT_STORAGE"
-                                        : scope.equals("retained_import_options")
-                                                ? "TRUSTED_IMPORT_PROVENANCE"
-                                                : Set.of(
-                                                                        "prevention_configuration",
-                                                                        "clinical_timezone")
-                                                                .contains(scope)
-                                                        ? "TRUSTED_CONFIGURATION"
-                                                        : "InnoDB")
+                                        : scope.equals("medication_reference")
+                                                ? "TRUSTED_PUBLIC_REFERENCE"
+                                                : scope.equals("retained_import_options")
+                                                        ? "TRUSTED_IMPORT_PROVENANCE"
+                                                        : Set.of(
+                                                                                "prevention_configuration",
+                                                                                "clinical_timezone")
+                                                                        .contains(scope)
+                                                                ? "TRUSTED_CONFIGURATION"
+                                                                : "InnoDB")
                         .equals(actual.engine())
                 || !qualifiedColumns) invalid();
         try {
