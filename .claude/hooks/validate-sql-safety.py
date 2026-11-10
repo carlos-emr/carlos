@@ -569,6 +569,12 @@ def is_safe_pattern(match_text: str, statement: str, content: str) -> bool:
     if has_raw_concat_operand(statement):
         return False
 
+    # Constant-only formatting: a formatting call whose arguments are all
+    # literals (find_format_operands skips them) splices nothing into the SQL.
+    # Any raw operand in the statement has already been vetoed above.
+    if _FORMAT_CALL.search(match_text) and not find_format_operands(statement):
+        return True
+
     # 1. Parameter placeholder building within the statement
     if has_param_placeholder_in_context(statement):
         return True
@@ -690,7 +696,12 @@ def check_sql_injection_patterns(content: str) -> list[str]:
         r'(?:SELECT\b[^";]*\bFROM\b|INSERT\s+INTO\b|UPDATE\s+\w+\s+SET\b'
         r'|DELETE\s+FROM\b|WHERE\s+\w+(?:\.\w+)?\s*(?:=|<|>|!=|<>|\bLIKE\b|\bIN\b))'
     )
-    formatted_pattern = rf'"[^";]*{formatted_shape}[^";]*"\s*\.\s*formatted\s*\(\s*(?!\))'
+    # The literal may sit in parentheses or be a grouped literal concatenation:
+    # ("SELECT ... = '" + "%s'").formatted(name).
+    formatted_pattern = (
+        rf'"[^";]*{formatted_shape}[^";]*"(?:\s*\+\s*"[^";]*")*'
+        r'\s*\)*\s*\.\s*formatted\s*\(\s*(?!\))'
+    )
 
     # Pattern 3: StringBuilder/StringBuffer append with SQL
     builder_pattern = rf'(?:StringBuilder|StringBuffer)\s*\(\s*"[^";]*{sql_keywords}'
@@ -810,7 +821,8 @@ def check_sql_injection_patterns(content: str) -> list[str]:
         # (qualified alias.column or snake_case), so free text such as
         # "ALL OR NONE = " + count or " OR count = " + count is not treated as SQL.
         # Only the statement's raw operand decides, so placeholders still allowlist.
-        (r'(?:[=(,+;{]|\breturn)\s*"\s*(?:AND|OR)\s+(?:\w+\.\w+|\w+_\w+)\s*'
+        # '?' and ':' admit a ternary branch: cond ? " AND d.x = " + v : "".
+        (r'(?:[=(,+;{?:]|\breturn)\s*"\s*(?:AND|OR)\s+(?:\w+\.\w+|\w+_\w+)\s*'
          r'(?:<>|!=|<=|>=|=|<|>|\bLIKE\b|\bIN\b)\s*[(\']?\s*"?\s*\+(?![+=])',
          "SQL predicate built with string concatenation", False),
     ]

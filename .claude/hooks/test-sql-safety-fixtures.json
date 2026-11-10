@@ -801,5 +801,125 @@
         "content": "public class QueryDao {\n void f(String name) {\n  StringBuilder sql = new StringBuilder();\n  sql.append(\" AND last_name = '\").append(0).append(\"'\");\n  run(sql);\n }\n}"
       }
     }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-issue6123-6: keyword-less predicate as a ternary operand",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/QueryDao.java",
+        "content": "public class QueryDao {\n void f(String name, String demoNo, boolean cond) {\n  String q = cond ? \" AND d.demographic_no = \" + demoNo : \"\";\n  run(q);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-issue6123-7: .formatted() on a parenthesized SQL literal with a raw argument",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/QueryDao.java",
+        "content": "public class QueryDao {\n void f(String name, String demoNo, boolean cond) {\n  String q = (\"SELECT * FROM demographic WHERE last_name = '%s'\").formatted(name);\n  stmt.executeQuery(q);\n  run(q);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-issue6123-8: .formatted() on a grouped literal concatenation with a raw argument",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/QueryDao.java",
+        "content": "public class QueryDao {\n void f(String name, String demoNo, boolean cond) {\n  String q = (\"SELECT * FROM demographic WHERE last_name = '\" + \"%s'\").formatted(name);\n  stmt.executeQuery(q);\n  run(q);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-issue6123-9: constant .formatted() does not excuse a raw concatenation in the same statement",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/QueryDao.java",
+        "content": "public class QueryDao {\n void f(String name, String demoNo, boolean cond) {\n  String q = \"SELECT * FROM demographic WHERE last_name = '%s'\".formatted(\"x\") + name;\n  stmt.executeQuery(q);\n  run(q);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-issue6123-10: .formatted() with a constant and a raw argument stays blocked",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/QueryDao.java",
+        "content": "public class QueryDao {\n void f(String name, String demoNo, boolean cond) {\n  String q = \"SELECT * FROM demographic WHERE demographic_no = %d AND last_name = '%s'\".formatted(123, name);\n  stmt.executeQuery(q);\n  run(q);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-issue6123-3: constant-only .formatted() on SQL with a numeric argument",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/QueryDao.java",
+        "content": "public class QueryDao {\n void f(String name, String demoNo, boolean cond) {\n  String q = \"SELECT * FROM demographic WHERE demographic_no = %d\".formatted(123);\n  stmt.executeQuery(q);\n  run(q);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-issue6123-4: constant-only .formatted() on SQL with a string argument",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/QueryDao.java",
+        "content": "public class QueryDao {\n void f(String name, String demoNo, boolean cond) {\n  String q = \"WHERE d.col = '%s'\".formatted(\"fixed\");\n  stmt.executeQuery(q);\n  run(q);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-issue6123-5: String.format() with only constant arguments",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/QueryDao.java",
+        "content": "public class QueryDao {\n void f(String name, String demoNo, boolean cond) {\n  String q = String.format(\"SELECT * FROM demographic WHERE last_name = '%s'\", \"fixed\");\n  stmt.executeQuery(q);\n  run(q);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-issue6123-6: quote-sandwich with a JavaScript-encoding call in a return statement",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/Js.java",
+        "content": "public class QueryDao {\n void f(String name, String demoNo, boolean cond) {\n  return \"'\" + SafeEncode.forJavaScript(s) + \"'\";\n  run(q);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-issue6123-7: quote-sandwich with a dotted field in a CSV-style string",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/QueryDao.java",
+        "content": "public class QueryDao {\n void f(String name, String demoNo, boolean cond) {\n  csv = \"'\" + row.name + \"','\" + row.count + \"'\";\n  run(q);\n }\n}"
+      }
+    }
   }
 ]
