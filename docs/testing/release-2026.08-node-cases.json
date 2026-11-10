@@ -195,7 +195,7 @@
     "scripts/echart-note-archive.test.js": "4f17d2e624f88ee443bedb1ad372d3736fd38e267afef4a4ac6a21da3e742bc7",
     "scripts/echart-note-editor.test.js": "3fde5644a103b926543f91c551d24753e7171fa3fbf11e5f27fa29923c9c3a37",
     "scripts/echart-note-lifecycle.test.js": "19247e4cae629f60ba166c4b321f93a9a40e914ba109bbda48dbe6744981c9f3",
-    "scripts/echart-note-save-order.test.js": "ded0600bf38a0e1b047fd784adfb4964d13ef54d680806b31a1c524e67349266",
+    "scripts/echart-note-save-order.test.js": "28e675a83ba687c168db3b61c3d96d3c0daa82d85834903a2c8033dd7c0c5e0e",
     "scripts/echart-note-soft-wrap.test.js": "9fef772e45e7e7e544a81a4389bd48aa7719cc5c4cea5dbf24177b45c8542b60",
     "scripts/echart-notes-pagination-retry.test.js": "14f99b290cdf720f7e972a340bb0d96a23f4fdfb4e342624709bc8168b7deea5",
     "scripts/echart-notes-pagination-routing.test.js": "97d5a76e8734fc87ec6aa6855a88e79f7f6d1d07b3a8960d013e5831e5a5d86d",
