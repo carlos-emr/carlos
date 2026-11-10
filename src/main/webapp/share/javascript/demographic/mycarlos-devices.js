@@ -88,11 +88,13 @@
         });
     }
     // Refresh reports the patient's earlier requests again each time, so "expired" there is about
-    // the past: it is said only when no request can be approved now (#6124).
+    // the past: it is said only when the patient has no approved device and no request can be
+    // approved now (#6124).
     function statusLine(state) {
         const refused = Array.isArray(state.refusedRequests) ? state.refusedRequests : [];
         if (!refused.length) return '';
         if (refused.some(reason => reason !== 'challenge_expired')) return text('status.unavailable');
+        if (state.devices.some(device => !device.removedAt)) return '';
         return state.pending.some(row => !row.expired) ? '' : text('status.earlierExpired');
     }
     async function run(operation, fields) {

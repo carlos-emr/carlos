@@ -46,6 +46,7 @@ function markup() {
 const row = (id, fingerprint, expired) => ({ challengeId: `FAKE-challenge-${id}`, challengeSha256: 'c'.repeat(64),
   fingerprint, expiresAt: '2026-11-10T15:44:00Z', firstDevice: true, expired });
 const VALID = 'a'.repeat(64);
+const device = removedAt => ({ deviceKeyId: 'A'.repeat(43), fingerprint: 'd'.repeat(64), acceptedAt: '2026-11-08T12:00:00Z', removedAt });
 const OLD = 'b'.repeat(64);
 // What Refresh answers in each case; the first read on page load lists nothing.
 const CASES = {
@@ -55,6 +56,10 @@ const CASES = {
   // Portal's order puts the expired request first; the one staff can approve must still come first.
   both: { refusedRequests: ['challenge_expired', 'challenge_expired'], pending: [row(1, OLD, true), row(2, VALID, false)], devices: [] },
   otherRefusal: { refusedRequests: ['challenge_expired', 'publication_pending'], pending: [row(2, VALID, false)], devices: [] },
+  // The patient asked again after the expiry and staff approved: Portal still lists the old request.
+  approvedDevice: { refusedRequests: ['challenge_expired'], pending: [], devices: [device(null)] },
+  // A device that was approved and later removed is no device now: the earlier expiry is the news.
+  removedDevice: { refusedRequests: ['challenge_expired'], pending: [], devices: [device('2026-11-09T12:00:00Z')] },
 };
 
 async function main() {
@@ -145,6 +150,17 @@ async function main() {
     await refresh('otherRefusal');
     assert.equal(await status.textContent(), english['mycarlos.approval.status.unavailable']);
     console.log('PASS another refusal beside expired ones still says the status is unavailable');
+
+    await refresh('approvedDevice');
+    assert.equal(await status.textContent(), '', 'no "ask the patient again" above an approved device');
+    assert.equal(await entries.count(), 1);
+    assert.equal(await entries.nth(0).locator('strong').textContent(), english['mycarlos.approval.status.accepted']);
+    console.log('PASS an approved device beside an earlier expired request: no status text');
+
+    await refresh('removedDevice');
+    assert.equal(await status.textContent(), earlier);
+    assert.equal(await entries.nth(0).locator('strong').textContent(), english['mycarlos.approval.status.removed']);
+    console.log('PASS only a removed device beside an earlier expired request: the earlier-expired notice');
 
     assert.deepEqual(errors, []);
   } finally {
