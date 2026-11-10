@@ -155,6 +155,9 @@
 </head>
 
 <body style="font-family:sans-serif;margin:0px 5px 0px 5px">
+<c:if test="${not empty preferenceValidationError}">
+    <div role="alert" class="error">${carlos:forHtmlContent(preferenceValidationError)}</div>
+</c:if>
 <form id="preferenceForm" action="<%=request.getContextPath()%>/provider/UserPreference" method="post"
       onSubmit="return validateForm();">
     <input type="hidden" name="method" value="saveGeneral"/>

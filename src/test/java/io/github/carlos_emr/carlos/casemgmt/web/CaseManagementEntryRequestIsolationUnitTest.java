@@ -374,7 +374,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         request.setParameter("filter_providers", "200");
         request.setParameter("issues", "73");
         try (var props = mockStatic(CarlosProperties.class);
-             var views = mockConstruction(CaseManagementView2Action.class)) {
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
             assertThat(action(request).edit()).isEqualTo("view");
         }
@@ -409,7 +409,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.remember(first, "11");
         first.setParameter("note_edit", "new");
         try (var props = mockStatic(CarlosProperties.class);
-             var views = mockConstruction(CaseManagementView2Action.class)) {
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
             assertThat(action(first).edit()).isEqualTo("view");
         }
@@ -421,7 +421,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.remember(second, "22");
         second.setParameter("note_edit", "new");
         try (var props = mockStatic(CarlosProperties.class);
-             var views = mockConstruction(CaseManagementView2Action.class)) {
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
             assertThat(action(second).edit()).isEqualTo("view");
         }
@@ -673,7 +673,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         when(manager.filterNotes(login, "999998", List.of(original), expectedProgram)).thenReturn(List.of(original));
 
         try (var props = mockStatic(CarlosProperties.class);
-             var views = mockConstruction(CaseManagementView2Action.class)) {
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
             assertThat(action(request).edit()).isEqualTo("view");
         }
@@ -694,12 +694,14 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @CsvSource({"false,false", "true,false", "false,true", "true,true"})
+    @CsvSource({"false,false,false", "true,false,false", "false,true,false", "true,true,false",
+            "false,false,true", "true,false,true", "false,true,true", "true,true,true"})
     void shouldPublishFinalEditorNoteIdentity_whenSelectingUnsignedFallbackOrReplacingALockedNote(
-            boolean explicit, boolean locked) throws Exception {
+            boolean explicit, boolean locked, boolean refresh) throws Exception {
         MockHttpServletRequest request = request("101");
         io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.remember(request, "11");
         if (explicit) request.setParameter("noteId", "501");
+        if (refresh) request.setParameter("previousNoteId", "501");
         CaseManagementNote original = new CaseManagementNote();
         original.setId(501L);
         original.setDemographic_no("101");
@@ -722,9 +724,16 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
             when(locks.findByNoteDemo(101, 501L)).thenReturn(otherLock);
         }
         try (var props = mockStatic(CarlosProperties.class);
-             var views = mockConstruction(CaseManagementView2Action.class)) {
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
-            assertThat(action(request).edit()).isEqualTo("view");
+            var entry = action(request);
+            assertThat(entry.edit()).isEqualTo(refresh && locked ? "none" : "view");
+            if (refresh && locked) assertThat(entry.response.getStatus()).isEqualTo(409);
+        }
+        if (refresh && locked) {
+            verify(locks, never()).removeForSession(any(), any(), any(), any());
+            assertThat(forms).isEmpty();
+            return;
         }
         CaseManagementEntryFormBean rendered = (CaseManagementEntryFormBean) forms.get(
                 io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, "101"));
@@ -732,6 +741,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("noteId")).isEqualTo(expected);
         assertThat(rendered.getCaseNote().getId()).isEqualTo(locked ? null : 501L);
         if (!explicit) assertThat(request.getParameter("noteId")).isNull();
+        verify(locks, never()).removeForSession(any(), any(), any(), any());
     }
 
     @ParameterizedTest
@@ -786,7 +796,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         when(manager.filterNotes(login, "999998", List.of(original), "11")).thenReturn(List.of(original));
 
         try (var props = mockStatic(CarlosProperties.class);
-             var views = mockConstruction(CaseManagementView2Action.class)) {
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
             assertThat(action(request).edit()).isEqualTo("view");
         }
@@ -797,13 +807,131 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         assertThat(form.getCaseNote().getProgram_no()).isEqualTo("22");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void shouldPreserveDraftOnlyForCurrentEditorReconciliation_whenRefreshingNewNoteIssues(boolean preserve) throws Exception {
+        var request = request("101");
+        request.setParameter("note_edit", "new");
+        request.setParameter("preserveIssueEditor", Boolean.toString(preserve));
+        try (var props = mockStatic(CarlosProperties.class);
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(action(request).edit()).isEqualTo("view");
+        }
+        if (preserve) verify(manager, never()).deleteTmpSave(any(), any(), any());
+        else verify(manager).deleteTmpSave(eq("999998"), eq("101"), any());
+    }
+
+    @Test
+    void shouldRetireOnlyThePreviousSessionOwnedLock_whenChartRefreshOpensAnotherEditor() throws Exception {
+        var request = request("101");
+        request.setParameter("previousNoteId", "501");
+        try (var props = mockStatic(CarlosProperties.class);
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(action(request).edit()).isEqualTo("view");
+        }
+        var order = inOrder(locks);
+        order.verify(locks).persist(isA(io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock.class));
+        order.verify(locks).removeForSession("999998", 101, 501L, session.getId());
+        assertThat(request.getAttribute("noteId")).isEqualTo("0");
+        var current = (io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock101");
+        assertThat(current.getNoteId()).isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "absent"})
+    void shouldKeepCurrentLock_whenTheChartRefreshKeepsItsEditorOrDoesNotRequestARelease(String previous) throws Exception {
+        var request = request("101");
+        if (!"absent".equals(previous)) request.setParameter("previousNoteId", previous);
+        try (var props = mockStatic(CarlosProperties.class);
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(action(request).edit()).isEqualTo("view");
+        }
+        verify(locks, never()).removeForSession(any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldRetainPreviousEditor_whenAnotherSessionOfTheSameProviderOwnsTheReplacementLock() throws Exception {
+        var request = request("101");
+        request.setParameter("previousNoteId", "501");
+        var other = new io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock();
+        other.setId(55L);
+        other.setNoteId(0L);
+        other.setProviderNo("999998");
+        other.setSessionId("another-session");
+        when(locks.findByNoteDemo(101, 0L)).thenReturn(other);
+        var entry = action(request);
+        try (var props = mockStatic(CarlosProperties.class);
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(entry.edit()).isEqualTo("none");
+        }
+        assertThat(entry.response.getStatus()).isEqualTo(409);
+        verify(locks, never()).persist(any());
+        verify(locks, never()).removeForSession(any(), any(), any(), any());
+        assertThat(forms).isEmpty();
+    }
+
+    @Test
+    void shouldPreserveOtherProvidersNewNoteLock_whenOpeningAnIndependentNewNote() throws Exception {
+        var request = request("101");
+        request.setParameter("previousNoteId", "501");
+        var other = new io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock();
+        other.setId(55L);
+        other.setNoteId(0L);
+        other.setProviderNo("888888");
+        other.setSessionId("another-session");
+        when(locks.findByNoteDemo(101, 0L)).thenReturn(other);
+        try (var props = mockStatic(CarlosProperties.class);
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(action(request).edit()).isEqualTo("view");
+        }
+        verify(locks).persist(argThat((io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock lock) ->
+                lock.getNoteId() == 0L && "999998".equals(lock.getProviderNo()) && session.getId().equals(lock.getSessionId())));
+        verify(locks).removeForSession("999998", 101, 501L, session.getId());
+        verify(locks, times(1)).removeForSession(any(), any(), any(), any());
+        assertThat(other.getProviderNo()).isEqualTo("888888");
+        assertThat(other.getSessionId()).isEqualTo("another-session");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"-1", "bad", "", "9223372036854775808"})
+    void shouldRefuseMalformedPreviousEditorIdentity_beforeAnyLockOrNoteMutation(String previous) throws Exception {
+        var request = request("101");
+        request.setParameter("previousNoteId", previous);
+        var entry = action(request);
+        assertThat(entry.edit()).isEqualTo("none");
+        assertThat(entry.response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(locks, manager);
+        assertThat(forms).isEmpty();
+    }
+
+    @Test
+    void shouldSurfaceLockRetirementFailure_insteadOfAcknowledgingTheChartReplacement() {
+        var request = request("101");
+        request.setParameter("previousNoteId", "501");
+        when(locks.removeForSession("999998", 101, 501L, session.getId()))
+                .thenThrow(new IllegalStateException("lock database unavailable"));
+        try (var props = mockStatic(CarlosProperties.class);
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            var entry = action(request);
+            assertThatThrownBy(entry::edit)
+                    .isInstanceOf(IllegalStateException.class).hasMessage("lock database unavailable");
+        }
+        assertThat(forms).isEmpty();
+    }
+
     private EditedNote edit(String patient, boolean explicitNew, String encounterType, String appointment) throws Exception {
         MockHttpServletRequest request = request(patient);
         if (explicitNew) request.setParameter("note_edit", "new");
         if (encounterType != null) request.setParameter("encType", encounterType);
         if (appointment != null) request.setParameter("appointmentNo", appointment);
         try (var props = mockStatic(CarlosProperties.class);
-             var views = mockConstruction(CaseManagementView2Action.class)) {
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
             assertThat(action(request).edit()).isEqualTo("view");
         }
@@ -816,6 +944,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         action.request = request;
         action.response = new MockHttpServletResponse();
         action.caseManagementMgr = manager;
+        ReflectionTestUtils.setField(action, "casemgmtNoteLockDao", locks);
         ReflectionTestUtils.setField(action, "securityInfoManager", security);
         action.withSession(forms);
         doReturn("Patient " + request.getParameter("demographicNo")).when(action).getDemoName(anyString());
