@@ -416,8 +416,9 @@ class CdsClinicalPersisterUnitTest {
         Path configured = directory.resolve("preventions.xml");
         java.nio.file.Files.writeString(
                 configured,
-                "<preventions><item name='Local booster' healthCanadaType='Tdap' layout='injection'/>"
-                        + "<item name='OtherA' healthCanadaType='' layout='injection'/></preventions>");
+                "<preventions><item name='Local booster' healthCanadaType='Tdap'"
+                    + " layout='injection'/><item name='OtherA' healthCanadaType=''"
+                    + " layout='injection'/></preventions>");
         var mappings = mock(io.github.carlos_emr.carlos.commn.dao.CVCMappingDao.class);
         var vaccines = mock(io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao.class);
         var source =
@@ -834,6 +835,109 @@ class CdsClinicalPersisterUnitTest {
                                         });
                     }
                 });
+    }
+
+    @Test
+    void shouldWarnTheOwningImportUnit_whenAResidualMarkerMakesAnAllergyInactive()
+            throws Exception {
+        for (boolean archived : java.util.List.of(true, false)) {
+            var parser = new CdsFieldParser();
+            var record =
+                    CdsClinicalFixture.record(
+                            directory,
+                            "AllergiesAndAdverseReactions",
+                            Map.of(
+                                    "OffendingAgentDescription",
+                                    "Synthetic allergy",
+                                    "ResidualInfo/DataElement/Name",
+                                    "CARLOS.Allergy.Archived.v1",
+                                    "ResidualInfo/DataElement/DataType",
+                                    "boolean",
+                                    "ResidualInfo/DataElement/Content",
+                                    Boolean.toString(archived)));
+            var source = normalization.allergy(record);
+            assertThat(source.archived()).isEqualTo(archived);
+            var allergyWriter = mock(CdsAllergyPersister.class);
+            var preparation = mock(CdsNativePreparationService.class);
+            var ledger = mock(CdsImportLedgerService.class);
+            var receipts = mock(CdsTargetReceiptService.class);
+            var service =
+                    new CdsImportNativeService(
+                            parser,
+                            normalization,
+                            medications,
+                            allergyWriter,
+                            mock(CdsImmunizationPersister.class),
+                            mock(CdsDemographicPersister.class),
+                            mock(CdsHistoryPersister.class),
+                            mock(CdsAppointmentPersister.class),
+                            preparation,
+                            mock(CdsProviderResolver.class),
+                            mock(CdsSourceFieldService.class),
+                            mock(CdsImportAccessService.class),
+                            ledger,
+                            receipts,
+                            java.util.List.of());
+            var command =
+                    mock(
+                            io.github.carlos_emr.carlos.demographic.cdsimport.command
+                                    .CdsImportCommand.class);
+            when(command.providerNo()).thenReturn("999998");
+            var unit =
+                    new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportUnitDto(
+                            "patient",
+                            "unit",
+                            "AllergiesAndAdverseReactions",
+                            1,
+                            record.sha256(),
+                            "protected-spool",
+                            "EXPECTED",
+                            null,
+                            null);
+            when(preparation.load(
+                            "run",
+                            1,
+                            "unit",
+                            record.effectiveSha256(),
+                            command,
+                            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAllergyDto
+                                    .class))
+                    .thenReturn(source);
+            var entity = mock(jakarta.persistence.EntityManager.class);
+            @SuppressWarnings("unchecked")
+            jakarta.persistence.TypedQuery<Integer> query =
+                    mock(jakarta.persistence.TypedQuery.class, RETURNS_SELF);
+            when(entity.createQuery(anyString(), eq(Integer.class))).thenReturn(query);
+            when(query.getSingleResult()).thenReturn(42);
+            ReflectionTestUtils.setField(service, "entityManager", entity);
+            var written = Map.of("allergies", "73");
+            when(allergyWriter.write(42, "999998", source)).thenReturn(written);
+            var receipt =
+                    new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReceiptDto(
+                            "{\"allergies\":\"73\"}", "a".repeat(64), false);
+            when(receipts.capture(written, "run", "unit")).thenReturn(receipt);
+            TransactionSynchronizationManager.setActualTransactionActive(true);
+            try (var unitBoundary = mockStatic(CdsImportUnitService.class)) {
+                assertThat(service.write("run", 1, unit, record, command, null, null, "source.xml"))
+                        .isSameAs(receipt);
+            } finally {
+                TransactionSynchronizationManager.setActualTransactionActive(false);
+            }
+            verify(allergyWriter).write(42, "999998", source);
+            verify(ledger, times(archived ? 1 : 0))
+                    .diagnostic(
+                            eq("run"),
+                            eq(1L),
+                            eq("patient"),
+                            eq("unit"),
+                            eq("WARNING"),
+                            eq("CDS_ALLERGY_ARCHIVED_SOURCE_MARKER"),
+                            eq("NORMALIZATION"),
+                            eq("ResidualInfo"),
+                            contains("imported as inactive"),
+                            isNull(),
+                            eq(false));
+        }
     }
 
     @Nested

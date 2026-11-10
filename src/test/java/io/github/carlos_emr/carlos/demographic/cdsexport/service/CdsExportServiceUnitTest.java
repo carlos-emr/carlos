@@ -310,6 +310,43 @@ class CdsExportServiceUnitTest {
         verify(execution, never()).execute(anyString());
     }
 
+    @Test
+    void shouldLeaveClinicalStartupAvailable_whenAnOptionalExportSettingIsMalformed() {
+        service.close();
+        for (String property : List.of("cds.export.enabled", "cds.export.worker.enabled")) {
+            for (String invalid : List.of("True", "yes", "on")) {
+                Properties policy = new Properties();
+                policy.setProperty("cds.export.enabled", "true");
+                policy.setProperty("cds.export.worker.enabled", "true");
+                policy.setProperty(property, invalid);
+                service =
+                        new CdsExportService(
+                                ledger,
+                                access,
+                                new CdsExportConfigurationService(policy),
+                                new CdsExportEngineRegistry(List.of(engine)),
+                                execution);
+                try {
+                    org.assertj.core.api.Assertions.assertThatCode(service::start)
+                            .doesNotThrowAnyException();
+                    assertThat(service.dispatcherRunning()).isFalse();
+                    verifyNoInteractions(ledger, execution);
+                } finally {
+                    service.close();
+                }
+            }
+        }
+    }
+
+    @Test
+    void shouldKeepUnexpectedStartupFailuresVisible_insteadOfTreatingThemAsOptionalSettings() {
+        when(engine.qualifiedProfiles())
+                .thenThrow(new IllegalStateException("OWNED_STARTUP_FAILURE"));
+        assertThatThrownBy(service::start).hasMessage("OWNED_STARTUP_FAILURE");
+        assertThat(service.dispatcherRunning()).isFalse();
+        verifyNoInteractions(ledger, execution);
+    }
+
     private CdsExportService configured(
             boolean enabled, boolean worker, List<CdsExportEngine> installed) {
         Properties policy = new Properties();
