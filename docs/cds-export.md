@@ -1,10 +1,11 @@
 # CDS export implementation contract
 
-The PR is still in clinical review. Native case-management notes/history,
-measurements, laboratory results and reports still need complete export mappings
-without import provenance; the conservative source catalogue also needs selected-patient
-scope. These are completion blockers. A review refusal prevents partial publication,
-but does not qualify the missing functionality.
+Native demographics, all seven case-management history/note categories, measurements,
+HL7 laboratory results, document reports and prescriptions have native mappings alongside
+retained-import reconciliation. Revised notes preserve the original and edits in one
+occurrence. Patient and child-table scopes keep other patients' clinical data outside a
+selection. Publication still requires independent source/field closure; unsupported or
+inconsistent selected data requires review instead of a partial package.
 
 The current review fixes preserve sealed import preparations, move native ATC allergy
 classes into an explicit residual marker (the standard allergy Code is DIN-only),
@@ -35,7 +36,7 @@ importer, MariaDB Connector/J 3.5.11 and DAO/API fixes. It excludes develop-only
 portal, SMS and email features. Historical WAR hashes and workflow results below
 describe their recorded checkpoints; they do not qualify this release integration.
 
-The new, unpublished migrations are `V1.0.59.38` through `V1.0.59.41`, following
+The new, unpublished migrations are `V1.0.59.38` through `V1.0.59.42`, following
 the release's common `V1.0.59.37`. All 87 released SQL files remain unchanged.
 The billing filename audit already shipped at common `V1.0.59.33` is reused. Fresh
 ON/BC installations and upgrades from the pinned release are checked separately.
@@ -74,6 +75,7 @@ line; those changes are not part of this release pair.
 | `V1.0.59.39` | Independent export run/event ledger and authorization | `V1.0.83` |
 | `V1.0.59.40` | Artifact publication attempts | `V1.0.84` |
 | `V1.0.59.41` | Approved independent administrator import grant, preserving explicit decisions | `V1.0.85` |
+| `V1.0.59.42` | Indexed virtual HRM numeric patient key; original owner strings remain unchanged | — |
 
 The earlier `V1.0.86` consent forward-merge repair does not apply to the retained
 release history and is excluded. The release catalogue contains 510 rulings for
@@ -715,14 +717,19 @@ per-program grants and current-chart reconciliation are still required before
 this category can be enabled; exact classification and frozen capture are described below.
 These serializers do not establish clinical completeness or qualify an export profile.
 
-The additive V1.0.82 migration adds nullable field-witness documents to import units and
+The additive V1.0.59.38 migration adds nullable field-witness documents to import units and
 checkpoints. New native receipt capture records SQL nullness, byte length, SHA-256 and
 actual ordered JDBC metadata in the same original unit transaction. The protocol-2 receipt
 JSON and its digest remain unchanged. Original metadata hashes were verified across the
 upgrade on all four owned ON/BC test databases, with every historical witness still NULL.
 Pristine independent ON/BC reference databases validate the complete migration chain and
 canonical schema contracts. The witness document is bounded to 8MiB and carries no native
-plaintext values. Its exact referenced-row set and reconstructed row digests must match
+plaintext values. Its per-column hashes are consistency evidence, not anonymization:
+low-entropy values can be guessed. Treat witnesses, ledger database access and backups
+as protected patient data. Both ledger tables remain restricted for reporting, and no
+baseline is returned in an ordinary status/diagnostic response. Unit metadata pages use
+an explicit scalar projection so their 200-row limit does not hydrate witness documents;
+receipt validation loads a single bounded unit at a time. Its exact referenced-row set and reconstructed row digests must match
 the original receipt. Commit, checkpoint reuse and field comparisons passed the
 combined database/rollback/replay verification; neither export profile is qualified.
 

@@ -2009,15 +2009,11 @@ public class CdsImportLedgerService {
         CdsImportKeys.pageSize(limit);
         return write(
                 () ->
-                        units
-                                .page(
-                                        runId,
-                                        patientKey,
-                                        afterUnitKey == null ? "" : afterUnitKey,
-                                        limit)
-                                .stream()
-                                .map(CdsImportLedgerService::dto)
-                                .toList());
+                        units.metadataPage(
+                                runId,
+                                patientKey,
+                                afterUnitKey == null ? "" : afterUnitKey,
+                                limit));
     }
 
     public CdsImportDiagnosticDto diagnosticStatus(String runId, long id) {
@@ -2270,7 +2266,8 @@ public class CdsImportLedgerService {
                                 MAINTENANCE_RELEASE_CODE,
                                 "MAINTENANCE",
                                 null,
-                                "Clinical processing completed, but reopening clinical access requires verified maintenance recovery",
+                                "Clinical processing completed, but reopening clinical access"
+                                    + " requires verified maintenance recovery",
                                 protectedEvidence,
                                 false);
                     run.setCleanupState("FAILED");
@@ -2297,7 +2294,8 @@ public class CdsImportLedgerService {
                     MAINTENANCE_PENDING_CODE,
                     "MAINTENANCE",
                     null,
-                    "Clinical processing completed; the maintenance owner's durable release still requires verification",
+                    "Clinical processing completed; the maintenance owner's durable release still"
+                        + " requires verification",
                     null,
                     false);
         run.setCleanupState("PENDING");
@@ -2436,7 +2434,8 @@ public class CdsImportLedgerService {
                             code,
                             "REPORTING",
                             null,
-                            "Required operator reports could not be delivered; clinical receipts and source were retained",
+                            "Required operator reports could not be delivered; clinical receipts"
+                                + " and source were retained",
                             protectedDetail,
                             false);
                     return null;
@@ -2459,7 +2458,8 @@ public class CdsImportLedgerService {
                 epoch,
                 "WORKER_FATAL",
                 "SUPERVISION",
-                "Import worker terminated; durable receipts and retained work require reconciliation");
+                "Import worker terminated; durable receipts and retained work require"
+                    + " reconciliation");
     }
 
     private void stoppedOperationally(
@@ -2656,7 +2656,8 @@ public class CdsImportLedgerService {
                     MAINTENANCE_RETRY_CODE,
                     "MAINTENANCE",
                     null,
-                    "An authorized operator requested maintenance release recovery; the request remains durable across worker restart",
+                    "An authorized operator requested maintenance release recovery; the request"
+                        + " remains durable across worker restart",
                     null,
                     false);
         }

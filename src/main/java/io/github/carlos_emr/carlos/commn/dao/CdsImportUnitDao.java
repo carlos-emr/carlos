@@ -126,12 +126,34 @@ public class CdsImportUnitDao extends AbstractDaoImpl<CdsImportUnit>
         var query =
                 patientKey == null
                         ? entityManager.createQuery(
-                                "select u from CdsImportUnit u where u.runId=:run and u.unitKey>:after order by u.unitKey",
+                                "select u from CdsImportUnit u where u.runId=:run and"
+                                    + " u.unitKey>:after order by u.unitKey",
                                 CdsImportUnit.class)
                         : entityManager.createQuery(
-                                "select u from CdsImportUnit u where u.runId=:run and u.unitKey>:after "
-                                        + "and u.patientKey=:patient order by u.unitKey",
+                                "select u from CdsImportUnit u where u.runId=:run and"
+                                    + " u.unitKey>:after and u.patientKey=:patient order by"
+                                    + " u.unitKey",
                                 CdsImportUnit.class);
+        query.setParameter("run", runId).setParameter("after", afterKey).setMaxResults(limit);
+        if (patientKey != null) query.setParameter("patient", patientKey);
+        return query.getResultList();
+    }
+
+    /** Metadata pages never hydrate the potentially large protected native witness document. */
+    public List<io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportUnitDto>
+            metadataPage(String runId, String patientKey, String afterKey, int limit) {
+        io.github.carlos_emr.carlos.utility.CdsImportKeys.pageSize(limit);
+        String projection =
+                "select new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportUnitDto("
+                    + "u.patientKey,u.unitKey,u.category,u.ordinal,u.sourceDigest,u.spoolLocation,u.state,u.targetReferences,u.targetDigest)"
+                    + " from CdsImportUnit u where u.runId=:run and u.unitKey>:after";
+        var query =
+                entityManager.createQuery(
+                        projection
+                                + (patientKey == null ? "" : " and u.patientKey=:patient")
+                                + " order by u.unitKey",
+                        io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportUnitDto
+                                .class);
         query.setParameter("run", runId).setParameter("after", afterKey).setMaxResults(limit);
         if (patientKey != null) query.setParameter("patient", patientKey);
         return query.getResultList();
@@ -140,7 +162,15 @@ public class CdsImportUnitDao extends AbstractDaoImpl<CdsImportUnit>
     public List<CdsImportUnit> ready(String runId, int limit) {
         return entityManager
                 .createQuery(
-                        "select u from CdsImportUnit u where u.runId=:run and u.state='EXPECTED' and not exists(select p.id from CdsImportPatient p where p.runId=u.runId and p.patientKey=u.patientKey and p.state in ('REFUSED','FAILED_BEFORE_WRITE','CANCELLED_BEFORE_WRITE','NOT_STARTED')) and not exists(select d.id from CdsImportDependency d where d.runId=u.runId and d.unitKey=u.unitKey and not exists(select done.id from CdsImportUnit done where done.runId=d.runId and done.unitKey=d.dependsOnUnitKey and done.state in ('COMMITTED','ALREADY_COMPLETE'))) order by u.unitKey",
+                        "select u from CdsImportUnit u where u.runId=:run and u.state='EXPECTED'"
+                            + " and not exists(select p.id from CdsImportPatient p where"
+                            + " p.runId=u.runId and p.patientKey=u.patientKey and p.state in"
+                            + " ('REFUSED','FAILED_BEFORE_WRITE','CANCELLED_BEFORE_WRITE','NOT_STARTED'))"
+                            + " and not exists(select d.id from CdsImportDependency d where"
+                            + " d.runId=u.runId and d.unitKey=u.unitKey and not exists(select"
+                            + " done.id from CdsImportUnit done where done.runId=d.runId and"
+                            + " done.unitKey=d.dependsOnUnitKey and done.state in"
+                            + " ('COMMITTED','ALREADY_COMPLETE'))) order by u.unitKey",
                         CdsImportUnit.class)
                 .setParameter("run", runId)
                 .setMaxResults(limit)
@@ -154,7 +184,8 @@ public class CdsImportUnitDao extends AbstractDaoImpl<CdsImportUnit>
                                 "select count(u) from CdsImportUnit u where u.runId=:run",
                                 Long.class)
                         : entityManager.createQuery(
-                                "select count(u) from CdsImportUnit u where u.runId=:run and u.patientKey=:patient",
+                                "select count(u) from CdsImportUnit u where u.runId=:run and"
+                                    + " u.patientKey=:patient",
                                 Long.class);
         query.setParameter("run", runId);
         if (patientKey != null) query.setParameter("patient", patientKey);
@@ -165,10 +196,12 @@ public class CdsImportUnitDao extends AbstractDaoImpl<CdsImportUnit>
         var query =
                 patientKey == null
                         ? entityManager.createQuery(
-                                "select count(u) from CdsImportUnit u where u.runId=:run and u.state=:state",
+                                "select count(u) from CdsImportUnit u where u.runId=:run and"
+                                    + " u.state=:state",
                                 Long.class)
                         : entityManager.createQuery(
-                                "select count(u) from CdsImportUnit u where u.runId=:run and u.state=:state and u.patientKey=:patient",
+                                "select count(u) from CdsImportUnit u where u.runId=:run and"
+                                    + " u.state=:state and u.patientKey=:patient",
                                 Long.class);
         query.setParameter("run", runId).setParameter("state", state);
         if (patientKey != null) query.setParameter("patient", patientKey);
@@ -178,7 +211,10 @@ public class CdsImportUnitDao extends AbstractDaoImpl<CdsImportUnit>
     public List<Object[]> categories(String runId, int limit) {
         return entityManager
                 .createQuery(
-                        "select u.category,count(u),sum(case when u.state='COMMITTED' then 1 else 0 end),sum(case when u.state='ALREADY_COMPLETE' then 1 else 0 end) from CdsImportUnit u where u.runId=:run group by u.category order by u.category",
+                        "select u.category,count(u),sum(case when u.state='COMMITTED' then 1 else 0"
+                            + " end),sum(case when u.state='ALREADY_COMPLETE' then 1 else 0 end)"
+                            + " from CdsImportUnit u where u.runId=:run group by u.category order"
+                            + " by u.category",
                         Object[].class)
                 .setParameter("run", runId)
                 .setMaxResults(limit)
@@ -189,7 +225,11 @@ public class CdsImportUnitDao extends AbstractDaoImpl<CdsImportUnit>
     public List<Object[]> summaryCategories(String runId, int limit) {
         return entityManager
                 .createQuery(
-                        "select u.category,count(u),sum(case when u.state='COMMITTED' then 1 else 0 end),sum(case when u.state='ALREADY_COMPLETE' then 1 else 0 end),sum(case when u.state='EXPECTED' then 1 else 0 end) from CdsImportUnit u where u.runId=:run group by u.category order by u.category",
+                        "select u.category,count(u),sum(case when u.state='COMMITTED' then 1 else 0"
+                            + " end),sum(case when u.state='ALREADY_COMPLETE' then 1 else 0"
+                            + " end),sum(case when u.state='EXPECTED' then 1 else 0 end) from"
+                            + " CdsImportUnit u where u.runId=:run group by u.category order by"
+                            + " u.category",
                         Object[].class)
                 .setParameter("run", runId)
                 .setMaxResults(limit)
@@ -199,7 +239,9 @@ public class CdsImportUnitDao extends AbstractDaoImpl<CdsImportUnit>
     public long incomplete(String runId, String patientKey) {
         return entityManager
                 .createQuery(
-                        "select count(u) from CdsImportUnit u where u.runId=:run and u.patientKey=:patient and u.state not in ('COMMITTED','ALREADY_COMPLETE')",
+                        "select count(u) from CdsImportUnit u where u.runId=:run and"
+                            + " u.patientKey=:patient and u.state not in"
+                            + " ('COMMITTED','ALREADY_COMPLETE')",
                         Long.class)
                 .setParameter("run", runId)
                 .setParameter("patient", patientKey)
@@ -209,7 +251,10 @@ public class CdsImportUnitDao extends AbstractDaoImpl<CdsImportUnit>
     public long unrecovered(String runId) {
         return entityManager
                 .createQuery(
-                        "select count(u) from CdsImportUnit u where u.runId=:run and u.state not in ('COMMITTED','ALREADY_COMPLETE') and not exists(select p.id from CdsImportPatient p where p.runId=u.runId and p.patientKey=u.patientKey and p.state='REFUSED')",
+                        "select count(u) from CdsImportUnit u where u.runId=:run and u.state not in"
+                            + " ('COMMITTED','ALREADY_COMPLETE') and not exists(select p.id from"
+                            + " CdsImportPatient p where p.runId=u.runId and"
+                            + " p.patientKey=u.patientKey and p.state='REFUSED')",
                         Long.class)
                 .setParameter("run", runId)
                 .getSingleResult();
