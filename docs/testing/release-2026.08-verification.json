@@ -2527,6 +2527,10 @@
                   "container": ""
                 }
               ]
+            },
+            {
+              "name": "shouldConnectAndApplyConnectorJYesNo_forLegacyBooleanOptions",
+              "container": ""
             }
           ]
         },
@@ -3127,7 +3131,7 @@
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
         "DemographicMergeMariaDbIntegrationTest": 9,
-        "JdbcConnectorMariaDbIntegrationTest": 32,
+        "JdbcConnectorMariaDbIntegrationTest": 33,
         "BilledProviderReportDaoIntegrationTest": 2,
         "MariaDbDaoHarnessIntegrationTest": 1,
         "MeasurementDaoIntegrationTest": 1,
