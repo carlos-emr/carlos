@@ -460,58 +460,13 @@ class JdbcConnectorMariaDbIntegrationTest {
                     + "(2, 1.0E7, 16777217, 0, b'0', 0, b'1" + "0".repeat(63) + "', -1), "
                     + "(3, NULL, NULL, NULL, NULL, NULL, NULL, NULL)");
             try (var rows = statement.executeQuery("SELECT * FROM number_probe ORDER BY id")) {
-                var metadata = rows.getMetaData();
-                assertThat(metadata.getColumnClassName(rows.findColumn("b1"))).isEqualTo(Boolean.class.getName());
-                assertThat(metadata.getColumnClassName(rows.findColumn("b8"))).isEqualTo(Boolean.class.getName());
-                assertThat(metadata.getColumnClassName(rows.findColumn("d"))).isEqualTo(Double.class.getName());
-
+                assertConnectorJColumnClasses(rows);
                 assertThat(rows.next()).isTrue();
-                assertThat(rows.getString("d")).isEqualTo("100.0");
-                assertThat(rows.getObject("d", String.class)).isEqualTo("100.0");
-                assertThat(rows.getNString("d")).isEqualTo("100.0");
-                assertThat(rows.getString("f")).isEqualTo("1.1");
-                assertThat(rows.getString("dd")).isEqualTo("1.5");
-                assertThat(rows.getBigDecimal("d")).hasToString("100.0");
-                assertThat(rows.getObject("dd", java.math.BigDecimal.class)).hasToString("1.5");
-                assertThat(rows.getString("b1")).isEqualTo("1");
-                assertThat(rows.getObject("b1")).isEqualTo(Boolean.TRUE);
-                assertThat(rows.getString("b8")).isEqualTo("5");
-                assertThat(rows.getObject("b8")).isEqualTo(new byte[]{5});
-                assertThat(rows.getDouble("b8")).isEqualTo(5.0d);
-                assertThat(rows.getObject("b8", Double.class)).isEqualTo(5.0d);
-                assertThat(rows.getFloat("b8")).isEqualTo(5.0f);
-                assertThat(rows.getString("t1")).isEqualTo("1");
-                assertThatThrownBy(() -> rows.getCharacterStream("d")).isInstanceOf(SQLException.class);
-
+                assertConnectorJFirstNumberRow(rows);
                 assertThat(rows.next()).isTrue();
-                assertThat(rows.getString("d")).isEqualTo("1.0E7");
-                assertThat(rows.getBigDecimal("d")).hasToString("1.0E+7");
-                assertThat(rows.getString("f")).isEqualTo("1.67772E7");
-                assertThat(rows.getString("dd")).isEqualTo("0.0");
-                assertThat(rows.getString("b1")).isEqualTo("0");
-                assertThat(rows.getObject("b1")).isEqualTo(Boolean.FALSE);
-                assertThat(rows.getString("b8")).isEqualTo("0");
-                // Connector/J printed a BIT's signed long but converted it to numbers as unsigned.
-                assertThat(rows.getString("b64")).isEqualTo("-9223372036854775808");
-                assertThat(rows.getLong("b64")).isEqualTo(Long.MIN_VALUE);
-                assertThat(rows.getDouble("b64")).isEqualTo(9.223372036854776E18d);
-                assertThat(rows.getBigDecimal("b64")).hasToString("9223372036854775808");
-                // TINYINT(1) is reported as BIT(1) too and keeps its sign.
-                assertThat(rows.getString("t1")).isEqualTo("-1");
-                assertThat(rows.getDouble("t1")).isEqualTo(-1.0d);
-                assertThat(rows.getObject("t1")).isEqualTo(Boolean.TRUE);
-
+                assertConnectorJSecondNumberRow(rows);
                 assertThat(rows.next()).isTrue();
-                for (String column : new String[]{"d", "f", "dd", "b1", "b8", "b64"}) {
-                    assertThat(rows.getString(column)).as(column).isNull();
-                    assertThat(rows.wasNull()).as(column).isTrue();
-                    assertThat(rows.getObject(column)).as(column).isNull();
-                    assertThat(rows.wasNull()).as(column).isTrue();
-                }
-                assertThat(rows.getBigDecimal("d")).isNull();
-                assertThat(rows.getDouble("b8")).isZero();
-                assertThat(rows.wasNull()).isTrue();
-                assertThat(rows.getObject("b8", Double.class)).isNull();
+                assertConnectorJNullNumberRow(rows);
                 assertThat(rows.next()).isFalse();
             }
         }
@@ -521,13 +476,76 @@ class JdbcConnectorMariaDbIntegrationTest {
             query.setInt(1, 1);
             try (var rows = query.executeQuery()) {
                 assertThat(rows.next()).isTrue();
-                assertThat(rows.getString("d")).isEqualTo("100.0");
-                assertThat(rows.getString("f")).isEqualTo("1.100000023841858");
-                assertThat(rows.getString("b1")).isEqualTo("1");
-                assertThat(rows.getObject("b1")).isEqualTo(Boolean.TRUE);
-                assertThat(rows.getString("b8")).isEqualTo("5");
+                assertConnectorJServerPreparedNumberRow(rows);
             }
         }
+    }
+
+    /** Connector/J reported java.lang.Boolean for every BIT width. */
+    private static void assertConnectorJColumnClasses(ResultSet rows) throws SQLException {
+        var metadata = rows.getMetaData();
+        assertThat(metadata.getColumnClassName(rows.findColumn("b1"))).isEqualTo(Boolean.class.getName());
+        assertThat(metadata.getColumnClassName(rows.findColumn("b8"))).isEqualTo(Boolean.class.getName());
+        assertThat(metadata.getColumnClassName(rows.findColumn("d"))).isEqualTo(Double.class.getName());
+    }
+
+    private static void assertConnectorJFirstNumberRow(ResultSet rows) throws SQLException {
+        assertThat(rows.getString("d")).isEqualTo("100.0");
+        assertThat(rows.getObject("d", String.class)).isEqualTo("100.0");
+        assertThat(rows.getNString("d")).isEqualTo("100.0");
+        assertThat(rows.getString("f")).isEqualTo("1.1");
+        assertThat(rows.getString("dd")).isEqualTo("1.5");
+        assertThat(rows.getBigDecimal("d")).hasToString("100.0");
+        assertThat(rows.getObject("dd", java.math.BigDecimal.class)).hasToString("1.5");
+        assertThat(rows.getString("b1")).isEqualTo("1");
+        assertThat(rows.getObject("b1")).isEqualTo(Boolean.TRUE);
+        assertThat(rows.getString("b8")).isEqualTo("5");
+        assertThat(rows.getObject("b8")).isEqualTo(new byte[]{5});
+        assertThat(rows.getDouble("b8")).isEqualTo(5.0d);
+        assertThat(rows.getObject("b8", Double.class)).isEqualTo(5.0d);
+        assertThat(rows.getFloat("b8")).isEqualTo(5.0f);
+        assertThat(rows.getString("t1")).isEqualTo("1");
+        assertThatThrownBy(() -> rows.getCharacterStream("d")).isInstanceOf(SQLException.class);
+    }
+
+    private static void assertConnectorJSecondNumberRow(ResultSet rows) throws SQLException {
+        assertThat(rows.getString("d")).isEqualTo("1.0E7");
+        assertThat(rows.getBigDecimal("d")).hasToString("1.0E+7");
+        assertThat(rows.getString("f")).isEqualTo("1.67772E7");
+        assertThat(rows.getString("dd")).isEqualTo("0.0");
+        assertThat(rows.getString("b1")).isEqualTo("0");
+        assertThat(rows.getObject("b1")).isEqualTo(Boolean.FALSE);
+        assertThat(rows.getString("b8")).isEqualTo("0");
+        // Connector/J printed a BIT's signed long but converted it to numbers as unsigned.
+        assertThat(rows.getString("b64")).isEqualTo("-9223372036854775808");
+        assertThat(rows.getLong("b64")).isEqualTo(Long.MIN_VALUE);
+        assertThat(rows.getDouble("b64")).isEqualTo(9.223372036854776E18d);
+        assertThat(rows.getBigDecimal("b64")).hasToString("9223372036854775808");
+        // TINYINT(1) is reported as BIT(1) too and keeps its sign.
+        assertThat(rows.getString("t1")).isEqualTo("-1");
+        assertThat(rows.getDouble("t1")).isEqualTo(-1.0d);
+        assertThat(rows.getObject("t1")).isEqualTo(Boolean.TRUE);
+    }
+
+    private static void assertConnectorJNullNumberRow(ResultSet rows) throws SQLException {
+        for (String column : new String[]{"d", "f", "dd", "b1", "b8", "b64"}) {
+            assertThat(rows.getString(column)).as(column).isNull();
+            assertThat(rows.wasNull()).as(column).isTrue();
+            assertThat(rows.getObject(column)).as(column).isNull();
+            assertThat(rows.wasNull()).as(column).isTrue();
+        }
+        assertThat(rows.getBigDecimal("d")).isNull();
+        assertThat(rows.getDouble("b8")).isZero();
+        assertThat(rows.wasNull()).isTrue();
+        assertThat(rows.getObject("b8", Double.class)).isNull();
+    }
+
+    private static void assertConnectorJServerPreparedNumberRow(ResultSet rows) throws SQLException {
+        assertThat(rows.getString("d")).isEqualTo("100.0");
+        assertThat(rows.getString("f")).isEqualTo("1.100000023841858");
+        assertThat(rows.getString("b1")).isEqualTo("1");
+        assertThat(rows.getObject("b1")).isEqualTo(Boolean.TRUE);
+        assertThat(rows.getString("b8")).isEqualTo("5");
     }
 
     @ParameterizedTest

@@ -57,6 +57,7 @@ public final class MariaDbCompatibilityDriver implements Driver {
     private static final String FALSE_OPTION = "false";
     private static final String TRUE_OPTION = "true";
     private static final String GET_OBJECT = "getObject";
+    private static final String GET_BIG_DECIMAL = "getBigDecimal";
     private static final String UNWRAP = "unwrap";
     private static final String INVALID_CONVERSION_STATE = "S1009";
     private static final String INVALID_NUMERIC_STATE = "22018";
@@ -249,42 +250,64 @@ public final class MariaDbCompatibilityDriver implements Driver {
          * scaled, deprecated getBigDecimal overload is left to MariaDB.
          */
         private Object legacyNumberValue(ResultSet rows, String method, Object[] args) throws SQLException {
-            Class<?> requested = switch (method) {
-                case "getBigDecimal" -> args.length == 1 ? java.math.BigDecimal.class : null;
-                case "getDouble" -> double.class;
-                case "getFloat" -> float.class;
-                case GET_OBJECT -> args.length == 1 ? Object.class : args[1] instanceof Class<?> type ? type : null;
-                default -> null;
-            };
+            Class<?> requested = legacyNumberTarget(method, args);
             if (requested == null) return NO_CONVERSION;
             int column = columnIndex(rows, args);
             ResultSetMetaData metadata = rows.getMetaData();
             int sqlType = metadata.getColumnType(column);
-            if (FLOATING_TYPES.contains(sqlType) && requested == java.math.BigDecimal.class) {
-                double value = rows.getDouble(column);
-                convertedWasNull = rows.wasNull();
-                return convertedWasNull ? null : java.math.BigDecimal.valueOf(value);
+            if (FLOATING_TYPES.contains(sqlType)) {
+                return requested == java.math.BigDecimal.class ? floatingDecimal(rows, column) : NO_CONVERSION;
             }
-            if (sqlType != Types.BIT) return NO_CONVERSION;
-            boolean flag = requested == Object.class && metadata.getPrecision(column) == 1;
+            return sqlType == Types.BIT ? bitValue(rows, column, metadata.getPrecision(column), requested) : NO_CONVERSION;
+        }
+
+        /** Names the type a getter asks for when {@link #legacyNumberValue} may answer it, or null. */
+        private static Class<?> legacyNumberTarget(String method, Object[] args) {
+            return switch (method) {
+                case GET_BIG_DECIMAL -> args.length == 1 ? java.math.BigDecimal.class : null;
+                case "getDouble" -> double.class;
+                case "getFloat" -> float.class;
+                case GET_OBJECT -> objectTarget(args);
+                default -> null;
+            };
+        }
+
+        /** Returns Object for getObject(column) and the requested class for getObject(column, type). */
+        private static Class<?> objectTarget(Object[] args) {
+            if (args.length == 1) return Object.class;
+            return args[1] instanceof Class<?> type ? type : null;
+        }
+
+        /** Reads a floating column's BigDecimal with the scale of its decoded double. */
+        private java.math.BigDecimal floatingDecimal(ResultSet rows, int column) throws SQLException {
+            double value = rows.getDouble(column);
+            convertedWasNull = rows.wasNull();
+            return convertedWasNull ? null : java.math.BigDecimal.valueOf(value);
+        }
+
+        /** Converts a BIT column (or TINYINT(1), which is reported as BIT) as Connector/J did. */
+        private Object bitValue(ResultSet rows, int column, int precision, Class<?> requested) throws SQLException {
+            boolean flag = requested == Object.class && precision == 1;
             boolean real = requested == double.class || requested == Double.class;
             boolean single = requested == float.class || requested == Float.class;
             boolean decimal = requested == java.math.BigDecimal.class;
             if (!flag && !real && !single && !decimal) return NO_CONVERSION;
             long value = rows.getLong(column);
             convertedWasNull = rows.wasNull();
-            if (convertedWasNull) {
-                // A primitive getter cannot return null; JDBC reports SQL NULL as zero plus wasNull().
-                if (requested == double.class) return 0.0d;
-                return requested == float.class ? (Object) 0.0f : null;
-            }
+            if (convertedWasNull) return nullValue(requested);
             if (flag) return value != 0;
             // Connector/J read BIT fields as unsigned for these conversions, though signed for text and getLong.
             // TINYINT(1) is also reported as BIT with precision 1 and keeps its sign; BIT(1) is only ever 0 or 1.
-            java.math.BigDecimal number = metadata.getPrecision(column) > 1
+            java.math.BigDecimal number = precision > 1
                     ? new java.math.BigDecimal(Long.toUnsignedString(value)) : java.math.BigDecimal.valueOf(value);
             if (decimal) return number;
             return real ? (Object) number.doubleValue() : (Object) number.floatValue();
+        }
+
+        /** A primitive getter cannot return null; JDBC reports SQL NULL as zero plus wasNull(). */
+        private static Object nullValue(Class<?> requested) {
+            if (requested == double.class) return 0.0d;
+            return requested == float.class ? (Object) 0.0f : null;
         }
 
         /** Returns the metadata aliases and Java class names exposed by the previous driver. */
@@ -439,7 +462,7 @@ public final class MariaDbCompatibilityDriver implements Driver {
                 throw new java.sql.SQLDataException("Empty SQL string cannot be converted to a numeric value", state);
             }
             convertedWasNull = false;
-            if (method.equals("getBigDecimal") && args.length == 2) {
+            if (method.equals(GET_BIG_DECIMAL) && args.length == 2) {
                 return java.math.BigDecimal.ZERO.setScale((Integer) args[1]);
             }
             return zero;
@@ -455,7 +478,7 @@ public final class MariaDbCompatibilityDriver implements Driver {
                 case "getLong" -> Long.class;
                 case "getFloat" -> Float.class;
                 case "getDouble" -> Double.class;
-                case "getBigDecimal" -> java.math.BigDecimal.class;
+                case GET_BIG_DECIMAL -> java.math.BigDecimal.class;
                 case GET_OBJECT -> args.length == 2 && args[1] instanceof Class<?> type ? type : null;
                 default -> null;
             };
