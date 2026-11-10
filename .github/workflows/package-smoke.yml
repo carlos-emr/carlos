@@ -50,7 +50,13 @@ jobs:
       - name: Install Ubuntu 26.04 build dependencies
         run: |
           set -euo pipefail
-          apt-get update -o APT::Update::Error-Mode=any
+          for attempt in 1 2 3; do
+            apt-get -o Acquire::Retries=3 -o Acquire::http::No-Cache=true \
+              -o Acquire::By-Hash=force -o APT::Update::Error-Mode=any update && break
+            test "$attempt" -lt 3 || exit 1
+            rm -rf /var/lib/apt/lists/*
+            sleep 2
+          done
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             build-essential debhelper devscripts lintian fakeroot maven \
             openjdk-25-jdk-headless tomcat11 git ca-certificates curl xz-utils unzip
