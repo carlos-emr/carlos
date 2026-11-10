@@ -85,6 +85,47 @@ class CdsExportMedicationFieldReconcilerUnitTest {
     }
 
     @Test
+    void shouldReuseVerifiedSourceOnlyStrength_whenOnlyProviderNotesChanged() throws Exception {
+        assertThatThrownBy(() -> new CdsExportPreparedMedicationMapper().map(sourceOnlyStrength()))
+                .hasMessage("CDS_EXPORT_MEDICATION_LARGE_STRENGTH_REQUIRES_RETAINED_CARRIER");
+        var current = sourceOnlyStrengthBaseline();
+        current.put("comment", "Current provider note");
+        var result =
+                reconcile(
+                        fixture(
+                                current,
+                                numbers(),
+                                true,
+                                sourceOnlyStrength(),
+                                sourceOnlyStrengthBaseline()));
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.preparedPaths()).contains("Strength");
+        assertThat(result.mapping().value().strengthAmount()).isNull();
+        assertThat(result.mapping().value().strengthUnit()).isNull();
+        assertThat(result.currentPaths()).containsExactly("Notes");
+    }
+
+    @Test
+    void shouldRequireReview_whenTheSourceOnlyStrengthPlaceholderChangesOrIsCleared()
+            throws Exception {
+        for (String value : Arrays.asList("10 mg", null)) {
+            var current = sourceOnlyStrengthBaseline();
+            current.put("dosage", value);
+            var result =
+                    reconcile(
+                            fixture(
+                                    current,
+                                    numbers(),
+                                    true,
+                                    sourceOnlyStrength(),
+                                    sourceOnlyStrengthBaseline()));
+            assertThat(result.mapping().nativeRowRepresentable()).isFalse();
+            assertThat(result.mapping().fields().get(key("dosage")).rule())
+                    .isEqualTo("SOURCE_ONLY_STRENGTH_PROJECTION_CHANGED");
+        }
+    }
+
+    @Test
     void shouldPreserveNativeClearsAndAChangedQuantity_withoutRestoringTheOldValue()
             throws Exception {
         var fields = baseline();
@@ -301,7 +342,17 @@ class CdsExportMedicationFieldReconcilerUnitTest {
             Map<String, CdsExactNumeric> numeric,
             boolean includeBaseline)
             throws Exception {
-        var old = state(baseline(), numbers());
+        return fixture(fields, numeric, includeBaseline, source(), baseline());
+    }
+
+    static Fixture fixture(
+            Map<String, String> fields,
+            Map<String, CdsExactNumeric> numeric,
+            boolean includeBaseline,
+            CdsMedicationDto source,
+            Map<String, String> original)
+            throws Exception {
+        var old = state(original, numbers());
         var now = state(fields, numeric);
         String id = CdsImportKeys.hash(RUN, UNIT);
         String sourceDigest = "c".repeat(64), options = "d".repeat(64), ruleset = "e".repeat(64);
@@ -310,7 +361,7 @@ class CdsExportMedicationFieldReconcilerUnitTest {
                 target = sha(references);
         var prepared =
                 new CdsMedicationNativeDto(
-                        source(),
+                        source,
                         new CdsProviderMatchDto(
                                 null, CdsProviderMatchDto.Outcome.UNMATCHED_IDENTIFIER));
         String payload = JSON.writeValueAsString(prepared);
@@ -460,6 +511,28 @@ class CdsExportMedicationFieldReconcilerUnitTest {
                 false,
                 false,
                 List.of());
+    }
+
+    static CdsMedicationDto sourceOnlyStrength() throws Exception {
+        var value = (com.fasterxml.jackson.databind.node.ObjectNode) JSON.valueToTree(source());
+        value.putNull("strengthAmount");
+        value.putNull("strengthUnit");
+        value.put("strengthSourceOnly", true);
+        value.put("sourceRequiresReconciliation", true);
+        return JSON.copy()
+                .disable(
+                        com.fasterxml.jackson.databind.DeserializationFeature
+                                .ADJUST_DATES_TO_CONTEXT_TIME_ZONE)
+                .treeToValue(value, CdsMedicationDto.class);
+    }
+
+    static Map<String, String> sourceOnlyStrengthBaseline() {
+        var fields = baseline();
+        String placeholder = "[Source strength: see imported medication details]";
+        fields.put("dosage", placeholder);
+        fields.put("special", "Original café drug " + placeholder + "\n 0.5-1 tablet PO BID");
+        fields.put("cds_projection_incomplete", "1");
+        return fields;
     }
 
     static Map<String, String> baseline() {

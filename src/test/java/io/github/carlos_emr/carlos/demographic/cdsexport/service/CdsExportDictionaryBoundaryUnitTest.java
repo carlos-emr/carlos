@@ -65,7 +65,9 @@ class CdsExportDictionaryBoundaryUnitTest {
     }
 
     @Test
-    void shouldVerifyStructuredStrengthHasIndependentTenAndTwentyCharacterBounds_forDictionaryBoundaryContract() throws Exception {
+    void
+            shouldVerifyStructuredStrengthHasIndependentTenAndTwentyCharacterBounds_forDictionaryBoundaryContract()
+                    throws Exception {
         var values = Map.of(Field.DrugName, "Synthetic medication");
         CdsExportMedicationXmlWriter.validate(
                 new CdsExportMedicationDto(
@@ -80,7 +82,9 @@ class CdsExportDictionaryBoundaryUnitTest {
     }
 
     @Test
-    void shouldVerifyAllergyDirectAndRetainedValuesUseTheSameThirtyTwoKBoundary_forDictionaryBoundaryContract() throws Exception {
+    void
+            shouldVerifyAllergyDirectAndRetainedValuesUseTheSameThirtyTwoKBoundary_forDictionaryBoundaryContract()
+                    throws Exception {
         var exact = allergy("😀".repeat(32000));
         CdsExportAllergyXmlWriter.validate(exact);
         assertThatThrownBy(() -> CdsExportAllergyXmlWriter.validate(allergy("x".repeat(32001))))
@@ -118,7 +122,8 @@ class CdsExportDictionaryBoundaryUnitTest {
     }
 
     @Test
-    void shouldVerifyRetainedMedicationCannotBypassTheDirectWriterCapacityGate_forDictionaryBoundaryContract() {
+    void
+            shouldVerifyRetainedMedicationCannotBypassTheDirectWriterCapacityGate_forDictionaryBoundaryContract() {
         var mapping =
                 new CdsExportMedicationDto(
                         UNKNOWN,
@@ -141,7 +146,8 @@ class CdsExportDictionaryBoundaryUnitTest {
                         "protected-unit",
                         new CdsExportMedicationMappingDto(mapping, fields),
                         Set.of(),
-                        Set.of());
+                        Set.of(),
+                        false);
         var values = mock(CdsExportRetainedSectionWriter.Values.class);
         var index = mock(CdsExportRetainedIndexDto.class);
         when(index.sourceManifestSha256()).thenReturn("a".repeat(64));
@@ -159,7 +165,8 @@ class CdsExportDictionaryBoundaryUnitTest {
     }
 
     @Test
-    void shouldVerifyCaughtDictionaryFailureCannotProduceACompletedXmlDocument_forDictionaryBoundaryContract() {
+    void
+            shouldVerifyCaughtDictionaryFailureCannotProduceACompletedXmlDocument_forDictionaryBoundaryContract() {
         var output = new ByteArrayOutputStream();
         var composer = new CdsExportXmlComposer();
         var categories =
