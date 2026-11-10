@@ -2,6 +2,7 @@
 package io.github.carlos_emr.carlos.lab.ca.all;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.atMost;
@@ -10,6 +11,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
@@ -48,6 +50,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementMapDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.MeasurementMap;
@@ -221,6 +224,18 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     private static Stream<String> timesOfDay() {
         return Stream.of("00:30", "11:59", "12:00", "12:15", "12:59", "13:00", "15:45", "23:59")
                 .flatMap(time -> Stream.of(time + ":00", time + ":37"));
+    }
+
+    @Test
+    @DisplayName("should refuse before any measurement changes when the report cannot be read")
+    void shouldRefuseBeforeChangingMeasurements_whenTheReportCannotBeRead() {
+        try (MockedStatic<Factory> factory = mockStatic(Factory.class)) {
+            factory.when(() -> Factory.getHandler("4616")).thenReturn(null);
+
+            assertThatThrownBy(() -> Hl7textResultsData.populateMeasurementsTable("4616", "42"))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+        verifyNoInteractions(measurementDao, mockedBeans.get(MeasurementsDeletedDao.class));
     }
 
     private static Date inDefaultTimeZone(LocalDateTime timestamp) {

@@ -110,6 +110,11 @@ public class Hl7textResultsData {
 
     public static void populateMeasurementsTable(String lab_no, String demographic_no) {
         MessageHandler h = Factory.getHandler(lab_no);
+        if (h == null) {
+            // Refuse before the previous version's measurements are archived: with nothing
+            // readable to file in their place, the chart would be left with neither.
+            throw new IllegalStateException("Lab report could not be read; its measurements were not filed");
+        }
         //Check for other versions of this lab
         String[] matchingLabs = getMatchingLabs(lab_no).split(",");
         //if this lab is the latest version delete the measurements from the previous version and add the new ones
@@ -143,12 +148,11 @@ public class Hl7textResultsData {
             measurementsDeletedDao.batchPersistAtomically(measurementsDeletedList);
             measurementDao.batchRemoveAtomically(measurementsToRemove);
         }
-        fileMeasurements(lab_no, demographic_no);
+        fileMeasurements(h, lab_no, demographic_no);
     }
 
     /** Files every viewable result of one report as a measurement. */
-    private static void fileMeasurements(String lab_no, String demographic_no) {
-        MessageHandler h = Factory.getHandler(lab_no);
+    private static void fileMeasurements(MessageHandler h, String lab_no, String demographic_no) {
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         Calendar calender = Calendar.getInstance();
         String day = Integer.toString(calender.get(Calendar.DAY_OF_MONTH));
