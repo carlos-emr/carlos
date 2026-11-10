@@ -1,8 +1,10 @@
 # Encounter completion acceptance ledger
 
 Implementation branch: `fix/echart-encounter-completion`, based on
-`release/2026.08` at `9004536dc8314d5f50542b48905ca3ca4099a916`.
-This is work in progress. No ticket is claimed closed by this ledger.
+`release/2026.08`, currently merged through `38cfc10c0ae72c66ebe501703de462f59249da1f`.
+The broader 17-ticket effort remains in progress. No ticket is claimed closed by this
+ledger. Early verification entries are historical; the latest reviewed qualification
+is recorded at the end of this document.
 
 | Ticket | Implementation / outstanding evidence |
 | --- | --- |
@@ -11,13 +13,13 @@ This is work in progress. No ticket is claimed closed by this ledger.
 | #3423 | Lease, ownership, draft and rollout work outstanding. |
 | #5992 | Reason-specific conflict handling and test correction outstanding. |
 | #5703 | Baseline browser reproduction and selection round-trip outstanding. |
-| #5903 | Literal template closures and encoded full names; focused dispatch test passes; browser round-trip outstanding. |
-| #4588 | Checklist toggle exposed; permissions and browser persistence checks outstanding. |
-| #5844 | CPP issue transport URI-encodes each component before the outer context encoder; round-trip coverage outstanding. |
+| #5903 | Literal template closures and encoded full names; rendered-JSP producer, autocomplete, POST and textarea round trips pass in ON/BC. |
+| #4588 | Checklist toggle, fresh mutation authorization and resolved/unresolved persistence/history round trips verified. |
+| #5844 | CPP issue transport URI-encodes each component before the outer context encoder; rendered-JSP/consumer round trips preserve delimiters, Unicode, percent escapes and literal markup in ON/BC. |
 | #5993 | Full module responses replace module wrappers; both issue modules refresh; focused JS passes. |
-| #5376 | Baseline navigation trace and correction outstanding. |
-| #5958 | Registry membership is validated once at the DAO SQL boundary; redundant facade queries removed. Fifteen focused form/DAO tests pass; installed query-count evidence outstanding. |
-| #6011 | Shared month validation, malformed-value fallback, preference writers and units label implemented; action/browser validation outstanding. |
+| #5376 | Visible Quick/Full Chart failure/retry and note-switch persistence verified; broader navigation matrix outstanding. |
+| #5958 | Registry membership validated at the DAO SQL boundary; native grouped history and unknown-table compatibility pass. Installed query-count trace remains outstanding. |
+| #6011 | Shared calendar-month validation, fallback and canonical preference storage verified by action/manager tests; broader preference browser matrix outstanding. |
 | #5901 | Notes/module errors rendered as text; focused JS passes; remaining updater inventory and browser controls outstanding. |
 | #5599 | Legacy editor body removed; full route/caller/configuration/import inventory outstanding. |
 | #5931 | CAISI entry always redirects to modern chart; retired POST recovery outstanding. |
@@ -216,3 +218,36 @@ applies the configured offset once (previously twice); explicit settings may
 therefore flag referrals sooner. Blank retains the default, malformed stored
 values use the reader fallback, and invalid submissions reject the entire
 preference save before any setting is changed.
+
+## Reviewed qualification — 10 November 2026
+
+The reviewed fixes preserve pending issue selections and encounter type/date/time
+through status, Assign, Delete, CPP and Save reconciliation. Both diagnosis replacement
+routes authorize the proposed role before persistence. The visible chart toggle retains
+the editor after an acknowledged save and failed refresh, updates its revision and Print
+identity, and retires the prior session-owned lock after acquiring a replacement.
+
+- Java: 35,952 cases, 212 registered routed/prerequisite skips, zero failures/errors.
+  A memory-terminated worker was retaken in full (347 classes / 4,563 cases); the
+  complete case inventory and all compiled production/test class hashes match.
+  The five permission-sensitive cases pass separately without skips.
+- Physical MariaDB: both grouped-history and unknown-table boundary cases pass without
+  skips. Other illegal-argument failures remain visible rather than becoming empty history.
+- Node: 7,889 passing cases, no skips; complete case/source inventory refreshed.
+  Python: all 390 CI-tooling cases and 30 coverage-tool cases pass.
+- WAR/JSP: clean build, 997 JSPs plus eight dispatched fragments compiled, four taglib
+  contract cases pass, zero dead directives.
+- Complete Ubuntu 26.04 packages `2026.09.0~snapshot29+pr6103.10` include pinned Chromium
+  and carlos-ctl 1.3.2. All 7,503 packaged class/JSP/JavaScript entries match the source
+  WAR, including the same 6,293 production classes used for Java qualification.
+- ON and BC upgrades pass all deployment health checks. Their 1,081 durable encounter
+  rows (410,424-byte dumps) remain byte-identical. All six selected issue/editor native
+  checks qualify in each province with strict residue audits and descriptor restoration.
+  The editor retake uses the native template dropdown, waits for CPP reconciliation before
+  fixture teardown, accepts the normal CPP redirect and checks the stored/reopened item.
+  Template names retain quotes, ampersands, plus signs, Unicode and literal percent escapes;
+  CPP labels also retain semicolons and markup-like text without interpreting it as HTML.
+
+The source-bound coverage refresh retains higher historical floors and every required
+refusal line. Broader release native-union coverage and the remaining ticket acceptance
+work above are separate from this reviewed PR scope.

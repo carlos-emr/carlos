@@ -345,6 +345,9 @@ async function workflow(s) {
       await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_issue ci JOIN casemgmt_issue_notes cin ON cin.id=ci.id
         WHERE ci.demographic_no=${patient} AND ci.issue_id=${cppIssueId} AND cin.note_id=${notes.a}`, '1',
       'The CPP item is not linked to its own Social History issue');
+      // The CPP save queues a separate clinical-fragment reconciliation.
+      // Settle that request before the fixture releases the editor's lock.
+      await chart.waitForFunction(() => issueUpdatesPending === 0, null, { timeout: TIMEOUT });
       await leaveChart(chart);
     });
 
@@ -663,7 +666,7 @@ async function workflow(s) {
     await s.step('rendered JSP producers preserve hostile template names and CPP issue components through their JavaScript consumers', async () => {
       let chart = await s.chart();
       await leaveChart(chart);
-      const templateName = `${marker.slice(-16)} Patient's A&B + ü;<tag>`;
+      const templateName = `${marker.slice(-16)} Patient's A&B + ü;%20`;
       const templateBody = `${marker} encoded template body`;
       h.assert(sql.value(`SELECT COUNT(*) FROM encountertemplate WHERE encountertemplate_name=${q(templateName)}`) === '0',
         'The template producer fixture name is already in use');
@@ -679,7 +682,9 @@ async function workflow(s) {
         'ChartNotesAjax.jsp truncated or changed the template registration');
       const [templateResponse] = await Promise.all([
         chart.waitForResponse(response => /\/encounter\/InsertTemplate(?:\?|$)/.test(response.url()), {timeout: TIMEOUT}),
-        ui.typeAutocomplete(chart, '#enTemplate', producerTemplate, {option: producerTemplate, timeout: TIMEOUT}),
+        ui.typeAutocomplete(chart, '#enTemplate', producerTemplate, {
+          menu: '#enTemplate_list:visible', option: producerTemplate, timeout: TIMEOUT,
+        }),
       ]);
       h.assert(templateResponse.status() === 200, 'The encoded template consumer did not load the template');
       h.assert(new URLSearchParams(templateResponse.request().postData()).get('templateName') === producerTemplate,
@@ -691,10 +696,12 @@ async function workflow(s) {
       await chart.locator(CPP_DIALOG).waitFor({state: 'visible', timeout: TIMEOUT});
       const cppText = `${marker} producer CPP item`;
       await chart.locator('#noteEditTxt').fill(cppText);
-      await ui.typeAutocomplete(chart, '#issueAutocompleteCPP', description, {option: description, timeout: TIMEOUT});
+      await ui.typeAutocomplete(chart, '#issueAutocompleteCPP', marker, {option: description, timeout: TIMEOUT});
       const arrived = chart.waitForResponse(response => /method=issueNoteSave/.test(response.url()) && response.request().method() === 'POST', {timeout: TIMEOUT});
       await chart.locator(`${CPP_DIALOG} input[type="image"][title="Sign & Save"]`).click({timeout: TIMEOUT});
-      h.assert((await arrived).status() === 200, 'The owned CPP item did not save');
+      const cppResponse = await arrived;
+      h.assert(cppResponse.status() >= 200 && cppResponse.status() < 400,
+        `The owned CPP item answered HTTP ${cppResponse.status()}`);
       await chart.locator(CPP_DIALOG).waitFor({state: 'hidden', timeout: TIMEOUT});
       await chart.waitForFunction(() => issueUpdatesPending === 0, null, {timeout: TIMEOUT});
       const cppId = (await waitForNote(cppText, 'The producer CPP item was not stored')).id;

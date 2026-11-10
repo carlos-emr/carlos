@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "4f80ca4626da60ad1349c76f88d4f11a677e3a1e",
-  "comparisonSha256": "a39f63671b24431a3a9e7f8ea118120133220b9c63c349f5bdeeec573e5bb57e",
-  "baselineCommit": "b1bc12cefddec50fc7bc43380b76afdde73023ac",
-  "baselineSourceTree": "4f80ca4626da60ad1349c76f88d4f11a677e3a1e",
-  "baselineReportSha256": "584b0e710f730de806397e1cc7f5d28dad5d36c74e3028c05fd4000e0316b3dc",
-  "baselineLane": "PR #6103 Ubuntu 26.04/OpenJDK 25.0.5 H2 refresh. Explicit native/prerequisite skips remain routed. Higher historical metrics and refusal lines are retained. Source freshness does not qualify the complete native-lane coverage union or waive zero floors.",
+  "sourceTree": "292b72cb296206e802acea052628cf4f53a9d258",
+  "comparisonSha256": "ec6620879a68d862f6ffc8ca9e4f52510bd7a29231342358d3ada887e7d2beba",
+  "baselineCommit": "b573696b8f3ea4de313e541a2d00a17d459a5628",
+  "baselineSourceTree": "292b72cb296206e802acea052628cf4f53a9d258",
+  "baselineReportSha256": "7a0e8c6945229be6c89412242822eda36ab063e856443ff0c2fd4ee93cf40c3a",
+  "baselineLane": "PR #6103 Ubuntu 26.04/OpenJDK 25.0.5 H2 qualification. Exact complete case inventory verified after retaking every class from a memory-terminated worker (347 classes / 4563 cases); all 6293 production class hashes and compiled test classes stayed identical. Explicit native/prerequisite skips remain routed. Higher historical metrics and refusal lines are retained. Source freshness does not qualify the complete native-lane coverage union or waive zero floors.",
   "baselineTestCounts": {
-    "tests": 35938,
+    "tests": 35952,
     "skipped": 212,
     "failures": 0,
     "errors": 0
@@ -637,7 +637,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "217db621ef591f153ae4f8c6669d23eb7bd41bb7"
+      "sourceBlob": "9484cdb34384b2e0315947000d968b0f6a32f73a"
     },
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementView2Action.java": {
       "lines": 100.0,
@@ -931,13 +931,13 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "309f0dcdcd16d67531824727b587b0d690783b4a"
+      "sourceBlob": "0af78c09e21d0a8c25d8df582d44f2206a62f9f9"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/EncounterFormDaoImpl.java": {
       "lines": 97.46835443037975,
       "instructions": 94.46564885496183,
       "branches": 72.91666666666667,
-      "sourceBlob": "3ac64edf6cfd0f091ae41fd2d1d375d50600d48a"
+      "sourceBlob": "99388146a342309e477a6f8d9634e2c075a797ef"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/FaxClientLogDao.java": {
       "lines": 100.0,
@@ -1148,6 +1148,12 @@
       "instructions": 55.51470588235294,
       "branches": 50.0,
       "sourceBlob": "860636409c196d885983d9f6805a3a0ae3299584"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/UnknownEncounterFormTableException.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "598ff86dc8b45707661224a2dc35ace61732987f"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/WorkFlowDao.java": {
       "lines": 100.0,
@@ -1825,7 +1831,7 @@
       "lines": 92.10526315789474,
       "instructions": 88.74458874458874,
       "branches": 90.0,
-      "sourceBlob": "d4e99babfacaee35cdb1676146a30f8651007ab5"
+      "sourceBlob": "8907e310bd4c67781092f696f5186255e819dd92"
     },
     "src/main/java/io/github/carlos_emr/carlos/encounter/data/EctPatientData.java": {
       "lines": 0.0,
@@ -2767,7 +2773,7 @@
       "lines": 33.333333333333336,
       "instructions": 14.285714285714286,
       "branches": 100.0,
-      "sourceBlob": "775aa64ddc33a5750139a17f1a36cc13cdb3f13e"
+      "sourceBlob": "3cc40f61c404a2591ecca913af5edfecfb3f9891"
     },
     "src/main/java/io/github/carlos_emr/carlos/managers/RBTGroupManager.java": {
       "lines": 100.0,
@@ -3095,9 +3101,9 @@
     },
     "src/main/java/io/github/carlos_emr/carlos/provider/web/UserPreference2Action.java": {
       "lines": 100.0,
-      "instructions": 98.91304347826087,
+      "instructions": 99.03846153846153,
       "branches": 75.0,
-      "sourceBlob": "9c5f522c21bc1aec223d7c197b7d6933683faf74"
+      "sourceBlob": "dc35fde3e07f5454c896e228bfa7cbd5811a5a9a"
     },
     "src/main/java/io/github/carlos_emr/carlos/report/ClinicalReports/PageUtil/RunClinicalReport2Action.java": {
       "lines": 50.0,
@@ -3247,7 +3253,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "480255a1341d657ce98d6ae7fadee7b78403327b"
+      "sourceBlob": "e17a5248b2705e85a89d218f71e0e3a1a2a9a0aa"
     },
     "src/main/java/io/github/carlos_emr/carlos/report/pageUtil/PrintAppointmentReceipt2Action.java": {
       "lines": 0.0,

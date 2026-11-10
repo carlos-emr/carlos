@@ -115,3 +115,16 @@ The native form-table guard passes both MariaDB cases separately without skips.
 The 80 existing unreviewed zero floors remain refused; no waiver or lower
 threshold is introduced. This refresh establishes source freshness, and does
 not replace the full same-class native-lane union required for release coverage.
+
+The final PR #6103 Java source tree `292b72cb296206e802acea052628cf4f53a9d258`
+qualifies 35,952 cases with zero failures/errors and 212 registered skips.
+One full-suite worker was terminated by shared-host memory pressure; all 347
+classes assigned to it were retaken (4,563 cases), including the interrupted
+Rourke class. The resulting 2,646 reports match the complete case inventory.
+All 6,293 production class hashes and compiled test classes stayed identical
+across the full run, retake and separate five-case permission lane. Both native
+form-history cases pass separately without skips. The coverage report combines
+the surviving workers with the complete worker retake from those same classes.
+Its 717 source-bound floors retain 56 higher historical measurements and every
+required refusal line. The 80 existing unreviewed zero floors remain refused;
+there is no new waiver or lowered threshold.
