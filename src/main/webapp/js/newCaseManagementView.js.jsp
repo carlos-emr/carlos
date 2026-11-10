@@ -3527,6 +3527,8 @@ function updateCPPNote() {
 
                 var url = chartActionUrl("/CaseManagementEntry");
                 var p = Form.serialize(frm);
+                var assignedIssue = (method === 'makeIssue' || method === 'issueAdd') && frm.elements && frm.elements.newIssueId
+                    ? String(frm.elements.newIssueId.value) : '';
                 if (preserveSelections && method === 'edit') p += '&preserveIssueEditor=true&forceNote=true';
                 var selectedIssues;
                 var editorFields;
@@ -3562,7 +3564,12 @@ function updateCPPNote() {
                                 if (selectedIssues) {
                                     frm.querySelectorAll('input[type="checkbox"][data-issue-id]').forEach(function (checkbox) {
                                         var id = checkbox.getAttribute('data-issue-id');
-                                        if (selectedIssues.has(id)) checkbox.checked = selectedIssues.get(id);
+                                        // Assign explicitly selects its target. Retain the server's
+                                        // result for that catalog issue and preserve all other ticks.
+                                        if (selectedIssues.has(id) && !(assignedIssue
+                                                && checkbox.getAttribute('data-catalog-issue-id') === assignedIssue)) {
+                                            checkbox.checked = selectedIssues.get(id);
+                                        }
                                     });
                                 }
                                 if (editorFields) {

@@ -447,3 +447,24 @@ test('sidebar refresh retains the stored module colour and collapsed display lim
   assert.equal(url.searchParams.get('numToDisplay'), '6');
   assert.equal(url.searchParams.get('reloadURL'), '/carlos/encounter/displayIssues?hC=aabbcc');
 });
+
+for (const method of ['makeIssue', 'issueAdd']) {
+  test(`${method} selects its explicit existing target while retaining other unsaved checkbox choices`, () => {
+    const h = harness();
+    delete h.fields.unresolvedIssues;
+    const checkbox = (id, catalog, checked) => ({checked,
+      getAttribute: name => name === 'data-issue-id' ? id : catalog});
+    let boxes = [checkbox('41', '70', false), checkbox('42', '80', true), checkbox('43', '90', false)];
+    const form = h.context.document.forms.caseManagementEntryForm;
+    form.elements = {newIssueId: {value: '70'}};
+    form.querySelectorAll = selector => selector.includes('data-issue-id') ? boxes : [];
+    h.context.ajaxUpdateIssues(method, 'sig101');
+    let saved;
+    h.context.deferNoteSaveUntilIssues(() => { saved = boxes.map(box => box.checked); });
+    h.updates[0].options.onSuccess({status: 200});
+    boxes = [checkbox('43', '90', true), checkbox('41', '70', true), checkbox('42', '80', false)];
+    h.updates[0].options.onComplete({status: 200, updateSucceeded: true});
+    assert.deepEqual(saved, [false, true, true]);
+    assert.deepEqual(h.alerts, []);
+  });
+}
