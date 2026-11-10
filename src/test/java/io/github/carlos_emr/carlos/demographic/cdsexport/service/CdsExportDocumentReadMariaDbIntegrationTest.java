@@ -648,6 +648,31 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     }
 
     @Test
+    void shouldPreserveLegacyHrmPositionalInsertsAndSelectStar_withTheIndexedDerivedKey() {
+        sql.update(
+                "INSERT INTO HRMDocumentToDemographic VALUES(?,?,?,CURRENT_TIMESTAMP)",
+                patient,
+                "0" + patient + "suffix",
+                Integer.toString(patient + 500));
+        var original =
+                sql.queryForMap("SELECT * FROM HRMDocumentToDemographic WHERE id=?", patient);
+        assertThat(original.keySet())
+                .containsExactlyInAnyOrder("id", "demographicNo", "hrmDocumentId", "timeAssigned");
+        assertThat(original.get("demographicNo")).isEqualTo("0" + patient + "suffix");
+        assertThat(
+                        sql.queryForObject(
+                                "SELECT cds_patient_key FROM HRMDocumentToDemographic WHERE id=?",
+                                java.math.BigDecimal.class,
+                                patient))
+                .isEqualByComparingTo(java.math.BigDecimal.valueOf(patient));
+        assertThatThrownBy(
+                        () ->
+                                read.executeWithoutResult(
+                                        status -> hospitalReports.requireCdsExportAbsent(patient)))
+                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+    }
+
+    @Test
     void shouldUseTheNumericPatientIndex_forLargeUnrelatedHospitalReportLinkSets() {
         String owner = "perf" + patient;
         try {
@@ -739,11 +764,11 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
         try {
             sql.update(
                     "INSERT INTO quickListUser(id,providerNo,quickListName,lastUsed)"
-                        + " VALUES(?,'989875','owned',CURRENT_TIMESTAMP)",
+                            + " VALUES(?,'989875','owned',CURRENT_TIMESTAMP)",
                     patient);
             sql.update(
                     "INSERT INTO provider_default_program(id,provider_no,program_id,signnote)"
-                        + " VALUES(?,'989875',17,0)",
+                            + " VALUES(?,'989875',17,0)",
                     patient);
             sql.update(
                     "INSERT INTO"
@@ -761,15 +786,15 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
         } finally {
             sql.update(
                     "DELETE FROM quickListUser WHERE id=? AND providerNo='989875' AND"
-                        + " quickListName='owned'",
+                            + " quickListName='owned'",
                     patient);
             sql.update(
                     "DELETE FROM provider_default_program WHERE id=? AND provider_no='989875' AND"
-                        + " program_id=17",
+                            + " program_id=17",
                     patient);
             sql.update(
                     "DELETE FROM reportTemplates WHERE templateid=? AND templatetitle='Owned"
-                        + " definition'",
+                            + " definition'",
                     patient);
             sql.update("DELETE FROM messengerMembershipLock WHERE id=?", patient);
         }

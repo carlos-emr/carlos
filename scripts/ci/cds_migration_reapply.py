@@ -68,10 +68,17 @@ def verify_export_migration_reapply(repository: Path, query):
         # Simulate the virtual column having committed before its index was created.
         execute("ALTER TABLE HRMDocumentToDemographic ADD COLUMN cds_patient_key DECIMAL(20,0) "
                 "GENERATED ALWAYS AS (CAST(NULLIF(REGEXP_SUBSTR(demographicNo, "
-                "'^[[:space:]]*[+]?[0-9]+'), '') AS DECIMAL(20,0))) VIRTUAL")
+                "'^[[:space:]]*[+]?[0-9]+'), '') AS DECIMAL(20,0))) VIRTUAL INVISIBLE")
         execute(migrations[3]); execute(migrations[3])
         if execute('SELECT id,HEX(demographicNo) FROM HRMDocumentToDemographic ORDER BY id') != original:
             raise RuntimeError('HRM patient index replay changed a source owner')
+        execute("INSERT INTO HRMDocumentToDemographic VALUES(6,'28')")
+        if execute('SELECT id,demographicNo FROM HRMDocumentToDemographic WHERE cds_patient_key=28') != ['6\t28']:
+            raise RuntimeError('HRM patient index broke a legacy positional insert')
+        if execute("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() "
+                   "AND table_name='HRMDocumentToDemographic' AND column_name='cds_patient_key' "
+                   "AND extra='VIRTUAL GENERATED, INVISIBLE'") != ['1']:
+            raise RuntimeError('HRM derived key is not invisible to legacy row shapes')
         if execute('SELECT id FROM HRMDocumentToDemographic WHERE cds_patient_key=27 ORDER BY id') != ['1', '2']:
             raise RuntimeError('HRM patient index lost a numeric alias')
         if execute("SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() "
@@ -82,6 +89,7 @@ def verify_export_migration_reapply(repository: Path, query):
                 'nativeWitnessPreserved': True, 'existingAttemptPreserved': True,
                 'missingAttemptBackfilledOnce': True, 'explicitDenialPreserved': True,
                 'hrmSourceOwnersPreserved': True, 'hrmPatientIndexRecovered': True,
+                'hrmLegacyInsertCompatible': True,
                 'migrations': {name: hashlib.sha256(folder.joinpath(name).read_bytes()).hexdigest() for name in names}}
     finally:
         query('DROP DATABASE ' + database)
