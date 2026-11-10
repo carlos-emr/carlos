@@ -397,9 +397,32 @@ if [ "$EXPECT_SPLIT" = 1 ]; then
   mf_ok=1
   for m in o19map_schema o19map_props o19_preflight; do
     f=/usr/share/carlos-emr/o19-manifest/$m.json
-    { [ -f "$f" ] && python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if d.get("format")==1 else 1)' "$f"; } || { mf_ok=0; bad "manifest $f missing or not format 1"; }
+    # CLI 1.3.2 reads schema format 2 (billing helper lifecycle), while the
+    # properties and preflight envelopes remain format 1. Require exact types
+    # and kinds so booleans or a different manifest cannot qualify a package.
+    if ! python3 - "$f" "$m" <<'O19_PACKAGE_MANIFEST'
+import json
+import sys
+
+expected = {
+    'o19map_schema': ('o19map-schema', 2),
+    'o19map_props': ('o19map-props', 1),
+    'o19_preflight': ('o19-preflight', 1),
+}
+try:
+    with open(sys.argv[1], encoding='utf-8') as source:
+        document = json.load(source)
+    valid = (isinstance(document, dict) and type(document.get('format')) is int
+             and (document.get('kind'), document['format']) == expected.get(sys.argv[2]))
+except (OSError, ValueError):
+    valid = False
+sys.exit(0 if valid else 1)
+O19_PACKAGE_MANIFEST
+    then
+      mf_ok=0; bad "manifest $f missing or incompatible with the packaged CLI contract"
+    fi
   done
-  [ "$mf_ok" = 1 ] && ok "the three OSCAR 19 manifests ship with carlos-emr at format 1"
+  [ "$mf_ok" = 1 ] && ok "the three OSCAR 19 manifests match their packaged CLI kinds and formats"
   grep -qFx "  carlos-emr $(g "$POST" pkg.carlos-emr)" "$CHECK_LOG" && ok "check names the carlos-emr version" || bad "check does not name carlos-emr $(g "$POST" pkg.carlos-emr)"
   grep -qFx "  carlos-ctl $ctlv" "$CHECK_LOG" && ok "check names the carlos-ctl version" || bad "check does not name carlos-ctl $ctlv"
   grep -q '^ExecStart=/usr/sbin/carlos-ctl finish-install --boot$' /usr/lib/systemd/system/carlos-emr-provision.service 2>/dev/null && ok "carlos-emr-provision.service starts /usr/sbin/carlos-ctl" || bad "carlos-emr-provision.service ExecStart: $(grep ^ExecStart= /usr/lib/systemd/system/carlos-emr-provision.service 2>/dev/null)"
