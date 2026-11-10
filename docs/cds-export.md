@@ -1,6 +1,8 @@
 # CDS export implementation contract
 
-This change targets `release/2026.08`, starting from
+This change targets `release/2026.08`, integrating through
+`0f73961b38044095f2d191afde32630c3291c6b2`, including the release lab fixes.
+Its released migration bytes are identical to the pinned upgrade SQL baseline
 `ef69eea17a4cc3fb288b26327471fce1e20dcd8f`. The integration retains the release's
 importer, MariaDB Connector/J 3.5.11 and DAO/API fixes. It excludes develop-only
 portal, SMS and email features. Historical WAR hashes and workflow results below

@@ -296,7 +296,7 @@
                         <jsp:param name="providerNo" value="<%=providerNo%>"/>
                         <jsp:param name="searchProviderNo" value="<%=searchProviderNo%>"/>
                         <jsp:param name="status" value="<%=status%>"/>
-                        <jsp:param name="showLatest" value="true"/>
+                        <jsp:param name="showLatest" value="false"/>
                     </jsp:include>
 
                     <%
@@ -346,7 +346,7 @@
                             <%
                             } else {
                             %>
-                            <a href="<%=request.getContextPath()%>/lab/CA/ALL/ViewLabDisplay?inWindow=true&amp;segmentID=<carlos:encode value='<%= segmentID %>' context="uriComponent"/>&amp;providerNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/>&amp;searchProviderNo=<carlos:encode value='<%= searchProviderNo %>' context="uriComponent"/>&amp;status=<carlos:encode value='<%= status %>' context="uriComponent"/>&amp;showLatest=true" onclick="parent.reportWindow(this.href); return false;"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
+                            <a href="<%=request.getContextPath()%>/lab/CA/ALL/ViewLabDisplay?inWindow=true&amp;segmentID=<carlos:encode value='<%= segmentID %>' context="uriComponent"/>&amp;providerNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/>&amp;searchProviderNo=<carlos:encode value='<%= searchProviderNo %>' context="uriComponent"/>&amp;status=<carlos:encode value='<%= status %>' context="uriComponent"/>&amp;showLatest=false" onclick="parent.reportWindow(this.href); return false;"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
                             </a>
                             <%
                                 }

@@ -1,7 +1,13 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 import importlib.util
+from contextlib import redirect_stdout
+import io
+import json
+import os
 from pathlib import Path
+import tempfile
 import unittest
+from unittest.mock import patch
 
 SPEC = importlib.util.spec_from_file_location("codefactor_report", Path(__file__).with_name("report-codefactor-findings.py"))
 REPORT = importlib.util.module_from_spec(SPEC)
@@ -81,6 +87,62 @@ class CodeFactorReportTest(unittest.TestCase):
 
         self.assertIsNone(REPORT.latest_completed_check(fetch, "owner/repo", COMMIT))
         self.assertEqual(20, len(calls))
+
+    def environment(self, output):
+        return {"REPORT_REPOSITORY": "owner/repo", "REPORT_COMMIT": COMMIT,
+                "GITHUB_TOKEN": "test-token-must-not-be-retained", "REPORT_PATH": str(output)}
+
+    def test_absent_optional_analysis_retains_unavailable_evidence_without_a_clean_result(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "report.json"
+            console = io.StringIO()
+            with patch.dict(os.environ, self.environment(output)), redirect_stdout(console), \
+                    patch.object(REPORT, "latest_completed_check", return_value=None), \
+                    patch.object(REPORT.time, "monotonic", side_effect=[0, 901]), \
+                    patch.object(REPORT.time, "sleep") as sleep:
+                self.assertEqual(0, REPORT.main())
+            sleep.assert_not_called()
+            result = json.loads(output.read_text())
+            self.assertFalse(result["analysisAvailable"])
+            self.assertFalse(result["complete"])
+            self.assertEqual(COMMIT, result["requestedCommit"])
+            self.assertEqual("CODEFACTOR_ANALYSIS_UNAVAILABLE", result["incomplete"]["code"])
+            for field in ("commit", "checkId", "conclusion", "annotationCount",
+                          "declaredAnnotationCount", "annotationsSha256"):
+                self.assertIsNone(result[field], field)
+            self.assertEqual([], result["annotations"])
+            self.assertIn("::notice title=CodeFactor diagnostics::", console.getvalue())
+            self.assertNotIn("test-token-must-not-be-retained", output.read_text() + console.getvalue())
+
+    def test_incomplete_existing_analysis_still_fails_after_retaining_its_evidence(self):
+        def fetch(path):
+            if "annotations?" not in path:
+                return self.check()
+            return [{"message": "Retained finding"}] * 100 if path.endswith("&page=1") else []
+
+        partial = REPORT.collect(fetch, "owner/repo", COMMIT, self.check())
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "report.json"
+            with patch.dict(os.environ, self.environment(output)), redirect_stdout(io.StringIO()), \
+                    patch.object(REPORT, "latest_completed_check", return_value=(COMMIT, self.check())), \
+                    patch.object(REPORT, "collect", return_value=partial), \
+                    patch.object(REPORT.time, "monotonic", side_effect=[0, 901]):
+                self.assertEqual(1, REPORT.main())
+            result = json.loads(output.read_text())
+            self.assertTrue(result["analysisAvailable"])
+            self.assertFalse(result["complete"])
+            self.assertEqual(100, result["annotationCount"])
+            self.assertEqual(101, result["declaredAnnotationCount"])
+            self.assertEqual("INCOMPLETE_ANNOTATION_PAGE", result["incomplete"]["code"])
+
+    def test_request_failure_is_not_downgraded_to_an_absent_analysis(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "report.json"
+            with patch.dict(os.environ, self.environment(output)), \
+                    patch.object(REPORT, "latest_completed_check", side_effect=RuntimeError("HTTP 403")):
+                with self.assertRaisesRegex(RuntimeError, "HTTP 403"):
+                    REPORT.main()
+            self.assertFalse(output.exists())
 
 
 if __name__ == "__main__":

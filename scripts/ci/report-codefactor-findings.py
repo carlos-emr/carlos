@@ -108,6 +108,7 @@ def main() -> int:
             print(json.dumps({"analysisCommit": analysis_commit, "checkId": check["id"],
                               "declaredAnnotationCount": check["output"]["annotations_count"]}), flush=True)
             document = collect(fetch, repository, analysis_commit, check)
+            document["analysisAvailable"] = True
             document["requestedCommit"] = commit
             document["analysisMayPrecedeCurrentCommit"] = analysis_commit != commit
             if document["complete"] or time.monotonic() >= deadline:
@@ -119,7 +120,17 @@ def main() -> int:
             time.sleep(15)
             continue
         if time.monotonic() >= deadline:
-            raise RuntimeError("Completed CodeFactor check unavailable within bounded history")
+            # This read-only collector is not the external CodeFactor quality gate.
+            # Retain absence explicitly, without inventing a clean conclusion or count.
+            document = {"protocol": 1, "complete": False, "analysisAvailable": False,
+                        "requestedCommit": commit, "commit": None, "checkId": None,
+                        "conclusion": None, "annotationCount": None,
+                        "declaredAnnotationCount": None, "annotationsSha256": None,
+                        "analysisMayPrecedeCurrentCommit": None, "annotations": [],
+                        "incomplete": {"code": "CODEFACTOR_ANALYSIS_UNAVAILABLE"}}
+            print("::notice title=CodeFactor diagnostics::No completed external analysis is available; "
+                  "the retained report is UNAVAILABLE and does not establish a clean result.", flush=True)
+            break
         time.sleep(15)
     output = Path(os.environ["REPORT_PATH"])
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -129,7 +140,10 @@ def main() -> int:
     output.write_bytes(payload)
     print(json.dumps({key: value for key, value in document.items() if key != "annotations"}))
     # The report is diagnostic; the original CodeFactor check remains authoritative.
-    return 0 if document["complete"] else 1
+    # Successfully recording an absent optional analysis is diagnostic success.
+    # An existing analysis still requires complete, stable annotation evidence;
+    # request/permission errors continue to raise rather than becoming absence.
+    return 0 if document["complete"] or document["analysisAvailable"] is False else 1
 
 
 if __name__ == "__main__":

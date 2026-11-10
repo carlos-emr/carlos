@@ -132,7 +132,10 @@
         "java-native-generated",
         "java-native-flyway",
         "java-native-bc-flyway",
-        "java-cds-native"
+        "java-cds-native",
+        "java-cds-transfer-import",
+        "java-cds-transfer-export",
+        "java-cds-transfer-shared"
       ]
     },
     {
@@ -592,7 +595,10 @@
         "manual-demographic-cds-large-ingress",
         "manual-demographic-cds-lifecycle",
         "manual-demographic-cds-retained-recovery",
-        "java-cds-native"
+        "java-cds-native",
+        "java-cds-transfer-import",
+        "java-cds-transfer-export",
+        "java-cds-transfer-shared"
       ]
     },
     {
@@ -809,7 +815,7 @@
         "scripts/ci/lifecycle_baselines.py",
         "scripts/ci/test_lifecycle_baselines.py"
       ],
-      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5 and current-main beta6 installs on ON/BC; beta5 exercises V1.0.59.27–32 and CLI 1.3.0-to-1.3.1. A source-identical current-main install alone does not cover historical migration.",
+      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5 and current-main beta6 installs on ON/BC; beta5 exercises V1.0.59.27\u201332 and CLI 1.3.0-to-1.3.1. A source-identical current-main install alone does not cover historical migration.",
       "cases": "Framingham/UKPDS HDL equal/greater than total and stale-answer clearing; renal thresholds/source selection; WHtR and waist units; valid/impossible dates and leap/DST days; missing patient/catalog/rules; age/sex/hide filters; shared/private/null flowsheet scopes; selected preventions in print; duplicate linked diagnosis/drug and intact long lab values.",
       "acceptance": "Clinical calculations use the intended inputs, invalid input clears stale results, persisted dates/values are exact, and no missing-data case logs an error per prevention type.",
       "requiredChecks": [
@@ -1966,6 +1972,16 @@
             {
               "name": "shouldHashAndDetectAdmissionChanges_usingTheActualNativePrimaryKey",
               "container": ""
+            },
+            {
+              "name": "shouldCaptureColumnWitnessesAlongsideTheOriginalReceipt_andIdentifyTheChangedField",
+              "container": "",
+              "check": "java-cds-transfer-import"
+            },
+            {
+              "name": "shouldRejectAnExactFloatChange_hiddenByTheOriginalSqlReceipt",
+              "container": "",
+              "check": "java-cds-transfer-import"
             }
           ]
         },
@@ -3060,6 +3076,892 @@
               "container": ""
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.app.contract.CdsTransferPermissionSeedMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-shared",
+          "cases": [
+            {
+              "name": "shouldLeaveARestrictedAdministratorWithoutANewImportGrant",
+              "container": "",
+              "check": "java-cds-transfer-shared"
+            },
+            {
+              "name": "shouldAuthorizeBothIndependentPermissions_fromActualFreshMigrationRows",
+              "container": "",
+              "check": "java-cds-transfer-shared"
+            },
+            {
+              "name": "shouldSeedOnlyAnUnrestrictedAdministrator_andRemainIdempotent",
+              "container": "",
+              "check": "java-cds-transfer-shared"
+            },
+            {
+              "name": "shouldPreserveExplicitImportGrantsAndDenials_withoutChangingTheirMetadata",
+              "container": "",
+              "check": "java-cds-transfer-shared"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDaoMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "shouldMatchTheActiveReadersRoleName_preservingSpacesAndIgnoringAccessType",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRefuseLockedAndUnknownLockFlags_evenWhenTheProgramAllowsReading",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldAcceptAnActiveReferral_intoTheProvidersProgramDomain",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldDenyMissingReporterRoles_withoutSubstitutingAnotherRole",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldPreserveLegacyEmptyAndZeroReporterRoles_onlyForUnscopedChartNotes",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldEnforceTheConfiguredFacilityBoundary_afterProgramRights",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldUseHistoricalProgramDomain_forUnscopedAndZeroProgramNotes",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRequireProviderMembership_evenWhenItsRoleHasADefaultGrant",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldAllowTheSameRoleDefault_withoutAnExplicitAccessGrant",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRequireAnExistingTransaction_forMetadataAndPermissionReads",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldBindPhysicalScopeToItsPatient_andRejectMalformedDependencies",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldDenyAmbiguousMembershipRoles_insteadOfDependingOnRowOrder",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldUseExplicitRoleAndAllRoleGrants_onlyInTheNotesProgram",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRefuseARevisionUuidSharedWithAnotherPatient_withoutReadingItsPayload",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldNormalizeProgramAccessMapKeys_asTheActiveReaderDoes",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteSourceMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "shouldReadExactOrderedCompositeLinkMetadata_underTheOwningSnapshot",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldStreamOnlyTheOwnedNote_andKeepEveryLargeUtf8Byte",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldCaptureEveryPatientIssueField_andOnlyItsReferencedCatalogueRows",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldKeepOneRealSnapshot_whenTheNoteScopeChangesOnAnotherConnection",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRequireReadonlyTransactions_forAssociationMetadataAndValues",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldExcludeNoteProviderAssociations_fromOtherCategorySelections",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldCaptureUnlinkedAndResolvedIssues_withoutAnActivityFilter",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldPreserveEveryOwnedNoteExtension_andStreamItsCompleteUtf8Value",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldCaptureExactPhysicalIssueLinks_withoutIncludingAnotherPatient",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRefuseDuplicatePhysicalLinks_withoutCollapsingRows",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRefuseNonReadonlyReads_andNeverSkipALockedNoteDuringScopeDiscovery",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldCaptureExactNoteAuthorsAndSigners_withTheirPublicFieldsOnly",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldPageTheCompleteCompositeIdentity_withoutSkippingSharedNotes",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRefuseCrossPatientLinks_fromEitherPatientDirection",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldMatchThePinnedPhysicalSchema_andActualOrderedReceiptMetadata",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cds.jdbc.CdsBinaryReadsMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-shared",
+          "cases": [
+            {
+              "name": "shouldRefuseAnActualTextProtocolResult_beforeReadingItsValues",
+              "container": "",
+              "check": "java-cds-transfer-shared"
+            },
+            {
+              "name": "shouldRetainExactFloatBits_andKeepStatementsAndResultsGuarded",
+              "container": "",
+              "check": "java-cds-transfer-shared"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsexport.cli.CdsExportCliBootstrapMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "shouldObserveAndCancelOwnedMetadata_andSeeLiveRevocationThroughTheRealPrivilegeGraph",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportCvcCatalogueMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "boundedKeysetsIncludeGenericTradeAndNullOrEmptyDefinitionsWithoutHydration",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "publicVocabularyReadsAreIdenticalForIssuedPositivePatientScopesAndRejectInvalidReads",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "frozenClassifierUsesCapturedCatalogueDefinitionsAfterALaterCommittedEdit",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "committedCatalogueChangesDoNotAlterTheOwningRepeatableReadSnapshot",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "noRawVocabularyReadCanEscapeTheOwningReadOnlyTransaction",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "existingNativeCvcFindersKeepTheirHistoricalContractsBesideTheRawReaders",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "exactPhysicalSchemaAndActualDriverColumnsArePinnedForBothPublicCatalogues",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "fullComposerAndIndependentReaderAgreeOnEveryCapturedVocabularyField",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicArchiveMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "rawChunkReadsPreserveUtf8BoundariesAndRejectForeignPatientRowsOrUndeclaredColumns",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "streamsEveryPhysicalFieldWithoutEntityHydrationOrEnrollmentDeduplication",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "capturesCurrentAndArchivedPrimaryOrEnrollmentProvidersWithOnlyPublicFields",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "keysetPagesEverySnapshotIncludingRepeatedStatesAndNullOrEmptyValues",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "capturesBothMergeDirectionsAndDeletedHistoryWithoutIncludingForeignLinks",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "verifiesFullPhysicalSchemaAndActualDriverMetadata",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "refusesRawArchiveReadsOutsideTheOwningSourceTransaction",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "keepsTheSameRepeatableReadSnapshotAcrossASeparateCommittedArchiveEdit",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDocumentReadMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "shouldConservativelyRefuseLegacyNumericPatientAliases_withoutLoadingHospitalReportContent",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldReleaseTheLegacyTableAtItsIndependentDeadline_evenWithoutAnotherCaptureCheckpoint",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRefuseSharedDocuments_forEitherPatientBeforeReturningHeaders",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRequireReviewForUnqualifiedDatabaseFileStorage",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRefuseAnUnknownColumnInAnOtherwiseOperationalTable_beforeExcludingItsValues",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRefuseAConnectionLostDuringTheLegacyReadLock_beforeItCanQualifySourceAbsence",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRepeatHospitalReportAbsenceInsideTheSamePatientSnapshot",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldVerifyBothPhysicalSchemas_andWholeOriginalDriverRecipes",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRefuseAnUnpinnedNontransactionalSource_evenWhenItsCurrentCountIsZero",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRefuseAnUnknownPhysicalSourceTable_evenWhenItIsEmpty",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRequireReviewForAdditionalNativeReviewerAssociations",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRequireReviewForSeparateNativeReviewerHistory",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRefuseDanglingHospitalReports_beforeTheyCanAppearAsAnEmptyDocumentDomain",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRefuseUnclassifiedClinicalSourceRows_insteadOfTreatingTheChartAsFullyCovered",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldVerifyTheWholePhysicalSourceContract_withoutReadingClinicalValues",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldKeepTheLegacyTableStableUntilThePatientSnapshotReleasesItsReadLock",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldAllowTheInstalledClinicSiteDirectory_withoutHidingUnsupportedClinicalSources",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRequireReviewForUnqualifiedProgramRestrictions_beforeAnyDocumentPayload",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldKeepOtherPatientsHospitalReportsOutsideTheSelectedChart",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldReproduceOriginalDocumentAndCompositeLinkReceipts",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldPreserveCompleteDocumentXml_andNullVersusEmptySource",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldVerifyThePhysicalHospitalReportLinkContract_andRecordExactAbsence",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRefuseDanglingLinks_insteadOfSilentlyDroppingAnOccurrence",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldPageEveryOwnedDocument_andLinkIncludingInactiveRows",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldKeepChunksInTheirCapturedSnapshot_afterConcurrentDocumentEdit",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportImmunizationCaptureMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "unselectedAndForeignChunksOrColumnsCannotBeReadEvenThroughTheSelectedApi",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "actualJpaSnapshotOwnsTheDefinitionContextAndRejectsReuseAfterCommit",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "configurationAndAllSelectedValuesShareOneActualSnapshotWithoutEntityHydration",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "unknownInjectionCategoryNeverTurnsIntoAnEmptyOrAutomaticallyIncludedClinicalSelection",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "selectedLargeExtensionChunksPreserveUtf8BytesAndNullVersusEmpty",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "selectedOwningDaosIncludeEveryVaccineColumnAndChildWhileExcludingScreeningAndForeignValues",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "readonlyAndProgramBoundariesRemainMandatoryEvenForEmptySelections",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportLaboratoryReadMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "shouldRefuseLegacyOnlyLaboratoryData_insteadOfReportingAnEmptyStructuredInventory",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldHashAndStreamTheCompleteBlockedNarrative_andDistinguishNullFromEmpty",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRejectTwoStructuredResultsSharingOneNativeLab",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRejectMissingLabMetadata_withoutAnInnerJoinOmission",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldMatchAllFourPinnedPhysicalSchemas_andReadActualOrderedReceiptColumns",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRejectCrossPatientHl7Routing_beforeReadingAnyResultBody",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRejectADeletedNativeReference_forAnUnblockedResult",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRejectABlockedResultWithAnUnrestrictedMirror",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRejectDuplicatePatientHl7Routing_insteadOfDeduplicatingIt",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldPageEveryOwnedDigestKey_withoutCoercionOrAnotherPatient",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRejectADanglingMessage_withoutShrinkingTheCapturedInventory",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldKeepAnotherPatientsLegacyRoutes_outsideTheSelectedPatientScope",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRefuseUnmappedOrNoncanonicalRouting_beforeCountingPagingOrStreamingResults(String)",
+              "container": "",
+              "check": "java-cds-transfer-export",
+              "destinations": [
+                {
+                  "name": "shouldRefuseUnmappedOrNoncanonicalRouting_beforeCountingPagingOrStreamingResults(String)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldRefuseUnmappedOrNoncanonicalRouting_beforeCountingPagingOrStreamingResults(String)[2]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldRefuseUnmappedOrNoncanonicalRouting_beforeCountingPagingOrStreamingResults(String)[3]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldRefuseUnmappedOrNoncanonicalRouting_beforeCountingPagingOrStreamingResults(String)[4]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldRefuseUnmappedOrNoncanonicalRouting_beforeCountingPagingOrStreamingResults(String)[5]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldRefuseUnmappedOrNoncanonicalRouting_beforeCountingPagingOrStreamingResults(String)[6]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldRejectDuplicateLabMetadata_insteadOfSelectingAnArbitraryCopy",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRejectMissingPatientRouting_forAStructuredResult",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMeasurementReadMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "shouldRefuseAnOwnedDeletedIdentityThatNowBelongsToAnotherCurrentPatient",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRetainAllOwnedExtensions_andTheirCompleteValues",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldPreserveNullEmptyAndTheCompleteObservationBody_underItsOriginalPatientScope",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldPageEveryPatientOwnedObservation_withoutAnotherChartsRows",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRequireReviewForDeletedObservations_beforeAnyArchivePayloadCanBeCaptured",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldReproduceTheImportersWholeNativeReceipts_forBothObservationAndExtension",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldKeepEveryMatchingVocabularyRow_withoutUnrelatedInstructionsOrOtherPatientCodes",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldMatchAllPinnedPhysicalColumns_andTheirActualOrderedJdbcReceiptMetadata",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRefuseSharedCurrentAndForeignDeletedIdentities_withoutReadingExtensions",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldKeepLargeBodyChunksInTheSameRepeatableReadSnapshot_afterAConcurrentEdit",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMedicationCaptureMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "shouldCapturePrecisionOnlyForSelectedPatientOwnedDomains_withoutLosingDuplicateOrUnknownRows",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldCountAndPageAllCurrentArchivedAndHiddenPrescriptionRows_withEveryReviewedPhysicalColumn",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRefuseCrossDomainAndForeignPatientChunks_andRequireTheCallerSnapshot",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldCaptureTheStoredDoseBits_insteadOfTheRoundedSqlDisplay_andKeepItsSnapshot",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldCaptureInactiveMedicationPrescribersOnlyForTheSelectedDomain_withoutPrivateProviderValues",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldReconcileAnActuallyPersistedImporterProjection_andPreserveItsSourceMeaningAfterANativeNoteEdit",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldKeepTheOriginalLargeValueAndRowHashesInOneSnapshot_acrossAConcurrentNativeEdit",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPreventionScopeMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "pinsFullPhysicalSchemaButAllowsOnlyTheExplicitMetadataAliasProjection",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "activeUnknownAndAmbiguousProgramScopesRefuseBeforeAnyMetadataProjection",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "snapshotAndFreshRestrictionReadsRequireReadonlyTransactionsAndRejectForeignChunks",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "preservesEveryRootMetadataRecordIncludingDeletedHistoryWithoutReadingClinicalCells",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "anExplicitFalseFlagKeepsItsMeaningEvenWithARecordedProgramAffiliation",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "actualComposerAndIndependentReaderCarryOnlyTheSixClassificationMetadataFields",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "freshProgramRevocationIsVisibleEvenWhileAnOlderReadonlySnapshotStillSeesTheOriginalMetadata",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportRelatedSourceMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "actualMetadataContractsAndReceiptRecipesCoverAllFourTables",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "owningDaosRequireAnActualReadOnlyTransaction",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "captureTransactionKeepsTheOldVersionWhileAnotherTransactionUpdatesTheContact",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "deletedAndInactiveAssociationsAndContactsRemainAvailableForExplicitDisposition",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "pharmacyClosureIncludesHistoryAndMissingLinksWithoutReadingForeignRows",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "exactExternalContactReferencesRejectNumericCoercionPaddingAndPatientLinks",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "fullUnicodeValuesRemainChunkedHashedAndPatientScoped",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportRetainedCaptureMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "shouldStreamTheExactOldLargeValueAcrossAConcurrentUpdate_usingTheSamePatientSnapshot",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "fileOwningDaosRequireAnActualReadOnlyTransaction",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRefuseAnUnclassifiedRetainedCategory_insteadOfFilteringItOutOfTheExpectedInventory",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "fileChunkAccessCannotCrossPatientCategoryOrAnUnreferencedFileInTheSameRun",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "fileReceiptRecipeMatchesTheHistoricalImporterAndCapturesTheSeparateVerificationEpoch",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "fileMetadataAndChunksShareTheSameSnapshotAcrossAConcurrentUpdate",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldCaptureEveryMetadataColumnAndOnlyTheSelectedPatientCategories_andTheirNativeFieldEdges",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRefuseForeignPatientUnselectedCategoryAndInvalidScope_beforeReturningAnyPayload",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "fileClosureIsPatientAndCategoryScopedEvenWhenOnePayloadIsSharedAcrossChartsAndSections",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSchemaVisibilityMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "shouldRefuseAHiddenFutureColumn_evenWhenTheVisibleCatalogueExactlyMatchesThePinnedSchema(boolean)",
+              "container": "",
+              "check": "java-cds-transfer-export",
+              "destinations": [
+                {
+                  "name": "shouldRefuseAHiddenFutureColumn_evenWhenTheVisibleCatalogueExactlyMatchesThePinnedSchema(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldRefuseAHiddenFutureColumn_evenWhenTheVisibleCatalogueExactlyMatchesThePinnedSchema(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSelectionIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "shouldCaptureAllAdjunctRowsAcrossKeysetPages_withIndependentSqlHashesAndBoundedLargeText",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldCaptureEveryArchiveVersion_withoutCollapsingBookingIds_orDroppingHistoricalStatusDefinitions",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldKeepOneRawPatientSnapshot_whenAnotherConnectionChangesItsClinicalScalars",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldCaptureAllAllergyRowsIncludingArchivedEntries_withoutTrimmingTextOrDefaultingNullableFlags",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldCaptureAllAppointmentScalarsAcrossPages_withoutUiDefaultsOrAnotherPatientsRows",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldCaptureOnlyPublicProviderFields_andOnlyTheSelectedPatientReferences_withBinaryTextPaging",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldCaptureOnlyPatientOwnedAllergyPrecisionRows_andRetainDuplicateAndUnknownFormatsForReview",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldCaptureExactReferencedStatusDefinitions_includingInactiveAndDuplicateCodes",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldCaptureEveryRawDemographicColumn_withoutInventingMissingDatesOrFalseFlags",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldKeepLargeValueRangesInOneSnapshot_whenAnotherConnectionChangesTheirBytes",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldVerifyAnExistingImporterReceipt_fromCapturedValuesAndActualDriverMetadata_withoutChangingItsProtocol",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldVerifyActualPinnedNativeSchema_beforeCapturingEveryDeclaredColumn",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            }
+          ]
         }
       },
       "runtimeConstraints": {
@@ -3121,7 +4023,7 @@
         "-DexcludedGroups=flyway-schema",
         "-Dcarlos.test.schema.expected=generated"
       ],
-      "minimumCases": 2572,
+      "minimumCases": 2575,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "RxCorrectionSaveRollbackIntegrationTest": 2,
@@ -3134,8 +4036,8 @@
         "MeasurementsExtDaoIntegrationTest": 1,
         "ProviderLabRoutingDaoIntegrationTest": 1,
         "BillingONCHeader1DaoIntegrationTest": 1,
-        "LegacyLabUploadDaoIntegrationTest": 6,
-        "LabRoutingLookupDaoIntegrationTest": 4,
+        "LegacyLabUploadDaoIntegrationTest": 8,
+        "LabRoutingLookupDaoIntegrationTest": 5,
         "MeasurementPatientMatchMariaDbIntegrationTest": 10,
         "BillingHistoryDaoIntegrationTest": 1,
         "LookupDaoIntegrationTest": 1,
@@ -3197,7 +4099,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 157,
+      "minimumCases": 160,
       "requiredFamilies": {
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
@@ -3211,8 +4113,8 @@
         "MeasurementsExtDaoIntegrationTest": 1,
         "ProviderLabRoutingDaoIntegrationTest": 1,
         "BillingONCHeader1DaoIntegrationTest": 1,
-        "LegacyLabUploadDaoIntegrationTest": 6,
-        "LabRoutingLookupDaoIntegrationTest": 4,
+        "LegacyLabUploadDaoIntegrationTest": 8,
+        "LabRoutingLookupDaoIntegrationTest": 5,
         "LegacyLabNativeMariaDbIntegrationTest": 7,
         "ArchiveAuditTimestampIntegrationTest": 2,
         "Growth0To36FormPersistenceIntegrationTest": 19,
@@ -3264,7 +4166,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 186,
+      "minimumCases": 187,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 22,
@@ -3272,7 +4174,7 @@
         "DemographicMergeMariaDbIntegrationTest": 9,
         "CaseManagementNoteLockMariaDbIntegrationTest": 15,
         "ConsultationArchiveDaoIntegrationTest": 1,
-        "LabRoutingLookupDaoIntegrationTest": 4,
+        "LabRoutingLookupDaoIntegrationTest": 5,
         "LegacyLabNativeMariaDbIntegrationTest": 7,
         "ArchiveAuditTimestampIntegrationTest": 2,
         "FormXmlImportServiceIntegrationTest": 7,
@@ -5619,6 +6521,450 @@
           "moxy-unchanged-readers-no-new-breaks"
         ]
       }
+    },
+    {
+      "id": "java-cds-transfer-import",
+      "kind": "junit",
+      "profiles": [
+        "all"
+      ],
+      "repetitions": 1,
+      "command": [
+        "python3",
+        "scripts/ci/run-cds-native-tier.py",
+        "--container",
+        "{buildContainer}",
+        "--container-workspace",
+        "{buildWorkspace}",
+        "--maven",
+        "{maven}",
+        "--evidence-output",
+        "{run}",
+        "--container-evidence-output",
+        "{containerEvidence}/{runId}",
+        "--fresh-classes",
+        "--coordinated-shard",
+        "import"
+      ],
+      "requiresEnvironment": [
+        "CARLOS_CDS_BUILD_CONTAINER",
+        "CARLOS_CDS_BUILD_WORKSPACE",
+        "CARLOS_CDS_MAVEN",
+        "CARLOS_CDS_EVIDENCE_ROOT"
+      ],
+      "environmentInputs": {
+        "buildContainer": "CARLOS_CDS_BUILD_CONTAINER",
+        "buildWorkspace": "CARLOS_CDS_BUILD_WORKSPACE",
+        "maven": "CARLOS_CDS_MAVEN",
+        "containerEvidence": "CARLOS_CDS_EVIDENCE_ROOT"
+      },
+      "requiredFamilies": {
+        "CdsAllergyArchiveStateUnitTest": 9,
+        "CdsAppointmentStorageMariaDbIntegrationTest": 1,
+        "CdsBase64ValueParserUnitTest": 14,
+        "CdsCareContactUnitTest": 29,
+        "CdsCategoryProjectionBoundaryUnitTest": 4,
+        "CdsCliProtocolUnitTest": 77,
+        "CdsClinicalNormalizationServiceUnitTest": 31,
+        "CdsClinicalPersisterUnitTest": 25,
+        "CdsClinicalReadAccessUnitTest": 6,
+        "CdsClinicalSourceServiceUnitTest": 8,
+        "CdsClinicalStorageMariaDbIntegrationTest": 13,
+        "CdsClinicalSyntheticDatesUnitTest": 7,
+        "CdsContractCorpusUnitTest": 1,
+        "CdsControlPollBackoffUnitTest": 3,
+        "CdsCoreProjectionUnitTest": 72,
+        "CdsCorrectionLookupServiceUnitTest": 1,
+        "CdsDemographicRelationsServiceUnitTest": 10,
+        "CdsDemographicStorageMariaDbIntegrationTest": 1,
+        "CdsDocumentPrecisionUnitTest": 5,
+        "CdsDocumentPublicationServiceUnitTest": 10,
+        "CdsEndpointProjectionInjectionUnitTest": 2,
+        "CdsFieldControlUnitTest": 4,
+        "CdsFieldCorrectionUnitTest": 10,
+        "CdsHistoricalSnapshotUnitTest": 10,
+        "CdsHistoryProjectionIntegrationTest": 1,
+        "CdsHistoryVisibilityMariaDbIntegrationTest": 1,
+        "CdsHrmRepairAdmissionMariaDbIntegrationTest": 11,
+        "CdsIdentityAuthorityUnitTest": 18,
+        "CdsIdentityMariaDbIntegrationTest": 7,
+        "CdsImmunizationProjectionIntegrationTest": 2,
+        "CdsImportActionPrivilegesUnitTest": 36,
+        "CdsImportAttemptBudgetUnitTest": 9,
+        "CdsImportCleanupServiceUnitTest": 7,
+        "CdsImportCoordinatorMariaDbIntegrationTest": 14,
+        "CdsImportExecutionControlUnitTest": 23,
+        "CdsImportFailureEvidenceServiceUnitTest": 6,
+        "CdsImportFileVerificationServiceUnitTest": 8,
+        "CdsImportJobServiceUnitTest": 10,
+        "CdsImportLayeringUnitTest": 3,
+        "CdsImportLedgerControlUnitTest": 55,
+        "CdsImportLedgerMariaDbIntegrationTest": 1,
+        "CdsImportMaintenanceFilterUnitTest": 9,
+        "CdsImportMaintenanceMariaDbIntegrationTest": 24,
+        "CdsImportMaintenanceServiceUnitTest": 2,
+        "CdsImportObservationServiceUnitTest": 29,
+        "CdsImportPermissionUnitTest": 4,
+        "CdsImportPlanningServiceUnitTest": 11,
+        "CdsImportPolicyUnitTest": 5,
+        "CdsImportReportBudgetUnitTest": 12,
+        "CdsImportReportControlUnitTest": 14,
+        "CdsImportReviewServiceUnitTest": 38,
+        "CdsImportStreamOwnershipUnitTest": 11,
+        "CdsImportSubmissionServiceUnitTest": 11,
+        "CdsImportSupervisionServiceUnitTest": 17,
+        "CdsImportValueVerificationUnitTest": 1,
+        "CdsImportWebActionsUnitTest": 34,
+        "CdsJdbcAdmissionGuardUnitTest": 29,
+        "CdsJdbcAdmissionInitializerUnitTest": 4,
+        "CdsJdbcConnectionTimeoutsUnitTest": 35,
+        "CdsLaboratoryImportServiceUnitTest": 26,
+        "CdsLaboratoryReadServiceUnitTest": 2,
+        "CdsLegacyProjectionDaoUnitTest": 5,
+        "CdsLegacyProjectionServiceUnitTest": 5,
+        "CdsMedicationCompatibilityUnitTest": 9,
+        "CdsMedicationDoseUnitTest": 9,
+        "CdsMedicationRenewalActionUnitTest": 5,
+        "CdsNativePreparationServiceUnitTest": 6,
+        "CdsPreacceptServiceUnitTest": 11,
+        "CdsProgramAuthorizationUnitTest": 6,
+        "CdsProgramContextServiceUnitTest": 6,
+        "CdsProviderResolverUnitTest": 8,
+        "CdsReportMediaUnitTest": 18,
+        "CdsReportStorageMariaDbIntegrationTest": 6,
+        "CdsReviewAcceptanceMariaDbIntegrationTest": 8,
+        "CdsRulesetFingerprintMappingUnitTest": 2,
+        "CdsRuntimeIdentityUnitTest": 15,
+        "CdsSchemaTypeCursorUnitTest": 15,
+        "CdsSnapshotServiceUnitTest": 23,
+        "CdsSourceFieldCapacityUnitTest": 2,
+        "CdsSourceFieldsViewModelAssemblerUnitTest": 2,
+        "CdsSpecificationCrosswalkUnitTest": 6,
+        "CdsTargetReceiptMariaDbIntegrationTest": 7,
+        "CdsTemporalReadServiceUnitTest": 9,
+        "CdsTemporalUnitTest": 26,
+        "CdsUnwrittenRevisionReviewServiceUnitTest": 4,
+        "CdsUploadServiceUnitTest": 22,
+        "CdsUploadSubmissionServiceUnitTest": 9,
+        "CdsWebContractUnitTest": 11,
+        "CdsWebErrorProjectionUnitTest": 6,
+        "CdsXmlParserLargeInputUnitTest": 9,
+        "CdsXmlParserUnitTest": 14,
+        "CdsXmlTransportControlUnitTest": 7
+      },
+      "minimumCases": 1174,
+      "requireCoverage": true,
+      "requireClassIdentity": true,
+      "runtimeConstraints": {
+        "java": "25"
+      },
+      "timeoutSeconds": 3600
+    },
+    {
+      "id": "java-cds-transfer-export",
+      "kind": "junit",
+      "profiles": [
+        "all"
+      ],
+      "repetitions": 1,
+      "command": [
+        "python3",
+        "scripts/ci/run-cds-native-tier.py",
+        "--container",
+        "{buildContainer}",
+        "--container-workspace",
+        "{buildWorkspace}",
+        "--maven",
+        "{maven}",
+        "--evidence-output",
+        "{run}",
+        "--container-evidence-output",
+        "{containerEvidence}/{runId}",
+        "--fresh-classes",
+        "--coordinated-shard",
+        "export"
+      ],
+      "requiresEnvironment": [
+        "CARLOS_CDS_BUILD_CONTAINER",
+        "CARLOS_CDS_BUILD_WORKSPACE",
+        "CARLOS_CDS_MAVEN",
+        "CARLOS_CDS_EVIDENCE_ROOT"
+      ],
+      "environmentInputs": {
+        "buildContainer": "CARLOS_CDS_BUILD_CONTAINER",
+        "buildWorkspace": "CARLOS_CDS_BUILD_WORKSPACE",
+        "maven": "CARLOS_CDS_MAVEN",
+        "containerEvidence": "CARLOS_CDS_EVIDENCE_ROOT"
+      },
+      "requiredFamilies": {
+        "CdsExportAccessServiceUnitTest": 29,
+        "CdsExportActivePlanServiceUnitTest": 9,
+        "CdsExportAllergyFieldReconcilerUnitTest": 7,
+        "CdsExportAllergyMapperUnitTest": 9,
+        "CdsExportAllergyProjectionServiceUnitTest": 5,
+        "CdsExportAllergyRetainedAssemblerUnitTest": 6,
+        "CdsExportAppointmentFieldReconcilerUnitTest": 32,
+        "CdsExportAppointmentMapperUnitTest": 10,
+        "CdsExportAppointmentOccurrenceServiceUnitTest": 12,
+        "CdsExportAppointmentProjectionServiceUnitTest": 7,
+        "CdsExportAppointmentTimingMapperUnitTest": 6,
+        "CdsExportAppointmentXmlWriterUnitTest": 4,
+        "CdsExportArtifactServiceUnitTest": 9,
+        "CdsExportAuthenticatedRangeInputStreamUnitTest": 3,
+        "CdsExportCapturedDocumentFilesUnitTest": 9,
+        "CdsExportCapturedNoteScopeValidatorUnitTest": 10,
+        "CdsExportCareOccurrenceServiceUnitTest": 16,
+        "CdsExportCareRetainedSourceUnitTest": 30,
+        "CdsExportCaseManagementProjectionEvidenceUnitTest": 5,
+        "CdsExportCategoryOccurrenceRegistryUnitTest": 6,
+        "CdsExportCliArgumentsUnitTest": 8,
+        "CdsExportCliBootstrapMariaDbIntegrationTest": 1,
+        "CdsExportCliOutputUnitTest": 6,
+        "CdsExportCliUnitTest": 14,
+        "CdsExportClinicalJobServiceUnitTest": 10,
+        "CdsExportClinicalOccurrenceServiceUnitTest": 20,
+        "CdsExportClinicalPackageServiceUnitTest": 10,
+        "CdsExportClinicalZoneServiceUnitTest": 8,
+        "CdsExportClinicalZoneUnitTest": 6,
+        "CdsExportCohortServiceUnitTest": 14,
+        "CdsExportContactFieldReconcilerUnitTest": 24,
+        "CdsExportContactRetainedAssemblerUnitTest": 10,
+        "CdsExportCoverageValidatorUnitTest": 16,
+        "CdsExportCvcCatalogueMariaDbIntegrationTest": 8,
+        "CdsExportDeliveryComposerUnitTest": 5,
+        "CdsExportDeliveryInteropIntegrationTest": 3,
+        "CdsExportDeliveryServiceUnitTest": 7,
+        "CdsExportDemographicAddressReconcilerUnitTest": 14,
+        "CdsExportDemographicAdjunctAssemblyUnitTest": 5,
+        "CdsExportDemographicAncillaryReconcilerUnitTest": 14,
+        "CdsExportDemographicArchiveMariaDbIntegrationTest": 8,
+        "CdsExportDemographicAssemblerUnitTest": 12,
+        "CdsExportDemographicAssociationEvidenceUnitTest": 20,
+        "CdsExportDemographicBirthDateReconcilerUnitTest": 12,
+        "CdsExportDemographicCaptureContractUnitTest": 8,
+        "CdsExportDemographicCareAssemblerUnitTest": 11,
+        "CdsExportDemographicClosureValidatorUnitTest": 8,
+        "CdsExportDemographicCustScopeUnitTest": 2,
+        "CdsExportDemographicHealthCardReconcilerUnitTest": 10,
+        "CdsExportDemographicHistoryAssemblyUnitTest": 4,
+        "CdsExportDemographicMapperUnitTest": 12,
+        "CdsExportDemographicNamesReconcilerUnitTest": 12,
+        "CdsExportDemographicOccurrenceServiceUnitTest": 6,
+        "CdsExportDemographicOptionalDateReconcilerUnitTest": 10,
+        "CdsExportDemographicPhoneProjectionServiceUnitTest": 10,
+        "CdsExportDemographicPhonesMapperUnitTest": 13,
+        "CdsExportDemographicPrimaryAssemblyUnitTest": 9,
+        "CdsExportDemographicPrimaryPhysicianReconcilerUnitTest": 20,
+        "CdsExportDemographicProjectionEvidenceUnitTest": 9,
+        "CdsExportDemographicProviderUnitTest": 2,
+        "CdsExportDemographicRetainedCoreReconcilerUnitTest": 8,
+        "CdsExportDemographicRetainedNoteReconcilerUnitTest": 12,
+        "CdsExportDemographicRetainedPhonesReconcilerUnitTest": 17,
+        "CdsExportDemographicScalarReconcilerUnitTest": 11,
+        "CdsExportDictionaryBoundaryUnitTest": 5,
+        "CdsExportDisclosurePolicyServiceUnitTest": 20,
+        "CdsExportDisclosureScopeServiceUnitTest": 9,
+        "CdsExportDocumentFileSourceReaderUnitTest": 12,
+        "CdsExportDocumentInputStreamUnitTest": 21,
+        "CdsExportDocumentReadMariaDbIntegrationTest": 25,
+        "CdsExportDocumentReceiptUnitTest": 11,
+        "CdsExportEmailLexicalUnitTest": 4,
+        "CdsExportEngineRegistryUnitTest": 5,
+        "CdsExportEnrolmentHistoryUnitTest": 25,
+        "CdsExportEnrolmentProjectionServiceUnitTest": 12,
+        "CdsExportExecutionServiceUnitTest": 10,
+        "CdsExportFreshAuthorizationIntegrationTest": 1,
+        "CdsExportHistoryCurrentContextUnitTest": 22,
+        "CdsExportHistoryFieldReconcilerUnitTest": 20,
+        "CdsExportHistoryOccurrenceServiceUnitTest": 9,
+        "CdsExportHistoryRetainedSourceUnitTest": 16,
+        "CdsExportImmunizationCaptureMariaDbIntegrationTest": 7,
+        "CdsExportImmunizationCaptureValidatorUnitTest": 20,
+        "CdsExportImmunizationDateProjectionUnitTest": 8,
+        "CdsExportImmunizationFieldReconcilerUnitTest": 31,
+        "CdsExportImmunizationMapperUnitTest": 27,
+        "CdsExportImmunizationOccurrenceServiceUnitTest": 19,
+        "CdsExportImmunizationProjectionEvidenceUnitTest": 9,
+        "CdsExportImmunizationProjectionServiceUnitTest": 12,
+        "CdsExportImmunizationRetainedAssemblerUnitTest": 7,
+        "CdsExportImmunizationXmlWriterUnitTest": 14,
+        "CdsExportImplementationIdentityServiceUnitTest": 6,
+        "CdsExportImportOptionsSourceReaderUnitTest": 10,
+        "CdsExportLaboratoryOccurrenceServiceUnitTest": 18,
+        "CdsExportLaboratoryReadMariaDbIntegrationTest": 20,
+        "CdsExportLaboratoryReceiptUnitTest": 7,
+        "CdsExportLaboratoryRetainedSourceUnitTest": 14,
+        "CdsExportLaboratorySourceReaderUnitTest": 10,
+        "CdsExportLayoutUnitTest": 6,
+        "CdsExportLedgerIntegrationTest": 47,
+        "CdsExportLegacyDaoWiringUnitTest": 1,
+        "CdsExportMeasurementReadMariaDbIntegrationTest": 10,
+        "CdsExportMeasurementSourceReaderUnitTest": 8,
+        "CdsExportMedicationCaptureMariaDbIntegrationTest": 7,
+        "CdsExportMedicationFieldReconcilerUnitTest": 8,
+        "CdsExportMedicationMapperUnitTest": 11,
+        "CdsExportMedicationProjectionServiceUnitTest": 5,
+        "CdsExportMedicationRetainedAssemblerUnitTest": 4,
+        "CdsExportNativeCaptureServiceUnitTest": 45,
+        "CdsExportNativeCaptureUnitTest": 14,
+        "CdsExportNativeDateMapperUnitTest": 6,
+        "CdsExportNativeDemographicAssemblerUnitTest": 13,
+        "CdsExportNativeFieldAssessmentValidatorUnitTest": 12,
+        "CdsExportNativePreventionDateMapperUnitTest": 5,
+        "CdsExportNewCategoryOccurrenceServiceUnitTest": 13,
+        "CdsExportNoteAccessDaoMariaDbIntegrationTest": 15,
+        "CdsExportNoteIssueLinkReceiptUnitTest": 8,
+        "CdsExportNoteRevisionInventoryServiceUnitTest": 6,
+        "CdsExportNoteRevisionPlannerUnitTest": 10,
+        "CdsExportNoteRevisionReaderUnitTest": 9,
+        "CdsExportNoteSourceMariaDbIntegrationTest": 15,
+        "CdsExportNoteSourceReaderUnitTest": 7,
+        "CdsExportPackageComposerUnitTest": 9,
+        "CdsExportPackageInventoryServiceUnitTest": 14,
+        "CdsExportPartialRowComparatorUnitTest": 11,
+        "CdsExportPatientDocumentServiceUnitTest": 14,
+        "CdsExportPatientFileBindingServiceUnitTest": 10,
+        "CdsExportPatientIdentityReconcilerUnitTest": 15,
+        "CdsExportPatientInventoryServiceUnitTest": 10,
+        "CdsExportPatientNoteMapperUnitTest": 12,
+        "CdsExportPersonalContactMapperUnitTest": 28,
+        "CdsExportPersonalContactProjectionServiceUnitTest": 8,
+        "CdsExportPharmacyMapperUnitTest": 28,
+        "CdsExportPharmacyProjectionServiceUnitTest": 8,
+        "CdsExportPharmacySourcePrivilegeUnitTest": 2,
+        "CdsExportPreparedTemporalMapperUnitTest": 5,
+        "CdsExportPreventionClassificationServiceUnitTest": 12,
+        "CdsExportPreventionClassifierUnitTest": 28,
+        "CdsExportPreventionConfigurationServiceUnitTest": 24,
+        "CdsExportPreventionScopeMariaDbIntegrationTest": 7,
+        "CdsExportPreventionScopePlannerUnitTest": 17,
+        "CdsExportPreventionSnapshotServiceUnitTest": 11,
+        "CdsExportProfessionalContactMapperUnitTest": 20,
+        "CdsExportPublicProviderMapperUnitTest": 4,
+        "CdsExportRawValueInputStreamUnitTest": 6,
+        "CdsExportReconciliationValidatorUnitTest": 11,
+        "CdsExportRelatedSourceMariaDbIntegrationTest": 7,
+        "CdsExportReportOccurrenceServiceUnitTest": 28,
+        "CdsExportReportPublicationEvidenceUnitTest": 22,
+        "CdsExportReportRetainedSourceUnitTest": 23,
+        "CdsExportRetainedCaptureMariaDbIntegrationTest": 9,
+        "CdsExportRetainedContactBindingUnitTest": 12,
+        "CdsExportRetainedEnrolmentReconcilerUnitTest": 24,
+        "CdsExportRetainedEnrolmentSourceUnitTest": 16,
+        "CdsExportRetainedFieldMapperUnitTest": 3,
+        "CdsExportRetainedImportOptionsReaderUnitTest": 18,
+        "CdsExportRetainedIndexServiceUnitTest": 15,
+        "CdsExportRetainedOccurrencePathUnitTest": 3,
+        "CdsExportRetainedPayloadServiceUnitTest": 20,
+        "CdsExportRetainedPharmacyBindingUnitTest": 9,
+        "CdsExportRetainedPharmacyReconcilerUnitTest": 20,
+        "CdsExportRetainedPreparationReaderUnitTest": 30,
+        "CdsExportRetainedProfessionalContactBindingUnitTest": 11,
+        "CdsExportRetainedProfessionalContactReconcilerUnitTest": 16,
+        "CdsExportRetainedReceiptFieldComparisonUnitTest": 3,
+        "CdsExportRetainedReceiptVerificationServiceUnitTest": 6,
+        "CdsExportRetainedSectionWriterUnitTest": 12,
+        "CdsExportRetainedSourceScopeUnitTest": 6,
+        "CdsExportRetentionServiceUnitTest": 6,
+        "CdsExportSchemaVisibilityMariaDbIntegrationTest": 2,
+        "CdsExportSelectionFileServiceUnitTest": 5,
+        "CdsExportSelectionIntegrationTest": 20,
+        "CdsExportServiceUnitTest": 11,
+        "CdsExportSourceCatalogueUnitTest": 4,
+        "CdsExportSourceRecipeUnitTest": 8,
+        "CdsExportStagingServiceUnitTest": 14,
+        "CdsExportStorageProtocolUnitTest": 3,
+        "CdsExportSupportingFilesComposerUnitTest": 8,
+        "CdsExportSupportingFilesValidatorUnitTest": 23,
+        "CdsExportTypedWriterFailureFenceUnitTest": 3,
+        "CdsExportVerifiedRangesUnitTest": 20,
+        "CdsExportWebActionsUnitTest": 36,
+        "CdsExportXmlComposerUnitTest": 15,
+        "CdsExportXmlValidatorUnitTest": 19,
+        "CdsExportZip64IntegrationTest": 1
+      },
+      "minimumCases": 2249,
+      "requireCoverage": true,
+      "requireClassIdentity": true,
+      "runtimeConstraints": {
+        "java": "25"
+      },
+      "timeoutSeconds": 3600
+    },
+    {
+      "id": "java-cds-transfer-shared",
+      "kind": "junit",
+      "profiles": [
+        "all"
+      ],
+      "repetitions": 1,
+      "command": [
+        "python3",
+        "scripts/ci/run-cds-native-tier.py",
+        "--container",
+        "{buildContainer}",
+        "--container-workspace",
+        "{buildWorkspace}",
+        "--maven",
+        "{maven}",
+        "--evidence-output",
+        "{run}",
+        "--container-evidence-output",
+        "{containerEvidence}/{runId}",
+        "--fresh-classes",
+        "--coordinated-shard",
+        "shared"
+      ],
+      "requiresEnvironment": [
+        "CARLOS_CDS_BUILD_CONTAINER",
+        "CARLOS_CDS_BUILD_WORKSPACE",
+        "CARLOS_CDS_MAVEN",
+        "CARLOS_CDS_EVIDENCE_ROOT"
+      ],
+      "environmentInputs": {
+        "buildContainer": "CARLOS_CDS_BUILD_CONTAINER",
+        "buildWorkspace": "CARLOS_CDS_BUILD_WORKSPACE",
+        "maven": "CARLOS_CDS_MAVEN",
+        "containerEvidence": "CARLOS_CDS_EVIDENCE_ROOT"
+      },
+      "requiredFamilies": {
+        "CdsBinaryReadsMariaDbIntegrationTest": 2,
+        "CdsBinaryReadsUnitTest": 4,
+        "CdsClientFormDaoIntegrationTest": 3,
+        "CdsClientFormDataDaoIntegrationTest": 2,
+        "CdsContractUnitTest": 3,
+        "CdsDocumentWsUnitTest": 3,
+        "CdsEmbeddedLabDocumentUnitTest": 14,
+        "CdsFormOptionDaoIntegrationTest": 5,
+        "CdsHealthCardAuthorityUnitTest": 3,
+        "CdsHospitalisationDaysDaoIntegrationTest": 3,
+        "CdsImportCoordinatorDaoUnitTest": 7,
+        "CdsLaboratoryResultDaoUnitTest": 2,
+        "CdsLegacyFhirProjectionUnitTest": 2,
+        "CdsNativeBaselineCodecUnitTest": 8,
+        "CdsNativeRowDigestUnitTest": 2,
+        "CdsNeurologicalExamUnitTest": 12,
+        "CdsPreparationSealUnitTest": 1,
+        "CdsProcessProtocolUnitTest": 9,
+        "CdsProviderCharsetCacheUnitTest": 2,
+        "CdsReportFormJspRegressionTest": 3,
+        "CdsSchemaContentOrderUnitTest": 3,
+        "CdsTransferConstructorInjectionUnitTest": 32,
+        "CdsTransferInjectionRegressionTest": 6,
+        "CdsTransferPermissionSeedMariaDbIntegrationTest": 4,
+        "CdsXmlTextUnitTest": 6,
+        "ContextStartupListenerUnitTest": 5,
+        "MutatorActionGetRejectionContractUnitTest": 157,
+        "QueryByExampleSqlValidatorUnitTest": 80,
+        "ViewCds4ReportResults2ActionUnitTest": 5
+      },
+      "minimumCases": 388,
+      "requireCoverage": true,
+      "requireClassIdentity": true,
+      "runtimeConstraints": {
+        "java": "25"
+      },
+      "timeoutSeconds": 3600
     }
   ],
   "requireJavaDiscovery": true,

@@ -20,7 +20,9 @@
     "Fresh ON/BC and retained-data upgrades from the exact release base, packaged CLI/boot validation and unchanged prior migration history"
   ],
   "integration": {
-    "coreBase": "ef69eea17a4cc3fb288b26327471fce1e20dcd8f",
+    "coreBase": "0f73961b38044095f2d191afde32630c3291c6b2",
+    "upgradeSqlBaseline": "ef69eea17a4cc3fb288b26327471fce1e20dcd8f",
+    "releaseSqlUnchangedSinceUpgradeBaseline": true,
     "cliHead": "f37dd60917da6bb2ca578dd2bac2cc1109246fc9",
     "cliVersion": "1.3.4",
     "coreIntendedTarget": "release/2026.08",
