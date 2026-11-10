@@ -9,10 +9,7 @@ import stat
 import re
 
 import defusedxml.ElementTree as ET
-
-
-class EvidenceError(ValueError):
-    """Evidence is incomplete, ambiguous, or unsafe to accept."""
+from evidence_errors import EvidenceError
 
 
 @dataclass(frozen=True)

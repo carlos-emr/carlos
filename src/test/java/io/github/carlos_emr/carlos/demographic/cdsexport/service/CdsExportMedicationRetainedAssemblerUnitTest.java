@@ -93,6 +93,60 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
     }
 
     @Test
+    void shouldPreserveUnchangedIntegerLexicalValues_whileReplacingOnlyCurrentNotes()
+            throws Exception {
+        var current = CdsExportMedicationFieldReconcilerUnitTest.baseline();
+        current.put("comment", "Current provider notes");
+        var f = fixture(current);
+        var plan = prepare(f);
+        var record = parse(plan.content(), "lexical").get(1);
+        var parser = new CdsFieldParser();
+        assertThat(parser.firstToken(record, "NumberOfRefills", 100)).isEqualTo("02");
+        assertThat(parser.firstToken(record, "RefillQuantity", 100)).isEqualTo("012");
+        assertThat(parser.firstToken(record, "Notes", 100)).isEqualTo("Current provider notes");
+        assertThat(plan.replacedFields())
+                .containsExactly(
+                        f.fields().stream()
+                                .filter(field -> field.sourcePath().endsWith("/Notes[1]"))
+                                .map(CdsExportRetainedFieldDto::id)
+                                .findFirst()
+                                .orElseThrow());
+    }
+
+    @Test
+    void shouldStreamTheCompleteSourceOnlyStrength_afterVerifyingItsUnchangedNativePlaceholder()
+            throws Exception {
+        var current = CdsExportMedicationFieldReconcilerUnitTest.sourceOnlyStrengthBaseline();
+        current.put("comment", "Current provider notes");
+        var f = fixture(current, directory.resolve("complete-strength.txt"));
+        var plan = prepare(f);
+        var record = parse(plan.content(), "large-strength").get(1);
+        assertThat(new CdsFieldParser().firstToken(record, "Strength/UnitOfMeasure", 50000))
+                .isEqualTo("µg".repeat(20000));
+        assertThat(
+                        new CdsClinicalNormalizationService(new CdsFieldParser())
+                                .medication(record)
+                                .strengthSourceOnly())
+                .isTrue();
+        assertThat(plan.retainedFields())
+                .containsAll(
+                        f.fields().stream()
+                                .filter(field -> field.sourcePath().contains("/Strength["))
+                                .map(CdsExportRetainedFieldDto::id)
+                                .toList());
+    }
+
+    @Test
+    void shouldRefuseAMissingRetainedStrengthCarrier_evenWhenItsPlaceholderAndRemainingPagesVerify()
+            throws Exception {
+        var current = CdsExportMedicationFieldReconcilerUnitTest.sourceOnlyStrengthBaseline();
+        var f = fixture(current, directory.resolve("missing-strength.txt"), true);
+        assertThat(f.decision().mapping().nativeRowRepresentable()).isTrue();
+        assertThatThrownBy(() -> prepare(f))
+                .hasMessage("CDS_EXPORT_MEDICATION_RETAINED_ASSEMBLY_SCOPE_INVALID");
+    }
+
+    @Test
     void shouldKeepAnExplicitNativeNoteClear_withoutDroppingUnprojectedStandardFields()
             throws Exception {
         var current = CdsExportMedicationFieldReconcilerUnitTest.baseline();
@@ -194,15 +248,45 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
     }
 
     static Fixture fixture(Map<String, String> current) throws Exception {
+        return fixture(current, null);
+    }
+
+    static Fixture fixture(Map<String, String> current, Path strengthPayload) throws Exception {
+        return fixture(current, strengthPayload, false);
+    }
+
+    static Fixture fixture(Map<String, String> current, Path strengthPayload, boolean omitStrength)
+            throws Exception {
+        boolean sourceOnlyStrength = strengthPayload != null;
         var base =
                 CdsExportMedicationFieldReconcilerUnitTest.fixture(
-                        current, CdsExportMedicationFieldReconcilerUnitTest.numbers(), true);
+                        current,
+                        CdsExportMedicationFieldReconcilerUnitTest.numbers(),
+                        true,
+                        sourceOnlyStrength
+                                ? CdsExportMedicationFieldReconcilerUnitTest.sourceOnlyStrength()
+                                : CdsExportMedicationFieldReconcilerUnitTest.source(),
+                        sourceOnlyStrength
+                                ? CdsExportMedicationFieldReconcilerUnitTest
+                                        .sourceOnlyStrengthBaseline()
+                                : CdsExportMedicationFieldReconcilerUnitTest.baseline());
         var decision = CdsExportMedicationFieldReconcilerUnitTest.reconcile(base);
         var fields = new ArrayList<CdsExportRetainedFieldDto>();
         fields.add(field("DrugName[1]", "cds", "Original café drug"));
         fields.add(field("DrugIdentificationNumber[1]", "cds", "00123456"));
-        fields.add(field("Strength[1]/Amount[1]", "cds_dt", "5"));
-        fields.add(field("Strength[1]/UnitOfMeasure[1]", "cds_dt", "mg"));
+        if (!omitStrength) {
+            fields.add(field("Strength[1]/Amount[1]", "cds_dt", "5"));
+            fields.add(
+                    sourceOnlyStrength
+                            ? payloadField(
+                                    "Strength[1]/UnitOfMeasure[1]",
+                                    "cds_dt",
+                                    "µg".repeat(20000),
+                                    strengthPayload)
+                            : field("Strength[1]/UnitOfMeasure[1]", "cds_dt", "mg"));
+        }
+        fields.add(field("NumberOfRefills[1]", "cds", "02"));
+        fields.add(field("RefillQuantity[1]", "cds", "012"));
         fields.add(field("Dosage[1]", "cds", "0.5-1"));
         fields.add(field("Notes[1]", "cds", "Original provider notes"));
         fields.add(
@@ -291,6 +375,32 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
                 null);
     }
 
+    private static CdsExportRetainedFieldDto payloadField(
+            String relative, String namespace, String value, Path path) throws Exception {
+        var descriptor = field(relative, namespace, "");
+        Files.writeString(path, value, java.nio.charset.StandardCharsets.UTF_8);
+        byte[] bytes = Files.readAllBytes(path);
+        String digest =
+                HexFormat.of()
+                        .formatHex(
+                                java.security.MessageDigest.getInstance("SHA-256").digest(bytes));
+        return new CdsExportRetainedFieldDto(
+                descriptor.id(),
+                descriptor.runId(),
+                descriptor.sourcePatientKey(),
+                descriptor.fieldUnitKey(),
+                descriptor.category(),
+                descriptor.sourcePath(),
+                descriptor.occurrence(),
+                descriptor.namespace(),
+                descriptor.valueType(),
+                descriptor.precision(),
+                null,
+                null,
+                new CdsExportRetainedFieldDto.Payload(
+                        path.toAbsolutePath().normalize().toString(), digest, 0, bytes.length));
+    }
+
     private static CdsExportCapturedTextRowDto metadata(CdsExportRetainedFieldDto f) {
         var values = new LinkedHashMap<String, String>();
         CdsExportPatientTableReadSupport.Plan.IMPORT_FIELDS
@@ -322,13 +432,23 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
         values.put("normalized_value", f.logicalInline());
         values.put("payload_offset", "0");
         values.put("payload_length", "0");
+        if (f.originalPayload() != null) {
+            values.put("payload_location", f.originalPayload().location());
+            values.put("payload_digest", f.originalPayload().sha256());
+            values.put("payload_offset", Long.toString(f.originalPayload().offset()));
+            values.put("payload_length", Long.toString(f.originalPayload().bytes()));
+        }
         return new CdsExportCapturedTextRowDto("cds_import_field", f.id(), values);
     }
 
     private static CdsExportRetainedSectionWriter.Values inline() {
         return new CdsExportRetainedSectionWriter.Values() {
-            public Reader text(CdsExportRetainedFieldDto f) {
-                return new StringReader(f.logicalInline());
+            public Reader text(CdsExportRetainedFieldDto f) throws IOException {
+                return f.originalPayload() == null
+                        ? new StringReader(f.logicalInline())
+                        : Files.newBufferedReader(
+                                Path.of(f.originalPayload().location()),
+                                java.nio.charset.StandardCharsets.UTF_8);
             }
 
             public InputStream binary(CdsExportRetainedFieldDto f) {

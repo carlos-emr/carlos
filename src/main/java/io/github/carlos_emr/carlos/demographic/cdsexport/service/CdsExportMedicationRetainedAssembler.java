@@ -67,10 +67,19 @@ public final class CdsExportMedicationRetainedAssembler {
             if (relative.putIfAbsent(path, field) != null) scope();
         }
         var current = decision.mapping().value();
+        if (decision.retainedStrengthRequired()
+                && (!decision.preparedPaths().contains("Strength")
+                        || current.strengthAmount() != null
+                        || !relative.containsKey("Strength[1]/Amount[1]")
+                        || !relative.containsKey("Strength[1]/UnitOfMeasure[1]"))) scope();
         var changes = new ArrayList<CdsExportRetainedSectionWriter.Change>();
         for (var part : parts(current).entrySet()) {
+            // Proven unchanged projections authorize reuse of the original field pages,
+            // including lexical precision and values too large for native preparation.
             String path = part.getKey() + "[1]";
             var prior = ids(relative, path);
+            if (!prior.isEmpty() && preservedPart(decision.preparedPaths(), part.getKey()))
+                continue;
             if (!prior.isEmpty() || part.getValue() != null)
                 changes.add(
                         new CdsExportRetainedSectionWriter.Change(path, prior, part.getValue()));
@@ -79,6 +88,16 @@ public final class CdsExportMedicationRetainedAssembler {
         checkpoint.run();
         return new CdsExportRetainedSectionWriter()
                 .prepareChanges(fields, values, changes, checkpoint);
+    }
+
+    private static boolean preservedPart(Set<String> prepared, String part) {
+        if (prepared.contains(part)) return true;
+        return switch (part) {
+            case "Frequency", "TreatmentType" -> prepared.contains("Frequency/TreatmentType");
+            case "PrescriptionStatus", "PastMedications" ->
+                    prepared.contains("PrescriptionStatus/PastMedications");
+            default -> false;
+        };
     }
 
     private static Map<String, CdsExportXmlComposer.Content> parts(CdsExportMedicationDto value) {

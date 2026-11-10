@@ -40,7 +40,8 @@ public final class CdsExportMedicationFieldReconciler {
             String unitAddress,
             CdsExportMedicationMappingDto mapping,
             Set<String> preparedPaths,
-            Set<String> currentPaths) {
+            Set<String> currentPaths,
+            boolean retainedStrengthRequired) {
         public Result {
             preparedPaths = Set.copyOf(preparedPaths);
             currentPaths = Set.copyOf(currentPaths);
@@ -181,7 +182,7 @@ public final class CdsExportMedicationFieldReconciler {
         if (difference.schemaChanged() || !difference.unqualifiedColumns().isEmpty())
             review("CDS_EXPORT_MEDICATION_FIELD_CODEC_REQUIRES_REVIEW");
         var source = preparation.source();
-        var old = new CdsExportPreparedMedicationMapper().map(source);
+        var old = new CdsExportPreparedMedicationMapper().forRetainedReconciliation(source);
         var candidate =
                 new CdsExportMedicationMapper().candidate(patient, current, precision, providers);
         var decisions = new LinkedHashMap<>(candidate.assessments());
@@ -211,6 +212,10 @@ public final class CdsExportMedicationFieldReconciler {
                 continue;
             }
             boolean unchanged = Collections.disjoint(group.columns(), difference.changedColumns());
+            if (source.strengthSourceOnly() && group.path().equals("Strength") && !unchanged) {
+                mark(current, decisions, group, "SOURCE_ONLY_STRENGTH_PROJECTION_CHANGED");
+                continue;
+            }
             boolean date =
                     group.path().equals("StartDate")
                             || group.path().equals("PrescriptionWrittenDate");
@@ -313,7 +318,8 @@ public final class CdsExportMedicationFieldReconciler {
                 address,
                 new CdsExportMedicationMappingDto(result, decisions),
                 preparedPaths,
-                currentPaths);
+                currentPaths,
+                source.strengthSourceOnly());
     }
 
     private CdsExportRetainedReceiptVerificationDto.CheckedReference verifyNativeWitness(

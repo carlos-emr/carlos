@@ -34,6 +34,12 @@ public final class CdsExportPreparedMedicationMapper {
         java.util.Objects.requireNonNull(source);
         if (source.strengthSourceOnly())
             throw new IOException("CDS_EXPORT_MEDICATION_LARGE_STRENGTH_REQUIRES_RETAINED_CARRIER");
+        return forRetainedReconciliation(source);
+    }
+
+    /** A source-only strength remains exclusively in authenticated retained fields. */
+    CdsExportMedicationDto forRetainedReconciliation(CdsMedicationDto source) throws IOException {
+        java.util.Objects.requireNonNull(source);
         var values = new EnumMap<Field, String>(Field.class);
         put(values, Field.DrugIdentificationNumber, source.din());
         put(values, Field.DrugName, source.name());
@@ -79,8 +85,8 @@ public final class CdsExportPreparedMedicationMapper {
         return new CdsExportMedicationDto(
                 dates.map(source.written(), true),
                 dates.map(source.start(), false),
-                source.strengthAmount(),
-                source.strengthUnit(),
+                source.strengthSourceOnly() ? null : source.strengthAmount(),
+                source.strengthSourceOnly() ? null : source.strengthUnit(),
                 prescriber,
                 values);
     }
