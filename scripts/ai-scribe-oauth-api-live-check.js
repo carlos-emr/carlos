@@ -62,6 +62,28 @@ function sqlId(value, label) {
   return String(value);
 }
 
+function printEndpointResults(results) {
+  const rows = results.map(({ outcome, method, path, status, verification }) => ({
+    outcome,
+    endpoint: `${method} ${path}`,
+    http: status,
+    verification,
+  }));
+  const widths = {
+    outcome: Math.max('RESULT'.length, ...rows.map((row) => row.outcome.length)),
+    endpoint: Math.max('ENDPOINT'.length, ...rows.map((row) => row.endpoint.length)),
+    http: Math.max('HTTP'.length, ...rows.map((row) => String(row.http).length)),
+  };
+  const line = (row) => `${row.outcome.padEnd(widths.outcome)}  `
+    + `${row.endpoint.padEnd(widths.endpoint)}  `
+    + `${String(row.http).padEnd(widths.http)}  ${row.verification}`;
+  console.log('\nAI-Scribe OAuth API endpoint results');
+  console.log(line({ outcome: 'RESULT', endpoint: 'ENDPOINT', http: 'HTTP', verification: 'VERIFICATION' }));
+  console.log(rows.map(line).join('\n'));
+  console.log(`\n${rows.filter((row) => row.outcome === 'PASS').length} passed; `
+    + `${rows.filter((row) => row.outcome === 'GAP').length} capability gaps.`);
+}
+
 async function cleanup(state) {
   const { sql, consumerKey, marker, formName, providerNo } = state;
   try {
@@ -167,6 +189,10 @@ async function main(state = {}) {
   'AI-Scribe OAuth client');
 
   const recorder = createRecorder();
+  const endpointResults = [];
+  const recordEndpoint = (method, path, response, verification, outcome = 'PASS') => {
+    endpointResults.push({ outcome, method, path, status: response.status(), verification });
+  };
   state.browser = await launchBrowser(config);
   const anonContext = await newContext(state.browser, config);
   const anon = anonContext.request;
@@ -187,6 +213,7 @@ async function main(state = {}) {
     assert(requestToken.oauth_token && requestToken.oauth_token_secret
       && requestToken.oauth_callback_confirmed === 'true',
     'OAuth initiation did not return a confirmed out-of-band request token');
+    recordEndpoint('POST', '/ws/oauth/initiate', response, `request token issued (${scopes})`);
 
     const consent = await sessionContext.newPage();
     wireStrictPage(consent, 'ai-scribe-oauth-consent', recorder);
@@ -194,6 +221,7 @@ async function main(state = {}) {
       app(`/ws/oauth/authorize?oauth_token=${pct(requestToken.oauth_token)}`), { waitUntil: 'load' });
     assert(pageResponse && pageResponse.status() === 200, 'The OAuth consent page did not load successfully');
     await assertNotErrorPage(consent, 'AI-Scribe OAuth consent page');
+    recordEndpoint('GET', '/ws/oauth/authorize', pageResponse, `consent page loaded (${scopes})`);
     const consentText = await consent.locator('body').innerText();
     for (const scope of scopes.split(' ')) {
       assert(consentText.includes(scope), `The OAuth consent page omitted requested scope ${scope}`);
@@ -208,6 +236,7 @@ async function main(state = {}) {
     await expectStatus(approval, 200, 'OAuth consent approval');
     const verifier = formFields(await approval.text()).oauth_verifier;
     assert(verifier, 'OAuth consent did not issue a verifier');
+    recordEndpoint('POST', '/ws/oauth/authorize', approval, `consent approved (${scopes})`);
     await consent.close();
 
     const tokenUrl = app('/ws/oauth/token');
@@ -224,6 +253,7 @@ async function main(state = {}) {
     const accessToken = formFields(await response.text());
     assert(accessToken.oauth_token && accessToken.oauth_token_secret,
       'OAuth access-token exchange did not return signed credentials');
+    recordEndpoint('POST', '/ws/oauth/token', response, `access token issued (${scopes})`);
     return accessToken;
   }
 
@@ -250,6 +280,7 @@ async function main(state = {}) {
   await expectStatus(infoResponse, 200, 'Signed OAuth token identity check');
   assert(String((await infoResponse.json()).login) === String(providerNo),
     'The OAuth token is not bound to the provider who approved it');
+  recordEndpoint('GET', '/ws/services/oauth/info', infoResponse, 'signed token identity verified');
 
   const demographicPath = `/ws/services/demographics/${patientNo}`;
   const demographicResponse = await signedRequest('GET', demographicPath, fullToken);
@@ -257,6 +288,8 @@ async function main(state = {}) {
   const demographic = await demographicResponse.json();
   assert(String(demographic.demographicNo) === patientNo && demographic.lastName === marker,
     'OAuth demographic fetch did not return the owned synthetic record');
+  recordEndpoint('GET', '/ws/services/demographics/{demographicNo}', demographicResponse,
+    'owned synthetic demographic returned');
 
   demographic.firstName = 'AI-Scribe Updated';
   const updateResponse = await signedRequest('PUT', '/ws/services/demographics/', fullToken, demographic);
@@ -264,16 +297,22 @@ async function main(state = {}) {
   const updated = await updateResponse.json();
   assert(String(updated.demographicNo) === patientNo && updated.firstName === 'AI-Scribe Updated',
     'OAuth demographic update response did not contain the changed field');
+  recordEndpoint('PUT', '/ws/services/demographics/', updateResponse, 'updated field returned');
   const demographicReload = await signedRequest('GET', demographicPath, fullToken);
   const reloadedDemographic = await demographicReload.json();
   await expectStatus(demographicReload, 200, 'OAuth demographic update read-after-write');
   assert(reloadedDemographic.firstName === 'AI-Scribe Updated',
     'OAuth demographic update was not persisted');
+  recordEndpoint('GET', '/ws/services/demographics/{demographicNo}', demographicReload,
+    'updated field persisted on read-after-write');
 
-  await expectInsufficientScope(
-    await signedRequest('PUT', '/ws/services/demographics/', limitedToken, reloadedDemographic),
-    'OAuth demographic update with a token lacking demographic.write',
+  const limitedDemographicUpdate = await signedRequest(
+    'PUT', '/ws/services/demographics/', limitedToken, reloadedDemographic,
   );
+  await expectInsufficientScope(limitedDemographicUpdate,
+    'OAuth demographic update with a token lacking demographic.write');
+  recordEndpoint('PUT', '/ws/services/demographics/', limitedDemographicUpdate,
+    'missing demographic.write refused with insufficient_scope');
 
   const measurementsResponse = await signedRequest('POST', `/ws/services/measurements/${patientNo}`, fullToken, {
     types: ['BP'],
@@ -284,10 +323,13 @@ async function main(state = {}) {
   assert(Array.isArray(bpRows) && bpRows.some((row) =>
     row.dataField === '121/79' && row.comments === measurementComment),
   'OAuth measurement fetch did not return the owned BP fixture');
+  recordEndpoint('POST', '/ws/services/measurements/{demographicNo}', measurementsResponse,
+    'owned BP measurement returned');
 
   const eformsResponse = await signedRequest('GET', '/ws/services/eforms/', fullToken);
   const eforms = await expectSuccessJson(eformsResponse, 'OAuth eForm listing');
   assert(Array.isArray(eforms), 'OAuth eForm listing did not return an array');
+  recordEndpoint('GET', '/ws/services/eforms/', eformsResponse, 'template list returned');
 
   const htmlBefore = `<html><body><form><input name="${marker}" value="initial"></form></body></html>`;
   const createEformResponse = await signedRequest('POST', '/ws/services/eform/json', fullToken, {
@@ -299,17 +341,18 @@ async function main(state = {}) {
   const createdEform = await expectSuccessJson(createEformResponse, 'OAuth eForm template create');
   const formId = sqlId(createdEform.id, 'created eForm id');
   state.formId = formId;
-  const updatedList = await expectSuccessJson(
-    await signedRequest('GET', '/ws/services/eforms/', fullToken),
-    'OAuth eForm listing after create',
-  );
+  recordEndpoint('POST', '/ws/services/eform/json', createEformResponse, 'template created');
+  const updatedListResponse = await signedRequest('GET', '/ws/services/eforms/', fullToken);
+  const updatedList = await expectSuccessJson(updatedListResponse, 'OAuth eForm listing after create');
   assert(updatedList.some((form) => String(form.id) === formId && form.formName === formName),
     'The newly created eForm template was absent from the OAuth eForm listing');
+  recordEndpoint('GET', '/ws/services/eforms/', updatedListResponse, 'created template appears in listing');
 
   const eformLoad = await signedRequest('GET', `/ws/services/eform/${formId}`, fullToken);
   const loadedEform = await expectSuccessJson(eformLoad, 'OAuth eForm template load');
   assert(loadedEform.formName === formName && loadedEform.formHtml === htmlBefore,
     'OAuth eForm load did not return the newly created template');
+  recordEndpoint('GET', '/ws/services/eform/{id}', eformLoad, 'created template loaded');
 
   const htmlAfter = `<html><body><form><input name="${marker}" value="edited"></form></body></html>`;
   const updateEform = await signedRequest('PUT', `/ws/services/eform/${formId}/json`, fullToken, {
@@ -319,37 +362,42 @@ async function main(state = {}) {
   });
   const updatedEform = await expectSuccessJson(updateEform, 'OAuth eForm template update');
   assert(String(updatedEform.id) === formId, 'OAuth eForm update returned a different template id');
-  const reloadedEform = await expectSuccessJson(
-    await signedRequest('GET', `/ws/services/eform/${formId}`, fullToken),
-    'OAuth eForm update read-after-write',
-  );
+  recordEndpoint('PUT', '/ws/services/eform/{id}/json', updateEform, 'template update returned');
+  const reloadedEformResponse = await signedRequest('GET', `/ws/services/eform/${formId}`, fullToken);
+  const reloadedEform = await expectSuccessJson(reloadedEformResponse, 'OAuth eForm update read-after-write');
   assert(reloadedEform.formHtml === htmlAfter
     && reloadedEform.subject === 'AI-Scribe OAuth API acceptance fixture updated',
   'OAuth eForm template update was not persisted');
+  recordEndpoint('GET', '/ws/services/eform/{id}', reloadedEformResponse,
+    'updated template persisted on read-after-write');
 
-  await expectInsufficientScope(
-    await signedRequest('GET', '/ws/services/eforms/', limitedToken),
-    'OAuth eForm read with a token lacking eform.read',
+  const limitedEformRead = await signedRequest('GET', '/ws/services/eforms/', limitedToken);
+  await expectInsufficientScope(limitedEformRead, 'OAuth eForm read with a token lacking eform.read');
+  recordEndpoint('GET', '/ws/services/eforms/', limitedEformRead,
+    'missing eform.read refused with insufficient_scope');
+  const limitedEformUpdate = await signedRequest('PUT', `/ws/services/eform/${formId}/json`, limitedToken, {
+    formName, formHtml: htmlAfter,
+  });
+  await expectInsufficientScope(limitedEformUpdate, 'OAuth eForm update with a token lacking eform.write');
+  recordEndpoint('PUT', '/ws/services/eform/{id}/json', limitedEformUpdate,
+    'missing eform.write refused with insufficient_scope');
+
+  const limitedMeasurementWrite = await signedRequest(
+    'PUT', `/ws/services/measurements/${patientNo}`, limitedToken, { types: ['BP'] },
   );
-  await expectInsufficientScope(
-    await signedRequest('PUT', `/ws/services/eform/${formId}/json`, limitedToken, {
-      formName, formHtml: htmlAfter,
-    }),
-    'OAuth eForm update with a token lacking eform.write',
-  );
-  await expectInsufficientScope(
-    await signedRequest('PUT', `/ws/services/measurements/${patientNo}`, limitedToken, { types: ['BP'] }),
-    'OAuth measurement write with a token lacking measurement.write',
-  );
+  await expectStatus(limitedMeasurementWrite, 405, 'REST measurement update capability probe without write scope');
+  recordEndpoint('PUT', '/ws/services/measurements/{demographicNo}', limitedMeasurementWrite,
+    'route unavailable; method rejection occurs before scope enforcement', 'GAP');
 
   const unsupportedMeasurementWrite = await signedRequest(
     'PUT', `/ws/services/measurements/${patientNo}`, fullToken, { types: ['BP'] },
   );
   await expectStatus(unsupportedMeasurementWrite, 405, 'REST measurement update capability probe');
+  recordEndpoint('PUT', '/ws/services/measurements/{demographicNo}', unsupportedMeasurementWrite,
+    'REST measurement update is not implemented, even with measurement.write', 'GAP');
 
+  printEndpointResults(endpointResults);
   assertStrictPage(recorder);
-  console.log('Verified OAuth demographic read/update, measurement read, eForm template CRUD, and scope refusals; '
-    + 'REST measurement update is unsupported (HTTP 405).');
   return {
     oauthMode: 'scoped',
     checked: [
@@ -358,7 +406,7 @@ async function main(state = {}) {
       'insufficient-scope refusal for demographic update',
       'measurement read',
       'eForm list, create, load, update, and persisted read-after-write',
-      'insufficient-scope refusals for eForm and measurement operations',
+      'insufficient-scope refusals for eForm and demographic operations',
       'measurement REST update is currently unsupported (HTTP 405)',
     ],
   };
