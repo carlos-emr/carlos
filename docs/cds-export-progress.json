@@ -21,7 +21,8 @@
   ],
   "integration": {
     "coreBase": "ef69eea17a4cc3fb288b26327471fce1e20dcd8f",
-    "cliHead": "cdc1302ca58df9b5de9f25a6e92b808fa95882ea",
+    "cliHead": "f37dd60917da6bb2ca578dd2bac2cc1109246fc9",
+    "cliVersion": "1.3.4",
     "coreIntendedTarget": "release/2026.08",
     "cliIntendedTarget": "release/2026.08",
     "cliReleaseBase": "84adfc5c237d4a536300a9d7e74e19599df23dcc",

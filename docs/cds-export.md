@@ -25,7 +25,7 @@ text-result refusal, statement ownership and bypass attempts.
 
 The companion CLI PR also targets `release/2026.08`, starting at its compatible
 `84adfc5c237d4a536300a9d7e74e19599df23dcc` baseline. Its pinned runtime remains
-`cdc1302ca58df9b5de9f25a6e92b808fa95882ea`, with schema manifest format 2 and
+`f37dd60917da6bb2ca578dd2bac2cc1109246fc9` (unpublished 1.3.4), with schema manifest format 2 and
 ETL contract 4. CLI main has advanced to format 3 / ETL 6 for a newer application
 line; those changes are not part of this release pair.
 
