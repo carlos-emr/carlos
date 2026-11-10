@@ -419,20 +419,18 @@ test('the editable note Print control follows its committed revision after an ac
   const handler = context.printimg.match(/onclick='([^']+)'/)[1];
   vm.runInContext(`(function(event) { ${handler}; }).call(control, event);`, context);
   assert.deepEqual(calls, ['202']);
-  assert.ok(context.printimg.includes("role='button'") && context.printimg.includes("tabindex='0'"));
-  const keyboard = context.printimg.match(/onkeydown='([^']+)'/)[1];
-  for (const key of ['Enter', ' ', 'ArrowDown']) {
-    context.event = {key, repeat: false, preventDefault() {}};
-    vm.runInContext(`(function(event) { ${keyboard}; }).call(control, event);`, context);
-  }
-  assert.deepEqual(calls, ['202', '202', '202'], 'Enter and Space activate the current revision; other keys do not');
+  assert.ok(context.printimg.includes("<button type='button'"));
+  assert.ok(context.printimg.includes("aria-label='Toggle Print Note'"));
+  assert.doesNotMatch(context.printimg, /role='button'|onkeydown=/, 'native buttons provide keyboard activation');
 });
 
 test('individual and bulk Print selection keep the queue, icon and accessible state consistent', () => {
   for (const interactive of [false, true]) {
-    const attrs = interactive ? {role: 'button'} : {};
-    const icon = {getAttribute: name => attrs[name], setAttribute: (name, value) => { attrs[name] = value; }};
-    const fields = {print101: icon, notes2print: {value: ''}};
+    const attrs = {};
+    const icon = {};
+    const control = interactive ? {tagName: 'BUTTON', querySelector: () => icon,
+      setAttribute: (name, value) => { attrs[name] = value; }} : icon;
+    const fields = {print101: control, notes2print: {value: ''}};
     const context = {ctx: '/carlos', $: id => fields[id], $F: id => fields[id].value,
       Event: {stop() {}}, Image: class {}};
     vm.createContext(context);
@@ -451,3 +449,24 @@ test('individual and bulk Print selection keep the queue, icon and accessible st
     }
   }
 });
+
+for (const queue of ['', '101', '202,101']) {
+  test(`opening the saved editor reflects its existing Print queue: ${queue || 'empty'}`, () => {
+    const attrs = {'aria-pressed': 'false'};
+    const icon = {};
+    let insertions = 0;
+    const fields = {notes2print: {value: queue}, n101: {insertAdjacentHTML() { insertions++; }},
+      print101: {tagName: 'BUTTON', querySelector: () => icon, setAttribute: (name, value) => {attrs[name] = value;}}};
+    const context = {nId: '101', ctx: '/carlos', txt: 'n101', printimg: 'production markup',
+      $: id => fields[id], $F: id => fields[id].value};
+    vm.createContext(context);
+    vm.runInContext(source.slice(source.indexOf('    function noteIsQeued('), source.indexOf('    function togglePrint(')), context);
+    const start = source.indexOf('        var strNid =', source.indexOf('    function editNote('));
+    vm.runInContext(source.slice(start, source.indexOf('        if ($F(isFull)', start)), context);
+    const selected = queue.split(',').includes('101');
+    assert.equal(insertions, 1);
+    assert.equal(attrs['aria-pressed'], String(selected));
+    assert.equal(icon.src, `/carlos/encounter/graphics/${selected ? 'printerGreen' : 'printer'}.png`);
+    assert.equal(fields.notes2print.value, queue);
+  });
+}

@@ -528,6 +528,12 @@ async function workflow(s) {
         await chart.locator(`#print${notes.b}`).press('Space');
         h.assert(await chart.locator('#notes2print').inputValue() === queueBefore, 'Print selection did not restore its original queue');
         h.assert(await chart.locator(`#print${notes.b}`).getAttribute('aria-pressed') === 'false', 'Keyboard deselection was not announced');
+        await chart.locator(`#print${notes.b}`).press('Enter');
+        h.assert((await chart.locator('#notes2print').inputValue()).split(',').includes(notes.b)
+          && await chart.locator(`#print${notes.b}`).getAttribute('aria-pressed') === 'true', 'Enter did not select the committed revision');
+        await chart.locator(`#print${notes.b}`).press('Enter');
+        h.assert(await chart.locator('#notes2print').inputValue() === queueBefore
+          && await chart.locator(`#print${notes.b}`).getAttribute('aria-pressed') === 'false', 'Enter did not restore the original queue');
       } finally {
         await chart.unroute('**/CaseManagementEntry*', failChart);
       }

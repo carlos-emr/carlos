@@ -167,7 +167,7 @@ committed revision enters the print queue, and restores the original selection.
 
 Sonar's new-code gate identified an obsolete commented Print template as a duplicate
 HTML ID, and flagged keyboard access on the retained editor's Print image. The dead
-template is removed. The live control now has a button role, keyboard activation and
+template is removed. The live control now uses a native button, keyboard activation and
 an announced pressed state kept consistent by individual and bulk queue operations.
 An acknowledgement resets that control to the new revision's queue state while retaining
 an explicitly selected historical revision. The installed recovery regression verifies
@@ -183,3 +183,12 @@ document scrolling and positioned/scrolled editors; the two editor cases fail ag
 the prior code. A real Chromium reproduction moves the dropdown from 1,200 pixels
 below its input to the correct edge and selects the visible option. The installed
 recovery workflow retains the Print-first interaction to exercise this layout.
+
+The final accessibility follow-up replaces the image's button role with a native
+`type="button"` control. It retains the revision ID and decorative printer icon,
+provides built-in Enter/Space activation, and does not submit the clinical form.
+Queue helpers and Clear reset both legacy image controls and the new button's icon
+and pressed state; opening an already queued note reflects its current selection.
+Editor cleanup removes the native control as well as old images.
+The installed recovery workflow verifies both keyboard activation keys after the
+acknowledgement renames the control.

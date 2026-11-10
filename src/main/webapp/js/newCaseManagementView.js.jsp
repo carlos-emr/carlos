@@ -2494,7 +2494,7 @@ function updateCPPNote() {
         }
 
         //get rid of minimize and print buttons
-        var nodes = $(txt).getElementsBySelector('img');
+        var nodes = $(txt).getElementsBySelector('img, button[id^="print"]');
         for (var i = 0; i < nodes.length; ++i) {
             nodes[i].remove();
         }
@@ -2534,11 +2534,15 @@ function updateCPPNote() {
 
         var input = createNoteTextarea(caseNote, payload, true);
         $(txt).insertBefore(input, $(txt).firstChild);
-        var printimg = "<div class='tool-button print-button'><img title='Print' id='print" + nId + "' alt='Toggle Print Note' role='button' tabindex='0' aria-label='Toggle Print Note' aria-pressed='false' onclick='togglePrint(this.id.substr(5), event)' onkeydown='if (event.key === \"Enter\" || event.key === \" \") { event.preventDefault(); if (!event.repeat) togglePrint(this.id.substr(5), event); }' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/printer.png'></div>";
+        var printimg = "<div class='tool-button print-button'><button type='button' title='Print' id='print" + nId + "' aria-label='Toggle Print Note' aria-pressed='false' onclick='togglePrint(this.id.substr(5), event)' style='float:right; margin-right:5px; border:0; padding:0; background:transparent; cursor:pointer; line-height:0;'><img alt='' src='" + ctx + "/encounter/graphics/printer.png'></button></div>";
 
         var strNid = "" + nId;
-        if (strNid.substr(0, 1) != "0")
+        if (strNid.substr(0, 1) != "0") {
             $(txt).insertAdjacentHTML('afterbegin', printimg);
+            var selectedForPrint = noteIsQeued(strNid) >= 0;
+            setPrintControlSelected($("print" + strNid), selectedForPrint,
+                    ctx + "/encounter/graphics/" + (selectedForPrint ? "printerGreen.png" : "printer.png"));
+        }
 
         if ($F(isFull) == "true") {
             //position cursor at end of text
@@ -4089,8 +4093,10 @@ function autoSave() {
     }
 
     function setPrintControlSelected(control, selected, source) {
-        control.src = source;
-        if (control.getAttribute("role") === "button") {
+        var button = control.tagName === "BUTTON";
+        var icon = button ? control.querySelector("img") : control;
+        icon.src = source;
+        if (button) {
             control.setAttribute("aria-pressed", String(selected));
         }
     }
@@ -4356,9 +4362,9 @@ function autoSave() {
         if (e) Event.stop(e);
 
         // Reset the visible icons independently of paging bounds and queue sentinels.
-        document.querySelectorAll('#encMainDiv img[id^="print"]').forEach(function (icon) {
-            if (/^print[0-9]+$/.test(icon.id)) {
-                icon.src = ctx + "/encounter/graphics/printer.png";
+        document.querySelectorAll('#encMainDiv img[id^="print"], #encMainDiv button[id^="print"]').forEach(function (control) {
+            if (/^print[0-9]+$/.test(control.id)) {
+                setPrintControlSelected(control, false, ctx + "/encounter/graphics/printer.png");
             }
         });
         $("notes2print").value = "";
