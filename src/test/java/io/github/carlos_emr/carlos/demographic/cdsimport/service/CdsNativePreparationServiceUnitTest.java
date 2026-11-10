@@ -281,6 +281,27 @@ class CdsNativePreparationServiceUnitTest {
             }
     }
 
+    @Test void shouldLoadLegacyHistoryDefaults_withoutChangingOrRestampingTheVerifiedPayload()throws Exception {
+        for(boolean archived:new boolean[]{false,true}) {
+            var dao=mock(CdsImportPreparationDao.class);
+            Map<String,CdsImportPreparation> rows=new HashMap<>();
+            when(dao.get(anyString())).thenAnswer(call->rows.get(call.getArgument(0)));
+            doAnswer(call->{CdsImportPreparation row=call.getArgument(0);rows.put(row.getId(),row);return null;})
+                    .when(dao).persist(any());
+            var source=new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsHistoryNativeDto(
+                    "Original history", "FamHistory",null,null,null,CdsTemporalDto.unknown(),"StartDate",java.util.List.of(),archived);
+            service(dao).store("run",1,"a".repeat(64),"b".repeat(64),command(),source);
+            var row=rows.values().iterator().next();String payload=row.getPayload(),digest=row.getDigest();
+            assertThat(new com.fasterxml.jackson.databind.ObjectMapper().readTree(payload).has("archived")).isEqualTo(archived);
+            try(var ownership=mockStatic(CdsImportUnitService.class)) {
+                var decoded=service(dao).load("run",1,"a".repeat(64),"b".repeat(64),command(),
+                        io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsHistoryNativeDto.class);
+                assertThat(decoded).isEqualTo(source);
+            }
+            assertThat(row.getPayload()).isEqualTo(payload);assertThat(row.getDigest()).isEqualTo(digest);
+        }
+    }
+
     private static CdsNativePreparationService service(CdsImportPreparationDao dao) {
         return service(dao, mock(CdsImportLedgerService.class));
     }

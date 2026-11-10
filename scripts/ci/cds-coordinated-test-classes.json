@@ -29,6 +29,7 @@
   "io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodecUnitTest",
   "io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigestUnitTest",
   "io.github.carlos_emr.carlos.demographic.cds.contract.CdsPreparationSealUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cds.contract.CdsPreparedHistoryDefaultsUnitTest",
   "io.github.carlos_emr.carlos.demographic.cds.contract.CdsSchemaContentOrderUnitTest",
   "io.github.carlos_emr.carlos.demographic.cds.jdbc.CdsBinaryReadsMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cds.jdbc.CdsBinaryReadsUnitTest",
