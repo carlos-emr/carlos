@@ -52,6 +52,7 @@ class CaisicoreJspCsrfTokenRegressionUnitTest {
     private static final String CLIENT_SCRIPT = "<script src=\"" + CONTEXT + "/csrfguard\"></script>";
     private static final String TOKEN_BOOTSTRAP = "/WEB-INF/jspf/csrf-token.jspf";
 
+    /** Every caisicore JSP whose rendered template text holds a real POST form, in name order. */
     static Stream<Path> pagesWithPostForms() throws IOException {
         try (Stream<Path> files = Files.list(CAISICORE)) {
             List<Path> pages = files.filter(path -> path.getFileName().toString().endsWith(".jsp"))
@@ -131,6 +132,10 @@ class CaisicoreJspCsrfTokenRegressionUnitTest {
                 .replaceAll("(?s)<%.*?%>", "");
     }
 
+    /**
+     * Serves {@code body} as a text/html response through a real, CSRFGuard-enabled
+     * {@link CsrfGuardScriptInjectionFilter} and returns what the browser would receive.
+     */
     private static String serveThroughFilter(String body) throws Exception {
         CsrfGuardScriptInjectionFilter filter = new CsrfGuardScriptInjectionFilter();
         filter.init(mock(FilterConfig.class));
@@ -151,6 +156,7 @@ class CaisicoreJspCsrfTokenRegressionUnitTest {
         return response.getContentAsString();
     }
 
+    /** Reads a JSP as UTF-8, failing the test with the path when it cannot be read. */
     private static String read(Path path) {
         try {
             return Files.readString(path, StandardCharsets.UTF_8);

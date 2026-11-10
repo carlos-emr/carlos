@@ -30,10 +30,15 @@ const {openIssueEditor} = require('./admin-issue-editor-playwright-checks');
 
 const TOKEN = 'CSRF-TOKEN';
 
+/** True for the POST the Issue Editor form sends to the issueAdmin route (Save or Cancel). */
 function isIssueAdminPost(response) {
   return response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith('/issueAdmin');
 }
 
+/**
+ * Drives Add Issue ▸ Save and Add Issue ▸ Cancel through the real form, then a token-less POST,
+ * asserting the token travels with each form submit and that CSRF enforcement still refuses the probe.
+ */
 async function workflow(s) {
   const {sql, marker} = s;
   const q = h.sqlString;
@@ -54,16 +59,22 @@ async function workflow(s) {
   const {frame, navigate} = await openIssueEditor(s);
   const form = () => frame.locator('form[action$="/issueAdmin"]');
 
+  /**
+   * Opens the add form and waits for the CSRFGuard client to fill its token field.
+   * Resolves to whether the field was filled, so each step can fail with its own message
+   * (the first step names a missing client before reporting an empty field).
+   */
   async function openAddForm() {
     await navigate(() => frame.getByRole('button', {name: 'Add Issue'}).click());
     await form().waitFor();
     // The client fills every POST form on DOMContentLoaded; wait for it rather than racing it.
-    await frame.waitForFunction(name => {
+    return frame.waitForFunction(name => {
       const field = document.querySelector(`form[action$="/issueAdmin"] input[name="${name}"]`);
       return Boolean(field && field.value);
-    }, TOKEN, {timeout: 20000}).catch(() => {});
+    }, TOKEN, {timeout: 20000}).then(() => true, () => false);
   }
 
+  /** Clicks a submit button and returns the POST it sent (status and decoded form body). */
   async function submit(button) {
     let response;
     await navigate(async () => {
@@ -77,12 +88,12 @@ async function workflow(s) {
   }
 
   await s.step('the add form loads the CSRFGuard client and holds a filled CSRF token', async () => {
-    await openAddForm();
+    const filled = await openAddForm();
     h.assert(await frame.locator('script[src$="/csrfguard"]').count() >= 1,
       'The Issue Editor form page did not load the CSRFGuard client (it was served as a fragment)');
     const field = form().locator(`input[name="${TOKEN}"]`);
     h.assert(await field.count() === 1, `The Issue Editor form holds ${await field.count()} ${TOKEN} fields, not one`);
-    h.assert((await field.inputValue()).length > 0, `The Issue Editor form's ${TOKEN} field is empty`);
+    h.assert(filled && (await field.inputValue()).length > 0, `The Issue Editor form's ${TOKEN} field was never filled`);
   });
 
   await s.step('Save posts the token, is accepted, and stores and lists the issue', async () => {
@@ -102,7 +113,7 @@ async function workflow(s) {
   });
 
   await s.step('Cancel posts the token, returns to the list and stores nothing', async () => {
-    await openAddForm();
+    h.assert(await openAddForm(), `The reopened Issue Editor form's ${TOKEN} field was never filled`);
     await form().locator('input[name="issueAdmin.code"]').fill(cancelCode);
     await form().locator('input[name="issueAdmin.description"]').fill(`${marker} cancelled`);
     const {response, posted} = await submit(form().locator('input[type="submit"][value="Cancel"]'));
