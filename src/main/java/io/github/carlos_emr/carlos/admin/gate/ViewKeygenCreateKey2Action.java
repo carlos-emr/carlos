@@ -80,10 +80,25 @@ public final class ViewKeygenCreateKey2Action extends ActionSupport {
 
     private final transient SecurityInfoManager securityInfoManager;
 
+    /**
+     * Created by Struts through the Spring object factory, which supplies the manager.
+     *
+     * @param securityInfoManager SecurityInfoManager used for the {@code _admin} {@code w} check that
+     *                            every request must pass before the page opens or a key pair is created
+     */
     public ViewKeygenCreateKey2Action(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
     }
 
+    /**
+     * Opens the form, refuses a non-POST request that names a service, or creates the named pair.
+     *
+     * @return {@link #SUCCESS} to render {@code createKey.jsp} (the empty form, a refusal or the server
+     *         pair's outcome, nothing written yet); {@link #NONE} after the 405 refusal or after the
+     *         {@code keyPair.key} attachment has been written
+     * @throws SecurityException when the user lacks {@code _admin} {@code w}
+     * @throws IOException when the response cannot be prepared for the attachment
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
