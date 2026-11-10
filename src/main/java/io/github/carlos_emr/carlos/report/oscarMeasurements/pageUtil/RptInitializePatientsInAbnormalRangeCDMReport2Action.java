@@ -62,6 +62,11 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
             throw new SecurityException("missing required sec object (_report)");
         }
+        if (!CdmReportContexts.bind(request)) {
+            CdmReportContexts.refuse(response, this);
+            return NONE;
+        }
+
 
 
         RptMeasurementsData mData = new RptMeasurementsData();
@@ -200,7 +205,10 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
                 }
             }
         }
-        return valid;
+        if (!selection.isValid()) {
+            addActionError(getText("oscarReport.CDMReport.msgInvalidSelection"));
+        }
+        return valid && selection.isValid();
     }
 
     /**
@@ -391,7 +399,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
                     }
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                throw new IllegalStateException("Unable to complete CDM range report", e);
             }
         } else {
             MiscUtils.getLogger().debug("guideline checkbox is null");

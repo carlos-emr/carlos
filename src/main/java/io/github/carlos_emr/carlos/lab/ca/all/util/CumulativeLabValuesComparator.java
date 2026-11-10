@@ -55,18 +55,21 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  */
 public class CumulativeLabValuesComparator implements Comparator {
 
+    /** Newest column first; a column whose time is unknown or unreadable sorts last. */
     public int compare(Object o1, Object o2) {
-        Date dateA = UtilDateUtilities.getDateFromString((String) ((Hashtable) o1).get("date"), "yyyy-MM-dd HH:mm:ss");
-        Date dateB = UtilDateUtilities.getDateFromString((String) ((Hashtable) o2).get("date"), "yyyy-MM-dd HH:mm:ss");
-        int ret = 0;
-
-        if (dateA.after(dateB)) {
-            ret = -1;
-        } else if (dateA.before(dateB)) {
-            ret = 1;
+        Date dateA = columnDate((String) ((Hashtable) o1).get("date"));
+        Date dateB = columnDate((String) ((Hashtable) o2).get("date"));
+        if (dateA == null || dateB == null) {
+            return dateA == dateB ? 0 : dateA == null ? 1 : -1;
         }
+        return dateB.compareTo(dateA);
+    }
 
-        return ret;
+    private static Date columnDate(String date) {
+        if (date == null) return null;
+        Date full = UtilDateUtilities.getDateFromString(date, "yyyy-MM-dd HH:mm:ss");
+        // Source-only columns can carry a handler time without seconds or without a time of day.
+        return full != null ? full : io.github.carlos_emr.carlos.lab.ca.all.util.ObservationTime.parse(date);
     }
 
 }

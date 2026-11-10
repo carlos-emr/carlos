@@ -36,7 +36,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Semaphore;
 
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
@@ -68,6 +67,52 @@ import static org.mockito.Mockito.when;
 @Tag("fast")
 @Tag("eform")
 class EFormBrowserPdfServiceUnitTest {
+
+    @Test
+    void shouldAbortBeforeStartingBrowser_whenRenderThreadIsInterrupted() {
+        int permits = EFormBrowserPdfService.RENDER_SLOTS.availablePermits();
+        Thread.currentThread().interrupt();
+        try {
+            assertThatThrownBy(() -> new EFormBrowserPdfService().renderSavedEformPdfAuthorized(4242, "999998", null))
+                    .isInstanceOf(PDFGenerationException.class).hasMessageContaining("aborted before it started");
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+            assertThat(EFormBrowserPdfService.RENDER_SLOTS.availablePermits()).isEqualTo(permits);
+        } finally {
+            Thread.interrupted();
+        }
+    }
+
+    @Test
+    void shouldRefuseBeforeStartingBrowser_whenThePdfWaitingQueueIsFull() throws Exception {
+        int permits = EFormBrowserPdfService.RENDER_SLOTS.drainPermits();
+        var workers = new java.util.ArrayList<Thread>();
+        var tasks = new java.util.ArrayList<java.util.concurrent.FutureTask<Boolean>>();
+        boolean released = false;
+        try {
+            for (int i = 0; i < 4; i++) {
+                var task = new java.util.concurrent.FutureTask<>(() -> {
+                    try (var lease = EFormBrowserPdfService.ADMISSION.acquire(RenderAdmission.Kind.PDF, Duration.ofSeconds(10))) {
+                        return lease != null;
+                    }
+                });
+                Thread worker = new Thread(task);
+                tasks.add(task); workers.add(worker); worker.start();
+                long deadline = System.nanoTime() + Duration.ofSeconds(2).toNanos();
+                while (worker.getState() != Thread.State.TIMED_WAITING && System.nanoTime() < deadline) Thread.yield();
+                assertThat(worker.getState()).isEqualTo(Thread.State.TIMED_WAITING);
+            }
+            assertThatThrownBy(() -> new EFormBrowserPdfService().renderSavedEformPdfAuthorized(4242, "999998", null))
+                    .isInstanceOf(PDFGenerationException.class).hasMessageContaining("at capacity; please retry");
+            EFormBrowserPdfService.RENDER_SLOTS.release(permits);
+            released = true;
+            for (var task : tasks) assertThat(task.get(2, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        } finally {
+            if (!released) EFormBrowserPdfService.RENDER_SLOTS.release(permits);
+            for (Thread worker : workers) worker.interrupt();
+            for (Thread worker : workers) { worker.join(2000); assertThat(worker.isAlive()).isFalse(); }
+        }
+        assertThat(EFormBrowserPdfService.RENDER_SLOTS.availablePermits()).isEqualTo(permits);
+    }
 
     @Test
     @DisplayName("should build the dedicated browser-render servlet path carrying the render token")
@@ -1232,38 +1277,6 @@ class EFormBrowserPdfServiceUnitTest {
 
     private static String cdpMessage(String method, String paramsJson) {
         return "{\"message\":{\"method\":\"" + method + "\",\"params\":{" + paramsJson + "}}}";
-    }
-
-    @Test
-    @DisplayName("should refuse a render slot when the concurrency bound is saturated")
-    void shouldRefuseRenderSlot_whenConcurrencyBoundSaturated() {
-        Semaphore drained = new Semaphore(0);
-
-        assertThat(EFormBrowserPdfService.acquireRenderSlot(drained, Duration.ofMillis(50)))
-                .isEqualTo(EFormBrowserPdfService.SlotAcquisition.TIMED_OUT);
-
-        Semaphore available = new Semaphore(1);
-        assertThat(EFormBrowserPdfService.acquireRenderSlot(available, Duration.ofMillis(50)))
-                .isEqualTo(EFormBrowserPdfService.SlotAcquisition.ACQUIRED);
-    }
-
-    @Test
-    @DisplayName("should report interrupted when the waiting thread is interrupted before a slot is taken")
-    void shouldReportInterrupted_whenWaitingThreadInterrupted() {
-        // A shutdown-time interrupt is not load-shed capacity: it must be distinguishable so the
-        // caller gives "aborted" guidance (no retry advice) instead of the capacity message.
-        Thread.currentThread().interrupt();
-        try {
-            EFormBrowserPdfService.SlotAcquisition result =
-                    EFormBrowserPdfService.acquireRenderSlot(new Semaphore(0), Duration.ofSeconds(30));
-
-            assertThat(result).isEqualTo(EFormBrowserPdfService.SlotAcquisition.INTERRUPTED);
-            // The interrupt status must be re-raised for the caller / shutdown machinery.
-            assertThat(Thread.currentThread().isInterrupted()).isTrue();
-        } finally {
-            // Clear the flag so it cannot leak into sibling tests running on this thread.
-            Thread.interrupted();
-        }
     }
 
     @Test

@@ -6308,8 +6308,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Enters the CDM report by address like cdm-measurement-report, because no menu links SetupSelectCDMReport (a finding). Fails at its last step on 2026.08: the frequency report prints nothing, 'patients seen' shows a demographic number, and invalid-date errors are lost.",
-      "fixtures": "Per-run measurement type and CDM group (marker names), the owned patient plus a second -B patient and four readings; all removed."
+      "notes": "Enters the CDM report by address because no menu links SetupSelectCDMReport. Asserts SQL counts for all three reports with a second group open, invalid-date feedback, cross-tab conversion recovery and stale-form/permission refusals.",
+      "fixtures": "Per-run measurement type and CDM group, two owned patients and four readings; the multi-row control adds an existing dictionary type only to the owned group. Cleanup removes all owned rows and leaves existing groups/types unchanged."
     },
     {
       "name": "hrm-report-print-download",

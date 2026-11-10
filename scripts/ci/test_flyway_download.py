@@ -43,8 +43,11 @@ class FlywayDownloadTest(unittest.TestCase):
         self.environment = dict(os.environ, PATH=str(binary) + os.pathsep + os.environ['PATH'],
             CAPTURE=str(self.capture), PAYLOAD=str(self.payload), DOWNLOAD_EXIT='0')
 
-    def run_script(self, **environment):
-        return subprocess.run(['bash', str(self.script), str(self.destination)],
+    def run_script(self, archive=None, **environment):
+        command = ['bash', str(self.script), str(self.destination)]
+        if archive is not None:
+            command.append(str(archive))
+        return subprocess.run(command,
             env={**self.environment, **environment}, capture_output=True, text=True, timeout=10)
 
     def test_verified_distribution_is_extracted_and_download_scratch_is_removed(self):
@@ -84,3 +87,34 @@ class FlywayDownloadTest(unittest.TestCase):
                 else:
                     self.assertEqual((self.destination / 'flyway').read_text(), 'old CLI')
                     shutil.rmtree(self.destination)
+
+    def test_verified_cached_archive_is_used_without_another_download(self):
+        result = self.run_script(archive=self.payload)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(os.access(self.destination / 'flyway', os.X_OK))
+        self.assertFalse(self.capture.exists())
+        self.assertTrue(self.payload.exists())
+
+    def test_corrupt_cache_cannot_publish_a_cli(self):
+        self.payload.write_bytes(b'corrupt cached archive')
+        result = self.run_script(archive=self.payload)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('FAILED', result.stderr)
+        self.assertFalse(self.destination.exists())
+        self.assertFalse(self.capture.exists())
+
+    def test_fresh_download_populates_the_cache_only_after_verification(self):
+        cache = self.root / 'cached archive.tgz'
+        result = self.run_script(archive=cache, GITHUB_RUN_ID='6102', GITHUB_RUN_ATTEMPT='2')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(cache.read_bytes(), self.payload.read_bytes())
+        arguments = json.loads(self.capture.read_text())
+        self.assertTrue(any('?download=1&run=6102-2' in argument for argument in arguments))
+
+    def test_corrupt_download_is_not_added_to_the_cache(self):
+        self.payload.write_bytes(b'partial unverified archive')
+        cache = self.root / 'cached archive.tgz'
+        result = self.run_script(archive=cache)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(cache.exists())
+        self.assertFalse(self.destination.exists())

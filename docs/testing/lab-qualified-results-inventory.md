@@ -8,7 +8,7 @@ check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).
 
 Six actual Inbox Create Lab submissions provide five independently dated source
 reports and a separate patient's numeric control. The source observations include
-`<0.1`, `>100`, `Negative`, `Pending` and two ordinary numeric series, with exact
+`<0.1`, `>100`, `Negative`, `Pending` and ordinary numeric controls, with exact
 test codes/names, units, reference ranges, flags and 09:00 observation times.
 All observations have Final status; the literal result `Pending` is distinct
 from an interim observation status. The glucose grid alias comes from the
@@ -30,12 +30,16 @@ never substitutes for the value-history assertion.
 
 The native graph PNG is captured unchanged from the real request. Independent
 OCR of printed annual or month/year ticks calibrates both axes. Numeric series
-require both independently expected endpoints and all red series pixels within
-six pixels of the expected line. Wholly qualitative/qualified series require no
-numeric data pixels; the legend is excluded. This detects converting a bound
-such as `<0.1` or `>100` into an exact clinical observation. A separate two-point
-cholesterol series proves the positive geometry oracle. No expected coordinates
-are read from application data or JavaScript.
+require every independently expected vertex and all red series pixels within
+six pixels of the expected polyline. Qualified projections are explicit in the
+fixture (`<0.1` plots at 0.1 and `>100` at 100), retaining the PR's OSCAR 19
+contract pending [#6118](https://github.com/carlos-emr/carlos/issues/6118) and
+[#6120](https://github.com/carlos-emr/carlos/issues/6120). Original qualifiers
+remain mandatory in stored sources, histories, grids and PDFs. Wholly qualitative
+series require no numeric data pixels; the legend is excluded. Independent
+hemoglobin and cholesterol controls remain, and a second dated hematocrit value
+allows its qualified series to be calibrated. No expected coordinates are read
+from application data or JavaScript.
 
 Each report's actual Print action must serve a real PDF. Independent Poppler
 word coordinates reconstruct every clinical row and column, preserving literal
@@ -45,8 +49,9 @@ must be complete on one page, with the correct patient and no control result.
 
 Independent assertions accumulate in a fatal final verdict so one product
 finding cannot conceal the other reports, graphs, PDFs and clinical-state
-checks. [#5827](https://github.com/carlos-emr/carlos/issues/5827) records invented
-numeric plot points from qualified bounds. [#5828](https://github.com/carlos-emr/carlos/issues/5828)
+checks. [#5827](https://github.com/carlos-emr/carlos/issues/5827) records the
+qualified-bound plotting concern whose policy decision continues in #6118/#6120.
+[#5828](https://github.com/carlos-emr/carlos/issues/5828)
 records lowercased `Negative` and the missing `Pending` measurement/history.
 The supported contract preserves original spelling for accepted measurement
 values without changing the shipped `HL7_LAB_MEASUREMENT_FILTER` selection or
