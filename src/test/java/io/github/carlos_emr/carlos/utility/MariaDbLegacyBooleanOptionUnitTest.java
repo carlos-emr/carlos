@@ -98,8 +98,8 @@ class MariaDbLegacyBooleanOptionUnitTest {
     @Test
     @DisplayName("should discover the reported options from the shipped driver")
     void shouldDiscoverReportedOptions_fromShippedDriver() {
-        // Guards the reflective discovery: a driver whose layout hides these names would silently
-        // bring the #5969 failure back, so the build fails instead.
+        // Pins the driver layout the adapter's discovery reads: Boolean Builder fields and the alias
+        // table. A connector that stopped exposing these would fail here rather than bring #5969 back.
         assertThat(nativeBooleanOptions()).hasSizeGreaterThan(40).contains("allowPublicKeyRetrieval",
                 "useServerPrepStmts", "cachePrepStmts", "useCompression", "allowMultiQueries", "useAffectedRows",
                 "tcpKeepAlive", "useLocalSessionState", "yearIsDateType", "createDatabaseIfNotExist",
@@ -141,8 +141,9 @@ class MariaDbLegacyBooleanOptionUnitTest {
         var settings = MariaDbJdbcCompatibility.settings(
                 LEGACY + "?ALLOWMULTIQUERIES=Yes&allowpublickeyretrieval=YES&TcpKeepAlive=no", new Properties());
 
-        assertThat(settings.properties()).containsEntry("ALLOWMULTIQUERIES", "true")
-                .containsEntry("allowpublickeyretrieval", "true").containsEntry("TcpKeepAlive", "false");
+        assertThat(settings.properties()).containsEntry("allowMultiQueries", "true")
+                .containsEntry("allowPublicKeyRetrieval", "true").containsEntry("tcpKeepAlive", "false")
+                .doesNotContainKeys("ALLOWMULTIQUERIES", "allowpublickeyretrieval", "TcpKeepAlive");
         var configuration = Configuration.parse(settings.url(), settings.properties());
         assertThat(configuration.allowMultiQueries()).isTrue();
         assertThat(configuration.allowPublicKeyRetrieval()).isTrue();
@@ -154,8 +155,32 @@ class MariaDbLegacyBooleanOptionUnitTest {
     void shouldTranslateValues_forMariaDbAliasNames() throws Exception {
         var settings = MariaDbJdbcCompatibility.settings(LEGACY + "?nullCatalogMeansCurrent=yes", new Properties());
 
-        assertThat(settings.properties()).containsEntry("nullCatalogMeansCurrent", "true");
+        assertThat(settings.properties()).containsEntry("nullDatabaseMeansCurrent", "true")
+                .doesNotContainKey("nullCatalogMeansCurrent");
         assertThat(Configuration.parse(settings.url(), settings.properties()).nullDatabaseMeansCurrent()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should keep Connector/J precedence when one option is spelled two ways")
+    void shouldLetTheLaterSourceWin_whenOneOptionIsSpelledTwoWays() throws Exception {
+        // Two spellings would both reach MariaDB, which then picks one in map iteration order.
+        var withinUrl = MariaDbJdbcCompatibility.settings(
+                LEGACY + "?allowMultiQueries=yes&ALLOWMULTIQUERIES=no", new Properties());
+        Properties supplied = new Properties();
+        supplied.setProperty("USESERVERPREPSTMTS", "no");
+        var propertyOverUrl = MariaDbJdbcCompatibility.settings(LEGACY + "?useServerPrepStmts=YES", supplied);
+        var explicitOverDefault = MariaDbJdbcCompatibility.settings(LEGACY + "?PermitRedirect=yes", new Properties());
+
+        assertThat(withinUrl.properties()).containsEntry("allowMultiQueries", "false")
+                .doesNotContainKey("ALLOWMULTIQUERIES");
+        assertThat(Configuration.parse(withinUrl.url(), withinUrl.properties()).allowMultiQueries()).isFalse();
+        assertThat(propertyOverUrl.properties()).containsEntry("useServerPrepStmts", "false")
+                .doesNotContainKey("USESERVERPREPSTMTS");
+        assertThat(Configuration.parse(propertyOverUrl.url(), propertyOverUrl.properties()).useServerPrepStmts()).isFalse();
+        // The adapter's own permitRedirect=false default must not sit beside the operator's spelling.
+        assertThat(explicitOverDefault.properties()).containsEntry("permitRedirect", "true")
+                .doesNotContainKey("PermitRedirect");
+        assertThat(Configuration.parse(explicitOverDefault.url(), explicitOverDefault.properties()).permitRedirect()).isTrue();
     }
 
     @Test
@@ -173,7 +198,7 @@ class MariaDbLegacyBooleanOptionUnitTest {
     }
 
     @Test
-    @DisplayName("should accept yes through the compatibility driver entry point")
+    @DisplayName("should accept yes and no through the compatibility driver entry point")
     void shouldAcceptYesNo_throughCompatibilityDriverPropertyInfo() throws Exception {
         Properties supplied = new Properties();
         supplied.setProperty("useServerPrepStmts", "No");

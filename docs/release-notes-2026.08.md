@@ -92,7 +92,7 @@ accepts legacy driver names and MySQL-style URLs, including those still produced
 by the pinned `carlos-ctl` 1.3.1 for **new** packaged installs. WAR/devcontainer
 defaults use the native MariaDB driver and URL. In MySQL-style configuration,
 Connector/J's `yes`/`no` values for Boolean options keep working; native
-`jdbc:mariadb:` URLs need MariaDB's `true`, `false`, `1` or `0`. Configuration that requests
+`jdbc:mariadb:` URLs follow MariaDB's own Boolean values. Configuration that requests
 non-UTF-8 `characterEncoding`, non-utf8mb4 `connectionCollation`, DNS SRV (`dnsSrv`),
 or explicit FIPS/JSSE provider selection is refused rather than silently ignored.
 Review overrides and TLS requirements against the

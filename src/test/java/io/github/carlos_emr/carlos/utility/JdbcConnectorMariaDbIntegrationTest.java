@@ -42,6 +42,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -417,7 +418,7 @@ class JdbcConnectorMariaDbIntegrationTest {
         }
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void shouldConnectAndApplyConnectorJYesNo_forLegacyBooleanOptions() throws Exception {
         // #5969: these Connector/J spellings failed every MariaDB connection before translation.
         try (var source = source(true, "allowPublicKeyRetrieval=yes&useServerPrepStmts=YES&cachePrepStmts=No"

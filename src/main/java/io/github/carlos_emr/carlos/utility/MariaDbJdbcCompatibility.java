@@ -31,7 +31,6 @@ import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -149,7 +148,8 @@ public final class MariaDbJdbcCompatibility {
     private static final Set<String> NATIVE_SECURITY_BOOLEANS = Set.of(ALLOW_LOCAL_INFILE,
             FALLBACK_TO_SYSTEM_KEY_STORE, FALLBACK_TO_SYSTEM_TRUST_STORE);
     // Booleans this adapter reads or polices itself: a value outside true/false/yes/no/1/0 is refused
-    // here. Every other option MariaDB parses as Boolean only has legacy yes/no translated (#5969).
+    // here. Every other MariaDB Boolean option in legacy configuration is only given its field's
+    // spelling and has yes/no translated (#5969); MariaDB validates its other values.
     private static final Set<String> BOOLEAN_OPTIONS = Set.of(REQUIRE_SSL, VERIFY_SERVER_CERTIFICATE,
             "useOldAliasMetadataBehavior", TRANSFORMED_BIT_IS_BOOLEAN, PRESERVE_INSTANTS, PURE_LOCAL_DATE_TIME,
             "tinyInt1isBit", ALLOW_LOCAL_INFILE, "useInformationSchema", DNS_SRV, "useUnicode",
@@ -449,7 +449,10 @@ public final class MariaDbJdbcCompatibility {
         if (legacyUseSsl) key = USE_SSL;
         if (BOOLEAN_OPTIONS.contains(key) || legacyUseSsl) {
             value = normalizedBoolean(properties, key, value);
-        } else if (properties.containsKey(LEGACY_MYSQL_SCHEME) && NativeBooleanOptions.contains(key)) {
+        } else if (properties.containsKey(LEGACY_MYSQL_SCHEME) && NativeBooleanOptions.fieldName(key) != null) {
+            // Connector/J matched names without regard to case and let the later source win. One stored
+            // spelling keeps that precedence; two would leave the choice to MariaDB's map iteration order.
+            key = NativeBooleanOptions.fieldName(key);
             value = legacyYesNo(value);
         }
         if (asciiEquals(key, "allowLoadLocalInfileInPath") && !value.isEmpty()) throw invalid();
@@ -509,29 +512,32 @@ public final class MariaDbJdbcCompatibility {
     }
 
     /**
-     * Option names MariaDB parses as Boolean, read from the driver so that a connector upgrade cannot
-     * leave a newly added option out. MariaDB resolves its alias table first, then matches
-     * {@code Configuration.Builder} fields by name without regard to case; this mirrors both steps.
-     * Loaded on first use so callers that only classify URLs do not need the driver's internals.
+     * MariaDB connection options backed by a Boolean setting, read from the driver so that a connector
+     * upgrade cannot leave a newly added option out. MariaDB resolves its alias table first, then
+     * matches {@code Configuration.Builder} fields by name without regard to case; this mirrors both
+     * steps. Loaded on first use so callers that only classify URLs do not need the driver's internals.
      */
     private static final class NativeBooleanOptions {
-        private static final Set<String> NAMES = load();
+        /** Every accepted spelling, ASCII lower case and aliases included, to the field it sets. */
+        private static final Map<String, String> FIELDS = load();
 
         private NativeBooleanOptions() { }
 
-        private static boolean contains(String key) {
-            return NAMES.contains(asciiLowerCase(key));
+        /** The Builder field a spelling sets, or {@code null} when MariaDB does not parse it as Boolean. */
+        private static String fieldName(String key) {
+            return FIELDS.get(asciiLowerCase(key));
         }
 
-        private static Set<String> load() {
-            Set<String> names = new HashSet<>();
+        private static Map<String, String> load() {
+            Map<String, String> fields = new HashMap<>();
             for (Field field : org.mariadb.jdbc.Configuration.Builder.class.getDeclaredFields()) {
-                if (field.getType() == Boolean.class) names.add(asciiLowerCase(field.getName()));
+                if (field.getType() == Boolean.class) fields.put(asciiLowerCase(field.getName()), field.getName());
             }
             for (Map.Entry<String, String> alias : OptionAliases.OPTIONS_ALIASES.entrySet()) {
-                if (names.contains(asciiLowerCase(alias.getValue()))) names.add(asciiLowerCase(alias.getKey()));
+                String target = fields.get(asciiLowerCase(alias.getValue()));
+                if (target != null) fields.put(asciiLowerCase(alias.getKey()), target);
             }
-            return Set.copyOf(names);
+            return Map.copyOf(fields);
         }
     }
 
