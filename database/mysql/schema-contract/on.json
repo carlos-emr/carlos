@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "bcd1ec0e7379d4ccbca215740fb6d21c1846ab74ce25a8f04c44c91dc49f4faa",
+ "migration_sha256": "7a6b230f536f7c993a47cb5ce23f6f66a53a1573f211f31cebaea43710530d75",
  "province": "on",
  "schema": {
   "checks": [
@@ -4706,6 +4706,18 @@
     null,
     null,
     null,
+    8
+   ],
+   [
+    "LookupListItem",
+    "colour",
+    "varchar(7)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
     6
    ],
    [
@@ -4718,7 +4730,7 @@
     "utf8mb4",
     "utf8mb4_general_ci",
     null,
-    7
+    9
    ],
    [
     "LookupListItem",
@@ -4730,7 +4742,7 @@
     null,
     null,
     null,
-    8
+    10
    ],
    [
     "LookupListItem",
@@ -4741,6 +4753,18 @@
     "",
     null,
     null,
+    null,
+    7
+   ],
+   [
+    "LookupListItem",
+    "icon",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
     null,
     5
    ],
@@ -7766,7 +7790,7 @@
     "utf8mb4",
     "utf8mb4_general_ci",
     null,
-    16
+    17
    ],
    [
     "appointment",
@@ -7778,7 +7802,7 @@
     "utf8mb4",
     "utf8mb4_general_ci",
     null,
-    26
+    27
    ],
    [
     "appointment",
@@ -7790,7 +7814,7 @@
     null,
     null,
     null,
-    19
+    20
    ],
    [
     "appointment",
@@ -7802,7 +7826,7 @@
     "utf8mb4",
     "utf8mb4_general_ci",
     null,
-    21
+    22
    ],
    [
     "appointment",
@@ -7814,7 +7838,7 @@
     null,
     null,
     null,
-    25
+    26
    ],
    [
     "appointment",
@@ -7850,7 +7874,7 @@
     "utf8mb4",
     "utf8mb4_general_ci",
     null,
-    18
+    19
    ],
    [
     "appointment",
@@ -7862,7 +7886,7 @@
     "utf8mb4",
     "utf8mb4_general_ci",
     null,
-    22
+    23
    ],
    [
     "appointment",
@@ -7875,6 +7899,18 @@
     "utf8mb4_general_ci",
     null,
     12
+   ],
+   [
+    "appointment",
+    "locationCode",
+    "int(11)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    13
    ],
    [
     "appointment",
@@ -7958,7 +7994,7 @@
     "utf8mb4",
     "utf8mb4_general_ci",
     null,
-    23
+    24
    ],
    [
     "appointment",
@@ -7970,7 +8006,7 @@
     "utf8mb4",
     "utf8mb4_general_ci",
     null,
-    13
+    14
    ],
    [
     "appointment",
@@ -7994,7 +8030,7 @@
     "utf8mb4",
     "utf8mb4_bin",
     null,
-    17
+    18
    ],
    [
     "appointment",
@@ -8006,7 +8042,7 @@
     "utf8mb4",
     "utf8mb4_general_ci",
     null,
-    15
+    16
    ],
    [
     "appointment",
@@ -8018,7 +8054,7 @@
     "utf8mb4",
     "utf8mb4_general_ci",
     null,
-    14
+    15
    ],
    [
     "appointment",
@@ -8030,7 +8066,7 @@
     null,
     null,
     null,
-    20
+    21
    ],
    [
     "appointment",
@@ -8042,7 +8078,7 @@
     "utf8mb4",
     "utf8mb4_general_ci",
     null,
-    24
+    25
    ],
    [
     "appointmentArchive",
@@ -8078,7 +8114,7 @@
     "utf8mb4",
     "utf8mb4_general_ci",
     null,
-    16
+    17
    ],
    [
     "appointmentArchive",
@@ -8090,7 +8126,7 @@
     "utf8mb4",
     "utf8mb4_general_ci",
     null,
-    26
+    27
    ],
    [
     "appointmentArchive",
@@ -8102,7 +8138,7 @@
     null,
     null,
     null,
-    19
+    20
    ],
    [
     "appointmentArchive",
@@ -8114,7 +8150,7 @@
     "utf8mb4",
     "utf8mb4_general_ci",
     null,
-    21
+    22
    ],
    [
     "appointmentArchive",
@@ -8126,7 +8162,7 @@
     null,
     null,
     null,
-    25
+    26
    ],
    [
     "appointmentArchive",
@@ -8174,7 +8210,7 @@
     "utf8mb4",
     "utf8mb4_general_ci",
     null,
-    18
+    19
    ],
    [
     "appointmentArchive",
@@ -8186,7 +8222,7 @@
     "utf8mb4",
     "utf8mb4_general_ci",
     null,
-    22
+    23
    ],
    [
     "appointmentArchive",
@@ -8199,6 +8235,18 @@
     "utf8mb4_general_ci",
     null,
     12
+   ],
+   [
+    "appointmentArchive",
+    "locationCode",
+    "int(11)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    13
    ],
    [
     "appointmentArchive",
@@ -8270,7 +8318,7 @@
     "utf8mb4",
     "utf8mb4_general_ci",
     null,
-    23
+    24
    ],
    [
     "appointmentArchive",
@@ -8282,7 +8330,7 @@
     "utf8mb4",
     "utf8mb4_general_ci",
     null,
-    13
+    14
    ],
    [
     "appointmentArchive",
@@ -8306,7 +8354,7 @@
     "utf8mb4",
     "utf8mb4_general_ci",
     null,
-    17
+    18
    ],
    [
     "appointmentArchive",
@@ -8318,7 +8366,7 @@
     "utf8mb4",
     "utf8mb4_general_ci",
     null,
-    15
+    16
    ],
    [
     "appointmentArchive",
@@ -8330,7 +8378,7 @@
     "utf8mb4",
     "utf8mb4_general_ci",
     null,
-    14
+    15
    ],
    [
     "appointmentArchive",
@@ -8342,7 +8390,7 @@
     null,
     null,
     null,
-    20
+    21
    ],
    [
     "appointmentArchive",
@@ -8354,7 +8402,7 @@
     "utf8mb4",
     "utf8mb4_general_ci",
     null,
-    24
+    25
    ],
    [
     "appointmentType",

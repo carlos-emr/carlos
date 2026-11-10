@@ -35,6 +35,8 @@ import java.util.UUID;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
+import io.github.carlos_emr.carlos.commn.model.LookupList;
 import io.github.carlos_emr.carlos.commn.model.LookupListItem;
 import io.github.carlos_emr.carlos.managers.LookupListManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -108,6 +110,9 @@ public class LookupListManager2Action extends ActionSupport {
 
         if (lookupListItemId != null && !lookupListItemId.isEmpty() &&
                 lookupListItemDisplayOrder != null && !lookupListItemDisplayOrder.isEmpty()) {
+            if (isAppointmentLocationItem(loggedInInfo, Integer.parseInt(lookupListItemId))) {
+                return refuseAppointmentLocationChange();
+            }
 
             lookupListManager.updateLookupListItemDisplayOrder(loggedInInfo, Integer.parseInt(lookupListItemId),
                     Integer.parseInt(lookupListItemDisplayOrder));
@@ -137,6 +142,9 @@ public class LookupListManager2Action extends ActionSupport {
 
         if (lookupListItemLabel != null && !lookupListItemLabel.isEmpty() &&
                 lookupListId != null && !lookupListId.isEmpty()) {
+            if (isAppointmentLocationList(loggedInInfo, Integer.parseInt(lookupListId))) {
+                return refuseAppointmentLocationChange();
+            }
 
             lookupListIdInteger = Integer.parseInt(lookupListId);
             lookupListItems = lookupListManager.findLookupListItemsByLookupListId(loggedInInfo, lookupListIdInteger);
@@ -176,6 +184,9 @@ public class LookupListManager2Action extends ActionSupport {
             id = Integer.parseInt(lookupListItemId);
         }
 
+        if (id > 0 && isAppointmentLocationItem(loggedInInfo, id)) {
+            return refuseAppointmentLocationChange();
+        }
         if (id > 0) {
             lookupListManager.removeLookupListItem(loggedInInfo, id);
         }
@@ -183,6 +194,31 @@ public class LookupListManager2Action extends ActionSupport {
         request.setAttribute("lookupLists", lookupListManager.findAllActiveLookupLists(loggedInInfo));
 
         return SUCCESS;
+    }
+
+    /*
+     * The appointment Location List is changed only on Appointment Settings > Locations
+     * (AppointmentLocationService), which keeps active names unique and free of control characters,
+     * locks the list for each change and keeps the booking order (#3982). This page shows it
+     * read-only; a request to change it here changes nothing and is answered 409, so it cannot
+     * pass for a saved change.
+     */
+    private String refuseAppointmentLocationChange() {
+        response.setStatus(HttpServletResponse.SC_CONFLICT);
+        return NONE;
+    }
+
+    private boolean isAppointmentLocationList(LoggedInInfo loggedInInfo, Integer lookupListId) {
+        if (lookupListId == null) {
+            return false;
+        }
+        LookupList locations = lookupListManager.findLookupListByName(loggedInInfo, AppointmentLocationResolver.LIST_NAME);
+        return locations != null && lookupListId.equals(locations.getId());
+    }
+
+    private boolean isAppointmentLocationItem(LoggedInInfo loggedInInfo, int lookupListItemId) {
+        LookupListItem item = lookupListManager.findLookupListItemById(loggedInInfo, lookupListItemId);
+        return item != null && isAppointmentLocationList(loggedInInfo, item.getLookupListId());
     }
 
     /** Refuses mutations before looking up or changing any list items. */

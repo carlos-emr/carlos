@@ -7,6 +7,7 @@ import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
+import io.github.carlos_emr.carlos.sms.dao.SmsTransactionDao;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsDeliveryWebhookDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsInboundWebhookDto;
@@ -18,7 +19,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.lang.reflect.Field;
 import java.time.Duration;
@@ -71,6 +74,45 @@ class SmsQueueProcessingServiceUnitTest {
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
                 .containsExactly(SmsStatus.SENT, 1);
         assertThat(transaction.getProviderMessageId()).isEqualTo("provider-1");
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = SmsStatus.class, names = {"SENT", "DELIVERED"})
+    @DisplayName("the worker still sends the same queued message after a premature delivery callback")
+    void shouldSendSameMessage_whenCallbackArrivesBeforeFirstAttempt(SmsStatus callbackStatus) {
+        SmsTransaction transaction = queuedTransaction();
+        SmsTransactionDao dao = mock(SmsTransactionDao.class);
+        ApplicationEventPublisher publisher = mock(ApplicationEventPublisher.class);
+        JpaSmsTransactionService callbackRecorder = new JpaSmsTransactionService(dao, publisher);
+        when(dao.findByClientReferenceId(SmsProviderType.STUB, transaction.getClientReferenceId()))
+                .thenReturn(Optional.of(transaction));
+
+        assertThat(callbackRecorder.recordDeliveryEvent(new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB, "premature-provider-id", callbackStatus,
+                Instant.parse("2026-09-22T10:00:00Z"), null, null,
+                transaction.getClientReferenceId(), null))).isSameAs(transaction);
+        assertThat(transaction.getStatus()).isEqualTo(SmsStatus.QUEUED);
+
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsProviderClient client = mock(SmsProviderClient.class);
+        when(client.providerType()).thenReturn(SmsProviderType.STUB);
+        when(client.send(any(), anyString(), any()))
+                .thenReturn(SmsProviderSendResultDto.accepted("actual-provider-id", SmsStatus.SENT));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(client)), new SmsRetryCalculator(),
+                providerType -> true, command -> CONSENTED);
+
+        assertThat(worker.processDueMessages(1)).isEqualTo(1);
+        assertThat(worker.processDueMessages(1)).isZero();
+
+        verify(client, times(1)).send(eq(transaction.toSendCommand()),
+                eq(transaction.getClientReferenceId()), any());
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount,
+                        SmsTransaction::getProviderMessageId)
+                .containsExactly(SmsStatus.SENT, 1, "actual-provider-id");
+        assertThat(transaction.getDeliveredAt()).isNull();
+        assertThat(transaction.getProviderEventAt()).isNull();
     }
 
     @Test

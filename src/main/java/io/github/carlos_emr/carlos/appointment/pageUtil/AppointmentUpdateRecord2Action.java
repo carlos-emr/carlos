@@ -28,6 +28,8 @@
 
 package io.github.carlos_emr.carlos.appointment.pageUtil;
 
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException;
 import java.io.IOException;
 import java.util.List;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -132,13 +134,18 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
                     AppointmentTextBounds.Violation violation = AppointmentTextBounds.validate(text, appt);
                     if (violation != null) return new UpdateResult(HttpServletResponse.SC_BAD_REQUEST, null, null, violation);
                 }
+                AppointmentLocationResolver.ResolvedLocation location = statusOnly ? null
+                        : AppointmentLocationResolver.resolvePostedLocation(appt, request);
                 appointmentArchiveDao.archiveAppointment(appt);
-                saved[0] = updateLockedAppointment(request, appt, text, statusOnly, updateuser, apptNoStr);
+                saved[0] = updateLockedAppointment(request, appt, text, statusOnly, updateuser, apptNoStr, location);
                 return saved[0];
             });
             if (completion[0] != TransactionSynchronization.STATUS_COMMITTED || result == null) {
                 throw new IllegalStateException("Appointment transaction did not confirm a commit");
             }
+        } catch (AppointmentLocationUnavailableException _) {
+            return retainDraft(request, response, HttpServletResponse.SC_CONFLICT,
+                    AppointmentLocationUnavailableException.MESSAGE_KEY);
         } catch (RuntimeException e) {
             MiscUtils.getLogger().error("Unable to confirm appointment update", e);
             return retainDraft(request, response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
@@ -180,7 +187,8 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
     }
 
     private UpdateResult updateLockedAppointment(HttpServletRequest request, Appointment appt,
-            AppointmentTextBounds.Values text, boolean statusOnly, String updateuser, String apptNoStr) {
+            AppointmentTextBounds.Values text, boolean statusOnly, String updateuser, String apptNoStr,
+            AppointmentLocationResolver.ResolvedLocation location) {
         String changedStatus = null;
 
         if (statusOnly) {
@@ -202,7 +210,9 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
             // text there: the setters normalize new writes and would rewrite those stored bytes.
             if (!StringUtils.equals(appt.getNotes(), text.notes())) appt.setNotes(text.notes());
             if (!StringUtils.equals(appt.getReason(), text.reason())) appt.setReason(text.reason());
-            appt.setLocation(request.getParameter("location"));
+            // Saves the Location List item and its label together, or the posted free text,
+            // which keeps the saved item only while the text is unchanged (#3982).
+            location.applyTo(appt);
             appt.setResources(text.resources());
             appt.setType(request.getParameter("type"));
             appt.setStyle(request.getParameter("style"));

@@ -15,6 +15,8 @@ package io.github.carlos_emr.carlos.appointment.pageUtil;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException;
 import io.github.carlos_emr.carlos.commn.dao.OtherIdDAO;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
@@ -133,6 +135,10 @@ class AppointmentAddRecord2ActionSubmissionUnitTest extends CarlosUnitTestBase {
 
     /** One POST of the Add Appointment form, as the browser sends it. */
     private String submit(String token) throws Exception {
+        return submit(token, null);
+    }
+
+    private String submit(String token, String locationCode) throws Exception {
         request = new MockHttpServletRequest();
         request.setSession(session);
         request.setMethod("POST");
@@ -143,6 +149,7 @@ class AppointmentAddRecord2ActionSubmissionUnitTest extends CarlosUnitTestBase {
         request.setParameter("keyword", "FAKE-PATIENT,Check");
         request.setParameter("reason", "FAKE-REASON double submit");
         request.setParameter("status", "t");
+        if (locationCode != null) request.setParameter("locationCode", locationCode);
         if (token != null) {
             request.setParameter(FormSubmissionGuard.PARAMETER, token);
         }
@@ -216,5 +223,41 @@ class AppointmentAddRecord2ActionSubmissionUnitTest extends CarlosUnitTestBase {
         submit(null);
 
         verify(appointments, times(2)).persist(any(Appointment.class));
+    }
+
+    @Test
+    void shouldRetainDraftAndAllowRetry_whenLocationWasDisabledAfterOpeningForm() throws Exception {
+        AppointmentLocationResolver locations = mock(AppointmentLocationResolver.class);
+        registerMock(AppointmentLocationResolver.class, locations);
+        doAnswer(inv -> { throw new AppointmentLocationUnavailableException(); })
+                .doAnswer(inv -> null).when(locations).applyPostedLocation(any(Appointment.class), eq("13"), isNull());
+        String token = rendering();
+
+        assertThat(submit(token, "13")).isEqualTo(ActionSupport.INPUT);
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(request.getAttribute("appointmentValidationErrors")).isNotNull();
+        assertThat(request.getParameter("keyword")).isEqualTo("FAKE-PATIENT,Check");
+        assertThat(request.getParameter(FormSubmissionGuard.PARAMETER)).isEqualTo(token);
+        verify(appointments, never()).persist(any(Appointment.class));
+        verify(events, never()).appointmentCreated(any(), anyString(), anyString());
+        assertThat(transactions.commits).isZero();
+
+        assertThat(submit(token, "13")).isEqualTo(ActionSupport.SUCCESS);
+        verify(appointments, times(1)).persist(any(Appointment.class));
+    }
+
+    @Test
+    void shouldReturnSavedResult_whenLocationBecomesUnavailableAfterBooking() throws Exception {
+        AppointmentLocationResolver locations = mock(AppointmentLocationResolver.class);
+        registerMock(AppointmentLocationResolver.class, locations);
+        doAnswer(inv -> null).doAnswer(inv -> { throw new AppointmentLocationUnavailableException(); })
+                .when(locations).applyPostedLocation(any(Appointment.class), eq("13"), isNull());
+        String token = rendering();
+
+        assertThat(submit(token, "13")).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(submit(token, "13")).isEqualTo(ActionSupport.SUCCESS);
+
+        verify(locations, times(1)).applyPostedLocation(any(Appointment.class), eq("13"), isNull());
+        verify(appointments, times(1)).persist(any(Appointment.class));
     }
 }

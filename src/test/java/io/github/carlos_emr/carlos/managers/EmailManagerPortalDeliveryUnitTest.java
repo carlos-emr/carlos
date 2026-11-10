@@ -155,7 +155,7 @@ class EmailManagerPortalDeliveryUnitTest extends CarlosUnitTestBase {
         doAnswer(call -> {
             signedWith.set(((EmailData) call.getArgument(0)).getPassword());
             return null;
-        }).when(manager).signAttachments(any());
+        }).when(manager).signAttachments(any(), any(), any());
 
         var result = manager.sendEmail(user, encryptedEmail());
 
@@ -163,7 +163,8 @@ class EmailManagerPortalDeliveryUnitTest extends CarlosUnitTestBase {
         assertThat(signedWith.get()).isEqualTo("strong-portal-password");
         var order = inOrder(manager, factory);
         order.verify(manager).encryptEmail(any());
-        order.verify(manager).signAttachments(any());
+        // With the session, so the signed PDFs can carry their document manifests.
+        order.verify(manager).signAttachments(any(), eq(user), any(EmailLog.class));
         order.verify(factory).create(eq(user), eq(config), any());
     }
 
@@ -172,7 +173,7 @@ class EmailManagerPortalDeliveryUnitTest extends CarlosUnitTestBase {
     void shouldRevokeAndNotSend_whenSigningFails() throws Exception {
         givenConsent(EmailLog.EmailConsentStatus.OPT_IN);
         doThrow(new EmailSendingException("Failed to sign email PDF attachment"))
-                .when(manager).signAttachments(any());
+                .when(manager).signAttachments(any(), any(), any());
 
         var result = manager.sendEmail(user, encryptedEmail());
 

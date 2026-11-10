@@ -838,6 +838,35 @@ class JpaSmsTransactionServiceUnitTest {
                 "CARRIER_REJECTED", "Carrier rejected the message", null);
     }
 
+    @ParameterizedTest
+    @EnumSource(value = SmsStatus.class, names = {"SENT", "DELIVERED"})
+    @DisplayName("a client-reference callback cannot take a never-attempted message out of the queue")
+    void shouldKeepMessageQueued_whenCallbackMatchesBeforeFirstAttempt(SmsStatus callbackStatus) {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction queued = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        queued.assignClientReferenceId("sms-transaction-42");
+        Date dueAt = queued.getNextAttemptAt();
+        when(smsTransactionDao.findByClientReferenceId(SmsProviderType.STUB, "sms-transaction-42"))
+                .thenReturn(Optional.of(queued));
+
+        SmsTransaction result = recorder.recordDeliveryEvent(new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB, "premature-provider-id", callbackStatus,
+                Instant.parse("2026-09-22T10:00:00Z"), null, null, "sms-transaction-42", null));
+
+        assertThat(result).isSameAs(queued);
+        assertThat(queued)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount,
+                        SmsTransaction::getNextAttemptAt, SmsTransaction::getProviderMessageId,
+                        SmsTransaction::getDeliveredAt, SmsTransaction::getProviderEventAt)
+                .containsExactly(SmsStatus.QUEUED, 0, dueAt, null, null, null);
+        verify(smsTransactionDao).merge(queued);
+        verify(smsTransactionDao, never()).persist(any(SmsTransaction.class));
+        verifyNoInteractions(eventPublisher);
+    }
+
     @Test
     @DisplayName("recordDeliveryEvent updates an outbound row matched by client reference")
     void shouldMergeTransaction_whenDeliveryEventMatchesClientReference() {
@@ -847,6 +876,7 @@ class JpaSmsTransactionServiceUnitTest {
                 SmsProviderType.STUB
         );
         existing.assignClientReferenceId("sms-transaction-42");
+        existing.markSending(Date.from(Instant.EPOCH.minusSeconds(1)));
         when(smsTransactionDao.findByClientReferenceId(SmsProviderType.STUB, "sms-transaction-42"))
                 .thenReturn(Optional.of(existing));
 

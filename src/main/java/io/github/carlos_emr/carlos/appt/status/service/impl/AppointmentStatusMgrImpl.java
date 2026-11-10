@@ -27,8 +27,11 @@
  */
 package io.github.carlos_emr.carlos.appt.status.service.impl;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentStatusDao;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
@@ -36,10 +39,14 @@ import io.github.carlos_emr.carlos.config.CacheConfig;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationStyle;
 import io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusMgr;
+import io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusStyleException;
 import org.springframework.beans.BeansException;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -61,22 +68,26 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
     private static final Logger logger = MiscUtils.getLogger();
     private static final String CUSTOM_STATUS_COLOR = "#897DF8";
 
+    /*
+     * Each seeded status's default style, keyed by status code: row ids differ between installs.
+     * Matches database/mysql/migration/{on,bc}/V1.0.2 (Customized 6 really is seeded with 5.gif).
+     */
     private static final StatusDefault[] STATUS_DEFAULTS = {
-            new StatusDefault("t", "To Do", "#FDFEC7"),
-            new StatusDefault("T", "Daysheet Printed", "#FDFEC7"),
-            new StatusDefault("H", "Here", "#00ee00"),
-            new StatusDefault("P", "Picked", "#FFBBFF"),
-            new StatusDefault("E", "Empty Room", "#FFFF33"),
-            new StatusDefault("a", "Customized 1", CUSTOM_STATUS_COLOR),
-            new StatusDefault("b", "Customized 2", CUSTOM_STATUS_COLOR),
-            new StatusDefault("c", "Customized 3", CUSTOM_STATUS_COLOR),
-            new StatusDefault("d", "Customized 4", CUSTOM_STATUS_COLOR),
-            new StatusDefault("e", "Customized 5", CUSTOM_STATUS_COLOR),
-            new StatusDefault("f", "Customized 6", CUSTOM_STATUS_COLOR),
-            new StatusDefault("h", "Confirmed", "#2fcccf"),
-            new StatusDefault("N", "No Show", "#cccccc"),
-            new StatusDefault("C", "Cancelled", "#999999"),
-            new StatusDefault("B", "Billed", "#3ea4e1")
+            new StatusDefault("t", "To Do", "#FDFEC7", "starbill.gif"),
+            new StatusDefault("T", "Daysheet Printed", "#FDFEC7", "todo.gif"),
+            new StatusDefault("H", "Here", "#00ee00", "here.gif"),
+            new StatusDefault("P", "Picked", "#FFBBFF", "picked.gif"),
+            new StatusDefault("E", "Empty Room", "#FFFF33", "empty.gif"),
+            new StatusDefault("a", "Customized 1", CUSTOM_STATUS_COLOR, "1.gif"),
+            new StatusDefault("b", "Customized 2", CUSTOM_STATUS_COLOR, "2.gif"),
+            new StatusDefault("c", "Customized 3", CUSTOM_STATUS_COLOR, "3.gif"),
+            new StatusDefault("d", "Customized 4", CUSTOM_STATUS_COLOR, "4.gif"),
+            new StatusDefault("e", "Customized 5", CUSTOM_STATUS_COLOR, "5.gif"),
+            new StatusDefault("f", "Customized 6", CUSTOM_STATUS_COLOR, "5.gif"),
+            new StatusDefault("h", "Confirmed", "#2fcccf", "thumb.png"),
+            new StatusDefault("N", "No Show", "#cccccc", "noshow.gif"),
+            new StatusDefault("C", "Cancelled", "#999999", "cancel.gif"),
+            new StatusDefault("B", "Billed", "#3ea4e1", "billed.gif")
     };
 
     private static AppointmentStatusDao getAppointmentStatusDao() {
@@ -180,49 +191,98 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
         }
     }
 
+    @Override
     public List<AppointmentStatus> getAllStatus() {
         return getAppointmentStatusDao().findAll();
     }
 
+    @Override
     public List<AppointmentStatus> getAllActiveStatus() {
         return getAppointmentStatusDao().findActive();
     }
 
-    public AppointmentStatus getStatus(int ID) {
-        return getAppointmentStatusDao().find(ID);
+    @Override
+    public AppointmentStatus getStatus(int id) {
+        return getAppointmentStatusDao().find(id);
     }
 
-    public void changeStatus(int ID, int iActive) {
-        getAppointmentStatusDao().changeStatus(ID, iActive);
+    @Override
+    public boolean changeStatus(int id, int iActive) {
+        if (iActive != 0 && iActive != 1) {
+            throw new AppointmentStatusStyleException("admin.appt.status.mgr.error.invalidActive");
+        }
+        AppointmentStatusDao appointmentStatusDao = getAppointmentStatusDao();
+        AppointmentStatus status = appointmentStatusDao.find(id);
+        // editable=0 marks the core statuses the schedule depends on: they can be restyled but
+        // never switched off (issue #3888).
+        if (status == null || status.getEditable() != 1) {
+            return false;
+        }
+        appointmentStatusDao.changeStatus(id, iActive);
+        return true;
     }
 
-    public void modifyStatus(int ID, String strDesc, String strColor) {
-        getAppointmentStatusDao().modifyStatus(ID, strDesc, strColor);
+    @Override
+    public boolean updateDescription(int id, String description) {
+        String value = StringUtils.trimToEmpty(description);
+        if (value.isEmpty()) {
+            throw new AppointmentStatusStyleException("admin.appt.status.mgr.error.descriptionRequired");
+        }
+        if (value.length() > DESCRIPTION_MAX_LENGTH) {
+            throw new AppointmentStatusStyleException("admin.appt.status.mgr.error.descriptionLength");
+        }
+        return getAppointmentStatusDao().modifyStyle(id, value, null, null);
     }
 
+    @Override
+    public boolean updateColour(int id, String colour) {
+        String value = StringUtils.trimToEmpty(colour);
+        // The colour is written into style attributes on the schedule, so nothing but #rrggbb is
+        // stored: the same rule as a Location List colour.
+        if (!AppointmentLocationStyle.isValidColour(value)) {
+            throw new AppointmentStatusStyleException("admin.appt.status.mgr.error.color");
+        }
+        return getAppointmentStatusDao().modifyStyle(id, null, value, null);
+    }
+
+    @Override
+    public boolean updateIcon(int id, String icon) {
+        // The icon becomes part of an image URL on the schedule, so only listed file names are stored.
+        if (icon == null || !ICON_SET.contains(icon)) {
+            throw new AppointmentStatusStyleException("admin.appt.status.mgr.error.icon");
+        }
+        return getAppointmentStatusDao().modifyStyle(id, null, null, icon);
+    }
+
+    @Override
     public int checkStatusUsuage(List<AppointmentStatus> allStatus) {
         return getAppointmentStatusDao().checkStatusUsuage(allStatus);
     }
 
+    @Override
     public void reset() {
         AppointmentStatusDao appointmentStatusDao = getAppointmentStatusDao();
-        for (StatusDefault statusDefault : STATUS_DEFAULTS) {
-            AppointmentStatus status = appointmentStatusDao.findByStatus(statusDefault.status);
-            if (status != null) {
-                appointmentStatusDao.modifyStatus(status.getId(), statusDefault.description, statusDefault.color);
+        // One transaction, so a failure part-way leaves every style as it was rather than half reset.
+        new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class)).executeWithoutResult(tx -> {
+            // Matched by exact code: findByStatus goes by the first letter, so a custom "tx" listed
+            // before "t" would hide it.
+            Map<String, AppointmentStatus> byCode = new HashMap<>();
+            for (AppointmentStatus status : appointmentStatusDao.findAll()) {
+                String code = StringUtils.trim(status.getStatus());
+                if (code != null) {
+                    byCode.putIfAbsent(code, status);
+                }
             }
-        }
+            for (StatusDefault statusDefault : STATUS_DEFAULTS) {
+                AppointmentStatus status = byCode.get(statusDefault.status);
+                if (status != null) {
+                    appointmentStatusDao.modifyStyle(status.getId(), statusDefault.description,
+                            statusDefault.color, statusDefault.icon);
+                }
+            }
+        });
     }
 
-    private static final class StatusDefault {
-        private final String status;
-        private final String description;
-        private final String color;
-
-        private StatusDefault(String status, String description, String color) {
-            this.status = status;
-            this.description = description;
-            this.color = color;
-        }
+    private record StatusDefault(String status, String description, String color, String icon) {
     }
 }

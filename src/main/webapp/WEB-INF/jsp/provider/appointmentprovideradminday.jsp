@@ -22,6 +22,8 @@
 --%>
 <!DOCTYPE html>
 <%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationList" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupAccessRestrictionDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
@@ -70,6 +72,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib tagdir="/WEB-INF/tags/appointment" prefix="appt" %>
 
 <%
     LoggedInInfo loggedInInfo1 = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -140,6 +143,8 @@
 %>
 <%
     LookupList reasonCodes = lookupListManager.findLookupListByName(loggedInInfo1, "reasonCode");
+    // Loaded once per page: each booked appointment's Location List chip is looked up in memory.
+    AppointmentLocationList appointmentLocations = SpringUtils.getBean(AppointmentLocationResolver.class).load();
     if (reasonCodes != null && reasonCodes.getItems() != null) {
         for (LookupListItem lli : reasonCodes.getItems()) {
             reasonCodesMap.put(lli.getId(), lli);
@@ -2092,6 +2097,9 @@
                                                         <%if (bMultisites) {%>
                                                         <span title="<carlos:encode value='<%= sitename %>' context="htmlAttribute"/>"
                                                               style="background-color:<carlos:encode value='<%= io.github.carlos_emr.carlos.commn.SiteChoice.cssColor(siteBgColor.get(sitename), "") %>' context="htmlAttribute"/>;">&nbsp;</span>|
+                                                        <%} else if (appointmentLocations.chipItemFor(appointment) != null) {%>
+                                                        <%-- The Location List chip (#3982): no chip in a site setup, which marks its own. --%>
+                                                        <appt:locationChip item="<%= appointmentLocations.chipItemFor(appointment) %>" label="<%= appointment.getLocation() %>"/>
                                                         <%} %>
 
                                                         <%

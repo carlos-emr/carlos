@@ -112,7 +112,7 @@ class SiteDaoImplRenameUnitTest extends CarlosUnitTestBase {
         assertThat(statements.getAllValues()).containsExactly(
                 "update rschedule set avail_hour = replace(avail_hour, ?1, ?2) ",
                 "update scheduledate set reason = ?1 where reason = ?2",
-                "update appointment set location = ?1 where location = ?2",
+                "update appointment set location = ?1, locationCode = null where location = ?2",
                 "update billing_on_cheader1 set clinic = ?1 where clinic = ?2");
         verify(entityManager).merge(site);
     }
@@ -130,7 +130,7 @@ class SiteDaoImplRenameUnitTest extends CarlosUnitTestBase {
         assertThat(statements.getAllValues()).containsExactly(
                 "update rschedule set avail_hour = replace(avail_hour, ?1, ?2) ",
                 "update scheduledate set reason = ?1 where reason = ?2",
-                "update appointment set location = ?1 where location = ?2");
+                "update appointment set location = ?1, locationCode = null where location = ?2");
         verify(entityManager).merge(site);
     }
 
