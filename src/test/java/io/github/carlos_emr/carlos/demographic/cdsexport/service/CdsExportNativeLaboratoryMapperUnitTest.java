@@ -226,6 +226,24 @@ class CdsExportNativeLaboratoryMapperUnitTest {
     }
 
     @Test
+    void shouldPreserveExplicitHl7NullResults_asAbsentValuesWithTheirActualStatus()
+            throws Exception {
+        var source = source(message().replace("||5.4|mmol/L", "||\"\"|mmol/L"));
+        var value =
+                new CdsExportNativeLaboratoryMapper()
+                        .map(source, ZoneId.of("America/Toronto"))
+                        .getFirst();
+        assertThat(value.text())
+                .doesNotContainKey("ResultValue")
+                .containsEntry("TestResultStatus", "F");
+        assertThat(
+                        render(
+                                CdsCategory.LABORATORY_RESULTS,
+                                xml -> new CdsExportNativeLaboratoryMapper().write(value, xml)))
+                .isNotEmpty();
+    }
+
+    @Test
     void shouldDecodeAnHl7EscapeExactlyOnce_andKeepAuthoredWhitespace() throws Exception {
         String literal = "  Literal \\E\\F\\E\\ text  ";
         var source =

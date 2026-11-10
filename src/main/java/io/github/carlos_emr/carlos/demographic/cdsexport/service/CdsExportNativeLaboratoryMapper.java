@@ -294,7 +294,7 @@ final class CdsExportNativeLaboratoryMapper {
     }
 
     private static String literal(String value) {
-        return value == null ? "" : value;
+        return value == null || value.equals("\"\"") ? "" : value;
     }
 
     private static void put(Map<String, String> values, String name, String value, int maximum)

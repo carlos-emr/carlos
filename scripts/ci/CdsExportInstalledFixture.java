@@ -404,7 +404,7 @@ public final class CdsExportInstalledFixture {
         writePrivate(ROOT.resolve("documents/native-report.txt"),
                 "Native consultation report café 😀\nIndependent attachment bytes\n".getBytes(StandardCharsets.UTF_8), true);
         update(db, "INSERT INTO document(doctype,docdesc,docxml,docfilename,doccreator,responsible,source,sourceFacility,observationdate,contentdatetime,receivedDate,reviewer,reviewdatetime,status,restrictToProgram,contenttype)"
-                + " VALUES('consult',?,'','native-report.txt',?,?,'Dr. Native Source Author','Native consultation clinic','2026-07-09','2026-07-09 14:35:00','2026-07-10 12:30:00',?,'2026-07-11 12:30:00','A',0,'text/plain; charset=UTF-8')",
+                + " VALUES('consult',?,'','native-report.txt',?,?,'Dr. Native Source Author','Native consultation clinic','2026-07-09','2026-07-09 14:35:00','2026-07-10',?,'2026-07-11 12:30:00','A',0,'text/plain; charset=UTF-8')",
                 "Native consultation description café 😀", PROVIDER, PROVIDER, PROVIDER);
         int document = (int) count(db, "SELECT LAST_INSERT_ID()");
         update(db, "INSERT INTO ctl_document(module,module_id,document_no,status) VALUES('demographic',?,?,'A')", patient, document);
