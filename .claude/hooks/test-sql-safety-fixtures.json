@@ -585,5 +585,125 @@
         "new_string": "CriteriaBuilder cb = entityManager.getCriteriaBuilder();\nCriteriaQuery<User> cq = cb.createQuery(User.class);\nRoot<User> root = cq.from(User.class);\ncq.select(root).where(cb.equal(root.get(\"id\"), userId));"
       }
     }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-issue6085-7: named placeholder does not excuse a .formatted() raw value",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/DemographicDaoImpl.java",
+        "content": "public class D {\n void f(String name) {\n  String q = \"SELECT * FROM demographic WHERE demographic_no = :id AND last_name = '%s'\".formatted(name);\n  log(q);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-issue6085-8: named placeholder does not excuse a String.format() raw value",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/DemographicDaoImpl.java",
+        "content": "public class D {\n void f(String name) {\n  String q = String.format(\"SELECT * FROM demographic WHERE demographic_no = :id AND last_name = '%s'\", name);\n  log(q);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-issue6085-9: terminated SQL literal with a ';' inside it still reaches .formatted() detection",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/DemographicDaoImpl.java",
+        "content": "public class D {\n void f(String name, Statement stmt) throws Exception {\n  String q = \"SELECT * FROM demographic WHERE last_name = '%s';\".formatted(name);\n  stmt.executeQuery(q);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-issue6085-10: a value appended after a char-literal argument is still flagged",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/DemographicDaoImpl.java",
+        "content": "public class D {\n void f(StringBuilder sb, String name) {\n  sb.append(\"WHERE last_name = '\").append('x').append(name).append(\"'\");\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-issue6085-11: a char literal joined to a raw value with '+' is still a sandwich value",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/DemographicDaoImpl.java",
+        "content": "public class D {\n void f(StringBuilder sb, String name) {\n  sb.append(\"WHERE last_name = '\").append('x' + name).append(\"'\");\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-issue6085-7: char-literal concatenation with a space and colon is not SQL",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/Selection.java",
+        "content": "public class S {\n String f(String selection, String name) {\n  return ' ' + selection + ':' + name;\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-issue6085-8: char-literal append followed by a value is not a SQL fragment",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/Counter.java",
+        "content": "public class U {\n void f(StringBuilder sb, int updateCount) {\n  sb.append(' ').append(updateCount);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-issue6085-9: a constant char-literal argument after a quote is not a sandwich",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/Formatter.java",
+        "content": "public class Q {\n void f(StringBuilder sb) {\n  sb.append(\"'\").append('x').append(\"'\");\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-issue6085-10: non-SQL warning builder with variable appends (CarlosProperties shape) stays allowed",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/CarlosProperties.java",
+        "content": "public class W {\n void f(String key, String def) {\n  String w = new StringBuilder().append(\"Property '\").append(key).append(\"' is missing. Using default value: '\").append(def).append(\"'.\").toString();\n  log(w);\n }\n}"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-issue6085-11: a ';' in the middle of a prose literal does not pull in SQL keywords from later text",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/DateShape.java",
+        "content": "public class D {\n void f(String date) {\n  String m = date + \"; parsed from a yyyy-MM-dd value\";\n  log(m);\n }\n}"
+      }
+    }
   }
 ]
