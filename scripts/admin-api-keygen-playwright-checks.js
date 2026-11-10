@@ -326,7 +326,7 @@ async function workflow(s) {
     await keys.locator('#fail').waitFor({state: 'visible', timeout: TIMEOUT});
     return {
       text: (await keys.locator('#fail').innerText()).trim(),
-      red: await keys.locator('#fail font[color="red"]').count() === 1,
+      red: await keys.locator('#fail .keygen-error').count() === 1,
     };
   }
   const serverKey = () => sql.value(`SELECT COALESCE(MAX(privKey),'') FROM oscarKeys WHERE name='oscar'`);
