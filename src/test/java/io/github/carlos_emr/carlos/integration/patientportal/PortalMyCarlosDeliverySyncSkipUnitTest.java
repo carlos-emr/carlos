@@ -31,6 +31,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -134,6 +135,7 @@ class PortalMyCarlosDeliverySyncSkipUnitTest {
                 .thenReturn(Optional.of(mock(PortalMyCarlosPatientBinding.class)));
         when(devices.findByKidForUpdate(anyString())).thenReturn(Optional.empty());
         when(outbox.find(eq(CLINIC), anyString(), anyString())).thenReturn(Optional.empty());
+        when(outbox.findForDelivery(eq(CLINIC), anyString())).thenReturn(List.of());
     }
 
     private PortalMyCarlosDeliverySyncService collector() {
@@ -160,6 +162,15 @@ class PortalMyCarlosDeliverySyncSkipUnitTest {
         var event = envelope(sequence, "device_removed", occurredAt, recipient);
         event.putNull("delivery_id");
         event.putObject("payload");
+        return event;
+    }
+    private static ObjectNode anchor(long sequence, long occurredAt, String recipient) {
+        var event = envelope(sequence, "anchor", occurredAt, recipient);
+        event.putNull("delivery_id");
+        var payload = event.putObject("payload");
+        payload.put("vault_head_link", "a".repeat(64));
+        // Well-formed only: a passed-over anchor's proof is never checked.
+        payload.put("request_assertion", "e30." + "A".repeat(86));
         return event;
     }
     private static ObjectNode expired(long sequence, long occurredAt, String recipient) {
@@ -191,8 +202,46 @@ class PortalMyCarlosDeliverySyncSkipUnitTest {
         assertEquals(List.of("1:device_removed:false", "2:expired:false"), recorded);
         assertEquals(List.of("clinic-a:1:device_removed", "clinic-a:2:expired"), audited);
         assertTrue(quarantined.isEmpty());
-        verify(outbox, never()).fenceDevice(anyString(), anyString());
+        // The removal is applied all the same: its key stays fenced if it is ever accepted.
+        verify(outbox).fenceDevice(CLINIC, KID);
         verify(outbox, never()).terminal(any(), anyString());
+    }
+
+    @Test
+    @DisplayName("should pass over a settled anchor CARLOS has no record of without applying anything")
+    void shouldPassOverSettledAnchor_whenCarlosHasNoRecordOfIt() throws Exception {
+        portalSends(anchor(1, NOW - 3600, UNKNOWN_RECIPIENT));
+        assertEquals(PortalMyCarlosDeliverySyncService.Result.COLLECTED, collector().poll());
+        assertEquals(List.of(1L), acks);
+        assertEquals(List.of("1:anchor:false"), recorded);
+        assertEquals(List.of("clinic-a:1:anchor"), audited);
+        verify(outbox, never()).fenceDevice(anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("should keep every check for a delivery CARLOS holds under another device key")
+    void shouldKeepEveryCheck_forADeliveryHeldUnderAnotherKey() throws Exception {
+        when(outbox.findForDelivery(CLINIC, DELIVERY))
+                .thenReturn(List.of(mock(PortalMyCarlosDeliveryOutboxDao.Row.class)));
+        portalSends(expired(1, NOW - 86400, UNKNOWN_RECIPIENT));
+        assertEquals(PortalMyCarlosDeliverySyncService.Result.QUARANTINED, collector().poll());
+        assertEquals(0, committed);
+        assertTrue(acks.isEmpty());
+        assertEquals(List.of("unknown_binding"), quarantined);
+        assertTrue(audited.isEmpty());
+    }
+
+    @Test
+    @DisplayName("should keep every check for an accepted device named under a recipient CARLOS has no binding for")
+    void shouldKeepEveryCheck_forAnAcceptedDeviceBoundElsewhere() throws Exception {
+        when(devices.findByKidForUpdate(KID)).thenReturn(Optional.of(mock(PortalMyCarlosAcceptedDevice.class)));
+        portalSends(deviceRemoved(1, NOW - 86400, UNKNOWN_RECIPIENT));
+        assertEquals(PortalMyCarlosDeliverySyncService.Result.QUARANTINED, collector().poll());
+        assertEquals(0, committed);
+        assertTrue(acks.isEmpty());
+        assertEquals(List.of("unknown_binding"), quarantined);
+        assertTrue(audited.isEmpty());
+        verify(outbox, never()).fenceDevice(anyString(), anyString());
     }
 
     @Test
@@ -219,6 +268,7 @@ class PortalMyCarlosDeliverySyncSkipUnitTest {
         assertEquals(passedOver ? List.of(1L) : List.of(), acks);
         assertEquals(passedOver ? List.of("clinic-a:1:device_removed") : List.of(), audited);
         assertEquals(passedOver ? List.of() : List.of("unknown_binding"), quarantined);
+        verify(outbox, times(passedOver ? 1 : 0)).fenceDevice(CLINIC, KID);
     }
 
     @Test
@@ -237,6 +287,7 @@ class PortalMyCarlosDeliverySyncSkipUnitTest {
     void shouldApplyKnownDelivery_whenItsRecipientHasNoBinding() throws Exception {
         var row = mock(PortalMyCarlosDeliveryOutboxDao.Row.class);
         var snapshot = mock(PortalMyCarlosDeliverySnapshot.class);
+        when(outbox.findForDelivery(CLINIC, DELIVERY)).thenReturn(List.of(row));
         when(outbox.find(CLINIC, DELIVERY, KID)).thenReturn(Optional.of(row));
         when(sender.load(row)).thenReturn(snapshot);
         when(snapshot.recipientId()).thenReturn(UNKNOWN_RECIPIENT);

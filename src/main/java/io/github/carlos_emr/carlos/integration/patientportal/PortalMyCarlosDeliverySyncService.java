@@ -39,8 +39,11 @@ final class PortalMyCarlosDeliverySyncService {
     /**
      * How old an event about something CARLOS has no record of must be before it is passed over:
      * the longest a device approval request can stay open (600 s, {@code PortalMyCarlosDeviceApprovalCodec})
-     * plus 300 s for the difference between the two clocks. An event can reach the feed while the device
-     * it names is still being approved, so a younger one is held as before: it may yet become known.
+     * plus 300 s for the difference between the two clocks. It is a courtesy delay, not a bound: an
+     * event can reach the feed while the device it names is still being approved, so a younger one
+     * is held as before, but {@code occurred_at} is the portal's and a device can still be accepted
+     * later. Passing over is safe because of what each kind applies: an anchor applies nothing, a
+     * delivery CARLOS does not hold has nothing to apply, and a device removal still fences its key.
      */
     static final long UNKNOWN_SETTLED_SECONDS = 900;
 
@@ -171,9 +174,12 @@ final class PortalMyCarlosDeliverySyncService {
     }
 
     private Prepared prepare(String clinic, PortalMyCarlosDeliveryClient.Event event) {
-        // Nothing to apply or verify, and holding it would hold every later event of the clinic.
+        // Nothing to verify, and holding it would hold every later event of the clinic. A removal
+        // is still applied: the fence needs no binding, and stops sends to that key if it is ever
+        // accepted.
         if (unknownToCarlos(clinic, event) && event.occurredAt() <= now() - UNKNOWN_SETTLED_SECONDS)
-            return new Prepared(() -> {}, false, true);
+            return new Prepared("device_removed".equals(event.kind())
+                    ? () -> outbox.fenceDevice(clinic, event.deviceKid()) : () -> {}, false, true);
         if (event.deliveryId() == null) {
             var device = devices.findByKidForUpdate(event.deviceKid()).orElseThrow(() -> new Untrusted("unknown_binding"));
             var binding = bindings.findByClinicRecipientForUpdate(clinic, event.recipientId()).orElseThrow(() -> new Untrusted("unknown_binding"));
@@ -208,13 +214,15 @@ final class PortalMyCarlosDeliverySyncService {
 
     /**
      * Whether CARLOS holds nothing the event could be about: no binding for its recipient, and no
-     * accepted device (device events) or outbox copy (delivery events) it names, as after a link's
-     * records were removed. Anything CARLOS does know keeps every check below.
+     * accepted device (device events) or outbox copy of that delivery under any key (delivery
+     * events) it names, as after a link's records were removed. Anything CARLOS does know keeps
+     * every check below, so a delivery held under another key, or an accepted device bound
+     * elsewhere, is still refused there.
      */
     private boolean unknownToCarlos(String clinic, PortalMyCarlosDeliveryClient.Event event) {
         if (bindings.findByClinicRecipientForUpdate(clinic, event.recipientId()).isPresent()) return false;
         return event.deliveryId() == null ? devices.findByKidForUpdate(event.deviceKid()).isEmpty()
-                : outbox.find(clinic, event.deliveryId(), event.deviceKid()).isEmpty();
+                : outbox.findForDelivery(clinic, event.deliveryId()).isEmpty();
     }
 
     private long keepPage(Writer writer, byte[] exact, String failure) {

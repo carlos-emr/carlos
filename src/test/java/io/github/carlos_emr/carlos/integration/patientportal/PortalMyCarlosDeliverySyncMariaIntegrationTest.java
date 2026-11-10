@@ -111,6 +111,8 @@ class PortalMyCarlosDeliverySyncMariaIntegrationTest {
         assertEquals(List.of("device_removed:false", "expired:false", "picked_up:true"), eventRowsAfter(before));
         assertNull(pageFailure(h.exchange.response));
         assertExactPageRetained(h.exchange.response);
+        // The passed-over removal still fenced its key, for the day it might be accepted.
+        ownFence("A".repeat(43));
     }
 
     @Test void shouldQuarantineUnknownEvent_whileItsRequestMayStillBeOpen() throws Exception {
@@ -138,6 +140,7 @@ class PortalMyCarlosDeliverySyncMariaIntegrationTest {
         assertEquals(PortalMyCarlosDeliveryOutboxService.DeliveryStatus.STAGED,
                 h.sender.status(staff(), 123, p.snapshot().deliveryId(), p.snapshot().device().kid()));
         assertEquals("invalid_proof", pageFailure(h.exchange.response));
+        ownFence("A".repeat(43));
     }
 
     @Test void shouldPassOverUnknownEvent_fromExactlyTheSettledAge() throws Exception {
@@ -147,6 +150,7 @@ class PortalMyCarlosDeliverySyncMariaIntegrationTest {
         h.exchange.response = page(List.of(unknownDeviceRemoved(before + 1, NOW.get() - 900)), before + 1);
         assertEquals(PortalMyCarlosDeliverySyncService.Result.COLLECTED, h.sync.poll());
         assertEquals(before + 1, checkpoint(h).through());
+        ownFence("A".repeat(43));
         var younger = harness();
         younger.exchange.response = page(List.of(unknownDeviceRemoved(before + 2, NOW.get() - 899)), before + 2);
         assertEquals(PortalMyCarlosDeliverySyncService.Result.QUARANTINED, younger.sync.poll());
@@ -330,6 +334,17 @@ class PortalMyCarlosDeliverySyncMariaIntegrationTest {
         p.put("request_assertion", assertion);
         return e;
     }
+    /** Asserts the removal fence property for {@code kid} exists, and owns it for cleanup. */
+    private void ownFence(String kid) throws Exception {
+        try (var c = source.getConnection(); var q = c.prepareStatement("SELECT id FROM property WHERE name=?")) {
+            q.setString(1, "mycarlos.delivery.removed." + kid);
+            try (var r = q.executeQuery()) {
+                assertTrue(r.next(), "removal fence for " + kid);
+                ownedFenceProperties.add(r.getLong(1));
+            }
+        }
+    }
+
     /** A device event for a recipient and device CARLOS has never had (FAKE identifiers). */
     static com.fasterxml.jackson.databind.node.ObjectNode unknownDeviceRemoved(long sequence, long occurredAt) {
         var e = JSON.createObjectNode();
