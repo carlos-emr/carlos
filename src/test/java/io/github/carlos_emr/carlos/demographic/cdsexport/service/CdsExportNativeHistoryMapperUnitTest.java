@@ -451,4 +451,34 @@ class CdsExportNativeHistoryMapperUnitTest {
                                         List.of(note(91, "First", null, List.of()), other)))
                 .hasMessage("CDS_EXPORT_NATIVE_HISTORY_SCOPE_INVALID");
     }
+
+    @Test
+    void shouldRefuseUnqualifiedIssueProgramOwnership_andSqlNullNoteBodies() throws Exception {
+        var issue =
+                row(
+                        Plan.CASE_ISSUES,
+                        41,
+                        Map.of("demographic_no", "27", "issue_id", "51", "program_id", "13"));
+        var definition =
+                row(
+                        Plan.ISSUE_CATALOGUE,
+                        51,
+                        Map.of(
+                                "code",
+                                "250.00",
+                                "type",
+                                "ICD-9",
+                                "description",
+                                "Diabetes mellitus"));
+        assertThatThrownBy(() -> mapper.mapIssue(27, issue, definition))
+                .hasMessage("CDS_EXPORT_NATIVE_ISSUE_PROGRAM_REQUIRES_REVIEW");
+        var original = note(91, "Original", null, List.of());
+        var values = new LinkedHashMap<>(original.note().value().fields());
+        values.put("note", null);
+        var current =
+                new CdsExportHistoryFieldReconciler.Current(
+                        row(Plan.CASE_NOTES, 91, values), List.of(), List.of(), Map.of(), Map.of());
+        assertThatThrownBy(() -> map(CdsCategory.CLINICAL_NOTES, List.of(current)))
+                .hasMessage("CDS_EXPORT_NATIVE_NOTE_BODY_REQUIRED");
+    }
 }

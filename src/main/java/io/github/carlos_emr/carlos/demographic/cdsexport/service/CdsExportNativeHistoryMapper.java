@@ -138,6 +138,7 @@ public final class CdsExportNativeHistoryMapper {
             for (String field : OPERATIONAL)
                 state.operational(field, "VERIFIED_NATIVE_NOTE_IDENTITY_ACCESS_OR_PRESENTATION");
             String body = state.text("note", bodyPath(category), 1 << 24);
+            if (state.raw("note") == null) review("CDS_EXPORT_NATIVE_NOTE_BODY_REQUIRED");
             bodies.add(body == null ? "" : body);
             var detail = new LinkedHashMap<String, Object>();
             detail.put("revision", metadata.size() + 1);
@@ -252,6 +253,12 @@ public final class CdsExportNativeHistoryMapper {
                         revision.definitions().get(linked.value().fields().get("issue_id"));
                 if (definition == null) invalid();
                 CdsExportCaseManagementProjectionEvidence.verify(linked.value(), linked.witness());
+                String issueProgram = linked.value().fields().get("program_id");
+                if (issueProgram != null
+                        && !issueProgram.isEmpty()
+                        && !issueProgram.equals("0")
+                        && !issueProgram.equals(note.fields().get("program_no")))
+                    review("CDS_EXPORT_NATIVE_ISSUE_PROGRAM_REQUIRES_REVIEW");
                 CdsExportCaseManagementProjectionEvidence.verify(
                         definition.value(), definition.witness());
                 add(rows, linked.value());
@@ -363,6 +370,11 @@ public final class CdsExportNativeHistoryMapper {
                 : TAGS.getOrDefault(code, CdsCategory.PROBLEM_LIST);
     }
 
+    static boolean cppDefinition(CdsExportHistoryFieldReconciler.Row definition) {
+        String code = definition.value().fields().get("code");
+        return code != null && TAGS.containsKey(code);
+    }
+
     /** A patient diagnosis need not have a linked narrative note to be part of the chart. */
     public Result mapIssue(
             int patient,
@@ -378,6 +390,9 @@ public final class CdsExportNativeHistoryMapper {
                         .fields()
                         .get("issue_id")
                         .equals(issue.value().fields().get("issue_id"))) invalid();
+        String program = issue.value().fields().get("program_id");
+        if (program != null && !program.isEmpty() && !program.equals("0"))
+            review("CDS_EXPORT_NATIVE_ISSUE_PROGRAM_REQUIRES_REVIEW");
         var category = issueCategory(definition);
         var fields = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
         var metadata = new LinkedHashMap<String, Object>();

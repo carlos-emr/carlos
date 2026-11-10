@@ -631,20 +631,21 @@ public class CdsExportHistoryOccurrenceService {
             result.add(occurrence);
         }
         if (!byNote.isEmpty()) review();
-        for (String id : context.patientIssueIds())
-            if (!issueIds.contains(id)) {
-                var issue = context.original("casemgmt_issue", id);
-                var definition = context.original("issue", issue.value().fields().get("issue_id"));
-                if (definition == null) invalid();
-                definitions.add(definition.value().fields().get("issue_id"));
-                result.add(
-                        new Occurrence(
-                                CdsExportNativeHistoryMapper.issueCategory(definition),
-                                null,
-                                0,
-                                List.of(),
-                                id));
-            }
+        for (String id : context.patientIssueIds()) {
+            var issue = context.original("casemgmt_issue", id);
+            var definition = context.original("issue", issue.value().fields().get("issue_id"));
+            if (definition == null) invalid();
+            if (issueIds.contains(id) && CdsExportNativeHistoryMapper.cppDefinition(definition))
+                continue;
+            definitions.add(definition.value().fields().get("issue_id"));
+            result.add(
+                    new Occurrence(
+                            CdsExportNativeHistoryMapper.issueCategory(definition),
+                            null,
+                            0,
+                            List.of(),
+                            id));
+        }
         if (!definitions.equals(context.definitionIds())) review();
         result.sort(
                 Comparator.comparing(Occurrence::category)

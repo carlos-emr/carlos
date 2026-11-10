@@ -30,6 +30,8 @@
   "io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigestUnitTest",
   "io.github.carlos_emr.carlos.demographic.cds.contract.CdsPreparationSealUnitTest",
   "io.github.carlos_emr.carlos.demographic.cds.contract.CdsSchemaContentOrderUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cds.jdbc.CdsBinaryReadsMariaDbIntegrationTest",
+  "io.github.carlos_emr.carlos.demographic.cds.jdbc.CdsBinaryReadsUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.cli.CdsExportCliArgumentsUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.cli.CdsExportCliBootstrapMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.cli.CdsExportCliOutputUnitTest",
@@ -99,6 +101,8 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportFreshAuthorizationIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryCurrentContextUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryFieldReconcilerUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryInteroperabilityUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryNativeReconcilerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryOccurrenceServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryRetainedSourceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportImmunizationCaptureMariaDbIntegrationTest",
@@ -133,6 +137,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeDateMapperUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeDemographicAssemblerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeFieldAssessmentValidatorUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeHistoryMapperUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativePreventionDateMapperUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNewCategoryOccurrenceServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteIssueLinkReceiptUnitTest",
@@ -235,6 +240,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsDocumentPublicationServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsEndpointProjectionInjectionUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsHistoryProjectionIntegrationTest",
+  "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsHistoryResidualReaderUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsHistoryVisibilityMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsHrmRepairAdmissionMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsIdentityAuthorityUnitTest",
@@ -302,7 +308,5 @@
   "io.github.carlos_emr.carlos.report.data.QueryByExampleSqlValidatorUnitTest",
   "io.github.carlos_emr.carlos.report.gate.ViewCds4ReportResults2ActionUnitTest",
   "io.github.carlos_emr.carlos.utility.ContextStartupListenerUnitTest",
-  "io.github.carlos_emr.carlos.webserv.CdsDocumentWsUnitTest",
-  "io.github.carlos_emr.carlos.demographic.cds.jdbc.CdsBinaryReadsUnitTest",
-  "io.github.carlos_emr.carlos.demographic.cds.jdbc.CdsBinaryReadsMariaDbIntegrationTest"
+  "io.github.carlos_emr.carlos.webserv.CdsDocumentWsUnitTest"
 ]
