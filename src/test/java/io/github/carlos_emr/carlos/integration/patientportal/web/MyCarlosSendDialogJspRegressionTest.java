@@ -145,6 +145,8 @@ class MyCarlosSendDialogJspRegressionTest {
             String jsp = read(host);
             int set = jsp.indexOf(VERSION_SET);
             assertThat(set).as(host.toString()).isNotNegative();
+            // Without the core taglib, <c:set> is printed as text and the query comes out empty.
+            assertThat(jsp).as(host.toString()).contains("<%@ taglib uri=\"jakarta.tags.core\" prefix=\"c\" %>");
             assertThat(set).as(host.toString()).isLessThan(jsp.indexOf(VERSION));
         }
         String page = read(SHOW_DOCUMENT);
