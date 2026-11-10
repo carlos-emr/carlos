@@ -39,13 +39,57 @@ def expected(patient: int) -> dict[str, str]:
     }
 
 
+def history_expected() -> dict[str, str]:
+    # Literal facts written by the independent fixture, without transfer mapper output.
+    return {
+        "c:PersonalHistory/c:ResidualInfo/d:DataElement[d:Name='CARLOS.History.PersonalNarrative.v1']/d:Content": "Native SocHistory narrative café 😀",
+        "c:FamilyHistory/c:ProblemDiagnosisProcedureDescription": "Native FamHistory narrative café 😀",
+        "c:FamilyHistory/c:Relationship": "Mother",
+        "c:FamilyHistory/c:StartDate/d:YearMonth": "2020-02",
+        "c:PastHealth/c:PastHealthProblemDescriptionOrProcedures": "Native MedHistory narrative café 😀",
+        "c:ProblemList/c:ProblemDiagnosisDescription": "Native Concerns narrative café 😀",
+        "c:RiskFactors/c:RiskFactor": "Native RiskFactors narrative café 😀",
+        "c:AlertsAndSpecialNeeds/c:AlertDescription": "Native Reminders narrative café 😀",
+        "c:ClinicalNotes/c:EventDateTime/d:FullDateTime": "2026-07-09T00:00:00-04:00",
+    }
+
+
+def history_equal(record) -> bool:
+    if not all(len(record.findall(path, NS)) == 1 and record.find(path, NS).text == value
+               for path, value in history_expected().items()):
+        return False
+    for category in ("PersonalHistory", "FamilyHistory", "PastHealth", "ProblemList", "RiskFactors", "AlertsAndSpecialNeeds"):
+        path = "c:" + category + "/c:ResidualInfo/d:DataElement[d:Name='CARLOS.History.Archived.v1']/d:Content"
+        if len(record.findall(path, NS)) != 1 or record.find(path, NS).text != ("true" if category == "FamilyHistory" else "false"):
+            return False
+    note = record.find("c:ClinicalNotes", NS)
+    content = note.find("c:MyClinicalNotesContent", NS).text
+    body, separator, metadata = content.partition("\n\n[CARLOS source note details]\n")
+    if not separator or body != "[Original note]\nOriginal native clinical note café 😀\n\n[Revision 2]\nEdited native clinical note café 😀":
+        return False
+    details = json.loads(metadata)
+    if details.get("version") != 1 or len(details.get("revisions", [])) != 2:
+        return False
+    participants = note.findall("c:ParticipatingProviders", NS)
+    if len(participants) != 2:
+        return False
+    for participant in participants:
+        if (participant.find("c:Name/d:FirstName", NS).text != "Synthetic"
+                or participant.find("c:Name/d:LastName", NS).text != "Native Export"
+                or participant.find("c:DateTimeNoteCreated/d:FullDateTime", NS).text != "2026-07-10T12:30:00-04:00"):
+            return False
+    return True
+
+
 def clinically_equal(root, patient: int) -> bool:
     if root.tag != "{cds}OmdCds" or len(root.findall("./c:PatientRecord", NS)) != 1:
         return False
     record = root.find("./c:PatientRecord", NS)
-    if [item.tag for item in record] != ["{cds}Demographics"]:
+    categories = ["Demographics", "PersonalHistory", "FamilyHistory", "PastHealth", "ProblemList",
+                  "RiskFactors", "AlertsAndSpecialNeeds", "ClinicalNotes"]
+    if [item.tag for item in record] != ["{cds}" + name for name in categories]:
         return False
-    return all(len(root.findall(BASE + path, NS)) == 1 and root.find(BASE + path, NS).text == value
+    return history_equal(record) and all(len(root.findall(BASE + path, NS)) == 1 and root.find(BASE + path, NS).text == value
                for path, value in expected(patient).items())
 
 
@@ -96,11 +140,16 @@ def main() -> int:
             ("c:DateOfBirth", "2000-01-03"),
             ("c:Names/d:LegalName/d:FirstName/d:Part", "Altered"),
             ("c:NoteAboutPatient", "Native café 😀 "),
+            ("../c:FamilyHistory/c:Relationship", "Father"),
+            ("../c:ClinicalNotes/c:MyClinicalNotesContent", "Edited native clinical note café 😀"),
+            ("../c:FamilyHistory/c:ResidualInfo/d:DataElement[d:Name='CARLOS.History.Archived.v1']/d:Content", "false"),
         )
         detected = 0
         for index, (path, replacement) in enumerate(mutations):
             mutant = copy.deepcopy(root)
-            mutant.find(BASE + path, NS).text = replacement
+            target = (mutant.find("./c:PatientRecord/" + path[3:], NS) if path.startswith("../")
+                      else mutant.find(BASE + path, NS))
+            target.text = replacement
             mutant_path = Path(work) / ("mutant-" + str(index) + ".xml")
             XML.ElementTree(mutant).write(mutant_path, encoding="UTF-8", xml_declaration=True)
             if not schema_valid(mutant_path, args.schema):
@@ -109,12 +158,12 @@ def main() -> int:
                 raise RuntimeError("Independent oracle missed a schema-valid clinical mutation")
             detected += 1
     args.proof.write_text(json.dumps({
-        "protocol": 1, "status": "PASSED", "independentExpectedFacts": len(expected(patient)),
+        "protocol": 1, "status": "PASSED", "independentExpectedFacts": len(expected(patient)) + len(history_expected()),
         "schemaValidClinicalMutantsDetected": detected, "zipMembers": len(names), "patientXmlMembers": 1,
         "pinnedSchemaValid": True, "plaintextZipSha256": hashlib.sha256(args.archive.read_bytes()).hexdigest(),
         "patientXmlSha256": hashlib.sha256(xml_bytes).hexdigest()
     }, sort_keys=True, indent=2))
-    print("PASS independent native clinical oracle:", len(expected(patient)), "facts and", detected, "schema-valid mutants")
+    print("PASS independent native clinical oracle:", len(expected(patient)) + len(history_expected()), "facts and", detected, "schema-valid mutants")
     return 0
 
 

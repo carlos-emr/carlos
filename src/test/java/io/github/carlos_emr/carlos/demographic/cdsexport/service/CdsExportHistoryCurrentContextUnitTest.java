@@ -321,17 +321,16 @@ class CdsExportHistoryCurrentContextUnitTest {
     }
 
     @Test
-    void shouldRequireReviewForNativeOnlyHistory_beforeAnyRetainedOccurrenceIsReplayed()
+    void shouldPlanNativeHistory_withoutRequiringAnImportedParent()
             throws Exception {
         prepare();
         var index =
                 new CdsExportRetainedIndexDto(HASH, 0, 0, Map.of(), Set.of(), Map.of(), Map.of());
         var current = read(1L << 20);
-        assertThatThrownBy(
-                        () ->
-                                CdsExportHistoryOccurrenceService.plan(
-                                        index, inventory(91), current, () -> {}))
-                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        var planned = CdsExportHistoryOccurrenceService.plan(index, inventory(91), current, () -> {});
+        assertThat(planned).hasSize(1);
+        assertThat(planned.getFirst().category()).isEqualTo(CdsCategory.FAMILY_HISTORY);
+        assertThat(planned.getFirst().address()).isNull();
     }
 
     @Test
@@ -359,19 +358,18 @@ class CdsExportHistoryCurrentContextUnitTest {
     }
 
     @Test
-    void shouldRefuseAnUnlinkedPatientIssue_insteadOfLosingItsClinicalMeaning() throws Exception {
+    void shouldAccountForAnUnlinkedPatientIssue_asItsOwnClinicalOccurrence() throws Exception {
         add(Plan.CASE_ISSUES, 42, Map.of("demographic_no", "27", "issue_id", "51"));
         prepare();
         var current = read(1L << 20);
-        assertThatThrownBy(
-                        () ->
-                                CdsExportHistoryOccurrenceService.plan(
-                                        index(HASH, "91", false), inventory(91), current, () -> {}))
-                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        var result = CdsExportHistoryOccurrenceService.plan(
+                index(HASH, "91", false), inventory(91), current, () -> {});
+        assertThat(result).hasSize(2);
+        assertThat(result.stream().filter(o -> "42".equals(o.issueId()))).hasSize(1);
     }
 
     @Test
-    void shouldRefusePriorVersionsWithoutAnAuditCarrier_insteadOfEmittingThemAsCurrentNotes()
+    void shouldPlanOneCurrentOccurrence_withEveryOriginalAndEditedRevision()
             throws Exception {
         add(
                 Plan.CASE_NOTES,
@@ -393,14 +391,11 @@ class CdsExportHistoryCurrentContextUnitTest {
                         new CdsExportNoteAccessDto(92, 27, "", "1"));
         prepare();
         var current = read(1L << 20);
-        assertThatThrownBy(
-                        () ->
-                                CdsExportHistoryOccurrenceService.plan(
-                                        index(HASH, "91", false),
-                                        inventory(91, 92),
-                                        current,
-                                        () -> {}))
-                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        var result = CdsExportHistoryOccurrenceService.plan(
+                index(HASH, "91", false), inventory(91, 92), current, () -> {});
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().noteId()).isEqualTo(92);
+        assertThat(result.getFirst().revisions()).containsExactly(91L, 92L);
     }
 
     @Test

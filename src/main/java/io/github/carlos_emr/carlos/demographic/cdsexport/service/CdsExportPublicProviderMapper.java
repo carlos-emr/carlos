@@ -36,6 +36,8 @@ public final class CdsExportPublicProviderMapper {
     public enum Target {
         APPOINTMENT("Provider"),
         PRESCRIBER("PrescribedBy"),
+        NOTE_PARTICIPANT("ParticipatingProviders"),
+        NOTE_SIGNER("MyClinicalNotesContent"),
         PRIMARY_PHYSICIAN("PrimaryPhysician"),
         ENROLLED_PHYSICIAN("Enrolment/EnrolmentHistory/EnrolledToPhysician");
         private final String path;

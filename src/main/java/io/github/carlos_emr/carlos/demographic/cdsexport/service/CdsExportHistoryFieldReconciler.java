@@ -110,6 +110,25 @@ public final class CdsExportHistoryFieldReconciler {
             CdsExportRetainedSectionWriter.Values values,
             CdsExportRunControl control)
             throws IOException {
+        return reconcile(
+                patient, category, address, index, checked, inventory, access, context, retained,
+                values, control, null);
+    }
+
+    Result reconcile(
+            int patient,
+            CdsCategory category,
+            String address,
+            CdsExportRetainedIndexDto index,
+            CdsExportRetainedReceiptVerificationDto checked,
+            CdsExportNoteRevisionPlanner.Result inventory,
+            CdsExportNoteAccessDto access,
+            CdsExportHistoryCurrentContext context,
+            List<CdsExportRetainedFieldDto> retained,
+            CdsExportRetainedSectionWriter.Values values,
+            CdsExportRunControl control,
+            CdsExportNativeHistoryMapper.Result nativeHistory)
+            throws IOException {
         Objects.requireNonNull(control);
         control.checkpoint();
         Objects.requireNonNull(values);
@@ -239,20 +258,35 @@ public final class CdsExportHistoryFieldReconciler {
                                 retained,
                                 control::checkpoint);
         var result =
-                choose(
-                        patient,
-                        category,
-                        prepared,
-                        oldNote,
-                        current,
-                        references,
-                        baseline,
-                        fields,
-                        source.changes(),
-                        source.sourceFields(),
-                        index.sourceManifestSha256(),
-                        address,
-                        control::checkpoint);
+                nativeHistory == null
+                        ? choose(
+                                patient,
+                                category,
+                                prepared,
+                                oldNote,
+                                current,
+                                references,
+                                baseline,
+                                fields,
+                                source.changes(),
+                                source.sourceFields(),
+                                index.sourceManifestSha256(),
+                                address,
+                                control::checkpoint)
+                        : new CdsExportHistoryNativeReconciler()
+                                .reconcile(
+                                        patient,
+                                        category,
+                                        address,
+                                        index.sourceManifestSha256(),
+                                        prepared,
+                                        oldNote,
+                                        current,
+                                        fields,
+                                        source,
+                                        nativeHistory,
+                                        values,
+                                        control::checkpoint);
         if (result.representable())
             new CdsExportRetainedSectionWriter()
                     .prepareChanges(fields, values, result.changes(), control::checkpoint);

@@ -31,14 +31,37 @@ import java.util.*;
 import org.springframework.stereotype.Service;
 
 /**
- * Emits current imported history through the same occurrence boundary as other clinical
- * domains. Complete native/source closure and fresh per-note authorization precede success.
- * Native-only history and chains needing an explicit prior-revision audit carrier require
- * review; neither an old occurrence nor a chart placeholder substitutes for those facts.
+ * Emits current native and imported history through one occurrence boundary. Every revision,
+ * linked issue and retained source field has a disposition before private output can succeed.
  */
 @Service
 public class CdsExportHistoryOccurrenceService {
-    record Occurrence(CdsCategory category, String address, long noteId) {
+    record Occurrence(
+            CdsCategory category,
+            String address,
+            long noteId,
+            List<Long> revisions,
+            String issueId) {
+        Occurrence {
+            revisions = List.copyOf(revisions);
+        }
+
+        Occurrence(CdsCategory category, String address, long noteId) {
+            this(category, address, noteId, List.of(noteId), null);
+        }
+
+        Occurrence(CdsCategory category, String address, long noteId, List<Long> revisions) {
+            this(category, address, noteId, revisions, null);
+        }
+
+        String table() {
+            return issueId == null ? "casemgmt_note" : "casemgmt_issue";
+        }
+
+        String nativeId() {
+            return issueId == null ? Long.toString(noteId) : issueId;
+        }
+
         @Override
         public String toString() {
             return "CdsExportHistoryOccurrence[protected]";
@@ -207,6 +230,35 @@ public class CdsExportHistoryOccurrenceService {
                                                 control);
                                 var occurrences =
                                         plan(index, inventory, context, control::checkpoint);
+                                boolean nativeHistory =
+                                        occurrences.stream()
+                                                .anyMatch(
+                                                        o ->
+                                                                o.issueId() == null
+                                                                        && (o.address() == null
+                                                                                || o.revisions()
+                                                                                                .size()
+                                                                                        > 1));
+                                var providers =
+                                        nativeHistory
+                                                ? new CdsExportPublicProviderReader(captures)
+                                                        .read(
+                                                                lease, patient, tables, source,
+                                                                bounds, control)
+                                                : Map.<String, CdsExportCapturedTextRowDto>of();
+                                var zone =
+                                        nativeHistory
+                                                ? new CdsExportClinicalZoneService(captures)
+                                                        .read(
+                                                                lease,
+                                                                patient,
+                                                                tables,
+                                                                source,
+                                                                bounds.fields(),
+                                                                bounds.bytes(),
+                                                                control)
+                                                        .zone()
+                                                : null;
                                 var session =
                                         new Source(
                                                 selected,
@@ -220,6 +272,8 @@ public class CdsExportHistoryOccurrenceService {
                                                 retained,
                                                 streams,
                                                 occurrences,
+                                                providers,
+                                                zone,
                                                 control,
                                                 emitter);
                                 try {
@@ -254,6 +308,8 @@ public class CdsExportHistoryOccurrenceService {
         private final List<CdsExportRetainedFieldDto> retained;
         private final CdsExportRetainedSectionWriter.Values streams;
         private final List<Occurrence> occurrences;
+        private final Map<String, CdsExportCapturedTextRowDto> providers;
+        private final java.time.ZoneId zone;
         private final CdsExportRunControl control;
         private final CdsExportXmlComposer.SectionEmitter xml;
         private volatile boolean active = true, failed;
@@ -270,6 +326,8 @@ public class CdsExportHistoryOccurrenceService {
                 List<CdsExportRetainedFieldDto> retained,
                 CdsExportRetainedSectionWriter.Values streams,
                 List<Occurrence> occurrences,
+                Map<String, CdsExportCapturedTextRowDto> providers,
+                java.time.ZoneId zone,
                 CdsExportRunControl control,
                 CdsExportXmlComposer.SectionEmitter xml) {
             this.expected = expected;
@@ -283,6 +341,8 @@ public class CdsExportHistoryOccurrenceService {
             this.retained = List.copyOf(retained);
             this.streams = streams;
             this.occurrences = occurrences;
+            this.providers = providers;
+            this.zone = zone;
             this.control = control;
             this.xml = xml;
         }
@@ -301,13 +361,95 @@ public class CdsExportHistoryOccurrenceService {
                 patient.require(lease);
                 control.checkpoint();
                 var used = new HashSet<String>();
-                long count = 0, fields = 0;
+                long count = 0, fields = 0, nativeOnly = 0;
                 for (var occurrence : occurrences)
                     if (occurrence.category() == category) {
                         control.checkpoint();
                         streams.requireActive();
                         var access = context.scope(occurrence.noteId());
+                        if (occurrence.address() == null) {
+                            var current = new ArrayList<CdsExportHistoryFieldReconciler.Current>();
+                            for (long id : occurrence.revisions()) {
+                                control.authorizeNote(category, context.scope(id));
+                                current.add(context.note(id));
+                            }
+                            CdsExportNativeHistoryMapper.Result mapped;
+                            if (occurrence.issueId() == null) {
+                                mapped =
+                                        new CdsExportNativeHistoryMapper()
+                                                .map(
+                                                        patient.patient(),
+                                                        category,
+                                                        current,
+                                                        providers,
+                                                        zone);
+                            } else {
+                                var issue =
+                                        context.original("casemgmt_issue", occurrence.issueId());
+                                if (issue == null) invalid();
+                                var definition =
+                                        context.original(
+                                                "issue", issue.value().fields().get("issue_id"));
+                                mapped =
+                                        new CdsExportNativeHistoryMapper()
+                                                .mapIssue(patient.patient(), issue, definition);
+                            }
+                            new CdsExportNativeFieldAssessmentValidator()
+                                    .requireRepresentable(
+                                            mapped.rows(),
+                                            mapped.fields(),
+                                            1_000_000,
+                                            control::checkpoint);
+                            var identity =
+                                    new CdsExportIdentityDto(
+                                            patientKey,
+                                            category,
+                                            CdsImportKeys.hash(
+                                                    "carlos-native-occurrence-v1",
+                                                    occurrence.table(),
+                                                    occurrence.nativeId()));
+                            control.authorizeCategory(patient.patient(), category, false);
+                            xml.emit(
+                                    new CdsExportXmlComposer.Section(
+                                            identity,
+                                            body ->
+                                                    new CdsExportNativeHistoryXmlWriter()
+                                                            .write(mapped.value(), body)));
+                            for (long id : occurrence.revisions())
+                                control.authorizeNote(category, context.scope(id));
+                            streams.requireActive();
+                            output.accept(
+                                    new CdsExportClinicalOccurrenceService.Receipt(
+                                            identity,
+                                            index.sourceManifestSha256(),
+                                            occurrence.table(),
+                                            occurrence.nativeId(),
+                                            null,
+                                            mapped.fields(),
+                                            Set.of(),
+                                            Set.of()));
+                            control.authorizeCategory(patient.patient(), category, false);
+                            nativeOnly++;
+                            count++;
+                            continue;
+                        }
                         CdsExportHistoryFieldReconciler.Result decision;
+                        CdsExportNativeHistoryMapper.Result nativeHistory = null;
+                        if (occurrence.revisions().size() > 1) {
+                            var current = new ArrayList<CdsExportHistoryFieldReconciler.Current>();
+                            for (long id : occurrence.revisions()) {
+                                control.authorizeNote(category, context.scope(id));
+                                current.add(context.note(id));
+                            }
+                            nativeHistory =
+                                    new CdsExportNativeHistoryMapper()
+                                            .map(
+                                                    patient.patient(),
+                                                    category,
+                                                    current,
+                                                    providers,
+                                                    zone);
+                        }
                         try {
                             decision =
                                     new CdsExportHistoryFieldReconciler()
@@ -322,7 +464,8 @@ public class CdsExportHistoryOccurrenceService {
                                                     context,
                                                     retained,
                                                     streams,
-                                                    control);
+                                                    control,
+                                                    nativeHistory);
                         } catch (CdsExportHistoryFieldReconciler.MappingReview expectedReview) {
                             throw new CdsExportReviewException(
                                     CdsExportReviewException.Reason.UNMAPPED_DATA);
@@ -334,7 +477,9 @@ public class CdsExportHistoryOccurrenceService {
                         if (!decision.representable()) review();
                         new CdsExportNativeFieldAssessmentValidator()
                                 .requireRepresentable(
-                                        assessedRows(context.note(occurrence.noteId())),
+                                        nativeHistory == null
+                                                ? assessedRows(context.note(occurrence.noteId()))
+                                                : nativeHistory.rows(),
                                         decision.fields(),
                                         1_000_000,
                                         control::checkpoint);
@@ -368,10 +513,12 @@ public class CdsExportHistoryOccurrenceService {
                                                 "carlos-native-occurrence-v1",
                                                 "casemgmt_note",
                                                 Long.toString(occurrence.noteId())));
-                        control.authorizeNote(category, access);
+                        for (long id : occurrence.revisions())
+                            control.authorizeNote(category, context.scope(id));
                         xml.emit(new CdsExportXmlComposer.Section(identity, prepared.content()));
                         streams.requireActive();
-                        control.authorizeNote(category, access);
+                        for (long id : occurrence.revisions())
+                            control.authorizeNote(category, context.scope(id));
                         output.accept(
                                 new CdsExportClinicalOccurrenceService.Receipt(
                                         identity,
@@ -393,7 +540,12 @@ public class CdsExportHistoryOccurrenceService {
                 patient.require(lease);
                 control.checkpoint();
                 return new CdsExportClinicalOccurrenceService.Result(
-                        index.sourceManifestSha256(), category, count, count, 0, fields);
+                        index.sourceManifestSha256(),
+                        category,
+                        count,
+                        count - nativeOnly,
+                        nativeOnly,
+                        fields);
             } catch (IOException | RuntimeException | Error failure) {
                 failed = true;
                 throw failure;
@@ -450,26 +602,54 @@ public class CdsExportHistoryOccurrenceService {
         var definitions = new HashSet<String>();
         for (var chain : inventory.chains()) {
             checkpoint.run();
-            // The standard is a current clinical snapshot. Prior versions require a separate
-            // qualified audit carrier before this service can claim their complete disposition.
-            if (chain.revisions().size() != 1) review();
-            var occurrence = byNote.remove(chain.currentNoteId());
-            if (occurrence == null) review();
-            var note = context.note(chain.currentNoteId());
-            for (var link : note.links()) {
-                String id = link.fields().get("id");
-                issueIds.add(id);
-                var issue = note.patientIssues().get(id);
-                if (issue == null) invalid();
-                definitions.add(issue.value().fields().get("issue_id"));
+            var parents = new ArrayList<Occurrence>();
+            for (long id : chain.revisions()) {
+                var parent = byNote.remove(id);
+                if (parent != null) parents.add(parent);
+            }
+            if (parents.size() > 1) ambiguous();
+            var parent = parents.isEmpty() ? null : parents.getFirst();
+            var occurrence =
+                    new Occurrence(
+                            parent == null
+                                    ? CdsExportNativeHistoryMapper.category(
+                                            context.note(chain.currentNoteId()))
+                                    : parent.category(),
+                            parent == null ? null : parent.address(),
+                            chain.currentNoteId(),
+                            chain.revisions());
+            for (long revision : chain.revisions()) {
+                var note = context.note(revision);
+                for (var link : note.links()) {
+                    String id = link.fields().get("id");
+                    issueIds.add(id);
+                    var issue = note.patientIssues().get(id);
+                    if (issue == null) invalid();
+                    definitions.add(issue.value().fields().get("issue_id"));
+                }
             }
             result.add(occurrence);
         }
         if (!byNote.isEmpty()) review();
-        if (!issueIds.equals(context.patientIssueIds())
-                || !definitions.equals(context.definitionIds())) review();
+        for (String id : context.patientIssueIds())
+            if (!issueIds.contains(id)) {
+                var issue = context.original("casemgmt_issue", id);
+                var definition = context.original("issue", issue.value().fields().get("issue_id"));
+                if (definition == null) invalid();
+                definitions.add(definition.value().fields().get("issue_id"));
+                result.add(
+                        new Occurrence(
+                                CdsExportNativeHistoryMapper.issueCategory(definition),
+                                null,
+                                0,
+                                List.of(),
+                                id));
+            }
+        if (!definitions.equals(context.definitionIds())) review();
         result.sort(
-                Comparator.comparing(Occurrence::category).thenComparingLong(Occurrence::noteId));
+                Comparator.comparing(Occurrence::category)
+                        .thenComparing(Occurrence::table)
+                        .thenComparing(Occurrence::nativeId));
         checkpoint.run();
         return List.copyOf(result);
     }

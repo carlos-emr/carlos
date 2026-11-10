@@ -183,6 +183,7 @@ public final class CdsExportInstalledFixture {
                     "INSERT INTO demographiccust(demographic_no,content) VALUES (?,?)",
                     patient,
                     "<unotes>" + NOTE + "</unotes>");
+            nativeHistory(db, patient);
             db.commit();
             writePrivate(
                     PRIVATE.resolve("fixture.json"),
@@ -377,6 +378,37 @@ public final class CdsExportInstalledFixture {
                 true);
     }
 
+    /** The native chart deliberately has no CDS import parent or retained fields. */
+    private static void nativeHistory(Connection db, int patient) throws Exception {
+        for (String tag : List.of("SocHistory", "FamHistory", "MedHistory", "Concerns", "RiskFactors", "Reminders")) {
+            long issue = count(db, "SELECT COUNT(*) FROM issue WHERE BINARY code=BINARY ?", tag);
+            if (issue == 0) {
+                update(db, "INSERT INTO issue(code,description,type,role,priority,sortOrderId,update_date) VALUES(?,?, 'system','doctor',0,0,'2026-07-10 12:30:00')",
+                        tag, "Native " + tag + " category");
+            }
+            if (count(db, "SELECT COUNT(*) FROM issue WHERE BINARY code=BINARY ?", tag) != 1)
+                throw new IllegalStateException("Exact CPP category required");
+            long definition = count(db, "SELECT issue_id FROM issue WHERE BINARY code=BINARY ?", tag);
+            update(db, "INSERT INTO casemgmt_issue(demographic_no,issue_id,type,acute,certain,major,resolved,program_id,update_date) VALUES(?,?,'general',0,1,0,0,0,'2026-07-10 12:30:00')", patient, definition);
+            long patientIssue=count(db,"SELECT LAST_INSERT_ID()");
+            long note=nativeNote(db, patient, UUID.randomUUID().toString(), "Native " + tag + " narrative café 😀", tag.equals("FamHistory"));
+            update(db, "INSERT INTO casemgmt_issue_notes(id,note_id) VALUES(?,?)",patientIssue,note);
+            if(tag.equals("FamHistory")) {
+                update(db,"INSERT INTO casemgmt_note_ext(note_id,key_val,value,date_value) VALUES(?,'Start Date','YYYY-MM','2020-02-01')",note);
+                update(db,"INSERT INTO casemgmt_note_ext(note_id,key_val,value) VALUES(?,'Relationship','Mother')",note);
+            }
+        }
+        String chain=UUID.randomUUID().toString();
+        nativeNote(db,patient,chain,"Original native clinical note café 😀",false);
+        nativeNote(db,patient,chain,"Edited native clinical note café 😀",false);
+    }
+
+    private static long nativeNote(Connection db,int patient,String uuid,String body,boolean archived) throws Exception {
+        update(db,"INSERT INTO casemgmt_note(demographic_no,uuid,note,provider_no,signed,signing_provider_no,archived,program_no,reporter_caisi_role,reporter_program_team,position,include_issue_innote,locked,history,update_date,observation_date) VALUES(?,?,?,?,1,?,?,'','1','0',0,0,0,'','2026-07-10 12:30:00','2026-07-09 00:00:00')",
+                patient,uuid,body,PROVIDER,PROVIDER,archived?1:0);
+        return count(db,"SELECT LAST_INSERT_ID()");
+    }
+
     private static void verify(Connection db, String cliRun, String browserRun) throws Exception {
         UUID.fromString(cliRun);
         UUID.fromString(browserRun);
@@ -434,6 +466,10 @@ public final class CdsExportInstalledFixture {
                                                 + " demographic_no=?",
                                         patient)))
             throw new IllegalStateException("Native chart changed");
+        if (count(db,"SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=?",patient)!=8
+                || count(db,"SELECT COUNT(*) FROM casemgmt_issue WHERE demographic_no=?",patient)!=6
+                || count(db,"SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=? AND archived=1",patient)!=1)
+            throw new IllegalStateException("Native history changed");
         System.out.println(
                 JSON.writeValueAsString(
                         Map.of(

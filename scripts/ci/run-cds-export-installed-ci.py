@@ -429,7 +429,7 @@ print(json.dumps({'verified':True,'files':len(expected),'warSha256':manifest['wa
                         "--profile",
                         "omd-5.2",
                         "--categories",
-                        "Demographics",
+                        "Demographics,PersonalHistory,FamilyHistory,PastHealth,ProblemList,RiskFactors,AlertsAndSpecialNeeds,ClinicalNotes",
                         "--recipient",
                         "native",
                         "--audit-plan",
