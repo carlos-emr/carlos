@@ -16,7 +16,11 @@ outcomes are explicitly distinct and remain linked by run and attempt generation
 
 Finite operator settings include `cds.export.captureTimeoutSeconds` (default 120,
 range 1–7200), `cds.export.downloadTimeoutSeconds` (default 900, range 1–86400),
-and `cds.export.maxMetadataBytes` (default 256 MiB, maximum 4 GiB). Raising metadata
+and `cds.export.maxMetadataBytes` (default 256 MiB, maximum 4 GiB). Patient capture
+holds the legacy Rourke table's READ lock for at most the capture timeout plus
+30 seconds; its independent deadline defaults to 150 seconds. Raising the capture
+timeout can therefore block writes to that legacy form for longer, up to 7,230
+seconds at the maximum setting. Raising metadata
 limits requires enough JVM heap for retained patient/file/note indexes and normal
 application work. These limits act together with member, row, byte and staging limits;
 raising the patient count alone does not qualify an arbitrarily large package.
@@ -1659,8 +1663,10 @@ unpooled connection holds a fixed READ lock on that one legacy table for the
 bounded patient capture transaction. The regular transactional sources retain
 their repeatable-read snapshot. No native data or schema is changed. Acquisition,
 connection identity, release, loss and timeout are checked; automatic reconnect
-is refused. An independent deadline aborts the physical lock connection after at
-most 150 seconds, so a stalled capture cannot keep the legacy table locked. Failure
+is refused. An independent deadline aborts the physical lock connection after the
+configured capture timeout plus 30 seconds (150 seconds by default), so a stalled
+capture cannot keep the legacy table locked indefinitely. Raising that limit also
+extends the possible writer wait for this form. Failure
 to acquire, maintain or release the lock withholds capture. Database permissions
 must allow this legacy table READ lock. Metadata status/control recovery stays lazy.
 Eighty-two affected checks passed, including 24 real MariaDB cases, actual writer
