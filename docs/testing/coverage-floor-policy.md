@@ -142,7 +142,9 @@ unique tests.
 
 This refresh binds 1,292 changed Java paths and the same nine nonexecutable
 exclusions. It preserves 191 higher historical metric assertions and all
-required refusal lines. Source freshness passes, while 92 executable zero
-floors and unmet historical assertions remain subject to the coverage gate.
+required refusal lines. Source freshness passes. The current measurements leave
+92 executable files without line coverage; retained historical floors leave 88
+unreviewed zero floors. Those and unmet historical assertions remain subject to
+the coverage gate.
 No waiver or lower threshold is introduced. This CDS evidence does not replace
 the complete release-lane union required for release coverage acceptance.
