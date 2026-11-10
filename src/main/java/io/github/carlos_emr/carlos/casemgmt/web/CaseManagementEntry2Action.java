@@ -484,6 +484,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         logger.debug("Get demo and providers no");
         String demono = getDemographicNo(request);
         Integer demographicNo = Integer.parseInt(demono);
+        // Opening the editor by GET (a link, a note search result) only reads. The note lock and an
+        // old note's history are stored when the editor opens by POST: the chart's own editor posts
+        // here, and the classic editor page takes its lock by POST (method=isNoteEdited) on load.
+        boolean opensForEditing = "POST".equals(request.getMethod());
         current = System.currentTimeMillis();
         logger.debug("Get demo and providers no " + String.valueOf(current - start));
         start = current;
@@ -634,11 +638,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (!authorizeEditorNoteReference(loggedInInfo, demono, programIdString, note)) return NONE;
 
             if (note.getHistory() == null || note.getHistory().equals("")) {
-                // old note - we need to save the original in here
+                // An old note has no history yet: the editor's form keeps the original text as its
+                // history, so a save carries it into the next revision. It is stored right away only
+                // when the editor opens by POST. (The note is detached here: setting it writes nothing.)
                 note.setHistory(note.getNote());
-
-                caseManagementMgr.saveNoteSimple(note);
-                caseManagementMgr.addNewNoteLink(Long.parseLong(nId));
+                if (opensForEditing) {
+                    caseManagementMgr.saveNoteSimple(note);
+                    caseManagementMgr.addNewNoteLink(Long.parseLong(nId));
+                }
             }
 
         }
@@ -728,11 +735,19 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         //check to see if someone else is editing note in this chart
         String ipAddress = request.getRemoteAddr();
-        CasemgmtNoteLock casemgmtNoteLock;
+        CasemgmtNoteLock casemgmtNoteLock = null;
         Long note_id = note.getId() != null && note.getId() >= 0 ? note.getId() : 0L;
-        casemgmtNoteLock = isNoteEdited(note_id, demographicNo, providerNo, ipAddress, request.getSession().getId());
+        boolean lockedByAnotherProvider;
+        if (opensForEditing) {
+            casemgmtNoteLock = isNoteEdited(note_id, demographicNo, providerNo, ipAddress, request.getSession().getId());
+            lockedByAnotherProvider = casemgmtNoteLock.isLocked();
+        } else {
+            // A GET only looks at the lock and leaves this session's cached lock as it is, so an
+            // editor already open for this chart keeps its own.
+            lockedByAnotherProvider = isLockedByAnotherProvider(note_id, demographicNo, providerNo);
+        }
 
-        if (casemgmtNoteLock.isLocked()) {
+        if (lockedByAnotherProvider) {
             note = makeNewNote(providerNo, demono, request);
             cform.setCaseNote(note);
         }
@@ -745,7 +760,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 LogSafe.sanitize(String.valueOf(note.getId())),
                 cform.getCaseNote_note() == null ? 0 : cform.getCaseNote_note().length());
         synchronized (org.springframework.web.util.WebUtils.getSessionMutex(session)) {
-            session.setAttribute("casemgmtNoteLock" + demono, casemgmtNoteLock); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- publish this authorized editor's cache and form together
+            if (casemgmtNoteLock != null) {
+                session.setAttribute("casemgmtNoteLock" + demono, casemgmtNoteLock); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- publish this authorized editor's cache and form together
+            }
             mySessionMap.put(frmName, cform);
         }
 
@@ -928,6 +945,24 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         restored.setNote(draftText == null ? "" : draftText);
         return restored;
+    }
+
+    /**
+     * Whether another provider holds the lock on this saved note of the chart: the case in which
+     * {@link #isNoteEdited(Long, Integer, String, String, String)} reports the note as locked. It
+     * only reads, and takes or changes no lock. A new note (id 0) is never locked by another provider.
+     *
+     * @param noteId the saved note's id, or 0 for a new note
+     * @param demographicNo the chart's patient
+     * @param providerNo the provider opening the note
+     * @return true when another provider's lock stands on that note
+     */
+    static boolean isLockedByAnotherProvider(Long noteId, Integer demographicNo, String providerNo) {
+        if (noteId == null || noteId == 0L) {
+            return false;
+        }
+        CasemgmtNoteLock existing = SpringUtils.getBean(CasemgmtNoteLockDao.class).findByNoteDemo(demographicNo, noteId);
+        return existing != null && !Objects.equals(existing.getProviderNo(), providerNo);
     }
 
     static synchronized CasemgmtNoteLock isNoteEdited(Long note_id, Integer demographicNo, String providerNo, String ipAddress, String sessionId) {
