@@ -156,13 +156,7 @@
         }
     }
 
-    String multiLabId;
-    boolean cmlRevisionReview = false;
-    try { multiLabId = Hl7textResultsData.getMatchingLabs(segmentID); }
-    catch (io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision ambiguous) {
-        multiLabId = Hl7textResultsData.getMatchingLabsForHistory(segmentID);
-        cmlRevisionReview = true;
-    }
+    String multiLabId = Hl7textResultsData.getMatchingLabs(segmentID);
 
     MessageHandler handler = Factory.getHandler(segmentID);
     // Inline preview of PDFs embedded in HL7 ED results (#3977): read the lab display
@@ -185,9 +179,6 @@
 <%
     }
 %>
-<%-- Outside the print-error block: an unorderable CML chain must be flagged on every preview. --%>
-<% if (cmlRevisionReview) { %><p role="alert"><fmt:message key="clinical.cml.review"/></p><% } %>
-
 <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
 <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
 

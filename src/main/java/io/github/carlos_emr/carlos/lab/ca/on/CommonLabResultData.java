@@ -54,7 +54,6 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.db.ArchiveDeletedRecords;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.all.util.LabVersionChain;
-import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
 import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.PathnetResultsData;
 import io.github.carlos_emr.carlos.mds.data.MDSResultsData;
@@ -435,7 +434,7 @@ public class CommonLabResultData {
     }
 
     /**
-     * Acknowledges one lab report and files eligible OLDER versions of the same lab.
+     * Acknowledges one lab report and files every OLDER version of the same lab.
      *
      * <p>Labs arrive as a chain of versions that share an accession number (preliminary, final,
      * corrected). The inbox collapses that chain to a single row for the newest version, so
@@ -444,9 +443,6 @@ public class CommonLabResultData {
      * lab looks like it was never acknowledged. Filing the older versions is what actually
      * clears the item from the inbox, and BOTH acknowledge paths (the Acknowledge button and a
      * lab macro) must do it, or they disagree about what an acknowledgement means.
-     *
-     * <p>For CML, only older reports whose observations are fully covered by the reviewed
-     * report can be filed automatically. Omitted observations keep their source NEW.
      *
      * <p>Newer versions are deliberately left alone. A corrected result that arrived after this
      * one is a NEW clinical fact and has to stay in the inbox until somebody reads it.
@@ -465,7 +461,7 @@ public class CommonLabResultData {
     }
 
     /**
-     * Applies {@code status} to one lab report and files eligible OLDER versions of the same lab.
+     * Applies {@code status} to one lab report and files every OLDER version of the same lab.
      *
      * <p>Splitting this out from {@link #acknowledgeReport} keeps the status-update endpoint's
      * long-standing behaviour intact: it filed the preceding versions for whatever status it
@@ -495,7 +491,12 @@ public class CommonLabResultData {
                 labType, skipCommentOnUpdate, multiId).clearedCount();
     }
 
-    /** Transaction-authoritative filing metadata; retained sources must stay visible for review. */
+    /**
+     * What one acknowledgement did, as the transaction saw it: the routing rows it cleared from
+     * NEW and the ids of the versions it touched, so the inbox can update exactly those rows.
+     * Every older version is filed with the acknowledged one, so {@code retainedVersionIds} is
+     * always empty; the field is kept because the inbox reads it.
+     */
     public record ReportChainUpdate(int clearedCount, List<Integer> affectedVersionIds,
             List<Integer> retainedVersionIds) {
         public ReportChainUpdate {
@@ -533,8 +534,7 @@ public class CommonLabResultData {
         // Do not silently expand the filing set while waiting for routing locks. Such a new
         // arrival stays NEW for review; report locks serialize writes to the selected members,
         // not accession-wide ingestion or future chain membership.
-        FilingVersions filing = filingVersionsOf(labNo, labType, multiId);
-        List<Integer> olderLabNos = filing.eligible();
+        List<Integer> olderLabNos = olderVersionsOf(labNo, labType, multiId);
 
         // Count the conditional UPDATE, never a preceding snapshot SELECT: two concurrent
         // acknowledgements must not both report clearing the same NEW routing row. Acquire
@@ -561,22 +561,16 @@ public class CommonLabResultData {
                 updateReportStatusInTransaction(version, providerNo, 'F', "", labType, false, true);
             }
         }
-        List<Integer> retainedNew = filing.retained().stream().filter(id ->
-                providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(id, labType, providerNo).stream()
-                        .anyMatch(row -> "N".equals(row.getStatus()))).toList();
-        return new ReportChainUpdate(clearedFromNew, new java.util.ArrayList<>(versions), retainedNew);
+        return new ReportChainUpdate(clearedFromNew, new java.util.ArrayList<>(versions), List.of());
     }
-
-    record FilingVersions(List<Integer> eligible, List<Integer> retained) { }
 
     /**
      * Resolves the versions of {@code labNo} that are OLDER than it, oldest first.
      *
      * <p>For labs the chain is ALWAYS derived server side from the accession number and the
      * posted {@code multiID} is ignored. That is the same source the view used to build
-     * {@code multiID}. For CML, the result is further restricted to reports whose observations
-     * are completely covered by the selected source. A forged or stale client
-     * chain cannot name unrelated labs and have them filed. A chain is not a hint here;
+     * {@code multiID}, so the result is identical for an honest client — but a forged or stale
+     * chain can no longer name unrelated labs and have them filed. A chain is not a hint here;
      * every id in it becomes a write to another lab's routing row.
      *
      * <p>The shared lookup also supports MDS, CML and BC PathNet. Documents and HRM reports
@@ -587,18 +581,10 @@ public class CommonLabResultData {
      * <p>Exact type match, not a case-insensitive one: the routing rows are looked up by this
      * same lab_type string, so accepting a spelling the lookup would miss buys nothing.
      */
-    public static List<Integer> olderVersionsOf(int labNo, String labType, String multiId) {
-        return filingVersionsOf(labNo, labType, multiId).eligible();
-    }
-
-    static FilingVersions filingVersionsOf(int labNo, String labType, String multiId) {
+    static List<Integer> olderVersionsOf(int labNo, String labType, String multiId) {
         String chain = labType == null ? null
                 : new CommonLabResultData().getMatchingLabsForWrite(String.valueOf(labNo), labType);
-        List<Integer> older = LabVersionChain.olderThan(labNo, chain);
-        List<Integer> eligible = "HL7".equals(labType)
-                ? io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.coveredOlderReports(labNo, older,
-                        id -> Factory.getHandler(Integer.toString(id))) : older;
-        return new FilingVersions(eligible, older.stream().filter(id -> !eligible.contains(id)).toList());
+        return LabVersionChain.olderThan(labNo, chain);
     }
 
     public static boolean updateReportStatus(int labNo, String providerNo, char status, String comment, String labType) {
@@ -860,11 +846,7 @@ public class CommonLabResultData {
                 }
             }
         }
-        if (labIds.length > 0 && io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory
-                .getHandler(labIds[labIds.length - 1]) instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler) {
-            SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.CmlProjectionService.class)
-                    .reconcile(Integer.parseInt(labIds[labIds.length - 1]), patient);
-        } else if (!existing && labIds.length > 0) {
+        if (!existing && labIds.length > 0) {
             populateMeasurementsTable(labIds[labIds.length - 1], demographicNo, labType);
         }
     }
@@ -1084,16 +1066,7 @@ public class CommonLabResultData {
             if (seen.contains(prefix + lab.getSegmentID())) continue;
             String chain = lab.getSegmentID();
             if ("CML".equals(lab.labType)) chain = new MDSResultsData().getMatchingCMLLabs(lab.getSegmentID());
-            else if ("HL7".equals(lab.labType)) {
-                try { chain = Hl7textResultsData.getMatchingLabs(lab.getSegmentID()); }
-                catch (io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision ambiguous) {
-                    // No arbitrary "latest" choice: retain every authorized visible source report.
-                    for (String id : Hl7textResultsData.getMatchingLabsForHistory(lab.getSegmentID()).split(",")) {
-                        if (seen.add(prefix + id) && visible.containsKey(prefix + id)) latest.add(visible.get(prefix + id));
-                    }
-                    continue;
-                }
-            }
+            else if ("HL7".equals(lab.labType)) chain = Hl7textResultsData.getMatchingLabs(lab.getSegmentID());
             List<String> ids = chain == null ? List.of() : java.util.Arrays.asList(chain.split(","));
             if (!ids.contains(lab.getSegmentID())) ids = List.of(lab.getSegmentID());
             LabResultData newestVisible = lab;

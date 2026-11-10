@@ -88,14 +88,7 @@ public class LabDisplayHelper {
             addAcknowledgment(doc, reportStatus);
         }
 
-        String multiLabId;
-        try {
-            multiLabId = Hl7textResultsData.getMatchingLabs(lab.getSegmentID());
-        } catch (io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision ambiguous) {
-            // No clinical order is invented: keep the report readable with its raw versions,
-            // as the lab display does for a chain that needs review.
-            multiLabId = Hl7textResultsData.getMatchingLabsForHistory(lab.getSegmentID());
-        }
+        String multiLabId = Hl7textResultsData.getMatchingLabs(lab.getSegmentID());
         XmlUtils.appendChildToRoot(doc, "multiLabId", multiLabId);
 
         Hl7TextMessageDao hl7TextMessageDao = (Hl7TextMessageDao) SpringUtils.getBean(Hl7TextMessageDao.class);
@@ -110,21 +103,13 @@ public class LabDisplayHelper {
             // key=identifier, value = CommonLabTestValues.findValuesForTest() result
             HashMap<String, ArrayList<Map<String, Serializable>>> mapOfTestValues = new HashMap<String, ArrayList<Map<String, Serializable>>>();
             MessageHandler handler = Factory.getHandler(lab.getSegmentID());
-            java.util.Set<String> identifiers = new java.util.LinkedHashSet<>();
-            for (int obr = 0; obr < handler.getOBRCount(); obr++) {
-                for (int obx = 0; obx < handler.getOBXCount(obr); obx++) identifiers.add(handler.getOBXIdentifier(obr, obx));
-            }
-            var sourceHistories = "HL7".equals(lab.labType)
-                    ? CommonLabTestValues.findSourceValuesForTests(demographicId, identifiers) : null;
             int OBRCount = handler.getOBRCount();
             for (int j = 0; j < OBRCount; j++) {
                 int obxCount = handler.getOBXCount(j);
                 for (int k = 0; k < obxCount; k++) {
                     String obxName = handler.getOBXName(j, k);
                     String identifier = handler.getOBXIdentifier(j, k);
-                    ArrayList<Map<String, Serializable>> storedValues = sourceHistories == null
-                            ? CommonLabTestValues.findValuesForTest(lab.labType, demographicId, obxName, identifier)
-                            : new ArrayList<>(sourceHistories.get(identifier));
+                    ArrayList<Map<String, Serializable>> storedValues = CommonLabTestValues.findValuesForTest(lab.labType, demographicId, obxName, identifier);
                     mapOfTestValues.put(identifier, storedValues);
                 }
             }

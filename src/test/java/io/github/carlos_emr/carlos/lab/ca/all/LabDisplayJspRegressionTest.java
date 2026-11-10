@@ -77,34 +77,6 @@ class LabDisplayJspRegressionTest {
     }
 
     @Test
-    @DisplayName("should tell the user a chain cannot be unlinked together instead of asking for a refresh")
-    void shouldExplainUnlinkableChains_withoutAskingForARefreshInLabDisplay() throws IOException {
-        String jsp = Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8);
-        // Rendering: the service's refusal is kept apart from "the match version is unavailable".
-        assertThat(jsp).contains("catch (io.github.carlos_emr.carlos.lab.service.Hl7PatientUnlinkService.ChainNotUnlinkable");
-        assertThat(jsp).contains("<fmt:message key=\"lab.unlink.chainReview\" var=\"msgUnlinkChainReview\"/>");
-        // Posting: 422 is that refusal; 409 remains the stale page.
-        assertThat(jsp).contains("response.status === 422 ? 'chain'");
-        assertThat(jsp).contains("error.message === 'chain' ? '${carlos:forJavaScript(msgUnlinkChainReview)}'");
-    }
-
-    @Test
-    @DisplayName("should show the CML revision review notice whether or not a print failed")
-    void shouldRenderCmlRevisionNotice_outsidePrintErrorBlockInAjaxLabDisplay() throws IOException {
-        String jsp = Files.readString(LAB_DISPLAY_AJAX_JSP, StandardCharsets.UTF_8);
-        int printError = jsp.indexOf("request.getAttribute(\"printError\") != null");
-        int printErrorEnd = jsp.indexOf("<%\n    }\n%>", printError);
-        int notice = jsp.indexOf("<% if (cmlRevisionReview) { %>");
-
-        assertThat(printError).as("print error block").isPositive();
-        assertThat(printErrorEnd).as("end of the print error block").isGreaterThan(printError);
-        assertThat(notice).as("CML revision review notice").isPositive();
-        // Inside the block the notice would appear only when a print had also just failed.
-        assertThat(notice < printError || notice > printErrorEnd)
-                .as("notice must not be nested in the print error block").isTrue();
-    }
-
-    @Test
     @DisplayName("should render acknowledgement handler with htmlAttribute encoding in lab display")
     void shouldRenderAcknowledgementHandler_withHtmlAttributeEncodingInLabDisplay() throws IOException {
         assertAcknowledgementHandlerUsesHtmlAttributeEncoding(

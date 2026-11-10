@@ -317,14 +317,9 @@
                 // source: the chain is walked for HL7 labs and matched on source and id, so an
                 // MDS/CML/BCP lab sharing an id with an HL7 version is never pulled into its place.
                 boolean hl7Lab = !attachedLab1.isAttachmentUnavailable() && LabResultData.HL7TEXT.equals(attachedLab1.getLabType());
-                String[] matchingLabIds = new String[]{attachedLab1.getSegmentID()};
-                if (hl7Lab) {
-                    try { matchingLabIds = Hl7textResultsData.getMatchingLabs(attachedLab1.getSegmentID()).split(","); }
-                    catch (io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision ambiguous) {
-                        // Preserve each explicitly attached raw report in its original position.
-                        // Missing revision times cannot justify dropping or replacing an attachment.
-                    }
-                }
+                String[] matchingLabIds = hl7Lab
+                        ? Hl7textResultsData.getMatchingLabs(attachedLab1.getSegmentID()).split(",")
+                        : new String[]{attachedLab1.getSegmentID()};
                 if (matchingLabIds.length == 1) {
                     attachedLabsSortedByVersions.add(attachedLab1);
                     continue;

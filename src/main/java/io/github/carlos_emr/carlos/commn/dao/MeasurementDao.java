@@ -82,7 +82,6 @@ import io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl.SearchCriteria;
  * @see io.github.carlos_emr.carlos.managers.MeasurementManager
  */
 public interface MeasurementDao extends AbstractDao<Measurement> {
-    Measurement findForUpdate(int id);
 
     /**
      * Corrects only the patient ownership of a managed, source-linked lab measurement.

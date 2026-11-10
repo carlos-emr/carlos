@@ -110,11 +110,6 @@ public class Hl7textResultsData {
 
     public static void populateMeasurementsTable(String lab_no, String demographic_no) {
         MessageHandler h = Factory.getHandler(lab_no);
-        if (h instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler) {
-            SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.CmlProjectionService.class)
-                    .reconcile(Integer.parseInt(lab_no), Integer.parseInt(demographic_no));
-            return;
-        }
         //Check for other versions of this lab
         String[] matchingLabs = getMatchingLabs(lab_no).split(",");
         //if this lab is the latest version delete the measurements from the previous version and add the new ones
@@ -124,26 +119,36 @@ public class Hl7textResultsData {
             k++;
         }
 
-        if (k != 0) {
+        List<String> superseded = new ArrayList<>();
+        if (h instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler && k < matchingLabs.length) {
+            // An older version delivered after a newer one is history: it used to remove the
+            // newer version's measurements and file its own stale values (#5820). The newest
+            // version replaces every version before it, including any left by that defect.
+            if (k != matchingLabs.length - 1) {
+                return;
+            }
+            superseded.addAll(java.util.Arrays.asList(matchingLabs).subList(0, k));
+        } else if (k != 0) {
+            superseded.add(matchingLabs[k - 1]);
+        }
+        if (!superseded.isEmpty()) {
             List<MeasurementsDeleted> measurementsDeletedList = new ArrayList<>();
             List<Measurement> measurementsToRemove = new ArrayList<>();
-            MeasurementsDeleted measurementsDeleted;
-            for (Measurement m : measurementDao.findByValue("lab_no", matchingLabs[k - 1])) {
-                measurementsDeleted = new MeasurementsDeleted(m);
-                measurementsDeletedList.add(measurementsDeleted);
-                measurementsToRemove.add(m);
+            for (String previous : superseded) {
+                for (Measurement m : measurementDao.findByValue("lab_no", previous)) {
+                    measurementsDeletedList.add(new MeasurementsDeleted(m));
+                    measurementsToRemove.add(m);
+                }
             }
             measurementsDeletedDao.batchPersistAtomically(measurementsDeletedList);
             measurementDao.batchRemoveAtomically(measurementsToRemove);
         }
-        projectMeasurements(lab_no, demographic_no, (obr, obx) -> true);
+        fileMeasurements(lab_no, demographic_no);
     }
 
-    /** Writes only the source observations selected by the caller's transactional reconciliation. */
-    public static void projectMeasurements(String lab_no, String demographic_no,
-            java.util.function.BiPredicate<Integer, Integer> selected) {
+    /** Files every viewable result of one report as a measurement. */
+    private static void fileMeasurements(String lab_no, String demographic_no) {
         MessageHandler h = Factory.getHandler(lab_no);
-        if (h == null) throw new IllegalStateException("Source report parser is unavailable");
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         Calendar calender = Calendar.getInstance();
         String day = Integer.toString(calender.get(Calendar.DAY_OF_MONTH));
@@ -170,7 +175,6 @@ public class Hl7textResultsData {
         List<MeasurementsExt> measurementsExts = new ArrayList<>();
         for (int i = 0; i < h.getOBRCount(); i++) {
             for (int j = 0; j < h.getOBXCount(i); j++) {
-                if (!selected.test(i, j)) continue;
                 String result = h.getOBXResult(i, j);
 
                 if (result == null) {
@@ -389,22 +393,21 @@ public class Hl7textResultsData {
 
     /**
      * A result's joined comment as a measurement stores it: handler line-break markers removed and
-     * cut to the column width. The packaged database cuts silently, so a writer that compares
-     * the stored row with its source (projection validation, repair) must use this same form;
-     * the full comment remains in the source report.
+     * cut to the column width, which the packaged database would otherwise do silently and a
+     * strict one would refuse. The full comment remains in the report.
      */
-    public static String measurementComment(String joinedComments) {
+    private static String measurementComment(String joinedComments) {
         String comment = joinedComments.replaceAll("\\<br\\s?/?\\>", "");
         return comment.codePointCount(0, comment.length()) <= Measurement.COMMENTS_MAX_LENGTH ? comment
                 : comment.substring(0, comment.offsetByCodePoints(0, Measurement.COMMENTS_MAX_LENGTH));
     }
 
-    /** The unchanged configured extraction policy, shared with projection validation and repair. */
-    public static String projectableValue(String result) {
-        return projectableValue(result, null);
-    }
-
-    public static String projectableValue(String result, String lab, int obr, int obx) {
+    /**
+     * The value a result is filed as: the text {@code HL7_LAB_MEASUREMENT_FILTER} matches, in the
+     * lab's own case. {@code null} when the filter does not match or the match is longer than a
+     * measurement holds; the full result stays in the report.
+     */
+    private static String projectableValue(String result, String lab, int obr, int obx) {
         return projectableValue(result, "lab " + LogSafe.sanitize(lab) + ", OBX " + obr + "-" + obx);
     }
 
@@ -451,6 +454,34 @@ public class Hl7textResultsData {
         return -1;
     }
 
+    /**
+     * Puts the versions of a CML report in the lab's own order (see {@code CmlVersionPolicy}).
+     * Membership is unchanged. A member that cannot be read as CML keeps its place at the front,
+     * so nothing is dropped and nothing is refused.
+     */
+    private static String cmlVersionOrder(String chain) {
+        List<String> unread = new ArrayList<>();
+        java.util.Map<Integer, io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler> versions = new java.util.LinkedHashMap<>();
+        for (String id : chain.split(",")) {
+            MessageHandler handler = null;
+            try {
+                handler = Factory.getHandler(id);
+            } catch (RuntimeException unreadable) {
+                logger.debug("CML version order: a version could not be parsed");
+            }
+            if (handler instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler cml) {
+                versions.put(Integer.valueOf(id), cml);
+            } else {
+                unread.add(id);
+            }
+        }
+        List<String> ordered = new ArrayList<>(unread);
+        for (Integer id : io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.order(versions)) {
+            ordered.add(String.valueOf(id));
+        }
+        return String.join(",", ordered);
+    }
+
     public static String getMatchingLabs_CLS(String lab_no) {
         String ret = "";
         Hl7TextInfo self = null;
@@ -495,15 +526,6 @@ public class Hl7textResultsData {
     }
 
     public static String getMatchingLabs(String lab_no) {
-        return matchingLabs(lab_no, true);
-    }
-
-    /** Confirmed source membership without choosing a clinical revision; raw history and unlink remain available. */
-    public static String getMatchingLabsForHistory(String lab_no) {
-        return matchingLabs(lab_no, false);
-    }
-
-    private static String matchingLabs(String lab_no, boolean clinicallyOrdered) {
         String ret = "";
         int monthsBetween = 0;
 
@@ -541,23 +563,8 @@ public class Hl7textResultsData {
             }
         }
 
-        if (hl7Msg != null && "CML".equals(hl7Msg.getType())) {
-            var selected = Factory.getHandler(lab_no);
-            var reports = new java.util.LinkedHashMap<Integer, io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler>();
-            for (String id : (ret.isEmpty() ? lab_no : ret).split(",")) {
-                var message = hl7TxtMsgDao.find(Integer.parseInt(id));
-                var candidate = Factory.getHandler(id);
-                if (message != null && "CML".equals(message.getType())
-                        && candidate instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler cml
-                        && (Integer.parseInt(id) == Integer.parseInt(lab_no)
-                            || io.github.carlos_emr.carlos.lab.service.CmlProjectionService.sameSourcePatient(selected, cml))) {
-                    reports.put(Integer.parseInt(id), cml);
-                }
-            }
-            if (!reports.containsKey(Integer.parseInt(lab_no))) throw new IllegalStateException("CML chain identity is unavailable");
-            return (clinicallyOrdered ? io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.order(reports)
-                    : new java.util.ArrayList<>(reports.keySet())).stream()
-                    .map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
+        if (hl7Msg != null && "CML".equals(hl7Msg.getType()) && ret.contains(",")) {
+            ret = cmlVersionOrder(ret);
         }
         if (ret.equals("")) return (lab_no);
         else return (ret);
@@ -990,8 +997,8 @@ public class Hl7textResultsData {
         return labResults;
     }
 
-    public static String[] splitRefRange(String refRangeTxt) {
-        refRangeTxt = StringUtils.trimToEmpty(refRangeTxt);
+    private static String[] splitRefRange(String refRangeTxt) {
+        refRangeTxt = refRangeTxt.trim();
         String[] refRange = {"", "", ""};
         String numeric = "-. 0123456789";
         boolean textual = false;

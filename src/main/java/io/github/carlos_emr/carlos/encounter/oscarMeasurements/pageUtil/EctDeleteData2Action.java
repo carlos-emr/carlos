@@ -33,7 +33,9 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
+import io.github.carlos_emr.carlos.commn.model.MeasurementsDeleted;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -90,6 +92,8 @@ public class EctDeleteData2Action extends ActionSupport {
             }
         }
 
+        MeasurementsDeletedDao measurementsDeletedDao = (MeasurementsDeletedDao) SpringUtils.getBean(MeasurementsDeletedDao.class);
+        MeasurementDao measurementDao = SpringUtils.getBean(MeasurementDao.class);
         if (deleteCheckbox != null) {
 
             MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);
@@ -120,14 +124,10 @@ public class EctDeleteData2Action extends ActionSupport {
                 authorized.add(m);
             }
 
-            try {
-                SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService.class)
-                        .delete(authorized.stream().map(Measurement::getId).toList(), expectedPatient, loggedInInfo);
-            } catch (io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService.StaleMeasurement _) {
-                response.sendError(HttpServletResponse.SC_CONFLICT, getText("clinical.measurement.stale"));
-                return NONE;
+            for (Measurement m : authorized) {
+                measurementsDeletedDao.persist(new MeasurementsDeleted(m));
+                measurementDao.remove(m.getId());
             }
-
         }
 
         if (this.getType() != null) {

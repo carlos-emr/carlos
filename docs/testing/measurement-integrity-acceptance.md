@@ -1,5 +1,17 @@
 # Measurement and chart integrity acceptance
 
+> **Superseded in part (2026-11-10).** The lab handling this evidence was captured on
+> (`0b55edf8`) was later brought back to the OSCAR 19 functional contract. The following
+> behaviours shown or described below were **removed** and this evidence has **not** been
+> regenerated for them: per-observation CML reconciliation and its "requires review" states, the
+> CML projection repair page, whole-chain unlink with a match-version token, the unmatch fence on
+> later deliveries, uncovered CML sources retained after acknowledgement, message-based test
+> histories and the cumulative-grid source overlay, and the exclusion of qualified results from
+> lab graphs. What remains: the newest version of a CML report replaces the measurements of the
+> versions before it, a correction is newer than the report it corrects (#5819), and a version
+> delivered late changes nothing (#5820). Chart rendering, renderer admission and CDM report
+> evidence is unaffected.
+
 Target: `release/2026.08`; release base `74f240a4b9f92188300a8700cf11f1d74bc2b58d`.
 Qualified runtime: `0b55edf86d94df7575c4ad02d9bf928b0562d861`.
 All retained clinical fixtures are synthetic and owned by the tests.

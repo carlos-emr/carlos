@@ -543,10 +543,6 @@
     -->
     <context:component-scan base-package="io.github.carlos_emr.carlos" use-default-filters="false">
         <context:include-filter type="annotation" expression="org.springframework.stereotype.Repository"/>
-        <!-- Exercise the same transactional lab projection/deletion boundaries as installed ingestion. -->
-        <context:include-filter type="assignable" expression="io.github.carlos_emr.carlos.lab.service.CmlProjectionService"/>
-        <context:include-filter type="assignable" expression="io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService"/>
-        <context:include-filter type="assignable" expression="io.github.carlos_emr.carlos.lab.service.Hl7PatientUnlinkService"/>
         <!-- Physical advisory-lock coordination requires the production data source and MariaDB native tier. -->
         <context:exclude-filter type="assignable" expression="io.github.carlos_emr.carlos.commn.dao.CdsImportCoordinatorDao"/>
     </context:component-scan>
@@ -636,7 +632,6 @@
 
     <bean id="hrmProviderRoutingService" class="io.github.carlos_emr.carlos.hospitalReportManager.service.HrmProviderRoutingService" autowire="constructor" />
     <bean id="mrpRoutingService" class="io.github.carlos_emr.carlos.lab.service.MrpRoutingService" autowire="constructor" />
-    <bean id="hl7PatientUnlinkService" class="io.github.carlos_emr.carlos.lab.service.Hl7PatientUnlinkService" autowire="constructor" />
     <!-- Measurement group creation (issue #3335): a real tx proxy so
          MeasurementGroupCreationServiceIntegrationTest can prove a failed member insert
          rolls back the group's style row. -->

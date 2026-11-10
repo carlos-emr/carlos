@@ -199,31 +199,20 @@ public class CMLHandler implements MessageHandler {
         }
     }
 
-    /** Stable observation identity: panel/code namespaces and OBX-4, never row position or result text. */
-    public String getProjectionKey(int obrIndex, int obxIndex) {
-        try {
-            Segment obr = msg.getRESPONSE().getORDER_OBSERVATION(obrIndex).getOBR();
-            Segment obx = getOBXSegment(obrIndex, obxIndex);
-            String code = getOBXIdentifier(obrIndex, obxIndex);
-            if (code.isBlank()) throw new io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision("CML observation identifier is missing");
-            return io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.pack(
-                    Terser.get(obr, 4, 0, 1, 1), Terser.get(obr, 4, 0, 3, 1), code,
-                    Terser.get(obx, 3, 0, 3, 1), obx.getField(4, 0).encode());
-        } catch (Exception failure) {
-            throw new io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision("CML observation identity is unreadable");
-        }
-    }
-
-    /** Source revision time; a transport/replay MSH time is deliberately not a revision. */
+    /**
+     * The time the lab last revised this result: OBR-22, else OBX-14, else OBR-7. The message
+     * time (MSH-7) is a transport time and is deliberately not used. Empty when none is readable.
+     */
     public String getRevisionTimestamp(int obrIndex, int obxIndex) {
         try {
             Segment obr = msg.getRESPONSE().getORDER_OBSERVATION(obrIndex).getOBR();
             String revision = Terser.get(obr, 22, 0, 1, 1);
             if (revision != null && !revision.isBlank()) return revision;
             String observation = Terser.get(getOBXSegment(obrIndex, obxIndex), 14, 0, 1, 1);
-            return observation == null || observation.isBlank() ? Terser.get(obr, 7, 0, 1, 1) : observation;
-        } catch (Exception failure) {
-            throw new io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision("CML revision time is unreadable");
+            String time = observation == null || observation.isBlank() ? Terser.get(obr, 7, 0, 1, 1) : observation;
+            return time == null ? "" : time;
+        } catch (Exception unreadable) {
+            return "";
         }
     }
 

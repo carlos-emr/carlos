@@ -2,7 +2,7 @@
 'use strict';
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const {createLabRoutingFixture, createRoutingLockFixture, createHl7ChainLockFixture} = require('./lib/lab-routing-fixture');
+const {createLabRoutingFixture, createRoutingLockFixture} = require('./lib/lab-routing-fixture');
 const {parseMysqlBatchOutput} = require('./lib/playwright-harness');
 
 function fixture(original = []) {
@@ -162,39 +162,4 @@ test('late-allocated upload IDs use the pre-upload snapshot and preserve existin
   assert.deepEqual(writes, ['DELETE FROM providerLabRoutingLock WHERE lab_no IN (101)']);
   assert.throws(() => createRoutingLockFixture(() => {}, rows, ['100'],
     {exclusive: true, initialLocks: ['1 OR 1=1']}), /identifiers/);
-});
-
-test('chain cleanup preserves a pre-existing coordination key and removes only an introduced key', () => {
-  for (const borrowed of [false, true]) {
-    const locks = new Set(['100', '-100']);
-    const writes = [];
-    let key;
-    const rows = query => {
-      key = query.match(/IN \((-[1-9]\d*)\)/)[1];
-      if (borrowed) locks.add(key);
-      return locks.has(key) ? [[key]] : [];
-    };
-    const fixture = createHl7ChainLockFixture(query => {
-      writes.push(query); locks.delete(key);
-    }, rows, 'CML', 'FAKE-OWNED-ACCESSION', {exclusive: true});
-    locks.add(key);
-    fixture.cleanup();
-    fixture.cleanup();
-    assert.equal(locks.has(key), borrowed);
-    assert(locks.has('100') && locks.has('-100'));
-    assert.equal(writes.length, borrowed ? 0 : 2);
-    for (const write of writes) assert.equal(write, `DELETE FROM providerLabRoutingLock WHERE lab_no IN (${key})`);
-  }
-});
-
-test('chain cleanup refuses unsafe scope and reports failed coordination cleanup', () => {
-  assert.throws(() => createHl7ChainLockFixture(() => {}, () => [], 'CML', 'accession'), /exclusive disposable/);
-  assert.throws(() => createHl7ChainLockFixture(() => {}, () => [['100']], 'CML', 'accession', {exclusive: true}), /invalid chain lock snapshot/);
-  let present = false, key;
-  const fixture = createHl7ChainLockFixture(() => { throw new Error('synthetic cleanup failure'); }, query => {
-    key = query.match(/IN \((-[1-9]\d*)\)/)[1];
-    return present ? [[key]] : [];
-  }, 'CML', 'accession', {exclusive: true});
-  present = true;
-  assert.throws(() => fixture.cleanup(), /synthetic cleanup failure/);
 });

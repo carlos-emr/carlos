@@ -21,6 +21,7 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
+import io.github.carlos_emr.carlos.lab.ca.all.util.LabVersionChain;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -142,6 +143,7 @@ public class LabFilingService {
     }
 
     List<Integer> olderVersions(int labNo) {
-        return CommonLabResultData.olderVersionsOf(labNo, "HL7", null);
+        return LabVersionChain.olderThan(labNo,
+                new CommonLabResultData().getMatchingLabs(String.valueOf(labNo), "HL7"));
     }
 }

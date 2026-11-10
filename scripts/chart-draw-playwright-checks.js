@@ -378,20 +378,6 @@ async function main() {
             assert.deepEqual(errors, [], `${fixture.name}: page errors`);
         }
 
-        const notice = '2 qualified or nonnumeric results are not plotted; consult the source history.';
-        const warned = await draw(page, { ...JSON.parse(fs.readFileSync(path.join(FIXTURES, 'default-2pt.json'), 'utf8')).input,
-            exclusionNotice: notice }, 1000, 600);
-        assert.equal(warned.canvases.reduce((sum, canvas) => sum + canvas.height, 0), 600,
-            'exclusion notice preserves endpoint image dimensions');
-        assert.equal(warned.canvases.length, 2, 'exclusion notice has a reserved canvas band');
-        assert.ok(await page.evaluate(() => {
-            const canvas = document.querySelector('canvas:last-child');
-            const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
-            let ink = 0;
-            for (let index = 0; index < pixels.length; index += 4) if (pixels[index] < 100 && pixels[index + 3] === 255) ink++;
-            return ink > 100;
-        }), 'exclusion explanation has actual visible ink');
-
         const frenchInput = JSON.parse(fs.readFileSync(path.join(__dirname,
             '../docs/images/pr6102/configs/after-fr/qualified-results.json'), 'utf8'));
         await draw(page, frenchInput, 1000, 600);
@@ -491,7 +477,7 @@ async function main() {
             }
         }
         assert.deepEqual(errors, []);
-        console.log(`PASS: ${names.length} chart fixtures passed (unaffected JFreeChart parity plus intentional single-point repair); constant-value and exclusion-notice regressions passed`);
+        console.log(`PASS: ${names.length} chart fixtures passed (unaffected JFreeChart parity plus intentional single-point repair); constant-value regressions passed`);
     } finally {
         if (browser) await browser.close();
     }

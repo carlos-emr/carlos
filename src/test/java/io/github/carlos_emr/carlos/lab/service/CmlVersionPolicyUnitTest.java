@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler;
 
-/** Real HAPI source messages exercise revision identity and clinical ordering, independent of arrival IDs.
+/** Real HAPI source messages exercise the version order of a CML report: total, and never a refusal.
  * @since 2026-11-09
  */
 @Tag("unit")
@@ -33,52 +33,26 @@ class CmlVersionPolicyUnitTest {
     static CMLHandler handler(String time, String status, String... rows) throws Exception {
         CMLHandler result = new CMLHandler(); result.init(body("SYNTHETIC-ACCESSION", time, status, rows)); return result;
     }
-    private static List<CmlVersionPolicy.Observation> rows(int report, String time, String status, String... values) throws Exception {
-        return CmlVersionPolicy.observations(report, handler(time,status,values));
+    private static List<Integer> order(Object... idsAndHandlers) {
+        var sources=new LinkedHashMap<Integer,CMLHandler>();
+        for(int i=0;i<idsAndHandlers.length;i+=2)sources.put((Integer)idsAndHandlers[i],(CMLHandler)idsAndHandlers[i+1]);
+        return CmlVersionPolicy.order(sources);
     }
-    @Test void shouldRetainCorrection_forEveryDeliveryOrderAndDifferentArrivalIds() throws Exception {
-        var original=rows(90,"20260310080000","F","7010=5.1");
-        var corrected=rows(11,"20260310120000","C","7010=12.7");
-        var older=rows(100,"20260310070000","F","7010=4.3");
-        for (var order:List.of(List.of(original,corrected,older),List.of(original,older,corrected),
-                List.of(corrected,original,older),List.of(corrected,older,original),
-                List.of(older,original,corrected),List.of(older,corrected,original))) {
-            var winner=CmlVersionPolicy.winners(order.stream().flatMap(List::stream).toList());
-            assertThat(winner.values()).singleElement().satisfies(row->assertThat(row.report()).isEqualTo(11));
-        }
+    @Test void shouldRankACorrectionAfterItsOriginal_whateverTheArrivalIds() throws Exception {
+        // #5819: the correction arrived with the lower id and must still be the newest version.
+        assertThat(order(90,handler("20260310080000","F","7010=5.1"),11,handler("20260310120000","C","7010=12.7")))
+                .containsExactly(90,11);
     }
-    @Test void shouldRetainOmittedObservations_whenACorrectionIsPartial() throws Exception {
-        var all=new ArrayList<>(rows(1,"20260310080000","F","7010=5.1","7020=9.2"));
-        all.addAll(rows(2,"20260310120000","C","7010=12.7"));
-        assertThat(CmlVersionPolicy.winners(all).values()).extracting(CmlVersionPolicy.Observation::report)
-                .containsExactlyInAnyOrder(1,2);
+    @Test void shouldRankAnOlderVersionFirst_whenItIsDeliveredLast() throws Exception {
+        // #5820: delivery order original, correction, older.
+        assertThat(order(1,handler("20260310080000","F","7010=5.1"),2,handler("20260310120000","C","7010=12.7"),
+                3,handler("20260310070000","F","7010=4.3"))).containsExactly(3,1,2);
     }
     @Test void shouldPreferAnExplicitCorrection_whenTheClinicalTimestampIsUnchanged() throws Exception {
-        var all=new ArrayList<>(rows(1,"20260310080000","F","7010=5.1"));
-        all.addAll(rows(2,"20260310080000","C","7010=12.7"));
-        assertThat(CmlVersionPolicy.winners(all).values()).singleElement().satisfies(row->assertThat(row.report()).isEqualTo(2));
-    }
-    @Test void shouldRefuseConflictingCorrections_whenNeitherHasALaterClinicalRevision() throws Exception {
-        var all=new ArrayList<>(rows(1,"20260310120000","C","7010=5.1"));
-        all.addAll(rows(2,"20260310120000","C","7010=12.7"));
-        assertThatThrownBy(()->CmlVersionPolicy.winners(all)).isInstanceOf(IllegalStateException.class);
-    }
-    @Test void shouldWithdrawOnlyTheNamedObservation_whenDIsExplicit() throws Exception {
-        var all=new ArrayList<>(rows(1,"20260310080000","F","7010=5.1","7020=9.2"));
-        all.addAll(rows(2,"20260310120000","D","7010="));
-        var winners=CmlVersionPolicy.winners(all);
-        assertThat(winners.values()).filteredOn(CmlVersionPolicy.Observation::withdrawn).hasSize(1);
-        assertThat(winners.values()).filteredOn(row->!row.withdrawn()).singleElement()
-                .satisfies(row->assertThat(row.report()).isEqualTo(1));
-    }
-    @Test void shouldKeepAFinalResult_whenALaterPreliminaryObservationArrives() throws Exception {
-        var all=new ArrayList<>(rows(1,"20260310080000","F","7010=5.1"));
-        all.addAll(rows(2,"20260310120000","P","7010=12.7"));
-        assertThat(CmlVersionPolicy.winners(all).values()).singleElement().satisfies(row->assertThat(row.report()).isEqualTo(1));
-    }
-    @Test void shouldRefuseRepeatedKeys_whenTheSourceProvidesNoDistinctSubIdentifier() throws Exception {
-        var all=rows(1,"20260310080000","F","7010=5.1","7010=12.7");
-        assertThatThrownBy(()->CmlVersionPolicy.winners(all)).isInstanceOf(IllegalStateException.class);
+        assertThat(order(2,handler("20260310080000","C","7010=12.7"),1,handler("20260310080000","F","7010=5.1")))
+                .containsExactly(1,2);
+        assertThat(order(1,handler("20260310080000","C","7010=12.7"),2,handler("20260310080000","F","7010=5.1")))
+                .containsExactly(2,1);
     }
     @Test void shouldOrderAPartialCorrectionAfterACompleteFinal_withoutUsingResultCount() throws Exception {
         var sources=new LinkedHashMap<Integer,CMLHandler>();
@@ -88,19 +62,32 @@ class CmlVersionPolicyUnitTest {
         assertThat(sources.get(11).getOBXFinalResultCount()).isEqualTo(1);
         assertThat(sources.get(11).getOBXResultStatus(0,0)).isEqualTo("C");
     }
-    @Test void shouldOrderASingleReport_withoutAUsableRevisionTime() throws Exception {
-        // One report has only one possible order; an undated source must stay openable.
-        var sources=new LinkedHashMap<Integer,CMLHandler>();
-        sources.put(7,handler("","F","7010=5.1"));
-        assertThat(CmlVersionPolicy.order(sources)).containsExactly(7);
-    }
     @Test void shouldIgnoreTransportReplayTime_whenOrderingClinicalRevisions() throws Exception {
-        var sources=new LinkedHashMap<Integer,CMLHandler>();
         CMLHandler replay=new CMLHandler();
         replay.init(body("SYNTHETIC-ACCESSION","20260310070000","F","7010=4.3")
                 .replace("CML|||20260310070000", "CML|||20260410190000"));
-        sources.put(99,replay); sources.put(1,handler("20260310120000","C","7010=12.7"));
-        assertThat(CmlVersionPolicy.order(sources)).containsExactly(99,1);
+        assertThat(order(99,replay,1,handler("20260310120000","C","7010=12.7"))).containsExactly(99,1);
+    }
+    @Test void shouldKeepAFinalResultNewest_whenALaterPreliminaryVersionArrives() throws Exception {
+        assertThat(order(1,handler("20260310080000","F","7010=5.1"),2,handler("20260310120000","P","7010=12.7")))
+                .containsExactly(2,1);
+    }
+    @Test void shouldTreatTheLaterArrivalAsNewer_whenTheLabFieldsDoNotSeparateVersions() throws Exception {
+        // The real CML layout dates a report by day only. Two finals of one day are ordered as
+        // OSCAR always ordered them: by arrival.
+        for(String time:List.of("20260310","20260310120000")) {
+            assertThat(order(2,handler(time,"F","7010=12.7"),1,handler(time,"F","7010=5.1"))).containsExactly(1,2);
+            assertThat(order(1,handler(time,"C","7010=12.7"),2,handler(time,"C","7010=13.1"))).containsExactly(1,2);
+        }
+    }
+    @Test void shouldNeverRefuseToOrder_whenAVersionIsUndatedOrItsStatusIsUnknown() throws Exception {
+        assertThat(order(7,handler("","F","7010=5.1"))).containsExactly(7);
+        // An undated or unrecognised version is simply the oldest; nothing is dropped.
+        assertThat(order(1,handler("20260310080000","F","7010=5.1"),2,handler("","F","7010=6.0"))).containsExactly(2,1);
+        assertThat(order(1,handler("20260310080000","F","7010=5.1"),2,handler("20260310120000","X","7010=13.1")))
+                .containsExactly(2,1);
+        assertThat(order(1,handler("20260310080000","F","7010=5.1","7010=5.2"),2,handler("20260310120000","C","7010=6.0")))
+                .containsExactly(1,2);
     }
     @Test void shouldParseExplicitOffsetsAndPrecision_withoutRoundingClinicalRevisionTime() {
         assertThat(CmlVersionPolicy.timestamp("20260310120000.123456789-0400"))
@@ -116,38 +103,5 @@ class CmlVersionPolicyUnitTest {
     @org.junit.jupiter.params.provider.ValueSource(strings = {"F", "f", "C", "c"})
     void shouldCountAsciiFinalAndCorrectionStatuses_withoutUnicodeCaseFolding(String status) throws Exception {
         assertThat(handler("20260310120000", status, "7010=12.7").getOBXFinalResultCount()).isEqualTo(1);
-    }
-
-    @Test void shouldRefuseClinicalReportOrdering_whenSameTimeCorrectionsConflict() throws Exception {
-        var sources=new LinkedHashMap<Integer,CMLHandler>();
-        sources.put(1,handler("20260310120000","C","7010=12.7"));
-        sources.put(2,handler("20260310120000","C","7010=13.1"));
-        assertThatThrownBy(()->CmlVersionPolicy.order(sources)).isInstanceOf(CmlVersionPolicy.AmbiguousRevision.class);
-    }
-    @Test void shouldRefuseClinicalReportOrdering_whenAnotherVersionHasAnUnsupportedStatus() throws Exception {
-        var sources=new LinkedHashMap<Integer,CMLHandler>();
-        sources.put(1,handler("20260310080000","F","7010=5.1"));
-        sources.put(2,handler("20260310120000","X","7010=13.1"));
-        assertThatThrownBy(()->CmlVersionPolicy.order(sources)).isInstanceOf(CmlVersionPolicy.AmbiguousRevision.class);
-    }
-
-    @Test void shouldResolveObsoleteConflicts_withTheSameLatestWinnerInEveryArrivalOrder() throws Exception {
-        for(List<Integer> order:List.of(List.of(1,2,3),List.of(1,3,2),List.of(2,1,3),List.of(2,3,1),List.of(3,1,2),List.of(3,2,1))) {
-            var sources=new LinkedHashMap<Integer,CMLHandler>();
-            for(int id:order)sources.put(id,handler(id==3?"20260310140000":"20260310120000","C","7010="+(id==1?"12.7":id==2?"13.1":"15.2")));
-            var all=new ArrayList<CmlVersionPolicy.Observation>();sources.forEach((id,source)->all.addAll(CmlVersionPolicy.observations(id,source)));
-            assertThat(CmlVersionPolicy.winners(all).values()).singleElement().satisfies(row->assertThat(row.report()).isEqualTo(3));
-            assertThat(CmlVersionPolicy.order(sources)).endsWith(3);
-        }
-    }
-    @Test void shouldAutoFileOnlyFullyCoveredOlderReports_whenTheReviewedCorrectionIsPartial() throws Exception {
-        var sources=new HashMap<Integer,io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler>();
-        sources.put(1,handler("20260310080000","F","7010=5.1","7020=9.2"));
-        sources.put(2,handler("20260310120000","C","7010=12.7"));
-        assertThat(CmlVersionPolicy.coveredOlderReports(2,List.of(1),sources::get)).isEmpty();
-        sources.put(2,handler("20260310120000","C","7010=12.7","7020=9.3"));
-        assertThat(CmlVersionPolicy.coveredOlderReports(2,List.of(1),sources::get)).containsExactly(1);
-        sources.put(2,handler("20260310120000","P","7010=12.7","7020=9.3"));
-        assertThat(CmlVersionPolicy.coveredOlderReports(2,List.of(1),sources::get)).isEmpty();
     }
 }

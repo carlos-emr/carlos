@@ -650,10 +650,6 @@ class MutatorActionGetRejectionContractUnitTest {
         // or buttonSetPrimaryRole changes a role, must be a POST and needs write. Covered by
         // ProviderPrivilegeRoleWriteGuardUnitTest.
         "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action",
-        // CML projection repair: opening the page permits GET; any operation (preview or apply) must be
-        // a POST, because the filter keys on the parameter's presence. Covered by
-        // CmlProjectionRepair2ActionUnitTest.
-        "io.github.carlos_emr.carlos.admin.web.CmlProjectionRepair2Action",
         // Dx registry report: the reports permit GET; method=editDesc rewrites a shared code description
         // and must be a POST. Covered by DxresearchReport2ActionTest (EditDescMethodGuard).
         "io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action",
@@ -970,8 +966,7 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action", new String[]{"_admin", "r"},
         "io.github.carlos_emr.carlos.messenger.pageUtil.MsgHandleMessages2Action", new String[]{"_msg", "r"},
         "io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action", new String[]{"_form", "w"},
-        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.GenerateTeleplanFile2Action", new String[]{"_billing", "w"},
-        "io.github.carlos_emr.carlos.admin.web.CmlProjectionRepair2Action", new String[]{"_admin", "w"});
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.GenerateTeleplanFile2Action", new String[]{"_billing", "w"});
 
     /**
      * One case per route and write parameter in {@link HttpMethodGuardFilter#MUTATION_INTENT_PARAMS_BY_ROUTE},

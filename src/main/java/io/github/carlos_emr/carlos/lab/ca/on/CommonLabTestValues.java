@@ -465,17 +465,45 @@ public class CommonLabTestValues {
             labList.addAll(labMap.values());
 
         } else if (labType != null && labType.equals("HL7")) {
-            for (Map<String, Serializable> row : Hl7SourceResults.read(demographicNo,
-                    java.util.Collections.singleton(identCode))) {
-                if (Objects.equals(identCode, row.get("identifier"))) {
-                    labList.add(row);
+            MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);
+
+            for (Object lNo : dao.findLabNumbers(demographicNo == null ? 0 : demographicNo, identCode)) {
+                String lab_no = String.valueOf(lNo);
+
+                MessageHandler handler = Factory.getHandler(lab_no);
+                HashMap<String, Serializable> h = new HashMap<String, Serializable>();
+                int i = 0;
+                while (i < handler.getOBRCount() && h.get("testName") == null) {
+                    for (int j = 0; j < handler.getOBXCount(i); j++) {
+                        if (handler.getOBXIdentifier(i, j).equals(identCode)) {
+
+                            String result = handler.getOBXResult(i, j);
+
+                            // only add measurements with actual results
+                            if (!result.equals("")) {
+                                h.put("testName", testName);
+                                h.put("abn", handler.getOBXAbnormalFlag(i, j));
+                                h.put("result", result);
+                                h.put("range", handler.getOBXReferenceRange(i, j));
+                                h.put("units", handler.getOBXUnits(i, j));
+                                h.put("lab_no", lab_no);
+
+                                String collDate = handler.getServiceDate();
+                                if (collDate == null || collDate.isEmpty()) {
+                                    collDate = handler.getTimeStamp(i, j);
+                                }
+                                h.put("collDate", collDate);
+                                labList.add(h);
+                                break;
+                            }
+
+                        }
+                    }
+                    i++;
                 }
             }
-            // Handler-formatted source times are ISO ordered. Unknown dates stay unknown;
-            // never use the time of this read as an invented observation time.
-            labList.sort(Comparator.comparing((Map<String, Serializable> row) ->
-                    Objects.toString(row.get("collDate"), "")).reversed());
-            return labList;
+
+
         }
         // sort the lab list
         Collections.sort(labList, new Comparator<Map<String, Serializable>>() {
@@ -496,114 +524,6 @@ public class CommonLabTestValues {
         });
 
         return labList;
-    }
-
-    /** One authorized request's source read shared by all requested history identifiers; never cached across requests. */
-    public static Map<String, List<Map<String, Serializable>>> findSourceValuesForTests(Integer patient, Set<String> identifiers) {
-        Map<String, List<Map<String, Serializable>>> histories = new LinkedHashMap<>();
-        for (String identifier : identifiers) histories.put(identifier, new ArrayList<>());
-        for (Map<String, Serializable> row : Hl7SourceResults.read(patient, identifiers)) {
-            var history = histories.get(row.get("identifier"));
-            if (history != null) history.add(row);
-        }
-        for (var history : histories.values()) history.sort(Comparator.comparing((Map<String, Serializable> row) ->
-                Objects.toString(row.get("collDate"), "")).reversed());
-        return histories;
-    }
-
-    /**
-     * Grid-only source overlay: preserve report literals without changing active measurements.
-     * The caller loads source observations once for the whole grid. Missing projections are
-     * marked explicitly; no clinical filter is widened and no archived value is reactivated.
-     */
-    public static ArrayList<Hashtable<String, Serializable>> findDisplayValuesByLoinc(
-            String patient, String loinc, List<Map<String, Serializable>> source) {
-        var mappings = SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.MeasurementMapDao.class)
-                .findByLoincCode(loinc);
-        Set<String> identifiers = new HashSet<>();
-        identifiers.add(loinc);
-        for (var mapping : mappings) identifiers.add(mapping.getIdentCode());
-        return overlaySourceValues(findValuesByLoinc(patient, loinc), source, identifiers);
-    }
-
-    static ArrayList<Hashtable<String, Serializable>> overlaySourceValues(
-            List<Hashtable<String, Serializable>> measurements, List<Map<String, Serializable>> source,
-            Set<String> identifiers) {
-        Map<String, Hashtable<String, Serializable>> rows = new LinkedHashMap<>();
-        List<Hashtable<String, Serializable>> additional = new ArrayList<>();
-        for (var measurement : measurements) {
-            // A report can project several identifiers onto one LOINC. Overlay one row
-            // while retaining every other stored reading independently.
-            if (rows.putIfAbsent((String) measurement.get("lab_no"), measurement) != null) additional.add(measurement);
-        }
-        Set<String> overlaid = new HashSet<>();
-        for (var observation : source) {
-            if (!identifiers.contains(observation.get("identifier"))) continue;
-            String id = (String) observation.get("lab_no");
-            if (overlaid.contains(id)) {
-                // Keep all unprojected source literals; preserve any existing projection and
-                // flag the multiplicity so the full source history can be reviewed.
-                var row = rows.get(id);
-                if (Boolean.TRUE.equals(row.get("sourceOnly"))) {
-                    row.put("result", row.get("result") + "; " + observation.get("result"));
-                    String nextFlag = gridFlag(observation.get("abn"));
-                    if ("N".equals(row.get("abn")) && !"N".equals(nextFlag)) row.put("abn", nextFlag);
-                }
-                row.put("multipleSourceResults", Boolean.TRUE);
-                continue;
-            }
-            Hashtable<String, Serializable> projected = rows.get(id);
-            Hashtable<String, Serializable> row = projected == null ? new Hashtable<>() : new Hashtable<>(projected);
-            String literal = Objects.toString(observation.get("result"), "");
-            row.put("lab_no", id);
-            if (projected == null) {
-                row.put("result", literal);
-                String observed = gridTimestamp(Objects.toString(observation.get("collDate"), ""));
-                row.put("date", observed);
-                row.put("collDateDate", observed);
-                row.put("abn", gridFlag(observation.get("abn")));
-            } else if (isOriginalOrLegacyLiteral(literal, (String) projected.get("result"))) {
-                row.put("result", literal); // Restore clinical case without changing the projected value.
-            } else {
-                // A configured extractor or a clinician's replacement may deliberately differ.
-                // Do not silently replace an existing clinical projection during a read.
-                row.put("differentSourceResult", Boolean.TRUE);
-            }
-            row.put("sourceOnly", projected == null);
-            rows.put(id, row);
-            overlaid.add(id);
-        }
-        ArrayList<Hashtable<String, Serializable>> result = new ArrayList<>(rows.values());
-        result.addAll(additional);
-        result.sort(Comparator.comparing((Hashtable<String, Serializable> row) -> (String) row.get("date")).reversed());
-        return result;
-    }
-
-    /** Display-only restoration of the exact lowercase transformation used by legacy ingestion. */
-    // FindSecBugs IMPROPER_UNICODE: compares the original or legacy server-locale lowercase clinical text for display only; never authorizes or merges source identities.
-    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
-            justification = "Compare exact original or legacy server-locale lowercase clinical text solely for display; never authorize or merge source identities")
-    private static boolean isOriginalOrLegacyLiteral(String literal, String projected) {
-        return literal.equals(projected) || literal.toLowerCase(Locale.getDefault()).equals(projected);
-    }
-
-    /**
-     * A handler's observation time in the layout stored measurement rows use, which the grid
-     * sorts and labels its columns by. A partial time keeps its known part; an unknown or
-     * unreadable time stays empty rather than being given an invented value.
-     */
-    private static String gridTimestamp(String handlerTime) {
-        java.util.Date observed = io.github.carlos_emr.carlos.lab.ca.all.util.ObservationTime.parse(handlerTime);
-        return observed == null ? "" : new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(observed);
-    }
-
-    private static String gridFlag(Serializable flag) {
-        String value = Objects.toString(flag, "N").trim();
-        if (value.isEmpty()) return "N";
-        // HL7 flags are ASCII codes; fold only their leading ASCII letter.
-        char code = value.charAt(0);
-        if (code >= 'a' && code <= 'z') code -= 'a' - 'A';
-        return code == 'A' && value.length() == 1 || code == 'H' ? "A" : code == 'L' ? "L" : "N";
     }
 
     private static String parseObservationId(String id) {

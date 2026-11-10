@@ -80,6 +80,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
     private static final Logger log = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private static final String NUMERIC_REGEX = "[^-.\\d]";
     private static final String WHITE = "#ffffff";
     private static final String VALUE_DATE_LABEL = "{1} \n {2}";
     private static final String SYSTOLIC = "Systolic";
@@ -304,88 +305,23 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             String result = numericResult(measurement.getDataField());
             if (result != null) {
                 series.addOrUpdate(new Day(measurement.getDateObservedAsDate().toInstant()), plottedValue(measurement.getType(), result));
-            } else if (StringUtils.isNotBlank(measurement.getDataField())) {
-                dataset.excludeObservation();
             }
         }
         dataset.addSeries(series);
         return dataset;
     }
 
-    static String numericResult(String result) {
+    /**
+     * The number a stored result is plotted as. Everything but digits, the minus sign and the
+     * decimal point is removed first, so a qualified result such as {@code <5} is plotted as 5,
+     * as OSCAR always did. Whether a bound should be drawn as an exact point is tracked in #5827.
+     */
+    private static String numericResult(String result) {
         if (StringUtils.isEmpty(result)) {
             return null;
         }
-        // A bound, titre, date or qualitative grade is not an exact observation.
-        String numeric = result.trim();
-        // Raw lab text is not constrained by measurements.dataField. Bound work
-        // before parsing; excluded source text remains available in history.
-        if (numeric.length() > 512) return null;
-        if (numeric.indexOf(',') >= 0) {
-            if (!hasThousandsGrouping(numeric)) return null;
-            numeric = numeric.replace(",", "");
-        }
-        if (!hasExactNumberSyntax(numeric)) return null;
-        try {
-            double value = Double.parseDouble(numeric);
-            if (!Double.isFinite(value)) return null;
-            if (value == 0) {
-                for (int i = 0; i < numeric.length() && numeric.charAt(i) != 'e' && numeric.charAt(i) != 'E'; i++) {
-                    if (numeric.charAt(i) >= '1' && numeric.charAt(i) <= '9') return null;
-                }
-            }
-            return numeric;
-        } catch (NumberFormatException invalid) {
-            return null;
-        }
-    }
-
-    private static boolean asciiDigit(char value) { return value >= '0' && value <= '9'; }
-
-    /** Bounded, linear grammar validation without regex backtracking or stack growth. */
-    private static boolean hasExactNumberSyntax(String value) {
-        int length = value.length(), index = 0;
-        if (length == 0) return false;
-        if (value.charAt(index) == '+' || value.charAt(index) == '-') index++;
-        int start = index;
-        while (index < length && asciiDigit(value.charAt(index))) index++;
-        boolean digits = index > start;
-        if (index < length && value.charAt(index) == '.') {
-            index++; start = index;
-            while (index < length && asciiDigit(value.charAt(index))) index++;
-            digits |= index > start;
-        }
-        if (!digits) return false;
-        if (index < length && (value.charAt(index) == 'e' || value.charAt(index) == 'E')) {
-            index++;
-            if (index < length && (value.charAt(index) == '+' || value.charAt(index) == '-')) index++;
-            start = index;
-            while (index < length && asciiDigit(value.charAt(index))) index++;
-            if (index == start) return false;
-        }
-        return index == length;
-    }
-
-    private static boolean hasThousandsGrouping(String value) {
-        int length = value.length(), index = 0;
-        if (length == 0) return false;
-        if (value.charAt(index) == '+' || value.charAt(index) == '-') index++;
-        if (index == length || value.charAt(index) < '1' || value.charAt(index) > '9') return false;
-        int start = index;
-        while (index < length && asciiDigit(value.charAt(index))) index++;
-        if (index - start > 3) return false;
-        boolean comma = false;
-        while (index < length && value.charAt(index) == ',') {
-            comma = true; index++; start = index;
-            while (index < length && asciiDigit(value.charAt(index))) index++;
-            if (index - start != 3) return false;
-        }
-        if (index < length && value.charAt(index) == '.') {
-            index++; start = index;
-            while (index < length && asciiDigit(value.charAt(index))) index++;
-            if (index == start) return false;
-        }
-        return comma && index == length;
+        String numeric = result.replaceAll(NUMERIC_REGEX, "");
+        return NumberUtils.isParsable(numeric) ? numeric : null;
     }
 
     private List<ReferenceRange> measurementReferenceRanges(List<EctMeasurementsDataBean> measurements, String typeIdName) {
@@ -465,9 +401,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         return MeasurementChart.lines(chartTitle, "Days", units, dataset)
                 .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.34).withPlotBackground(WHITE).withGridlines("#c0c0c0")
                 .withShapes().withItemLabels(MeasurementChart.labItemLabels(series.getItemCount(), labelBand))
-                .withReferenceRanges("Normal Reference Range", ranges)
-                .withExcludedObservations((int) values.stream().filter(value ->
-                        StringUtils.isNotBlank((String) value.get("result")) && numericResult((String) value.get("result")) == null).count());
+                .withReferenceRanges("Normal Reference Range", ranges);
     }
 
     private static void addLabValue(Series series, Map<String, Serializable> value) throws ParseException {

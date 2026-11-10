@@ -672,8 +672,6 @@
         amPm = spec.amPm || ['AM', 'PM'];
         document.body.replaceChildren();
         document.body.style.cssText = 'margin:0;background:white';
-        const notice = typeof spec.exclusionNotice === 'string' ? spec.exclusionNotice : '';
-        if (notice) height -= 24;
         const style = { theme: 'jfree', plotBackground: '#c0c0c0', gridlines: '#ffffff', domainMargins: [0.02, 0.02], rangeMargins: [0.05, 0.05],
             rangeIncludesZero: false, domainIncludesZero: false, rangeAxisPaint: null, itemLabels: null, ...(spec.style || {}) };
         const timeZone = spec.timeZone;
@@ -1005,16 +1003,6 @@
         }
         // Ticks were chosen while the layout was still settling; settle them against the final plot size.
         charts.forEach(chart => chart.update('none'));
-        if (notice) {
-            const explanation = document.createElement('canvas');
-            explanation.width = width; explanation.height = 24;
-            explanation.style.display = 'block';
-            const context = explanation.getContext('2d');
-            context.fillStyle = '#ffffff'; context.fillRect(0, 0, width, 24);
-            context.fillStyle = '#000000'; context.font = '12px sans-serif';
-            context.fillText(notice, 8, 16, width - 16);
-            document.body.append(explanation);
-        }
         return charts;
     }
 

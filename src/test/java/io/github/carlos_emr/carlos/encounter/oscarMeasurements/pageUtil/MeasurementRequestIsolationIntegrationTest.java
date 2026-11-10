@@ -50,9 +50,6 @@ class MeasurementRequestIsolationIntegrationTest extends CarlosTestBase {
     @PersistenceContext(unitName = "entityManagerFactory") private EntityManager entityManager;
     @Autowired private PlatformTransactionManager transactionManager;
     @Autowired private MeasurementDao measurements;
-    @Autowired private io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDao deleted;
-    @Autowired private io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao extensions;
-    private io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService deletion;
     private TransactionTemplate tx;
     private Demographic a;
     private Demographic b;
@@ -98,13 +95,6 @@ class MeasurementRequestIsolationIntegrationTest extends CarlosTestBase {
         security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(eq(login), eq("_measurement"), anyString(), nullable(String.class))).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(eq(login), anyInt())).thenReturn(true);
-        var target = new io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService(measurements, deleted, extensions, security);
-        var proxy = new org.springframework.aop.framework.ProxyFactory(target);
-        var advice = new org.springframework.transaction.interceptor.TransactionInterceptor();
-        advice.setTransactionManager(transactionManager);
-        advice.setTransactionAttributeSource(new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource());
-        proxy.addAdvice(advice);
-        deletion = (io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService) proxy.getProxy();
         session = new MockHttpSession();
         session.setAttribute("user", "999998");
         LoggedInInfo.setLoggedInInfoIntoSession(session, login);
@@ -135,7 +125,6 @@ class MeasurementRequestIsolationIntegrationTest extends CarlosTestBase {
         try (var spring = mockStatic(SpringUtils.class, CALLS_REAL_METHODS);
              var metadata = mockStatic(MeasurementTypes.class)) {
             spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
-            spring.when(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService.class)).thenReturn(deletion);
             MeasurementTypes types = mock(MeasurementTypes.class);
             metadata.when(MeasurementTypes::getInstance).thenReturn(types);
             when(types.getByType(common.getType())).thenReturn(new EctMeasurementTypesBean(common.getId(),
@@ -159,7 +148,6 @@ class MeasurementRequestIsolationIntegrationTest extends CarlosTestBase {
     void shouldPrefillEachRequestedPatientsRealLatestReadingWithoutPublishingSessionBeans() throws Exception {
         try (var spring = mockStatic(SpringUtils.class, CALLS_REAL_METHODS)) {
             spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
-            spring.when(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService.class)).thenReturn(deletion);
             for (Demographic patient : List.of(a, b, a)) {
                 MockHttpServletRequest request = request(patient);
                 try (var servlet = mockStatic(ServletActionContext.class)) {
@@ -184,7 +172,6 @@ class MeasurementRequestIsolationIntegrationTest extends CarlosTestBase {
     void shouldRejectMixedOwnedPatientBatchWithoutAnyCommittedDeleteOrTombstone() throws Exception {
         try (var spring = mockStatic(SpringUtils.class, CALLS_REAL_METHODS)) {
             spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
-            spring.when(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService.class)).thenReturn(deletion);
             MockHttpServletResponse response = new MockHttpServletResponse();
             assertThat(delete(a, response, aReading.getId(), bReading.getId())).isEqualTo("none");
             assertThat(response.getStatus()).isEqualTo(400);
@@ -215,7 +202,6 @@ class MeasurementRequestIsolationIntegrationTest extends CarlosTestBase {
         try (var spring = mockStatic(SpringUtils.class, CALLS_REAL_METHODS);
              var servlet = mockStatic(ServletActionContext.class)) {
             spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
-            spring.when(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService.class)).thenReturn(deletion);
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
             assertThatThrownBy(() -> new EctMeasurements2Action().execute())
@@ -248,7 +234,6 @@ class MeasurementRequestIsolationIntegrationTest extends CarlosTestBase {
     void shouldCommitOnlyAsDeletionAndTombstoneLeavingBUnchanged() throws Exception {
         try (var spring = mockStatic(SpringUtils.class, CALLS_REAL_METHODS)) {
             spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
-            spring.when(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService.class)).thenReturn(deletion);
             MockHttpServletResponse response = new MockHttpServletResponse();
             assertThat(delete(a, response, aReading.getId())).isEqualTo("none");
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
@@ -272,7 +257,6 @@ class MeasurementRequestIsolationIntegrationTest extends CarlosTestBase {
         // its hidden inputs -- the chart's patient and the reading, no history type.
         try (var spring = mockStatic(SpringUtils.class, CALLS_REAL_METHODS)) {
             spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
-            spring.when(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService.class)).thenReturn(deletion);
             MockHttpServletResponse response = new MockHttpServletResponse();
             assertThat(deleteFromReadOnlyPage(a, response, aReading.getId())).isEqualTo("success");
             assertThat(response.getRedirectedUrl()).isNull();
@@ -291,7 +275,6 @@ class MeasurementRequestIsolationIntegrationTest extends CarlosTestBase {
     void shouldRefuseOtherPatientsReading_whenPostedLikeReadOnlyMeasurementPage() throws Exception {
         try (var spring = mockStatic(SpringUtils.class, CALLS_REAL_METHODS)) {
             spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
-            spring.when(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService.class)).thenReturn(deletion);
             MockHttpServletResponse response = new MockHttpServletResponse();
             assertThat(deleteFromReadOnlyPage(a, response, bReading.getId())).isEqualTo("none");
             assertThat(response.getStatus()).isEqualTo(400);

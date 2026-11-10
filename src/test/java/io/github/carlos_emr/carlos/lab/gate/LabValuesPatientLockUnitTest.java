@@ -221,39 +221,4 @@ class LabValuesPatientLockUnitTest extends CarlosUnitTestBase {
         }
         return cases.stream();
     }
-
-    @org.junit.jupiter.api.Test
-    void shouldReadSourcesOnceForBatch_andRespectCurrentPatientAuthorization() throws Exception {
-        request.setParameter("demo", "123");request.setParameter("historyBatch", "1");
-        request.setParameter("identifier", new String[]{"3007", "7010"});
-        try (var source = mockStatic(io.github.carlos_emr.carlos.lab.ca.on.Hl7SourceResults.class)) {
-            source.when(() -> io.github.carlos_emr.carlos.lab.ca.on.Hl7SourceResults.read(123, java.util.Set.of("3007", "7010"))).thenReturn(List.of(
-                    java.util.Map.of("identifier","3007","result","Negative","collDate","2026-01-02"),
-                    java.util.Map.of("identifier","7010","result","12.7","collDate","2026-01-03"),
-                    java.util.Map.of("identifier","unrequested","result","PRIVATE")));
-            assertThat(execute(Gate.VALUES)).isEqualTo(ActionSupport.NONE);
-            assertThat(response.getContentAsString()).contains("Negative", "12.7").doesNotContain("PRIVATE");
-            assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
-            source.verify(() -> io.github.carlos_emr.carlos.lab.ca.on.Hl7SourceResults.read(123, java.util.Set.of("3007", "7010")), org.mockito.Mockito.times(1));
-            source.clearInvocations();
-            when(security.isAllowedAccessToPatientRecord(login,123)).thenReturn(false);
-            assertThatThrownBy(() -> execute(Gate.VALUES)).isInstanceOf(SecurityException.class);
-            source.verifyNoInteractions();
-        }
-    }
-
-    @org.junit.jupiter.api.Test
-    void shouldRefuseMalformedBatchAndReturnExplicitConflict_forUnorderableSources() throws Exception {
-        request.setParameter("demo", "123");request.setParameter("historyBatch", "1");
-        try (var source = mockStatic(io.github.carlos_emr.carlos.lab.ca.on.Hl7SourceResults.class)) {
-            assertThat(execute(Gate.VALUES)).isEqualTo(ActionSupport.NONE);
-            assertThat(response.getStatus()).isEqualTo(400);source.verifyNoInteractions();
-            request.setParameter("identifier", "3007");
-            source.when(() -> io.github.carlos_emr.carlos.lab.ca.on.Hl7SourceResults.read(123, java.util.Set.of("3007")))
-                    .thenThrow(new io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision("review"));
-            assertThat(execute(Gate.VALUES)).isEqualTo(ActionSupport.NONE);
-            assertThat(response.getStatus()).isEqualTo(409);
-            assertThat(response.getContentAsString()).contains("review");
-        }
-    }
 }

@@ -267,7 +267,7 @@ class InboxAcknowledgeNotificationRegressionTest {
         // one left the badge one ahead of the figure the next page load computes.
         assertThat(read(COMMON_LAB_RESULT_DATA))
                 .as("the server must report how many routing rows it cleared")
-                .contains("return new ReportChainUpdate(clearedFromNew, new java.util.ArrayList<>(versions), retainedNew);");
+                .contains("return new ReportChainUpdate(clearedFromNew, new java.util.ArrayList<>(versions), List.of());");
         assertThat(read(REPORT_MACRO_ACTION))
                 .as("the macro response must carry that count to the browser")
                 .contains("result.put(\"clearedCount\", outcome.clearedCount());");

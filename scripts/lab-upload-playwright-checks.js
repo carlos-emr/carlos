@@ -65,7 +65,7 @@ const os = require('node:os');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-const {createRoutingLockFixture, createHl7ChainLockFixture} = require('./lib/lab-routing-fixture');
+const {createRoutingLockFixture} = require('./lib/lab-routing-fixture');
 const { serverLogFromEnvironment, verifyStorageFailureLog } = require('./lib/server-log');
 
 const { createFaultReceipt, ownedTriggerStatements, observeOwnedTrigger, dropOwnedTrigger, normalize, sha } = require('./lib/lab-rollback-fault-proof');
@@ -233,13 +233,11 @@ async function workflow(session, options = {}) {
   const exclusiveLocks = process.env.EXCLUSIVE === '1' && process.env.CARLOS_DISPOSABLE_VM === 'true';
   const initialLocks = exclusiveLocks
     ? sql.rows('SELECT lab_no FROM providerLabRoutingLock ORDER BY lab_no').map(row => {
-      h.assert(row.length === 1 && /^-?[1-9]\d*$/.test(row[0]), 'Invalid initial routing lock snapshot');
+      h.assert(row.length === 1 && /^[1-9]\d*$/.test(row[0]), 'Invalid initial routing lock snapshot');
       return row[0];
-    }).filter(id => !id.startsWith('-')) : undefined;
+    }) : undefined;
   const stamp = crypto.randomBytes(4).toString('hex').toUpperCase();
   const accession = `LU${stamp}`;
-  const chainLockFixture = exclusiveLocks ? createHl7ChainLockFixture(
-    query => sql.execute(query), query => sql.rows(query), 'CML', accession, {exclusive: true}) : null;
   const flatAccession = `FL${stamp}`;
   const failureTrigger = `lab_upload_probe_${stamp}`;
   let triggerMayExist = false;
@@ -288,7 +286,6 @@ async function workflow(session, options = {}) {
   let storedLabObserved = false;
   cleanup(async () => {
     if (triggerMayExist) dropOwnedTrigger(sql, failureTrigger, accession);
-    if (chainLockFixture) chainLockFixture.cleanup();
     const flatLabs = includeLegacyCml ? sql.rows(`SELECT id FROM labPatientPhysicianInfo WHERE accession_num=${h.sqlString(flatAccession)}`)
       .map(([id]) => id).filter((id) => /^\d+$/.test(id)) : [];
     storedLabObserved ||= flatLabs.length > 0;

@@ -30,76 +30,102 @@ package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
 import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.lab.service.Hl7PatientUnlinkService;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
+import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.OscarAuditLogger;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.form.JSONUtil;
+import io.github.carlos_emr.carlos.log.LogConst;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.io.IOException;
+import java.util.Date;
+import java.util.List;
 
 public class UnlinkDemographic2Action extends ActionSupport {
-    private static final ObjectMapper MAPPER = new ObjectMapper();
-    private final HttpServletRequest request = ServletActionContext.getRequest();
-    private final HttpServletResponse response = ServletActionContext.getResponse();
-    private final transient SecurityInfoManager security;
-    private final transient Hl7PatientUnlinkService unlink;
+    HttpServletRequest request = ServletActionContext.getRequest();
+    HttpServletResponse response = ServletActionContext.getResponse();
 
-    /** Struts creates this legacy route without arguments. */
+    private final Logger logger = MiscUtils.getLogger();
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    private final PatientLabRoutingDao plrDao = SpringUtils.getBean(PatientLabRoutingDao.class);
+
+    private final ProviderLabRoutingDao providerLabRoutingDao = SpringUtils.getBean(ProviderLabRoutingDao.class);
+
     public UnlinkDemographic2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(Hl7PatientUnlinkService.class));
     }
 
-    UnlinkDemographic2Action(SecurityInfoManager security, Hl7PatientUnlinkService unlink) {
-        this.security = security;
-        this.unlink = unlink;
-    }
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
-    public String execute() throws IOException {
-        LoggedInInfo actor = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!security.hasPrivilege(actor, "_lab", "u", null)) {
+    public String execute() {
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "u", null)) {
             throw new SecurityException("missing required sec object (_lab)");
         }
-        if (!"POST".equals(request.getMethod())) {
-            response.setHeader("Allow", "POST");
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
-        }
-        try {
-            String[] reports = request.getParameterValues("labNo");
-            String[] versions = request.getParameterValues("matchVersion");
-            String[] reasons = request.getParameterValues("reason");
-            if (reports == null || reports.length != 1 || versions == null || versions.length != 1
-                    || reasons == null || reasons.length != 1) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
-                return NONE;
+        boolean success = false;
+        //set the demographicNo in the patientLabRouting table
+        String reason = request.getParameter("reason");
+        String labNoStr = request.getParameter("labNo");
+        Integer labNo = Integer.parseInt(labNoStr);
+
+        List<PatientLabRouting> plr = plrDao.findByLabNoAndLabType(labNo, ProviderLabRoutingDao.LAB_TYPE.HL7.name());
+        Integer demoNo = PatientLabRoutingDao.UNMATCHED;
+
+        for (PatientLabRouting patientLabRouting : plr) {
+            demoNo = patientLabRouting.getDemographicNo();
+            patientLabRouting.setDemographicNo(PatientLabRoutingDao.UNMATCHED);
+            patientLabRouting.setDateModified(new Date());
+            plrDao.merge(patientLabRouting);
+            if (patientLabRouting.getDemographicNo().equals(PatientLabRoutingDao.UNMATCHED)) {
+                success = true;
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Unlinked lab segmentID={} from demographic={}",
+                            LogSafe.sanitizeObject(labNo), LogSafe.sanitizeObject(demoNo));
+                }
+                OscarAuditLogger.getInstance().log(loggedInInfo, LogConst.UNLINK, LogConst.CON_HL7_LAB, String.valueOf(labNo), request.getRemoteAddr(), demoNo, reason);
+            } else {
+                break;
             }
-            int report = Integer.parseInt(reports[0]);
-            int patient = unlink.unlink(report, versions[0], reasons[0], actor, request.getRemoteAddr());
-            var result = MAPPER.createObjectNode();
-            result.put("success", true); result.put("unlinkedDemographicNo", patient);
-            result.put("labNo", report); result.put("reason", reasons[0]);
-            response.setContentType("application/json");
-            response.setCharacterEncoding("UTF-8");
-            MAPPER.writeValue(response.getWriter(), result);
-        } catch (Hl7PatientUnlinkService.StaleMatch stale) {
-            response.sendError(HttpServletResponse.SC_CONFLICT, stale.getMessage());
-        } catch (Hl7PatientUnlinkService.ChainNotUnlinkable blocked) {
-            // Not 409: the page tells a 409 to refresh and retry, which cannot help here.
-            response.sendError(422, blocked.getMessage());
-        } catch (IllegalArgumentException invalid) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
-        } catch (SecurityException denied) {
-            throw denied;
-        } catch (RuntimeException failure) {
-            // Clinical/DAO exception messages can contain results. Keep the response generic.
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn("HL7 unlink transaction failed: {}",
-                    failure.getClass().getSimpleName());
-            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                    "Unlink was not confirmed. Refresh the report and review its patient match before retrying.");
         }
-        return NONE;
+
+        /* ensure the lab requisitioning providers is aware by inserting lab back into their inbox.
+         * or into the unattached inbox if no providers is identified.
+         */
+        if (success) {
+            List<ProviderLabRoutingModel> providerLabRoutingModel = providerLabRoutingDao.findAllLabRoutingByIdandType(labNo, ProviderLabRoutingDao.LAB_TYPE.HL7.name());
+            for (ProviderLabRoutingModel providerLabRouting : providerLabRoutingModel) {
+                String currentStatus = providerLabRouting.getStatus();
+                providerLabRouting.setStatus(ProviderLabRoutingDao.STATUS.N.name());
+                String comment = providerLabRouting.getComment() + " Lab unlinked from incorrect demographic number: " + demoNo;
+                providerLabRouting.setComment(comment.trim());
+                providerLabRouting.setTimestamp(new Date());
+                providerLabRoutingDao.merge(providerLabRouting);
+                OscarAuditLogger.getInstance().log(loggedInInfo, LogConst.UNLINK, LogConst.CON_HL7_LAB, String.valueOf(labNo), request.getRemoteAddr(), demoNo, "Provider " + providerLabRouting.getProviderNo() + " Ack status from " + currentStatus + " to " + ProviderLabRoutingDao.STATUS.N.name());
+            }
+        }
+
+        ObjectNode jsonObject = objectMapper.createObjectNode();
+        jsonObject.put("success", success);
+        jsonObject.put("unlinkedDemographicNo", demoNo);
+        jsonObject.put("labNo", labNo);
+        jsonObject.put("reason", reason);
+
+        JSONUtil.jsonResponse(response, jsonObject);
+
+        return null;
     }
+
+
 }

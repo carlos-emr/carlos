@@ -80,11 +80,9 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
 
     private ProviderLabRoutingDao originalRoutingDao;
     private boolean routingDaoReplaced;
-    private MockedStatic<io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory> sourceHandlers;
 
     @org.junit.jupiter.api.AfterEach
     void restoreRoutingDao() {
-        if (sourceHandlers != null) sourceHandlers.close();
         if (routingDaoReplaced) {
             org.springframework.test.util.ReflectionTestUtils.setField(CommonLabResultData.class,
                     "providerLabRoutingDao", originalRoutingDao);
@@ -111,11 +109,6 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
      * register them so referencing either class does not blow up outside a Spring context.
      */
     private void registerStaticInitializerMocks() {
-        // These tests cover the established non-CML chain policy. CML coverage and
-        // unreadable sources are exercised separately with actual parsed messages.
-        sourceHandlers = mockStatic(io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory.class);
-        sourceHandlers.when(() -> io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory.getHandler(anyString()))
-                .thenReturn(mock(io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler.class));
         org.springframework.transaction.PlatformTransactionManager transactions =
                 createAndRegisterMock(org.springframework.transaction.PlatformTransactionManager.class);
         when(transactions.getTransaction(any())).thenAnswer(call -> {
@@ -475,8 +468,7 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
                     if (wholeChain) {
                         // Exercise materialization of an older routing row too, independently
                         // of the already separately tested server-side version-chain lookup.
-                        common.when(() -> CommonLabResultData.filingVersionsOf(170, "DOC", null))
-                                .thenReturn(new CommonLabResultData.FilingVersions(List.of(169), List.of()));
+                        common.when(() -> CommonLabResultData.olderVersionsOf(170, "DOC", null)).thenReturn(List.of(169));
                         assertThat(CommonLabResultData.acknowledgeReport(170, "999998", "Keep [clinical] $1", "DOC", false, null))
                                 .isZero();
                         return true;

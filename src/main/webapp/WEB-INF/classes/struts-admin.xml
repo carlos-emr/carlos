@@ -69,10 +69,6 @@
             <result name="success">/WEB-INF/jsp/admin/fixRolesOnNotes.jsp</result>
         </action>
 
-        <action name="admin/CmlProjectionRepair" class="io.github.carlos_emr.carlos.admin.web.CmlProjectionRepair2Action">
-            <result name="success">/WEB-INF/jsp/admin/cmlProjectionRepair.jsp</result>
-        </action>
-
         <!-- Provider Management -->
         <action name="admin/ProviderTemplate" class="io.github.carlos_emr.carlos.admin.web.ProviderTemplate2Action">
             <result name="success">/WEB-INF/jsp/admin/providertemplate.jsp</result>

@@ -56,27 +56,6 @@ public final class ViewLabValues2Action extends ActionSupport {
             return NONE;
         }
 
-        if ("1".equals(request.getParameter("historyBatch"))) {
-            HttpServletResponse response = ServletActionContext.getResponse();
-            response.setHeader("Cache-Control", "no-store");
-            response.setContentType("application/json");
-            response.setCharacterEncoding("UTF-8");
-            String[] requested = request.getParameterValues("identifier");
-            if (requested == null || requested.length == 0 || requested.length > 128
-                    || java.util.Arrays.stream(requested).anyMatch(value -> value == null || value.isBlank() || value.length() > 256)) {
-                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                return NONE;
-            }
-            try {
-                var values = io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues.findSourceValuesForTests(
-                        Integer.valueOf(request.getParameter("demo")), new java.util.LinkedHashSet<>(java.util.Arrays.asList(requested)));
-                new com.fasterxml.jackson.databind.ObjectMapper().writeValue(response.getWriter(), values);
-            } catch (io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision ambiguous) {
-                response.setStatus(HttpServletResponse.SC_CONFLICT);
-                response.getWriter().write("{\"error\":\"review\"}");
-            }
-            return NONE;
-        }
         return SUCCESS;
     }
 }

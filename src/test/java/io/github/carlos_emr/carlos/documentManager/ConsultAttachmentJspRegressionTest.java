@@ -115,10 +115,7 @@ class ConsultAttachmentJspRegressionTest {
 
         assertThat(jsp)
                 .contains("boolean hl7Lab = !attachedLab1.isAttachmentUnavailable() && LabResultData.HL7TEXT.equals(attachedLab1.getLabType());")
-                .contains("String[] matchingLabIds = new String[]{attachedLab1.getSegmentID()};")
-                .contains("if (hl7Lab) { try { matchingLabIds = Hl7textResultsData.getMatchingLabs(attachedLab1.getSegmentID()).split(\",\"); }")
-                .contains("catch (io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision ambiguous)")
-                .contains("if (matchingLabIds.length == 1) { attachedLabsSortedByVersions.add(attachedLab1); continue; }")
+                .contains("? Hl7textResultsData.getMatchingLabs(attachedLab1.getSegmentID()).split(\",\") : new String[]{attachedLab1.getSegmentID()};")
                 .contains("|| !LabResultData.HL7TEXT.equals(attachedLab2.getLabType())")
                 .doesNotContain("String[] matchingLabIds = Hl7textResultsData.getMatchingLabs(attachedLab1.getSegmentID()).split(\",\");");
     }

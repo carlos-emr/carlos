@@ -104,9 +104,6 @@ public final class MessageUploader {
         if (h == null) {
             throw new Exception("Unabled to continue. No valid handler found.");
         }
-        // FileUploadCheck owns the outer READ_COMMITTED transaction. Lock before the new
-        // version is inserted, so a concurrent match/unlink cannot miss a phantom version.
-        io.github.carlos_emr.carlos.lab.service.Hl7ChainLocks.lock(type, h.getAccessionNum());
         
         String firstName = h.getFirstName();
         String lastName = h.getLastName();
@@ -259,7 +256,7 @@ public final class MessageUploader {
 
         String demProviderNo = null;
 
-        demProviderNo = patientRouteReport(loggedInInfo, type, insertID, lastName, firstName, sex, dob, hin, h);
+        demProviderNo = patientRouteReport(loggedInInfo, type, insertID, lastName, firstName, sex, dob, hin);
 
         Integer limit = null;
         boolean orderByLength = false;
@@ -426,7 +423,7 @@ public final class MessageUploader {
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private static String patientRouteReport(LoggedInInfo loggedInInfo, String labType, int labId, String lastName, String firstName, String sex, String dob, String hin, MessageHandler handler) throws SQLException {
+    private static String patientRouteReport(LoggedInInfo loggedInInfo, String labType, int labId, String lastName, String firstName, String sex, String dob, String hin) throws SQLException {
         PatientLabRoutingResult result = null;
 
         List<LabRoutingLookupDao.Patient> matches = SpringUtils.getBean(LabRoutingLookupDao.class)
@@ -461,13 +458,6 @@ public final class MessageUploader {
         }
 
 
-        boolean explicitlyUnmatched = SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.Hl7PatientUnlinkService.class)
-                .hasUnmatchedVersion(labId, handler);
-        if (explicitlyUnmatched) {
-            result = null;
-            PatientLabRouting unmatched = new PatientLabRouting(labId, "HL7", PatientLabRoutingDao.UNMATCHED);
-            SpringUtils.getBean(PatientLabRoutingDao.class).persist(unmatched);
-        }
         if (result == null) {
             logger.info("Could not find patient for lab: " + labId);
         } else {

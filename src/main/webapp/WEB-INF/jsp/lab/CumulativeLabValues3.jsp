@@ -96,17 +96,7 @@
     List<String> idList = new ArrayList<>();
     Map<String, LinkedHashMap<String, Hashtable>> measIdMap = new HashMap<>();
     List<Hashtable<String, String>> dateList = new ArrayList<>();
-    boolean sourceOnlyResults = false;
-    boolean sourceLoadFailed = false;
 
-    List<Map<String, java.io.Serializable>> sourceResults = List.of();
-    try {
-        sourceResults = io.github.carlos_emr.carlos.lab.ca.on.Hl7SourceResults.read(patient);
-    } catch (RuntimeException unavailableSource) {
-        MiscUtils.getLogger().warn("HL7 source results unavailable: {}", unavailableSource.getClass().getSimpleName());
-        sourceLoadFailed = true;
-        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-    }
     try {
         InputStream is = application.getResource("/WEB-INF/measurements.xml").openStream();
         SAXBuilder saxParser = io.github.carlos_emr.carlos.utility.XmlUtils.createSecureSAXBuilder();
@@ -123,12 +113,9 @@
 
             if (!loinc_code.equalsIgnoreCase("NULL")) {
                 LinkedHashMap<String, Hashtable> idMap = new LinkedHashMap<>();
-                ArrayList labList = CommonLabTestValues.findDisplayValuesByLoinc(demographic_no, loinc_code, sourceResults);
+                ArrayList labList = CommonLabTestValues.findValuesByLoinc(demographic_no, loinc_code);
                 for (int j = 0; j < labList.size(); j++) {
                     Hashtable h  = (Hashtable) labList.get(j);
-                    sourceOnlyResults |= Boolean.TRUE.equals(h.get("sourceOnly"))
-                            || Boolean.TRUE.equals(h.get("multipleSourceResults"))
-                            || Boolean.TRUE.equals(h.get("differentSourceResult"));
                     String date  = (String) h.get("date");
                     String id    = (String) h.get("lab_no");
                     idMap.put(id, h);
@@ -171,8 +158,6 @@
 
     } catch (Exception ex) {
         MiscUtils.getLogger().error("Error loading cumulative lab values", ex);
-        sourceLoadFailed = true;
-        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
     }
 
     CumulativeLabValuesComparator comp = new CumulativeLabValuesComparator();
@@ -242,8 +227,6 @@
     pageContext.setAttribute("tableRows",     tableRows);
     pageContext.setAttribute("ctx",           request.getContextPath());
     pageContext.setAttribute("providerNo",    session.getAttribute("user"));
-    pageContext.setAttribute("sourceOnlyResults", sourceOnlyResults);
-    pageContext.setAttribute("sourceLoadFailed", sourceLoadFailed);
 %>
 
 <%-- ========== BUNDLE (single, pre-DOCTYPE) ========== --%>
@@ -277,12 +260,6 @@
     </style>
 </head>
 <body>
-<c:if test="${sourceLoadFailed}">
-    <p class="alert alert-danger" role="alert"><fmt:message key="lab.cumulativeLab3.sourceUnavailable"/></p>
-</c:if>
-<c:if test="${sourceOnlyResults}">
-    <p class="alert alert-info" role="status"><fmt:message key="lab.cumulativeLab3.sourceResults"/></p>
-</c:if>
 
 <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom">
     <span class="fw-semibold small">

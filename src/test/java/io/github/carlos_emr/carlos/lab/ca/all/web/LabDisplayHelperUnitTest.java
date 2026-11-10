@@ -61,48 +61,13 @@ class LabDisplayHelperUnitTest extends CarlosUnitTestBase {
             acknowledgements.when(() -> AcknowledgementData.getAcknowledgements("123")).thenReturn(new ArrayList<>());
             matching.when(() -> Hl7textResultsData.getMatchingLabs("123")).thenReturn("123");
             factory.when(() -> Factory.getHandler("123")).thenReturn(handler);
-            tests.when(() -> CommonLabTestValues.findSourceValuesForTests(17, java.util.Set.of("FAKE-id"))).thenReturn(Map.of("FAKE-id", values));
+            tests.when(() -> CommonLabTestValues.findValuesForTest("HL7", 17, "FAKE-test", "FAKE-id")).thenReturn(values);
             var xml = LabDisplayHelper.labToXml(17, lab);
             assertThat(xml.getElementsByTagName("mapOfTestValues").item(0).getTextContent()).isEqualTo(legacy);
             assertThat(LabDisplayHelper.getMapOfTestValues(xml)).isEqualTo(expected);
             assertThat(LabDisplayHelper.getHl7Body(xml)).isEqualTo("FAKE-HL7");
             assertThat(LabDisplayHelper.getMultiLabId(xml)).isEqualTo("123");
-            tests.verify(() -> CommonLabTestValues.findSourceValuesForTests(17, java.util.Set.of("FAKE-id")), times(1));
-            tests.verifyNoMoreInteractions();
-        }
-    }
-    @Test
-    void shouldCacheSourceMembership_whenRevisionsCannotBeOrdered() throws Exception {
-        for (Class<?> dao : java.util.List.of(MeasurementsDeletedDao.class, MeasurementDao.class, MeasurementsExtDao.class,
-                MeasurementMapDao.class, ConsultDocsDao.class, ConsultResponseDocDao.class, Hl7TextInfoDao.class,
-                PatientLabRoutingDao.class, EFormDocsDao.class)) {
-            createAndRegisterMock(dao);
-        }
-        var dao = createAndRegisterMock(Hl7TextMessageDao.class);
-        var message = mock(Hl7TextMessage.class);
-        when(dao.find(123)).thenReturn(message);
-        when(message.getType()).thenReturn("CML");
-        when(message.getBase64EncodedeMessage()).thenReturn("RkFLRS1ITDc=");
-        var lab = mock(LabResultData.class, invocation -> invocation.getMethod().getReturnType() == String.class
-                ? "" : RETURNS_DEFAULTS.answer(invocation));
-        lab.labType = "HL7";
-        when(lab.getSegmentID()).thenReturn("123");
-        var handler = mock(MessageHandler.class);
-        try (var acknowledgements = mockStatic(AcknowledgementData.class);
-             var matching = mockStatic(Hl7textResultsData.class);
-             var factory = mockStatic(Factory.class);
-             var tests = mockStatic(CommonLabTestValues.class)) {
-            acknowledgements.when(() -> AcknowledgementData.getAcknowledgements("123")).thenReturn(new ArrayList<>());
-            matching.when(() -> Hl7textResultsData.getMatchingLabs("123")).thenThrow(
-                    new io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision("synthetic conflict"));
-            matching.when(() -> Hl7textResultsData.getMatchingLabsForHistory("123")).thenReturn("122,123");
-            factory.when(() -> Factory.getHandler("123")).thenReturn(handler);
-            tests.when(() -> CommonLabTestValues.findSourceValuesForTests(17, java.util.Set.of())).thenReturn(Map.of());
-
-            var xml = LabDisplayHelper.labToXml(17, lab);
-
-            // No clinical order is invented; the report stays readable with its raw versions.
-            assertThat(LabDisplayHelper.getMultiLabId(xml)).isEqualTo("122,123");
+            tests.verify(() -> CommonLabTestValues.findValuesForTest("HL7", 17, "FAKE-test", "FAKE-id"));
         }
     }
 }

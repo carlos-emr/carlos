@@ -59,12 +59,4 @@ public class MeasurementsDeletedDaoImpl extends AbstractDaoImpl<MeasurementsDele
         return (results);
     }
 
-    @Override
-    public List<MeasurementsDeleted> findByLabNumbers(List<String> labNumbers) {
-        if (labNumbers.isEmpty()) return List.of();
-        return entityManager.createQuery("select distinct d from MeasurementsDeleted d, MeasurementsExt e "
-                + "where e.measurementId=d.originalId and e.keyVal='lab_no' and e.val in ?1", MeasurementsDeleted.class)
-                .setParameter(1, labNumbers).getResultList();
-    }
-
 }

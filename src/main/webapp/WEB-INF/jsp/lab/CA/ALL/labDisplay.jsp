@@ -155,7 +155,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
-<fmt:message key="clinical.history.unavailable" var="labHistoryUnavailableText"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
@@ -307,18 +306,12 @@
 
             handler = handlers.get(0);
         } else {
-            boolean clinicalOrderAvailable = true;
-            try { multiLabId = Hl7textResultsData.getMatchingLabs(segmentID); }
-            catch (io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision ambiguous) {
-                clinicalOrderAvailable = false;
-                request.setAttribute("cmlProjectionReview", true);
-                multiLabId = Hl7textResultsData.getMatchingLabsForHistory(segmentID);
-            }
+            multiLabId = Hl7textResultsData.getMatchingLabs(segmentID);
             segmentIDs = multiLabId.split(",");
             LabPatientAccess.requireLabs(securityInfoManager, accessRoutings, loggedInInfo, segmentIDs, "HL7");
 
 		int totalMatchingLabs = segmentIDs.length;
-		if (clinicalOrderAvailable && showLatest != null && "true".equals(showLatest) && totalMatchingLabs > 1) {
+		if (showLatest != null && "true".equals(showLatest) && totalMatchingLabs > 1) {
 			segmentID = segmentIDs[totalMatchingLabs - 1];
 		}
 
@@ -387,32 +380,6 @@
 
 request.setAttribute("duplicateOfLab", duplicateOfLab);
 request.setAttribute("missingTests", missingTests);
-String unlinkMatchVersion = "";
-boolean unlinkChainBlocked = false;
-if (isLinkedToDemographic && StringUtils.isNumeric(segmentID) && Integer.parseInt(segmentID) > 0) {
-    try {
-        unlinkMatchVersion = SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.Hl7PatientUnlinkService.class)
-                .version(Integer.parseInt(segmentID));
-    } catch (io.github.carlos_emr.carlos.lab.service.Hl7PatientUnlinkService.ChainNotUnlinkable blockedChain) {
-        // The versions do not agree on patient or source. Say so; a refresh cannot change it.
-        unlinkChainBlocked = true;
-    } catch (RuntimeException unavailableMatch) {
-        // Reads stay read-only. An ambiguous chain can be viewed but cannot be unlinked.
-        MiscUtils.getLogger().warn("HL7 unlink context unavailable: {}", unavailableMatch.getClass().getSimpleName());
-    }
-}
-
-if (handler instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler && isLinkedToDemographic) {
-    try {
-        io.github.carlos_emr.carlos.lab.service.CmlProjectionService.Summary projection = SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.CmlProjectionService.class)
-                .status(Integer.parseInt(segmentID), loggedInInfo);
-        request.setAttribute("cmlProjectionReview", projection.isReviewNeeded() || projection.isChangeNeeded());
-        request.setAttribute("cmlProjectionSpansReports", projection.isSpansReports());
-    } catch (RuntimeException unavailableProjection) {
-        MiscUtils.getLogger().warn("CML projection status unavailable: {}", unavailableProjection.getClass().getSimpleName());
-        response.setStatus(500); request.setAttribute("cmlProjectionReview", Boolean.TRUE);
-    }
-}
 
 /********************** Converted to this sport *****************************/
 
@@ -481,9 +448,6 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
         <fmt:message key="oscarMDS.index.msgConfirmAcknowledge" var="msgAck"/>
         <fmt:message key="oscarMDS.index.msgConfirmAcknowledgeUnmatched" var="msgAckUnmatched"/>
         <fmt:message key="oscarMDS.segmentDisplay.msgUnlink" var="msgUnlink"/>
-        <fmt:message key="lab.unlink.refreshRequired" var="msgUnlinkRefreshRequired"/>
-        <fmt:message key="lab.unlink.notConfirmed" var="msgUnlinkNotConfirmed"/>
-        <fmt:message key="lab.unlink.chainReview" var="msgUnlinkChainReview"/>
 
     </script>
 
@@ -839,15 +803,6 @@ input[id^='acklabel_']{
         }
 
         function unlinkDemographic(labNo) {
-            var matchVersion = '<carlos:encode value='<%= unlinkMatchVersion %>' context="javaScriptBlock"/>';
-            if (<%= unlinkChainBlocked %>) {
-                alert('${carlos:forJavaScript(msgUnlinkChainReview)}');
-                return false;
-            }
-            if (!matchVersion) {
-                alert('${carlos:forJavaScript(msgUnlinkRefreshRequired)}');
-                return false;
-            }
             var reason = "Incorrect demographic";
             reason = prompt('${carlos:forJavaScript(msgUnlink)}', reason);
 
@@ -857,29 +812,24 @@ input[id^='acklabel_']{
             }
 
             var urlStr = '<%=request.getContextPath()%>' + "/lab/CA/ALL/UnlinkDemographic";
-            var dataStr = "reason=" + encodeURIComponent(reason) + "&labNo=" + encodeURIComponent(labNo)
-                + "&matchVersion=" + encodeURIComponent(matchVersion) + "&CSRF-TOKEN=" + encodeURIComponent(getCsrfToken());
+            var dataStr = "reason=" + encodeURIComponent(reason) + "&labNo=" + encodeURIComponent(labNo) + "&CSRF-TOKEN=" + encodeURIComponent(getCsrfToken());
             fetch(urlStr, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                 body: dataStr
             })
-            .then(function(response) {
-                if (!response.ok) throw new Error(response.status === 422 ? 'chain' : response.status === 409 ? 'stale' : 'failed');
-                return response.json();
-            })
+            .then(function(response) { return response.json(); })
             .then(function(data) {
                 if (data.success) {
                     // refresh the opening page with new results
-                    if (top.opener && !top.opener.closed) top.opener.location.reload();
+                    top.opener.location.reload();
                     // refresh the lab display page and offer dialog to rematch.
                     window.location.reload();
-                } else throw new Error('failed');
+                }
             })
             .catch(function(error) {
-                alert(error.message === 'chain' ? '${carlos:forJavaScript(msgUnlinkChainReview)}'
-                    : error.message === 'stale' ? '${carlos:forJavaScript(msgUnlinkRefreshRequired)}'
-                    : '${carlos:forJavaScript(msgUnlinkNotConfirmed)}');
+                console.error('Failed to unlink demographic:', error);
+                alert('An error occurred while unlinking the demographic. Please refresh and try again.');
             });
         }
 
@@ -956,39 +906,65 @@ input[id^='acklabel_']{
             console.log("of "+rows.length +" abnormal Labs "+abnormalLabs.length +" to be checked");
                
           // Fetch and insert only for abnormal labs
-          fetchLabHistories().then(() => {
+          fetchLabsSequentially().then(() => {
               const ms = Date.now() - start;
               console.log("All labs fetched and inserted in "+Math.floor(ms / 100)/10+" sec");
           });
         }
 
-        async function fetchLabHistories() {
-          if (!abnormalLabs.length) return;
-          const parameters = new URLSearchParams({historyBatch: '1', demo: demographicNo});
-          [...new Set(abnormalLabs.map(lab => lab.LOINC))].forEach(identifier => parameters.append('identifier', identifier));
+        async function fetchLabsSequentially() {
+          for (let i = 0; i < abnormalLabs.length; i++) {
+              const lab = abnormalLabs[i];
+      
+              // Fetch values for this lab
+              await fetchLabValues(lab, demographicNo);
+      
+              // Insert values immediately after fetching
+              insertLabValues(lab);
+              console.log("Inserted values for "+lab.name);
+          }      
+      }
+
+      async function fetchLabValues(lab, demographicNo) {
+          const newURL = "<%=request.getContextPath()%>/lab/CA/ON/ViewLabValues?testName=" + encodeURIComponent(lab.testName) +
+            "&demo=" + encodeURIComponent(demographicNo) + "&labType=HL7&identifier=" + encodeURIComponent(lab.LOINC);      
+     
           try {
-              const response = await fetch("<%=request.getContextPath()%>/lab/CA/ON/ViewLabValues?" + parameters);
-              if (!response.ok) throw new Error('History answered HTTP ' + response.status);
-              const histories = await response.json();
-              for (const lab of abnormalLabs) {
-                  for (const row of (histories[lab.LOINC] || []).slice(0, 10)) {
-                      const date = String(row.collDate || '').match(/^(\d{4}-\d{2}-\d{2})/);
-                      if (!date) continue;
-                      lab.values.push(String(row.result));
-                      lab.dates.push(date[1]);
-                  }
-                  insertLabValues(lab);
+              const response = await fetch(newURL);
+      
+              if (!response.ok) {
+                  console.warn("Failed to fetch lab: " + lab.name + " — status: " + response.status);
+                  return;
               }
+      
+              const responseText = await response.text();
+      
+              // Convert returned HTML into a DOM document
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(responseText, "text/html");
+      
+              // Select all result rows
+              const rows = doc.querySelectorAll(
+                  "tr.NormalRes, tr.AbnormalRes, tr.LoRes, tr.HiLoRes"
+              );
+      
+              rows.forEach((row) => {
+                  const cells = row.querySelectorAll("td");
+                  if (cells.length < 6) return;
+                  const value = cells[1].textContent.trim();
+                  const dateTime = cells[5].textContent.trim();
+                  // Extract only the YYYY-MM-DD part
+                  const dateMatch = dateTime.match(/^(\d{4}-\d{2}-\d{2})/);
+                  if (!dateMatch) return;
+                  if (lab.values.length < 10) {
+                      lab.values.push(value);
+                      lab.dates.push(dateMatch[1]);
+                  }
+              });
           } catch (error) {
-              const warning = document.createElement('p');
-              warning.setAttribute('role', 'alert');
-              warning.id = 'labHistoryUnavailable';
-              warning.textContent = <%= new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(
-                      pageContext.getAttribute("labHistoryUnavailableText")).replace("</", "<\\/") %>;
-              document.body.prepend(warning);
-              console.error('Lab history unavailable', error);
+              console.error("Error fetching lab: "+ lab.name, error);
           }
-        }
+      }
 
       function insertLabValues(lab) {
           const rows = document.querySelectorAll("tr.NormalRes, tr.AbnormalRes, tr.HiLoRes");
@@ -1072,8 +1048,6 @@ input[id^='acklabel_']{
 </head>
 
 <body onLoad="javascript:matchMe(); loadHL7hx();">
-<c:if test="${cmlProjectionReview}"><p role="alert" id="cmlProjectionReview"><fmt:message key="clinical.cml.review"/></p></c:if>
-<c:if test="${cmlProjectionSpansReports}"><p role="status"><fmt:message key="clinical.cml.spansReports"/></p></c:if>
 
 <!-- form forwarding of the lab -->
 <%
@@ -1587,10 +1561,8 @@ input[id^='acklabel_']{
                                        onclick="handleLab('','<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','msgLab');">
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="Tickler"
                                        onclick="handleLab('','<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','ticklerLab');">
-                                <% if (isLinkedToDemographic) { %>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:message key="oscarMDS.segmentDisplay.btnUnlinkDemo"/>"
                                        onclick="unlinkDemographic(<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>)">
-                                <% } %>
 
                                 <% if (searchProviderNo != null) { // null if we were called from e-chart%>
                                 <c:set var="__enc_1"><carlos:encode value='<%= segmentID %>' context="uriComponent"/></c:set>

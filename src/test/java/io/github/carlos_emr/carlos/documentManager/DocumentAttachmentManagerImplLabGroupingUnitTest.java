@@ -77,24 +77,4 @@ class DocumentAttachmentManagerImplLabGroupingUnitTest extends CarlosUnitTestBas
         Map<String, String> versions = newest.getLabVersionIds();
         assertThat(versions).hasSize(1);
     }
-
-    @Test
-    @DisplayName("should offer a CML report on its own when its revisions cannot be ordered")
-    void shouldResolveToTheReportItself_whenRevisionsCannotBeOrdered() {
-        // The legacy reader resolves its DAOs when the class loads.
-        for (java.lang.reflect.Field field : io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData.class.getDeclaredFields()) {
-            if (java.lang.reflect.Modifier.isStatic(field.getModifiers()) && field.getName().endsWith("Dao")) {
-                createAndRegisterMock(field.getType());
-            }
-        }
-        try (var chains = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData.class)) {
-            chains.when(() -> io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData.getMatchingLabs("9"))
-                    .thenThrow(new io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision("synthetic conflict"));
-            chains.when(() -> io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData.getMatchingLabs("7")).thenReturn("6,7");
-
-            // No "newest" is chosen for the picker: every report stays individually attachable.
-            assertThat(DocumentAttachmentManagerImpl.hl7VersionChain("9")).isEqualTo("9");
-            assertThat(DocumentAttachmentManagerImpl.hl7VersionChain("7")).isEqualTo("6,7");
-        }
-    }
 }

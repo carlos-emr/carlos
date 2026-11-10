@@ -39,7 +39,6 @@ public final class MeasurementChart {
     private String secondAxis;
     private boolean dateAxis = true;
     private boolean medicationPanel;
-    private int excludedObservations;
 
     private MeasurementChart(String title, String xLabel, String yLabel) {
         this.title = title; this.xLabel = xLabel; this.yLabel = yLabel;
@@ -76,7 +75,6 @@ public final class MeasurementChart {
         chart.style.put(RANGE_MARGINS, List.of(0.05, 0.2));
         chart.style.put(RANGE_INCLUDES_ZERO, true);
         chart.datasets.add(rangeDataset(rangesLabel, FIRST_SERIES_PAINT, ranges, true));
-        chart.excludedObservations += series.excludedObservations;
         // One renderer drew both datasets, so series i of the measurement reused its paint i, and
         // its legend item carried the high-low renderer's square.
         int index = 0;
@@ -195,7 +193,6 @@ public final class MeasurementChart {
     }
 
     private void addSeries(SeriesCollection collection, String axis, String paint, boolean lines, boolean shapes) {
-        excludedObservations += collection.excludedObservations;
         for (Series series : collection.series) addSeries(series, axis, paint, lines, shapes);
     }
 
@@ -223,11 +220,6 @@ public final class MeasurementChart {
         return dataset;
     }
 
-    MeasurementChart withExcludedObservations(int count) {
-        excludedObservations += count;
-        return this;
-    }
-
     public Map<String, Object> toConfig() {
         Map<String, Object> config = new LinkedHashMap<>();
         config.put("title", title); config.put("xLabel", xLabel); config.put("yLabel", yLabel);
@@ -241,10 +233,6 @@ public final class MeasurementChart {
         config.put("dateAxis", dateAxis);
         config.put("timeZone", browserTimeZone(ZoneId.systemDefault()));
         config.put("style", style);
-        if (excludedObservations > 0) {
-            config.put("exclusionNotice", excludedObservations
-                    + " qualified or nonnumeric results are not plotted; consult the source history.");
-        }
         if (secondAxis != null) config.put("secondAxis", secondAxis);
         return config;
     }
@@ -290,8 +278,6 @@ public final class MeasurementChart {
 
     static final class SeriesCollection {
         private final List<Series> series = new ArrayList<>();
-        private int excludedObservations;
-        void excludeObservation() { excludedObservations++; }
         void addSeries(Series value) { series.add(value); }
     }
 

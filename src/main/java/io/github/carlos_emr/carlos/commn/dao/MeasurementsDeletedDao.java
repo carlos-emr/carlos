@@ -38,6 +38,4 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementsDeleted;
 
 public interface MeasurementsDeletedDao extends AbstractDao<MeasurementsDeleted> {
     List<MeasurementsDeleted> findDeletedAfterDatetime(Date dateTime);
-
-    List<MeasurementsDeleted> findByLabNumbers(List<String> labNumbers);
 }

@@ -55,9 +55,6 @@ public interface PatientLabRoutingDao extends AbstractDao<PatientLabRouting> {
 
     public List<PatientLabRouting> findByLabNoAndLabType(int labNo, String labType);
 
-    /** Current locking read, after the caller has acquired chain and report coordination locks. */
-    List<PatientLabRouting> findForUpdate(int labNo, String labType);
-
     public List<Object[]> findUniqueTestNames(Integer demoId, String labType);
 
     public List<Object[]> findTests(Integer demoId, String labType);
