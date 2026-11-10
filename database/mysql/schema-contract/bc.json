@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "763fde0bfa8bfd621a95b740625c06a7bac59079d6ed6b7340e1d2a0ae6a9cfa",
+ "migration_sha256": "2f1f0aa62e91ff52238db12c92aa0d7ba06f42cbefb785ce7b27272735532e0a",
  "province": "bc",
  "schema": {
   "checks": [
@@ -3899,6 +3899,18 @@
     "utf8mb4_general_ci",
     null,
     4
+   ],
+   [
+    "HRMDocumentToDemographic",
+    "cds_patient_key",
+    "decimal(20,0)",
+    "YES",
+    "NULL",
+    "VIRTUAL GENERATED",
+    null,
+    null,
+    "cast(nullif(regexp_substr(`demographicNo`,'^[[:space:]]*[+]?[0-9]+'),'') as decimal(20,0))",
+    5
    ],
    [
     "HRMDocumentToDemographic",
@@ -181338,6 +181350,17 @@
     0,
     1,
     "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "HRMDocumentToDemographic",
+    "idx_cds_hrm_patient_key",
+    1,
+    1,
+    "cds_patient_key",
     "A",
     null,
     "BTREE",
