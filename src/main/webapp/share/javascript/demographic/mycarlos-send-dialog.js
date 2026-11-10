@@ -80,10 +80,10 @@
 
     // Esc while a send runs, wherever the focus is. A browser may stop honouring a dialog's refused
     // cancel when Esc is pressed again without other input, so the key itself is refused here, before
-    // it can become a close request.
+    // it can become a close request. A dialog the page has removed (an inbox redraw) holds nothing.
     document.addEventListener('keydown', event => {
         if (event.key !== 'Escape') return;
-        if (Array.from(holding).some(dialog => dialog.open)) event.preventDefault();
+        if (Array.from(holding).some(dialog => dialog.open && dialog.isConnected)) event.preventDefault();
     }, true);
 
     document.addEventListener('click', event => {

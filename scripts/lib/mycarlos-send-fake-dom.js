@@ -124,12 +124,15 @@ function load(document, {scripts = ['mycarlos-send.js'], origin = 'https://local
     const calls = [];
     const window = {location: {origin, href: origin + '/FAKE/demographic/PortalDelivery?demographicNo=6001&documentId=44'},
         history: {replaced: [], replaceState(state, title, url) { this.replaced.push(String(url)); }}, csrfTokenReady: Promise.resolve()};
-    const context = {URL, URLSearchParams, Date, console, Promise, document, window,
+    const context = {URL, URLSearchParams, Date, console, Promise, AbortSignal, document, window,
         fetch: async (url, options) => {
             const call = {url, options}; calls.push(call);
             return new Promise((resolve, reject) => {
                 call.resolve = (payload, status = 200) => resolve({ok: status < 400, status, json: async () => payload});
                 call.reject = reject;
+                // As a browser's fetch does, a request whose signal aborts fails with the signal's reason.
+                const signal = options && options.signal;
+                if (signal) signal.addEventListener('abort', () => reject(signal.reason), {once: true});
             });
         }};
     vm.createContext(context);

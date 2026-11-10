@@ -142,6 +142,51 @@ test('a dialog its script cannot wire leaves the click to the link, which opens 
     assert.equal(view.calls.length, 0);
 });
 
+// The shipped script, which must say 120 s, with its request deadline cut to a few milliseconds.
+const shortDeadline = name => ({name, transform: source => {
+    const changed = source.replace('const REQUEST_TIMEOUT_MS = 120000;', 'const REQUEST_TIMEOUT_MS = 20;');
+    assert.notEqual(changed, source, 'mycarlos-send.js ships a 2-minute request deadline');
+    return changed;
+}});
+const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+test('every request carries a deadline', async () => {
+    const view = page();
+    const read = await openRead(view);
+    assert.equal(read.options.signal instanceof AbortSignal, true);
+    view.dialogs['44'].parts.form.dispatch('submit'); await tick();
+    assert.equal(view.calls[1].options.signal instanceof AbortSignal, true);
+});
+
+test('a send that hears nothing back ends at its deadline: the error shows, Close and Esc work, and Send again reuses the id', async () => {
+    const view = page({scripts: [shortDeadline('mycarlos-send.js'), 'mycarlos-send-dialog.js']});
+    const {root, parts} = view.dialogs['44'];
+    await openRead(view);
+    parts.form.dispatch('submit'); await tick();
+    assert.equal(parts.close.disabled, true);
+    assert.equal(root.pressEscape({focusInside: false}), false, 'held while the send runs');
+    await pause(60); await tick();
+    assert.equal(parts.message.textContent, 'error', 'the stalled send ends as failed');
+    assert.equal(parts.close.disabled, false);
+    assert.equal(parts.send.disabled, false);
+    parts.form.dispatch('submit'); await tick();
+    assert.equal(new URLSearchParams(view.calls[2].options.body).get('deliveryId'), MINTED, 'the same operation id, so no second copy');
+    view.calls[2].resolve(state([{...delivery(500, 'staged'), deviceKeyId: 'FAKE-current-device'}])); await tick();
+    assert.equal(parts.message.textContent, 'sent');
+    assert.equal(root.pressEscape({focusInside: false}), true);
+    assert.equal(root.open, false);
+});
+
+test('a dialog the page removed while sending no longer holds Esc on the page', async () => {
+    const view = page();
+    const {root, parts} = view.dialogs['44'];
+    await openRead(view);
+    parts.form.dispatch('submit'); await tick();
+    assert.equal(view.document.dispatchKey({key: 'Escape'}).defaultPrevented, true, 'held while on the page');
+    Object.defineProperty(root, 'isConnected', {get: () => false});
+    assert.equal(view.document.dispatchKey({key: 'Escape'}).defaultPrevented, false);
+});
+
 test('a failed send shows what went wrong, then lets the dialog close', async () => {
     const view = page();
     const {root, parts} = view.dialogs['44'];

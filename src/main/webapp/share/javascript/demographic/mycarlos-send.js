@@ -20,6 +20,27 @@
     // The inbox can load this twice: once itself, once in a document page whose scripts run.
     if (window.CarlosMyCarlosSend) return;
 
+    // A request that hears nothing back in this time ends as failed, so a stalled connection cannot
+    // hold the dialog open (Close and Esc wait for a send) or keep the buttons disabled. It is longer
+    // than two portal calls at their longest allowed deadline (59 s each). A send tried again after a
+    // timeout reuses its operation id, so it cannot queue a second copy.
+    const REQUEST_TIMEOUT_MS = 120000;
+
+    // One deadline for a whole request (token wait, fetch and reply), where the browser has one.
+    function deadline() {
+        return typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+            ? AbortSignal.timeout(REQUEST_TIMEOUT_MS) : null;
+    }
+
+    // A wait that ends with the deadline's reason when the deadline passes first.
+    function within(signal, promise) {
+        if (!signal) return promise;
+        return Promise.race([promise, new Promise((resolve, reject) => {
+            if (signal.aborted) reject(signal.reason);
+            else signal.addEventListener('abort', () => reject(signal.reason), {once: true});
+        })]);
+    }
+
     function mount(root, options) {
         if (!root) return null;
         if (root.mycarlosSend) return root.mycarlosSend;
@@ -137,9 +158,11 @@
             message.textContent = operation === 'send' ? (copy.sending || copy.busy) : copy.busy;
             updateButtons();
             announce(true, operation);
+            const signal = deadline();
             try {
                 const params = new URLSearchParams({method: operation, demographicNo: root.dataset.patient, documentId: root.dataset.document});
                 const options = {method: operation === 'read' ? 'GET' : 'POST', credentials: 'same-origin', headers: {Accept: 'application/json'}};
+                if (signal) options.signal = signal;
                 if (operation === 'send') {
                     params.set('deliveryId', retry ? retry.deliveryId : root.dataset.delivery);
                     params.set('deviceKeyId', retry ? retry.deviceKeyId : chooser.value);
@@ -149,10 +172,10 @@
                     if (older && next) params.set('before', next);
                     url.search = params.toString();
                 } else {
-                    if (window.csrfTokenReady) await window.csrfTokenReady;
+                    if (window.csrfTokenReady) await within(signal, window.csrfTokenReady);
                     let token = csrfToken();
                     if ((!token || !token.value) && typeof window.fetchCsrfToken === 'function') {
-                        await window.fetchCsrfToken(root.dataset.context);
+                        await within(signal, window.fetchCsrfToken(root.dataset.context));
                         token = csrfToken();
                     }
                     if (!token || !token.value) throw new Error();
