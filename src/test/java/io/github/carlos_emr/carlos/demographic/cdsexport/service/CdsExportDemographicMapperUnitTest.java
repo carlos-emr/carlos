@@ -52,7 +52,7 @@ class CdsExportDemographicMapperUnitTest {
     private final CdsExportDemographicMapper mapper = new CdsExportDemographicMapper();
 
     @Test
-    void missingJurisdictionCannotGuessThePostalCodeChoiceForEitherAddress() {
+    void shouldVerifyMissingJurisdictionCannotGuessThePostalCodeChoice_forEitherAddress() {
         for (String prefix : java.util.List.of("mailing", "residential")) {
             var fields = baseline();
             String postal = prefix.equals("mailing") ? "postal" : "residentialPostal";

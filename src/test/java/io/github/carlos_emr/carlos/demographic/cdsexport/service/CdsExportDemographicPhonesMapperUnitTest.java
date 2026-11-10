@@ -43,7 +43,7 @@ class CdsExportDemographicPhonesMapperUnitTest {
     private final CdsExportDemographicPhonesMapper mapper = new CdsExportDemographicPhonesMapper();
 
     @Test
-    void mapsBothExtensionsAndMobileWithoutCombiningOrReformattingNativeValues() throws Exception {
+    void shouldVerifyMapsBothExtensionsAndMobile_withoutCombiningOrReformattingNativeValues() throws Exception {
         var result =
                 map(
                         List.of(
@@ -62,7 +62,7 @@ class CdsExportDemographicPhonesMapperUnitTest {
     }
 
     @Test
-    void actualSchemaAndReceivingParserPreserveEachTypeNumberAndExtension() throws Exception {
+    void shouldVerifyActualSchemaAndReceivingParserPreserveEachTypeNumberAndExtension_forDemographicPhonesMapperContract() throws Exception {
         var result =
                 map(
                         List.of(
@@ -93,7 +93,7 @@ class CdsExportDemographicPhonesMapperUnitTest {
     }
 
     @Test
-    void nullAndEmptyExtensionsRemainDistinct() throws Exception {
+    void shouldVerifyNullAndEmptyExtensionsRemainDistinct_forDemographicPhonesMapperContract() throws Exception {
         var absent = map(List.of(property(1, "hPhoneExt", null)));
         var empty = map(List.of(property(1, "hPhoneExt", "")));
         assertThat(absent.phones().getFirst().extension()).isNull();
@@ -105,7 +105,7 @@ class CdsExportDemographicPhonesMapperUnitTest {
     }
 
     @Test
-    void duplicateVisibleKeysRequireReviewEvenWhenTheStringsAreEqual() throws Exception {
+    void shouldVerifyDuplicateVisibleKeysRequireReviewEven_whenTheStringsAreEqual() throws Exception {
         var result = map(List.of(property(1, "hPhoneExt", "12"), property(2, "hPhoneExt", "12")));
         assertThat(result.baseRowRepresentable()).isFalse();
         assertThat(result.phones().getFirst().extension()).isNull();
@@ -115,7 +115,7 @@ class CdsExportDemographicPhonesMapperUnitTest {
     }
 
     @Test
-    void hiddenUnknownAndUnmappedPropertiesAreNeverTreatedAsEmptySourceTables() throws Exception {
+    void shouldVerifyHiddenUnknownAndUnmappedPropertiesAreNeverTreatedAsEmptySourceTables_forDemographicPhonesMapperContract() throws Exception {
         for (var row :
                 List.of(
                         changed(property(1, "hPhoneExt", "12"), "hidden", "1"),
@@ -135,7 +135,7 @@ class CdsExportDemographicPhonesMapperUnitTest {
     }
 
     @Test
-    void orphanedNonemptyExtensionsCannotCreateAPhoneNumber() throws Exception {
+    void shouldVerifyOrphanedNonemptyExtensionsCannotCreateAPhoneNumber_forDemographicPhonesMapperContract() throws Exception {
         var raw = raw();
         var values = new TreeMap<>(raw.fields());
         values.put("phone", null);
@@ -167,7 +167,7 @@ class CdsExportDemographicPhonesMapperUnitTest {
     }
 
     @Test
-    void clearedMobileRowsStayAbsentAndAreNotRecoveredFromAnotherProperty() throws Exception {
+    void shouldVerifyClearedMobileRowsStayAbsentAndAreNotRecovered_fromAnotherProperty() throws Exception {
         for (String missing : Arrays.asList(null, "")) {
             var result = map(List.of(property(1, "demo_cell", missing)));
             assertThat(result.baseRowRepresentable()).isTrue();
@@ -177,7 +177,7 @@ class CdsExportDemographicPhonesMapperUnitTest {
     }
 
     @Test
-    void wireBoundsCountUnicodeCodePointsAndDoNotTruncate() throws Exception {
+    void shouldVerifyWireBoundsCountUnicodeCodePointsAndDoNotTruncate_forDemographicPhonesMapperContract() throws Exception {
         var result =
                 map(
                         List.of(
@@ -198,7 +198,7 @@ class CdsExportDemographicPhonesMapperUnitTest {
     }
 
     @Test
-    void crossPatientRowsKeysAndUnknownColumnsCannotBorrowAnotherBaseProjection() throws Exception {
+    void shouldVerifyCrossPatientRowsKeysAndUnknownColumnsCannotBorrowAnotherBaseProjection_forDemographicPhonesMapperContract() throws Exception {
         var row = property(1, "hPhoneExt", "12");
         assertThatThrownBy(() -> map(List.of(changed(row, "demographic_no", "28"))))
                 .hasMessage("CDS_EXPORT_DEMOGRAPHIC_PHONE_SCOPE_INVALID");
@@ -223,7 +223,7 @@ class CdsExportDemographicPhonesMapperUnitTest {
     }
 
     @Test
-    void resourceLimitsAndCancellationRefuseBeforeReturningAnUpdatedBase() throws Exception {
+    void shouldVerifyResourceLimitsAndCancellationRefuse_beforeReturningAnUpdatedBase() throws Exception {
         var current = raw();
         var base = new CdsExportDemographicMapper().map(current);
         var rows = List.of(property(1, "hPhoneExt", "12"), property(2, "wPhoneExt", "5"));
@@ -248,7 +248,7 @@ class CdsExportDemographicPhonesMapperUnitTest {
     }
 
     @Test
-    void anUnrelatedPropertyReviewDoesNotEraseAnOtherwiseValidPrimaryPhysician() throws Exception {
+    void shouldVerifyAnUnrelatedPropertyReviewDoesNotEraseAnOtherwiseValidPrimaryPhysician_forDemographicPhonesMapperContract() throws Exception {
         var nativeRow = raw();
         var values = new TreeMap<>(nativeRow.fields());
         values.put("provider_no", "A");
@@ -269,7 +269,7 @@ class CdsExportDemographicPhonesMapperUnitTest {
     }
 
     @Test
-    void aLaterPrimaryPhysicianJoinPreservesPhoneValuesAndTheirIndependentFieldEvidence()
+    void shouldVerifyALaterPrimaryPhysicianJoinPreservesPhoneValuesAndTheirIndependentFieldEvidence_forDemographicPhonesMapperContract()
             throws Exception {
         var raw = raw();
         var fields = new TreeMap<>(raw.fields());
@@ -303,7 +303,7 @@ class CdsExportDemographicPhonesMapperUnitTest {
     }
 
     @Test
-    void phoneDtosCannotBypassTheWriterLexicalGate() {
+    void shouldVerifyPhoneDtosCannotBypassTheWriterLexicalGate_forDemographicPhonesMapperContract() {
         for (String number :
                 List.of(
                         "x".repeat(26),

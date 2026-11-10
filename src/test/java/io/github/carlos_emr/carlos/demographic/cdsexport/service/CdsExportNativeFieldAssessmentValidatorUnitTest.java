@@ -33,7 +33,7 @@ class CdsExportNativeFieldAssessmentValidatorUnitTest {
             new CdsExportNativeFieldAssessmentValidator();
 
     @Test
-    void validatesExactIdentitiesAndSeparatelyCountsNullEmptyValueAndOutcomes() throws Exception {
+    void shouldVerifyValidatesExactIdentitiesAndSeparatelyCountsNullEmptyValueAndOutcomes_forNativeFieldAssessmentValidatorContract() throws Exception {
         var row = row();
         var result = validator.validate(List.of(row), assessments(row), 100, () -> {});
         assertThat(result)
@@ -43,7 +43,7 @@ class CdsExportNativeFieldAssessmentValidatorUnitTest {
     }
 
     @Test
-    void equalSizeCannotHideAMissingFieldBehindAnInventedColumn() {
+    void shouldVerifyEqualSizeCannotHideAMissingFieldBehindAnInventedColumn_forNativeFieldAssessmentValidatorContract() {
         var row = row();
         var fields = assessments(row);
         fields.put(key("invented"), fields.remove(key("value")));
@@ -51,7 +51,7 @@ class CdsExportNativeFieldAssessmentValidatorUnitTest {
     }
 
     @Test
-    void equalValuesCannotSubstituteAnotherRowOrTable() {
+    void shouldVerifyEqualValuesCannotSubstituteAnotherRowOrTable_forNativeFieldAssessmentValidatorContract() {
         for (var key :
                 List.of(
                         new CdsExportNativeFieldKeyDto("other", "1", "value"),
@@ -64,7 +64,7 @@ class CdsExportNativeFieldAssessmentValidatorUnitTest {
     }
 
     @Test
-    void missingAndExtraAssessmentsAreBothScopeFailures() {
+    void shouldVerifyMissingAndExtraAssessmentsAreBothScopeFailures_forNativeFieldAssessmentValidatorContract() {
         var row = row();
         var fields = assessments(row);
         fields.remove(key("value"));
@@ -75,13 +75,13 @@ class CdsExportNativeFieldAssessmentValidatorUnitTest {
     }
 
     @Test
-    void duplicateRowsCannotBorrowOneSetOfFieldDecisions() {
+    void shouldVerifyDuplicateRowsCannotBorrowOneSetOfFieldDecisions_forNativeFieldAssessmentValidatorContract() {
         var row = row();
         refused(List.of(row, row), assessments(row));
     }
 
     @Test
-    void nullEmptyAndValueCannotBeRelabeled() {
+    void shouldVerifyNullEmptyAndValueCannotBeRelabeled_forNativeFieldAssessmentValidatorContract() {
         var row = row();
         for (var column : List.of("null_value", "empty_value", "value"))
             for (var presence : Presence.values()) {
@@ -97,7 +97,7 @@ class CdsExportNativeFieldAssessmentValidatorUnitTest {
     }
 
     @Test
-    void populatedValuesCannotBeMarkedAbsentOrMappedWithoutADestination() {
+    void shouldVerifyPopulatedValuesCannotBeMarkedAbsentOrMapped_withoutADestination() {
         var row = row();
         for (var outcome : List.of(Outcome.ABSENT, Outcome.MAPPED)) {
             var fields = assessments(row);
@@ -109,7 +109,7 @@ class CdsExportNativeFieldAssessmentValidatorUnitTest {
     }
 
     @Test
-    void aReviewFieldRemainsBlockedAndCannotReturnRepresentable() throws Exception {
+    void shouldVerifyAReviewFieldRemainsBlockedAndCannotReturnRepresentable_forNativeFieldAssessmentValidatorContract() throws Exception {
         var row = row();
         var fields = assessments(row);
         fields.put(
@@ -123,7 +123,7 @@ class CdsExportNativeFieldAssessmentValidatorUnitTest {
     }
 
     @Test
-    void operationalValuesRequireAnExplicitBoundedRule() throws Exception {
+    void shouldVerifyOperationalValuesRequireAnExplicitBoundedRule_forNativeFieldAssessmentValidatorContract() throws Exception {
         var row = row();
         var fields = assessments(row);
         fields.put(
@@ -139,7 +139,7 @@ class CdsExportNativeFieldAssessmentValidatorUnitTest {
     }
 
     @Test
-    void boundsAndFinalCancellationNeverReturnACompleteReceipt() {
+    void shouldVerifyBoundsAndFinalCancellationNeverReturnACompleteReceipt_forNativeFieldAssessmentValidatorContract() {
         var row = row();
         assertThatThrownBy(() -> validator.validate(List.of(row), assessments(row), 2, () -> {}))
                 .hasMessage("CDS_EXPORT_FIELD_ASSESSMENT_RESOURCE_LIMIT");
@@ -160,13 +160,13 @@ class CdsExportNativeFieldAssessmentValidatorUnitTest {
     }
 
     @Test
-    void emptyInputCannotBorrowUnrelatedDecisionsOrClaimWholeChartCoverage() throws Exception {
+    void shouldVerifyEmptyInputCannotBorrowUnrelatedDecisionsOrClaimWholeChartCoverage_forNativeFieldAssessmentValidatorContract() throws Exception {
         assertThat(validator.validate(List.of(), Map.of(), 100, () -> {}).fields()).isZero();
         refused(List.of(), assessments(row()));
     }
 
     @Test
-    void forgedSummaryCountsCannotBeLabeledComplete() {
+    void shouldVerifyForgedSummaryCountsCannotBeLabeledComplete_forNativeFieldAssessmentValidatorContract() {
         assertThatThrownBy(
                         () ->
                                 new CdsExportNativeFieldAssessmentValidator.Result(

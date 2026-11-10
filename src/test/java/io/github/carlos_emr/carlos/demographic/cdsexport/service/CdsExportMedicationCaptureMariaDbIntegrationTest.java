@@ -491,7 +491,7 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldCaptureTheStoredDoseBits_insteadOfTheRoundedSqlDisplay_andKeepItsSnapshot() {
+    void shouldCaptureTheStoredDoseBits_insteadOfTheRoundedSqlDisplayAndKeepItsSnapshot() {
         sql.update(
                 "update drugs set takemin=0.1,takemax=0.10000000894069672 where drugid=?", patient);
         var drugs = context.getBean(DrugDaoImpl.class);

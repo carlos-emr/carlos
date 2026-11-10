@@ -58,7 +58,7 @@ class CdsExportContactRetainedAssemblerUnitTest {
     }
 
     @Test
-    void everyImportedOccurrenceAndEveryNativeFieldIsClaimedExactlyOnce() throws Exception {
+    void shouldVerifyEveryImportedOccurrenceAndEveryNativeFieldIsClaimedExactlyOnce_forContactRetainedAssemblerContract() throws Exception {
         var result = prepare();
         assertThat(result.sourceContacts()).isEqualTo(1);
         assertThat(result.currentContacts()).isEqualTo(1);
@@ -75,7 +75,7 @@ class CdsExportContactRetainedAssemblerUnitTest {
     }
 
     @Test
-    void aSubsequentlyAddedNativeContactIsAppendedWithoutDuplicatingOrFlatteningTheImportedContact()
+    void shouldVerifyASubsequentlyAddedNativeContactIsAppended_withoutDuplicatingOrFlatteningTheImportedContact()
             throws Exception {
         addContact();
         var result = prepare();
@@ -100,14 +100,14 @@ class CdsExportContactRetainedAssemblerUnitTest {
     }
 
     @Test
-    void aMissingNativeChildCannotLeaveItsOriginalSourceContactUnaccounted() {
+    void shouldVerifyAMissingNativeChildCannotLeaveItsOriginalSourceContactUnaccounted_forContactRetainedAssemblerContract() {
         removeChildren();
         assertThatThrownBy(this::prepare)
                 .hasMessage("CDS_EXPORT_CONTACT_SOURCE_OCCURRENCE_MISSING");
     }
 
     @Test
-    void aNewAssociationToAnImportedContactRequiresReview() {
+    void shouldVerifyANewAssociation_toAnImportedContactRequiresReview() {
         var extra = copy(graph.association(), 10, Map.of("role", "Care Giver"));
         associations.add(extra);
         witnesses.add(CdsExportContactFieldReconcilerUnitTest.capturedWitness(extra));
@@ -116,7 +116,7 @@ class CdsExportContactRetainedAssemblerUnitTest {
     }
 
     @Test
-    void aForeignPatientRelationshipCannotSubstituteForTheSelectedPatientsRow() {
+    void shouldVerifyAForeignPatientRelationshipCannotSubstitute_forTheSelectedPatientsRow() {
         var foreign = copy(graph.association(), 9, Map.of("demographicNo", "28"));
         associations.set(0, foreign);
         witnesses.set(1, CdsExportContactFieldReconcilerUnitTest.capturedWitness(foreign));
@@ -124,7 +124,7 @@ class CdsExportContactRetainedAssemblerUnitTest {
     }
 
     @Test
-    void missingAndDuplicateNativeWitnessesCannotHideBehindTableCounts() {
+    void shouldVerifyMissingAndDuplicateNativeWitnessesCannotHideBehindTableCounts_forContactRetainedAssemblerContract() {
         witnesses.removeLast();
         assertThatThrownBy(this::prepare).hasMessage("CDS_EXPORT_CONTACT_ASSEMBLY_SCOPE_INVALID");
         witnesses.add(witnesses.getFirst());
@@ -132,7 +132,7 @@ class CdsExportContactRetainedAssemblerUnitTest {
     }
 
     @Test
-    void aNewContactCannotUseValuesDifferentFromItsFrozenNativeWitness() {
+    void shouldVerifyANewContactCannotUseValuesDifferent_fromItsFrozenNativeWitness() {
         addContact();
         var original = contacts.getLast();
         contacts.set(1, copy(original, 8, Map.of("email", "substituted@example.test")));
@@ -141,7 +141,7 @@ class CdsExportContactRetainedAssemblerUnitTest {
     }
 
     @Test
-    void inactiveOrConsentedNativeStateDoesNotDisappearBehindRetainedSource() {
+    void shouldVerifyInactiveOrConsentedNativeStateDoesNotDisappearBehindRetainedSource_forContactRetainedAssemblerContract() {
         var changed = copy(graph.association(), 9, Map.of("active", "0"));
         associations.set(0, changed);
         witnesses.set(1, CdsExportContactFieldReconcilerUnitTest.capturedWitness(changed));
@@ -150,7 +150,7 @@ class CdsExportContactRetainedAssemblerUnitTest {
     }
 
     @Test
-    void boundsAndCancellationAreEnforcedBeforeReturningChanges() {
+    void shouldVerifyBoundsAndCancellationAreEnforced_beforeReturningChanges() {
         assertThatThrownBy(
                         () ->
                                 new CdsExportContactRetainedAssembler()
@@ -190,7 +190,7 @@ class CdsExportContactRetainedAssemblerUnitTest {
     }
 
     @Test
-    void aWholeSourceFreeContactSetCanBeMappedFromCurrentRowsWithoutInventingOriginalContactFields()
+    void shouldVerifyAWholeSourceFreeContactSetCanBeMapped_fromCurrentRowsWithoutInventingOriginalContactFields()
             throws Exception {
         removeChildren();
         var tables = new LinkedHashMap<>(graph.index().tables());

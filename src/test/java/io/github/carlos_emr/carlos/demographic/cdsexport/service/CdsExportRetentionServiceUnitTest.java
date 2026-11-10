@@ -88,7 +88,7 @@ class CdsExportRetentionServiceUnitTest {
     }
 
     @Test
-    void shouldSkipAnAttemptWhoseDownloadOrWorkerStillOwnsIt() {
+    void shouldSkipAnAttemptWhoseDownloadOrWorkerStillOwnsIt_forRetentionServiceContract() {
         when(ledger.beginCleanup(run, 1)).thenReturn(null);
         service.sweep();
         verifyNoInteractions(stores);

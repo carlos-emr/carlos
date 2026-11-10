@@ -122,6 +122,49 @@ class CdsExportExecutionServiceUnitTest {
     }
 
     @Test
+    void shouldRenewOwnershipDuringBlockedEngineWork_withAnIndependentMetadataHeartbeat()
+            throws Exception {
+        var scheduler = mock(java.util.concurrent.ScheduledExecutorService.class);
+        var task = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        when(scheduler.scheduleWithFixedDelay(
+                        task.capture(),
+                        eq(20L),
+                        eq(20L),
+                        eq(java.util.concurrent.TimeUnit.SECONDS)))
+                .thenReturn(null);
+        Properties enabled = new Properties();
+        enabled.setProperty("cds.export.enabled", "true");
+        execution =
+                new CdsExportExecutionService(
+                        ledger,
+                        access,
+                        new CdsExportConfigurationService(enabled),
+                        new CdsExportEngineRegistry(List.of(engine)),
+                        () -> scheduler);
+        doAnswer(
+                        call -> {
+                            // The engine deliberately makes no checkpoint while its I/O is blocked.
+                            task.getValue().run();
+                            verify(ledger).checkpoint(lease);
+                            return null;
+                        })
+                .when(engine)
+                .execute(any(), any());
+        execution.execute(RUN);
+        verify(scheduler).shutdownNow();
+    }
+
+    @Test
+    void shouldRecordAnExpiredOwnGeneration_insteadOfSilentlyRepeatingTheAttempt()
+            throws Exception {
+        doThrow(new CdsExportOwnerFencedException()).when(engine).execute(any(), any());
+        when(ledger.retireExpiredLease(lease)).thenReturn(true);
+        execution.execute(RUN);
+        verify(ledger).retireExpiredLease(lease);
+        verify(ledger, never()).stop(any(), any(), anyString());
+    }
+
+    @Test
     void shouldLeaveTheJobWaiting_withoutFallingBackToAnUnqualifiedEngine() {
         var unavailable =
                 new CdsExportExecutionService(

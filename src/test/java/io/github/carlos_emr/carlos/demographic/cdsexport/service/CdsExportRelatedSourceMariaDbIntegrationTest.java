@@ -169,7 +169,7 @@ class CdsExportRelatedSourceMariaDbIntegrationTest {
     }
 
     @Test
-    void exactExternalContactReferencesRejectNumericCoercionPaddingAndPatientLinks() {
+    void shouldVerifyExactExternalContactReferencesRejectNumericCoercionPaddingAndPatientLinks_forRelatedSourceContract() {
         for (int i = 0; i < 4; i++) contact(patient + i, "Owned contact " + i, 0);
         relation(-patient, patient, Integer.toString(patient), 2, 0, 1);
         relation(-patient + 1, patient, "0" + (patient + 1), 2, 0, 1);
@@ -191,7 +191,7 @@ class CdsExportRelatedSourceMariaDbIntegrationTest {
     }
 
     @Test
-    void deletedAndInactiveAssociationsAndContactsRemainAvailableForExplicitDisposition() {
+    void shouldVerifyDeletedAndInactiveAssociationsAndContactsRemainAvailable_forExplicitDisposition() {
         contact(patient, "Historical contact", 1);
         relation(-patient, patient, Integer.toString(patient), 2, 1, 0);
         var owner = context.getBean(ContactDao.class);
@@ -207,7 +207,7 @@ class CdsExportRelatedSourceMariaDbIntegrationTest {
     }
 
     @Test
-    void pharmacyClosureIncludesHistoryAndMissingLinksWithoutReadingForeignRows() {
+    void shouldVerifyPharmacyClosureIncludesHistoryAndMissingLinks_withoutReadingForeignRows() {
         for (int i = 0; i < 3; i++) pharmacy(patient + i, i == 1 ? "0" : "1");
         link(-patient, patient, patient, "1");
         link(-patient + 1, patient, patient + 1, "0");
@@ -226,7 +226,7 @@ class CdsExportRelatedSourceMariaDbIntegrationTest {
     }
 
     @Test
-    void fullUnicodeValuesRemainChunkedHashedAndPatientScoped() throws Exception {
+    void shouldVerifyFullUnicodeValuesRemainChunkedHashedAndPatientScoped_forRelatedSourceContract() throws Exception {
         String note = "é😀".repeat(8000);
         byte[] bytes = note.getBytes(StandardCharsets.UTF_8);
         contact(patient, note, 0);
@@ -268,7 +268,7 @@ class CdsExportRelatedSourceMariaDbIntegrationTest {
     }
 
     @Test
-    void captureTransactionKeepsTheOldVersionWhileAnotherTransactionUpdatesTheContact() {
+    void shouldVerifyCaptureTransactionKeepsTheOldVersionWhileAnotherTransactionUpdatesTheContact_forRelatedSourceContract() {
         contact(patient, "Before capture", 0);
         relation(-patient, patient, Integer.toString(patient), 2, 0, 1);
         var owner = context.getBean(ContactDao.class);
@@ -310,7 +310,7 @@ class CdsExportRelatedSourceMariaDbIntegrationTest {
     }
 
     @Test
-    void owningDaosRequireAnActualReadOnlyTransaction() {
+    void shouldVerifyOwningDaosRequireAnActualReadOnlyTransaction_forRelatedSourceContract() {
         var owner = context.getBean(ContactDao.class);
         assertThatThrownBy(() -> owner.countCdsExportRows(patient))
                 .isInstanceOf(
@@ -321,7 +321,7 @@ class CdsExportRelatedSourceMariaDbIntegrationTest {
     }
 
     @Test
-    void actualMetadataContractsAndReceiptRecipesCoverAllFourTables() {
+    void shouldVerifyActualMetadataContractsAndReceiptRecipesCoverAllFourTables_forRelatedSourceContract() {
         for (var entry :
                 Map.of(
                                 CdsExportPatientTableReadSupport.Plan.CONTACT,

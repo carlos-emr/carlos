@@ -124,7 +124,7 @@ class CdsExportReportOccurrenceServiceUnitTest {
                 "sourceFacility",
                 "source"
             })
-    void shouldRefuseAnyChangedMetadataBeforeReturningOriginalSource(String column) {
+    void shouldRefuseAnyChangedMetadata_beforeReturningOriginalSource(String column) {
         document.put(column, "Changed");
         assertThatThrownBy(this::bind).isInstanceOf(IOException.class);
     }
@@ -142,14 +142,14 @@ class CdsExportReportOccurrenceServiceUnitTest {
                 "abnormal",
                 "restrictToProgram"
             })
-    void shouldRequireReviewForUnrepresentedClinicalOrAccessContext(String column) {
+    void shouldRequireReview_forUnrepresentedClinicalOrAccessContext(String column) {
         document.put(column, "1");
         assertThatThrownBy(this::bind).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"document_no", "module", "module_id", "status"})
-    void shouldRefuseChangedPatientAssociation(String column) {
+    void shouldRefuseChangedPatientAssociation_forReportOccurrenceServiceContract(String column) {
         link.put(column, "Changed");
         assertThatThrownBy(this::bind).isInstanceOf(IOException.class);
     }

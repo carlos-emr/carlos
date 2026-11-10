@@ -81,7 +81,7 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
     }
 
     @Test
-    void originalPhoneComponentsAndUnprojectedMobileExtensionsSurviveUnchangedNativeRows()
+    void shouldVerifyOriginalPhoneComponentsAndUnprojectedMobileExtensionsSurviveUnchangedNativeRows_forDemographicRetainedPhonesReconcilerContract()
             throws Exception {
         var result = reconcile();
         assertThat(result.phonesRepresentable()).isTrue();
@@ -94,7 +94,7 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
     }
 
     @Test
-    void anExtensionEditReplacesOnlyItsSourceField() throws Exception {
+    void shouldVerifyAnExtensionEditReplacesOnlyItsSourceField_forDemographicRetainedPhonesReconcilerContract() throws Exception {
         change(0, "value", "0023");
         var result = reconcile();
         assertThat(result.changes()).hasSize(1);
@@ -104,13 +104,13 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
     }
 
     @Test
-    void anExtensionClearDoesNotReplayTheOriginal() throws Exception {
+    void shouldVerifyAnExtensionClearDoesNotReplayTheOriginal_forDemographicRetainedPhonesReconcilerContract() throws Exception {
         change(0, "value", null);
         assertThat(text(render(reconcile()), "extension")).containsExactly("009");
     }
 
     @Test
-    void changingAHomeNumberPreservesItsProvenExtension() throws Exception {
+    void shouldVerifyChangingAHomeNumberPreservesItsProvenExtension_forDemographicRetainedPhonesReconcilerContract() throws Exception {
         fixture.currentField("phone", "613-555-0111");
         var document = render(reconcile());
         assertThat(text(document, "phoneNumber")).containsExactly("613-555-0111");
@@ -119,7 +119,7 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
     }
 
     @Test
-    void changingAMobileWithAnUnprojectedExtensionRequiresReview() throws Exception {
+    void shouldVerifyChangingAMobile_withAnUnprojectedExtensionRequiresReview() throws Exception {
         change(1, "value", "613-555-0111");
         var result = reconcile();
         assertThat(result.phonesRepresentable()).isFalse();
@@ -128,7 +128,7 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
     }
 
     @Test
-    void aMobileWithoutAnUnprojectedExtensionCanUseAnExactLaterNumber() throws Exception {
+    void shouldVerifyAMobile_withoutAnUnprojectedExtensionCanUseAnExactLaterNumber() throws Exception {
         source.remove("PhoneNumber[2]/extension[1]");
         fixture.preparedPhones(
                 new CdsDemographicNativeDto.Phone("6135550000", "0012"),
@@ -141,7 +141,7 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
     }
 
     @Test
-    void clearingANumberWithAnUnclearedExtensionRequiresReview() throws Exception {
+    void shouldVerifyClearingANumber_withAnUnclearedExtensionRequiresReview() throws Exception {
         fixture.currentField("phone", "");
         assertThat(reconcile().phonesRepresentable()).isFalse();
         change(0, "value", null);
@@ -150,7 +150,7 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
     }
 
     @Test
-    void subsequentlyAddedWorkPhonesAreAppendedAfterOriginalOccurrences() throws Exception {
+    void shouldVerifySubsequentlyAddedWorkPhonesAreAppended_afterOriginalOccurrences() throws Exception {
         fixture.currentField("phone2", "613-555-0122");
         current.add(property(3, "wPhoneExt", "AB"));
         var result = reconcile();
@@ -162,7 +162,7 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
     }
 
     @Test
-    void hiddenDuplicateAndUnknownNativePropertiesRemainVisibleToTheEnclosingAssembly()
+    void shouldVerifyHiddenDuplicateAndUnknownNativePropertiesRemainVisible_toTheEnclosingAssembly()
             throws Exception {
         change(0, "hidden", "1");
         assertThat(reconcile().phonesRepresentable()).isFalse();
@@ -178,27 +178,27 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
     }
 
     @Test
-    void aDeletedImportedPropertyCannotResurrectItsOriginalValue() throws Exception {
+    void shouldVerifyADeletedImportedPropertyCannotResurrectItsOriginalValue_forDemographicRetainedPhonesReconcilerContract() throws Exception {
         current.removeFirst();
         assertThatThrownBy(this::reconcile)
                 .hasMessage("CDS_EXPORT_DEMOGRAPHIC_PHONE_PROPERTY_DELETION_REQUIRES_REVIEW");
     }
 
     @Test
-    void changingAnImportedPropertyKeyCannotHideItAmongDeferredProperties() throws Exception {
+    void shouldVerifyChangingAnImportedPropertyKeyCannotHideItAmongDeferredProperties_forDemographicRetainedPhonesReconcilerContract() throws Exception {
         change(0, "key_val", "anotherKey");
         assertThatThrownBy(this::reconcile)
                 .hasMessage("CDS_EXPORT_DEMOGRAPHIC_PHONE_PROPERTY_PROJECTION_REQUIRES_REVIEW");
     }
 
     @Test
-    void aMatchedExistingChartCannotBeAssumedToHaveReceivedPreparedExtensions() throws Exception {
+    void shouldVerifyAMatchedExistingChartCannotBeAssumed_toHaveReceivedPreparedExtensions() throws Exception {
         old.removeFirst();
         assertThat(reconcile().phonesRepresentable()).isFalse();
     }
 
     @Test
-    void repeatedSourcePhonesArePreservedUntilAnAmbiguousLaterEdit() throws Exception {
+    void shouldVerifyRepeatedSourcePhonesArePreservedUntilAnAmbiguousLaterEdit_forDemographicRetainedPhonesReconcilerContract() throws Exception {
         var copy = new HashMap<>(source);
         copy.forEach(
                 (path, value) -> {
@@ -211,7 +211,7 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
     }
 
     @Test
-    void expiredValuesAndSubstitutedFrozenRowsCannotQualifyPhoneDecisions() throws Exception {
+    void shouldVerifyExpiredValuesAndSubstitutedFrozenRowsCannotQualifyPhoneDecisions_forDemographicRetainedPhonesReconcilerContract() throws Exception {
         active = false;
         assertThatThrownBy(this::reconcile).hasMessage("EXPIRED_VALUES");
         active = true;
@@ -223,7 +223,7 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
     }
 
     @Test
-    void anEmptyNewExtensionWithoutANumberDoesNotConsumeAnOutputOrdinal() throws Exception {
+    void shouldVerifyAnEmptyNewExtension_withoutANumberDoesNotConsumeAnOutputOrdinal() throws Exception {
         var copy = new LinkedHashMap<>(source);
         source.clear();
         copy.forEach(
@@ -244,7 +244,7 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
     }
 
     @Test
-    void unknownRowsStillCountAgainstResourceBoundsAndEveryWitnessIsRequired() throws Exception {
+    void shouldVerifyUnknownRowsStillCount_againstResourceBoundsAndEveryWitnessIsRequired() throws Exception {
         current.add(property(3, "otherProperty", "Retained elsewhere"));
         var graph = graph();
         var base = graph.base();
@@ -276,7 +276,7 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
     }
 
     @Test
-    void aCapturedInvisibleKeyRequiresItsOwnExactPhoneKeyDisposition() throws Exception {
+    void shouldVerifyACapturedInvisibleKeyRequiresItsOwnExactPhoneKeyDisposition_forDemographicRetainedPhonesReconcilerContract() throws Exception {
         change(0, "dashboard_single_value_key", "Substituted");
         assertThatThrownBy(this::reconcile)
                 .hasMessage("CDS_EXPORT_DEMOGRAPHIC_PHONE_DERIVED_KEY_REQUIRES_REVIEW");

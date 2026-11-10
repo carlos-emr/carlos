@@ -91,7 +91,7 @@ class CdsExportPatientDocumentServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseDuplicateMappingReceipts() throws Exception {
+    void shouldRefuseDuplicateMappingReceipts_forPatientDocumentServiceContract() throws Exception {
         var f = fixture();
         var prior = f.members();
         f.duplicateReceipt = true;
@@ -172,7 +172,7 @@ class CdsExportPatientDocumentServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseAndRemoveAnUnreferencedAttachment() throws Exception {
+    void shouldRefuseAndRemoveAnUnreferencedAttachment_forPatientDocumentServiceContract() throws Exception {
         var f = fixture(CdsCategory.REPORTS);
         f.report(true, false);
         var prior = f.members();

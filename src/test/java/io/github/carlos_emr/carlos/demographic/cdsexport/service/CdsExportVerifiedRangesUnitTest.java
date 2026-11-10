@@ -88,7 +88,7 @@ class CdsExportVerifiedRangesUnitTest {
     }
 
     @Test
-    void readsExactRanges_inAnyOrderAcrossEveryBoundary() throws Exception {
+    void shouldVerifyReadsExactRanges_inAnyOrderAcrossEveryBoundary() throws Exception {
         byte[] original = bytes(CHUNK * 3 + 29);
         var file = stage(original);
         try (var ranges = store.verifiedRanges(file)) {
@@ -112,7 +112,7 @@ class CdsExportVerifiedRangesUnitTest {
     }
 
     @Test
-    void authenticatesAnEmptyMemberAndEmptyRange() throws Exception {
+    void shouldVerifyAuthenticatesAnEmptyMemberAndEmptyRange_forVerifiedRangesContract() throws Exception {
         var file = stage(new byte[0]);
         try (var ranges = store.verifiedRanges(file);
                 var input = ranges.open(0, 0, sha(new byte[0]))) {
@@ -121,7 +121,7 @@ class CdsExportVerifiedRangesUnitTest {
     }
 
     @Test
-    void authenticatesUnrequestedSuffixBeforeOpening() throws Exception {
+    void shouldVerifyAuthenticatesUnrequestedSuffix_beforeOpening() throws Exception {
         var file = stage(bytes(CHUNK * 3));
         change(file, HEADER + 2 * (CHUNK + 20) + 12);
         assertThatThrownBy(() -> store.verifiedRanges(file))
@@ -129,7 +129,7 @@ class CdsExportVerifiedRangesUnitTest {
     }
 
     @Test
-    void authenticatesUnrequestedSuffixAgainBeforeAcceptingScope() throws Exception {
+    void shouldVerifyAuthenticatesUnrequestedSuffixAgain_beforeAcceptingScope() throws Exception {
         byte[] original = bytes(CHUNK * 3);
         var file = stage(original);
         var ranges = store.verifiedRanges(file);
@@ -141,7 +141,7 @@ class CdsExportVerifiedRangesUnitTest {
     }
 
     @Test
-    void authenticatesUnrequestedPrefixAgainBeforeAcceptingScope() throws Exception {
+    void shouldVerifyAuthenticatesUnrequestedPrefixAgain_beforeAcceptingScope() throws Exception {
         byte[] original = bytes(CHUNK * 3);
         var file = stage(original);
         var ranges = store.verifiedRanges(file);
@@ -154,7 +154,7 @@ class CdsExportVerifiedRangesUnitTest {
     }
 
     @Test
-    void rejectsTamperedRequestedChunkBeforeReleasingPlaintext_andFailureSticks() throws Exception {
+    void shouldVerifyRejectsTamperedRequestedChunkBeforeReleasingPlaintext_andFailureSticks() throws Exception {
         byte[] original = bytes(CHUNK * 2);
         var file = stage(original);
         var ranges = store.verifiedRanges(file);
@@ -167,7 +167,7 @@ class CdsExportVerifiedRangesUnitTest {
     }
 
     @Test
-    void rejectsWrongFieldHash_evenOnEarlyClose() throws Exception {
+    void shouldVerifyRejectsWrongFieldHash_evenOnEarlyClose() throws Exception {
         var file = stage(bytes(CHUNK * 2));
         var ranges = store.verifiedRanges(file);
         var input = ranges.open(3, CHUNK, "a".repeat(64));
@@ -177,7 +177,7 @@ class CdsExportVerifiedRangesUnitTest {
     }
 
     @Test
-    void earlyCloseAuthenticatesWholeField_thenAllowsNextField() throws Exception {
+    void shouldVerifyEarlyCloseAuthenticatesWholeField_thenAllowsNextField() throws Exception {
         byte[] original = bytes(CHUNK * 3);
         var file = stage(original);
         try (var ranges = store.verifiedRanges(file)) {
@@ -191,7 +191,7 @@ class CdsExportVerifiedRangesUnitTest {
     }
 
     @Test
-    void rejectsBoundsAndDoesNotRecoverAfterCaughtInvalidRequest() throws Exception {
+    void shouldVerifyRejectsBoundsAndDoesNotRecover_afterCaughtInvalidRequest() throws Exception {
         var file = stage(bytes(9));
         for (long[] pair :
                 new long[][] {
@@ -207,7 +207,7 @@ class CdsExportVerifiedRangesUnitTest {
     }
 
     @Test
-    void rejectsUnclosedFieldEvenIfItReachedEof() throws Exception {
+    void shouldVerifyRejectsUnclosedFieldEvenIfItReachedEof_forVerifiedRangesContract() throws Exception {
         var file = stage(new byte[0]);
         var ranges = store.verifiedRanges(file);
         var input = ranges.open(0, 0, sha(new byte[0]));
@@ -218,7 +218,7 @@ class CdsExportVerifiedRangesUnitTest {
     }
 
     @Test
-    void rejectsOverlappingOpenFields() throws Exception {
+    void shouldVerifyRejectsOverlappingOpenFields_forVerifiedRangesContract() throws Exception {
         var file = stage(new byte[0]);
         var ranges = store.verifiedRanges(file);
         var input = ranges.open(0, 0, sha(new byte[0]));
@@ -229,7 +229,7 @@ class CdsExportVerifiedRangesUnitTest {
     }
 
     @Test
-    void rejectsScopeUseAfterClose() throws Exception {
+    void shouldVerifyRejectsScopeUse_afterClose() throws Exception {
         var file = stage(bytes(3));
         var ranges = store.verifiedRanges(file);
         ranges.close();
@@ -239,7 +239,7 @@ class CdsExportVerifiedRangesUnitTest {
     }
 
     @Test
-    void rejectsForeignThreadAndCannotSilentlyRecover() throws Exception {
+    void shouldVerifyRejectsForeignThreadAndCannotSilentlyRecover_forVerifiedRangesContract() throws Exception {
         var file = stage(bytes(3));
         var ranges = store.verifiedRanges(file);
         var failure = new AtomicReference<Throwable>();
@@ -259,7 +259,7 @@ class CdsExportVerifiedRangesUnitTest {
     }
 
     @Test
-    void rejectsAppendedOrTruncatedFileDuringScope() throws Exception {
+    void shouldVerifyRejectsAppendedOrTruncatedFile_duringScope() throws Exception {
         for (boolean append : new boolean[] {true, false}) {
             var file = stage(bytes(CHUNK));
             var ranges = store.verifiedRanges(file);
@@ -272,7 +272,7 @@ class CdsExportVerifiedRangesUnitTest {
     }
 
     @Test
-    void rejectsWrongWholeHashOrLengthBeforeOpening() throws Exception {
+    void shouldVerifyRejectsWrongWholeHashOrLength_beforeOpening() throws Exception {
         var file = stage(bytes(CHUNK + 3));
         for (var wrong :
                 new CdsExportStagedFileDto[] {
@@ -290,7 +290,7 @@ class CdsExportVerifiedRangesUnitTest {
     }
 
     @Test
-    void rejectsWrongPurposeEpochAndKey() throws Exception {
+    void shouldVerifyRejectsWrongPurposeEpochAndKey_forVerifiedRangesContract() throws Exception {
         var file = stage(bytes(3));
         var wrongPurpose =
                 new CdsExportStagedFileDto(
@@ -316,7 +316,7 @@ class CdsExportVerifiedRangesUnitTest {
     }
 
     @Test
-    void pinsOriginalDescriptorThroughPathReplacement() throws Exception {
+    void shouldVerifyPinsOriginalDescriptorThroughPathReplacement_forVerifiedRangesContract() throws Exception {
         byte[] original = bytes(CHUNK + 3);
         var file = stage(original);
         try (var ranges = store.verifiedRanges(file)) {
@@ -329,7 +329,7 @@ class CdsExportVerifiedRangesUnitTest {
     }
 
     @Test
-    void propagatesCancellationAfterInitialAuthentication_andFailureSticks() throws Exception {
+    void shouldVerifyPropagatesCancellationAfterInitialAuthentication_andFailureSticks() throws Exception {
         var file = stage(bytes(CHUNK * 2));
         var cancelled = new AtomicBoolean();
         var checked =
@@ -345,7 +345,7 @@ class CdsExportVerifiedRangesUnitTest {
     }
 
     @Test
-    void finalAuthenticationRemainsCancellable() throws Exception {
+    void shouldVerifyFinalAuthenticationRemainsCancellable_forVerifiedRangesContract() throws Exception {
         var file = stage(bytes(CHUNK * 2));
         var cancelled = new AtomicBoolean();
         var checked =
@@ -361,7 +361,7 @@ class CdsExportVerifiedRangesUnitTest {
     }
 
     @Test
-    void manySmallFieldsHaveBoundedChunkWork_insteadOfOneWholeScanPerField() throws Exception {
+    void shouldVerifyManySmallFieldsHaveBoundedChunkWork_insteadOfOneWholeScanPerField() throws Exception {
         byte[] original = bytes(CHUNK * 32);
         var file = stage(original);
         var checks = new AtomicInteger();

@@ -92,7 +92,7 @@ class CdsTransferPermissionSeedMariaDbIntegrationTest {
         }
     }
 
-    @Test void shouldLeaveARestrictedAdministratorWithoutANewImportGrant() throws Exception {
+    @Test void shouldLeaveARestrictedAdministrator_withoutANewImportGrant() throws Exception {
         try (var statement = connection.createStatement()) {
             assertThat(statement.executeUpdate("DELETE FROM secObjPrivilege "
                     + "WHERE roleUserGroup='admin' AND objectName='_cds_import'")).isEqualTo(1);

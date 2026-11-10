@@ -122,7 +122,7 @@ class CdsExportMedicationFieldReconcilerUnitTest {
     }
 
     @Test
-    void shouldRequireReviewForChangedStructuredStrengthOrAnOriginalClockDate() throws Exception {
+    void shouldRequireReview_forChangedStructuredStrengthOrAnOriginalClockDate() throws Exception {
         var fields = baseline();
         fields.put("dosage", "10 mg");
         assertThat(reconcile(fixture(fields, numbers(), true)).mapping().nativeRowRepresentable())

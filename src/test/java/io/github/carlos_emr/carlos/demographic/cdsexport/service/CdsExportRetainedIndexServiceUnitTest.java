@@ -403,7 +403,7 @@ class CdsExportRetainedIndexServiceUnitTest {
     }
 
     @Test
-    void shouldKeepReplayAliasesWithoutDuplicatingRetainedFieldIdentity() throws Exception {
+    void shouldKeepReplayAliases_withoutDuplicatingRetainedFieldIdentity() throws Exception {
         String replay = "22222222-2222-4222-8222-222222222222";
         put("replay-run", copy(data.get("run"), replay, Map.of()));
         put(
@@ -432,7 +432,7 @@ class CdsExportRetainedIndexServiceUnitTest {
     }
 
     @Test
-    void shouldRejectMissingEdgesCyclesHoldsAndUncommittedPreservation() throws Exception {
+    void shouldRejectMissingEdgesCyclesHoldsAndUncommittedPreservation_forRetainedIndexServiceContract() throws Exception {
         for (String defect : List.of("missing-edge", "cycle", "hold", "uncommitted")) {
             baseline();
             switch (defect) {
@@ -462,7 +462,7 @@ class CdsExportRetainedIndexServiceUnitTest {
     }
 
     @Test
-    void shouldRejectChangedPreparedSealsWrongOptionsAndMalformedReceiptProtocols()
+    void shouldRejectChangedPreparedSealsWrongOptionsAndMalformedReceiptProtocols_forRetainedIndexServiceContract()
             throws Exception {
         for (String defect :
                 List.of("payload", "options", "protocol", "wrong-patient", "missing-field")) {

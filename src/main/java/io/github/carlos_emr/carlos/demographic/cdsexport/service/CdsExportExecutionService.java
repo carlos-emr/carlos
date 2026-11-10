@@ -41,8 +41,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 /**
  * One read-only export attempt, usable by the browser dispatcher or an explicit foreground CLI.
  * Lease-fenced metadata, current authorization and finite work remain separate from clinical
- * completion. Engines checkpoint all bounded I/O/render phases; a stalled/expired attempt can
- * never publish after another owner claims it. No placeholder clinical engine is registered.
+ * completion. Engines checkpoint all bounded I/O/render phases; a stalled/expired attempt can never
+ * publish after another owner claims it. No placeholder clinical engine is registered.
  */
 @Service
 public class CdsExportExecutionService {
@@ -51,25 +51,52 @@ public class CdsExportExecutionService {
     private final CdsExportAccessService access;
     private final CdsExportConfigurationService configuration;
     private final CdsExportEngineRegistry engines;
+    private final java.util.function.Supplier<java.util.concurrent.ScheduledExecutorService>
+            schedulers;
     private final AtomicBoolean fatal = new AtomicBoolean();
     private final java.util.concurrent.Semaphore attempt = new java.util.concurrent.Semaphore(1);
 
+    @org.springframework.beans.factory.annotation.Autowired
     public CdsExportExecutionService(
             CdsExportLedgerService ledger,
             CdsExportAccessService access,
             CdsExportConfigurationService configuration,
             CdsExportEngineRegistry engines) {
+        this(
+                ledger,
+                access,
+                configuration,
+                engines,
+                () ->
+                        java.util.concurrent.Executors.newSingleThreadScheduledExecutor(
+                                work -> {
+                                    var thread = new Thread(work, "cds-export-execution-lease");
+                                    thread.setDaemon(true);
+                                    return thread;
+                                }));
+    }
+
+    CdsExportExecutionService(
+            CdsExportLedgerService ledger,
+            CdsExportAccessService access,
+            CdsExportConfigurationService configuration,
+            CdsExportEngineRegistry engines,
+            java.util.function.Supplier<java.util.concurrent.ScheduledExecutorService> schedulers) {
         this.ledger = ledger;
         this.access = access;
         this.configuration = configuration;
         this.engines = engines;
+        this.schedulers = schedulers;
     }
 
     public boolean supervisionStopped() {
         return fatal.get();
     }
 
-    /** False means waiting/unclaimed, not failed or complete. Unknown control outcomes propagate to the supervisor. */
+    /**
+     * False means waiting/unclaimed, not failed or complete. Unknown control outcomes propagate to
+     * the supervisor.
+     */
     public boolean execute(String runId) {
         if (fatal.get()) throw new CdsExportControlOutcomeUnknownException();
         if (!attempt.tryAcquire()) return false;
@@ -88,13 +115,25 @@ public class CdsExportExecutionService {
         long maximumMillis = configuration.maxDurationMillis();
         var lease = ledger.claim(runId, engine.compatibilityDigest());
         if (lease == null) return false;
-        try {
+        try (var control = new Control(lease, maximumMillis)) {
+            control.startHeartbeat();
             access.requireScope(lease.document().actor(), lease.document().command());
-            engine.execute(lease, new Control(lease, maximumMillis));
-            if (!ledger.status(runId).state().terminal())
+            engine.execute(lease, control);
+            if (!ledger.status(runId).state().terminal()) {
+                control.checkpoint();
                 stop(lease, CdsExportState.FAILED, "CDS_EXPORT_ENGINE_DID_NOT_PUBLISH");
+            }
         } catch (CdsExportOwnerFencedException retired) {
-            // Another attempt or a completed publication is authoritative. Never overwrite it.
+            // Retire only our own expired generation. A successor or publication remains
+            // authoritative; it must never be overwritten by the returning old worker.
+            finishUninterrupted(
+                    () -> {
+                        if (ledger.retireExpiredLease(lease))
+                            LOG.warn(
+                                    "CDS_EXPORT_EXECUTION_LEASE_EXPIRED run={} epoch={}",
+                                    runId,
+                                    lease.epoch());
+                    });
         } catch (CdsExportControlOutcomeUnknownException unknown) {
             fatal.set(true);
             throw unknown;
@@ -141,10 +180,24 @@ public class CdsExportExecutionService {
     }
 
     private void stop(CdsExportLeaseDto lease, CdsExportState state, String code) {
-        finishUninterrupted(() -> ledger.stop(lease, state, code));
+        finishUninterrupted(
+                () -> {
+                    try {
+                        ledger.stop(lease, state, code);
+                    } catch (CdsExportOwnerFencedException expired) {
+                        if (ledger.retireExpiredLease(lease))
+                            LOG.warn(
+                                    "CDS_EXPORT_EXECUTION_LEASE_EXPIRED run={} epoch={}",
+                                    lease.runId(),
+                                    lease.epoch());
+                    }
+                });
     }
 
-    /** Interrupt state is restored; only the short metadata retirement may proceed with it temporarily clear. */
+    /**
+     * Interrupt state is restored; only the short metadata retirement may proceed with it
+     * temporarily clear.
+     */
     private void finishUninterrupted(Runnable completion) {
         boolean interrupted = Thread.interrupted();
         try {
@@ -163,14 +216,45 @@ public class CdsExportExecutionService {
         }
     }
 
-    private final class Control implements CdsExportRunControl {
+    private final class Control implements CdsExportRunControl, AutoCloseable {
         private final CdsExportLeaseDto lease;
         private final long started = System.nanoTime(), maximumNanos;
         private final AtomicLong lastProbe = new AtomicLong(started - 1_000_000_000L);
+        private final java.util.concurrent.atomic.AtomicReference<RuntimeException>
+                heartbeatFailure = new java.util.concurrent.atomic.AtomicReference<>();
+        private final java.util.concurrent.ScheduledExecutorService heartbeat;
 
         Control(CdsExportLeaseDto lease, long maximumMillis) {
             this.lease = lease;
             maximumNanos = maximumMillis * 1_000_000L;
+            heartbeat = schedulers.get();
+        }
+
+        void startHeartbeat() {
+            // Metadata only: this thread never joins a clinical snapshot or carries a
+            // captured authorization grant. The same deadline bounds blocked work.
+            heartbeat.scheduleWithFixedDelay(
+                    () -> {
+                        try {
+                            local();
+                            ledger.checkpoint(lease);
+                        } catch (RuntimeException failed) {
+                            heartbeatFailure.compareAndSet(null, failed);
+                        } catch (Error failed) {
+                            fatal.set(true);
+                            heartbeatFailure.compareAndSet(
+                                    null, new CdsExportControlOutcomeUnknownException());
+                            throw failed;
+                        }
+                    },
+                    20,
+                    20,
+                    java.util.concurrent.TimeUnit.SECONDS);
+        }
+
+        @Override
+        public void close() {
+            heartbeat.shutdownNow();
         }
 
         @Override
@@ -190,15 +274,22 @@ public class CdsExportExecutionService {
         }
 
         private boolean probe() {
+            local();
+            long now = System.nanoTime();
+            long previous = lastProbe.get();
+            return now - previous >= 1_000_000_000L && lastProbe.compareAndSet(previous, now);
+        }
+
+        private void local() {
             if (Thread.currentThread().isInterrupted())
                 throw new CancellationException("CDS_EXPORT_WAIT_INTERRUPTED");
             if (fatal.get()) throw new CdsExportControlOutcomeUnknownException();
+            var failed = heartbeatFailure.get();
+            if (failed != null) throw failed;
             configuration.requireEnabled();
             long now = System.nanoTime();
             if (now - started > maximumNanos)
                 throw new CdsExportReviewException(CdsExportReviewException.Reason.RESOURCE_LIMIT);
-            long previous = lastProbe.get();
-            return now - previous >= 1_000_000_000L && lastProbe.compareAndSet(previous, now);
         }
 
         private void outsideCapture() {

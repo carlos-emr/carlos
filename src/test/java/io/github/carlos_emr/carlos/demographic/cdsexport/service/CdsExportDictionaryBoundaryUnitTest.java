@@ -37,7 +37,7 @@ class CdsExportDictionaryBoundaryUnitTest {
             new CdsExportDateDto(CdsExportDateDto.Precision.ABSENT, null);
 
     @Test
-    void medicationOneKAndThirtyTwoKBoundariesUseDecimalThousandsWithoutTruncation()
+    void shouldVerifyMedicationOneKAndThirtyTwoKBoundariesUseDecimalThousands_withoutTruncation()
             throws Exception {
         for (var field :
                 List.of(
@@ -65,7 +65,7 @@ class CdsExportDictionaryBoundaryUnitTest {
     }
 
     @Test
-    void structuredStrengthHasIndependentTenAndTwentyCharacterBounds() throws Exception {
+    void shouldVerifyStructuredStrengthHasIndependentTenAndTwentyCharacterBounds_forDictionaryBoundaryContract() throws Exception {
         var values = Map.of(Field.DrugName, "Synthetic medication");
         CdsExportMedicationXmlWriter.validate(
                 new CdsExportMedicationDto(
@@ -80,7 +80,7 @@ class CdsExportDictionaryBoundaryUnitTest {
     }
 
     @Test
-    void allergyDirectAndRetainedValuesUseTheSameThirtyTwoKBoundary() throws Exception {
+    void shouldVerifyAllergyDirectAndRetainedValuesUseTheSameThirtyTwoKBoundary_forDictionaryBoundaryContract() throws Exception {
         var exact = allergy("😀".repeat(32000));
         CdsExportAllergyXmlWriter.validate(exact);
         assertThatThrownBy(() -> CdsExportAllergyXmlWriter.validate(allergy("x".repeat(32001))))
@@ -118,7 +118,7 @@ class CdsExportDictionaryBoundaryUnitTest {
     }
 
     @Test
-    void retainedMedicationCannotBypassTheDirectWriterCapacityGate() {
+    void shouldVerifyRetainedMedicationCannotBypassTheDirectWriterCapacityGate_forDictionaryBoundaryContract() {
         var mapping =
                 new CdsExportMedicationDto(
                         UNKNOWN,
@@ -159,7 +159,7 @@ class CdsExportDictionaryBoundaryUnitTest {
     }
 
     @Test
-    void caughtDictionaryFailureCannotProduceACompletedXmlDocument() {
+    void shouldVerifyCaughtDictionaryFailureCannotProduceACompletedXmlDocument_forDictionaryBoundaryContract() {
         var output = new ByteArrayOutputStream();
         var composer = new CdsExportXmlComposer();
         var categories =

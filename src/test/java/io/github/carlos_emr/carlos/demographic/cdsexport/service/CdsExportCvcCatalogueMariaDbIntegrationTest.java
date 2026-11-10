@@ -178,7 +178,7 @@ class CdsExportCvcCatalogueMariaDbIntegrationTest {
     }
 
     @Test
-    void exactPhysicalSchemaAndActualDriverColumnsArePinnedForBothPublicCatalogues() {
+    void shouldVerifyExactPhysicalSchemaAndActualDriverColumnsArePinned_forBothPublicCatalogues() {
         read.executeWithoutResult(
                 status -> {
                     for (var dao : List.<CdsExportPatientTableReadDao>of(vaccines, mappings))
@@ -202,7 +202,7 @@ class CdsExportCvcCatalogueMariaDbIntegrationTest {
     }
 
     @Test
-    void boundedKeysetsIncludeGenericTradeAndNullOrEmptyDefinitionsWithoutHydration() {
+    void shouldVerifyBoundedKeysetsIncludeGenericTradeAndNullOrEmptyDefinitions_withoutHydration() {
         var stats =
                 context.getBean(jakarta.persistence.EntityManagerFactory.class)
                         .unwrap(org.hibernate.SessionFactory.class)
@@ -242,7 +242,7 @@ class CdsExportCvcCatalogueMariaDbIntegrationTest {
     }
 
     @Test
-    void fullComposerAndIndependentReaderAgreeOnEveryCapturedVocabularyField() throws Exception {
+    void shouldVerifyFullComposerAndIndependentReaderAgree_onEveryCapturedVocabularyField() throws Exception {
         var inputs =
                 List.of(
                         new CdsExportCvcImmunizationSourceReader(vaccines),
@@ -299,7 +299,7 @@ class CdsExportCvcCatalogueMariaDbIntegrationTest {
     }
 
     @Test
-    void publicVocabularyReadsAreIdenticalForIssuedPositivePatientScopesAndRejectInvalidReads() {
+    void shouldVerifyPublicVocabularyReadsAreIdentical_forIssuedPositivePatientScopesAndRejectInvalidReads() {
         read.executeWithoutResult(
                 status -> {
                     assertThat(vaccines.findCdsExportRowsAfter(27, null, 32))
@@ -323,7 +323,7 @@ class CdsExportCvcCatalogueMariaDbIntegrationTest {
     }
 
     @Test
-    void committedCatalogueChangesDoNotAlterTheOwningRepeatableReadSnapshot() {
+    void shouldVerifyCommittedCatalogueChangesDoNotAlterTheOwningRepeatableReadSnapshot_forCvcCatalogueContract() {
         read.executeWithoutResult(
                 status -> {
                     var before =
@@ -350,7 +350,7 @@ class CdsExportCvcCatalogueMariaDbIntegrationTest {
     }
 
     @Test
-    void frozenClassifierUsesCapturedCatalogueDefinitionsAfterALaterCommittedEdit()
+    void shouldVerifyFrozenClassifierUsesCapturedCatalogueDefinitions_afterALaterCommittedEdit()
             throws Exception {
         var rows =
                 read.execute(
@@ -401,7 +401,7 @@ class CdsExportCvcCatalogueMariaDbIntegrationTest {
     }
 
     @Test
-    void existingNativeCvcFindersKeepTheirHistoricalContractsBesideTheRawReaders() {
+    void shouldVerifyExistingNativeCvcFindersKeepTheirHistoricalContractsBesideTheRawReaders_forCvcCatalogueContract() {
         read.executeWithoutResult(
                 status -> {
                     var mapped = mappings.findByOscarName(prefix + "-historic-0");
@@ -423,7 +423,7 @@ class CdsExportCvcCatalogueMariaDbIntegrationTest {
     }
 
     @Test
-    void noRawVocabularyReadCanEscapeTheOwningReadOnlyTransaction() {
+    void shouldVerifyNoRawVocabularyReadCanEscapeTheOwningReadOnlyTransaction_forCvcCatalogueContract() {
         assertThatThrownBy(() -> vaccines.countCdsExportRows(27))
                 .isInstanceOf(IllegalTransactionStateException.class);
         var write = new TransactionTemplate(context.getBean(PlatformTransactionManager.class));

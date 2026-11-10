@@ -177,14 +177,14 @@ class CdsExportReportRetainedSourceUnitTest {
     }
 
     @Test
-    void shouldRefuseChangedNativePreparationText() {
+    void shouldRefuseChangedNativePreparationText_forReportRetainedSourceContract() {
         embedded("Original");
         texts.put(fields.getLast().id(), "Changed");
         assertThatThrownBy(this::read).hasMessage("CDS_EXPORT_REPORT_SOURCE_PREPARATION_MISMATCH");
     }
 
     @Test
-    void shouldRefuseDuplicateRepresentationNames() {
+    void shouldRefuseDuplicateRepresentationNames_forReportRetainedSourceContract() {
         embedded("Report");
         variants.add(variants.getFirst());
         assertThatThrownBy(this::read).isInstanceOf(IOException.class);
@@ -224,7 +224,7 @@ class CdsExportReportRetainedSourceUnitTest {
     }
 
     @Test
-    void shouldPropagateAuthenticatedTailFailure() throws Exception {
+    void shouldPropagateAuthenticatedTailFailure_forReportRetainedSourceContract() throws Exception {
         embedded("Report");
         when(values.text(fields.getLast()))
                 .thenReturn(

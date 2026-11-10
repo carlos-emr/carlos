@@ -68,6 +68,27 @@ is labelled complete. The source catalogue classifies every physical ON/BC table
 unreviewed sources must be empty. Native-only history, unsupported historical
 carriers and other unqualified clinical representations remain review cases.
 
+The execution lease is renewed independently during bounded source I/O. A worker
+that returns after its own lease expires records `CDS_EXPORT_EXECUTION_LEASE_EXPIRED`
+and requires review; it cannot change a newer generation or a completed publication.
+Delegated browser retrieval rechecks the configured delegation and the current
+administration/read rights of both the account's provider and the authorizing
+provider. Metadata ownership never substitutes for those clinical checks.
+
+Saved jobs are listed newest first, with a stable creation-time/identifier cursor
+restricted to the same operator. Browser controls fence pending polls before
+starting a fresh status chain. Known missing jobs return HTTP 404 and invalid state
+transitions return 409; unexpected failures are logged without exception messages,
+patient values or physical paths. A committed download never enters Struts error
+rendering. Fully written ciphertext with a failed final confirmation is audited as
+`DOWNLOAD_COMPLETION_UNCONFIRMED`, rather than as confirmed delivery or no delivery.
+
+Unpublished DDL is safe to replay after an interrupted statement sequence. The
+native gate exercises this on its own MariaDB fixture, preserving existing native
+witnesses, attempt rows and explicit privilege denials. Shared prevention readers
+also preserve a legacy row with a null demographic association. An unavailable
+source still fails explicitly instead of presenting an empty or incomplete chart.
+
 ## Historical implementation and qualification log
 
 Everything below records earlier checkpoints, including work originally based

@@ -1186,7 +1186,7 @@ class CdsExportSelectionIntegrationTest {
             named = "cds.export.test.properties",
             matches = ".+")
     void
-            shouldCaptureOnlyPublicProviderFields_andOnlyTheSelectedPatientReferences_withBinaryTextPaging()
+            shouldCaptureOnlyPublicProviderFields_andOnlyTheSelectedPatientReferencesWithBinaryTextPaging()
                     throws Exception {
         insert(first, physician, "AC");
         insert(first + 1, physician, "IN");
@@ -1354,7 +1354,7 @@ class CdsExportSelectionIntegrationTest {
             named = "cds.export.test.properties",
             matches = ".+")
     void
-            shouldVerifyAnExistingImporterReceipt_fromCapturedValuesAndActualDriverMetadata_withoutChangingItsProtocol()
+            shouldVerifyAnExistingImporterReceipt_fromCapturedValuesAndActualDriverMetadataWithoutChangingItsProtocol()
                     throws Exception {
         insert(first, physician, "AC");
         var source = context.getBean(io.github.carlos_emr.carlos.commn.dao.AllergyDao.class);
@@ -1501,7 +1501,7 @@ class CdsExportSelectionIntegrationTest {
             named = "cds.export.test.properties",
             matches = ".+")
     void
-            shouldCaptureEveryArchiveVersion_withoutCollapsingBookingIds_orDroppingHistoricalStatusDefinitions()
+            shouldCaptureEveryArchiveVersion_withoutCollapsingBookingIdsOrDroppingHistoricalStatusDefinitions()
                     throws Exception {
         insert(first, physician, "AC");
         insert(first + 1, physician, "IN");

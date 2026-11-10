@@ -152,7 +152,7 @@ class CdsExportLaboratoryReceiptUnitTest {
     }
 
     @Test
-    void shouldRefuseAResultKeyForAnotherNativeIdentity() throws Exception {
+    void shouldRefuseAResultKey_forAnotherNativeIdentity() throws Exception {
         key = "b".repeat(64);
         prepare();
         assertThatThrownBy(this::read).hasMessage("CDS_EXPORT_NATIVE_ROW_RECEIPT_SCOPE_INVALID");
@@ -170,7 +170,7 @@ class CdsExportLaboratoryReceiptUnitTest {
     }
 
     @Test
-    void shouldRefuseANumericHl7IdentityWithNoncanonicalSpelling() throws Exception {
+    void shouldRefuseANumericHl7Identity_withNoncanonicalSpelling() throws Exception {
         table = "hl7TextMessage";
         column = "lab_id";
         id = "091";

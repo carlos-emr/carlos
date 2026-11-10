@@ -49,7 +49,7 @@ class CdsExportPreventionClassifierUnitTest {
     }
 
     @Test
-    void distinguishesVaccinationIncludingH1n1FromScreeningsAndHistory() throws Exception {
+    void shouldVerifyDistinguishesVaccinationIncludingH1n1_fromScreeningsAndHistory() throws Exception {
         var value = classifier();
         assertThat(value.classify("Td", null))
                 .isEqualTo(
@@ -61,7 +61,7 @@ class CdsExportPreventionClassifierUnitTest {
     }
 
     @Test
-    void unknownTypesAndLayoutsAlwaysRequireReviewRatherThanSilentExclusion() throws Exception {
+    void shouldVerifyUnknownTypesAndLayoutsAlwaysRequireReviewRatherThanSilentExclusion_forPreventionClassifierContract() throws Exception {
         var value = classifier();
         for (String type : Arrays.asList(null, "", "td", " Td", "Td ", "Unknown"))
             assertThat(value.classify(type, null))
@@ -74,7 +74,7 @@ class CdsExportPreventionClassifierUnitTest {
     }
 
     @Test
-    void actualBundledConfigurationKeepsMantouxScreeningAndAmbiguousInjectionsOutOfVaccinations()
+    void shouldVerifyActualBundledConfigurationKeepsMantouxScreeningAndAmbiguousInjectionsOutOfVaccinations_forPreventionClassifierContract()
             throws Exception {
         byte[] xml;
         try (var input = getClass().getResourceAsStream("/oscar/prevention/PreventionItems.xml")) {
@@ -93,7 +93,7 @@ class CdsExportPreventionClassifierUnitTest {
     }
 
     @Test
-    void exactCvcConceptOrPicklistClassifiesGenericAndTradeVaccinesWithoutClaimingCodeEquivalence()
+    void shouldVerifyExactCvcConceptOrPicklistClassifiesGenericAndTradeVaccines_withoutClaimingCodeEquivalence()
             throws Exception {
         var generic = vaccine(1, "Frozen generic vaccine", "123456789");
         var trade = changed(vaccine(2, "Frozen trade vaccine", "987654321"), "generic", "0");
@@ -107,7 +107,7 @@ class CdsExportPreventionClassifierUnitTest {
     }
 
     @Test
-    void oldCvcNamesRequireTheCorrespondingCapturedVaccineDefinition() throws Exception {
+    void shouldVerifyOldCvcNamesRequireTheCorrespondingCapturedVaccineDefinition_forPreventionClassifierContract() throws Exception {
         var value =
                 from(
                         XML,
@@ -120,7 +120,7 @@ class CdsExportPreventionClassifierUnitTest {
     }
 
     @Test
-    void aKnownScreeningAndVaccineBindingConflictRequiresReview() throws Exception {
+    void shouldVerifyAKnownScreeningAndVaccineBindingConflictRequiresReview_forPreventionClassifierContract() throws Exception {
         var value =
                 from(
                         XML,
@@ -133,7 +133,7 @@ class CdsExportPreventionClassifierUnitTest {
     }
 
     @Test
-    void unknownLayoutIsNotOverriddenByACvcName() throws Exception {
+    void shouldVerifyUnknownLayoutIsNotOverridden_byACvcName() throws Exception {
         assertThat(
                         from(XML, List.of(vaccine(1, "custom", "123456789")))
                                 .classify("custom", null)
@@ -142,7 +142,7 @@ class CdsExportPreventionClassifierUnitTest {
     }
 
     @Test
-    void unresolvedMappingsDoNotFallBackToAnotherVaccineNameOrLayout() throws Exception {
+    void shouldVerifyUnresolvedMappingsDoNotFallBack_toAnotherVaccineNameOrLayout() throws Exception {
         assertThat(from(XML, List.of(mapping(1, "Td", null))).classify("Td", null).rule())
                 .isEqualTo(UNRESOLVED_CVC_MAPPING);
     }
@@ -163,14 +163,14 @@ class CdsExportPreventionClassifierUnitTest {
                 "<preventions><item name='Td'/></preventions><extra/>",
                 "<preventions><item name='Td' layout='injection' healthCanadaType='Td' layout='PAPMAM'/></preventions>"
             })
-    void invalidOrAmbiguousXmlNeverBuildsAClassifier(String xml) {
+    void shouldVerifyInvalidOrAmbiguousXmlNeverBuildsAClassifier_forPreventionClassifierContract(String xml) {
         assertThatThrownBy(() -> from(xml, List.of()))
                 .isInstanceOf(IOException.class)
                 .hasMessage("CDS_EXPORT_PREVENTION_CLASSIFICATION_INVALID");
     }
 
     @Test
-    void enforcesByteElementAndAttributeBoundsWithoutTruncating() {
+    void shouldVerifyEnforcesByteElementAndAttributeBounds_withoutTruncating() {
         assertThatThrownBy(
                         () ->
                                 CdsExportPreventionClassifier.fromCaptured(
@@ -207,7 +207,7 @@ class CdsExportPreventionClassifierUnitTest {
     }
 
     @Test
-    void schemaKeysBooleanStatesAndForeignCatalogueTablesAreRejected() {
+    void shouldVerifySchemaKeysBooleanStatesAndForeignCatalogueTablesAreRejected_forPreventionClassifierContract() {
         var row = vaccine(1, "Vaccine", "123456789");
         for (var invalid :
                 List.of(
@@ -233,7 +233,7 @@ class CdsExportPreventionClassifierUnitTest {
     }
 
     @Test
-    void duplicatePhysicalRowsAndAmbiguousOldNameMappingsAreRejected() {
+    void shouldVerifyDuplicatePhysicalRowsAndAmbiguousOldNameMappingsAreRejected_forPreventionClassifierContract() {
         var row = vaccine(1, "Vaccine", "123456789");
         assertThatThrownBy(() -> from(XML, List.of(row, row))).isInstanceOf(IOException.class);
         assertThatThrownBy(
@@ -247,7 +247,7 @@ class CdsExportPreventionClassifierUnitTest {
     }
 
     @Test
-    void catalogueHashIsOrderedAndBindsAllValuesIncludingNullVersusEmpty() throws Exception {
+    void shouldVerifyCatalogueHashIsOrderedAndBindsAllValuesIncludingNullVersusEmpty_forPreventionClassifierContract() throws Exception {
         var first = vaccine(1, "Vaccine", "123456789");
         var second = mapping(2, "old", "123456789");
         var a = from(XML, List.of(first, second));
@@ -264,7 +264,7 @@ class CdsExportPreventionClassifierUnitTest {
     }
 
     @Test
-    void evidenceIdentityAndOriginalConfigurationRemainImmutableAndProtected() throws Exception {
+    void shouldVerifyEvidenceIdentityAndOriginalConfigurationRemainImmutableAndProtected_forPreventionClassifierContract() throws Exception {
         byte[] bytes = XML.getBytes(StandardCharsets.UTF_8);
         var value = CdsExportPreventionClassifier.fromCaptured(SOURCE, bytes, List.of());
         var digest = value.configurationSha256();
@@ -281,7 +281,7 @@ class CdsExportPreventionClassifierUnitTest {
     }
 
     @Test
-    void boundsEvenALazyCatalogueAndNeverSilentlyUsesItsPrefix() {
+    void shouldVerifyBoundsEvenALazyCatalogueAndNeverSilentlyUsesItsPrefix_forPreventionClassifierContract() {
         Iterable<CdsExportCapturedTextRowDto> endless =
                 () ->
                         new Iterator<>() {
@@ -299,7 +299,7 @@ class CdsExportPreventionClassifierUnitTest {
     }
 
     @Test
-    void anInjectionLayoutDoesNotProveVaccinationButExplicitVaccineEvidenceCanResolveIt()
+    void shouldVerifyAnInjectionLayoutDoesNotProveVaccinationButExplicitVaccineEvidenceCanResolveIt_forPreventionClassifierContract()
             throws Exception {
         String xml =
                 "<preventions><item name='Tuberculosis' layout='injection' headingName='Screenings'/><item name='OtherA' layout='injection' headingName='Other'/><item name='B12' layout='injection' headingName='Other'/></preventions>";
@@ -313,7 +313,7 @@ class CdsExportPreventionClassifierUnitTest {
     }
 
     @Test
-    void conflictingScreeningAndImmunizationDeclarationsRequireReview() throws Exception {
+    void shouldVerifyConflictingScreeningAndImmunizationDeclarationsRequireReview_forPreventionClassifierContract() throws Exception {
         var value =
                 from(
                         "<preventions><item name='ambiguous' layout='injection' headingName='Screenings' healthCanadaType='Inf'/></preventions>",

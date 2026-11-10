@@ -72,7 +72,7 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
     }
 
     @Test
-    void unchangedSelectedNoteFieldsRetainTheirSourceWithoutQualifyingAlertsOrCareTeamCarriers()
+    void shouldVerifyUnchangedSelectedNoteFieldsRetainTheirSource_withoutQualifyingAlertsOrCareTeamCarriers()
             throws Exception {
         var result = reconcile();
         assertThat(result.noteRepresentable()).isTrue();
@@ -86,7 +86,7 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
     }
 
     @Test
-    void anEditedPlainNoteUsesItsCurrentExactTextWithoutTreatingEmbeddedFramesAsMarkup()
+    void shouldVerifyAnEditedPlainNoteUsesItsCurrentExactText_withoutTreatingEmbeddedFramesAsMarkup()
             throws Exception {
         change("content", DemographicCust.wrapPatientNotes("Current </unotes> 😀\nSecond line"));
         var result = reconcile();
@@ -96,7 +96,7 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
     }
 
     @Test
-    void nullClearsAndEmptyNotesRemainDifferent() throws Exception {
+    void shouldVerifyNullClearsAndEmptyNotesRemainDifferent_forDemographicRetainedNoteReconcilerContract() throws Exception {
         change("content", null);
         assertThat(text(render(reconcile()), "NoteAboutPatient")).isEmpty();
         change("content", DemographicCust.wrapPatientNotes(""));
@@ -104,7 +104,7 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
     }
 
     @Test
-    void independentCareTeamChangesStayDeferredAndDoNotRewriteAnUnchangedNote() throws Exception {
+    void shouldVerifyIndependentCareTeamChangesStayDeferredAndDoNotRewriteAnUnchangedNote_forDemographicRetainedNoteReconcilerContract() throws Exception {
         change("cust1", "Unresolved care team reference");
         var result = reconcile();
         assertThat(result.noteRepresentable()).isTrue();
@@ -114,7 +114,7 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
     }
 
     @Test
-    void aSourceOnlyFullNoteCannotBeOverwrittenByALaterNativePlaceholderEdit() throws Exception {
+    void shouldVerifyASourceOnlyFullNoteCannotBeOverwritten_byALaterNativePlaceholderEdit() throws Exception {
         fixture.preparedNote("Native storage placeholder", true);
         source.put("NoteAboutPatient[1]", "Complete source note");
         old.set(0, cust(DemographicCust.wrapPatientNotes("Native storage placeholder"), true));
@@ -128,7 +128,7 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
     }
 
     @Test
-    void aLaterAddedNativeNoteCanBeAppendedWhenNoSourceOrPreparedNoteExisted() throws Exception {
+    void shouldVerifyALaterAddedNativeNoteCanBeAppended_whenNoSourceOrPreparedNoteExisted() throws Exception {
         fixture.preparedNote(null, false);
         source.remove("NoteAboutPatient[1]");
         old.clear();
@@ -139,13 +139,13 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
     }
 
     @Test
-    void aMatchedExistingNoteWithoutAnAppliedReceiptCannotReplayPreparedSource() throws Exception {
+    void shouldVerifyAMatchedExistingNote_withoutAnAppliedReceiptCannotReplayPreparedSource() throws Exception {
         old.clear();
         assertThat(reconcile().noteRepresentable()).isFalse();
     }
 
     @Test
-    void missingAndUnprojectedSourceNotesRequireReview() throws Exception {
+    void shouldVerifyMissingAndUnprojectedSourceNotesRequireReview_forDemographicRetainedNoteReconcilerContract() throws Exception {
         source.remove("NoteAboutPatient[1]");
         assertThat(reconcile().noteRepresentable()).isFalse();
         setup();
@@ -156,13 +156,13 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
     }
 
     @Test
-    void ambiguousNativeFramingCannotFallBackToOriginalText() throws Exception {
+    void shouldVerifyAmbiguousNativeFramingCannotFallBack_toOriginalText() throws Exception {
         change("content", "prefix <unotes>ambiguous</unotes> suffix");
         assertThat(reconcile().noteRepresentable()).isFalse();
     }
 
     @Test
-    void deletingAnImportedCustRowCannotResurrectItsOriginalNote() throws Exception {
+    void shouldVerifyDeletingAnImportedCustRowCannotResurrectItsOriginalNote_forDemographicRetainedNoteReconcilerContract() throws Exception {
         current.clear();
         var result = reconcile();
         assertThat(result.noteRepresentable()).isFalse();
@@ -171,7 +171,7 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
     }
 
     @Test
-    void selectedAlertsRemainExplicitlyDeferredUnderAFullCustWitness() throws Exception {
+    void shouldVerifySelectedAlertsRemainExplicitlyDeferred_underAFullCustWitness() throws Exception {
         selected = Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.ALERTS_AND_SPECIAL_NEEDS);
         current.set(0, cust(DemographicCust.wrapPatientNotes("Original 😀 note"), true));
         var result = reconcile();
@@ -182,7 +182,7 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
     }
 
     @Test
-    void expiredValuesAndSubstitutedRowsFailClosed() throws Exception {
+    void shouldVerifyExpiredValuesAndSubstitutedRowsFailClosed_forDemographicRetainedNoteReconcilerContract() throws Exception {
         active = false;
         assertThatThrownBy(this::reconcile).hasMessage("EXPIRED_VALUES");
         active = true;

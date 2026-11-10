@@ -212,7 +212,7 @@ class CdsExportDemographicArchiveMariaDbIntegrationTest {
     }
 
     @Test
-    void verifiesFullPhysicalSchemaAndActualDriverMetadata() {
+    void shouldVerifyVerifiesFullPhysicalSchemaAndActualDriverMetadata_forDemographicArchiveContract() {
         var dao = context.getBean(DemographicArchiveDaoImpl.class);
         read.executeWithoutResult(
                 status -> {
@@ -243,7 +243,7 @@ class CdsExportDemographicArchiveMariaDbIntegrationTest {
     }
 
     @Test
-    void keysetPagesEverySnapshotIncludingRepeatedStatesAndNullOrEmptyValues() {
+    void shouldVerifyKeysetPagesEverySnapshotIncludingRepeatedStatesAndNullOrEmptyValues_forDemographicArchiveContract() {
         var dao = context.getBean(DemographicArchiveDaoImpl.class);
         read.executeWithoutResult(
                 status -> {
@@ -264,7 +264,7 @@ class CdsExportDemographicArchiveMariaDbIntegrationTest {
     }
 
     @Test
-    void rawChunkReadsPreserveUtf8BoundariesAndRejectForeignPatientRowsOrUndeclaredColumns() {
+    void shouldVerifyRawChunkReadsPreserveUtf8BoundariesAndRejectForeignPatientRowsOrUndeclaredColumns_forDemographicArchiveContract() {
         var dao = context.getBean(DemographicArchiveDaoImpl.class);
         read.executeWithoutResult(
                 status ->
@@ -300,7 +300,7 @@ class CdsExportDemographicArchiveMariaDbIntegrationTest {
     }
 
     @Test
-    void streamsEveryPhysicalFieldWithoutEntityHydrationOrEnrollmentDeduplication()
+    void shouldVerifyStreamsEveryPhysicalField_withoutEntityHydrationOrEnrollmentDeduplication()
             throws Exception {
         var reader =
                 new CdsExportDemographicArchiveSourceReader(
@@ -355,7 +355,7 @@ class CdsExportDemographicArchiveMariaDbIntegrationTest {
     }
 
     @Test
-    void keepsTheSameRepeatableReadSnapshotAcrossASeparateCommittedArchiveEdit() {
+    void shouldVerifyKeepsTheSameRepeatableReadSnapshot_acrossASeparateCommittedArchiveEdit() {
         var dao = context.getBean(DemographicArchiveDaoImpl.class);
         read.executeWithoutResult(
                 status -> {
@@ -387,7 +387,7 @@ class CdsExportDemographicArchiveMariaDbIntegrationTest {
     }
 
     @Test
-    void capturesCurrentAndArchivedPrimaryOrEnrollmentProvidersWithOnlyPublicFields() {
+    void shouldVerifyCapturesCurrentAndArchivedPrimaryOrEnrollmentProviders_withOnlyPublicFields() {
         var dao = context.getBean(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDaoImpl.class);
         read.executeWithoutResult(
                 status -> {
@@ -415,7 +415,7 @@ class CdsExportDemographicArchiveMariaDbIntegrationTest {
     }
 
     @Test
-    void capturesBothMergeDirectionsAndDeletedHistoryWithoutIncludingForeignLinks()
+    void shouldVerifyCapturesBothMergeDirectionsAndDeletedHistory_withoutIncludingForeignLinks()
             throws Exception {
         var dao = context.getBean(DemographicMergedDaoImpl.class);
         for (int id : List.of(patient + 2, patient + 3, patient + 10, patient + 12)) {
@@ -503,7 +503,7 @@ class CdsExportDemographicArchiveMariaDbIntegrationTest {
     }
 
     @Test
-    void refusesRawArchiveReadsOutsideTheOwningSourceTransaction() {
+    void shouldVerifyRefusesRawArchiveReadsOutsideTheOwningSourceTransaction_forDemographicArchiveContract() {
         assertThatThrownBy(
                         () ->
                                 context.getBean(DemographicArchiveDaoImpl.class)

@@ -49,7 +49,7 @@ class CdsExportPublicProviderMapperUnitTest {
     }
 
     @Test
-    void shouldNeverRelabelAnotherOrMissingRegistrationAuthorityAsCpso() throws Exception {
+    void shouldNeverRelabelAnotherOrMissingRegistrationAuthorityAsCpso_forPublicProviderMapperContract() throws Exception {
         for (String authority : Arrays.asList(null, "", "MSP", "cpso")) {
             var mapped =
                     new CdsExportPublicProviderMapper()

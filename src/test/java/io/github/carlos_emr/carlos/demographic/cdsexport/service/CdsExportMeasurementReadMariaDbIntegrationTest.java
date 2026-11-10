@@ -355,7 +355,7 @@ class CdsExportMeasurementReadMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldRefuseAnOwnedDeletedIdentityThatNowBelongsToAnotherCurrentPatient() {
+    void shouldRefuseAnOwnedDeletedIdentityThatNowBelongs_toAnotherCurrentPatient() {
         deleted(patient, patient + 35);
         assertThatThrownBy(() -> read.execute(status -> measurements.countCdsExportRows(patient)))
                 .hasMessage("CDS_EXPORT_AMBIGUOUS_SOURCE");

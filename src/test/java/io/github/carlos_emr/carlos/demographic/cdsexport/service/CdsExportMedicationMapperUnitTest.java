@@ -312,7 +312,7 @@ class CdsExportMedicationMapperUnitTest {
     }
 
     @Test
-    void shouldRequireExactPatientRowAndPrecisionParentIdentities() {
+    void shouldRequireExactPatientRowAndPrecisionParentIdentities_forMedicationMapperContract() {
         assertThatThrownBy(() -> mapper.map(28, medication(baseline()), List.of()))
                 .hasMessage("CDS_EXPORT_MEDICATION_CAPTURE_SCOPE_INVALID");
         assertThatThrownBy(

@@ -202,7 +202,7 @@ class CdsExportServiceUnitTest {
     }
 
     @Test
-    void shouldRejectAnEngineThatSubstitutesActorOrAcceptedIntent() throws Exception {
+    void shouldRejectAnEngineThatSubstitutesActorOrAcceptedIntent_forServiceContract() throws Exception {
         when(engine.bind(actor, command))
                 .thenReturn(
                         new CdsExportJobDocumentDto(

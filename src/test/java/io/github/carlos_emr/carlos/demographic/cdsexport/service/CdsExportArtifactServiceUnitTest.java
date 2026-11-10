@@ -192,24 +192,24 @@ class CdsExportArtifactServiceUnitTest {
     }
 
     @Test
-    void shouldReleaseTheLease_withoutCompletion_whenTheAdapterDoesNotCommit() throws Exception {
+    void shouldReleaseTheLease_withoutCompletionWhenTheAdapterDoesNotCommit() throws Exception {
         try (var download = service.open(actor, lease.runId(), "package")) {
             download.writeTo(OutputStream.nullOutputStream());
         }
-        verify(ledger).finishDownload(lease, false);
+        verify(ledger).finishDownload(lease, false, true);
         verify(ledger, never()).finishDownload(lease, true);
     }
 
     @Test
-    void shouldRefuseACompletionWithoutFullCiphertextEOF() throws Exception {
+    void shouldRefuseACompletion_withoutFullCiphertextEOF() throws Exception {
         try (var download = service.open(actor, lease.runId(), "package")) {
             assertThatThrownBy(download::complete).hasMessage("CDS_EXPORT_DOWNLOAD_NOT_DELIVERED");
         }
-        verify(ledger).finishDownload(lease, false);
+        verify(ledger).finishDownload(lease, false, false);
     }
 
     @Test
-    void shouldReleaseTheLease_afterAnOutputFailure_withoutClaimingSuccessfulDelivery()
+    void shouldReleaseTheLease_afterAnOutputFailureWithoutClaimingSuccessfulDelivery()
             throws Exception {
         try (var download = service.open(actor, lease.runId(), "package")) {
             assertThatThrownBy(
@@ -223,7 +223,7 @@ class CdsExportArtifactServiceUnitTest {
                                             }))
                     .hasMessage("OUTPUT_FAILED");
         }
-        verify(ledger).finishDownload(lease, false);
+        verify(ledger).finishDownload(lease, false, false);
         verify(ledger, never()).finishDownload(lease, true);
     }
 
@@ -232,7 +232,7 @@ class CdsExportArtifactServiceUnitTest {
         when(verified.authorizationSha256()).thenReturn("a".repeat(64));
         assertThatThrownBy(() -> service.open(actor, lease.runId(), "package"))
                 .hasMessage("CDS_EXPORT_DOWNLOAD_SCOPE_INVALID");
-        verify(ledger).finishDownload(lease, false);
+        verify(ledger).finishDownload(lease, false, false);
         verify(ledger, never()).finishDownload(lease, true);
     }
 
@@ -241,7 +241,7 @@ class CdsExportArtifactServiceUnitTest {
         when(engine.qualifiedProfiles()).thenReturn(Set.of());
         assertThatThrownBy(() -> service.open(actor, lease.runId(), "package"))
                 .hasMessage("CDS_EXPORT_ENGINE_IDENTITY_CHANGED");
-        verify(ledger).finishDownload(lease, false);
+        verify(ledger).finishDownload(lease, false, false);
     }
 
     @Test
@@ -259,7 +259,7 @@ class CdsExportArtifactServiceUnitTest {
                     };
             assertThatThrownBy(() -> download.writeTo(output)).hasMessage("REVOKED");
         }
-        verify(ledger).finishDownload(lease, false);
+        verify(ledger).finishDownload(lease, false, true);
         verify(ledger, never()).finishDownload(lease, true);
     }
 
@@ -273,7 +273,7 @@ class CdsExportArtifactServiceUnitTest {
             assertThatThrownBy(() -> download.writeTo(OutputStream.nullOutputStream()))
                     .isInstanceOf(IOException.class);
         }
-        verify(ledger).finishDownload(lease, false);
+        verify(ledger).finishDownload(lease, false, false);
         verify(ledger, never()).finishDownload(lease, true);
     }
 }

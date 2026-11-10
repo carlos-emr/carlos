@@ -85,7 +85,7 @@ class CdsBinaryReadsUnitTest {
     }
 
     @Test
-    void shouldRetainOwnerIdentityAndRefuseVendorUnwrapping() throws Exception {
+    void shouldRetainOwnerIdentityAndRefuseVendorUnwrapping_forBinaryReadsContract() throws Exception {
         var f = fixture();
         try (var query = CdsBinaryReads.prepareDriver(f.owner(), SQL)) {
             assertThat(query.getConnection()).isSameAs(f.owner());

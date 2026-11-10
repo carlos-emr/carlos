@@ -108,7 +108,7 @@ class CdsExportPreventionSnapshotServiceUnitTest {
     }
 
     @Test
-    void configurationAndSelectionAreFixedWithinTheOwningSnapshotAndReleasedAtCompletion()
+    void shouldVerifyConfigurationAndSelectionAreFixed_withinTheOwningSnapshotAndReleasedAtCompletion()
             throws Exception {
         final CdsExportPreventionSnapshotService.State[] saved = {null};
         var probes = new AtomicInteger();
@@ -140,7 +140,7 @@ class CdsExportPreventionSnapshotServiceUnitTest {
     }
 
     @Test
-    void configurationStreamsCannotEscapeTheirTransactionOrOwnerThread() {
+    void shouldVerifyConfigurationStreamsCannotEscapeTheirTransactionOrOwnerThread_forPreventionSnapshotServiceContract() {
         final InputStream[] saved = {null};
         transaction(
                 () -> {
@@ -167,7 +167,7 @@ class CdsExportPreventionSnapshotServiceUnitTest {
     }
 
     @Test
-    void aDifferentPatientThreadOrJpaTransactionCannotReuseTheState() {
+    void shouldVerifyADifferentPatientThreadOrJpaTransactionCannotReuseTheState_forPreventionSnapshotServiceContract() {
         transaction(
                 () -> {
                     var state = snapshots.prepare(27, () -> {});
@@ -202,7 +202,7 @@ class CdsExportPreventionSnapshotServiceUnitTest {
     }
 
     @Test
-    void noStateCanBeCreatedOutsideAnOwningReadonlyRepeatableReadJpaTransaction() {
+    void shouldVerifyNoStateCanBeCreatedOutsideAnOwningReadonlyRepeatableReadJpaTransaction_forPreventionSnapshotServiceContract() {
         assertThatThrownBy(() -> snapshots.prepare(27, () -> {}))
                 .hasMessage("CDS_EXPORT_PREVENTION_SNAPSHOT_REQUIRED");
         read.setReadOnly(false);
@@ -211,7 +211,7 @@ class CdsExportPreventionSnapshotServiceUnitTest {
     }
 
     @Test
-    void readCommittedOrAnUnjoinedJpaHolderCannotStandInForTheOwnedSnapshot() {
+    void shouldVerifyReadCommittedOrAnUnjoinedJpaHolderCannotStand_inForTheOwnedSnapshot() {
         read.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         assertThatThrownBy(() -> transaction(() -> snapshots.prepare(27, () -> {})))
                 .hasMessage("CDS_EXPORT_PREVENTION_SNAPSHOT_REQUIRED");
@@ -222,7 +222,7 @@ class CdsExportPreventionSnapshotServiceUnitTest {
     }
 
     @Test
-    void programRestrictionsAreCheckedBeforeConfigurationOrTypeRowsAreRead() throws Exception {
+    void shouldVerifyProgramRestrictionsAreChecked_beforeConfigurationOrTypeRowsAreRead() throws Exception {
         Files.delete(file);
         when(preventions.hasCdsExportUnresolvedProgramScope(27)).thenReturn(true);
         assertThatThrownBy(() -> transaction(() -> snapshots.prepare(27, () -> {})))
@@ -232,7 +232,7 @@ class CdsExportPreventionSnapshotServiceUnitTest {
     }
 
     @Test
-    void cancellationDuringDiscoveryCannotLeaveAUsableSnapshot() {
+    void shouldVerifyCancellation_duringDiscoveryCannotLeaveAUsableSnapshot() {
         var calls = new AtomicInteger();
         assertThatThrownBy(
                         () ->
@@ -252,7 +252,7 @@ class CdsExportPreventionSnapshotServiceUnitTest {
     }
 
     @Test
-    void unknownTypesRemainAReviewPartitionAndCannotSupplyClinicalIds() {
+    void shouldVerifyUnknownTypesRemainAReviewPartitionAndCannotSupplyClinicalIds_forPreventionSnapshotServiceContract() {
         when(preventions.findCdsExportRowsAfter(eq(27), any(), eq(32)))
                 .thenReturn(List.of(raw(1, "UNCONFIGURED"), raw(2, "PAP")));
         transaction(
@@ -266,7 +266,7 @@ class CdsExportPreventionSnapshotServiceUnitTest {
     }
 
     @Test
-    void countMismatchesAndCorruptInlineHashCannotSilentlySelectAPrefix() {
+    void shouldVerifyCountMismatchesAndCorruptInlineHashCannotSilentlySelectAPrefix_forPreventionSnapshotServiceContract() {
         when(preventions.countCdsExportRows(27)).thenReturn(3L);
         assertThatThrownBy(() -> transaction(() -> snapshots.prepare(27, () -> {})))
                 .hasRootCauseMessage("CDS_EXPORT_PREVENTION_SELECTION_INVALID");
@@ -282,7 +282,7 @@ class CdsExportPreventionSnapshotServiceUnitTest {
     }
 
     @Test
-    void unboundDefinitionsCannotMasqueradeAsCapturedSourceEvidence() throws Exception {
+    void shouldVerifyUnboundDefinitionsCannotMasqueradeAsCapturedSourceEvidence_forPreventionSnapshotServiceContract() throws Exception {
         var value =
                 CdsExportPreventionClassifier.forSelection(
                         XML.getBytes(StandardCharsets.UTF_8), List.of());
@@ -295,7 +295,7 @@ class CdsExportPreventionSnapshotServiceUnitTest {
     }
 
     @Test
-    void trustedLoaderPreservesBytesAndRejectsMissingOversizedAndLeafSymlinkFiles()
+    void shouldVerifyTrustedLoaderPreservesBytesAndRejectsMissingOversizedAndLeafSymlinkFiles_forPreventionSnapshotServiceContract()
             throws Exception {
         assertThat(new CdsExportPreventionConfigurationLoader(file.toString()).load())
                 .isEqualTo(XML.getBytes(StandardCharsets.UTF_8));

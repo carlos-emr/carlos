@@ -44,7 +44,7 @@ class CdsExportPartialRowComparatorUnitTest {
             ADDRESS = RUN + ":" + UNIT;
 
     @Test
-    void verifiesExactlySelectedFieldsWhileKeepingTheAlertOmitted() throws Exception {
+    void shouldVerifyVerifiesExactlySelectedFieldsWhileKeepingTheAlertOmitted_forPartialRowComparatorContract() throws Exception {
         var full = full();
         var current = project(full);
         var result = CdsExportPartialRowComparator.compare(full, current);
@@ -57,7 +57,7 @@ class CdsExportPartialRowComparatorUnitTest {
     }
 
     @Test
-    void detectsChangedClearedAndEmptySelectedValuesWithoutConfusingNullAndEmpty()
+    void shouldVerifyDetectsChangedClearedAndEmptySelectedValues_withoutConfusingNullAndEmpty()
             throws Exception {
         var previous = full();
         var current = project(previous);
@@ -71,7 +71,7 @@ class CdsExportPartialRowComparatorUnitTest {
     }
 
     @Test
-    void excludesAlertHashChangesFromSelectedFieldEquivalenceWithoutClaimingTheWholeRow()
+    void shouldVerifyExcludesAlertHashChanges_fromSelectedFieldEquivalenceWithoutClaimingTheWholeRow()
             throws Exception {
         var previous = full();
         var changedAlert = edit(previous, "cust3", "VARCHAR", "Changed PRIVATE alert");
@@ -81,7 +81,7 @@ class CdsExportPartialRowComparatorUnitTest {
     }
 
     @Test
-    void refusesTypeOrIncompleteBaselineSchemaInsteadOfMatchingHashesOnly() throws Exception {
+    void shouldVerifyRefusesTypeOrIncompleteBaselineSchema_insteadOfMatchingHashesOnly() throws Exception {
         var previous = full();
         var current = edit(project(previous), "content", "MEDIUMTEXT", "Original patient note");
         assertThat(
@@ -97,7 +97,7 @@ class CdsExportPartialRowComparatorUnitTest {
     }
 
     @Test
-    void rejectsForeignPatientsTablesAndUnreviewedSubsets() throws Exception {
+    void shouldVerifyRejectsForeignPatientsTablesAndUnreviewedSubsets_forPartialRowComparatorContract() throws Exception {
         var previous = full();
         var current = project(previous);
         assertThatThrownBy(
@@ -125,7 +125,7 @@ class CdsExportPartialRowComparatorUnitTest {
     }
 
     @Test
-    void requiresExplicitPartialFlagAndRejectsEveryOtherPartialTable() throws Exception {
+    void shouldVerifyRequiresExplicitPartialFlagAndRejectsEveryOtherPartialTable_forPartialRowComparatorContract() throws Exception {
         var current = project(full());
         assertThatThrownBy(
                         () ->
@@ -146,7 +146,7 @@ class CdsExportPartialRowComparatorUnitTest {
     }
 
     @Test
-    void neverMarksAUnitUnchangedWhenOnlySelectedFieldsMatch() throws Exception {
+    void shouldVerifyNeverMarksAUnitUnchanged_whenOnlySelectedFieldsMatch() throws Exception {
         var previous = full();
         var checked = verify(previous, project(previous), true);
         assertThat(checked.unchangedUnits()).isEmpty();
@@ -159,7 +159,7 @@ class CdsExportPartialRowComparatorUnitTest {
     }
 
     @Test
-    void reportsChangedSelectedFieldWithoutCallingItAChangedWholeRow() throws Exception {
+    void shouldVerifyReportsChangedSelectedField_withoutCallingItAChangedWholeRow() throws Exception {
         var previous = full();
         var checked =
                 verify(previous, edit(project(previous), "cust4", "VARCHAR", "Changed"), true)
@@ -171,7 +171,7 @@ class CdsExportPartialRowComparatorUnitTest {
     }
 
     @Test
-    void legacyMissingBaselineDoesNotInventSelectedFieldEvidence() throws Exception {
+    void shouldVerifyLegacyMissingBaselineDoesNotInventSelectedFieldEvidence_forPartialRowComparatorContract() throws Exception {
         var previous = full();
         var checked = verify(previous, project(previous), false).units().get(ADDRESS).getFirst();
         assertThat(checked.reason()).isEqualTo(Reason.RECEIPT_PARTIAL_PROJECTION);
@@ -180,7 +180,7 @@ class CdsExportPartialRowComparatorUnitTest {
     }
 
     @Test
-    void countsPartialRowsSeparatelyFromWholeReceiptsAndMissingMetadata() {
+    void shouldVerifyCountsPartialRowsSeparately_fromWholeReceiptsAndMissingMetadata() {
         var counts =
                 new CdsExportNativeRowReceiptsDto(
                         SOURCE, Map.of("demographiccust", 1L), 0, 0, 1, Set.of());
@@ -195,7 +195,7 @@ class CdsExportPartialRowComparatorUnitTest {
     }
 
     @Test
-    void cannotAttachPartialEvidenceToAWholeReceiptDecision() throws Exception {
+    void shouldVerifyCannotAttachPartialEvidence_toAWholeReceiptDecision() throws Exception {
         var previous = full();
         var current = project(previous);
         var projection = CdsExportPartialRowComparator.compare(previous, current);

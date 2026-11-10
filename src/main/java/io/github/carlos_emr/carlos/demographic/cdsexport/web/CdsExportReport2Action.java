@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.cdsexport.web;
 
 import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportService;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import java.util.Map;
 import java.util.Set;
 import org.apache.struts2.ActionSupport;
@@ -31,15 +32,23 @@ import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
-/** Authorized metadata diagnostics for every saved outcome, including failed and review-required jobs. */
+/**
+ * Authorized metadata diagnostics for every saved outcome, including failed and review-required
+ * jobs.
+ */
 @Component("cdsExportReport2Action")
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class CdsExportReport2Action extends ActionSupport {
+    private final transient SecurityInfoManager securityInfoManager;
     private final transient CdsExportWebService web;
     private final transient CdsExportService exports;
     private String runId;
 
-    public CdsExportReport2Action(CdsExportWebService web, CdsExportService exports) {
+    public CdsExportReport2Action(
+            CdsExportWebService web,
+            CdsExportService exports,
+            SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
         this.web = web;
         this.exports = exports;
     }
@@ -54,7 +63,7 @@ public class CdsExportReport2Action extends ActionSupport {
             return NONE;
         }
         try {
-            var viewer = web.authorize(request);
+            var viewer = web.authorize(request, securityInfoManager);
             web.parameters(request, Set.of("runId"), false);
             var report = exports.report(viewer, runId);
             response.setHeader(

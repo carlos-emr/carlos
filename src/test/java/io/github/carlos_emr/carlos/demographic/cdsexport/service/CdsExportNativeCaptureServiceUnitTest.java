@@ -372,7 +372,7 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
-    void shouldPreserveSelectedCustFieldEvidenceWithoutReadingOrAttestingTheExcludedAlert()
+    void shouldPreserveSelectedCustFieldEvidence_withoutReadingOrAttestingTheExcludedAlert()
             throws Exception {
         var owner = mock(io.github.carlos_emr.carlos.commn.dao.DemographicCustDao.class);
         var reader =
@@ -470,7 +470,7 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
-    void shouldRestorePatientNoteTextFromTheOwnedGenerationWithoutOpeningMutableClinicalRows()
+    void shouldRestorePatientNoteText_fromTheOwnedGenerationWithoutOpeningMutableClinicalRows()
             throws Exception {
         var notes = new PatientNoteRows();
         var service =
@@ -574,7 +574,7 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
-    void shouldStreamAnOversizedNativeNoteToReviewOnlyAfterCompleteAuthentication()
+    void shouldStreamAnOversizedNativeNote_toReviewOnlyAfterCompleteAuthentication()
             throws Exception {
         var notes = new PatientNoteRows();
         notes.text = "N".repeat(1_100_000);
@@ -622,7 +622,7 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
-    void shouldJoinBaseAndNoteFromTheSameManifestWithoutFillingMissingDemographicValues()
+    void shouldJoinBaseAndNote_fromTheSameManifestWithoutFillingMissingDemographicValues()
             throws Exception {
         var notes = new PatientNoteRows();
         var providers = new ProviderRows();
@@ -652,14 +652,14 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
-    void invokesAdditionalReadScopeChecksAtEveryLiveAuthorizationBoundary() throws Exception {
+    void shouldVerifyInvokesAdditionalReadScopeChecksAtEveryLiveAuthorizationBoundary_forNativeCaptureServiceContract() throws Exception {
         var control = new Control();
         service().capture(lease, patientScope, Set.of("demographic"), 1000, 8L << 20, control);
         assertThat(source.scopeChecks).isEqualTo(control.authorizations.get()).isEqualTo(3);
     }
 
     @Test
-    void aSourceScopeRefusalBeforeCaptureReadsNoClinicalCellsAndCreatesNoPatientMembers() {
+    void shouldVerifyASourceScopeRefusal_beforeCaptureReadsNoClinicalCellsAndCreatesNoPatientMembers() {
         source.denyScopeAt = 1;
         assertThatThrownBy(
                         () ->
@@ -677,7 +677,7 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
-    void sourceScopeRefusalsAfterCaptureOrReadbackEraseAllNewMembers() {
+    void shouldVerifySourceScopeRefusals_afterCaptureOrReadbackEraseAllNewMembers() {
         for (int refusal : List.of(2, 3)) {
             source.scopeChecks = 0;
             source.denyScopeAt = refusal;
@@ -697,7 +697,7 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
-    void currentSourceScopeRevocationPreventsReopeningFrozenClinicalValues() throws Exception {
+    void shouldVerifyCurrentSourceScopeRevocationPreventsReopeningFrozenClinicalValues_forNativeCaptureServiceContract() throws Exception {
         var service = service();
         var captured =
                 service.capture(
@@ -724,7 +724,7 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
-    void ordinaryCategoryDenialRunsBeforeAdditionalSourceMetadataChecks() {
+    void shouldVerifyOrdinaryCategoryDenialRuns_beforeAdditionalSourceMetadataChecks() {
         var control =
                 new Control() {
                     @Override
@@ -750,7 +750,7 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
-    void declaredSourceNameMustMatchItsPinnedPhysicalSchemaBeforeValueCapture() {
+    void shouldVerifyDeclaredSourceNameMustMatchItsPinnedPhysicalSchema_beforeValueCapture() {
         source.declaredTable = "demographicExt";
         assertThatThrownBy(
                         () ->
@@ -941,7 +941,7 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseAmbientTransactionsAndUndeclaredScopes() {
+    void shouldRefuseAmbientTransactionsAndUndeclaredScopes_forNativeCaptureServiceContract() {
         var outer = new TransactionTemplate(transactions);
         assertThatThrownBy(
                         () ->
@@ -994,7 +994,7 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
-    void shouldRejectAmbiguousSourceReaderRegistration() {
+    void shouldRejectAmbiguousSourceReaderRegistration_forNativeCaptureServiceContract() {
         assertThatThrownBy(
                         () ->
                                 new CdsExportNativeCaptureService(
@@ -1506,7 +1506,7 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
-    void requiredSnapshotDependenciesCannotBeOmittedBeforeSourceReadsOrAuthorization()
+    void shouldVerifyRequiredSnapshotDependenciesCannotBeOmitted_beforeSourceReadsOrAuthorization()
             throws Exception {
         source.dependencies = Set.of("prevention_configuration");
         assertThatThrownBy(
@@ -1533,7 +1533,7 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
-    void frozenReadsCannotBypassAReadersNewlyRequiredSnapshotDependency() throws Exception {
+    void shouldVerifyFrozenReadsCannotBypassAReadersNewlyRequiredSnapshotDependency_forNativeCaptureServiceContract() throws Exception {
         var captured =
                 service()
                         .capture(
@@ -1597,7 +1597,7 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
-    void aRevocationDuringTheFinalTextRowCallbackCannotReturnACompletedRead() throws Exception {
+    void shouldVerifyARevocation_duringTheFinalTextRowCallbackCannotReturnACompletedRead() throws Exception {
         var service = service();
         var tables = Set.of("demographic");
         var captured = service.capture(lease, patientScope, tables, 1000, 8L << 20, new Control());
@@ -1624,7 +1624,7 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
-    void aRevocationDuringTheFinalRowReceiptCallbackCannotReturnACompletedScan() throws Exception {
+    void shouldVerifyARevocation_duringTheFinalRowReceiptCallbackCannotReturnACompletedScan() throws Exception {
         source.receipts = true;
         var service = service();
         var tables = Set.of("demographic");

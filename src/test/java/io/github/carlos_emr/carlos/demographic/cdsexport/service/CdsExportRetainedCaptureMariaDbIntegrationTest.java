@@ -381,7 +381,7 @@ class CdsExportRetainedCaptureMariaDbIntegrationTest {
     }
 
     @Test
-    void fileClosureIsPatientAndCategoryScopedEvenWhenOnePayloadIsSharedAcrossChartsAndSections() {
+    void shouldVerifyFileClosureIsPatientAndCategoryScopedEven_whenOnePayloadIsSharedAcrossChartsAndSections() {
         var files = context.getBean(CdsImportFileDao.class);
         var references = context.getBean(CdsImportFileReferenceDao.class);
         read.executeWithoutResult(
@@ -427,7 +427,7 @@ class CdsExportRetainedCaptureMariaDbIntegrationTest {
     }
 
     @Test
-    void fileChunkAccessCannotCrossPatientCategoryOrAnUnreferencedFileInTheSameRun() {
+    void shouldVerifyFileChunkAccessCannotCrossPatientCategoryOrAnUnreferencedFile_inTheSameRun() {
         var files = context.getBean(CdsImportFileDao.class);
         var references = context.getBean(CdsImportFileReferenceDao.class);
         read.executeWithoutResult(
@@ -468,7 +468,7 @@ class CdsExportRetainedCaptureMariaDbIntegrationTest {
     }
 
     @Test
-    void fileMetadataAndChunksShareTheSameSnapshotAcrossAConcurrentUpdate() {
+    void shouldVerifyFileMetadataAndChunksShareTheSameSnapshot_acrossAConcurrentUpdate() {
         var files = context.getBean(CdsImportFileDao.class);
         String expected = "/synthetic/" + run + "/file-é😀-0";
         read.executeWithoutResult(
@@ -512,7 +512,7 @@ class CdsExportRetainedCaptureMariaDbIntegrationTest {
     }
 
     @Test
-    void fileReceiptRecipeMatchesTheHistoricalImporterAndCapturesTheSeparateVerificationEpoch() {
+    void shouldVerifyFileReceiptRecipeMatchesTheHistoricalImporterAndCapturesTheSeparateVerificationEpoch_forRetainedCaptureContract() {
         read.executeWithoutResult(
                 status -> {
                     var files = context.getBean(CdsImportFileDao.class);
@@ -538,7 +538,7 @@ class CdsExportRetainedCaptureMariaDbIntegrationTest {
     }
 
     @Test
-    void fileOwningDaosRequireAnActualReadOnlyTransaction() {
+    void shouldVerifyFileOwningDaosRequireAnActualReadOnlyTransaction_forRetainedCaptureContract() {
         var files = context.getBean(CdsImportFileDao.class);
         var references = context.getBean(CdsImportFileReferenceDao.class);
         assertThatThrownBy(() -> files.countCdsExportRetainedRows(patient, DEMOGRAPHICS))

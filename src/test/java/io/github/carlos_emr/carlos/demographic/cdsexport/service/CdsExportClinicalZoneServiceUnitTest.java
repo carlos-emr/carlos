@@ -99,7 +99,7 @@ class CdsExportClinicalZoneServiceUnitTest {
     }
 
     @Test
-    void returnsOnlyTheAuthenticatedGenerationAndChecksCurrentAuthorityAfterEof() throws Exception {
+    void shouldVerifyReturnsOnlyTheAuthenticatedGenerationAndChecksCurrentAuthority_afterEof() throws Exception {
         var result = read();
         assertThat(result.sourceManifestSha256()).isEqualTo(HASH);
         assertThat(result.zone()).isEqualTo(ZoneId.of("America/Toronto"));
@@ -107,7 +107,7 @@ class CdsExportClinicalZoneServiceUnitTest {
     }
 
     @Test
-    void manifestOnlyReaderStillRequiresTheSameCompleteZoneTable() throws Exception {
+    void shouldVerifyManifestOnlyReaderStillRequiresTheSameCompleteZoneTable_forClinicalZoneServiceContract() throws Exception {
         assertThat(
                         service.read(
                                         lease,
@@ -122,7 +122,7 @@ class CdsExportClinicalZoneServiceUnitTest {
     }
 
     @Test
-    void oldCapturesCannotFallBackToASettingOrTheJvmZone() {
+    void shouldVerifyOldCapturesCannotFallBack_toASettingOrTheJvmZone() {
         assertThatThrownBy(
                         () ->
                                 service.read(
@@ -138,7 +138,7 @@ class CdsExportClinicalZoneServiceUnitTest {
     }
 
     @Test
-    void missingAndDuplicateRowsNeverProduceAZone() {
+    void shouldVerifyMissingAndDuplicateRowsNeverProduceAZone_forClinicalZoneServiceContract() {
         data = List.of();
         assertThatThrownBy(this::read).hasMessage("CDS_EXPORT_CLINICAL_ZONE_CAPTURE_INVALID");
         try {
@@ -151,7 +151,7 @@ class CdsExportClinicalZoneServiceUnitTest {
     }
 
     @Test
-    void alteredGenerationAndLateSourceFailureCannotReturnABinding() {
+    void shouldVerifyAlteredGenerationAndLateSourceFailureCannotReturnABinding_forClinicalZoneServiceContract() {
         foreignGeneration = true;
         assertThatThrownBy(this::read).hasMessage("CDS_EXPORT_CLINICAL_ZONE_CAPTURE_INVALID");
         foreignGeneration = false;
@@ -160,7 +160,7 @@ class CdsExportClinicalZoneServiceUnitTest {
     }
 
     @Test
-    void finalAuthorityRevocationCannotBecomeACompletedZoneRead() {
+    void shouldVerifyFinalAuthorityRevocationCannotBecomeACompletedZoneRead_forClinicalZoneServiceContract() {
         doAnswer(
                         call -> {
                             if (complete) throw new SecurityException("ZONE_AUTHORITY_REVOKED");
@@ -172,7 +172,7 @@ class CdsExportClinicalZoneServiceUnitTest {
     }
 
     @Test
-    void nullMetadataAndWrongIdentityCannotBecomeAUsableDefault() {
+    void shouldVerifyNullMetadataAndWrongIdentityCannotBecomeAUsableDefault_forClinicalZoneServiceContract() {
         var values = new HashMap<>(data.getFirst().fields());
         values.put("zoneId", null);
         data =
@@ -188,7 +188,7 @@ class CdsExportClinicalZoneServiceUnitTest {
     }
 
     @Test
-    void finalCancellationKeepsItsOriginalMeaning() {
+    void shouldVerifyFinalCancellationKeepsItsOriginalMeaning_forClinicalZoneServiceContract() {
         var calls = new java.util.concurrent.atomic.AtomicInteger();
         doAnswer(
                         call -> {

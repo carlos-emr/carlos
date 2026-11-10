@@ -82,7 +82,7 @@ class CdsExportRetainedSourceScopeUnitTest {
     }
 
     @Test
-    void fileEvidenceUsesTheSelectedClinicalDomainsAndFreshSensitiveLaboratoryAuthority()
+    void shouldVerifyFileEvidenceUsesTheSelectedClinicalDomainsAndFreshSensitiveLaboratoryAuthority_forRetainedSourceScopeContract()
             throws Exception {
         var dao = mock(io.github.carlos_emr.carlos.commn.dao.CdsImportFileDao.class);
         var singleton = new CdsExportRetainedFileSourceReader(dao);
@@ -100,7 +100,7 @@ class CdsExportRetainedSourceScopeUnitTest {
     }
 
     @Test
-    void fileReferenceEvidenceNeverFallsBackToTheWholeImportRun() throws Exception {
+    void shouldVerifyFileReferenceEvidenceNeverFallsBack_toTheWholeImportRun() throws Exception {
         var dao = mock(io.github.carlos_emr.carlos.commn.dao.CdsImportFileReferenceDao.class);
         var selected =
                 Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS);

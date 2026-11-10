@@ -182,7 +182,7 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void unchangedImportedStatusPurposeNotesAndOriginalRecordedProviderRemainExact()
+    void shouldVerifyUnchangedImportedStatusPurposeNotesAndOriginalRecordedProviderRemainExact_forAppointmentFieldReconcilerContract()
             throws Exception {
         var result = reconcile();
         assertThat(result.mapping().nativeRowRepresentable()).isTrue();
@@ -196,7 +196,7 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void editedOrClearedNotesNeverReplayTheOriginalSourceValue() throws Exception {
+    void shouldVerifyEditedOrClearedNotesNeverReplayTheOriginalSourceValue_forAppointmentFieldReconcilerContract() throws Exception {
         for (String notes : Arrays.asList("Current café 😀\r\nnotes", null, "")) {
             current.put("notes", notes);
             var result = reconcile();
@@ -206,7 +206,7 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void aNativePurposeEditPreservesTheOtherOriginalFields() throws Exception {
+    void shouldVerifyANativePurposeEditPreservesTheOtherOriginalFields_forAppointmentFieldReconcilerContract() throws Exception {
         current.put("reason", "Current purpose");
         var result = reconcile();
         assertThat(result.mapping().value().purpose()).isEqualTo("Current purpose");
@@ -215,7 +215,7 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void anExplicitImportedStatusClearIsNotReplacedWithOldPreparedStatus() throws Exception {
+    void shouldVerifyAnExplicitImportedStatusClearIsNotReplaced_withOldPreparedStatus() throws Exception {
         current.put("imported_status", null);
         assertThat(reconcile().mapping().value().status()).isNull();
         current.put("imported_status", "");
@@ -223,7 +223,7 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void currentNativeStatusDefinitionWinsOnlyWhenItsSeparateOldImportedLabelIsUnchanged()
+    void shouldVerifyCurrentNativeStatusDefinitionWinsOnly_whenItsSeparateOldImportedLabelIsUnchanged()
             throws Exception {
         current.put("status", "Q1");
         assertThat(reconcile().mapping().value().status()).isEqualTo("Exact booked Ω");
@@ -232,13 +232,13 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void unknownCurrentStatusNeverFallsBackToAnOldImportedLabel() throws Exception {
+    void shouldVerifyUnknownCurrentStatusNeverFallsBack_toAnOldImportedLabel() throws Exception {
         current.put("status", "UNRESOLVED");
         assertThat(reconcile().mapping().value()).isNull();
     }
 
     @Test
-    void changedAndClearedProviderAssociationsDoNotResurrectTheOldSourceClinician()
+    void shouldVerifyChangedAndClearedProviderAssociationsDoNotResurrectTheOldSourceClinician_forAppointmentFieldReconcilerContract()
             throws Exception {
         current.put("provider_no", "");
         assertThat(reconcile().mapping().value().provider()).isNull();
@@ -256,7 +256,7 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void theLongPurposeSourceViewMarkerIsReplacedWithItsVerifiedCompleteSourceValue()
+    void shouldVerifyTheLongPurposeSourceViewMarkerIsReplaced_withItsVerifiedCompleteSourceValue()
             throws Exception {
         originalPurpose = "P".repeat(250);
         String marker = "CDS: complete appointment purpose is available in CDS source fields.";
@@ -280,14 +280,14 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void aWrongPreparationProjectionCannotClaimUnchangedNativeValues() {
+    void shouldVerifyAWrongPreparationProjectionCannotClaimUnchangedNativeValues_forAppointmentFieldReconcilerContract() {
         old.put("notes", "Different baseline notes");
         assertThatThrownBy(this::reconcile)
                 .hasMessage("CDS_EXPORT_APPOINTMENT_PREPARED_PROJECTION_NOT_PROVEN");
     }
 
     @Test
-    void missingHistoricalFieldBaselineAllowsOnlyActuallyUnchangedQualifiedLegacyRows()
+    void shouldVerifyMissingHistoricalFieldBaselineAllowsOnlyActuallyUnchangedQualifiedLegacyRows_forAppointmentFieldReconcilerContract()
             throws Exception {
         baseline = false;
         assertThat(reconcile().mapping().value()).isNotNull();
@@ -297,7 +297,7 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void currentRowsCannotBorrowWitnessesFromBeforeTheirMutation() throws Exception {
+    void shouldVerifyCurrentRowsCannotBorrowWitnesses_fromBeforeTheirMutation() throws Exception {
         build();
         current.put("notes", "Later mutation");
         assertThatThrownBy(this::invoke)
@@ -305,7 +305,7 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void patientNameMismatchProgramAffiliationAndUnmappedNativeValuesNeedReview() throws Exception {
+    void shouldVerifyPatientNameMismatchProgramAffiliationAndUnmappedNativeValuesNeedReview_forAppointmentFieldReconcilerContract() throws Exception {
         current.put("name", "Another patient");
         assertThatThrownBy(this::reconcile)
                 .hasMessage("CDS_EXPORT_APPOINTMENT_PATIENT_DISPLAY_REQUIRES_REVIEW");
@@ -318,7 +318,7 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void changedSourceFieldPagesCannotBeReplacedWithOtherwiseCorrectNativeWitnesses()
+    void shouldVerifyChangedSourceFieldPagesCannotBeReplaced_withOtherwiseCorrectNativeWitnesses()
             throws Exception {
         build();
         var unchanged = new HashSet<>(checked.unchangedUnits());
@@ -336,7 +336,7 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void aSecondAppliedUnitCannotClaimTheSameAppointmentWithoutAliasReview() throws Exception {
+    void shouldVerifyASecondAppliedUnitCannotClaimTheSameAppointment_withoutAliasReview() throws Exception {
         build();
         String alias = RUN + ":" + "d".repeat(64);
         var refs = new TreeMap<>(index.references());
@@ -363,7 +363,7 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void receivingImporterSeesCurrentNotesOriginalProviderAndPostOptionDateExactlyOnce()
+    void shouldVerifyReceivingImporterSeesCurrentNotesOriginalProviderAndPostOptionDateExactlyOnce_forAppointmentFieldReconcilerContract()
             throws Exception {
         current.put("notes", "Current receiving note");
         var result = reconcile();
@@ -391,7 +391,7 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void clearedNativeNotesAreAbsentFromTheReassembledReceivingRecord() throws Exception {
+    void shouldVerifyClearedNativeNotesAreAbsent_fromTheReassembledReceivingRecord() throws Exception {
         current.put("notes", null);
         var result = reconcile();
         var content =
@@ -403,7 +403,7 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void currentDateAndClockEditsReplaceOldSourceTimingWithoutAnotherImportShift()
+    void shouldVerifyCurrentDateAndClockEditsReplaceOldSourceTiming_withoutAnotherImportShift()
             throws Exception {
         current.put("appointment_date", "2025-04-02");
         current.put("start_time", "11:15:30");
@@ -423,7 +423,7 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void overnightAndAmbiguousLocalTimingAreNotReconstructedFromOldFields() throws Exception {
+    void shouldVerifyOvernightAndAmbiguousLocalTimingAreNotReconstructed_fromOldFields() throws Exception {
         current.put("start_time", "23:30:00");
         current.put("end_time", "00:30:00");
         assertThat(reconcile().mapping().value()).isNull();
@@ -434,7 +434,7 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void retainedPurposeAndNotesMustMatchTheClaimedPreparationRatherThanBeDiscarded()
+    void shouldVerifyRetainedPurposeAndNotesMustMatchTheClaimedPreparationRatherThanBeDiscarded_forAppointmentFieldReconcilerContract()
             throws Exception {
         originalPurpose = "Another untouched original purpose";
         assertThatThrownBy(this::reconcile)
@@ -446,14 +446,14 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void retainedValuesOverTheDictionaryBoundRequireReviewInsteadOfTruncation() {
+    void shouldVerifyRetainedValuesOverTheDictionaryBoundRequireReview_insteadOfTruncation() {
         originalNotes = "x".repeat(32001);
         assertThatThrownBy(this::reconcile)
                 .hasMessage("CDS_EXPORT_APPOINTMENT_ORIGINAL_VALUES_REQUIRES_REVIEW");
     }
 
     @Test
-    void sourceOnlyPreparationCannotBeRelabelledAsAnAppliedCalendarProjection() {
+    void shouldVerifySourceOnlyPreparationCannotBeRelabelledAsAnAppliedCalendarProjection_forAppointmentFieldReconcilerContract() {
         prepared =
                 new CdsAppointmentNativeDto(
                         prepared.date(),
@@ -469,7 +469,7 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void substitutedOriginalDescriptorsCannotBorrowUnchangedFieldPageReceipts() throws Exception {
+    void shouldVerifySubstitutedOriginalDescriptorsCannotBorrowUnchangedFieldPageReceipts_forAppointmentFieldReconcilerContract() throws Exception {
         build();
         var first = fields.getFirst();
         var changed = new ArrayList<>(fields);
@@ -495,14 +495,14 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void anUnrelatedNamespaceCannotBorrowAStandardProviderPath() {
+    void shouldVerifyAnUnrelatedNamespaceCannotBorrowAStandardProviderPath_forAppointmentFieldReconcilerContract() {
         foreignNamespace = true;
         assertThatThrownBy(this::reconcile)
                 .hasMessage("CDS_EXPORT_APPOINTMENT_ORIGINAL_VALUES_REQUIRES_REVIEW");
     }
 
     @Test
-    void actualReceivingAppointmentPreparationPreservesTheInstantInAnotherClinicalZone()
+    void shouldVerifyActualReceivingAppointmentPreparationPreservesTheInstant_inAnotherClinicalZone()
             throws Exception {
         current.put("notes", "Current cross-zone note");
         var decision = reconcile();

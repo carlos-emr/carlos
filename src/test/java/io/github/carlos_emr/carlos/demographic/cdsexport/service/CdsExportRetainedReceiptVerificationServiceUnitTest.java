@@ -115,7 +115,7 @@ class CdsExportRetainedReceiptVerificationServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseDifferentSourceGenerations_orAnIncompleteAppliedUnitIndex_beforeScanning() {
+    void shouldRefuseDifferentSourceGenerations_orAnIncompleteAppliedUnitIndexBeforeScanning() {
         assertThatThrownBy(
                         () ->
                                 verify(
@@ -135,7 +135,7 @@ class CdsExportRetainedReceiptVerificationServiceUnitTest {
     }
 
     @Test
-    void shouldBoundAllReferences_includingDuplicates_withoutProducingPartialVerification() {
+    void shouldBoundAllReferences_includingDuplicatesWithoutProducingPartialVerification() {
         var expected =
                 index(
                         SOURCE,
@@ -165,7 +165,7 @@ class CdsExportRetainedReceiptVerificationServiceUnitTest {
     }
 
     @Test
-    void shouldPropagateCancellationWithoutReturningOrCachingAResult() {
+    void shouldPropagateCancellation_withoutReturningOrCachingAResult() {
         doThrow(new IllegalStateException("CDS_EXPORT_CANCELLED")).when(control).checkpoint();
         assertThatThrownBy(
                         () ->

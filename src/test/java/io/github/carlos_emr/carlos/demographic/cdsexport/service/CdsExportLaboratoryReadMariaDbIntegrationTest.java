@@ -408,7 +408,7 @@ class CdsExportLaboratoryReadMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldRejectABlockedResultWithAnUnrestrictedMirror() {
+    void shouldRejectABlockedResult_withAnUnrestrictedMirror() {
         sql.update(
                 "update cds_laboratory_result set sourceBlocked='Y' where id=? and runId=?",
                 key(35),
@@ -417,7 +417,7 @@ class CdsExportLaboratoryReadMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldRejectTwoStructuredResultsSharingOneNativeLab() {
+    void shouldRejectTwoStructuredResultsSharingOneNativeLab_forLaboratoryReadContract() {
         sql.update(
                 "update cds_laboratory_result set sourceBlocked='N',nativeLabNo=? where id=? and runId=?",
                 patient,

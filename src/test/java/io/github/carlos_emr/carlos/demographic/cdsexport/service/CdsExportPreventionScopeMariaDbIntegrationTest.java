@@ -182,7 +182,7 @@ class CdsExportPreventionScopeMariaDbIntegrationTest {
     }
 
     @Test
-    void pinsFullPhysicalSchemaButAllowsOnlyTheExplicitMetadataAliasProjection() {
+    void shouldVerifyPinsFullPhysicalSchemaButAllowsOnlyTheExplicitMetadataAliasProjection_forPreventionScopeContract() {
         read.executeWithoutResult(
                 status -> {
                     try {
@@ -211,7 +211,7 @@ class CdsExportPreventionScopeMariaDbIntegrationTest {
     }
 
     @Test
-    void preservesEveryRootMetadataRecordIncludingDeletedHistoryWithoutReadingClinicalCells() {
+    void shouldVerifyPreservesEveryRootMetadataRecordIncludingDeletedHistory_withoutReadingClinicalCells() {
         var stats =
                 context.getBean(jakarta.persistence.EntityManagerFactory.class)
                         .unwrap(org.hibernate.SessionFactory.class)
@@ -236,7 +236,7 @@ class CdsExportPreventionScopeMariaDbIntegrationTest {
     }
 
     @Test
-    void actualComposerAndIndependentReaderCarryOnlyTheSixClassificationMetadataFields()
+    void shouldVerifyActualComposerAndIndependentReaderCarryOnlyTheSixClassificationMetadataFields_forPreventionScopeContract()
             throws Exception {
         var values = new ByteArrayOutputStream();
         var index = new ByteArrayOutputStream();
@@ -287,7 +287,7 @@ class CdsExportPreventionScopeMariaDbIntegrationTest {
     }
 
     @Test
-    void activeUnknownAndAmbiguousProgramScopesRefuseBeforeAnyMetadataProjection() {
+    void shouldVerifyActiveUnknownAndAmbiguousProgramScopesRefuse_beforeAnyMetadataProjection() {
         for (Integer flag : Arrays.asList(1, 2, null)) {
             sql.update(
                     "update preventions set restrictToProgram=?,programNo=1 where id=? and demographic_no=?",
@@ -310,7 +310,7 @@ class CdsExportPreventionScopeMariaDbIntegrationTest {
     }
 
     @Test
-    void anExplicitFalseFlagKeepsItsMeaningEvenWithARecordedProgramAffiliation() {
+    void shouldVerifyAnExplicitFalseFlagKeepsItsMeaningEven_withARecordedProgramAffiliation() {
         sql.update(
                 "update preventions set restrictToProgram=0,programNo=123 where id=? and demographic_no=?",
                 first,
@@ -321,7 +321,7 @@ class CdsExportPreventionScopeMariaDbIntegrationTest {
 
     @Test
     void
-            freshProgramRevocationIsVisibleEvenWhileAnOlderReadonlySnapshotStillSeesTheOriginalMetadata() {
+            shouldVerifyFreshProgramRevocationIsVisibleEvenWhileAnOlderReadonlySnapshotStillSeesTheOriginalMetadata_forPreventionScopeContract() {
         read.executeWithoutResult(
                 status -> {
                     var before = dao.findCdsExportRowsAfter(patient, null, 1).getFirst();
@@ -344,7 +344,7 @@ class CdsExportPreventionScopeMariaDbIntegrationTest {
     }
 
     @Test
-    void snapshotAndFreshRestrictionReadsRequireReadonlyTransactionsAndRejectForeignChunks() {
+    void shouldVerifySnapshotAndFreshRestrictionReadsRequireReadonlyTransactionsAndRejectForeignChunks_forPreventionScopeContract() {
         assertThatThrownBy(() -> dao.findCdsExportRowsAfter(patient, null, 32))
                 .isInstanceOf(IllegalTransactionStateException.class);
         assertThatThrownBy(

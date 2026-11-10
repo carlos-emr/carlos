@@ -252,7 +252,7 @@ class CdsExportCareRetainedSourceUnitTest {
     }
 
     @Test
-    void shouldRecognizeReviewedGoalThatExceedsNativeBudget() throws Exception {
+    void shouldRecognizeReviewedGoalThatExceedsNativeBudget_forCareRetainedSourceContract() throws Exception {
         add(
                 "DiabetesSelfManagementCollaborative",
                 Map.of("CodeValue", "44943-9", "DocumentedGoals", "Original"),
@@ -308,14 +308,14 @@ class CdsExportCareRetainedSourceUnitTest {
     }
 
     @Test
-    void shouldRefuseMissingChildPreparation() {
+    void shouldRefuseMissingChildPreparation_forCareRetainedSourceContract() {
         weight();
         prepared.clear();
         assertThatThrownBy(this::read).isInstanceOf(IOException.class);
     }
 
     @Test
-    void shouldRefuseUnwitnessedExtraPreparation() {
+    void shouldRefuseUnwitnessedExtraPreparation_forCareRetainedSourceContract() {
         weight();
         prepared.put("Weight[2]", prepared.get("Weight[1]"));
         assertThatThrownBy(this::read).isInstanceOf(IOException.class);
@@ -329,14 +329,14 @@ class CdsExportCareRetainedSourceUnitTest {
     }
 
     @Test
-    void shouldRefuseDuplicateIdentities() {
+    void shouldRefuseDuplicateIdentities_forCareRetainedSourceContract() {
         weight();
         fields.add(fields.getFirst());
         assertThatThrownBy(this::read).isInstanceOf(IOException.class);
     }
 
     @Test
-    void shouldRefuseForeignImportRun() {
+    void shouldRefuseForeignImportRun_forCareRetainedSourceContract() {
         weight();
         var f = fields.getFirst();
         fields.set(

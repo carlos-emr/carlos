@@ -213,7 +213,7 @@ class CdsExportDemographicAssociationEvidenceUnitTest {
     }
 
     @Test
-    void shouldAcceptAnOriginalAssociationReceiptChangedByAnUnrelatedDemographicEdit() {
+    void shouldAcceptAnOriginalAssociationReceiptChanged_byAnUnrelatedDemographicEdit() {
         add("NewCategory", "1");
         var prior = new CdsExportRetainedIndexDto.Reference("demographic", "27", "e".repeat(64));
         references.put(address, List.of(prior));
@@ -236,14 +236,14 @@ class CdsExportDemographicAssociationEvidenceUnitTest {
     }
 
     @Test
-    void shouldRefuseAnAssociationForAnotherPatientKey() {
+    void shouldRefuseAnAssociation_forAnotherPatientKey() {
         add("NewCategory", "1");
         unit("patient_key", "d".repeat(64));
         refused();
     }
 
     @Test
-    void shouldRefuseAnAssociationForAnotherSourceLineage() {
+    void shouldRefuseAnAssociation_forAnotherSourceLineage() {
         add("NewCategory", "1");
         unit("lineage_key", "d".repeat(64));
         refused();
@@ -264,14 +264,14 @@ class CdsExportDemographicAssociationEvidenceUnitTest {
     }
 
     @Test
-    void shouldRefuseAUnitKeyForAnotherOccurrence() {
+    void shouldRefuseAUnitKey_forAnotherOccurrence() {
         add("NewCategory", "1");
         unit("ordinal", "2");
         refused();
     }
 
     @Test
-    void shouldRefuseANoncanonicalOrMissingOrdinal() {
+    void shouldRefuseANoncanonicalOrMissingOrdinal_forDemographicAssociationEvidenceContract() {
         for (String value : Arrays.asList("01", "0", "-1", null)) {
             add("NewCategory", "1");
             unit("ordinal", value);
@@ -280,7 +280,7 @@ class CdsExportDemographicAssociationEvidenceUnitTest {
     }
 
     @Test
-    void shouldRefuseAnUncommittedOrUnknownNativeUnitState() {
+    void shouldRefuseAnUncommittedOrUnknownNativeUnitState_forDemographicAssociationEvidenceContract() {
         for (String value : Arrays.asList("EXPECTED", "FAILED", null)) {
             add("NewCategory", "1");
             unit("state", value);
@@ -289,14 +289,14 @@ class CdsExportDemographicAssociationEvidenceUnitTest {
     }
 
     @Test
-    void shouldRefuseTheAssociationWithoutItsOriginalDemographicDependency() {
+    void shouldRefuseTheAssociation_withoutItsOriginalDemographicDependency() {
         add("NewCategory", "1");
         tables.get("cds_import_dependency").remove(edgeId);
         refused();
     }
 
     @Test
-    void shouldRefuseASubstitutedParentDependency() {
+    void shouldRefuseASubstitutedParentDependency_forDemographicAssociationEvidenceContract() {
         add("NewCategory", "1");
         edge("depends_on_unit_key", "d".repeat(64));
         refused();
@@ -326,7 +326,7 @@ class CdsExportDemographicAssociationEvidenceUnitTest {
     }
 
     @Test
-    void shouldRefuseAReceiptForAnotherCurrentWitness() {
+    void shouldRefuseAReceipt_forAnotherCurrentWitness() {
         add("NewCategory", "1");
         var ref = references.get(address).getFirst();
         proofs.put(address, List.of(new CheckedReference(ref, "d".repeat(64), Reason.CHANGED_ROW)));

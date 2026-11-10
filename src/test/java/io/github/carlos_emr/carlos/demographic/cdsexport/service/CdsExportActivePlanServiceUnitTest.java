@@ -97,7 +97,7 @@ class CdsExportActivePlanServiceUnitTest {
     }
 
     @Test
-    void shouldBindSupportingFilesAndAppointmentsToTheSameConfiguredClinicZone() throws Exception {
+    void shouldBindSupportingFilesAndAppointments_toTheSameConfiguredClinicZone() throws Exception {
         var settings = settings();
         settings.setProperty("cds.import.clinicalZone", " America/Toronto ");
         var service = new CdsExportActivePlanService(settings, () -> "2026.09.0-test");

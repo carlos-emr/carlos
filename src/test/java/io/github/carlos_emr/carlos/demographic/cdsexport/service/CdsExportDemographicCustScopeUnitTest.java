@@ -83,7 +83,7 @@ class CdsExportDemographicCustScopeUnitTest {
     }
 
     @Test
-    void shouldRequireTheAlertReadCategory_andCaptureItsExactValue_whenItWasSelected()
+    void shouldRequireTheAlertReadCategory_andCaptureItsExactValueWhenItWasSelected()
             throws Exception {
         var source = mock(DemographicCustDao.class);
         var reader = new CdsExportDemographicCustSourceReader(source).forRequest(command(true));

@@ -95,7 +95,7 @@ class CdsExportDemographicAdjunctAssemblyUnitTest {
     }
 
     @Test
-    void everySuppliedNativeFieldAndSourceIdHasADecisionOrAnExplicitHandOff() throws Exception {
+    void shouldVerifyEverySuppliedNativeFieldAndSourceIdHasADecisionOrAnExplicitHandOff_forDemographicAdjunctAssemblyContract() throws Exception {
         var result = reconcile();
         assertThat(result.coreRepresentable()).isTrue();
         assertThat(result.demographicComplete()).isFalse();
@@ -111,7 +111,7 @@ class CdsExportDemographicAdjunctAssemblyUnitTest {
     }
 
     @Test
-    void simultaneousCorePhoneAndNoteEditsComposeWithExactSourceCoverage() throws Exception {
+    void shouldVerifySimultaneousCorePhoneAndNoteEditsCompose_withExactSourceCoverage() throws Exception {
         fixture.currentField("email", "edited@example.test");
         change("content", DemographicCust.wrapPatientNotes("Edited note"));
         current.set(1, changed(current.get(1), "value", "0023"));
@@ -124,7 +124,7 @@ class CdsExportDemographicAdjunctAssemblyUnitTest {
     }
 
     @Test
-    void aMissingImportedNoteRowBlocksAllChangesEvenWhenNoCustFieldsRemainToMark()
+    void shouldVerifyAMissingImportedNoteRowBlocksAllChangesEven_whenNoCustFieldsRemainToMark()
             throws Exception {
         current.removeFirst();
         fixture.currentField("email", "edited@example.test");
@@ -138,7 +138,7 @@ class CdsExportDemographicAdjunctAssemblyUnitTest {
     }
 
     @Test
-    void unknownPropertiesAndCareTeamValuesStayExplicitlyDeferred() throws Exception {
+    void shouldVerifyUnknownPropertiesAndCareTeamValuesStayExplicitlyDeferred_forDemographicAdjunctAssemblyContract() throws Exception {
         current.add(property(2, "anotherKey", "Do not discard"));
         change("cust1", "Care team reference");
         var result = reconcile();
@@ -153,7 +153,7 @@ class CdsExportDemographicAdjunctAssemblyUnitTest {
     }
 
     @Test
-    void oneUnrepresentableCoreFieldPreventsIndependentValidEditsFromLeakingIntoAPlan()
+    void shouldVerifyOneUnrepresentableCoreFieldPreventsIndependentValidEdits_fromLeakingIntoAPlan()
             throws Exception {
         fixture.currentField("sex", "BAD");
         current.set(1, changed(current.get(1), "value", "0023"));

@@ -29,7 +29,8 @@ import jakarta.persistence.Table;
 /** Protected durable export state; application DTOs own observations. */
 @Entity
 @Table(name = "cds_export_run", uniqueConstraints = @jakarta.persistence.UniqueConstraint(
-        name = "uq_cds_export_submission", columnNames = {"operator", "submission_key"}))
+        name = "uq_cds_export_submission", columnNames = {"operator", "submission_key"}),
+        indexes = @jakarta.persistence.Index(name = "idx_cds_export_history", columnList = "operator,created_at,id"))
 public class CdsExportRun extends AbstractModel<String> {
     private static final long serialVersionUID = 1L;
     @Id

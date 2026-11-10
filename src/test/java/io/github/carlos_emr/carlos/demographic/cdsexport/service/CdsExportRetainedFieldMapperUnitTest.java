@@ -105,7 +105,7 @@ class CdsExportRetainedFieldMapperUnitTest {
     }
 
     @Test
-    void shouldRetainSpooledOriginalAlongsideAnInlineEffectiveCorrection() throws Exception {
+    void shouldRetainSpooledOriginalAlongsideAnInlineEffectiveCorrection_forRetainedFieldMapperContract() throws Exception {
         var payload =
                 new CdsExportRetainedFieldDto.Payload(
                         Path.of("target", "original.values").toAbsolutePath().toString(),
@@ -123,7 +123,7 @@ class CdsExportRetainedFieldMapperUnitTest {
     }
 
     @Test
-    void shouldRejectWrongIdentityPatientCategoryShapeOrOriginalRepresentation() {
+    void shouldRejectWrongIdentityPatientCategoryShapeOrOriginalRepresentation_forRetainedFieldMapperContract() {
         var base = row(1, "original", "logical", null);
         for (Map<String, String> change :
                 List.of(

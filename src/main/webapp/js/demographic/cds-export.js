@@ -181,7 +181,9 @@
         });
         async function control(operation) {
             if (!fresh || busy || !current) return;
-            const id = current.id, revision = current.revision, generation = view; busy = true; controls();
+            // Fence in-flight polls as well as scheduled ones before starting a control.
+            const id = current.id, revision = current.revision, generation = ++view;
+            clearTimeout(timer); busy = true; controls();
             try {
                 const data = await request('cdsExportControl', {runId: id, operation, expectedRevision: String(revision)}, true);
                 if (generation !== view) return; render(data.job);

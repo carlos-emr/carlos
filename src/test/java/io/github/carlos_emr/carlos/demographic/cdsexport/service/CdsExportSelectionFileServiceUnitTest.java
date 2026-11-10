@@ -81,7 +81,7 @@ class CdsExportSelectionFileServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseLinksOutsideTheRootAndWorldReadableInputs() throws Exception {
+    void shouldRefuseLinksOutsideTheRootAndWorldReadableInputs_forSelectionFileServiceContract() throws Exception {
         var loader = loader();
         Path file = selected("{\"version\":1,\"patients\":[27]}");
         Path link = root.resolve("linked.json");

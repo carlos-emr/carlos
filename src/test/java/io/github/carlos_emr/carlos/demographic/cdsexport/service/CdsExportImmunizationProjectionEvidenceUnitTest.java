@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Test;
 
 class CdsExportImmunizationProjectionEvidenceUnitTest {
     @Test
-    void recipeMatchesAllThirteenExistingPersisterKeysWithoutInventingMissingRows()
+    void shouldVerifyRecipeMatchesAllThirteenExistingPersisterKeys_withoutInventingMissingRows()
             throws Exception {
         var source = source(CdsTemporalDto.unknown());
         var expected = CdsExportImmunizationProjectionEvidence.expectedExtensions(source);
@@ -48,7 +48,7 @@ class CdsExportImmunizationProjectionEvidenceUnitTest {
     }
 
     @Test
-    void originalDateHintStaysOriginalWhilePreparedClinicalDateKeepsItsShift() throws Exception {
+    void shouldVerifyOriginalDateHintStaysOriginalWhilePreparedClinicalDateKeepsItsShift_forImmunizationProjectionEvidenceContract() throws Exception {
         var shifted =
                 CdsTemporal.shift(
                         CdsTemporal.parse(null, null, "2024-02-29", null, "Date"), 1, "Date");
@@ -60,7 +60,7 @@ class CdsExportImmunizationProjectionEvidenceUnitTest {
     }
 
     @Test
-    void offsetAndFractionHintsStayExactRatherThanUsingTheCurrentJvmZone() throws Exception {
+    void shouldVerifyOffsetAndFractionHintsStayExactRatherThanUsingTheCurrentJvmZone_forImmunizationProjectionEvidenceContract() throws Exception {
         var date = CdsTemporal.parse(null, null, null, "2024-02-29T12:34:56.1200-05:00", "Date");
         assertThat(
                         CdsExportImmunizationProjectionEvidence.expectedExtensions(source(date))
@@ -69,7 +69,7 @@ class CdsExportImmunizationProjectionEvidenceUnitTest {
     }
 
     @Test
-    void exactUtf8RowWitnessAcceptsUnicodeCrLfAndEmptyButDistinguishesSqlNull() throws Exception {
+    void shouldVerifyExactUtf8RowWitnessAcceptsUnicodeCrLfAndEmptyButDistinguishesSqlNull_forImmunizationProjectionEvidenceContract() throws Exception {
         var row = extension("café 😀\r\n");
         var state = state(row, "preventionsExt");
         CdsExportImmunizationProjectionEvidence.verifyCurrent(row, receipt(row, state));
@@ -90,7 +90,7 @@ class CdsExportImmunizationProjectionEvidenceUnitTest {
     }
 
     @Test
-    void changedPayloadCannotBorrowAnOldWholeRowReceipt() throws Exception {
+    void shouldVerifyChangedPayloadCannotBorrowAnOldWholeRowReceipt_forImmunizationProjectionEvidenceContract() throws Exception {
         var old = extension("Original");
         var row = extension("Edited");
         assertThatThrownBy(
@@ -101,7 +101,7 @@ class CdsExportImmunizationProjectionEvidenceUnitTest {
     }
 
     @Test
-    void precisionSourceAliasMustMatchTheExistingPhysicalReceiptIdentity() throws Exception {
+    void shouldVerifyPrecisionSourceAliasMustMatchTheExistingPhysicalReceiptIdentity_forImmunizationProjectionEvidenceContract() throws Exception {
         var row =
                 new CdsExportCapturedTextRowDto(
                         "prevention_precision",
@@ -128,7 +128,7 @@ class CdsExportImmunizationProjectionEvidenceUnitTest {
     }
 
     @Test
-    void aPartialRowProjectionCannotBeUsedAsAFullImmunizationWitness() throws Exception {
+    void shouldVerifyAPartialRowProjectionCannotBeUsedAsAFullImmunizationWitness_forImmunizationProjectionEvidenceContract() throws Exception {
         var row = extension("Original");
         var full = receipt(row, state(row, "preventionsExt"));
         assertThatThrownBy(
@@ -152,7 +152,7 @@ class CdsExportImmunizationProjectionEvidenceUnitTest {
     }
 
     @Test
-    void foreignIdWrongKeyAndMissingFieldCannotBorrowAValidWitness() throws Exception {
+    void shouldVerifyForeignIdWrongKeyAndMissingFieldCannotBorrowAValidWitness_forImmunizationProjectionEvidenceContract() throws Exception {
         var row = extension("Original");
         var receipt = receipt(row, state(row, "preventionsExt"));
         var missing = new TreeMap<>(row.fields());
@@ -175,7 +175,7 @@ class CdsExportImmunizationProjectionEvidenceUnitTest {
     }
 
     @Test
-    void unknownColumnsAndUnqualifiedFloatMetadataCannotBecomeAStringProjection() throws Exception {
+    void shouldVerifyUnknownColumnsAndUnqualifiedFloatMetadataCannotBecomeAStringProjection_forImmunizationProjectionEvidenceContract() throws Exception {
         var row = extension("Original");
         var original = state(row, "preventionsExt");
         assertThatThrownBy(

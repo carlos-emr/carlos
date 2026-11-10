@@ -62,7 +62,7 @@ class CdsExportCategoryOccurrenceRegistryUnitTest {
     }
 
     @Test
-    void shouldRefuseShadowingTheCoordinatedDemographicHistoryAndCoreNativeAssemblers() {
+    void shouldRefuseShadowingTheCoordinatedDemographicHistoryAndCoreNativeAssemblers_forCategoryOccurrenceRegistryContract() {
         var reserved = new HashSet<>(CdsExportNoteSourceReader.CATEGORIES);
         reserved.addAll(
                 Set.of(

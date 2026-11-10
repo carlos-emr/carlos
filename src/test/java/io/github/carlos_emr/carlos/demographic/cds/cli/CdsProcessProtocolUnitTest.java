@@ -109,7 +109,7 @@ class CdsProcessProtocolUnitTest {
     }
 
     @Test
-    void shouldRefuseProviderOperationAndArgumentSubstitution() throws Exception {
+    void shouldRefuseProviderOperationAndArgumentSubstitution_forProcessProtocolContract() throws Exception {
         for (String key : new String[] {"provider", "operation", "argvSha256"}) {
             var altered = ticket();
             altered.put(key, key.equals("argvSha256") ? "a".repeat(64) : "other");
@@ -126,7 +126,7 @@ class CdsProcessProtocolUnitTest {
     }
 
     @Test
-    void shouldRefuseExpiredFutureAndOverlongDelegationWindows() throws Exception {
+    void shouldRefuseExpiredFutureAndOverlongDelegationWindows_forProcessProtocolContract() throws Exception {
         for (long[] window : new long[][] {{-600, -1}, {60, 120}, {-10, 400}}) {
             var altered = ticket();
             altered.put("issuedEpochSeconds", NOW.getEpochSecond() + window[0]);
@@ -136,7 +136,7 @@ class CdsProcessProtocolUnitTest {
     }
 
     @Test
-    void shouldRefuseUnknownDuplicateOrTrailingTicketData() throws Exception {
+    void shouldRefuseUnknownDuplicateOrTrailingTicketData_forProcessProtocolContract() throws Exception {
         var altered = ticket();
         altered.put("isAdmin", true);
         assertThatThrownBy(() -> verify(altered, ARGS)).hasMessage("CDS_DELEGATION_DENIED");

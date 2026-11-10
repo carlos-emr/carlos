@@ -45,7 +45,7 @@ class CdsExportPersonalContactMapperUnitTest {
     private final CdsExportPersonalContactMapper mapper = new CdsExportPersonalContactMapper();
 
     @Test
-    void fieldDestinationsUseOutputOrdinalsAndKeepNativeIdentitiesInProtectedKeys()
+    void shouldVerifyFieldDestinationsUseOutputOrdinalsAndKeepNativeIdentities_inProtectedKeys()
             throws Exception {
         var result = map(List.of(association(-1, 9)), List.of(contact(9)));
         assertThat(result.fields().values())
@@ -59,7 +59,7 @@ class CdsExportPersonalContactMapperUnitTest {
     }
 
     @Test
-    void mapsExactExternalIdentityAndAllAvailablePersonalContactFields() throws Exception {
+    void shouldVerifyMapsExactExternalIdentityAndAllAvailablePersonalContactFields_forPersonalContactMapperContract() throws Exception {
         var result = map(List.of(association(-1, 9)), List.of(contact(9)));
         assertThat(result.nativeRepresentable()).isTrue();
         assertThat(result.fields()).hasSize(40);
@@ -77,7 +77,7 @@ class CdsExportPersonalContactMapperUnitTest {
     }
 
     @Test
-    void actualSchemaAndReceivingParserPreserveContactsAlongsidePatientAndPharmacy()
+    void shouldVerifyActualSchemaAndReceivingParserPreserveContactsAlongsidePatientAndPharmacy_forPersonalContactMapperContract()
             throws Exception {
         var record = parse(map(List.of(association(-1, 9)), List.of(contact(9))), HASH);
         var parser = new CdsFieldParser();
@@ -104,7 +104,7 @@ class CdsExportPersonalContactMapperUnitTest {
     }
 
     @Test
-    void multipleAssociationsCombinePurposesOnlyThroughTheSameExactContactIdentity()
+    void shouldVerifyMultipleAssociationsCombinePurposesOnlyThroughTheSameExactContactIdentity_forPersonalContactMapperContract()
             throws Exception {
         var second = changed(changed(association(-2, 9), "role", "Care Giver"), "ec", "false");
         var third = changed(association(-3, 10), "role", "Neighbour");
@@ -121,7 +121,7 @@ class CdsExportPersonalContactMapperUnitTest {
     }
 
     @Test
-    void freeTextRoleAndAbsentPurposeFlagsDoNotInventACodeOrAContactPurpose() throws Exception {
+    void shouldVerifyFreeTextRoleAndAbsentPurposeFlagsDoNotInventACodeOrAContactPurpose_forPersonalContactMapperContract() throws Exception {
         var link =
                 changed(
                         changed(
@@ -138,7 +138,7 @@ class CdsExportPersonalContactMapperUnitTest {
     }
 
     @Test
-    void missingNamesCannotProduceARepresentableAnonymousContact() throws Exception {
+    void shouldVerifyMissingNamesCannotProduceARepresentableAnonymousContact_forPersonalContactMapperContract() throws Exception {
         var result =
                 map(
                         List.of(association(-1, 9)),
@@ -148,7 +148,7 @@ class CdsExportPersonalContactMapperUnitTest {
     }
 
     @Test
-    void anAvailableSurnameDoesNotRequireAnInventedFirstName() throws Exception {
+    void shouldVerifyAnAvailableSurnameDoesNotRequireAnInventedFirstName_forPersonalContactMapperContract() throws Exception {
         var result =
                 map(List.of(association(-1, 9)), List.of(changed(contact(9), "firstName", null)));
         assertThat(result.nativeRepresentable()).isTrue();
@@ -157,7 +157,7 @@ class CdsExportPersonalContactMapperUnitTest {
     }
 
     @Test
-    void noteFromOneAssociationCanBeUsedWhenTheSharedContactHasNone() throws Exception {
+    void shouldVerifyNote_fromOneAssociationCanBeUsedWhenTheSharedContactHasNone() throws Exception {
         var result =
                 map(
                         List.of(changed(association(-1, 9), "note", "Association context")),
@@ -168,7 +168,7 @@ class CdsExportPersonalContactMapperUnitTest {
     }
 
     @Test
-    void matchingNotesAreMappedOnceAndEachSourcePresenceRemainsAccounted() throws Exception {
+    void shouldVerifyMatchingNotesAreMappedOnceAndEachSourcePresenceRemainsAccounted_forPersonalContactMapperContract() throws Exception {
         var result =
                 map(
                         List.of(
@@ -189,7 +189,7 @@ class CdsExportPersonalContactMapperUnitTest {
     }
 
     @Test
-    void distinctOrOverlengthNotesNeedExplicitReconciliationRatherThanConcatenationOrSelection()
+    void shouldVerifyDistinctOrOverlengthNotesNeedExplicitReconciliationRatherThanConcatenationOrSelection_forPersonalContactMapperContract()
             throws Exception {
         for (var link :
                 List.of(
@@ -215,7 +215,7 @@ class CdsExportPersonalContactMapperUnitTest {
                 "specialty",
                 "systemId"
             })
-    void outOfSchemaContactValuesRemainReviewRequirements(String column) throws Exception {
+    void shouldVerifyOutOfSchemaContactValuesRemainReviewRequirements_forPersonalContactMapperContract(String column) throws Exception {
         var result =
                 map(
                         List.of(association(-1, 9)),
@@ -227,7 +227,7 @@ class CdsExportPersonalContactMapperUnitTest {
     }
 
     @Test
-    void deletedInactiveUnknownAndProfessionalAssociationsAreNotSilentlyFiltered()
+    void shouldVerifyDeletedInactiveUnknownAndProfessionalAssociationsAreNotSilentlyFiltered_forPersonalContactMapperContract()
             throws Exception {
         for (var pair :
                 List.of(
@@ -262,7 +262,7 @@ class CdsExportPersonalContactMapperUnitTest {
     }
 
     @Test
-    void paddedMissingAndSourceOnlyReferencesRemainVisibleReviewInsteadOfAliasResolution()
+    void shouldVerifyPaddedMissingAndSourceOnlyReferencesRemainVisibleReview_insteadOfAliasResolution()
             throws Exception {
         var result = map(List.of(changed(association(-1, 9), "contactId", "09")), List.of());
         assertThat(result.nativeRepresentable()).isFalse();
@@ -282,7 +282,7 @@ class CdsExportPersonalContactMapperUnitTest {
 
     @Test
     void
-            unknownPurposeFlagsConflictingAssertionsConsentAndResponsibleProviderContextAreNotDiscarded()
+            shouldVerifyUnknownPurposeFlagsConflictingAssertionsConsentAndResponsibleProviderContextAreNotDiscarded_forPersonalContactMapperContract()
                     throws Exception {
         for (var pair :
                 List.of(
@@ -317,7 +317,7 @@ class CdsExportPersonalContactMapperUnitTest {
     }
 
     @Test
-    void guideUnicodeNameNoteAndExtensionBoundariesAreCheckedWithoutTruncation() throws Exception {
+    void shouldVerifyGuideUnicodeNameNoteAndExtensionBoundariesAreChecked_withoutTruncation() throws Exception {
         var good =
                 changed(
                         changed(contact(9), "firstName", "😀".repeat(50)),
@@ -345,7 +345,7 @@ class CdsExportPersonalContactMapperUnitTest {
     }
 
     @Test
-    void nativeHomeTelephoneTextIsNotReverseParsedAndOrphanWorkExtensionsRequireReview()
+    void shouldVerifyNativeHomeTelephoneTextIsNotReverseParsedAndOrphanWorkExtensionsRequireReview_forPersonalContactMapperContract()
             throws Exception {
         var result =
                 map(
@@ -363,7 +363,7 @@ class CdsExportPersonalContactMapperUnitTest {
     }
 
     @Test
-    void foreignOwnershipDuplicateRowsAndIncompleteColumnIdentitiesAreRejected() throws Exception {
+    void shouldVerifyForeignOwnershipDuplicateRowsAndIncompleteColumnIdentitiesAreRejected_forPersonalContactMapperContract() throws Exception {
         assertThatThrownBy(
                         () ->
                                 map(
@@ -395,7 +395,7 @@ class CdsExportPersonalContactMapperUnitTest {
     }
 
     @Test
-    void resourcesCancellationAndEqualCountDifferentFieldIdentitiesCannotSucceed()
+    void shouldVerifyResourcesCancellationAndEqualCountDifferentFieldIdentitiesCannotSucceed_forPersonalContactMapperContract()
             throws Exception {
         assertThatThrownBy(
                         () ->
@@ -444,7 +444,7 @@ class CdsExportPersonalContactMapperUnitTest {
     }
 
     @Test
-    void anotherGenerationCannotBeCombinedAndDebugStringsProtectClinicalValues() throws Exception {
+    void shouldVerifyAnotherGenerationCannotBeCombinedAndDebugStringsProtectClinicalValues_forPersonalContactMapperContract() throws Exception {
         var result = map(List.of(association(-1, 9)), List.of(contact(9)));
         assertThatThrownBy(() -> parse(result, "b".repeat(64)))
                 .hasMessage("CDS_EXPORT_DEMOGRAPHIC_RELATIONS_REQUIRES_REVIEW");

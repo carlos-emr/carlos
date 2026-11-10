@@ -50,3 +50,61 @@ test('current cancellation disables repeated cancel without hiding final state',
     assert.equal(presentation(job({state: 'CANCELLED', cancelRequested: true, waiting: false})).terminal, true);
     assert.equal(presentation(job({workerOwned: true, waiting: false})).canResume, false);
 });
+
+for (const controlSucceeds of [true, false]) {
+    test('in-flight polling is fenced across a ' + (controlSucceeds ? 'successful' : 'failed') + ' control', async () => {
+        const vm = require('node:vm'), fs = require('node:fs');
+        const nodes = new Map(), timers = new Map(), pending = [];
+        let initialize, serial = 0;
+        function node(id) {
+            if (!nodes.has(id)) nodes.set(id, {value: '', dataset: {}, events: {},
+                addEventListener(event, handler) { this.events[event] = handler; },
+                removeAttribute() {}, replaceChildren() {}, querySelectorAll() { return []; }});
+            return nodes.get(id);
+        }
+        node('cdsExport').dataset = {context: '', owner: 'web-7', canResume: 'true'};
+        const document = {getElementById: node, createElement: () => node('created-' + serial++),
+            querySelector: () => ({value: 'synthetic-csrf'}), addEventListener(event, handler) {
+                if (event === 'DOMContentLoaded') initialize = handler;
+            }};
+        const window = {document, location: {search: '?runId=' + id},
+            sessionStorage: {getItem() { return ''; }, setItem() {}},
+            crypto: require('node:crypto'), addEventListener() {}};
+        vm.runInNewContext(fs.readFileSync(require.resolve('../src/main/webapp/js/demographic/cds-export.js'), 'utf8'), {
+            window, document, URLSearchParams, AbortController,
+            setTimeout(callback, delay) { const token = ++serial; timers.set(token, {callback, delay}); return token; },
+            clearTimeout(token) { timers.delete(token); },
+            fetch(url, options) { return new Promise(resolve => pending.push({url, options, resolve})); }
+        });
+        const settle = () => new Promise(resolve => setImmediate(resolve));
+        function answer(call, data, ok = true) {
+            call.resolve({ok, headers: {get(name) {
+                return name === 'Content-Type' ? 'application/json' : '1';
+            }}, async json() { return {apiVersion: 1, ok, ...data}; }});
+        }
+        initialize();
+        answer(pending.shift(), {jobs: [], nextAfter: '', mayHaveMore: false});
+        answer(pending.shift(), {job: job()});
+        await settle();
+        const [token, timer] = [...timers].find(([, value]) => value.delay === 5000);
+        timers.delete(token); timer.callback();
+        const oldPoll = pending.shift();
+        const control = node('cancelExport').events.click();
+        await settle();
+        const command = pending.shift();
+        assert.match(command.url, /cdsExportControl/);
+        answer(command, controlSucceeds ? {job: job({revision: 1, cancelRequested: true})}
+            : {code: 'CDS_EXPORT_REQUEST_UNAVAILABLE'}, controlSucceeds);
+        await settle();
+        const newPoll = pending.shift();
+        assert.match(newPoll.url, /cdsExportStatus/);
+        answer(oldPoll, {job: job()});
+        await settle();
+        assert.equal([...timers.values()].filter(value => value.delay === 5000).length, 0);
+        answer(newPoll, {job: controlSucceeds ? job({state: 'CANCELLED', revision: 2,
+            cancelRequested: true, waiting: false}) : job({revision: 1})});
+        await control;
+        assert.equal([...timers.values()].filter(value => value.delay === 5000).length, controlSucceeds ? 0 : 1);
+        assert.equal(pending.length, 0);
+    });
+}

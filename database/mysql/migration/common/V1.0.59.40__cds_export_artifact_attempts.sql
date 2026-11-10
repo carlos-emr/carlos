@@ -1,6 +1,6 @@
 -- Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later.
 -- Export-owned attempt/disclosure lifecycle only; no clinical or importer row changes.
-CREATE TABLE cds_export_attempt (
+CREATE TABLE IF NOT EXISTS cds_export_attempt (
     id VARCHAR(36) NOT NULL,
     run_id VARCHAR(36) NOT NULL,
     epoch BIGINT NOT NULL,
@@ -29,7 +29,8 @@ CREATE TABLE cds_export_attempt (
 -- track the last epoch solely for bounded retention; never promote legacy evidence.
 INSERT INTO cds_export_attempt
     (id, run_id, epoch, request_digest, state, created_at, updated_at, expires_at, revision)
-SELECT UUID(), id, owner_epoch, request_digest, 'LEGACY_UNVERIFIED', created_at, updated_at,
-    COALESCE(expires_at, DATE_ADD(updated_at, INTERVAL 7 DAY)), 0
-FROM cds_export_run
-WHERE owner_epoch > 0;
+SELECT UUID(), r.id, r.owner_epoch, r.request_digest, 'LEGACY_UNVERIFIED', r.created_at, r.updated_at,
+    COALESCE(r.expires_at, DATE_ADD(r.updated_at, INTERVAL 7 DAY)), 0
+FROM cds_export_run r
+WHERE r.owner_epoch > 0
+    AND NOT EXISTS (SELECT 1 FROM cds_export_attempt a WHERE a.run_id = r.id AND a.epoch = r.owner_epoch);

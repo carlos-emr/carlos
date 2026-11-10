@@ -57,11 +57,11 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Short, fenced, audited export metadata transactions. No clinical write, file I/O, rendering
- * or serialization occurs inside them. Authorization belongs to the application boundary;
- * saved identity and lease ownership do not grant disclosure rights. Operator arguments use
- * CdsExportActorDto.operatorKey(), never an ambiguous display login. No API here can mark
- * an unvalidated package READY. The package publication service owns that separate proof.
+ * Short, fenced, audited export metadata transactions. No clinical write, file I/O, rendering or
+ * serialization occurs inside them. Authorization belongs to the application boundary; saved
+ * identity and lease ownership do not grant disclosure rights. Operator arguments use
+ * CdsExportActorDto.operatorKey(), never an ambiguous display login. No API here can mark an
+ * unvalidated package READY. The package publication service owns that separate proof.
  */
 @Service
 public class CdsExportLedgerService {
@@ -123,7 +123,10 @@ public class CdsExportLedgerService {
         return selected.execute(status -> work.get());
     }
 
-    /** Same operator/submission and exact intent recover one durable run after a lost acknowledgement. */
+    /**
+     * Same operator/submission and exact intent recover one durable run after a lost
+     * acknowledgement.
+     */
     public CdsExportJobDto accept(CdsExportJobDocumentDto document) {
         verifyDocument(document);
         String encoded = encode(document), digest = digest(encoded);
@@ -180,7 +183,10 @@ public class CdsExportLedgerService {
         return transaction(read, () -> dto(required(runs.get(id)), runs.now()));
     }
 
-    /** One consistent, bounded metadata snapshot, available without a clinical engine, policy files or decryption keys. */
+    /**
+     * One consistent, bounded metadata snapshot, available without a clinical engine, policy files
+     * or decryption keys.
+     */
     public io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDiagnosticDto diagnostic(
             String id) {
         runId(id);
@@ -229,7 +235,10 @@ public class CdsExportLedgerService {
                 });
     }
 
-    /** Nullable internal lookup for replay recovery; the application still verifies current authority and exact original intent. */
+    /**
+     * Nullable internal lookup for replay recovery; the application still verifies current
+     * authority and exact original intent.
+     */
     public CdsExportJobDto findSubmission(String operator, String submissionKey) {
         operator(operator);
         token(submissionKey, 128);
@@ -248,7 +257,10 @@ public class CdsExportLedgerService {
                 read, () -> dto(required(runs.submission(operator, submissionKey)), runs.now()));
     }
 
-    /** Does not deserialize clinical intent; an incompatible/corrupt request cannot erase authorized metadata recovery/control. */
+    /**
+     * Does not deserialize clinical intent; an incompatible/corrupt request cannot erase authorized
+     * metadata recovery/control.
+     */
     public io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportJobOwnerDto owner(
             String id) {
         runId(id);
@@ -305,7 +317,10 @@ public class CdsExportLedgerService {
         return transaction(read, () -> List.copyOf(runs.pending(runs.now(), limit)));
     }
 
-    /** A new attempt has independent staging and an incremented fence; expired owners cannot revive it. */
+    /**
+     * A new attempt has independent staging and an incremented fence; expired owners cannot revive
+     * it.
+     */
     public CdsExportLeaseDto claim(String id, String compatibilityDigest) {
         runId(id);
         hash(compatibilityDigest);
@@ -352,7 +367,10 @@ public class CdsExportLedgerService {
                 });
     }
 
-    /** Poll durable cancellation and renew current ownership; this is not a saved authorization grant. */
+    /**
+     * Poll durable cancellation and renew current ownership; this is not a saved authorization
+     * grant.
+     */
     public void checkpoint(CdsExportLeaseDto lease) {
         transaction(
                 write,
@@ -363,11 +381,11 @@ public class CdsExportLedgerService {
     }
 
     /**
-     * A source read may hold an ordinary clinical admission barrier and a repeatable-read
-     * snapshot. Its cancellation/lease probe must use another short metadata-only transaction;
-     * joining that snapshot would miss a concurrent cancellation. This explicit entry point
-     * cannot be used from a clinical write transaction. It performs no authorization/clinical
-     * query that could wait behind a maintenance writer while the read barrier is held.
+     * A source read may hold an ordinary clinical admission barrier and a repeatable-read snapshot.
+     * Its cancellation/lease probe must use another short metadata-only transaction; joining that
+     * snapshot would miss a concurrent cancellation. This explicit entry point cannot be used from
+     * a clinical write transaction. It performs no authorization/clinical query that could wait
+     * behind a maintenance writer while the read barrier is held.
      */
     public void captureCheckpoint(CdsExportLeaseDto lease) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
@@ -388,7 +406,9 @@ public class CdsExportLedgerService {
         runs.renewLease(run, now, now.plusSeconds(LEASE_SECONDS));
     }
 
-    /** Files are fully verified/fsynced before this short, idempotent, fenced metadata publication. */
+    /**
+     * Files are fully verified/fsynced before this short, idempotent, fenced metadata publication.
+     */
     public void sealSelection(CdsExportLeaseDto lease, CdsExportCohortService.Sealed cohort) {
         Objects.requireNonNull(cohort);
         cohort.require(lease);
@@ -454,7 +474,10 @@ public class CdsExportLedgerService {
                 });
     }
 
-    /** Records only an independently finished package, retaining each epoch's ownership after restart. */
+    /**
+     * Records only an independently finished package, retaining each epoch's ownership after
+     * restart.
+     */
     public CdsExportArtifactContextDto retainPrepared(
             CdsExportLeaseDto lease, CdsExportClinicalPackageService.Prepared prepared) {
         Objects.requireNonNull(prepared);
@@ -615,7 +638,10 @@ public class CdsExportLedgerService {
         throw new IllegalStateException("CDS_EXPORT_ARTIFACT_CONTEXT_INVALID");
     }
 
-    /** The sole READY transition: private publication evidence, an exact retained context and the live fence. */
+    /**
+     * The sole READY transition: private publication evidence, an exact retained context and the
+     * live fence.
+     */
     public CdsExportJobDto publish(CdsExportPublicationService.Approved approval) {
         Objects.requireNonNull(approval);
         var lease = approval.lease();
@@ -695,7 +721,10 @@ public class CdsExportLedgerService {
                 && run.getExpiresAt().isAfter(now);
     }
 
-    /** A retained artifact lease is independent of the execution lease, and mutually exclusive with cleanup. */
+    /**
+     * A retained artifact lease is independent of the execution lease, and mutually exclusive with
+     * cleanup.
+     */
     public Download beginDownload(String id, String operator) {
         runId(id);
         operator(operator);
@@ -744,6 +773,10 @@ public class CdsExportLedgerService {
     }
 
     public void finishDownload(Download download, boolean complete) {
+        finishDownload(download, complete, complete);
+    }
+
+    public void finishDownload(Download download, boolean complete, boolean outputWritten) {
         transaction(
                 write,
                 () -> {
@@ -757,9 +790,17 @@ public class CdsExportLedgerService {
                     attempt.setUpdatedAt(now);
                     event(
                             run,
-                            complete ? "DOWNLOAD_COMPLETE" : "DOWNLOAD_STOPPED",
+                            complete
+                                    ? "DOWNLOAD_COMPLETE"
+                                    : outputWritten
+                                            ? "DOWNLOAD_COMPLETION_UNCONFIRMED"
+                                            : "DOWNLOAD_STOPPED",
                             download.operator(),
-                            complete ? null : "CDS_EXPORT_DOWNLOAD_INCOMPLETE",
+                            complete
+                                    ? null
+                                    : outputWritten
+                                            ? "CDS_EXPORT_DOWNLOAD_COMPLETION_UNCONFIRMED"
+                                            : "CDS_EXPORT_DOWNLOAD_INCOMPLETE",
                             now,
                             download.epoch());
                     return null;
@@ -788,7 +829,9 @@ public class CdsExportLedgerService {
             throw new IllegalStateException("CDS_EXPORT_ARTIFACT_UNAVAILABLE");
     }
 
-    /** Opaque lease capability; never send its token/context to a browser or print it in CLI output. */
+    /**
+     * Opaque lease capability; never send its token/context to a browser or print it in CLI output.
+     */
     public record Download(
             String runId,
             long epoch,
@@ -802,7 +845,10 @@ public class CdsExportLedgerService {
         }
     }
 
-    /** Bounded discovery is metadata-only; all eligibility is checked again under run-before-attempt locks. */
+    /**
+     * Bounded discovery is metadata-only; all eligibility is checked again under run-before-attempt
+     * locks.
+     */
     public List<String> expiredArtifacts(int limit) {
         page(limit);
         return transaction(read, () -> List.copyOf(attempts.expiredRunIds(runs.now(), limit)));
@@ -999,9 +1045,9 @@ public class CdsExportLedgerService {
     }
 
     /**
-     * Stops this attempt without cancelling disclosure intent. A stopped foreground wait or
-     * orderly process restart returns the same durable job to waiting, with a new generation
-     * required on claim. An independently requested durable cancellation still wins.
+     * Stops this attempt without cancelling disclosure intent. A stopped foreground wait or orderly
+     * process restart returns the same durable job to waiting, with a new generation required on
+     * claim. An independently requested durable cancellation still wins.
      */
     public void release(CdsExportLeaseDto lease) {
         transaction(
@@ -1043,7 +1089,9 @@ public class CdsExportLedgerService {
         run.setSafeCode(null);
     }
 
-    /** Cancellation is finalized under the same fence even though a normal checkpoint refuses it. */
+    /**
+     * Cancellation is finalized under the same fence even though a normal checkpoint refuses it.
+     */
     public void stop(CdsExportLeaseDto lease, CdsExportState outcome, String code) {
         if (outcome != CdsExportState.FAILED
                 && outcome != CdsExportState.REVIEW_REQUIRED
@@ -1092,6 +1140,34 @@ public class CdsExportLedgerService {
                     .CdsExportOwnerFencedException();
         }
         return run;
+    }
+
+    /** An expired worker can record its failure, but cannot renew or replace a later generation. */
+    public boolean retireExpiredLease(CdsExportLeaseDto lease) {
+        Objects.requireNonNull(lease);
+        runId(lease.runId());
+        return transaction(
+                write,
+                () -> {
+                    CdsExportRun run = required(runs.lock(lease.runId()));
+                    Instant now = runs.now();
+                    if (!Objects.equals(run.getOwnerToken(), lease.token())
+                            || run.getOwnerEpoch() != lease.epoch()
+                            || liveOwner(run, now)
+                            || !state(run).executing()
+                            || !digest(encode(lease.document())).equals(run.getRequestDigest()))
+                        return false;
+                    finish(
+                            run,
+                            run.isCancelRequested()
+                                    ? CdsExportState.CANCELLED
+                                    : CdsExportState.REVIEW_REQUIRED,
+                            run.isCancelRequested()
+                                    ? "CDS_EXPORT_CANCELLED"
+                                    : "CDS_EXPORT_EXECUTION_LEASE_EXPIRED",
+                            now);
+                    return true;
+                });
     }
 
     private static boolean liveOwner(CdsExportRun run, Instant now) {

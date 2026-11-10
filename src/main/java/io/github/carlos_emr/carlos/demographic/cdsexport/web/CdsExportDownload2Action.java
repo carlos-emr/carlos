@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.web;
 
 import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportArtifactService;
 import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportService;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import java.util.Set;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -35,13 +36,18 @@ import org.springframework.stereotype.Component;
 @Component("cdsExportDownload2Action")
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class CdsExportDownload2Action extends ActionSupport {
+    private final transient SecurityInfoManager securityInfoManager;
     private final transient CdsExportWebService web;
     private final transient CdsExportService exports;
     private final transient CdsExportArtifactService artifacts;
     private String runId, artifact;
 
     public CdsExportDownload2Action(
-            CdsExportWebService web, CdsExportService exports, CdsExportArtifactService artifacts) {
+            CdsExportWebService web,
+            CdsExportService exports,
+            CdsExportArtifactService artifacts,
+            SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
         this.web = web;
         this.exports = exports;
         this.artifacts = artifacts;
@@ -57,7 +63,7 @@ public class CdsExportDownload2Action extends ActionSupport {
             return NONE;
         }
         try {
-            var viewer = web.authorize(request);
+            var viewer = web.authorize(request, securityInfoManager);
             web.parameters(request, Set.of("runId", "artifact"), false);
             var actor = exports.downloadActor(viewer, runId);
             try (var download = artifacts.open(actor, runId, artifact)) {

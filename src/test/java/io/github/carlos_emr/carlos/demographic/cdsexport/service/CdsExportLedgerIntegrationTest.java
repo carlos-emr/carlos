@@ -68,7 +68,10 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/** Real commits, row locks and audit rollback; optional explicit properties run the same cases on fresh MariaDB DDL. */
+/**
+ * Real commits, row locks and audit rollback; optional explicit properties run the same cases on
+ * fresh MariaDB DDL.
+ */
 @Tag("integration")
 @Tag("cds-export")
 class CdsExportLedgerIntegrationTest {
@@ -165,12 +168,15 @@ class CdsExportLedgerIntegrationTest {
             assertThat(sql.queryForObject("SELECT VERSION()", String.class)).contains("MariaDB");
             assertThat(
                             sql.queryForObject(
-                                    "SELECT COUNT(*) FROM secObjectName WHERE objectName='_cds_export'",
+                                    "SELECT COUNT(*) FROM secObjectName WHERE"
+                                            + " objectName='_cds_export'",
                                     Long.class))
                     .isEqualTo(1);
             assertThat(
                             sql.queryForObject(
-                                    "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='cds_export_run' AND ENGINE='InnoDB'",
+                                    "SELECT COUNT(*) FROM information_schema.TABLES WHERE"
+                                        + " TABLE_SCHEMA=DATABASE() AND TABLE_NAME='cds_export_run'"
+                                        + " AND ENGINE='InnoDB'",
                                     Long.class))
                     .isEqualTo(1);
         }
@@ -230,10 +236,12 @@ class CdsExportLedgerIntegrationTest {
         try {
             if (context != null && context.isActive() && sql != null && operator != null) {
                 sql.update(
-                        "delete from cds_export_attempt where run_id in (select id from cds_export_run where operator=?)",
+                        "delete from cds_export_attempt where run_id in (select id from"
+                                + " cds_export_run where operator=?)",
                         operatorKey());
                 sql.update(
-                        "delete from cds_export_event where run_id in (select id from cds_export_run where operator=?)",
+                        "delete from cds_export_event where run_id in (select id from"
+                                + " cds_export_run where operator=?)",
                         operatorKey());
                 sql.update("delete from cds_export_run where operator=?", operatorKey());
             }
@@ -257,7 +265,8 @@ class CdsExportLedgerIntegrationTest {
                 .isEqualTo(2);
         assertThat(
                         sql.queryForList(
-                                "select epoch from cds_export_attempt where run_id=? order by epoch",
+                                "select epoch from cds_export_attempt where run_id=? order by"
+                                        + " epoch",
                                 Long.class,
                                 job.id()))
                 .containsExactly(first.epoch(), second.epoch());
@@ -448,6 +457,73 @@ class CdsExportLedgerIntegrationTest {
     }
 
     @Test
+    void shouldRetireOnlyTheExpiredOwnGeneration_withoutReplacingALiveOrNewerWorker() {
+        var job = ledger.accept(document("recipient"));
+        var first = ledger.claim(job.id(), COMPATIBLE);
+        assertThat(ledger.retireExpiredLease(first)).isFalse();
+        sql.update(
+                "update cds_export_run set lease_until=? where id=?",
+                Timestamp.from(Instant.EPOCH),
+                job.id());
+        var second = ledger.claim(job.id(), COMPATIBLE);
+        assertThat(ledger.retireExpiredLease(first)).isFalse();
+        assertThat(ledger.status(job.id()).state()).isEqualTo(CdsExportState.DISCOVERING);
+        sql.update(
+                "update cds_export_run set lease_until=? where id=?",
+                Timestamp.from(Instant.EPOCH),
+                job.id());
+        assertThat(ledger.retireExpiredLease(second)).isTrue();
+        assertThat(ledger.status(job.id()).state()).isEqualTo(CdsExportState.REVIEW_REQUIRED);
+        assertThat(ledger.status(job.id()).safeCode())
+                .isEqualTo("CDS_EXPORT_EXECUTION_LEASE_EXPIRED");
+        assertThat(ledger.pending(100)).doesNotContain(job.id());
+    }
+
+    @Test
+    void shouldPageNewestSavedJobs_byCreationTimeAndIdentifierWithinTheOwner() {
+        var older = ledger.accept(document("recipient", "older"));
+        var first = ledger.accept(document("recipient", "first"));
+        var second = ledger.accept(document("recipient", "second"));
+        sql.update(
+                "update cds_export_run set created_at=? where operator=?",
+                Timestamp.from(Instant.parse("2026-01-02T00:00:00Z")),
+                operatorKey());
+        sql.update(
+                "update cds_export_run set created_at=? where id=?",
+                Timestamp.from(Instant.parse("2026-01-01T00:00:00Z")),
+                older.id());
+        var tied =
+                java.util.stream.Stream.of(first.id(), second.id())
+                        .sorted(java.util.Comparator.reverseOrder())
+                        .toList();
+        assertThat(ledger.history(operatorKey(), "", 1))
+                .extracting(row -> row.id())
+                .containsExactly(tied.get(0));
+        assertThat(ledger.history(operatorKey(), tied.get(0), 10))
+                .extracting(row -> row.id())
+                .containsExactly(tied.get(1), older.id());
+        assertThatThrownBy(() -> ledger.history("unix:foreign", first.id(), 10))
+                .hasMessage("CDS_EXPORT_HISTORY_CURSOR_INVALID");
+        assertThatThrownBy(() -> ledger.history(operatorKey(), UUID.randomUUID().toString(), 10))
+                .hasMessage("CDS_EXPORT_HISTORY_CURSOR_INVALID");
+    }
+
+    @Test
+    void shouldRecordUnconfirmedCompletion_whenCiphertextWasWrittenButFinalConfirmationFailed()
+            throws Exception {
+        var ready = readyArtifact();
+        var download = ledger.beginDownload(ready.lease().runId(), operatorKey());
+        ledger.finishDownload(download, false, true);
+        assertThat(
+                        sql.queryForList(
+                                "select event_type from cds_export_event where run_id=?",
+                                String.class,
+                                ready.lease().runId()))
+                .contains("DOWNLOAD_COMPLETION_UNCONFIRMED")
+                .doesNotContain("DOWNLOAD_COMPLETE", "DOWNLOAD_STOPPED");
+    }
+
+    @Test
     void shouldFenceExpiredWorkers_whenASecondNodeClaimsTheJob() {
         var job = ledger.accept(document("recipient"));
         var first = ledger.claim(job.id(), COMPATIBLE);
@@ -623,7 +699,9 @@ class CdsExportLedgerIntegrationTest {
         var job = ledger.accept(document("recipient"));
         var lease = ledger.claim(job.id(), COMPATIBLE);
         sql.update(
-                "update cds_export_run set expected_patients=2,processed_patients=1,cohort_digest=?,selected_at=CURRENT_TIMESTAMP where id=?",
+                "update cds_export_run set"
+                    + " expected_patients=2,processed_patients=1,cohort_digest=?,selected_at=CURRENT_TIMESTAMP"
+                    + " where id=?",
                 "a".repeat(64),
                 job.id());
         ledger.release(lease);
@@ -709,7 +787,8 @@ class CdsExportLedgerIntegrationTest {
                     status -> {
                         assertThat(
                                         sql.queryForObject(
-                                                "select cancel_requested from cds_export_run where id=?",
+                                                "select cancel_requested from cds_export_run where"
+                                                        + " id=?",
                                                 Boolean.class,
                                                 job.id()))
                                 .isFalse();
@@ -722,7 +801,8 @@ class CdsExportLedgerIntegrationTest {
                         }
                         assertThat(
                                         sql.queryForObject(
-                                                "select cancel_requested from cds_export_run where id=?",
+                                                "select cancel_requested from cds_export_run where"
+                                                        + " id=?",
                                                 Boolean.class,
                                                 job.id()))
                                 .isFalse();
@@ -776,7 +856,8 @@ class CdsExportLedgerIntegrationTest {
         ledger.sealSelection(lease, fixture.sealed());
         assertThat(
                         sql.queryForObject(
-                                "select count(*) from cds_export_event where run_id=? and event_type='SELECTION_SEALED'",
+                                "select count(*) from cds_export_event where run_id=? and"
+                                        + " event_type='SELECTION_SEALED'",
                                 Long.class,
                                 lease.runId()))
                 .isEqualTo(1);
@@ -794,14 +875,15 @@ class CdsExportLedgerIntegrationTest {
         assertThat(ledger.cohort(lease)).isEqualTo(fixture.sealed().member());
         assertThat(
                         sql.queryForObject(
-                                "select count(*) from cds_export_event where run_id=? and event_type='SELECTION_SEALED'",
+                                "select count(*) from cds_export_event where run_id=? and"
+                                        + " event_type='SELECTION_SEALED'",
                                 Long.class,
                                 lease.runId()))
                 .isEqualTo(1);
     }
 
     @Test
-    void shouldRollbackASeal_whenItsAuditFails_andRefuseReplacingAnAlreadySealedSelection()
+    void shouldRollbackASeal_whenItsAuditFailsAndRefuseReplacingAnAlreadySealedSelection()
             throws Exception {
         var lease = boundLease();
         var fixture = preparedCohort(lease);
@@ -845,7 +927,8 @@ class CdsExportLedgerIntegrationTest {
         ledger.retainPrepared(f.lease(), f.prepared());
         assertThat(
                         sql.queryForObject(
-                                "select count(*) from cds_export_event where run_id=? and event_type='PACKAGE_RETAINED'",
+                                "select count(*) from cds_export_event where run_id=? and"
+                                        + " event_type='PACKAGE_RETAINED'",
                                 Long.class,
                                 f.lease().runId()))
                 .isEqualTo(1);
@@ -901,7 +984,8 @@ class CdsExportLedgerIntegrationTest {
                 .isEqualTo("PUBLISHED");
         assertThat(
                         sql.queryForObject(
-                                "select count(*) from cds_export_event where run_id=? and event_type='READY'",
+                                "select count(*) from cds_export_event where run_id=? and"
+                                        + " event_type='READY'",
                                 Long.class,
                                 f.lease().runId()))
                 .isEqualTo(1);
@@ -1071,7 +1155,8 @@ class CdsExportLedgerIntegrationTest {
                 .isNull();
         assertThat(
                         sql.queryForObject(
-                                "select count(*) from cds_export_event where run_id=? and event_type='DOWNLOAD_COMPLETE'",
+                                "select count(*) from cds_export_event where run_id=? and"
+                                        + " event_type='DOWNLOAD_COMPLETE'",
                                 Long.class,
                                 f.lease().runId()))
                 .isEqualTo(1);
@@ -1102,7 +1187,8 @@ class CdsExportLedgerIntegrationTest {
         ledger.finishDownload(download, false);
         assertThat(
                         sql.queryForObject(
-                                "select count(*) from cds_export_event where run_id=? and event_type='DOWNLOAD_COMPLETE'",
+                                "select count(*) from cds_export_event where run_id=? and"
+                                        + " event_type='DOWNLOAD_COMPLETE'",
                                 Long.class,
                                 f.lease().runId()))
                 .isZero();
@@ -1275,7 +1361,8 @@ class CdsExportLedgerIntegrationTest {
         assertThat(ledger.status(first.runId()).workerOwned()).isTrue();
         assertThat(
                         sql.queryForList(
-                                "select epoch from cds_export_event where run_id=? and event_type in ('CLEANUP_STARTED','CLEANUP_COMPLETE')",
+                                "select epoch from cds_export_event where run_id=? and event_type"
+                                        + " in ('CLEANUP_STARTED','CLEANUP_COMPLETE')",
                                 Long.class,
                                 first.runId()))
                 .containsOnly(first.epoch())
@@ -1387,9 +1474,13 @@ class CdsExportLedgerIntegrationTest {
     }
 
     private CdsExportJobDocumentDto document(String recipient) {
+        return document(recipient, "fixture");
+    }
+
+    private CdsExportJobDocumentDto document(String recipient, String submissionKey) {
         var command =
                 new CdsExportCommand(
-                        "fixture",
+                        submissionKey,
                         "999998",
                         null,
                         CdsLogicalProfile.ONTARIO_MD_5_2,

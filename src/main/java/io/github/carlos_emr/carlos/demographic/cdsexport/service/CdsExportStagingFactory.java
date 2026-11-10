@@ -45,7 +45,8 @@ import org.springframework.stereotype.Service;
  * Binding records contain identifiers/fingerprints, never a private key or physical path. Old roots
  * and immutable key IDs may remain configured for retained artifacts; active-policy rotation cannot
  * silently redirect an accepted job or substitute a different key. No policy/key read occurs during
- * metadata-only context startup. This supplies encrypted storage, not clinical publication authority.
+ * metadata-only context startup. This supplies encrypted storage, not clinical publication
+ * authority.
  */
 @Service
 public class CdsExportStagingFactory {
@@ -117,7 +118,10 @@ public class CdsExportStagingFactory {
         }
     }
 
-    /** Callers separately authorize retained-artifact access/cleanup and bind its exact run, epoch and file evidence. */
+    /**
+     * Callers separately authorize retained-artifact access/cleanup and bind its exact run, epoch
+     * and file evidence.
+     */
     public CdsExportStagingService openExisting(
             String runId, long epoch, CdsExportStorageBindingDto binding, Runnable checkpoint)
             throws IOException {
@@ -137,9 +141,9 @@ public class CdsExportStagingFactory {
     }
 
     /**
-     * Retires only an exclusively leased, expired export attempt. This also removes crash
-     * fragments predating the ownership manifest. No configuration, key, import or native
-     * source directory is traversed. A missing/changed key does not prevent safe erasure.
+     * Retires only an exclusively leased, expired export attempt. This also removes crash fragments
+     * predating the ownership manifest. No configuration, key, import or native source directory is
+     * traversed. A missing/changed key does not prevent safe erasure.
      */
     public void purgeAttempt(
             String runId, long epoch, CdsExportStorageBindingDto binding, Runnable checkpoint)
@@ -162,28 +166,7 @@ public class CdsExportStagingFactory {
             long count = 0;
             for (Path entry : opened) {
                 checkpoint.run();
-                if (++count > 4_000_000
-                        || !entry.getFileName().toString().matches("[0-9a-f]{64}\\.stage"))
-                    throw new IOException("CDS_EXPORT_CLEANUP_UNKNOWN_MEMBER");
-                var attrs =
-                        secure.getFileAttributeView(
-                                        entry.getFileName(),
-                                        java.nio.file.attribute.PosixFileAttributeView.class,
-                                        java.nio.file.LinkOption.NOFOLLOW_LINKS)
-                                .readAttributes();
-                if (!attrs.isRegularFile()
-                        || !attrs.owner()
-                                .equals(
-                                        Files.getOwner(
-                                                directory, java.nio.file.LinkOption.NOFOLLOW_LINKS))
-                        || !attrs.permissions().equals(PosixFilePermissions.fromString("rw-------"))
-                        || ((Number)
-                                                Files.getAttribute(
-                                                        entry,
-                                                        "unix:nlink",
-                                                        java.nio.file.LinkOption.NOFOLLOW_LINKS))
-                                        .longValue()
-                                != 1) throw new IOException("CDS_EXPORT_CLEANUP_MEMBER_CHANGED");
+                validateCleanupMember(secure, directory, entry, ++count);
             }
         }
         checkpoint.run();
@@ -193,28 +176,7 @@ public class CdsExportStagingFactory {
             long count = 0;
             for (Path entry : opened) {
                 checkpoint.run();
-                if (++count > 4_000_000
-                        || !entry.getFileName().toString().matches("[0-9a-f]{64}\\.stage"))
-                    throw new IOException("CDS_EXPORT_CLEANUP_UNKNOWN_MEMBER");
-                var attrs =
-                        secure.getFileAttributeView(
-                                        entry.getFileName(),
-                                        java.nio.file.attribute.PosixFileAttributeView.class,
-                                        java.nio.file.LinkOption.NOFOLLOW_LINKS)
-                                .readAttributes();
-                if (!attrs.isRegularFile()
-                        || !attrs.owner()
-                                .equals(
-                                        Files.getOwner(
-                                                directory, java.nio.file.LinkOption.NOFOLLOW_LINKS))
-                        || !attrs.permissions().equals(PosixFilePermissions.fromString("rw-------"))
-                        || ((Number)
-                                                Files.getAttribute(
-                                                        entry,
-                                                        "unix:nlink",
-                                                        java.nio.file.LinkOption.NOFOLLOW_LINKS))
-                                        .longValue()
-                                != 1) throw new IOException("CDS_EXPORT_CLEANUP_MEMBER_CHANGED");
+                validateCleanupMember(secure, directory, entry, ++count);
                 secure.deleteFile(entry.getFileName());
             }
         }
@@ -228,6 +190,34 @@ public class CdsExportStagingFactory {
             channel.force(true);
         }
         // Preserve the run directory: another epoch can be active concurrently.
+    }
+
+    /** Keep both the complete preflight and the immediately-before-unlink check. */
+    private static void validateCleanupMember(
+            java.nio.file.SecureDirectoryStream<Path> secure,
+            Path directory,
+            Path entry,
+            long count)
+            throws IOException {
+        if (count > 4_000_000 || !entry.getFileName().toString().matches("[0-9a-f]{64}\\.stage"))
+            throw new IOException("CDS_EXPORT_CLEANUP_UNKNOWN_MEMBER");
+        var attrs =
+                secure.getFileAttributeView(
+                                entry.getFileName(),
+                                java.nio.file.attribute.PosixFileAttributeView.class,
+                                java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                        .readAttributes();
+        if (!attrs.isRegularFile()
+                || !attrs.owner()
+                        .equals(Files.getOwner(directory, java.nio.file.LinkOption.NOFOLLOW_LINKS))
+                || !attrs.permissions().equals(PosixFilePermissions.fromString("rw-------"))
+                || ((Number)
+                                        Files.getAttribute(
+                                                entry,
+                                                "unix:nlink",
+                                                java.nio.file.LinkOption.NOFOLLOW_LINKS))
+                                .longValue()
+                        != 1) throw new IOException("CDS_EXPORT_CLEANUP_MEMBER_CHANGED");
     }
 
     private Path root(String id) throws IOException {

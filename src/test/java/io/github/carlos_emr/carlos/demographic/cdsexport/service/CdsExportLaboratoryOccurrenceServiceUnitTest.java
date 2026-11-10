@@ -90,7 +90,7 @@ class CdsExportLaboratoryOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldKeepABlockedResultWithoutAnUnrestrictedMirror() {
+    void shouldKeepABlockedResult_withoutAnUnrestrictedMirror() {
         current.clear();
         put(
                 "cds_laboratory_result",
@@ -100,13 +100,13 @@ class CdsExportLaboratoryOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseACrossPatientStructuredResult() {
+    void shouldRefuseACrossPatientStructuredResult_forLaboratoryOccurrenceServiceContract() {
         change("cds_laboratory_result:" + ID, "demographicNo", "28");
         assertThatThrownBy(this::ownership).isInstanceOf(java.io.IOException.class);
     }
 
     @Test
-    void shouldRefuseCrossPatientRouting() {
+    void shouldRefuseCrossPatientRouting_forLaboratoryOccurrenceServiceContract() {
         change("patientLabRouting:93", "demographic_no", "28");
         assertThatThrownBy(this::ownership).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }
@@ -118,7 +118,7 @@ class CdsExportLaboratoryOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseDuplicatePatientRoutes() {
+    void shouldRefuseDuplicatePatientRoutes_forLaboratoryOccurrenceServiceContract() {
         put(
                 "patientLabRouting",
                 "94",
@@ -127,7 +127,7 @@ class CdsExportLaboratoryOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseDuplicateLabMetadata() {
+    void shouldRefuseDuplicateLabMetadata_forLaboratoryOccurrenceServiceContract() {
         put("hl7TextInfo", "94", fields("id", "94", "lab_no", "91"));
         assertThatThrownBy(this::ownership).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }
@@ -139,13 +139,13 @@ class CdsExportLaboratoryOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseMissingRouting() {
+    void shouldRefuseMissingRouting_forLaboratoryOccurrenceServiceContract() {
         current.remove("patientLabRouting:93");
         assertThatThrownBy(this::ownership).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }
 
     @Test
-    void shouldRefuseMissingLabMetadata() {
+    void shouldRefuseMissingLabMetadata_forLaboratoryOccurrenceServiceContract() {
         current.remove("hl7TextInfo:92");
         assertThatThrownBy(this::ownership).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }
@@ -157,13 +157,13 @@ class CdsExportLaboratoryOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseABlockedResultLinkedToAnUnrestrictedMirror() {
+    void shouldRefuseABlockedResultLinked_toAnUnrestrictedMirror() {
         change("cds_laboratory_result:" + ID, "sourceBlocked", "Y");
         assertThatThrownBy(this::ownership).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }
 
     @Test
-    void shouldRefuseTwoStructuredResultsSharingOneMessage() {
+    void shouldRefuseTwoStructuredResultsSharingOneMessage_forLaboratoryOccurrenceServiceContract() {
         String other = "b".repeat(64);
         put(
                 "cds_laboratory_result",
@@ -181,7 +181,7 @@ class CdsExportLaboratoryOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseAnUnblockedResultWithNoNativeReference() {
+    void shouldRefuseAnUnblockedResult_withNoNativeReference() {
         change("cds_laboratory_result:" + ID, "nativeLabNo", null);
         assertThatThrownBy(this::ownership).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }

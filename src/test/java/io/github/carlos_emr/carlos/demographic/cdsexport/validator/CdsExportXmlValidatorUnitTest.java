@@ -347,7 +347,7 @@ class CdsExportXmlValidatorUnitTest {
     }
 
     @Test
-    void shouldRefuseAValidXmlStoredUnderAnotherPatientsNameOrBirthDate() throws Exception {
+    void shouldRefuseAValidXmlStored_underAnotherPatientsNameOrBirthDate() throws Exception {
         var result = validate(fixture());
         for (var wrong :
                 List.of(

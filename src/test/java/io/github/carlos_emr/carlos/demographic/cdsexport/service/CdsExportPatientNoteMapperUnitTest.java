@@ -43,7 +43,7 @@ class CdsExportPatientNoteMapperUnitTest {
     private static final Set<CdsCategory> DEMOGRAPHICS = Set.of(CdsCategory.DEMOGRAPHICS);
 
     @Test
-    void preservesLiteralClosingTagsEntitiesWhitespaceAndUnicodeThroughSchemaAndReceivingImporter()
+    void shouldVerifyPreservesLiteralClosingTagsEntitiesWhitespaceAndUnicodeThroughSchemaAndReceivingImporter_forPatientNoteMapperContract()
             throws Exception {
         for (String original :
                 List.of(
@@ -60,14 +60,14 @@ class CdsExportPatientNoteMapperUnitTest {
     }
 
     @Test
-    void preservesUnframedLegacyTextWithoutAddingXmlInterpretation() throws Exception {
+    void shouldVerifyPreservesUnframedLegacyText_withoutAddingXmlInterpretation() throws Exception {
         String original = "  <b>Native plain note</b> &amp; café 😀  ";
         var mapped = mapper.map(27, DEMOGRAPHICS, row(original));
         assertThat(roundTrip(mapped)).isEqualTo(original);
     }
 
     @Test
-    void keepsUnmatchedTagTextLiteralAsTheNativeModelDoes() throws Exception {
+    void shouldVerifyKeepsUnmatchedTagTextLiteralAsTheNativeModelDoes_forPatientNoteMapperContract() throws Exception {
         for (String raw : List.of("<unotes>missing close", "Only a </unotes> close", "<unotes>")) {
             var mapped = mapper.map(27, DEMOGRAPHICS, row(raw));
             assertThat(mapped.representable()).isTrue();
@@ -77,7 +77,7 @@ class CdsExportPatientNoteMapperUnitTest {
     }
 
     @Test
-    void distinguishesSqlNullEmptyAndExplicitlyClearedWrappedText() throws Exception {
+    void shouldVerifyDistinguishesSqlNullEmptyAndExplicitlyClearedWrappedText_forPatientNoteMapperContract() throws Exception {
         var absent = mapper.map(27, DEMOGRAPHICS, row(null));
         var empty = mapper.map(27, DEMOGRAPHICS, row(""));
         var cleared = mapper.map(27, DEMOGRAPHICS, row("<unotes></unotes>"));
@@ -95,7 +95,7 @@ class CdsExportPatientNoteMapperUnitTest {
     }
 
     @Test
-    void refusesAmbiguousFramesInsteadOfUsingTheFirstClosingTagOrDiscardingPrefixes()
+    void shouldVerifyRefusesAmbiguousFrames_insteadOfUsingTheFirstClosingTagOrDiscardingPrefixes()
             throws Exception {
         for (String raw : List.of("prefix<unotes>note</unotes>", "<unotes>note</unotes>suffix")) {
             var mapped = mapper.map(27, DEMOGRAPHICS, row(raw));
@@ -109,7 +109,7 @@ class CdsExportPatientNoteMapperUnitTest {
     }
 
     @Test
-    void doesNotSilentlyTreatCareTeamReferencesAsNotesOrPrimaryPhysicians() throws Exception {
+    void shouldVerifyDoesNotSilentlyTreatCareTeamReferencesAsNotesOrPrimaryPhysicians_forPatientNoteMapperContract() throws Exception {
         for (String column : List.of("cust1", "cust2", "cust4")) {
             var original = row("Patient note");
             var fields = new LinkedHashMap<>(original.fields());
@@ -128,7 +128,7 @@ class CdsExportPatientNoteMapperUnitTest {
     }
 
     @Test
-    void delegatesSelectedAlertFieldsExplicitlyWithoutCopyingThemIntoPatientNotes()
+    void shouldVerifyDelegatesSelectedAlertFieldsExplicitly_withoutCopyingThemIntoPatientNotes()
             throws Exception {
         var original = row("Patient note");
         var fields = new LinkedHashMap<>(original.fields());
@@ -153,7 +153,7 @@ class CdsExportPatientNoteMapperUnitTest {
     }
 
     @Test
-    void rejectsForeignOwnersKeysAndUndeclaredColumns() throws Exception {
+    void shouldVerifyRejectsForeignOwnersKeysAndUndeclaredColumns_forPatientNoteMapperContract() throws Exception {
         var original = row("Patient note");
         assertThatThrownBy(() -> mapper.map(28, DEMOGRAPHICS, original))
                 .hasMessage("CDS_EXPORT_PATIENT_NOTE_SCOPE_INVALID");
@@ -178,7 +178,7 @@ class CdsExportPatientNoteMapperUnitTest {
     }
 
     @Test
-    void keepsExactCodePointCapacityAndRefusesOversizedOrIllegalValuesWithoutTruncation()
+    void shouldVerifyKeepsExactCodePointCapacityAndRefusesOversizedOrIllegalValues_withoutTruncation()
             throws Exception {
         var valid = mapper.map(27, DEMOGRAPHICS, row("😀".repeat(64000)));
         assertThat(roundTrip(valid)).isEqualTo(valid.text());
@@ -196,7 +196,7 @@ class CdsExportPatientNoteMapperUnitTest {
     }
 
     @Test
-    void rejectedNoteStillPoisonsTheDocumentWhenTheCallerCatchesItsError() throws Exception {
+    void shouldVerifyRejectedNoteStillPoisonsTheDocument_whenTheCallerCatchesItsError() throws Exception {
         var mapped = mapper.map(27, DEMOGRAPHICS, row("prefix<unotes>note</unotes>"));
         var value = new CdsExportDemographicNoteProjectionDto("a".repeat(64), base(), 1, mapped);
         assertThatThrownBy(
@@ -215,7 +215,7 @@ class CdsExportPatientNoteMapperUnitTest {
     }
 
     @Test
-    void rejectsCrossPatientProjectionAndKeepsAbsentNativeRowsExplicit() throws Exception {
+    void shouldVerifyRejectsCrossPatientProjectionAndKeepsAbsentNativeRowsExplicit_forPatientNoteMapperContract() throws Exception {
         var note = mapper.map(28, DEMOGRAPHICS, row(28, "Other patient"));
         assertThatThrownBy(
                         () ->
@@ -232,7 +232,7 @@ class CdsExportPatientNoteMapperUnitTest {
     }
 
     @Test
-    void protectsNoteDtoRenderingAndImmutableFieldEvidence() throws Exception {
+    void shouldVerifyProtectsNoteDtoRenderingAndImmutableFieldEvidence_forPatientNoteMapperContract() throws Exception {
         var mapped = mapper.map(27, DEMOGRAPHICS, row("PRIVATE NOTE"));
         assertThat(mapped.toString()).isEqualTo("CdsExportPatientNoteMappingDto[protected]");
         assertThatThrownBy(() -> mapped.fields().clear())

@@ -93,7 +93,47 @@ class CdsExportAccessServiceUnitTest {
     }
 
     @Test
-    void pharmacyMatchesOwningRoutesGlobalAndPatientRxChecksForBothIdentities() {
+    void shouldObserveDelegatedDisclosureIdentity_withBothProvidersCurrentlyAuthorized() {
+        var actor = access.webActor(session, command("200"));
+        access.requireObserve(actor, document(actor));
+        access.requireScope(actor, command("200"));
+        for (String providerNo : List.of("100", "200")) {
+            verify(permissions, atLeastOnce())
+                    .hasPrivilegeReadOnly(
+                            argThat(info -> providerNo.equals(info.getLoggedInProviderNo())),
+                            eq("_demographic"),
+                            eq("r"),
+                            isNull());
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"100", "200"})
+    void shouldRefuseDelegatedMetadata_whenEitherProviderLosesAdministration(String denied) {
+        var actor = access.webActor(session, command("200"));
+        when(permissions.hasPrivilegeReadOnly(any(), anyString(), eq("w"), isNull()))
+                .thenAnswer(
+                        call ->
+                                !denied.equals(
+                                        call.<LoggedInInfo>getArgument(0).getLoggedInProviderNo()));
+        assertThatThrownBy(() -> access.requireObserve(actor, document(actor)))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
+    void shouldRefuseDelegatedMetadata_whenDelegationIsRemoved() {
+        var actor = access.webActor(session, command("200"));
+        var properties =
+                (Properties)
+                        org.springframework.test.util.ReflectionTestUtils.getField(
+                                configuration, "properties");
+        properties.remove("cds.export.operator.web-7.providers");
+        assertThatThrownBy(() -> access.requireObserve(actor, document(actor)))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
+    void shouldVerifyPharmacyMatchesOwningRoutesGlobalAndPatientRxChecks_forBothIdentities() {
         for (String denied : List.of("100", "200")) {
             var command = demographicCommand("200");
             var actor = access.webActor(session, command);
@@ -109,7 +149,7 @@ class CdsExportAccessServiceUnitTest {
     }
 
     @Test
-    void pharmacyRequiresItsOwnPatientRxReadWithoutSelectingMedicationForExport() {
+    void shouldVerifyPharmacyRequiresItsOwnPatientRxRead_withoutSelectingMedicationForExport() {
         var command = demographicCommand("100");
         var actor = access.webActor(session, command);
         when(permissions.hasPrivilegeReadOnly(any(), eq("_rx"), eq("r"), eq("27")))
@@ -120,7 +160,8 @@ class CdsExportAccessServiceUnitTest {
     }
 
     @Test
-    void anAllowedPharmacyReadStillChecksTheActualPatientAndCurrentNativePrivilege() {
+    void
+            shouldVerifyAnAllowedPharmacyReadStillChecksTheActualPatientAndCurrentNativePrivilege_forAccessServiceContract() {
         var command = demographicCommand("100");
         var actor = access.webActor(session, command);
         assertThat(access.requirePharmacyRead(actor, command, 27).getLoggedInProviderNo())
@@ -133,7 +174,8 @@ class CdsExportAccessServiceUnitTest {
     }
 
     @Test
-    void delegatedPharmacyReadsRequireBothTheInitiatingAndEffectiveProvidersRxRights() {
+    void
+            shouldVerifyDelegatedPharmacyReadsRequireBothTheInitiatingAndEffectiveProvidersRxRights_forAccessServiceContract() {
         for (String denied : List.of("100", "200")) {
             var command = demographicCommand("200");
             var actor = access.webActor(session, command);
@@ -494,7 +536,7 @@ class CdsExportAccessServiceUnitTest {
     }
 
     @Test
-    void shouldRequireCurrentRightsForBothTheDelegatingAndEffectiveWebProvider() {
+    void shouldRequireCurrentRights_forBothTheDelegatingAndEffectiveWebProvider() {
         var actor = access.webActor(session, command("200"));
         when(permissions.hasPrivilegeReadOnly(
                         argThat(c -> c != null && "100".equals(c.getLoggedInProviderNo())),
@@ -521,7 +563,7 @@ class CdsExportAccessServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseFacilityOrProviderScopeSubstitution() {
+    void shouldRefuseFacilityOrProviderScopeSubstitution_forAccessServiceContract() {
         var actor = access.webActor(session, command("100"));
         assertThatThrownBy(() -> access.requirePatient(actor, command("200"), 27))
                 .isInstanceOf(SecurityException.class);

@@ -45,7 +45,7 @@ class CdsExportPharmacyMapperUnitTest {
     private final CdsExportPharmacyMapper mapper = new CdsExportPharmacyMapper();
 
     @Test
-    void absentJurisdictionRequiresReviewBeforeChoosingPostalOrZipCode() throws Exception {
+    void shouldVerifyAbsentJurisdictionRequiresReview_beforeChoosingPostalOrZipCode() throws Exception {
         for (String province : Arrays.asList(null, "")) {
             var result =
                     map(
@@ -73,7 +73,7 @@ class CdsExportPharmacyMapperUnitTest {
     }
 
     @Test
-    void exactGuideFieldsAndRankOneAssociationHaveCompleteIndependentDispositions()
+    void shouldVerifyExactGuideFieldsAndRankOneAssociationHaveCompleteIndependentDispositions_forPharmacyMapperContract()
             throws Exception {
         var result = map(List.of(link(-1, 9)), List.of(pharmacy(9)));
         assertThat(result.nativeRepresentable()).isTrue();
@@ -98,7 +98,7 @@ class CdsExportPharmacyMapperUnitTest {
     }
 
     @Test
-    void actualSchemaAndReceivingImporterPreserveNameAddressPhoneFaxAndEmail() throws Exception {
+    void shouldVerifyActualSchemaAndReceivingImporterPreserveNameAddressPhoneFaxAndEmail_forPharmacyMapperContract() throws Exception {
         var record = parse(map(List.of(link(-1, 9)), List.of(pharmacy(9))), HASH);
         var fields = new CdsFieldParser();
         assertThat(fields.firstText(record, "PreferredPharmacy/Name", 50))
@@ -125,7 +125,7 @@ class CdsExportPharmacyMapperUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"phone2", "notes", "serviceLocationIdentifier"})
-    void additionalPopulatedNativeFieldsNeverDisappearBehindAValidPreferredPharmacy(String column)
+    void shouldVerifyAdditionalPopulatedNativeFieldsNeverDisappearBehindAValidPreferredPharmacy_forPharmacyMapperContract(String column)
             throws Exception {
         var result =
                 map(
@@ -138,7 +138,7 @@ class CdsExportPharmacyMapperUnitTest {
     }
 
     @Test
-    void deletedPharmacyAndInactiveAssociationsRemainReviewableHistory() throws Exception {
+    void shouldVerifyDeletedPharmacyAndInactiveAssociationsRemainReviewableHistory_forPharmacyMapperContract() throws Exception {
         for (var pair :
                 List.of(
                         List.of(changed(link(-1, 9), "status", "0"), pharmacy(9)),
@@ -150,7 +150,7 @@ class CdsExportPharmacyMapperUnitTest {
     }
 
     @Test
-    void duplicateFirstPreferencesAreNeverSelectedByRowOrderEvenForTheSamePharmacy()
+    void shouldVerifyDuplicateFirstPreferencesAreNeverSelected_byRowOrderEvenForTheSamePharmacy()
             throws Exception {
         var result = map(List.of(link(-1, 9), link(-2, 9)), List.of(pharmacy(9)));
         assertThat(result.nativeRepresentable()).isFalse();
@@ -159,7 +159,7 @@ class CdsExportPharmacyMapperUnitTest {
     }
 
     @Test
-    void additionalRankedPharmaciesNeedAHistoryOrNativeCarrierInsteadOfSilentOmission()
+    void shouldVerifyAdditionalRankedPharmaciesNeedAHistoryOrNativeCarrier_insteadOfSilentOmission()
             throws Exception {
         var result =
                 map(
@@ -171,7 +171,7 @@ class CdsExportPharmacyMapperUnitTest {
     }
 
     @Test
-    void absentFirstPreferenceMissingLinkedRowsAndUnknownFlagsCannotProduceSuccessfulEmptyOutput()
+    void shouldVerifyAbsentFirstPreferenceMissingLinkedRowsAndUnknownFlagsCannotProduceSuccessfulEmptyOutput_forPharmacyMapperContract()
             throws Exception {
         for (var row :
                 List.of(
@@ -191,7 +191,7 @@ class CdsExportPharmacyMapperUnitTest {
     }
 
     @Test
-    void contactConsentIsCapturedSourceContextAndNeverInventedOrDiscarded() throws Exception {
+    void shouldVerifyContactConsentIsCapturedSourceContextAndNeverInventedOrDiscarded_forPharmacyMapperContract() throws Exception {
         for (String value : List.of("0", "1"))
             assertThat(
                             map(
@@ -217,7 +217,7 @@ class CdsExportPharmacyMapperUnitTest {
                 "province",
                 "postalCode"
             })
-    void overlengthOrInvalidLexicalFieldsRequireReviewRatherThanTruncation(String column)
+    void shouldVerifyOverlengthOrInvalidLexicalFieldsRequireReviewRatherThanTruncation_forPharmacyMapperContract(String column)
             throws Exception {
         String value =
                 switch (column) {
@@ -234,7 +234,7 @@ class CdsExportPharmacyMapperUnitTest {
     }
 
     @Test
-    void unicodeGuideBoundaryAndLiteralPhoneExtensionArePreservedWithoutReverseParsing()
+    void shouldVerifyUnicodeGuideBoundaryAndLiteralPhoneExtensionArePreserved_withoutReverseParsing()
             throws Exception {
         var row =
                 changed(
@@ -249,7 +249,7 @@ class CdsExportPharmacyMapperUnitTest {
     }
 
     @Test
-    void unsupportedMultilineAddressAndNonTokenValuesRequireExplicitReconciliation()
+    void shouldVerifyUnsupportedMultilineAddressAndNonTokenValuesRequireExplicitReconciliation_forPharmacyMapperContract()
             throws Exception {
         for (var pair :
                 List.of(
@@ -269,7 +269,7 @@ class CdsExportPharmacyMapperUnitTest {
     }
 
     @Test
-    void exactUsSubdivisionUsesTheZipChoiceWithoutCanadianNormalization() throws Exception {
+    void shouldVerifyExactUsSubdivisionUsesTheZipChoice_withoutCanadianNormalization() throws Exception {
         var result =
                 map(
                         List.of(link(-1, 9)),
@@ -289,7 +289,7 @@ class CdsExportPharmacyMapperUnitTest {
     }
 
     @Test
-    void missingRequiredNamesCannotLeaveARepresentableAssociation() throws Exception {
+    void shouldVerifyMissingRequiredNamesCannotLeaveARepresentableAssociation_forPharmacyMapperContract() throws Exception {
         for (String name : Arrays.asList(null, "")) {
             var result = map(List.of(link(-1, 9)), List.of(changed(pharmacy(9), "name", name)));
             assertThat(result.nativeRepresentable()).isFalse();
@@ -298,7 +298,7 @@ class CdsExportPharmacyMapperUnitTest {
     }
 
     @Test
-    void foreignRowsUnlinkedChildrenChangedColumnSetsAndNoncanonicalKeysAreRejected()
+    void shouldVerifyForeignRowsUnlinkedChildrenChangedColumnSetsAndNoncanonicalKeysAreRejected_forPharmacyMapperContract()
             throws Exception {
         assertThatThrownBy(
                         () ->
@@ -333,7 +333,7 @@ class CdsExportPharmacyMapperUnitTest {
     }
 
     @Test
-    void byteAndCombinedRowLimitsAndCancellationAreEnforced() {
+    void shouldVerifyByteAndCombinedRowLimitsAndCancellationAreEnforced_forPharmacyMapperContract() {
         assertThatThrownBy(
                         () ->
                                 mapper.map(
@@ -369,7 +369,7 @@ class CdsExportPharmacyMapperUnitTest {
     }
 
     @Test
-    void equalDispositionCountsCannotSubstituteAnotherFieldIdentity() throws Exception {
+    void shouldVerifyEqualDispositionCountsCannotSubstituteAnotherFieldIdentity_forPharmacyMapperContract() throws Exception {
         var value = map(List.of(link(-1, 9)), List.of(pharmacy(9)));
         var fields = new HashMap<>(value.fields());
         var key = new CdsExportNativeFieldKeyDto("pharmacyInfo", pharmacy(9).recordKey(), "notes");
@@ -386,14 +386,14 @@ class CdsExportPharmacyMapperUnitTest {
     }
 
     @Test
-    void protectedValuesDoNotEnterDebugStrings() throws Exception {
+    void shouldVerifyProtectedValuesDoNotEnterDebugStrings_forPharmacyMapperContract() throws Exception {
         var value = map(List.of(link(-1, 9)), List.of(pharmacy(9)));
         assertThat(value.toString() + value.preferred() + value.preferred().address())
                 .doesNotContain("Café", "Main", "Ottawa", "613");
     }
 
     @Test
-    void differentPatientOrGenerationComponentsCannotBeCombined() throws Exception {
+    void shouldVerifyDifferentPatientOrGenerationComponentsCannotBeCombined_forPharmacyMapperContract() throws Exception {
         var value = map(List.of(link(-1, 9)), List.of(pharmacy(9)));
         assertThatThrownBy(() -> parse(value, "b".repeat(64)))
                 .hasMessage("CDS_EXPORT_DEMOGRAPHIC_PHARMACY_REQUIRES_REVIEW");

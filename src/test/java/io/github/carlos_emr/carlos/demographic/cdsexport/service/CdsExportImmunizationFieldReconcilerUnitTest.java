@@ -174,7 +174,7 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     }
 
     @Test
-    void unchangedVerifiedProjectionUsesPreparedMeaningAndAccountsForEveryNativeField()
+    void shouldVerifyUnchangedVerifiedProjectionUsesPreparedMeaningAndAccounts_forEveryNativeField()
             throws Exception {
         var result = reconcile();
         assertThat(result.mapping().nativeRowRepresentable()).isTrue();
@@ -186,7 +186,7 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     }
 
     @Test
-    void anEditedCommentChangesOnlyNotesAndKeepsOtherProvenOriginalFields() throws Exception {
+    void shouldVerifyAnEditedCommentChangesOnlyNotesAndKeepsOtherProvenOriginalFields_forImmunizationFieldReconcilerContract() throws Exception {
         edit("comments").put("val", "Current café 😀\r\nnotes");
         var result = reconcile();
         assertThat(result.mapping().value().notes()).isEqualTo("Current café 😀\r\nnotes");
@@ -196,7 +196,7 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     }
 
     @Test
-    void clearedAndEmptyCommentsDoNotResurrectOldNotes() throws Exception {
+    void shouldVerifyClearedAndEmptyCommentsDoNotResurrectOldNotes_forImmunizationFieldReconcilerContract() throws Exception {
         for (String text : Arrays.asList(null, "")) {
             edit("comments").put("val", text);
             var result = reconcile();
@@ -206,13 +206,13 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     }
 
     @Test
-    void changedNativeNameNeverReplaysTheOldImportedName() throws Exception {
+    void shouldVerifyChangedNativeNameNeverReplaysTheOldImportedName_forImmunizationFieldReconcilerContract() throws Exception {
         edit("cdsName").put("val", "Current brand");
         assertThat(reconcile().mapping().value().name()).isEqualTo("Current brand");
     }
 
     @Test
-    void changingRefusalDoesNotChangeUnrelatedPreparedText() throws Exception {
+    void shouldVerifyChangingRefusalDoesNotChangeUnrelatedPreparedText_forImmunizationFieldReconcilerContract() throws Exception {
         currentRoot.put("refused", "1");
         var result = reconcile();
         assertThat(result.mapping().value().refused()).isTrue();
@@ -221,7 +221,7 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     }
 
     @Test
-    void anUnchangedDateShiftIsNotUndoneByTheOriginalDateHint() throws Exception {
+    void shouldVerifyAnUnchangedDateShiftIsNotUndone_byTheOriginalDateHint() throws Exception {
         prepare(
                 CdsTemporal.shift(
                         CdsTemporal.parse(null, null, "2024-02-29", null, "Date"), 1, "Date"));
@@ -238,7 +238,7 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     }
 
     @Test
-    void anEditedUnrelatedCommentKeepsAProvenOriginalFractionalClock() throws Exception {
+    void shouldVerifyAnEditedUnrelatedCommentKeepsAProvenOriginalFractionalClock_forImmunizationFieldReconcilerContract() throws Exception {
         prepare(CdsTemporal.parse(null, null, null, "2024-02-29T12:34:56.1200", "Date"));
         edit("comments").put("val", "Current note");
         var result = reconcile();
@@ -247,20 +247,20 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     }
 
     @Test
-    void editedClockCannotSilentlyDiscardAnOriginalFraction() throws Exception {
+    void shouldVerifyEditedClockCannotSilentlyDiscardAnOriginalFraction_forImmunizationFieldReconcilerContract() throws Exception {
         prepare(CdsTemporal.parse(null, null, null, "2024-02-29T12:34:56.1200", "Date"));
         currentRoot.put("prevention_date", "2024-03-01 12:34:57");
         assertThat(reconcile().mapping().value()).isNull();
     }
 
     @Test
-    void historicOffsetCannotBeReconstructedFromTheCurrentJvmZone() throws Exception {
+    void shouldVerifyHistoricOffsetCannotBeReconstructed_fromTheCurrentJvmZone() throws Exception {
         prepare(CdsTemporal.parse(null, null, null, "2024-02-29T12:34:56.1200-05:00", "Date"));
         assertThat(reconcile().mapping().value()).isNull();
     }
 
     @Test
-    void yearAndMonthStayPartialInsteadOfReplayingAnchorDayAndClock() throws Exception {
+    void shouldVerifyYearAndMonthStayPartial_insteadOfReplayingAnchorDayAndClock() throws Exception {
         for (CdsTemporalDto date :
                 List.of(
                         CdsTemporal.parse("2024", null, null, null, "Date"),
@@ -274,33 +274,33 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     }
 
     @Test
-    void changedPrecisionRemainsReviewInsteadOfChoosingTheAnchor() throws Exception {
+    void shouldVerifyChangedPrecisionRemainsReview_insteadOfChoosingTheAnchor() throws Exception {
         prepare(CdsTemporal.parse("2024", null, null, null, "Date"));
         currentDates.get(70).put("format", "YYYY-MM");
         assertThat(reconcile().mapping().value()).isNull();
     }
 
     @Test
-    void deletingAnOriginalNativeChildRequiresReviewRatherThanAnEmptySuccess() {
+    void shouldVerifyDeletingAnOriginalNativeChildRequiresReviewRatherThanAnEmptySuccess_forImmunizationFieldReconcilerContract() {
         currentExtras.remove(Integer.parseInt(edit("comments").get("id")));
         assertThatThrownBy(this::reconcile)
                 .hasMessage("CDS_EXPORT_IMMUNIZATION_DELETION_REQUIRES_REVIEW");
     }
 
     @Test
-    void changingAnExtensionKeyCannotMoveAnOldCommentIntoAnotherStandardField() throws Exception {
+    void shouldVerifyChangingAnExtensionKeyCannotMoveAnOldCommentIntoAnotherStandardField_forImmunizationFieldReconcilerContract() throws Exception {
         edit("comments").put("keyval", "instructions");
         assertThat(reconcile().mapping().value()).isNull();
     }
 
     @Test
-    void duplicateCurrentKeysRetainReviewInsteadOfFirstLastOrConcatenation() throws Exception {
+    void shouldVerifyDuplicateCurrentKeysRetainReview_insteadOfFirstLastOrConcatenation() throws Exception {
         currentExtras.put(90, extra(90, "comments", "A second comment"));
         assertThat(reconcile().mapping().value()).isNull();
     }
 
     @Test
-    void aNewExplicitDinMustNotBeOverwrittenWithAnAbsentOldCode() throws Exception {
+    void shouldVerifyANewExplicitDinMustNotBeOverwritten_withAnAbsentOldCode() throws Exception {
         source =
                 new CdsImmunizationDto(
                         source.name(),
@@ -326,14 +326,14 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     }
 
     @Test
-    void anAdditionalDinCannotSilentlyReplaceOrDisappearBehindAnExistingImportedDin()
+    void shouldVerifyAnAdditionalDinCannotSilentlyReplaceOrDisappearBehindAnExistingImportedDin_forImmunizationFieldReconcilerContract()
             throws Exception {
         currentExtras.put(90, extra(90, "din", "00987654"));
         assertThat(reconcile().mapping().value()).isNull();
     }
 
     @Test
-    void aChangedClinicalProviderOrUnsupportedStatusCannotBeClearedByUnchangedPreparedFields()
+    void shouldVerifyAChangedClinicalProviderOrUnsupportedStatusCannotBeCleared_byUnchangedPreparedFields()
             throws Exception {
         currentRoot.put("provider_name", "Recorded administering clinician");
         assertThat(reconcile().mapping().value()).isNull();
@@ -343,13 +343,13 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     }
 
     @Test
-    void aChangedNativeTypeCannotKeepAnOldContradictoryPreparedType() throws Exception {
+    void shouldVerifyAChangedNativeTypeCannotKeepAnOldContradictoryPreparedType_forImmunizationFieldReconcilerContract() throws Exception {
         currentRoot.put("prevention_type", "HB");
         assertThat(reconcile().mapping().value()).isNull();
     }
 
     @Test
-    void missingFieldBaselinesAllowOnlyActuallyUnchangedQualifiedLegacyReceipts() throws Exception {
+    void shouldVerifyMissingFieldBaselinesAllowOnlyActuallyUnchangedQualifiedLegacyReceipts_forImmunizationFieldReconcilerContract() throws Exception {
         withBaseline = false;
         assertThat(reconcile().mapping().value()).isNotNull();
         edit("comments").put("val", "Changed");
@@ -358,7 +358,7 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     }
 
     @Test
-    void aPreparedValueThatNeverProjectedIntoItsClaimedBaselineIsReview() throws Exception {
+    void shouldVerifyAPreparedValueThatNeverProjectedIntoItsClaimedBaselineIsReview_forImmunizationFieldReconcilerContract() throws Exception {
         oldExtras
                 .get(Integer.parseInt(edit("comments").get("id")))
                 .put("val", "Different baseline text");
@@ -366,13 +366,13 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     }
 
     @Test
-    void unknownAddedClinicalExtensionsRemainExplicitlyUnmapped() throws Exception {
+    void shouldVerifyUnknownAddedClinicalExtensionsRemainExplicitlyUnmapped_forImmunizationFieldReconcilerContract() throws Exception {
         currentExtras.put(90, extra(90, "customClinicalField", "Exact value"));
         assertThat(reconcile().mapping().value()).isNull();
     }
 
     @Test
-    void aForeignCatalogueGenerationCannotSupplyOtherwiseIdenticalTypeMeaning() throws Exception {
+    void shouldVerifyAForeignCatalogueGenerationCannotSupplyOtherwiseIdenticalTypeMeaning_forImmunizationFieldReconcilerContract() throws Exception {
         build();
         definitions =
                 CdsExportPreventionClassifier.fromCaptured(
@@ -385,7 +385,7 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     }
 
     @Test
-    void aForeignReceiptGenerationCannotBeRelabelledAsTheCurrentCapture() throws Exception {
+    void shouldVerifyAForeignReceiptGenerationCannotBeRelabelledAsTheCurrentCapture_forImmunizationFieldReconcilerContract() throws Exception {
         build();
         checked =
                 new CdsExportRetainedReceiptVerificationDto(
@@ -398,7 +398,7 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     }
 
     @Test
-    void newOrdinaryOptionalFieldsMustNotDisappearBehindAbsentPreparedValues() throws Exception {
+    void shouldVerifyNewOrdinaryOptionalFieldsMustNotDisappearBehindAbsentPreparedValues_forImmunizationFieldReconcilerContract() throws Exception {
         source =
                 new CdsImmunizationDto(
                         source.name(),
@@ -422,7 +422,7 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     }
 
     @Test
-    void unknownDateDoesNotBecomeTheNativeCreationOrModificationClock() throws Exception {
+    void shouldVerifyUnknownDateDoesNotBecomeTheNativeCreationOrModificationClock_forImmunizationFieldReconcilerContract() throws Exception {
         prepare(CdsTemporalDto.unknown());
         oldRoot.put("creation_date", "2020-01-01 12:34:56");
         oldRoot.put("lastUpdateDate", "2026-01-01 12:34:56");
@@ -432,7 +432,7 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     }
 
     @Test
-    void numericTimestampTransportCannotPretendItPreservedAnOriginalOffset() throws Exception {
+    void shouldVerifyNumericTimestampTransportCannotPretendItPreservedAnOriginalOffset_forImmunizationFieldReconcilerContract() throws Exception {
         prepare(CdsTemporal.parse(null, null, null, "2024-02-29T12:34:56.1200-05:00", "Date"));
         build();
         String id = CdsImportKeys.hash(RUN, UNIT);
@@ -466,7 +466,7 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     }
 
     @Test
-    void reconciledCurrentNotesAndOriginalFractionReachTheActualReceivingParser() throws Exception {
+    void shouldVerifyReconciledCurrentNotesAndOriginalFractionReachTheActualReceivingParser_forImmunizationFieldReconcilerContract() throws Exception {
         prepare(CdsTemporal.parse(null, null, null, "2024-02-29T12:34:56.1200", "Date"));
         edit("comments").put("val", "Current café 😀\r\nnotes");
         var value = reconcile().mapping().value();
@@ -481,7 +481,7 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     }
 
     @Test
-    void reconciledDateShiftIsAppliedExactlyOnceAcrossExportAndReceivingNormalization()
+    void shouldVerifyReconciledDateShiftIsAppliedExactlyOnce_acrossExportAndReceivingNormalization()
             throws Exception {
         prepare(
                 CdsTemporal.shift(
@@ -499,7 +499,7 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     }
 
     @Test
-    void aNewDinSurvivesReconciliationSerializationAndReceivingImport() throws Exception {
+    void shouldVerifyANewDinSurvivesReconciliationSerializationAndReceivingImport_forImmunizationFieldReconcilerContract() throws Exception {
         source =
                 new CdsImmunizationDto(
                         source.name(),
@@ -531,7 +531,7 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     }
 
     @Test
-    void rowsEditedAfterReceiptVerificationCannotBorrowTheEarlierWitnesses() throws Exception {
+    void shouldVerifyRowsEdited_afterReceiptVerificationCannotBorrowTheEarlierWitnesses() throws Exception {
         build();
         edit("comments").put("val", "Edited after receipt verification");
         assertThatThrownBy(this::invoke)
@@ -539,7 +539,7 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     }
 
     @Test
-    void aSecondAppliedUnitCannotClaimTheSameNativeParentWithoutAliasReview() throws Exception {
+    void shouldVerifyASecondAppliedUnitCannotClaimTheSameNativeParent_withoutAliasReview() throws Exception {
         build();
         String other = RUN + ":" + "e".repeat(64);
         var references = new TreeMap<>(index.references());

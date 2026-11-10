@@ -117,31 +117,31 @@ class CdsExportCareOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseMissingNativeDate() {
+    void shouldRefuseMissingNativeDate_forCareOccurrenceServiceContract() {
         observation.put("dateObserved", null);
         assertThatThrownBy(this::bind).isInstanceOf(IOException.class);
     }
 
     @Test
-    void shouldRefuseAddedAppointmentContext() {
+    void shouldRefuseAddedAppointmentContext_forCareOccurrenceServiceContract() {
         observation.put("appointmentNo", "91");
         assertThatThrownBy(this::bind).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }
 
     @Test
-    void shouldRefuseMissingPrecisionMetadata() {
+    void shouldRefuseMissingPrecisionMetadata_forCareOccurrenceServiceContract() {
         extensions.removeIf(row -> row.fields().get("keyval").equals("date_precision"));
         assertThatThrownBy(this::bind).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }
 
     @Test
-    void shouldRefuseUnknownExtraMetadata() {
+    void shouldRefuseUnknownExtraMetadata_forCareOccurrenceServiceContract() {
         extension("unmappedClinicalContext", "Additional context");
         assertThatThrownBy(this::bind).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }
 
     @Test
-    void shouldRefuseDuplicateMetadata() {
+    void shouldRefuseDuplicateMetadata_forCareOccurrenceServiceContract() {
         extension("unit", "kg");
         assertThatThrownBy(this::bind).isInstanceOf(IOException.class);
     }
@@ -155,7 +155,7 @@ class CdsExportCareOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseForeignObservationExtension() {
+    void shouldRefuseForeignObservationExtension_forCareOccurrenceServiceContract() {
         var row = extensions.getFirst();
         var f = new HashMap<>(row.fields());
         f.put("measurement_id", "8");
@@ -164,7 +164,7 @@ class CdsExportCareOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseChangedSourcePathAssociation() {
+    void shouldRefuseChangedSourcePathAssociation_forCareOccurrenceServiceContract() {
         extensions.removeIf(row -> row.fields().get("keyval").equals("cdsSourcePath"));
         extension("cdsSourcePath", PATH.replace("Weight[1]", "Weight[2]"));
         assertThatThrownBy(this::bind).hasMessage("CDS_EXPORT_UNMAPPED_DATA");

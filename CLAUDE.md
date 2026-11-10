@@ -538,6 +538,9 @@ Sanctioned suffixes for new code:
 Forbidden in new code: `*Prep`, `*Manager`, `*Helper`, `*Utils`, compound suffixes except the sanctioned `*ImportService` file-import workflow suffix. DAOs may not inject other DAOs (cross-DAO orchestration goes in a `*Service`).
 
 Full policy + decision rules + retired-suffix migration guidance: **`docs/architecture/layer-names.md`**.
+CDS transfer readers, mappers, field reconcilers, planners, classifiers, resource
+factories, immutable registries and static DAO read support follow the narrowly
+defined additional roles in that policy's "CDS transfer components" section.
 
 ## Healthcare Domain Context
 

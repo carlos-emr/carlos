@@ -236,7 +236,7 @@ class CdsExportDemographicAssemblerUnitTest {
     }
 
     @Test
-    void shouldCloseOnlyAnExactlyAbsentSelectedLegacyAlertCarrier() throws Exception {
+    void shouldCloseOnlyAnExactlyAbsentSelectedLegacyAlertCarrier_forDemographicAssemblerContract() throws Exception {
         for (String value : new String[] {null, ""}) {
             var values = new LinkedHashMap<String, String>();
             values.put("cust3", value);
@@ -271,7 +271,7 @@ class CdsExportDemographicAssemblerUnitTest {
     }
 
     @Test
-    void shouldWithholdXmlForAnyPopulatedLegacyAlertCarrier() throws Exception {
+    void shouldWithholdXml_forAnyPopulatedLegacyAlertCarrier() throws Exception {
         for (String value : List.of("Legacy patient alert", " ", "<unotes>café 😀</unotes>")) {
             var custom =
                     new CdsExportCapturedTextRowDto(
@@ -305,7 +305,7 @@ class CdsExportDemographicAssemblerUnitTest {
     }
 
     @Test
-    void shouldRequireTheSelectedAlertHandoffAndLeaveAnUnselectedProjectionUntouched()
+    void shouldRequireTheSelectedAlertHandoffAndLeaveAnUnselectedProjectionUntouched_forDemographicAssemblerContract()
             throws Exception {
         var custom =
                 new CdsExportCapturedTextRowDto(

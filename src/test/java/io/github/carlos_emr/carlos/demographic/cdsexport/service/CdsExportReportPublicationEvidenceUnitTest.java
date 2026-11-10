@@ -114,7 +114,7 @@ class CdsExportReportPublicationEvidenceUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"0", "-1", "02", "9223372036854775808"})
-    void shouldRefuseInvalidOrNoncanonicalPublicationGenerations(String value) {
+    void shouldRefuseInvalidOrNoncanonicalPublicationGenerations_forReportPublicationEvidenceContract(String value) {
         file.put("generation", value);
         assertThatThrownBy(this::require)
                 .hasMessage("CDS_EXPORT_REPORT_PUBLICATION_EVIDENCE_INVALID");
@@ -126,7 +126,7 @@ class CdsExportReportPublicationEvidenceUnitTest {
     }
 
     @Test
-    void shouldCloseTheWholeDocumentAndDurablePublicationReceipt() {
+    void shouldCloseTheWholeDocumentAndDurablePublicationReceipt_forReportPublicationEvidenceContract() {
         assertThatCode(this::require).doesNotThrowAnyException();
     }
 
@@ -140,14 +140,14 @@ class CdsExportReportPublicationEvidenceUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"id", "run_id", "unit_key", "file_id"})
-    void shouldRefuseAFileReferenceFromAnotherUnitOrOwner(String column) {
+    void shouldRefuseAFileReference_fromAnotherUnitOrOwner(String column) {
         link.put(column, "Changed");
         assertThatThrownBy(this::require)
                 .hasMessage("CDS_EXPORT_REPORT_PUBLICATION_EVIDENCE_INVALID");
     }
 
     @Test
-    void shouldRefuseAnUnboundPublicationFilename() {
+    void shouldRefuseAnUnboundPublicationFilename_forReportPublicationEvidenceContract() {
         file.put("location", "/private/native-documents/unrelated.txt");
         file.put("location_key", CdsImportKeys.hash(file.get("location")));
         assertThatThrownBy(this::require)
@@ -155,7 +155,7 @@ class CdsExportReportPublicationEvidenceUnitTest {
     }
 
     @Test
-    void shouldRefuseRelativeOrNoncanonicalNativeLocations() {
+    void shouldRefuseRelativeOrNoncanonicalNativeLocations_forReportPublicationEvidenceContract() {
         file.put("location", "private/native.txt");
         assertThatThrownBy(this::require)
                 .hasMessage("CDS_EXPORT_REPORT_PUBLICATION_EVIDENCE_INVALID");

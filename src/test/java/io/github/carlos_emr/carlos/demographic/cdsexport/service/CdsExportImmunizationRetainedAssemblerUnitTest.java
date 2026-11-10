@@ -54,7 +54,7 @@ class CdsExportImmunizationRetainedAssemblerUnitTest {
             List<CdsExportRetainedFieldDto> fields) {}
 
     @Test
-    void changedNotesAndAllStandardFieldsReachTheReceivingImporterWhileVendorFieldsRemain()
+    void shouldVerifyChangedNotesAndAllStandardFieldsReachTheReceivingImporterWhileVendorFieldsRemain_forImmunizationRetainedAssemblerContract()
             throws Exception {
         var fixture =
                 fixture(
@@ -93,7 +93,7 @@ class CdsExportImmunizationRetainedAssemblerUnitTest {
 
     @Test
     void
-            importedSecondPatientAndLaterOccurrenceAreReassembledWithoutChangingOwnershipOrDroppingFields()
+            shouldVerifyImportedSecondPatientAndLaterOccurrenceAreReassembled_withoutChangingOwnershipOrDroppingFields()
                     throws Exception {
         var fixture =
                 fixture(
@@ -109,7 +109,7 @@ class CdsExportImmunizationRetainedAssemblerUnitTest {
     }
 
     @Test
-    void anExplicitNativeClearNeverReplaysTheOldSourceComment() throws Exception {
+    void shouldVerifyAnExplicitNativeClearNeverReplaysTheOldSourceComment_forImmunizationRetainedAssemblerContract() throws Exception {
         var fixture = fixture(1, CdsTemporal.parse(null, null, "2024-02-29", null, "Date"), null);
         assertThat(
                         new CdsClinicalNormalizationService(new CdsFieldParser())
@@ -119,7 +119,7 @@ class CdsExportImmunizationRetainedAssemblerUnitTest {
     }
 
     @Test
-    void postOptionDateShiftRemainsEffectiveAndTheOriginalDateIsNotRestored() throws Exception {
+    void shouldVerifyPostOptionDateShiftRemainsEffectiveAndTheOriginalDateIsNotRestored_forImmunizationRetainedAssemblerContract() throws Exception {
         var fixture =
                 fixture(
                         1,
@@ -137,7 +137,7 @@ class CdsExportImmunizationRetainedAssemblerUnitTest {
     }
 
     @Test
-    void anUnqualifiedHistoricalOffsetCannotProduceAContentCallback() throws Exception {
+    void shouldVerifyAnUnqualifiedHistoricalOffsetCannotProduceAContentCallback_forImmunizationRetainedAssemblerContract() throws Exception {
         var fixture =
                 fixture(
                         1,
@@ -149,7 +149,7 @@ class CdsExportImmunizationRetainedAssemblerUnitTest {
     }
 
     @Test
-    void missingOrSubstitutedSourceDescriptorsFailBeforePreparingOutput() throws Exception {
+    void shouldVerifyMissingOrSubstitutedSourceDescriptorsFail_beforePreparingOutput() throws Exception {
         var fixture =
                 fixture(
                         1,
@@ -202,7 +202,7 @@ class CdsExportImmunizationRetainedAssemblerUnitTest {
     }
 
     @Test
-    void changedFieldPagesCannotBorrowUnchangedNativeClinicalRows() throws Exception {
+    void shouldVerifyChangedFieldPagesCannotBorrowUnchangedNativeClinicalRows_forImmunizationRetainedAssemblerContract() throws Exception {
         var fixture =
                 fixture(
                         1,

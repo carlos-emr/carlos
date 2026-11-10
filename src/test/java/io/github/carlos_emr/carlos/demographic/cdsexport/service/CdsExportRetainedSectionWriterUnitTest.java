@@ -380,7 +380,7 @@ class CdsExportRetainedSectionWriterUnitTest {
 
     @Test
     void
-            shouldRequireEveryPriorFieldIdentity_forAChangedSubtree_andRejectOverlapsMissingDeletesAndOrdinalGaps()
+            shouldRequireEveryPriorFieldIdentity_forAChangedSubtreeAndRejectOverlapsMissingDeletesAndOrdinalGaps()
                     throws Exception {
         var fields = changedAllergyFields();
         var prior =

@@ -85,7 +85,7 @@ class CdsExportPatientFileBindingServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseRosterOwnershipChangedSinceSelection() {
+    void shouldRefuseRosterOwnershipChangedSinceSelection_forPatientFileBindingServiceContract() {
         assertThatThrownBy(() -> bind("222222", "1971-03-04", "C27", List.of(physician())))
                 .hasMessage("CDS_EXPORT_SOURCE_CHANGED");
     }
@@ -105,7 +105,7 @@ class CdsExportPatientFileBindingServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseMissingPublicPhysicianMetadata() {
+    void shouldRefuseMissingPublicPhysicianMetadata_forPatientFileBindingServiceContract() {
         assertThatThrownBy(() -> bind("111111", "1971-03-04", "C27", List.of()))
                 .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }
@@ -138,7 +138,7 @@ class CdsExportPatientFileBindingServiceUnitTest {
     }
 
     @Test
-    void shouldRejectAFileForAnotherPatient() {
+    void shouldRejectAFile_forAnotherPatient() {
         assertThatThrownBy(() -> bind("111111", "1971-03-04", "C28", List.of(physician())))
                 .hasMessage("CDS_EXPORT_PATIENT_FILE_BINDING_INVALID");
     }

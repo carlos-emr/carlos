@@ -66,7 +66,7 @@ class CdsExportDemographicHealthCardReconcilerUnitTest {
     }
 
     @Test
-    void unchangedCardPartsPreserveTheirSourceRepresentationAndLeadingZero() throws Exception {
+    void shouldVerifyUnchangedCardPartsPreserveTheirSourceRepresentationAndLeadingZero_forDemographicHealthCardReconcilerContract() throws Exception {
         var result = reconcile();
         assertThat(result.representable()).isTrue();
         assertThat(result.fields()).hasSize(4);
@@ -76,7 +76,7 @@ class CdsExportDemographicHealthCardReconcilerUnitTest {
     }
 
     @Test
-    void aVersionEditDoesNotReplaceTheOriginalNumberOrExpiry() throws Exception {
+    void shouldVerifyAVersionEditDoesNotReplaceTheOriginalNumberOrExpiry_forDemographicHealthCardReconcilerContract() throws Exception {
         fixture.currentField("ver", "CD");
         var result = reconcile();
         assertThat(result.changes()).hasSize(1);
@@ -87,7 +87,7 @@ class CdsExportDemographicHealthCardReconcilerUnitTest {
     }
 
     @Test
-    void laterIssuerAndNumberEditsUseCurrentValuesAndPinnedAuthorityCodes() throws Exception {
+    void shouldVerifyLaterIssuerAndNumberEditsUseCurrentValuesAndPinnedAuthorityCodes_forDemographicHealthCardReconcilerContract() throws Exception {
         fixture.currentField("hc_type", "QC");
         fixture.currentField("hin", "0012345678");
         var document = render(reconcile());
@@ -96,13 +96,13 @@ class CdsExportDemographicHealthCardReconcilerUnitTest {
     }
 
     @Test
-    void anOptionalVersionCanBeCleared() throws Exception {
+    void shouldVerifyAnOptionalVersionCanBeCleared_forDemographicHealthCardReconcilerContract() throws Exception {
         fixture.currentField("ver", null);
         assertThat(text(render(reconcile()), "Version")).isEmpty();
     }
 
     @Test
-    void clearingTheEntireNativeCardRemovesTheWholeOriginalCard() throws Exception {
+    void shouldVerifyClearingTheEntireNativeCardRemovesTheWholeOriginalCard_forDemographicHealthCardReconcilerContract() throws Exception {
         for (String column : List.of("hin", "hc_type", "ver", "hc_renew_date"))
             fixture.currentField(column, null);
         var result = reconcile();
@@ -113,7 +113,7 @@ class CdsExportDemographicHealthCardReconcilerUnitTest {
     }
 
     @Test
-    void aNewCardCanBeAddedWithBothRequiredParts() throws Exception {
+    void shouldVerifyANewCardCanBeAdded_withBothRequiredParts() throws Exception {
         source.keySet().removeIf(key -> key.startsWith("HealthCard[1]/"));
         fixture.preparedHealth(null, null, null, null);
         fixture.currentField("hin", "0012345678");
@@ -126,7 +126,7 @@ class CdsExportDemographicHealthCardReconcilerUnitTest {
     }
 
     @Test
-    void incompleteAndUnsupportedNativeEditsCannotReplayTheOldCard() throws Exception {
+    void shouldVerifyIncompleteAndUnsupportedNativeEditsCannotReplayTheOldCard_forDemographicHealthCardReconcilerContract() throws Exception {
         for (var entry :
                 List.of(
                         Map.entry("hin", ""),
@@ -144,7 +144,7 @@ class CdsExportDemographicHealthCardReconcilerUnitTest {
     }
 
     @Test
-    void missingPreparedSourcePartsAndMatchedExistingCardValuesRequireReview() throws Exception {
+    void shouldVerifyMissingPreparedSourcePartsAndMatchedExistingCardValuesRequireReview_forDemographicHealthCardReconcilerContract() throws Exception {
         source.remove("HealthCard[1]/Version[1]");
         assertThat(reconcile().representable()).isFalse();
         setup();
@@ -153,7 +153,7 @@ class CdsExportDemographicHealthCardReconcilerUnitTest {
     }
 
     @Test
-    void anExpiryOnlyEditLeavesTheOtherCardPartsUntouched() throws Exception {
+    void shouldVerifyAnExpiryOnlyEditLeavesTheOtherCardPartsUntouched_forDemographicHealthCardReconcilerContract() throws Exception {
         fixture.currentField("hc_renew_date", "2029-01-02");
         var result = reconcile();
         assertThat(result.changes()).hasSize(1);
@@ -161,7 +161,7 @@ class CdsExportDemographicHealthCardReconcilerUnitTest {
     }
 
     @Test
-    void expiredValuesPreventHealthCardDecisions() throws Exception {
+    void shouldVerifyExpiredValuesPreventHealthCardDecisions_forDemographicHealthCardReconcilerContract() throws Exception {
         active = false;
         assertThatThrownBy(this::reconcile).hasMessage("EXPIRED_VALUES");
     }

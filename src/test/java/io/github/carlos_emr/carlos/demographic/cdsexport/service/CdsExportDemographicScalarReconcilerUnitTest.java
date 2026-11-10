@@ -62,7 +62,7 @@ class CdsExportDemographicScalarReconcilerUnitTest {
     }
 
     @Test
-    void unchangedValuesRetainTheirExactSourceRepresentation() throws Exception {
+    void shouldVerifyUnchangedValuesRetainTheirExactSourceRepresentation_forDemographicScalarReconcilerContract() throws Exception {
         var result = reconcile();
         assertThat(result.representable()).isTrue();
         assertThat(result.fields()).hasSize(7);
@@ -72,7 +72,7 @@ class CdsExportDemographicScalarReconcilerUnitTest {
     }
 
     @Test
-    void editingOneScalarChangesOnlyItsOwnSourceIdentity() throws Exception {
+    void shouldVerifyEditingOneScalarChangesOnlyItsOwnSourceIdentity_forDemographicScalarReconcilerContract() throws Exception {
         fixture.currentField("email", "edited@example.test");
         var result = reconcile();
         assertThat(result.changes()).hasSize(1);
@@ -83,7 +83,7 @@ class CdsExportDemographicScalarReconcilerUnitTest {
     }
 
     @Test
-    void clearingAnOptionalValueDoesNotReplayItsOriginal() throws Exception {
+    void shouldVerifyClearingAnOptionalValueDoesNotReplayItsOriginal_forDemographicScalarReconcilerContract() throws Exception {
         fixture.currentField("chart_no", "");
         var result = reconcile();
         assertThat(result.representable()).isTrue();
@@ -92,7 +92,7 @@ class CdsExportDemographicScalarReconcilerUnitTest {
     }
 
     @Test
-    void aStatusEditReplacesTheChoiceAndKeepsItsIndependentOriginalDate() throws Exception {
+    void shouldVerifyAStatusEditReplacesTheChoiceAndKeepsItsIndependentOriginalDate_forDemographicScalarReconcilerContract() throws Exception {
         fixture.currentField("patient_status", "IN");
         var result = reconcile();
         var document = render(result);
@@ -106,13 +106,13 @@ class CdsExportDemographicScalarReconcilerUnitTest {
     }
 
     @Test
-    void aStatusDateEditDoesNotMakeAnUnchangedStatusLookEdited() throws Exception {
+    void shouldVerifyAStatusDateEditDoesNotMakeAnUnchangedStatusLookEdited_forDemographicScalarReconcilerContract() throws Exception {
         fixture.currentField("patient_status_date", "2025-01-02");
         assertThat(reconcile().changes()).isEmpty();
     }
 
     @Test
-    void laterKnownLanguageEditsUseReviewedCodeMappings() throws Exception {
+    void shouldVerifyLaterKnownLanguageEditsUseReviewedCodeMappings_forDemographicScalarReconcilerContract() throws Exception {
         fixture.currentField("spoken_lang", "English");
         fixture.currentField("official_lang", "French");
         var document = render(reconcile());
@@ -121,7 +121,7 @@ class CdsExportDemographicScalarReconcilerUnitTest {
     }
 
     @Test
-    void unsupportedCurrentValuesCannotFallBackToHistoricalSource() throws Exception {
+    void shouldVerifyUnsupportedCurrentValuesCannotFallBack_toHistoricalSource() throws Exception {
         for (var entry :
                 List.of(
                         Map.entry("sex", ""),
@@ -141,7 +141,7 @@ class CdsExportDemographicScalarReconcilerUnitTest {
     }
 
     @Test
-    void aSourceOnlyValueCannotBeOverwrittenByALaterNativeValue() throws Exception {
+    void shouldVerifyASourceOnlyValueCannotBeOverwritten_byALaterNativeValue() throws Exception {
         fixture.preparedScalar("Email", null);
         fixture.oldField("email", null);
         assertThat(reconcile().changes()).isEmpty();
@@ -150,7 +150,7 @@ class CdsExportDemographicScalarReconcilerUnitTest {
     }
 
     @Test
-    void absentOptionalValuesCanBeAddedWithoutInventingPreviousSourceFields() throws Exception {
+    void shouldVerifyAbsentOptionalValuesCanBeAdded_withoutInventingPreviousSourceFields() throws Exception {
         source.remove("Email[1]");
         fixture.preparedScalar("Email", null);
         fixture.oldField("email", null);
@@ -161,7 +161,7 @@ class CdsExportDemographicScalarReconcilerUnitTest {
     }
 
     @Test
-    void matchedExistingNativeValuesAndMissingPreparedSourceFieldsRequireReview() throws Exception {
+    void shouldVerifyMatchedExistingNativeValuesAndMissingPreparedSourceFieldsRequireReview_forDemographicScalarReconcilerContract() throws Exception {
         fixture.oldField("email", "existing@example.test");
         assertThat(reconcile().representable()).isFalse();
         setup();
@@ -170,7 +170,7 @@ class CdsExportDemographicScalarReconcilerUnitTest {
     }
 
     @Test
-    void expiredValuesAndCancellationPreventScalarDecisions() throws Exception {
+    void shouldVerifyExpiredValuesAndCancellationPreventScalarDecisions_forDemographicScalarReconcilerContract() throws Exception {
         active = false;
         assertThatThrownBy(this::reconcile).hasMessage("EXPIRED_VALUES");
         active = true;

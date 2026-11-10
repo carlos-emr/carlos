@@ -24,7 +24,6 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.web;
 import io.github.carlos_emr.carlos.demographic.cdsexport.assembler.CdsExportViewModelAssembler;
 import java.util.Set;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
@@ -57,15 +56,7 @@ public class ViewCdsExport2Action extends ActionSupport {
             response.sendError(405);
             return NONE;
         }
-        var session = request.getSession(false);
-        var viewer = session == null ? null : LoggedInInfo.getLoggedInInfoFromSession(session);
-        if (!securityInfoManager.hasPrivilege(viewer, "_demographic", "r", (String) null)
-                || !(securityInfoManager.hasPrivilege(viewer, "_admin", "w", (String) null)
-                        || securityInfoManager.hasPrivilege(
-                                viewer, "_cds_export", "w", (String) null))) {
-            throw new SecurityException("CDS_EXPORT_ACCESS_DENIED");
-        }
-        var actor = web.authorize(request);
+        var actor = web.authorize(request, securityInfoManager);
         web.parameters(request, Set.of("runId"), true);
         response.setHeader("Cache-Control", "no-store");
         response.setHeader("X-Content-Type-Options", "nosniff");

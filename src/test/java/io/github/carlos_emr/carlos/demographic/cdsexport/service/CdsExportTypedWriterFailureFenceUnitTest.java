@@ -33,7 +33,7 @@ import org.junit.jupiter.api.*;
 @Tag("cds-export")
 class CdsExportTypedWriterFailureFenceUnitTest {
     @Test
-    void everyTypedWriterPoisonsTheDocumentWhenTheCallerCatchesItsInputFailure() {
+    void shouldVerifyEveryTypedWriterPoisonsTheDocument_whenTheCallerCatchesItsInputFailure() {
         var writers =
                 List.<CdsExportXmlComposer.Content>of(
                         xml -> new CdsExportDemographicXmlWriter().write(null, xml),
@@ -57,7 +57,7 @@ class CdsExportTypedWriterFailureFenceUnitTest {
     }
 
     @Test
-    void rejectedAllergyCannotBeReplacedAfterTheCallerCatchesTheFailure() throws Exception {
+    void shouldVerifyRejectedAllergyCannotBeReplaced_afterTheCallerCatchesTheFailure() throws Exception {
         var absent = new CdsExportDateDto(CdsExportDateDto.Precision.ABSENT, null);
         var rejected =
                 new CdsExportAllergyDto(
@@ -82,7 +82,7 @@ class CdsExportTypedWriterFailureFenceUnitTest {
     }
 
     @Test
-    void rejectedMedicationCannotReturnAnEmissionReceiptAfterCaughtFailure() throws Exception {
+    void shouldVerifyRejectedMedicationCannotReturnAnEmissionReceipt_afterCaughtFailure() throws Exception {
         var absent = new CdsExportDateDto(CdsExportDateDto.Precision.ABSENT, null);
         var rejected =
                 new CdsExportMedicationDto(

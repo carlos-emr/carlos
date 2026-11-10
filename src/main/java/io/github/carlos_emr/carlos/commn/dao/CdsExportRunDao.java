@@ -73,8 +73,21 @@ public class CdsExportRunDao extends AbstractDaoImpl<CdsExportRun> {
                 .setParameter("now", now).setMaxResults(limit).getResultList();
     }
     public List<CdsExportRun> history(String operator, String after, int limit) {
-        return entityManager.createQuery("select r from CdsExportRun r where r.operator=:operator and r.id>:after order by r.id", CdsExportRun.class)
-                .setParameter("operator", operator).setParameter("after", after).setMaxResults(limit).getResultList();
+        String order = " order by r.createdAt desc,r.id desc";
+        String query = "select r from CdsExportRun r where r.operator=:operator";
+        if (after == null || after.isEmpty())
+            return entityManager.createQuery(query + order, CdsExportRun.class)
+                    .setParameter("operator", operator).setMaxResults(limit).getResultList();
+        // Resolve a cursor only within the same operator's history. A foreign and a
+        // missing cursor have the same outcome and reveal no other job metadata.
+        var cursor = entityManager.createQuery(
+                "select r.createdAt from CdsExportRun r where r.operator=:operator and r.id=:after", Instant.class)
+                .setParameter("operator", operator).setParameter("after", after).getResultList();
+        if (cursor.isEmpty()) throw new IllegalArgumentException("CDS_EXPORT_HISTORY_CURSOR_INVALID");
+        return entityManager.createQuery(query
+                + " and (r.createdAt<:created or (r.createdAt=:created and r.id<:after))" + order, CdsExportRun.class)
+                .setParameter("operator", operator).setParameter("created", cursor.getFirst())
+                .setParameter("after", after).setMaxResults(limit).getResultList();
     }
     /** Database clock governs leases across application nodes; no process clock can steal another lease. */
     public Instant now() {

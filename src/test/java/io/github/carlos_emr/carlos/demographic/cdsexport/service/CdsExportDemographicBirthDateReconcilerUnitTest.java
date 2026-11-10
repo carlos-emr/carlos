@@ -41,7 +41,7 @@ class CdsExportDemographicBirthDateReconcilerUnitTest {
     }
 
     @Test
-    void anUnchangedDateRetainsItsEffectiveSourceValue() throws Exception {
+    void shouldVerifyAnUnchangedDateRetainsItsEffectiveSourceValue_forDemographicBirthDateReconcilerContract() throws Exception {
         var result = reconcile("1980-01-02");
         assertThat(result.representable()).isTrue();
         assertThat(result.wireValue()).isEqualTo("1980-01-02");
@@ -51,7 +51,7 @@ class CdsExportDemographicBirthDateReconcilerUnitTest {
     }
 
     @Test
-    void anUnchangedSyntheticCopyNeverRestoresTheUnshiftedOriginalBirthDate() throws Exception {
+    void shouldVerifyAnUnchangedSyntheticCopyNeverRestoresTheUnshiftedOriginalBirthDate_forDemographicBirthDateReconcilerContract() throws Exception {
         fixture.preparedBirth("2000-01-02");
         var result = reconcile("1980-01-02");
         assertThat(result.wireValue()).isEqualTo("2000-01-02");
@@ -62,7 +62,7 @@ class CdsExportDemographicBirthDateReconcilerUnitTest {
     }
 
     @Test
-    void aLaterNativeEditIsNotShiftedASecondTime() throws Exception {
+    void shouldVerifyALaterNativeEditIsNotShiftedASecondTime_forDemographicBirthDateReconcilerContract() throws Exception {
         fixture.preparedBirth("2000-01-02");
         fixture.currentBirth("2001", "01", "02");
         var result = reconcile("1980-01-02");
@@ -71,7 +71,7 @@ class CdsExportDemographicBirthDateReconcilerUnitTest {
     }
 
     @Test
-    void anAcceptedLogicalSourceCorrectionThatAlreadyMatchesThePreparationIsNotShiftedAgain()
+    void shouldVerifyAnAcceptedLogicalSourceCorrectionThatAlreadyMatchesThePreparationIsNotShiftedAgain_forDemographicBirthDateReconcilerContract()
             throws Exception {
         fixture.preparedBirth("2000-01-02");
         var result = reconcile("2000-01-02");
@@ -80,20 +80,20 @@ class CdsExportDemographicBirthDateReconcilerUnitTest {
     }
 
     @Test
-    void anUnchangedOriginalOffsetIsPreserved() throws Exception {
+    void shouldVerifyAnUnchangedOriginalOffsetIsPreserved_forDemographicBirthDateReconcilerContract() throws Exception {
         var result = reconcile("1980-01-02-05:00");
         assertThat(result.wireValue()).isEqualTo("1980-01-02-05:00");
         assertThat(result.changes()).isEmpty();
     }
 
     @Test
-    void aPreparedSyntheticShiftPreservesTheOriginalOffset() throws Exception {
+    void shouldVerifyAPreparedSyntheticShiftPreservesTheOriginalOffset_forDemographicBirthDateReconcilerContract() throws Exception {
         fixture.preparedBirth("2000-01-02");
         assertThat(reconcile("1980-01-02-05:00").wireValue()).isEqualTo("2000-01-02-05:00");
     }
 
     @Test
-    void anEditedNativeDateWithAnUnprojectedSourceOffsetRequiresReview() throws Exception {
+    void shouldVerifyAnEditedNativeDate_withAnUnprojectedSourceOffsetRequiresReview() throws Exception {
         fixture.currentBirth("1981", "01", "02");
         var result = reconcile("1980-01-02Z");
         assertThat(result.representable()).isFalse();
@@ -103,7 +103,7 @@ class CdsExportDemographicBirthDateReconcilerUnitTest {
     }
 
     @Test
-    void aPaddingOnlyNativeEditDoesNotEraseAnUnchangedSourceOffset() throws Exception {
+    void shouldVerifyAPaddingOnlyNativeEditDoesNotEraseAnUnchangedSourceOffset_forDemographicBirthDateReconcilerContract() throws Exception {
         fixture.currentBirth("1980", "1", "2");
         var result = reconcile("1980-01-02Z");
         assertThat(result.wireValue()).isEqualTo("1980-01-02Z");
@@ -111,7 +111,7 @@ class CdsExportDemographicBirthDateReconcilerUnitTest {
     }
 
     @Test
-    void aMatchedExistingChartsDifferentBirthDateCannotBeOverwrittenByReplayingSource()
+    void shouldVerifyAMatchedExistingChartsDifferentBirthDateCannotBeOverwritten_byReplayingSource()
             throws Exception {
         fixture.oldBirth("1979", "01", "02");
         var result = reconcile("1980-01-02");
@@ -120,7 +120,7 @@ class CdsExportDemographicBirthDateReconcilerUnitTest {
     }
 
     @Test
-    void anInvalidNativeCalendarHasNoHistoricalFallback() throws Exception {
+    void shouldVerifyAnInvalidNativeCalendarHasNoHistoricalFallback_forDemographicBirthDateReconcilerContract() throws Exception {
         fixture.currentBirth("1980", "02", "30");
         var result = reconcile("1980-01-02");
         assertThat(result.representable()).isFalse();
@@ -128,13 +128,13 @@ class CdsExportDemographicBirthDateReconcilerUnitTest {
     }
 
     @Test
-    void anInvalidTypedSourceDateCannotCreateAnEffectiveBirthDate() {
+    void shouldVerifyAnInvalidTypedSourceDateCannotCreateAnEffectiveBirthDate_forDemographicBirthDateReconcilerContract() {
         assertThatThrownBy(() -> reconcile("1980-02-30"))
                 .hasMessage("CDS_EXPORT_DEMOGRAPHIC_BIRTH_SOURCE_INVALID");
     }
 
     @Test
-    void missingSourceFieldsAndAnExpiredValueScopeFailClosed() throws Exception {
+    void shouldVerifyMissingSourceFieldsAndAnExpiredValueScopeFailClosed_forDemographicBirthDateReconcilerContract() throws Exception {
         var graph = fixture.withBirthSource("1980-01-02");
         String address = graph.index().nativeParents().values().iterator().next();
         assertThatThrownBy(

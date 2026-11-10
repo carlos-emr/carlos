@@ -26,6 +26,7 @@ The supplied build container must already contain compiled application/test clas
 Java 25, Maven and this checkout. No existing database is contacted or reused.
 """
 import argparse
+from cds_migration_reapply import verify_export_migration_reapply
 import json
 import os
 from pathlib import Path
@@ -408,6 +409,11 @@ def main():
             client = docker + ['exec', name, 'mariadb', '--defaults-extra-file=/run/cds-test/client.cnf',
                               '--protocol=TCP', '--host=127.0.0.1']
             wait_for_database(client, run, log)
+            replay = verify_export_migration_reapply(repository,
+                    lambda sql: run(client + ['--batch', '--raw', '--skip-column-names', '-e', sql],
+                                    log, capture=True).stdout.splitlines())
+            (output / 'migration-reapply-proof.json').write_text(json.dumps(replay, indent=2) + '\n')
+            print('Unpublished CDS partial-DDL replay passed; existing witnesses, attempts and denials preserved.')
             verify_clinical_cells(lambda sql: run(client + ['--batch', '--raw', '--skip-column-names', '-e', sql],
                                                   log, capture=True).stdout.splitlines())
             print('Clinical cell fingerprint oracle passed: fractions, adjacent floats, decimals, NULL and binary bytes.')

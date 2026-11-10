@@ -53,7 +53,7 @@ class CdsExportSourceCatalogueUnitTest {
     }
 
     @Test
-    void shouldBindEveryRulingToTheExactShippedOntarioAndBcPhysicalContracts() throws Exception {
+    void shouldBindEveryRuling_toTheExactShippedOntarioAndBcPhysicalContracts() throws Exception {
         var catalogue = CdsExportSourceCatalogue.current();
         assertThat(catalogue.tables()).hasSize(510);
         assertThat(catalogue.profiles())
@@ -78,7 +78,7 @@ class CdsExportSourceCatalogueUnitTest {
     }
 
     @Test
-    void shouldKeepTheReaderRecipeIndependentOfTheCurrentlyRegisteredBeanList() {
+    void shouldKeepTheReaderRecipeIndependentOfTheCurrentlyRegisteredBeanList_forSourceCatalogueContract() {
         var catalogue = CdsExportSourceCatalogue.current();
         var installed = new ArrayList<CdsExportNativeSourceReader>();
         installed.add(reader);

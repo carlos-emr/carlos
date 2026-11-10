@@ -149,7 +149,7 @@ class CdsExportAppointmentXmlWriterUnitTest {
     }
 
     @Test
-    void dictionaryNoteLimitIsStricterThanTheBroaderWireSchemaWithoutChangingImportLimits()
+    void shouldVerifyDictionaryNoteLimitIsStricterThanTheBroaderWireSchema_withoutChangingImportLimits()
             throws Exception {
         var timing =
                 new CdsExportAppointmentTimingMapper()
@@ -168,7 +168,7 @@ class CdsExportAppointmentXmlWriterUnitTest {
     }
 
     @Test
-    void anUnboundSourceClockCannotBeSerializedWithAnInventedOffset() {
+    void shouldVerifyAnUnboundSourceClockCannotBeSerialized_withAnInventedOffset() {
         var date = new CdsExportDateDto(CdsExportDateDto.Precision.DATE, "2024-02-29");
         var timing = new CdsExportAppointmentTimingDto(date, "09:00:00", 60);
         var value = new CdsExportAppointmentDto(timing, null, null, null, null);

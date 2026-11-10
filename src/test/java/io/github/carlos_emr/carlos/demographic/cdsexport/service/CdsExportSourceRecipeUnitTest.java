@@ -116,7 +116,7 @@ class CdsExportSourceRecipeUnitTest {
     }
 
     @Test
-    void shouldRefuseDependenciesThatRequireUnselectedCategories() {
+    void shouldRefuseDependenciesThatRequireUnselectedCategories_forSourceRecipeContract() {
         var demographic =
                 reader("demographic", Set.of(CdsCategory.DEMOGRAPHICS), Set.of("document"));
         var report = reader("document", Set.of(CdsCategory.REPORTS), Set.of());
@@ -142,7 +142,7 @@ class CdsExportSourceRecipeUnitTest {
     }
 
     @Test
-    void shouldRefuseARequestProjectionThatChangesItsRegisteredTable() {
+    void shouldRefuseARequestProjectionThatChangesItsRegisteredTable_forSourceRecipeContract() {
         var original = reader("demographic", Set.of(CdsCategory.DEMOGRAPHICS), Set.of());
         var changed = reader("document", Set.of(CdsCategory.DEMOGRAPHICS), Set.of());
         when(original.forRequest(any())).thenReturn(changed);
@@ -175,7 +175,7 @@ class CdsExportSourceRecipeUnitTest {
     }
 
     @Test
-    void shouldRefuseRetainedSourcesOutsideTheAcceptedCategoryScope() {
+    void shouldRefuseRetainedSourcesOutsideTheAcceptedCategoryScope_forSourceRecipeContract() {
         var source = reader("document", Set.of(CdsCategory.REPORTS), Set.of());
         var control =
                 mock(

@@ -177,7 +177,7 @@ class CdsExportEnrolmentProjectionServiceUnitTest {
     }
 
     @Test
-    void joinsAllNativeHistoryAndNotesWithinOneGenerationAndEndsWithFreshAuthority()
+    void shouldVerifyJoinsAllNativeHistoryAndNotes_withinOneGenerationAndEndsWithFreshAuthority()
             throws Exception {
         var result = project();
         assertThat(result.representable()).isTrue();
@@ -193,14 +193,14 @@ class CdsExportEnrolmentProjectionServiceUnitTest {
     }
 
     @Test
-    void capturedArchiveCountCannotBeSatisfiedByAPartialScan() throws Exception {
+    void shouldVerifyCapturedArchiveCountCannotBeSatisfied_byAPartialScan() throws Exception {
         archiveRows.removeFirst();
         assertThatThrownBy(this::project).hasMessage("CDS_EXPORT_ENROLMENT_HISTORY_SCOPE_INVALID");
         verifyNoInteractions(notes);
     }
 
     @Test
-    void differingFrozenGenerationsNeverReturnAProjection() throws Exception {
+    void shouldVerifyDifferingFrozenGenerationsNeverReturnAProjection_forEnrolmentProjectionServiceContract() throws Exception {
         var other = mock(CdsExportNativeCaptureDto.class);
         when(rows.forEach(
                         any(),
@@ -220,7 +220,7 @@ class CdsExportEnrolmentProjectionServiceUnitTest {
     }
 
     @Test
-    void appliedImportedDemographicsRequireRetainedReconciliationEvenWhenCurrentRosterLooksValid()
+    void shouldVerifyAppliedImportedDemographicsRequireRetainedReconciliationEven_whenCurrentRosterLooksValid()
             throws Exception {
         String address = "123e4567-e89b-12d3-a456-426614174000:" + "f".repeat(64);
         var unit =
@@ -242,7 +242,7 @@ class CdsExportEnrolmentProjectionServiceUnitTest {
     }
 
     @Test
-    void noImportedUnitIsInferredFromAnUnwrittenProposal() throws Exception {
+    void shouldVerifyNoImportedUnitIsInferred_fromAnUnwrittenProposal() throws Exception {
         String run = "123e4567-e89b-12d3-a456-426614174000";
         var unit =
                 new CdsExportCapturedTextRowDto(
@@ -260,7 +260,7 @@ class CdsExportEnrolmentProjectionServiceUnitTest {
     }
 
     @Test
-    void lateSourceAuthorizationCannotReturnSuccess() throws Exception {
+    void shouldVerifyLateSourceAuthorizationCannotReturnSuccess_forEnrolmentProjectionServiceContract() throws Exception {
         doThrow(new SecurityException("CDS_EXPORT_ACCESS_DENIED"))
                 .when(captures)
                 .authorizeSources(lease, patient, TABLES, control);
@@ -269,7 +269,7 @@ class CdsExportEnrolmentProjectionServiceUnitTest {
     }
 
     @Test
-    void lookupAndHistoryShareTheMetadataByteBudget() throws Exception {
+    void shouldVerifyLookupAndHistoryShareTheMetadataByteBudget_forEnrolmentProjectionServiceContract() throws Exception {
         bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
                         100000, 8L << 20, 1000, 1024, 100, 100);
@@ -278,7 +278,7 @@ class CdsExportEnrolmentProjectionServiceUnitTest {
     }
 
     @Test
-    void absentExactPhysicianLookupNeverBecomesAnAnonymousEvent() throws Exception {
+    void shouldVerifyAbsentExactPhysicianLookupNeverBecomesAnAnonymousEvent_forEnrolmentProjectionServiceContract() throws Exception {
         when(rows.forEach(
                         any(),
                         any(),
@@ -298,7 +298,7 @@ class CdsExportEnrolmentProjectionServiceUnitTest {
     }
 
     @Test
-    void patientNoteCountAndGenerationMustBothAgree() throws Exception {
+    void shouldVerifyPatientNoteCountAndGenerationMustBothAgree_forEnrolmentProjectionServiceContract() throws Exception {
         when(notes.read(any(), any(), anySet(), any(), anyLong(), anyLong(), any()))
                 .thenReturn(
                         new CdsExportPatientNoteProjectionReader.Result("b".repeat(64), 0, null));
@@ -307,7 +307,7 @@ class CdsExportEnrolmentProjectionServiceUnitTest {
     }
 
     @Test
-    void aDifferentRetainedIndexCannotBorrowCurrentCapturedNativeRows() throws Exception {
+    void shouldVerifyADifferentRetainedIndexCannotBorrowCurrentCapturedNativeRows_forEnrolmentProjectionServiceContract() throws Exception {
         when(index.sourceManifestSha256()).thenReturn("b".repeat(64));
         assertThatThrownBy(this::project)
                 .hasMessage("CDS_EXPORT_ENROLMENT_PROJECTION_SCOPE_INVALID");
@@ -315,7 +315,7 @@ class CdsExportEnrolmentProjectionServiceUnitTest {
     }
 
     @Test
-    void currentDemographicReviewObligationsArePreserved() throws Exception {
+    void shouldVerifyCurrentDemographicReviewObligationsArePreserved_forEnrolmentProjectionServiceContract() throws Exception {
         var fields = new TreeMap<>(current.fields());
         fields.put("citizenship", "Additional native value");
         current = new CdsExportCapturedTextRowDto(current.table(), current.recordKey(), fields);
@@ -323,7 +323,7 @@ class CdsExportEnrolmentProjectionServiceUnitTest {
     }
 
     @Test
-    void skippedCurrentRowsAndWrongDeclaredCurrentMultiplicityRefuse() throws Exception {
+    void shouldVerifySkippedCurrentRowsAndWrongDeclaredCurrentMultiplicityRefuse_forEnrolmentProjectionServiceContract() throws Exception {
         count("demographic", 2);
         assertThatThrownBy(this::project)
                 .hasMessage("CDS_EXPORT_ENROLMENT_PROJECTION_SCOPE_INVALID");

@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
 
 class CdsExportClinicalZoneUnitTest {
     @Test
-    void explicitRegionAndRulesVersionSurviveRecovery() throws Exception {
+    void shouldVerifyExplicitRegionAndRulesVersionSurviveRecovery_forClinicalZoneContract() throws Exception {
         var frozen = CdsExportClinicalZone.capture("America/Toronto");
         assertThat(frozen.zoneId()).isEqualTo("America/Toronto");
         assertThat(frozen.tzdbVersion()).isNotBlank();
@@ -41,7 +41,7 @@ class CdsExportClinicalZoneUnitTest {
     }
 
     @Test
-    void absentAndInvalidSettingsNeverBecomeTheJvmDefault() {
+    void shouldVerifyAbsentAndInvalidSettingsNeverBecomeTheJvmDefault_forClinicalZoneContract() {
         for (String value : Arrays.asList(null, ""))
             assertThatThrownBy(() -> CdsExportClinicalZone.capture(value))
                     .hasMessage("CDS_EXPORT_CLINICAL_ZONE_REQUIRED");
@@ -52,7 +52,7 @@ class CdsExportClinicalZoneUnitTest {
     }
 
     @Test
-    void explicitFixedOffsetHasNoMutableRegionRulesDependency() throws Exception {
+    void shouldVerifyExplicitFixedOffsetHasNoMutableRegionRulesDependency_forClinicalZoneContract() throws Exception {
         var value = CdsExportClinicalZone.capture("+00:00");
         assertThat(value.zoneId()).isEqualTo("Z");
         assertThat(value.tzdbVersion()).isEqualTo("fixed.0");
@@ -69,7 +69,7 @@ class CdsExportClinicalZoneUnitTest {
     }
 
     @Test
-    void aChangedCapturedZoneCannotBorrowAnotherSnapshotDigest() throws Exception {
+    void shouldVerifyAChangedCapturedZoneCannotBorrowAnotherSnapshotDigest_forClinicalZoneContract() throws Exception {
         var frozen = CdsExportClinicalZone.capture("America/Toronto");
         assertThatThrownBy(
                         () ->
@@ -79,7 +79,7 @@ class CdsExportClinicalZoneUnitTest {
     }
 
     @Test
-    void aGenuineOldVersionDigestCannotSilentlyAdoptCurrentTimezoneRules() throws Exception {
+    void shouldVerifyAGenuineOldVersionDigestCannotSilentlyAdoptCurrentTimezoneRules_forClinicalZoneContract() throws Exception {
         String zone = "America/Toronto", version = "fixture-historic-1900";
         String digest =
                 HexFormat.of()
@@ -93,7 +93,7 @@ class CdsExportClinicalZoneUnitTest {
     }
 
     @Test
-    void trustedConfigurationHasAnExplicitContractAndNoPretendSqlPrimaryKey() throws Exception {
+    void shouldVerifyTrustedConfigurationHasAnExplicitContractAndNoPretendSqlPrimaryKey_forClinicalZoneContract() throws Exception {
         var reader = new CdsExportClinicalZoneSourceReader("America/Toronto");
         assertThat(reader.count(27)).isEqualTo(1);
         assertThat(new CdsExportClinicalZoneSourceReader(" America/Toronto ").count(27))

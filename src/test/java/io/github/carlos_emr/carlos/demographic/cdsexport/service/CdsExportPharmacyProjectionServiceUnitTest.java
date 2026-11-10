@@ -89,7 +89,7 @@ class CdsExportPharmacyProjectionServiceUnitTest {
     }
 
     @Test
-    void oneGenerationAndCompleteFieldEvidenceEndWithFreshAuthorization() throws Exception {
+    void shouldVerifyOneGenerationAndCompleteFieldEvidenceEnd_withFreshAuthorization() throws Exception {
         var result = project();
         assertThat(result.sourceManifestSha256()).isEqualTo(HASH);
         assertThat(result.mapping().nativeRepresentable()).isTrue();
@@ -113,7 +113,7 @@ class CdsExportPharmacyProjectionServiceUnitTest {
     }
 
     @Test
-    void missingTableIsNotTheSameAsKnownZeroRows() {
+    void shouldVerifyMissingTableIsNotTheSameAsKnownZeroRows_forPharmacyProjectionServiceContract() {
         assertThatThrownBy(
                         () ->
                                 service.project(
@@ -128,14 +128,14 @@ class CdsExportPharmacyProjectionServiceUnitTest {
     }
 
     @Test
-    void incompleteRowsCannotBeMistakenForCompleteEof() {
+    void shouldVerifyIncompleteRowsCannotBeMistaken_forCompleteEof() {
         data.get("pharmacyInfo").clear();
         assertThatThrownBy(this::project)
                 .hasMessage("CDS_EXPORT_PHARMACY_PROJECTION_SCOPE_INVALID");
     }
 
     @Test
-    void aDifferentGenerationCannotBeJoined() throws Exception {
+    void shouldVerifyADifferentGenerationCannotBeJoined_forPharmacyProjectionServiceContract() throws Exception {
         when(rows.forEach(
                         any(),
                         any(),
@@ -153,7 +153,7 @@ class CdsExportPharmacyProjectionServiceUnitTest {
     }
 
     @Test
-    void finalRevocationCannotReturnAQualifiedProjection() {
+    void shouldVerifyFinalRevocationCannotReturnAQualifiedProjection_forPharmacyProjectionServiceContract() {
         doThrow(new SecurityException("REVOKED"))
                 .when(captures)
                 .authorizeSources(lease, patient, TABLES, control);
@@ -161,7 +161,7 @@ class CdsExportPharmacyProjectionServiceUnitTest {
     }
 
     @Test
-    void actualRowsAndBytesAreBounded() {
+    void shouldVerifyActualRowsAndBytesAreBounded_forPharmacyProjectionServiceContract() {
         bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
                         10000, 1L << 20, 1000, 1L << 20, 1, 100);
@@ -171,7 +171,7 @@ class CdsExportPharmacyProjectionServiceUnitTest {
     }
 
     @Test
-    void callbacksCannotHideAnUnderlyingEofFailure() throws Exception {
+    void shouldVerifyCallbacksCannotHideAnUnderlyingEofFailure_forPharmacyProjectionServiceContract() throws Exception {
         when(rows.forEach(
                         any(),
                         any(),
@@ -194,7 +194,7 @@ class CdsExportPharmacyProjectionServiceUnitTest {
     }
 
     @Test
-    void explicitlyCapturedEmptyTablesRemainDistinctFromMissingEvidence() throws Exception {
+    void shouldVerifyExplicitlyCapturedEmptyTablesRemainDistinct_fromMissingEvidence() throws Exception {
         for (String table : TABLES) {
             data.get(table).clear();
             tables.put(table, new CdsExportCapturedTableDto(Set.of("fixture"), 0, HASH));

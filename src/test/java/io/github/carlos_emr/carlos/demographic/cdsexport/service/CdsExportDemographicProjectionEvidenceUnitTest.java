@@ -172,7 +172,7 @@ class CdsExportDemographicProjectionEvidenceUnitTest {
 
     @Test
     void
-            sourceProjectionGroupsCanBeProvenWithoutClaimingThatGeneratedOrOtherNativeFieldsAreClinicalOutput()
+            shouldVerifySourceProjectionGroupsCanBeProven_withoutClaimingThatGeneratedOrOtherNativeFieldsAreClinicalOutput()
                     throws Exception {
         var result = invoke();
         assertThat(result.groups()).hasSize(19);
@@ -190,7 +190,7 @@ class CdsExportDemographicProjectionEvidenceUnitTest {
     }
 
     @Test
-    void oneCurrentFieldEditDoesNotInvalidateIndependentUnchangedSourceDependencies()
+    void shouldVerifyOneCurrentFieldEditDoesNotInvalidateIndependentUnchangedSourceDependencies_forDemographicProjectionEvidenceContract()
             throws Exception {
         current.put("email", "current@example.test");
         var result = invoke();
@@ -206,7 +206,7 @@ class CdsExportDemographicProjectionEvidenceUnitTest {
     }
 
     @Test
-    void aMatchedExistingChartCannotBeAssumedToHaveReceivedThePreparedSourceName()
+    void shouldVerifyAMatchedExistingChartCannotBeAssumed_toHaveReceivedThePreparedSourceName()
             throws Exception {
         old.put("first_name", "Existing given");
         current.put("first_name", "Existing given");
@@ -224,7 +224,7 @@ class CdsExportDemographicProjectionEvidenceUnitTest {
     }
 
     @Test
-    void aShiftedPreparedBirthDateIsTheProjectionAnchorForLaterSourceReconciliation()
+    void shouldVerifyAShiftedPreparedBirthDateIsTheProjectionAnchor_forLaterSourceReconciliation()
             throws Exception {
         source =
                 new CdsDemographicNativeDto(
@@ -258,7 +258,7 @@ class CdsExportDemographicProjectionEvidenceUnitTest {
     }
 
     @Test
-    void nullAndEmptyAreDifferentHistoricalProjectionFacts() throws Exception {
+    void shouldVerifyNullAndEmptyAreDifferentHistoricalProjectionFacts_forDemographicProjectionEvidenceContract() throws Exception {
         old.put("phone2", null);
         current.put("phone2", null);
         assertThat(
@@ -269,21 +269,21 @@ class CdsExportDemographicProjectionEvidenceUnitTest {
     }
 
     @Test
-    void anUnknownLegacyFieldBaselineIsNotBackfilledFromTodaysRows() {
+    void shouldVerifyAnUnknownLegacyFieldBaselineIsNotBackfilled_fromTodaysRows() {
         baseline = false;
         assertThatThrownBy(this::invoke)
                 .hasMessage("CDS_EXPORT_DEMOGRAPHIC_FIELD_BASELINE_REQUIRED");
     }
 
     @Test
-    void changedSqlMetadataRequiresReviewBeforeAnyGroupCanBeQualified() {
+    void shouldVerifyChangedSqlMetadataRequiresReview_beforeAnyGroupCanBeQualified() {
         newSchema = true;
         assertThatThrownBy(this::invoke)
                 .hasMessage("CDS_EXPORT_DEMOGRAPHIC_FIELD_CODEC_REQUIRES_REVIEW");
     }
 
     @Test
-    void rowValuesCannotBeSubstitutedAfterTheirFrozenWitnessWasVerified() throws Exception {
+    void shouldVerifyRowValuesCannotBeSubstituted_afterTheirFrozenWitnessWasVerified() throws Exception {
         build();
         var substituted = new LinkedHashMap<>(current);
         substituted.put("first_name", "Substituted");
@@ -302,7 +302,7 @@ class CdsExportDemographicProjectionEvidenceUnitTest {
     }
 
     @Test
-    void cancellationAndWrongTargetIdentityAreRefused() throws Exception {
+    void shouldVerifyCancellationAndWrongTargetIdentityAreRefused_forDemographicProjectionEvidenceContract() throws Exception {
         build();
         assertThatThrownBy(
                         () ->

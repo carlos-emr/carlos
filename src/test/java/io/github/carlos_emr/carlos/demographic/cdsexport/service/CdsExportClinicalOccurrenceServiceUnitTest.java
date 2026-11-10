@@ -287,7 +287,7 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRejectAChangedGeneration_orAnUnselectedPrecisionDomain_beforeEmittingClinicalFacts()
+    void shouldRejectAChangedGeneration_orAnUnselectedPrecisionDomainBeforeEmittingClinicalFacts()
             throws Exception {
         var changed = nativeOnly();
         changed.changedGeneration = true;
@@ -427,7 +427,7 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseActiveIncomingOrOutgoingMergesBeforeOpeningRetainedOrClinicalValues()
+    void shouldRefuseActiveIncomingOrOutgoingMerges_beforeOpeningRetainedOrClinicalValues()
             throws Exception {
         for (boolean incoming : List.of(true, false)) {
             var f = nativeOnly();
@@ -440,7 +440,7 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldNotTreatDeletedMergeHistoryAsAnActiveAlias() throws Exception {
+    void shouldNotTreatDeletedMergeHistoryAsAnActiveAlias_forClinicalOccurrenceServiceContract() throws Exception {
         var f = nativeOnly();
         setMerge(f, merge(28, 27, "1"));
         parse(compose(f, false), ALLERGY, "deleted-merge");
@@ -448,7 +448,7 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRejectUnknownMergeStatesInsteadOfAssumingTheyAreDeleted() throws Exception {
+    void shouldRejectUnknownMergeStates_insteadOfAssumingTheyAreDeleted() throws Exception {
         var f = nativeOnly();
         setMerge(f, merge(28, 27, "2"));
         assertThatThrownBy(() -> compose(f, false)).hasMessage("CDS_EXPORT_MERGED_PATIENT_SCOPE");
@@ -456,7 +456,7 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseAnAbsentFrozenMergeScopeEvenForAnOtherwiseValidNativeOccurrence()
+    void shouldRefuseAnAbsentFrozenMergeScopeEven_forAnOtherwiseValidNativeOccurrence()
             throws Exception {
         var f = nativeOnly();
         f.source.capture().tables().remove("demographic_merged");
@@ -466,7 +466,7 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRejectForeignMergeRowsInsteadOfExpandingDisclosureScope() throws Exception {
+    void shouldRejectForeignMergeRows_insteadOfExpandingDisclosureScope() throws Exception {
         var f = nativeOnly();
         setMerge(f, merge(28, 29, "0"));
         assertThatThrownBy(() -> compose(f, false)).hasMessage("CDS_EXPORT_MERGE_SCOPE_INVALID");
@@ -474,7 +474,7 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldKeepTheDocumentFailedWhenAMergeReviewIsCaughtByTheCaller() throws Exception {
+    void shouldKeepTheDocumentFailed_whenAMergeReviewIsCaughtByTheCaller() throws Exception {
         var f = nativeOnly();
         setMerge(f, merge(28, 27, "0"));
         assertThatThrownBy(() -> compose(f, true)).hasMessage("CDS_EXPORT_SECTION_WRITE_FAILED");
@@ -482,7 +482,7 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldFinishMergeAuthenticationBeforeReturningEvenAnAdverseReview() throws Exception {
+    void shouldFinishMergeAuthentication_beforeReturningEvenAnAdverseReview() throws Exception {
         var f = nativeOnly();
         setMerge(f, merge(28, 27, "0"));
         f.mergeReadFailure = true;
@@ -522,7 +522,7 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
     }
 
     @Test
-    void equalFieldCountsCannotHideAnInventedAssessmentInsteadOfTheCapturedDescription()
+    void shouldVerifyEqualFieldCountsCannotHideAnInventedAssessment_insteadOfTheCapturedDescription()
             throws Exception {
         var f = nativeOnly();
         var original = new CdsExportAllergyMapper().map(27, f.nativeRows.getFirst(), List.of());

@@ -198,7 +198,7 @@ class CdsExportNewCategoryOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseBoundsWithoutACompleteParentSet() {
+    void shouldRefuseBounds_withoutACompleteParentSet() {
         add(
                 "c".repeat(64),
                 "demographic",
@@ -208,7 +208,7 @@ class CdsExportNewCategoryOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseDuplicateMetadataForOneOriginalParent() {
+    void shouldRefuseDuplicateMetadata_forOneOriginalParent() {
         units.put("d".repeat(64), units.values().iterator().next());
         assertThatThrownBy(() -> parents(10, () -> {}))
                 .hasMessage("CDS_EXPORT_NEW_CATEGORY_OCCURRENCE_INVALID");

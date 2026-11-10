@@ -31,12 +31,12 @@ import org.junit.jupiter.api.*;
 
 @Tag("unit") @Tag("cds-export")
 class CdsExportPharmacySourcePrivilegeUnitTest {
-    @Test void bothPhysicalSourcesRequireExplicitRxAuthorization() {
+    @Test void shouldVerifyBothPhysicalSourcesRequireExplicitRxAuthorization_forPharmacySourcePrivilegeContract() {
         var control = mock(CdsExportRunControl.class);
         for (var source : List.<CdsExportNativeSourceReader>of(new CdsExportPharmacySourceReader(mock(PharmacyInfoDao.class)), new CdsExportPharmacyLinkSourceReader(mock(DemographicPharmacyDao.class)))) source.authorizeReadScope(27, control);
         verify(control, times(2)).authorizePharmacy(27);
     }
-    @Test void aLegacyControlCannotSilentlySatisfyTheAdditionalNativePrivilege() {
+    @Test void shouldVerifyALegacyControlCannotSilentlySatisfyTheAdditionalNativePrivilege_forPharmacySourcePrivilegeContract() {
         var legacy = new CdsExportRunControl() { public void checkpoint() { } public void captureCheckpoint() { } public void authorizePatient(int patient) { } public void authorizeCategory(int patient, CdsCategory category, boolean sensitive) { } };
         assertThatThrownBy(() -> new CdsExportPharmacySourceReader(mock(PharmacyInfoDao.class)).authorizeReadScope(27, legacy)).hasMessage("CDS_EXPORT_PHARMACY_AUTHORIZATION_REQUIRED");
         assertThatThrownBy(() -> new CdsExportPharmacyLinkSourceReader(mock(DemographicPharmacyDao.class)).authorizeReadScope(27, legacy)).hasMessage("CDS_EXPORT_PHARMACY_AUTHORIZATION_REQUIRED");

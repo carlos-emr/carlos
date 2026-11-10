@@ -300,20 +300,20 @@ class CdsExportImmunizationCaptureValidatorUnitTest {
     }
 
     @Test
-    void completeArchivedParentDuplicateLargeExtensionsNullAndPrecisionRemainOneSelectedOccurrence()
+    void shouldVerifyCompleteArchivedParentDuplicateLargeExtensionsNullAndPrecisionRemainOneSelectedOccurrence_forImmunizationCaptureValidatorContract()
             throws Exception {
         assertThat(verifyCapture().immunizations()).containsExactly(1);
         verify(captures).authorizeSources(eq(lease), eq(patient), anySet(), eq(control));
     }
 
     @Test
-    void missingSelectedParentCannotBecomeAnEmptySuccessfulExport() {
+    void shouldVerifyMissingSelectedParentCannotBecomeAnEmptySuccessfulExport_forImmunizationCaptureValidatorContract() {
         data.get("preventions").clear();
         refused();
     }
 
     @Test
-    void anUnselectedScreeningParentCannotBecomeAnImmunization() {
+    void shouldVerifyAnUnselectedScreeningParentCannotBecomeAnImmunization_forImmunizationCaptureValidatorContract() {
         var extra = new TreeMap<>(data.get("preventions").getFirst());
         extra.put("id", "2");
         extra.put("prevention_type", "PAP");
@@ -322,49 +322,49 @@ class CdsExportImmunizationCaptureValidatorUnitTest {
     }
 
     @Test
-    void selectedParentTypeMustAgreeWithItsFrozenClassificationMetadata() {
+    void shouldVerifySelectedParentTypeMustAgree_withItsFrozenClassificationMetadata() {
         data.get("preventions").getFirst().put("prevention_type", "PAP");
         refused();
     }
 
     @Test
-    void selectedParentCodeMustAgreeWithItsFrozenClassificationMetadata() {
+    void shouldVerifySelectedParentCodeMustAgree_withItsFrozenClassificationMetadata() {
         data.get("preventions").getFirst().put("snomedId", "12345");
         refused();
     }
 
     @Test
-    void selectedParentProgramScopeMustAgreeWithItsFrozenMetadata() {
+    void shouldVerifySelectedParentProgramScopeMustAgree_withItsFrozenMetadata() {
         data.get("preventions").getFirst().put("restrictToProgram", "1");
         refused();
     }
 
     @Test
-    void selectedParentCannotChangeItsClinicalOwner() {
+    void shouldVerifySelectedParentCannotChangeItsClinicalOwner_forImmunizationCaptureValidatorContract() {
         data.get("preventions").getFirst().put("demographic_no", "28");
         refused();
     }
 
     @Test
-    void anExtensionCannotAttachToAnUnselectedScreeningOrForeignParent() {
+    void shouldVerifyAnExtensionCannotAttach_toAnUnselectedScreeningOrForeignParent() {
         data.get("preventionsExt").getFirst().put("prevention_id", "2");
         refused();
     }
 
     @Test
-    void precisionCannotAttachToAnUnselectedParent() {
+    void shouldVerifyPrecisionCannotAttach_toAnUnselectedParent() {
         data.get("prevention_precision").getFirst().put("table_id", "2");
         refused();
     }
 
     @Test
-    void precisionCannotPretendAnAllergyDateIsAVaccineDate() {
+    void shouldVerifyPrecisionCannotPretendAnAllergyDateIsAVaccineDate_forImmunizationCaptureValidatorContract() {
         data.get("prevention_precision").getFirst().put("table_name", "1");
         refused();
     }
 
     @Test
-    void aPhysicalPrecisionRowCannotAppearInBothCapturedAliases() {
+    void shouldVerifyAPhysicalPrecisionRowCannotAppear_inBothCapturedAliases() {
         columns.put("partial_date", columns.get("prevention_precision"));
         data.put(
                 "partial_date",
@@ -386,26 +386,26 @@ class CdsExportImmunizationCaptureValidatorUnitTest {
     }
 
     @Test
-    void malformedForeignKeyCannotBeTreatedAsAbsent() {
+    void shouldVerifyMalformedForeignKeyCannotBeTreatedAsAbsent_forImmunizationCaptureValidatorContract() {
         data.get("preventionsExt").getFirst().put("prevention_id", "01");
         refused();
     }
 
     @Test
-    void lateSourceAuthenticationFailureCannotReturnACompletedSelection() {
+    void shouldVerifyLateSourceAuthenticationFailureCannotReturnACompletedSelection_forImmunizationCaptureValidatorContract() {
         lateFailure = true;
         assertThatThrownBy(this::verifyCapture).hasMessage("LATE_AUTHENTICATED_EOF_FAILURE");
         verify(captures, never()).authorizeSources(any(), any(), anySet(), any());
     }
 
     @Test
-    void aSubstitutedCaptureGenerationCannotReturnACompletedSelection() {
+    void shouldVerifyASubstitutedCaptureGenerationCannotReturnACompletedSelection_forImmunizationCaptureValidatorContract() {
         foreignGeneration = true;
         refused();
     }
 
     @Test
-    void revocationAfterFullClosureVerificationPreventsReturningTheSelection() {
+    void shouldVerifyRevocation_afterFullClosureVerificationPreventsReturningTheSelection() {
         doThrow(new SecurityException("ACCESS_REVOKED_AFTER_CAPTURE_VALIDATION"))
                 .when(captures)
                 .authorizeSources(any(), any(), anySet(), any());
@@ -414,7 +414,7 @@ class CdsExportImmunizationCaptureValidatorUnitTest {
     }
 
     @Test
-    void reviewIsNotReportedUntilTheWholeCaptureAndFinalAuthorityPass() {
+    void shouldVerifyReviewIsNotReportedUntilTheWholeCaptureAndFinalAuthorityPass_forImmunizationCaptureValidatorContract() {
         review = true;
         data.get("preventions").clear();
         data.get("preventionsExt").clear();
@@ -424,7 +424,7 @@ class CdsExportImmunizationCaptureValidatorUnitTest {
     }
 
     @Test
-    void aMissingCapturedConfigurationCannotBeReplacedWithCurrentSettings() {
+    void shouldVerifyAMissingCapturedConfigurationCannotBeReplaced_withCurrentSettings() {
         columns.remove("prevention_configuration");
         data.remove("prevention_configuration");
         refused();
@@ -432,7 +432,7 @@ class CdsExportImmunizationCaptureValidatorUnitTest {
     }
 
     @Test
-    void aPartialParentProjectionCannotClaimCompleteClinicalCapture() {
+    void shouldVerifyAPartialParentProjectionCannotClaimCompleteClinicalCapture_forImmunizationCaptureValidatorContract() {
         columns.put("preventions", Set.of("id"));
         data.get("preventions").set(0, new TreeMap<>(Map.of("id", "1")));
         refused();
@@ -440,7 +440,7 @@ class CdsExportImmunizationCaptureValidatorUnitTest {
     }
 
     @Test
-    void embeddedClosureUsesTheSnapshotClassificationAndStillChecksAllParentsAndAuthority()
+    void shouldVerifyEmbeddedClosureUsesTheSnapshotClassificationAndStillChecksAllParentsAndAuthority_forImmunizationCaptureValidatorContract()
             throws Exception {
         embedded = true;
         when(classifications.classifyEmbedded(
@@ -456,7 +456,7 @@ class CdsExportImmunizationCaptureValidatorUnitTest {
     }
 
     @Test
-    void embeddedClosureCannotReturnAfterLateAuthenticationFailure() throws Exception {
+    void shouldVerifyEmbeddedClosureCannotReturn_afterLateAuthenticationFailure() throws Exception {
         embedded = true;
         lateFailure = true;
         when(classifications.classifyEmbedded(

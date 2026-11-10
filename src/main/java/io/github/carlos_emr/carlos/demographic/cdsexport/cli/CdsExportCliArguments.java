@@ -34,7 +34,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-/** Parses the installed adapter's exact internal argv without file I/O or trusting an environment operator name. */
+/**
+ * Parses the installed adapter's exact internal argv without file I/O or trusting an environment
+ * operator name.
+ */
 public record CdsExportCliArguments(
         String operation,
         String provider,
@@ -165,7 +168,10 @@ public record CdsExportCliArguments(
                 output);
     }
 
-    /** Called only after root proof and protected selection-file capture; the immutable command fixes the actual selected IDs. */
+    /**
+     * Called only after root proof and protected selection-file capture; the immutable command
+     * fixes the actual selected IDs.
+     */
     public CdsExportCommand command(List<Integer> capturedPatients, String verifiedNonce) {
         if (!operation.equals("export")) invalid();
         if (patientsFile == null && !capturedPatients.isEmpty()) invalid();
@@ -214,13 +220,12 @@ public record CdsExportCliArguments(
     }
 
     private static Path absolute(String value) {
-        if (value == null
-                || value.isEmpty()
-                || value.length() > 8192
-                || value.codePoints().anyMatch(Character::isISOControl)) invalid();
-        Path path = Path.of(value);
-        if (!path.isAbsolute() || !path.equals(path.normalize())) invalid();
-        return path;
+        try {
+            return io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportProtectedFiles
+                    .absolute(value);
+        } catch (java.io.IOException malformed) {
+            throw new IllegalArgumentException("CDS_EXPORT_ARGUMENTS_INVALID");
+        }
     }
 
     private static void run(String value) {

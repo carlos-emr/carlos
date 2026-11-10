@@ -221,7 +221,7 @@ class CdsExportDisclosureScopeServiceUnitTest {
     }
 
     @Test
-    void shouldRejectDuplicateOrUnorderedNoteScopeIdentities() throws Exception {
+    void shouldRejectDuplicateOrUnorderedNoteScopeIdentities_forDisclosureScopeServiceContract() throws Exception {
         patients.set(
                 0,
                 patient(

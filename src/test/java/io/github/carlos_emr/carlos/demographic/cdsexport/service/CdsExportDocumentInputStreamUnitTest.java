@@ -110,7 +110,7 @@ class CdsExportDocumentInputStreamUnitTest {
                 "",
                 ".."
             })
-    void shouldRefuseTraversalAbsoluteAndAmbiguousPaths(String name) {
+    void shouldRefuseTraversalAbsoluteAndAmbiguousPaths_forDocumentInputStreamContract(String name) {
         assertThatThrownBy(() -> open(name)).hasMessage("CDS_EXPORT_DOCUMENT_SOURCE_UNAVAILABLE");
     }
 
@@ -131,7 +131,7 @@ class CdsExportDocumentInputStreamUnitTest {
     }
 
     @Test
-    void shouldSupportSafeNestedNativeFiles() throws Exception {
+    void shouldSupportSafeNestedNativeFiles_forDocumentInputStreamContract() throws Exception {
         Files.createDirectory(root.resolve("nested"));
         Files.write(root.resolve("nested/report.bin"), body);
         try (var input = open("nested/report.bin")) {
@@ -140,13 +140,13 @@ class CdsExportDocumentInputStreamUnitTest {
     }
 
     @Test
-    void shouldRefuseAFileLargerThanTheExplicitByteBudget() {
+    void shouldRefuseAFileLargerThanTheExplicitByteBudget_forDocumentInputStreamContract() {
         assertThatThrownBy(() -> new CdsExportDocumentInputStream(root, "report.bin", 2, () -> {}))
                 .hasMessage("CDS_EXPORT_DOCUMENT_SOURCE_UNAVAILABLE");
     }
 
     @Test
-    void shouldRefuseAFileReplacedWhileItsOriginalDescriptorIsOpen() throws Exception {
+    void shouldRefuseAFileReplacedWhileItsOriginalDescriptorIsOpen_forDocumentInputStreamContract() throws Exception {
         try (var input = open("report.bin")) {
             input.read();
             Files.move(root.resolve("report.bin"), root.resolve("original.bin"));
@@ -156,7 +156,7 @@ class CdsExportDocumentInputStreamUnitTest {
     }
 
     @Test
-    void shouldRefuseTruncationDuringARead() throws Exception {
+    void shouldRefuseTruncation_duringARead() throws Exception {
         try (var input = open("report.bin")) {
             input.read();
             Files.write(root.resolve("report.bin"), new byte[] {1});
@@ -165,7 +165,7 @@ class CdsExportDocumentInputStreamUnitTest {
     }
 
     @Test
-    void shouldRefuseGrowthDuringARead() throws Exception {
+    void shouldRefuseGrowth_duringARead() throws Exception {
         try (var input = open("report.bin")) {
             input.read();
             Files.write(root.resolve("report.bin"), new byte[] {1}, StandardOpenOption.APPEND);

@@ -47,7 +47,7 @@ class CdsExportPreventionScopePlannerUnitTest {
     }
 
     @Test
-    void partitionsEveryNativeMetadataOccurrenceIncludingH1n1AndUnknownTypes() throws Exception {
+    void shouldVerifyPartitionsEveryNativeMetadataOccurrenceIncludingH1n1AndUnknownTypes_forPreventionScopePlannerContract() throws Exception {
         var result =
                 plan(
                         List.of(
@@ -66,7 +66,7 @@ class CdsExportPreventionScopePlannerUnitTest {
     }
 
     @Test
-    void anEmptyCompleteMetadataSourceStaysEmptyRatherThanInventingAZeroDateOrFact()
+    void shouldVerifyAnEmptyCompleteMetadataSourceStaysEmptyRatherThanInventingAZeroDateOrFact_forPreventionScopePlannerContract()
             throws Exception {
         var result = plan(List.of());
         assertThat(result.rows()).isZero();
@@ -76,7 +76,7 @@ class CdsExportPreventionScopePlannerUnitTest {
     }
 
     @Test
-    void explicitFalseAndLegacyNullWithoutAProgramAreDistinctPreservedUnrestrictedStates()
+    void shouldVerifyExplicitFalseAndLegacyNull_withoutAProgramAreDistinctPreservedUnrestrictedStates()
             throws Exception {
         var result = plan(List.of(row(1, "Td", "0", "999"), row(2, "Td", null, null)));
         assertThat(result.immunizations()).containsExactlyInAnyOrder(1, 2);
@@ -87,7 +87,7 @@ class CdsExportPreventionScopePlannerUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"1", "2", "-1", "true", ""})
-    void activeOrUnknownRestrictionStatesNeverProvideProgramAuthority(String flag)
+    void shouldVerifyActiveOrUnknownRestrictionStatesNeverProvideProgramAuthority_forPreventionScopePlannerContract(String flag)
             throws Exception {
         var result = plan(List.of(row(1, "Td", flag, "1")));
         assertThat(result.immunizations()).isEmpty();
@@ -97,7 +97,7 @@ class CdsExportPreventionScopePlannerUnitTest {
     }
 
     @Test
-    void nullRestrictionWithARecordedProgramIsAmbiguousAndCannotBeCapturedAsUnrestricted()
+    void shouldVerifyNullRestriction_withARecordedProgramIsAmbiguousAndCannotBeCapturedAsUnrestricted()
             throws Exception {
         assertThat(plan(List.of(row(1, "Td", null, "1"))).reviews())
                 .containsEntry(1, CdsExportPreventionScopePlanner.Review.PROGRAM_SCOPE);
@@ -105,14 +105,14 @@ class CdsExportPreventionScopePlannerUnitTest {
 
     @ParameterizedTest
     @NullAndEmptySource
-    void missingTypeRequiresReviewRatherThanBecomingAnExcludedScreening(String type)
+    void shouldVerifyMissingTypeRequiresReviewRatherThanBecomingAnExcludedScreening_forPreventionScopePlannerContract(String type)
             throws Exception {
         assertThat(plan(List.of(row(1, type, "0", null))).reviews())
                 .containsEntry(1, CdsExportPreventionScopePlanner.Review.UNKNOWN_TYPE);
     }
 
     @Test
-    void unknownLayoutAndUnresolvedScreeningCodeAreExplicitReviewPartitions() throws Exception {
+    void shouldVerifyUnknownLayoutAndUnresolvedScreeningCodeAreExplicitReviewPartitions_forPreventionScopePlannerContract() throws Exception {
         var withCode = changed(row(2, "PAP", "0", null), "snomedId", "not-in-frozen-catalogue");
         var result = plan(List.of(row(1, "future", "0", null), withCode));
         assertThat(result.reviews())
@@ -122,7 +122,7 @@ class CdsExportPreventionScopePlannerUnitTest {
     }
 
     @Test
-    void duplicateOrReorderedMetadataCannotSilentlyCollapseIntoSets() {
+    void shouldVerifyDuplicateOrReorderedMetadataCannotSilentlyCollapseIntoSets_forPreventionScopePlannerContract() {
         assertThatThrownBy(() -> plan(List.of(row(1, "Td", "0", null), row(1, "Td", "0", null))))
                 .isInstanceOf(IOException.class);
         assertThatThrownBy(() -> plan(List.of(row(2, "Td", "0", null), row(1, "Td", "0", null))))
@@ -130,7 +130,7 @@ class CdsExportPreventionScopePlannerUnitTest {
     }
 
     @Test
-    void foreignOwnersWrongKeysExtraColumnsAndNoncanonicalIdsAreRejected() {
+    void shouldVerifyForeignOwnersWrongKeysExtraColumnsAndNoncanonicalIdsAreRejected_forPreventionScopePlannerContract() {
         var row = row(1, "Td", "0", null);
         var fields = new TreeMap<>(row.fields());
         fields.put("extra", "value");
@@ -149,7 +149,7 @@ class CdsExportPreventionScopePlannerUnitTest {
     }
 
     @Test
-    void anEarlierReviewNeverHidesAForeignOrCorruptLaterRow() {
+    void shouldVerifyAnEarlierReviewNeverHidesAForeignOrCorruptLaterRow_forPreventionScopePlannerContract() {
         assertThatThrownBy(
                         () ->
                                 plan(
@@ -163,7 +163,7 @@ class CdsExportPreventionScopePlannerUnitTest {
     }
 
     @Test
-    void inputFailureAfterAnEarlierReviewPropagatesRatherThanReturningAPartialPartition() {
+    void shouldVerifyInputFailure_afterAnEarlierReviewPropagatesRatherThanReturningAPartialPartition() {
         Iterable<CdsExportCapturedTextRowDto> failing =
                 () ->
                         new Iterator<>() {
@@ -185,7 +185,7 @@ class CdsExportPreventionScopePlannerUnitTest {
     }
 
     @Test
-    void hashesBindTheCompleteMetadataAndClassificationDefinitions() throws Exception {
+    void shouldVerifyHashesBindTheCompleteMetadataAndClassificationDefinitions_forPreventionScopePlannerContract() throws Exception {
         var rows = List.of(row(1, "Td", "0", null));
         var result = plan(rows);
         assertThat(result.scopeSha256()).hasSize(64);

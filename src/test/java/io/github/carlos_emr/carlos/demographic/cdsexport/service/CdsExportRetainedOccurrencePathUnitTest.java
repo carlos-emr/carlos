@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
 
 class CdsExportRetainedOccurrencePathUnitTest {
     @Test
-    void originalSecondAndLaterPatientOrdinalsRemainValidInsideTheirVerifiedOwnerScope()
+    void shouldVerifyOriginalSecondAndLaterPatientOrdinalsRemainValidInsideTheirVerifiedOwnerScope_forRetainedOccurrencePathContract()
             throws Exception {
         for (var category :
                 List.of(
@@ -47,7 +47,7 @@ class CdsExportRetainedOccurrencePathUnitTest {
     }
 
     @Test
-    void aFieldCannotBorrowAnotherCategorysOccurrenceRoot() {
+    void shouldVerifyAFieldCannotBorrowAnotherCategorysOccurrenceRoot_forRetainedOccurrencePathContract() {
         assertThatThrownBy(
                         () ->
                                 CdsExportRetainedOccurrencePath.root(
@@ -59,7 +59,7 @@ class CdsExportRetainedOccurrencePathUnitTest {
     }
 
     @Test
-    void malformedRootOrdinalsAndAmbiguousPrefixesRemainInvalid() {
+    void shouldVerifyMalformedRootOrdinalsAndAmbiguousPrefixesRemainInvalid_forRetainedOccurrencePathContract() {
         for (String root :
                 List.of(
                         "/OmdCds[2]/PatientRecord[1]/Immunizations[1]",

@@ -90,7 +90,7 @@ class CdsExportPersonalContactProjectionServiceUnitTest {
     }
 
     @Test
-    void oneGenerationAndCompleteFieldEvidenceEndWithFreshAuthorization() throws Exception {
+    void shouldVerifyOneGenerationAndCompleteFieldEvidenceEnd_withFreshAuthorization() throws Exception {
         var result = project();
         assertThat(result.sourceManifestSha256()).isEqualTo(HASH);
         assertThat(result.mapping().nativeRepresentable()).isTrue();
@@ -114,7 +114,7 @@ class CdsExportPersonalContactProjectionServiceUnitTest {
     }
 
     @Test
-    void missingTableIsNotTheSameAsKnownZeroRows() {
+    void shouldVerifyMissingTableIsNotTheSameAsKnownZeroRows_forPersonalContactProjectionServiceContract() {
         assertThatThrownBy(
                         () ->
                                 service.project(
@@ -124,13 +124,13 @@ class CdsExportPersonalContactProjectionServiceUnitTest {
     }
 
     @Test
-    void incompleteRowsCannotBeMistakenForCompleteEof() {
+    void shouldVerifyIncompleteRowsCannotBeMistaken_forCompleteEof() {
         data.get("Contact").clear();
         assertThatThrownBy(this::project).hasMessage("CDS_EXPORT_CONTACT_PROJECTION_SCOPE_INVALID");
     }
 
     @Test
-    void aDifferentGenerationCannotBeJoined() throws Exception {
+    void shouldVerifyADifferentGenerationCannotBeJoined_forPersonalContactProjectionServiceContract() throws Exception {
         when(rows.forEach(
                         any(),
                         any(),
@@ -147,7 +147,7 @@ class CdsExportPersonalContactProjectionServiceUnitTest {
     }
 
     @Test
-    void finalRevocationCannotReturnAQualifiedProjection() {
+    void shouldVerifyFinalRevocationCannotReturnAQualifiedProjection_forPersonalContactProjectionServiceContract() {
         doThrow(new SecurityException("REVOKED"))
                 .when(captures)
                 .authorizeSources(lease, patient, TABLES, control);
@@ -155,7 +155,7 @@ class CdsExportPersonalContactProjectionServiceUnitTest {
     }
 
     @Test
-    void actualRowsAndBytesAreBounded() {
+    void shouldVerifyActualRowsAndBytesAreBounded_forPersonalContactProjectionServiceContract() {
         bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
                         10000, 1L << 20, 1000, 1L << 20, 1, 100);
@@ -165,7 +165,7 @@ class CdsExportPersonalContactProjectionServiceUnitTest {
     }
 
     @Test
-    void callbacksCannotHideAnUnderlyingEofFailure() throws Exception {
+    void shouldVerifyCallbacksCannotHideAnUnderlyingEofFailure_forPersonalContactProjectionServiceContract() throws Exception {
         when(rows.forEach(
                         any(),
                         any(),
@@ -188,7 +188,7 @@ class CdsExportPersonalContactProjectionServiceUnitTest {
     }
 
     @Test
-    void explicitlyCapturedEmptyTablesRemainDistinctFromMissingEvidence() throws Exception {
+    void shouldVerifyExplicitlyCapturedEmptyTablesRemainDistinct_fromMissingEvidence() throws Exception {
         for (String table : TABLES) {
             data.get(table).clear();
             tables.put(table, new CdsExportCapturedTableDto(Set.of("fixture"), 0, HASH));

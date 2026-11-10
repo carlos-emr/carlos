@@ -68,7 +68,7 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void unchangedClinicalDependenciesPreserveMiddleNamePurposesAndSeparatePhoneComponents()
+    void shouldVerifyUnchangedClinicalDependenciesPreserveMiddleNamePurposesAndSeparatePhoneComponents_forContactFieldReconcilerContract()
             throws Exception {
         var result = invoke();
         assertThat(result.representable()).isTrue();
@@ -88,7 +88,7 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void aChangedEmailDoesNotFlattenTheNamePurposeOrTelephone() throws Exception {
+    void shouldVerifyAChangedEmailDoesNotFlattenTheNamePurposeOrTelephone_forContactFieldReconcilerContract() throws Exception {
         contact.put("email", "current@example.test");
         var result = invoke();
         assertThat(result.representable()).isTrue();
@@ -104,7 +104,7 @@ class CdsExportContactFieldReconcilerUnitTest {
 
     @Test
     void
-            anUnchangedCombinedNativeNameMayExceedOneWireNameFieldWithoutTruncatingTheSeparateSourceNames()
+            shouldVerifyAnUnchangedCombinedNativeNameMayExceedOneWireNameField_withoutTruncatingTheSeparateSourceNames()
                     throws Exception {
         fixture("M".repeat(50), "0012", true);
         var result = invoke();
@@ -116,7 +116,7 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void clearingEmailDoesNotRestoreItsHistoricalValue() throws Exception {
+    void shouldVerifyClearingEmailDoesNotRestoreItsHistoricalValue_forContactFieldReconcilerContract() throws Exception {
         contact.put("email", null);
         var result = invoke();
         assertThat(result.representable()).isTrue();
@@ -124,7 +124,7 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void editingTheCombinedGivenNameRequiresReviewInsteadOfInventingASplitOrLosingTheMiddleName()
+    void shouldVerifyEditingTheCombinedGivenNameRequiresReview_insteadOfInventingASplitOrLosingTheMiddleName()
             throws Exception {
         contact.put("firstName", "Edited compound name");
         var result = invoke();
@@ -134,7 +134,7 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void editingTheFamilyNamePreservesTheUnchangedGivenAndMiddleNames() throws Exception {
+    void shouldVerifyEditingTheFamilyNamePreservesTheUnchangedGivenAndMiddleNames_forContactFieldReconcilerContract() throws Exception {
         contact.put("lastName", "Current family");
         var result = invoke();
         assertThat(result.representable()).isTrue();
@@ -144,7 +144,7 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void aSimpleGivenNameCanChangeWhenThereIsNoUnprojectedMiddleName() throws Exception {
+    void shouldVerifyASimpleGivenNameCanChange_whenThereIsNoUnprojectedMiddleName() throws Exception {
         fixture(null, "0012", true);
         contact.put("firstName", "Current given");
         var result = invoke();
@@ -155,7 +155,7 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void changingAResidenceNumberWithAnEmbeddedHistoricalExtensionRequiresReview()
+    void shouldVerifyChangingAResidenceNumber_withAnEmbeddedHistoricalExtensionRequiresReview()
             throws Exception {
         contact.put("residencePhone", "613-555-9999");
         var result = invoke();
@@ -165,7 +165,7 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void aSimpleResidencePhoneCanChangeWithoutReverseParsingAnExtension() throws Exception {
+    void shouldVerifyASimpleResidencePhoneCanChange_withoutReverseParsingAnExtension() throws Exception {
         fixture("Middle😀", null, true);
         contact.put("residencePhone", "613-555-9999");
         var result = invoke();
@@ -174,7 +174,7 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void changingTheWorkExtensionUsesItsSeparateNativeColumnAndPreservesResidenceComponents()
+    void shouldVerifyChangingTheWorkExtensionUsesItsSeparateNativeColumnAndPreservesResidenceComponents_forContactFieldReconcilerContract()
             throws Exception {
         contact.put("workPhoneExtension", "0003");
         var result = invoke();
@@ -188,7 +188,7 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void editedMultiplePurposePlaceholdersCannotEraseUnprojectedSourcePurposes() throws Exception {
+    void shouldVerifyEditedMultiplePurposePlaceholdersCannotEraseUnprojectedSourcePurposes_forContactFieldReconcilerContract() throws Exception {
         association.put("role", "Next of Kin");
         assertThat(invoke().representable()).isFalse();
         association.put("role", oldAssociation.get("role"));
@@ -197,7 +197,7 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void aSimplePurposeCanChangeAndProducesTheCurrentChoice() throws Exception {
+    void shouldVerifyASimplePurposeCanChangeAndProducesTheCurrentChoice_forContactFieldReconcilerContract() throws Exception {
         fixture("Middle😀", "0012", false);
         association.put("role", "Care Giver");
         var result = invoke();
@@ -209,7 +209,7 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void matchingNoteEditsAreRepresentedOnceAndAnExplicitClearStaysCleared() throws Exception {
+    void shouldVerifyMatchingNoteEditsAreRepresentedOnceAndAnExplicitClearStaysCleared_forContactFieldReconcilerContract() throws Exception {
         contact.put("note", "Current note");
         association.put("note", "Current note");
         var result = invoke();
@@ -223,7 +223,7 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void clearingOneOfTheTwoNoteCopiesCannotResurrectTheOther() throws Exception {
+    void shouldVerifyClearingOneOfTheTwoNoteCopiesCannotResurrectTheOther_forContactFieldReconcilerContract() throws Exception {
         contact.put("note", null);
         var result = invoke();
         assertThat(result.representable()).isFalse();
@@ -232,7 +232,7 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void nativeConsentHistoryAndAdditionalPopulatedFieldsRemainExplicitReviewRequirements()
+    void shouldVerifyNativeConsentHistoryAndAdditionalPopulatedFieldsRemainExplicitReviewRequirements_forContactFieldReconcilerContract()
             throws Exception {
         for (var entry :
                 List.of(
@@ -249,7 +249,7 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void anEditedGivenNameCannotBorrowAContradictoryHistoricalPreparation() throws Exception {
+    void shouldVerifyAnEditedGivenNameCannotBorrowAContradictoryHistoricalPreparation_forContactFieldReconcilerContract() throws Exception {
         source =
                 new CdsContactDto(
                         "Wrong given",
@@ -265,7 +265,7 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void generatedSqlTimestampsRemainOperationalWhileClinicalFieldsUseTheirOwnWitnesses()
+    void shouldVerifyGeneratedSqlTimestampsRemainOperationalWhileClinicalFieldsUseTheirOwnWitnesses_forContactFieldReconcilerContract()
             throws Exception {
         contact.put("updateDate", "2026-02-01 00:00:00");
         association.put("created", "2026-02-02 00:00:00");
@@ -277,13 +277,13 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void aMissingHistoricalBaselineIsNeverBackfilledFromTodaysRows() {
+    void shouldVerifyAMissingHistoricalBaselineIsNeverBackfilled_fromTodaysRows() {
         baseline = false;
         assertThatThrownBy(this::invoke).hasMessage("CDS_EXPORT_CONTACT_FIELD_BASELINE_REQUIRED");
     }
 
     @Test
-    void anotherCapturedRowCannotSubstituteForTheWitnessBytes() throws Exception {
+    void shouldVerifyAnotherCapturedRowCannotSubstitute_forTheWitnessBytes() throws Exception {
         build();
         var substituted = new LinkedHashMap<>(contact);
         substituted.put("email", "substituted@example.test");
@@ -299,13 +299,13 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void anExpiredValueScopeFailsBeforeAResultEscapes() {
+    void shouldVerifyAnExpiredValueScopeFails_beforeAResultEscapes() {
         active = false;
         assertThatThrownBy(this::invoke).hasMessage("EXPIRED_VALUES");
     }
 
     @Test
-    void aDeletedNativeContactRequiresReviewBeforeAnyHistoricalValueCanReturn() throws Exception {
+    void shouldVerifyADeletedNativeContactRequiresReview_beforeAnyHistoricalValueCanReturn() throws Exception {
         build();
         var slots = new LinkedHashMap<>(checked.units());
         var nativeRefs = new ArrayList<>(slots.get(ADDRESS));
@@ -327,7 +327,7 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void twoSourceUnitsCannotClaimTheSameNativeContact() throws Exception {
+    void shouldVerifyTwoSourceUnitsCannotClaimTheSameNativeContact_forContactFieldReconcilerContract() throws Exception {
         build();
         String alias = RUN + ":" + "f".repeat(64);
         var refs = new LinkedHashMap<>(index.references());
@@ -359,7 +359,7 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void cancellationDuringReconciliationIsPropagated() throws Exception {
+    void shouldVerifyCancellation_duringReconciliationIsPropagated() throws Exception {
         build();
         assertThatThrownBy(
                         () ->
@@ -382,7 +382,7 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void aPreparedResultCannotReadSourceValuesAfterItsAuthenticatedScopeExpires() throws Exception {
+    void shouldVerifyAPreparedResultCannotReadSourceValues_afterItsAuthenticatedScopeExpires() throws Exception {
         var result = invoke();
         active = false;
         assertThatThrownBy(() -> render(result)).hasMessage("EXPIRED_VALUES");

@@ -76,7 +76,7 @@ class CdsExportDemographicRetainedCoreReconcilerUnitTest {
     }
 
     @Test
-    void theCoreAccountsForItsOwnFieldsAndExplicitlyDefersTheRestOfTheDemographicAssembly()
+    void shouldVerifyTheCoreAccounts_forItsOwnFieldsAndExplicitlyDefersTheRestOfTheDemographicAssembly()
             throws Exception {
         var result = reconcile();
         assertThat(result.coreRepresentable()).isTrue();
@@ -98,7 +98,7 @@ class CdsExportDemographicRetainedCoreReconcilerUnitTest {
     }
 
     @Test
-    void independentEditsComposeWithoutLosingUnchangedNamesAddressesPhonesOrDates()
+    void shouldVerifyIndependentEditsCompose_withoutLosingUnchangedNamesAddressesPhonesOrDates()
             throws Exception {
         fixture.currentField("first_name", "Edited");
         fixture.currentField("email", "edited@example.test");
@@ -116,7 +116,7 @@ class CdsExportDemographicRetainedCoreReconcilerUnitTest {
     }
 
     @Test
-    void deletingAHealthCardDoesNotProduceAnOverlappingExpiryDeletion() throws Exception {
+    void shouldVerifyDeletingAHealthCardDoesNotProduceAnOverlappingExpiryDeletion_forDemographicRetainedCoreReconcilerContract() throws Exception {
         for (String column : List.of("hin", "hc_type", "ver", "hc_renew_date"))
             fixture.currentField(column, null);
         var result = reconcile();
@@ -126,7 +126,7 @@ class CdsExportDemographicRetainedCoreReconcilerUnitTest {
     }
 
     @Test
-    void addingAWholeNewCardAndExpiryProducesOneCompleteParent() throws Exception {
+    void shouldVerifyAddingAWholeNewCardAndExpiryProducesOneCompleteParent_forDemographicRetainedCoreReconcilerContract() throws Exception {
         source.keySet().removeIf(key -> key.startsWith("HealthCard[1]/"));
         fixture.preparedHealth(null, null, null, null);
         fixture.currentField("hin", "0012345678");
@@ -140,7 +140,7 @@ class CdsExportDemographicRetainedCoreReconcilerUnitTest {
     }
 
     @Test
-    void effectivePreparedDatesComposeWithLaterIndependentNativeEdits() throws Exception {
+    void shouldVerifyEffectivePreparedDatesCompose_withLaterIndependentNativeEdits() throws Exception {
         fixture.preparedBirth("2000-01-02");
         fixture.preparedOptionalDate("patient_status_date", "2025-01-02");
         fixture.preparedOptionalDate("hc_renew_date", "2029-01-02");
@@ -152,7 +152,7 @@ class CdsExportDemographicRetainedCoreReconcilerUnitTest {
     }
 
     @Test
-    void oneAmbiguousComponentPreventsAllCoreChangesFromBeingUsed() throws Exception {
+    void shouldVerifyOneAmbiguousComponentPreventsAllCoreChanges_fromBeingUsed() throws Exception {
         source.put("Names[1]/LegalName[1]/OtherName[1]/Part[1]", "Source");
         source.put("Names[1]/LegalName[1]/OtherName[2]/Part[1]", "Middle");
         source.put("Names[1]/LegalName[1]/OtherName[2]/PartType[1]", "GIV");
@@ -167,7 +167,7 @@ class CdsExportDemographicRetainedCoreReconcilerUnitTest {
     }
 
     @Test
-    void incompleteSourcePagesCannotProduceACoordinatedDecision() throws Exception {
+    void shouldVerifyIncompleteSourcePagesCannotProduceACoordinatedDecision_forDemographicRetainedCoreReconcilerContract() throws Exception {
         var graph = graph();
         assertThatThrownBy(
                         () ->
@@ -186,7 +186,7 @@ class CdsExportDemographicRetainedCoreReconcilerUnitTest {
     }
 
     @Test
-    void expiredValuesPreventCoreDecisions() throws Exception {
+    void shouldVerifyExpiredValuesPreventCoreDecisions_forDemographicRetainedCoreReconcilerContract() throws Exception {
         active = false;
         assertThatThrownBy(this::reconcile).hasMessage("EXPIRED_VALUES");
     }

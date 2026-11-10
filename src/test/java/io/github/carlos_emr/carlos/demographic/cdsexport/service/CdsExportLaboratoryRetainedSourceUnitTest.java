@@ -158,7 +158,7 @@ class CdsExportLaboratoryRetainedSourceUnitTest {
     }
 
     @Test
-    void shouldRefuseAPreparedScalarWithNoRetainedField() {
+    void shouldRefuseAPreparedScalar_withNoRetainedField() {
         scalars.put("PhysiciansNotes", "Unwitnessed");
         assertThatThrownBy(this::read)
                 .hasMessage("CDS_EXPORT_LABORATORY_SOURCE_PREPARATION_MISMATCH");

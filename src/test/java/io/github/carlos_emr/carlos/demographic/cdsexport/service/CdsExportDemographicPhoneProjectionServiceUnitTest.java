@@ -97,7 +97,7 @@ class CdsExportDemographicPhoneProjectionServiceUnitTest {
     }
 
     @Test
-    void joinsOnlyOneGenerationAndEndsWithFreshAuthorization() throws Exception {
+    void shouldVerifyJoinsOnlyOneGenerationAndEnds_withFreshAuthorization() throws Exception {
         var result = project();
         assertThat(result.sourceManifestSha256()).isEqualTo(HASH);
         assertThat(result.propertyRows()).isEqualTo(2);
@@ -126,14 +126,14 @@ class CdsExportDemographicPhoneProjectionServiceUnitTest {
     }
 
     @Test
-    void incompletePropertyEofCannotBeMistakenForACompleteProjection() throws Exception {
+    void shouldVerifyIncompletePropertyEofCannotBeMistaken_forACompleteProjection() throws Exception {
         properties.removeLast();
         assertThatThrownBy(this::project)
                 .hasMessage("CDS_EXPORT_DEMOGRAPHIC_PHONE_PROJECTION_SCOPE_INVALID");
     }
 
     @Test
-    void aFinalRevocationCannotReturnSuccess() throws Exception {
+    void shouldVerifyAFinalRevocationCannotReturnSuccess_forDemographicPhoneProjectionServiceContract() throws Exception {
         doThrow(new SecurityException("REVOKED"))
                 .when(captures)
                 .authorizeSources(lease, patient, TABLES, control);
@@ -141,7 +141,7 @@ class CdsExportDemographicPhoneProjectionServiceUnitTest {
     }
 
     @Test
-    void aDifferentSourceGenerationIsRejected() throws Exception {
+    void shouldVerifyADifferentSourceGenerationIsRejected_forDemographicPhoneProjectionServiceContract() throws Exception {
         when(rows.forEach(
                         any(),
                         any(),
@@ -159,7 +159,7 @@ class CdsExportDemographicPhoneProjectionServiceUnitTest {
     }
 
     @Test
-    void missingTablesAreNotReportedAsKnownZeroRows() {
+    void shouldVerifyMissingTablesAreNotReportedAsKnownZeroRows_forDemographicPhoneProjectionServiceContract() {
         assertThatThrownBy(
                         () ->
                                 service.project(
@@ -174,7 +174,7 @@ class CdsExportDemographicPhoneProjectionServiceUnitTest {
     }
 
     @Test
-    void anExplicitlyCapturedEmptyPropertyTableKeepsTheBaseNumbers() throws Exception {
+    void shouldVerifyAnExplicitlyCapturedEmptyPropertyTableKeepsTheBaseNumbers_forDemographicPhoneProjectionServiceContract() throws Exception {
         properties.clear();
         count(0);
         var result = project();
@@ -185,7 +185,7 @@ class CdsExportDemographicPhoneProjectionServiceUnitTest {
     }
 
     @Test
-    void declaredAndActualResourceLimitsAreBothEnforced() throws Exception {
+    void shouldVerifyDeclaredAndActualResourceLimitsAreBothEnforced_forDemographicPhoneProjectionServiceContract() throws Exception {
         bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
                         10000, 1L << 20, 1000, 1L << 20, 1, 100);
@@ -195,7 +195,7 @@ class CdsExportDemographicPhoneProjectionServiceUnitTest {
     }
 
     @Test
-    void baseNumbersCannotBeDetachedFromTheirRawCapturedGeneration() throws Exception {
+    void shouldVerifyBaseNumbersCannotBeDetached_fromTheirRawCapturedGeneration() throws Exception {
         var raw = CdsExportDemographicPhonesMapperUnitTest.raw();
         var fields = new TreeMap<>(raw.fields());
         fields.put("phone", "A changed number");
@@ -207,7 +207,7 @@ class CdsExportDemographicPhoneProjectionServiceUnitTest {
     }
 
     @Test
-    void unrelatedPopulatedPropertiesRemainVisibleReviewDecisions() throws Exception {
+    void shouldVerifyUnrelatedPopulatedPropertiesRemainVisibleReviewDecisions_forDemographicPhoneProjectionServiceContract() throws Exception {
         properties.clear();
         properties.add(
                 CdsExportDemographicPhonesMapperUnitTest.property(
@@ -220,7 +220,7 @@ class CdsExportDemographicPhoneProjectionServiceUnitTest {
     }
 
     @Test
-    void callbackDataCannotHideAFailureAtTheEndOfTheUnderlyingRead() throws Exception {
+    void shouldVerifyCallbackDataCannotHideAFailureAtTheEndOfTheUnderlyingRead_forDemographicPhoneProjectionServiceContract() throws Exception {
         when(rows.forEach(
                         any(),
                         any(),

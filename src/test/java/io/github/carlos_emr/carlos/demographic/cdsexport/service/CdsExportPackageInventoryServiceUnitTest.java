@@ -335,7 +335,7 @@ class CdsExportPackageInventoryServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseAnEmptyInventory() {
+    void shouldRefuseAnEmptyInventory_forPackageInventoryServiceContract() {
         assertThatThrownBy(() -> service.seal(store, 100, 1L << 20, () -> {}, output -> {}))
                 .hasMessage("CDS_EXPORT_PACKAGE_INVENTORY_INVALID");
     }

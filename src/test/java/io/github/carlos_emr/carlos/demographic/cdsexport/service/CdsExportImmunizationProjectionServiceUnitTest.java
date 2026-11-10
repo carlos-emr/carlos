@@ -242,7 +242,7 @@ class CdsExportImmunizationProjectionServiceUnitTest {
     }
 
     @Test
-    void joinsEveryCapturedChildAndCountsEveryPhysicalFieldBeforeReturning() throws Exception {
+    void shouldVerifyJoinsEveryCapturedChildAndCountsEveryPhysicalField_beforeReturning() throws Exception {
         var result = project();
         assertThat(result.rows()).isEqualTo(1);
         assertThat(result.blockedRows()).isZero();
@@ -254,7 +254,7 @@ class CdsExportImmunizationProjectionServiceUnitTest {
     }
 
     @Test
-    void unknownClinicalExtensionsRemainABlockedOccurrenceWithTheirFields() throws Exception {
+    void shouldVerifyUnknownClinicalExtensionsRemainABlockedOccurrence_withTheirFields() throws Exception {
         var fields = new TreeMap<>(children.getFirst().fields());
         fields.put("keyval", "unknownClinicalValue");
         children.set(
@@ -268,7 +268,7 @@ class CdsExportImmunizationProjectionServiceUnitTest {
     }
 
     @Test
-    void unselectedForeignChildCannotPassEvenIfAnUpstreamClosureWasSubstituted() {
+    void shouldVerifyUnselectedForeignChildCannotPassEvenIfAnUpstreamClosureWasSubstituted_forImmunizationProjectionServiceContract() {
         var fields = new TreeMap<>(children.getFirst().fields());
         fields.put("prevention_id", "18");
         children.set(
@@ -281,21 +281,21 @@ class CdsExportImmunizationProjectionServiceUnitTest {
     }
 
     @Test
-    void missingSelectedParentCannotBecomeAnEmptySuccessfulProjection() {
+    void shouldVerifyMissingSelectedParentCannotBecomeAnEmptySuccessfulProjection_forImmunizationProjectionServiceContract() {
         parents.clear();
         assertThatThrownBy(this::project)
                 .hasMessage("CDS_EXPORT_IMMUNIZATION_PROJECTION_SCOPE_INVALID");
     }
 
     @Test
-    void duplicateParentsCannotEmitTwoSuccessfulOccurrences() {
+    void shouldVerifyDuplicateParentsCannotEmitTwoSuccessfulOccurrences_forImmunizationProjectionServiceContract() {
         parents.add(parents.getFirst());
         assertThatThrownBy(this::project)
                 .hasMessage("CDS_EXPORT_IMMUNIZATION_PROJECTION_SCOPE_INVALID");
     }
 
     @Test
-    void wrongAuxiliaryGenerationIsRejectedBeforeAnyClinicalCallbacks() {
+    void shouldVerifyWrongAuxiliaryGenerationIsRejected_beforeAnyClinicalCallbacks() {
         wrongAuxiliary = true;
         assertThatThrownBy(this::project)
                 .hasMessage("CDS_EXPORT_IMMUNIZATION_PROJECTION_SCOPE_INVALID");
@@ -303,7 +303,7 @@ class CdsExportImmunizationProjectionServiceUnitTest {
     }
 
     @Test
-    void wrongParentGenerationCannotReturnAProjectionEvenAfterPrivateCallbacks() {
+    void shouldVerifyWrongParentGenerationCannotReturnAProjectionEven_afterPrivateCallbacks() {
         wrongParents = true;
         assertThatThrownBy(this::project)
                 .hasMessage("CDS_EXPORT_IMMUNIZATION_PROJECTION_SCOPE_INVALID");
@@ -311,7 +311,7 @@ class CdsExportImmunizationProjectionServiceUnitTest {
     }
 
     @Test
-    void lateAuthenticatedEofFailureCannotReturnSuccessfulPrivateCallbacks() {
+    void shouldVerifyLateAuthenticatedEofFailureCannotReturnSuccessfulPrivateCallbacks_forImmunizationProjectionServiceContract() {
         failAfterCallbacks = true;
         assertThatThrownBy(this::project).hasMessage("LATE_AUTHENTICATED_PARENT_EOF_FAILURE");
         assertThat(output).hasSize(1);
@@ -319,7 +319,7 @@ class CdsExportImmunizationProjectionServiceUnitTest {
     }
 
     @Test
-    void revocationAtTheLastBoundaryPreventsReturningAProjection() {
+    void shouldVerifyRevocationAtTheLastBoundaryPreventsReturningAProjection_forImmunizationProjectionServiceContract() {
         doThrow(new SecurityException("REVOKED_AFTER_PROJECTION"))
                 .when(captures)
                 .authorizeSources(lease, patient, TABLES, control);
@@ -327,7 +327,7 @@ class CdsExportImmunizationProjectionServiceUnitTest {
     }
 
     @Test
-    void boundedAuxiliaryRowsAndBytesFailExplicitlyWithoutPartialSuccess() {
+    void shouldVerifyBoundedAuxiliaryRowsAndBytesFailExplicitly_withoutPartialSuccess() {
         maximumRows = 1;
         assertThatThrownBy(this::project)
                 .hasMessage("CDS_EXPORT_IMMUNIZATION_AUXILIARY_RESOURCE_LIMIT");
@@ -339,7 +339,7 @@ class CdsExportImmunizationProjectionServiceUnitTest {
     }
 
     @Test
-    void aForeignDefinitionGenerationCannotSupplyNativeTypeMeaning() throws Exception {
+    void shouldVerifyAForeignDefinitionGenerationCannotSupplyNativeTypeMeaning_forImmunizationProjectionServiceContract() throws Exception {
         var foreign =
                 CdsExportPreventionClassifier.fromCaptured(
                         "b".repeat(64),
@@ -355,7 +355,7 @@ class CdsExportImmunizationProjectionServiceUnitTest {
     }
 
     @Test
-    void currentRowsAreNeverReadAfterUpstreamProgramRefusal() throws Exception {
+    void shouldVerifyCurrentRowsAreNeverRead_afterUpstreamProgramRefusal() throws Exception {
         when(closure.verify(lease, patient, TABLES, source, config, 10000, 8L << 20, control))
                 .thenThrow(new SecurityException("PROGRAM_REFUSED"));
         assertThatThrownBy(this::project).hasMessage("PROGRAM_REFUSED");

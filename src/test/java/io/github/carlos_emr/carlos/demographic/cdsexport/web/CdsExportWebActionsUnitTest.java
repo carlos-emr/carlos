@@ -105,6 +105,105 @@ class CdsExportWebActionsUnitTest {
     }
 
     @Test
+    void shouldRefuseEveryExportRoute_beforeServicesWhenRequestPrivilegesAreMissing()
+            throws Exception {
+        request.setMethod("POST");
+        when(security.hasPrivilege(
+                        any(),
+                        org.mockito.ArgumentMatchers.eq("_demographic"),
+                        anyString(),
+                        nullable(String.class)))
+                .thenReturn(false);
+        var artifacts =
+                mock(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                .CdsExportArtifactService.class);
+        for (ActionSupport action :
+                java.util.List.of(
+                        submission(),
+                        new CdsExportControl2Action(web, exports, security),
+                        new CdsExportStatus2Action(web, exports, security),
+                        new CdsExportDownload2Action(web, exports, artifacts, security),
+                        new CdsExportReport2Action(web, exports, security))) {
+            request.setMethod(action instanceof CdsExportStatus2Action ? "GET" : "POST");
+            response = new MockHttpServletResponse();
+            ActionContext.getContext().withServletResponse(response);
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(403);
+        }
+        request.setMethod("GET");
+        var assembler = mock(CdsExportViewModelAssembler.class);
+        assertThatThrownBy(() -> new ViewCdsExport2Action(web, assembler, security).execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_demographic)");
+        verifyNoInteractions(exports, access, artifacts, assembler);
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "CDS_EXPORT_RUN_NOT_FOUND",
+                "CDS_EXPORT_CANCEL_INVALID",
+                "CDS_EXPORT_WORKER_BUSY",
+                "CDS_EXPORT_RESUME_INVALID",
+                "private patient /path"
+            })
+    void shouldClassifyKnownStateErrors_withoutExposingUnexpectedFailureDetails(String code)
+            throws Exception {
+        web.failure(response, new IllegalStateException(code));
+        assertThat(response.getStatus())
+                .isEqualTo(
+                        code.equals("CDS_EXPORT_RUN_NOT_FOUND")
+                                ? 404
+                                : code.startsWith("CDS_EXPORT_") ? 409 : 503);
+        assertThat(response.getContentAsString()).doesNotContain("private patient /path");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"write", "complete", "close"})
+    void shouldKeepCommittedDownloadBytes_withoutEnteringStrutsErrorRendering(String phase)
+            throws Exception {
+        request.setMethod("POST");
+        var artifacts =
+                mock(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                .CdsExportArtifactService.class);
+        var download =
+                mock(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                .CdsExportArtifactService.Download.class);
+        when(artifacts.open(any(), any(), any())).thenReturn(download);
+        when(download.bytes()).thenReturn(3L);
+        org.mockito.Mockito.doAnswer(
+                        call -> {
+                            ((java.io.OutputStream) call.getArgument(0))
+                                    .write(new byte[] {1, 2, 3});
+                            response.flushBuffer();
+                            if (phase.equals("write"))
+                                throw new java.io.IOException("synthetic private path");
+                            return null;
+                        })
+                .when(download)
+                .writeTo(any());
+        if (phase.equals("complete"))
+            org.mockito.Mockito.doThrow(new IllegalStateException("synthetic private path"))
+                    .when(download)
+                    .complete();
+        if (phase.equals("close"))
+            org.mockito.Mockito.doThrow(new java.io.IOException("synthetic private path"))
+                    .when(download)
+                    .close();
+        var action = new CdsExportDownload2Action(web, exports, artifacts, security);
+        action.setRunId(job().id());
+        action.setArtifact("package");
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsByteArray()).containsExactly(1, 2, 3);
+        verify(download).close();
+        if (phase.equals("write"))
+            org.mockito.Mockito.verify(download, org.mockito.Mockito.never()).complete();
+    }
+
+    @Test
     void shouldReturnDurableAcceptance_withoutClaimingCompletion() throws Exception {
         request.setMethod("POST");
         var job = job();
@@ -204,7 +303,7 @@ class CdsExportWebActionsUnitTest {
     }
 
     @Test
-    void shouldKeepObservationParametersUnambiguous() throws Exception {
+    void shouldKeepObservationParametersUnambiguous_forWebActionsContract() throws Exception {
         var action = new CdsExportStatus2Action(web, exports, security);
         action.setSubmissionKey("saved-key");
         action.setRunId(job().id());
@@ -333,11 +432,11 @@ class CdsExportWebActionsUnitTest {
                 mock(
                         io.github.carlos_emr.carlos.demographic.cdsexport.service
                                 .CdsExportArtifactService.class);
-        new CdsExportDownload2Action(web, exports, artifacts).execute();
+        new CdsExportDownload2Action(web, exports, artifacts, security).execute();
         assertThat(response.getStatus()).isEqualTo(405);
         response = new MockHttpServletResponse();
         ActionContext.getContext().withServletResponse(response);
-        new CdsExportReport2Action(web, exports).execute();
+        new CdsExportReport2Action(web, exports, security).execute();
         assertThat(response.getStatus()).isEqualTo(405);
         verifyNoInteractions(exports, access, artifacts);
     }
@@ -368,7 +467,7 @@ class CdsExportWebActionsUnitTest {
                         })
                 .when(download)
                 .writeTo(any());
-        var action = new CdsExportDownload2Action(web, exports, artifacts);
+        var action = new CdsExportDownload2Action(web, exports, artifacts, security);
         action.setRunId(id);
         action.setArtifact("package");
         action.execute();
@@ -396,7 +495,7 @@ class CdsExportWebActionsUnitTest {
                                 .CdsExportArtifactUnavailableException(
                                 io.github.carlos_emr.carlos.demographic.cdsexport.support
                                         .CdsExportArtifactUnavailableException.Kind.PACKAGE));
-        var action = new CdsExportDownload2Action(web, exports, artifacts);
+        var action = new CdsExportDownload2Action(web, exports, artifacts, security);
         action.setRunId(id);
         action.setArtifact("package");
         action.execute();

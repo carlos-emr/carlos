@@ -89,7 +89,7 @@ class CdsExportRetainedContactBindingUnitTest {
     }
 
     @Test
-    void nativeChildResolvesToTheParentsSeparatePreservationPagesAndOnlyItsOwnSubtree()
+    void shouldVerifyNativeChildResolves_toTheParentsSeparatePreservationPagesAndOnlyItsOwnSubtree()
             throws Exception {
         var result = invoke();
         assertThat(result.parentUnitAddress()).isEqualTo(RUN + ":" + PARENT);
@@ -110,7 +110,7 @@ class CdsExportRetainedContactBindingUnitTest {
 
     @Test
     void
-            parentFieldReceiptsCanBeVerifiedWhileNativeContactEditsStillRequireSeparateClinicalReconciliation()
+            shouldVerifyParentFieldReceiptsCanBeVerifiedWhileNativeContactEditsStillRequireSeparateClinicalReconciliation_forRetainedContactBindingContract()
                     throws Exception {
         var slots = new LinkedHashMap<>(checked.units());
         slots.put(
@@ -127,14 +127,14 @@ class CdsExportRetainedContactBindingUnitTest {
     }
 
     @Test
-    void aChangedParentPreservationPageIsNeverTreatedAsOriginalSourceEvidence() {
+    void shouldVerifyAChangedParentPreservationPageIsNeverTreatedAsOriginalSourceEvidence_forRetainedContactBindingContract() {
         build(true);
         assertThatThrownBy(this::invoke)
                 .hasMessage("CDS_EXPORT_DEMOGRAPHIC_SOURCE_FIELD_EVIDENCE_CHANGED");
     }
 
     @Test
-    void missingAndDuplicateSuppliedFieldsCannotHideBehindMatchingCounts() {
+    void shouldVerifyMissingAndDuplicateSuppliedFieldsCannotHideBehindMatchingCounts_forRetainedContactBindingContract() {
         fields.remove(1);
         assertThatThrownBy(this::invoke)
                 .hasMessage("CDS_EXPORT_DEMOGRAPHIC_RETAINED_ASSEMBLY_SCOPE_INVALID");
@@ -145,7 +145,7 @@ class CdsExportRetainedContactBindingUnitTest {
     }
 
     @Test
-    void foreignPatientLineageAndRunNamespacesCannotSubstituteForTheOriginalImportCopy() {
+    void shouldVerifyForeignPatientLineageAndRunNamespacesCannotSubstitute_forTheOriginalImportCopy() {
         for (var edit :
                 List.of(
                         Map.entry("target_demographic_no", "28"),
@@ -169,7 +169,7 @@ class CdsExportRetainedContactBindingUnitTest {
     }
 
     @Test
-    void anUnknownOrMissingParentDependencyCannotBeGuessedFromTheSamePatient() {
+    void shouldVerifyAnUnknownOrMissingParentDependencyCannotBeGuessed_fromTheSamePatient() {
         tables.get("cds_import_dependency").clear();
         build(false);
         assertThatThrownBy(this::invoke).hasMessage("CDS_EXPORT_CONTACT_SOURCE_BINDING_INVALID");
@@ -183,7 +183,7 @@ class CdsExportRetainedContactBindingUnitTest {
     }
 
     @Test
-    void nativeCategoryStateAndCanonicalUnitKeysAreRequired() {
+    void shouldVerifyNativeCategoryStateAndCanonicalUnitKeysAreRequired_forRetainedContactBindingContract() {
         for (var edit :
                 List.of(
                         Map.entry("category", "Demographics"),
@@ -207,7 +207,7 @@ class CdsExportRetainedContactBindingUnitTest {
     }
 
     @Test
-    void anotherSourceGenerationOrUnknownUnitAddressCannotBind() {
+    void shouldVerifyAnotherSourceGenerationOrUnknownUnitAddressCannotBind_forRetainedContactBindingContract() {
         checked =
                 new CdsExportRetainedReceiptVerificationDto(
                         "e".repeat(64),
@@ -229,14 +229,14 @@ class CdsExportRetainedContactBindingUnitTest {
     }
 
     @Test
-    void aNativeChildOrdinalWithoutTheMatchingSourceSubtreeCannotBeInvented() {
+    void shouldVerifyANativeChildOrdinal_withoutTheMatchingSourceSubtreeCannotBeInvented() {
         change("cds_import_unit", CdsImportKeys.hash(RUN, child), "ordinal", "2");
         build(false);
         assertThatThrownBy(this::invoke).hasMessage("CDS_EXPORT_CONTACT_SOURCE_FIELDS_REQUIRED");
     }
 
     @Test
-    void parentNativeIdentityCannotBeReplacedByThePreservationUnit() {
+    void shouldVerifyParentNativeIdentityCannotBeReplaced_byThePreservationUnit() {
         change(
                 "cds_import_unit",
                 CdsImportKeys.hash(RUN, PARENT),
@@ -247,7 +247,7 @@ class CdsExportRetainedContactBindingUnitTest {
     }
 
     @Test
-    void sourceFieldsKeepTheirParentLinksInsteadOfBeingReassignedToTheNativeChild() {
+    void shouldVerifySourceFieldsKeepTheirParentLinks_insteadOfBeingReassignedToTheNativeChild() {
         var parents = new HashMap<>(index.nativeParents());
         for (var field : fields)
             if (field.sourcePath().contains("/Contact[1]/"))
@@ -265,7 +265,7 @@ class CdsExportRetainedContactBindingUnitTest {
     }
 
     @Test
-    void cancellationDuringSourceBindingPropagates() {
+    void shouldVerifyCancellation_duringSourceBindingPropagates() {
         assertThatThrownBy(
                         () ->
                                 binder.bind(

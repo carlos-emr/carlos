@@ -77,7 +77,7 @@ class CdsExportDocumentFileSourceReaderUnitTest {
     }
 
     @Test
-    void shouldDeclareTheCompleteDocumentAndFileDependencyRecipe() throws Exception {
+    void shouldDeclareTheCompleteDocumentAndFileDependencyRecipe_forDocumentFileSourceReaderContract() throws Exception {
         var reader = new CdsExportDocumentFileSourceReader(documents, "", "1024");
         assertThat(reader.requiredTables())
                 .containsExactlyInAnyOrder("document", "ctl_document", "native_document_files");

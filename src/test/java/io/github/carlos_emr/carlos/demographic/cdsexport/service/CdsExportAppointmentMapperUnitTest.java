@@ -50,7 +50,7 @@ class CdsExportAppointmentMapperUnitTest {
     }
 
     @Test
-    void shouldRefuseMissingDuplicateAndFirstCharacterOnlyStatusMatches() throws Exception {
+    void shouldRefuseMissingDuplicateAndFirstCharacterOnlyStatusMatches_forAppointmentMapperContract() throws Exception {
         var original = lookups();
         var definition = status();
         for (var candidates :
@@ -188,7 +188,7 @@ class CdsExportAppointmentMapperUnitTest {
     }
 
     @Test
-    void dictionaryThirtyTwoThousandCharacterLimitCountsUnicodeWithoutTruncation()
+    void shouldVerifyDictionaryThirtyTwoThousandCharacterLimitCountsUnicode_withoutTruncation()
             throws Exception {
         var fields = baseline();
         String exact = "😀".repeat(32000);

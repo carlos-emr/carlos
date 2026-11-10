@@ -1,4 +1,13 @@
 <%-- Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. --%>
+<%--
+    Purpose: authenticated CDS export submission and saved-job monitoring.
+    Features: asynchronous processing, revision-checked cancellation/resume, encrypted
+    package retrieval and metadata diagnostics. Includes the shared CSRF bootstrap.
+    Parameters: optional runId query parameter opens a saved job; all mutations use
+    their POST actions. The model request attribute is CdsExportViewModel, assembled
+    by ViewCdsExport2Action after authorization; this JSP does not read clinical data.
+    @since 2026.08
+--%>
 <%@ page contentType="text/html; charset=UTF-8" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>

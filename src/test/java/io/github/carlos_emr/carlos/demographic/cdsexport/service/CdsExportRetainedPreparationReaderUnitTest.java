@@ -50,7 +50,7 @@ class CdsExportRetainedPreparationReaderUnitTest {
             new CdsExportRetainedPreparationReader();
 
     @Test
-    void everyPreparationRejectsASealedJsonNullRootWithTheSafeIntegrityCode() {
+    void shouldVerifyEveryPreparationRejectsASealedJsonNullRoot_withTheSafeIntegrityCode() {
         String address = run + ":" + unit;
         assertThatThrownBy(
                         () ->
@@ -107,7 +107,7 @@ class CdsExportRetainedPreparationReaderUnitTest {
 
     @Test
     void
-            contactChildrenUseTheirOwnExactSealedPreparationAndPreserveCombinedNativeNamesAndPurposeMarkers()
+            shouldVerifyContactChildrenUseTheirOwnExactSealedPreparationAndPreserveCombinedNativeNamesAndPurposeMarkers_forRetainedPreparationReaderContract()
                     throws Exception {
         var value = contactValue();
         String payload = JSON.writeValueAsString(value);
@@ -131,7 +131,7 @@ class CdsExportRetainedPreparationReaderUnitTest {
     }
 
     @Test
-    void contactCannotSubstituteItsParentCategoryAnotherPayloadTypeOrAnUnappliedUnit()
+    void shouldVerifyContactCannotSubstituteItsParentCategoryAnotherPayloadTypeOrAnUnappliedUnit_forRetainedPreparationReaderContract()
             throws Exception {
         String payload = JSON.writeValueAsString(contactValue());
         assertThatThrownBy(
@@ -168,7 +168,7 @@ class CdsExportRetainedPreparationReaderUnitTest {
     }
 
     @Test
-    void contactRequiresItsOriginalSealAndMatchingSourceOptionsAndRuleset() throws Exception {
+    void shouldVerifyContactRequiresItsOriginalSealAndMatchingSourceOptionsAndRuleset_forRetainedPreparationReaderContract() throws Exception {
         var source =
                 fixture(
                         CdsContactDto.class,
@@ -198,7 +198,7 @@ class CdsExportRetainedPreparationReaderUnitTest {
 
     @Test
     void
-            contactRejectsMissingCreatorFieldsCoercedBooleansAndUnboundedRoleListsUnderRecomputedSeals()
+            shouldVerifyContactRejectsMissingCreatorFieldsCoercedBooleansAndUnboundedRoleLists_underRecomputedSeals()
                     throws Exception {
         String payload = JSON.writeValueAsString(contactValue());
         for (String changed :
@@ -233,7 +233,7 @@ class CdsExportRetainedPreparationReaderUnitTest {
     }
 
     @Test
-    void contactRejectsUnknownNativePhoneSlotsAndMissingNumbersRatherThanGuessing()
+    void shouldVerifyContactRejectsUnknownNativePhoneSlotsAndMissingNumbersRatherThanGuessing_forRetainedPreparationReaderContract()
             throws Exception {
         var value = contactValue();
         for (var phones :
@@ -264,7 +264,7 @@ class CdsExportRetainedPreparationReaderUnitTest {
     }
 
     @Test
-    void shouldReadOnlyTheOriginalSealedCareChildPreparation() throws Exception {
+    void shouldReadOnlyTheOriginalSealedCareChildPreparation_forRetainedPreparationReaderContract() throws Exception {
         var value = careValue();
         var source =
                 fixture(
@@ -423,7 +423,7 @@ class CdsExportRetainedPreparationReaderUnitTest {
     }
 
     @Test
-    void shouldRejectChangedBytesEvenWhenTheyDecodeToTheSameLogicalObject() throws Exception {
+    void shouldRejectChangedBytesEven_whenTheyDecodeToTheSameLogicalObject() throws Exception {
         var source = allergy();
         var prepared = source.tables().get("cds_import_preparation").values().iterator().next();
         var changed = new LinkedHashMap<>(prepared.fields());
@@ -441,7 +441,7 @@ class CdsExportRetainedPreparationReaderUnitTest {
     }
 
     @Test
-    void shouldRefuseForeignUnitSourceOptionsRulesetTypeAndUnappliedFacts() throws Exception {
+    void shouldRefuseForeignUnitSourceOptionsRulesetTypeAndUnappliedFacts_forRetainedPreparationReaderContract() throws Exception {
         var source = allergy();
         var prepared = source.tables().get("cds_import_preparation").values().iterator().next();
         for (var update :
@@ -636,7 +636,7 @@ class CdsExportRetainedPreparationReaderUnitTest {
     }
 
     @Test
-    void shouldReadExactSealedImmunizationDateAndRequiredRefusalFlag() throws Exception {
+    void shouldReadExactSealedImmunizationDateAndRequiredRefusalFlag_forRetainedPreparationReaderContract() throws Exception {
         var value =
                 new CdsImmunizationDto(
                         "Original vaccine",
@@ -662,7 +662,7 @@ class CdsExportRetainedPreparationReaderUnitTest {
     }
 
     @Test
-    void shouldRejectMissingNullOrCoercedRequiredImmunizationFactsUnderRecomputedSeals()
+    void shouldRejectMissingNullOrCoercedRequiredImmunizationFacts_underRecomputedSeals()
             throws Exception {
         var value =
                 new CdsImmunizationDto(
@@ -702,7 +702,7 @@ class CdsExportRetainedPreparationReaderUnitTest {
 
     @Test
     void
-            shouldRestoreTheExactPreparedDemographicDateAndMatchedClinicalRelationsWithoutCurrentOptions()
+            shouldRestoreTheExactPreparedDemographicDateAndMatchedClinicalRelations_withoutCurrentOptions()
                     throws Exception {
         var original = demographicValue();
         String payload = JSON.writeValueAsString(original);
@@ -725,7 +725,7 @@ class CdsExportRetainedPreparationReaderUnitTest {
     }
 
     @Test
-    void shouldRejectDemographicCategoryOrTypeSubstitutionInsteadOfReinterpretingOtherPreparations()
+    void shouldRejectDemographicCategoryOrTypeSubstitution_insteadOfReinterpretingOtherPreparations()
             throws Exception {
         String payload = JSON.writeValueAsString(demographicValue());
         assertThatThrownBy(
@@ -748,7 +748,7 @@ class CdsExportRetainedPreparationReaderUnitTest {
     }
 
     @Test
-    void shouldRefuseIncompleteDemographicPreparationShapesEvenUnderRecomputedSeals()
+    void shouldRefuseIncompleteDemographicPreparationShapesEven_underRecomputedSeals()
             throws Exception {
         var original = JSON.valueToTree(demographicValue());
         for (String field : List.of("birthDate", "firstName", "scalars", "relations")) {
@@ -767,7 +767,7 @@ class CdsExportRetainedPreparationReaderUnitTest {
     }
 
     @Test
-    void shouldRefuseInvalidPreparedDemographicDatesRatherThanInventCalendarDefaults()
+    void shouldRefuseInvalidPreparedDemographicDatesRatherThanInventCalendarDefaults_forRetainedPreparationReaderContract()
             throws Exception {
         String payload = JSON.writeValueAsString(demographicValue());
         for (String invalid : List.of("2020-02-30", "2020-03", "0000-01-01")) {

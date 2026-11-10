@@ -259,7 +259,7 @@ class CdsExportClinicalPackageServiceUnitTest {
     }
 
     @Test
-    void shouldRefusePolicyRotation_afterZipCompletion_andRemoveItsPrivateOutputs()
+    void shouldRefusePolicyRotation_afterZipCompletionAndRemoveItsPrivateOutputs()
             throws Exception {
         when(disclosure.resolveAccepted(any(), any()))
                 .thenReturn(policy, policy)

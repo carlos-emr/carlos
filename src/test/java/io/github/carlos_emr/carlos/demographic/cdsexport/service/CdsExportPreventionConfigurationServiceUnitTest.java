@@ -184,7 +184,7 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void exactFrozenConfigurationAndCatalogueSurviveOriginalFileDeletion() throws Exception {
+    void shouldVerifyExactFrozenConfigurationAndCatalogueSurviveOriginalFileDeletion_forPreventionConfigurationServiceContract() throws Exception {
         var receipt = freeze();
         Files.delete(configuration);
         var value = restore(receipt);
@@ -206,7 +206,7 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void restoreNeverReinterpretsAChangedCurrentConfiguration() throws Exception {
+    void shouldVerifyRestoreNeverReinterpretsAChangedCurrentConfiguration_forPreventionConfigurationServiceContract() throws Exception {
         var receipt = freeze();
         Files.writeString(
                 configuration,
@@ -218,7 +218,7 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void missingOrUnselectedVocabularyScopeCannotProduceAConfigReceipt() {
+    void shouldVerifyMissingOrUnselectedVocabularyScopeCannotProduceAConfigReceipt_forPreventionConfigurationServiceContract() {
         assertThatThrownBy(
                         () ->
                                 service.freeze(
@@ -235,7 +235,7 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void admissionRevocationPrecedesAnyConfigurationOrCapturedValueRead() {
+    void shouldVerifyAdmissionRevocationPrecedesAnyConfigurationOrCapturedValueRead_forPreventionConfigurationServiceContract() {
         doThrow(new SecurityException("ACCESS_REVOKED"))
                 .when(captures)
                 .authorizeSources(lease, patient, TABLES, control);
@@ -245,7 +245,7 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void authorityRevokedAfterAuthenticatedNativeEofErasesNewOutput() {
+    void shouldVerifyAuthorityRevoked_afterAuthenticatedNativeEofErasesNewOutput() {
         doAnswer(
                         call -> {
                             if (readComplete)
@@ -259,14 +259,14 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void lateSourceFailureNeverReturnsAClassifierOrLeavesNewOutput() {
+    void shouldVerifyLateSourceFailureNeverReturnsAClassifierOrLeavesNewOutput_forPreventionConfigurationServiceContract() {
         readFailure = true;
         assertThatThrownBy(this::freeze).hasMessage("CDS_EXPORT_SOURCE_EOF_FAILED");
         assertEmpty();
     }
 
     @Test
-    void changedCapturedGenerationErasesNewConfigInsteadOfMixingInputs() throws Exception {
+    void shouldVerifyChangedCapturedGenerationErasesNewConfig_insteadOfMixingInputs() throws Exception {
         when(rows.forEachTable(
                         eq(lease),
                         eq(patient),
@@ -284,7 +284,7 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void invalidXmlIsRejectedAfterReadbackAndNewMemberIsErased() throws Exception {
+    void shouldVerifyInvalidXmlIsRejected_afterReadbackAndNewMemberIsErased() throws Exception {
         Files.writeString(
                 configuration,
                 "<!DOCTYPE preventions [<!ENTITY x SYSTEM 'file:///must-not-read'>]><preventions><item name='&x;' layout='injection'/></preventions>");
@@ -293,7 +293,7 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void oversizedAndSymlinkConfigurationAreRejectedBeforeCreatingOwnedOutput() throws Exception {
+    void shouldVerifyOversizedAndSymlinkConfigurationAreRejected_beforeCreatingOwnedOutput() throws Exception {
         Files.write(configuration, new byte[1_048_577]);
         assertThatThrownBy(this::freeze).hasMessage("CDS_EXPORT_PREVENTION_CONFIG_UNAVAILABLE");
         assertEmpty();
@@ -304,7 +304,7 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void forgedConfigurationHashCannotReturnACapturedClassifier() throws Exception {
+    void shouldVerifyForgedConfigurationHashCannotReturnACapturedClassifier_forPreventionConfigurationServiceContract() throws Exception {
         var good = freeze();
         var forged =
                 new CdsExportPreventionConfigurationDto(
@@ -319,7 +319,7 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void aForeignSourceBindingIsRefusedBeforeReadingCapturedRows() throws Exception {
+    void shouldVerifyAForeignSourceBindingIsRefused_beforeReadingCapturedRows() throws Exception {
         var good = freeze();
         var forged =
                 new CdsExportPreventionConfigurationDto(
@@ -331,7 +331,7 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void tamperedCiphertextIsAuthenticatedEvenWithValidReceiptHashes() throws Exception {
+    void shouldVerifyTamperedCiphertextIsAuthenticatedEven_withValidReceiptHashes() throws Exception {
         var receipt = freeze();
         var file = output.resolve(receipt.member().memberId() + ".stage");
         byte[] encrypted = Files.readAllBytes(file);
@@ -342,7 +342,7 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void invalidPurposeOrLengthCannotBeLabeledAConfigurationReceipt() throws Exception {
+    void shouldVerifyInvalidPurposeOrLengthCannotBeLabeledAConfigurationReceipt_forPreventionConfigurationServiceContract() throws Exception {
         var receipt = freeze();
         assertThatThrownBy(
                         () ->
@@ -367,7 +367,7 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void cancellationIsPreservedAndDoesNotCreateAConfigurationMember() {
+    void shouldVerifyCancellationIsPreservedAndDoesNotCreateAConfigurationMember_forPreventionConfigurationServiceContract() {
         doThrow(new CancellationException("CANCELLED")).when(control).checkpoint();
         assertThatThrownBy(this::freeze)
                 .isInstanceOf(CancellationException.class)
@@ -444,7 +444,7 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void embeddedConfigurationSurvivesDeletionOfTheCurrentFileAndNeverFallsBackToIt()
+    void shouldVerifyEmbeddedConfigurationSurvivesDeletionOfTheCurrentFileAndNeverFallsBack_toIt()
             throws Exception {
         byte[] xml = XML.getBytes(StandardCharsets.UTF_8);
         var tables = embedded(xml, hash(xml));
@@ -461,7 +461,7 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void exactEmbeddedEncodingIsPreservedRatherThanTranscodedOrLoadedFromChangedSettings()
+    void shouldVerifyExactEmbeddedEncodingIsPreservedRatherThanTranscodedOrLoaded_fromChangedSettings()
             throws Exception {
         byte[] xml = XML.getBytes(StandardCharsets.UTF_16);
         var tables = embedded(xml, hash(xml));
@@ -480,7 +480,7 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void inconsistentEmbeddedDigestCannotBeReplacedWithAValidCurrentFile() throws Exception {
+    void shouldVerifyInconsistentEmbeddedDigestCannotBeReplaced_withAValidCurrentFile() throws Exception {
         var tables = embedded(XML.getBytes(StandardCharsets.UTF_8), "a".repeat(64));
         assertThatThrownBy(
                         () ->
@@ -491,7 +491,7 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void lateEmbeddedSourceFailureCannotProduceAConfigurationMember() throws Exception {
+    void shouldVerifyLateEmbeddedSourceFailureCannotProduceAConfigurationMember_forPreventionConfigurationServiceContract() throws Exception {
         byte[] xml = XML.getBytes(StandardCharsets.UTF_8);
         var tables = embedded(xml, hash(xml));
         when(captures.scan(
@@ -513,7 +513,7 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void anEmbeddedScopeWithoutItsFieldsCannotUseLiveConfigurationAsAFallback() throws Exception {
+    void shouldVerifyAnEmbeddedScope_withoutItsFieldsCannotUseLiveConfigurationAsAFallback() throws Exception {
         byte[] xml = XML.getBytes(StandardCharsets.UTF_8);
         var tables = embedded(xml, hash(xml));
         when(captures.scan(
@@ -535,7 +535,7 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void embeddedReadUsesExactSnapshotEncodingWithoutOpeningAStoreOrCurrentFile() throws Exception {
+    void shouldVerifyEmbeddedReadUsesExactSnapshotEncoding_withoutOpeningAStoreOrCurrentFile() throws Exception {
         byte[] xml = XML.getBytes(StandardCharsets.UTF_16);
         var tables = embedded(xml, hash(xml));
         Files.delete(configuration);
@@ -550,7 +550,7 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void explicitEmbeddedReadRejectsLegacyScopeInsteadOfReadingCurrentSettings() {
+    void shouldVerifyExplicitEmbeddedReadRejectsLegacyScope_insteadOfReadingCurrentSettings() {
         assertThatThrownBy(
                         () ->
                                 service.readEmbedded(
@@ -561,7 +561,7 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void embeddedReadCannotReturnAfterLateCatalogueFailure() throws Exception {
+    void shouldVerifyEmbeddedReadCannotReturn_afterLateCatalogueFailure() throws Exception {
         byte[] xml = XML.getBytes(StandardCharsets.UTF_8);
         var tables = embedded(xml, hash(xml));
         when(rows.forEachTable(
@@ -586,7 +586,7 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void embeddedReadRequiresFreshAuthorityAfterTheLastCatalogueCallback() throws Exception {
+    void shouldVerifyEmbeddedReadRequiresFreshAuthority_afterTheLastCatalogueCallback() throws Exception {
         byte[] xml = XML.getBytes(StandardCharsets.UTF_8);
         var tables = embedded(xml, hash(xml));
         doAnswer(
@@ -607,7 +607,7 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void embeddedReadRequiresTheExactCapturedGeneration() throws Exception {
+    void shouldVerifyEmbeddedReadRequiresTheExactCapturedGeneration_forPreventionConfigurationServiceContract() throws Exception {
         byte[] xml = XML.getBytes(StandardCharsets.UTF_8);
         var tables = embedded(xml, hash(xml));
         when(rows.forEachTable(

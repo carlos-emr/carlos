@@ -46,7 +46,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
     @TempDir Path directory;
 
     @Test
-    void nativeAppointmentUsesExactCurrentDisplayLookupsAndReceivingParser() throws Exception {
+    void shouldVerifyNativeAppointmentUsesExactCurrentDisplayLookupsAndReceivingParser_forAppointmentOccurrenceServiceContract() throws Exception {
         var f = fixture(false);
         var records = parse(compose(f, false));
         var parser = new CdsFieldParser();
@@ -61,7 +61,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
     }
 
     @Test
-    void importedAppointmentRetainsOriginalClinicianAndEffectiveDateWithCurrentNotes()
+    void shouldVerifyImportedAppointmentRetainsOriginalClinicianAndEffectiveDate_withCurrentNotes()
             throws Exception {
         var f = fixture(true);
         var records = parse(compose(f, false));
@@ -77,7 +77,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
     }
 
     @Test
-    void missingCapturedZoneCannotReadRetainedOrClinicalValuesOrUseTheJvmDefault()
+    void shouldVerifyMissingCapturedZoneCannotReadRetainedOrClinicalValuesOrUseTheJvmDefault_forAppointmentOccurrenceServiceContract()
             throws Exception {
         var f = fixture(false);
         f.scopes.remove("clinical_timezone");
@@ -88,7 +88,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
     }
 
     @Test
-    void foreignCapturedZoneGenerationCannotBeRelabelledAsTheCurrentSnapshot() throws Exception {
+    void shouldVerifyForeignCapturedZoneGenerationCannotBeRelabelledAsTheCurrentSnapshot_forAppointmentOccurrenceServiceContract() throws Exception {
         var f = fixture(false);
         when(f.zones.read(
                         any(),
@@ -105,7 +105,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
     }
 
     @Test
-    void missingAndDuplicateRowsCannotBorrowAValidNativeReceipt() throws Exception {
+    void shouldVerifyMissingAndDuplicateRowsCannotBorrowAValidNativeReceipt_forAppointmentOccurrenceServiceContract() throws Exception {
         var missing = fixture(false);
         missing.parents = List.of();
         refused(missing);
@@ -115,7 +115,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
     }
 
     @Test
-    void changedLookupGenerationAndMissingWitnessesCannotReturnAnOccurrence() throws Exception {
+    void shouldVerifyChangedLookupGenerationAndMissingWitnessesCannotReturnAnOccurrence_forAppointmentOccurrenceServiceContract() throws Exception {
         var changed = fixture(false);
         changed.changedGeneration = true;
         refused(changed);
@@ -125,7 +125,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
     }
 
     @Test
-    void archiveHistoryNeedsReviewAfterSourceAuthenticationInsteadOfBeingDropped()
+    void shouldVerifyArchiveHistoryNeedsReview_afterSourceAuthenticationInsteadOfBeingDropped()
             throws Exception {
         var f = fixture(false);
         f.scopes.put("appointmentArchive", new CdsExportCapturedTableDto(Set.of("id"), 1, HASH));
@@ -136,7 +136,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
     }
 
     @Test
-    void finalReceiptRevocationAndParentEofCannotBeSwallowedIntoValidXml() throws Exception {
+    void shouldVerifyFinalReceiptRevocationAndParentEofCannotBeSwallowedIntoValidXml_forAppointmentOccurrenceServiceContract() throws Exception {
         var revoked = fixture(false);
         revoked.revokeAtReceipt = true;
         assertThatThrownBy(() -> compose(revoked, true))
@@ -149,7 +149,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
     }
 
     @Test
-    void receiptSinkAndRetainedValuesFinalFailuresKeepTheWholeDocumentFailed() throws Exception {
+    void shouldVerifyReceiptSinkAndRetainedValuesFinalFailuresKeepTheWholeDocumentFailed_forAppointmentOccurrenceServiceContract() throws Exception {
         var sink = fixture(false);
         sink.receiptFailure = true;
         assertThatThrownBy(() -> compose(sink, true)).hasMessage("CDS_EXPORT_SECTION_WRITE_FAILED");
@@ -160,7 +160,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
     }
 
     @Test
-    void aMissingImportedOccurrenceNeedsReviewInsteadOfReplayingOriginalXml() throws Exception {
+    void shouldVerifyAMissingImportedOccurrenceNeedsReview_insteadOfReplayingOriginalXml() throws Exception {
         var f = fixture(true);
         f.parents = List.of();
         f.receiptRows = List.of();
@@ -175,7 +175,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
     }
 
     @Test
-    void missingDemographicAndCollationAliasesCannotSupplyAnInventedProviderOrName()
+    void shouldVerifyMissingDemographicAndCollationAliasesCannotSupplyAnInventedProviderOrName_forAppointmentOccurrenceServiceContract()
             throws Exception {
         var missing = fixture(false);
         missing.auxiliary =
@@ -196,7 +196,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
     }
 
     @Test
-    void unaccountedRetainedFieldsAndNativeBoundsCannotBecomeCompletePatientResults()
+    void shouldVerifyUnaccountedRetainedFieldsAndNativeBoundsCannotBecomeCompletePatientResults_forAppointmentOccurrenceServiceContract()
             throws Exception {
         var f = fixture(true);
         var original = f.fields.getFirst();

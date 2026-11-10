@@ -197,7 +197,7 @@ class CdsExportCohortServiceUnitTest {
     }
 
     @Test
-    void shouldBindRosterMembership_toTheRequestedPhysicians_withoutUsingCurrentRosterDiscovery()
+    void shouldBindRosterMembership_toTheRequestedPhysiciansWithoutUsingCurrentRosterDiscovery()
             throws Exception {
         lease = lease(CdsExportCommand.Selection.PHYSICIAN_ROSTER, List.of("100"), List.of());
         var valid = cohorts.prepare(lease, selection(row(27, "100") + row(28, "100"), 2), control);
@@ -216,7 +216,7 @@ class CdsExportCohortServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseAnUncommittedOrSubstitutedManifestPointer() throws Exception {
+    void shouldRefuseAnUncommittedOrSubstitutedManifestPointer_forCohortServiceContract() throws Exception {
         var sealed = cohorts.prepare(lease, selection(row(27, null) + row(28, null), 2), control);
         when(ledger.cohort(lease))
                 .thenThrow(new IllegalStateException("CDS_EXPORT_SELECTION_NOT_SEALED"));
@@ -232,7 +232,7 @@ class CdsExportCohortServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseScopesFromAnotherAttemptAndForeignThreadUse() throws Exception {
+    void shouldRefuseScopes_fromAnotherAttemptAndForeignThreadUse() throws Exception {
         var sealed = cohorts.prepare(lease, selection(row(27, null) + row(28, null), 2), control);
         when(ledger.cohort(lease)).thenReturn(sealed.member());
         try (var cursor = cohorts.open(sealed, control)) {

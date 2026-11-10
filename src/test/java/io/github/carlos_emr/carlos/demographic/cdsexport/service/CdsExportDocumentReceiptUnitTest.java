@@ -143,7 +143,7 @@ class CdsExportDocumentReceiptUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"0", "-1", "073", "x"})
-    void shouldRefuseNoncanonicalPatientIdentities(String value) throws Exception {
+    void shouldRefuseNoncanonicalPatientIdentities_forDocumentReceiptContract(String value) throws Exception {
         owner = value;
         prepare();
         assertThatThrownBy(this::read).hasMessage("CDS_EXPORT_NATIVE_ROW_RECEIPT_SCOPE_INVALID");
@@ -151,14 +151,14 @@ class CdsExportDocumentReceiptUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"provider", "Demographic", "demographic ", ""})
-    void shouldRefuseAnotherModuleOrCollationAlias(String value) throws Exception {
+    void shouldRefuseAnotherModuleOrCollationAlias_forDocumentReceiptContract(String value) throws Exception {
         module = value;
         prepare();
         assertThatThrownBy(this::read).hasMessage("CDS_EXPORT_NATIVE_ROW_RECEIPT_SCOPE_INVALID");
     }
 
     @Test
-    void shouldRefuseARecordKeyForAnotherDocument() throws Exception {
+    void shouldRefuseARecordKey_forAnotherDocument() throws Exception {
         key = CdsExportPatientTableSourceReader.key(92);
         prepare();
         assertThatThrownBy(this::read).hasMessage("CDS_EXPORT_NATIVE_ROW_RECEIPT_SCOPE_INVALID");

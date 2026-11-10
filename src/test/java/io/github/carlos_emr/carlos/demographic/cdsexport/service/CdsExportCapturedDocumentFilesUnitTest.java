@@ -118,7 +118,7 @@ class CdsExportCapturedDocumentFilesUnitTest {
     }
 
     @Test
-    void shouldReturnOnlyDescriptorsFromTheWholeVerifiedCapture() throws Exception {
+    void shouldReturnOnlyDescriptors_fromTheWholeVerifiedCapture() throws Exception {
         prepare();
         var files = read();
         assertThat(files).containsOnlyKeys(7);
@@ -137,7 +137,7 @@ class CdsExportCapturedDocumentFilesUnitTest {
     }
 
     @Test
-    void shouldRefuseCorruptBytesBeforeExposingAnyDescriptor() throws Exception {
+    void shouldRefuseCorruptBytes_beforeExposingAnyDescriptor() throws Exception {
         corrupt = true;
         prepare();
         assertThatThrownBy(this::read).isInstanceOf(IOException.class);
@@ -145,14 +145,14 @@ class CdsExportCapturedDocumentFilesUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"07", "0", "-1", "x"})
-    void shouldRefuseNoncanonicalDocumentIdentities(String value) throws Exception {
+    void shouldRefuseNoncanonicalDocumentIdentities_forCapturedDocumentFilesContract(String value) throws Exception {
         document = value;
         prepare();
         assertThatThrownBy(this::read).isInstanceOf(IOException.class);
     }
 
     @Test
-    void shouldRefuseARecordKeyForAnotherDocument() throws Exception {
+    void shouldRefuseARecordKey_forAnotherDocument() throws Exception {
         key = CdsExportPatientTableSourceReader.key(8);
         prepare();
         assertThatThrownBy(this::read).isInstanceOf(IOException.class);

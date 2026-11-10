@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
 
 class CdsExportImmunizationDateProjectionUnitTest {
     @Test
-    void unknownDateDoesNotInventAnAnchorOrOriginalValue() throws Exception {
+    void shouldVerifyUnknownDateDoesNotInventAnAnchorOrOriginalValue_forImmunizationDateProjectionContract() throws Exception {
         var value = CdsExportImmunizationDateProjection.expected(CdsTemporalDto.unknown());
         assertThat(value.kind()).isEqualTo(CdsExportImmunizationDateProjection.Kind.ABSENT);
         assertThat(value.nativeAnchor()).isNull();
@@ -39,7 +39,7 @@ class CdsExportImmunizationDateProjectionUnitTest {
     }
 
     @Test
-    void yearAndMonthUseOnlyTheOriginalPersistersExplicitPartialMarkers() throws Exception {
+    void shouldVerifyYearAndMonthUseOnlyTheOriginalPersistersExplicitPartialMarkers_forImmunizationDateProjectionContract() throws Exception {
         var year =
                 CdsExportImmunizationDateProjection.expected(
                         CdsTemporal.parse("2024", null, null, null, "Date"));
@@ -53,7 +53,7 @@ class CdsExportImmunizationDateProjectionUnitTest {
     }
 
     @Test
-    void dateShiftAffectsTheNativeCandidateWhileTheProvenanceHintStaysOriginal() throws Exception {
+    void shouldVerifyDateShiftAffectsTheNativeCandidateWhileTheProvenanceHintStaysOriginal_forImmunizationDateProjectionContract() throws Exception {
         var source =
                 CdsTemporal.shift(
                         CdsTemporal.parse(null, null, "2024-02-29", null, "Date"), 1, "Date");
@@ -64,7 +64,7 @@ class CdsExportImmunizationDateProjectionUnitTest {
     }
 
     @Test
-    void localFractionIsFlooredOnlyForTheNativeDatetimeZeroWitness() throws Exception {
+    void shouldVerifyLocalFractionIsFlooredOnly_forTheNativeDatetimeZeroWitness() throws Exception {
         var source = CdsTemporal.parse(null, null, null, "2024-02-29T12:34:56.9999999", "Date");
         var value = CdsExportImmunizationDateProjection.expected(source);
         assertThat(value.kind()).isEqualTo(CdsExportImmunizationDateProjection.Kind.LOCAL_CLOCK);
@@ -75,7 +75,7 @@ class CdsExportImmunizationDateProjectionUnitTest {
     }
 
     @Test
-    void endOfDayNativeAnchorAndOriginalSpellingRemainDistinct() throws Exception {
+    void shouldVerifyEndOfDayNativeAnchorAndOriginalSpellingRemainDistinct_forImmunizationDateProjectionContract() throws Exception {
         var source = CdsTemporal.parse(null, null, null, "2024-02-29T24:00:00", "Date");
         var value = CdsExportImmunizationDateProjection.expected(source);
         assertThat(value.nativeAnchor()).isEqualTo("2024-03-01 00:00:00");
@@ -83,7 +83,7 @@ class CdsExportImmunizationDateProjectionUnitTest {
     }
 
     @Test
-    void exactOffsetInstantsRequireHistoricalCivilZoneEvidenceEvenWhenTheCurrentZoneLooksPlausible()
+    void shouldVerifyExactOffsetInstantsRequireHistoricalCivilZoneEvidenceEven_whenTheCurrentZoneLooksPlausible()
             throws Exception {
         var source = CdsTemporal.parse(null, null, null, "2024-02-29T12:34:56.1200-05:00", "Date");
         var value = CdsExportImmunizationDateProjection.expected(source);
@@ -94,7 +94,7 @@ class CdsExportImmunizationDateProjectionUnitTest {
     }
 
     @Test
-    void calendarMidnightIsOnlyACandidateAndCannotAuthorizeAGapAdjustedHistoricalClock()
+    void shouldVerifyCalendarMidnightIsOnlyACandidateAndCannotAuthorizeAGapAdjustedHistoricalClock_forImmunizationDateProjectionContract()
             throws Exception {
         var source = CdsTemporal.parse(null, null, "2018-11-04", null, "Date");
         assertThat(
@@ -109,7 +109,7 @@ class CdsExportImmunizationDateProjectionUnitTest {
     }
 
     @Test
-    void expectedProjectionCannotHideAContradictoryPreparedTemporalValue() {
+    void shouldVerifyExpectedProjectionCannotHideAContradictoryPreparedTemporalValue_forImmunizationDateProjectionContract() {
         var invalid =
                 new CdsTemporalDto(
                         CdsTemporalDto.Precision.FULL_DATE,

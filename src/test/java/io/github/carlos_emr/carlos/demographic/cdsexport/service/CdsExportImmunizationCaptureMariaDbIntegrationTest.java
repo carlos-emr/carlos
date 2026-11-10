@@ -274,7 +274,7 @@ class CdsExportImmunizationCaptureMariaDbIntegrationTest {
     }
 
     @Test
-    void actualJpaSnapshotOwnsTheDefinitionContextAndRejectsReuseAfterCommit() throws Exception {
+    void shouldVerifyActualJpaSnapshotOwnsTheDefinitionContextAndRejectsReuse_afterCommit() throws Exception {
         final CdsExportPreventionSnapshotService.State[] state = {null};
         read.executeWithoutResult(
                 status -> {
@@ -296,7 +296,7 @@ class CdsExportImmunizationCaptureMariaDbIntegrationTest {
 
     @Test
     void
-            selectedOwningDaosIncludeEveryVaccineColumnAndChildWhileExcludingScreeningAndForeignValues() {
+            shouldVerifySelectedOwningDaosIncludeEveryVaccineColumnAndChildWhileExcludingScreeningAndForeignValues_forImmunizationCaptureContract() {
         read.executeWithoutResult(
                 status -> {
                     assertThat(dao.countCdsExportPreventionRows(patient, vaccineIds()))
@@ -338,7 +338,7 @@ class CdsExportImmunizationCaptureMariaDbIntegrationTest {
     }
 
     @Test
-    void unselectedAndForeignChunksOrColumnsCannotBeReadEvenThroughTheSelectedApi() {
+    void shouldVerifyUnselectedAndForeignChunksOrColumnsCannotBeReadEvenThroughTheSelectedApi_forImmunizationCaptureContract() {
         assertThatThrownBy(
                         () ->
                                 read.executeWithoutResult(
@@ -395,7 +395,7 @@ class CdsExportImmunizationCaptureMariaDbIntegrationTest {
     }
 
     @Test
-    void selectedLargeExtensionChunksPreserveUtf8BytesAndNullVersusEmpty() {
+    void shouldVerifySelectedLargeExtensionChunksPreserveUtf8BytesAndNullVersusEmpty_forImmunizationCaptureContract() {
         byte[] expected = largeText.getBytes(StandardCharsets.UTF_8);
         read.executeWithoutResult(
                 status -> {
@@ -428,7 +428,7 @@ class CdsExportImmunizationCaptureMariaDbIntegrationTest {
     }
 
     @Test
-    void configurationAndAllSelectedValuesShareOneActualSnapshotWithoutEntityHydration()
+    void shouldVerifyConfigurationAndAllSelectedValuesShareOneActualSnapshot_withoutEntityHydration()
             throws Exception {
         var sources =
                 List.<CdsExportNativeSourceReader>of(
@@ -518,7 +518,7 @@ class CdsExportImmunizationCaptureMariaDbIntegrationTest {
     }
 
     @Test
-    void unknownInjectionCategoryNeverTurnsIntoAnEmptyOrAutomaticallyIncludedClinicalSelection() {
+    void shouldVerifyUnknownInjectionCategoryNeverTurnsIntoAnEmptyOrAutomaticallyIncludedClinicalSelection_forImmunizationCaptureContract() {
         sql.update(
                 "update preventions set prevention_type='OtherA' where id=? and demographic_no=?",
                 first,
@@ -540,7 +540,7 @@ class CdsExportImmunizationCaptureMariaDbIntegrationTest {
     }
 
     @Test
-    void readonlyAndProgramBoundariesRemainMandatoryEvenForEmptySelections() {
+    void shouldVerifyReadonlyAndProgramBoundariesRemainMandatoryEven_forEmptySelections() {
         assertThatThrownBy(() -> dao.countCdsExportPreventionRows(patient, Set.of()))
                 .isInstanceOf(IllegalTransactionStateException.class);
         var write = new TransactionTemplate(context.getBean(PlatformTransactionManager.class));

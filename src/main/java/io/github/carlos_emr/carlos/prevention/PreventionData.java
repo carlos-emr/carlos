@@ -569,7 +569,7 @@ public class PreventionData {
                 String creatorName = ProviderData.getProviderName(prevention.getCreatorProviderNo());
 
                 addToHashIfNotNull(h, "id", prevention.getId().toString());
-                addToHashIfNotNull(h, "demographicNo", prevention.getDemographicId().toString());
+                addToHashIfNotNull(h, "demographicNo", prevention.getDemographicId() == null ? null : prevention.getDemographicId().toString());
                 addToHashIfNotNull(h, "provider_no", prevention.getProviderNo());
                 addToHashIfNotNull(h, "providerName", providerName);
                 addToHashIfNotNull(h, "creationDate", UtilDateUtilities.DateToString(prevention.getCreationDate(), "yyyy-MM-dd"));

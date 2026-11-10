@@ -28,7 +28,10 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
-/** Independent export admission/delegation policy; import enablement never supplies export authority. */
+/**
+ * Independent export admission/delegation policy; import enablement never supplies export
+ * authority.
+ */
 @Service
 public class CdsExportConfigurationService {
     private final Properties properties;
@@ -58,7 +61,10 @@ public class CdsExportConfigurationService {
         if (!enabled()) throw new IllegalStateException("CDS_EXPORT_ADMISSION_DISABLED");
     }
 
-    /** Dedicated foreground contexts force this false; durable browser acceptance still survives a paused dispatcher. */
+    /**
+     * Dedicated foreground contexts force this false; durable browser acceptance still survives a
+     * paused dispatcher.
+     */
     public boolean workerEnabled() {
         String value = properties.getProperty("cds.export.worker.enabled", "true").strip();
         if (!Set.of("true", "false").contains(value)) {
@@ -67,7 +73,10 @@ public class CdsExportConfigurationService {
         return value.equals("true");
     }
 
-    /** A finite attempt wall budget is independent of lease liveness; exhaustion never truncates a package. */
+    /**
+     * A finite attempt wall budget is independent of lease liveness; exhaustion never truncates a
+     * package.
+     */
     public long maxDurationMillis() {
         String value = properties.getProperty("cds.export.maxDurationMillis", "86400000").strip();
         try {
@@ -80,7 +89,10 @@ public class CdsExportConfigurationService {
         }
     }
 
-    /** Protected server input root; this is separate from clinical source/document and artifact stores. */
+    /**
+     * Protected server input root; this is separate from clinical source/document and artifact
+     * stores.
+     */
     public java.nio.file.Path selectionRoot() {
         return configuredRoot("cds.export.selectionRoot");
     }
@@ -91,17 +103,19 @@ public class CdsExportConfigurationService {
     }
 
     private java.nio.file.Path configuredRoot(String key) {
-        String value = properties.getProperty(key, "").strip();
+        String value = properties.getProperty(key, "");
         try {
-            java.nio.file.Path root = java.nio.file.Path.of(value);
-            if (value.isEmpty() || !root.isAbsolute() || !root.equals(root.normalize())) invalid();
-            return root;
-        } catch (RuntimeException malformed) {
+            return io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportProtectedFiles
+                    .absolute(value);
+        } catch (java.io.IOException | RuntimeException malformed) {
             throw new IllegalStateException("CDS_EXPORT_CONFIGURATION_INVALID");
         }
     }
 
-    /** Additional to independently verified operator identity and every live provider/patient/domain permission. */
+    /**
+     * Additional to independently verified operator identity and every live provider/patient/domain
+     * permission.
+     */
     public void requireDelegation(String operator, String provider, Integer facility) {
         if (operator == null
                 || !operator.matches("[A-Za-z_][A-Za-z0-9_.-]{0,63}\\$?")
@@ -125,7 +139,10 @@ public class CdsExportConfigurationService {
                         && (facility == null || !facilities.contains(facility.toString()))) deny();
     }
 
-    /** Unscoped metadata delegation does not inherit a deleted historical facility; restricted grants still require their exact scope. */
+    /**
+     * Unscoped metadata delegation does not inherit a deleted historical facility; restricted
+     * grants still require their exact scope.
+     */
     public Integer metadataFacility(String verifiedOperator, Integer historicalHint) {
         if (verifiedOperator == null
                 || !verifiedOperator.matches("[A-Za-z_][A-Za-z0-9_.-]{0,63}\\$?")) deny();

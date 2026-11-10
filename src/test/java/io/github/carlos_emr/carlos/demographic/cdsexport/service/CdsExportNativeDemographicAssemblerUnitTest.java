@@ -206,7 +206,7 @@ class CdsExportNativeDemographicAssemblerUnitTest {
     }
 
     @Test
-    void shouldRefuseAForeignPatientOrAChangedRowIdentity() {
+    void shouldRefuseAForeignPatientOrAChangedRowIdentity_forNativeDemographicAssemblerContract() {
         var row = rows.get("demographic").getFirst();
         rows.get("demographic")
                 .set(0, new CdsExportCapturedTextRowDto(row.table(), "0000000028", row.fields()));
@@ -296,7 +296,7 @@ class CdsExportNativeDemographicAssemblerUnitTest {
     }
 
     @Test
-    void shouldVerifyTheSelectedNativeNoteProjectionWithoutBorrowingAWholeRowReceipt()
+    void shouldVerifyTheSelectedNativeNoteProjection_withoutBorrowingAWholeRowReceipt()
             throws Exception {
         custom("Complete native note", null, false);
         var proof = witnesses();
@@ -315,7 +315,7 @@ class CdsExportNativeDemographicAssemblerUnitTest {
     }
 
     @Test
-    void shouldRefuseSubstitutedNativeValuesBeforeAnyTypedXmlIsEmitted() {
+    void shouldRefuseSubstitutedNativeValues_beforeAnyTypedXmlIsEmitted() {
         var proof = witnesses();
         var row = rows.get("demographic").getFirst();
         var changed = new LinkedHashMap<>(row.fields());
@@ -394,7 +394,7 @@ class CdsExportNativeDemographicAssemblerUnitTest {
     }
 
     @Test
-    void shouldAccountForBothPrimaryAndEnrolledUsesOfTheSameCapturedPhysician() throws Exception {
+    void shouldAccount_forBothPrimaryAndEnrolledUsesOfTheSameCapturedPhysician() throws Exception {
         var row = rows.get("demographic").getFirst();
         var values = new LinkedHashMap<>(row.fields());
         values.putAll(

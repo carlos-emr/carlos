@@ -392,7 +392,7 @@ class CdsExportRetainedPayloadServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseACorruptedEncryptedIndexAndAMalformedManifest() throws Exception {
+    void shouldRefuseACorruptedEncryptedIndexAndAMalformedManifest_forRetainedPayloadServiceContract() throws Exception {
         var frozen = freeze();
         Path file = output.resolve(frozen.capture().index().memberId() + ".gcm");
         if (!Files.exists(file)) {
@@ -427,7 +427,7 @@ class CdsExportRetainedPayloadServiceUnitTest {
 
     @Test
     void
-            shouldReadEffectiveValuesFromOwnedCapture_afterDeletingTheOriginal_andExpireTheValueCapability()
+            shouldReadEffectiveValuesFromOwnedCapture_afterDeletingTheOriginalAndExpireTheValueCapability()
                     throws Exception {
         var frozen = freeze();
         Files.delete(spool);
@@ -669,7 +669,7 @@ class CdsExportRetainedPayloadServiceUnitTest {
     }
 
     @Test
-    void shouldExpireTheAuthenticatedScopeEvenWithoutOpeningAValue() throws Exception {
+    void shouldExpireTheAuthenticatedScopeEven_withoutOpeningAValue() throws Exception {
         var frozen = freeze();
         var escaped =
                 new java.util.concurrent.atomic.AtomicReference<
@@ -728,7 +728,7 @@ class CdsExportRetainedPayloadServiceUnitTest {
     }
 
     @Test
-    void shouldRecheckAuthorityAfterFinalWholeMemberAuthentication() throws Exception {
+    void shouldRecheckAuthority_afterFinalWholeMemberAuthentication() throws Exception {
         var frozen = freeze();
         var afterCallback = new java.util.concurrent.atomic.AtomicBoolean();
         var finalScan = new java.util.concurrent.atomic.AtomicBoolean();
@@ -782,7 +782,7 @@ class CdsExportRetainedPayloadServiceUnitTest {
     }
 
     @Test
-    void shouldAuthenticateUnusedOriginalPayloadEvenWhenEveryEffectiveValueIsInline()
+    void shouldAuthenticateUnusedOriginalPayloadEven_whenEveryEffectiveValueIsInline()
             throws Exception {
         var frozen = freeze();
         assertThatThrownBy(

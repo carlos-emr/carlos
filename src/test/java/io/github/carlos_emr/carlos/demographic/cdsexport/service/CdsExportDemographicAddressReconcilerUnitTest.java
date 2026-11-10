@@ -72,7 +72,7 @@ class CdsExportDemographicAddressReconcilerUnitTest {
     }
 
     @Test
-    void unchangedAddressesKeepAllOriginalPartsAndSubtype() throws Exception {
+    void shouldVerifyUnchangedAddressesKeepAllOriginalPartsAndSubtype_forDemographicAddressReconcilerContract() throws Exception {
         var result = reconcile();
         assertThat(result.representable()).isTrue();
         assertThat(result.fields()).hasSize(8);
@@ -82,7 +82,7 @@ class CdsExportDemographicAddressReconcilerUnitTest {
     }
 
     @Test
-    void aCityEditKeepsOriginalMultiLineStreetBoundaries() throws Exception {
+    void shouldVerifyACityEditKeepsOriginalMultiLineStreetBoundaries_forDemographicAddressReconcilerContract() throws Exception {
         compoundStreet();
         fixture.currentField("city", "New town");
         var result = reconcile();
@@ -94,7 +94,7 @@ class CdsExportDemographicAddressReconcilerUnitTest {
     }
 
     @Test
-    void anEditedCompoundStreetRequiresReviewAndAnExplicitStreetClearDeletesAllProjectedLines()
+    void shouldVerifyAnEditedCompoundStreetRequiresReviewAndAnExplicitStreetClearDeletesAllProjectedLines_forDemographicAddressReconcilerContract()
             throws Exception {
         compoundStreet();
         fixture.currentField("address", "Later single line");
@@ -109,7 +109,7 @@ class CdsExportDemographicAddressReconcilerUnitTest {
     }
 
     @Test
-    void aNewNativeResidentialAddressIsAppendedWithItsOwnType() throws Exception {
+    void shouldVerifyANewNativeResidentialAddressIsAppended_withItsOwnType() throws Exception {
         fixture.currentField("residentialAddress", "99 Residential");
         fixture.currentField("residentialCity", "Other town");
         fixture.currentField("residentialProvince", "BC");
@@ -125,7 +125,7 @@ class CdsExportDemographicAddressReconcilerUnitTest {
     }
 
     @Test
-    void aCompletelyClearedProjectedAddressIsRemoved() throws Exception {
+    void shouldVerifyACompletelyClearedProjectedAddressIsRemoved_forDemographicAddressReconcilerContract() throws Exception {
         for (String column : List.of("address", "city", "province", "postal"))
             fixture.currentField(column, null);
         var result = reconcile();
@@ -135,7 +135,7 @@ class CdsExportDemographicAddressReconcilerUnitTest {
     }
 
     @Test
-    void aCountryChangeAlsoReconcilesThePostalChoice() throws Exception {
+    void shouldVerifyACountryChangeAlsoReconcilesThePostalChoice_forDemographicAddressReconcilerContract() throws Exception {
         fixture.currentField("province", "US-NY");
         fixture.currentField("postal", "01234-5678");
         var document = render(reconcile());
@@ -145,7 +145,7 @@ class CdsExportDemographicAddressReconcilerUnitTest {
     }
 
     @Test
-    void anIncompatiblePostalCodeOrMissingJurisdictionRequiresReview() throws Exception {
+    void shouldVerifyAnIncompatiblePostalCodeOrMissingJurisdictionRequiresReview_forDemographicAddressReconcilerContract() throws Exception {
         fixture.currentField("province", "US-NY");
         assertThat(reconcile().representable()).isFalse();
         setup();
@@ -154,7 +154,7 @@ class CdsExportDemographicAddressReconcilerUnitTest {
     }
 
     @Test
-    void identicalRepeatedOriginalAddressesAreKeptAndLaterEditsRequireReview() throws Exception {
+    void shouldVerifyIdenticalRepeatedOriginalAddressesAreKeptAndLaterEditsRequireReview_forDemographicAddressReconcilerContract() throws Exception {
         var copy = new HashMap<>(source);
         copy.forEach(
                 (path, value) -> {
@@ -168,7 +168,7 @@ class CdsExportDemographicAddressReconcilerUnitTest {
     }
 
     @Test
-    void aSourceOnlyOversizedStreetSurvivesAnIndependentCityEditAndClear() throws Exception {
+    void shouldVerifyASourceOnlyOversizedStreetSurvivesAnIndependentCityEditAndClear_forDemographicAddressReconcilerContract() throws Exception {
         source.put("Address[1]/Structured[1]/Line1[1]", "A".repeat(50));
         source.put("Address[1]/Structured[1]/Line2[1]", "B".repeat(25));
         fixture.preparedAddress(
@@ -183,7 +183,7 @@ class CdsExportDemographicAddressReconcilerUnitTest {
     }
 
     @Test
-    void aNewValueCannotOverwriteAnUnprojectedOriginalStreet() throws Exception {
+    void shouldVerifyANewValueCannotOverwriteAnUnprojectedOriginalStreet_forDemographicAddressReconcilerContract() throws Exception {
         source.put("Address[1]/Structured[1]/Line1[1]", "A".repeat(50));
         source.put("Address[1]/Structured[1]/Line2[1]", "B".repeat(25));
         fixture.preparedAddress(
@@ -196,7 +196,7 @@ class CdsExportDemographicAddressReconcilerUnitTest {
     }
 
     @Test
-    void aFormattedStreetCanBeEditedExactlyWithoutChangingItsChoice() throws Exception {
+    void shouldVerifyAFormattedStreetCanBeEditedExactly_withoutChangingItsChoice() throws Exception {
         formatted();
         fixture.currentField("address", "Later\nFormatted");
         var document = render(reconcile());
@@ -205,14 +205,14 @@ class CdsExportDemographicAddressReconcilerUnitTest {
     }
 
     @Test
-    void addingAStructuredCityToAnOriginalFormattedAddressRequiresReview() throws Exception {
+    void shouldVerifyAddingAStructuredCity_toAnOriginalFormattedAddressRequiresReview() throws Exception {
         formatted();
         fixture.currentField("city", "Later");
         assertThat(reconcile().representable()).isFalse();
     }
 
     @Test
-    void anEmptyOriginalStructuredAddressCanReceiveItsFirstNativeValue() throws Exception {
+    void shouldVerifyAnEmptyOriginalStructuredAddressCanReceiveItsFirstNativeValue_forDemographicAddressReconcilerContract() throws Exception {
         source.keySet().removeIf(path -> path.startsWith("Address[1]/Structured[1]/"));
         source.put("Address[1]/Structured[1]", "");
         fixture.preparedAddress(false, new CdsDemographicNativeDto.Address(null, null, null, null));
@@ -221,7 +221,7 @@ class CdsExportDemographicAddressReconcilerUnitTest {
     }
 
     @Test
-    void aMatchedExistingAddressAndExpiredValuesCannotReplayOriginals() throws Exception {
+    void shouldVerifyAMatchedExistingAddressAndExpiredValuesCannotReplayOriginals_forDemographicAddressReconcilerContract() throws Exception {
         fixture.oldField("city", "Existing town");
         assertThat(reconcile().representable()).isFalse();
         active = false;

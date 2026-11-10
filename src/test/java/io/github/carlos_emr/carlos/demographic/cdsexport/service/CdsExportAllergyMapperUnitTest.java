@@ -194,7 +194,7 @@ class CdsExportAllergyMapperUnitTest {
     }
 
     @Test
-    void shouldKeepUnresolvedDrugLookupsAndAdditionalFieldsAsExplicitBlockers() throws Exception {
+    void shouldKeepUnresolvedDrugLookupsAndAdditionalFieldsAsExplicitBlockers_forAllergyMapperContract() throws Exception {
         var fields = baseline();
         fields.putAll(
                 Map.of(
@@ -292,7 +292,7 @@ class CdsExportAllergyMapperUnitTest {
     }
 
     @Test
-    void shouldKeepNativeOnsetDefaultsAndRefuseUnknownOrNormalizingValues() throws Exception {
+    void shouldKeepNativeOnsetDefaultsAndRefuseUnknownOrNormalizingValues_forAllergyMapperContract() throws Exception {
         for (String code : List.of("0", "1", "2", "3")) {
             var fields = baseline();
             fields.putAll(Map.of("age_of_onset", "0", "onset_of_reaction", code));

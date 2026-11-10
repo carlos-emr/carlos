@@ -76,7 +76,7 @@ class CdsExportAppointmentProjectionServiceUnitTest {
     }
 
     @Test
-    void shouldBoundTheLookupIndex_byBothRowsAndBytes_beforeEmittingAnyAppointments()
+    void shouldBoundTheLookupIndex_byBothRowsAndBytesBeforeEmittingAnyAppointments()
             throws Exception {
         for (long bytes : List.of(1L, 1L << 20)) {
             var output = new ArrayList<CdsExportAppointmentMappingDto>();
@@ -88,7 +88,7 @@ class CdsExportAppointmentProjectionServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseMixedGenerations_andARevokedFinalRead_withoutReturningASuccessReceipt()
+    void shouldRefuseMixedGenerations_andARevokedFinalReadWithoutReturningASuccessReceipt()
             throws Exception {
         var output = new ArrayList<CdsExportAppointmentMappingDto>();
         assertThatThrownBy(() -> project(fixture(true, false), 10, 1L << 20, output))
@@ -118,7 +118,7 @@ class CdsExportAppointmentProjectionServiceUnitTest {
     }
 
     @Test
-    void shouldRequireAllFourIndependentlyCapturedInputs() {
+    void shouldRequireAllFourIndependentlyCapturedInputs_forAppointmentProjectionServiceContract() {
         var reader = mock(CdsExportCapturedTextRowsReader.class);
         assertThatThrownBy(
                         () ->
@@ -140,7 +140,7 @@ class CdsExportAppointmentProjectionServiceUnitTest {
     }
 
     @Test
-    void anExplicitCallerZoneMustMatchTheCapturedZoneAndGeneration() throws Exception {
+    void shouldVerifyAnExplicitCallerZoneMustMatchTheCapturedZoneAndGeneration_forAppointmentProjectionServiceContract() throws Exception {
         for (var bound :
                 List.of(
                         new CdsExportClinicalZoneService.Bound(

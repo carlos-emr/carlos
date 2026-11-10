@@ -35,6 +35,9 @@ CREATE TABLE IF NOT EXISTS cds_export_run (
     KEY idx_cds_export_pending (state, lease_until, updated_at, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
+-- Separate guarded DDL also repairs a partially applied, unpublished migration.
+CREATE INDEX IF NOT EXISTS idx_cds_export_history ON cds_export_run (operator, created_at, id);
+
 CREATE TABLE IF NOT EXISTS cds_export_event (
     id VARCHAR(36) NOT NULL,
     run_id VARCHAR(36) NOT NULL,

@@ -27,6 +27,10 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportAccess
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportStaleControlException;
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSubmissionConflictException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -35,9 +39,13 @@ import java.util.Map;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 
-/** Export HTTP boundary: finite errors and explicit scalar projections never serialize clinical intent. */
+/**
+ * Export HTTP boundary: finite errors and explicit scalar projections never serialize clinical
+ * intent.
+ */
 @Service
 public class CdsExportWebService {
+    private static final Logger LOG = LogManager.getLogger(CdsExportWebService.class);
     public static final int API_VERSION = 1;
     public static final String API_HEADER = "X-CARLOS-CDS-Export-API-Version";
     private static final ObjectMapper JSON = new ObjectMapper();
@@ -47,16 +55,22 @@ public class CdsExportWebService {
         this.access = access;
     }
 
-    public LoggedInInfo authorize(HttpServletRequest request) {
+    public LoggedInInfo authorize(HttpServletRequest request, SecurityInfoManager security) {
         var session = request.getSession(false);
-        if (session == null)
-            throw new SecurityException("CDS_EXPORT_SESSION_REQUIRED");
+        if (session == null) throw new SecurityException("CDS_EXPORT_SESSION_REQUIRED");
         var actor = LoggedInInfo.getLoggedInInfoFromSession(session);
         if (actor == null
                 || actor.getLoggedInSecurity() == null
                 || actor.getLoggedInSecurity().getId() == null
                 || actor.getLoggedInProviderNo() == null)
             throw new SecurityException("CDS_EXPORT_SESSION_REQUIRED");
+        if (!security.hasPrivilege(actor, "_demographic", "r", (String) null))
+            throw new SecurityException("missing required sec object (_demographic)");
+        if (!security.hasPrivilege(actor, "_admin", "w", (String) null)
+                && !security.hasPrivilege(actor, "_cds_export", "w", (String) null))
+            throw new SecurityException("missing required sec object (_cds_export)");
+        // The request gate uses the captured session; the service independently rebuilds
+        // the current account/provider and read-only grants to detect revocation.
         access.operatorSession(actor);
         return actor;
     }
@@ -95,7 +109,9 @@ public class CdsExportWebService {
     }
 
     public void failure(HttpServletResponse response, Exception failure) throws IOException {
-        if (response.isCommitted()) throw new IOException("CDS_EXPORT_RESPONSE_FAILED", failure);
+        LOG.error("CDS_EXPORT_REQUEST_FAILED {}", LogSafe.exceptionTrace(failure));
+        // A partial or flushed binary/JSON response must never enter Struts error rendering.
+        if (response.isCommitted()) return;
         response.resetBuffer();
         response.setContentLengthLong(-1);
         response.setHeader("Content-Disposition", null);
@@ -116,10 +132,20 @@ public class CdsExportWebService {
                         .CdsExportArtifactUnavailableException) {
             status = 409;
             code = "CDS_EXPORT_ARTIFACT_UNAVAILABLE";
-        } else if (failure instanceof IllegalStateException
-                && "CDS_EXPORT_ARTIFACT_BUSY".equals(failure.getMessage())) {
-            status = 409;
-            code = "CDS_EXPORT_ARTIFACT_BUSY";
+        } else if (failure instanceof IllegalStateException) {
+            String known = failure.getMessage();
+            if ("CDS_EXPORT_RUN_NOT_FOUND".equals(known)) {
+                status = 404;
+                code = known;
+            } else if (Set.of(
+                            "CDS_EXPORT_ARTIFACT_BUSY",
+                            "CDS_EXPORT_CANCEL_INVALID",
+                            "CDS_EXPORT_WORKER_BUSY",
+                            "CDS_EXPORT_RESUME_INVALID")
+                    .contains(known == null ? "" : known)) {
+                status = 409;
+                code = known;
+            }
         } else if (failure instanceof IllegalArgumentException) {
             status = 400;
             code = "CDS_EXPORT_PARAMETERS_INVALID";
@@ -128,16 +154,21 @@ public class CdsExportWebService {
                 code = failure.getMessage();
             }
         }
-        json(
-                response,
-                status,
-                Map.of(
-                        "ok",
-                        false,
-                        "code",
-                        code,
-                        "message",
-                        "The request did not complete. Check the saved submission or job status before retrying."));
+        try {
+            json(
+                    response,
+                    status,
+                    Map.of(
+                            "ok",
+                            false,
+                            "code",
+                            code,
+                            "message",
+                            "The request did not complete. Check the saved submission or job status"
+                                + " before retrying."));
+        } catch (IOException | IllegalStateException writeFailed) {
+            LOG.error("CDS_EXPORT_ERROR_RESPONSE_FAILED {}", LogSafe.exceptionTrace(writeFailed));
+        }
     }
 
     public Map<String, Object> job(CdsExportJobDto row) {

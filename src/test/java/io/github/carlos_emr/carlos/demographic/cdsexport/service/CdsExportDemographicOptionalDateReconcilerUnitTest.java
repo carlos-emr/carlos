@@ -65,7 +65,7 @@ class CdsExportDemographicOptionalDateReconcilerUnitTest {
     }
 
     @Test
-    void unchangedDatesRetainExactSourceOffsets() throws Exception {
+    void shouldVerifyUnchangedDatesRetainExactSourceOffsets_forDemographicOptionalDateReconcilerContract() throws Exception {
         source.put("PersonStatusDate[1]", "2024-01-02-05:00");
         source.put("HealthCard[1]/Expirydate[1]", "2028-01-02Z");
         var result = reconcile();
@@ -76,7 +76,7 @@ class CdsExportDemographicOptionalDateReconcilerUnitTest {
     }
 
     @Test
-    void preparedSyntheticDatesAreEmittedWithoutRestoringUnshiftedOriginals() throws Exception {
+    void shouldVerifyPreparedSyntheticDatesAreEmitted_withoutRestoringUnshiftedOriginals() throws Exception {
         fixture.preparedOptionalDate("patient_status_date", "2025-01-02");
         fixture.preparedOptionalDate("hc_renew_date", "2029-01-02");
         var result = reconcile();
@@ -87,7 +87,7 @@ class CdsExportDemographicOptionalDateReconcilerUnitTest {
     }
 
     @Test
-    void aNativeEditIsNotShiftedTwiceAndDoesNotChangeTheOtherDate() throws Exception {
+    void shouldVerifyANativeEditIsNotShiftedTwiceAndDoesNotChangeTheOtherDate_forDemographicOptionalDateReconcilerContract() throws Exception {
         fixture.preparedOptionalDate("patient_status_date", "2025-01-02");
         fixture.currentField("patient_status_date", "2026-01-02");
         var document = render(reconcile());
@@ -96,7 +96,7 @@ class CdsExportDemographicOptionalDateReconcilerUnitTest {
     }
 
     @Test
-    void anEditedDateWithAnUnprojectedSourceOffsetRequiresReview() throws Exception {
+    void shouldVerifyAnEditedDate_withAnUnprojectedSourceOffsetRequiresReview() throws Exception {
         source.put("HealthCard[1]/Expirydate[1]", "2028-01-02Z");
         fixture.currentField("hc_renew_date", "2029-01-02");
         var result = reconcile();
@@ -106,7 +106,7 @@ class CdsExportDemographicOptionalDateReconcilerUnitTest {
     }
 
     @Test
-    void explicitNativeClearsRemoveOnlyThoseDates() throws Exception {
+    void shouldVerifyExplicitNativeClearsRemoveOnlyThoseDates_forDemographicOptionalDateReconcilerContract() throws Exception {
         fixture.currentField("patient_status_date", null);
         fixture.currentField("hc_renew_date", null);
         var document = render(reconcile());
@@ -116,7 +116,7 @@ class CdsExportDemographicOptionalDateReconcilerUnitTest {
     }
 
     @Test
-    void missingOptionalDatesCanBeAdded() throws Exception {
+    void shouldVerifyMissingOptionalDatesCanBeAdded_forDemographicOptionalDateReconcilerContract() throws Exception {
         source.remove("PersonStatusDate[1]");
         fixture.preparedOptionalDate("patient_status_date", null);
         fixture.currentField("patient_status_date", "2026-01-02");
@@ -126,7 +126,7 @@ class CdsExportDemographicOptionalDateReconcilerUnitTest {
     }
 
     @Test
-    void invalidCurrentAndSourceDatesHaveNoHistoricalFallback() throws Exception {
+    void shouldVerifyInvalidCurrentAndSourceDatesHaveNoHistoricalFallback_forDemographicOptionalDateReconcilerContract() throws Exception {
         fixture.currentField("hc_renew_date", "2028-02-30");
         assertThat(reconcile().representable()).isFalse();
         setup();
@@ -135,19 +135,19 @@ class CdsExportDemographicOptionalDateReconcilerUnitTest {
     }
 
     @Test
-    void aMatchedExistingChartsDifferentDateCannotQualifyThePreparedProjection() throws Exception {
+    void shouldVerifyAMatchedExistingChartsDifferentDateCannotQualifyThePreparedProjection_forDemographicOptionalDateReconcilerContract() throws Exception {
         fixture.oldField("patient_status_date", "2020-01-02");
         assertThat(reconcile().representable()).isFalse();
     }
 
     @Test
-    void aStatusChangeDoesNotRewriteItsIndependentDate() throws Exception {
+    void shouldVerifyAStatusChangeDoesNotRewriteItsIndependentDate_forDemographicOptionalDateReconcilerContract() throws Exception {
         fixture.currentField("patient_status", "IN");
         assertThat(reconcile().changes()).isEmpty();
     }
 
     @Test
-    void bothAbsentDatesRemainAbsentAndExpiredValuesFail() throws Exception {
+    void shouldVerifyBothAbsentDatesRemainAbsentAndExpiredValuesFail_forDemographicOptionalDateReconcilerContract() throws Exception {
         source.remove("PersonStatusDate[1]");
         source.remove("HealthCard[1]/Expirydate[1]");
         fixture.preparedOptionalDate("patient_status_date", null);

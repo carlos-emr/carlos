@@ -224,7 +224,7 @@ class CdsExportNativeCaptureUnitTest {
     }
 
     @Test
-    void shouldRefuseMissingTablesRowsColumnsAndDuplicateOrUnorderedKeys() {
+    void shouldRefuseMissingTablesRowsColumnsAndDuplicateOrUnorderedKeys_forNativeCaptureContract() {
         List<CdsExportNativeCaptureComposer.Content> invalid =
                 List.of(
                         w -> {},
@@ -400,7 +400,7 @@ class CdsExportNativeCaptureUnitTest {
     }
 
     @Test
-    void shouldRefuseEscapedAndForeignThreadWriters() throws Exception {
+    void shouldRefuseEscapedAndForeignThreadWriters_forNativeCaptureContract() throws Exception {
         var escaped = new CdsExportNativeCaptureComposer.RowWriter[1];
         capture(
                 w -> {
@@ -441,7 +441,7 @@ class CdsExportNativeCaptureUnitTest {
     }
 
     @Test
-    void shouldEnforceActualValueAndFieldLimits() {
+    void shouldEnforceActualValueAndFieldLimits_forNativeCaptureContract() {
         assertThatThrownBy(
                         () ->
                                 composer.compose(
@@ -581,7 +581,7 @@ class CdsExportNativeCaptureUnitTest {
     }
 
     @Test
-    void shouldIndependentlyRejectOmittedAndDuplicatedRowsAndFields() throws Exception {
+    void shouldIndependentlyRejectOmittedAndDuplicatedRowsAndFields_forNativeCaptureContract() throws Exception {
         var values = new ByteArrayOutputStream();
         var index = new ByteArrayOutputStream();
         composer.compose(
@@ -622,7 +622,7 @@ class CdsExportNativeCaptureUnitTest {
     }
 
     @Test
-    void shouldDeliverExactFinishedFieldBytes_withoutClosingSinks_orVerifyingCorruptFields()
+    void shouldDeliverExactFinishedFieldBytes_withoutClosingSinksOrVerifyingCorruptFields()
             throws Exception {
         Capture valid = simple();
         var actual = new TrackingOutput();

@@ -37,6 +37,36 @@ class CdsExportCliArgumentsUnitTest {
     private static final String NONCE = "33333333-3333-4333-8333-333333333333";
 
     @Test
+    void shouldShareStrictAbsolutePathValidation_betweenCliSelectionAndServerRoots() {
+        for (String path :
+                List.of(
+                        "",
+                        "relative/path",
+                        "/safe/../other",
+                        "/safe/\tbad",
+                        "/safe/\nbad",
+                        "/" + "a".repeat(8192))) {
+            var values = new ArrayList<>(List.of(fresh()));
+            int option = values.indexOf("--physicians");
+            values.set(option, "--patients-file");
+            values.set(option + 1, path);
+            assertThatThrownBy(() -> CdsExportCliArguments.parse(values.toArray(String[]::new)))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("CDS_EXPORT_ARGUMENTS_INVALID");
+            var properties = new java.util.Properties();
+            properties.setProperty("cds.export.selectionRoot", path);
+            properties.setProperty("cds.import.stagingRoot", path);
+            var configuration =
+                    new io.github.carlos_emr.carlos.demographic.cdsexport.service
+                            .CdsExportConfigurationService(properties);
+            assertThatThrownBy(configuration::selectionRoot)
+                    .hasMessage("CDS_EXPORT_CONFIGURATION_INVALID");
+            assertThatThrownBy(configuration::retainedImportRoot)
+                    .hasMessage("CDS_EXPORT_CONFIGURATION_INVALID");
+        }
+    }
+
+    @Test
     void shouldFixTheExplicitRosterIntent_andUseTheVerifiedSubmissionNonce() {
         var args = CdsExportCliArguments.parse(fresh());
         var command = args.command(List.of(), NONCE);
@@ -62,7 +92,7 @@ class CdsExportCliArgumentsUnitTest {
     }
 
     @Test
-    void shouldRefuseUnknownDuplicateConflictingAndMissingOptions() {
+    void shouldRefuseUnknownDuplicateConflictingAndMissingOptions_forCliArgumentsContract() {
         for (List<String> suffix :
                 List.of(
                         List.of("--provider", "200"),
@@ -94,7 +124,7 @@ class CdsExportCliArgumentsUnitTest {
     }
 
     @Test
-    void shouldKeepEveryExistingRunOperationOnItsOriginalIntent() {
+    void shouldKeepEveryExistingRunOperation_onItsOriginalIntent() {
         for (String operation : new String[] {"status", "resume", "cancel", "report"}) {
             String[] base = {"--operation", operation, "--provider", "100", "--run", RUN};
             assertThat(CdsExportCliArguments.parse(base).runId()).isEqualTo(RUN);
@@ -174,7 +204,7 @@ class CdsExportCliArgumentsUnitTest {
     }
 
     @Test
-    void shouldAllowDetachOnlyForNewSubmissionOrExplicitResume() {
+    void shouldAllowDetachOnly_forNewSubmissionOrExplicitResume() {
         var values = new ArrayList<>(List.of(fresh()));
         values.add("--detach");
         assertThat(CdsExportCliArguments.parse(values.toArray(String[]::new)).detach()).isTrue();

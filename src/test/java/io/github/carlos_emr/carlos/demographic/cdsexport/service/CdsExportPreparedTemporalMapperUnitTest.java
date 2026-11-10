@@ -56,7 +56,7 @@ class CdsExportPreparedTemporalMapperUnitTest {
         var prepared = CdsTemporal.parse(null,null,null,"2020-02-29T01:02:03-05:00","Date");
         assertThatThrownBy(() -> mapper.map(prepared,false)).hasMessage("CDS_EXPORT_PREPARED_TEMPORAL_REQUIRES_REVIEW");
     }
-    @Test void shouldRejectInconsistentAnchorsAndAnInventedShiftForPartialPrecision() {
+    @Test void shouldRejectInconsistentAnchorsAndAnInventedShift_forPartialPrecision() {
         var inconsistent = new CdsTemporalDto(CdsTemporalDto.Precision.FULL_DATE,"2020-02-29",LocalDate.of(2020,3,2),LocalDate.of(2020,3,2),null,null,1);
         assertThatThrownBy(() -> mapper.map(inconsistent,false)).hasMessage("CDS_EXPORT_PREPARED_TEMPORAL_REQUIRES_REVIEW");
         var partial = new CdsTemporalDto(CdsTemporalDto.Precision.YEAR,"2020",LocalDate.of(2020,1,2),LocalDate.of(2021,1,1),null,null,1);

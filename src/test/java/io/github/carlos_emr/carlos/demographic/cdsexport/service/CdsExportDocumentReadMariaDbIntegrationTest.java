@@ -425,7 +425,7 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldRequireReviewForSeparateNativeReviewerHistory() {
+    void shouldRequireReview_forSeparateNativeReviewerHistory() {
         assertThat(
                         sql.queryForObject(
                                 "select count(*) from provider where provider_no='989875'",
@@ -443,7 +443,7 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldRequireReviewForAdditionalNativeReviewerAssociations() {
+    void shouldRequireReview_forAdditionalNativeReviewerAssociations() {
         sql.update(
                 "insert into DocumentExtraReviewer(id,documentNo,reviewerProviderNo,reviewDateTime) values(?,?,'989879',CURRENT_TIMESTAMP)",
                 patient,
@@ -453,7 +453,7 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldRequireReviewForUnqualifiedDatabaseFileStorage() {
+    void shouldRequireReview_forUnqualifiedDatabaseFileStorage() {
         sql.update(
                 "insert into document_storage(id,documentNo,fileContents,uploadDate) values(?,?,?,CURRENT_TIMESTAMP)",
                 patient,
@@ -469,7 +469,7 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldReproduceOriginalDocumentAndCompositeLinkReceipts() {
+    void shouldReproduceOriginalDocumentAndCompositeLinkReceipts_forDocumentReadContract() {
         read.executeWithoutResult(
                 status -> {
                     var original =
@@ -611,7 +611,7 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldKeepOtherPatientsHospitalReportsOutsideTheSelectedChart() {
+    void shouldKeepOtherPatientsHospitalReportsOutsideTheSelectedChart_forDocumentReadContract() {
         hospitalReportLink(Integer.toString(patient + 1));
         assertThatCode(
                         () ->
@@ -621,7 +621,7 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldRepeatHospitalReportAbsenceInsideTheSamePatientSnapshot() {
+    void shouldRepeatHospitalReportAbsenceInsideTheSamePatientSnapshot_forDocumentReadContract() {
         read.executeWithoutResult(
                 status -> {
                     hospitalReports.requireCdsExportAbsent(patient);
@@ -735,7 +735,7 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldKeepTheLegacyTableStableUntilThePatientSnapshotReleasesItsReadLock()
+    void shouldKeepTheLegacyTableStableUntilThePatientSnapshotReleasesItsReadLock_forDocumentReadContract()
             throws Exception {
         sql.update(
                 "insert into formRourke2009(ID,demographic_no,provider_no) values(?,?,'989879')",

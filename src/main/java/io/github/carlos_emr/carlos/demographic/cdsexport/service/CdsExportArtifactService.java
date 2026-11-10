@@ -32,7 +32,10 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.stereotype.Service;
 
-/** Authorized recipient-ciphertext retrieval shared by HTTP and CLI. No request selects a physical staging member. */
+/**
+ * Authorized recipient-ciphertext retrieval shared by HTTP and CLI. No request selects a physical
+ * staging member.
+ */
 @Service
 public class CdsExportArtifactService {
     private final CdsExportLedgerService ledger;
@@ -88,7 +91,10 @@ public class CdsExportArtifactService {
         }
     }
 
-    /** A single-use, finite delivery; the durable lease also protects a slow/blocked output from retention. */
+    /**
+     * A single-use, finite delivery; the durable lease also protects a slow/blocked output from
+     * retention.
+     */
     public final class Download implements AutoCloseable {
         private final CdsExportActorDto actor;
         private final CdsExportLedgerService.Download lease;
@@ -97,7 +103,7 @@ public class CdsExportArtifactService {
         private final AtomicReference<RuntimeException> heartbeatFailure = new AtomicReference<>();
         private final ScheduledExecutorService heartbeat;
         private CdsExportStagingService store;
-        private boolean used, written, closed, completed;
+        private boolean used, written, outputWritten, closed, completed;
         private final CdsExportRunControl control =
                 new CdsExportRunControl() {
                     @Override
@@ -257,6 +263,9 @@ public class CdsExportArtifactService {
                     if (count != bytes())
                         throw new IOException("CDS_EXPORT_DOWNLOAD_LENGTH_CHANGED");
                     output.flush();
+                    // The recipient may have all ciphertext even if final authority or
+                    // audit confirmation subsequently fails. Do not call that no delivery.
+                    outputWritten = true;
                     fullScope();
                     authority();
                     ledger.downloadCheckpoint(lease);
@@ -283,7 +292,7 @@ public class CdsExportArtifactService {
             if (closed) return;
             closed = true;
             heartbeat.shutdownNow();
-            if (!completed) ledger.finishDownload(lease, false);
+            if (!completed) ledger.finishDownload(lease, false, outputWritten);
         }
 
         @Override

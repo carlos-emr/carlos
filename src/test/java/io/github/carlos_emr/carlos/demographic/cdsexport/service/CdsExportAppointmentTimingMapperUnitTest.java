@@ -42,7 +42,7 @@ class CdsExportAppointmentTimingMapperUnitTest {
     }
 
     @Test
-    void wireTimeCarriesTheExactSourceOffsetWithoutChangingItsLocalClock() throws Exception {
+    void shouldVerifyWireTimeCarriesTheExactSourceOffset_withoutChangingItsLocalClock() throws Exception {
         var winter = mapper.map("2024-02-29", "09:00:30", "10:15:30", zone);
         assertThat(winter.time()).isEqualTo("09:00:30");
         assertThat(winter.wireTime()).isEqualTo("09:00:30-05:00");
@@ -53,7 +53,7 @@ class CdsExportAppointmentTimingMapperUnitTest {
     }
 
     @Test
-    void historicalSecondOffsetsAndOffsetsOutsideTheWireRangeNeedReview() {
+    void shouldVerifyHistoricalSecondOffsetsAndOffsetsOutsideTheWireRangeNeedReview_forAppointmentTimingMapperContract() {
         assertThatThrownBy(() -> mapper.map("1800-01-01", "09:00:00", "10:00:00", zone))
                 .hasMessage("CDS_EXPORT_APPOINTMENT_TIMING_REQUIRES_REVIEW");
         assertThatThrownBy(
@@ -80,7 +80,7 @@ class CdsExportAppointmentTimingMapperUnitTest {
     }
 
     @Test
-    void shouldRefuseAmbiguousMissingAndOffsetChangingDaylightSavingSlots() {
+    void shouldRefuseAmbiguousMissingAndOffsetChangingDaylightSavingSlots_forAppointmentTimingMapperContract() {
         for (var slot :
                 List.of(
                         List.of("2026-11-01", "01:15:00", "01:45:00"),
@@ -92,7 +92,7 @@ class CdsExportAppointmentTimingMapperUnitTest {
     }
 
     @Test
-    void shouldRefuseZeroInvalidOrNormalizedDateTimeLexicals() {
+    void shouldRefuseZeroInvalidOrNormalizedDateTimeLexicals_forAppointmentTimingMapperContract() {
         for (String date :
                 List.of("0000-00-00", "1900-02-29", "2024-2-29", "2024-02-30", " 2024-02-29")) {
             assertThatThrownBy(() -> mapper.map(date, "09:00:00", "10:00:00", zone))

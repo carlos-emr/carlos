@@ -77,7 +77,7 @@ class CdsExportStorageProtocolUnitTest {
     }
 
     @Test
-    void shouldRejectInvalidStorageIdentifiersAndFingerprints() {
+    void shouldRejectInvalidStorageIdentifiersAndFingerprints_forStorageProtocolContract() {
         assertThatThrownBy(
                         () ->
                                 new CdsExportStorageBindingDto(

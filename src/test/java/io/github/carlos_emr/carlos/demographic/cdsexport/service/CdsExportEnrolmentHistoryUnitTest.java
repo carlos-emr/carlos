@@ -46,7 +46,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     @TempDir Path directory;
 
     @Test
-    void mapsExactCurrentAndTerminatedEventsWithTheActualEnrolledProvider() throws Exception {
+    void shouldVerifyMapsExactCurrentAndTerminatedEvents_withTheActualEnrolledProvider() throws Exception {
         var mapper = new CdsExportEnrolmentMapper();
         var current =
                 mapper.map(27, current("RO", "2022-03-01", null, null, "0é27"), provider("0é27"));
@@ -66,7 +66,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void neverInfersTerminatedHistoryFromANotRosteredOrMissingStatus() throws Exception {
+    void shouldVerifyNeverInfersTerminatedHistory_fromANotRosteredOrMissingStatus() throws Exception {
         for (String status : Arrays.asList(null, "", "NR")) {
             var result =
                     new CdsExportEnrolmentMapper()
@@ -84,7 +84,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void datesComeOnlyFromExplicitRosterDates() throws Exception {
+    void shouldVerifyDatesComeOnly_fromExplicitRosterDates() throws Exception {
         for (String start :
                 Arrays.asList(
                         null,
@@ -111,7 +111,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void refusesUnknownAndWhitespaceNormalizedRosterStates() throws Exception {
+    void shouldVerifyRefusesUnknownAndWhitespaceNormalizedRosterStates_forEnrolmentHistoryContract() throws Exception {
         for (String status : List.of("0", "1", "ro", "RO ", "TE\n", "UNKNOWN", "NU"))
             assertThat(
                             new CdsExportEnrolmentMapper()
@@ -121,7 +121,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void enforcesTheGuideConditionalDatesAndConsistentState() throws Exception {
+    void shouldVerifyEnforcesTheGuideConditionalDatesAndConsistentState_forEnrolmentHistoryContract() throws Exception {
         for (var row :
                 List.of(
                         current("TE", "2020-01-01", null, null, null),
@@ -141,7 +141,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void usesTheExactPinnedTerminationCodesAndDoesNotTrimThem() throws Exception {
+    void shouldVerifyUsesTheExactPinnedTerminationCodesAndDoesNotTrimThem_forEnrolmentHistoryContract() throws Exception {
         for (String reason : CdsExportEnrolmentEventDto.TERMINATION_REASONS)
             assertThat(
                             new CdsExportEnrolmentMapper()
@@ -187,7 +187,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void missingOrDifferentExactProviderReferencesNeverFallBackToThePrimaryPhysician()
+    void shouldVerifyMissingOrDifferentExactProviderReferencesNeverFallBack_toThePrimaryPhysician()
             throws Exception {
         var row = current("RO", "2020-01-01", null, null, "0é27");
         assertThat(new CdsExportEnrolmentMapper().map(27, row, null).representable()).isFalse();
@@ -204,7 +204,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void unknownOhipAndOverlengthProviderDataCannotCreateAnOtherwiseValidEvent() throws Exception {
+    void shouldVerifyUnknownOhipAndOverlengthProviderDataCannotCreateAnOtherwiseValidEvent_forEnrolmentHistoryContract() throws Exception {
         var fields = new TreeMap<>(provider("0é27").fields());
         fields.put("ohip_no", "1234567");
         assertThat(
@@ -219,7 +219,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void fullRowIdentityColumnSetsAndCanonicalKeysAreMandatory() throws Exception {
+    void shouldVerifyFullRowIdentityColumnSetsAndCanonicalKeysAreMandatory_forEnrolmentHistoryContract() throws Exception {
         var original = current("RO", "2020-01-01", null, null, null);
         assertThatThrownBy(() -> new CdsExportEnrolmentMapper().map(28, original, null))
                 .hasMessage("CDS_EXPORT_ENROLMENT_SOURCE_SCOPE_INVALID");
@@ -255,7 +255,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void identicalSnapshotVersionsHaveOneEventAndKeepEverySourceFieldDisposition()
+    void shouldVerifyIdenticalSnapshotVersionsHaveOneEventAndKeepEverySourceFieldDisposition_forEnrolmentHistoryContract()
             throws Exception {
         var history = history();
         history.accept(archive(1, "RO", "2020-01-01", null, null, null), null);
@@ -268,7 +268,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void distinctCompletedEpisodesAndPhysiciansAreNotCollapsed() throws Exception {
+    void shouldVerifyDistinctCompletedEpisodesAndPhysiciansAreNotCollapsed_forEnrolmentHistoryContract() throws Exception {
         var history = history();
         history.accept(archive(1, "RO", "2020-01-01", null, null, "A"), provider("A"));
         history.accept(archive(2, "TE", "2020-01-01", "2021-01-01", "12", "A"), provider("A"));
@@ -279,7 +279,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void conflictingVersionsOfOneTerminationAreReviewCasesRatherThanExtraClinicalEvents()
+    void shouldVerifyConflictingVersionsOfOneTerminationAreReviewCasesRatherThanExtraClinicalEvents_forEnrolmentHistoryContract()
             throws Exception {
         for (String changed : List.of("reason", "end")) {
             var history = history();
@@ -300,7 +300,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void aReopenedOldEpisodeRequiresAnExplicitCorrectionDecision() throws Exception {
+    void shouldVerifyAReopenedOldEpisodeRequiresAnExplicitCorrectionDecision_forEnrolmentHistoryContract() throws Exception {
         var history = history();
         history.accept(archive(1, "TE", "2020-01-01", "2021-01-01", "12", null), null);
         assertThatThrownBy(
@@ -309,7 +309,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void aClearedCurrentRosterCannotSilentlyReplayAnOldActiveState() throws Exception {
+    void shouldVerifyAClearedCurrentRosterCannotSilentlyReplayAnOldActiveState_forEnrolmentHistoryContract() throws Exception {
         for (String state : Arrays.asList(null, "", "NR")) {
             var history = history();
             history.accept(archive(1, "RO", "2020-01-01", null, null, null), null);
@@ -325,7 +325,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void anOlderCurrentEffectiveDateCannotBeOverriddenByANewerArchivedEvent() throws Exception {
+    void shouldVerifyAnOlderCurrentEffectiveDateCannotBeOverridden_byANewerArchivedEvent() throws Exception {
         var history = history();
         history.accept(archive(1, "TE", "2020-01-01", "2025-01-01", null, "A"), provider("A"));
         history.accept(current("RO", "2024-01-01", null, null, "B"), provider("B"));
@@ -334,7 +334,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void anUnclosedEpisodeCannotBeSilentlyTurnedIntoMultipleEnrolmentsByAnEditedDateOrPhysician()
+    void shouldVerifyAnUnclosedEpisodeCannotBeSilentlyTurnedIntoMultipleEnrolments_byAnEditedDateOrPhysician()
             throws Exception {
         for (String change : List.of("date", "physician")) {
             var history = history();
@@ -357,7 +357,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void aCaughtBadRowPermanentlyInvalidatesTheHistory() throws Exception {
+    void shouldVerifyACaughtBadRowPermanentlyInvalidatesTheHistory_forEnrolmentHistoryContract() throws Exception {
         var history = history();
         assertThatThrownBy(() -> history.accept(archive(1, "RO", null, null, null, null), null))
                 .hasMessage("CDS_EXPORT_ENROLMENT_HISTORY_REQUIRES_REVIEW");
@@ -368,7 +368,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void allArchiveRowsAndExactlyOneCurrentRowMustBeConsumed() throws Exception {
+    void shouldVerifyAllArchiveRowsAndExactlyOneCurrentRowMustBeConsumed_forEnrolmentHistoryContract() throws Exception {
         var history = history();
         history.accept(archive(1, null, null, null, null, null), null);
         assertThatThrownBy(() -> history.finish(1))
@@ -380,7 +380,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void lateArchivesReversedKeysAndRepeatedRowsCannotPassTheHistoryFence() throws Exception {
+    void shouldVerifyLateArchivesReversedKeysAndRepeatedRowsCannotPassTheHistoryFence_forEnrolmentHistoryContract() throws Exception {
         var late = history();
         late.accept(current(null, null, null, null, null), null);
         assertThatThrownBy(() -> late.accept(archive(1, null, null, null, null, null), null))
@@ -396,7 +396,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void countByteAndCancellationLimitsLeaveNoUsableHistory() throws Exception {
+    void shouldVerifyCountByteAndCancellationLimitsLeaveNoUsableHistory_forEnrolmentHistoryContract() throws Exception {
         var limited = new CdsExportEnrolmentHistory(27, 1, 1L << 20, () -> {});
         limited.accept(archive(1, null, null, null, null, null), null);
         assertThatThrownBy(() -> limited.accept(current(null, null, null, null, null), null))
@@ -419,7 +419,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void actualSchemaAndReceivingImporterRetainTheCompleteNativeEventSequenceAndPatientNote()
+    void shouldVerifyActualSchemaAndReceivingImporterRetainTheCompleteNativeEventSequenceAndPatientNote_forEnrolmentHistoryContract()
             throws Exception {
         var history = history();
         history.accept(archive(1, "RO", "2020-01-01", null, null, "A"), provider("A"));
@@ -472,7 +472,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void absentOrNeverEnrolledRowsDoNotEmitAnEmptyEnrolmentElement() throws Exception {
+    void shouldVerifyAbsentOrNeverEnrolledRowsDoNotEmitAnEmptyEnrolmentElement_forEnrolmentHistoryContract() throws Exception {
         var row = current("NR", null, null, null, null);
         var history = history();
         history.accept(row, null);
@@ -488,7 +488,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void projectionDispositionsCannotBeDetachedFromTheirPatientAndCurrentRow() throws Exception {
+    void shouldVerifyProjectionDispositionsCannotBeDetached_fromTheirPatientAndCurrentRow() throws Exception {
         var row = current(null, null, null, null, null);
         var history = history();
         history.accept(row, null);
@@ -507,7 +507,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void mappedEnrolmentStatesCannotDisappearBehindAnEmptyOutputList() throws Exception {
+    void shouldVerifyMappedEnrolmentStatesCannotDisappearBehindAnEmptyOutputList_forEnrolmentHistoryContract() throws Exception {
         var row = current("RO", "2020-01-01", null, null, null);
         var history = history();
         history.accept(row, null);
@@ -526,7 +526,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void equalFieldCountsCannotHideAReplacedHistoricalRowIdentity() throws Exception {
+    void shouldVerifyEqualFieldCountsCannotHideAReplacedHistoricalRowIdentity_forEnrolmentHistoryContract() throws Exception {
         var history = history();
         history.accept(archive(1, "RO", "2020-01-01", null, null, null), null);
         history.accept(archive(2, "TE", "2020-01-01", "2021-01-01", null, null), null);

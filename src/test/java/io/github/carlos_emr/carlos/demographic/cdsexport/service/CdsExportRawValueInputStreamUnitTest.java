@@ -161,7 +161,7 @@ class CdsExportRawValueInputStreamUnitTest {
     }
 
     @Test
-    void shouldNeverTreatAPartialClosedStreamAsAVerifiedValue() throws Exception {
+    void shouldNeverTreatAPartialClosedStreamAsAVerifiedValue_forRawValueInputStreamContract() throws Exception {
         var source = mock(CdsExportPatientTableReadDao.class);
         byte[] bytes = "partial".getBytes(StandardCharsets.UTF_8);
         var input =

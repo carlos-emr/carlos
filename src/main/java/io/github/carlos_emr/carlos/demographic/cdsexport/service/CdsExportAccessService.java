@@ -44,11 +44,11 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Reconstructs current account/provider/facility and permissions at each disclosure boundary.
- * A saved job actor is identity, not a saved grant; logout alone does not cancel accepted work.
- * Each call owns a fresh read-committed transaction, so an enclosing captured source snapshot
- * cannot keep a revoked permission alive. Never invoke while holding a maintenance capability
- * that would block these ordinary clinical security reads.
+ * Reconstructs current account/provider/facility and permissions at each disclosure boundary. A
+ * saved job actor is identity, not a saved grant; logout alone does not cancel accepted work. Each
+ * call owns a fresh read-committed transaction, so an enclosing captured source snapshot cannot
+ * keep a revoked permission alive. Never invoke while holding a maintenance capability that would
+ * block these ordinary clinical security reads.
  */
 @Service
 @Transactional(
@@ -102,12 +102,17 @@ public class CdsExportAccessService {
         return actor;
     }
 
-    /** Worker entry rechecks the recorded actor's current global scope before any patient discovery. */
+    /**
+     * Worker entry rechecks the recorded actor's current global scope before any patient discovery.
+     */
     public void requireScope(CdsExportActorDto actor, CdsExportCommand command) {
         context(actor, command, null, null, false);
     }
 
-    /** Current delegated metadata identity; the provider establishes live administration, not a replacement disclosure scope. */
+    /**
+     * Current delegated metadata identity; the provider establishes live administration, not a
+     * replacement disclosure scope.
+     */
     public CdsExportActorDto delegatedSession(
             String verifiedOperator, String provider, Integer historicalFacilityHint) {
         Integer facility = configuration.metadataFacility(verifiedOperator, historicalFacilityHint);
@@ -116,14 +121,19 @@ public class CdsExportAccessService {
         return actor;
     }
 
-    /** Admission/capture/publication/retrieval callers recheck every selected category and patient. */
+    /**
+     * Admission/capture/publication/retrieval callers recheck every selected category and patient.
+     */
     public LoggedInInfo requirePatient(
             CdsExportActorDto actor, CdsExportCommand command, int patient) {
         requireSelectedPatient(command, patient);
         return context(actor, command, patient, null, false);
     }
 
-    /** Source adapters must additionally flag actual sensitive laboratory occurrences; absence of that flag is not proof. */
+    /**
+     * Source adapters must additionally flag actual sensitive laboratory occurrences; absence of
+     * that flag is not proof.
+     */
     public LoggedInInfo requireCategory(
             CdsExportActorDto actor,
             CdsExportCommand command,
@@ -137,7 +147,9 @@ public class CdsExportAccessService {
         return context(actor, command, patient, category, sensitiveLaboratory);
     }
 
-    /** Native pharmacy rights apply even when MedicationsAndTreatments is not selected for the wire. */
+    /**
+     * Native pharmacy rights apply even when MedicationsAndTreatments is not selected for the wire.
+     */
     public LoggedInInfo requirePharmacyRead(
             CdsExportActorDto actor, CdsExportCommand command, int patient) {
         requireSelectedPatient(command, patient);
@@ -147,8 +159,8 @@ public class CdsExportAccessService {
 
     /**
      * Rechecks the exact note's live program and reporter-role dependencies for both identities,
-     * after the ordinary category/patient gates and before any note payload is read or emitted.
-     * A caller-supplied captured scope is compared with the current physical row, never trusted.
+     * after the ordinary category/patient gates and before any note payload is read or emitted. A
+     * caller-supplied captured scope is compared with the current physical row, never trusted.
      */
     public void requireNoteRead(
             CdsExportActorDto actor,
@@ -183,7 +195,10 @@ public class CdsExportAccessService {
                                 configuration.filterNotesOnFacility())) deny();
     }
 
-    /** Complete issue/catalogue reads use the live chart gate even for a patient with no native notes. */
+    /**
+     * Complete issue/catalogue reads use the live chart gate even for a patient with no native
+     * notes.
+     */
     public void requireCaseManagementRead(
             CdsExportActorDto actor, CdsExportCommand command, int patient) {
         if (command == null
@@ -222,7 +237,10 @@ public class CdsExportAccessService {
             deny();
     }
 
-    /** Owner or current administrator may observe/control metadata; this never substitutes for clinical publication/download authority. */
+    /**
+     * Owner or current administrator may observe/control metadata; this never substitutes for
+     * clinical publication/download authority.
+     */
     public void requireObserve(CdsExportActorDto observer, CdsExportJobOwnerDto owner) {
         LoggedInInfo current = metadataContext(observer);
         if (!Objects.equals(observer.operatorKey(), owner.operatorKey())
@@ -245,15 +263,28 @@ public class CdsExportAccessService {
         if (account == null)
             configuration.requireDelegation(
                     actor.operator(), actor.providerNo(), actor.facilityId());
-        else if (!actor.operator().equals("web-" + account.getSecurityNo())
-                || !Objects.equals(actor.providerNo(), account.getProviderNo())) deny();
+        else {
+            if (!actor.operator().equals("web-" + account.getSecurityNo())) deny();
+            // A disclosure actor can carry the explicitly delegated provider rather than
+            // the account's own provider. Both identities remain live authorization gates.
+            LoggedInInfo operator =
+                    providerContext(account.getProviderNo(), actor.facilityId(), account);
+            requireAdministration(operator);
+            requireMetadataRead(operator);
+            if (!Objects.equals(actor.providerNo(), account.getProviderNo()))
+                configuration.requireDelegation(
+                        actor.operator(), actor.providerNo(), actor.facilityId());
+        }
         LoggedInInfo current = providerContext(actor.providerNo(), actor.facilityId(), account);
         requireAdministration(current);
         requireMetadataRead(current);
         return current;
     }
 
-    /** Metadata/history authorization without import admission, clinical writes, or a fabricated export command. */
+    /**
+     * Metadata/history authorization without import admission, clinical writes, or a fabricated
+     * export command.
+     */
     public CdsExportActorDto operatorSession(LoggedInInfo supplied) {
         Security account = sessionAccount(supplied);
         Integer facility =

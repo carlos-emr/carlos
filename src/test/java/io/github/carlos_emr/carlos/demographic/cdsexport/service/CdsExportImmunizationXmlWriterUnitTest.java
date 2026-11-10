@@ -44,7 +44,7 @@ class CdsExportImmunizationXmlWriterUnitTest {
             new CdsExportPreparedImmunizationMapper();
 
     @Test
-    void preservesEveryStandardFieldAndRefusedFlagThroughPinnedSchemaAndReceivingImporter()
+    void shouldVerifyPreservesEveryStandardFieldAndRefusedFlagThroughPinnedSchemaAndReceivingImporter_forImmunizationXmlWriterContract()
             throws Exception {
         for (var profile : CdsLogicalProfile.values())
             for (boolean refused : new boolean[] {true, false}) {
@@ -58,7 +58,7 @@ class CdsExportImmunizationXmlWriterUnitTest {
     }
 
     @Test
-    void preservesEachCalendarPrecisionWithoutInsertingAnInventedDay() throws Exception {
+    void shouldVerifyPreservesEachCalendarPrecision_withoutInsertingAnInventedDay() throws Exception {
         for (var date :
                 List.of(
                         CdsTemporalDto.unknown(),
@@ -73,7 +73,7 @@ class CdsExportImmunizationXmlWriterUnitTest {
     }
 
     @Test
-    void preservesSealedDateShiftInsteadOfRestoringOriginalXml() throws Exception {
+    void shouldVerifyPreservesSealedDateShift_insteadOfRestoringOriginalXml() throws Exception {
         var shifted =
                 new CdsTemporalDto(
                         CdsTemporalDto.Precision.FULL_DATE,
@@ -89,7 +89,7 @@ class CdsExportImmunizationXmlWriterUnitTest {
     }
 
     @Test
-    void preservesExactEmptyOptionalTextAndUnicodeWithoutTrimming() throws Exception {
+    void shouldVerifyPreservesExactEmptyOptionalTextAndUnicode_withoutTrimming() throws Exception {
         var value =
                 new CdsExportImmunizationDto(
                         " Physician's café 😀 entry ",
@@ -113,7 +113,7 @@ class CdsExportImmunizationXmlWriterUnitTest {
     }
 
     @Test
-    void refusesUnlistedAndNormalizedTypeAliasesBeforeWritingAnyStandardValue() throws Exception {
+    void shouldVerifyRefusesUnlistedAndNormalizedTypeAliases_beforeWritingAnyStandardValue() throws Exception {
         for (String type : List.of("H1N1", "COVID-19", "Td ", " TD", "UNKNOWN_TYPE"))
             assertThatThrownBy(
                             () -> compose(replace("type", type), CdsLogicalProfile.ONTARIO_MD_5_2))
@@ -121,7 +121,7 @@ class CdsExportImmunizationXmlWriterUnitTest {
     }
 
     @Test
-    void theDictionary32000BoundaryIsEnforcedBelowTheBroaderWireFacet() throws Exception {
+    void shouldVerifyTheDictionary32000BoundaryIsEnforcedBelowTheBroaderWireFacet_forImmunizationXmlWriterContract() throws Exception {
         assertThat(
                         roundTrip(
                                         replace("notes", "😀".repeat(32000)),
@@ -138,7 +138,7 @@ class CdsExportImmunizationXmlWriterUnitTest {
     }
 
     @Test
-    void refusesMissingBlankOrOverlongRequiredName() throws Exception {
+    void shouldVerifyRefusesMissingBlankOrOverlongRequiredName_forImmunizationXmlWriterContract() throws Exception {
         for (String name : Arrays.asList(null, "", "  ", "😀".repeat(121))) {
             var value = replace("name", name);
             assertThatThrownBy(() -> compose(value, CdsLogicalProfile.ONTARIO_MD_5_2))
@@ -147,7 +147,7 @@ class CdsExportImmunizationXmlWriterUnitTest {
     }
 
     @Test
-    void refusesOversizedOptionalFieldsAndIllegalXmlWithoutTruncation() throws Exception {
+    void shouldVerifyRefusesOversizedOptionalFieldsAndIllegalXml_withoutTruncation() throws Exception {
         for (String field :
                 List.of("manufacturer", "lot", "route", "site", "dose", "instructions", "notes")) {
             int limit = field.equals("notes") ? 32000 : field.equals("instructions") ? 250 : 120;
@@ -162,14 +162,14 @@ class CdsExportImmunizationXmlWriterUnitTest {
     }
 
     @Test
-    void acceptsCodePointLimitWithoutTreatingSurrogatePairsAsTwoCharacters() throws Exception {
+    void shouldVerifyAcceptsCodePointLimit_withoutTreatingSurrogatePairsAsTwoCharacters() throws Exception {
         var value = replace("name", "😀".repeat(120));
         assertThat(roundTrip(value, CdsLogicalProfile.ONTARIO_MD_5_2).name())
                 .isEqualTo(value.name());
     }
 
     @Test
-    void refusesUnverifiedCodingSystemsOrInvalidDinInsteadOfPaddingOrInventingAuthority()
+    void shouldVerifyRefusesUnverifiedCodingSystemsOrInvalidDin_insteadOfPaddingOrInventingAuthority()
             throws Exception {
         for (String din : List.of("1234567", "123456789", "abcdefgh", "１２３４５６７８", " 00123456"))
             assertThatThrownBy(
@@ -184,7 +184,7 @@ class CdsExportImmunizationXmlWriterUnitTest {
     }
 
     @Test
-    void rejectsIncompleteCodePairsAtConstruction() {
+    void shouldVerifyRejectsIncompleteCodePairsAtConstruction_forImmunizationXmlWriterContract() {
         assertThatThrownBy(() -> replace("code", null))
                 .hasMessage("CDS_EXPORT_IMMUNIZATION_CODE_INCOMPLETE");
         assertThatThrownBy(() -> replace("codeSystem", null))
@@ -192,7 +192,7 @@ class CdsExportImmunizationXmlWriterUnitTest {
     }
 
     @Test
-    void unknownImmunizationTypeMustFailThePinnedSchema() throws Exception {
+    void shouldVerifyUnknownImmunizationTypeMustFailThePinnedSchema_forImmunizationXmlWriterContract() throws Exception {
         assertThatThrownBy(
                         () ->
                                 roundTrip(
@@ -202,7 +202,7 @@ class CdsExportImmunizationXmlWriterUnitTest {
     }
 
     @Test
-    void caughtInvalidEventStillPoisonsTheWholeDocument() throws Exception {
+    void shouldVerifyCaughtInvalidEventStillPoisonsTheWholeDocument_forImmunizationXmlWriterContract() throws Exception {
         var good = mapper.map(source(CdsTemporalDto.unknown(), false));
         var bad = replace("name", "");
         assertThatThrownBy(
@@ -222,7 +222,7 @@ class CdsExportImmunizationXmlWriterUnitTest {
     }
 
     @Test
-    void protectedDtoDoesNotRenderClinicalValues() throws Exception {
+    void shouldVerifyProtectedDtoDoesNotRenderClinicalValues_forImmunizationXmlWriterContract() throws Exception {
         assertThat(mapper.map(source(CdsTemporalDto.unknown(), true)).toString())
                 .isEqualTo("CdsExportImmunizationDto[protected]");
     }

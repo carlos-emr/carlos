@@ -26,7 +26,6 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
@@ -62,15 +61,7 @@ public class CdsExportStatus2Action extends ActionSupport {
             return NONE;
         }
         try {
-            var session = request.getSession(false);
-            var viewer = session == null ? null : LoggedInInfo.getLoggedInInfoFromSession(session);
-            if (!securityInfoManager.hasPrivilege(viewer, "_demographic", "r", (String) null)
-                    || !(securityInfoManager.hasPrivilege(viewer, "_admin", "w", (String) null)
-                            || securityInfoManager.hasPrivilege(
-                                    viewer, "_cds_export", "w", (String) null))) {
-                throw new SecurityException("CDS_EXPORT_ACCESS_DENIED");
-            }
-            var actor = web.authorize(request);
+            var actor = web.authorize(request, securityInfoManager);
             web.parameters(
                     request,
                     Set.of("runId", "submissionKey", "after", "limit", "autoRefresh"),

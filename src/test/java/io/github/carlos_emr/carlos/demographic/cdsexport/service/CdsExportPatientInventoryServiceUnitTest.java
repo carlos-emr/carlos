@@ -123,7 +123,7 @@ class CdsExportPatientInventoryServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseANoteAssignedToCompetingSourceUnits() throws Exception {
+    void shouldRefuseANoteAssigned_toCompetingSourceUnits() throws Exception {
         var f = fixture(CdsCategory.CLINICAL_NOTES);
         f.nativeRows.add(
                 new CdsExportNativeRowReceiptDto(
@@ -154,7 +154,7 @@ class CdsExportPatientInventoryServiceUnitTest {
     }
 
     @Test
-    void shouldRequireTheCurrentDemographic() throws Exception {
+    void shouldRequireTheCurrentDemographic_forPatientInventoryServiceContract() throws Exception {
         var f = fixture();
         f.nativeRows.clear();
         assertThatThrownBy(() -> capture(f)).hasMessage("CDS_EXPORT_PATIENT_INVENTORY_INVALID");

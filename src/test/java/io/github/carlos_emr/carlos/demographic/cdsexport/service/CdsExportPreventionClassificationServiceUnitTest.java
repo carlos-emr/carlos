@@ -145,7 +145,7 @@ class CdsExportPreventionClassificationServiceUnitTest {
     }
 
     @Test
-    void partitionsTheCompleteFrozenMetadataAndChecksAuthorityAfterPlanning() throws Exception {
+    void shouldVerifyPartitionsTheCompleteFrozenMetadataAndChecksAuthority_afterPlanning() throws Exception {
         var result = classify();
         assertThat(result.immunizations()).containsExactly(1);
         assertThat(result.otherPreventions()).containsExactly(2);
@@ -155,7 +155,7 @@ class CdsExportPreventionClassificationServiceUnitTest {
     }
 
     @Test
-    void unknownTypesAreAnExplicitReviewPartitionRatherThanOmitted() {
+    void shouldVerifyUnknownTypesAreAnExplicitReviewPartitionRatherThanOmitted_forPreventionClassificationServiceContract() {
         metadata = List.of(row(1, "Td"), row(2, "UNCONFIGURED"));
         assertThatCode(
                         () -> {
@@ -170,7 +170,7 @@ class CdsExportPreventionClassificationServiceUnitTest {
     }
 
     @Test
-    void aForeignConfigurationGenerationIsRefusedBeforeAnyMetadataCallbacks() throws Exception {
+    void shouldVerifyAForeignConfigurationGenerationIsRefused_beforeAnyMetadataCallbacks() throws Exception {
         when(configuration.restore(
                         lease, patient, TABLES, source, receipt, 1000, 4L << 20, control))
                 .thenReturn(classifier("c".repeat(64)));
@@ -179,14 +179,14 @@ class CdsExportPreventionClassificationServiceUnitTest {
     }
 
     @Test
-    void lateAuthenticatedSourceFailureCannotBecomeAPartialClassification() {
+    void shouldVerifyLateAuthenticatedSourceFailureCannotBecomeAPartialClassification_forPreventionClassificationServiceContract() {
         failAtEof = true;
         assertThatThrownBy(this::classify).hasMessage("LATE_SOURCE_EOF_FAILURE");
         verifyNoInteractions(captures);
     }
 
     @Test
-    void currentPermissionRevocationAfterPlanningPreventsReturningThePartition() {
+    void shouldVerifyCurrentPermissionRevocation_afterPlanningPreventsReturningThePartition() {
         doThrow(new SecurityException("ACCESS_REVOKED_AFTER_PLAN"))
                 .when(captures)
                 .authorizeSources(lease, patient, TABLES, control);
@@ -194,7 +194,7 @@ class CdsExportPreventionClassificationServiceUnitTest {
     }
 
     @Test
-    void aCapturedGenerationSubstitutionIsRefusedBeforePartitioning() throws Exception {
+    void shouldVerifyACapturedGenerationSubstitutionIsRefused_beforePartitioning() throws Exception {
         when(rows.forEach(
                         eq(lease),
                         eq(patient),
@@ -211,7 +211,7 @@ class CdsExportPreventionClassificationServiceUnitTest {
     }
 
     @Test
-    void scopeMustIncludeTheMetadataAliasAndExactlyMatchTheNativeManifest() {
+    void shouldVerifyScopeMustIncludeTheMetadataAliasAndExactlyMatchTheNativeManifest_forPreventionClassificationServiceContract() {
         assertThatThrownBy(
                         () ->
                                 service.classify(
@@ -228,7 +228,7 @@ class CdsExportPreventionClassificationServiceUnitTest {
     }
 
     @Test
-    void aForeignPatientRowCannotBeHiddenByAValidClassifier() {
+    void shouldVerifyAForeignPatientRowCannotBeHidden_byAValidClassifier() {
         var fields = new TreeMap<>(row(2, "PAP").fields());
         fields.put("demographic_no", "28");
         metadata =
@@ -242,7 +242,7 @@ class CdsExportPreventionClassificationServiceUnitTest {
     }
 
     @Test
-    void aCancellationAtTheLastBoundaryRemainsCancellation() {
+    void shouldVerifyACancellationAtTheLastBoundaryRemainsCancellation_forPreventionClassificationServiceContract() {
         doThrow(new java.util.concurrent.CancellationException("CANCELLED_AFTER_PLAN"))
                 .when(control)
                 .checkpoint();
@@ -252,7 +252,7 @@ class CdsExportPreventionClassificationServiceUnitTest {
     }
 
     @Test
-    void aCapturedProgramRestrictionIsStillAReviewPartitionRatherThanAGrant() {
+    void shouldVerifyACapturedProgramRestrictionIsStillAReviewPartitionRatherThanAGrant_forPreventionClassificationServiceContract() {
         var fields = new TreeMap<>(row(1, "Td").fields());
         fields.put("restrictToProgram", "1");
         fields.put("programNo", "1");
@@ -276,7 +276,7 @@ class CdsExportPreventionClassificationServiceUnitTest {
     }
 
     @Test
-    void embeddedClassificationUsesTheExplicitSnapshotApiAndPreservesTheCompletePartition()
+    void shouldVerifyEmbeddedClassificationUsesTheExplicitSnapshotApiAndPreservesTheCompletePartition_forPreventionClassificationServiceContract()
             throws Exception {
         when(configuration.readEmbedded(lease, patient, TABLES, source, 1000, 4L << 20, control))
                 .thenReturn(classifier(source.manifest().plaintextSha256()));
@@ -290,7 +290,7 @@ class CdsExportPreventionClassificationServiceUnitTest {
     }
 
     @Test
-    void embeddedClassificationCannotReturnAForeignGenerationOrARevokedPartition()
+    void shouldVerifyEmbeddedClassificationCannotReturnAForeignGenerationOrARevokedPartition_forPreventionClassificationServiceContract()
             throws Exception {
         when(configuration.readEmbedded(lease, patient, TABLES, source, 1000, 4L << 20, control))
                 .thenReturn(classifier("c".repeat(64)));

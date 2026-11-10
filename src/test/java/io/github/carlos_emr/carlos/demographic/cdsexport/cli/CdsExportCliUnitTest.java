@@ -53,7 +53,7 @@ import org.junit.jupiter.api.Test;
 @Tag("cds-export")
 class CdsExportCliUnitTest {
     @Test
-    void progressCloseWaitsForInterruptedWorkToRetire() throws Exception {
+    void shouldVerifyProgressCloseWaits_forInterruptedWorkToRetire() throws Exception {
         var started = new CountDownLatch(1);
         var finished = new CountDownLatch(1);
         try (var progress = new CdsExportCli.ProgressExecutor()) {
@@ -74,7 +74,7 @@ class CdsExportCliUnitTest {
     }
 
     @Test
-    void progressClosePreservesTheCallersInterruptFlag() {
+    void shouldVerifyProgressClosePreservesTheCallersInterruptFlag_forCliContract() {
         try {
             try (var progress = new CdsExportCli.ProgressExecutor()) {
                 Thread.currentThread().interrupt();
@@ -86,7 +86,7 @@ class CdsExportCliUnitTest {
     }
 
     @Test
-    void progressCloseRefusesWorkThatDoesNotRetireWithinItsBound() throws Exception {
+    void shouldVerifyProgressCloseRefusesWorkThatDoesNotRetire_withinItsBound() throws Exception {
         var started = new CountDownLatch(1);
         var release = new Semaphore(0);
         try (var progress = new CdsExportCli.ProgressExecutor(TimeUnit.MILLISECONDS.toNanos(25))) {
@@ -253,7 +253,7 @@ class CdsExportCliUnitTest {
     }
 
     @Test
-    void shouldKeepAnUnavailableVerifiedReport_orPackage_incomplete() throws Exception {
+    void shouldKeepAnUnavailableVerifiedReport_orPackageIncomplete() throws Exception {
         doThrow(
                         new CdsExportArtifactUnavailableException(
                                 CdsExportArtifactUnavailableException.Kind.REPORT))
