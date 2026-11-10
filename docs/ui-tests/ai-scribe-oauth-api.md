@@ -13,15 +13,18 @@ together.
 - Scoped OAuth demographic read, update, and database-backed read-after-write.
 - Scoped measurement read using an owned synthetic BP measurement.
 - eForm template listing, create, load, update, and persisted read-after-write.
-- `insufficient_scope` refusals for eForm reads/updates and measurement writes
-  when the token lacks the corresponding scope.
+- `insufficient_scope` refusals for demographic and eForm operations when the
+  token lacks the corresponding scope.
 - The current REST measurement-write gap: a suitably scoped `PUT` is expected
   to return HTTP 405.
 
 The eForm endpoints manage templates, not completed patient eForm instances.
 Measurement REST currently supports reads only; adding measurements is a
-separate SOAP/WS-Security API. The check makes these boundaries explicit rather
-than treating them as implemented OAuth workflows.
+separate SOAP/WS-Security API. Both limited-scope and fully scoped REST
+measurement `PUT` probes return HTTP 405 because the route does not exist; the
+limited-scope probe therefore does not demonstrate `measurement.write` scope
+enforcement. The check makes these boundaries explicit rather than treating
+them as implemented OAuth workflows.
 
 ## Prerequisites and execution
 
@@ -47,8 +50,9 @@ EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
 
 `EXPECT_OAUTH_MODE` is an assertion, not a server configuration mechanism.
 The script refuses a non-scoped expectation, and the OAuth consent page must
-not show a legacy-mode warning. A successful run prints the verified workflows
-and reports the expected HTTP 405 for the unsupported measurement write.
+not show a legacy-mode warning. A successful run prints an endpoint-by-endpoint
+table with the HTTP status, persisted read-after-write checks, scope refusals,
+and explicit `GAP` rows for the unsupported measurement writes.
 
 The check creates one uniquely marked synthetic demographic and BP
 measurement, one eForm template, and one temporary OAuth client with issued
