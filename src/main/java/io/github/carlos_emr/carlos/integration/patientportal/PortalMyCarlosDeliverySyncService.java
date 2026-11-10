@@ -9,7 +9,11 @@ import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDevic
 import java.time.Clock;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Objects;
@@ -30,13 +34,39 @@ final class PortalMyCarlosDeliverySyncService {
     private final Supplier<Current> configuration;
     private final Clock clock;
     private final PropertyDao properties;
+    private final SkipAudit audit;
     private static final String COLLECTOR_BINDING = "mycarlos.delivery.collector.binding.v1";
+    /**
+     * How old an event about something CARLOS has no record of must be before it is passed over:
+     * the longest a device approval request can stay open (600 s, {@code PortalMyCarlosDeviceApprovalCodec})
+     * plus 300 s for the difference between the two clocks. It is a courtesy delay, not a bound: an
+     * event can reach the feed while the device it names is still being approved, so a younger one
+     * is held as before, but {@code occurred_at} is the portal's and a device can still be accepted
+     * later. Passing over is safe because of what each kind applies: an anchor applies nothing, a
+     * delivery CARLOS does not hold has nothing to apply, and a device removal still fences its key.
+     */
+    static final long UNKNOWN_SETTLED_SECONDS = 900;
+
+    /** Audit of an event passed over; written only after the collection that passed it commits. */
+    @FunctionalInterface
+    interface SkipAudit { void skipped(String clinic, long sequence, String kind); }
 
     PortalMyCarlosDeliverySyncService(PortalMyCarlosDeviceApprovalTransactions transactions,
             PortalMyCarlosDeliveryEventDao events, PortalMyCarlosDeliveryOutboxDao outbox,
             PortalMyCarlosDeliveryOutboxService sender, PortalMyCarlosAcceptedDeviceDao devices,
             PortalMyCarlosPatientBindingDao bindings, PortalMyCarlosDeliveryClient client,
             PortalMyCarlosDeliveryCipher cipher, Supplier<Current> configuration, Clock clock, PropertyDao properties) {
+        this(transactions, events, outbox, sender, devices, bindings, client, cipher, configuration, clock, properties,
+                (clinic, sequence, kind) -> LogAction.addLog("-1", LogConst.UPDATE, "mycarlosDeliveryEventSkipped",
+                        Long.toString(sequence), null, null, "kind=" + kind + " reason=unknown_recipient"));
+    }
+
+    PortalMyCarlosDeliverySyncService(PortalMyCarlosDeviceApprovalTransactions transactions,
+            PortalMyCarlosDeliveryEventDao events, PortalMyCarlosDeliveryOutboxDao outbox,
+            PortalMyCarlosDeliveryOutboxService sender, PortalMyCarlosAcceptedDeviceDao devices,
+            PortalMyCarlosPatientBindingDao bindings, PortalMyCarlosDeliveryClient client,
+            PortalMyCarlosDeliveryCipher cipher, Supplier<Current> configuration, Clock clock, PropertyDao properties,
+            SkipAudit audit) {
         this.transactions = Objects.requireNonNull(transactions);
         this.events = Objects.requireNonNull(events);
         this.outbox = Objects.requireNonNull(outbox);
@@ -48,12 +78,16 @@ final class PortalMyCarlosDeliverySyncService {
         this.configuration = Objects.requireNonNull(configuration);
         this.clock = Objects.requireNonNull(clock);
         this.properties = Objects.requireNonNull(properties);
+        this.audit = Objects.requireNonNull(audit);
     }
 
     enum Result { BUSY, COLLECTED, RECOVERED_ACK, QUARANTINED }
     private record Writer(String clinic, String token, long through, long acknowledged, String configHash) {}
-    private record Collected(long through, boolean quarantined) {}
-    private record Prepared(Runnable apply, boolean proofVerified) {}
+    private record Collected(long through, boolean quarantined, List<Skip> skipped) {}
+    private record Skip(long sequence, String kind) {}
+    private record Prepared(Runnable apply, boolean proofVerified, boolean skipped) {
+        Prepared(Runnable apply, boolean proofVerified) { this(apply, proofVerified, false); }
+    }
     private static final class Untrusted extends IllegalArgumentException {
         private static final long serialVersionUID = 1L;
         final String code;
@@ -101,6 +135,7 @@ final class PortalMyCarlosDeliverySyncService {
             long pageId = keepPage(writer, exact, null);
             long through = writer.through();
             String failure = null;
+            List<Skip> skipped = new ArrayList<>();
             for (var event : page.events()) {
                 if (through == Long.MAX_VALUE || event.sequence() != through + 1) { failure = "event_gap";
                     break; }
@@ -109,13 +144,16 @@ final class PortalMyCarlosDeliverySyncService {
                 catch (Untrusted invalid) { failure = invalid.code;
                     break; }
                 prepared.apply().run();
+                // A passed-over event keeps its place in the sequence as an unverified row.
                 events.event(writer.clinic(), event, pageId, prepared.proofVerified());
+                if (prepared.skipped()) skipped.add(new Skip(event.sequence(), event.kind()));
                 through = event.sequence();
             }
             if (failure != null) events.quarantinePage(pageId, failure);
             events.commitThrough(writer.clinic(), writer.token(), writer.through(), through);
-            return new Collected(through, failure != null);
+            return new Collected(through, failure != null, List.copyOf(skipped));
         });
+        collected.skipped().forEach(skip -> audit.skipped(writer.clinic(), skip.sequence(), skip.kind()));
         // Only the durable prefix may leave CARLOS as an acknowledgment. A quarantined suffix
         // keeps the feed visibly paused until reconciled and can never become Picked up by status.
         if (collected.through() > writer.through() || !collected.quarantined()) acknowledge(writer, collected.through());
@@ -136,6 +174,12 @@ final class PortalMyCarlosDeliverySyncService {
     }
 
     private Prepared prepare(String clinic, PortalMyCarlosDeliveryClient.Event event) {
+        // Nothing to verify, and holding it would hold every later event of the clinic. A removal
+        // is still applied: the fence needs no binding, and stops sends to that key if it is ever
+        // accepted.
+        if (unknownToCarlos(clinic, event) && event.occurredAt() <= now() - UNKNOWN_SETTLED_SECONDS)
+            return new Prepared("device_removed".equals(event.kind())
+                    ? () -> outbox.fenceDevice(clinic, event.deviceKid()) : () -> {}, false, true);
         if (event.deliveryId() == null) {
             var device = devices.findByKidForUpdate(event.deviceKid()).orElseThrow(() -> new Untrusted("unknown_binding"));
             var binding = bindings.findByClinicRecipientForUpdate(clinic, event.recipientId()).orElseThrow(() -> new Untrusted("unknown_binding"));
@@ -166,6 +210,19 @@ final class PortalMyCarlosDeliverySyncService {
         } catch (IllegalArgumentException | IllegalStateException failure) { throw new Untrusted("invalid_proof"); }
         if ("picked_up".equals(event.kind())) return new Prepared(() -> sender.keepReceipt(row, event.receipt()), true);
         return new Prepared(() -> outbox.terminal(row, event.kind()), false);
+    }
+
+    /**
+     * Whether CARLOS holds nothing the event could be about: no binding for its recipient, and no
+     * accepted device (device events) or outbox copy of that delivery under any key (delivery
+     * events) it names, as after a link's records were removed. Anything CARLOS does know keeps
+     * every check below, so a delivery held under another key, or an accepted device bound
+     * elsewhere, is still refused there.
+     */
+    private boolean unknownToCarlos(String clinic, PortalMyCarlosDeliveryClient.Event event) {
+        if (bindings.findByClinicRecipientForUpdate(clinic, event.recipientId()).isPresent()) return false;
+        return event.deliveryId() == null ? devices.findByKidForUpdate(event.deviceKid()).isEmpty()
+                : outbox.findForDelivery(clinic, event.deliveryId()).isEmpty();
     }
 
     private long keepPage(Writer writer, byte[] exact, String failure) {
