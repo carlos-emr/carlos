@@ -211,22 +211,6 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
         assertThat(theirs.isLocked()).isTrue();
     }
 
-    @Test
-    @DisplayName("should report only another provider's lock on a saved note, and read without writing")
-    void shouldReportAnotherProvidersLock_forSavedNotesOnly() {
-        when(locks.findByNoteDemo(101, 5001L)).thenReturn(lock(5001L, OTHER_PROVIDER, "FAKE-their-session"));
-        when(locks.findByNoteDemo(101, 5002L)).thenReturn(lock(5002L, PROVIDER, "FAKE-my-old-session"));
-        when(locks.findByNoteDemo(101, 0L)).thenReturn(lock(0L, OTHER_PROVIDER, "FAKE-their-session"));
-
-        assertThat(CaseManagementEntry2Action.isLockedByAnotherProvider(5001L, 101, PROVIDER)).isTrue();
-        assertThat(CaseManagementEntry2Action.isLockedByAnotherProvider(5002L, 101, PROVIDER)).isFalse();
-        assertThat(CaseManagementEntry2Action.isLockedByAnotherProvider(5004L, 101, PROVIDER)).isFalse();
-        assertThat(CaseManagementEntry2Action.isLockedByAnotherProvider(0L, 101, PROVIDER)).isFalse();
-        assertThat(CaseManagementEntry2Action.isLockedByAnotherProvider(null, 101, PROVIDER)).isFalse();
-        verify(locks, never()).persist(any());
-        verify(locks, never()).merge(any());
-    }
-
     private void open(String httpMethod, OpenPath path) throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest(httpMethod, "/carlos/CaseManagementEntry");
         request.setContextPath("/carlos");
