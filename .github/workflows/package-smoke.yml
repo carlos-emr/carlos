@@ -54,20 +54,22 @@ jobs:
           test -s /run/carlos-ci-ca.crt
           printf '%s\n' 'Acquire::https::CaInfo "/run/carlos-ci-ca.crt";' \
             'Acquire::Retries "3";' 'Acquire::https::Timeout "30";' \
+            'Acquire::https::No-Cache "true";' \
             > /etc/apt/apt.conf.d/80-carlos-ci
           sed -i -e 's#http://#https://#g' \
             -e 's#https://security.ubuntu.com/ubuntu#https://archive.ubuntu.com/ubuntu#g' \
             /etc/apt/sources.list.d/ubuntu.sources
           for attempt in 1 2 3; do
             apt-get -o Acquire::Retries=3 -o Acquire::http::No-Cache=true \
-              -o Acquire::By-Hash=force -o APT::Update::Error-Mode=any update && break
+              -o Acquire::https::No-Cache=true -o Acquire::By-Hash=force -o APT::Update::Error-Mode=any update \
+              && DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::https::No-Cache=true install -y --no-install-recommends \
+                build-essential debhelper devscripts lintian fakeroot maven \
+                openjdk-25-jdk-headless tomcat11 git ca-certificates curl xz-utils unzip \
+              && break
             test "$attempt" -lt 3 || exit 1
             rm -rf /var/lib/apt/lists/*
             sleep 2
           done
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            build-essential debhelper devscripts lintian fakeroot maven \
-            openjdk-25-jdk-headless tomcat11 git ca-certificates curl xz-utils unzip
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false

@@ -11,10 +11,18 @@ import unittest
 
 class CdsAptRetryTest(unittest.TestCase):
     def exercise(self, failed_updates, failed_installs, updates, installs, success):
-        dockerfile = Path(__file__).with_name('cds-performance-runtime.Dockerfile').read_text()
-        transactions = re.findall(r'for attempt in 1 2 3; do.*?\bdone', dockerfile, re.S)
-        self.assertEqual(len(transactions), 3)
-        for layer, transaction in enumerate(transactions):
+        repository = Path(__file__).resolve().parents[2]
+        selections = [('scripts/ci/cds-performance-runtime.Dockerfile', 3),
+                      ('.github/workflows/package-smoke.yml', 1),
+                      ('scripts/deb-docker-validation.sh', 1)]
+        transactions = []
+        for filename, expected_count in selections:
+            source = (repository / filename).read_text()
+            layers = re.findall(r'for attempt in 1 2 3; do.*?\bdone', source, re.S)
+            self.assertEqual(len(layers), expected_count, filename)
+            transactions.extend((filename, layer, strict)
+                                for layer in layers for strict in (False, True))
+        for layer, (filename, transaction, strict) in enumerate(transactions):
             with self.subTest(layer=layer), tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)
                 binary = root / 'bin'
@@ -41,7 +49,7 @@ sys.exit(100 if state[kind] <= limit else 0)
                 environment = dict(os.environ, PATH=str(binary) + os.pathsep + os.environ['PATH'],
                     APT_TEST_STATE=str(state_path), APT_TEST_FAILED_UPDATES=str(failed_updates),
                     APT_TEST_FAILED_INSTALLS=str(failed_installs))
-                completed = subprocess.run(['sh', '-c', transaction.replace('\\\n', ' ')],
+                completed = subprocess.run(['sh', '-ec' if strict else '-c', transaction.replace('\\\n', ' ')],
                     env=environment, capture_output=True, text=True, timeout=10)
                 state = json.loads(state_path.read_text())
                 self.assertEqual(completed.returncode == 0, success, completed.stderr)
@@ -52,7 +60,8 @@ sys.exit(100 if state[kind] <= limit else 0)
                 self.assertEqual([call['kind'] for call in state['calls']], expected)
                 for call in state['calls']:
                     self.assertIn('Acquire::https::No-Cache=true', call['arguments'])
-                    self.assertIn('Acquire::https::CaInfo=/run/secrets/ci_ca', call['arguments'])
+                    if filename.endswith('.Dockerfile'):
+                        self.assertIn('Acquire::https::CaInfo=/run/secrets/ci_ca', call['arguments'])
 
     def test_successful_first_attempt_does_not_retry(self):
         self.exercise(0, 0, 1, 1, True)
