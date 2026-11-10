@@ -53,6 +53,46 @@ import org.junit.jupiter.api.Test;
 @Tag("cds-export")
 class CdsExportCliUnitTest {
     @Test
+    void shouldKeepFrameworkAndClinicalMessagesPrivate_whileEmittingBoundedWorkerFailureMetadata()
+            throws Exception {
+        var process =
+                new ProcessBuilder(
+                                Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                                "-cp",
+                                System.getProperty(
+                                        "surefire.test.class.path",
+                                        System.getProperty("java.class.path")),
+                                SafeLoggingProbe.class.getName())
+                        .redirectErrorStream(true)
+                        .start();
+        boolean exited = process.waitFor(15, TimeUnit.SECONDS);
+        if (!exited) process.destroyForcibly();
+        assertThat(exited).isTrue();
+        assertThat(process.exitValue()).isZero();
+        String output =
+                new String(process.getInputStream().readNBytes(131072), StandardCharsets.UTF_8);
+        assertThat(output)
+                .contains("CDS_TECHNICAL:", "java.lang.IllegalStateException", "#main")
+                .doesNotContain("SYNTHETIC_PRIVATE_SQL", "SYNTHETIC_CLINICAL_VALUE");
+    }
+
+    public static final class SafeLoggingProbe {
+        public static void main(String[] args) {
+            io.github.carlos_emr.carlos.demographic.cds.cli.CdsProcessLogging.configure();
+            org.apache.logging.log4j.LogManager.getLogger("org.hibernate.SQL")
+                    .error("SYNTHETIC_PRIVATE_SQL");
+            var failure = new IllegalStateException("SYNTHETIC_CLINICAL_VALUE");
+            org.apache.logging.log4j.LogManager.getLogger("carlos.cds.safeTechnical")
+                    .error(
+                            "CDS_TECHNICAL: {}",
+                            new String(
+                                    io.github.carlos_emr.carlos.demographic.cds.cli
+                                            .CdsProcessLogging.failureSummary(failure, false),
+                                    StandardCharsets.UTF_8));
+        }
+    }
+
+    @Test
     void shouldVerifyProgressCloseWaits_forInterruptedWorkToRetire() throws Exception {
         var started = new CountDownLatch(1);
         var finished = new CountDownLatch(1);
