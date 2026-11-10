@@ -459,7 +459,8 @@ class JdbcConnectorMariaDbIntegrationTest {
             statement.execute("INSERT INTO number_probe VALUES (1, 100, 1.1, 1.5, b'1', 5, 3, 1), "
                     + "(2, 1.0E7, 16777217, 0, b'0', 0, b'1" + "0".repeat(63) + "', -1), "
                     + "(3, NULL, NULL, NULL, NULL, NULL, NULL, NULL)");
-            try (var rows = statement.executeQuery("SELECT * FROM number_probe ORDER BY id")) {
+            statement.execute("INSERT INTO number_probe(id, t1) VALUES (4, -128), (5, -2), (6, 0), (7, 127)");
+            try (var rows = statement.executeQuery("SELECT * FROM number_probe WHERE id <= 3 ORDER BY id")) {
                 assertConnectorJColumnClasses(rows);
                 assertThat(rows.next()).isTrue();
                 assertConnectorJFirstNumberRow(rows);
@@ -468,6 +469,9 @@ class JdbcConnectorMariaDbIntegrationTest {
                 assertThat(rows.next()).isTrue();
                 assertConnectorJNullNumberRow(rows);
                 assertThat(rows.next()).isFalse();
+            }
+            try (var rows = statement.executeQuery("SELECT t1 FROM number_probe ORDER BY id")) {
+                assertConnectorJTinyIntTruthValues(rows);
             }
         }
         // The binary protocol decodes FLOAT as a float that Connector/J widened before printing.
@@ -478,7 +482,28 @@ class JdbcConnectorMariaDbIntegrationTest {
                 assertThat(rows.next()).isTrue();
                 assertConnectorJServerPreparedNumberRow(rows);
             }
+            try (var flags = connection.prepareStatement("SELECT t1 FROM number_probe WHERE id >= ? ORDER BY id")) {
+                flags.setInt(1, 1);
+                try (var rows = flags.executeQuery()) {
+                    assertConnectorJTinyIntTruthValues(rows);
+                }
+            }
         }
+    }
+
+    /** TINYINT(1) uses Connector/J's positive-or-negative-one truth rule, including untyped object reads. */
+    private static void assertConnectorJTinyIntTruthValues(ResultSet rows) throws SQLException {
+        for (Boolean expected : new Boolean[]{true, true, null, false, false, false, true}) {
+            assertThat(rows.next()).isTrue();
+            assertThat(rows.getObject(1)).isEqualTo(expected);
+            assertThat(rows.wasNull()).isEqualTo(expected == null);
+            assertThat(rows.getObject("t1")).isEqualTo(expected);
+            assertThat(rows.getObject(1, Map.of())).isEqualTo(expected);
+            assertThat(rows.getObject("t1", Boolean.class)).isEqualTo(expected);
+            assertThat(rows.getBoolean(1)).isEqualTo(Boolean.TRUE.equals(expected));
+            assertThat(rows.wasNull()).isEqualTo(expected == null);
+        }
+        assertThat(rows.next()).isFalse();
     }
 
     /** Connector/J reported java.lang.Boolean for every BIT width. */

@@ -31,6 +31,8 @@ import java.util.TimeZone;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Answers;
 import org.mockito.MockedConstruction;
 
@@ -105,6 +107,22 @@ class MariaDbCompatibilityDriverNumberUnitTest {
         });
     }
 
+    @ParameterizedTest
+    @CsvSource(value = {"-128,false", "-2,false", "-1,true", "0,false", "1,true", "127,true", "NULL,NULL"},
+            nullValues = "NULL")
+    @DisplayName("should use Connector/J's numeric truth rule for every TINYINT(1) object read")
+    void shouldPreserveNumericTruth_whenTinyIntOneIsReadAsObject(Long value, Boolean expected) throws Exception {
+        withRows(value, rows -> {
+            assertThat(rows.getObject(TINY_FLAG)).isEqualTo(expected);
+            assertThat(rows.wasNull()).isEqualTo(value == null);
+            assertThat(rows.getObject("t")).isEqualTo(expected);
+            assertThat(rows.getObject(TINY_FLAG, Map.of())).isEqualTo(expected);
+            assertThat(rows.getObject(TINY_FLAG, Boolean.class)).isEqualTo(expected);
+            assertThat(rows.getBoolean(TINY_FLAG)).isEqualTo(Boolean.TRUE.equals(expected));
+            assertThat(rows.wasNull()).isEqualTo(value == null);
+        });
+    }
+
     @Test
     void shouldConvertWideBitColumnsAsUnsigned_whenReadAsNumbers() throws Exception {
         withRows(rows -> {
@@ -164,7 +182,11 @@ class MariaDbCompatibilityDriverNumberUnitTest {
 
     /** Opens the compatibility driver over a scripted MariaDB connection and hands its wrapped result set over. */
     private static void withRows(RowsCheck check) throws Exception {
-        ResultSet nativeRows = scriptedRows();
+        withRows(-1L, check);
+    }
+
+    private static void withRows(Long tinyFlag, RowsCheck check) throws Exception {
+        ResultSet nativeRows = scriptedRows(tinyFlag);
         org.mariadb.jdbc.Statement nativeStatement = mock(org.mariadb.jdbc.Statement.class);
         when(nativeStatement.executeQuery(anyString())).thenReturn(nativeRows);
         org.mariadb.jdbc.Connection physical = mock(org.mariadb.jdbc.Connection.class, Answers.RETURNS_DEEP_STUBS);
@@ -183,13 +205,13 @@ class MariaDbCompatibilityDriverNumberUnitTest {
     }
 
     /** A result set that answers like MariaDB Connector/J 3.5.11 for one row of the probe columns. */
-    private static ResultSet scriptedRows() throws SQLException {
+    private static ResultSet scriptedRows(Long tinyFlag) throws SQLException {
         Map<Integer, Object> values = new HashMap<>();
         values.put(DOUBLE, 100.0d);
         values.put(FLOAT, 1.0E7d);
         values.put(FLAG, 1L);
         values.put(WIDE_BIT, Long.MIN_VALUE);
-        values.put(TINY_FLAG, -1L);
+        values.put(TINY_FLAG, tinyFlag);
         values.put(TEXT, "server text");
         values.put(NULL_BIT, null);
         values.put(NULL_DOUBLE, null);
@@ -214,7 +236,11 @@ class MariaDbCompatibilityDriverNumberUnitTest {
             switch (name) {
                 case "getMetaData": return metadata;
                 case "wasNull": return lastNull[0];
-                case "findColumn": return "d".equals(args[0]) ? DOUBLE : 0;
+                case "findColumn": return switch ((String) args[0]) {
+                    case "d" -> DOUBLE;
+                    case "t" -> TINY_FLAG;
+                    default -> 0;
+                };
                 case "close": return null;
                 default: break;
             }

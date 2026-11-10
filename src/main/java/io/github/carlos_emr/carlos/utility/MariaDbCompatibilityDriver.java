@@ -295,7 +295,8 @@ public final class MariaDbCompatibilityDriver implements Driver {
             long value = rows.getLong(column);
             convertedWasNull = rows.wasNull();
             if (convertedWasNull) return nullValue(requested);
-            if (flag) return value != 0;
+            // TINYINT(1) can hold negatives: Connector/J treats only positive values and -1 as true.
+            if (flag) return value > 0 || value == -1;
             // Connector/J read BIT fields as unsigned for these conversions, though signed for text and getLong.
             // TINYINT(1) is also reported as BIT with precision 1 and keeps its sign; BIT(1) is only ever 0 or 1.
             java.math.BigDecimal number = precision > 1
