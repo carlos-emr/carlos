@@ -131,3 +131,19 @@ appear in the CI run of `0e86503` without the new tests. That run also
 missed all three of the driver's previous floors, which the new tests cover.
 These remain open release failures; the complete same-source native-lane union is
 still required.
+
+The `2255c1b31db3` review refresh fixes TINYINT(1) object reads for negative
+values other than -1 and adds the corresponding numeric-truth boundary cases.
+Its clean Ubuntu 26.04/JDK 25 H2 execution records 36,078 actual test cases,
+213 explicitly routed/prerequisite skips and zero failures/errors. Counts use
+the individual `testcase` elements: Surefire's nested-container header counters
+collapse some equal method names. The release evidence parser accepts every
+retained identity and skip route across the 2,643 reports. Their digest uses
+the same sorted filename/NUL/file-SHA-256 protocol described above.
+All 6,292 production class hashes match the separate 35-case physical MariaDB
+execution. The driver's floors rise to 51.72/51.34/45.40 percent
+(lines/instructions/branches); its source blob and the baseline's source,
+comparison and report hashes are refreshed. Every other file floor and all
+refusal lines are retained. No floor is lowered and no waiver is added; the
+comparison-wide qualification requirements and 80 unreviewed zero floors from
+the preceding baseline remain.

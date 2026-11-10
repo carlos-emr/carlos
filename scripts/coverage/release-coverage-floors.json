@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "8276579cc6ef74cbb264528e51a06485f9263344",
-  "comparisonSha256": "6bf087d70d3e7fd1841997151bec17b2dbc9c24fe167d1a4dd31f354faa8c152",
-  "baselineCommit": "f69b87ad0ff067e11ff99b3507ee176d3b4218d0",
-  "baselineSourceTree": "8276579cc6ef74cbb264528e51a06485f9263344",
-  "baselineReportSha256": "a034f5d8c61c00801ee4ef35d648b477395c3e6ffe6e5d9a10792976bb280409",
+  "sourceTree": "8d441941d09dace997e4322f2e83fe0cdb212250",
+  "comparisonSha256": "4739c561a00385ebe3c7d78576b63c47a4f939b10d2e03a26e8dad49ea350f7a",
+  "baselineCommit": "2255c1b31db34de33c5c72edb8c5fbc4012865ab",
+  "baselineSourceTree": "8d441941d09dace997e4322f2e83fe0cdb212250",
+  "baselineReportSha256": "8d13943d17c60f58dce5074cc21d9b95eca48a7a4b107f311974b816113860de",
   "baselineLane": "Candidate Ubuntu 26.04/JDK 25 H2 baseline. Routed/prerequisite skips remain explicit. Previous higher floors and refusal lines are retained; native-lane union qualification and zero-floor review remain required.",
   "baselineTestCounts": {
-    "tests": 35937,
-    "skipped": 218,
+    "tests": 36078,
+    "skipped": 213,
     "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "5797982dabd552954a7790489da397ac03a7659187d3f563e136d6d58421286e",
+  "baselineTestReportsSha256": "d53edab2f5986dcf67983883c61f379d9b30ea482d44f8a31d85633ea681683c",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -3454,10 +3454,10 @@
       "sourceBlob": "3da5836aab13fc921b8265500eb6006a13b97df5"
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java": {
-      "lines": 48.02110817941953,
-      "instructions": 47.62452107279694,
-      "branches": 40.96638655462185,
-      "sourceBlob": "9ed9154fedafc75af6fbb5299f8ea5b75f1ee99e"
+      "lines": 51.715039577836414,
+      "instructions": 51.3389441469013,
+      "branches": 45.39748953974895,
+      "sourceBlob": "515db42160375bc73d4e32b2be20445271b5e876"
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibility.java": {
       "lines": 97.77227722772277,
