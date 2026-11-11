@@ -263,7 +263,7 @@
         <input type="hidden" name="demographicContactId" value="${ demographicContactId }"/>
         <input type="hidden" name="keywordFirstName" id="keywordFirstName" value=""/>
         <input type="hidden" name="keywordLastName" id="keywordLastName" value=""/>
-        <input type="hidden" name="contactType" id="contactType" value="${carlos:forHtmlAttribute(param.contactType)}"/>
+        <input type="hidden" name="contactType" id="contactType" value="${carlos:forHtmlAttribute(not empty requestScope.contactType ? requestScope.contactType : param.contactType)}"/>
         <input type="hidden" name="parentForm" value="${carlos:forHtmlAttribute(param.parentForm)}"/>
         <input type="hidden" name="parentElementId" value="${carlos:forHtmlAttribute(param.parentElementId)}"/>
         <input type="hidden" name="parentElementName" value="${carlos:forHtmlAttribute(param.parentElementName)}"/>

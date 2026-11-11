@@ -109,6 +109,23 @@ async function workflow(s) {
         ]);
         return response.status();
     }
+    async function expectRejectedEdit(page, status) {
+        const badBefore = recorder.badResponses.length;
+        const consoleBefore = recorder.consoleIssues.length;
+        h.assert(await saveEditor(page) === status, 'Specialist edit did not return its expected rejection');
+        const refused = recorder.badResponses.slice(badBefore);
+        h.assert(refused.length === 1 && refused[0].status === status && refused[0].method === 'POST'
+            && new URL(refused[0].url).pathname.endsWith('/demographic/Contact'), 'Rejected edit produced an unrelated HTTP failure');
+        recorder.badResponses.splice(badBefore, 1);
+        for (let index = recorder.consoleIssues.length - 1; index >= consoleBefore; index--) {
+            const entry = recorder.consoleIssues[index];
+            if (entry.location.url === refused[0].url && entry.text.startsWith('Failed to load resource:')
+                && entry.text.includes(String(status))) recorder.consoleIssues.splice(index, 1);
+        }
+        h.assert(await page.locator('[name="demographicContactId"]').inputValue() === contact,
+            'Rejected edit lost the contact association');
+        h.assert(await page.locator('[name="contactType"]').inputValue() === '3', 'Rejected edit lost the specialist type');
+    }
     await s.step('specialist addresses round-trip intact and stale full-field edits are refused', async () => {
         for (const address of ['a, Toronto, M5V 1A1, ON, CA, ', '123 Main St, Toronto, ON M5V 1A1',
                 '1 Fake St, Testville, A1A 1A1, ZZ, CA, ', '1 Fake St\nTestville ON']) {
@@ -122,23 +139,22 @@ async function workflow(s) {
                 === Buffer.from(address).toString('hex').toUpperCase(), 'Unchanged address bytes changed');
             await page.close();
         }
+        const invalid = await editor();
+        await invalid.locator('[name="pcontact.address"]').fill('street, unit');
+        await invalid.locator('[name="pcontact.city"]').fill('Toronto');
+        await expectRejectedEdit(invalid, 400);
+        await invalid.locator('[name="pcontact.address"]').fill('123 Valid Street');
+        h.assert(await saveEditor(invalid) === 200, 'Corrected address could not be saved after validation refusal');
         const first = await editor(); const stale = await editor();
         await first.locator('[name="pcontact.workPhone"]').fill('555-0109');
         h.assert(await saveEditor(first) === 200, 'Fresh specialist edit failed');
         await stale.locator('[name="pcontact.workPhone"]').fill('555-0110');
-        const badBefore = recorder.badResponses.length;
-        const consoleBefore = recorder.consoleIssues.length;
-        h.assert(await saveEditor(stale) === 409, 'Stale specialist edit was accepted');
+        await expectRejectedEdit(stale, 409);
         h.assert(await stale.locator('[name="pcontact.workPhone"]').inputValue() === '555-0110', 'Rejected edit lost submitted text');
         h.assert(sql.value(`SELECT phone FROM professionalSpecialists WHERE specId=${referrals.specId}`) === '555-0109', 'Stale edit overwrote the newer contact');
-        const refused = recorder.badResponses.slice(badBefore);
-        h.assert(refused.length === 1 && refused[0].status === 409 && refused[0].method === 'POST'
-            && new URL(refused[0].url).pathname.endsWith('/demographic/Contact'), 'Stale edit produced an unrelated HTTP failure');
-        recorder.badResponses.splice(badBefore, 1);
-        for (let index = recorder.consoleIssues.length - 1; index >= consoleBefore; index--) {
-            const entry = recorder.consoleIssues[index];
-            if (entry.location.url === refused[0].url && /^Failed to load resource:.*\b409\b/.test(entry.text)) recorder.consoleIssues.splice(index, 1);
-        }
+        await expectRejectedEdit(stale, 409);
+        h.assert(sql.value(`SELECT phone FROM professionalSpecialists WHERE specId=${referrals.specId}`) === '555-0109',
+            'Retrying the stale form overwrote the newer contact');
     });
 
     const directoryName = marker + 'Page';

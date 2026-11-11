@@ -34,9 +34,21 @@ public record QueryPage<T>(List<T> rows, long total, int page, int size) {
         var from = Pattern.compile("(?i)\\bFROM\\b").matcher(text);
         if (!from.find()) throw new IllegalArgumentException("Page query has no root");
         String countText = "SELECT COUNT(*) " + text.substring(from.start());
-        Query count = nativeSql ? em.createNativeQuery(countText) : em.createQuery(countText);
-        Query data = nativeSql ? em.createNativeQuery(text + " ORDER BY " + order, type)
-                : em.createQuery(text + " ORDER BY " + order, type);
+        Query count;
+        Query data;
+        // Query text comes only from the three DAO builders; order comes from their literal
+        // column/direction allowlists. Every request value remains a bound parameter below.
+        if (nativeSql) {
+            // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string, java.lang.security.audit.sqli.jpa-sqli.jpa-sqli -- DAO-owned predicates; request values are bound, never interpolated.
+            count = em.createNativeQuery(countText);
+            // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string, java.lang.security.audit.sqli.jpa-sqli.jpa-sqli -- DAO-owned query and literal sort allowlist; request values are bound.
+            data = em.createNativeQuery(text + " ORDER BY " + order, type);
+        } else {
+            // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string, java.lang.security.audit.sqli.jpa-sqli.jpa-sqli -- DAO-owned predicates; request values are bound, never interpolated.
+            count = em.createQuery(countText);
+            // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string, java.lang.security.audit.sqli.jpa-sqli.jpa-sqli -- DAO-owned query and literal sort allowlist; request values are bound.
+            data = em.createQuery(text + " ORDER BY " + order, type);
+        }
         for (var parameter : source.getParameters()) {
             Object value = source.getParameterValue(parameter);
             if (parameter.getName() != null) {

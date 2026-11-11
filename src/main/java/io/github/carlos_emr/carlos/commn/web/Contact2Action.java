@@ -789,6 +789,8 @@ public class Contact2Action extends ActionSupport {
                     request.setAttribute("specialistContactConflict", Boolean.TRUE);
                     request.setAttribute("specialties", contactSpecialtyDao.findAll());
                     request.setAttribute("contactRole", contact.getSpecialty());
+                    request.setAttribute("demographicContactId", demographicContactId);
+                    request.setAttribute("contactType", contactType);
                     return "pForm";
                 }
 

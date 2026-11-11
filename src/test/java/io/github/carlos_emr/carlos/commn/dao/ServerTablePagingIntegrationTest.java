@@ -102,4 +102,15 @@ class ServerTablePagingIntegrationTest extends CarlosTestBase {
         assertThat(demographics.searchClientPage(criteria, 0, 1, false).total()).isZero();
     }
 
+    @Test
+    void shouldKeepSearchValuesBound_whenCriteriaContainSqlSyntax() {
+        String literal = "no_match_' OR 1=1 --";
+        assertThat(specialists.findDirectoryPage(null, literal, "", null, null, true, 0).total()).isZero();
+        ClientSearchFormBean criteria = new ClientSearchFormBean();
+        criteria.setFirstName(literal); criteria.setSearchOutsideDomain(true);
+        assertThat(demographics.searchClientPage(criteria, 0, 2, false).total()).isZero();
+        criteria.setFirstName("Robert"); criteria.setChartNo(literal); criteria.setSearchUsingSoundex(true);
+        assertThat(demographics.searchClientPage(criteria, 0, 2, false).total()).isZero();
+    }
+
 }
