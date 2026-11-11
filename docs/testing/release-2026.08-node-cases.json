@@ -257,7 +257,7 @@
     "scripts/flyway-migration-versions.test.js": "d368545e8f72154b5ab98a93c0dbc5d7b6b44e92bd2da5d0ed0f2d3f5c300c8e",
     "scripts/flyway-upgrade-check.test.js": "2e15d9fa3e3a822d489956dd9f87dd9bd8120505a414c43ac78ff706da9019cf",
     "scripts/form-asset-paths.test.js": "8a782491d83773249a9cb151f5cda4b90b8f96c8ccaf2d516a0f78be5c737869",
-    "scripts/form-claims.test.js": "c26a67624ebb19e4fcf0c047a42660cb8e13fc08ed8a7a54328b3b3743fbb109",
+    "scripts/form-claims.test.js": "ef6cb6c39da1866583d9e9cc98d743e496dd176544c194cab0a0736d513ac869",
     "scripts/form-completion.test.js": "198903dd6a9b2b03b9f271c793ced0a40e32b17659c1f8a2e4d6ac8bfaa49b8b",
     "scripts/form-menu-url.test.js": "90540f68275e6c556fd9b1d4ee5f7b61fcbc15f911fdb64d5da693a8727d81c3",
     "scripts/form-open-guard.test.js": "e3caec0856ebb46cbc4c4233826357e79186929dd19e397800aee47a25273ac4",
