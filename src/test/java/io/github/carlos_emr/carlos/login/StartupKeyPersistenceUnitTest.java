@@ -493,6 +493,46 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldKeepExplicitConfigurationAndLogFailures_whenServletMetadataAndAttributesFail() throws Exception {
+        Path override = writeConfiguration(tempDir.resolve("selected.properties"), "");
+        System.setProperty(OVERRIDE, override.toString());
+        CarlosProperties configuration = reloadProperties();
+        ServletContext context = mock(ServletContext.class);
+        when(context.getResource("/")).thenThrow(new java.net.MalformedURLException("Synthetic metadata failure"));
+        org.mockito.Mockito.doThrow(new IllegalStateException("Synthetic attribute failure"))
+                .when(context).setAttribute(org.mockito.ArgumentMatchers.eq("CaseMgmtUsers"), org.mockito.ArgumentMatchers.any());
+        try (LogCapture logs = LogCapture.forLogger(Startup.class)) {
+            new Startup().contextInitialized(new ServletContextEvent(context));
+            assertThat(logs.messages()).anyMatch(message -> message.startsWith("Error: "))
+                    .anyMatch(message -> message.startsWith("Application properties could not be loaded:"));
+        }
+        assertThat(configuration.getConfigurationSource()).isEqualTo(override.toString());
+        assertThat(configuration.getProperty(KEY)).isNotBlank();
+        assertThat(Files.readString(override)).contains(KEY + "=" + configuration.getProperty(KEY));
+        assertThat(keySpecField.get(null)).isNotNull();
+        assertThat(userHome.resolve(".properties")).doesNotExist();
+    }
+
+    @Test
+    void shouldReuseKeyWithoutShadowWarning_whenHomeAndOverrideNameTheSameFile() throws Exception {
+        Path home = writeConfiguration(userHome.resolve("carlos.properties"), "");
+        System.setProperty(OVERRIDE, home.toString());
+        CarlosProperties configuration = reloadProperties();
+        try (LogCapture logs = LogCapture.forLogger(Startup.class)) {
+            startApplication();
+            assertThat(logs.messages()).noneMatch(message -> message.contains("Legacy home configuration"));
+        }
+        String saved = Files.readString(home);
+        String key = configuration.getProperty(KEY);
+        String encrypted = EncryptionUtils.encrypt("same-file-startup");
+        reloadProperties();
+        startApplication();
+        assertThat(Files.readString(home)).isEqualTo(saved);
+        assertThat(CarlosProperties.getInstance().getProperty(KEY)).isEqualTo(key);
+        assertThat(EncryptionUtils.decrypt(encrypted)).isEqualTo("same-file-startup");
+    }
+
+    @Test
     void shouldKeepPriorSettings_whenNewSourceIsMalformed() throws Exception {
         Path override = writeConfiguration(tempDir.resolve("selected.properties"), "");
         System.setProperty(OVERRIDE, override.toString());

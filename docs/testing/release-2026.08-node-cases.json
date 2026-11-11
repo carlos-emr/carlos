@@ -123,7 +123,7 @@
     "scripts/dashboard-tickler-pickers.test.js": "6a6c6bb7a87cb4638272bea795d46a7c5fe7b969e10effe1273fbd2bb1878854",
     "scripts/dco-workflow.test.js": "a4ed848f06dee54c9cfb994edf3af8cf39a496b9694ca7fce76627efa60b5c73",
     "scripts/deb-docker-validation.test.js": "6234f0d1e9448a5d3f0053e6ff9e7194d5f725afd975535098e4a550561206c1",
-    "scripts/deb-install-completion.test.js": "095957d5c6ce7ee3a58563c48e1b583f333f669b4e00e542254a5306032e6ee2",
+    "scripts/deb-install-completion.test.js": "d05ff20ab21ad34ac72d9417f9441baa60fc58c48528492da09a9680a74d74f9",
     "scripts/deb-login-navigation.test.js": "11dc2c5f67d788c3ed440e0dcb96b18587ddb53bcbf9123df199d53279aa7b78",
     "scripts/deb-login-password.test.js": "c790c2755f006841677bf80156b0d56f107812b8aeb0abe73b2d1b8fadeb1963",
     "scripts/deb-login-recovery.test.js": "46d0a957b7dc458ffdba5c00aee0d53c8914f6738b5478b9cd801db8a5336c7e",

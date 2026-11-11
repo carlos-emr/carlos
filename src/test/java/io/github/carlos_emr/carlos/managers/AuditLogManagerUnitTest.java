@@ -44,4 +44,25 @@ class AuditLogManagerUnitTest extends CarlosUnitTestBase {
                     isNull(), isNull(), isNull(), anyString()));
         }
     }
+
+    @Test
+    void shouldKeepDefaultRetentionAndDocumentFallback_whenOptionalSettingsAreBlank() throws Exception {
+        var properties = mock(CarlosProperties.class);
+        when(properties.getProperty("log.purge.minDays")).thenReturn("   ");
+        when(properties.getProperty("log.purge.outputdir")).thenReturn("\t");
+        when(properties.getProperty("DOCUMENT_DIR")).thenReturn("/synthetic/documents");
+        var service = mock(AuditLogPurgeService.class);
+        registerMock(AuditLogPurgeService.class, service);
+        Date through = new java.sql.Date(946684800000L);
+        when(service.purge(any(), eq(through), any())).thenAnswer(invocation -> {
+            java.util.Properties settings = invocation.getArgument(0);
+            assertThat(settings).doesNotContainKeys("log.purge.minDays", "log.purge.outputdir", "log.purge.mysqldump")
+                    .containsEntry("DOCUMENT_DIR", "/synthetic/documents");
+            return 0;
+        });
+        try (MockedStatic<CarlosProperties> configured = mockStatic(CarlosProperties.class)) {
+            configured.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(new AuditLogManager().purgeAuditLog(mock(LoggedInInfo.class), through)).isZero();
+        }
+    }
 }
