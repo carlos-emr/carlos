@@ -55,6 +55,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -108,6 +109,9 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
 
 
     private Logger log = MiscUtils.getLogger();
+
+    /** Request attribute: why the page refused the posted note (#6141); DisplayWaitingList.jsp shows it. */
+    static final String NOTE_ERRORS = "waitingListNoteErrors";
 
     private final SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);
@@ -231,20 +235,29 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
                 waitingListId = (String) wlForm.get("selectedWL");
             }*/
 
-            try {
-                // A selected row is updated even when its note is empty: clearing the note
-                // is an edit, and treating the empty box as "no row selected" left the old
-                // note on the record.
-                if (anySelector) {
-                    WLWaitingListUtil.updateWaitingListRecord(waitingListId,
-                            waitingListNote == null ? "" : waitingListNote, demographicNo, onListSince);
-                } else {
-                    WLWaitingListUtil.rePositionWaitingList(waitingListId);
-                }
+            // A note longer than the column holds was cut there with only a warning while the page
+            // reported success (#6141). It is refused before any row changes, and the page says why.
+            List<String> noteErrors = anySelector ? WLWaitingListUtil.noteLengthErrors(waitingListNote) : List.of();
+            if (!noteErrors.isEmpty()) {
+                log.warn("WLSetupDisplayWaitingList2Action/execute(): refused a waiting-list note over its length limit"); // NOSONAR javasecurity:S5145 — fixed text, no request data
+                request.setAttribute(NOTE_ERRORS, noteErrors);
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            } else {
+                try {
+                    // A selected row is updated even when its note is empty: clearing the note
+                    // is an edit, and treating the empty box as "no row selected" left the old
+                    // note on the record.
+                    if (anySelector) {
+                        WLWaitingListUtil.updateWaitingListRecord(waitingListId,
+                                waitingListNote == null ? "" : waitingListNote, demographicNo, onListSince);
+                    } else {
+                        WLWaitingListUtil.rePositionWaitingList(waitingListId);
+                    }
 
-            } catch (Exception ex) {
-                log.error("WLSetupDisplayWaitingList2Action/execute(): Exception: ({})", ex.getClass().getSimpleName());
-                return "failure";
+                } catch (Exception ex) {
+                    log.error("WLSetupDisplayWaitingList2Action/execute(): Exception: ({})", ex.getClass().getSimpleName());
+                    return "failure";
+                }
             }
         }//end of if ( !update.equalsIgnoreCase("Y") ) -- could be remove also ???
 
