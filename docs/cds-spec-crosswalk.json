@@ -39783,7 +39783,7 @@
       }
     },
     "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described. On 2026-11-05, Codex independently reviewed the FrmSetupForm2Action reader update for PR #5602: the ongoing-concerns prefill changed, while the reviewed medication dose, pharmacy-instruction and timing mappings and their getDrugList/medicationLine reader behavior remain unchanged. On 2026-11-09, the RX recovery change reviewed Drug.rowVersion and RxPrescriptionData source-version/pending-submission metadata: these are native concurrency/recovery fields, not CDS wire values. Existing CDS dose, authority, provider-note, pharmacy-instruction and timing projections and their explicit readers remain unchanged. RX review repairs retain the CDS medication mappings and compatibility gates. Drug presentation-only fields and their audit timestamp are excluded from clinical version increments; rowVersion remains native concurrency metadata. Receipt evidence is restricted from QBE and no CDS source value, dose, authority, pharmacy instruction or timing projection is rewritten.",
-    "sha256": "93723f614fd894ad5b22cccf713f7e298d0c477dc5ecd9da81a7c022d21112c8"
+    "sha256": "91d44ac35e5bbef18bd4218ed30481a0c8078be7014565ead7bd5accba70856a"
   },
   "root": "cds:OmdCds",
   "schemas": [
