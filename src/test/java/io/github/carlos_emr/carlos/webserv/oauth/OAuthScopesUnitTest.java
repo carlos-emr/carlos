@@ -202,6 +202,8 @@ class OAuthScopesUnitTest {
             assertThat(OAuthScopes.requiredScope("POST", "/services/tickler/search")).isEqualTo("tickler.read");
             assertThat(OAuthScopes.requiredScope("POST", "/services/schedule/getAppointment"))
                     .isEqualTo("schedule.read");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/measurements/123"))
+                    .isEqualTo("measurement.read");
             assertThat(OAuthScopes.requiredScope("POST", "/services/demographics/search"))
                     .isEqualTo("demographic.read");
             assertThat(OAuthScopes.requiredScope("POST", "/services/notes/123/all")).isEqualTo("note.read");
@@ -248,13 +250,15 @@ class OAuthScopesUnitTest {
         }
 
         @Test
-        @DisplayName("should treat non-POST and missing methods as writes even on a read-only service")
-        void shouldRequireWrite_whenNonPostMethodOnReadOnlyService() {
-            assertThat(OAuthScopes.requiredScope("DELETE", "/services/measurements/123"))
+        @DisplayName("should require measurement write scope for new measurement requests")
+        void shouldRequireWrite_whenNewMeasurementRequested() {
+            assertThat(OAuthScopes.requiredScope("POST", "/services/measurements/123/new"))
                     .isEqualTo("measurement.write");
-            assertThat(OAuthScopes.requiredScope(null, "/services/measurements/123"))
+            assertThat(OAuthScopes.requiredScope("POST", "/services/measurements/123"))
+                    .isEqualTo("measurement.read");
+            assertThat(OAuthScopes.requiredScope(null, "/services/measurements/123/new"))
                     .isEqualTo("measurement.write");
-            assertThat(OAuthScopes.requiredScope("   ", "/services/measurements/123"))
+            assertThat(OAuthScopes.requiredScope("   ", "/services/measurements/123/new"))
                     .isEqualTo("measurement.write");
         }
     }
