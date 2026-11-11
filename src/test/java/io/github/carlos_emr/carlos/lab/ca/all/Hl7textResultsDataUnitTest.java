@@ -534,8 +534,15 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
                 "Pending                   | F | Pending",
                 "Not detected              | C | Not detected",
                 "Resistant                 | ' F ' | Resistant",
+                // Labs send the code in lower case, and many handlers report a word (#6122 review).
+                "Pending                   | f | Pending",
+                "Not detected              | c | Not detected",
+                "Pending                   | Final | Pending",
+                "Not detected              | Corrected | Not detected",
+                "Not detected              | Edited | Not detected",
                 "' Detected '              | F | Detected",
-                "Detected<br />see comment | F | Detected see comment"})
+                "Detected<br />see comment | F | Detected see comment",
+                "Detected <BR> see comment | F | Detected see comment"})
         void shouldFileWholeTextAndMarkIt_whenAFinalResultIsNotMatched(String result, String status, String expected)
                 throws IOException {
             Measurement measurement = fileResult(result, shippedFilter(), OBSERVED, ENTERED, status);
@@ -546,7 +553,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         }
 
         @ParameterizedTest(name = "status [{0}] leaves Pending unfiled")
-        @ValueSource(strings = {"P", "I", "X", "D", "f", ""})
+        @ValueSource(strings = {"P", "I", "X", "D", "U", "Preliminary", "Pending", "Partial", "Changed to Final", ""})
         void shouldLeaveTheResultUnfiled_whenItIsNotFinal(String status) throws IOException {
             assertThat(fileResult("Pending", shippedFilter(), OBSERVED, ENTERED, status)).isNull();
             verify(measurementDao, never()).persist(any(Measurement.class));
@@ -572,6 +579,16 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        void shouldLeaveTextUnfiled_whenOneCharacterLongerThanTheDataField() throws IOException {
+            // 256 characters, 248 of them outside the Basic Multilingual Plane: one more than the column holds.
+            String tooLong = "Pending " + "\uD835\uDC00".repeat(Measurement.DATA_FIELD_MAX_LENGTH - 7);
+
+            assertThat(tooLong.codePointCount(0, tooLong.length())).isEqualTo(Measurement.DATA_FIELD_MAX_LENGTH + 1);
+            assertThat(fileResult(tooLong, shippedFilter(), OBSERVED, ENTERED, "F")).isNull();
+            verify(measurementDao, never()).persist(any(Measurement.class));
+        }
+
+        @Test
         void shouldLeaveTextUnfiledWithoutLoggingIt_whenLongerThanTheDataField() throws IOException {
             String tooLong = "FAKE-TEXT-" + "x".repeat(Measurement.DATA_FIELD_MAX_LENGTH);
 
@@ -589,11 +606,121 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         void shouldReadTheStatusAndText_whenCalledDirectly() {
             assertThat(Hl7textResultsData.textResultValue("Pending", "F", null)).isEqualTo("Pending");
             assertThat(Hl7textResultsData.textResultValue("Pending", "C", null)).isEqualTo("Pending");
+            assertThat(Hl7textResultsData.textResultValue("Pending", "Final", null)).isEqualTo("Pending");
             assertThat(Hl7textResultsData.textResultValue("Pending", "P", null)).isNull();
             assertThat(Hl7textResultsData.textResultValue("Pending", null, null)).isNull();
             for (String empty : new String[]{null, "", "   ", "<br />", "DNR"}) {
                 assertThat(Hl7textResultsData.textResultValue(empty, "F", null)).isNull();
             }
+        }
+    }
+
+    /**
+     * #6122 review: the unit tests above give the filing the status a mock returns. These run real messages
+     * through the real handlers, which report the status in their own words: CML and CLS say {@code Final},
+     * CLS says {@code Corrected} and MDS says {@code Edited} for a correction. The CML message comes from the
+     * Create Lab form's generator, the issue's own repro.
+     */
+    @Nested
+    @DisplayName("a final word result, through the real lab handlers")
+    class ThroughTheLabHandlers {
+
+        private static final String TIME = "20261009112029";
+
+        @ParameterizedTest(name = "Create Lab (CML) status [{0}] is reported as [{1}]; Pending filed: {2}")
+        @CsvSource({"F,Final,true", "f,Final,true", "C,C,true", "c,c,true", "'',Final,true",
+                "I,Pending,false", "P,P,false", "X,X,false"})
+        void shouldFileTheWordResult_whenTheCreateLabReportIsFinal(String stat, String reported, boolean filed)
+                throws Exception {
+            io.github.carlos_emr.carlos.commn.model.LabTest test = new io.github.carlos_emr.carlos.commn.model.LabTest();
+            test.setDate(inDefaultTimeZone(LocalDateTime.parse("2026-10-09T11:20:29")));
+            test.setCodeType("ST");
+            test.setCode("3767");
+            test.setName("Hemoglobin A1C");
+            test.setDescription("FAKE A1C");
+            test.setCodeValue("Pending");
+            test.setStat(stat);
+            io.github.carlos_emr.carlos.commn.model.Lab lab = new io.github.carlos_emr.carlos.commn.model.Lab();
+            lab.setLastName("FAKE-Workflow");
+            lab.setFirstName("Synthetic");
+            lab.setAccession("FAKE-CML-1");
+            lab.setLabReqDate(test.getDate());
+            lab.setTests(List.of(test));
+            io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler handler =
+                    new io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler();
+            handler.init(io.github.carlos_emr.carlos.lab.ca.all.util.CMLLabHL7Generator.generate(lab));
+
+            assertThat(handler.getOBXResultStatus(0, 0)).isEqualTo(reported);
+            // The report's own final count and the filing use one rule.
+            assertThat(handler.getOBXFinalResultCount()).isEqualTo(filed ? 1 : 0);
+            expectFiled(fileThrough(handler), filed);
+        }
+
+        @ParameterizedTest(name = "CLS status [{0}] is reported as [{1}]; Pending filed: {2}")
+        @CsvSource({"F,Final,true", "C,Corrected,true", "c,Corrected,true", "P,Preliminary,false", "I,I,false"})
+        void shouldFileTheWordResult_whenTheClsHandlerSaysFinalOrCorrected(String status, String reported,
+                boolean filed) throws Exception {
+            io.github.carlos_emr.carlos.lab.ca.all.parsers.CLSHandler handler =
+                    new io.github.carlos_emr.carlos.lab.ca.all.parsers.CLSHandler();
+            handler.init(message("CLS", status));
+
+            assertThat(handler.getOBXResultStatus(0, 0)).isEqualTo(reported);
+            expectFiled(fileThrough(handler), filed);
+        }
+
+        @ParameterizedTest(name = "MDS status [{0}] is reported as [{1}]; Pending filed: {2}")
+        @CsvSource({"F,Final,true", "f,Final,true", "C,Edited,true", "U,Changed to Final,false",
+                "P,Preliminary,false", "I,Pending,false"})
+        void shouldFileTheWordResult_whenTheMdsHandlerSaysFinalOrEdited(String status, String reported,
+                boolean filed) throws Exception {
+            io.github.carlos_emr.carlos.lab.ca.all.parsers.MDSHandler handler =
+                    new io.github.carlos_emr.carlos.lab.ca.all.parsers.MDSHandler();
+            handler.init(message("MDS", status));
+
+            assertThat(handler.getOBXResultStatus(0, 0)).isEqualTo(reported);
+            expectFiled(fileThrough(handler), filed);
+        }
+
+        /** A one-result FAKE report: A1C code 3767, result {@code Pending}, the given OBX-11 status. */
+        private String message(String sender, String status) {
+            String[] obr = new String[26], obx = new String[15];
+            java.util.Arrays.fill(obr, "");
+            java.util.Arrays.fill(obx, "");
+            obr[0] = "OBR"; obr[1] = "1"; obr[2] = "FAKE-" + sender; obr[4] = "A1C^FAKE PANEL";
+            obr[7] = TIME; obr[14] = TIME; obr[20] = "FAKE-ACC"; obr[25] = "F";
+            obx[0] = "OBX"; obx[1] = "1"; obx[2] = "ST"; obx[3] = "3767^Hemoglobin A1C^FAKE A1C";
+            obx[5] = "Pending"; obx[11] = status; obx[14] = TIME;
+            String end = "\r";
+            return "MSH|^~\\&|" + sender + "|FAKE-LAB|CARLOS|CLINIC|" + TIME + "||ORU^R01|FAKE-1-2-3|P|2.3" + end
+                    + "PID|1||FAKE-HIN||FAKE-Workflow^Synthetic||19800102|F" + end
+                    + "ORC|RE|FAKE-" + sender + end
+                    + String.join("|", obr) + end + String.join("|", obx) + end;
+        }
+
+        private void expectFiled(Measurement measurement, boolean filed) {
+            if (!filed) {
+                assertThat(measurement).isNull();
+                verify(measurementDao, never()).persist(any(Measurement.class));
+                return;
+            }
+            assertThat(measurement).isNotNull();
+            assertThat(measurement.getDataField()).isEqualTo("Pending");
+            assertThat(filedExtensions()).filteredOn(Hl7textResultsDataUnitTest::isTextMarker).hasSize(1);
+        }
+
+        private Measurement fileThrough(MessageHandler handler) throws IOException {
+            CarlosProperties properties = mock(CarlosProperties.class);
+            when(properties.getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).thenReturn(shippedFilter());
+            when(properties.getProperty("MAP_BY_IDENTIFIER_AND_NAME", "false")).thenReturn("false");
+            try (MockedStatic<Factory> factory = mockStatic(Factory.class);
+                 MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class)) {
+                factory.when(() -> Factory.getHandler("4616")).thenReturn(handler);
+                configuration.when(CarlosProperties::getInstance).thenReturn(properties);
+                Hl7textResultsData.populateMeasurementsTable("4616", "42");
+            }
+            ArgumentCaptor<Measurement> measurement = ArgumentCaptor.forClass(Measurement.class);
+            verify(measurementDao, atMost(1)).persist(measurement.capture());
+            return measurement.getAllValues().isEmpty() ? null : measurement.getValue();
         }
     }
 

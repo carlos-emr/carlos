@@ -469,11 +469,12 @@ public class CommonLabTestValues {
 
         } else if (labType != null && labType.equals("HL7")) {
             MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);
-            // The history reads each value from its report; the reports whose value was filed as text are
-            // labelled so (#6122).
-            Set<String> textResultLabs = new HashSet<>();
-            for (Object lNo : dao.findTextResultLabNumbers(demographicNo == null ? 0 : demographicNo, identCode)) {
-                textResultLabs.add(String.valueOf(lNo));
+            // The history reads each value from its report. A value filed as text is labelled so (#6122),
+            // matched by its report and its OBX position: another result with the same code in that report
+            // may be a number.
+            Set<String> textResults = new HashSet<>();
+            for (Object[] position : dao.findTextResultPositions(demographicNo == null ? 0 : demographicNo, identCode)) {
+                textResults.add(position[0] + "/" + position[1]);
             }
 
             for (Object lNo : dao.findLabNumbers(demographicNo == null ? 0 : demographicNo, identCode)) {
@@ -496,7 +497,7 @@ public class CommonLabTestValues {
                                 h.put("range", handler.getOBXReferenceRange(i, j));
                                 h.put("units", handler.getOBXUnits(i, j));
                                 h.put("lab_no", lab_no);
-                                if (textResultLabs.contains(lab_no)) {
+                                if (textResults.contains(lab_no + "/" + i + "-" + j)) {
                                     h.put(VALUE_TYPE, MeasurementsExt.TEXT_VALUE_TYPE);
                                 }
 

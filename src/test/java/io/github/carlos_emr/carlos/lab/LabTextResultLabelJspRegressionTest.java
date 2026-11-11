@@ -92,6 +92,11 @@ class LabTextResultLabelJspRegressionTest {
         // Pending is now filed as text, so the notices no longer name it as missing.
         assertThat(bundle.getProperty("lab.measurementGrid.scope")).doesNotContain("Pending");
         assertThat(bundle.getProperty("lab.measurementHistory.unavailable")).doesNotContain("Pending");
+        if ("en".equals(language)) {
+            // Reports received before the update were filed under the old rule: their word results are still absent.
+            assertThat(bundle.getProperty("lab.measurementGrid.scope")).contains("before this update");
+            assertThat(bundle.getProperty("lab.measurementHistory.unavailable")).contains("before this update");
+        }
     }
 
     private static String read(String path) throws IOException {

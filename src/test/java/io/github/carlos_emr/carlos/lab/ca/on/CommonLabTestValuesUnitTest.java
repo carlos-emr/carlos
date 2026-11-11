@@ -83,9 +83,9 @@ class CommonLabTestValuesUnitTest extends CarlosUnitTestBase {
     void shouldLabelOnlyTheReportFiledAsText_inTheHl7ValueHistory() {
         var dao = createAndRegisterMock(MeasurementDao.class);
         when(dao.findLabNumbers(17, "FAKE-3007")).thenReturn(List.of("100", "200"));
-        when(dao.findTextResultLabNumbers(17, "FAKE-3007")).thenReturn(List.of("100"));
-        MessageHandler text = handler("Pending", "2026-01-02 10:00");
-        MessageHandler number = handler("5.7", "2026-01-01 10:00");
+        when(dao.findTextResultPositions(17, "FAKE-3007")).thenReturn(List.<Object[]>of(new Object[]{"100", "0-0"}));
+        MessageHandler text = handler("2026-01-02 10:00", "Pending");
+        MessageHandler number = handler("2026-01-01 10:00", "5.7");
 
         try (MockedStatic<Factory> factory = mockStatic(Factory.class)) {
             factory.when(() -> Factory.getHandler("100")).thenReturn(text);
@@ -101,13 +101,44 @@ class CommonLabTestValuesUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    private static MessageHandler handler(String result, String collected) {
+    /**
+     * The history shows the first result for the code in each report. When that report also holds another
+     * result for the code, the label follows the result filed as text, not the report (#6122 review).
+     */
+    @Test
+    void shouldLabelOnlyTheResultFiledAsText_whenItsReportHoldsTwoResultsForTheCode() {
+        var dao = createAndRegisterMock(MeasurementDao.class);
+        when(dao.findLabNumbers(17, "FAKE-3007")).thenReturn(List.of("100", "200"));
+        // Report 100: a number first, then the text result. Report 200: the text result first, then a number.
+        when(dao.findTextResultPositions(17, "FAKE-3007")).thenReturn(List.<Object[]>of(
+                new Object[]{"100", "0-1"}, new Object[]{"200", "0-0"}));
+        MessageHandler numberFirst = handler("2026-01-01 10:00", "5.7", "Not detected");
+        MessageHandler textFirst = handler("2026-01-02 10:00", "Not detected", "5.9");
+
+        try (MockedStatic<Factory> factory = mockStatic(Factory.class)) {
+            factory.when(() -> Factory.getHandler("100")).thenReturn(numberFirst);
+            factory.when(() -> Factory.getHandler("200")).thenReturn(textFirst);
+
+            var rows = CommonLabTestValues.findValuesForTest("HL7", 17, "FAKE GLUCOSE", "FAKE-3007");
+
+            assertThat(rows).hasSize(2);
+            assertThat(rows.get(0)).containsEntry("result", "Not detected").containsEntry("lab_no", "200");
+            assertThat(CommonLabTestValues.isTextResult(rows.get(0))).isTrue();
+            assertThat(rows.get(1)).containsEntry("result", "5.7").containsEntry("lab_no", "100");
+            assertThat(CommonLabTestValues.isTextResult(rows.get(1))).as("the number in a report with a text result").isFalse();
+        }
+    }
+
+    private static MessageHandler handler(String collected, String... results) {
         MessageHandler handler = mock(MessageHandler.class);
         when(handler.getOBRCount()).thenReturn(1);
-        when(handler.getOBXCount(0)).thenReturn(1);
-        when(handler.getOBXIdentifier(0, 0)).thenReturn("FAKE-3007");
-        when(handler.getOBXResult(0, 0)).thenReturn(result);
+        when(handler.getOBXCount(0)).thenReturn(results.length);
+        for (int j = 0; j < results.length; j++) {
+            when(handler.getOBXIdentifier(0, j)).thenReturn("FAKE-3007");
+            when(handler.getOBXResult(0, j)).thenReturn(results[j]);
+        }
         when(handler.getServiceDate()).thenReturn(collected);
         return handler;
     }
+
 }

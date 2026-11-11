@@ -1177,10 +1177,15 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
     class TextResults {
 
         private Measurement labResult(String value, String labNo, boolean filedAsText) {
-            Measurement m = createAndPersist(DEMO_NO, "FAKE-GLUC", value, new Date());
+            return labResult(DEMO_NO, value, labNo, "0-0", filedAsText);
+        }
+
+        private Measurement labResult(int demographic, String value, String labNo, String position, boolean filedAsText) {
+            Measurement m = createAndPersist(demographic, "FAKE-GLUC", value, new Date());
             persistExtension(m.getId(), "lab_no", labNo);
             persistExtension(m.getId(), "identifier", "FAKE-3007");
             persistExtension(m.getId(), "abnormal", "N");
+            persistExtension(m.getId(), "other_id", position);
             if (filedAsText) {
                 persistExtension(m.getId(), MeasurementsExt.VALUE_TYPE_KEY, MeasurementsExt.TEXT_VALUE_TYPE);
             }
@@ -1235,12 +1240,27 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
-        @DisplayName("should list only the labs whose result was filed as text, for this patient")
-        void shouldListTextResultLabs_forThePatientOnly() {
+        @DisplayName("should list where each result filed as text sits, for this patient only")
+        void shouldListTextResultPositions_forThePatientOnly() {
             assertThat(measurementDao.findLabNumbers(DEMO_NO, "FAKE-3007")).containsExactlyInAnyOrder("9001", "9002");
-            assertThat(measurementDao.findTextResultLabNumbers(DEMO_NO, "FAKE-3007")).containsExactly("9001");
-            assertThat(measurementDao.findTextResultLabNumbers(DEMO_NO_2, "FAKE-3007")).isEmpty();
-            assertThat(measurementDao.findTextResultLabNumbers(DEMO_NO, "FAKE-OTHER")).isEmpty();
+            assertThat(measurementDao.findTextResultPositions(DEMO_NO, "FAKE-3007"))
+                    .containsExactly(new Object[]{"9001", "0-0"});
+            assertThat(measurementDao.findTextResultPositions(DEMO_NO_2, "FAKE-3007")).isEmpty();
+            assertThat(measurementDao.findTextResultPositions(DEMO_NO, "FAKE-OTHER")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should name the text result's own position when its report also holds a number for the code")
+        void shouldNameOnlyTheTextResultsPosition_whenItsReportAlsoHoldsANumber() {
+            labResult(DEMO_NO, "5.9", "9003", "0-0", false);
+            labResult(DEMO_NO, "Not detected", "9003", "0-1", true);
+            labResult(DEMO_NO_2, "Pending", "9004", "1-0", true);
+            entityManager.flush();
+
+            assertThat(measurementDao.findTextResultPositions(DEMO_NO, "FAKE-3007"))
+                    .containsExactlyInAnyOrder(new Object[]{"9001", "0-0"}, new Object[]{"9003", "0-1"});
+            assertThat(measurementDao.findTextResultPositions(DEMO_NO_2, "FAKE-3007"))
+                    .containsExactly(new Object[]{"9004", "1-0"});
         }
     }
 }
