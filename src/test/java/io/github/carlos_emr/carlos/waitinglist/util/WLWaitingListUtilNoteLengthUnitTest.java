@@ -95,7 +95,7 @@ class WLWaitingListUtilNoteLengthUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldAcceptAnEmptyOrMissingNote_forEveryWriter() {
+    void shouldFindNoErrors_forAnEmptyMissingOrFullNote() {
         assertThat(WLWaitingListUtil.noteLengthErrors(null)).isEmpty();
         assertThat(WLWaitingListUtil.noteLengthErrors("")).isEmpty();
         assertThat(WLWaitingListUtil.noteLengthErrors("N".repeat(WaitingList.NOTE_MAX_LENGTH))).isEmpty();

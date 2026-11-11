@@ -15461,7 +15461,7 @@
       "timeoutSec": 180,
       "env": [],
       "fixtures": "Owned marker-named lists in the login schedule group and two synthetic patients; no clinic preferences changed.",
-      "notes": "Manager row Update: multiline/quoted note and date, reprioritization, untouched control patient, history, clearing the note and unedited Update."
+      "notes": "Manager row Update: multiline/quoted note and date, reprioritization, untouched control patient, history, clearing the note and unedited Update. Note limit (#6141): 255 characters as submitted (a line break as CR LF) are saved whole; one more is stopped in the browser with the limit message and nothing is sent; a crafted longer note past the browser is answered 400 with the refusal shown above the list, and no row changes."
     },
     {
       "name": "waiting-list-manager-remove",
