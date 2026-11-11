@@ -6694,6 +6694,20 @@
       "notes": "Verifies Payment Received lists RAs paid on the last day of the End Date's month (#4430) for all/selected providers, including leap-year February 29, excludes adjacent-month and unselected-provider RAs, checks RA paid/final totals and unchanged database rows; owned fixtures cleaned."
     },
     {
+      "name": "billing-on-payment-dst-range",
+      "script": "scripts/billing-on-payment-dst-range-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Verifies Payment Received refuses an End Date one day before the Start Date over each common 2026 spring-forward date (#6047) and on an ordinary June day, and accepts the forward one-day range; zone-independent, read-only, no fixtures."
+    },
+    {
       "name": "billing-on-ra-import",
       "script": "scripts/billing-on-ra-import-playwright-checks.js",
       "tiers": [

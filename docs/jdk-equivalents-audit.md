@@ -14,7 +14,8 @@ the contract.
 | Cohort multimap | Cds4ReportUIBean | `JdkCollectionCompatibilityUnitTest`: actual production append methods, duplicate/null values, insertion order within each bucket and absent buckets returning null |
 | Ordered disease map | OntarioMD | Same collection tests; its only caller uses `Map` iteration, with no positional map API |
 | Nullable mutable key/value pairs | RunClinicalReport2Action, ReportEvaluator, ClinicalReports.jsp | Same collection tests; `SimpleEntry` preserves nullable values and mutable entries; JSP compilation checks the producer/consumer type change |
-| Fixed elapsed-time millisecond constants | ProgramAccessDAOImpl, ProgramProviderDAOImpl, ClientImageDAOImpl, PreventionManager, RuleBaseFactory, PopulationReport2Action, OpenAccessFilter, util.DateUtils | `RetainedCommonsSemanticsUnitTest`: `Duration` values equal the old long constants; these are elapsed durations, not calendar-day arithmetic |
+| Fixed elapsed-time millisecond constants | ProgramAccessDAOImpl, ProgramProviderDAOImpl, ClientImageDAOImpl, PreventionManager, RuleBaseFactory, PopulationReport2Action, OpenAccessFilter | `RetainedCommonsSemanticsUnitTest`: `Duration` values equal the old long constants; these are elapsed durations, not calendar-day arithmetic |
+| Calendar-day counts (not a constant swap) | util.DateUtils (`getDifDays`, `getNumberOfDaysBetweenTwoDates`, `calculateDayDifference`), PMmodule.utility.DateUtils (`getDifDays`) | Corrected in #6047: these count calendar days, so a fixed 24-hour divisor miscounted any span crossing a daylight saving change. They now count complete local days (`ZonedDateTime`, `ChronoUnit.DAYS`); answers are unchanged on spans without a change. `DateUtilsDayDifferenceUnitTest`, `PMmoduleDateUtilsDifDaysUnitTest` |
 
 `ContentDigests` centralizes the JDK's checked algorithm lookup and streaming
 digest loop. It uses `MessageDigest`, UTF-8 and `HexFormat`, and never closes a

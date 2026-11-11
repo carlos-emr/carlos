@@ -32,6 +32,10 @@ package io.github.carlos_emr.carlos.util;
 
 import java.text.DateFormat;
 import java.text.ParseException;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -566,21 +570,75 @@ public final class DateUtils {
     }
 
     /**
-     * Gets the difference between two dates, in days. Takes two dates represented in milliseconds and returns the difference in days
+     * Counts the complete days from one instant to another as read on the given zone's calendar
+     * and wall clock.
+     *
+     * <p>This is what the legacy day-count helpers meant by "days": on a span without a daylight
+     * saving change it equals elapsed milliseconds divided by 24 hours, truncated toward zero.
+     * Across a change it still counts each calendar day once, where fixed 24-hour arithmetic
+     * counts the 23-hour spring-forward day as no day at all and lets the 25-hour fall-back day
+     * reach a second day (issue #6047). For example, in {@code America/Toronto} midnight
+     * 2026-03-01 to midnight 2026-03-09 is 8 days, and 00:00 to 23:30 on 2026-11-01 is 0.</p>
+     *
+     * @param fromEpochMillis the start instant
+     * @param toEpochMillis   the end instant
+     * @param zone            the zone whose calendar and clock define a day
+     * @return complete days from start to end; negative when the end is earlier
+     * @since 2026-11-09
+     */
+    public static long completeLocalDaysBetween(long fromEpochMillis, long toEpochMillis, ZoneId zone) {
+        return ChronoUnit.DAYS.between(
+                Instant.ofEpochMilli(fromEpochMillis).atZone(zone),
+                Instant.ofEpochMilli(toEpochMillis).atZone(zone));
+    }
+
+    /**
+     * Whether two dates fall on the same calendar date in the JVM default zone, whatever their
+     * times of day. Use this, not a day count of zero, for a same-day test: a count of complete
+     * days is also zero for 23:00 to 01:00 the next morning.
+     *
+     * @throws NullPointerException if either date is null
+     * @since 2026-11-09
+     */
+    public static boolean isSameLocalDate(Date first, Date second) {
+        ZoneId zone = ZoneId.systemDefault();
+        return toLocalDate(first, zone).equals(toLocalDate(second, zone));
+    }
+
+    /** {@link Date#toInstant()} throws for {@link java.sql.Date}, so go through the epoch value. */
+    private static LocalDate toLocalDate(Date date, ZoneId zone) {
+        return Instant.ofEpochMilli(date.getTime()).atZone(zone).toLocalDate();
+    }
+
+    /**
+     * Complete days from {@code lesser} to {@code greater} in the JVM default zone (see
+     * {@link #completeLocalDaysBetween}); negative when {@code lesser} is the later date.
+     *
+     * @throws NullPointerException if either date is null
      */
     public static long getDifDays(Date greater, Date lesser) {
-        long timeInMillis = greater.getTime() - lesser.getTime();
-        return (timeInMillis / java.time.Duration.ofDays(1).toMillis());
+        return completeLocalDaysBetween(lesser.getTime(), greater.getTime(), ZoneId.systemDefault());
     }
 
+    /**
+     * Complete days between two calendars, in either order, counted in the first calendar's zone
+     * (see {@link #completeLocalDaysBetween}).
+     *
+     * @throws NullPointerException if either calendar is null
+     */
     public static long getNumberOfDaysBetweenTwoDates(Calendar cal1, Calendar cal2) {
-        long timeInMillis = Math.abs(cal1.getTimeInMillis() - cal2.getTimeInMillis());
-        return (timeInMillis / java.time.Duration.ofDays(1).toMillis());
+        return Math.abs(completeLocalDaysBetween(
+                cal1.getTimeInMillis(), cal2.getTimeInMillis(), cal1.getTimeZone().toZoneId()));
     }
 
+    /**
+     * Complete days between two dates, in either order, in the JVM default zone (see
+     * {@link #completeLocalDaysBetween}).
+     *
+     * @throws NullPointerException if either date is null
+     */
     public static long getNumberOfDaysBetweenTwoDates(Date date1, Date date2) {
-        long timeInMillis = Math.abs(date1.getTime() - date2.getTime());
-        return (timeInMillis / java.time.Duration.ofDays(1).toMillis());
+        return Math.abs(completeLocalDaysBetween(date1.getTime(), date2.getTime(), ZoneId.systemDefault()));
     }
 
     /**
@@ -686,15 +744,16 @@ public final class DateUtils {
     }
 
     /**
-     * date2-date1
+     * date2-date1, in complete days counted in {@code date1}'s zone (see
+     * {@link #completeLocalDaysBetween}).
      * <p>
      * if either are null, it returns null.
      */
     public static Integer calculateDayDifference(Calendar date1, Calendar date2) {
         if (date1 == null || date2 == null) return (null);
 
-        long ms = date2.getTimeInMillis() - date1.getTimeInMillis();
-        return ((int) (ms / java.time.Duration.ofDays(1).toMillis()));
+        return ((int) completeLocalDaysBetween(
+                date1.getTimeInMillis(), date2.getTimeInMillis(), date1.getTimeZone().toZoneId()));
     }
 
     public static Integer calculateDayDifference(Calendar date1, Date date2) {

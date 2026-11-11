@@ -49,6 +49,9 @@ import java.math.BigDecimal;
 import java.util.Date;
 import java.util.Collections;
 import java.util.List;
+import java.util.TimeZone;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -56,6 +59,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -130,6 +134,52 @@ class BillingOnPaymentViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         assertThat(vm).isNotNull();
         assertThat(vm.isReportRendered()).isFalse();
         assertThat(vm.getErrorMsg()).isNotEmpty();
+    }
+
+    /**
+     * Assembles with Toronto as the JVM zone, on a new thread. {@code CachedDateFormats} keeps one
+     * formatter per pattern per thread, holding the zone that was the default when it was built,
+     * so on this test thread the dates could still parse in whatever zone an earlier test used.
+     */
+    private BillingOnPaymentViewModel assembleInToronto(MockHttpServletRequest req) throws Exception {
+        TimeZone original = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone("America/Toronto"));
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            return executor.submit(() -> assembler.assemble(req, loggedInInfo, false, false)).get();
+        } finally {
+            executor.shutdownNow();
+            TimeZone.setDefault(original);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject an end date one day before the start across spring forward (#6047)")
+    void shouldRejectEndBeforeStart_whenSpanIsTheSpringForwardDay() throws Exception {
+        // 2026-03-08 is 23 hours long in Toronto. Dividing elapsed time by 24 hours counted
+        // March 9 back to March 8 as zero days, so the reversed range ran the report.
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setParameter("startDateText", "2026-03-09");
+        req.setParameter("endDateText", "2026-03-08");
+        req.setParameter("providerList", "");
+
+        BillingOnPaymentViewModel vm = assembleInToronto(req);
+
+        assertThat(vm.getErrorMsg()).isNotEmpty();
+        assertThat(vm.isReportRendered()).isFalse();
+        verify(raDetailDao, never()).getRaDetailByDate(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("should accept a one-day range that is the spring-forward day (#6047)")
+    void shouldAcceptOrderedRange_whenSpanIsTheSpringForwardDay() throws Exception {
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setParameter("startDateText", "2026-03-08");
+        req.setParameter("endDateText", "2026-03-09");
+
+        BillingOnPaymentViewModel vm = assembleInToronto(req);
+
+        assertThat(vm.getErrorMsg()).isEmpty();
     }
 
     @Test
