@@ -152,8 +152,8 @@ public final class PackagedConfigurationPreflight {
             return read(channel);
         }
     }
-
-    private static Properties read(FileChannel channel) throws IOException {
+    // This adapter borrows the caller-owned channel; closing it here would invalidate the still-held file lock.
+    @SuppressWarnings("java:S2095") private static Properties read(FileChannel channel) throws IOException {
         Properties properties = new Properties();
         channel.position(0);
         try {

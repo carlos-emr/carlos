@@ -13,7 +13,9 @@ with mode 0700 and files mode 0600. Treat these files as clinical audit data.
 The database name, active host/port, credentials and TLS policy come from the
 application's live datasource. A plain `db_name` no longer affects Spring bean
 construction. Credentials travel in a temporary client options file, never
-command arguments or application logs; that file is removed on success/failure.
+command arguments or application logs; that file is removed as the operation
+unwinds. If removal fails, the operation reports failure and logs its protected
+path so an operator can remove it.
 
 The operation holds a database-wide named purge lock. It captures the highest
 existing ID, then locks up to 1000 eligible rows at a time. It dumps that exact
@@ -38,7 +40,10 @@ If a run reports failure, some earlier cohorts may already have committed.
 Preparation failures name the setting stage and confirm that no rows were deleted.
 Later failures record the confirmed deletion count and retained backup path,
 without raw client/SQL errors or record values. The form reports failure even
-when an exception has no cause. Inspect the private SQL, manifest and stderr
+when an exception has no cause. A secondary rollback, process-reaping or
+credential-cleanup error does not replace the original failure. Session cleanup
+failures trigger connection invalidation/abort attempts and an explicit message
+to inspect datasource health before retrying. Inspect the private SQL, manifest and stderr
 files before retrying; `.partial` files are not certified backups. Verify the
 manifest hash, test restoration in a separate database, and reconcile IDs with
 the live log. Completed backups are retained on both success and failure. A

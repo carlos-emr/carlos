@@ -7,12 +7,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mariadb.jdbc.Configuration;
 import org.mariadb.jdbc.HostAddress;
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class AuditLogPurgeServiceUnitTest {
@@ -76,5 +81,124 @@ class AuditLogPurgeServiceUnitTest {
         String options = AuditLogPurgeService.clientOptions(live, actual, true);
         assertThat(options).contains("host=\"active.invalid\"", "port=\"4407\"", "password=\"FAKE-secret\"", "ssl=\"0\"")
                 .doesNotContain("original.invalid");
+    }
+
+    @Test
+    void shouldPreserveDumpFailureAndInterruptFlag_whenForcedReapingAlsoFails() throws Exception {
+        Process process = mock(Process.class);
+        when(process.isAlive()).thenReturn(true);
+        when(process.waitFor(5, TimeUnit.SECONDS)).thenReturn(false);
+        IOException primary = new IOException("Synthetic primary dump failure");
+        boolean priorInterrupt = Thread.interrupted();
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(AuditLogPurgeService.class)) {
+            Thread.currentThread().interrupt();
+            assertThatThrownBy(() -> {
+                try (var cleanup = new AuditLogPurgeService.DumpProcess(process)) { throw primary; }
+            }).isSameAs(primary);
+            assertThat(primary.getSuppressed()).hasSize(1);
+            assertThat(primary.getSuppressed()[0]).isInstanceOf(IOException.class).hasMessageContaining("could not be reaped");
+            assertThat(Thread.interrupted()).isTrue();
+            verify(process).destroyForcibly();
+            assertThat(logs.messages()).anyMatch(message -> message.contains("could not be reaped after forced termination"));
+        } finally {
+            Thread.interrupted();
+            if (priorInterrupt) Thread.currentThread().interrupt();
+        }
+    }
+
+    @Test
+    void shouldReportInterruptedReaping_whenTerminationWaitIsInterrupted() throws Exception {
+        Process process = mock(Process.class);
+        when(process.isAlive()).thenReturn(true);
+        when(process.waitFor(5, TimeUnit.SECONDS)).thenThrow(new InterruptedException("Synthetic interrupt"));
+        boolean priorInterrupt = Thread.interrupted();
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(AuditLogPurgeService.class)) {
+            assertThatThrownBy(() -> new AuditLogPurgeService.DumpProcess(process).close())
+                    .isInstanceOf(IOException.class).hasMessageContaining("reaping was interrupted");
+            assertThat(Thread.interrupted()).isTrue();
+            verify(process).destroyForcibly();
+            assertThat(logs.messages()).anyMatch(message -> message.contains("reaping was interrupted"));
+        } finally {
+            Thread.interrupted();
+            if (priorInterrupt) Thread.currentThread().interrupt();
+        }
+    }
+
+    @Test
+    void shouldPreservePrimaryFailureAndAbortConnection_whenRollbackAndPoolInvalidationFail() throws Exception {
+        var pool = mock(org.apache.commons.dbcp2.BasicDataSource.class);
+        Connection connection = mock(Connection.class);
+        SQLException rollback = new SQLException("Synthetic rollback failure");
+        IllegalStateException invalidation = new IllegalStateException("Synthetic invalidation failure");
+        doThrow(rollback).when(connection).rollback();
+        doThrow(invalidation).when(pool).invalidateConnection(connection);
+        var cleanup = new AuditLogPurgeService(pool).new PurgeSession(connection, "serial", "witness");
+        cleanup.transactional = true;
+        IOException primary = new IOException("Synthetic primary purge failure");
+        assertThatThrownBy(() -> {
+            try (cleanup) { throw primary; }
+        }).isSameAs(primary);
+        assertThat(primary.getSuppressed()).containsExactly(rollback);
+        assertThat(rollback.getSuppressed()).containsExactly(invalidation);
+        verify(connection).abort(any());
+    }
+
+    @Test
+    void shouldRetainEveryCleanupError_whenPoolInvalidationAndAbortAlsoFail() throws Exception {
+        var pool = mock(org.apache.commons.dbcp2.BasicDataSource.class);
+        Connection connection = mock(Connection.class);
+        SQLException rollback = new SQLException("Synthetic rollback failure");
+        IllegalStateException invalidation = new IllegalStateException("Synthetic invalidation failure");
+        SQLException abort = new SQLException("Synthetic abort failure");
+        doThrow(rollback).when(connection).rollback();
+        doThrow(invalidation).when(pool).invalidateConnection(connection);
+        doThrow(abort).when(connection).abort(any());
+        var cleanup = new AuditLogPurgeService(pool).new PurgeSession(connection, "serial", "witness");
+        cleanup.transactional = true;
+        assertThatThrownBy(cleanup::close).isSameAs(rollback);
+        assertThat(rollback.getSuppressed()).containsExactly(invalidation, abort);
+    }
+
+    @Test
+    void shouldInvalidatePooledConnection_whenCleanupFailsAfterAnOtherwiseSuccessfulOperation() throws Exception {
+        var pool = mock(org.apache.commons.dbcp2.BasicDataSource.class);
+        Connection connection = mock(Connection.class);
+        SQLException rollback = new SQLException("Synthetic rollback failure");
+        doThrow(rollback).when(connection).rollback();
+        var cleanup = new AuditLogPurgeService(pool).new PurgeSession(connection, "serial", "witness");
+        cleanup.transactional = true;
+        assertThatThrownBy(cleanup::close).isSameAs(rollback);
+        verify(pool).invalidateConnection(connection);
+        verify(connection, never()).abort(any());
+    }
+
+    @Test
+    void shouldAbortUnpooledConnection_whenCleanupFails() throws Exception {
+        var source = mock(javax.sql.DataSource.class);
+        Connection connection = mock(Connection.class);
+        SQLException rollback = new SQLException("Synthetic rollback failure");
+        doThrow(rollback).when(connection).rollback();
+        var cleanup = new AuditLogPurgeService(source).new PurgeSession(connection, "serial", "witness");
+        cleanup.transactional = true;
+        assertThatThrownBy(cleanup::close).isSameAs(rollback);
+        verify(connection).abort(any());
+    }
+
+    @Test
+    void shouldPreservePrimaryFailureAndReportRetainedCredentials_whenCredentialRemovalFails() throws Exception {
+        Path blocked = Files.createDirectory(temporary.resolve("connection.cnf"));
+        Files.writeString(blocked.resolve("retained"), "Synthetic removal fault");
+        IOException primary = new IOException("Synthetic primary purge failure");
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(AuditLogPurgeService.class)) {
+            assertThatThrownBy(() -> {
+                try (var cleanup = new AuditLogPurgeService.PrivateCredentials(blocked)) { throw primary; }
+            }).isSameAs(primary);
+            assertThat(primary.getSuppressed()).hasSize(1);
+            assertThat(primary.getSuppressed()[0]).isInstanceOf(IOException.class)
+                    .hasMessageContaining("temporary credentials could not be removed");
+            assertThat(logs.messages()).anyMatch(message -> message.contains("temporary credentials could not be removed")
+                    && message.contains(blocked.toString()));
+        }
+        assertThat(blocked.resolve("retained")).hasContent("Synthetic removal fault");
     }
 }

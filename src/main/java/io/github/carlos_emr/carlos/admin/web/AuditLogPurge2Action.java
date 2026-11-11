@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class AuditLogPurge2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -52,6 +53,8 @@ public class AuditLogPurge2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     @Override
+    // FindSecBugs IMPROPER_UNICODE: the servlet container restricts HTTP methods to ASCII tokens; only the fixed POST verb is compared.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Servlet container validates ASCII HTTP method tokens; only the fixed POST verb is compared case-insensitively")
     public String execute() throws Exception {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.auditLogPurge", "w", null)) {

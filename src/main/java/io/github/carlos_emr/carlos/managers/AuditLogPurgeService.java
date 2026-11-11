@@ -41,6 +41,7 @@ import org.mariadb.jdbc.HostAddress;
 import org.mariadb.jdbc.export.SslMode;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Backs up locked, bounded cohorts before deleting their exact identifiers.
@@ -106,24 +107,19 @@ public class AuditLogPurgeService {
             throw new IOException("Audit purge could not prepare " + preparation + "; no rows were deleted. Consult the server log.");
         }
         int removed = 0;
-        try (Connection connection = source.getConnection()) {
+        try (PrivateCredentials credentials = new PrivateCredentials(options);
+             Connection connection = source.getConnection()) {
             String catalog = connection.getCatalog();
             if (catalog == null || catalog.isBlank()) throw new IOException("Audit purge connection has no database");
             String serialLock = "carlos.audit-purge:" + HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
                     .digest(catalog.getBytes(StandardCharsets.UTF_8))).substring(0, 32);
             String witness = "carlos.audit-backup:" + UUID.randomUUID();
-            boolean serialized = false;
-            boolean witnessed = false;
-            boolean reusable = true;
-            boolean transactional = false;
-            int isolation = connection.getTransactionIsolation();
-            boolean changedIsolation = false;
-            try {
+            try (PurgeSession session = new PurgeSession(connection, serialLock, witness)) {
                 if (!connection.getAutoCommit()) throw new IOException("Audit purge requires its own database transaction");
                 if (!lock(connection, serialLock)) throw new IOException("Another audit purge owns this database");
-                serialized = true;
+                session.serialized = true;
                 if (!lock(connection, witness)) throw new IOException("Audit backup identity could not be established");
-                witnessed = true;
+                session.witnessed = true;
                 long owner = scalar(connection, "SELECT CONNECTION_ID()");
                 long highWater = scalar(connection, "SELECT COALESCE(MAX(id), 0) FROM log");
                 // The actual live driver owns host, credentials and TLS policy;
@@ -142,9 +138,9 @@ public class AuditLogPurgeService {
                 // Lock selected rows without a supremum/gap lock that would
                 // block the synchronous audit record's separate connection.
                 connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
-                changedIsolation = true;
+                session.changedIsolation = true;
                 connection.setAutoCommit(false);
-                transactional = true;
+                session.transactional = true;
                 boolean audited = false;
                 int cohort = 0;
                 while (true) {
@@ -192,25 +188,6 @@ public class AuditLogPurgeService {
                     connection.commit();
                     removed = Math.addExact(removed, deleted);
                 }
-            } finally {
-                try {
-                    if (transactional) connection.rollback();
-                    if (witnessed) unlock(connection, witness);
-                    if (serialized) unlock(connection, serialLock);
-                    if (transactional) connection.setAutoCommit(true);
-                    if (changedIsolation) connection.setTransactionIsolation(isolation);
-                } catch (SQLException failure) {
-                    reusable = false;
-                    // Never return a session still holding a purge lock to circulation.
-                    if (source instanceof org.apache.commons.dbcp2.BasicDataSource pool) {
-                        pool.invalidateConnection(connection);
-                    } else {
-                        connection.abort(Runnable::run);
-                    }
-                    throw failure;
-                } finally {
-                    if (!reusable) LOGGER.error("Audit purge connection was invalidated after cleanup failure");
-                }
             }
         } catch (Exception failure) {
             // SQL/client errors can contain data or credentials. Keep their raw
@@ -219,8 +196,6 @@ public class AuditLogPurgeService {
                     failure.getClass().getSimpleName(), removed, LogSafe.sanitize(job.toString()));
             if (failure instanceof IOException) LOGGER.error("Audit purge refusal: {}", LogSafe.sanitize(failure.getMessage()));
             throw new IOException("Audit purge did not finish. Completed backups were retained; consult the server log before retrying.");
-        } finally {
-            Files.deleteIfExists(options);
         }
         LOGGER.info("Audit purge completed; removed={}, backups={}", removed, LogSafe.sanitize(job.toString()));
         return removed;
@@ -248,6 +223,10 @@ public class AuditLogPurgeService {
         }
     }
 
+    // SQL text varies only by a count of literal '?' placeholders; every date and ID is bound.
+    @SuppressWarnings("java:S2077")
+    @SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
+            justification = "Only placeholder count changes; cutoff and every JDBC ID are bound parameters")
     private static int delete(Connection connection, List<Long> ids, LocalDateTime cutoff) throws SQLException {
         // Only placeholder structure is generated; every value is a JDBC bind.
         String placeholders = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
@@ -348,6 +327,8 @@ public class AuditLogPurgeService {
         throw new IOException("Configured audit dump executable is unavailable");
     }
 
+    // FindSecBugs SQL_INJECTION_JDBC: this private helper has only fixed literal SQL callers.
+    @SuppressFBWarnings(value = "SQL_INJECTION_JDBC", justification = "Private helper accepts only fixed literal SQL at all call sites")
     private static long scalar(Connection connection, String sql) throws SQLException {
         try (PreparedStatement query = connection.prepareStatement(sql)) {
             query.setQueryTimeout(5);
@@ -385,6 +366,8 @@ public class AuditLogPurgeService {
         try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) { channel.force(true); }
     }
 
+    // FindSecBugs COMMAND_INJECTION: direct argv, no shell; validated administrator executable, fixed options and internal numeric/UUID predicates.
+    @SuppressFBWarnings(value = "COMMAND_INJECTION", justification = "Direct argv without a shell; validated administrator executable, fixed options, and internal JDBC longs/UUID predicates")
     private void run(List<String> command, Path stdout, Path stderr, Connection connection) throws Exception {
         ProcessBuilder builder = new ProcessBuilder(command).redirectOutput(stdout.toFile()).redirectError(stderr.toFile()); // nosemgrep: java.lang.security.audit.command-injection-process-builder.command-injection-process-builder -- argv list only, no shell; executable resolves from administrator configuration, options are fixed, and predicates contain JDBC longs plus an internal UUID
         builder.environment().remove("MYSQL_PWD");
@@ -393,7 +376,7 @@ public class AuditLogPurgeService {
         Process process = builder.start();
         long deadline = System.nanoTime() + commandTimeout.toNanos();
         long heartbeat = System.nanoTime();
-        try {
+        try (DumpProcess cleanup = new DumpProcess(process)) {
             while (!process.waitFor(1, TimeUnit.SECONDS)) {
                 if (System.nanoTime() >= deadline) throw new IOException("Audit dump timed out; the cohort was retained");
                 if (System.nanoTime() - heartbeat >= Duration.ofSeconds(5).toNanos()) {
@@ -406,16 +389,87 @@ public class AuditLogPurgeService {
             if (process.exitValue() != 0) throw new IOException("Audit dump exited unsuccessfully; the cohort was retained");
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
-            throw new IOException("Audit dump was interrupted; the cohort was retained");
-        } finally {
-            if (process.isAlive()) {
-                process.destroyForcibly();
-                boolean interrupted = Thread.interrupted();
+            throw new IOException("Audit dump was interrupted; the cohort was retained", interrupted);
+        }
+    }
+
+    /** Try-with-resources preserves the primary failure when session cleanup also fails. */
+    final class PurgeSession implements AutoCloseable {
+        private final Connection connection;
+        private final String serialLock;
+        private final String witness;
+        private final int isolation;
+        boolean serialized;
+        boolean witnessed;
+        boolean transactional;
+        boolean changedIsolation;
+
+        PurgeSession(Connection connection, String serialLock, String witness) throws SQLException {
+            this.connection = connection;
+            this.serialLock = serialLock;
+            this.witness = witness;
+            this.isolation = connection.getTransactionIsolation();
+        }
+
+        @Override public void close() throws SQLException {
+            try {
+                if (transactional) connection.rollback();
+                if (witnessed) unlock(connection, witness);
+                if (serialized) unlock(connection, serialLock);
+                if (transactional) connection.setAutoCommit(true);
+                if (changedIsolation) connection.setTransactionIsolation(isolation);
+            } catch (SQLException failure) {
+                // Never return a session still holding a purge lock to circulation.
                 try {
-                    if (!process.waitFor(5, TimeUnit.SECONDS)) throw new IOException("Audit dump could not be reaped; inspect retained partial output");
-                } finally {
-                    if (interrupted) Thread.currentThread().interrupt();
+                    if (source instanceof org.apache.commons.dbcp2.BasicDataSource pool) pool.invalidateConnection(connection);
+                    else connection.abort(Runnable::run);
+                } catch (SQLException | RuntimeException invalidation) {
+                    if (invalidation != failure) failure.addSuppressed(invalidation);
+                    try { connection.abort(Runnable::run); }
+                    catch (SQLException | RuntimeException abort) {
+                        if (abort != failure) failure.addSuppressed(abort);
+                    }
                 }
+                LOGGER.error("Audit purge session cleanup failed; connection invalidation/abort was attempted; inspect datasource health before retrying");
+                throw failure;
+            }
+        }
+    }
+
+    /** Reaping errors are suppressed onto the original dump failure, never substituted for it. */
+    static final class DumpProcess implements AutoCloseable {
+        private final Process process;
+        DumpProcess(Process process) { this.process = process; }
+
+        @Override public void close() throws IOException {
+            if (!process.isAlive()) return;
+            process.destroyForcibly();
+            boolean interrupted = Thread.interrupted();
+            try {
+                if (!process.waitFor(5, TimeUnit.SECONDS)) {
+                    LOGGER.error("Audit dump could not be reaped after forced termination; inspect retained partial output");
+                    throw new IOException("Audit dump could not be reaped; inspect retained partial output");
+                }
+            } catch (InterruptedException failure) {
+                interrupted = true;
+                LOGGER.error("Audit dump reaping was interrupted; inspect retained partial output");
+                throw new IOException("Audit dump reaping was interrupted; inspect retained partial output", failure);
+            } finally {
+                if (interrupted) Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    /** Remove temporary credentials even if opening the database or releasing its session fails. */
+    static final class PrivateCredentials implements AutoCloseable {
+        private final Path options;
+        PrivateCredentials(Path options) { this.options = options; }
+
+        @Override public void close() throws IOException {
+            try { Files.deleteIfExists(options); }
+            catch (IOException failure) {
+                LOGGER.error("Audit purge temporary credentials could not be removed; inspect protected file {}", LogSafe.sanitize(options.toString()));
+                throw new IOException("Audit purge temporary credentials could not be removed; inspect the protected job directory", failure);
             }
         }
     }
