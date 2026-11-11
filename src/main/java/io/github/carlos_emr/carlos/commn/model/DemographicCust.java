@@ -127,11 +127,23 @@ public class DemographicCust extends AbstractModel<Integer> {
      *         value; empty when every field fits
      */
     public List<String> validateFieldLengths() {
-        List<String> errors = new ArrayList<>();
-        Demographic.addFieldLengthError(errors, "Alert", alert, ALERT_MAX_LENGTH);
+        List<String> errors = new ArrayList<>(validateAlertLength(alert));
         Demographic.addFieldLengthError(errors, "Nurse", nurse, NURSE_MAX_LENGTH);
         Demographic.addFieldLengthError(errors, "Resident", resident, RESIDENT_MAX_LENGTH);
         Demographic.addFieldLengthError(errors, "Midwife", midwife, MIDWIFE_MAX_LENGTH);
+        return errors;
+    }
+
+    /**
+     * The alert check of {@link #validateFieldLengths()} alone, for a writer that changes only the
+     * alert, such as the Ontario OBEC eligibility apply (#6140).
+     *
+     * @param alert the alert as it would be stored; may be {@code null}
+     * @return a message naming the field and the limit, never the value; empty when it fits
+     */
+    public static List<String> validateAlertLength(String alert) {
+        List<String> errors = new ArrayList<>();
+        Demographic.addFieldLengthError(errors, "Alert", alert, ALERT_MAX_LENGTH);
         return errors;
     }
 
