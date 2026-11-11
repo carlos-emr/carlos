@@ -1010,7 +1010,7 @@
                                         d2 = dose.split(" ")[1];
                                     }
                                 } else {
-                                    d1 = pDose;
+                                    d1 = dose;
                                 }
 
                                 if ("".equals(dose)) {
