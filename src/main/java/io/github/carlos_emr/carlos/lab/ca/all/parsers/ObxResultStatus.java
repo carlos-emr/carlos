@@ -32,8 +32,9 @@ import com.google.common.base.Ascii;
  * and others turn it into a word: {@code Final} (CML, CDL, Epsilon, Spire, CLS, MDS and the CDS
  * import), {@code Corrected} (CLS) or {@code Edited} (MDS's word for {@code C}). Labs also send the
  * code in lower case, which CML already counts as final. This rule accepts all of them, in any ASCII
- * case and with surrounding spaces, so one lab's final result is never filed differently from
- * another's.
+ * case, so one lab's final result is never filed differently from another's. Only the exact token
+ * counts: a status padded with spaces is not final, as CML's own count and the CDS import
+ * ({@code CdsLaboratoryMeaning}) already treat it, which keep such a status unclassified.
  *
  * <p>Not final: preliminary, pending, partial and unverified results, a deleted or cancelled one
  * ({@code D}, {@code X}), and {@code U} (MDS's {@code Changed to Final}), which marks results sent
@@ -53,9 +54,8 @@ public final class ObxResultStatus {
      */
     public static boolean isFinal(String status) {
         if (status == null) return false;
-        String code = status.trim();
-        return Ascii.equalsIgnoreCase("F", code) || Ascii.equalsIgnoreCase("C", code)
-                || Ascii.equalsIgnoreCase("Final", code) || Ascii.equalsIgnoreCase("Corrected", code)
-                || Ascii.equalsIgnoreCase("Edited", code);
+        return Ascii.equalsIgnoreCase("F", status) || Ascii.equalsIgnoreCase("C", status)
+                || Ascii.equalsIgnoreCase("Final", status) || Ascii.equalsIgnoreCase("Corrected", status)
+                || Ascii.equalsIgnoreCase("Edited", status);
     }
 }

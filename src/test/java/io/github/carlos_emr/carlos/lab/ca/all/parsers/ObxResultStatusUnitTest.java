@@ -45,7 +45,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 class ObxResultStatusUnitTest {
 
     @ParameterizedTest(name = "[{0}] is final")
-    @ValueSource(strings = {"F", "f", "C", "c", " F ", "Final", "FINAL", "final", "Final ", "Corrected", "CORRECTED",
+    @ValueSource(strings = {"F", "f", "C", "c", "Final", "FINAL", "final", "Corrected", "CORRECTED",
             "corrected", "Edited", "edited"})
     void shouldBeFinal_forTheCodesAndWordsHandlersReport(String status) {
         assertThat(ObxResultStatus.isFinal(status)).isTrue();
@@ -56,6 +56,15 @@ class ObxResultStatusUnitTest {
     @ValueSource(strings = {" ", "P", "p", "I", "i", "S", "R", "X", "D", "W", "U", "N", "Pending", "Preliminary",
             "Partial", "Changed to Final", "Entered - Not Verified", "DNS", "FF", "Finalized", "F C"})
     void shouldNotBeFinal_forEveryOtherStatus(String status) {
+        assertThat(ObxResultStatus.isFinal(status)).isFalse();
+    }
+
+    @ParameterizedTest(name = "[{0}] is not final")
+    @ValueSource(strings = {"F ", " f ", " C", "Final ", " Final", "\tF", "Edited\n"})
+    void shouldNotBeFinal_whenTheStatusIsPaddedWithSpaces(String status) {
+        // Only the exact token counts, as CML's own count did before this rule and as the CDS import
+        // still does: it keeps a padded status unclassified and stores it as received. No HL7 handler
+        // pads OBX-11, and no lab fixture here does.
         assertThat(ObxResultStatus.isFinal(status)).isFalse();
     }
 
