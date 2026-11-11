@@ -68,6 +68,13 @@ import org.springframework.transaction.interceptor.TransactionInterceptor;
 @Tag("lab")
 @DisplayName("CategoryData patient-search HIN filter")
 class CategoryDataPatientSearchUnitTest extends CarlosUnitTestBase {
+    @org.junit.jupiter.api.BeforeEach
+    void registerDateSearchService() {
+        registerMock(io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService.class,
+                new io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService(
+                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao.class)));
+    }
+
 
     private final List<String> statements = new ArrayList<>();
     private final List<List<Object>> parameters = new ArrayList<>();
@@ -85,7 +92,7 @@ class CategoryDataPatientSearchUnitTest extends CarlosUnitTestBase {
         when(entityManager.createNativeQuery(anyString(), eq(Tuple.class))).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of());
 
-        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao(mock(SystemPreferencesDao.class));
+        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao();
         org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", entityManager);
         registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class, dao);
         when(entityManager.createNativeQuery(anyString(), eq(Tuple.class))).thenAnswer(invocation -> {
@@ -163,7 +170,7 @@ class CategoryDataPatientSearchUnitTest extends CarlosUnitTestBase {
 
     private RecordingTransactionManager installTransactionalDao() {
         var transactions = new RecordingTransactionManager();
-        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao(mock(SystemPreferencesDao.class));
+        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao();
         org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", entityManager);
         var interceptor = new TransactionInterceptor();
         interceptor.setTransactionManager(transactions);

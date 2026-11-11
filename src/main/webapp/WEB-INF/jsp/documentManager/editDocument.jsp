@@ -82,6 +82,12 @@
         editDocumentNo = request.getParameter("editDocumentNo");
     }
 
+    io.github.carlos_emr.carlos.documentManager.DocumentReviewService.Baseline editBaseline = null;
+    if (editDocumentNo != null && editDocumentNo.matches("[1-9][0-9]*")
+            && request.getAttribute("docerrors") == null && request.getAttribute("linkhtmlerrors") == null) {
+        editBaseline = SpringUtils.getBean(io.github.carlos_emr.carlos.documentManager.DocumentReviewService.class)
+            .baseline(io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request), Integer.parseInt(editDocumentNo));
+    }
     String module = "";
     String moduleid = "";
     if (request.getParameter("function") != null) {
@@ -253,11 +259,13 @@
 
         function reviewed(ths) {
             var thisForm = ths.form;
-            // Ask for a review by the signed-in provider. The action decides from the stored
-            // document, under its row lock, whether this is the first review or an additional one,
-            // because the reviewer shown on this page can be out of date (issue #6081).
+            // The server decides the review mode; validation and confirmation must still run.
             thisForm.reviewDoc.value = true;
-            thisForm.submit();
+            if (submitUpload(thisForm) && thisForm.reportValidity()) {
+                thisForm.submit();
+            } else {
+                thisForm.reviewDoc.value = false;
+            }
         }
 
         var docSubClassList = [
@@ -272,8 +280,17 @@
     <div class="maindivheading">Edit Document</div>
     <%-- Lists docerrors --%> <% for (Enumeration errorkeys = docerrors.keys(); errorkeys.hasMoreElements(); ) {%>
     <font class="warning">Error: <fmt:message key="<%=(String) docerrors.get(errorkeys.nextElement())%>"/></font><br/>
-    <% } %> <form action="${pageContext.request.contextPath}/documentManager/addEditDocument" method="POST"
+    <% } %>
+    <% if (editBaseline != null && editBaseline.content().isEmpty()) { %>
+    <div role="alert" class="warning"><fmt:message key="documentMutation.sourceUnavailable"/></div>
+    <% } %>
+    <form action="${pageContext.request.contextPath}/documentManager/addEditDocument" method="POST"
                        enctype="multipart/form-data" onsubmit="return submitUpload(this);">
+    <input type="hidden" name="contentRevision" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(
+        editBaseline == null ? request.getParameter("contentRevision") : editBaseline.content()) %>">
+    <input type="hidden" name="metadataRevision" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(
+        editBaseline == null ? request.getParameter("metadataRevision") : editBaseline.metadata()) %>">
+
     <input type="hidden" name="function"
            value="<carlos:encode value='<%= formdata.getFunction() %>' context="htmlAttribute"/>" size="20"/>
     <input type="hidden" name="functionId"
@@ -429,7 +446,7 @@
             </td>
             <td>
                 <div style="<%=updatableContent==true?"":"visibility: hidden"%>">
-                    <input type="file" name="docFile" size="20"
+                    <input type="file" name="docFile" size="20" <%= editBaseline != null && editBaseline.content().isEmpty() ? "disabled" : "" %>
                             <% if (docerrors.containsKey("uploaderror")) {%> class="warning"
                             <%}%>>
                 </div>
@@ -461,7 +478,7 @@
 
                 <%if (!reviewedByMe) { %>
                 <br/>
-                <input type="button" value="Reviewed" title="Click to set Reviewed" onclick="reviewed(this);"/>
+                <input type="button" value="Reviewed" title="Click to set Reviewed" <%= editBaseline != null && editBaseline.content().isEmpty() ? "disabled" : "" %> onclick="reviewed(this);"/>
                 <% } %>
             </td>
         </tr>

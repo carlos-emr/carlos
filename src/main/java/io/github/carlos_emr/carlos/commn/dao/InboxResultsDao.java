@@ -56,6 +56,15 @@ public interface InboxResultsDao {
                                                            Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate,
                                                            Date acknowledgedSince);
 
+    /** Reads a page with explicit recoverable row omissions for browser callers. */
+    default InboxDocumentResults readDocumentResults(String providerNo, String demographicNo, String firstName,
+            String lastName, String healthNumber, String status, boolean paged, Integer page,
+            Integer pageSize, boolean mixed, Boolean abnormal, Date start, Date end, Date acknowledgedSince) {
+        return new InboxDocumentResults(populateDocumentResultsData(providerNo, demographicNo, firstName,
+                lastName, healthNumber, status, paged, page, pageSize, mixed, abnormal, start, end,
+                acknowledgedSince), 0);
+    }
+
     //String getStringValue(Object value);
 }
  

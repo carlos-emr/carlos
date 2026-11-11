@@ -167,6 +167,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         request = new MockHttpServletRequest();
+        request.setMethod("POST");
         response = new MockHttpServletResponse();
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
@@ -192,10 +193,17 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(DocumentDao.class, storedDocuments);
         registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));
         registerMock(QueueDocumentLinkDao.class, mock(QueueDocumentLinkDao.class));
-        lenient().when(storedDocuments.find(123)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Document());
-        lenient().when(storedDocuments.findForPageMutation(123)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Document());
+        var defaultStored = new io.github.carlos_emr.carlos.commn.model.Document(123);
+        defaultStored.setStatus('H'); defaultStored.setDocxml("Synthetic review content");
+        lenient().when(storedDocuments.find(123)).thenReturn(defaultStored);
+        lenient().when(storedDocuments.findForPageMutation(123)).thenReturn(defaultStored);
         transactions = new RecordingTransactions();
         registerMock(PlatformTransactionManager.class, transactions);
+        registerMock(DocumentExtraReviewerDao.class, mock(DocumentExtraReviewerDao.class));
+        registerMock(io.github.carlos_emr.carlos.documentManager.DocumentReviewService.class,
+            new io.github.carlos_emr.carlos.documentManager.DocumentReviewService(storedDocuments,
+                (DocumentExtraReviewerDao) mockedBeans.get(DocumentExtraReviewerDao.class), mockCtlDocumentDao,
+                mockSecurityInfoManager, transactions));
         lenient().when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo, 123)).thenReturn(true);
         lenient().when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_edoc", "w", "123")).thenReturn(true);
         lenient().when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
@@ -229,7 +237,8 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
             assertThatThrownBy(action::execute2).isInstanceOf(SecurityException.class);
             documents.verifyNoInteractions(); logActionMock.verifyNoInteractions();
-            org.mockito.Mockito.verifyNoInteractions(reviewers);
+            verify(reviewers, never()).persist(any());
+            verify(reviewers, never()).remove(any());
             assertThat(request.getAttribute("docerrors")).isNull();
         }
     }
@@ -300,11 +309,12 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
             java.util.Date reviewed = io.github.carlos_emr.carlos.util.UtilDateUtilities.StringToDate(
                     saved.getValue().getReviewDateTime(), EDocUtil.REVIEW_DATETIME_FORMAT);
             assertThat(reviewed).isNotNull().isAfterOrEqualTo(before).isBeforeOrEqualTo(new java.util.Date());
-            org.mockito.Mockito.verifyNoInteractions(reviewers);
+            verify(reviewers, never()).persist(any());
+            verify(reviewers, never()).remove(any());
             var order = org.mockito.Mockito.inOrder(documentsDao);
             order.verify(documentsDao).findForPageMutation(123);
-            logActionMock.verify(() -> LogAction.addLog(eq("999998"), eq(LogConst.REVIEWED), eq(LogConst.CON_DOCUMENT),
-                    eq("123"), any(String.class)));
+            logActionMock.verify(() -> LogAction.addLogStrict(eq(mockLoggedInInfo), eq(LogConst.REVIEWED), eq(LogConst.CON_DOCUMENT),
+                    eq("123"), org.mockito.ArgumentMatchers.nullable(String.class), eq("")));
             assertThat(transactions.committed).isTrue();
             assertThat(transactions.rolledBack).isFalse();
         }
@@ -332,8 +342,8 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
             verify(reviewers).persist(argThat((io.github.carlos_emr.carlos.commn.model.DocumentExtraReviewer review) ->
                     review.getDocumentNo() == 123 && "999998".equals(review.getReviewerProviderNo())
                             && review.getReviewDateTime() != null));
-            logActionMock.verify(() -> LogAction.addLog(eq("999998"), eq(LogConst.REVIEWED), eq(LogConst.CON_DOCUMENT),
-                    eq("123"), any(String.class)));
+            logActionMock.verify(() -> LogAction.addLogStrict(eq(mockLoggedInInfo), eq(LogConst.REVIEWED), eq(LogConst.CON_DOCUMENT),
+                    eq("123"), org.mockito.ArgumentMatchers.nullable(String.class), eq("")));
             assertThat(transactions.committed).isTrue();
         }
     }
@@ -357,10 +367,10 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
             documents.verify(() -> EDocUtil.editDocumentSQL(saved.capture(), eq(true)));
             assertThat(saved.getValue().getReviewerId()).isEqualTo(stored.getReviewer());
             verify(reviewers, never()).persist(any());
-            logActionMock.verify(() -> LogAction.addLog(any(String.class), eq(LogConst.REVIEWED), any(String.class),
-                    any(String.class), any(String.class)), never());
-            logActionMock.verify(() -> LogAction.addLog(eq("999998"), eq(LogConst.UPDATE), eq(LogConst.CON_DOCUMENT),
-                    eq("123"), any(String.class)));
+            logActionMock.verify(() -> LogAction.addLogStrict(any(LoggedInInfo.class), eq(LogConst.REVIEWED), any(String.class),
+                    any(String.class), org.mockito.ArgumentMatchers.nullable(String.class), any(String.class)), never());
+            logActionMock.verify(() -> LogAction.addLogStrict(eq(mockLoggedInInfo), eq(LogConst.UPDATE), eq(LogConst.CON_DOCUMENT),
+                    eq("123"), org.mockito.ArgumentMatchers.nullable(String.class), eq("")));
         }
     }
 
@@ -373,9 +383,10 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(withContentUpdatesDisabled(action::execute2)).isEqualTo("successEdit");
             // A plain Update still clears the stored review, as it always has.
             documents.verify(() -> EDocUtil.editDocumentSQL(any(EDoc.class), eq(false)));
-            org.mockito.Mockito.verifyNoInteractions(reviewers);
-            logActionMock.verify(() -> LogAction.addLog(any(String.class), eq(LogConst.REVIEWED), any(String.class),
-                    any(String.class), any(String.class)), never());
+            verify(reviewers, never()).persist(any());
+            verify(reviewers, never()).remove(any());
+            logActionMock.verify(() -> LogAction.addLogStrict(any(LoggedInInfo.class), eq(LogConst.REVIEWED), any(String.class),
+                    any(String.class), org.mockito.ArgumentMatchers.nullable(String.class), any(String.class)), never());
         }
     }
 
@@ -396,7 +407,8 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(request.getAttribute("editDocumentNo")).isEqualTo("123");
             documents.verify(() -> EDocUtil.editDocumentSQL(any(EDoc.class), org.mockito.ArgumentMatchers.anyBoolean()),
                     never());
-            org.mockito.Mockito.verifyNoInteractions(reviewers);
+            verify(reviewers, never()).persist(any());
+            verify(reviewers, never()).remove(any());
             logActionMock.verifyNoInteractions();
             assertThat(transactions.rolledBack).isTrue();
             assertThat(transactions.committed).isFalse();
@@ -444,6 +456,20 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     private void prepareReviewPost(boolean reviewDoc, boolean extraReviewDoc) {
+        var docs = (DocumentDao) mockedBeans.get(DocumentDao.class);
+        if (!mockedBeans.containsKey(DocumentExtraReviewerDao.class)) registerMock(DocumentExtraReviewerDao.class, mock(DocumentExtraReviewerDao.class));
+        registerMock(io.github.carlos_emr.carlos.documentManager.DocumentReviewService.class,
+                new io.github.carlos_emr.carlos.documentManager.DocumentReviewService(docs,
+                    (DocumentExtraReviewerDao) mockedBeans.get(DocumentExtraReviewerDao.class), mockCtlDocumentDao,
+                    mockSecurityInfoManager, transactions));
+        if (docs != null) {
+            var stored = docs.find(123);
+            if (stored != null) {
+                stored.setDocumentNo(123); stored.setStatus('H'); stored.setDocxml("Synthetic review content");
+                request.setParameter("contentRevision", io.github.carlos_emr.carlos.documentManager.DocumentEditRevision.digest("Synthetic review content"));
+                request.setParameter("metadataRevision", io.github.carlos_emr.carlos.documentManager.DocumentEditRevision.metadata(stored));
+            }
+        }
         action.setMode("123");
         action.setFunction("provider");
         action.setFunctionId("999998");

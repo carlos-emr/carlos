@@ -63,6 +63,18 @@ class AddEditDocument2ActionAtomicUploadUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldBoundReplacementNames_withoutLosingTheFinalExtension() {
+        String name = AddEditDocument2Action.replacementFileName("x".repeat(250) + ".pdf");
+        assertThat(name).hasSize(255).endsWith(".pdf");
+        assertThat(name).isNotEqualTo(AddEditDocument2Action.replacementFileName("x".repeat(250) + ".pdf"));
+    }
+
+    @Test void shouldPreserveTheUploadTimestampPrefix_forLegacyRefileReaders() {
+        assertThat(AddEditDocument2Action.replacementFileName("20260101000000original.pdf"))
+                .matches("20260101000000[a-f0-9-]{36}-original\\.pdf");
+    }
+
+    @Test
     @DisplayName("should write uploaded file via temp sibling and clean it up")
     void shouldWriteUploadedFileViaTempSibling_whenPublishingCompletes() throws Exception {
         String fileName = "uploaded.pdf";

@@ -271,7 +271,7 @@ public class LabDataController {
      * @param query InboxhubQuery the query object containing search filters including patient demographics,
      *              provider number, status filter, abnormal filter, and date range
      * @return CategoryData the populated category data object containing document counts and patient lists,
-     *         with counts set to zero if SQL errors occur during population
+     *         or throws if population fails
      */
     public CategoryData getCategoryData(InboxhubQuery query) {
         if (Objects.equals(query.getSearchProviderNo(), "-1")) {
@@ -285,7 +285,7 @@ public class LabDataController {
         try {
             categoryData.populateCountsAndPatients();
         } catch (SQLException e) {
-            MiscUtils.getLogger().error(e);
+            throw new IllegalStateException("Could not read inbox category counts", e);
         }
         return categoryData;
     }
@@ -348,8 +348,11 @@ public class LabDataController {
         mixLabsAndDocs = query.getDoc() && query.getLab();
         Date acknowledgedSince = acknowledgedSince(query);
         if (query.getDoc() || all) {
-            labDocs.addAll(inboxResultsDao.populateDocumentResultsData(query.getSearchProviderNo(), query.getDemographicNo(), query.getPatientFirstName(),
-                query.getPatientLastName(), query.getPatientHealthNumber(), query.getStatusFilter().getValue(), isPaged, page, pageSize, mixLabsAndDocs, query.getAbnormalBool(), startDate, endDate, acknowledgedSince));
+            var documents = inboxResultsDao.readDocumentResults(query.getSearchProviderNo(), query.getDemographicNo(), query.getPatientFirstName(),
+                query.getPatientLastName(), query.getPatientHealthNumber(), query.getStatusFilter().getValue(), isPaged, page, pageSize, mixLabsAndDocs, query.getAbnormalBool(), startDate, endDate, acknowledgedSince);
+            labDocs.addAll(documents.items());
+            if (documents.omittedRows() != 0) org.apache.struts2.ServletActionContext.getRequest()
+                    .setAttribute("inboxDocumentsIncomplete", true);
         }
         if (query.getLab() || all) {
             List<LabResultData> labs = comLab.populateLabResultsData(loggedInInfo, query.getSearchProviderNo(), query.getDemographicNo(), query.getPatientFirstName(),

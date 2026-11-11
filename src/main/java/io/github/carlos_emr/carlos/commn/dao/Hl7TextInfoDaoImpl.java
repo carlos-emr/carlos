@@ -67,7 +67,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
     public List<LabStatus> findRecentLabStatuses(int limit) {
         if (limit <= 0) return Collections.emptyList();
         List<?> rows = entityManager.createQuery(
-                "SELECT x.labNumber, x.resultStatus FROM Hl7TextInfo x ORDER BY x.labNumber DESC")
+                "SELECT x.labNumber, x.resultStatus FROM Hl7TextInfo x ORDER BY x.labNumber DESC, x.id DESC")
                 .setMaxResults(limit).getResultList();
         return rows.stream().map(value -> {
             Object[] row = (Object[]) value;

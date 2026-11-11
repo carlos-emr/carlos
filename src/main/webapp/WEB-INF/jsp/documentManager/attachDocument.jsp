@@ -710,11 +710,10 @@
                                         <c:if test="${not empty hrm['duplicateLabIds']}">
                                             <c:set var="hrmVersionIds" value="${fn:split(hrm['duplicateLabIds'], ',')}"/>
                                             <ul id="hrmVersions${carlos:forHtmlAttribute(hrm['id'])}" class="collapsible-content" style="list-style-type: none;padding:0;">
-                                                <c:forEach items="${hrmVersionIds}" var="hrmVersionId" varStatus="hrmVersionLoop">
-                                                    <fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.earlierVersionOf" var="hrmVersionLabel">
-                                                        <fmt:param value="${hrmVersionLoop.count}"/>
-                                                        <fmt:param value="${fn:length(hrmVersionIds) + 1}"/>
-                                                    </fmt:message>
+                                                <c:forEach items="${hrm['versions']}" var="hrmVersion">
+                                                    <c:set var="hrmVersionId" value="${hrmVersion.id}"/>
+                                                    <c:set var="hrmVersionLabel" value="${hrmVersion.label}"/>
+
                                                     <c:set var="hrmVersionPreviewParameters">method=renderHrmPDF&hrmId=${carlos:forUriComponent(hrmVersionId)}&demographicNo=${carlos:forUriComponent(demographicNo)}</c:set>
                                                     <c:set var="hrmVersionPreviewOnclick">getPdf('HRM', '${carlos:forJavaScript(hrmVersionId)}', '${carlos:forJavaScript(hrmVersionPreviewParameters)}')</c:set>
                                                     <li>

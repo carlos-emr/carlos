@@ -45,4 +45,18 @@ public class EReferAttachmentDataDaoImpl extends AbstractDaoImpl<EReferAttachmen
 
         return eReferAttachmentData;
     }
+
+    @Override
+    public int removeRecentByDocumentId(int docId, String type, int demographicNo, Date expiry) {
+        if (docId <= 0 || demographicNo <= 0 || type == null || type.isBlank() || expiry == null) {
+            throw new IllegalArgumentException("Invalid pending attachment scope");
+        }
+        // Keep the established one-hour/patient/archive boundary. A bulk mutation avoids
+        // the legacy composite-key adapter and retires every matching pending entry.
+        return entityManager.createQuery("DELETE FROM EReferAttachmentData d WHERE d.labId=:doc AND d.labType=:type"
+                + " AND d.eReferAttachment.id IN (SELECT e.id FROM EReferAttachment e"
+                + " WHERE e.demographicNo=:patient AND e.archived=FALSE AND e.created>:expiry)")
+                .setParameter("doc", docId).setParameter("type", type).setParameter("patient", demographicNo)
+                .setParameter("expiry", expiry).executeUpdate();
+    }
 }

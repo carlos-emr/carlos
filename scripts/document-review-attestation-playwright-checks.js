@@ -17,7 +17,7 @@
  *     the popup with "This document no longer exists" and stores nothing. A row deleted before the
  *     click is refused earlier, by the access check (HTTP 403), on any build.
  * Env: SCREENSHOT_DIR (optional) receives the evidence screenshots.
- * Fixtures: the owned patient and three owned 1-page PDF documents (rows + files, names carry the
+ * Fixtures: the owned patient and five owned 1-page PDF documents (rows + files, names carry the
  * marker); a second provider from the install is used only as a stored reviewer value. Cleanup
  * removes the extra-reviewer rows, the documents, their links and files, and asserts they are gone.
  */
@@ -28,7 +28,7 @@ const { spawn } = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const {
-  directory, ownedPdfDocuments, seedOwnedPdfDocuments, removeOwnedPdfDocuments, assertOwnedPdfDocumentsRemoved,
+  textPdf, sha, directory, ownedPdfDocuments, seedOwnedPdfDocuments, removeOwnedPdfDocuments, assertOwnedPdfDocumentsRemoved,
 } = require('./lib/stored-pdf-documents');
 const { masterRecordLink } = require('./lib/master-record-link');
 
@@ -72,16 +72,21 @@ const MISSING_MESSAGE = 'This document no longer exists. It may have been delete
 async function workflow(s) {
   const { sql, marker, patient, provider } = s;
   const store = directory('DOCUMENT_DIR', 'DOCUMENT_DIR', 'RX_FAX_DOCUMENT_DIR');
-  const docs = ownedPdfDocuments(store, marker, [{ key: 'C' }, { key: 'R' }, { key: 'V' }]);
-  const [cleared, raced, vanished] = docs;
+  const docs = ownedPdfDocuments(store, marker, [{ key: 'C' }, { key: 'R' }, { key: 'V' }, { key: 'P' }, { key: 'S' }]);
+  const [cleared, raced, vanished, replaced, stale] = docs;
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-review-replace-'));
+  const uploadName = `${marker}-replacement.pdf`;
+  const replacements = () => fs.readdirSync(store).filter(name => name.endsWith(uploadName))
+    .map(name => path.join(store, name));
   const extraReviewers = id => sql.rows(`SELECT reviewerProviderNo FROM DocumentExtraReviewer WHERE documentNo=${id} ORDER BY id`)
     .map(row => row[0]);
-  const owned = () => ({ sql, marker, patient, docs, files: docs.map(doc => doc.file) });
+  const owned = () => ({ sql, marker, patient, docs, files: [...docs.map(doc => doc.file), ...replacements()] });
   s.cleanup(() => {
     const ids = docs.map(doc => doc.id).filter(id => /^[1-9]\d*$/.test(id || ''));
     if (ids.length) sql.execute(`DELETE FROM DocumentExtraReviewer WHERE documentNo IN (${ids.join(',')})`);
     removeOwnedPdfDocuments(owned());
     assertOwnedPdfDocumentsRemoved(owned());
+    fs.rmSync(scratch, { recursive: true, force: true });
     h.assert(!ids.length || sql.value(`SELECT COUNT(*) FROM DocumentExtraReviewer WHERE documentNo IN (${ids.join(',')})`) === '0',
       'Owned extra-reviewer rows were not removed');
   });
@@ -117,7 +122,7 @@ async function workflow(s) {
     const waits = [editor.waitForResponse(response => new URL(response.url()).pathname.endsWith('/documentManager/addEditDocument')
       && response.request().method() === 'POST')];
     if (expectSaved) waits.push(report.waitForEvent('load'));
-    const [post] = await Promise.all([...waits, button.click()]);
+    const [post] = await Promise.all([...waits, h.withExpectedDialogs(editor, () => button.click())]);
     h.assert(post.status() < 400, `The Reviewed POST answered HTTP ${post.status()}`);
     if (expectSaved && !editor.isClosed()) await editor.waitForEvent('close');
     return post;
@@ -190,6 +195,47 @@ async function workflow(s) {
     await evidence(editor, 'document-review-vanished', [
       `document row present = ${sql.value(`SELECT COUNT(*) FROM document WHERE document_no=${vanished.id}`)}`,
       `DocumentExtraReviewer rows = [${extras.join(', ')}]`]);
+    await editor.close();
+  });
+
+  await s.step('replacement review confirms, cancellation preserves the form, and OK archives the old attestations', async () => {
+    setReview(replaced, other);
+    sql.execute(`INSERT INTO DocumentExtraReviewer (documentNo,reviewerProviderNo,reviewDateTime)
+      VALUES (${replaced.id},${h.sqlString(other)},NOW())`);
+    const original = sha(replaced.file);
+    const upload = path.join(scratch, uploadName);
+    fs.writeFileSync(upload, textPdf(`${marker} replacement`, 2));
+    const editor = await openEditor(replaced);
+    const uploadField = editor.locator('input[type="file"][name="docFile"]');
+    if (!await uploadField.isVisible()) throw new h.SkipCheck('Replacement review requires ALLOW_UPDATE_DOCUMENT_CONTENT=true');
+    await uploadField.setInputFiles(upload);
+    let posts = 0;
+    const observe = request => { if (request.method() === 'POST' && request.url().endsWith('/documentManager/addEditDocument')) posts++; };
+    editor.on('request', observe);
+    const canceled = await h.withExpectedDialogs(editor, () => editor.locator('input[value="Reviewed"]').click(), { accept: false });
+    h.assert(canceled.length === 1 && canceled[0].type === 'confirm', 'Replacing and reviewing did not ask once for confirmation');
+    h.assert(posts === 0 && !editor.isClosed(), 'Cancel submitted or closed the edit form');
+    h.assert(await editor.locator('input[name="reviewDoc"]').inputValue() === 'false', 'Cancel retained review intent');
+    h.assert(reviewState(replaced) === `${other}|time` && extraReviewers(replaced.id).length === 1,
+      'Cancel changed the stored attestations');
+    await clickReviewed(editor, { expectSaved: true });
+    h.assert(reviewState(replaced) === `${provider}|time`, 'The replacement retained the previous reviewer');
+    h.assert(extraReviewers(replaced.id).length === 0, 'The replacement retained previous additional reviewers');
+    h.assert(sql.value(`SELECT COUNT(*) FROM log WHERE content='document' AND contentId=${h.sqlString(replaced.id)}
+      AND action='REVIEW_INVALIDATED'`) === '2', 'The previous attestations were not archived');
+    const files = replacements();
+    h.assert(files.length === 1 && sha(files[0]) === sha(upload) && sha(replaced.file) === original,
+      'Replacement content or retained original bytes do not match');
+  });
+
+  await s.step('a review from a page whose source bytes changed shows a conflict without storing a review', async () => {
+    const editor = await openEditor(stale);
+    fs.writeFileSync(stale.file, textPdf(`${marker} changed after opening`, 2));
+    await Promise.all([editor.waitForEvent('load'), clickReviewed(editor, { expectSaved: false })]);
+    h.assert(!editor.isClosed() && (await editor.locator('body').innerText()).includes('changed'),
+      'The stale source was not refused with a visible error');
+    h.assert(reviewState(stale) === '|no time' && extraReviewers(stale.id).length === 0,
+      'The stale page recorded an attestation');
     await editor.close();
   });
 }

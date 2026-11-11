@@ -41,6 +41,13 @@ import static org.mockito.Mockito.mock;
 @Tag("aggregate")
 @DisplayName("CategoryData summary counts for a patient without a HIN")
 class CategoryDataNullHinCountUnitTest extends CarlosUnitTestBase {
+    @org.junit.jupiter.api.BeforeEach
+    void registerDateSearchService() {
+        registerMock(io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService.class,
+                new io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService(
+                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao.class)));
+    }
+
     private static final String PROVIDER = "999998";
     private static final int PATIENT = 501;
     private static final int OTHER_PATIENT = 502;
@@ -87,7 +94,7 @@ class CategoryDataNullHinCountUnitTest extends CarlosUnitTestBase {
                 .setStatementInspector(sql -> sql.replace("SELECT HIGH_PRIORITY ", "SELECT "))
                 .buildSessionFactory();
         manager = sessionFactory.createEntityManager();
-        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao(mock(SystemPreferencesDao.class));
+        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao();
         org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", manager);
         registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class, dao);
     }

@@ -1030,7 +1030,10 @@
     "test:rx-original-version-playwright": "node scripts/rx-original-version-playwright-checks.js",
     "test:rx-renal-waf-privacy-playwright": "node scripts/rx-renal-waf-privacy-playwright-checks.js",
     "test:rx-preview-loading-notes-playwright": "node scripts/rx-preview-loading-notes-playwright-checks.js",
-    "test:tickler-calendar-quick-picks-playwright": "node scripts/tickler-calendar-quick-picks-playwright-checks.js"
+    "test:tickler-calendar-quick-picks-playwright": "node scripts/tickler-calendar-quick-picks-playwright-checks.js",
+    "test:consultation-unavailable-hrm-playwright": "node scripts/consultation-unavailable-hrm-playwright-checks.js",
+    "test:hrm-version-history-playwright": "node scripts/hrm-version-history-playwright-checks.js",
+    "test:inbox-failure-states-playwright": "node scripts/inbox-failure-states-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

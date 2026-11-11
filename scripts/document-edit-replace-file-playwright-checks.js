@@ -39,7 +39,7 @@ async function workflow(s) {
   const [doc] = ownedPdfDocuments(store, marker, [{ key: 'A', pages: 1 }]);
   const uploadName = `${marker}-R.pdf`;
   // The uploader stores "<yyyyMMddHHmmss><name>"; the marker makes every such name this run's own.
-  const replacements = () => fs.readdirSync(store).filter(name => /^\d{14}/.test(name) && name.slice(14) === uploadName)
+  const replacements = () => fs.readdirSync(store).filter(name => /^(?:[a-f0-9-]{36}-)?\d{14}/.test(name) && name.endsWith(uploadName))
     .map(name => path.join(store, name));
   const owned = () => ({ sql, marker, patient, docs: [doc], files: [doc.file, ...replacements()] });
   s.cleanup(() => {
@@ -75,7 +75,7 @@ async function workflow(s) {
       editor.waitForResponse(response => new URL(response.url()).pathname.endsWith('/documentManager/addEditDocument')
         && response.request().method() === 'POST'),
       report.waitForEvent('load'),
-      editor.locator('input[name="Submit"]').click(),
+      h.withExpectedDialogs(editor, () => editor.locator('input[name="Submit"]').click()),
     ]);
     h.assert(post.status() < 400, `The document edit POST answered HTTP ${post.status()}`);
     if (!editor.isClosed()) await editor.waitForEvent('close');

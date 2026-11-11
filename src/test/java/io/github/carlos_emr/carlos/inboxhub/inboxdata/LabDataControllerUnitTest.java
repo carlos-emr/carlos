@@ -155,6 +155,9 @@ class LabDataControllerUnitTest extends CarlosUnitTestBase {
         createAndRegisterMock(QueueDocumentLinkDao.class);
         createAndRegisterMock(SecurityInfoManager.class);
         InboxResultsDao documents = mock(InboxResultsDao.class);
+        org.mockito.Mockito.doCallRealMethod().when(documents).readDocumentResults(anyString(), any(), anyString(),
+                anyString(), anyString(), anyString(), anyBoolean(), anyInt(), anyInt(), anyBoolean(),
+                any(), any(), any(), any());
         springUtilsMock.when(() -> SpringUtils.getBean("inboxResultsDao")).thenReturn(documents);
         ArgumentCaptor<Date> documentBound = ArgumentCaptor.forClass(Date.class);
         ArgumentCaptor<Date> labBound = ArgumentCaptor.forClass(Date.class);

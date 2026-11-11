@@ -165,11 +165,21 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
      * discipline, which the Inbox views show in their Discipline column, and its saved
      * description ({@code document.docdesc}); a blank value of either is returned as none. The
      * clinic's Inbox date preference picks the received or observation date
-     * for filtering, display and order. A failure is logged and the rows built so far are
-     * returned.</p>
+     * for filtering, display and order. Query failures propagate; browser callers may
+     * explicitly display recoverable row omissions.</p>
      */
     @SuppressWarnings("unchecked")
     public ArrayList<LabResultData> populateDocumentResultsData(String providerNo, String demographicNo, String patientFirstName,
+                                                                String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page,
+                                                                Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate,
+                                                                Date acknowledgedSince) {
+        return readDocumentResults(providerNo, demographicNo, patientFirstName, patientLastName,
+                patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal,
+                startDate, endDate, acknowledgedSince).requireComplete();
+    }
+
+    @SuppressWarnings("unchecked")
+    public InboxDocumentResults readDocumentResults(String providerNo, String demographicNo, String patientFirstName,
                                                                 String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page,
                                                                 Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate,
                                                                 Date acknowledgedSince) {
@@ -194,6 +204,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
 
         SystemPreferencesDao systemPreferencesDao = SpringUtils.getBean(SystemPreferencesDao.class);
         ArrayList<LabResultData> labResults = new ArrayList<LabResultData>();
+        int omittedRows = 0;
         String sql = "";
         String dateSearchType = "serviceObservation";
 
@@ -560,6 +571,12 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
 
             List<Object[]> result = query.getResultList();
             for (Object[] r : result) {
+                String documentValue = getStringValue(r[docNoLoc]);
+                Integer documentNo = parseDocumentNumber(documentValue);
+                if (documentNo == null) { omittedRows++; continue; }
+                DocumentDao documentDao = SpringUtils.getBean(DocumentDao.class);
+                Document document = documentDao.find(documentNo.intValue());
+                if (document == null) { omittedRows++; continue; }
                 LabResultData lbData = new LabResultData(LabResultData.DOCUMENT);
                 lbData.labType = LabResultData.DOCUMENT;
 
@@ -593,8 +610,6 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                 }
                 lbData.accessionNumber = "";
 
-                DocumentDao documentDao = (DocumentDao) SpringUtils.getBean(DocumentDao.class);
-                Document document = documentDao.findActiveByDocumentNo(Integer.parseInt(getStringValue(r[docNoLoc]))).get(0);
                 Date contentDateTime = document.getContentdatetime();
 
                 // Set result status based on document abnormal flag
@@ -676,10 +691,16 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                 labResults.add(lbData);
             }
 
-        } catch (Exception e) {
-            logger.error("exception in DOCPopulate:", e);
+        } catch (jakarta.persistence.PersistenceException | org.springframework.dao.DataAccessException e) {
+            throw new IllegalStateException("Could not read inbox documents", e);
         }
-        return labResults;
+        return new InboxDocumentResults(labResults, omittedRows);
+    }
+
+    private static Integer parseDocumentNumber(String value) {
+        if (value == null || !value.matches("[1-9][0-9]{0,9}")) return null;
+        try { return Integer.valueOf(value); }
+        catch (NumberFormatException invalid) { return null; }
     }
 
     private String getStringValue(Object value) {

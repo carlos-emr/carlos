@@ -41,9 +41,9 @@ class InboxCategoryDaoUnitTest extends CarlosUnitTestBase {
         var query = mock(Query.class);
         when(em.createNativeQuery(anyString(), eq(Tuple.class))).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of());
-        var dao = new InboxCategoryDao(preferences);
+        var dao = new InboxCategoryDao();
         ReflectionTestUtils.setField(dao, "entityManager", em);
-        var filter = new InboxCategoryDao.Filter("", "", "", false, false, "", "", "", date, date);
+        var filter = new InboxCategoryDao.Filter("", "", "", false, false, "", "", "", date, date, mode);
         assertThat(dao.count(filter, InboxCategoryDao.Operation.LAB_UNMATCHED, null).total()).isZero();
         verify(query).setParameter(1, "2026-01-05");
         verify(query).setParameter(2, "2026-01-06");
@@ -53,7 +53,7 @@ class InboxCategoryDaoUnitTest extends CarlosUnitTestBase {
     @ValueSource(strings = {"2026-2-30", "2026-13-1", "2026-0-1", "2026-1-0", "invalid"})
     void shouldRefuseImpossibleDates_beforeQuerying(String date) {
         var em = mock(EntityManager.class);
-        var dao = new InboxCategoryDao(mock(SystemPreferencesDao.class));
+        var dao = new InboxCategoryDao();
         ReflectionTestUtils.setField(dao, "entityManager", em);
         var filter = new InboxCategoryDao.Filter("", "", "", false, false, "", "", "", date, date);
         org.assertj.core.api.Assertions.assertThatThrownBy(() ->
@@ -74,9 +74,9 @@ class InboxCategoryDaoUnitTest extends CarlosUnitTestBase {
         var query = mock(Query.class);
         when(em.createNativeQuery(anyString(), eq(Tuple.class))).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of());
-        var dao = new InboxCategoryDao(preferences);
+        var dao = new InboxCategoryDao();
         ReflectionTestUtils.setField(dao, "entityManager", em);
-        var filter = new InboxCategoryDao.Filter("", "", "", false, false, "", "", "", "2026-01-01", "");
+        var filter = new InboxCategoryDao.Filter("", "", "", false, false, "", "", "", "2026-01-01", "", new io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService(preferences).resolve());
 
         assertThat(dao.count(filter, InboxCategoryDao.Operation.LAB_UNMATCHED, null).total()).isZero();
 

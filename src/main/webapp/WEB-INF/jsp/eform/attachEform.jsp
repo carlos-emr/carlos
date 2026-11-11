@@ -238,7 +238,9 @@
                     <span class="muted" id="<%= SafeEncode.forHtmlAttribute(hrmDateId) %>"><carlos:encode value='<%= String.valueOf(hrm.get("report_date")) %>' context="html"/></span>
                 </div>
                 <% if (hrm.get("duplicateLabIds") != null && !String.valueOf(hrm.get("duplicateLabIds")).isEmpty()) {
-                       String[] hrmVersionIds = String.valueOf(hrm.get("duplicateLabIds")).split(",");
+                       java.util.List<io.github.carlos_emr.carlos.hospitalReportManager.HrmVersionService.Version> hrmVersions =
+                           (java.util.List<io.github.carlos_emr.carlos.hospitalReportManager.HrmVersionService.Version>) hrm.get("versions");
+                       String[] hrmVersionIds = hrmVersions.stream().map(v -> String.valueOf(v.id())).toArray(String[]::new);
                        boolean hasAttachedHrmVersion = Arrays.stream(hrmVersionIds).anyMatch(attachedHrmIds::contains); %>
                 <details <%= hasAttachedHrmVersion ? "open" : "" %>>
                     <summary><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.earlierVersions"/></summary>
@@ -249,10 +251,7 @@
                         <label for="<%= SafeEncode.forHtmlAttribute(hrmVersionCheckboxId) %>">
                             <input type="checkbox" id="<%= SafeEncode.forHtmlAttribute(hrmVersionCheckboxId) %>" name="hrmNo"
                                    value="<%= SafeEncode.forHtmlAttribute(hrmVersionId) %>" <%= attachedHrmIds.contains(hrmVersionId) ? "checked" : "" %>>
-                            <fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.earlierVersionOf">
-                                <fmt:param value="<%= versionIndex + 1 %>"/>
-                                <fmt:param value="<%= hrmVersionIds.length + 1 %>"/>
-                            </fmt:message>
+                            <carlos:encode value='<%= hrmVersions.get(versionIndex).label() %>' context="html"/>
                         </label>
                     </div>
                     <% } %>

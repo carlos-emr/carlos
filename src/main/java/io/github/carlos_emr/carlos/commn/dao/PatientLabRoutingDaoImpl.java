@@ -291,16 +291,17 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
     @Override
     public List<PatientLabRouting> findLabNosByDemographic(Integer demographicNo, String[] labTypes) {
 
-        StringBuilder sb = new StringBuilder();
-        for (String t : labTypes) {
-            sb.append("'" + t + "'");
+        if (demographicNo == null || demographicNo <= 0) {
+            throw new IllegalArgumentException("A positive demographic number is required");
         }
-
-        String query = "select x from " + this.modelClass.getName() + " x where x.labNo=?1 and x.labType in (" + sb.toString()
-                + ")";
-        Query q = entityManager.createQuery(query);
-
-        q.setParameter(1, demographicNo);
+        if (labTypes == null || labTypes.length == 0) return java.util.Collections.emptyList();
+        for (String type : labTypes) {
+            if (type == null || type.isBlank()) throw new IllegalArgumentException("A lab type is required");
+        }
+        Query q = entityManager.createQuery("SELECT x FROM PatientLabRouting x"
+                + " WHERE x.demographicNo = :patient AND x.labType IN :types");
+        q.setParameter("patient", demographicNo);
+        q.setParameter("types", java.util.Arrays.asList(labTypes));
 
         return q.getResultList();
     }

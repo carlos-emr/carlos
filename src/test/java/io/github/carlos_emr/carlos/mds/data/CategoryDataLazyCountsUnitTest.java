@@ -16,11 +16,19 @@ import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class CategoryDataLazyCountsUnitTest extends CarlosUnitTestBase {
+    @org.junit.jupiter.api.BeforeEach
+    void registerDateSearchService() {
+        registerMock(io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService.class,
+                new io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService(
+                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao.class)));
+    }
+
     private InboxCategoryDao dao;
     private CategoryData data;
 
     @BeforeEach
     void setup() throws SQLException {
+        registerDateSearchService();
         dao = mock(InboxCategoryDao.class);
         registerMock(InboxCategoryDao.class, dao);
         when(dao.count(any(), any(), isNull())).thenAnswer(call ->
@@ -71,5 +79,14 @@ class CategoryDataLazyCountsUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(data::getAbnormalCount).isInstanceOf(IllegalStateException.class)
                 .hasCauseInstanceOf(SQLException.class);
         assertThat(data.getNormalCount()).isEqualTo(1);
+    }
+    @Test
+    void shouldRefuseEveryPublishedTotal_whenRepopulationFails() throws SQLException {
+        data.populateCountsAndPatients();
+        when(dao.count(any(), eq(Operation.HRM_PATIENT), isNull())).thenThrow(new SQLException("synthetic failure"));
+        assertThatThrownBy(data::populateCountsAndPatients).isInstanceOf(SQLException.class);
+        assertThatThrownBy(data::getTotalLabs).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(data::getPatients).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(data::getCategoryHash).isInstanceOf(IllegalStateException.class);
     }
 }

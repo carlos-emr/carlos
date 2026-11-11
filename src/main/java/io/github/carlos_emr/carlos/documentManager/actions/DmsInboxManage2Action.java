@@ -296,7 +296,12 @@ public class DmsInboxManage2Action extends ActionSupport {
             request.setAttribute("categoryData", cData);
 
             return "dms_index";
-        } catch (SQLException | java.time.format.DateTimeParseException e) {
+        } catch (java.time.format.DateTimeParseException e) {
+            response.setStatus(400);
+            return "error";
+        } catch (SQLException | org.springframework.dao.DataAccessException | IllegalStateException e) {
+            response.setStatus(500);
+            MiscUtils.getLogger().error("Could not populate inbox counts", e);
             return "error";
         }
     }
@@ -425,8 +430,11 @@ public class DmsInboxManage2Action extends ActionSupport {
         ArrayList<LabResultData> labdocs = new ArrayList<LabResultData>();
 
         if (!"labs".equals(view)) {
-            labdocs = inboxResultsDao.populateDocumentResultsData(searchProviderNo, demographicNo, patientFirstName,
-                    patientLastName, patientHealthNumber, ackStatus, true, page, pageSize, mixLabsAndDocs, isAbnormal, startDate, endDate);
+            var documents = inboxResultsDao.readDocumentResults(searchProviderNo, demographicNo, patientFirstName,
+                    patientLastName, patientHealthNumber, ackStatus, true, page, pageSize, mixLabsAndDocs,
+                    isAbnormal, startDate, endDate, null);
+            labdocs.addAll(documents.items());
+            request.setAttribute("inboxDocumentsIncomplete", documents.omittedRows() != 0);
         }
         if (!"documents".equals(view)) {
             labdocs.addAll(comLab.populateLabResultsData(loggedInInfo, searchProviderNo, demographicNo, patientFirstName,

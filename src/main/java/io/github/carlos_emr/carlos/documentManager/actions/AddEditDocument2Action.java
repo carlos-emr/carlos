@@ -59,13 +59,10 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
-import io.github.carlos_emr.carlos.commn.dao.DocumentExtraReviewerDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentStorageDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.commn.dao.SecRoleDao;
-import io.github.carlos_emr.carlos.commn.model.Document;
-import io.github.carlos_emr.carlos.commn.model.DocumentExtraReviewer;
 import io.github.carlos_emr.carlos.commn.model.DocumentStorage;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.SecRole;
@@ -82,9 +79,6 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.ScheduleNav;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
@@ -152,6 +146,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
      * @throws SecurityException if the user lacks _edoc write privilege
      */
     public String html5MultiUpload() throws Exception {
+        if (rejectNonPost()) return NONE;
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
@@ -341,6 +336,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = {"UNVALIDATED_REDIRECT", "IMPROPER_UNICODE"}, justification = "Redirects are same-origin application paths; Locale.ROOT module folding uses a closed ASCII allowlist and rejects all non-matching tokens")
     public String execute2() {
+        if (rejectNonPost()) return NONE;
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
         }
@@ -604,6 +600,10 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String editDocument(HttpServletRequest request) {
         Hashtable errors = new Hashtable();
+        io.github.carlos_emr.carlos.documentManager.IncomingDocumentMutationLock.Lease sourceLease = null;
+        File publishedReplacement = null;
+        boolean attemptedSave = false;
+        boolean rollbackConfirmed = false;
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -627,8 +627,9 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             File validatedDocFile = null;
             // Refuse a document that is gone before any replacement content is written. The
             // locked save below checks again, because the row can still vanish after this read.
-            if (SpringUtils.getBean(DocumentDao.class).find(Integer.parseInt(this.getMode())) == null) {
-                throw new StoredDocumentMissingException();
+            var storedBeforeUpload = SpringUtils.getBean(DocumentDao.class).find(Integer.parseInt(this.getMode()));
+            if (storedBeforeUpload == null || storedBeforeUpload.getStatus() == 'D') {
+                throw new io.github.carlos_emr.carlos.documentManager.DocumentReviewService.MissingDocument();
             }
 
             if (CarlosProperties.getInstance().getBooleanProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true"))
@@ -648,6 +649,31 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                     }
                     updateFileContent = true; // set update to true
                 }
+            }
+
+            if (updateFileContent && validatedDocFile.length() == 0) {
+                errors.put("uploaderror", "dms.error.uploadError");
+                throw new FileNotFoundException("Uploaded document is empty");
+            }
+            boolean reviewIntent = this.getReviewDoc() || this.isExtraReviewDoc();
+            if (reviewIntent || updateFileContent) {
+                if (!io.github.carlos_emr.carlos.documentManager.StoredDocumentRevision.valid(request.getParameter("contentRevision"))) {
+                    throw new io.github.carlos_emr.carlos.documentManager.DocumentReviewService.Conflict();
+                }
+                if (storedBeforeUpload.getStatus() != 'H') {
+                    try {
+                        File directory = PathValidationUtils.validateConfiguredDirectory(
+                                CarlosProperties.getInstance().getDocumentDirectory(), "DOCUMENT_DIR");
+                        sourceLease = io.github.carlos_emr.carlos.documentManager.IncomingDocumentMutationLock.acquire(
+                                io.github.carlos_emr.carlos.documentManager.StoredDocumentRevision.resolveStoredChild(
+                                        directory, storedBeforeUpload.getDocfilename()), directory);
+                    } catch (IOException | SecurityException unavailable) {
+                        errors.put("sourceunavailable", "documentMutation.sourceUnavailable");
+                        throw new FileNotFoundException("Stored document source is unavailable");
+                    }
+                }
+                SpringUtils.getBean(io.github.carlos_emr.carlos.documentManager.DocumentReviewService.class)
+                        .requireContent(storedBeforeUpload, request.getParameter("contentRevision"));
             }
 
             // The posted reviewer fields describe the page as it was loaded and are never stored:
@@ -680,7 +706,8 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
                     throw new FileNotFoundException("Uploaded document is empty");
                 }
                 try {
-                    fileName = PathValidationUtils.validateGeneratedFileName(newDoc.getFileName());
+                    fileName = replacementFileName(newDoc.getFileName());
+                    newDoc.setFileName(fileName);
                 } catch (FileValidationException e) {
                     errors.put("filenameinvalid", "dms.error.invalidFilename");
                     throw e;
@@ -688,7 +715,8 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
                 // save local file
                 File writtenFile;
                 try {
-                    writtenFile = writeValidatedUpload(uploadForUpdate, fileName);
+                    writtenFile = writeValidatedUpload(uploadForUpdate, fileName, false);
+                    publishedReplacement = writtenFile;
                 } catch (IOException | RuntimeException e) {
                     // See addDocument: RuntimeException must set the error before it reaches the
                     // trailing catch(Exception), or the edit form re-renders with no message.
@@ -702,6 +730,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
                     addActionError(getText("dms.error.uploadError"));
                     throw new IOException("Failed to write uploaded document");
                 }
+                newDoc.setContentType(this.docFileContentType);
                 if (fileName != null && fileName.regionMatches(true, fileName.length() - 4, ".pdf", 0, 4)) {
                     newDoc.setContentType("application/pdf");
                     int numberOfPages = countNumOfPages(fileName);
@@ -709,26 +738,30 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
                 }
             }
 
-            String actor = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
-            ReviewOutcome review = saveStoredEdit(newDoc, reviewRequested, actor);
+            attemptedSave = true;
+            SpringUtils.getBean(io.github.carlos_emr.carlos.documentManager.DocumentReviewService.class).edit(
+                    LoggedInInfo.getLoggedInInfoFromSession(request), newDoc, reviewRequested, updateFileContent, false,
+                    request.getParameter("contentRevision"), request.getParameter("metadataRevision"));
+            publishedReplacement = null; // Now owned by the committed document.
 
-            if (review == ReviewOutcome.FIRST || review == ReviewOutcome.ADDITIONAL) {
-                // Logged only after the review is committed, so the audit never claims a review that failed to save.
-                if ("demographic".equals(this.getFunction())) {
-                    LogAction.addLog(actor, LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(), request.getRemoteAddr(), this.getFunctionId());
-                } else {
-                    LogAction.addLog(actor, LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(), request.getRemoteAddr());
-                }
-            }
-
-            if (this.getFunction() != null && this.getFunction().equals("demographic")) {
-                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, LogConst.CON_DOCUMENT, this.getMode(), request.getRemoteAddr(), this.getFunctionId());
-            } else {
-                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, LogConst.CON_DOCUMENT, this.getMode(), request.getRemoteAddr());
-
-            }
-
-        } catch (StoredDocumentMissingException _) {
+        } catch (io.github.carlos_emr.carlos.documentManager.DocumentReviewService.SaveFailure failure) {
+            rollbackConfirmed = failure.rollbackConfirmed();
+            Throwable cause = failure.getCause();
+            if (cause instanceof SecurityException denied) throw denied;
+            errors.put(cause instanceof io.github.carlos_emr.carlos.documentManager.DocumentReviewService.MissingDocument
+                    ? "documentmissing" : "savefailure", cause instanceof io.github.carlos_emr.carlos.documentManager.DocumentReviewService.MissingDocument
+                    ? "dms.error.documentMissing" : cause instanceof io.github.carlos_emr.carlos.documentManager.DocumentReviewService.Conflict
+                    ? "dms.error.documentChanged" : rollbackConfirmed ? "dms.error.saveFailed" : "dms.error.saveUnconfirmed");
+            MiscUtils.getLogger().error("Document save failed ({})", cause.getClass().getSimpleName());
+            request.setAttribute("docerrors", errors);
+            request.setAttribute("editDocumentNo", this.getMode());
+            return "failEdit";
+        } catch (io.github.carlos_emr.carlos.documentManager.DocumentReviewService.Conflict _) {
+            errors.put("sourcechanged", "dms.error.documentChanged");
+            request.setAttribute("docerrors", errors);
+            request.setAttribute("editDocumentNo", this.getMode());
+            return "failEdit";
+        } catch (io.github.carlos_emr.carlos.documentManager.DocumentReviewService.MissingDocument _) {
             // The document was removed by someone else; say so rather than re-render a silent form.
             errors.put("documentmissing", "dms.error.documentMissing");
             request.setAttribute("docerrors", errors);
@@ -742,106 +775,48 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             request.setAttribute("docerrors", errors);
             request.setAttribute("editDocumentNo", this.getMode());
             return "failEdit";
+        } catch (SecurityException denied) {
+            throw denied;
         } catch (Exception e) {
+            errors.putIfAbsent("savefailure", "dms.error.saveFailed");
             request.setAttribute("docerrors", errors);
             request.setAttribute("editDocumentNo", this.getMode());
             MiscUtils.getLogger().error("Failed to edit document ({})", e.getClass().getSimpleName());
             return "failEdit";
+        } finally {
+            if (publishedReplacement != null && (!attemptedSave || rollbackConfirmed)) {
+                deleteIncompleteWrittenUpload(publishedReplacement);
+            }
+            if (sourceLease != null) sourceLease.close();
         }
         return "successEdit";
     }
 
-
-    /** How a save recorded the signed-in provider's review of the stored document. */
-    enum ReviewOutcome {
-        /** No review was requested (a plain "Update", which clears any stored review). */
-        NONE,
-        /** The document had no reviewer; the signed-in provider is now its reviewer. */
-        FIRST,
-        /** The document was already reviewed by someone else; an additional reviewer row was added. */
-        ADDITIONAL,
-        /** The signed-in provider had already reviewed it (a repeated click); nothing new was recorded. */
-        ALREADY_REVIEWED
+    private boolean rejectNonPost() {
+        if ("POST".equals(request.getMethod())) return false;
+        response.setHeader("Allow", "POST");
+        response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return true;
     }
 
-    /** The edited document no longer exists. */
-    static final class StoredDocumentMissingException extends RuntimeException {
-        private static final long serialVersionUID = 1L;
-
-        StoredDocumentMissingException() {
-            super("Edited document no longer exists");
+    /** ASCII upload names must fit both the filesystem component and docfilename VARCHAR(255). */
+    static String replacementFileName(String original) {
+        String name = PathValidationUtils.validateGeneratedFileName(original);
+        // Refile readers remove the historic fourteen-digit upload timestamp.
+        // Keep it first, with the unique component in the retained portion.
+        String datePrefix = name.matches("[0-9]{14}.+") ? name.substring(0, 14) : "";
+        if (!datePrefix.isEmpty()) name = name.substring(14);
+        String prefix = datePrefix + java.util.UUID.randomUUID() + "-";
+        int remaining = 255 - prefix.length();
+        if (name.length() > remaining) {
+            String extension = FilenameUtils.getExtension(name);
+            String suffix = extension.isEmpty() ? "" : "." + extension;
+            if (suffix.length() >= remaining) throw new FileValidationException(PathValidationUtils.INVALID_FILENAME_MESSAGE);
+            name = FilenameUtils.getBaseName(name).substring(0, remaining - suffix.length()) + suffix;
         }
+        return PathValidationUtils.validateGeneratedFileName(prefix + name);
     }
 
-    /**
-     * Saves the edited metadata and, when asked, the signed-in provider's review, in one
-     * transaction that holds the document row lock.
-     *
-     * <p>Whether a review is the first or an additional one is decided here from the stored
-     * reviewer, read under the lock, and never from the flag the page chose when it was loaded:
-     * the page cannot know that another user's "Update" cleared the review, or that another
-     * provider reviewed it first, after it was rendered (issue #6081). A blank stored reviewer
-     * makes the actor the reviewer. A present one keeps that first review and adds the actor as an
-     * additional reviewer, unless the actor has already reviewed it.</p>
-     *
-     * @param newDoc the metadata to store; its reviewer fields are set here
-     * @param reviewRequested whether the page asked for a review by the actor
-     * @param actor the signed-in provider number
-     * @return how the review was recorded
-     * @throws StoredDocumentMissingException if the document no longer exists
-     */
-    private ReviewOutcome saveStoredEdit(EDoc newDoc, boolean reviewRequested, String actor) {
-        TransactionTemplate transaction = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class));
-        // Its own transaction, as the other document metadata writers use: the review must be
-        // committed before the action writes the REVIEWED audit event.
-        transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
-        return transaction.execute(status -> {
-            Integer documentNo = Integer.valueOf(newDoc.getDocId());
-            Document stored = SpringUtils.getBean(DocumentDao.class).findForPageMutation(documentNo);
-            if (stored == null) {
-                throw new StoredDocumentMissingException();
-            }
-            ReviewOutcome outcome = reviewRequested ? recordReview(stored, documentNo, newDoc, actor) : ReviewOutcome.NONE;
-            EDocUtil.editDocumentSQL(newDoc, reviewRequested);
-            return outcome;
-        });
-    }
-
-    /**
-     * Records the actor's review against the stored row that {@link #saveStoredEdit} holds locked,
-     * and sets the reviewer fields {@code newDoc} will store. Runs inside that transaction.
-     *
-     * @return {@link ReviewOutcome#FIRST} when the stored reviewer was blank,
-     *         {@link ReviewOutcome#ADDITIONAL} when an extra-reviewer row was added, or
-     *         {@link ReviewOutcome#ALREADY_REVIEWED} when the actor had already reviewed it
-     */
-    private ReviewOutcome recordReview(Document stored, Integer documentNo, EDoc newDoc, String actor) {
-        Date now = new Date();
-        String storedReviewer = stored.getReviewer();
-        if (!filled(storedReviewer)) {
-            newDoc.setReviewerId(actor);
-            newDoc.setReviewDateTime(UtilDateUtilities.DateToString(now, EDocUtil.REVIEW_DATETIME_FORMAT));
-            return ReviewOutcome.FIRST;
-        }
-        // Keep the first review exactly as stored.
-        newDoc.setReviewerId(storedReviewer);
-        newDoc.setReviewDateTime(stored.getReviewdatetime() == null ? ""
-                : UtilDateUtilities.DateToString(stored.getReviewdatetime(), EDocUtil.REVIEW_DATETIME_FORMAT));
-        DocumentExtraReviewerDao extraReviewers = SpringUtils.getBean(DocumentExtraReviewerDao.class);
-        boolean alreadyReviewed = storedReviewer.equals(actor) || extraReviewers.findByDocumentNo(documentNo).stream()
-                .anyMatch(existing -> Objects.equals(actor, existing.getReviewerProviderNo()));
-        if (alreadyReviewed) {
-            return ReviewOutcome.ALREADY_REVIEWED;
-        }
-        DocumentExtraReviewer additional = new DocumentExtraReviewer();
-        additional.setDocumentNo(documentNo);
-        additional.setReviewDateTime(now);
-        // A review attests to the authenticated actor, never a hidden form field.
-        additional.setReviewerProviderNo(actor);
-        extraReviewers.persist(additional);
-        return ReviewOutcome.ADDITIONAL;
-    }
 
     /**
      * Writes an uploaded file to the local document storage directory. The destination
@@ -910,10 +885,23 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
     private static void moveUploadedFile(Path tempPath, Path savePath, boolean replaceExisting) throws IOException {
-        if (!replaceExisting && Files.exists(savePath)) {
-            throw new FileAlreadyExistsException(savePath.toString());
+        if (replaceExisting) {
+            Files.move(tempPath, savePath, StandardCopyOption.ATOMIC_MOVE);
+            return;
         }
-        Files.move(tempPath, savePath, StandardCopyOption.ATOMIC_MOVE);
+        // Sibling staging and final names are on the same filesystem. Creating a link is an
+        // atomic no-clobber publication, including when another writer wins after an existence check.
+        Files.createLink(savePath, tempPath);
+        try {
+            try (var directory = java.nio.channels.FileChannel.open(savePath.getParent(), java.nio.file.StandardOpenOption.READ)) {
+                directory.force(true);
+            }
+            Files.delete(tempPath);
+        } catch (IOException failure) {
+            try { Files.delete(savePath); }
+            catch (IOException cleanup) { failure.addSuppressed(cleanup); }
+            throw failure;
+        }
     }
 
     private static void deleteTempFile(Path tempPath, Exception originalError) {
