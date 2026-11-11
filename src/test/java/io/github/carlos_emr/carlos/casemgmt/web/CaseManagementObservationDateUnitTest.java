@@ -471,10 +471,14 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
     }
 
     private CheckBoxBean editableIssueEntry() {
-        var issue = new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue();
+        var issue = spy(new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue());
         issue.setId(71L);
         issue.setDemographic_no(101);
         issue.setUpdate_date(STORED_DATE);
+        doReturn(true).when(issue).isWriteAccess("999998", 7);
+        var issues = mock(io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO.class);
+        when(issues.findById(71L)).thenReturn(issue);
+        injectDependency(action, "caseManagementIssueDao", issues);
         var display = new CaseManagementViewAction.IssueDisplay();
         display.setAcute("chronic");
         display.setCertain("uncertain");
@@ -615,11 +619,8 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
     @NullSource
     @ValueSource(strings = {"", "14-Oct-2026 10:05"})
     void shouldKeepIssueDeletionAvailableWithValidOrOmittedDate(String posted) throws Exception {
-        var issue = new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue();
-        issue.setId(71L);
-        issue.setDemographic_no(101);
-        var entry = new CheckBoxBean();
-        entry.setIssue(issue);
+        var entry = editableIssueEntry();
+        var issue = entry.getIssue();
         form.getIssueCheckList().add(entry);
         // Issues can be removed while the editor holds a new, as-yet-unsaved note.
         note.setId(null);

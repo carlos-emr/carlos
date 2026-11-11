@@ -479,12 +479,14 @@ public class DateUtils {
 
     /**
      * Gets the difference between two dates, in days.
-     * Takes two dates represented in milliseconds and returns the difference in days
+     * Takes two dates represented in milliseconds and returns the complete days from
+     * {@code lesser} to {@code greater} on the JVM default zone's calendar, so a span across a
+     * daylight saving change counts each calendar day once (issue #6047); negative when
+     * {@code lesser} is the later time.
      */
     public static int getDifDays(long greater, long lesser) {
-        double x = (greater - lesser) / 86400000;
-        int ret = (int) x;
-        return ret;
+        return (int) io.github.carlos_emr.carlos.util.DateUtils.completeLocalDaysBetween(
+                lesser, greater, java.time.ZoneId.systemDefault());
     }
 
     //################################################################################

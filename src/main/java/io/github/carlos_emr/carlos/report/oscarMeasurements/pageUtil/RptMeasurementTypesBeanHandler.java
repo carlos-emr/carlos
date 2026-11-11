@@ -46,10 +46,26 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-public class RptMeasurementTypesBeanHandler {
+public class RptMeasurementTypesBeanHandler implements java.io.Serializable {
+
+    @java.io.Serial private static final long serialVersionUID = 1L;
 
     Vector<RptMeasurementTypesBean> measurementTypeVector = new Vector<RptMeasurementTypesBean>();
     Vector<RptMeasuringInstructionBeanHandler> measuringInstrcBeanVector = new Vector<RptMeasuringInstructionBeanHandler>();
+
+    private RptMeasurementTypesBeanHandler() { }
+
+    static RptMeasurementTypesBeanHandler snapshot(RptMeasurementTypesBeanHandler source) {
+        var result = new RptMeasurementTypesBeanHandler();
+        for (var type : source.getMeasurementTypeVector()) {
+            result.measurementTypeVector.add(new RptMeasurementTypesBean(type.getId(), type.getType(),
+                    type.getTypeDisplayName(), type.getTypeDesc(), type.getMeasuringInstrc(), type.getValidation()));
+        }
+        for (var instructions : source.getMeasuringInstrcBeanVector()) {
+            result.measuringInstrcBeanVector.add(RptMeasuringInstructionBeanHandler.snapshot(instructions));
+        }
+        return result;
+    }
 
     public RptMeasurementTypesBeanHandler(String groupName) {
         init(groupName);

@@ -78,6 +78,37 @@ public class EChartDaoIntegrationTest extends CarlosTestBase {
         assertThat(eChartDao.getLatestChartById(5547103)).isNull();
     }
 
+    @Test
+    void shouldReturnDistinctBoundedPages_whenHistoricalRevisionsExist() throws Exception {
+        EChart first = createEChart(5547201, "first", new Date(100000L));
+        EChart second = createEChart(5547201, "second", new Date(100000L));
+        EChart third = createEChart(5547201, "third", new Date(100000L));
+        createEChart(5547202, "other", new Date(100000L));
+        assertThat(eChartDao.getChartsForDemographic(5547201, 0, 2))
+                .extracting(EChart::getId).containsExactly(third.getId(), second.getId());
+        assertThat(eChartDao.getChartsForDemographic(5547201, 2, 2))
+                .extracting(EChart::getId).containsExactly(first.getId());
+        assertThat(eChartDao.getChartsForDemographic(5547201, 3, 2)).isEmpty();
+        assertThatThrownBy(() -> eChartDao.getChartsForDemographic(5547201, -1, 2))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource(value = {"NULL,0,1", "0,0,1", "-1,0,1",
+            "5547201,0,0", "5547201,0,102"}, nullValues = "NULL")
+    void shouldRefuseInvalidHistoricalPageBeforeQuerying(Integer patient, int offset, int limit) {
+        assertThatThrownBy(() -> eChartDao.getChartsForDemographic(patient, offset, limit))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldAllowMaximumHistoricalPageSize_withoutReturningAnotherPatient() throws Exception {
+        EChart own = createEChart(5547301, "own", new Date());
+        createEChart(5547302, "other", new Date());
+        assertThat(eChartDao.getChartsForDemographic(5547301, 0, 101))
+                .extracting(EChart::getId).containsExactly(own.getId());
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {

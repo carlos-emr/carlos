@@ -20,12 +20,15 @@ function setup(queue, maxNcId = 0) {
     elements[`imgPrint${section}`] = {src: 'green'};
   }
   for (const id of ['11', '12']) elements[`print${id}`] = {id: `print${id}`, src: 'green'};
+  const buttonIcon = {src: 'green'};
+  elements.print12 = {id: 'print12', tagName: 'BUTTON', pressed: 'true',
+    querySelector: () => buttonIcon, setAttribute(name, value) { this.pressed = value; }};
   const context = vm.createContext({ctx: '/carlos', maxNcId,
     $: id => typeof id === 'string' ? elements[id] || null : id,
     $F: id => elements[id].value,
     Event: {stop() {}},
     document: {querySelectorAll: selector => {
-      assert.equal(selector, '#encMainDiv img[id^="print"]');
+      assert.equal(selector, '#encMainDiv img[id^="print"], #encMainDiv button[id^="print"]');
       return [elements.print11, elements.print12];
     }},
   });
@@ -39,7 +42,8 @@ test('Clear empties explicit queued IDs even when paging bookkeeping is exhauste
   context.clearAll({});
   assert.equal(elements.notes2print.value, '');
   assert.equal(elements.print11.src, '/carlos/encounter/graphics/printer.png');
-  assert.equal(elements.print12.src, '/carlos/encounter/graphics/printer.png');
+  assert.equal(elements.print12.querySelector('img').src, '/carlos/encounter/graphics/printer.png');
+  assert.equal(elements.print12.pressed, 'false');
 });
 test('Clear removes ALL_NOTES and resets every section, date and scope', () => {
   const {context, elements} = setup('ALL_NOTES');

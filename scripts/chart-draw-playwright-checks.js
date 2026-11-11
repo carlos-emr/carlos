@@ -97,6 +97,8 @@ async function draw(page, input, width, height) {
                 x: scale(chart.scales.x), y: scale(chart.scales.y), y2: scale(chart.scales.y2),
                 datasets: chart.data.datasets.map((ds, i) => ({ label: ds.label, kind: ds.carlosKind, borderColor: ds.borderColor, backgroundColor: ds.backgroundColor,
                     borderWidth: ds.borderWidth, shapes: ds.carlosShapes === true, showLine: ds.showLine,
+                    firstMarkerPixel: ds.carlosShapes && chart.getDatasetMeta(i).data.length
+                        ? pixel(chart, chart.getDatasetMeta(i).data[0].x, chart.getDatasetMeta(i).data[0].y) : null,
                     markerPixels: ds.carlosShapes ? chart.getDatasetMeta(i).data.slice(1, 2).map(point => ({
                         centre: pixel(chart, Math.round(point.x), Math.round(point.y)),
                         corner: pixel(chart, Math.round(point.x) - 3, Math.round(point.y) - 3),
@@ -363,9 +365,35 @@ async function main() {
             if (screenshotDirectory) {
                 await page.screenshot({ path: buildArtifactPath(screenshotDirectory, file.replace(/\.json$/, '')) });
             }
-            checkFixture(fixture, result);
+            if (fixture.name === 'default-1pt') {
+                // #5814 deliberately replaces the legacy invisible point / 2ms domain.
+                assert.ok(result.charts[0].x.max - result.charts[0].x.min >= 86_400_000);
+                assert.ok(result.charts[0].y.max > 70 && result.charts[0].y.min < 70);
+                assert.ok(new Set(result.charts[0].y.ticks.map(t => t.label)).size > 1);
+                assert.equal(result.charts[0].datasets[0].shapes, true);
+                assert.equal(result.charts[0].datasets[0].firstMarkerPixel, "#ff5555", "single point has actual visible marker pixels");
+            } else {
+                checkFixture(fixture, result);
+            }
             assert.deepEqual(errors, [], `${fixture.name}: page errors`);
         }
+
+        const frenchInput = JSON.parse(fs.readFileSync(path.join(__dirname,
+            'fixtures/chart/french-date-ticks.json'), 'utf8'));
+        await draw(page, frenchInput, 1000, 600);
+        const localizedTicks = await page.evaluate(() => {
+            const chart = Object.values(Chart.instances).find(item => item.canvas.isConnected && item.scales.x);
+            const ctx = chart.ctx; ctx.save();
+            ctx.font = chart.scales.x.options.ticks.font.size + 'px "DejaVu Sans"';
+            const ticks = chart.scales.x.ticks.map((tick, index) => ({
+                label: tick.label, x: chart.scales.x.getPixelForTick(index), width: ctx.measureText(tick.label).width,
+            }));
+            ctx.restore(); return ticks;
+        });
+        assert.ok(localizedTicks.length > 1, 'localized dates retain useful ticks');
+        localizedTicks.slice(1).forEach((tick, index) => assert.ok(
+            tick.x - localizedTicks[index].x >= (tick.width + localizedTicks[index].width) / 2 + 2,
+            'French date labels do not overlap using independent browser text measurements'));
 
         // A zero-length prescription is still visible: JFreeChart drew it as a one pixel line with its shadow.
         const thirteen = JSON.parse(fs.readFileSync(path.join(FIXTURES, 'chartmeds-13.json'), 'utf8'));
@@ -432,16 +460,24 @@ async function main() {
 
         // The fixed 1e-8 range expansion previously rounded away at this magnitude and left an
         // infinite tick loop. A wide range must also choose units beyond the former 5e12 ceiling.
-        for (const values of [[100_000_000], [0, 1e20], [1e308]]) {
+        for (const values of [[0.05], [-0.05], [0], [99], [5_000_000], [12_500_000], [45_000_000], [-6_000_000], [12_500_000, 12_500_000], [100_000_000], [0, 1e20], [1e308]]) {
             const input = { ...hourly, datasets: [{ ...hourly.datasets[0], data: values.map((y, index) => ({ x: t0 + index * 86_400_000, y })) }] };
             const large = await draw(page, input, 1000, 600);
             const axis = large.charts[0].y;
             assert.ok(Number.isFinite(axis.min) && Number.isFinite(axis.max) && axis.max > axis.min, 'large values retain a finite nonzero axis range');
             assert.ok(axis.ticks.length > 0 && axis.ticks.length <= 1000, 'large values render a bounded number of ticks');
             assert.equal(new Set(axis.ticks.map(tick => tick.value)).size, axis.ticks.length, 'tick coordinates do not collapse at large magnitudes');
+            assert.ok(axis.min <= Math.min(...values), 'axis includes the smallest observation');
+            assert.ok(axis.max >= Math.max(...values), 'axis includes the largest observation');
+            assert.ok(new Set(axis.ticks.map(tick => tick.label)).size > 1, 'value labels remain distinguishable');
+            if (values.length === 1) {
+                assert.equal(large.charts[0].datasets[0].firstMarkerPixel, large.charts[0].datasets[0].backgroundColor,
+                    'single observation is visibly painted in its series colour');
+                if (values[0] !== 0) assert.ok(axis.max - axis.min <= Math.abs(values[0]), 'constant range scales with observation magnitude');
+            }
         }
         assert.deepEqual(errors, []);
-        console.log(`PASS: ${names.length} JFreeChart fixtures matched (ranges, ticks, labels, colours, fonts, dashed grids on both axes, legend, bars with shadows, item labels, reference ranges)`);
+        console.log(`PASS: ${names.length} chart fixtures passed (unaffected JFreeChart parity plus intentional single-point repair); constant-value regressions passed`);
     } finally {
         if (browser) await browser.close();
     }

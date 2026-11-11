@@ -52,9 +52,12 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 public final class CdmReportSelectionValidator {
 
     /** Session attribute holding the {@link RptMeasurementTypesBeanHandler} of the selected group. */
-    static final String SESSION_MEASUREMENT_TYPES = "measurementTypes";
+    static final String SESSION_MEASUREMENT_TYPES = CdmReportContexts.MEASUREMENT_TYPES;
 
     private final RptMeasurementTypesBeanHandler definitions;
+    private boolean valid = true;
+
+    public boolean isValid() { return valid; }
 
     CdmReportSelectionValidator(RptMeasurementTypesBeanHandler definitions) {
         this.definitions = definitions;
@@ -66,7 +69,8 @@ public final class CdmReportSelectionValidator {
      */
     public static CdmReportSelectionValidator fromSession(HttpServletRequest request) {
         HttpSession session = request == null ? null : request.getSession(false);
-        Object stored = session == null ? null : session.getAttribute(SESSION_MEASUREMENT_TYPES);
+        Object stored = request == null ? null : request.getAttribute(SESSION_MEASUREMENT_TYPES);
+        if (stored == null && session != null) stored = session.getAttribute(SESSION_MEASUREMENT_TYPES);
         return new CdmReportSelectionValidator(
                 stored instanceof RptMeasurementTypesBeanHandler handler ? handler : null);
     }
@@ -109,6 +113,7 @@ public final class CdmReportSelectionValidator {
                 return row;
             }
         }
+        valid = false;
         MiscUtils.getLogger().warn("CDM report: rejected a row index that names no rendered row");
         return -1;
     }
@@ -175,6 +180,7 @@ public final class CdmReportSelectionValidator {
         if (isMeasurementType(row, measurementType)) {
             return measurementType;
         }
+        valid = false;
         MiscUtils.getLogger().warn("CDM report: rejected a measurement type that is not part of the selected group");
         return null;
     }
@@ -187,6 +193,7 @@ public final class CdmReportSelectionValidator {
         if (measuringInstruction == null || isMeasuringInstruction(row, measuringInstruction)) {
             return measuringInstruction;
         }
+        valid = false;
         MiscUtils.getLogger().warn("CDM report: rejected a measuring instruction that is not part of the selected group");
         return null;
     }

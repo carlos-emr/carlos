@@ -131,8 +131,8 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
             session.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
-            routing.when(() -> CommonLabResultData.acknowledgeReport(123, "999998", expectedComment, "HL7", false, null))
-                    .thenReturn(3);
+            routing.when(() -> CommonLabResultData.updateReportStatusWithOlderVersionsDetailed(123, "999998", 'A', expectedComment, "HL7", false, null))
+                    .thenReturn(new CommonLabResultData.ReportChainUpdate(3, java.util.List.of(121,122,123)));
             logActionMock.when(() -> LogAction.addLogSynchronous(anyString(), anyString(), anyString(), anyString(), anyString()))
                     .thenThrow(new IllegalStateException("PRIVATE_AUDIT_MESSAGE", new IllegalArgumentException("PRIVATE_AUDIT_CAUSE")));
             assertThat(new ReportMacro2Action().execute()).isEqualTo(ReportMacro2Action.NONE);
@@ -140,6 +140,8 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
             assertThat(json.path("success").asBoolean()).isTrue();
             assertThat(json.path("acknowledged").asBoolean()).isEqualTo(acknowledge);
             assertThat(json.path("clearedCount").asInt()).isEqualTo(acknowledge ? 3 : 0);
+            assertThat(json.path("affectedVersionIds").toString()).isEqualTo(acknowledge ? "[121,122,123]" : "[]");
+            assertThat(json.path("retainedVersionIds").toString()).isEqualTo("[]");
             if (tickler) {
                 // Ownership and rights are proven through the attachment service before the
                 // tickler is persisted, and the lab is attached under its named source.
@@ -218,6 +220,7 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
             assertThat(outcome.acknowledged()).isFalse();
             // The attachment is validated before the acknowledgement touches the routing rows.
             routing.verify(() -> CommonLabResultData.acknowledgeReport(anyInt(), anyString(), any(), any(), anyBoolean(), any()), never());
+            routing.verify(() -> CommonLabResultData.updateReportStatusWithOlderVersionsDetailed(anyInt(), anyString(), org.mockito.ArgumentMatchers.anyChar(), any(), any(), anyBoolean(), any()), never());
             verify(ticklers, never()).persist(any(Tickler.class));
             verify(links, never()).syncAttachments(any(), any(), any());
             assertThat(logs.messages()).anyMatch(message -> message.contains("lab attachment refused"));
@@ -255,8 +258,8 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
              var routing = mockStatic(CommonLabResultData.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             session.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
-            routing.when(() -> CommonLabResultData.acknowledgeReport(456, "999998", "reviewed", "DOC", false, null))
-                    .thenReturn(1);
+            routing.when(() -> CommonLabResultData.updateReportStatusWithOlderVersionsDetailed(456, "999998", 'A', "reviewed", "DOC", false, null))
+                    .thenReturn(new CommonLabResultData.ReportChainUpdate(1, java.util.List.of(456)));
             var outcome = new ReportMacro2Action().runMacroOutcome(macro, request);
             assertThat(outcome.success()).isTrue();
             assertThat(outcome.acknowledged()).isTrue();
@@ -300,6 +303,7 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
             assertThat(outcome.success()).isFalse();
             assertThat(outcome.acknowledged()).isFalse();
             routing.verify(() -> CommonLabResultData.acknowledgeReport(anyInt(), anyString(), any(), any(), anyBoolean(), any()), never());
+            routing.verify(() -> CommonLabResultData.updateReportStatusWithOlderVersionsDetailed(anyInt(), anyString(), org.mockito.ArgumentMatchers.anyChar(), any(), any(), anyBoolean(), any()), never());
             verify(ticklers, never()).persist(any(Tickler.class));
             verify(links, never()).syncAttachments(any(), any(), any());
         }

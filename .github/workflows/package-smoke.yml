@@ -43,6 +43,7 @@ jobs:
     timeout-minutes: 45
     container:
       image: ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
+      options: --volume /etc/ssl/certs/ca-certificates.crt:/run/carlos-ci-ca.crt:ro
     defaults:
       run:
         shell: bash
@@ -50,10 +51,25 @@ jobs:
       - name: Install Ubuntu 26.04 build dependencies
         run: |
           set -euo pipefail
-          apt-get update -o APT::Update::Error-Mode=any
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            build-essential debhelper devscripts lintian fakeroot maven \
-            openjdk-25-jdk-headless tomcat11 git ca-certificates curl xz-utils unzip
+          test -s /run/carlos-ci-ca.crt
+          printf '%s\n' 'Acquire::https::CaInfo "/run/carlos-ci-ca.crt";' \
+            'Acquire::Retries "3";' 'Acquire::https::Timeout "30";' \
+            'Acquire::https::No-Cache "true";' \
+            > /etc/apt/apt.conf.d/80-carlos-ci
+          sed -i -e 's#http://#https://#g' \
+            -e 's#https://security.ubuntu.com/ubuntu#https://archive.ubuntu.com/ubuntu#g' \
+            /etc/apt/sources.list.d/ubuntu.sources
+          for attempt in 1 2 3; do
+            apt-get -o Acquire::Retries=3 -o Acquire::http::No-Cache=true \
+              -o Acquire::https::No-Cache=true -o Acquire::By-Hash=force -o APT::Update::Error-Mode=any update \
+              && DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::https::No-Cache=true install -y --no-install-recommends \
+                build-essential debhelper devscripts lintian fakeroot maven \
+                openjdk-25-jdk-headless tomcat11 git ca-certificates curl xz-utils unzip \
+              && break
+            test "$attempt" -lt 3 || exit 1
+            rm -rf /var/lib/apt/lists/*
+            sleep 2
+          done
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -93,6 +109,7 @@ jobs:
         province: [on, bc]
     env:
       CARLOS_DISPOSABLE_HOST: 'true'
+      APT_FORCE_HTTPS: 'true'
       CARLOS_PROVINCE: ${{ matrix.province }}
       CONTAINER: carlos-pr-smoke
       BASE_IMAGE: ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
@@ -120,7 +137,8 @@ jobs:
           bash scripts/deb-docker-validation.sh suite \
             --only application-health --only drug-search --only schedule-links \
             --only eform-visual-widgets --only audit-log-chart-read \
-            --only lab-version-ingestion --only lab-qualified-results
+            --only lab-version-ingestion --only lab-qualified-results \
+            --only report-cdm --only cdm-measurement-report
       - name: Retain install and browser diagnostics
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

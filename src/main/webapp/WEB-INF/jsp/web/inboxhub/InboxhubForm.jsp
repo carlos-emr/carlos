@@ -633,6 +633,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     try {
         const inboxhubRefreshChannel = new BroadcastChannel('inboxhub-refresh');
         inboxhubRefreshChannel.onmessage = function(event) {
+            if (event && event.data && event.data.labType === 'HL7' && isInboxhubItemToken(event.data.compatibilityFor)) {
+                refreshInboxhubAfterHrmRevoke();
+                return;
+            }
             if (event && event.data && event.data.action === 'hrm-revoked') {
                 if (event.data.labType === 'HRM' && isInboxhubItemToken(event.data.segmentID)) {
                     refreshInboxhubAfterHrmRevoke();
@@ -651,7 +655,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
             // screen that is the whole job: the badges are re-read from hidden inputs on
             // every draw, so the totals have to move whether or not anything is re-fetched.
             const handledInPlace = acknowledgedId
-                ? dropAcknowledgedInboxhubItem(acknowledgedId, acknowledgedType, acknowledgedRows)
+                ? dropAcknowledgedInboxhubItem(acknowledgedId, acknowledgedType, acknowledgedRows, event.data.retainedVersionIds)
                 : false;
             if (handledInPlace) {
                 // Deliberately NO full re-fetch. fetchInboxhubData re-runs the whole search from
@@ -911,6 +915,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      */
     var nextInboxhubItem = null;
     var previousInboxhubItem = null;
+    var legacyInboxhubRefreshPending = false;
 
     /**
      * Records the items on either side of the one about to be removed.
@@ -1061,14 +1066,24 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      * @param {string} segmentId segment id of the acknowledged lab, document or HRM report
      * @param {string} labType its report type; older senders may not supply one
      * @param {number} clearedCount routing rows the acknowledgement cleared; see above
-     * @return {boolean} true when the item was on screen AND the inbox holds the whole result
-     *                   set, so nothing needs re-fetching; false when the server must be asked
+     * @param {Array} versionMetadata empty compatibility marker from a current sender
+     * @return {boolean} true when no additional caller refresh is needed (including an already
+     *                   scheduled resync); false when the caller must re-fetch the result set
      */
-    function dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount) {
+    function dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount, versionMetadata) {
         const itemEl = inboxhubItemElement(segmentId, labType);
         // A sender that predates the typed message — a popup running a cached script — gives
         // only an id, and then the rendered row is the one place the type can come from.
         const resolvedType = labType || (itemEl.length > 0 ? itemEl.data('labType') : null);
+        if (resolvedType === 'HL7' && !Array.isArray(versionMetadata)) {
+            // A cached sender may infer both rows and badge counts from an obsolete
+            // chain. Re-submit once to replace the list AND server-owned totals.
+            if (!legacyInboxhubRefreshPending) {
+                legacyInboxhubRefreshPending = true;
+                refreshInboxhubAfterHrmRevoke();
+            }
+            return true;
+        }
         removeInboxhubRow(segmentId, resolvedType);
         // The total moves whether or not a row was on screen — the clinician may have changed
         // a filter while the popup was open. Row removal and counting are separate for that
