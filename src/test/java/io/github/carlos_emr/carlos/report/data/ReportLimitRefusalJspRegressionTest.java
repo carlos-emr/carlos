@@ -38,6 +38,7 @@ class ReportLimitRefusalJspRegressionTest {
                 "catch (java.sql.SQLException e)",
                 "if (!ReportLimitRefusal.isRefusal(e))",
                 "throw e;",
+                ".warn(\"Form report refused by its row, size or time limit\")",
                 "reportLimitRefused = true;");
         assertThat(page).containsSubsequence(
                 "<% if (reportLimitRefused) { %>", MESSAGE, "<% } else { %>", "<table", "</table>", "<% } %>");

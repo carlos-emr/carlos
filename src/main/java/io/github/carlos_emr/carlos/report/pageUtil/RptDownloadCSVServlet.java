@@ -65,6 +65,12 @@ public class RptDownloadCSVServlet extends HttpServlet {
     private static final Logger _logger = MiscUtils.getLogger();
     public static final int MAX_CSV_EXPORT_BYTES = 5 * 1024 * 1024;
     static final String LIMIT_REFUSAL_MESSAGE = "Report is too large or took too long; narrow the report filters";
+    /**
+     * Set on the request before each 413. The error page shows the status message only in its
+     * developer block, so it reads this marker to say what the user can do (#5850). Other 413s in
+     * CARLOS (uploads, attachments) are not reports and do not set it.
+     */
+    static final String REPORT_TOO_LARGE_ATTRIBUTE = "carlosReportTooLarge";
     private static final String SQL_AND = " and ";
 
     String DELIMETER = "\t";
@@ -79,14 +85,14 @@ public class RptDownloadCSVServlet extends HttpServlet {
         try {
             report = request.getParameter("demoReport") != null ? demoReport(request) : formReport(request);
         } catch (ServletException e1) {
-            if (refusedByLimit(response, e1)) {
+            if (refusedByLimit(request, response, e1)) {
                 return;
             }
             _logger.error("RptDownloadCSVServlet service() - form report failed", e1);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate report");
             return;
         } catch (Exception e1) {
-            if (refusedByLimit(response, e1)) {
+            if (refusedByLimit(request, response, e1)) {
                 return;
             }
             _logger.error("RptDownloadCSVServlet service() - report generation failed", e1);
@@ -100,6 +106,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
         }
         byte[] bytes = in.getBytes(java.nio.charset.StandardCharsets.UTF_8);
         if (bytes.length > MAX_CSV_EXPORT_BYTES) {
+            request.setAttribute(REPORT_TOO_LARGE_ATTRIBUTE, Boolean.TRUE);
             response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, "Report is too large; narrow the report filters");
             return;
         }
@@ -117,11 +124,13 @@ public class RptDownloadCSVServlet extends HttpServlet {
      * A report refused by its row, size or time limit is not a server failure: answer 413 with
      * what the user can do, as the byte check in {@link #service} does, instead of a 500 (#5850).
      */
-    private static boolean refusedByLimit(HttpServletResponse response, Exception failure) throws IOException {
+    private static boolean refusedByLimit(HttpServletRequest request, HttpServletResponse response, Exception failure)
+            throws IOException {
         if (!ReportLimitRefusal.isRefusal(failure)) {
             return false;
         }
         _logger.warn("RptDownloadCSVServlet service() - report refused by its row, size or time limit");
+        request.setAttribute(REPORT_TOO_LARGE_ATTRIBUTE, Boolean.TRUE);
         response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, LIMIT_REFUSAL_MESSAGE);
         return true;
     }

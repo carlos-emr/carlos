@@ -66,6 +66,9 @@
         if (!ReportLimitRefusal.isRefusal(e)) {
             throw e;
         }
+        // Logged like the CSV download and the clinical report: no report SQL or patient data.
+        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger()
+                .warn("Form report refused by its row, size or time limit");
         vecFieldValue = new Vector();
         reportLimitRefused = true;
     }
