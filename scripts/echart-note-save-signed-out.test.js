@@ -36,11 +36,15 @@ function harness(heartbeat = valid) {
   const requests = []; const alerts = []; const effects = []; const fetches = []; const replaced = []; const timers = [];
   const hidden = (name, value) => ({ name, type: 'hidden', value, disabled: false });
   const editor = { name: 'caseNote_note', value: TYPED, disabled: false };
-  const saveButton = { name: 'save', type: 'button', disabled: false };
-  const elements = [editor, saveButton, hidden('sign', 'off'), hidden('verify', 'off'), hidden('toBill', 'false')];
+  const elements = [editor, hidden('sign', 'off'), hidden('verify', 'off'), hidden('toBill', 'false')];
   for (const element of elements) elements[element.name] = element;
+  // The toolbar (Save, Sign & Save, Sign, Bill, Attach) is <input type="image">, which the
+  // browser leaves out of form.elements.
+  const toolbar = ['saveImg', 'signSaveImg', 'signVerifyImg', 'billImg', 'attachImg']
+    .map(id => ({ id, type: 'image', disabled: false }));
   const entryForm = {
     method: {}, ajax: {}, chain: {}, includeIssue: {}, elements, attrs: {},
+    querySelectorAll: selector => (selector === 'input[type="image"]' ? toolbar : []),
     get sign() { return elements.sign; }, get verify() { return elements.verify; }, get toBill() { return elements.toBill; },
     setAttribute(name, value) { this.attrs[name] = value; },
     removeAttribute(name) { delete this.attrs[name]; },
@@ -75,7 +79,7 @@ function harness(heartbeat = valid) {
   vm.runInContext(slice('    var ajaxRequest;', '    function submitIssue('), context);
   vm.runInContext(slice('    function saveNoteAjax(', '    var changeIssueMsg;'), context);
   const submits = () => effects.filter(effect => effect.submit).map(effect => effect.submit);
-  return { context, requests, alerts, effects, fetches, replaced, fields, editor, saveButton, entryForm, timers, submits };
+  return { context, requests, alerts, effects, fetches, replaced, fields, editor, toolbar, entryForm, timers, submits };
 }
 
 const settled = () => new Promise(resolve => setImmediate(resolve));
@@ -156,22 +160,39 @@ test('Sign & Save asks the session heartbeat without following a redirect, then 
   assert.deepEqual(h.alerts, []);
 });
 
-test('while the sign-in check runs, autosave is paused and the note controls wait', async () => {
+test('while the sign-in check runs, autosave is paused and the note controls and toolbar wait', async () => {
   let answer;
   const h = harness(() => new Promise(resolve => { answer = resolve; }));
   signAndSave(h);
   assert.equal(h.effects[0], 'pause autosave');
   assert.equal(h.editor.disabled, true);
-  assert.equal(h.saveButton.disabled, true);
+  assert.deepEqual(h.toolbar.filter(button => !button.disabled).map(button => button.id), [],
+    'every toolbar image button is held');
   assert.equal(h.fields.autosaveTime.textContent, h.context.noteSavingMessage);
   assert.equal(h.context.saveNoteAjax('save', 'list'), false);
-  assert.equal(signAndSave(h), false);
   assert.equal(h.requests.length, 0, 'no Save request during the check');
-  assert.equal(h.fetches.length, 1, 'no second check');
+  assert.deepEqual(h.alerts, [h.context.noteSavingMessage], 'Save during the check says the note is saving');
   answer({ type: 'basic', status: 200, ok: true, json: async () => ({ valid: true }) });
   await settled();
   assert.equal(h.submits().length, 1);
   assert.equal(h.fields.autosaveTime.textContent, 'previous status');
+  assert.deepEqual(h.toolbar.filter(button => button.disabled).map(button => button.id), [], 'the toolbar comes back');
+});
+
+test('Bill pressed during the check (Ctrl+B) starts nothing and does not change the pending submission', async () => {
+  let answer;
+  const h = harness(() => new Promise(resolve => { answer = resolve; }));
+  signAndSave(h);
+  // Ctrl+B sets Sign and Bill, then asks for Sign & Save.
+  h.entryForm.elements.sign.value = 'on';
+  h.entryForm.elements.toBill.value = 'true';
+  assert.equal(h.context.savePage('saveAndExit', ''), false);
+  assert.equal(h.fetches.length, 1, 'no second check');
+  assert.deepEqual(h.alerts, [h.context.noteSavingMessage]);
+  answer({ type: 'basic', status: 200, ok: true, json: async () => ({ valid: true }) });
+  await settled();
+  assert.deepEqual(h.submits().map(fields => [fields.sign, fields.verify, fields.toBill]), [['on', 'off', 'false']],
+    'the submission carries the choices made when Sign & Save was chosen');
 });
 
 for (const [name, heartbeat] of [
@@ -209,6 +230,26 @@ for (const [name, heartbeat] of [
     signAndSave(h);
     await settled();
     assert.equal(h.submits().length, 1);
+    assert.deepEqual(h.alerts, []);
+  });
+}
+
+for (const [name, change] of [
+  ['the browser has no AbortController', h => { delete h.context.AbortController; }],
+  ['fetch throws before sending', h => { h.context.fetch = () => { throw new TypeError('blocked'); }; }],
+]) {
+  test(`Sign & Save submits as before when ${name}`, async () => {
+    const h = harness(() => new Promise(() => {}));
+    change(h);
+    signAndSave(h);
+    await settled();
+    if (!h.submits().length) {
+      assert.equal(h.timers.length, 1, 'the time limit still applies');
+      h.timers[0].fn();
+      await settled();
+    }
+    assert.equal(h.submits().length, 1);
+    assert.equal(h.editor.disabled, false);
     assert.deepEqual(h.alerts, []);
   });
 }

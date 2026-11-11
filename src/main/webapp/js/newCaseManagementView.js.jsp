@@ -3212,10 +3212,14 @@ function updateCPPNote() {
         // (the saving status shows, and Save, Sign and Bill wait), so the submission carries
         // the note as it was when Sign & Save was chosen and no other save starts meanwhile.
         clearAutoSaveTimer();
+        var signIntent = noteSignIntent(document.forms["caseManagementEntryForm"]);
         var restoreControls = beginNoteSwitchSave();
         whenStillSignedIn(function () {
-            // A disabled control is left out of a form submission: restore them first.
+            // A disabled control is left out of a form submission: restore them first. A key
+            // press during the check (Ctrl+B) may have changed Sign, Verify or Bill; submit the
+            // choices made when Sign & Save was chosen.
             restoreControls();
+            applyNoteSignIntent(document.forms["caseManagementEntryForm"], signIntent);
             submitNotePage(method, chain);
         }, function () {
             restoreControls();
@@ -3229,11 +3233,27 @@ function updateCPPNote() {
 
     // Sign, Verify and Bill set these hidden fields before Sign & Save; put back their
     // defaults when that save does not happen.
-    function resetNoteSignIntent(form) {
-        [["sign", "off"], ["verify", "off"], ["toBill", "false"]].forEach(function (field) {
-            var control = form && form.elements ? form.elements[field[0]] : null;
-            if (control && control.type === "hidden") control.value = field[1];
+    var NOTE_SIGN_FIELDS = {sign: "off", verify: "off", toBill: "false"};
+    function noteSignField(form, name) {
+        var control = form && form.elements ? form.elements[name] : null;
+        return control && control.type === "hidden" ? control : null;
+    }
+    function noteSignIntent(form) {
+        var intent = {};
+        Object.keys(NOTE_SIGN_FIELDS).forEach(function (name) {
+            var control = noteSignField(form, name);
+            if (control) intent[name] = control.value;
         });
+        return intent;
+    }
+    function applyNoteSignIntent(form, intent) {
+        Object.keys(intent).forEach(function (name) {
+            var control = noteSignField(form, name);
+            if (control) control.value = intent[name];
+        });
+    }
+    function resetNoteSignIntent(form) {
+        applyNoteSignIntent(form, NOTE_SIGN_FIELDS);
     }
 
     function submitNotePage(method, chain) {
@@ -3496,15 +3516,35 @@ function updateCPPNote() {
     // is redirected as before and only the autosave draft keeps the text.
     var SIGN_IN_CHECK_TIMEOUT_MS = 8000;
     function whenStillSignedIn(proceed, refuse) {
+        var settled = false;
+        var timer = null;
+        // Exactly one of proceed or refuse runs, whichever way the check ends; both
+        // release the held controls and autosave.
+        function settle(signedIn) {
+            if (settled) return;
+            settled = true;
+            if (timer) clearTimeout(timer);
+            if (signedIn) proceed(); else refuse();
+        }
         if (typeof fetch !== "function") {
-            proceed();
+            settle(true);
             return;
         }
         var controller = typeof AbortController === "function" ? new AbortController() : null;
-        var timer = controller ? setTimeout(function () { controller.abort(); }, SIGN_IN_CHECK_TIMEOUT_MS) : null;
-        fetch(ctx + "/status/SessionHeartbeat?autoRefresh=true",
-                {credentials: "same-origin", redirect: "manual", cache: "no-store",
-                    signal: controller ? controller.signal : undefined})
+        timer = setTimeout(function () {
+            if (controller) controller.abort();
+            settle(true);
+        }, SIGN_IN_CHECK_TIMEOUT_MS);
+        var check;
+        try {
+            check = fetch(ctx + "/status/SessionHeartbeat?autoRefresh=true",
+                    {credentials: "same-origin", redirect: "manual", cache: "no-store",
+                        signal: controller ? controller.signal : undefined});
+        } catch (unavailable) {
+            settle(true);
+            return;
+        }
+        check
             .then(function (response) {
                 if (response.type === "opaqueredirect" || response.status === 401 || response.status === 403) return false;
                 if (!response.ok) return true;
@@ -3516,10 +3556,10 @@ function updateCPPNote() {
             }, function () {
                 return true;
             })
-            .then(function (signedIn) {
-                if (timer) clearTimeout(timer);
-                if (signedIn) proceed(); else refuse();
-            });
+            .catch(function () {
+                return true;
+            })
+            .then(settle);
     }
 
     function beginNoteSwitchSave() {
@@ -3527,7 +3567,10 @@ function updateCPPNote() {
         var form = document.forms["caseManagementEntryForm"];
         // The first chart load runs before the note form has been rendered.
         if (!form) return function () { noteSwitchSavePending = false; };
-        var controls = Array.from(form.elements).map(function (control) {
+        // The toolbar's Save, Sign & Save, Sign, Bill and Attach are <input type="image">,
+        // which form.elements leaves out: hold them too.
+        var images = form.querySelectorAll ? Array.from(form.querySelectorAll('input[type="image"]')) : [];
+        var controls = Array.from(form.elements).concat(images).map(function (control) {
             var disabled = control.disabled;
             control.disabled = true;
             return {control: control, disabled: disabled};
