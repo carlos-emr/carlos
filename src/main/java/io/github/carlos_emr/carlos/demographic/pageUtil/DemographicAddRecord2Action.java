@@ -87,13 +87,13 @@ public class DemographicAddRecord2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-    private DemographicCustDao demographicCustDao = SpringUtils.getBean(DemographicCustDao.class);
-    private DemographicExtDao demographicExtDao = SpringUtils.getBean(DemographicExtDao.class);
-    private DemographicArchiveDao demographicArchiveDao = SpringUtils.getBean(DemographicArchiveDao.class);
-    private DemographicExtArchiveDao demographicExtArchiveDao = SpringUtils.getBean(DemographicExtArchiveDao.class);
-    private WaitingListDao waitingListDao = SpringUtils.getBean(WaitingListDao.class);
+    private transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private transient DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
+    private transient DemographicCustDao demographicCustDao = SpringUtils.getBean(DemographicCustDao.class);
+    private transient DemographicExtDao demographicExtDao = SpringUtils.getBean(DemographicExtDao.class);
+    private transient DemographicArchiveDao demographicArchiveDao = SpringUtils.getBean(DemographicArchiveDao.class);
+    private transient DemographicExtArchiveDao demographicExtArchiveDao = SpringUtils.getBean(DemographicExtArchiveDao.class);
+    private transient WaitingListDao waitingListDao = SpringUtils.getBean(WaitingListDao.class);
 
     /** Set once the patient row has committed, so a later failure can be told apart from one before it. */
     private String registeredDemographicNo;
