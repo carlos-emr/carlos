@@ -160,8 +160,15 @@ public class BillingreferralEdit2Action extends ActionSupport {
         request.setAttribute("specialty", specialty);
         request.setAttribute("address", address);
         request.setAttribute("showHidden", showHidden);
-        if (name != null && name.matches("[0-9]+")) {
-            return directoryPage(name, null, null, null, null, true, "searchByName");
+        Integer referralNumber = null;
+        if (name != null && !name.isEmpty()) {
+            try { referralNumber = Integer.valueOf(name); }
+            catch (NumberFormatException notReferralNumber) {
+                // Preserve the legacy fallback: nonnumeric or overflowing input is a name.
+            }
+        }
+        if (referralNumber != null) {
+            return directoryPage(referralNumber.toString(), null, null, null, null, true, "searchByName");
         }
         String[] names = (name == null ? "" : name).split(",", 2);
         return directoryPage(null, names[0].trim(), names.length == 2 ? names[1].trim() : "",
