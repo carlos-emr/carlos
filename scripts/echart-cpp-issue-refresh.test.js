@@ -45,6 +45,8 @@ function harness(checked = [true], issueChange = '') {
     },
     $: id => fields[id], alert: message => alerts.push(message),
     console: { error: (...args) => errors.push(args) },
+    // A save is accepted only when its response URL is the action's own (#5868).
+    URL, window: { location: { href: 'https://emr.example.invalid/carlos/CaseManagementEntry?method=edit' } },
   };
   vm.createContext(context);
   vm.runInContext(chartHelper, context);
@@ -117,6 +119,50 @@ test('a failed CPP save restores the editor without requesting issue refreshes',
   assert.equal(h.updates.length, 0);
   assert.deepEqual(h.alerts, ['CPP save failed; retry CPP Save 500']);
   assert.deepEqual(h.errors, []);
+});
+
+// After the inactivity limit (or with a facility still to be chosen) the login filter
+// redirects the CPP save, and the browser follows it to the sign-in page as HTTP 200 (#5868).
+const SIGNED_OUT = 'not saved; sign in again';
+for (const [name, landing] of [['the sign-in page', '/carlos/logoutPage'], ['facility selection', '/carlos/select_facility']]) {
+  test(`a CPP save redirected to ${name} is not saved and reopens the editor with the typed text`, () => {
+    const h = harness();
+    h.context.sessionEndedNotSavedError = SIGNED_OUT;
+    h.context.updateCPPNote();
+    assert.equal(h.fields.showEditNote.style.display, 'none');
+    h.requests[0].options.onSuccess({ status: 200, responseText: '<form id="loginForm">sign in</form>',
+      responseURL: `https://emr.example.invalid${landing}` });
+    assert.equal(h.fields.cppText, undefined, 'the CPP panel is not replaced by the sign-in page');
+    assert.equal(h.fields.showEditNote.style.display, 'block');
+    assert.equal(h.fields.channel.style.visibility, 'hidden');
+    assert.equal(h.context.document.forms.frmIssueNotes.elements.noteEditTxt.value, 'synthetic CPP item');
+    assert.equal(h.updates.length, 0, 'no issue refresh for an unsaved item');
+    assert.equal(h.requests.length, 1);
+    assert.deepEqual(h.alerts, [SIGNED_OUT]);
+    assert.deepEqual(h.errors, []);
+  });
+}
+
+test('a CPP save refused with 401 reopens the editor and says to sign in again', () => {
+  const h = harness();
+  h.context.sessionEndedNotSavedError = SIGNED_OUT;
+  h.context.updateCPPNote();
+  h.requests[0].options.onFailure({ status: 401 });
+  assert.equal(h.fields.showEditNote.style.display, 'block');
+  assert.equal(h.fields.cppText, undefined);
+  assert.equal(h.updates.length, 0);
+  assert.deepEqual(h.alerts, [SIGNED_OUT]);
+});
+
+test('a CPP save answered by the save action itself is saved and refreshed', () => {
+  const h = harness();
+  h.context.sessionEndedNotSavedError = SIGNED_OUT;
+  h.context.updateCPPNote();
+  h.requests[0].options.onSuccess({ status: 200, responseText: '<p>saved CPP item</p>',
+    responseURL: 'https://emr.example.invalid/carlos/CaseManagementEntry?method=issueNoteSave' });
+  assert.equal(h.fields.cppText, '<p>saved CPP item</p>');
+  assert.equal(h.updates.length, 1);
+  assert.deepEqual(h.alerts, []);
 });
 
 test('CPP refresh preserves the latest unsaved selections by issue id before a queued save resumes', () => {

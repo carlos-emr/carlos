@@ -1440,6 +1440,14 @@ function updateCPPNote() {
                 evalScripts: true,
                 postBody: params,
                 onSuccess: function (request) {
+                    if (!saveAnsweredByAction(request, url)) {
+                        // Not saved: reopen the editor with the typed text.
+                        complete(false);
+                        $('showEditNote').style.display = 'block';
+                        if ($('channel')) $('channel').style.visibility = 'hidden';
+                        alertSessionEndedNotSaved();
+                        return;
+                    }
                     try {
                         if (request.responseText.length > 0) {
                             $(div).update(request.responseText);
@@ -1461,7 +1469,8 @@ function updateCPPNote() {
                     complete(false);
                     $('showEditNote').style.display = 'block';
                     if ($('channel')) $('channel').style.visibility = 'hidden';
-                    alert(cppSaveError + " " + request.status);
+                    if (request.status == 401) alertSessionEndedNotSaved();
+                    else alert(cppSaveError + " " + request.status);
                 }
             }
         );
@@ -3112,6 +3121,12 @@ function updateCPPNote() {
                 postBody: params,
                 evalScripts: true,
                 onSuccess: function (request) {
+                    if (!saveAnsweredByAction(request, url)) {
+                        // Not saved: keep the editor and its text in place.
+                        alertSessionEndedNotSaved();
+                        setTimer();
+                        return;
+                    }
                     destroyNoteIssueAutocomplete();
                     $("notCPP").update(request.responseText);
                     var qc = $("quickChart");
@@ -3124,7 +3139,8 @@ function updateCPPNote() {
                 onFailure: function (request) {
                     // In particular, a stale-revision 409 must leave the clinician's
                     // text and selected issues available to copy or recover.
-                    alert(request.status == 400 ? invalidObservationDateError : savingNoteError + " " + request.status);
+                    if (request.status == 401) alertSessionEndedNotSaved();
+                    else alert(request.status == 400 ? invalidObservationDateError : savingNoteError + " " + request.status);
                     setTimer();
                 },
                 onComplete: function () { restoreControls(); }
@@ -3189,7 +3205,22 @@ function updateCPPNote() {
 
         }
 
+        // One sign-in check at a time: a second click while it runs submits nothing more.
+        if (signedNoteSubmitPending) return false;
+        signedNoteSubmitPending = true;
+        whenStillSignedIn(function () {
+            signedNoteSubmitPending = false;
+            submitNotePage(method, chain);
+        }, function () {
+            signedNoteSubmitPending = false;
+            alertSessionEndedNotSaved();
+        });
+        return false;
+    }
 
+    var signedNoteSubmitPending = false;
+
+    function submitNotePage(method, chain) {
         document.forms["caseManagementEntryForm"].method.value = method;
         document.forms["caseManagementEntryForm"].ajax.value = false;
         document.forms["caseManagementEntryForm"].chain.value = chain;
@@ -3220,8 +3251,6 @@ function updateCPPNote() {
                 jQuery("#" + jQuery(this).attr('submit_addon')).click();
             }
         );
-
-        return false;
     }
 
     var changeIssueMsg;
@@ -3417,6 +3446,57 @@ function updateCPPNote() {
     var queuedNoteSave = null;
     var noteSwitchSavePending = false;
     var noteSavingMessage = "${carlos:forJavaScriptBlock(noteSavingLabel)}";
+    var sessionEndedNotSavedError;
+
+    // A save counts only when the save action itself answered (#5868). Once the sign-in
+    // has ended (the inactivity limit, or a facility still to be chosen), the login filter
+    // redirects every request, AJAX included, and the browser follows that redirect to the
+    // sign-in page as an ordinary HTTP 200. That page must never be taken for a saved note
+    // or CPP item, or put in place of the text the clinician typed.
+    function saveAnsweredByAction(response, requestUrl) {
+        if (!(response.status >= 200 && response.status < 300)) return false;
+        if (!response.responseURL) return true;
+        try {
+            var expected = new URL(requestUrl, window.location.href);
+            var actual = new URL(response.responseURL, window.location.href);
+            return actual.origin === expected.origin && actual.pathname === expected.pathname;
+        } catch (invalidUrl) {
+            return false;
+        }
+    }
+
+    function alertSessionEndedNotSaved() {
+        alert(sessionEndedNotSavedError || savingNoteError);
+    }
+
+    // Sign and Save leaves the chart with a full form submission, so a sign-in page in
+    // its place would discard the note before any script could notice. Ask the session
+    // heartbeat first without following a redirect: a redirect, a 401/403 or
+    // {"valid":false} means the sign-in has ended, and the note stays on screen. Any
+    // other outcome submits as before, so an unreachable heartbeat never blocks a save.
+    // autoRefresh keeps this check from counting as activity; the submission itself does.
+    function whenStillSignedIn(proceed, refuse) {
+        if (typeof fetch !== "function") {
+            proceed();
+            return;
+        }
+        fetch(ctx + "/status/SessionHeartbeat?autoRefresh=true",
+                {credentials: "same-origin", redirect: "manual", cache: "no-store"})
+            .then(function (response) {
+                if (response.type === "opaqueredirect" || response.status === 401 || response.status === 403) return false;
+                if (!response.ok) return true;
+                return response.json().then(function (state) {
+                    return !(state && state.valid === false);
+                }, function () {
+                    return true;
+                });
+            }, function () {
+                return true;
+            })
+            .then(function (signedIn) {
+                if (signedIn) proceed(); else refuse();
+            });
+    }
 
     function beginNoteSwitchSave() {
         noteSwitchSavePending = true;
