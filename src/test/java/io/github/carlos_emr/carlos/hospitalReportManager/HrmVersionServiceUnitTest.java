@@ -13,7 +13,6 @@ import java.util.*;
 import org.junit.jupiter.api.*;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import static org.mockito.ArgumentMatchers.*;
 
 class HrmVersionServiceUnitTest extends CarlosUnitTestBase {
     @Test void shouldOrderHistoryAndShowUnknownDates_withoutChangingTheInput() {

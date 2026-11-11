@@ -12,7 +12,6 @@ import org.junit.jupiter.api.*;
 import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import static org.mockito.ArgumentMatchers.*;
 
 class InboxDocumentCompletenessUnitTest extends CarlosUnitTestBase {
     private InboxResultsDaoImpl dao;
@@ -34,10 +33,10 @@ class InboxDocumentCompletenessUnitTest extends CarlosUnitTestBase {
         return dao.readDocumentResults("7", "42", "", "", "", "N", true, 0, 20, false, null, null, null, null);
     }
     @Test void shouldKeepLaterValidRows_andReportMissingAndMalformedRows() {
-        when(query.getResultList()).thenReturn(List.of(row("1"), row("2"), row("bad"), row("3")));
+        when(query.getResultList()).thenReturn(List.of(row("1"), row("2"), row("bad"), row("9999999999"), row("3")));
         var result = read();
         assertThat(result.items()).extracting(r -> r.segmentID).containsExactly("1", "3");
-        assertThat(result.omittedRows()).isEqualTo(2);
+        assertThat(result.omittedRows()).isEqualTo(3);
         assertThatThrownBy(result::requireComplete).isInstanceOf(IllegalStateException.class);
     }
     @Test void shouldRefusePartialSuccess_whenCalledThroughTheLegacyAdapter() {

@@ -157,10 +157,14 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         private int begun;
         private boolean committed;
         private boolean rolledBack;
+        private boolean failCommit;
 
         @Override protected Object doGetTransaction() { return new Object(); }
         @Override protected void doBegin(Object transaction, TransactionDefinition definition) { begun++; }
-        @Override protected void doCommit(DefaultTransactionStatus status) { committed = true; }
+        @Override protected void doCommit(DefaultTransactionStatus status) {
+            committed = true;
+            if (failCommit) throw new org.springframework.transaction.TransactionSystemException("synthetic lost commit acknowledgement");
+        }
         @Override protected void doRollback(DefaultTransactionStatus status) { rolledBack = true; }
     }
 
@@ -444,6 +448,102 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
             bundle.load(in);
         }
         assertThat(bundle.getProperty("dms.error.documentMissing")).isNotBlank().doesNotContain("\\u");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", "malformed", "0000000000000000000000000000000000000000000000000000000000000000"})
+    void shouldRefuseReviewWithoutCurrentContentBaseline_beforeSaving(String revision) {
+        prepareReviewPost(true, false);
+        request.setParameter("contentRevision", revision);
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThat(withContentUpdatesDisabled(action::execute2)).isEqualTo("failEdit");
+            assertThat(((Hashtable<?, ?>) request.getAttribute("docerrors"))
+                    .containsValue("dms.error.documentChanged")).isTrue();
+            documents.verifyNoInteractions();
+            logActionMock.verifyNoInteractions();
+            assertThat(transactions.begun).isZero();
+        }
+    }
+
+    @Test
+    void shouldReportUnavailableSource_whenReviewTargetsAMissingStoredFile(@org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        prepareReviewPost(true, false);
+        var stored = ((DocumentDao) mockedBeans.get(DocumentDao.class)).find(123);
+        stored.setStatus('A'); stored.setDocfilename("missing-original.txt");
+        String original = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", directory.toString());
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThat(withContentUpdatesDisabled(action::execute2)).isEqualTo("failEdit");
+            assertThat(((Hashtable<?, ?>) request.getAttribute("docerrors"))
+                    .containsValue("documentMutation.sourceUnavailable")).isTrue();
+            documents.verifyNoInteractions();
+            assertThat(transactions.begun).isZero();
+        } finally {
+            if (original == null) CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+            else CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", original);
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"success", "rollback", "unconfirmed"})
+    void shouldRetainOnlyTheCorrectReplacementFiles_whenSaveOutcomeChanges(String outcome,
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        prepareReviewPost(true, false);
+        var stored = ((DocumentDao) mockedBeans.get(DocumentDao.class)).find(123);
+        stored.setStatus('A'); stored.setDocxml(null); stored.setDocfilename("original.txt");
+        Path originalFile = directory.resolve("original.txt");
+        Files.writeString(originalFile, "original clinical source");
+        tempUploadFile = File.createTempFile("replacement-source", ".txt");
+        Files.writeString(tempUploadFile.toPath(), "replacement clinical source");
+        bindDocFileUpload(tempUploadFile, "replacement.txt", "text/plain");
+        String previousDirectory = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String previousUpdates = CarlosProperties.getInstance().getProperty("ALLOW_UPDATE_DOCUMENT_CONTENT");
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", directory.toString());
+        CarlosProperties.getInstance().setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true");
+        AtomicReference<EDoc> saved = new AtomicReference<>();
+        transactions.failCommit = "unconfirmed".equals(outcome);
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            request.setParameter("contentRevision", io.github.carlos_emr.carlos.documentManager.DocumentEditRevision.content(stored));
+            request.setParameter("metadataRevision", io.github.carlos_emr.carlos.documentManager.DocumentEditRevision.metadata(stored));
+            documents.when(() -> EDocUtil.getDoctypes("provider")).thenReturn(new ArrayList<>(List.of("Consultant Report")));
+            documents.when(() -> EDocUtil.editDocumentSQL(any(EDoc.class), eq(true))).thenAnswer(call -> {
+                saved.set(call.getArgument(0));
+                if ("rollback".equals(outcome)) throw new IllegalStateException("synthetic save failure");
+                return null;
+            });
+            assertThat(action.execute2()).isEqualTo("success".equals(outcome) ? "successEdit" : "failEdit");
+            assertThat(saved.get()).isNotNull();
+            assertThat(saved.get().getReviewerId()).isEqualTo("999998");
+            assertThat(saved.get().getContentType()).isEqualTo("text/plain");
+            assertThat(saved.get().getFileName()).isNotEqualTo("original.txt");
+            Path published = directory.resolve(saved.get().getFileName());
+            assertThat(Files.readString(originalFile)).isEqualTo("original clinical source");
+            if ("rollback".equals(outcome)) {
+                assertThat(published).doesNotExist();
+                assertThat(transactions.rolledBack).isTrue();
+            } else {
+                assertThat(Files.readString(published)).isEqualTo("replacement clinical source");
+            }
+            if (!"success".equals(outcome)) assertThat(((Hashtable<?, ?>) request.getAttribute("docerrors"))
+                    .containsValue("unconfirmed".equals(outcome) ? "dms.error.saveUnconfirmed" : "dms.error.saveFailed")).isTrue();
+        } finally {
+            if (previousDirectory == null) CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+            else CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", previousDirectory);
+            if (previousUpdates == null) CarlosProperties.getInstance().remove("ALLOW_UPDATE_DOCUMENT_CONTENT");
+            else CarlosProperties.getInstance().setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", previousUpdates);
+        }
+    }
+
+    @Test
+    void shouldExposeSaveError_whenPostedAppointmentIsInvalid() {
+        prepareReviewPost(false, false);
+        action.setAppointmentNo("invalid");
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThat(withContentUpdatesDisabled(action::execute2)).isEqualTo("failEdit");
+            assertThat(((Hashtable<?, ?>) request.getAttribute("docerrors")).containsValue("dms.error.saveFailed")).isTrue();
+            documents.verify(() -> EDocUtil.editDocumentSQL(any(EDoc.class), org.mockito.ArgumentMatchers.anyBoolean()), never());
+            logActionMock.verifyNoInteractions();
+        }
     }
 
     private DocumentDao storedDocument(io.github.carlos_emr.carlos.commn.model.Document stored) {

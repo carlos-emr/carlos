@@ -52,7 +52,7 @@ public class UnavailableHrmAttachmentService {
         }
         if (missing.isEmpty()) return "";
         String token = UUID.randomUUID().toString();
-        synchronized (session) {
+        synchronized (org.springframework.web.util.WebUtils.getSessionMutex(session)) {
             var selections = selections(session);
             selections.entrySet().removeIf(e -> System.currentTimeMillis() - e.getValue().created() > MAX_AGE);
             while (selections.size() >= 16) selections.remove(selections.keySet().iterator().next());
@@ -68,7 +68,7 @@ public class UnavailableHrmAttachmentService {
         if (actor == null) throw new SecurityException("missing required sec object (_con)");
         if (session == null || token == null) throw new IllegalArgumentException("Attachment selection expired; reload the consultation");
         Selection selected;
-        synchronized (session) { selected = selections(session).get(token); }
+        synchronized (org.springframework.web.util.WebUtils.getSessionMutex(session)) { selected = selections(session).get(token); }
         if (selected == null || System.currentTimeMillis() - selected.created() > MAX_AGE
                 || !Objects.equals(selected.actor(), actor.getLoggedInProviderNo())) {
             throw new IllegalArgumentException("Attachment selection expired; reload the consultation");

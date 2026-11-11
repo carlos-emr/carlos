@@ -27,7 +27,7 @@ class CategoryDataHrmUnitTest extends CarlosUnitTestBase {
     void registerDateSearchService() {
         registerMock(io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService.class,
                 new io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService(
-                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao.class)));
+                    mock(io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao.class)));
     }
 
     @ParameterizedTest

@@ -2690,7 +2690,7 @@ if (userAgent != null) {
                                             <c:if test="${not empty unavailableHrmSelection}">
                                                 <button type="button" id="removeUnavailableHrm" data-selection="${carlos:forHtmlAttribute(unavailableHrmSelection)}"
                                                     onclick="removeUnavailableHrmAttachments(this)"><fmt:message key="consult.removeUnavailable"/></button>
-                                                <span id="removeUnavailableHrmStatus" role="status"></span>
+                                                <output id="removeUnavailableHrmStatus" aria-live="polite"></output>
                                             </c:if>
                                             <table id="attachedHRMDocumentsTable">
                                                 <tr>

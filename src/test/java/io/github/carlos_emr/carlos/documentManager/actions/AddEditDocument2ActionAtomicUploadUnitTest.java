@@ -136,6 +136,22 @@ class AddEditDocument2ActionAtomicUploadUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldRemovePublishedAndStagedFiles_whenDirectorySyncFails() throws Exception {
+        Path directory = tempDocumentDir.toAbsolutePath().normalize();
+        IOException failure = new IOException("synthetic directory sync failure");
+        try (var channels = org.mockito.Mockito.mockStatic(java.nio.channels.FileChannel.class);
+                InputStream input = new ByteArrayInputStream("replacement source".getBytes(StandardCharsets.UTF_8))) {
+            channels.when(() -> java.nio.channels.FileChannel.open(directory, java.nio.file.StandardOpenOption.READ))
+                    .thenThrow(failure);
+            assertThatThrownBy(() -> AddEditDocument2Action.writeLocalFile(input, "replacement.txt", false))
+                    .isSameAs(failure);
+        }
+        try (Stream<Path> paths = Files.list(directory)) {
+            assertThat(paths.toList()).isEmpty();
+        }
+    }
+
     private static void assertDirectoryContainsOnly(Path directory, String fileName) throws IOException {
         try (Stream<Path> paths = Files.list(directory)) {
             List<String> fileNames = paths.map(path -> path.getFileName().toString()).toList();

@@ -381,6 +381,10 @@
     <dispatcher>REQUEST</dispatcher>
   </filter-mapping>
 
+    <!-- Keep the same session lock across servlet request wrappers. -->
+    <listener>
+        <listener-class>org.springframework.web.util.HttpSessionMutexListener</listener-class>
+    </listener>
     <listener>
         <listener-class>io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanRequestListener</listener-class>
     </listener>

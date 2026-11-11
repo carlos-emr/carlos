@@ -14,7 +14,7 @@
 
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="org.apache.commons.lang3.StringUtils,io.github.carlos_emr.carlos.log.*" %>
+<%@page import="io.github.carlos_emr.carlos.log.*" %>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@page import="io.github.carlos_emr.carlos.hospitalReportManager.HRMReportPatientLink" %>
 <%@page import="java.util.Objects" %>

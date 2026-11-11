@@ -16,11 +16,10 @@ import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class CategoryDataLazyCountsUnitTest extends CarlosUnitTestBase {
-    @org.junit.jupiter.api.BeforeEach
-    void registerDateSearchService() {
+    private void registerDateSearchService() {
         registerMock(io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService.class,
                 new io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService(
-                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao.class)));
+                    mock(io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao.class)));
     }
 
     private InboxCategoryDao dao;
@@ -85,8 +84,32 @@ class CategoryDataLazyCountsUnitTest extends CarlosUnitTestBase {
         data.populateCountsAndPatients();
         when(dao.count(any(), eq(Operation.HRM_PATIENT), isNull())).thenThrow(new SQLException("synthetic failure"));
         assertThatThrownBy(data::populateCountsAndPatients).isInstanceOf(SQLException.class);
+        assertThatThrownBy(data::getTotalDocs).isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(data::getTotalLabs).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(data::getUnmatchedLabs).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(data::getUnmatchedDocs).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(data::getUnmatchedHRMCount).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(data::getMatchedHRMCount).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(data::getTotalNumDocs).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(data::getAbnormalCount).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(data::getNormalCount).isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(data::getPatients).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(data::getPatientList).isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(data::getCategoryHash).isInstanceOf(IllegalStateException.class);
+
+        when(dao.count(any(), eq(Operation.HRM_PATIENT), isNull())).thenReturn(new Counts(4, List.of()));
+        data.populateCountsAndPatients();
+        assertThat(data.getTotalLabs()).isEqualTo(3);
+        assertThat(data.getTotalDocs()).isEqualTo(4);
+        assertThat(data.getUnmatchedLabs()).isZero();
+        assertThat(data.getUnmatchedDocs()).isZero();
+        assertThat(data.getMatchedHRMCount()).isEqualTo(4);
+        assertThat(data.getUnmatchedHRMCount()).isZero();
+        assertThat(data.getTotalNumDocs()).isEqualTo(7);
+        assertThat(data.getAbnormalCount()).isEqualTo(2);
+        assertThat(data.getNormalCount()).isEqualTo(1);
+        assertThat(data.getPatientList()).isEmpty();
+        assertThat(data.getPatients()).isEmpty();
+        assertThat(data.getCategoryHash()).isNotNull();
     }
 }

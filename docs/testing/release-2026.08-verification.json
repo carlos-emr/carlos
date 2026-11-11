@@ -408,11 +408,12 @@
         "scripts/lib/qualified-lab-oracle.js",
         "scripts/qualified-lab-oracle.test.js",
         "docs/testing/lab-qualified-results-inventory.md",
-        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultDataAcknowledgementCountUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultDataAcknowledgementCountUnitTest.java",
+        "scripts/inbox-failure-states-playwright-checks.js"
       ],
-      "implementation": "Add native extension ambiguities and installed source-link authorization checks; retain the older-main timestamp/long measurement/import/routing regression sweep.",
+      "implementation": "Add native extension ambiguities and installed source-link authorization checks; retain the older-main timestamp/long measurement/import/routing regression sweep. Exercise invalid inbox document rows and real count-query failure on an exclusive disposable installation.",
       "cases": "History, Health Tracker and flowsheets; null/duplicate/stale/invalid/overflow extension values; foreign-patient source lab; batched provenance query; older lab versions and merged patients; real HL7 observation/entry times at midnight/noon/23:59 and DST; long and partial results; missing public key. Native qualified/qualitative lab entry, exact stored HL7 and every report/history/grid/row/visible tooltip, offered Plot PNGs with independent printed-axis calibration and exact numeric controls, actual PDF clinical columns and unrelated-patient preservation. Bound-to-number coercion #5827 and shipped-filter literal/history loss #5828 remain fatal. Incomplete CML acknowledgement aggregates retain visible inbox rows with an explicit warning and disabled bulk selection; unrelated query errors propagate and existing JSON/XML count contracts remain unchanged.",
-      "acceptance": "Exact clinical values and timestamps persist; links open only authorized source reports, remain deterministic under duplicate data, and add no per-reading query or false error storm.",
+      "acceptance": "Exact clinical values and timestamps persist; links open only authorized source reports, remain deterministic under duplicate data, and add no per-reading query or false error storm. Invalid inbox rows retain later valid documents with an explicit incomplete-list notice; failed count queries return a non-success response without partial totals, and recovery is verified after restoring the schema.",
       "requiredChecks": [
         "evidence-self-tests",
         "coverage-self-tests",
@@ -425,7 +426,8 @@
         "java-native-bc-flyway",
         "java-date-zones",
         "manual-pathnet-patient-link",
-        "packaged-native-pathnet"
+        "packaged-native-pathnet",
+        "manual-inbox-failure-states"
       ]
     },
     {
@@ -5903,6 +5905,44 @@
           "moxy-unchanged-readers-no-new-breaks"
         ]
       }
+    },
+    {
+      "id": "manual-inbox-failure-states",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "inbox-failure-states"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "DOCUMENT_DIR",
+        "EXCLUSIVE",
+        "CARLOS_DISPOSABLE_VM"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "inbox-failure-states",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
     }
   ],
   "requireJavaDiscovery": true,

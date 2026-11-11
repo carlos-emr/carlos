@@ -68,11 +68,10 @@ import org.springframework.transaction.interceptor.TransactionInterceptor;
 @Tag("lab")
 @DisplayName("CategoryData patient-search HIN filter")
 class CategoryDataPatientSearchUnitTest extends CarlosUnitTestBase {
-    @org.junit.jupiter.api.BeforeEach
-    void registerDateSearchService() {
+    private void registerDateSearchService() {
         registerMock(io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService.class,
                 new io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService(
-                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao.class)));
+                    mock(io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao.class)));
     }
 
 
@@ -83,6 +82,7 @@ class CategoryDataPatientSearchUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void captureQueries() {
+        registerDateSearchService();
         registerMock(SystemPreferencesDao.class, mock(SystemPreferencesDao.class));
         EntityManagerFactory factory = mock(EntityManagerFactory.class);
         entityManager = mock(EntityManager.class);

@@ -441,12 +441,12 @@
 
             <td>
                 <div style="<%=updatableContent==true?"":"visibility: hidden"%>">
-                    File: <font class="comment">(blank to keep file)</font>
+                    <label for="replacementDocFile">File: <font class="comment">(blank to keep file)</font></label>
                 </div>
             </td>
             <td>
                 <div style="<%=updatableContent==true?"":"visibility: hidden"%>">
-                    <input type="file" name="docFile" size="20" <%= editBaseline != null && editBaseline.content().isEmpty() ? "disabled" : "" %>
+                    <input type="file" id="replacementDocFile" name="docFile" size="20" <%= editBaseline != null && editBaseline.content().isEmpty() ? "disabled" : "" %>
                             <% if (docerrors.containsKey("uploaderror")) {%> class="warning"
                             <%}%>>
                 </div>

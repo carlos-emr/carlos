@@ -1,7 +1,6 @@
 /* Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.mds.data;
 
-import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import jakarta.persistence.EntityManagerFactory;
@@ -41,11 +40,10 @@ import static org.mockito.Mockito.mock;
 @Tag("aggregate")
 @DisplayName("CategoryData summary counts for a patient without a HIN")
 class CategoryDataNullHinCountUnitTest extends CarlosUnitTestBase {
-    @org.junit.jupiter.api.BeforeEach
-    void registerDateSearchService() {
+    private void registerDateSearchService() {
         registerMock(io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService.class,
                 new io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService(
-                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao.class)));
+                    mock(io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao.class)));
     }
 
     private static final String PROVIDER = "999998";
@@ -60,6 +58,7 @@ class CategoryDataNullHinCountUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUpDatabase() throws SQLException {
+        registerDateSearchService();
         keepAlive = DriverManager.getConnection(url);
         try (Statement ddl = keepAlive.createStatement()) {
             ddl.execute("CREATE TABLE demographic (demographic_no INT PRIMARY KEY, last_name VARCHAR(30),"

@@ -325,7 +325,11 @@
                                     disabled = "disabled";
                                 };
                             --%>
-                            <input type="checkbox" name="flaggedLabs" value="<%=segmentID + ":" + result.labType%>" <%= result.isMultipleAckCountUnavailable() ? "disabled" : "" %>>
+                            <label for="<%= SafeEncode.forHtmlAttribute("flaggedLab_" + segmentID + "_" + result.labType) %>"
+                                   aria-label="<fmt:message key='dms.incomingDocs.select'/>">
+                                <input type="checkbox" id="<%= SafeEncode.forHtmlAttribute("flaggedLab_" + segmentID + "_" + result.labType) %>"
+                                       name="flaggedLabs" value="<%=segmentID + ":" + result.labType%>" <%= result.isMultipleAckCountUnavailable() ? "disabled" : "" %>>
+                            </label>
                             <input type="hidden" name="labType<%=segmentID+result.labType%>"
                                    value="<%=result.labType%>"/>
                             <input type="hidden" name="ackStatus" value="<%= result.isMatchedToPatient() %>"/>

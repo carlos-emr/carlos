@@ -22,7 +22,6 @@ import org.springframework.transaction.annotation.*;
 import org.springframework.transaction.support.TransactionTemplate;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import static org.mockito.ArgumentMatchers.*;
 
 @Tag("integration")
 @Tag("document")

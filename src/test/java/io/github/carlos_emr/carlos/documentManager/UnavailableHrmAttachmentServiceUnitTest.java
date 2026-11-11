@@ -16,7 +16,6 @@ import org.springframework.mock.web.MockHttpSession;
 import org.junit.jupiter.api.*;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import static org.mockito.ArgumentMatchers.*;
 
 class UnavailableHrmAttachmentServiceUnitTest extends CarlosUnitTestBase {
     private ConsultDocsDao attachments;
@@ -71,5 +70,24 @@ class UnavailableHrmAttachmentServiceUnitTest extends CarlosUnitTestBase {
     @Test void shouldRefuseAnUnissuedSelection_beforeWritingAnything() {
         assertThatThrownBy(() -> service.remove(actor, "forged", session)).isInstanceOf(IllegalArgumentException.class);
         verify(attachments, never()).merge(any());
+    }
+
+    @Test void shouldSerializeSelectionsOnTheStableMutex_whenTheContainerSuppliesOne() throws Exception {
+        new org.springframework.web.util.HttpSessionMutexListener()
+                .sessionCreated(new jakarta.servlet.http.HttpSessionEvent(session));
+        Object mutex = org.springframework.web.util.WebUtils.getSessionMutex(session);
+        assertThat(mutex).isNotSameAs(session);
+        try (var executor = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            java.util.concurrent.Future<String> future;
+            synchronized (mutex) {
+                future = executor.submit(() -> service.prepare(actor, 42, session));
+                assertThatThrownBy(() -> future.get(200, java.util.concurrent.TimeUnit.MILLISECONDS))
+                        .isInstanceOf(java.util.concurrent.TimeoutException.class);
+            }
+            String token = future.get(3, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(token).matches("[a-f0-9-]{36}");
+            service.remove(actor, token, session);
+            assertThat(rows.getFirst().getDeleted()).isEqualTo("Y");
+        }
     }
 }

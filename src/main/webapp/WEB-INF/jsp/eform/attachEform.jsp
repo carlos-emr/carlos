@@ -248,7 +248,8 @@
                            String hrmVersionId = hrmVersionIds[versionIndex];
                            String hrmVersionCheckboxId = buildDomId("hrmNo", hrmVersionId); %>
                     <div class="item" style="padding-left: 18px;">
-                        <label for="<%= SafeEncode.forHtmlAttribute(hrmVersionCheckboxId) %>">
+                        <label for="<%= SafeEncode.forHtmlAttribute(hrmVersionCheckboxId) %>"
+                               aria-label="<%= SafeEncode.forHtmlAttribute(hrmVersions.get(versionIndex).label()) %>">
                             <input type="checkbox" id="<%= SafeEncode.forHtmlAttribute(hrmVersionCheckboxId) %>" name="hrmNo"
                                    value="<%= SafeEncode.forHtmlAttribute(hrmVersionId) %>" <%= attachedHrmIds.contains(hrmVersionId) ? "checked" : "" %>>
                             <carlos:encode value='<%= hrmVersions.get(versionIndex).label() %>' context="html"/>
