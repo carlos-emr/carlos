@@ -17,6 +17,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -74,7 +75,7 @@ public class AuditLogPurgeService {
      * Every committed cohort has a durable SQL file, identity manifest and hash.
      * Failed attempts retain their private artifacts for diagnosis/recovery.
      */
-    public int purge(Properties settings, java.util.Date through, Runnable recordAudit) throws Exception {
+    public int purge(Properties settings, java.util.Date through, Runnable recordAudit) throws IOException {
         LocalDate date;
         LocalDateTime cutoff;
         String executable;
@@ -101,7 +102,7 @@ public class AuditLogPurgeService {
                     PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
             force(directory);
             options = privateFile(job, "connection.cnf");
-        } catch (Exception failure) {
+        } catch (IOException | RuntimeException failure) {
             // The form directs operators to the log. Preparation failures must
             // leave an actionable entry too, without echoing configured values.
             LOGGER.error("Audit purge refused during {}; no rows were deleted ({})", preparation, failure.getClass().getSimpleName());
@@ -190,7 +191,7 @@ public class AuditLogPurgeService {
                     removed = Math.addExact(removed, deleted);
                 }
             }
-        } catch (Exception failure) {
+        } catch (IOException | SQLException | NoSuchAlgorithmException | RuntimeException failure) {
             // SQL/client errors can contain data or credentials. Keep their raw
             // output private, and expose only stage-independent recovery facts.
             LOGGER.error("Audit purge did not finish ({}); confirmed deletions={}, retained backups={}",
