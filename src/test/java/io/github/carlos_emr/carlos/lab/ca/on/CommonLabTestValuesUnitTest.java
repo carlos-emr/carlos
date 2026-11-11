@@ -2,10 +2,13 @@
 package io.github.carlos_emr.carlos.lab.ca.on;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
+import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
+import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import java.util.List;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
@@ -52,4 +55,59 @@ class CommonLabTestValuesUnitTest extends CarlosUnitTestBase {
         assertThat(rows.getLast().get("collDateDate")).isInstanceOf(java.util.Date.class);
     }
 
+
+    /** #6122: a final word result is filed as text, and the grid, value history and Row Display label it. */
+    @Test
+    void shouldCarryTheTextMarker_fromBothLoincLookups() {
+        var dao = createAndRegisterMock(MeasurementDao.class);
+        when(dao.findMeasurementsByDemographicIdAndLocationCode(17, "FAKE-code")).thenReturn(List.of(
+                new Object[]{"Pending", "2026-01-02", 100, "N", "text"},
+                new Object[]{"5.7", "2026-01-01", 200, "N", null}));
+        when(dao.findMeasurementsWithIdentifiersByDemographicIdAndLocationCode(17, "FAKE-code")).thenReturn(List.of(
+                new Object[]{"Pending", "2026-01-02", 100, "N", "FAKE-3007", "text"},
+                new Object[]{"5.7", "2026-01-01", 200, "N", "FAKE-3007", null}));
+
+        var grid = CommonLabTestValues.findValuesByLoinc("17", "FAKE-code");
+        var graph = CommonLabTestValues.findValuesByLoinc2("17", "FAKE-code");
+
+        for (var rows : List.of(grid, graph)) {
+            assertThat(rows.get(0)).containsEntry(CommonLabTestValues.VALUE_TYPE, "text");
+            assertThat(CommonLabTestValues.isTextResult(rows.get(0))).isTrue();
+            assertThat(rows.get(1)).doesNotContainKey(CommonLabTestValues.VALUE_TYPE);
+            assertThat(CommonLabTestValues.isTextResult(rows.get(1))).isFalse();
+        }
+        assertThat(CommonLabTestValues.isTextResult(null)).isFalse();
+    }
+
+    @Test
+    void shouldLabelOnlyTheReportFiledAsText_inTheHl7ValueHistory() {
+        var dao = createAndRegisterMock(MeasurementDao.class);
+        when(dao.findLabNumbers(17, "FAKE-3007")).thenReturn(List.of("100", "200"));
+        when(dao.findTextResultLabNumbers(17, "FAKE-3007")).thenReturn(List.of("100"));
+        MessageHandler text = handler("Pending", "2026-01-02 10:00");
+        MessageHandler number = handler("5.7", "2026-01-01 10:00");
+
+        try (MockedStatic<Factory> factory = mockStatic(Factory.class)) {
+            factory.when(() -> Factory.getHandler("100")).thenReturn(text);
+            factory.when(() -> Factory.getHandler("200")).thenReturn(number);
+
+            var rows = CommonLabTestValues.findValuesForTest("HL7", 17, "FAKE GLUCOSE", "FAKE-3007");
+
+            assertThat(rows).hasSize(2);
+            assertThat(rows.get(0)).containsEntry("result", "Pending").containsEntry("lab_no", "100");
+            assertThat(CommonLabTestValues.isTextResult(rows.get(0))).isTrue();
+            assertThat(rows.get(1)).containsEntry("result", "5.7");
+            assertThat(CommonLabTestValues.isTextResult(rows.get(1))).isFalse();
+        }
+    }
+
+    private static MessageHandler handler(String result, String collected) {
+        MessageHandler handler = mock(MessageHandler.class);
+        when(handler.getOBRCount()).thenReturn(1);
+        when(handler.getOBXCount(0)).thenReturn(1);
+        when(handler.getOBXIdentifier(0, 0)).thenReturn("FAKE-3007");
+        when(handler.getOBXResult(0, 0)).thenReturn(result);
+        when(handler.getServiceDate()).thenReturn(collected);
+        return handler;
+    }
 }

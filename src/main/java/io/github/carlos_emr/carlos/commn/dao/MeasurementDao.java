@@ -217,14 +217,31 @@ public interface MeasurementDao extends AbstractDao<Measurement> {
      * 
      * @param demoNo Integer the patient's demographic ID
      * @param loincCode String the LOINC code to search for
-     * @return measurement data arrays matching the LOINC code
+     * @return measurement data arrays matching the LOINC code: {@code [dataField, dateObserved, lab_no,
+     *         abnormal, value_type]}, the last {@link io.github.carlos_emr.carlos.commn.model.MeasurementsExt#TEXT_VALUE_TYPE}
+     *         for a result filed as text (#6122), otherwise {@code null}
      */
     public List<Object[]> findMeasurementsByDemographicIdAndLocationCode(Integer demoNo, String loincCode);
 
+    /**
+     * As {@link #findMeasurementsByDemographicIdAndLocationCode}, with the result's identifier as a fifth
+     * column. Each row is {@code [dataField, dateObserved, lab_no, abnormal, identifier, value_type]}; the last is {@link io.github.carlos_emr.carlos.commn.model.MeasurementsExt#TEXT_VALUE_TYPE}
+     * for a result filed as text (#6122), otherwise {@code null}.
+     */
     public List<Object[]> findMeasurementsWithIdentifiersByDemographicIdAndLocationCode(Integer demoNo,
                                                                                         String loincCode);
 
     public List<Object> findLabNumbers(Integer demoNo, String identCode);
+
+    /**
+     * The lab numbers among {@link #findLabNumbers} whose result for {@code identCode} was filed as text
+     * (#6122), so a history read from the reports can label it.
+     *
+     * @param demoNo the patient's demographic number
+     * @param identCode the result's OBX identifier
+     * @return the {@code lab_no} values, as stored; empty when none
+     */
+    public List<Object> findTextResultLabNumbers(Integer demoNo, String identCode);
 
     public List<Object> findLabNumbersOrderByObserved(Integer demoNo, String identCode);
 

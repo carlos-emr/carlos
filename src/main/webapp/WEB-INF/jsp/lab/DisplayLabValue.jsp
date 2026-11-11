@@ -104,6 +104,7 @@
          class="preventionProcedure" id="preventionProcedure<%=""+k+""+ran%>"
          onclick="javascript:popup(660,960,'<carlos:encode value='<%= labDisplayLink %>' context="javaScriptAttribute"/>','labReport')">
         <p <%=r(hMap.get("abn"))%>><carlos:encode value='<%= String.valueOf(hMap.get("result")) %>' context="html"/>
+            <% if (CommonLabTestValues.isTextResult(hMap)) { %><span class="badge text-bg-light border" data-carlos-lab-text-result="true"><fmt:message key="lab.measurement.textResult"/></span><% } %>
             &nbsp;&nbsp;&nbsp; <carlos:encode value='<%= java.util.Objects.toString(hMap.get("collDate"), "") %>' context="html"/>
         </p>
     </div>

@@ -31,6 +31,8 @@ public final class MeasurementChart {
     static final String GREEN = "#00ff00";
 
     private final String title;
+    /** One line under the title, or {@code null}; see {@link #withNote}. */
+    private String note;
     private final String xLabel;
     private final String yLabel;
     private final List<Map<String, Object>> datasets = new ArrayList<>();
@@ -144,6 +146,12 @@ public final class MeasurementChart {
         style.put(RANGE_MARGINS, List.of(((List<?>) style.get(RANGE_MARGINS)).get(0), upper)); return this;
     }
 
+    /**
+     * A line drawn under the title, for example that some results could not be plotted (#6122). An image
+     * cannot point at what it leaves out, so without it a chart missing text results reads as complete.
+     */
+    MeasurementChart withNote(String note) { this.note = note; return this; }
+
     MeasurementChart withPlotBackground(String colour) { style.put(PLOT_BACKGROUND, colour); return this; }
 
     MeasurementChart withGridlines(String colour) { style.put("gridlines", colour); return this; }
@@ -223,6 +231,7 @@ public final class MeasurementChart {
     public Map<String, Object> toConfig() {
         Map<String, Object> config = new LinkedHashMap<>();
         config.put("title", title); config.put("xLabel", xLabel); config.put("yLabel", yLabel);
+        if (note != null) config.put("note", note);
         config.put("datasets", formattedDatasets());
         java.util.Locale locale = java.util.Locale.getDefault(java.util.Locale.Category.FORMAT);
         java.text.DateFormatSymbols symbols = java.text.DateFormatSymbols.getInstance(locale);

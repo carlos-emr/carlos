@@ -288,6 +288,73 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         assertThat(datasets).singleElement().satisfies(dataset -> assertThat((List<?>) dataset.get("data")).isEmpty());
     }
 
+    /**
+     * #6122: a result filed as text ("Pending") cannot be plotted. The image says how many results it leaves
+     * out instead of reading as the complete history.
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldSayHowManyResultsAreNotShown_whenAMeasurementIsText() throws Exception {
+        AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
+        executeMeasurementChart("Pending", rendered);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        Map<String, Object> config = rendered.get().toConfig();
+        assertThat(config).containsEntry("note", "FAKE-NOTE 1");
+        assertThat((List<Map<String, Object>>) config.get("datasets")).singleElement()
+                .satisfies(dataset -> assertThat((List<?>) dataset.get("data")).isEmpty());
+    }
+
+    @Test
+    void shouldAddNoNote_whenEveryMeasurementIsPlotted() throws Exception {
+        AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
+        executeMeasurementChart("63", rendered);
+
+        assertThat(rendered.get().toConfig()).doesNotContainKey("note");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"loinc", "HL7"})
+    @SuppressWarnings("unchecked")
+    void shouldSayHowManyResultsAreNotShown_whenALabHistoryHoldsText(String labType) throws Exception {
+        request.setParameter("method", "actualLab");
+        request.setParameter("labType", labType);
+        request.setParameter("identifier", "synthetic-loinc");
+        request.setParameter("testName", "Synthetic glucose");
+        request.setParameter("drug", new String[0]);
+        String dateKey = "loinc".equals(labType) ? "collDateDate" : "collDate";
+        String day = "loinc".equals(labType) ? "2024-01-15 12:00:00" : "2024-01-15";
+        String nextDay = "loinc".equals(labType) ? "2024-01-16 12:00:00" : "2024-01-16";
+        List<Map<String, Serializable>> observations = List.of(
+                Map.of("result", "Pending", "units", "", dateKey, nextDay, CommonLabTestValues.VALUE_TYPE, "text"),
+                Map.of("result", "5.7", "units", "mmol/L", dateKey, day));
+        AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
+        try (var labs = mockStatic(CommonLabTestValues.class)) {
+            if ("loinc".equals(labType)) {
+                labs.when(() -> CommonLabTestValues.findValuesByLoinc2("101", "synthetic-loinc")).thenReturn(observations);
+            } else {
+                labs.when(() -> CommonLabTestValues.findValuesForTest(labType, 101, "Synthetic glucose", "synthetic-loinc"))
+                        .thenReturn(new ArrayList<>(observations));
+            }
+            executeMeasurementChart(null, rendered);
+        }
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        Map<String, Object> config = rendered.get().toConfig();
+        assertThat(config).containsEntry("note", "FAKE-NOTE 1");
+        assertThat((List<Map<String, Object>>) config.get("datasets")).singleElement()
+                .satisfies(dataset -> assertThat((List<Map<String, Object>>) dataset.get("data")).singleElement()
+                        .satisfies(point -> assertThat(point).containsEntry("y", 5.7)));
+    }
+
+    @Test
+    void shouldCountOnlyValuesWithoutOneNumber_asNotShown() {
+        assertThat(MeasurementGraphAction22Action.unplottedLabValues(List.of(
+                Map.of("result", "Pending"), Map.of("result", "<0.1"), Map.of("result", "5.7"),
+                Map.of("result", "Not detected")))).isEqualTo(2);
+        assertThat(MeasurementGraphAction22Action.unplottedLabValues(List.of())).isZero();
+    }
+
     private void executeMeasurementChart(String result, AtomicReference<MeasurementChart> rendered) throws Exception {
         DemographicNameAgeString nameLookup = mock(DemographicNameAgeString.class);
         when(nameLookup.getNameAgeString(login, 101)).thenReturn("Synthetic patient");
@@ -312,6 +379,12 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
                 @Override
                 ArrayList<EctMeasurementsDataBean> getList(Integer patient, String type) {
                     return values;
+                }
+
+                @Override
+                String notShownNote(int notShown) {
+                    // The bundle text needs a Struts context; the count is what is under test.
+                    return "FAKE-NOTE " + notShown;
                 }
             };
             assertThat(graphAction.execute()).isEqualTo("none");

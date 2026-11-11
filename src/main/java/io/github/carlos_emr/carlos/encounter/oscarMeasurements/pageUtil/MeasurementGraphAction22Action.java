@@ -225,25 +225,28 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         List<EctMeasurementsDataBean> measurements = getList(demographicNo, typeIdName);
         SeriesCollection dataset = measurementSeries(measurements, typeIdName);
         // Preserve the legacy high-low chart's title and dataset order.
-        return MeasurementChart.highLow("HighLowChartDemo2", "Time", "Value", dataset,
-                "DREFERENCE RANGE", measurementReferenceRanges(measurements, typeIdName));
+        return withNotShown(MeasurementChart.highLow("HighLowChartDemo2", "Time", "Value", dataset,
+                "DREFERENCE RANGE", measurementReferenceRanges(measurements, typeIdName)),
+                unplottedMeasurements(measurements, typeIdName));
     }
 
     private MeasurementChart rxAndLabChart(Integer demographicNo, String typeIdName) {
         List<EctMeasurementsDataBean> measurements = getList(demographicNo, typeIdName);
-        return MeasurementChart.lines("MED + LAB CHART", "Days", measurementUnits(measurements),
+        return withNotShown(MeasurementChart.lines("MED + LAB CHART", "Days", measurementUnits(measurements),
                         measurementSeries(measurements, typeIdName))
                 .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.2).withPlotBackground(WHITE)
                 .withShapes().withItemLabels(VALUE_DATE_LABEL, "0.00", 8)
-                .withMedications(getDrugDataSet(demographicNo, request.getParameterValues("drug")));
+                .withMedications(getDrugDataSet(demographicNo, request.getParameterValues("drug"))),
+                unplottedMeasurements(measurements, typeIdName));
     }
 
     private MeasurementChart labChart(Integer demographicNo, String typeIdName, String chartTitle) {
         List<EctMeasurementsDataBean> measurements = getList(demographicNo, typeIdName);
-        return MeasurementChart.lines(chartTitle, "Days", measurementUnits(measurements),
+        return withNotShown(MeasurementChart.lines(chartTitle, "Days", measurementUnits(measurements),
                         measurementSeries(measurements, typeIdName))
                 .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.34).withPlotBackground(WHITE)
-                .withShapes().withItemLabels(VALUE_DATE_LABEL, "0.00", 8);
+                .withShapes().withItemLabels(VALUE_DATE_LABEL, "0.00", 8),
+                unplottedMeasurements(measurements, typeIdName));
     }
 
     private MeasurementChart labChartRef(Integer demographicNo, String typeIdName, String chartTitle) {
@@ -252,19 +255,60 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                         measurementSeries(measurements, typeIdName))
                 .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.34).withPlotBackground(WHITE)
                 .withShapes().withItemLabels(VALUE_DATE_LABEL, "0.00", 12)
-                .withGreenReferenceRanges("Reference Range", measurementReferenceRanges(measurements, typeIdName));
+                .withGreenReferenceRanges("Reference Range", measurementReferenceRanges(measurements, typeIdName))
+                .withNote(notShownNoteOrNull(unplottedMeasurements(measurements, typeIdName)));
     }
 
     MeasurementChart defaultChart(Integer demographicNo, String typeIdName, String typeIdName2, String chartTitle) {
         List<EctMeasurementsDataBean> measurements = getList(demographicNo, typeIdName);
         MeasurementChart chart = MeasurementChart.lines(chartTitle, "Days", measurementUnits(measurements),
                 measurementSeries(measurements, typeIdName));
+        int notShown = unplottedMeasurements(measurements, typeIdName);
         if (typeIdName2 != null) {
             List<EctMeasurementsDataBean> secondary = getList(demographicNo, typeIdName2);
             // The legacy secondary axis is a single numeric series, including for a BP request.
             chart.withSecondAxis(measurementUnits(secondary), numericMeasurementSeries(secondary));
+            notShown += unplottedMeasurements(secondary, null);
         }
-        return chart;
+        return withNotShown(chart, notShown);
+    }
+
+    /**
+     * The chart's note when values could not be plotted (#6122): a result filed as text, such as
+     * {@code Pending} or {@code Not detected}, or any other value without one number. The image cannot
+     * show them, so it says how many it leaves out and where to read them.
+     */
+    String notShownNote(int notShown) {
+        return getText("lab.graph.resultsNotShown", new String[]{String.valueOf(notShown)});
+    }
+
+    private String notShownNoteOrNull(int notShown) {
+        return notShown > 0 ? notShownNote(notShown) : null;
+    }
+
+    private MeasurementChart withNotShown(MeasurementChart chart, int notShown) {
+        return notShown > 0 ? chart.withNote(notShownNote(notShown)) : chart;
+    }
+
+    /** Measurements the chart cannot plot: values with no single number. A BP request reads its own pairs. */
+    static int unplottedMeasurements(List<EctMeasurementsDataBean> measurements, String typeIdName) {
+        if ("BP".equals(typeIdName)) {
+            return 0;
+        }
+        int notShown = 0;
+        for (EctMeasurementsDataBean measurement : measurements) {
+            if (numericResult(measurement.getDataField()) == null) notShown++;
+        }
+        return notShown;
+    }
+
+    /** Lab values the chart cannot plot: results with no single number, such as a text result (#6122). */
+    static int unplottedLabValues(List<Map<String, Serializable>> values) {
+        int notShown = 0;
+        for (Map<String, Serializable> value : values) {
+            if (numericResult((String) value.get("result")) == null) notShown++;
+        }
+        return notShown;
     }
 
     private static String measurementUnits(List<EctMeasurementsDataBean> measurements) {
@@ -443,7 +487,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
     private MeasurementChart actualLabChartRef(Integer demographicNo, String labType, String identifier,
                                                String testName, String chartTitle) throws ParseException {
         List<Map<String, Serializable>> values = CommonLabTestValues.findValuesForTest(labType, demographicNo, testName, identifier);
-        return actualLabChart(values, null, chartTitle, 10);
+        return withNotShown(actualLabChart(values, null, chartTitle, 10), unplottedLabValues(values));
     }
 
     private MeasurementChart actualLabChartRefPlusMeds(Integer demographicNo, String labType, String identifier,
@@ -461,8 +505,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             List<Map<String, Serializable>> found = CommonLabTestValues.findValuesForTest(labType, demographicNo, testName, identifier);
             if (found != null) values = found;
         }
-        return actualLabChart(values, testName, chartTitle, 6)
-                .withMedications(getDrugDataSet(demographicNo, drugs));
+        return withNotShown(actualLabChart(values, testName, chartTitle, 6)
+                .withMedications(getDrugDataSet(demographicNo, drugs)), unplottedLabValues(values));
     }
 
     /** {@code labelBand}: the former lab-only chart chose item labels by tens of points, the lab-plus-medication chart by sixes. */

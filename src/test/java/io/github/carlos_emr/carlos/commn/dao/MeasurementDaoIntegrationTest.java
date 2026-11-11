@@ -1167,4 +1167,80 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
             assertThat(measurementDao.findDistinctMeasuringInstructionsByTypes(List.of("NOPE"))).isEmpty();
         }
     }
+
+    // ========================================================================
+    // LOINC lookups and text results (#6122)
+    // ========================================================================
+
+    @Nested
+    @DisplayName("LOINC lookups and text results")
+    class TextResults {
+
+        private Measurement labResult(String value, String labNo, boolean filedAsText) {
+            Measurement m = createAndPersist(DEMO_NO, "FAKE-GLUC", value, new Date());
+            persistExtension(m.getId(), "lab_no", labNo);
+            persistExtension(m.getId(), "identifier", "FAKE-3007");
+            persistExtension(m.getId(), "abnormal", "N");
+            if (filedAsText) {
+                persistExtension(m.getId(), MeasurementsExt.VALUE_TYPE_KEY, MeasurementsExt.TEXT_VALUE_TYPE);
+            }
+            return m;
+        }
+
+        private void persistExtension(int measurementId, String key, String value) {
+            MeasurementsExt extension = new MeasurementsExt(measurementId);
+            extension.setKeyVal(key);
+            extension.setVal(value);
+            entityManager.persist(extension);
+        }
+
+        @BeforeEach
+        void mapTheIdentifier() {
+            io.github.carlos_emr.carlos.commn.model.MeasurementMap map = new io.github.carlos_emr.carlos.commn.model.MeasurementMap();
+            map.setIdentCode("FAKE-3007");
+            map.setLoincCode("FAKE-14771-0");
+            map.setName("FAKE GLUCOSE");
+            map.setLabType("FAKE");
+            entityManager.persist(map);
+            labResult("Pending", "9001", true);
+            labResult("5.7", "9002", false);
+            entityManager.flush();
+        }
+
+        @Test
+        @DisplayName("should return the text marker only for the result filed as text, one row each")
+        void shouldReturnTheTextMarker_forTheResultFiledAsText() {
+            List<Object[]> rows = measurementDao.findMeasurementsByDemographicIdAndLocationCode(DEMO_NO, "FAKE-14771-0");
+
+            assertThat(rows).hasSize(2);
+            Object[] text = rows.stream().filter(row -> "Pending".equals(row[0])).findFirst().orElseThrow();
+            Object[] number = rows.stream().filter(row -> "5.7".equals(row[0])).findFirst().orElseThrow();
+            assertThat(text).hasSize(5);
+            assertThat(text[2]).isEqualTo("9001");
+            assertThat(text[4]).isEqualTo(MeasurementsExt.TEXT_VALUE_TYPE);
+            assertThat(number[4]).isNull();
+        }
+
+        @Test
+        @DisplayName("should return the text marker after the identifier for the lab graphs")
+        void shouldReturnTheTextMarker_withTheIdentifierColumn() {
+            List<Object[]> rows = measurementDao.findMeasurementsWithIdentifiersByDemographicIdAndLocationCode(DEMO_NO, "FAKE-14771-0");
+
+            assertThat(rows).hasSize(2);
+            Object[] text = rows.stream().filter(row -> "Pending".equals(row[0])).findFirst().orElseThrow();
+            assertThat(text).hasSize(6);
+            assertThat(text[4]).isEqualTo("FAKE-3007");
+            assertThat(text[5]).isEqualTo(MeasurementsExt.TEXT_VALUE_TYPE);
+            assertThat(rows.stream().filter(row -> "5.7".equals(row[0])).findFirst().orElseThrow()[5]).isNull();
+        }
+
+        @Test
+        @DisplayName("should list only the labs whose result was filed as text, for this patient")
+        void shouldListTextResultLabs_forThePatientOnly() {
+            assertThat(measurementDao.findLabNumbers(DEMO_NO, "FAKE-3007")).containsExactlyInAnyOrder("9001", "9002");
+            assertThat(measurementDao.findTextResultLabNumbers(DEMO_NO, "FAKE-3007")).containsExactly("9001");
+            assertThat(measurementDao.findTextResultLabNumbers(DEMO_NO_2, "FAKE-3007")).isEmpty();
+            assertThat(measurementDao.findTextResultLabNumbers(DEMO_NO, "FAKE-OTHER")).isEmpty();
+        }
+    }
 }

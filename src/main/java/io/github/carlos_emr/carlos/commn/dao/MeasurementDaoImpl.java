@@ -46,10 +46,20 @@ import jakarta.persistence.Query;
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
+import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements MeasurementDao {
+
+    /**
+     * How a lab result was filed (#6122): {@code text} for a final word result filed whole, otherwise
+     * {@code null}. A scalar subquery, so a result without the marker keeps its one row. Binds {@code ?3}
+     * to {@link MeasurementsExt#VALUE_TYPE_KEY}.
+     */
+    private static final String VALUE_TYPE_COLUMN =
+            "(SELECT MAX(vt.val) FROM MeasurementsExt vt WHERE vt.measurementId = m.id AND vt.keyVal = ?3)";
+
 
     public MeasurementDaoImpl() {
         super(Measurement.class);
@@ -504,7 +514,7 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
 
     @Override
     public List<Object[]> findMeasurementsByDemographicIdAndLocationCode(Integer demoNo, String loincCode) {
-        String sql = "SELECT m.dataField, m.dateObserved, e1.val, e3.val "
+        String sql = "SELECT m.dataField, m.dateObserved, e1.val, e3.val, " + VALUE_TYPE_COLUMN + " "
                 + "FROM Measurement m, MeasurementsExt e1, MeasurementsExt e2, MeasurementsExt e3, MeasurementMap mm "
                 + "WHERE m.id = e1.measurementId " + "AND e1.keyVal = 'lab_no' " + "AND m.id = e2.measurementId "
                 + "AND e2.keyVal = 'identifier' " + "AND m.id = e3.measurementId " + "AND e3.keyVal = 'abnormal' "
@@ -513,13 +523,14 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, loincCode);
         query.setParameter(2, demoNo);
+        query.setParameter(3, MeasurementsExt.VALUE_TYPE_KEY);
         return query.getResultList();
     }
 
     @Override
     public List<Object[]> findMeasurementsWithIdentifiersByDemographicIdAndLocationCode(Integer demoNo,
                                                                                         String loincCode) {
-        String sql = "SELECT m.dataField, m.dateObserved, e1.val, e3.val, e4.val "
+        String sql = "SELECT m.dataField, m.dateObserved, e1.val, e3.val, e4.val, " + VALUE_TYPE_COLUMN + " "
                 + "FROM Measurement m, MeasurementsExt e1, MeasurementsExt e2, MeasurementsExt e3, MeasurementsExt e4, MeasurementMap mm "
                 + "WHERE m.id = e1.measurementId " + "AND e1.keyVal = 'lab_no' " + "AND m.id = e2.measurementId "
                 + "AND e2.keyVal='identifier'" + "AND m.id = e4.measurementId " + "AND e4.keyVal='identifier' "
@@ -529,6 +540,7 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, loincCode);
         query.setParameter(2, demoNo);
+        query.setParameter(3, MeasurementsExt.VALUE_TYPE_KEY);
         return query.getResultList();
 
     }
@@ -541,6 +553,20 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, identCode);
         query.setParameter(2, demoNo);
+        return query.getResultList();
+    }
+
+    @Override
+    public List<Object> findTextResultLabNumbers(Integer demoNo, String identCode) {
+        String sql = "SELECT DISTINCT e2.val FROM Measurement m, MeasurementsExt e1, MeasurementsExt e2, MeasurementsExt e3 "
+                + "WHERE m.id = e1.measurementId AND e1.keyVal = 'identifier' AND m.id = e2.measurementId "
+                + "AND e2.keyVal = 'lab_no' AND m.id = e3.measurementId AND e3.keyVal = ?3 AND e3.val = ?4 "
+                + "AND e1.val = ?1 AND m.demographicId = ?2";
+        Query query = entityManager.createQuery(sql);
+        query.setParameter(1, identCode);
+        query.setParameter(2, demoNo);
+        query.setParameter(3, MeasurementsExt.VALUE_TYPE_KEY);
+        query.setParameter(4, MeasurementsExt.TEXT_VALUE_TYPE);
         return query.getResultList();
     }
 

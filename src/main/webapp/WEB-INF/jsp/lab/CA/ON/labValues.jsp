@@ -272,6 +272,7 @@
                             <td><carlos:encode value='<%= String.valueOf(h.get("testName")) %>' context="html"/>
                             </td>
                             <td><carlos:encode value='<%= String.valueOf(h.get("result")) %>' context="html"/>
+                                <% if (CommonLabTestValues.isTextResult(h)) { %><span class="badge text-bg-light border" data-carlos-lab-text-result="true"><fmt:message key="lab.measurement.textResult"/></span><% } %>
                             </td>
                             <td><carlos:encode value='<%= String.valueOf(h.get("abn")) %>' context="html"/>
                             </td>

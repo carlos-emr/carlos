@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.commn.model.LabTestResults;
 import io.github.carlos_emr.carlos.commn.model.MdsMSH;
 import io.github.carlos_emr.carlos.commn.model.MdsOBX;
 import io.github.carlos_emr.carlos.commn.model.MdsZMN;
+import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -236,6 +237,7 @@ public class CommonLabTestValues {
             h.put("date", dateObserved);
             h.put("abn", abnormal);
             h.put("collDateDate", dateObserved);
+            putValueType(h, i, 4);
             labList.add(h);
         }
 
@@ -271,6 +273,7 @@ public class CommonLabTestValues {
             h.put("abn", abnormal);
             h.put("collDateDate", dateObserved);
             h.put("units", units);
+            putValueType(h, i, 5);
             labList.add(h);
         }
 
@@ -466,6 +469,12 @@ public class CommonLabTestValues {
 
         } else if (labType != null && labType.equals("HL7")) {
             MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);
+            // The history reads each value from its report; the reports whose value was filed as text are
+            // labelled so (#6122).
+            Set<String> textResultLabs = new HashSet<>();
+            for (Object lNo : dao.findTextResultLabNumbers(demographicNo == null ? 0 : demographicNo, identCode)) {
+                textResultLabs.add(String.valueOf(lNo));
+            }
 
             for (Object lNo : dao.findLabNumbers(demographicNo == null ? 0 : demographicNo, identCode)) {
                 String lab_no = String.valueOf(lNo);
@@ -487,6 +496,9 @@ public class CommonLabTestValues {
                                 h.put("range", handler.getOBXReferenceRange(i, j));
                                 h.put("units", handler.getOBXUnits(i, j));
                                 h.put("lab_no", lab_no);
+                                if (textResultLabs.contains(lab_no)) {
+                                    h.put(VALUE_TYPE, MeasurementsExt.TEXT_VALUE_TYPE);
+                                }
 
                                 String collDate = handler.getServiceDate();
                                 if (collDate == null || collDate.isEmpty()) {
@@ -524,6 +536,24 @@ public class CommonLabTestValues {
         });
 
         return labList;
+    }
+
+    /**
+     * Key of a value row that holds {@link MeasurementsExt#TEXT_VALUE_TYPE} when the result was filed as
+     * text (#6122); absent otherwise. The grid, value history and Row Display label such a value.
+     */
+    public static final String VALUE_TYPE = "valueType";
+
+    /** Copies a query row's trailing value_type column, when present and set, into a value row. */
+    private static void putValueType(Map<String, Serializable> row, Object[] columns, int index) {
+        if (columns.length > index && columns[index] != null) {
+            row.put(VALUE_TYPE, String.valueOf(columns[index]));
+        }
+    }
+
+    /** {@code true} when a value row from this class was filed as text (#6122). */
+    public static boolean isTextResult(Map<String, ?> row) {
+        return row != null && MeasurementsExt.TEXT_VALUE_TYPE.equals(row.get(VALUE_TYPE));
     }
 
     private static String parseObservationId(String id) {
