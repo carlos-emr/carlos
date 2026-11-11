@@ -30,9 +30,12 @@ import io.github.carlos_emr.carlos.email.admin.ClinicFooterDraft;
 import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService;
 import io.github.carlos_emr.carlos.email.core.EmailFooterHtml;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -50,6 +53,7 @@ import org.apache.struts2.ServletActionContext;
  */
 public final class ViewConfigureEmail2Action extends ActionSupport {
 
+    private static final Logger logger = MiscUtils.getLogger();
     private final SecurityInfoManager securityInfoManager;
     private final EmailFooterLogoService logoService;
     private final ClinicEmailFooterService clinicFooters;
@@ -159,6 +163,12 @@ public final class ViewConfigureEmail2Action extends ActionSupport {
         } catch (DateTimeParseException e) {
             request.setAttribute("portalFooterAuditError", "invalid");
         } catch (PatientPortalException | PatientPortalConfigurationException | PortalRequestPreparationException e) {
+            if (e instanceof PatientPortalException portal
+                    && portal.kind() == PatientPortalException.Kind.MALFORMED_RESPONSE && portal.getCause() != null) {
+                // The page says only "unavailable"; this tells an operator why, for example a field a
+                // newer Portal sends that this CARLOS does not know yet. Fixed text and field names only.
+                logger.warn("Patient Portal footer history refused: {}", LogSafe.sanitize(portal.getCause().getMessage()));
+            }
             request.setAttribute("portalFooterAuditEnabled", true);
             request.setAttribute("portalFooterAuditError", "unavailable");
         } catch (IllegalArgumentException e) {

@@ -70,6 +70,13 @@ public record PortalEmailFooterAuditPage(LocalDate date, List<Attempt> attempts,
      */
     public record Attempt(String attemptId, String kind, Instant preparedAt, String status,
             Instant statusAt, String revision, String footerText, String logoSha256, String footerSkipped) {
+        /** A skipped attempt carries nothing of a footer, a known reason, and one of the two kinds that may skip it. */
+        public Attempt {
+            if (footerSkipped != null && (revision != null || footerText != null || logoSha256 != null
+                    || !SKIP_REASONS.contains(footerSkipped) || !SKIPPABLE_KINDS.contains(kind))) {
+                throw new IllegalArgumentException("a skipped attempt has no footer, a known reason and a skippable kind");
+            }
+        }
         public String getAttemptId() { return attemptId; }
         public String getKind() { return kind; }
         public Instant getPreparedAt() { return preparedAt; }
@@ -153,7 +160,16 @@ public record PortalEmailFooterAuditPage(LocalDate date, List<Attempt> attempts,
         if (node == null || !node.isObject()) throw invalid("object");
         Set<String> actual = new HashSet<>();
         node.fieldNames().forEachRemaining(actual::add);
-        if (!actual.equals(expected)) throw invalid("fields");
+        if (!actual.equals(expected)) {
+            // Names only, never values, reduced to [a-z0-9_]: an operator can then see, for example, a
+            // field a newer Portal sends that this CARLOS does not know yet.
+            throw new PortalContractException("portal footer history has invalid fields (unexpected "
+                    + fieldNames(actual, expected) + ", missing " + fieldNames(expected, actual) + ")");
+        }
+    }
+    private static String fieldNames(Set<String> from, Set<String> minus) {
+        return from.stream().filter(name -> !minus.contains(name)).sorted().limit(5)
+                .map(name -> name.matches("[a-z0-9_]{1,40}") ? name : "?").toList().toString();
     }
     private static PortalContractException invalid(String field) {
         return new PortalContractException("portal footer history has invalid " + field);

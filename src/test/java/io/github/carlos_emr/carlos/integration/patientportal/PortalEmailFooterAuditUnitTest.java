@@ -30,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.MessageFormat;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Base64;
 import java.util.List;
@@ -241,6 +242,37 @@ class PortalEmailFooterAuditUnitTest {
             mutation.accept(attempt(p));
             assertThatThrownBy(()->parse(p)).isInstanceOf(PortalContractException.class);
         }
+    }
+    @Test void shouldRefuseContradictorySkippedAttempt_inTheRecordItself() {
+        Instant at = Instant.parse("2026-10-09T01:00:00Z");
+        // A skipped attempt built directly, outside the parser, still carries nothing of a footer,
+        // a known reason, and only a kind that may skip it.
+        assertThatThrownBy(() -> new PortalEmailFooterAuditPage.Attempt(ID, "mfa", at, "accepted", at, "a".repeat(64), null, null, "config"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new PortalEmailFooterAuditPage.Attempt(ID, "mfa", at, "accepted", at, null, TEXT, null, "config"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new PortalEmailFooterAuditPage.Attempt(ID, "mfa", at, "accepted", at, null, null, "b".repeat(64), "config"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new PortalEmailFooterAuditPage.Attempt(ID, "mfa", at, "accepted", at, null, null, null, "arbitrary"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new PortalEmailFooterAuditPage.Attempt(ID, "contact_change", at, "accepted", at, null, null, null, "config"))
+                .isInstanceOf(IllegalArgumentException.class);
+        // Both valid shapes still build.
+        assertThat(new PortalEmailFooterAuditPage.Attempt(ID, "password_reset", at, "prepared", null, null, null, null, "transport").footerSkipped())
+                .isEqualTo("transport");
+        assertThat(new PortalEmailFooterAuditPage.Attempt(ID, "contact_change", at, "accepted", at, "a".repeat(64), TEXT, null, null).footerText())
+                .isEqualTo(TEXT);
+    }
+    @Test void shouldNameRefusedFields_withoutTheirValues() {
+        // A field a newer Portal sends (or one it stopped sending) is named in the refusal, so the
+        // operator log says what changed; values never appear, and odd names show as "?".
+        var p = page();
+        attempt(p).put("new_portal_field", "FAKE-VALUE-NOT-LOGGED");
+        attempt(p).put("Bad Name!", "FAKE-OTHER-VALUE");
+        attempt(p).remove("status_at");
+        assertThatThrownBy(() -> parse(p)).isInstanceOf(PortalContractException.class)
+                .hasMessageContaining("new_portal_field").hasMessageContaining("?").hasMessageContaining("missing [status_at]")
+                .hasMessageNotContaining("FAKE-VALUE-NOT-LOGGED").hasMessageNotContaining("FAKE-OTHER-VALUE").hasMessageNotContaining("Bad Name");
     }
     @Test void shouldRefuseInvalidSavedAttemptContract() {
         List<Consumer<ObjectNode>> invalid = List.of(
