@@ -123,8 +123,9 @@ class ViewPortalEmailFooterAuditUnitTest {
         assertThat(request.getAttribute("portalFooterAuditError")).isEqualTo("unavailable");
         // A Portal that cannot be reached is not a refused reply: nothing extra is logged.
         request.removeAttribute("portalFooterAuditError");
-        when(audit.read(any(),any(),isNull())).thenThrow(PatientPortalException.ofTransportFailure(
-                "/internal/carlos/email-footer-attempts",new java.io.IOException("FAKE connect failure")));
+        // doThrow: the mock already throws from read(), so it cannot be re-stubbed with when(read(...)).
+        doThrow(PatientPortalException.ofTransportFailure("/internal/carlos/email-footer-attempts",
+                new java.io.IOException("FAKE connect failure"))).when(audit).read(any(),any(),isNull());
         try (LogCapture logs=LogCapture.forLogger(ViewConfigureEmail2Action.class)) {
             action().execute();
             assertThat(logs.messages()).isEmpty();
