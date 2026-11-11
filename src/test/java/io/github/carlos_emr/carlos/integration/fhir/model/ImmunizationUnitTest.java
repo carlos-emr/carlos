@@ -34,6 +34,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 
@@ -56,7 +58,11 @@ class ImmunizationUnitTest {
     @BeforeAll
     static void setUp() {
         date = new Date(System.currentTimeMillis());
+        oscarFhirResource = new Immunization<>(prevention("IM"));
+    }
 
+    /** A FAKE prevention given by {@code route}. */
+    private static Prevention prevention(String route) {
         Prevention immunization = new Prevention();
         immunization.setImmunizationDate(date);
         immunization.setImmunizationRefused(Boolean.FALSE);
@@ -65,12 +71,11 @@ class ImmunizationUnitTest {
         immunization.setDose("20cc");
         immunization.setImmunizationType("HPV");
         immunization.setSite("LD");
-        immunization.setRoute("IM");
+        immunization.setRoute(route);
         immunization.setLotNo("123456");
         immunization.setManufacture("Pfizer");
         immunization.setName("HPV Vaccine");
-
-        oscarFhirResource = new Immunization<>(immunization);
+        return immunization;
     }
 
     @Test
@@ -83,5 +88,23 @@ class ImmunizationUnitTest {
     @DisplayName("should map prevention date to FHIR immunization date")
     void shouldMapPreventionDate_toFhirImmunizationDate() {
         assertThat(oscarFhirResource.getFhirResource().getDate()).isEqualTo(date);
+    }
+
+    @ParameterizedTest(name = "{0} -> SNOMED {1}")
+    @CsvSource({
+            "ID, 372464004, Intradermal: ID",
+            "IM, 78421000, Intramuscular: IM",
+            "IN, 46713006, Intranasal: IN",
+            "IV, 47625008, Intravenous: IV",
+            "PO, 26643006, Oral: PO",
+            "SC, 34206005, Subcutaneous: SC"
+    })
+    @DisplayName("should map every route the Add Prevention form offers to its SNOMED route code")
+    void shouldMapFormRoute_toSnomedRouteCoding(String route, String snomed, String display) {
+        org.hl7.fhir.dstu3.model.Coding coding = new Immunization<>(prevention(route))
+                .getFhirResource().getRoute().getCodingFirstRep();
+        assertThat(coding.getSystem()).isEqualTo("http://snomed.info/sct");
+        assertThat(coding.getCode()).isEqualTo(snomed);
+        assertThat(coding.getDisplay()).isEqualTo(display);
     }
 }
