@@ -748,6 +748,13 @@ def check_sql_injection_patterns(content: str) -> list[str]:
     # The embedded value may be a dotted field or a call (request.getParameter("x")).
     quote_sandwich = r"""'"\s*\+\s*""" + _OPERAND_CHAIN + r"""\s*\+\s*"'"""
 
+    # Pattern 8: Concatenated operand inside a quoted LIKE value, e.g.
+    # " AND p.last_name LIKE '" + n + "%' AND id = :id". The closing literal is
+    # "%'" rather than "'", so quote-sandwich misses it, and the keyword-less
+    # predicate rule would let a named placeholder elsewhere allowlist it.
+    # Like quote-sandwich, a raw value between SQL quotes is never allowlistable.
+    like_sandwich = r"""\bLIKE\s*'[^"';]*"\s*\+\s*""" + _OPERAND_CHAIN
+
     patterns_to_check = [
         (concat_pattern, "String concatenation in SQL query", False),
         (concat_pattern2, "String concatenation in SQL query", False),
@@ -769,6 +776,7 @@ def check_sql_injection_patterns(content: str) -> list[str]:
         # in the statement. It is gated on SQL evidence (checked in the loop
         # below), so non-SQL CSV building is not flagged.
         (quote_sandwich, "Value embedded between SQL quotes (injection)", True),
+        (like_sandwich, "Concatenated value inside a quoted LIKE pattern (injection)", True),
     ]
 
     found_patterns = set()  # Avoid duplicate messages
@@ -785,7 +793,7 @@ def check_sql_injection_patterns(content: str) -> list[str]:
             # text (e.g. a CSV row of quoted values). The gate reuses the
             # append-sandwich evidence: a SQL clause keyword, an AND/OR
             # predicate, or a comparison right before the quote.
-            if pattern == quote_sandwich and not re.search(sandwich_evidence, statement, re.IGNORECASE):
+            if pattern in (quote_sandwich, like_sandwich) and not re.search(sandwich_evidence, statement, re.IGNORECASE):
                 continue
 
             # Skip if match is a safe pattern (never for always-unsafe patterns)

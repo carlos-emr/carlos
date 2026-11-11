@@ -921,5 +921,53 @@
         "content": "public class QueryDao {\n void f(String name, String demoNo, boolean cond) {\n  csv = \"'\" + row.name + \"','\" + row.count + \"'\";\n  run(q);\n }\n}"
       }
     }
+  },
+{
+  "section": "True Positives (should be BLOCKED, exit 2)",
+  "description": "TP-issue6123-LIKE-1: counter concatenated into quoted LIKE value, placeholder later allowlists (reviewer reproducer)",
+  "expected_exit": 2,
+  "payload": {
+    "tool_name": "Write",
+    "tool_input": {
+      "file_path": "/path/to/QueryDao.java",
+      "content": "public class QueryDao {\n void f(String n, String id) {\n  String q = \" AND p.last_name LIKE '\" + n + \"%' AND id = :id\";\n  run(q);\n }\n}"
+    }
   }
+},
+{
+  "section": "True Positives (should be BLOCKED, exit 2)",
+  "description": "TP-issue6123-LIKE-2: concatenated LIKE value with leading wildcard and named placeholder",
+  "expected_exit": 2,
+  "payload": {
+    "tool_name": "Write",
+    "tool_input": {
+      "file_path": "/path/to/QueryDao.java",
+      "content": "public class QueryDao {\n void f(String n, String id) {\n  String q = \"SELECT * FROM demographic p WHERE p.last_name LIKE '%\" + n + \"' AND p.id = :id\";\n  run(q);\n }\n}"
+    }
+  }
+},
+{
+  "section": "False Positives (should be ALLOWED, exit 0)",
+  "description": "FP-issue6123-LIKE-1: parameterised LIKE with named placeholder is allowed",
+  "expected_exit": 0,
+  "payload": {
+    "tool_name": "Write",
+    "tool_input": {
+      "file_path": "/path/to/QueryDao.java",
+      "content": "public class QueryDao {\n void f(String n, String id) {\n  String q = \" AND p.last_name LIKE :last AND id = :id\";\n  run(q);\n }\n}"
+    }
+  }
+},
+{
+  "section": "False Positives (should be ALLOWED, exit 0)",
+  "description": "FP-issue6123-LIKE-2: parameterised LIKE built with positional placeholder counter is allowed",
+  "expected_exit": 0,
+  "payload": {
+    "tool_name": "Write",
+    "tool_input": {
+      "file_path": "/path/to/QueryDao.java",
+      "content": "public class QueryDao {\n void f(String n, String id) {\n  String q = \" AND p.last_name LIKE ?\" + paramIndex++ + \" AND id = ?\" + paramIndex++;\n  run(q);\n }\n}"
+    }
+  }
+}
 ]
