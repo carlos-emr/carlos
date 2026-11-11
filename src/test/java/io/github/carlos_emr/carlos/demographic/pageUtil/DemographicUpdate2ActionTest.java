@@ -228,10 +228,6 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
         verify(mockDemographicDao, never()).save(any(Demographic.class));
     }
 
-    /**
-     * Issue #5128: Name Used is kept whole in the alias (70) and pref_name (30) holds only what
-     * fits. A longer pref_name failed the whole save under a strict sql_mode.
-     */
     @ParameterizedTest
     @CsvSource({"alert,Alert,A", "nurse,Nurse,A", "resident,Resident,A", "midwife,Midwife,A",
             "alert,Alert,😀", "midwife,Midwife,😀"})
@@ -269,6 +265,10 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
         verify(mockDemographicDao, never()).save(any(Demographic.class));
     }
 
+    /**
+     * Issue #5128: Name Used is kept whole in the alias (70) and pref_name (30) holds only what
+     * fits. A longer pref_name failed the whole save under a strict sql_mode.
+     */
     @Nested
     @DisplayName("Name Used on save")
     class NameUsed {
