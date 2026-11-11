@@ -452,12 +452,13 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
         request.getSession().setAttribute("userrole", "doctor");
         request.getSession().setAttribute("user", "991820");
         request.setParameter("view", "documents");
+        if (omitted != 0) request.setParameter("startDate", "2026-01-01");
         var inbox = mock(InboxResultsDao.class);
         registerMock(InboxResultsDao.class, inbox);
         registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
         when(inbox.readDocumentResults(anyString(), nullable(String.class), nullable(String.class),
                 nullable(String.class), nullable(String.class), anyString(), eq(true), eq(0), eq(20),
-                eq(false), isNull(), isNull(), isNull(), isNull()))
+                eq(false), isNull(), nullable(Date.class), isNull(), isNull()))
                 .thenReturn(new io.github.carlos_emr.carlos.commn.dao.InboxDocumentResults(List.of(), omitted));
         try (var hrm = mockConstruction(io.github.carlos_emr.carlos.lab.ca.on.HRMResultsData.class)) {
             assertThat(new DmsInboxManage2Action().prepareForContentPage()).isEqualTo("dms_page");

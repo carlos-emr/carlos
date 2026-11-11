@@ -546,6 +546,60 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldRejectAnUploadThatStopsBeingAFile_beforePublishingOrReviewing(@org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        prepareReviewPost(false, false);
+        Path upload = directory.resolve("upload.tmp");
+        Files.writeString(upload, "synthetic uploaded source");
+        bindDocFileUpload(upload.toFile(), "directory.txt", "text/plain");
+        Files.delete(upload);
+        Files.createDirectory(upload);
+        String previous = CarlosProperties.getInstance().getProperty("ALLOW_UPDATE_DOCUMENT_CONTENT");
+        CarlosProperties.getInstance().setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true");
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThatThrownBy(action::execute2).isInstanceOf(SecurityException.class)
+                    .hasMessage("Uploaded file is not a regular file");
+            documents.verify(() -> EDocUtil.editDocumentSQL(any(EDoc.class), org.mockito.ArgumentMatchers.anyBoolean()), never());
+            logActionMock.verifyNoInteractions();
+            assertThat(transactions.begun).isZero();
+        } finally {
+            if (previous == null) CarlosProperties.getInstance().remove("ALLOW_UPDATE_DOCUMENT_CONTENT");
+            else CarlosProperties.getInstance().setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", previous);
+        }
+    }
+
+    @Test
+    void shouldRefuseAConcurrentMetadataOverwrite_withAVisibleConflict() {
+        prepareReviewPost(false, false);
+        ((DocumentDao) mockedBeans.get(DocumentDao.class)).find(123).setDocdesc("Another clinician's newer description");
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThat(withContentUpdatesDisabled(action::execute2)).isEqualTo("failEdit");
+            assertThat(((Hashtable<?, ?>) request.getAttribute("docerrors"))
+                    .containsValue("dms.error.documentChanged")).isTrue();
+            documents.verify(() -> EDocUtil.editDocumentSQL(any(EDoc.class), org.mockito.ArgumentMatchers.anyBoolean()), never());
+            logActionMock.verifyNoInteractions();
+            assertThat(transactions.rolledBack).isTrue();
+        }
+    }
+
+    @Test
+    void shouldRecheckWritePermission_afterTheStoredDocumentLockIsAcquired() {
+        prepareReviewPost(true, false);
+        var revoked = new java.util.concurrent.atomic.AtomicBoolean();
+        var dao = (DocumentDao) mockedBeans.get(DocumentDao.class);
+        var stored = dao.find(123);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_edoc", "w", (String) null))
+                .thenAnswer(call -> !revoked.get());
+        when(dao.findForPageMutation(123)).thenAnswer(call -> { revoked.set(true); return stored; });
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThatThrownBy(() -> withContentUpdatesDisabled(action::execute2))
+                    .hasCauseInstanceOf(SecurityException.class);
+            documents.verify(() -> EDocUtil.editDocumentSQL(any(EDoc.class), org.mockito.ArgumentMatchers.anyBoolean()), never());
+            logActionMock.verifyNoInteractions();
+            assertThat(transactions.rolledBack).isTrue();
+        }
+    }
+
     private DocumentDao storedDocument(io.github.carlos_emr.carlos.commn.model.Document stored) {
         var documentsDao = mock(DocumentDao.class);
         // Stored-document authorization and the pre-upload existence check read the row; the save locks it.
