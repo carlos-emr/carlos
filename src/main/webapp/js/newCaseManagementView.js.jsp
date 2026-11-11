@@ -1440,7 +1440,10 @@ function updateCPPNote() {
                 evalScripts: true,
                 postBody: params,
                 onSuccess: function (request) {
-                    if (!saveAnsweredByAction(request, url)) {
+                    // A saved item is answered by the redirect to its refreshed CPP listing
+                    // (issueNoteSave's listCPPNotes result), so that landing counts as saved too.
+                    if (!saveAnsweredByAction(request, url)
+                            && !saveAnsweredByAction(request, ctx + "/CaseManagementView")) {
                         // Not saved: reopen the editor with the typed text.
                         complete(false);
                         $('showEditNote').style.display = 'block';
@@ -3205,20 +3208,33 @@ function updateCPPNote() {
 
         }
 
-        // One sign-in check at a time: a second click while it runs submits nothing more.
-        if (signedNoteSubmitPending) return false;
-        signedNoteSubmitPending = true;
+        // While the sign-in check runs, autosave is paused and the note's controls are held
+        // (the saving status shows, and Save, Sign and Bill wait), so the submission carries
+        // the note as it was when Sign & Save was chosen and no other save starts meanwhile.
+        clearAutoSaveTimer();
+        var restoreControls = beginNoteSwitchSave();
         whenStillSignedIn(function () {
-            signedNoteSubmitPending = false;
+            // A disabled control is left out of a form submission: restore them first.
+            restoreControls();
             submitNotePage(method, chain);
         }, function () {
-            signedNoteSubmitPending = false;
+            restoreControls();
+            // A later plain Save must not sign, verify or bill the note.
+            resetNoteSignIntent(document.forms["caseManagementEntryForm"]);
+            setTimer();
             alertSessionEndedNotSaved();
         });
         return false;
     }
 
-    var signedNoteSubmitPending = false;
+    // Sign, Verify and Bill set these hidden fields before Sign & Save; put back their
+    // defaults when that save does not happen.
+    function resetNoteSignIntent(form) {
+        [["sign", "off"], ["verify", "off"], ["toBill", "false"]].forEach(function (field) {
+            var control = form && form.elements ? form.elements[field[0]] : null;
+            if (control && control.type === "hidden") control.value = field[1];
+        });
+    }
 
     function submitNotePage(method, chain) {
         document.forms["caseManagementEntryForm"].method.value = method;
@@ -3472,16 +3488,23 @@ function updateCPPNote() {
     // Sign and Save leaves the chart with a full form submission, so a sign-in page in
     // its place would discard the note before any script could notice. Ask the session
     // heartbeat first without following a redirect: a redirect, a 401/403 or
-    // {"valid":false} means the sign-in has ended, and the note stays on screen. Any
-    // other outcome submits as before, so an unreachable heartbeat never blocks a save.
-    // autoRefresh keeps this check from counting as activity; the submission itself does.
+    // {"valid":false} means the sign-in has ended (the inactivity limit), and the note
+    // stays on screen. Any other outcome, including no answer within the time limit,
+    // submits as before, so an unreachable heartbeat never blocks a save. autoRefresh
+    // keeps this check from counting as activity; the submission itself does. If the
+    // limit passes in the moment between this answer and the submission, the submission
+    // is redirected as before and only the autosave draft keeps the text.
+    var SIGN_IN_CHECK_TIMEOUT_MS = 8000;
     function whenStillSignedIn(proceed, refuse) {
         if (typeof fetch !== "function") {
             proceed();
             return;
         }
+        var controller = typeof AbortController === "function" ? new AbortController() : null;
+        var timer = controller ? setTimeout(function () { controller.abort(); }, SIGN_IN_CHECK_TIMEOUT_MS) : null;
         fetch(ctx + "/status/SessionHeartbeat?autoRefresh=true",
-                {credentials: "same-origin", redirect: "manual", cache: "no-store"})
+                {credentials: "same-origin", redirect: "manual", cache: "no-store",
+                    signal: controller ? controller.signal : undefined})
             .then(function (response) {
                 if (response.type === "opaqueredirect" || response.status === 401 || response.status === 403) return false;
                 if (!response.ok) return true;
@@ -3494,6 +3517,7 @@ function updateCPPNote() {
                 return true;
             })
             .then(function (signedIn) {
+                if (timer) clearTimeout(timer);
                 if (signedIn) proceed(); else refuse();
             });
     }
