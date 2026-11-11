@@ -156,10 +156,13 @@ async function workflow(s) {
             await directory.waitForFunction(() => !document.querySelector('[data-server-page-region]')?.dataset.loading);
             const ids = await directory.locator('#referral tbody input[type="checkbox"]').evaluateAll(inputs => inputs.map(input => input.id.replace('referral-select-', '')));
             h.assert(ids.length <= 15, 'Filtered directory emitted more than 15 rows'); actual.push(...ids);
-            if (page === 0) await Promise.all([
-                directory.waitForResponse(r => r.request().method() === 'POST' && r.url().includes('/admin/ManageBillingReferral')),
-                directory.locator('#referral tbody input[type="checkbox"]').first().check(),
-            ]);
+            if (page === 0) {
+                await Promise.all([
+                    directory.waitForResponse(r => r.request().method() === 'POST' && r.url().includes('/admin/ManageBillingReferral')),
+                    directory.locator('#referral tbody input[type="checkbox"]').first().check(),
+                ]);
+                await directory.waitForFunction(name => document.querySelector('#checked_items').textContent.includes(name), directoryName);
+            }
             if (page < 2) {
                 const selected = await directory.locator('#checked_items').innerHTML();
                 const old = await directory.locator('[data-server-page-region]').elementHandle();
