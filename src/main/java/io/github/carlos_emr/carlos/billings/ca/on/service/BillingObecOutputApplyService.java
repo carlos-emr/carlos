@@ -42,7 +42,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * Applies a parsed OBEC output-specification report to the demographic
  * graph atomically: per row, flips matching demographics' {@code ver}
  * to {@code "##"} (HIN-flagged-invalid) and appends a reason note to
- * the patient's {@code DemographicCust.alert} string.
+ * the patient's {@code DemographicCust.alert} string, when the alert can hold it.
  *
  * <p>{@code @Transactional} so a mid-loop failure (DAO timeout,
  * concurrent edit, NPE on a malformed row) rolls back every prior
@@ -154,8 +154,21 @@ public class BillingObecOutputApplyService {
                                     + "Invalid old version code: "
                                     + bean.getVersion() + "\nReason: " + batchEligibility.getMOHResponse() + "- "
                                     + batchEligibility.getReason() + "\nResponse Code: " + responseCode;
-                            demographicCust.setAlert(newAlert);
-                            demographicCustDao.merge(demographicCust);
+                            // #6140: a longer alert was cut at the column (empty sql_mode, losing the
+                            // newest message) or failed the whole batch (strict). It is measured as the
+                            // Master Record form sends it back, each line break as CR LF, so an alert
+                            // written here can still be saved there. A message that does not fit is
+                            // not written: the row still applies, and the result says so.
+                            if (DemographicCust.validateAlertLength(asFormSubmits(newAlert)).isEmpty()) {
+                                demographicCust.setAlert(newAlert);
+                                demographicCustDao.merge(demographicCust);
+                            } else {
+                                MiscUtils.getLogger().warn(
+                                        "OBEC apply: alert not updated for {}: the message would exceed {} characters",
+                                        rowLabel, DemographicCust.ALERT_MAX_LENGTH);
+                                reasons.add("Alert not updated for " + rowLabel + ": the eligibility message would make "
+                                        + "it longer than " + DemographicCust.ALERT_MAX_LENGTH + " characters");
+                            }
                         }
                     } else {
                         skippedCount++;
@@ -172,6 +185,11 @@ public class BillingObecOutputApplyService {
             }
         }
         return new ApplyResult(appliedCount, skippedCount, reasons);
+    }
+
+    /** The text as a textarea submits it: every line break as CR LF. */
+    static String asFormSubmits(String text) {
+        return text.replace("\r\n", "\n").replace("\n", "\r\n");
     }
 
     private static String rowLabel(int zeroBasedIndex) {
