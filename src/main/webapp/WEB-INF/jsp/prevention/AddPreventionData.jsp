@@ -85,6 +85,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig" %>
+<%@ page import="io.github.carlos_emr.carlos.prevention.PreventionFormCodes" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 
@@ -974,22 +975,33 @@
                                 <option value=""></option>
                                 <%
                                     String routeSelected = " selected=\"selected\" ";
+                                    // The stored route, else the brand picker's, as the form's code in any
+                                    // letter case (SQ is SC, Intranasal is IN). A route with no code here is
+                                    // listed as given below, so it is never shown blank and lost (#5432).
+                                    String storedRoute = extraData.get("route");
+                                    String route = PreventionFormCodes.routeCode(storedRoute != null ? storedRoute : pRoute);
                                 %>
-                                <option value="ID" <%="ID".equals(str((extraData.get("route")), pRoute)) ? routeSelected : "" %>>
+                                <option value="ID" <%="ID".equals(route) ? routeSelected : "" %>>
                                     Intradermal: ID
                                 </option>
-                                <option value="IM" <%="IM".equals(str((extraData.get("route")), pRoute)) ? routeSelected : "" %>>
+                                <option value="IM" <%="IM".equals(route) ? routeSelected : "" %>>
                                     Intramuscular: IM
                                 </option>
-                                <option value="IN" <%="IN".equals(str((extraData.get("route")), pRoute)) ? routeSelected : "" %>>
+                                <option value="IN" <%="IN".equals(route) ? routeSelected : "" %>>
                                     Intranasal: IN
                                 </option>
-                                <option value="PO" <%="PO".equals(str((extraData.get("route")), pRoute)) ? routeSelected : "" %>>
+                                <option value="IV" <%="IV".equals(route) ? routeSelected : "" %>>
+                                    Intravenous: IV
+                                </option>
+                                <option value="PO" <%="PO".equals(route) ? routeSelected : "" %>>
                                     Oral: PO
                                 </option>
-                                <option value="SC" <%="SC".equals(str((extraData.get("route")), pRoute)) ? routeSelected : "" %>>
+                                <option value="SC" <%="SC".equals(route) ? routeSelected : "" %>>
                                     Subcutaneous: SC
                                 </option>
+                                <% if (!route.isEmpty() && !PreventionFormCodes.isOfferedRoute(route)) { %>
+                                <option value="<carlos:encode value='<%= route %>' context='htmlAttribute'/>" selected="selected"><carlos:encode value='<%= route %>'/></option>
+                                <% } %>
                             </select>
                                 </div>
                             </div>
@@ -1000,20 +1012,22 @@
                             <%
                                 String dose = str((extraData.get("dose")), "");
                                 String d1 = pDose;
-                                String d2 = pUnit;
+                                // The brand picker's unit as the form's own (VIAL is vial, DOSE is dose).
+                                String d2 = PreventionFormCodes.doseUnitCode(pUnit);
                                 if (dose.split(" ").length == 2) {
-                                    String d3 = dose.split(" ")[1];
-                                    if (!d3.equals("mL") && !d3.equals("mg") && !d3.equals("g") && !d3.equals("capsule") && !d3.equals("vial")) {
+                                    String d3 = PreventionFormCodes.doseUnitCode(dose.split(" ")[1]);
+                                    if (!PreventionFormCodes.isOfferedDoseUnit(d3)) {
                                         d1 = dose;
                                     } else {
                                         d1 = dose.split(" ")[0];
-                                        d2 = dose.split(" ")[1];
+                                        d2 = d3;
                                     }
                                 } else {
                                     d1 = pDose;
                                 }
 
-                                if ("".equals(dose)) {
+                                // mL is only the default for a new record that names no unit.
+                                if ("".equals(dose) && "".equals(d2)) {
                                     d2 = "mL";
                                 }
                             %>
@@ -1035,6 +1049,10 @@
                                 </option>
                                 <option value="vial" <%="vial".equals(d2) ? "selected=\"selected\" " : "" %>>vial
                                 </option>
+                                <option value="dose" <%="dose".equals(d2) ? "selected=\"selected\" " : "" %>>dose</option>
+                                <% if (!d2.isEmpty() && !PreventionFormCodes.isOfferedDoseUnit(d2)) { %>
+                                <option value="<carlos:encode value='<%= d2 %>' context='htmlAttribute'/>" selected="selected"><carlos:encode value='<%= d2 %>'/></option>
+                                <% } %>
 
                             </select>
                                 </div>
