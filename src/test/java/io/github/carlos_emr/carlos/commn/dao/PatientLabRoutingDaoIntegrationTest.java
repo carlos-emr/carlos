@@ -68,6 +68,17 @@ public class PatientLabRoutingDaoIntegrationTest extends CarlosTestBase {
         return routing;
     }
 
+    @Test
+    void shouldBindTypesAndUseThePatientPredicate_whenLabNumbersCollideWithPatients() {
+        var first = createRouting(DEMO_1, 81001, "HL7");
+        var second = createRouting(DEMO_1, 81002, "DOC");
+        createRouting(DEMO_2, DEMO_1, "HL7");
+        assertThat(patientLabRoutingDao.findLabNosByDemographic(DEMO_1, new String[]{"HL7", "DOC"}))
+                .extracting(PatientLabRouting::getId).containsExactlyInAnyOrder(first.getId(), second.getId());
+        assertThat(patientLabRoutingDao.findLabNosByDemographic(DEMO_1, new String[0])).isEmpty();
+        assertThat(patientLabRoutingDao.findLabNosByDemographic(DEMO_1, new String[]{"' OR 1=1 --"})).isEmpty();
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {

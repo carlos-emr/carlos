@@ -128,6 +128,11 @@
 </head>
 
 <body vlink="#0000FF">
+<% if (Boolean.TRUE.equals(request.getAttribute("inboxDocumentsIncomplete"))) { %>
+<div data-inbox-incomplete="true" role="alert" class="alert alert-warning"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(
+    java.util.ResourceBundle.getBundle("oscarResources", request.getLocale()).getString("inbox.documentsIncomplete")) %></div>
+<% } %>
+
 <jsp:include page="/WEB-INF/jsp/includes/spinner.jspf"/>
 <div id="inbox_wrapper">
     <form name="reassignForm" method="post" action="ReportReassign" id="lab_form">

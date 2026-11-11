@@ -23,6 +23,13 @@ import static org.mockito.Mockito.*;
  */
 @Tag("unit")
 class CategoryDataHrmUnitTest extends CarlosUnitTestBase {
+    @org.junit.jupiter.api.BeforeEach
+    void registerDateSearchService() {
+        registerMock(io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService.class,
+                new io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService(
+                    mock(io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao.class)));
+    }
+
     @ParameterizedTest
     @CsvSource(value = {"N,0", "A,1", "F,1", "'',any", "NULL,0"}, nullValues = "NULL")
     void shouldUseSameReviewFilterForMatchedAndUnmatchedCounts_whenStatusSelected(String status, String signedOff) throws Exception {
@@ -39,7 +46,7 @@ class CategoryDataHrmUnitTest extends CarlosUnitTestBase {
         when(count.get("demographic_no", Integer.class)).thenReturn(7);
         when(count.get("first_name", String.class)).thenReturn("Synthetic");
         when(count.get("last_name", String.class)).thenReturn("Patient");
-        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao(mock(SystemPreferencesDao.class));
+        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao();
         org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", manager);
         registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class, dao);
         CategoryData data = new CategoryData("", "", "", false, true, "999998", status, "all", null, null);

@@ -72,6 +72,19 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
     }
 
     @Override
+    public java.util.List<io.github.carlos_emr.carlos.commn.model.DocumentReview> findCurrentReviewRows(Integer documentNo) {
+        return entityManager.createQuery("SELECT r FROM DocumentReview r WHERE r.documentNo = :id",
+                io.github.carlos_emr.carlos.commn.model.DocumentReview.class).setParameter("id", documentNo).getResultList();
+    }
+
+    @Override
+    public void retireCurrentReviewRows(Integer documentNo) {
+        for (var review : findCurrentReviewRows(documentNo)) entityManager.remove(review);
+        var document = entityManager.find(Document.class, documentNo);
+        if (document != null) document.getReviews().clear();
+    }
+
+    @Override
     public void updatePageCount(Integer documentNo, int pageCount) {
         if (documentNo == null || documentNo <= 0 || pageCount <= 0) throw new IllegalArgumentException("Invalid document page count");
         int changed = entityManager.createQuery("update Document d set d.numberofpages=:pages where d.documentNo=:id and d.status<>:deleted")

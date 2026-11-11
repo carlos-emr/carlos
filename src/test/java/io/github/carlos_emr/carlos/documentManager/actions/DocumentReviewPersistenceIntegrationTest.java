@@ -97,17 +97,24 @@ class DocumentReviewPersistenceIntegrationTest extends CarlosTestBase {
     @Autowired DocumentExtraReviewerDao extraReviewers;
     @PersistenceContext(unitName = "entityManagerFactory") EntityManager entityManager;
 
+    @org.junit.jupiter.api.io.TempDir java.nio.file.Path sourceDirectory;
+    private String previousDocumentDirectory;
     private Integer documentNo;
 
     @BeforeEach
     void forgetCachedDocumentDao() throws Exception {
         // EDocUtil caches the DAO it first resolves; make each case resolve the one it is given.
         cachedEDocUtilDao(null);
+        previousDocumentDirectory = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        io.github.carlos_emr.CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", sourceDirectory.toString());
+        java.nio.file.Files.writeString(sourceDirectory.resolve("review-6081.pdf"), "%PDF-1.4 synthetic review source");
     }
 
     @AfterEach
     void cleanup() throws Exception {
         cachedEDocUtilDao(null);
+        if (previousDocumentDirectory == null) io.github.carlos_emr.CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+        else io.github.carlos_emr.CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", previousDocumentDirectory);
         if (documentNo == null) return;
         int id = documentNo;
         transaction().executeWithoutResult(status -> {
@@ -177,7 +184,7 @@ class DocumentReviewPersistenceIntegrationTest extends CarlosTestBase {
             await(releaseFirst);
         } : null);
         DocumentDao waits = intercept(documents, (method, args) -> {
-            if ("findForPageMutation".equals(method)) secondAttempt.countDown();
+            if ("find".equals(method)) secondAttempt.countDown();
             return null;
         });
         ExecutorService workers = Executors.newFixedThreadPool(2);
@@ -187,7 +194,7 @@ class DocumentReviewPersistenceIntegrationTest extends CarlosTestBase {
             assertThat(firstLocked.await(5, TimeUnit.SECONDS)).isTrue();
             Future<String> second = workers.submit(() -> review(id, SECOND, true, false, waits));
             assertThat(secondAttempt.await(5, TimeUnit.SECONDS)).isTrue();
-            // The second save waits on the first one's row lock instead of deciding from a stale read.
+            // The second native save waits behind the source lease and locked save, never deciding from a stale read.
             assertThatThrownBy(() -> second.get(150, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
             releaseFirst.countDown();
             assertThat(first.get(10, TimeUnit.SECONDS)).isEqualTo("successEdit");
@@ -259,6 +266,11 @@ class DocumentReviewPersistenceIntegrationTest extends CarlosTestBase {
         });
     }
 
+    private String revision() {
+        try { return io.github.carlos_emr.carlos.documentManager.StoredDocumentRevision.forDocumentFile("review-6081.pdf"); }
+        catch (java.io.IOException failure) { throw new java.io.UncheckedIOException(failure); }
+    }
+
     private String review(int id, String providerNo, boolean reviewDoc, boolean extraReviewDoc, DocumentDao documentBean) {
         return review(id, providerNo, reviewDoc, extraReviewDoc, documentBean, new MockHttpServletRequest[1]);
     }
@@ -267,6 +279,7 @@ class DocumentReviewPersistenceIntegrationTest extends CarlosTestBase {
                           MockHttpServletRequest[] requestOut) {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("POST");
+        request.setParameter("contentRevision", revision());
         requestOut[0] = request;
         Provider provider = new Provider();
         provider.setProviderNo(providerNo);
@@ -283,6 +296,10 @@ class DocumentReviewPersistenceIntegrationTest extends CarlosTestBase {
                 Class<?> type = call.getArgument(0);
                 if (type == DocumentDao.class) return documentBean;
                 if (type == SecurityInfoManager.class) return security;
+                if (type == io.github.carlos_emr.carlos.documentManager.DocumentReviewService.class) {
+                    return new io.github.carlos_emr.carlos.documentManager.DocumentReviewService(documentBean,
+                        extraReviewers, links, security, transactionManager);
+                }
                 return applicationContext.getBean(type);
             });
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
@@ -301,8 +318,8 @@ class DocumentReviewPersistenceIntegrationTest extends CarlosTestBase {
             action.setExtraReviewerId("999994");
             String result = action.execute2();
             if ("successEdit".equals(result)) {
-                audit.verify(() -> LogAction.addLog(eq(providerNo), eq(LogConst.UPDATE), eq(LogConst.CON_DOCUMENT),
-                        eq(String.valueOf(id)), anyString(), eq(String.valueOf(PATIENT))));
+                audit.verify(() -> LogAction.addLogStrict(eq(info), eq(LogConst.UPDATE), eq(LogConst.CON_DOCUMENT),
+                        eq(String.valueOf(id)), eq(String.valueOf(PATIENT)), eq("")));
             } else {
                 audit.verify(() -> LogAction.addLog(anyString(), anyString(), anyString(), anyString(), anyString(),
                         anyString()), never());

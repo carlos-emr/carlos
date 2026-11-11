@@ -30,8 +30,6 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
-import io.github.carlos_emr.carlos.mds.data.PatientInfo;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
@@ -68,11 +66,6 @@ public class InboxCategoryDao {
 
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
-    private final SystemPreferencesDao preferences;
-
-    /** @param preferences SystemPreferencesDao supplying inbox date-search preferences */
-    public InboxCategoryDao(SystemPreferencesDao preferences) { this.preferences = preferences; }
-
     /**
      * Immutable request filters; SQL values are bound separately from the query shape.
      * @param lastName String optional surname fragment
@@ -88,7 +81,15 @@ public class InboxCategoryDao {
      */
     public record Filter(String lastName, String firstName, String healthNumber, boolean patientSearch,
                          boolean providerSearch, String providerNo, String status, String abnormalStatus,
-                         String startDate, String endDate) { }
+                         String startDate, String endDate, String dateSearchType) {
+        /** Compatibility constructor for callers using the default observation-date mode. */
+        public Filter(String lastName, String firstName, String healthNumber, boolean patientSearch,
+                boolean providerSearch, String providerNo, String status, String abnormalStatus,
+                String startDate, String endDate) {
+            this(lastName, firstName, healthNumber, patientSearch, providerSearch, providerNo,
+                    status, abnormalStatus, startDate, endDate, "serviceObservation");
+        }
+    }
     /** Selects the lab, document or HRM count and patient-summary operation. */
     public enum Operation { LAB_UNMATCHED, ABNORMAL, NORMAL, DOCUMENT_UNMATCHED, LAB_PATIENT,
                             LAB_DEMOGRAPHIC, DOCUMENT_PATIENT, HRM_PATIENT, HRM_UNMATCHED }
@@ -112,12 +113,6 @@ public class InboxCategoryDao {
         public Counts { patients = List.copyOf(patients); }
     }
 
-    /** @return String current date-search preference, defaulting to serviceObservation */
-    public String getDateSearchType() {
-        var preference = preferences.findPreferenceByName(SystemPreferences.LAB_DISPLAY_PREFERENCE_KEYS.inboxDateSearchType);
-        return preference == null || StringUtils.isEmpty(preference.getValue()) ? "serviceObservation" : preference.getValue();
-    }
-
     /**
      * Counts one category using a consistent per-invocation date preference.
      * @param filter Filter bound search values
@@ -128,7 +123,7 @@ public class InboxCategoryDao {
      * @throws IllegalArgumentException if LAB_DEMOGRAPHIC has a blank demographicNo
      */
     public Counts count(Filter filter, Operation operation, String demographicNo) throws SQLException {
-        QueryState state = new QueryState(entityManager, preferences, filter.lastName(), filter.firstName(),
+        QueryState state = new QueryState(entityManager, filter.dateSearchType(), filter.lastName(), filter.firstName(),
                 filter.healthNumber(), filter.patientSearch(), filter.providerSearch(), filter.providerNo(),
                 filter.status(), filter.abnormalStatus(), filter.startDate(), filter.endDate());
         int total = switch (operation) {
@@ -146,6 +141,28 @@ public class InboxCategoryDao {
                 patient.getFirstName(), patient.getLastName(), patient.getLabCount(), patient.getDocCount(), patient.getHrmCount())).toList());
     }
 
+    /** DAO-local mutable accumulator; web models are assembled by CategoryData. */
+    private static final class PatientAccumulator {
+        private final int id;
+        private final String firstName;
+        private final String lastName;
+        private int docCount;
+        private int labCount;
+        private int hrmCount;
+        PatientAccumulator(int id, String firstName, String lastName) {
+            this.id = id; this.firstName = firstName; this.lastName = lastName;
+        }
+        int getId() { return id; }
+        String getFirstName() { return firstName; }
+        String getLastName() { return lastName; }
+        int getDocCount() { return docCount; }
+        int getLabCount() { return labCount; }
+        int getHrmCount() { return hrmCount; }
+        void setDocCount(int count) { docCount = count; }
+        void setLabCount(int count) { labCount += count; }
+        void setHrmCount(int count) { hrmCount += count; }
+    }
+
     private static final class QueryState {
         private static final String COUNT_COLUMN = "count";
         private static final String SQL_EQUALS_PARAM = " = ? ";
@@ -157,7 +174,7 @@ public class InboxCategoryDao {
 
         private final EntityManager entityManager;
 
-        private final HashMap<Integer, PatientInfo> patients;
+        private final HashMap<Integer, PatientAccumulator> patients;
 
         private final String patientLastName;
         private final String searchProviderNo;
@@ -197,7 +214,7 @@ public class InboxCategoryDao {
          */
         // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
         @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-        private QueryState(EntityManager entityManager, SystemPreferencesDao systemPreferencesDao, String patientLastName, String patientFirstName, String patientHealthNumber, boolean patientSearch,
+        private QueryState(EntityManager entityManager, String dateSearchType, String patientLastName, String patientFirstName, String patientHealthNumber, boolean patientSearch,
                             boolean providerSearch, String searchProviderNo, String status, String abnormalStatus,
                             String startDate, String endDate) {
 
@@ -213,15 +230,6 @@ public class InboxCategoryDao {
             this.patientSearch = patientSearch;
             this.providerSearch = providerSearch;
             this.abnormalStatus = abnormalStatus;
-
-            String dateSearchType = "serviceObservation";
-
-            SystemPreferences systemPreferences = systemPreferencesDao.findPreferenceByName(SystemPreferences.LAB_DISPLAY_PREFERENCE_KEYS.inboxDateSearchType);
-            if (systemPreferences != null) {
-                if (systemPreferences.getValue() != null && !systemPreferences.getValue().isEmpty()) {
-                    dateSearchType = systemPreferences.getValue();
-                }
-            }
 
             this.dateSearchType = dateSearchType;
 
@@ -291,7 +299,7 @@ public class InboxCategoryDao {
                 hrmParams.put("hrmSignedOff", "A".equalsIgnoreCase(status) || "F".equalsIgnoreCase(status) ? 1 : 0);
             }
 
-            patients = new HashMap<Integer, PatientInfo>();
+            patients = new HashMap<Integer, PatientAccumulator>();
 
         }
 
@@ -388,7 +396,7 @@ public class InboxCategoryDao {
 
         /** Accumulates one patient summary per patient, counting each matching raw report once. */
         public int getLabCountForPatientSearch() throws SQLException {
-            PatientInfo info;
+            PatientAccumulator info;
             String dateSearchType = getDateSearchType();
             String sql = " SELECT HIGH_PRIORITY d.demographic_no, d.last_name, d.first_name, COUNT(DISTINCT info.lab_no) as count "
                     + " FROM patientLabRouting cd"
@@ -428,7 +436,7 @@ public class InboxCategoryDao {
                     }
                     // Otherwise adding a new patient record.
                     else {
-                        info = new PatientInfo(id, row.get("first_name", String.class), row.get("last_name", String.class));
+                        info = new PatientAccumulator(id, row.get("first_name", String.class), row.get("last_name", String.class));
                         info.setLabCount(count);
                         patients.put(info.getId(), info);
                     }
@@ -481,11 +489,11 @@ public class InboxCategoryDao {
 
         /*
          * This will return the total documents found for this patients.
-         * it will also add to the patients map (demographicNo, PatientInfo) with a document count for the patient.
+         * it will also add to the patients map (demographicNo, PatientAccumulator) with a document count for the patient.
          *
          */
         public int getDocumentCountForPatientSearch() throws SQLException {
-            PatientInfo info;
+            PatientAccumulator info;
 
             String sql = " SELECT HIGH_PRIORITY demographic_no, last_name, first_name, COUNT( distinct cd.document_no) as count "
                     + " FROM ctl_document cd "
@@ -513,7 +521,7 @@ public class InboxCategoryDao {
                 List<Tuple> rows = queryRows(sql, params);
                 int count = 0;
                 for (Tuple row : rows) {
-                    info = new PatientInfo(number(row.get("demographic_no")), row.get("first_name", String.class), row.get("last_name", String.class));
+                    info = new PatientAccumulator(number(row.get("demographic_no")), row.get("first_name", String.class), row.get("last_name", String.class));
                     info.setDocCount(number(row.get(COUNT_COLUMN)));
                     patients.put(info.getId(), info);
                     count += info.getDocCount();
@@ -566,7 +574,7 @@ public class InboxCategoryDao {
          */
         public int getHRMDocumentCountForPatient() throws SQLException {
             int count = 0;
-            PatientInfo info;
+            PatientAccumulator info;
 
             StringBuilder sql = new StringBuilder();
             sql.append("SELECT HIGH_PRIORITY d.demographic_no, d.first_name, d.last_name, COUNT(DISTINCT h.id) AS count ")
@@ -609,7 +617,7 @@ public class InboxCategoryDao {
                     info.setHrmCount(hrmCount);
                 } else {
                     // Otherwise, adding a new patient record
-                    info = new PatientInfo(id, result.get("first_name", String.class), result.get("last_name", String.class));
+                    info = new PatientAccumulator(id, result.get("first_name", String.class), result.get("last_name", String.class));
                     info.setDocCount(hrmCount);
                     info.setHrmCount(hrmCount);
                     patients.put(info.getId(), info);

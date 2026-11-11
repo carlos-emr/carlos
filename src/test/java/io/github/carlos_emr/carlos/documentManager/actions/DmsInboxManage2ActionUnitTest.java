@@ -90,6 +90,12 @@ import static org.mockito.ArgumentMatchers.*;
 @Tag("unit")
 @Tag("documentManager")
 class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
+    private void registerDateSearchService() {
+        registerMock(io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService.class,
+                new io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService(
+                    mock(io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao.class)));
+    }
+
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
 
@@ -121,6 +127,7 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
+        registerDateSearchService();
         request = new MockHttpServletRequest();
         request.setContextPath("/carlos");
         response = new MockHttpServletResponse();
@@ -379,7 +386,7 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
         var preferences = mock(io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao.class);
         registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class,
-                new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao(preferences));
+                new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao());
         var inbox = mock(InboxResultsDao.class);
         registerMock(InboxResultsDao.class, inbox);
         var action = new DmsInboxManage2Action();
@@ -409,14 +416,54 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
             doAnswer(invocation -> {
                 capturedEnd.set(invocation.getArgument(12));
                 throw queryReached;
-            }).when(inbox).populateDocumentResultsData(anyString(), nullable(String.class),
+            }).when(inbox).readDocumentResults(anyString(), nullable(String.class),
                     nullable(String.class), nullable(String.class), nullable(String.class), anyString(),
-                    eq(true), eq(0), eq(20), eq(false), isNull(), isNull(), any(Date.class));
+                    eq(true), eq(0), eq(20), eq(false), isNull(), isNull(), any(Date.class), isNull());
             org.assertj.core.api.Assertions.assertThatThrownBy(
                     () -> new DmsInboxManage2Action().prepareForContentPage()).isSameAs(queryReached);
             assertThat(capturedEnd.get().toInstant()).isEqualTo(Instant.parse(expectedInstant));
         } finally {
             TimeZone.setDefault(original);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"checked", "data-access", "incomplete"})
+    void shouldReturn500WithoutPublishingTotals_whenCountPopulationFails(String kind) throws Exception {
+        request.getSession().setAttribute("userrole", "doctor");
+        request.getSession().setAttribute("user", "991820");
+        var counts = mock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class, counts);
+        Exception failure = switch (kind) {
+            case "checked" -> new java.sql.SQLException("synthetic count failure");
+            case "data-access" -> new org.springframework.dao.DataAccessResourceFailureException("synthetic count failure");
+            default -> new IllegalStateException("synthetic incomplete counts");
+        };
+        when(counts.count(any(), any(), isNull())).thenThrow(failure);
+
+        assertThat(new DmsInboxManage2Action().prepareForIndexPage()).isEqualTo("error");
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(request.getAttribute("categoryData")).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1})
+    void shouldRenderSeparateCompletenessNotice_whenDocumentRowsAreOmitted(int omitted) throws Exception {
+        request.getSession().setAttribute("userrole", "doctor");
+        request.getSession().setAttribute("user", "991820");
+        request.setParameter("view", "documents");
+        if (omitted != 0) request.setParameter("startDate", "2026-01-01");
+        var inbox = mock(InboxResultsDao.class);
+        registerMock(InboxResultsDao.class, inbox);
+        registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
+        when(inbox.readDocumentResults(anyString(), nullable(String.class), nullable(String.class),
+                nullable(String.class), nullable(String.class), anyString(), eq(true), eq(0), eq(20),
+                eq(false), isNull(), nullable(Date.class), isNull(), isNull()))
+                .thenReturn(new io.github.carlos_emr.carlos.commn.dao.InboxDocumentResults(List.of(), omitted));
+        try (var hrm = mockConstruction(io.github.carlos_emr.carlos.lab.ca.on.HRMResultsData.class)) {
+            assertThat(new DmsInboxManage2Action().prepareForContentPage()).isEqualTo("dms_page");
+            assertThat(request.getAttribute("inboxDocumentsIncomplete")).isEqualTo(omitted != 0);
+            assertThat((List<?>) request.getAttribute("labdocs")).isEmpty();
         }
     }
 

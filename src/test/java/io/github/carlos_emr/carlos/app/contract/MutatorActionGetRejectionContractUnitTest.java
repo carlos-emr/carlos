@@ -364,6 +364,12 @@ class MutatorActionGetRejectionContractUnitTest {
             // --- document manager ---
             Arguments.of("io.github.carlos_emr.carlos.documentManager.actions.SaveAnnotatedDocument2Action",
                     "_edoc", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.documentManager.actions.RemoveUnavailableHrm2Action",
+                    "_con", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.documentManager.actions.AddEditHtml2Action",
+                    "_edoc", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2Action",
+                    "_edoc", "w"),
             // --- HRM ---
             // Every dispatch on this route mutates (comments, description, sign-off, patient and
             // provider matching, category, sub-class) and none of its `method` values match

@@ -112,6 +112,7 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
 
     private Integer createDemographic() {
         Demographic demo = new Demographic();
+            demo.setPrefName("");
         demo.setFirstName("Test");
         demo.setLastName("Patient");
         demo.setHin("1234567890");
@@ -751,6 +752,7 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
 
         private Integer createPatientWithoutHin(String lastName) {
             Demographic demo = new Demographic();
+            demo.setPrefName("");
             demo.setFirstName("Nohin");
             demo.setLastName(lastName);
             demo.setHin(null);

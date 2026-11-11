@@ -144,7 +144,7 @@ public class HRMUtil {
 
             HashMap<String, Object> curht = new HashMap<String, Object>();
             curht.put("id", hrmDocument.getId());
-            curht.put("time_received", hrmDocument.getTimeReceived().toString());
+            curht.put("time_received", java.util.Objects.toString(hrmDocument.getTimeReceived(), ""));
             curht.put("report_type", hrmDocument.getReportType());
             curht.put("report_status", hrmDocument.getReportStatus());
             curht.put("report_date", reportDate);
@@ -163,6 +163,8 @@ public class HRMUtil {
                     }
                 }
                 curht.put("duplicateLabIds", duplicateLabIdQueryString.toString());
+                curht.put("versions", SpringUtils.getBean(HrmVersionService.class).describe(
+                        duplicateIdList == null ? java.util.List.of() : duplicateIdList, loggedInInfo.getLocale() == null ? java.util.Locale.getDefault() : loggedInInfo.getLocale()));
             }
 
             hrmdocslist.add(curht);

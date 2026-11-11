@@ -63,6 +63,52 @@ class AddEditDocument2ActionAtomicUploadUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldBoundReplacementNames_withoutLosingTheFinalExtension() {
+        String name = AddEditDocument2Action.replacementFileName("x".repeat(250) + ".pdf");
+        assertThat(name).hasSize(255).endsWith(".pdf");
+        assertThat(name).isNotEqualTo(AddEditDocument2Action.replacementFileName("x".repeat(250) + ".pdf"));
+    }
+
+    @Test
+    void shouldPreserveAnExtensionlessName_andRefuseAnUnrepresentableExtension() {
+        assertThat(AddEditDocument2Action.replacementFileName("report"))
+                .matches("[a-f0-9-]{36}-report");
+        assertThatThrownBy(() -> AddEditDocument2Action.replacementFileName("a." + "x".repeat(251)))
+                .isInstanceOf(io.github.carlos_emr.carlos.utility.FileValidationException.class);
+    }
+
+    @Test
+    void shouldRetainCleanupFailureAndUnownedContent_whenThePublishedPathChanges() throws Exception {
+        Path directory = tempDocumentDir.toAbsolutePath().normalize();
+        Path published = directory.resolve("replacement.txt");
+        IOException failure = new IOException("synthetic directory sync failure");
+        try (var channels = org.mockito.Mockito.mockStatic(java.nio.channels.FileChannel.class);
+                InputStream input = new ByteArrayInputStream("replacement source".getBytes(StandardCharsets.UTF_8))) {
+            channels.when(() -> java.nio.channels.FileChannel.open(directory, java.nio.file.StandardOpenOption.READ))
+                    .thenAnswer(call -> {
+                        assertThat(Files.readString(published)).isEqualTo("replacement source");
+                        Files.delete(published);
+                        Files.createDirectory(published);
+                        Files.writeString(published.resolve("foreign.txt"), "unrelated source");
+                        throw failure;
+                    });
+            assertThatThrownBy(() -> AddEditDocument2Action.writeLocalFile(input, "replacement.txt", false))
+                    .isSameAs(failure);
+        }
+        assertThat(failure.getSuppressed()).hasSize(1);
+        assertThat(failure.getSuppressed()[0]).isInstanceOf(java.nio.file.DirectoryNotEmptyException.class);
+        assertThat(Files.readString(published.resolve("foreign.txt"))).isEqualTo("unrelated source");
+        try (Stream<Path> paths = Files.list(directory)) {
+            assertThat(paths.toList()).containsExactly(published);
+        }
+    }
+
+    @Test void shouldPreserveTheUploadTimestampPrefix_forLegacyRefileReaders() {
+        assertThat(AddEditDocument2Action.replacementFileName("20260101000000original.pdf"))
+                .matches("20260101000000[a-f0-9-]{36}-original\\.pdf");
+    }
+
+    @Test
     @DisplayName("should write uploaded file via temp sibling and clean it up")
     void shouldWriteUploadedFileViaTempSibling_whenPublishingCompletes() throws Exception {
         String fileName = "uploaded.pdf";
@@ -121,6 +167,22 @@ class AddEditDocument2ActionAtomicUploadUnitTest extends CarlosUnitTestBase {
             assertThat(writtenFile.toPath()).isEqualTo(targetPath);
             assertThat(Files.readString(targetPath, StandardCharsets.UTF_8)).isEqualTo("payload");
             assertDirectoryContainsOnly(tempDocumentDir, fileName);
+        }
+    }
+
+    @Test
+    void shouldRemovePublishedAndStagedFiles_whenDirectorySyncFails() throws Exception {
+        Path directory = tempDocumentDir.toAbsolutePath().normalize();
+        IOException failure = new IOException("synthetic directory sync failure");
+        try (var channels = org.mockito.Mockito.mockStatic(java.nio.channels.FileChannel.class);
+                InputStream input = new ByteArrayInputStream("replacement source".getBytes(StandardCharsets.UTF_8))) {
+            channels.when(() -> java.nio.channels.FileChannel.open(directory, java.nio.file.StandardOpenOption.READ))
+                    .thenThrow(failure);
+            assertThatThrownBy(() -> AddEditDocument2Action.writeLocalFile(input, "replacement.txt", false))
+                    .isSameAs(failure);
+        }
+        try (Stream<Path> paths = Files.list(directory)) {
+            assertThat(paths.toList()).isEmpty();
         }
     }
 

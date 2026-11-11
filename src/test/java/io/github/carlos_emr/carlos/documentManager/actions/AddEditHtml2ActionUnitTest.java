@@ -82,6 +82,26 @@ class AddEditHtml2ActionUnitTest extends CarlosUnitTestBase {
         securityInfoManager = mock(SecurityInfoManager.class);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        registerMock(io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao.class, mock(io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao.class));
+        registerMock(io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao.class, mock(io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao.class));
+        registerMock(io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao.class, mock(io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao.class));
+        var storedDocuments = mock(io.github.carlos_emr.carlos.commn.dao.DocumentDao.class);
+        var stored = new io.github.carlos_emr.carlos.commn.model.Document(123); stored.setStatus('H');
+        when(storedDocuments.find(123)).thenReturn(stored); when(storedDocuments.findForPageMutation(123)).thenReturn(stored);
+        var edited = new io.github.carlos_emr.carlos.commn.model.Document(777); edited.setStatus('H');
+        when(storedDocuments.find(777)).thenReturn(edited); when(storedDocuments.findForPageMutation(777)).thenReturn(edited);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.DocumentDao.class, storedDocuments);
+
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("w"), eq("42"))).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(42))).thenReturn(true);
+        registerMock(io.github.carlos_emr.carlos.documentManager.DocumentReviewService.class,
+            new io.github.carlos_emr.carlos.documentManager.DocumentReviewService(
+                storedDocuments,
+                mock(io.github.carlos_emr.carlos.commn.dao.DocumentExtraReviewerDao.class),
+                mock(io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao.class), securityInfoManager,
+                new io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager()));
+        request.setParameter("contentRevision", io.github.carlos_emr.carlos.documentManager.DocumentEditRevision.digest((Object) null));
         response = new MockHttpServletResponse();
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);

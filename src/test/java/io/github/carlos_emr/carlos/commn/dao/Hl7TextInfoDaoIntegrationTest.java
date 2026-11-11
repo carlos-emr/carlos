@@ -95,6 +95,15 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
         return info;
     }
 
+    @Test
+    void shouldBreakTopNTiesByUniqueId_whenLabNumbersRepeat() {
+        Hl7TextInfo first = new Hl7TextInfo(); first.setLabNumber(1900610000); first.setReportStatus("F"); first.setResultStatus("A");
+        Hl7TextInfo second = new Hl7TextInfo(); second.setLabNumber(1900610000); second.setReportStatus("F"); second.setResultStatus("N");
+        hl7TextInfoDao.persist(first); hl7TextInfoDao.persist(second);
+        assertThat(hl7TextInfoDao.findRecentLabStatuses(1)).containsExactly(new Hl7TextInfoDao.LabStatus(1900610000, "N"));
+        assertThat(hl7TextInfoDao.findRecentLabStatuses(0)).isEmpty();
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {
@@ -173,7 +182,7 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
                 status, false, 0, 100, true, null, true, true, null, null);
         assertThat(results).hasSize(1);
         assertThat(((Number) results.get(0)[1]).intValue()).isEqualTo(9834001);
-        assertThat(results.get(0)[14]).isEqualTo(status);
+        assertThat(String.valueOf(results.get(0)[14])).isEqualTo(status);
     }
 
 
@@ -191,6 +200,7 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
 
         private Integer createDemographic(String lastName, String hin) {
             Demographic demo = new Demographic();
+            demo.setPrefName("");
             demo.setFirstName("Nohin");
             demo.setLastName(lastName);
             demo.setHin(hin);
@@ -319,6 +329,7 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
 
         private Integer createPatient() {
             Demographic demo = new Demographic();
+            demo.setPrefName("");
             demo.setFirstName("Acksince");
             demo.setLastName("Patient");
             demo.setSex("F");
@@ -406,6 +417,7 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
 
         private Integer createPatient() {
             Demographic demo = new Demographic();
+            demo.setPrefName("");
             demo.setFirstName("Tworoutes");
             demo.setLastName("Patient");
             demo.setSex("F");
@@ -441,7 +453,7 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
             // Any provider is the whole clinic, so other labs could be listed too; only this one counts.
             List<Object[]> lab = rows.stream().filter(row -> ((Number) row[1]).intValue() == 9837001).toList();
             assertThat(lab).as("the lab is listed once, not once per routing row").hasSize(1);
-            assertThat(lab.get(0)[14]).isEqualTo("N");
+            assertThat(String.valueOf(lab.get(0)[14])).isEqualTo("N");
         }
 
         @ParameterizedTest(name = "mixLabsAndDocs={0}")
@@ -456,9 +468,9 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
                     "", false, 0, 100, mixLabsAndDocs, null, true, false, null, null, null);
 
             assertThat(first).extracting(row -> ((Number) row[1]).intValue()).containsExactly(9837002);
-            assertThat(first.get(0)[14]).isEqualTo("A");
+            assertThat(String.valueOf(first.get(0)[14])).isEqualTo("A");
             assertThat(second).extracting(row -> ((Number) row[1]).intValue()).containsExactly(9837002);
-            assertThat(second.get(0)[14]).isEqualTo("N");
+            assertThat(String.valueOf(second.get(0)[14])).isEqualTo("N");
         }
     }
 
@@ -479,6 +491,8 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
             LocalDateTime received = LocalDateTime.parse((receivedTimestamp.length() == 10
                     ? receivedTimestamp + " 00:00:00" : receivedTimestamp).replace(' ', 'T'));
             Hl7TextMessage message = new Hl7TextMessage();
+            message.setBase64EncodedeMessage("U3ludGhldGlj");
+            message.setServiceName("synthetic"); message.setType("HL7");
             ReflectionTestUtils.setField(message, "created", Timestamp.valueOf(received));
             entityManager.persist(message);
             entityManager.flush();
