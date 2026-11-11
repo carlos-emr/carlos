@@ -203,6 +203,13 @@
     <div id="error-code">
         <h2><fmt:message key="error.msgException"/>:</h2>
         <p>CARLOS Error: ${carlos:forHtml(_responseStatus)}</p>
+        <%-- The report CSV download marks the request before it answers 413 for a report over its
+             row, size, time or byte limit (#5850). Say what the user can do, from fixed bundle text;
+             the status message itself stays in the developer block. Other 413s set no marker. --%>
+        <c:if test="${_responseStatus == 413 and requestScope.carlosReportTooLarge == true}">
+            <fmt:message key="report.limitRefused" var="_reportLimitRefused"/>
+            <p id="report-limit-refused" role="alert"><carlos:encode value="${_reportLimitRefused}"/></p>
+        </c:if>
         <%-- Set by CarlosExceptionMappingInterceptor when an action's uncaught exception was
              mapped here. The same id is on the log line that carries the trace, so this is the
              one thing worth asking a clinician to read back. Nothing else about the failure is

@@ -218,6 +218,9 @@ public class RunClinicalReport2Action extends ActionSupport {
             }
             request.setAttribute("denominatorId", denominatorId);
             request.setAttribute("includeNonPositiveResults", inclNonPositiveResults);
+            // ClinicalReports.jsp shows the extra numerator rows only up to max_numerator; without it
+            // the user's extra numerators stay selected but hidden and are sent on the next Run.
+            request.setAttribute("max_numerator", maxNumerator);
             return SUCCESS;
         }
 

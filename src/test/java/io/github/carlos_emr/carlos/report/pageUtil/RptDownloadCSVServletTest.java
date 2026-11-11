@@ -316,6 +316,8 @@ class RptDownloadCSVServletTest {
             assertThat(response.getStatus()).isEqualTo(500);
             assertThat(response.getErrorMessage()).isEqualTo("Unable to generate report");
             assertThat(response.getContentAsString()).isEmpty();
+            assertThat(request.getAttribute(RptDownloadCSVServlet.REPORT_TOO_LARGE_ATTRIBUTE))
+                    .as("a failure is not a report too large").isNull();
         }
     }
 
@@ -333,6 +335,8 @@ class RptDownloadCSVServletTest {
         new RptDownloadCSVServlet().service(request, response);
         assertThat(response.getStatus()).isEqualTo(413);
         assertThat(response.getContentAsString()).isEmpty();
+        // The error page reads this marker to say what to do (#5850).
+        assertThat(request.getAttribute(RptDownloadCSVServlet.REPORT_TOO_LARGE_ATTRIBUTE)).isEqualTo(Boolean.TRUE);
     }
 
     @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
@@ -353,6 +357,7 @@ class RptDownloadCSVServletTest {
         assertThat(response.getStatus()).isEqualTo(413);
         assertThat(response.getErrorMessage()).isEqualTo(RptDownloadCSVServlet.LIMIT_REFUSAL_MESSAGE);
         assertThat(response.getContentAsString()).isEmpty();
+        assertThat(request.getAttribute(RptDownloadCSVServlet.REPORT_TOO_LARGE_ATTRIBUTE)).isEqualTo(Boolean.TRUE);
     }
 
     @Test
