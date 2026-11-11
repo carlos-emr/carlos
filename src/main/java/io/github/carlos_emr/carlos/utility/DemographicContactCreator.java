@@ -275,7 +275,7 @@ public class DemographicContactCreator {
         }
 
         String originalAddress = contactId > 0 ? professionalSpecialist.getStreetAddress() : null;
-        String updatedAddress = SpecialistContactAddress.update(originalAddress, contact);
+        String updatedAddress = SpecialistContactAddress.write(originalAddress, contact);
         if (!java.util.Objects.equals(originalAddress, updatedAddress)) professionalSpecialist.setStreetAddress(updatedAddress);
         professionalSpecialist.setFirstName(contact.getFirstName());
         professionalSpecialist.setLastName(contact.getLastName());

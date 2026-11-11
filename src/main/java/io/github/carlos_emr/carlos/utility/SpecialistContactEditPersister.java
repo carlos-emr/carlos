@@ -31,8 +31,10 @@ public class SpecialistContactEditPersister {
         if (current == null || expectedVersion == null || !SpecialistContactEditVersion.of(current).equals(expectedVersion)) {
             throw new ConcurrentModificationException("Specialist contact has changed");
         }
+        String editedAddress = SpecialistContactAddress.update(current.getStreetAddress(), contact);
         // The converter finds the same managed entity in this transaction, retaining the lock.
         ProfessionalSpecialist updated = DemographicContactCreator.convertProfessionalContactAsProfessionalSpecialist(info, contact);
+        updated.setStreetAddress(editedAddress);
         updated.setLastUpdated(new Date());
         entityManager.flush();
         return updated;

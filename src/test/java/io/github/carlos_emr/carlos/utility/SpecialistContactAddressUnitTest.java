@@ -46,6 +46,17 @@ class SpecialistContactAddressUnitTest {
     }
 
     @Test
+    void shouldRetainLegacyCommaAcceptance_whenCreatingOrConvertingAReferralContact() {
+        ProfessionalContact contact = new ProfessionalContact();
+        contact.setAddress("123 Main St, Suite 2"); contact.setCity("Toronto");
+        contact.setPostal("M5V 1A1"); contact.setProvince("ON"); contact.setCountry("CA");
+        String stored = SpecialistContactAddress.write(null, contact);
+        assertThat(stored).isEqualTo("123 Main St, Suite 2, Toronto, M5V 1A1, ON, CA, ");
+        // Its ambiguous legacy format remains whole rather than being assigned to wrong fields.
+        assertThat(SpecialistContactAddress.parse(stored).street()).isEqualTo(stored);
+    }
+
+    @Test
     void shouldChangeVersion_whenAnyReplacedAddressOrContactValueChanges() {
         ProfessionalSpecialist specialist = new ProfessionalSpecialist();
         specialist.setStreetAddress("Original");

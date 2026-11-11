@@ -26,6 +26,15 @@ public record SpecialistContactAddress(String street, String city, String postal
 
     /** Keeps the original string byte-for-byte when the address components were not edited. */
     public static String update(String original, ProfessionalContact submitted) {
+        return write(original, submitted, true);
+    }
+
+    /** Retains the legacy writer's acceptance for creation and referral conversion callers. */
+    public static String write(String original, ProfessionalContact submitted) {
+        return write(original, submitted, false);
+    }
+
+    private static String write(String original, ProfessionalContact submitted, boolean validateEditedComponents) {
         SpecialistContactAddress changed = from(submitted);
         if (parse(original).normalisedLines().equals(changed.normalisedLines())) return original;
         // A street-only edit remains free text, including commas and newlines.
@@ -33,7 +42,7 @@ public record SpecialistContactAddress(String street, String city, String postal
             return changed.street;
         }
         String[] fields = {changed.street, changed.city, changed.postal, changed.province, changed.country};
-        if (Arrays.stream(fields).anyMatch(value -> value.contains(","))) {
+        if (validateEditedComponents && Arrays.stream(fields).anyMatch(value -> value.contains(","))) {
             throw new IllegalArgumentException("Address components cannot contain commas");
         }
         return String.join(", ", fields) + ", ";
