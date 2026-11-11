@@ -39,7 +39,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 
-import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -85,54 +84,21 @@ public class BillingreferralEdit2Action extends ActionSupport {
     }
 
     public String list() {
-        List<ProfessionalSpecialist> referrals = psDao.findAll();
-        request.setAttribute("referrals", referrals);
-        request.setAttribute("searchBy", "searchByName");
-        return "list";
+        return directoryPage(null, null, null, null, null, true, "searchByName");
     }
 
     public String searchByNo() {
-        //DynaBean lazyForm = (DynaBean) form;
-        String referralNo = search;
-
-        List<ProfessionalSpecialist> referrals = psDao.findByReferralNo(referralNo);
-        request.setAttribute("referrals", referrals);
-
-        request.setAttribute("searchBy", "searchByNo");
-
-        return "list";
+        return directoryPage(search, null, null, null, null, true, "searchByNo");
     }
 
     public String searchBySpecialty() {
-        //DynaBean lazyForm = (DynaBean) form;
-        String specialty = search;
-
-        List<ProfessionalSpecialist> referrals = psDao.findBySpecialty(specialty);
-        request.setAttribute("referrals", referrals);
-        request.setAttribute("searchBy", "searchBySpecialty");
-
-        return "list";
+        return directoryPage(null, null, null, search, null, true, "searchBySpecialty");
     }
 
     public String searchByName() {
-        //DynaBean lazyForm = (DynaBean) form;
-        String name = search;
-
-        String last_name = "", first_name = "";
-        if (name != null && !name.equals("")) {
-            if (name.indexOf(',') < 0) {
-                last_name = name;
-            } else {
-                name = name.substring(0, name.indexOf(','));
-                first_name = name.substring(name.indexOf(',') + 1, name.length());
-            }
-        }
-
-        List<ProfessionalSpecialist> referrals = psDao.findByFullName(last_name, first_name);
-        request.setAttribute("referrals", referrals);
-        request.setAttribute("searchBy", "searchByName");
-
-        return "list";
+        String[] names = (search == null ? "" : search).split(",", 2);
+        return directoryPage(null, names[0].trim(), names.length == 2 ? names[1].trim() : "",
+                null, null, true, "searchByName");
     }
 
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
@@ -186,57 +152,52 @@ public class BillingreferralEdit2Action extends ActionSupport {
     }
 
     public String advancedSearch() {
-        List<ProfessionalSpecialist> referrals = new ArrayList<ProfessionalSpecialist>();
-
         String name = request.getParameter("nameQuery");
         String specialty = request.getParameter("specialtyQuery");
         String address = request.getParameter("addressQuery");
-        String pShowHidden = request.getParameter("showHidden");
-        Boolean showHidden;
-        if (pShowHidden != null && "on".equals(pShowHidden)) {
-            showHidden = true;
-        } else {
-            showHidden = false;
-        }
-        Integer referralNo = null;
-
-        //check if it's a referralNo
-        if (!StringUtils.isEmpty(name)) {
-            try {
-                referralNo = Integer.parseInt(name);
-            } catch (NumberFormatException e) {
-                //MiscUtils.getLogger().error("Error",e);
-            }
-        }
-
-        String last_name = "", first_name = "";
-
-        if (referralNo != null) {
-            //referral no search
-            referrals = psDao.findByReferralNo(referralNo.toString());
-        } else {
-            //advanced search...can be name and/or specialty
-
-            if (name != null && !name.equals("")) {
-                if (name.indexOf(',') < 0) {
-                    last_name = name;
-                } else {
-                    last_name = name.substring(0, name.indexOf(','));
-                    first_name = name.substring(name.indexOf(',') + 1, name.length());
-                }
-            }
-            referrals = psDao.findByFullNameAndSpecialtyAndAddress(last_name, first_name, specialty, address, showHidden);
-        }
-
-        if (referrals.isEmpty()) {
-            referrals = null;
-        }
-
-        request.setAttribute("referrals", referrals);
+        boolean showHidden = "on".equals(request.getParameter("showHidden"));
         request.setAttribute("name", name);
         request.setAttribute("specialty", specialty);
         request.setAttribute("address", address);
         request.setAttribute("showHidden", showHidden);
+        Integer referralNumber = null;
+        if (name != null && !name.isEmpty()) {
+            try { referralNumber = Integer.valueOf(name); }
+            catch (NumberFormatException notReferralNumber) {
+                // Preserve the legacy fallback: nonnumeric or overflowing input is a name.
+            }
+        }
+        if (referralNumber != null) {
+            return directoryPage(referralNumber.toString(), null, null, null, null, true, "searchByName");
+        }
+        String[] names = (name == null ? "" : name).split(",", 2);
+        return directoryPage(null, names[0].trim(), names.length == 2 ? names[1].trim() : "",
+                specialty, address, showHidden, "searchByName");
+    }
+
+    private String directoryPage(String referral, String last, String first, String specialty,
+            String address, boolean includeHidden, String searchBy) {
+        int requestedPage;
+        try { requestedPage = io.github.carlos_emr.carlos.utility.ServerTablePage.requested(request); }
+        catch (IllegalArgumentException invalidPage) {
+            ServletActionContext.getResponse().setStatus(400);
+            return NONE;
+        }
+        var page = psDao.findDirectoryPage(referral, last, first, specialty, address, includeHidden, requestedPage);
+        request.setAttribute("referrals", page.getRows());
+        java.util.Set<Integer> selectedIds = new java.util.HashSet<>();
+        Object selected = request.getSession().getAttribute("billingReferralAdminCheckList");
+        if (selected instanceof List<?> rows) {
+            for (Object row : rows) if (row instanceof ProfessionalSpecialist specialist) selectedIds.add(specialist.getId());
+        }
+        request.setAttribute("selectedReferralIds", selectedIds);
+        request.setAttribute("searchBy", searchBy);
+        java.util.Map<String, String[]> parameters = new java.util.LinkedHashMap<>();
+        for (String key : List.of("method", "search", "nameQuery", "specialtyQuery", "addressQuery", "showHidden")) {
+            if (request.getParameterValues(key) != null) parameters.put(key, request.getParameterValues(key));
+        }
+        io.github.carlos_emr.carlos.utility.ServerTablePage.publish(request, page,
+                "/admin/ManageBillingReferral", "get", parameters);
         return "list";
     }
 

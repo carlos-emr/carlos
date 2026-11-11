@@ -36,6 +36,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 
 public interface ConsultationRequestMergedDemographicDao {
+    @Deprecated(since = "2026.08", forRemoval = false)
     List<ConsultationRequest> getConsults(Integer demoNo);
 
     List<ConsultationRequest> getConsultationsByStatus(Integer demographicNo, final String status);

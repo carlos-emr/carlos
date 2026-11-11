@@ -1,0 +1,32 @@
+<%-- Server-owned page windows. Forms remain usable without JavaScript; POST search state stays out of URLs. --%>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
+<c:if test="${not empty serverTablePage}">
+    <fmt:message key="table.paging.itemsName" var="serverPageItems"/>
+    <span class="pagebanner" aria-live="polite">
+        <fmt:message key="table.paging.someItemsFound">
+            <fmt:param value="${serverTablePage.total}"/><fmt:param value="${serverPageItems}"/>
+            <fmt:param value="${serverTablePage.total eq 0 ? 0 : serverTablePage.page * serverTablePage.size + 1}"/>
+            <fmt:param value="${serverTablePage.end}"/>
+        </fmt:message>
+    </span>
+    <fmt:message key="table.paging.loadFailed" var="serverPageError"/>
+    <form id="serverTablePageForm" data-server-page-form data-context="${carlos:forHtmlAttribute(pageContext.request.contextPath)}"
+          action="${carlos:forHtmlAttribute(serverTableAction)}" method="${carlos:forHtmlAttribute(serverTableMethod)}">
+        <c:forEach items="${serverTableParameters}" var="parameter">
+            <c:forEach items="${parameter.value}" var="value">
+                <input type="hidden" name="${carlos:forHtmlAttribute(parameter.key)}" value="${carlos:forHtmlAttribute(value)}"/>
+            </c:forEach>
+        </c:forEach>
+        <button type="submit" name="tablePage" value="0" ${serverTablePage.previous ? '' : 'disabled'}><fmt:message key="table.paging.first"/></button>
+        <button type="submit" name="tablePage" value="${serverTablePage.page - 1}" ${serverTablePage.previous ? '' : 'disabled'}><fmt:message key="table.paging.previous"/></button>
+        <span>${serverTablePage.page + 1} / ${serverTablePage.pageCount}</span>
+        <button type="submit" name="tablePage" value="${serverTablePage.page + 1}" ${serverTablePage.next ? '' : 'disabled'}><fmt:message key="table.paging.next"/></button>
+        <button type="submit" name="tablePage" value="${serverTablePage.pageCount - 1}" ${serverTablePage.next ? '' : 'disabled'}><fmt:message key="table.paging.last"/></button>
+        <span role="alert" data-server-page-error data-error="${carlos:forHtmlAttribute(serverPageError)}"></span>
+    </form>
+    <script src="${pageContext.request.contextPath}/share/javascript/csrfTokenFetch.js" defer></script>
+    <script src="${pageContext.request.contextPath}/js/server-table-page.js" defer></script>
+</c:if>

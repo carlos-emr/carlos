@@ -19354,6 +19354,68 @@
       "env": [],
       "fixtures": "Owned patient and one native-created task with its attachment/link/comment/history rows; removed by owned marker and exact identifiers. Freezes Date in each composer only; no shared clock, preferences or provider state changes.",
       "notes": "#6041 Add/Edit month-end and leap-year clamps, cumulative/negative/Clear/manual-base Add behavior, today-based Edit behavior and exact saved service dates."
+    },
+    {
+      "name": "server-table-page",
+      "script": "scripts/server-table-page-playwright-checks.js",
+      "env": [
+        "CHROME_BIN",
+        "CHROME_PATH",
+        "CARLOS_SMOKE_CHROMIUM",
+        "EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX"
+      ],
+      "tiers": [
+        "standalone"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120
+    },
+    {
+      "name": "consultation-correctness",
+      "script": "scripts/consultation-correctness-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists",
+        "serviceSpecialists",
+        "secRole",
+        "secObjPrivilege",
+        "secUserRole"
+      ],
+      "fixtures": "Owned FAKE patients, referrals, deleted-report relationships, service, specialists, patient contact and isolated authorization identities. Removes and asserts owned rows. Requires ON HRM and NEW_CONTACTS_UI. The check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1), because the consultant directory is shared. No fax is transmitted.",
+      "notes": "Restricted raw page windows and session state, NULL status, early record refusal, optional HRM audits, explicit duplicate HRM detach preserving drafts, specialist address round trips and stale edit refusal, and bounded Referral Doctors traversal preserving selections."
+    },
+    {
+      "name": "server-table-installed",
+      "script": "scripts/server-table-installed-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "mutates": [
+        "billing_trayfees",
+        "secRole",
+        "secObjPrivilege",
+        "secUserRole"
+      ],
+      "fixtures": "Owned FAKE patients, source note, 121 synthetic tray associations and isolated authorization identities. Each owned row is removed and cleanup asserted. Enable pmm.client.search.outside.of.domain.enabled. The check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1), because the billing tray is shared.",
+      "notes": "#5928: installed Client Search bounds data and HTML to 10 rows, retains note identity and criteria drafts through repeated POST paging with fresh CSRF, applies global sorting and native Soundex paging; BC tray bounds each page to 50 rows and preserves both unsaved fee codes."
     }
   ]
 }

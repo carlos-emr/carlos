@@ -109,6 +109,29 @@ public class EctViewConsultationRequestsUtil {
    public List<String> siteName;
    public List<ProviderSummaryDTO> consultProvider;
    public List<Boolean> eReferral; 
+   private boolean moreRows;
+   private boolean restrictedRows;
+
+   public boolean hasMoreRows() { return moreRows; }
+   public boolean hasRestrictedRows() { return restrictedRows; }
+
+   /**
+    * Loads an offset page plus its lookahead. Authorization suppresses rows within the page,
+    * never pulls the next page's row forward or changes the offset used by navigation.
+    */
+   public boolean estConsultationPageByTeam(LoggedInInfo info, ConsultationListFilterDto filter, int pageSize) {
+      initializeLists();
+      try {
+         List<ConsultationListRow> rows = SpringUtils.getBean(ConsultationRequestDao.class)
+                 .getConsultationListRows(filter);
+         moreRows = rows.size() > pageSize;
+         return populate(info, rows.subList(0, Math.min(pageSize, rows.size())), false);
+      } catch (Exception e) {
+         initializeLists();
+         MiscUtils.getLogger().error("Error loading consultation page ({})", e.getClass().getSimpleName());
+         return false;
+      }
+   }
    
    public boolean estConsultationVecByTeam(LoggedInInfo loggedInInfo, String team) {   
       return estConsultationVecByTeam(loggedInInfo, team, false, null, null);
@@ -138,6 +161,7 @@ public class EctViewConsultationRequestsUtil {
          return populate(loggedInInfo, SpringUtils.getBean(ConsultationRequestDao.class)
                  .getConsultationListRows(filter), false);
       } catch (Exception e) {
+         initializeLists();
          MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
          return false;
       }
@@ -150,12 +174,15 @@ public class EctViewConsultationRequestsUtil {
          return populate(loggedInInfo, SpringUtils.getBean(ConsultationRequestDao.class)
                  .getConsultationListRows(Integer.valueOf(demoNo)), true);
       } catch (Exception e) {
+         initializeLists();
          MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
          return false;
       }
    }
 
    private void initializeLists() {
+      moreRows = false;
+      restrictedRows = false;
       ids = new ArrayList<>();
       status = new ArrayList<>();
       patient = new ArrayList<>();
@@ -178,15 +205,24 @@ public class EctViewConsultationRequestsUtil {
    private boolean populate(LoggedInInfo loggedInInfo, List<ConsultationListRow> rows, boolean patientChart) {
       if (rows.isEmpty()) return true;
       Set<Integer> patientIds = new LinkedHashSet<>();
-      Set<String> requestingProviders = new LinkedHashSet<>();
       for (ConsultationListRow row : rows) {
          if (row.demographicId() != null) patientIds.add(row.demographicId());
+      }
+      DemographicManager demographics = SpringUtils.getBean(DemographicManager.class);
+      Map<Integer, String> names = patientChart
+              ? demographics.getDemographicFormattedNames(loggedInInfo, patientIds)
+              : demographics.getReadableDemographicFormattedNames(loggedInInfo, patientIds);
+      if (!patientChart) {
+         List<ConsultationListRow> permitted = rows.stream().filter(row -> row.demographicId() == null
+                 || row.demographicId() == 0 || names.containsKey(row.demographicId())).toList();
+         restrictedRows = permitted.size() != rows.size();
+         rows = permitted;
+      }
+      if (rows.isEmpty()) return true;
+      Set<String> requestingProviders = new LinkedHashSet<>();
+      for (ConsultationListRow row : rows) {
          if (row.providerNo() != null && !row.providerNo().isEmpty()) requestingProviders.add(row.providerNo());
       }
-      // This manager checks each distinct patient's read privilege/directives before fetching names.
-      // Do not replace it with a direct demographic join: the list's scope filter is an additional gate.
-      Map<Integer, String> names = SpringUtils.getBean(DemographicManager.class)
-              .getDemographicFormattedNames(loggedInInfo, patientIds);
       Map<String, ProviderSummaryDTO> providers = requestingProviders.isEmpty() ? Map.of()
               : SpringUtils.getBean(ProviderDao.class).getProviderSummariesByIds(requestingProviders);
       Map<Integer, Map<String, String>> extensions = new HashMap<>();
@@ -213,7 +249,7 @@ public class EctViewConsultationRequestsUtil {
          status.add(row.status());
          String patientName = row.demographicId() == null ? "" : names.getOrDefault(row.demographicId(), "");
          if (row.demographicId() != null && names.containsKey(row.demographicId())
-                 && row.patientAlias() != null && !row.patientAlias().isEmpty()) {
+                 && !patientName.isEmpty() && row.patientAlias() != null && !row.patientAlias().isEmpty()) {
             patientName += " (" + row.patientAlias() + ")";
          }
          patient.add(patientName);

@@ -108,10 +108,10 @@
             <input type="submit" name="submitButton" value="Save Association"
                    onclick="setMode('edit');"/> <input type="reset" value="Clear"/></fieldset>
     </form>
-    <%-- Paging is local; rejected save fields are never repeated into navigation URLs. As under
-         displaytag (sort.amount=page), the default sort orders the rows within each page of 50. --%>
+    <%-- Navigation replaces results only, preserving unsaved fee codes. Sorting remains within each page. --%>
+    <div id="serverTableRegion" data-server-page-region>
     <p/><c:if test="${not empty list}">
-<table class="displayGrid" data-carlos-table data-page-size="50" data-default-sort="1" data-default-order="descending">
+<table class="displayGrid" data-carlos-table data-page-size="0" data-default-sort="1" data-default-order="descending">
 <thead><tr>
         <th scope="col">Procedure Fee Code</th>
         <th scope="col">Tray Fee Code</th>
@@ -125,5 +125,7 @@
 </table>
 </c:if>
 <c:if test="${empty list}">Nothing found to display.</c:if>
+<%@ include file="/WEB-INF/jspf/server-table-page.jspf" %>
+</div>
     </body>
 </html>

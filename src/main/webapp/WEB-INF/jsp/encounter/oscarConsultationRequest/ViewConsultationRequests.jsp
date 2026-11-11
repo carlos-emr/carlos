@@ -187,8 +187,6 @@
     }
 %>
 
-<html>
-
     <%
 
         String team = (String) request.getAttribute("teamVar");
@@ -270,9 +268,20 @@
         // Patients with a Nothing Done referral older than a week -> the name the row shows. One entry
         // per patient however many referrals qualify: the Add Tickler form is single-patient.
         Map<String, String> overdueTicklerPatients = new LinkedHashMap<String, String>();
+        EctViewConsultationRequestsUtil theRequests = new EctViewConsultationRequestsUtil();
+        if (!theRequests.estConsultationPageByTeam(LoggedInInfo.getLoggedInInfoFromSession(request),
+                new ConsultationListFilterDto(team, includeCompleted, startDate, endDate, orderby, desc,
+                        searchDate, offset, limit + 1, consultantId, filterProviderNo,
+                        restrictToSiteOrTeam ? providerMap.keySet() : null,
+                        bMultisites && restrictToSiteOrTeam ? new java.util.HashSet<>(mgrSite) : null), limit)) {
+            response.sendError(jakarta.servlet.http.HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            return;
+        }
+
     %>
 
 
+<html>
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
@@ -584,6 +593,9 @@
     </head>
 
     <body>
+        <% if (theRequests.hasRestrictedRows()) { %>
+        <div class="alert alert-warning" role="status"><fmt:message key="consultation.list.restricted"/></div>
+        <% } %>
     <% if (showScheduleNav) { %>
         <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
     <% } %>
@@ -832,13 +844,6 @@
                     </thead>
                     <tbody>
                         <%
-                            EctViewConsultationRequestsUtil theRequests;
-                            theRequests = new EctViewConsultationRequestsUtil();
-                            theRequests.estConsultationVecByTeam(LoggedInInfo.getLoggedInInfoFromSession(request),
-                                    new ConsultationListFilterDto(team, includeCompleted, startDate, endDate, orderby, desc,
-                                            searchDate, offset, limit + 1, consultantId, filterProviderNo,
-                                            restrictToSiteOrTeam ? providerMap.keySet() : null,
-                                            bMultisites && restrictToSiteOrTeam ? new java.util.HashSet<>(mgrSite) : null));
                             boolean overdue;
                             UserPropertyDAO pref = (UserPropertyDAO) WebApplicationContextUtils.getWebApplicationContext(pageContext.getServletContext()).getBean(UserPropertyDAO.class);
                             String user = (String) session.getAttribute("user");
@@ -892,15 +897,15 @@
                                 overdue = false;
 
                                 if (timeperiod != null) {
-                                    if ((status.equals("1") || status.equals("2") || status.equals("3")) && dateGreaterThan(date, Calendar.MONTH, countback)) {
+                                    if (("1".equals(status) || "2".equals(status) || "3".equals(status)) && dateGreaterThan(date, Calendar.MONTH, countback)) {
                                         overdue = true;
                                     }
                                 } else {
-                                    if ((status.equals("1") || status.equals("3")) && dateGreaterThan(date, Calendar.DAY_OF_YEAR, -7)) {
+                                    if (("1".equals(status) || "3".equals(status)) && dateGreaterThan(date, Calendar.DAY_OF_YEAR, -7)) {
                                         overdue = true;
                                     }
 
-                                    if (status.equals("2") && dateGreaterThan(date, Calendar.DAY_OF_YEAR, -30)) {
+                                    if ("2".equals(status) && dateGreaterThan(date, Calendar.DAY_OF_YEAR, -30)) {
                                         overdue = true;
                                     }
                                 }
@@ -913,15 +918,15 @@
                             onclick="popupOscarRx(700,960,'<carlos:encode value='<%= viewUrl %>' context="javaScriptAttribute"/>')"
                             onkeypress="if(event.key==='Enter'){popupOscarRx(700,960,'<carlos:encode value='<%= viewUrl %>' context="javaScriptAttribute"/>');}">
                             <td class="consult-status-<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
-                                <% if (status.equals("1")) { %>
+                                <% if ("1".equals(status)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgND"/>
-                                <% } else if (status.equals("2")) { %>
+                                <% } else if ("2".equals(status)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgSR"/>
-                                <% } else if (status.equals("3")) { %>
+                                <% } else if ("3".equals(status)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgPR"/>
-                                <% } else if (status.equals("4")) { %>
+                                <% } else if ("4".equals(status)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgDONE"/>
-                                <% } else if (status.equals("5")) { %>
+                                <% } else if ("5".equals(status)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgBC"/>
                                 <%}%>
                             </td>
@@ -989,7 +994,7 @@
                         <i class="fas fa-chevron-left me-1"></i><fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgPrev"/>
                     </button><%
                         }
-                        if (theRequests.ids.size() > limit) {
+                        if (theRequests.hasMoreRows()) {
                     %><button type="button" class="btn btn-secondary btn-sm ms-1" onclick="gotoPage(true);">
                         <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgNext"/><i class="fas fa-chevron-right ms-1"></i>
                     </button><%

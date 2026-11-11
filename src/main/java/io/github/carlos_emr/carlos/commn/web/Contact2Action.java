@@ -36,7 +36,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -557,6 +556,7 @@ public class Contact2Action extends ActionSupport {
 
                     if (professionalSpecialist != null) {
                         request.setAttribute("pcontact", DemographicContactCreator.buildContact(professionalSpecialist));
+                        request.setAttribute("specialistEditVersion", io.github.carlos_emr.carlos.utility.SpecialistContactEditVersion.of(professionalSpecialist));
                     }
                 }
             }
@@ -778,9 +778,21 @@ public class Contact2Action extends ActionSupport {
             // changes for the ProfessionalSpecialist table
             if (DemographicContact.TYPE_PROFESSIONALSPECIALIST == contactType) {
                 // convert from a ProfessionalContact to ProfessionalSpecialist
-                ProfessionalSpecialist professionalSpecialist = DemographicContactCreator.convertProfessionalContactAsProfessionalSpecialist(loggedInInfo, contact);
-                professionalSpecialist.setLastUpdated(new Date(System.currentTimeMillis()));
-                professionalSpecialistDao.merge(professionalSpecialist);
+                try {
+                    ProfessionalSpecialist updated = SpringUtils.getBean(io.github.carlos_emr.carlos.utility.SpecialistContactEditPersister.class)
+                            .update(loggedInInfo, contact, request.getParameter("specialistEditVersion"));
+                    request.setAttribute("specialistEditVersion", io.github.carlos_emr.carlos.utility.SpecialistContactEditVersion.of(updated));
+                } catch (java.util.ConcurrentModificationException | IllegalArgumentException rejectedEdit) {
+                    response.setStatus(rejectedEdit instanceof java.util.ConcurrentModificationException ? 409 : 400);
+                    request.setAttribute("pcontact", contact);
+                    request.setAttribute("specialistEditVersion", request.getParameter("specialistEditVersion"));
+                    request.setAttribute("specialistContactConflict", Boolean.TRUE);
+                    request.setAttribute("specialties", contactSpecialtyDao.findAll());
+                    request.setAttribute("contactRole", contact.getSpecialty());
+                    request.setAttribute("demographicContactId", demographicContactId);
+                    request.setAttribute("contactType", contactType);
+                    return "pForm";
+                }
 
                 contactRole = contact.getSpecialty();
 
@@ -1121,84 +1133,7 @@ public class Contact2Action extends ActionSupport {
      * @param contact
      */
     private static final Contact buildContact(final Object contactobject) {
-        ProfessionalContact contact = new ProfessionalContact();
-
-        Integer id = null;
-        String systemId = "";
-        String firstName = "";
-        String lastName = "";
-        String address = "";
-        String address2 = "";
-        String city = "";
-        String country = "";
-        String postal = "";
-        String province = "";
-        boolean deleted = false;
-        String cellPhone = "-";
-        String workPhone = "";
-        String email = "";
-        String residencePhone = "";
-        String fax = "";
-        String specialty = "";
-        String cpso = "";
-
-        if (contactobject instanceof ProfessionalSpecialist) {
-
-            ProfessionalSpecialist professionalSpecialist = (ProfessionalSpecialist) contactobject;
-
-            // assuming that the address String is always csv.
-            address = professionalSpecialist.getStreetAddress();
-
-            if (address.contains(",")) {
-                String[] addressArray = address.split(",");
-                address = addressArray[0].trim();
-                if (addressArray.length > 3) {
-                    city = addressArray[1].trim();
-                    province = addressArray[2].trim();
-                    country = addressArray[3].trim();
-                } else if (addressArray.length > 2) {
-                    province = addressArray[1].trim();
-                    country = addressArray[2].trim();
-                } else {
-                    province = addressArray[1].trim();
-                    country = "";
-                }
-            }
-
-            // mark the contact with Specialist Type - Later parsed in client Javascript.
-            // using SystemId as a transient parameter only.
-            systemId = DemographicContact.TYPE_PROFESSIONALSPECIALIST + "";
-            id = professionalSpecialist.getId();
-            firstName = professionalSpecialist.getFirstName();
-            lastName = professionalSpecialist.getLastName();
-            email = professionalSpecialist.getEmailAddress();
-            residencePhone = professionalSpecialist.getPhoneNumber();
-            workPhone = professionalSpecialist.getPhoneNumber();
-            fax = professionalSpecialist.getFaxNumber();
-            cpso = professionalSpecialist.getReferralNo();
-
-        }
-
-        contact.setId(id);
-        contact.setSystemId(systemId);
-        contact.setFirstName(firstName);
-        contact.setLastName(lastName);
-        contact.setAddress(address);
-        contact.setAddress2(address2);
-        contact.setCity(city);
-        contact.setCountry(country);
-        contact.setPostal(postal);
-        contact.setProvince(province);
-        contact.setDeleted(deleted);
-        contact.setCellPhone(cellPhone);
-        contact.setWorkPhone(workPhone);
-        contact.setResidencePhone(residencePhone);
-        contact.setFax(fax);
-        contact.setEmail(email);
-        contact.setSpecialty(specialty);
-        contact.setCpso(cpso);
-
-        return contact;
+        return DemographicContactCreator.buildContact(contactobject);
     }
 
     @Deprecated

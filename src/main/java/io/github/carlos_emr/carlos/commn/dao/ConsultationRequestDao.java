@@ -73,8 +73,10 @@ public interface ConsultationRequestDao extends AbstractDao<ConsultationRequest>
 
     int getCountReferralsAfterCutOffDateAndNotCompleted(Date referralDateCutoff, String sendto);
 
+    @Deprecated(since = "2026.08", forRemoval = false)
     List<ConsultationRequest> getConsults(Integer demoNo);
 
+    @Deprecated(since = "2026.08", forRemoval = false)
     List<ConsultationRequest> getConsults(String team, boolean showCompleted, Date startDate, Date endDate, String orderby, String desc, String searchDate, Integer offset, Integer limit);
 
     /**
@@ -87,6 +89,7 @@ public interface ConsultationRequestDao extends AbstractDao<ConsultationRequest>
      * @return List of matching requests, at most {@code MAX_LIST_RETURN_SIZE} rows
      * @since 2026-09-30
      */
+    @Deprecated(since = "2026.08", forRemoval = false)
     List<ConsultationRequest> getConsults(ConsultationListFilterDto filter);
 
     /**

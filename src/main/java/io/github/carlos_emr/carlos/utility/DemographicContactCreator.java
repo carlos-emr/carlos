@@ -202,30 +202,12 @@ public class DemographicContactCreator {
 
             ProfessionalSpecialist professionalSpecialist = (ProfessionalSpecialist) contactobject;
 
-            // assuming that the address String is always csv.
-            address = professionalSpecialist.getStreetAddress();
-
-            // see pattern in method: convertProfessionalContactAsProfessionalSpecialist(final ProfessionalContact contact)
-            if (address.contains(",")) {
-                String[] addressArray = address.split(",");
-                address = addressArray[0].trim();
-                if (addressArray.length > 3) {
-                    city = addressArray[1].trim();
-                    postal = addressArray[2].trim();
-                    province = addressArray[3].trim();
-                } else if (addressArray.length > 4) {
-                    city = addressArray[1].trim();
-                    postal = addressArray[2].trim();
-                    province = addressArray[3].trim();
-                    country = addressArray[4].trim();
-                } else if (addressArray.length == 3) {
-                    province = addressArray[1].trim();
-                    country = addressArray[2].trim();
-                } else {
-                    province = addressArray[1];
-                }
-
-            }
+            SpecialistContactAddress parsed = SpecialistContactAddress.parse(professionalSpecialist.getStreetAddress());
+            address = parsed.street();
+            city = parsed.city();
+            postal = parsed.postal();
+            province = parsed.province();
+            country = parsed.country();
 
             // mark the contact with Specialist Type - Later parsed in client Javascript.
             // using SystemId as a transient parameter only.
@@ -274,48 +256,7 @@ public class DemographicContactCreator {
 
         Integer contactId = contact.getId();
         ProfessionalSpecialist professionalSpecialist = null;
-        String address = contact.getAddress();
-        String addressTwo = contact.getAddress2();
-        String postal = contact.getPostal();
-        String city = contact.getCity();
-        String province = contact.getProvince();
-        String country = contact.getCountry();
         String workExt = contact.getWorkPhoneExtension();
-
-        StringBuilder stringBuilder = new StringBuilder("");
-
-        if (address != null) {
-            stringBuilder.append(address.trim());
-        }
-
-        if (addressTwo != null) {
-            stringBuilder.append(" ");
-            stringBuilder.append(addressTwo.trim());
-
-        }
-        stringBuilder.append(", ");
-
-        if (city != null) {
-            stringBuilder.append(city.trim());
-
-        }
-        stringBuilder.append(", ");
-
-        if (postal != null) {
-            stringBuilder.append(postal.trim());
-        }
-        stringBuilder.append(", ");
-
-        if (province != null) {
-            stringBuilder.append(province.trim());
-        }
-        stringBuilder.append(", ");
-
-        if (country != null) {
-            stringBuilder.append(country.trim());
-        }
-
-        stringBuilder.append(", ");
 
         if (contactId == null) {
             contactId = 0;
@@ -333,7 +274,9 @@ public class DemographicContactCreator {
             professionalSpecialist = new ProfessionalSpecialist();
         }
 
-        professionalSpecialist.setStreetAddress(stringBuilder.toString());
+        String originalAddress = contactId > 0 ? professionalSpecialist.getStreetAddress() : null;
+        String updatedAddress = SpecialistContactAddress.write(originalAddress, contact);
+        if (!java.util.Objects.equals(originalAddress, updatedAddress)) professionalSpecialist.setStreetAddress(updatedAddress);
         professionalSpecialist.setFirstName(contact.getFirstName());
         professionalSpecialist.setLastName(contact.getLastName());
         professionalSpecialist.setEmailAddress(contact.getEmail());

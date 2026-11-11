@@ -69,6 +69,14 @@ public interface DemographicManager {
     Map<Integer, String> getDemographicFormattedNames(LoggedInInfo loggedInInfo,
                                                     Collection<Integer> demographicIds);
 
+    /**
+     * Bulk names for list discovery, without changing the session's patient-lock state.
+     * Denied IDs are absent; permitted IDs whose demographic is missing map to an empty name.
+     * Failures propagate so callers can distinguish unavailable data from an empty result.
+     */
+    Map<Integer, String> getReadableDemographicFormattedNames(LoggedInInfo loggedInInfo,
+                                                            Collection<Integer> demographicIds);
+
     public String getDemographicEmail(LoggedInInfo loggedInInfo, Integer demographicId);
 
 

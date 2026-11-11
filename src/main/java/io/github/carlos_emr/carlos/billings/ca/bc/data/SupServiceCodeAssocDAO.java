@@ -69,9 +69,19 @@ public class SupServiceCodeAssocDAO extends AbstractDaoImpl<BillingTrayFee> {
     @SuppressWarnings("unchecked")
     public List<Map<String, String>> getServiceCodeAssociactions() {
         // TODO test me
-        List<Map<String, String>> ret = new ArrayList<Map<String, String>>();
-        // TODO replace with #findAll
-        List<BillingTrayFee> btfs = entityManager.createQuery(getBaseQuery()).getResultList();
+        return mapAssociations(entityManager.createQuery(getBaseQuery()).getResultList());
+    }
+
+    public io.github.carlos_emr.carlos.commn.dao.QueryPage<Map<String, String>> getServiceCodeAssociationsPage(int page) {
+        String query = "SELECT btf FROM BillingTrayFee btf";
+        var rows = io.github.carlos_emr.carlos.commn.dao.QueryPage.load(entityManager,
+                entityManager.createQuery(query), query, page, 50, "btf.id", false, BillingTrayFee.class);
+        return new io.github.carlos_emr.carlos.commn.dao.QueryPage<>(mapAssociations(rows.getRows()),
+                rows.total(), rows.page(), rows.size());
+    }
+
+    private List<Map<String, String>> mapAssociations(List<BillingTrayFee> btfs) {
+        List<Map<String, String>> ret = new ArrayList<>();
         for (BillingTrayFee btf : btfs) {
             Map<String, String> map = new HashMap<String, String>();
             map.put(KEY_ID, btf.getId().toString());

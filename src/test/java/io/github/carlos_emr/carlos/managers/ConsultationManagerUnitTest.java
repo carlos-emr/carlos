@@ -684,6 +684,27 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        void shouldSkipHrmLoader_whenNoReportsAreAttached() {
+            try (MockedStatic<HRMUtil> loader = Mockito.mockStatic(HRMUtil.class)) {
+                assertThat(consultationManager.getAttachedHRMDocuments(mockLoggedInInfo,
+                        TEST_DEMOGRAPHIC_NO.toString(), TEST_REQUEST_ID.toString(), List.of())).isEmpty();
+                loader.verifyNoInteractions();
+            }
+        }
+
+        @Test
+        void shouldAvoidFalseDenialAudit_whenOptionalHrmReadIsUnavailable() {
+            when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_hrm", "r", (String) null)).thenReturn(false);
+            try (MockedStatic<HRMUtil> loader = Mockito.mockStatic(HRMUtil.class)) {
+                assertThat(consultationManager.getAttachedHRMDocuments(mockLoggedInInfo,
+                        TEST_DEMOGRAPHIC_NO.toString(), TEST_REQUEST_ID.toString(),
+                        List.of(new ConsultDocs(TEST_REQUEST_ID, 128, ConsultDocs.DOCTYPE_HRM, TEST_PROVIDER_NO))))
+                        .isEmpty();
+                loader.verifyNoInteractions();
+            }
+        }
+
+        @Test
         @DisplayName("should match attached HRM documents by Integer value")
         void shouldMatchAttachedHrmDocuments_whenIdsExceedIntegerCacheRange() {
             // Given
