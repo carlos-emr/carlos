@@ -26,6 +26,12 @@
 
     var signaturePadIFrameStart = "Signature:<br/><iframe style=\"width:500px; height:132px;\"id=\"signatureFrame\" src=\"";
     var signaturePadIFrameEnd = "\" ></iframe>";
+    // The stored-signature address CARLOS gives a signature (tabletSignature.jsp, EForm.setSignatureCode),
+    // with the refresh number the pad adds: a root-relative path ending in /imageRenderingServlet, the
+    // stored source and a numeric id. A saved value of any other shape is not shown.
+    var storedSignatureAddress = /^(?:\/[A-Za-z0-9._~-]+)*\/imageRenderingServlet\?source=signature_stored&digitalSignatureId=[0-9]+(?:&r=[0-9]+)?$/;
+    // An image size option: a whole number of pixels, or a percentage.
+    var signatureImageSize = /^[0-9]+%?$/;
     var signatureControl = {
         initialize: function (options) {
             var element = this;
@@ -37,7 +43,8 @@
                 element.signatureInput = "#signatureInput";
                 element.signatureValue = "#signatureValue"
                 element.demographicNo = 0; //TODO: Keep on trucking
-                element.imgAttributes = "";
+                element.imgWidth = null;
+                element.imgHeight = null;
 
                 var placeholder = jQuery(element.signatureInput);
                 if (!placeholder) {
@@ -66,24 +73,42 @@
                     jQuery(element.signatureDisplay).css("position", "absolute");
                     jQuery(element.signatureDisplay).css("bottom", options.bottom);
                 }
-                if (options.width != null) {
-                    element.imgAttributes += options.width != null ? " width='" + options.width + "' " : "";
+                if (options.width != null && signatureImageSize.test(String(options.width))) {
+                    element.imgWidth = String(options.width);
                 }
-                if (options.height != null) {
-                    element.imgAttributes += options.height != null ? " height='" + options.height + "' " : "";
+                if (options.height != null && signatureImageSize.test(String(options.height))) {
+                    element.imgHeight = String(options.height);
                 }
 
-                if (jQuery(element.signatureValue) && "" != jQuery(element.signatureValue).val()) {
-                    jQuery(element.signatureDisplay).html("<img " + element.imgAttributes + " src='" + jQuery(element.signatureValue).val() + "' alt='signature' />");
+                // Shows the signature at a stored-signature address as an image, its address set as the
+                // image source only. Any other value shows no image.
+                element.showSignature = function (address) {
+                    var display = jQuery(element.signatureDisplay);
+                    display.empty();
+                    if (typeof address !== "string" || !storedSignatureAddress.test(address)) {
+                        return;
+                    }
+                    var image = jQuery("<img>").attr({src: address, alt: "signature"});
+                    if (element.imgWidth != null) {
+                        image.attr("width", element.imgWidth);
+                    }
+                    if (element.imgHeight != null) {
+                        image.attr("height", element.imgHeight);
+                    }
+                    display.append(image);
+                };
+
+                var savedSignature = jQuery(element.signatureValue).val();
+                if (savedSignature != null && "" != savedSignature) {
+                    element.showSignature(savedSignature);
                 }
 
                 element.refreshImage =
                     function (e) {
-                        if (jQuery(element.signatureDisplay)) {
-                            jQuery(element.signatureDisplay).html("<img " + element.imgAttributes + " src='" + e.storedImageUrl + "&r=" + Math.floor(Math.random() * 1001) + "' alt='signature' />");
-                        }
+                        var address = e.storedImageUrl + "&r=" + Math.floor(Math.random() * 1001);
+                        element.showSignature(address);
                         if (jQuery(element.signatureValue)) {
-                            jQuery(element.signatureValue).val(e.storedImageUrl + "&r=" + Math.floor(Math.random() * 1001));
+                            jQuery(element.signatureValue).val(address);
                         }
                     };
 
