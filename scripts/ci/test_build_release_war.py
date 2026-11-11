@@ -4,6 +4,7 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
+import zipfile
 from unittest.mock import patch
 
 SPEC = importlib.util.spec_from_file_location("build_release_war", Path(__file__).with_name("build-release-war.py"))
@@ -58,6 +59,29 @@ class CandidateWarBuildTest(unittest.TestCase):
         stamp = run.call_args_list[-1]
         self.assertEqual(stamp.args[0][-2:], ["carlos-emr-deb", "2026.08.0~test1"])
         self.assertEqual(self.output.read_bytes(), b"synthetic candidate bytes")
+
+    def test_qualification_reuses_frozen_bytes_without_compiling_or_restamping(self):
+        frozen = self.output.parent / "frozen.war"
+        with zipfile.ZipFile(frozen, "w") as archive:
+            archive.writestr("WEB-INF/classes/buildNumber.properties", "git-sha-1=" + "a" * 40 + "\n")
+            archive.writestr("WEB-INF/classes/carlos-build.properties", "build.job=carlos-emr-deb\nbuild.number=2026.08.0~rc1\n")
+        with patch.dict(builder.os.environ, {"CARLOS_RELEASE_CANDIDATE_WAR": str(frozen)}), \
+             patch.object(builder.subprocess, "check_output", return_value="a" * 40), patch.object(builder.subprocess, "run") as commands:
+            builder.main(["--output", str(self.output), "--package-version", "2026.08.0~rc1"])
+            commands.assert_not_called()
+        self.assertEqual(frozen.read_bytes(), self.output.read_bytes())
+
+    def test_different_frozen_source_or_stamp_is_refused_without_publishing_output(self):
+        frozen = self.output.parent / "frozen.war"
+        with zipfile.ZipFile(frozen, "w") as archive:
+            archive.writestr("WEB-INF/classes/buildNumber.properties", "git-sha-1=" + "c" * 40 + "\n")
+            archive.writestr("WEB-INF/classes/carlos-build.properties", "build.job=carlos-emr-deb\nbuild.number=2026.08.0~rc1\n")
+        with patch.dict(builder.os.environ, {"CARLOS_RELEASE_CANDIDATE_WAR": str(frozen)}), \
+             patch.object(builder.subprocess, "check_output", return_value="a" * 40), patch.object(builder.subprocess, "run") as commands:
+            with self.assertRaisesRegex(SystemExit, "Frozen candidate identity differs"):
+                builder.main(["--output", str(self.output), "--package-version", "2026.08.0~rc1"])
+            commands.assert_not_called()
+        self.assertFalse(self.output.exists())
 
 
 if __name__ == "__main__":

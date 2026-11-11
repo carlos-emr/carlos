@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.login;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletContextEvent;
 import java.lang.reflect.Constructor;
@@ -460,6 +461,48 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
         Files.writeString(path, "db_name=startup_test\nBASE_DOCUMENT_DIR=" + tempDir.resolve("documents") + "\n"
                 + (key == null ? "" : KEY + "=" + key + "\n"));
         return path;
+    }
+
+    @Test
+    void shouldRefuseSelectedOverride_whenItCannotBeRead() throws Exception {
+        Path missing = tempDir.resolve("explicit-missing.properties");
+        System.setProperty(OVERRIDE, missing.toString());
+        assertThatThrownBy(this::createProperties).cause()
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining(missing.toString(), "configured override", "refusing to start");
+        assertThat(missing).doesNotExist();
+    }
+
+    @Test
+    void shouldReportActualKeyDestination_whenLegacyHomeShadowsOverride() throws Exception {
+        Path override = writeConfiguration(tempDir.resolve("selected.properties"), "");
+        Path home = writeConfiguration(userHome.resolve("carlos.properties"), "");
+        System.setProperty(OVERRIDE, override.toString());
+        CarlosProperties configuration = reloadProperties();
+        try (LogCapture logs = LogCapture.forLogger(Startup.class)) {
+            startApplication();
+            assertThat(logs.messages().stream().filter(message -> message.contains("Legacy home configuration")))
+                    .singleElement().asString().contains(home.toString(), override.toString());
+            assertThat(logs.messages().stream().filter(message -> message.contains("Secret Key initialized")))
+                    .singleElement().asString().contains(home.toString(), "backups")
+                    .doesNotContain(configuration.getProperty(KEY));
+        }
+        assertThat(configuration.getConfigurationSource()).isEqualTo(home.toString());
+        assertThat(Files.readString(home)).contains(KEY + "=" + configuration.getProperty(KEY));
+        assertThat(Files.readString(override)).doesNotContain(KEY + "=" + configuration.getProperty(KEY));
+    }
+
+    @Test
+    void shouldKeepPriorSettings_whenNewSourceIsMalformed() throws Exception {
+        Path override = writeConfiguration(tempDir.resolve("selected.properties"), "");
+        System.setProperty(OVERRIDE, override.toString());
+        CarlosProperties configuration = reloadProperties();
+        Path malformed = tempDir.resolve("malformed.properties");
+        Files.writeString(malformed, "db_name=must-not-apply\nbad=\\uZZZZ\n");
+        assertThatThrownBy(() -> configuration.readFromFile(malformed.toString()))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(configuration.getProperty("db_name")).isEqualTo("startup_test");
+        assertThat(configuration.getConfigurationSource()).isEqualTo(override.toString());
     }
 
     /**

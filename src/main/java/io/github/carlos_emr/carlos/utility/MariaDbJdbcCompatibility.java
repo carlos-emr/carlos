@@ -201,7 +201,9 @@ public final class MariaDbJdbcCompatibility {
         }
         Properties properties = parsed.properties();
         validateTlsSettings(properties);
-        if (Boolean.parseBoolean(properties.getProperty(DNS_SRV, FALSE))) throw invalid();
+        if (Boolean.parseBoolean(properties.getProperty(DNS_SRV, FALSE))) {
+            throw invalidOption(DNS_SRV, "DNS SRV is unsupported; configure an explicit host");
+        }
         // These differ between the drivers and affect existing clinical values and metadata.
         properties.putIfAbsent(TRANSFORMED_BIT_IS_BOOLEAN, FALSE);
         properties.putIfAbsent(PRESERVE_INSTANTS, "true");
@@ -459,7 +461,9 @@ public final class MariaDbJdbcCompatibility {
         }
         // MariaDB always uses UTF-8; accepting a different requested encoder would be silent data loss.
         if (key.equals("characterEncoding") && !asciiEquals(value, "UTF-8")
-                && !asciiEquals(value, "UTF8") && !asciiEquals(value, "utf8mb4")) throw invalid();
+                && !asciiEquals(value, "UTF8") && !asciiEquals(value, "utf8mb4")) {
+            throw invalidOption("characterEncoding", "use UTF-8, UTF8 or utf8mb4");
+        }
         if (key.equals("connectionCollation")) {
             putCollation(properties, key, value);
         } else {
@@ -492,13 +496,17 @@ public final class MariaDbJdbcCompatibility {
 
     /** Never silently replace an explicitly selected JSSE security implementation. */
     private static void validateTlsSettings(Properties properties) throws SQLException {
-        if (Boolean.parseBoolean(properties.getProperty(FIPS_COMPLIANT_JSSE, FALSE))) throw invalid();
+        if (Boolean.parseBoolean(properties.getProperty(FIPS_COMPLIANT_JSSE, FALSE))) {
+            throw invalidOption(FIPS_COMPLIANT_JSSE, "explicit FIPS JSSE selection is unsupported");
+        }
         String protocols = properties.getProperty(TLS_PROTOCOLS);
         if (protocols != null) properties.setProperty(TLS_PROTOCOLS, validatedTlsProtocols(protocols));
         String ciphers = properties.getProperty(TLS_CIPHERS);
         if (ciphers != null && !ciphers.isEmpty()) properties.setProperty(TLS_CIPHERS, validatedTlsCiphers(ciphers));
         for (String provider : UNSUPPORTED_TLS_PROVIDERS) {
-            if (!properties.getProperty(provider, "").isEmpty()) throw invalid();
+            if (!properties.getProperty(provider, "").isEmpty()) {
+                throw invalidOption(provider, "explicit JSSE provider selection is unsupported");
+            }
         }
         normalizeStorePaths(properties);
     }
@@ -567,7 +575,9 @@ public final class MariaDbJdbcCompatibility {
             properties.remove(key);
         } else {
             String normalized = asciiLowerCase(value);
-            if (!normalized.startsWith("utf8mb4_") || !normalized.matches("[a-z0-9_]+")) throw invalid();
+            if (!normalized.startsWith("utf8mb4_") || !normalized.matches("[a-z0-9_]+")) {
+                throw invalidOption("connectionCollation", "use a utf8mb4 collation");
+            }
             properties.setProperty(key, normalized);
         }
     }
@@ -762,5 +772,10 @@ public final class MariaDbJdbcCompatibility {
     /** Configuration errors must never echo connection credentials into application logs. */
     private static SQLException invalid() {
         return new SQLException("Invalid database connection configuration", "08001");
+    }
+
+    /** Called only with the fixed, recognized option names above, never request/URL text. */
+    private static SQLException invalidOption(String option, String requirement) {
+        return new SQLException("Invalid database connection configuration: option " + option + "; " + requirement, "08001");
     }
 }

@@ -765,6 +765,11 @@ printf 'FREED=%s\n' "$FRONT_DOOR_FREED"
         self.assertIn("host_conflicts front-door 0.0.0.0", calls)
         self.assertIn("FREED=" + self.STOPPED[len("stopped: "):], r.stdout)
         self.assertTrue(any(c.startswith("logger ") for c in calls), calls)
+        self.assertIn("using saved/preseeded stop-port-conflicts=true", r.stderr)
+        self.assertIn("new default does not reset saved answers", r.stderr)
+        announcement = next(index for index, value in enumerate(calls)
+                            if "saved answers are retained" in value)
+        self.assertLess(announcement, calls.index("host_conflicts front-door 0.0.0.0"))
 
     def test_nothing_to_stop_asks_nothing(self):
         r, calls = self.run_block("true", plan=False)

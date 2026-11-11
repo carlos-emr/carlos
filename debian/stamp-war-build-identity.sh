@@ -32,6 +32,7 @@ else
   echo "stamp-war-build-identity: $WAR carries no $PROPS; creating it" >&2
   : > "$TMP/$PROPS"
 fi
+cp "$TMP/$PROPS" "$TMP/original.properties"
 # A key that is absent (an older WAR) is appended so the stamp still lands.
 for pair in "build.job=$JOB" "build.number=$NUMBER"; do
   key="${pair%%=*}"
@@ -41,6 +42,12 @@ for pair in "build.job=$JOB" "build.number=$NUMBER"; do
     printf '%s\n' "$pair" >> "$TMP/$PROPS"
   fi
 done
+# Preserve a frozen candidate byte-for-byte. Updating an already-correct ZIP
+# entry changes archive metadata even when its properties have not changed.
+if cmp -s "$TMP/original.properties" "$TMP/$PROPS"; then
+  echo "stamp-war-build-identity: identity already matches; preserving WAR bytes"
+  exit 0
+fi
 # jar (openjdk-25-jdk-headless, already a build dependency) replaces the entry in place.
 jar uf "$WAR" -C "$TMP" "$PROPS"
 echo "stamp-war-build-identity: stamped $JOB $NUMBER into $WAR"

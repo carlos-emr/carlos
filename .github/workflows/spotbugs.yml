@@ -49,6 +49,7 @@ on:
       - 'scripts/ci/spotbugs-xml-to-sarif.py'
       - 'scripts/ci/requirements.txt'
   push:
+    tags: ['20*']
     branches: [develop, "release/*"]
     paths:
       - '**.java'

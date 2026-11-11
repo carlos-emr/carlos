@@ -35,6 +35,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -164,7 +165,7 @@
 
             <% } else { %>
             <br/>
-            <p style="color:red"><%=msg %>
+            <p style="color:red"><carlos:encode value="<%=msg%>"/>
             </p>
 
             <% } %>

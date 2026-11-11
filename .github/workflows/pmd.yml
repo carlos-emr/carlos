@@ -41,6 +41,7 @@ on:
       - '.github/pmd/**'
       - '.github/workflows/pmd.yml'
   push:
+    tags: ['20*']
     branches: [develop, "release/*"]
     paths:
       - '**.java'

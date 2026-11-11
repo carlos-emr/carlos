@@ -5,22 +5,24 @@
 # renderer's vendored Chromium, and carlos-emr-drugref), attach them to
 # the release together with the pinned carlos-ctl package (built and attested
 # by carlos-emr/carlos-ctl's own release workflow; debian/carlos-ctl.pin names
-# the release), and PUBLISH the release as the final step.
+# the release). A separate dispatch with verified qualification promotes the
+# frozen draft; a build dispatch never publishes it.
 #
 # DESIGN — a SEPARATE workflow from publish-release.yml, but it FINALIZES the
-# release: publish-release.yml leaves the release as a DRAFT carrying the WAR +
-# SBOM, and this workflow downloads that WAR, builds the .debs, attaches them,
-# and only then flips the release to published. The order matters because the
+# release: publish-release.yml leaves a DRAFT carrying the WAR + SBOM. A build
+# dispatch downloads that WAR, builds the .debs and attaches them. A later
+# promotion dispatch revalidates raw qualification evidence and the complete
+# frozen asset hashes before publication. The order matters because the
 # repository enables immutable releases — assets cannot be added once a release
 # is published, so every asset (WAR, SBOM, every .deb) must be in place while it
 # is still a draft.
 #
 #   * The deb ships the release's OWN WAR, downloaded from the draft and
 #     verified against its .sha256 and provenance attestation — the same bytes,
-#     with no second Maven compile that could drift.
+#     with no second Maven compile and a byte-preserving final identity stamp.
 #   * If this workflow fails, the release simply stays a draft (nothing is
 #     half-published); the workflow_dispatch input re-runs it to finish the job
-#     (or to backfill an older release).
+#     (qualification must be repeated if the candidate bytes change).
 #
 # The build runs inside an ubuntu:26.04 container so the toolchain and the
 # runtime dependency versions are exactly the target distribution's,
@@ -39,8 +41,12 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Published release tag to build .deb assets for
+        description: Existing tag to build a draft candidate or promote qualified assets
         required: true
+        type: string
+      qualification_run_id:
+        description: Completed qualification run to promote; blank builds a draft candidate only
+        required: false
         type: string
 
 # ONE GLOBAL group (not per-tag): this workflow now publishes the release and
@@ -52,7 +58,7 @@ on:
 # upload the same asset names at once). Releases are rare and deliberate, so
 # serializing all deb builds costs nothing.
 concurrency:
-  group: deb-packages
+  group: release-publication
   cancel-in-progress: false
 
 permissions:
@@ -81,11 +87,13 @@ jobs:
       # Provenance attestation for the .debs, matching the WAR's.
       id-token: write
       attestations: write
+      actions: read
     env:
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.release.tag_name }}
       REPO: ${{ github.repository }}
       GH_TOKEN: ${{ github.token }}
       DEBIAN_FRONTEND: noninteractive
+      QUALIFICATION_RUN: ${{ inputs.qualification_run_id }}
     steps:
       - name: Install build dependencies
         run: |
@@ -98,7 +106,7 @@ jobs:
           apt-get install -y --no-install-recommends \
             build-essential debhelper devscripts lintian fakeroot \
             maven openjdk-25-jdk-headless tomcat11 \
-            git ca-certificates curl xz-utils unzip
+            git ca-certificates curl xz-utils unzip python3-venv
           # gh comes from GitHub's own apt repository, NOT the Ubuntu
           # archive: resolute ships gh 2.46.0, and `gh attestation` (which
           # the WAR verification below depends on) only exists from 2.49.0 —
@@ -115,6 +123,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: refs/tags/${{ env.RELEASE_TAG }}
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Refuse tags that predate the packaging
@@ -206,7 +215,7 @@ jobs:
           esac
 
       - name: Download and verify the release WAR
-        if: env.SKIP != 'true'
+        if: env.SKIP != 'true' && env.QUALIFICATION_RUN == ''
         run: |
           set -euo pipefail
           # The deb ships the exact WAR the release carries (still a draft):
@@ -224,11 +233,13 @@ jobs:
           # partial downloads. The ATTESTATION is the tamper control: it
           # binds these exact bytes to the publish-release workflow run that
           # built them, and nobody with mere contents:write can forge it.
-          gh attestation verify "carlos-$RELEASE_TAG.war" --repo "$REPO"
+          gh attestation verify "carlos-$RELEASE_TAG.war" --repo "$REPO" \
+            --signer-workflow "$REPO/.github/workflows/publish-release.yml" \
+            --source-digest "$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)"
           echo "CARLOS_WAR=/tmp/release-war/carlos-$RELEASE_TAG.war" >> "$GITHUB_ENV"
 
       - name: Stamp the package version from the release tag
-        if: env.SKIP != 'true'
+        if: env.SKIP != 'true' && env.QUALIFICATION_RUN == ''
         run: |
           set -euo pipefail
           # CalVer tag -> Debian version. Pre-release suffixes swap '-' for
@@ -260,7 +271,7 @@ jobs:
           echo "DEB_VERSION=$deb_version" >> "$GITHUB_ENV"
 
       - name: Build the packages
-        if: env.SKIP != 'true'
+        if: env.SKIP != 'true' && env.QUALIFICATION_RUN == ''
         run: |
           set -euo pipefail
           # CARLOS_WAR skips the in-tree Maven compile; DrugRef builds from
@@ -268,6 +279,9 @@ jobs:
           # runs the whole debhelper pipeline including our install-time
           # staging checks.
           dpkg-buildpackage -us -uc -b
+          # The candidate supplied to qualification must survive Debian's final
+          # stamp unchanged. A mismatched identity cannot silently become a new WAR.
+          cmp "$CARLOS_WAR" debian/build/carlos.war
           mkdir -p release-assets
           # The assets are exactly the .debs this build produced, read from the
           # .changes file dpkg-buildpackage wrote, NOT a hard-coded list of file
@@ -309,7 +323,7 @@ jobs:
           ls -la
 
       - name: Lintian gate
-        if: env.SKIP != 'true'
+        if: env.SKIP != 'true' && env.QUALIFICATION_RUN == ''
         run: |
           set -euo pipefail
           # Errors fail the build. The overrides files in debian/ carry the
@@ -317,7 +331,7 @@ jobs:
           lintian --fail-on error ../carlos-emr_*.changes
 
       - name: Attest package provenance
-        if: env.SKIP != 'true'
+        if: env.SKIP != 'true' && env.QUALIFICATION_RUN == ''
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           # Only the packages THIS build produced. The carlos-ctl .deb added
@@ -328,7 +342,7 @@ jobs:
             release-assets/carlos-emr*.deb
 
       - name: Add the pinned carlos-ctl package to the release assets
-        if: env.SKIP != 'true'
+        if: env.SKIP != 'true' && env.QUALIFICATION_RUN == ''
         run: |
           set -euo pipefail
           # carlos-emr depends on carlos-ctl, which is its own package with its
@@ -344,7 +358,7 @@ jobs:
           ls -la release-assets
 
       - name: Upload and verify the release assets
-        if: env.SKIP != 'true'
+        if: env.SKIP != 'true' && env.QUALIFICATION_RUN == ''
         run: |
           set -euo pipefail
           gh release upload "$RELEASE_TAG" release-assets/* --repo "$REPO" --clobber
@@ -373,10 +387,27 @@ jobs:
               exit 1
             fi
           done
-          echo "Published: $(cd release-assets && ls *.deb | tr '\n' ' ')"
+          echo "Draft candidate: $(cd release-assets && ls *.deb | tr '\n' ' ')"
+
+      - name: Verify readiness before final publication (also on direct dispatch and retries)
+        if: env.SKIP != 'true' && env.QUALIFICATION_RUN != ''
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/release-gate
+          /tmp/release-gate/bin/pip install --require-hashes -r scripts/ci/requirements.txt
+          gh release download "$RELEASE_TAG" --repo "$REPO" --dir /tmp/promotion-assets \
+            --pattern '*.war' --pattern '*.deb' --pattern '*cyclonedx.json' --pattern '*.sha256'
+          /tmp/release-gate/bin/python scripts/ci/release_publication.py promote \
+            --repo "$REPO" --tag "$RELEASE_TAG" --run "$QUALIFICATION_RUN" --assets /tmp/promotion-assets
+
+      - name: Leave the frozen candidate as a draft for qualification
+        if: env.SKIP != 'true' && env.QUALIFICATION_RUN == ''
+        run: |
+          echo "Draft candidate is complete. Run release-verification.yml on refs/tags/$RELEASE_TAG with tag=$RELEASE_TAG."
+          echo "Publication requires that completed qualification run ID; rebuilding invalidates its hashes."
 
       - name: Publish the release
-        if: env.SKIP != 'true'
+        if: env.SKIP != 'true' && env.QUALIFICATION_RUN != ''
         run: |
           set -euo pipefail
           # Every asset (WAR, SBOM, every .deb) is now attached to the draft.

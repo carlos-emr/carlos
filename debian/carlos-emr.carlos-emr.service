@@ -74,6 +74,12 @@ Environment=LC_ALL=C.UTF-8
 # reads is root-only, and the guard reads one file and runs python3 on it.
 # The postinst consults the same file, so the two cannot drift apart.
 ExecCondition=+/usr/lib/carlos-emr/carlos-emr-o19-guard
+# Reconcile only the root-controlled packaged file, after the import/credential
+# guards. Never take the provisioning flock: a synchronous finish-install owns
+# it while waiting for this start. The second invocation uses carlos's identity
+# and the same legacy-home precedence as application startup.
+ExecStartPre=+/usr/lib/carlos-emr/carlos-emr-config-preflight reconcile
+ExecStartPre=/usr/lib/carlos-emr/carlos-emr-config-preflight verify
 ExecStart=/usr/lib/carlos-emr/carlos-emr-tomcat run
 # catalina.sh run execs the JVM, so systemd's SIGTERM reaches Java directly and
 # Tomcat performs its normal shutdown. 143 is 128+SIGTERM, which is what a JVM

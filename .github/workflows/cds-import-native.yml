@@ -22,6 +22,7 @@ on:
       - 'pom.xml'
       - '.github/workflows/cds-import-native.yml'
   push:
+    tags: ['20*']
     branches: [main, 'release/**']
     paths:
       # Shared clinical models, DAOs and guarded datasources participate in these contracts.

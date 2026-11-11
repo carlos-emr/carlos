@@ -31,6 +31,19 @@ starting the application, preserving the normal `root:carlos` ownership and
 `0640` mode. A persistence failure fails configure; it does not proceed to the
 application start. The startup guard independently verifies the result.
 
+Packaged starts also run a JDK-only preflight before Tomcat: a scoped root step
+reconciles the managed `/etc` file, then a step running as `carlos` checks the
+effective managed/home configuration and existing encryption key. This covers
+deferred configure and restored files on the next start, using the currently
+pinned carlos-ctl without changing its commands or provisioning lock. The
+preflight uses the same POSIX record locks as Java writers; it never waits on
+the CLI's process-lifetime provisioning `flock`. Root touches only a root-owned
+managed file under root-controlled directories. It never writes a legacy home
+file, creates configuration, or replaces a key. A legacy home file that cannot
+retain the flag is refused before Tomcat starts, with the source and recovery
+instructions. Move its settings and original key into the managed file before
+removing it from the home-directory search path.
+
 A rollback must load **the same persisted external configuration**, with
 `AbandonOldChart=true` still effective. Do not restore an older false/absent
 configuration snapshot while keeping the database's later modern-only writes,

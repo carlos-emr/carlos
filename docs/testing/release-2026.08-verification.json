@@ -1075,7 +1075,8 @@
         "packaged-full",
         "backup-retention-purge",
         "debian-python",
-        "installed-backup-core"
+        "installed-backup-core",
+        "java-native-generated"
       ]
     },
     {
@@ -3155,6 +3156,39 @@
               "container": ""
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.managers.AuditLogPurgeMariaDbIntegrationTest": {
+          "check": "java-native-generated",
+          "cases": [
+            {
+              "name": "shouldRestoreEveryDeletedValue_whenPurgingThroughTheLastInstantOfTheDay",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainRowsAndReleaseLocks_whenDumpFailsTimesOutOrOmitsRows",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainBackedUpRows_whenAuditRecordingFailsBeforeDelete",
+              "container": ""
+            },
+            {
+              "name": "shouldSerializePurgesAndPreserveLateHistoricalRows_whenAnotherWriterRuns",
+              "container": ""
+            },
+            {
+              "name": "shouldRecordPurgeAuditWithoutBlocking_whenAllExistingRowsAreEligible",
+              "container": ""
+            },
+            {
+              "name": "shouldUseLiveCredentials_whenApplicationUserHasQuotedPassword",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainCompletedBackupsAndReportFailure_whenALaterCohortFails",
+              "container": ""
+            }
+          ]
         }
       },
       "runtimeConstraints": {
@@ -3206,7 +3240,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,RxStrictAuditIntegrationTest,RxSaveReceiptCommitIntegrationTest,RxConcurrencyIntegrationTest,RxFavoriteGroupIntegrationTest,RxFavoriteCopyIntegrationTest,RxRestPrescriptionRollbackIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest",
+        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,RxStrictAuditIntegrationTest,RxSaveReceiptCommitIntegrationTest,RxConcurrencyIntegrationTest,RxFavoriteGroupIntegrationTest,RxFavoriteCopyIntegrationTest,RxRestPrescriptionRollbackIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,AuditLogPurgeMariaDbIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -3216,7 +3250,7 @@
         "-DexcludedGroups=flyway-schema",
         "-Dcarlos.test.schema.expected=generated"
       ],
-      "minimumCases": 2575,
+      "minimumCases": 2582,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "RxCorrectionSaveRollbackIntegrationTest": 2,
@@ -3254,7 +3288,8 @@
         "RxFavoriteGroupIntegrationTest": 6,
         "RxFavoriteCopyIntegrationTest": 1,
         "RxRestPrescriptionRollbackIntegrationTest": 1,
-        "RxStrictAuditIntegrationTest": 1
+        "RxStrictAuditIntegrationTest": 1,
+        "AuditLogPurgeMariaDbIntegrationTest": 7
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -7148,6 +7183,108 @@
       ],
       "workstreams": [
         "T26"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/CarlosProperties.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T07"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/CarlosPropertiesSaveUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/login/StartupKeyPersistenceUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/login/Startup.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T07"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/login/StartupKeyPersistenceUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/config/PackagedConfigurationPreflight.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T26"
+      ],
+      "checks": [
+        "debian-python"
+      ],
+      "tests": [
+        "debian/assets/tests/test_modern_chart_cutover.py",
+        "scripts/ci/check-installed-configuration-preflight.sh"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/AuditLogPurgeService.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T36"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AuditLogPurgeServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/AuditLogPurgeMariaDbIntegrationTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/AuditLogManager.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T36"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AuditLogManagerUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/AuditLogPurgeMariaDbIntegrationTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/admin/web/AuditLogPurge2Action.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T23"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/admin/web/AuditLogPurgeActionUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibility.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T21"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibilityUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/OscarTrackingBasicDataSource.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T21"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibilityUnitTest.java"
       ]
     }
   },

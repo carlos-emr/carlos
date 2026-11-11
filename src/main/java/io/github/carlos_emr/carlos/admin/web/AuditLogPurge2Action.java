@@ -28,8 +28,9 @@
  */
 package io.github.carlos_emr.carlos.admin.web;
 
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 import java.util.Date;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -59,16 +60,26 @@ public class AuditLogPurge2Action extends ActionSupport {
 
 
         String dt = request.getParameter("dateBegin");
-        if (dt == null || dt.length() == 0) {
+        boolean view = dt == null && ("GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod()));
+        if (view) return SUCCESS;
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+        if (dt == null || dt.isBlank()) {
             request.setAttribute("msg", "No date parameter was sent to the server!");
+            return SUCCESS;
         }
 
         Date endDateToPurge = null;
         if (dt != null && dt.length() > 0) {
-            SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
             try {
-                endDateToPurge = formatter.parse(dt);
-            } catch (ParseException e) {
+                if (!dt.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) throw new DateTimeParseException("date format", dt, 0);
+                LocalDate date = LocalDate.parse(dt);
+                if (date.getYear() < 1) throw new DateTimeParseException("date year", dt, 0);
+                endDateToPurge = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
+            } catch (DateTimeParseException e) {
                 request.setAttribute("msg", "Error parsing date. Should be in yyyy-MM-dd format");
             }
         }
@@ -79,7 +90,10 @@ public class AuditLogPurge2Action extends ActionSupport {
                 int numRecords = manager.purgeAuditLog(LoggedInInfo.getLoggedInInfoFromSession(request), endDateToPurge);
                 request.setAttribute("msg", "Success. Removed " + numRecords + " records from the audit log.");
             } catch (Exception e) {
-                request.setAttribute("msg", "Error. " + e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
+                // Raw client/SQL exceptions may contain audit data or credentials.
+                // A missing cause must not itself become a 500 after a safe refusal.
+                request.setAttribute("msg", "Error. Audit purge did not finish. Completed backups were retained; "
+                        + "consult the server log before retrying.");
             }
         }
 

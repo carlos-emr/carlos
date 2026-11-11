@@ -463,6 +463,7 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        "io.github.carlos_emr.carlos.admin.web.AuditLogPurge2Action",
         // Lookup management permits reads; order/add/remove require POST. See LookupListManager2ActionUnitTest.
         "io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action",
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteGroups2Action",
@@ -741,6 +742,7 @@ class MutatorActionGetRejectionContractUnitTest {
      * manifests above and participates in discovery drift checks.
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
+        "io.github.carlos_emr.carlos.admin.web.AuditLogPurge2Action",
         "io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action",
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteGroups2Action",
         "io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action",
@@ -964,6 +966,7 @@ class MutatorActionGetRejectionContractUnitTest {
      * needs an entry here, or {@link #filterListedWriteParameters()} fails.
      */
     private static final Map<String, String[]> FILTER_LISTED_ROUTE_PRIVILEGES = Map.of(
+        "io.github.carlos_emr.carlos.admin.web.AuditLogPurge2Action", new String[]{"_admin.auditLogPurge", "w"},
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteGroups2Action", new String[]{"_rx", "u"},
         "io.github.carlos_emr.carlos.admin.web.ProviderPrivilege2Action", new String[]{"_admin", "w"},
         "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action", new String[]{"_admin", "r"},
