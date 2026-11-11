@@ -68,6 +68,7 @@
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBean" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.securityupdate.msgMaximumCharacters" var="waitingListNoteLimitMessage"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -105,6 +106,14 @@
           onload='window.resizeTo(900,400)'>
     <!--  -->
     <form action="${pageContext.request.contextPath}/waitinglist/SetupDisplayWaitingList?update=Y" method="post">
+        <%-- #6141: a note longer than the column holds is refused, and nothing on the list changes. --%>
+        <c:if test="${not empty waitingListNoteErrors}">
+            <div role="alert" data-carlos-waiting-list-note-error="true" style="color: #b00020; font-weight: bold; margin: 4px;">
+                <c:forEach var="noteError" items="${waitingListNoteErrors}">
+                    <carlos:encode value="${noteError}"/><br/>
+                </c:forEach>
+            </div>
+        </c:if>
 
         <input type="hidden" name="demographicNumSelected" value=""/>
         <input type="hidden" name="wlNoteSelected" value=""/>
@@ -333,7 +342,37 @@
             }
         }
 
+        // #6141: the note boxes keep the waiting-list note's limit, counted as the server counts it:
+        // Unicode code points, each line break as the CR LF the browser submits (as the Master
+        // Record note does). The row's update button submits by script, which skips the browser's
+        // own check, so updateWaitingList() checks the selected note itself.
+        var WAITING_LIST_NOTE_MAX = <%= io.github.carlos_emr.carlos.commn.model.WaitingList.NOTE_MAX_LENGTH %>;
+        var WAITING_LIST_NOTE_MESSAGE = '${carlos:forJavaScript(waitingListNoteLimitMessage)}'.replace('{0}', WAITING_LIST_NOTE_MAX);
+
+        function waitingListNoteFits(field) {
+            var submitted = (field.value || '').replace(/\r?\n/g, '\r\n');
+            var fits = Array.from(submitted).length <= WAITING_LIST_NOTE_MAX;
+            field.setCustomValidity(fits ? '' : WAITING_LIST_NOTE_MESSAGE);
+            return fits;
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            var notes = document.querySelectorAll('textarea[id^="waitingListNote_"]');
+            for (var i = 0; i < notes.length; i++) {
+                // HTML counts UTF-16 units; this allows any note the code-point check accepts.
+                notes[i].setAttribute('maxlength', WAITING_LIST_NOTE_MAX * 2);
+                notes[i].setAttribute('data-max-codepoints', WAITING_LIST_NOTE_MAX);
+                notes[i].addEventListener('input', function (event) { waitingListNoteFits(event.target); });
+            }
+        });
+
         function updateWaitingList(waitingListId, ctr) {
+            var selectedNote = document.forms[0].wlNoteSelected.value
+                ? document.querySelector('textarea[name="' + document.forms[0].wlNoteSelected.value + '"]') : null;
+            if (selectedNote && !waitingListNoteFits(selectedNote)) {
+                selectedNote.reportValidity();
+                return;
+            }
             document.forms[0].waitingListId.value = waitingListId;
             document.forms[0].update.value = "Y";
             document.forms[0].action = "<%=request.getContextPath()%>/waitinglist/SetupDisplayWaitingList#anchor_" + ctr;
