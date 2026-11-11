@@ -84,7 +84,8 @@ public class AuditLogPurgeService {
         try {
             ZoneId zone = ZoneId.systemDefault();
             // java.sql.Date is a supported Date subtype but rejects toInstant().
-            date = through == null ? null : java.time.Instant.ofEpochMilli(through.getTime()).atZone(zone).toLocalDate();
+            if (through == null) throw new IOException("Audit purge date is missing");
+            date = java.time.Instant.ofEpochMilli(through.getTime()).atZone(zone).toLocalDate();
             validateRetention(settings.getProperty("log.purge.minDays", "3650"), date, LocalDate.now(zone));
             // DATETIME is a wall clock; avoid connection-zone Timestamp conversion.
             cutoff = date.plusDays(1).atStartOfDay();
@@ -368,7 +369,7 @@ public class AuditLogPurgeService {
 
     // FindSecBugs COMMAND_INJECTION: direct argv, no shell; validated administrator executable, fixed options and internal numeric/UUID predicates.
     @SuppressFBWarnings(value = "COMMAND_INJECTION", justification = "Direct argv without a shell; validated administrator executable, fixed options, and internal JDBC longs/UUID predicates")
-    private void run(List<String> command, Path stdout, Path stderr, Connection connection) throws Exception {
+    private void run(List<String> command, Path stdout, Path stderr, Connection connection) throws IOException, SQLException {
         ProcessBuilder builder = new ProcessBuilder(command).redirectOutput(stdout.toFile()).redirectError(stderr.toFile()); // nosemgrep: java.lang.security.audit.command-injection-process-builder.command-injection-process-builder -- argv list only, no shell; executable resolves from administrator configuration, options are fixed, and predicates contain JDBC longs plus an internal UUID
         builder.environment().remove("MYSQL_PWD");
         builder.environment().remove("MYSQL_HOME");

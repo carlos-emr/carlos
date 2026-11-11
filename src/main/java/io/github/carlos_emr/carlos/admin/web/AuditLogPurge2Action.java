@@ -75,29 +75,26 @@ public class AuditLogPurge2Action extends ActionSupport {
             return SUCCESS;
         }
 
-        Date endDateToPurge = null;
-        if (dt != null && dt.length() > 0) {
-            try {
-                if (!dt.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) throw new DateTimeParseException("date format", dt, 0);
-                LocalDate date = LocalDate.parse(dt);
-                if (date.getYear() < 1) throw new DateTimeParseException("date year", dt, 0);
-                endDateToPurge = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
-            } catch (DateTimeParseException e) {
-                request.setAttribute("msg", "Error parsing date. Should be in yyyy-MM-dd format");
-            }
+        Date endDateToPurge;
+        try {
+            if (!dt.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) throw new DateTimeParseException("date format", dt, 0);
+            LocalDate date = LocalDate.parse(dt);
+            if (date.getYear() < 1) throw new DateTimeParseException("date year", dt, 0);
+            endDateToPurge = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        } catch (DateTimeParseException e) {
+            request.setAttribute("msg", "Error parsing date. Should be in yyyy-MM-dd format");
+            return SUCCESS;
         }
 
-        if (endDateToPurge != null) {
-            AuditLogManager manager = SpringUtils.getBean(AuditLogManager.class);
-            try {
-                int numRecords = manager.purgeAuditLog(LoggedInInfo.getLoggedInInfoFromSession(request), endDateToPurge);
-                request.setAttribute("msg", "Success. Removed " + numRecords + " records from the audit log.");
-            } catch (Exception e) {
-                // Raw client/SQL exceptions may contain audit data or credentials.
-                // A missing cause must not itself become a 500 after a safe refusal.
-                request.setAttribute("msg", "Error. Audit purge did not finish. Completed backups were retained; "
-                        + "consult the server log before retrying.");
-            }
+        AuditLogManager manager = SpringUtils.getBean(AuditLogManager.class);
+        try {
+            int numRecords = manager.purgeAuditLog(LoggedInInfo.getLoggedInInfoFromSession(request), endDateToPurge);
+            request.setAttribute("msg", "Success. Removed " + numRecords + " records from the audit log.");
+        } catch (Exception e) {
+            // Raw client/SQL exceptions may contain audit data or credentials.
+            // A missing cause must not itself become a 500 after a safe refusal.
+            request.setAttribute("msg", "Error. Audit purge did not finish. Completed backups were retained; "
+                    + "consult the server log before retrying.");
         }
 
 

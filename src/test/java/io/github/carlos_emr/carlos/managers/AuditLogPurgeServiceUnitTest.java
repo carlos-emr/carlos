@@ -49,6 +49,15 @@ class AuditLogPurgeServiceUnitTest {
     }
 
     @Test
+    void shouldRefuseMissingDate_beforeOpeningDatabaseOrPreparingClient() throws Exception {
+        var source = mock(javax.sql.DataSource.class);
+        assertThatThrownBy(() -> new AuditLogPurgeService(source).purge(new java.util.Properties(), null, () -> {}))
+                .isInstanceOf(IOException.class).hasMessageContaining("retention policy", "no rows were deleted");
+        verifyNoInteractions(source);
+        try (var files = Files.list(temporary)) { assertThat(files).isEmpty(); }
+    }
+
+    @Test
     void shouldRefuseUnsafeRetention_whenDateOrSettingIsInvalid() {
         LocalDate today = LocalDate.of(2026, 11, 10);
         for (String setting : List.of("-1", "invalid", "2147483648")) {
