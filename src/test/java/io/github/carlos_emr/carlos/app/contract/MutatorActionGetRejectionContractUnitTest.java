@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.app.contract;
 
+import io.github.carlos_emr.carlos.admin.gate.ViewKeygenCreateKey2Action;
 import io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action;
@@ -490,6 +491,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // Write parameters other than `method` (#3394). Each also appears in
         // HttpMethodGuardFilter.MUTATION_INTENT_PARAMS_BY_ROUTE, which
         // shouldRejectGetAndHead_forEveryFilterListedWriteParameter drives against the action.
+        // Key Pair Creation (#6055): opening the page permits GET; name stores a key pair and must be a
+        // POST. Covered by ViewKeygenCreateKey2ActionUnitTest.
+        "io.github.carlos_emr.carlos.admin.gate.ViewKeygenCreateKey2Action",
         // Provider Privilege: opening the page permits GET; submit (Add/Delete) or buttonUpdate rewrites
         // privilege rows and must be a POST. Covered by ProviderPrivilegeRoleWriteGuardUnitTest.
         "io.github.carlos_emr.carlos.admin.web.ProviderPrivilege2Action",
@@ -595,6 +599,8 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action",
         "io.github.carlos_emr.carlos.admin.web.LabDisplaySettings2Action",
         "io.github.carlos_emr.carlos.admin.web.AdminNewGroup2Action",
+        // admin.gate is not in IN_SCOPE_PACKAGE_PREFIXES; Key Pair Creation registers explicitly (#6055).
+        "io.github.carlos_emr.carlos.admin.gate.ViewKeygenCreateKey2Action",
         // appt slice: the appt packages are not in IN_SCOPE_PACKAGE_PREFIXES, so their migrated
         // mutators register explicitly (conditional mutators).
         "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action",
@@ -870,7 +876,8 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.messenger.pageUtil.MsgHandleMessages2Action", new String[]{"_msg", "r"},
         "io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action", new String[]{"_form", "w"},
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.GenerateTeleplanFile2Action", new String[]{"_billing", "w"},
-        "io.github.carlos_emr.carlos.appt.web.AppointmentLocationSettings2Action", new String[]{"_admin.schedule", "w"});
+        "io.github.carlos_emr.carlos.appt.web.AppointmentLocationSettings2Action", new String[]{"_admin.schedule", "w"},
+        "io.github.carlos_emr.carlos.admin.gate.ViewKeygenCreateKey2Action", new String[]{"_admin", "w"});
 
     /**
      * One case per route and write parameter in {@link HttpMethodGuardFilter#MUTATION_INTENT_PARAMS_BY_ROUTE},
@@ -1132,6 +1139,10 @@ class MutatorActionGetRejectionContractUnitTest {
                             AppointmentLocationService.class, Mockito::mock),
                     (org.springframework.transaction.PlatformTransactionManager) autoMocks.computeIfAbsent(
                             org.springframework.transaction.PlatformTransactionManager.class, Mockito::mock));
+        }
+        if (actionClass.equals(ViewKeygenCreateKey2Action.class)) {
+            // The shared granting SecurityInfoManager, so the declared privilege tuple is checked on it.
+            return new ViewKeygenCreateKey2Action(SpringUtils.getBean(SecurityInfoManager.class));
         }
         if (actionClass.equals(DelEForm2Action.class)) {
             return new DelEForm2Action(mock(SecurityInfoManager.class));

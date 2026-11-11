@@ -4598,12 +4598,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "notes": "All earlier steps pass on 2026.08.0~alpha19 (the old note that the Key Manager buttons post without the context path is out of date). Last, after a step that asserts the probe service name is free, pinned to app-findings-log.md finding 163: a GET of admin/ViewKeygenCreateKey?name=<service> must be refused by the application (403/405) and add no publicKeys row; createKey.jsp creates the key pair for any request that carries a name, so a cross-site GET registers keys.",
-      "expectedFailure": {
-        "finding": 163,
-        "step": "a GET of Create Key that names a service is refused and registers no key pair"
-      },
-      "fixtures": "Creates and deletes one marker-named ServiceClient through the UI. Seeds one marker publicKeys row with a fresh RSA-2048 pair and links a demo specialist id only on that row. Removes the client, the key, any key the pinned GET probe registers under the marker-get service name and the key's PublicKey read-audit log rows."
+      "notes": "REST Clients round trip, key manager read and buttons, then Key Pair Creation (app-findings-log.md finding 163, fixed under #6055): a GET of admin/ViewKeygenCreateKey?name=<service> is refused by the application (403/405) and adds no publicKeys row; through the page's form the server pair is created once (or refused when one exists) and a service pair is created and downloaded as a no-store keyPair.key whose keys match the stored ones, with no page rendered after the file; the same service again is refused on the page; a POST without the CSRF token is refused.",
+      "fixtures": "Creates and deletes one marker-named ServiceClient through the UI. Seeds one marker publicKeys row with a fresh RSA-2048 pair and links a demo specialist id only on that row; creates one more marker publicKeys row through Key Pair Creation. Removes the client, the marker keys (including any a refused probe registers under the marker-get and marker-nocsrf names), the key's PublicKey read-audit log rows and, only when this run created it and it is unchanged, the server oscarKeys pair; the downloaded key file is deleted as soon as it is read."
     },
     {
       "name": "admin-email-config",
