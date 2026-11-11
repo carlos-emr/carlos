@@ -345,7 +345,8 @@ test('shouldNeverPinAStepThatIsADemotedLabel_inAnyManifestEntry', () => {
   // failure elsewhere into a "known failure".
   const demotions = /\((?:precondition|not reached|other browser problems|no outcome)\)$/;
   const pinned = manifest.checks.filter((check) => check.expectedFailure);
-  assert.ok(pinned.length > 10, 'the manifest pins more than a handful of steps');
+  // Today's exact count: retiring another pin updates this floor deliberately.
+  assert.ok(pinned.length >= 20, 'the manifest pins more than a handful of steps');
   for (const check of pinned) {
     assert.doesNotMatch(check.expectedFailure.step, demotions, `${check.name} pins a demoted label`);
   }
