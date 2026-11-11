@@ -222,3 +222,23 @@ does not replace the complete same-source native-lane union for broader release
 qualification. Native Node 22.22.1 passes all 7,911 cases without skips,
 cancellations or source mutation; Python 3.14 passes 405 CI and 30 coverage-tooling
 tests.
+
+PR #6135 refreshes the inbox/review source at `3e6960be26b` from a complete
+36,223-case H2 run with zero failures/errors and 212 registered routed/prerequisite
+skips. Complete final retakes of four augmented action/upload/report-identity
+classes pass 144 cases without skips; replacing only those four reports yields
+36,230 verified cases (36,018 passes, 212 routed skips). Both focused physical
+MariaDB 11.8.8 Flyway lanes pass 116 cases separately for ON and BC, without skips.
+All 6,320 production class hashes match across these executions and the
+browser-tested WAR; all five Ontario browser checks pass their 19 steps.
+
+The fresh comparison records 752 source floors and the same six nonexecutable
+exclusions, preserving 114 higher historical metrics across 53 files and every
+required refusal line. All 22 Java paths changed against this PR's release base
+meet their retained floors. The wider release comparison still refuses 191
+assertions, including 77 unreviewed zero floors; no waiver or threshold reduction
+is introduced. This establishes source freshness and measured PR coverage, and
+does not replace the complete same-source native-lane union for release
+qualification. Node 22.22.1 passes all 7,914 regression cases without skips,
+cancellations or source mutation; the release/coverage Python self-tests pass
+405 and 30 cases respectively.
