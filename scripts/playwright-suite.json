@@ -9356,6 +9356,21 @@
       "notes": "The stale second Discontinue is refused with HTTP 409 and an alert; the first reason and date stand and the chart keeps one discontinue note (issue #4225: RxDeleteRx2Action claims the active row with a conditional archive and files the note in the same transaction)."
     },
     {
+      "name": "concurrency-rx-represcribe-archived-source",
+      "script": "scripts/concurrency-rx-represcribe-archived-source-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "Two owned custom medications seeded by SQL for the owned FAKE- patient (the raced source and an untouched control); cleanup deletes the patient's drugs, prescriptions, drugReason, DigitalSignature and discontinue chart notes with their links and asserts none remain. Two sessions of the shared test login.",
+      "notes": "Issue #5987: session A stages a re-prescription of a medication that session B then discontinues; A's Save Only still writes the new copy, but the source keeps B's archive reason and date (it is not overwritten with 'represcribed'), while an untouched control source is archived as 'represcribed'."
+    },
+    {
       "name": "concurrency-chart-note-takeover",
       "script": "scripts/concurrency-chart-note-takeover-playwright-checks.js",
       "tiers": [
