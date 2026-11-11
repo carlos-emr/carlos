@@ -172,16 +172,17 @@ class PortalEmailFooterAuditUnitTest {
             assertThat(saved.footerText()).isNull();
         }
     }
+    /** Words that would claim an outcome, per locale: the skipped wording is shown under every status. */
+    private static final Map<String, List<String>> OUTCOME_WORDS = Map.of(
+            "en", List.of("sent", "delivered", "accepted", "failed"),
+            "fr", List.of("envoy", "livr", "accept", "chou", "\u00e9chec"),
+            "es", List.of("enviad", "envi\u00f3", "entregad", "aceptad", "fall"),
+            "pl", List.of("wys\u0142an", "dostarczon", "zaakceptowan", "przyj\u0119t", "nieudan", "niepowodz"),
+            "pt_BR", List.of("enviad", "entregue", "aceit", "falh"));
     @Test void shouldNotClaimAnOutcome_inTheSkippedSentence() throws Exception {
         // The sentence is shown under every status: prepared, accepted, failed and unknown. The
         // summary line above it says how the attempt ended, so the sentence must not.
-        Map<String, List<String>> outcomeWords = Map.of(
-                "en", List.of("sent", "delivered", "accepted", "failed"),
-                "fr", List.of("envoy", "livr", "accept", "chou", "\u00e9chec"),
-                "es", List.of("enviad", "envi\u00f3", "entregad", "aceptad", "fall"),
-                "pl", List.of("wys\u0142an", "dostarczon", "zaakceptowan", "przyj\u0119t", "nieudan", "niepowodz"),
-                "pt_BR", List.of("enviad", "entregue", "aceit", "falh"));
-        for (var locale : outcomeWords.entrySet()) {
+        for (var locale : OUTCOME_WORDS.entrySet()) {
             Properties bundle = new Properties();
             try (Reader reader = Files.newBufferedReader(Path.of(
                     "src/main/resources/oscarResources_" + locale.getKey() + ".properties"), StandardCharsets.ISO_8859_1)) {
@@ -190,6 +191,24 @@ class PortalEmailFooterAuditUnitTest {
             String sentence = bundle.getProperty("admin.configureEmail.portalFooter.skipped").toLowerCase(Locale.ROOT);
             for (String word : locale.getValue())
                 assertThat(sentence).as(locale.getKey()).doesNotContain(word);
+        }
+    }
+    @Test void shouldMarkSkippedRows_inEveryLocale() throws Exception {
+        // A collapsed row sent without the footer ends with this marker. It is the opening of the
+        // expanded sentence in the same words, and like it says nothing about the outcome, which
+        // the same line already states.
+        for (var locale : OUTCOME_WORDS.entrySet()) {
+            Properties bundle = new Properties();
+            try (Reader reader = Files.newBufferedReader(Path.of(
+                    "src/main/resources/oscarResources_" + locale.getKey() + ".properties"), StandardCharsets.ISO_8859_1)) {
+                bundle.load(reader);
+            }
+            String marker = bundle.getProperty("admin.configureEmail.portalFooter.skippedMarker");
+            assertThat(marker).as(locale.getKey()).isNotBlank().doesNotContain("'", "{", "<", "(");
+            assertThat(bundle.getProperty("admin.configureEmail.portalFooter.skipped"))
+                    .as(locale.getKey()).startsWith(marker + " (");
+            for (String word : locale.getValue())
+                assertThat(marker.toLowerCase(Locale.ROOT)).as(locale.getKey()).doesNotContain(word);
         }
     }
     @Test void shouldLabelEverySkipReason_inEveryLocale() throws Exception {

@@ -52,6 +52,8 @@
                                     <carlos:encode value="${attempt.preparedAt}"/> &#8212;
                                     <fmt:message key="admin.configureEmail.portalFooter.kind.${attempt.kind}"/> &#8212;
                                     <fmt:message key="admin.configureEmail.portalFooter.status.${attempt.status}"/>
+                                    <%-- Said on the collapsed line too, so a send without the footer is found without opening each row. --%>
+                                    <c:if test="${not empty attempt.footerSkipped}">&#8212; <fmt:message key="admin.configureEmail.portalFooter.skippedMarker"/></c:if>
                                 </summary>
                                 <c:if test="${not empty attempt.statusAt}">
                                     <p><fmt:message key="admin.configureEmail.portalFooter.statusTime"/> <carlos:encode value="${attempt.statusAt}"/></p>

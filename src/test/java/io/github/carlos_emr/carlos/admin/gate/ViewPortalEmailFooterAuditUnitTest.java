@@ -129,6 +129,32 @@ class ViewPortalEmailFooterAuditUnitTest {
         assertThat(otherwise).contains("<pre class=\"mt-2\" style=\"white-space:pre-wrap;\"><carlos:encode value=\"${attempt.footerText}\"/></pre>");
         assertThat(org.jsoup.Jsoup.parse(jsp).select("pre")).hasSize(1);
     }
+    private static final String SKIPPED_MARKER="<c:if test=\"${not empty attempt.footerSkipped}\">&#8212; "
+            +"<fmt:message key=\"admin.configureEmail.portalFooter.skippedMarker\"/></c:if>";
+    private static String attemptSummary(String jsp){
+        int row=jsp.indexOf("<details class=\"portal-footer-attempt");
+        assertThat(row).isPositive();
+        return jsp.substring(jsp.indexOf("<summary>",row),jsp.indexOf("</summary>",row));
+    }
+    @Test void shouldEndSkippedRowsCollapsedLine_withTheMarker() throws Exception {
+        String jsp=Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/portalFooterAudit.jspf"));
+        // A row sent without the footer says so on its collapsed line, after its status, so it is
+        // found without opening each row. The key is used nowhere else on the page.
+        String summary=attemptSummary(jsp);
+        assertThat(summary).contains(SKIPPED_MARKER);
+        assertThat(summary.indexOf(SKIPPED_MARKER)).isGreaterThan(summary.indexOf("status.${attempt.status}"));
+        assertThat(jsp.split("portalFooter\\.skippedMarker",-1)).hasSize(2);
+    }
+    @Test void shouldLeaveOrdinaryRowsCollapsedLine_unchanged() throws Exception {
+        String jsp=Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/portalFooterAudit.jspf"));
+        // An ordinary row has no footerSkipped (the page parser leaves it null), so the marker's
+        // condition is false and its line is time, kind and status only, as before.
+        String ordinary=attemptSummary(jsp).replace(SKIPPED_MARKER,"").replaceAll("(?s)<%--.*?--%>","");
+        assertThat(ordinary).contains("<carlos:encode value=\"${attempt.preparedAt}\"/> &#8212;",
+                "<fmt:message key=\"admin.configureEmail.portalFooter.kind.${attempt.kind}\"/> &#8212;",
+                "<fmt:message key=\"admin.configureEmail.portalFooter.status.${attempt.status}\"/>")
+                .doesNotContain("footerSkipped","skipped","<c:");
+    }
     @Test void shouldUseNativeCollapsedDetails_andEscapedSavedPlaintext() throws Exception {
         String jsp=Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/portalFooterAudit.jspf"));
         var doc=org.jsoup.Jsoup.parse(jsp);
