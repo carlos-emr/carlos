@@ -1032,7 +1032,8 @@
     "test:rx-preview-loading-notes-playwright": "node scripts/rx-preview-loading-notes-playwright-checks.js",
     "test:tickler-calendar-quick-picks-playwright": "node scripts/tickler-calendar-quick-picks-playwright-checks.js",
     "test:server-table-page-playwright": "node scripts/server-table-page-playwright-checks.js",
-    "test:consultation-correctness-playwright": "node scripts/consultation-correctness-playwright-checks.js"
+    "test:consultation-correctness-playwright": "node scripts/consultation-correctness-playwright-checks.js",
+    "test:server-table-installed-playwright": "node scripts/server-table-installed-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
