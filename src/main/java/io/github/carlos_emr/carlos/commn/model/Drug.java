@@ -52,7 +52,6 @@ import jakarta.persistence.TemporalType;
 import jakarta.persistence.Transient;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.builder.ToStringBuilder;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.prescript.util.RxUtil;
@@ -62,6 +61,14 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 @Entity
 @Table(name = "drugs")
 public class Drug extends AbstractModel<Integer> implements Serializable {
+
+    @jakarta.persistence.Version
+    @Column(name = "row_version", nullable = false)
+    @org.hibernate.annotations.ColumnDefault("0")
+    private Long rowVersion;
+
+    public Long getRowVersion() { return rowVersion; }
+    public void setRowVersion(Long version) { this.rowVersion = version; }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -147,6 +154,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @Column(name = "outside_provider_ohip")
     private String outsideProviderOhip = null;
     @Column(name = "hide_from_drug_profile")
+    @org.hibernate.annotations.OptimisticLock(excluded = true)
     private Boolean hideFromDrugProfile;
     @Column(name = "custom_note")
     private Boolean customNote = false;
@@ -171,6 +179,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     private Boolean cdsProjectionIncomplete;
     @Column(name = "hide_cpp")
     @Convert(converter = LegacyFalseFlagConverter.class)
+    @org.hibernate.annotations.OptimisticLock(excluded = true)
     private boolean hideFromCpp;
     @Column(name = "refill_duration")
     private Integer refillDuration;
@@ -179,6 +188,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @Column(name = "dispense_interval")
     private String dispenseInterval;
     @Column(name = "position")
+    @org.hibernate.annotations.OptimisticLock(excluded = true)
     private Integer position;
     @Column(name = "start_date_unknown")
     @Convert(converter = LegacyFalseFlagConverter.class)
@@ -186,6 +196,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     private String comment;
 
     @Temporal(TemporalType.TIMESTAMP)
+    @org.hibernate.annotations.OptimisticLock(excluded = true)
     private Date lastUpdateDate;
 
     private Boolean dispenseInternal = false;
@@ -860,9 +871,10 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         return (id != null ? id.hashCode() : 0);
     }
 
+    /** Uses the base model diagnostic without formatting medication data. */
     @Override
     public String toString() {
-        return ToStringBuilder.reflectionToString(this);
+        return super.toString();
     }
 
     /**

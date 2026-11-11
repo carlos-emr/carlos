@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.encounter.data;
 
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
+import io.github.carlos_emr.carlos.commn.dao.StudyDao;
+import io.github.carlos_emr.carlos.commn.dao.forms.FormGrowth0To36Dao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.form.data.FrmData;
@@ -36,30 +38,31 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
+import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
+import org.springframework.test.util.ReflectionTestUtils;
+import jakarta.persistence.EntityManager;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.when;
 
 /**
  * Pins the contract behind the eChart Forms module item (issue #4678): the row the item is
  * dated from, {@link EctFormData#getShortcutLatestPatientForm(String, String)}, is the row its
  * {@code formId=latest} link opens, {@link FrmData#getShortcutFormValue(String, String)}.
  *
- * <p>Both real lookups run their real SQL through {@link LegacyJdbcQuery} against an isolated
- * H2 database owned by each test. Only the form registry and the thread-scoped Spring bean
- * lookup are mocked. The table is registered as {@code formGrowth0_36}, a built-in table that
- * {@code EctFormData} accepts without consulting its class-level registry DAO, so the result
- * does not depend on which test first loaded that class in a reused fork.</p>
+ * <p>Both lookups run against an isolated H2 database owned by each test: the form registry
+ * through the real {@code EncounterFormDaoImpl}, and the Growth rows through the real Growth JPA
+ * DAO. Only the thread-scoped Spring bean lookup is mocked. The table has just its headers, which
+ * proves that the list and shortcut projections do not load every form field. Each test owns the
+ * registry and database, so reused forks cannot retain another test's mock DAO.</p>
  */
 @Tag("integration")
 @Tag("form")
@@ -72,9 +75,12 @@ class EctFormDataShortcutLatestIntegrationTest {
     private static final String PATIENT = "101";
     private static final String OTHER_PATIENT = "202";
 
+    private io.github.carlos_emr.carlos.test.base.NativeDaoTestDatabase nativeDatabase;
     private Connection keeper;
     private JdbcTemplate jdbc;
     private MockedStatic<SpringUtils> spring;
+    private LocalContainerEntityManagerFactoryBean persistence;
+    private EntityManager entityManager;
 
     @BeforeEach
     void createOwnedDatabase() throws SQLException {
@@ -85,16 +91,28 @@ class EctFormDataShortcutLatestIntegrationTest {
         jdbc = new JdbcTemplate(source);
         jdbc.execute("CREATE TABLE " + FORM_TABLE + " (ID INT PRIMARY KEY, demographic_no INT NOT NULL,"
                 + " formCreated DATE NULL, formEdited TIMESTAMP NULL)");
+        persistence = new LocalContainerEntityManagerFactoryBean();
+        persistence.setDataSource(source);
+        persistence.setPackagesToScan("io.github.carlos_emr.carlos.form.model");
+        persistence.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
+        persistence.setJpaPropertyMap(java.util.Map.of("hibernate.hbm2ddl.auto", "none"));
+        persistence.afterPropertiesSet();
+        entityManager = persistence.getObject().createEntityManager();
+        FormGrowth0To36Dao growth = new FormGrowth0To36Dao();
+        ReflectionTestUtils.setField(growth, "entityManager", entityManager);
 
         var registration = new EncounterForm();
         registration.setFormName(FORM_NAME);
         registration.setFormTable(FORM_TABLE);
         registration.setFormValue(FORM_PATH);
-        var forms = mock(EncounterFormDao.class);
-        when(forms.findByFormName(FORM_NAME)).thenReturn(List.of(registration));
+        nativeDatabase = new io.github.carlos_emr.carlos.test.base.NativeDaoTestDatabase(source);
+        var forms = nativeDatabase.dao(io.github.carlos_emr.carlos.commn.dao.EncounterFormDaoImpl.class);
+        nativeDatabase.transaction(() -> forms.persist(registration));
         spring = mockStatic(SpringUtils.class);
         spring.when(() -> SpringUtils.getBean(DataSource.class)).thenReturn(source);
         spring.when(() -> SpringUtils.getBean(EncounterFormDao.class)).thenReturn(forms);
+        spring.when(() -> SpringUtils.getBean(StudyDao.class)).thenReturn(nativeDatabase.dao(StudyDao.class));
+        spring.when(() -> SpringUtils.getBean(FormGrowth0To36Dao.class)).thenReturn(growth);
     }
 
     @AfterEach
@@ -103,8 +121,11 @@ class EctFormDataShortcutLatestIntegrationTest {
             LegacyJdbcQuery.releaseThreadResources();
         } finally {
             try {
+                if (entityManager != null) entityManager.close();
+                if (persistence != null) persistence.destroy();
                 if (spring != null) spring.close();
             } finally {
+                if (nativeDatabase != null) nativeDatabase.close();
                 if (keeper != null) keeper.close();
             }
         }
@@ -123,6 +144,20 @@ class EctFormDataShortcutLatestIntegrationTest {
         // The creation-ordered list the module used before #4678 leads with the other row.
         assertThat(EctFormData.getPatientFormsFromLocalAndRemote(null, PATIENT, FORM_TABLE)[0].getFormId())
                 .isEqualTo("20");
+    }
+
+    @Test
+    void shouldPreserveLegacyXmlFormDates_whenHistoryUsesFormNumbers() {
+        jdbc.execute("CREATE TABLE form (form_no INT PRIMARY KEY, demographic_no INT, form_date TIMESTAMP)");
+        jdbc.update("INSERT INTO form VALUES (21,101,'2026-03-09 14:00:00'),(22,202,'2026-04-01 09:00:00')");
+        var forms = EctFormData.getPatientFormsAsArrayList(PATIENT, "XML", "form");
+        assertThat(forms).hasSize(1);
+        assertThat(forms.get(0).getFormId()).isEqualTo("21");
+        assertThat(forms.get(0).getTable()).isEqualTo("form");
+        assertThat(forms.get(0).getCreated()).isEqualTo("09-03-2026");
+        assertThat(forms.get(0).getEdited()).isEqualTo("09-03-2026 00:00:00");
+        assertThat(EctFormData.getGroupedPatientFormsAsArrayList(PATIENT, "XML", "form", null))
+                .extracting(EctFormData.PatientForm::getFormId).containsExactly("21");
     }
 
     @Test
@@ -190,6 +225,25 @@ class EctFormDataShortcutLatestIntegrationTest {
 
         assertThat(EctFormData.getShortcutLatestPatientForm(PATIENT, FORM_TABLE)).isNull();
         assertThat(new FrmData().getShortcutFormValue(PATIENT, FORM_NAME)).containsExactly(FORM_PATH, "0");
+    }
+
+    @Test
+    void shouldUseTypedHistoryForStudyAndListReads_whenGrowthIsRegistered() throws SQLException {
+        // The Growth registration persisted in setUp is the encounterForm row the study joins to.
+        jdbc.execute("CREATE TABLE study (study_no VARCHAR(20), form_name VARCHAR(100))");
+        jdbc.update("INSERT INTO study VALUES (?, ?)", "growth-study", FORM_NAME);
+        insert(10, PATIENT, "2026-01-05", "2026-03-09 14:00:00");
+        insert(20, PATIENT, "2026-02-10", "2026-02-10 09:00:00");
+        insert(900, OTHER_PATIENT, "2030-01-02", "2030-01-02 12:00:00");
+        FrmData data = new FrmData();
+        assertThat(data.getPatientForms(PATIENT, FORM_TABLE)).extracting(FrmData.PatientForm::getFormId)
+                .containsExactly("20", "10");
+        var current = data.getCurrentPatientForm(PATIENT, "growth-study");
+        assertThat(current.getFormId()).isEqualTo("20");
+        assertThat(current.getCreated()).isEqualTo("26/02/10");
+        assertThat(current.getEdited()).isEqualTo("26/02/10");
+        assertThat(data.getCurrentPatientForm("303", "growth-study")).isNull();
+        assertAgreesWithShortcut(PATIENT, "10");
     }
 
     private EctFormData.PatientForm assertAgreesWithShortcut(String patient, String expectedId) throws SQLException {

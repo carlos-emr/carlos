@@ -1,3 +1,4 @@
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%--
 
 
@@ -39,14 +40,20 @@
         </tr>
     </table>
 </div>
-<display:table class="simple" cellspacing="2" cellpadding="3"
-               id="functional" name="functional_users" export="false" pagesize="0"
-               requestURI="${programManagerViewFunctionUsersUri}">
-    <display:setProperty name="paging.banner.placement" value="bottom"/>
-    <display:setProperty name="basic.msg.empty_list"
-                         value="No functional users defined for this program"/>
-    <display:column property="userType.name" sortable="true"
-                    title="User Type"/>
-    <display:column property="provider.formattedName" sortable="true"
-                    title="Provider Name"/>
-</display:table>
+<c:if test="${not empty functional_users}">
+<table class="carlos-table-spaced simple" id="functional" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
+
+
+    <th scope="col"><span data-table-sort>User Type</span></th>
+    <th scope="col"><span data-table-sort>Provider Name</span></th>
+</tr></thead>
+<tbody><c:forEach var="functional" items="${functional_users}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(functional.userType.name))}" data-sort-type="${carlos:tableSortType(functional.userType.name)}">${carlos:forHtml(functional.userType.name)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(functional.provider.formattedName))}" data-sort-type="${carlos:tableSortType(functional.provider.formattedName)}">${carlos:forHtml(functional.provider.formattedName)}</td>
+</tr></c:forEach></tbody>
+</table>
+</c:if>
+<c:if test="${empty functional_users}">No functional users defined for this program</c:if>

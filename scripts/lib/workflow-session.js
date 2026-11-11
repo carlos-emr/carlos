@@ -140,6 +140,7 @@ async function cleanupOwnedWorkflow({ browser, sql, patient, marker, cleanups, p
         if (patientFixture) await patientFixture.cleanup({browserClosed});
         else {
           const supportRows = [
+            ['rx_submission_receipt', 'demographic_no'],
             ['casemgmt_note_lock', 'demographic_no'], ['casemgmt_tmpsave', 'demographic_no'],
             ['measurementsDeleted', 'demographicNo'], ['demographicExt', 'demographic_no'],
             ['demographicArchive', 'demographic_no'],

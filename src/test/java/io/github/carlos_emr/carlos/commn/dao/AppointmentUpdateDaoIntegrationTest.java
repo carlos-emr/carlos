@@ -57,6 +57,7 @@ class AppointmentUpdateDaoIntegrationTest {
     private final LoggedInInfo clientA = mock(LoggedInInfo.class);
     private final LoggedInInfo clientB = mock(LoggedInInfo.class);
     private int id;
+    private SecurityInfoManager security;
 
     @BeforeEach
     void setup() throws Exception {
@@ -106,7 +107,7 @@ class AppointmentUpdateDaoIntegrationTest {
         var target = new ScheduleManagerImpl();
         ReflectionTestUtils.setField(target, "oscarAppointmentDao", appointments);
         ReflectionTestUtils.setField(target, "appointmentArchiveDao", archives);
-        var security = mock(SecurityInfoManager.class);
+        security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(any(), eq("_appointment"), eq("w"), isNull())).thenReturn(true);
         ReflectionTestUtils.setField(target, "securityInfoManager", security);
         when(clientA.getLoggedInProviderNo()).thenReturn("FAKE-A");
@@ -170,6 +171,37 @@ class AppointmentUpdateDaoIntegrationTest {
                     .isEqualTo(archiveCount);
             return null;
         });
+    }
+
+    @Test
+    void shouldRefuseStoredPatient_beforeArchivalOrMutation() {
+        tx(em -> { em.find(Appointment.class,id).setDemographicNo(42); return null; });
+        assertThatThrownBy(() -> save(clientA,null,row -> row.setReason("FAKE-denied")))
+                .isInstanceOf(jakarta.ws.rs.ForbiddenException.class);
+        assertState("FAKE-original",0);
+        assertThat(read().getDemographicNo()).isEqualTo(42);
+    }
+
+    @Test
+    void shouldRollbackArchiveAndEdit_whenReplacementPatientIsDenied() {
+        tx(em -> { em.find(Appointment.class,id).setDemographicNo(42); return null; });
+        when(security.hasPrivilege(clientA,"_appointment","w","42")).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(clientA,42)).thenReturn(true);
+        assertThatThrownBy(() -> save(clientA,null,row -> {
+            row.setReason("FAKE-denied"); row.setDemographicNo(43);
+        })).isInstanceOf(jakarta.ws.rs.ForbiddenException.class);
+        assertState("FAKE-original",0);
+        assertThat(read().getDemographicNo()).isEqualTo(42);
+    }
+
+    @Test
+    void shouldAllowAssignedPatientWrite_withoutReadPermission() {
+        tx(em -> { em.find(Appointment.class,id).setDemographicNo(42); return null; });
+        when(security.hasPrivilege(clientA,"_appointment","w","42")).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(clientA,42)).thenReturn(true);
+        save(clientA,null,row -> row.setReason("FAKE-write-only"));
+        assertState("FAKE-write-only",1);
+        verify(security,never()).hasPrivilege(any(),eq("_appointment"),eq("r"),any());
     }
 
     @Test

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd">
+    <bean id="formGrowth0To36Dao" class="io.github.carlos_emr.carlos.commn.dao.forms.FormGrowth0To36Dao"/>
+    <bean id="growth0To36FormService" class="io.github.carlos_emr.carlos.form.Growth0To36FormService">
+        <constructor-arg ref="formGrowth0To36Dao"/>
+        <constructor-arg ref="demographicManager"/>
+        <constructor-arg ref="securityInfoManager"/>
+    </bean>
+</beans>

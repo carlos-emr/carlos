@@ -120,6 +120,9 @@ def load_plan(path=DEFAULT_PLAN, root=ROOT):
     plan = read_json(path)
     if plan.get("schemaVersion") != 1 or plan.get("targetBranch") != "release/2026.08":
         raise EvidenceError("Wrong plan schema or target branch")
+    bindings = plan.get("pathBindings", {})
+    if not isinstance(bindings, dict) or any(not isinstance(binding, dict) for binding in bindings.values()):
+        raise EvidenceError("Path bindings must map paths to objects")
     work = plan.get("workstreams", [])
     if len(work) != 40 or {row.get("id") for row in work} != {f"T{i:02}" for i in range(1, 41)}:
         raise EvidenceError("The 40 reviewed workstreams must appear exactly once")
@@ -202,6 +205,8 @@ def load_plan(path=DEFAULT_PLAN, root=ROOT):
                     continue
                 if not isinstance(case, dict) or not isinstance(case.get("name"), str) or not case["name"] or not isinstance(case.get("container", ""), str):
                     raise EvidenceError("Invalid Java route case")
+                if "check" in case and (case["check"] not in names or case["check"] == check["id"]):
+                    raise EvidenceError("Java case override must route to a different required check")
                 if "destinations" in case:
                     targets = case["destinations"]
                     if not isinstance(targets, list) or not targets or any(
@@ -251,7 +256,8 @@ def load_plan(path=DEFAULT_PLAN, root=ROOT):
     return plan
 
 
-def junit_results(directory: Path, check):
+def junit_results(directory: Path, check, *, cases_out=None):
+    """Validate reports once, optionally retaining their exact parsed cases."""
     if directory.is_symlink() or not directory.is_dir():
         raise EvidenceError("Missing or symlinked Java report directory")
     files = sorted(directory.glob("TEST-*.xml"))
@@ -270,6 +276,8 @@ def junit_results(directory: Path, check):
                 raise EvidenceError("Report belongs to another lane")
             suite = suite.removesuffix("-" + suffix)
         cases = read_surefire(path, suite, suffix, collisions)
+        if cases_out is not None:
+            cases_out.extend(cases)
         family = suite.rsplit(".", 1)[-1].split("$", 1)[0]
         families[family] = families.get(family, 0) + len(cases)
         for case in cases:
@@ -286,7 +294,7 @@ def junit_results(directory: Path, check):
                     expected = {"name": item} if isinstance(item, str) else item
                     if expected["name"] == case.name and expected.get("container", "") == case.container:
                         routed_case = {"classname": case.classname, "container": case.container,
-                                       "name": case.name, "check": route["check"]}
+                                       "name": case.name, "check": expected.get("check", route["check"])}
                         if "destinations" in expected:
                             routed_case["destinations"] = expected["destinations"]
                         routed.append(routed_case)

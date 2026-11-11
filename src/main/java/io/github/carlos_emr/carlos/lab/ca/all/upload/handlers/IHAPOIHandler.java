@@ -106,10 +106,10 @@ public class IHAPOIHandler implements MessageHandler {
 
         } catch (ExceptionInInitializerError e) {
             result = new StringBuilder(FAILED + messageId + ",");
-            logger.error("There was an unknown internal error with file {} message id {}", LogSafe.sanitize(fileName), LogSafe.sanitize(messageId), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.error("Internal error while importing IHAPOI message: {}", LogSafe.exceptionTrace(e));
         } catch (Exception e) {
             result = new StringBuilder(FAILED + messageId + ",");
-            logger.error("Could not upload IHAPOI message {} due to an error with message id {}", LogSafe.sanitize(fileName), LogSafe.sanitize(messageId), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.error("Could not import IHAPOI message: {}", LogSafe.exceptionTrace(e));
         } finally {
             if (FAILED.equals(result.toString().split(":")[0] + ":")) {
                 logger.error("Cleaning up MessageUploader file.");
@@ -260,7 +260,7 @@ public class IHAPOIHandler implements MessageHandler {
             try {
                 file = PathValidationUtils.validateUpload(new File(fileName));
             } catch (SecurityException uploadPathFailure) {
-                logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                logger.error("Path traversal attempt detected");
                 throw new IllegalArgumentException("Invalid file path - access denied", uploadPathFailure);
             }
         }

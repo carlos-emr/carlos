@@ -65,6 +65,7 @@ def first_login(profile, browser):
     environment = {**os.environ, 'BASE_URL': 'https://127.0.0.1/carlos',
         'CHROME_PATH': browser, 'EXPECT_FRONT_DOOR': 'true', 'MYSQL_HOST': 'localhost',
         'MYSQL_USER': 'root', 'MYSQL_PASSWORD': 'unused-socket-auth', 'MYSQL_DATABASE': 'carlos',
+        'CARLOS_REPORT_SERVER_HOME': '/var/lib/carlos-emr',
         'CARLOS_DISPOSABLE_HOST': 'true', 'CARLOS_SUITE_PROVINCE': profile,
         'ADMIN_FILE': str(adapter.ADMIN_FILE), 'NEW_PASSWORD': password,
         'TEST_USER': fields['user:'], 'TEST_PIN': fields['PIN:'], 'TEST_PASSWORD': password}
@@ -111,8 +112,13 @@ def smoke(environment, phase, selection=None):
          '--province', environment['CARLOS_SUITE_PROVINCE'], '--junit', str(path)]
     for name in selection or ():
         command += ['--only', name]
+    uses_fault_adapter = selection is None or 'error-sanitization' in selection
+    # Only the error check provisions its temporary routes. Other clients must
+    # observe the unmodified installed descriptor. Retain its restart budget.
     run(command,
-        phase, environment=environment, timeout=600, browser=True)
+        # Two restarts (120 + 420 seconds each), compilation (60), counters
+        # (40), the existing 600-second suite and restoration headroom.
+        phase, environment=environment, timeout=1860 if uses_fault_adapter else 600, browser=True)
     profile = environment['CARLOS_SUITE_PROVINCE']
     manifest = gate.read_json(gate.ROOT / 'scripts/playwright-suite.json')['checks']
     selected = list(selection) if selection else [row['name'] for row in manifest if 'smoke' in row.get('tiers', []) and not row.get('manual')
@@ -319,6 +325,9 @@ def main():
         assertions['documents-cleanup-preserved'] = documents
         set_expected_build(environment, package_contents(Path(context['target']['emr']['path']), context['target']['emr']['sha256']))
         read_only(environment, 'read-only-after'); assertions['read-only-state-preserved'] = True
+        # Keep runtime-dependency checks free of fixture-only compiler prerequisites.
+        run(['apt-get', 'install', '-y', '--no-install-recommends', 'openjdk-25-jdk-headless'],
+            'fault-fixture-compiler', environment={**os.environ, 'DEBIAN_FRONTEND': 'noninteractive'})
         smoke(environment, 'client-after'); assertions['unchanged-client-after'] = True
         details['candidateDeployment'] = attest(Path(context['war']['path']), base_url=environment['BASE_URL'])
         assertions['candidate-application-bound'] = True

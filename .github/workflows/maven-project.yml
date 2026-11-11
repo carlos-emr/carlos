@@ -51,6 +51,8 @@
 name: Check Carlos EMR
 
 on:
+  push:
+    branches: [main, 'release/**']
   workflow_call:
     inputs:
       ref:
@@ -114,6 +116,26 @@ jobs:
             make install
           "
 
+      - name: Verify native XML objects and unchanged published clients
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" target
+          python3 -m pip install --require-hashes --target target/native-xml-python -r scripts/ci/requirements.txt
+          mkdir -p target/native-xml-input
+          curl --fail --location --retry 2 \
+            --output target/native-xml-input/main.deb \
+            https://github.com/carlos-emr/carlos/releases/download/2026.08.0-beta6/carlos-emr_2026.08.0.beta6_amd64.deb
+          docker exec -e PYTHONPATH=/workspace/target/native-xml-python carlos-tomcat-dev bash -euc '
+            shopt -s nullglob
+            wars=(target/*.war)
+            test "${#wars[@]}" -eq 1
+            mvn -B -ntp dependency:get -Dartifact=org.apache.tomcat:tomcat-jsp-api:11.0.27 -Dtransitive=false
+            python3 scripts/ci/run-native-xml-binary-contracts.py \
+              --main-package target/native-xml-input/main.deb \
+              --candidate "${wars[0]}" \
+              --tomcat-jsp-api /root/.m2/repository/org/apache/tomcat/tomcat-jsp-api/11.0.27/tomcat-jsp-api-11.0.27.jar \
+              --output target/native-xml-contracts
+          '
+
       - name: Compile packaged Edit Appointment servlet
         run: |
           docker exec carlos-tomcat-dev bash -c '
@@ -130,12 +152,23 @@ jobs:
         if: always()
         run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE"
 
+      - name: Preserve native XML compatibility evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-xml-compatibility
+          path: target/native-xml-contracts/
+          if-no-files-found: error
+          retention-days: 14
+
   tests:
     # No dependency on the build job: make install --run-tests compiles from
     # scratch itself, and the Maven cache it restores has a prefix fallback, so
     # waiting for build only added its ~4.5 min to the critical path.
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    # Includes the full suite, permission/compatibility/time-zone retakes,
+    # the renderer font matrix and retained PDF evidence.
+    timeout-minutes: 60
     permissions:
       contents: read
       packages: read
@@ -160,6 +193,25 @@ jobs:
             echo '========================================='
             make install --run-tests
           "
+
+      - name: Exercise and verify permission-sensitive startup refusal
+        run: |
+          docker exec carlos-tomcat-dev bash scripts/check-ci-permission-test.sh
+          python3 -m pip install --require-hashes -r scripts/ci/requirements.txt
+          python3 scripts/ci/verify-h2-reports.py --reports target/surefire-reports --permission-reports target/ci-permission-reports
+          test -s target/ci-permission-reports/jacoco.exec
+          test -s target/ci-permission-reports/coverage/jacoco.xml
+
+      - name: Exercise removed-library compatibility oracles
+        run: |
+          docker exec carlos-tomcat-dev bash -euc '
+            for artifact in com.eatthepath:java-otp:0.4.0 org.apache.ant:ant:1.10.18 com.google.zxing:javase:3.5.4 org.apache.velocity.tools:velocity-tools-generic:3.1; do
+              mvn -B -ntp dependency:get -Dartifact="$artifact" -Dtransitive=false
+            done
+            mvn -B -ntp test -Dtest=LegacyDependencyCompatibilityUnitTest -Dtest.forkCount=1 \
+              -Dlegacy.compatibility.repo=/root/.m2/repository -Dtest.reportsDirectory=target/ci-legacy-reports
+          '
+          python3 scripts/ci/verify-h2-reports.py --legacy-reports target/ci-legacy-reports
 
       - name: Verify demographic dates in non-UTC JVMs
         run: |
@@ -187,6 +239,8 @@ jobs:
               shutil.rmtree(destination)
           destination.mkdir(parents=True)
           reports = sorted(source.glob("TEST-*.xml"))
+          for extra in ("ci-permission-reports", "ci-legacy-reports"):
+              reports.extend(sorted((Path("target") / extra).glob("TEST-*.xml")))
           if not reports:
               print("::warning::No Surefire XML reports were generated; no Java failure inventory is available.")
           for report in reports:
@@ -201,7 +255,9 @@ jobs:
                   for child in list(parent):
                       if child.tag.rsplit("}", 1)[-1] in {"properties", "system-out", "system-err"}:
                           parent.remove(child)
-              tree.write(destination / report.name, encoding="utf-8", xml_declaration=True)
+              report_destination = destination if report.parent == source else destination / report.parent.name
+              report_destination.mkdir(parents=True, exist_ok=True)
+              tree.write(report_destination / report.name, encoding="utf-8", xml_declaration=True)
               # Derive concise TXT diagnostics from the safe copy, not console-output files.
               lines = [root.get("name", report.stem), " ".join(
                   f"{key}={root.get(key, 'unknown')}" for key in ("tests", "failures", "errors", "skipped", "time"))]
@@ -218,7 +274,7 @@ jobs:
                       print(f"::error title=Java test {kind}::{escaped_id}")
                       lines.extend([f"{kind.upper()}: {case.get('classname', '')}.{case.get('name', '')}",
                                     problem.get("type", ""), problem.get("message", ""), problem.text or ""])
-              (destination / (report.stem.removeprefix("TEST-") + ".txt")).write_text(
+              (report_destination / (report.stem.removeprefix("TEST-") + ".txt")).write_text(
                   "\n".join(lines) + "\n", encoding="utf-8")
           print(f"Prepared {len(reports)} sanitized Surefire XML/TXT report pairs")
           PY
@@ -241,6 +297,29 @@ jobs:
             target/rourke-font-matrix/
             target/rourke-pdf/
           if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Generate and require the successful Java run's coverage counters
+        # make install packages before running tests; the prepare-package report
+        # goal therefore runs before any execution data exists on a clean CI tree.
+        # Render the counters explicitly after the successful tests and retakes.
+        run: |
+          docker exec carlos-tomcat-dev test -s target/jacoco.exec
+          docker exec carlos-tomcat-dev rm -f target/site/jacoco/jacoco.xml
+          docker exec carlos-tomcat-dev mvn --batch-mode --no-transfer-progress jacoco:report
+          docker exec carlos-tomcat-dev test -s target/site/jacoco/jacoco.xml
+
+      - name: Preserve Java coverage counters
+        # JaCoCo contains source/probe counters, not configuration or clinical output.
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: java-coverage-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            target/site/jacoco/jacoco.xml
+            target/jacoco.exec
+            target/ci-permission-reports/jacoco.exec
+            target/ci-permission-reports/coverage/jacoco.xml
+          if-no-files-found: error
           retention-days: 14
 
   mariadb-dao-tests:
@@ -288,7 +367,7 @@ jobs:
             -e CARLOS_TEST_MARIADB_SCHEMA=generated \
             -e CARLOS_TEST_MARIADB_URL=jdbc:mariadb://host.docker.internal:3306/ \
             carlos-tomcat-dev mvn --batch-mode --no-transfer-progress test jacoco:report \
-            '-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,JdbcConnectorMariaDbIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest' \
+            '-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,QueryReturnTypeIntegrationTest,JdbcConnectorMariaDbIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,RxStrictAuditIntegrationTest,RxSaveReceiptCommitIntegrationTest,RxConcurrencyIntegrationTest,RxFavoriteGroupIntegrationTest,RxFavoriteCopyIntegrationTest,RxRestPrescriptionRollbackIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest' \
             '-Dgroups=spring-context | mariadb-native' -DexcludedGroups=flyway-schema -Dtest.forkCount=3 \
             -Djacoco.destFile=target/jacoco-mariadb-generated.exec -Djacoco.dataFile=target/jacoco-mariadb-generated.exec \
             -Dtest.coverageDirectory=target/coverage-mariadb/generated
@@ -300,21 +379,21 @@ jobs:
           docker exec -e CARLOS_TEST_MARIADB_DAO=true -e CARLOS_TEST_MARIADB_SCHEMA=flyway \
             -e CARLOS_TEST_MARIADB_URL=jdbc:mariadb://host.docker.internal:3306/ \
             carlos-tomcat-dev mvn --batch-mode --no-transfer-progress jacoco:prepare-agent surefire:test jacoco:report \
-            -Dtest=LegacyLabNativeMariaDbIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,ConsultationArchiveDaoIntegrationTest,ArchiveAuditTimestampIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,ConsultationListProjectionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest \
+            -Dtest=EncounterFormDaoGroupedHistoryIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,ConsultationArchiveDaoIntegrationTest,ArchiveAuditTimestampIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,ConsultationListProjectionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest \
             '-Dgroups=spring-context | mariadb-native' -Dtest.forkCount=1 -Dcarlos.test.schema.expected=flyway \
             -Dsurefire.reportNameSuffix=flyway \
             -Djacoco.destFile=target/jacoco-mariadb-flyway.exec -Djacoco.dataFile=target/jacoco-mariadb-flyway.exec \
             -Dtest.coverageDirectory=target/coverage-mariadb/flyway
           docker exec carlos-tomcat-dev test -s target/coverage-mariadb/flyway/jacoco.xml
 
-      - name: Verify BC billing reads and transaction outcomes against the Flyway schema
+      - name: Verify BC billing, encounter and day-sheet transactions against the Flyway schema
         if: always()
         run: |
           docker exec -e CARLOS_TEST_MARIADB_DAO=true -e CARLOS_TEST_MARIADB_SCHEMA=flyway \
             -e CARLOS_TEST_MARIADB_PROVINCE=bc \
             -e CARLOS_TEST_MARIADB_URL=jdbc:mariadb://host.docker.internal:3306/ \
             carlos-tomcat-dev mvn --batch-mode --no-transfer-progress jacoco:prepare-agent surefire:test jacoco:report \
-            -Dtest=LegacyLabNativeMariaDbIntegrationTest,LabRoutingLookupDaoIntegrationTest,ConsultationArchiveDaoIntegrationTest,ArchiveAuditTimestampIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest \
+            -Dtest=EncounterFormDaoGroupedHistoryIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,LabRoutingLookupDaoIntegrationTest,ConsultationArchiveDaoIntegrationTest,ArchiveAuditTimestampIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,LegacyBcTeleplanExportMariaDbIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest \
             '-Dgroups=spring-context | mariadb-native' -Dtest.forkCount=1 \
             -Dsurefire.reportNameSuffix=bc-flyway \
             -Djacoco.destFile=target/jacoco-mariadb-bc-flyway.exec -Djacoco.dataFile=target/jacoco-mariadb-bc-flyway.exec \

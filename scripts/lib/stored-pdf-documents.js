@@ -17,6 +17,8 @@ const h = require('./playwright-harness');
 const { planDocumentFixtureId } = require('./document-fixture-allocation');
 
 const TOOL_TIMEOUT = 15000;
+/** The document type every owned fixture document is seeded with; the Inbox shows it under Discipline. */
+const OWNED_DOCUMENT_TYPE = 'others';
 
 /**
  * SKIP (not a raw ENOENT mid-workflow) when a Poppler tool is missing or does not answer.
@@ -108,7 +110,7 @@ function seedOwnedPdfDocuments({ sql, store, patient, provider, docs, onFileCrea
         AND (SELECT COUNT(*) FROM providerLabRoutingLock WHERE lab_no=${plannedId})=0,1,0));
       INSERT INTO document (document_no,doctype,docdesc,docfilename,doccreator,responsible,source,updatedatetime,
         status,contenttype,contentdatetime,public1,observationdate,number_of_pages,restrictToProgram,abnormal)
-      VALUES (${plannedId},'others',${h.sqlString(doc.label)},${h.sqlString(doc.filename)},${h.sqlString(provider)},${h.sqlString(provider)},
+      VALUES (${plannedId},${h.sqlString(OWNED_DOCUMENT_TYPE)},${h.sqlString(doc.label)},${h.sqlString(doc.filename)},${h.sqlString(provider)},${h.sqlString(provider)},
         '',NOW(),'A','application/pdf',NOW(),0,'2026-01-02',${doc.pages},0,0);
       INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('demographic',${patient},${plannedId},'A');
       COMMIT;SELECT ${plannedId}`);
@@ -184,6 +186,7 @@ function assertOwnedPdfDocumentsRemoved({ sql, marker, patient, files, docs }) {
 }
 
 module.exports = {
+  OWNED_DOCUMENT_TYPE,
   requirePoppler,
   pdfText,
   pdfFacts,

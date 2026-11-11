@@ -6,7 +6,6 @@
 	<import>net.sf.jasperreports.engine.*</import>
 	<import>net.sf.jasperreports.engine.data.*</import>
 	<parameter name="input_date" forPrompting="false" class="java.lang.String" />
-	<query language="sql"><![CDATA[select * from appointment where appointment_date = $P{input_date}]]></query>
 	<field name="appointment_no" class="java.lang.Integer" />
 	<field name="provider_no" class="java.lang.String" />
 	<field name="appointment_date" class="java.sql.Date" />

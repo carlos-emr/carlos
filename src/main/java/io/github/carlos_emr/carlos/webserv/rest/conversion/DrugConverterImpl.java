@@ -82,6 +82,7 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
         try {
 
             d.setId(t.getDrugId());
+            d.setRowVersion(t.getRowVersion());
             d.setBrandName(t.getBrandName());
             d.setGenericName(t.getGenericName());
             d.setCustomName(t.getCustomName());

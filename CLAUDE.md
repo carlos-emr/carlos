@@ -128,7 +128,8 @@
 - Tomcat 11 supplies Servlet 6.1, Pages 4.0, Expression Language 6.0 and Annotations 3.0 and
   always loads those packages from its own `lib/`, so `pom.xml` keeps them `provided`, even when a
   library asks for one at compile scope (#5416: EL 5.0.1 shipped beside Tomcat's EL 6.0). JSTL is
-  the exception: Tomcat has none, so its API and the Glassfish implementation stay `compile`.
+  the exception: Tomcat has none, so the directly declared `jakarta.servlet.jsp.jstl-api`
+  and Glassfish implementation stay `compile`.
 - `ContainerApiPackagingUnitTest` (dependency graph) and `scripts/check-war-container-apis.py`
   (the built WAR, run by `debian/rules`) enforce this from
   `scripts/fixtures/tomcat-container-packages.json`. The `jspc` profile compiles with Tomcat 11's
@@ -742,7 +743,7 @@ public Example2Action(SomeManager someManager) {
 
 **Standards & Protocols**:
 - **HL7 v2/v3**: Full message processing with MSH, PID, OBX, ORC, OBR segment handlers
-- **FHIR R4**: HAPI FHIR 6.10.5 with resource filters and healthcare provider context
+- **FHIR DSTU3**: HAPI FHIR 8.12.1; core follows HAPI (6.9.12 minimum enforced), Saxon-HE remains 11.6, and outbound JSON retains the legacy blank-primitive contract
 - **SNOMED CT**: Clinical terminology with core dataset loading
 - **ICD-9/ICD-10**: Diagnosis coding systems fully integrated
 - **ATC Codes**: Anatomical Therapeutic Chemical classification for medications

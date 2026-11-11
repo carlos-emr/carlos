@@ -74,8 +74,6 @@ import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import com.sun.xml.messaging.saaj.util.ByteInputStream;
-import com.sun.xml.messaging.saaj.util.ByteOutputStream;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -324,18 +322,18 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
     }
 
     private InputStream renderConsultationLetter(LoggedInInfo loggedInInfo) throws DocumentException, IOException {
-        try (ByteOutputStream output = new ByteOutputStream()) {
+        try (PdfBuffer output = new PdfBuffer()) {
             new ConsultationPDFCreator(request, output).printPdf(loggedInInfo);
-            return new ByteInputStream(output.getBytes(), output.getCount());
+            return output.openInputStream();
         }
     }
 
     private InputStream renderImageAttachment(String documentPath, EDoc document) throws IOException, DocumentException {
-        try (ByteOutputStream output = new ByteOutputStream()) {
+        try (PdfBuffer output = new PdfBuffer()) {
             request.setAttribute("imagePath", documentPath + document.getFileName());
             request.setAttribute("imageTitle", document.getDescription());
             new ImagePDFCreator(request, output).printPdf();
-            return new ByteInputStream(output.getBytes(), output.getCount());
+            return output.openInputStream();
         }
     }
 
@@ -345,39 +343,49 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                 .saveTempFile("consultationLab", new ByteArrayOutputStream());
         Path labPdf = PathValidationUtils.validateApplicationTempPath(temporary.toFile()).toPath();
         try (OutputStream output = Files.newOutputStream(labPdf);
-             ByteOutputStream embedded = new ByteOutputStream()) {
+             PdfBuffer embedded = new PdfBuffer()) {
             request.setAttribute("segmentID", lab.segmentID);
             LabPDFCreator creator = new LabPDFCreator(request, output);
             creator.printPdf();
             creator.addEmbeddedDocuments(labPdf.toFile(), embedded);
-            return new ByteInputStream(embedded.getBytes(), embedded.getCount());
+            return embedded.openInputStream();
         } finally {
             cleanupLabPdf(labPdf);
         }
     }
 
+    /** A bounded, non-copying view; each writer finishes before its buffer is published. */
+    private static final class PdfBuffer extends ByteArrayOutputStream {
+        ByteArrayInputStream openInputStream() {
+            return new ByteArrayInputStream(buf, 0, count);
+        }
+    }
+
     /** Cleanup is independent of the print result; saveTempFile owns a fresh directory per lab. */
+    @SuppressWarnings("java:S1166") // Exception messages and stack traces can contain patient paths.
     private void cleanupLabPdf(Path labPdf) {
         for (Path artifact : List.of(labPdf, labPdf.getParent())) {
             try {
                 Files.deleteIfExists(artifact);
             } catch (IOException | SecurityException cleanupFailure) {
-                logger.warn("Failed to remove consultation lab temporary {}",
-                        artifact.equals(labPdf) ? "file" : "directory", cleanupFailure);
+                if (logger.isWarnEnabled()) {
+                    logger.warn("Failed to remove consultation lab temporary {} ({})",
+                            artifact.equals(labPdf) ? "file" : "directory", cleanupFailure.getClass().getSimpleName());
+                }
             }
         }
     }
 
     private InputStream renderHrmAttachment(LoggedInInfo loggedInInfo, HashMap<String, ? extends Object> report)
             throws IOException, PDFGenerationException {
-        try (ByteOutputStream output = new ByteOutputStream()) {
+        try (PdfBuffer output = new PdfBuffer()) {
             new HRMPDFCreator(output, (Integer) report.get("id"), loggedInInfo).printPdf();
-            return new ByteInputStream(output.getBytes(), output.getCount());
+            return output.openInputStream();
         }
     }
 
     private void writeCombinedPacket(List<Object> parts) throws IOException {
-        try (ByteOutputStream output = new ByteOutputStream()) {
+        try (PdfBuffer output = new PdfBuffer()) {
             int skipped = ConcatPDF.concat(parts, output);
             if (skipped > 0) {
                 throw new IOException(skipped + " document(s) could not be included in the combined consultation PDF.");
@@ -388,7 +396,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             response.setContentType("application/pdf");
             response.setHeader("Content-Disposition", "inline; filename=\"combinedPDF-"
                     + UtilDateUtilities.getToday("yyyy-mm-dd.hh.mm.ss") + ".pdf\"");
-            response.getOutputStream().write(output.getBytes(), 0, output.getCount());
+            output.writeTo(response.getOutputStream());
         }
     }
 

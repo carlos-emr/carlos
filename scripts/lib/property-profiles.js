@@ -5,12 +5,16 @@ const crypto = require('node:crypto');
 const { execFileSync, spawn } = require('node:child_process');
 const PROFILES = Object.freeze({
   'address-lock': {login_lock: 'false',login_max_failed_times:'3',login_max_duration:'10',login_local_ip:'127.0.0.1'},
+  'native-pathnet': {PATHNET_LABS: 'yes'},
+  'first-nations': {FIRST_NATIONS_MODULE:'true',showBandNumberOnly:'false'},
+  'first-nations-encoding': {FIRST_NATIONS_MODULE:'true',showBandNumberOnly:'false'},
   'no-pin': {'mfa.legacy.pin.enable': 'false'},
   multisite: {multisites: 'on', rma_enabled: 'true', moh_file_management_enabled: 'true'},
   'caisi-admin': {caisi: 'on', 'caisi.search.workflow': 'false',ModuleNames:'Caisi'},
   'legacy-contacts': {NEW_CONTACTS_UI: 'false'},
   'private-consent': {privateConsentEnabled: 'true',STUDENT_PARTICIPATION_CONSENT:'false'},
   'appointment-options': {mc_number: 'true', emailApptReminder: 'yes'},
+  'appointment-lock-expiry': {appointment_locking_timeout: '20', allowMultipleSameDayGroupAppt: 'yes'},
 });
 function propertiesFor(name, env = process.env) {
   if (!Object.hasOwn(PROFILES, name)) throw new Error(`Unknown property profile ${name}`);
@@ -127,4 +131,4 @@ function runProfileChild(args,profile,signal,{file='/etc/carlos-emr/carlos.prope
     if(signal.aborted)stop();
   });
 }
-module.exports = {PROFILES, propertiesFor, renderProperties, withPropertyProfile, runProfileChild,verifyActiveProfile,handoffRecord,readinessSeconds};
+module.exports = {PROFILES, propertiesFor, renderProperties, withPropertyProfile, runProfileChild,verifyActiveProfile,handoffRecord,readinessSeconds,restartAndWait};

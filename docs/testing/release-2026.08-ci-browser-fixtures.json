@@ -2,6 +2,26 @@
   "schemaVersion": 1,
   "fixtures": [
     {
+      "id": "chart-draw-playwright-checks",
+      "command": [
+        "node",
+        "scripts/chart-draw-playwright-checks.js"
+      ],
+      "source": "scripts/chart-draw-playwright-checks.js",
+      "sourceSha256": "840c0a4297df9552ba56a91c66f28266c62ce4bc489f639e9b6a373f37e94d45",
+      "minimumAssertions": 1775
+    },
+    {
+      "id": "dependency-tables-playwright-checks",
+      "command": [
+        "node",
+        "scripts/dependency-tables-playwright-checks.js"
+      ],
+      "source": "scripts/dependency-tables-playwright-checks.js",
+      "sourceSha256": "c7b88bd763a2593e8ff6dbcd1421248f2c73d84bc3273153e672d22bdf5699db",
+      "minimumAssertions": 47
+    },
+    {
       "id": "navigation-cancellation-browser-checks",
       "command": [
         "node",
@@ -77,8 +97,8 @@
         "scripts/dashboard-tickler-picker-browser-check.js"
       ],
       "source": "scripts/dashboard-tickler-picker-browser-check.js",
-      "sourceSha256": "2c79b7f5e8e812ff075fed8e0dfd78f5cb0d6f0ecf2660f9187a0115fa172396",
-      "minimumAssertions": 242
+      "sourceSha256": "de2dc855f2337fa4bb5434b8c069e4cc058f91ccb2b06e5006fd307a52a89e85",
+      "minimumAssertions": 314
     },
     {
       "id": "calendar-eform-browser-check",
@@ -157,7 +177,7 @@
         "scripts/ui-scroll-quick-pick-browser-check.js"
       ],
       "source": "scripts/ui-scroll-quick-pick-browser-check.js",
-      "sourceSha256": "ecc33617b8339f9562af84fac128060c2e6384dd3319842571d3a1b415091dc3",
+      "sourceSha256": "430d6db01861dead2c080de2bf50f85ceeef3d70c75a4ce38466245096dd561f",
       "minimumAssertions": 61
     },
     {
@@ -171,5 +191,5 @@
       "minimumAssertions": 139
     }
   ],
-  "workflowSha256": "a38fd99b9f0458072b188c804aa7ee610f51f09d363282677338b5ff352e9d20"
+  "workflowSha256": "de77639916b0891e78726ae4b456c94eea8c271aa8f59cdc6db72f8cdadeb3d7"
 }

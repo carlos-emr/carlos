@@ -369,6 +369,12 @@ function isScoredTextAutosaveResponse(response) {
   return note.includes(CLINICAL_TEXT_THE_WAF_SCORES);
 }
 
+/**
+ * Exercise the owned patient's eChart pagination, issue assignment and CPP saves.
+ * Register fixture cleanup before writing and require persisted encounter links.
+ * @param {object} s Authenticated workflow session with its owned patient and SQL boundary.
+ * @returns {Promise<void>} Resolves after the UI and database assertions and lock release.
+ */
 async function workflow(s) {
   const { sql, patient, provider, marker, config } = s;
   const screenshotDir = process.env.ECHART_SCREENSHOT_DIR || config.screenshotDir || '/tmp';
@@ -453,8 +459,13 @@ async function workflow(s) {
 
   let pendingIssueId;
   await s.step('an issue assigned to the encounter remains pending before the CPP save', async () => {
+    // This workflow checks assignment and persistence. Enter the complete query
+    // in one input update: slow per-key typing can start superseded searches
+    // whose intentional XHR cancellations fail the strict page audit under load.
+    // Keep all request-failure assertions; still pick the rendered suggestion
+    // and require the widget to populate its hidden id.
     const picked = await ui.typeAutocomplete(echart, '#issueAutocomplete', 'Safety', {
-      option: 'Safety', hidden: '#newIssueId', timeout: 15000,
+      option: 'Safety', hidden: '#newIssueId', timeout: 15000, inputMode: 'fill',
     });
     const [assigned] = await Promise.all([
       echart.waitForResponse(response => isCaseManagementEntryPost(response, 'makeIssue')),

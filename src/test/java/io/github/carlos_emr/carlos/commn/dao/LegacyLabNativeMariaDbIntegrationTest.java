@@ -68,10 +68,95 @@ class LegacyLabNativeMariaDbIntegrationTest extends CarlosTestBase {
                     .setParameter(1, provider).setParameter(2, id).setParameter(3, index == 2 ? "A" : "N").executeUpdate();
         }
         var filter = new InboxCategoryDao.Filter("", "", "", false, true, provider, "N", "all", null, null);
-        assertThat(inbox.count(filter, InboxCategoryDao.Operation.LAB_UNMATCHED, null).total()).isEqualTo(1);
+        assertThat(inbox.count(filter, InboxCategoryDao.Operation.LAB_UNMATCHED, null).total()).isEqualTo(2);
         assertThat(inbox.count(filter, InboxCategoryDao.Operation.ABNORMAL, null).total()).isEqualTo(2);
         var all = new InboxCategoryDao.Filter("", "", "", false, true, provider, "", "all", null, null);
-        assertThat(inbox.count(all, InboxCategoryDao.Operation.LAB_UNMATCHED, null).total()).isEqualTo(2);
+        assertThat(inbox.count(all, InboxCategoryDao.Operation.LAB_UNMATCHED, null).total()).isEqualTo(3);
+    }
+
+    @Test
+    void shouldCountOnlyTheSelectedPatientLabs_andKeepZeroAndMissingPatientsUnmatched() throws Exception {
+        String provider = "577901";
+        int patient = 1900577901;
+        em.createNativeQuery("INSERT INTO demographic (demographic_no,last_name,first_name,hin,sex) VALUES (?1,'FAKE-Inbox','Native',NULL,'F')")
+                .setParameter(1, patient).executeUpdate();
+        for (int index = 0; index < 4; index++) {
+            int lab = 1900577910 + index;
+            em.createNativeQuery("INSERT INTO hl7TextInfo (lab_no,accessionNum,result_status) VALUES (?1,?2,?3)")
+                    .setParameter(1, lab).setParameter(2, index < 2 ? "FAKE-shared-accession" : "FAKE-" + lab)
+                    .setParameter(3, index == 1 ? "N" : "A").executeUpdate();
+            em.createNativeQuery("INSERT INTO providerLabRouting (provider_no,lab_no,lab_type,status) VALUES (?1,?2,'HL7','N')")
+                    .setParameter(1, provider).setParameter(2, lab).executeUpdate();
+            if (index != 3) em.createNativeQuery("INSERT INTO patientLabRouting (demographic_no,lab_no,lab_type,created) VALUES (?1,?2,'HL7',NOW())")
+                    .setParameter(1, index == 2 ? 0 : patient).setParameter(2, lab).executeUpdate();
+        }
+        var filter = new InboxCategoryDao.Filter("FAKE-Inbox", "Native", "", true, true, provider, "N", "all", null, null);
+        var result = inbox.count(filter, InboxCategoryDao.Operation.LAB_PATIENT, null);
+        assertThat(result.total()).isEqualTo(2);
+        assertThat(inbox.count(filter, InboxCategoryDao.Operation.NORMAL, null).total()).isEqualTo(1);
+        assertThat(inbox.count(filter, InboxCategoryDao.Operation.ABNORMAL, null).total()).isEqualTo(1);
+        assertThat(result.patients()).containsExactly(new InboxCategoryDao.PatientCount(patient, "Native", "FAKE-Inbox", 2, 0, 0));
+        assertThat(inbox.count(filter, InboxCategoryDao.Operation.LAB_DEMOGRAPHIC, Integer.toString(patient)).total()).isEqualTo(2);
+        assertThat(inbox.count(filter, InboxCategoryDao.Operation.LAB_DEMOGRAPHIC, Integer.toString(patient + 1)).total()).isZero();
+        assertThat(inbox.count(filter, InboxCategoryDao.Operation.LAB_UNMATCHED, null).total()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldCountDistinctPatientDocuments_andSeparateUnmatchedAndAcknowledgedRouting() throws Exception {
+        String provider = "577902";
+        int patient = 1900577920;
+        em.createNativeQuery("INSERT INTO demographic (demographic_no,last_name,first_name,hin,sex) VALUES (?1,'FAKE-Document','Native',NULL,'F')")
+                .setParameter(1, patient).executeUpdate();
+        for (int index = 0; index < 3; index++) {
+            int document = 1900577921 + index;
+            em.createNativeQuery("INSERT INTO document (document_no,docdesc,docfilename,doccreator,responsible,status,contenttype,restrictToProgram,abnormal)"
+                    + " VALUES (?1,'FAKE-inbox','fake.pdf',?2,?2,'A','application/pdf',0,0)")
+                    .setParameter(1, document).setParameter(2, provider).executeUpdate();
+            em.createNativeQuery("INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('demographic',?1,?2,'A')")
+                    .setParameter(1, index == 1 ? -1 : patient).setParameter(2, document).executeUpdate();
+            em.createNativeQuery("INSERT INTO providerLabRouting (provider_no,lab_no,lab_type,status) VALUES (?1,?2,'DOC',?3)")
+                    .setParameter(1, provider).setParameter(2, document).setParameter(3, index == 2 ? "A" : "N").executeUpdate();
+        }
+        // A second module link must not count the same routed document twice.
+        em.createNativeQuery("INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('other',?1,1900577921,'A')")
+                .setParameter(1, patient).executeUpdate();
+        var filter = new InboxCategoryDao.Filter("FAKE-Document", "Native", "", true, true, provider, "N", "all", null, null);
+        var result = inbox.count(filter, InboxCategoryDao.Operation.DOCUMENT_PATIENT, null);
+        assertThat(result.total()).isEqualTo(1);
+        assertThat(result.patients()).containsExactly(new InboxCategoryDao.PatientCount(patient, "Native", "FAKE-Document", 0, 1, 0));
+        assertThat(inbox.count(filter, InboxCategoryDao.Operation.DOCUMENT_UNMATCHED, null).total()).isEqualTo(1);
+        em.createNativeQuery("DELETE FROM ctl_document WHERE document_no=1900577921").executeUpdate();
+        assertThat(inbox.count(filter, InboxCategoryDao.Operation.DOCUMENT_PATIENT, null).total()).isZero();
+    }
+
+    @Test
+    void shouldCountDistinctHrmReports_byPatientProviderAndSignoffIndependentlyOfViewed() throws Exception {
+        String provider = "577903";
+        int patient = 1900577930;
+        em.createNativeQuery("INSERT INTO demographic (demographic_no,last_name,first_name,hin,sex) VALUES (?1,'FAKE-Hrm','Native',NULL,'F')")
+                .setParameter(1, patient).executeUpdate();
+        for (int index = 0; index < 4; index++) {
+            int report = 1900577931 + index;
+            em.createNativeQuery("INSERT INTO HRMDocument (id,reportFile,timeReceived) VALUES (?1,'FAKE.xml','2026-11-07 12:00:00')")
+                    .setParameter(1, report).executeUpdate();
+            em.createNativeQuery("INSERT INTO HRMDocumentToProvider (providerNo,hrmDocumentId,signedOff,viewed) VALUES (?1,?2,?3,?4)")
+                    .setParameter(1, provider).setParameter(2, Integer.toString(report))
+                    .setParameter(3, index % 2).setParameter(4, index % 2 == 0 ? 1 : 0).executeUpdate();
+            if (index < 2) em.createNativeQuery("INSERT INTO HRMDocumentToDemographic (demographicNo,hrmDocumentId) VALUES (?1,?2)")
+                    .setParameter(1, Integer.toString(patient)).setParameter(2, Integer.toString(report)).executeUpdate();
+        }
+        // Duplicate provider associations must not inflate DISTINCT report counts.
+        em.createNativeQuery("INSERT INTO HRMDocumentToProvider (providerNo,hrmDocumentId,signedOff,viewed) VALUES (?1,'1900577931',0,0)")
+                .setParameter(1, provider).executeUpdate();
+        for (String status : new String[]{"N", "A", ""}) {
+            var filter = new InboxCategoryDao.Filter("FAKE-Hrm", "Native", "", true, true, provider, status, "all", null, null);
+            int expected = status.isEmpty() ? 2 : 1;
+            assertThat(inbox.count(filter, InboxCategoryDao.Operation.HRM_PATIENT, null).total()).as("patient status %s", status).isEqualTo(expected);
+            assertThat(inbox.count(filter, InboxCategoryDao.Operation.HRM_UNMATCHED, null).total()).as("unmatched status %s", status).isEqualTo(expected);
+        }
+        var foreign = new InboxCategoryDao.Filter("", "", "", false, true, "577904", "", "all", null, null);
+        assertThat(inbox.count(foreign, InboxCategoryDao.Operation.HRM_PATIENT, null).total()).isZero();
+        assertThat(inbox.count(foreign, InboxCategoryDao.Operation.HRM_UNMATCHED, null).total()).isZero();
     }
 
     @Test

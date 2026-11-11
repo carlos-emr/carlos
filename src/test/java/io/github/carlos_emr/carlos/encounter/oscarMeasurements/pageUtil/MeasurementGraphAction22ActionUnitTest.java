@@ -32,6 +32,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -64,6 +65,12 @@ class MeasurementGraphAction22ActionUnitTest extends CarlosUnitTestBase {
 
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0.1", "100", "-5.25", "0"})
+    void shouldPreserveExactNumericResults_forNumericInput(String result) {
+        assertThat(MeasurementGraphAction22Action.numericResult(result)).isEqualTo(result);
+    }
 
     @BeforeEach
     void setUp() {
@@ -119,5 +126,64 @@ class MeasurementGraphAction22ActionUnitTest extends CarlosUnitTestBase {
         }
         assertThat(response.getContentType()).isNull();
         assertThat(response.getContentAsByteArray()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"<0.1,0.1", ">100,100", "<=5,5", ">=10,10", "≤5,5", "≥10,10",
+            "5 mmol/L,5", "5%,5", "'1,234',1234", "+5.2,5.2", "H 7.4,7.4", "2+,2",
+            "l  3.1,3.1", "< 5,5", "H >= 60 mL/min,60", "5 µmol/L,5", "'12,345,678',12345678",
+            "'1,234.5 g/L',1234.5", "3 +,3", "-.5,-.5", "5.,5.", "5 𐐀/L,5"})
+    @DisplayName("should plot the number in a qualified result, as OSCAR 19 does")
+    void shouldPlotTheNumberOfAQualifiedResult_inNumericSeries(String value, String plotted) {
+        assertThat(MeasurementGraphAction22Action.numericResult(value)).isEqualTo(plotted);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Negative", "Pending", "NaN", "Infinity", "+", "-", ".", "+.", "5..2", "3-5",
+            "1:160", "1:40", "12abc34", "2026/10/09", "1e3", "1e-3", "120/80", "0,500", "01,234", "1,23",
+            "h5", "H", "H <", "<<5", "= 5", "1,2345", "1234,567", "1,234,", "5 /L", "5++", "5 mg (repeat)",
+            "4.5 (repeat)", "5 mg 2", "\u20035", "\u0661 mg", "5 mg\tL"})
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @DisplayName("should leave out a result that holds no single number")
+    void shouldExcludeResultsWithoutOneNumber_fromNumericSeries(String value) {
+        assertThat(MeasurementGraphAction22Action.numericResult(value)).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "-5.2", ".5", "137", "145", "5.7"})
+    void shouldPreservePlainNumbers_inNumericSeries(String value) {
+        assertThat(MeasurementGraphAction22Action.numericResult("  " + value + "  ")).isEqualTo(value);
+    }
+
+    @Test
+    void shouldExcludeLongMalformedAndOverflowValues_fromNumericSeries() {
+        assertThat(MeasurementGraphAction22Action.numericResult("1".repeat(1000000) + "x")).isNull();
+        assertThat(MeasurementGraphAction22Action.numericResult("1".repeat(10000))).isNull();
+        assertThat(MeasurementGraphAction22Action.numericResult("9".repeat(400))).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", ".0", "H", "5 mg"})
+    @DisplayName("should read a value padded to the length limit in one pass")
+    void shouldRejectPaddedValuesWithTrailingText_atTheLengthLimit(String prefix) {
+        String padded = prefix + " ".repeat(1023 - prefix.length());
+
+        assertThat(MeasurementGraphAction22Action.numericResult(padded + "!")).isNull();
+        assertThat(MeasurementGraphAction22Action.numericResult(padded + " "))
+                .isEqualTo(MeasurementGraphAction22Action.numericResult(prefix));
+    }
+
+    @Test
+    void shouldHandleNearLimitWhitespace_withoutBacktrackingOrChangingQualifiedValues() {
+        org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(java.time.Duration.ofSeconds(2), () -> {
+            String spaces = " ".repeat(1000);
+            assertThat(MeasurementGraphAction22Action.numericResult(spaces + "!")).isNull();
+            assertThat(MeasurementGraphAction22Action.numericResult(".0" + spaces + "!")).isNull();
+            assertThat(MeasurementGraphAction22Action.numericResult(".0 mmol" + spaces + "!")).isNull();
+            assertThat(MeasurementGraphAction22Action.numericResult(spaces + "5")).isEqualTo("5");
+            assertThat(MeasurementGraphAction22Action.numericResult("5 mmol" + spaces)).isEqualTo("5");
+            assertThat(MeasurementGraphAction22Action.numericResult(" \tH \t<= \t+1,234.5 \tmmol/L \n"))
+                    .isEqualTo("1234.5");
+        });
     }
 }

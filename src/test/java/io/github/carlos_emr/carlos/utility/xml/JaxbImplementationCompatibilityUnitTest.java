@@ -155,6 +155,7 @@ class JaxbImplementationCompatibilityUnitTest {
         return text.toString();
     }
 
+    /** Checks native writes and legacy reads while distinguishing known historical context failures. */
     private static void compare(Class<?> type) throws Exception {
         JAXBContext moxy = null;
         try {
@@ -197,18 +198,20 @@ class JaxbImplementationCompatibilityUnitTest {
             String newXml = xml(glassfish, type, value);
             structure(newXml);
             String frozen = BASELINE_XML.getOrDefault(type.getName(), Map.of()).get(populated ? "populated" : "default");
+            String expectedWrite = frozen == null ? null : XmlBaselineAssertions.withPublishedMainContracts(type, frozen);
             boolean formatterFix = frozen != null && type.getName().endsWith(".BpmhForm2Bean");
             if (formatterFix) {
                 // Run this even when the legacy context fails: the removed formatter must be
                 // the only difference from the independently captured production XML.
                 assertThat(frozen).contains("<formatter>");
                 assertThat(newXml).doesNotContain("<formatter>");
-                assertThat(structure(newXml)).isEqualTo(withoutFormatter(frozen));
+                assertThat(structure(newXml)).isEqualTo(withoutFormatter(expectedWrite));
             }
             if (moxy == null) continue; // No legacy XML existed: exact failure is pinned above.
             String oldXml = frozen == null ? xml(moxy, type, value) : frozen;
-            assertThat(structure(newXml)).as(type + " populated=" + populated)
-                    .isEqualTo(formatterFix ? withoutFormatter(oldXml) : structure(oldXml));
+            String expectedXml = XmlBaselineAssertions.withPublishedMainContracts(type, oldXml);
+            assertThat(structure(withoutOptionalRxVersion(type, newXml, populated))).as(type + " populated=" + populated)
+                    .isEqualTo(formatterFix ? withoutFormatter(expectedXml) : structure(expectedXml));
             Object read = glassfish.createUnmarshaller()
                     .unmarshal(new javax.xml.transform.stream.StreamSource(new StringReader(oldXml)), type).getValue();
             Object oldRead = moxy.createUnmarshaller()
@@ -219,6 +222,27 @@ class JaxbImplementationCompatibilityUnitTest {
                     .as(type + " reads MOXy XML, populated=" + populated)
                     .isEqualTo(structure(xml(glassfish, type, oldRead)));
         }
+    }
+
+    /** The optional RX concurrency token is an explicit additive REST contract. Keep the frozen
+     * corpus as legacy input and require every other element to remain exactly unchanged. */
+    private static String withoutOptionalRxVersion(Class<?> type, String xml, boolean populated) throws Exception {
+        if (!java.util.Set.of("DrugTo1", "DrugResponse", "PrescriptionResponse").contains(type.getSimpleName())) return xml;
+        var factory = io.github.carlos_emr.carlos.utility.XmlUtils.createSecureDocumentBuilderFactory();
+        factory.setNamespaceAware(true);
+        var document = factory.newDocumentBuilder().parse(new org.xml.sax.InputSource(new StringReader(xml)));
+        var versions = document.getElementsByTagName("rowVersion");
+        assertThat(versions.getLength()).as("optional RX versions: " + type).isEqualTo(populated ? 1 : 0);
+        if (populated) {
+            var version = versions.item(0);
+            assertThat(version.getTextContent()).isEqualTo("7");
+            assertThat(version.getPreviousSibling().getLocalName()).isEqualTo("drugId");
+            version.getParentNode().removeChild(version);
+        }
+        var output = new StringWriter();
+        io.github.carlos_emr.carlos.utility.XmlUtils.createSecureTransformerFactory().newTransformer().transform(
+                new javax.xml.transform.dom.DOMSource(document), new javax.xml.transform.stream.StreamResult(output));
+        return output.toString();
     }
 
     private static JAXBContext context(String factory, Class<?> type) throws Exception {
@@ -235,7 +259,8 @@ class JaxbImplementationCompatibilityUnitTest {
         return writer.toString();
     }
 
-    private static List<Class<?>> boundClasses() throws Exception {
+    /** Discovers annotated roots and their complete nested binding graphs from production sources. */
+    static List<Class<?>> boundClasses() throws Exception {
         Set<Class<?>> found = new java.util.TreeSet<>(java.util.Comparator.comparing(Class::getName));
         Path root = Path.of("src/main/java");
         try (Stream<Path> paths = Files.walk(root)) {
@@ -311,6 +336,16 @@ class JaxbImplementationCompatibilityUnitTest {
         return value;
     }
 
+    private static io.github.carlos_emr.carlos.webserv.rest.to.model.EmbeddedProviderTo1 bindingProvider(
+            io.github.carlos_emr.carlos.commn.model.Provider source) {
+        var value = io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.provider(null, source);
+        if (value != null) {
+            value.setBillingNo(source.getBillingNo()); value.setOhipNo(source.getOhipNo());
+            value.setHsoNo(source.getHsoNo()); value.setRmaNo(source.getRmaNo());
+        }
+        return value;
+    }
+
     private static Object populated(Type generic, Set<Class<?>> parents, int depth, RuntimeTypeInfoSet model) throws Exception {
         Class<?> type = generic instanceof Class<?> c ? c
                 : generic instanceof ParameterizedType p ? (Class<?>) p.getRawType() : Object.class;
@@ -362,6 +397,22 @@ class JaxbImplementationCompatibilityUnitTest {
                 || type.getName().startsWith("org.w3."))) throw new IllegalArgumentException("Missing fixture for " + generic);
         Set<Class<?>> branch = new HashSet<>(parents);
         branch.add(type);
+        if (type == io.github.carlos_emr.carlos.webserv.rest.to.model.EmbeddedProfessionalSpecialistTo1.class) {
+            var original = io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist.class;
+            var originalModel = ((JAXBContextImpl) context("org.glassfish.jaxb.runtime.v2.ContextFactory", original)).getTypeInfoSet();
+            return io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.professionalSpecialist(null,
+                    (io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist) populated(original, parents, depth, originalModel));
+        }
+        if (type == io.github.carlos_emr.carlos.webserv.rest.to.model.EmbeddedDemographicTo1.class) {
+            var original = io.github.carlos_emr.carlos.commn.model.Demographic.class;
+            var originalModel = ((JAXBContextImpl) context("org.glassfish.jaxb.runtime.v2.ContextFactory", original)).getTypeInfoSet();
+            var source = (io.github.carlos_emr.carlos.commn.model.Demographic) populated(original, parents, depth, originalModel);
+            var detached = io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.demographic(null, source);
+            // Binding fixtures preserve historical readable members; production disclosure policy is tested separately.
+            detached.setSin(source.getSin()); detached.setHin(source.getHin());
+            detached.setProvider(bindingProvider(source.getProvider())); detached.setMrp(bindingProvider(source.getMrp()));
+            return detached;
+        }
         Object bean = instance(type);
         if (type.getName().endsWith(".ProfessionalSpecialist")) {
             Field address = backingField(type, "addressArray");
@@ -379,7 +430,7 @@ class JaxbImplementationCompatibilityUnitTest {
                 if (value instanceof String && property.getName().equals("dateOfBirth")) value = "15";
                 if (value instanceof String && property.getName().equals("monthOfBirth")) value = "07";
                 if (value instanceof String && property.getName().equals("yearOfBirth")) value = "1980";
-                if (type.getName().endsWith(".BillingONItem") && property.getName().equals("fee")) value = "7.25";
+                if ((type.getName().endsWith(".BillingONItem") || type.getName().endsWith(".EmbeddedBillingONItemTo1")) && property.getName().equals("fee")) value = "7.25";
                 if (type.getName().endsWith(".PhoneNumber") && property.getName().equals("content")) {
                     value = new ArrayList<>(List.of(new io.github.carlos_emr.carlos.hospitalReportManager.xsd.ObjectFactory()
                             .createPhoneNumberNumber("5550100")));

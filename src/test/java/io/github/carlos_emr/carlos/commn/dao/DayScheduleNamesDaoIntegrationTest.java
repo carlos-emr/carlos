@@ -85,8 +85,11 @@ class DayScheduleNamesDaoIntegrationTest extends CarlosTestBase {
         SecurityInfoManager security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(eq(info), eq("_demographic"), eq(SecurityInfoManager.READ), anyInt())).thenReturn(true);
         when(security.hasDemographicReadPrivileges(eq(info), any())).thenReturn(true);
-        ScheduleService bulk = service(manager(false, security), appointments, info);
-        ScheduleService legacy = service(manager(true, security), appointments, info);
+        when(security.hasPrivilegeReadOnly(eq(info), eq("_appointment"), eq("r"), any())).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(eq(info), anyInt()))
+                .thenAnswer(call -> ids.contains(call.<Integer>getArgument(1)));
+        ScheduleService bulk = service(manager(false, security), appointments, info, security);
+        ScheduleService legacy = service(manager(true, security), appointments, info, security);
         var statistics = entityManager.getEntityManagerFactory().unwrap(SessionFactory.class).getStatistics();
         boolean enabled = statistics.isStatisticsEnabled();
         statistics.setStatisticsEnabled(true);
@@ -189,12 +192,13 @@ class DayScheduleNamesDaoIntegrationTest extends CarlosTestBase {
         return manager;
     }
 
-    private ScheduleService service(DemographicManagerImpl manager, List<Appointment> appointments, LoggedInInfo info) {
+    private ScheduleService service(DemographicManagerImpl manager, List<Appointment> appointments, LoggedInInfo info, SecurityInfoManager security) {
         ScheduleManager schedule = mock(ScheduleManager.class);
         when(schedule.getDayAppointments(eq(info), anyString(), any(java.util.Date.class))).thenReturn(appointments);
         ScheduleService service = new ScheduleService() {
             @Override protected LoggedInInfo getLoggedInInfo() { return info; }
         };
+        ReflectionTestUtils.setField(service, "securityInfoManager", security);
         ReflectionTestUtils.setField(service, "scheduleManager", schedule);
         ReflectionTestUtils.setField(service, "demographicManager", manager);
         return service;

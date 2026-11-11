@@ -2,12 +2,6 @@
   "schemaVersion": 1,
   "browserExpectedFailures": [
     {
-      "check": "billing-bc-reprocess-bill-inactive-physician",
-      "finding": 153,
-      "step": "Reprocess Bill on the bill of a physician who has left keeps its provider, payee and practitioner numbers",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
       "check": "admin-messages",
       "finding": 330,
       "step": "a punctuated message with a script literal is listed and stored with a future expiry",
@@ -50,12 +44,6 @@
       "disposition": "required installed retake; blocks release readiness"
     },
     {
-      "check": "audit-log-chart-read",
-      "finding": 141,
-      "step": "the read/CME note row of the Note Search history view names the patient (demographic_no)",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
       "check": "audit-log-locked-patient",
       "finding": 344,
       "step": "the refused attempt is itself in the audit log, naming the patient and the refused login",
@@ -83,12 +71,6 @@
       "check": "xss-poison-admin-reports-system",
       "finding": 122,
       "step": "the walk found no output-encoding defect",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "echart-issues-filter-resolve",
-      "finding": 227,
-      "step": "a clinician can reach the control that resolves an issue from the note editor",
       "disposition": "required installed retake; blocks release readiness"
     },
     {
@@ -144,36 +126,6 @@
       "finding": 332,
       "step": "cancelled informed-consent confirmation leaves the banner and stored consent unchanged",
       "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "document-clinical-followup",
-      "finding": 348,
-      "step": "the forwarded Inbox row displays its exact seeded description and patient identity",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "echart-forms-list-paging",
-      "finding": 335,
-      "step": "Forms heading paginates ten records, Next changes the rows and Previous restores them",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "dialog-confirmations-tickler",
-      "finding": 337,
-      "step": "dismissing task Delete confirms once and preserves every task and status history",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "rx-save-failure-retry-only-lost",
-      "finding": 334,
-      "step": "an uncertain committed save asks the clinician to check rather than claiming nothing was saved",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "rx-save-failure-retry-print-lost",
-      "finding": 334,
-      "step": "an uncertain committed save asks the clinician to check rather than claiming nothing was saved",
-      "disposition": "required installed retake; blocks release readiness"
     }
   ],
   "retiredNodeTodos": [
@@ -205,6 +157,24 @@
   ],
   "retiredBrowserExpectations": [
     {
+      "check": "echart-forms-list-paging",
+      "finding": 335,
+      "step": "Forms heading paginates ten records, Next changes the rows and Previous restores them",
+      "disposition": "Source fix is in #5691 (issue #5684): the Forms list pages across all form types. Manifest pin retired; the check is retained as an active regression. A fresh installed PASS is still required."
+    },
+    {
+      "check": "rx-save-failure-retry-only-lost",
+      "finding": 334,
+      "step": "an uncertain committed save asks the clinician to check rather than claiming nothing was saved",
+      "disposition": "Source fix #5686; manifest pin retired and retained as an active regression. Installed PASS on Ubuntu 26.04 with complete 2026.09.0~snapshot28 packages, nginx HTTPS and shipped Chromium 154.0.8025.0 (2026-11-06, America/Toronto)."
+    },
+    {
+      "check": "rx-save-failure-retry-print-lost",
+      "finding": 334,
+      "step": "an uncertain committed save asks the clinician to check rather than claiming nothing was saved",
+      "disposition": "Source fix #5686; manifest pin retired and retained as an active regression. Installed PASS on Ubuntu 26.04 with complete 2026.09.0~snapshot28 packages, nginx HTTPS and shipped Chromium 154.0.8025.0 (2026-11-06, America/Toronto)."
+    },
+    {
       "check": "login-facility-chooser",
       "finding": 265,
       "step": "the chooser page's own stylesheet and script are served to a login that has not chosen a facility",
@@ -233,6 +203,18 @@
       "finding": 217,
       "step": "Add of a one-character name is not answered with a server error",
       "disposition": "Manifest pin retired by the implementation base; retained as an active regression. A fresh installed PASS is still required."
+    },
+    {
+      "check": "document-clinical-followup",
+      "finding": 348,
+      "step": "the forwarded Inbox row displays its exact seeded description and patient identity",
+      "disposition": "Source fix in #5689 for #5685: every Inbox view shows a document's type in its Discipline column, as chosen in clinical review on #5689; the step now asserts the seeded type. Manifest pin retired; retained as an active regression. A fresh installed PASS of the whole check, including its review, comment and acknowledgement steps, is still required."
+    },
+    {
+      "check": "dialog-confirmations-tickler",
+      "finding": 337,
+      "step": "dismissing task Delete confirms once and preserves every task and status history",
+      "disposition": "Source fix in #5687 for #5683: Delete on the patient and main task lists asks for one localized confirmation, and Cancel leaves the selection, tasks and status history unchanged. Manifest pin retired; retained as an active regression. A fresh installed PASS is still required."
     }
   ]
 }

@@ -553,8 +553,8 @@ class TestPreflightDriftLock(unittest.TestCase):
         for profile in [schema] + list(schema["PROFILES"].values()):
             current = profile["SCHEMA_MAP_VERSION"]
             with self.subTest(province=profile["O19_PROFILE"]):
-                self.assertEqual(current.split("+", 1)[0], "o19map-6")
-                for previous_base in ("o19map-3", "o19map-4", "o19map-5"):
+                self.assertEqual(current.split("+", 1)[0], "o19map-7")
+                for previous_base in ("o19map-3", "o19map-4", "o19map-5", "o19map-6"):
                     previous = previous_base + "+" + current.split("+", 1)[1]
                     state = {"inputs": {"schema_map_version": previous},
                              "phases": {"etl": {"status": "done"}}}
@@ -1121,6 +1121,10 @@ for _province in sorted(o19map_schema.PROFILES):
              "__doc__": "{0} against the {1!r} profile."
                         .format(_base.__name__, _province)})
 
+
+# unittest discovers class aliases too, including underscored loop variables.
+# Keep each inherited ON/BC case once instead of rerunning the final base.
+del _base
 
 if __name__ == "__main__":
     unittest.main()

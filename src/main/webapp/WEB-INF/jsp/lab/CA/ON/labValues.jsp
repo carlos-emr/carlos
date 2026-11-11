@@ -65,13 +65,31 @@
     String highlight = "#E0E0FF";
 
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    Integer patient = null;
+    try {
+        String[] patients = request.getParameterValues("demo");
+        if (patients != null && patients.length != 1) {
+            throw new IllegalArgumentException("Invalid patient");
+        }
+        if (!(demographicNo == null || demographicNo.isEmpty() || "null".equals(demographicNo)
+                || "undefined".equals(demographicNo) || "0".equals(demographicNo))) {
+            patient = io.github.carlos_emr.carlos.lab.service.LabPatientAccess.positiveIdentity(demographicNo);
+            if (patient == null) throw new IllegalArgumentException("Invalid patient");
+        }
+    } catch (IllegalArgumentException invalidPatient) {
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+        return;
+    }
+    if (patient != null) io.github.carlos_emr.carlos.demographic.PatientReadAccess.requirePatient(
+            SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class),
+            loggedInInfo, patient, "_lab", "r");
 
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-    Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
+    Demographic demographic = patient == null ? null : demographicManager.getDemographic(loggedInInfo, demographicNo);
 
     ArrayList list = null;
 
-    if (!(demographicNo == null || "null".equals(demographicNo) || "undefined".equals(demographicNo))) {
+    if (patient != null && demographic != null) {
         list = CommonLabTestValues.findValuesForTest(labType, Integer.valueOf(demographicNo), testName, identifier);
     }
 %>
@@ -212,6 +230,11 @@
             </tr>
             <tr>
                 <td>
+                    <% if (list == null || list.isEmpty()) { %>
+                    <p class="alert alert-info" data-carlos-lab-history-unavailable="true">
+                        <fmt:message key="lab.measurementHistory.unavailable"/>
+                    </p>
+                    <% } %>
                     <table name="tblDiscs" id="tblDiscs" class="table table-sm table-striped">
                         <thead>
                         <tr class="Field2">
@@ -256,7 +279,7 @@
                             </td>
                             <td><carlos:encode value='<%= String.valueOf(h.get("units")) %>' context="html"/>
                             </td>
-                            <td><carlos:encode value='<%= String.valueOf(h.get("collDate")) %>' context="html"/>
+                            <td><carlos:encode value='<%= java.util.Objects.toString(h.get("collDate"), "") %>' context="html"/>
                             </td>
                         </tr>
 

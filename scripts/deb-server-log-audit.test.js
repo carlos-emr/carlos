@@ -67,7 +67,7 @@ test('should reduce an ERROR event to logger, location, first non-filter CARLOS 
 });
 
 test('only the exact synthetic renderer probe is baselined at the AP lookup log site', (t) => {
-  const prefix = '2026-11-04 03:00:00,000 ERROR eform.efmformapconfig_005flookup_jsp (efmformapconfig_005flookup_jsp.java:359) - ';
+  const prefix = '2026-11-04 03:00:00,000 ERROR eform.efmformapconfig_005flookup_jsp (efmformapconfig_005flookup_jsp.java:353) - ';
   const message = 'AP config lookup requested an unconfigured key=';
   const baseline = fs.readFileSync(BASELINE, 'utf8');
   const probe = audit(t, [prefix + message + 'renderer_missing_ap_1793762614845 fid=1'], {baseline});
@@ -346,4 +346,28 @@ test('should exit 2, not report PASS, when the journal holds no line for the uni
   assert.equal(r.status, 2, r.out + r.err);
   assert.match(r.err, /read no journal line for unit/);
   assert.doesNotMatch(r.out, /PASS/);
+});
+
+
+test('only exact disposable fault routes and their fixture stack are explained',t=>{
+  const baseline=fs.readFileSync(BASELINE,'utf8');
+  const token='a'.repeat(32);
+  const route=`/carlos/__test-error-${token}.jsp`;
+  const body=uri=>`2026-11-07 04:40:11,000 ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:460) - Sanitizing body [uri=${uri}]`;
+  const thrown=(logger,uri,frame)=>[
+    `2026-11-07 04:40:11,001 ERROR utility.${logger} (${logger}.java:${logger==='DbConnectionFilter'?87:349}) - Unexpected error ${uri?`[uri=${uri}]`:''}`,
+    'jakarta.servlet.ServletException: FAKE-private-error-5794',
+    `\tat ${frame}(ErrorSanitizationFaultServlet.java:28)`,
+  ];
+  const fixture='carlostest5794.ErrorSanitizationFaultServlet.doGet';
+  const good=audit(t,[body(route),body(`/carlos/ws/rs/__test-error-${token}`),
+    ...thrown('ResponseSanitizationFilter',route,fixture),...thrown('DbConnectionFilter','',fixture)],{baseline});
+  assert.equal(good.status,0,good.out);
+  for(const uri of ['/carlos/ordinary',route.replace(token,'A'.repeat(32)),route+'extra']) {
+    const bad=audit(t,[body(uri)],{baseline});assert.equal(bad.status,1,bad.out);
+  }
+  for(const logger of ['ResponseSanitizationFilter','DbConnectionFilter']) {
+    const bad=audit(t,thrown(logger,logger==='DbConnectionFilter'?'':route,'io.github.carlos_emr.example.RealServlet.doGet'),{baseline});
+    assert.equal(bad.status,1,bad.out);
+  }
 });

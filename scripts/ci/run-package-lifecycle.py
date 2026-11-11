@@ -19,7 +19,7 @@ import uuid
 
 import release_verification as gate
 from junit_evidence import EvidenceError
-from lifecycle_baselines import required_baselines
+from lifecycle_baselines import candidate_cli, required_baselines
 from package_lifecycle import validate_config, validate_inventory, require_checkout_playwright
 from process_group import run_process_group
 
@@ -84,15 +84,14 @@ def retained_inputs(directory, output, passed):
     return inputs
 
 
-def package_inputs(config, baselines):
+def package_inputs(config, baselines, target_cli):
     for baseline in baselines:
         for name, prefix in (('emr', 'carlos-emr_'), ('drugref', 'carlos-emr-drugref_'), ('ctl', 'carlos-ctl_')):
             pin = next(row for row in baseline['assets'] if row['name'].startswith(prefix))
             supplied = config['packages'][baseline['tag']][name]
             if supplied['sha256'] != pin['sha256']:
                 raise EvidenceError('Lifecycle predecessor is not the reviewed published package')
-    ctl = next(row for row in baselines[0]['assets'] if row['name'].startswith('carlos-ctl_'))
-    if config['packages']['target']['ctl']['sha256'] != ctl['sha256']:
+    if config['packages']['target']['ctl']['sha256'] != target_cli['sha256']:
         raise EvidenceError('Lifecycle target CLI differs from its reviewed pin')
     for packages in config['packages'].values():
         for row in packages.values(): checked_file(row['path'], row['sha256'])
@@ -117,7 +116,7 @@ def run_lifecycle():
     config_path = checked_file(os.environ['CARLOS_PACKAGE_LIFECYCLE_CONFIG'])
     config = validate_config(gate.read_json(config_path))
     pins = gate.read_json(gate.ROOT / 'docs/testing/release-2026.08-lifecycle-baselines.json')
-    baselines = required_baselines(pins); package_inputs(config, baselines)
+    baselines = required_baselines(pins); package_inputs(config, baselines, candidate_cli(pins))
     artifact = checked_file(args.artifact); artifact_hash = gate.digest(artifact)
     checked_file(config['caFile']); checked_file(Path(config['browserDirectory']) / 'chrome')
     image = json.loads(docker('image', 'inspect', config['runtimeImage'], capture=True))

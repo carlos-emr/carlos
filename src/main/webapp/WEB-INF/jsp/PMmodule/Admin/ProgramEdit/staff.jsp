@@ -99,15 +99,26 @@
 </table>
 </div>
 <!--  show current staff -->
-<display:table class="simple" cellspacing="2" cellpadding="3" id="provider" name="providers" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
-	<display:setProperty name="paging.banner.placement" value="bottom" />
-	<display:setProperty name="basic.msg.empty_list" value="No staff currently assigned to this program." />
-	<display:column sortable="false" title="">
+<c:if test="${not empty providers}">
+<table class="carlos-table-spaced simple" id="provider" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
+
+
+    <th scope="col"></th>
+    <th scope="col"><span data-table-sort>Name</span></th>
+    <th scope="col"><span data-table-sort>Phone</span></th>
+    <th scope="col">Team</th>
+    <th scope="col">Role</th>
+</tr></thead>
+<tbody><c:forEach var="provider" items="${providers}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+
+    <td>
 		<a href="javascript:void(0);" onclick="deleteProvider('${carlos:forJavaScript(provider.id)}');return false;"> Delete </a>
-	</display:column>
-	<display:column property="provider.formattedName" sortable="true" title="Name" />
-	<display:column property="provider.phone" sortable="true" title="Phone" />
-	<display:column sortable="false" title="Team">
+    </td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(provider.provider.formattedName))}" data-sort-type="${carlos:tableSortType(provider.provider.formattedName)}">${carlos:forHtml(provider.provider.formattedName)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(provider.provider.phone))}" data-sort-type="${carlos:tableSortType(provider.provider.phone)}">${carlos:forHtml(provider.provider.phone)}</td>
+    <td>
 		<table width="100%" cellspacing="2" cellpadding="2">
 			<c:forEach var="team" items="${provider.teams}">
 				<tr>
@@ -122,8 +133,8 @@
 				<option value="${carlos:forHtmlAttribute(team.id)}">${carlos:forHtml(team.name)}</option>
 			</c:forEach>
 		</select>
-	</display:column>
-	<display:column sortable="false" title="Role">
+    </td>
+    <td>
 		<select name="x" onchange="assignRole('${carlos:forJavaScript(provider.id)}',this);">
 			<option value="0">&nbsp;</option>
 			<c:forEach var="role" items="${roles}">
@@ -137,8 +148,11 @@
 				</c:choose>
 			</c:forEach>
 		</select>
-	</display:column>
-</display:table>
+    </td>
+</tr></c:forEach></tbody>
+</table>
+</c:if>
+<c:if test="${empty providers}">No staff currently assigned to this program.</c:if>
 <br />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<tr class="b">

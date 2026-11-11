@@ -81,7 +81,7 @@
             <c:forEach var="labResult" items="${labDocs}" varStatus="loopStatus">
                 <tr id="labdoc_${carlos:forHtmlAttribute(labResult.labType)}_${carlos:forHtmlAttribute(labResult.segmentID)}" data-segment-id="${carlos:forHtmlAttribute(labResult.segmentID)}" data-lab-type="${carlos:forHtmlAttribute(labResult.labType)}" class="${!labResult.isMatchedToPatient() ? 'table-warning' : (labResult.resultStatus == 'A' ? 'table-danger' : '')}">
                     <td>
-                        <c:set var="disabled" value="${!labResult.matchedToPatient && labResult.labType != 'DOC' ? 'disabled' : ''}"/>
+                        <c:set var="disabled" value="${(!labResult.matchedToPatient && labResult.labType != 'DOC') || labResult.multipleAckCountUnavailable ? 'disabled' : ''}"/>
                         <input type="checkbox" name="flaggedLabs" value="${labResult.segmentID}:${labResult.labType}" ${disabled}>
                     </td>
                     <td>
@@ -97,13 +97,16 @@
                     <td>${carlos:forHtml(labResult.label == 'null' ? '' : labResult.label)}</td>
                     <td>${carlos:forHtml(labResult.dateTime)}${labResult.document ? ' / ' : ''}${carlos:forHtml(labResult.document ? labResult.lastUpdateDate : '')}</td>
                     <td>${carlos:forHtml(labResult.requestingClient)}</td>
-                    <td>${carlos:forHtml(labResult.document ? (labResult.description == null ? '' : labResult.description) : labResult.disciplineDisplayString)}</td>
+                    <td>${carlos:forHtml(labResult.document ? labResult.discipline : labResult.disciplineDisplayString)}</td>
                     <td>${carlos:forHtml(labResult.reportStatus)}</td>
                     <td>
                         <c:set var="multiLabCount" value="${labResult.multipleAckCount}" />
                         ${carlos:forHtml(labResult.ackCount)}&nbsp;
                         <c:if test="${multiLabCount >= 0}">
                             (${carlos:forHtml(labResult.multipleAckCount)})
+                        </c:if>
+                        <c:if test="${labResult.multipleAckCountUnavailable}">
+                            <span class="text-warning" role="alert" data-carlos-cml-count-warning="unavailable"><fmt:message key="cml.versionChain.unavailable"/></span>
                         </c:if>
                     </td>
                 </tr>

@@ -16,6 +16,33 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("Renal dosing observation validation")
 class RenalDosingInputUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
+    @CsvSource({"100,umol/L,100", "100,µmol/L,100", "100,μmol/L,100", "1,mg/dL,88.4", "100,in umol/L,100", "1,in mg/dL,88.4"})
+    void shouldNormalizeCreatinine_whenUnitsAreExplicit(String value, String units, double expected) {
+        assertThat(RenalDosingInput.creatinineMicromoles(value, units)).isEqualTo(expected);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"80,in kg,80", "80,kg,80", "100,lb,45.359237", "100,in lbs,45.359237"})
+    void shouldNormalizeWeight_whenUnitsAreExplicit(String value, String units, double expected) {
+        assertThat(RenalDosingInput.weightKilograms(value, units))
+                .isCloseTo(expected, org.assertj.core.data.Offset.offset(0.000000001));
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"unknown", "g", "null"})
+    void shouldRefuseWeight_whenUnitsAreMissingOrUnsupported(String units) {
+        assertThat(RenalDosingInput.weightKilograms("80", units)).isNaN();
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"unknown", "mg/L", "null", "mmol/L"})
+    void shouldRefuseCreatinine_whenUnitsAreMissingOrUnsupported(String units) {
+        assertThat(RenalDosingInput.creatinineMicromoles("1", units)).isNaN();
+    }
+
+    @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {" ", "not-a-number", "0", "-1", "NaN", "Infinity", "-Infinity", "1e309",
             "0x1p6", "80f", "80d", "80kg", "1,000", "+", "."})
@@ -46,4 +73,16 @@ class RenalDosingInputUnitTest extends CarlosUnitTestBase {
     void shouldAccept_whenBirthDateIsValid(String year, String month, String day) {
         assertThat(RenalDosingInput.validBirthDate(year, month, day)).isTrue();
     }
+    @org.junit.jupiter.api.Test
+    void shouldRefuseUnqualifiedExtremesAndUnicodeLookalikes_beforeAutomaticHighlighting() {
+        org.assertj.core.api.Assertions.assertThat(RenalDosingInput.supportsAutomaticHighlight(18, 20, 10)).isTrue();
+        org.assertj.core.api.Assertions.assertThat(RenalDosingInput.supportsAutomaticHighlight(120, 500, 3000)).isTrue();
+        for (double[] input : new double[][]{{17, 70, 100}, {121, 70, 100}, {40, 19, 100},
+                {40, 501, 100}, {40, 70, 9}, {40, 70, 3001}, {40, 70, Double.NaN}}) {
+            org.assertj.core.api.Assertions.assertThat(RenalDosingInput.supportsAutomaticHighlight((int)input[0], input[1], input[2])).isFalse();
+        }
+        org.assertj.core.api.Assertions.assertThat(RenalDosingInput.weightKilograms("70", "Kg")).isNaN();
+        org.assertj.core.api.Assertions.assertThat(RenalDosingInput.creatinineMicromoles("100", "umol/ℓ")).isNaN();
+    }
+
 }

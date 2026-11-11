@@ -121,7 +121,7 @@ public class ViewWCB2Action extends ActionSupport {
                         form.setW_pracno(provider.getOhipNo());
                         form.setW_payeeno(provider.getBillingNo());
                     }
-                } catch (DataAccessException failure) {
+                } catch (DataAccessException | jakarta.persistence.PersistenceException | org.springframework.transaction.TransactionException failure) {
                     // Preserve the form fallback without logging query parameters or patient details.
                     io.github.carlos_emr.carlos.utility.MiscUtils.getLogger()
                             .error("Unable to retrieve WCB provider billing details");

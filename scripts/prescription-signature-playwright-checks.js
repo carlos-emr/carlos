@@ -568,7 +568,9 @@ async function runPrescriptionSignatureCheck(context) {
   }
 }
 
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('prescription-signature', async () => {
+  await (async () => {
   const cancellation = createGracefulSignalCancellation();
   const launchOptions = {
     headless: true,
@@ -603,3 +605,4 @@ async function runPrescriptionSignatureCheck(context) {
   console.error(error && (error.stack || error.message || String(error)));
   process.exitCode = error.exitCode || 1;
 });
+}, {existingSignalHandlers:true});

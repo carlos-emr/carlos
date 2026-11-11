@@ -162,7 +162,7 @@
                 <%}%>
                 <input type="hidden" class="btn btn-secondary" name="csv" value="<carlos:encode value='<%= csvList.get(x) %>' context="htmlAttribute"/>">
                 <input type="submit" class="btn btn-secondary" name="getCSV" value="Export to CSV">
-                <input type="submit" class="btn btn-secondary" name="getXLS" value="Export to XLS">
+                <input type="submit" class="btn btn-secondary" name="getXLS" value="Export to XLSX">
             </form>
 
             <% } %>

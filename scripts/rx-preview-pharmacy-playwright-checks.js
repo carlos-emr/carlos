@@ -241,7 +241,9 @@ async function cleanupRunOnce() {
 
 const signalHandlers = installCleanupSignalHandlers(cleanupRun);
 
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('rx-preview-pharmacy', async () => {
+  await (async () => {
   const recorder = createRecorder();
   try {
     initMysqlDefaults();
@@ -513,3 +515,4 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRun);
     signalHandlers.dispose();
   }
 })();
+}, {existingSignalHandlers:true});

@@ -256,6 +256,23 @@
             //-->
         </script>
         <script>
+            <fmt:message key="tickler.ticklerDemoMain.msgConfirmDelete" var="msgConfirmDelete"/>
+            var i18nConfirmDelete = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgConfirmDelete") %>' context="javaScriptBlock"/>';
+
+            /**
+             * Asks before Delete changes the status of the ticked tasks (#5683). Returns false when the
+             * clinician dismisses the prompt, so the caller must not submit. With nothing ticked the
+             * server only redirects back (DbTicklerDemoMain2Action), so there is nothing to confirm.
+             */
+            function confirmDeleteSelected() {
+                var ml = document.ticklerform;
+                var len = ml.elements.length;
+                for (var i = 0; i < len; i++) {
+                    var e = ml.elements[i];
+                    if (e.name == "checkbox" && e.checked) return confirm(i18nConfirmDelete);
+                }
+                return true;
+            }
 
             function Check(e) {
                 e.checked = true;
@@ -1116,7 +1133,7 @@
                                 <input type="button"
                                        value="<fmt:message key="tickler.ticklerDemoMain.btnDelete"/>"
                                        class="sbttn"
-                                       onclick="document.forms['ticklerform'].submit_form.value='Delete'; document.forms['ticklerform'].submit();">
+                                       onclick="if (!confirmDeleteSelected()) return false; document.forms['ticklerform'].submit_form.value='Delete'; document.forms['ticklerform'].submit();">
                                 <%}%> <input type="button" name="button"
                                              value="<fmt:message key="global.btnCancel"/>"
                                              onClick="window.close()" class="sbttn"></td>

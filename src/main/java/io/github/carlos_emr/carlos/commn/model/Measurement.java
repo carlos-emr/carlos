@@ -111,6 +111,13 @@ public class Measurement extends AbstractModel<Integer> implements Serializable 
      */
     public static final int DATA_FIELD_MAX_LENGTH = 255;
 
+    /**
+     * The longest comment {@code measurements.comments} holds, in characters. The packaged database
+     * cuts a longer comment to this length without an error (see {@link #DATA_FIELD_MAX_LENGTH}); a
+     * writer that later compares the stored row with its source must cut the comment itself first.
+     */
+    public static final int COMMENTS_MAX_LENGTH = 255;
+
     /** 
      * The actual measurement value or data.
      * Format depends on measurement type - may be numeric ("120/80"), 
@@ -175,6 +182,15 @@ public class Measurement extends AbstractModel<Integer> implements Serializable 
      * 
      * @return Integer the unique measurement ID, null if not yet persisted
      */
+    // Retain the pre-snapshot entity serialization identity after adding compatibility constructors.
+    private static final long serialVersionUID = 2859566890374252474L;
+
+    /** Required by JPA and existing Java callers. */
+    public Measurement() { }
+
+    /** Builds an identified detached compatibility view; does not persist or attach it. */
+    public Measurement(Integer id) { this.id = id; }
+
     @Override
     public Integer getId() {
         return id;

@@ -42,7 +42,15 @@ archive-by-default).
 
 # Consent value expressions now retire undecided records and duplicate history.
 # Refuse resuming a partially applied import under the previous conversion rules.
-SCHEMA_MAP_VERSION = "o19map-6"
+SCHEMA_MAP_VERSION = "o19map-7"
+
+# Every colliding member receives a new name: an old shared file cannot be
+# assigned to a particular submission from its basename alone. CLI 1.3.2
+# builds and independently verifies these helpers and the live audit.
+BILLING_FILENAME_RULES = {
+    "billing_on_diskname": "o19-billing-v1",
+    "billing_on_filename": "o19-billing-v1",
+}
 
 #: Provinces the import verb will actually RUN, as opposed to provinces
 #: the package carries a profile for (generate_manifests.PROVINCES).
@@ -334,6 +342,8 @@ CLAIM_HEADER_TABLE = {
 #   where the CARLOS schema has no such table and the clinic's rows must
 #   be preserved.
 PROVINCE_SCOPED = {
+    "billing_on_diskname": "on",
+    "billing_on_filename": "on",
     # live in the CARLOS BC schema; removed from the Ontario one
     "formBCAR2007": "on",
     # Ontario billing and lab stacks: no BC install carries them
@@ -696,9 +706,10 @@ NOT_RENAMES = {
     ("drugs", "dispensingUnits"): (
         "curated B3 drop; CARLOS's demographic_contact_id/protocol/"
         "priorRxProtocol/pharmacyId and CDS currentness, exact dose text and "
-        "projection-completeness metadata are additions, not dispensing units",
+        "projection-completeness metadata and the native optimistic-lock counter "
+        "are additions, not dispensing units",
         ("demographic_contact_id", "protocol", "priorRxProtocol",
-         "pharmacyId", "cds_currentness", "cds_dose_text", "cds_projection_incomplete")),
+         "pharmacyId", "cds_currentness", "cds_dose_text", "cds_projection_incomplete", "row_version")),
 
     # The eRx module CARLOS removed. CARLOS's defaultBillingLocation and
     # defaultSliCode are unrelated additions.
@@ -832,6 +843,12 @@ CARLOSDOC_SEED_DELETES = [
 # synthesizes for them (SQL over the staging row alias `s`). The ETL
 # pre-check aborts naming any such column that lacks an entry here.
 VALUE_EXPRS = {
+    "billing_on_diskname": {
+        "ohipfilename": "(SELECT f.`imported_filename` FROM {archive}.`billing_on_diskname__filenames` f WHERE f.`row_id` = s.`id`)",
+    },
+    "billing_on_filename": {
+        "htmlfilename": "(SELECT f.`imported_filename` FROM {archive}.`billing_on_filename__filenames` f WHERE f.`row_id` = s.`id`)",
+    },
     # The CLI builds this helper from the actual source flags and remapped
     # consent type before copying. Keep deleted history and retire undecided
     # and surplus live records; never turn a missing decision into consent.

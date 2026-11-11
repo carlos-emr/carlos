@@ -21,7 +21,8 @@ ASSERTIONS = ('complete-ci-browser-selection', 'real-locked-browser-and-assertio
 
 def workflow_commands(text):
     return [match[1].split() for match in re.finditer(
-        r'^\s*run: (node(?: --test)? scripts/[^\s]+\.js)\s*$', text, re.M) if 'browser' in match[1]]
+        r'^\s*run: (node(?: --test)? scripts/[^\s]+\.js)\s*$', text, re.M)
+        if any(kind in match[1] for kind in ('browser', 'playwright'))]
 
 
 def validate_contract(contract, workflow):

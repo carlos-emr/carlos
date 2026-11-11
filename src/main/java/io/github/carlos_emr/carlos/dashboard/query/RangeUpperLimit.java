@@ -28,7 +28,6 @@
  */
 package io.github.carlos_emr.carlos.dashboard.query;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 public class RangeUpperLimit implements RangeInterface {
 
@@ -71,7 +70,7 @@ public class RangeUpperLimit implements RangeInterface {
 
     @Override
     public String toString() {
-        return ReflectionToStringBuilder.toString(this);
+        return getClass().getSimpleName() + "[protected]";
     }
 
 }

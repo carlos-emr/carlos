@@ -487,6 +487,23 @@ public class CommonLabResultData {
     public static int updateReportStatusWithOlderVersions(int labNo, String providerNo, char status,
                                                           String comment, String labType,
                                                           boolean skipCommentOnUpdate, String multiId) {
+        return updateReportStatusWithOlderVersionsDetailed(labNo, providerNo, status, comment,
+                labType, skipCommentOnUpdate, multiId).clearedCount();
+    }
+
+    /**
+     * What one acknowledgement did, as the transaction saw it: the routing rows it cleared from
+     * NEW and the ids of the versions it touched, so the inbox can update exactly those rows.
+     * Every older version is filed with the acknowledged one.
+     */
+    public record ReportChainUpdate(int clearedCount, List<Integer> affectedVersionIds) {
+        public ReportChainUpdate {
+            affectedVersionIds = List.copyOf(affectedVersionIds);
+        }
+    }
+
+    public static ReportChainUpdate updateReportStatusWithOlderVersionsDetailed(int labNo, String providerNo,
+            char status, String comment, String labType, boolean skipCommentOnUpdate, String multiId) {
         // Static legacy callers cannot receive a Spring @Transactional proxy. Start an outer
         // REQUIRED transaction explicitly so all routing/archive DAO calls join one unit.
         TransactionTemplate transaction =
@@ -500,7 +517,7 @@ public class CommonLabResultData {
                 labNo, providerNo, status, comment, labType, skipCommentOnUpdate, multiId));
     }
 
-    private static int updateReportChainInTransaction(int labNo, String providerNo, char status,
+    private static ReportChainUpdate updateReportChainInTransaction(int labNo, String providerNo, char status,
                                                        String comment, String labType,
                                                        boolean skipCommentOnUpdate, String multiId) {
         // Resolve the chain BEFORE the first write. Resolving it queries the database, and if
@@ -541,7 +558,7 @@ public class CommonLabResultData {
                 updateReportStatusInTransaction(version, providerNo, 'F', "", labType, false, true);
             }
         }
-        return clearedFromNew;
+        return new ReportChainUpdate(clearedFromNew, new java.util.ArrayList<>(versions));
     }
 
     /**
@@ -1046,7 +1063,16 @@ public class CommonLabResultData {
             if (seen.contains(prefix + lab.getSegmentID())) continue;
             String chain = lab.getSegmentID();
             if ("CML".equals(lab.labType)) chain = new MDSResultsData().getMatchingCMLLabs(lab.getSegmentID());
-            else if ("HL7".equals(lab.labType)) chain = Hl7textResultsData.getMatchingLabs(lab.getSegmentID());
+            else if ("HL7".equals(lab.labType)) {
+                try {
+                    chain = Hl7textResultsData.getMatchingLabs(lab.getSegmentID());
+                } catch (Hl7textResultsData.IncompleteCmlVersionChainException unavailable) {
+                    // Keep every visible report instead of losing the entire patient list.
+                    // Opening a report explains the missing chain; writes still use the
+                    // strict lookup and cannot acknowledge/file a guessed single version.
+                    logger.warn("CML version evidence is incomplete; retaining individual visible reports");
+                }
+            }
             List<String> ids = chain == null ? List.of() : java.util.Arrays.asList(chain.split(","));
             if (!ids.contains(lab.getSegmentID())) ids = List.of(lab.getSegmentID());
             LabResultData newestVisible = lab;

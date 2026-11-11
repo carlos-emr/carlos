@@ -24,13 +24,14 @@ counts and controls below remain the historical results of this issue's original
 
 The legacy print refusal contract retains the shared clinical gate's policy (#5448):
 an omitted patient reaches the print page's required-patient check and returns **400**;
-a supplied malformed, zero or conflicting patient scope is refused by
-`ViewClinical2Action` with **403**, before the print page runs. The
+a supplied malformed, zero, overflowing or more-than-ten-digit patient ID is refused by
+`ViewClinical2Action` with **400**, before the print page runs. Conflicting patient
+aliases (or repeated parameters naming different patients) return **403**. The
 `echart-two-patient-isolation` workflow checks both print routes in both patient
 directions for each case, requires that neither patient's name appears in a refused
 response, and identifies the route and scope case if an assertion fails. The later
 immunization view checks follow the same shared-gate contract: missing patients
-return 400 and conflicting aliases return 403. Schedule mutation refusals retain
+return 400, invalid IDs return 400, and conflicting aliases return 403. Schedule mutation refusals retain
 their separate 400 contract.
 
 ## Historical chart retrieval after the modern-only cutover

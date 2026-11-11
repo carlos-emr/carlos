@@ -240,7 +240,7 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
     // ---- failures ---------------------------------------------------------------------------
 
     @Test
-    @DisplayName("should return null and log a fixed message, the sanitised file name and the class of the cause, never the HTML")
+    @DisplayName("should return null and retain diagnostics without filename or HTML content")
     void shouldReturnNullAndLogNoHtml_whenRenderFails() throws Exception {
         setRealPath(directory.toString());
         when(service.render(any())).thenThrow(new PDFGenerationException("FAKE-secret body text from the engine"));
@@ -249,9 +249,9 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
             Path saved = ConvertToEdoc.saveAsTempPDF(form(page("<p>FAKE-secret body text</p>"), directory.toString(), "FAKE-name\n[forged]"));
 
             assertThat(saved).isNull();
-            assertThat(capture.messages()).anyMatch(message -> message.startsWith("HTML could not be converted to PDF for ")
-                    && message.endsWith(": PDFGenerationException"));
-            assertThat(capture.messages()).noneMatch(message -> message.contains("FAKE-secret") || message.contains("\n"));
+            assertThat(capture.messages()).anyMatch(message -> message.startsWith("HTML could not be converted to PDF:")
+                    && message.contains("io.github.carlos_emr.carlos.utility.PDFGenerationException"));
+            assertThat(capture.messages()).noneMatch(message -> message.contains("FAKE-secret") || message.contains("FAKE-name") || message.contains("[forged]"));
         }
         verify(files, never()).saveTempFile(anyString(), any(ByteArrayOutputStream.class));
         verify(service, times(1)).render(any());
@@ -266,8 +266,9 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
         try (LogCapture capture = LogCapture.forLogger(ConvertToEdoc.class)) {
             assertThat(ConvertToEdoc.saveAsTempPDF(form(page("<p>FAKE-secret body text</p>"), directory.toString(), "FAKE-name"))).isNull();
 
-            assertThat(capture.messages()).anyMatch(message -> message.endsWith(": IllegalStateException"));
-            assertThat(capture.messages()).noneMatch(message -> message.contains("FAKE-secret"));
+            assertThat(capture.messages()).anyMatch(message -> message.contains("java.lang.IllegalStateException"));
+            assertThat(capture.messages()).noneMatch(message -> message.contains("FAKE-secret") || message.contains("FAKE-name"));
+            assertThat(capture.events()).allSatisfy(event -> assertThat(event.getThrown()).isNull());
         }
         verify(files, never()).saveTempFile(anyString(), any(ByteArrayOutputStream.class));
         verify(service, times(1)).render(any());
@@ -294,7 +295,7 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
         try (LogCapture capture = LogCapture.forLogger(ConvertToEdoc.class)) {
             assertThat(ConvertToEdoc.saveAsTempPDF(form(page("<p>FAKE-body</p>"), directory.toString(), "FAKE-name"))).isNull();
 
-            assertThat(capture.messages()).anyMatch(message -> message.endsWith(": IOException"));
+            assertThat(capture.messages()).anyMatch(message -> message.contains("java.io.IOException"));
             assertThat(capture.messages()).noneMatch(message -> message.contains(directory.toString()));
         }
 

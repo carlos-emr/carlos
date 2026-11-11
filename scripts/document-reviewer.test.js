@@ -9,12 +9,15 @@ const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp
 const start = jsp.indexOf('function reviewed(ths)');
 const end = jsp.indexOf('var docSubClassList', start);
 assert.ok(start >= 0 && end > start, 'The document Reviewed handler is missing');
-const source = jsp.slice(start, end).replaceAll('<%=user_no%>', '999998');
+const source = jsp.slice(start, end);
+test('the Reviewed handler does not embed the signed-in provider number', () => {
+  // The action records the session provider; the page must not supply a reviewer of its own.
+  assert.doesNotMatch(source, /user_no|extraReviewerId|extraReviewDoc/);
+});
 function review(reviewer) {
   let submits = 0;
   const dialogs = [];
-  const form = {reviewerId:{value:reviewer}, reviewDoc:{value:'false'}, extraReviewerId:{value:''},
-    extraReviewDoc:{value:'false'}, submit() {submits++;}};
+  const form = {reviewerId:{value:reviewer}, reviewDoc:{value:'false'}, submit() {submits++;}};
   const context = vm.createContext({alert:message => dialogs.push(message)});
   vm.runInContext(source, context);
   context.reviewed({form});
@@ -22,19 +25,17 @@ function review(reviewer) {
   assert.deepEqual(dialogs, [], 'Reviewed must not show a debug prompt');
   return form;
 }
-for (const value of ['', 'null']) {
-  test(`first review asks the server to assign the provider when the rendered reviewer is ${JSON.stringify(value)}`, () => {
+// Issue #6081: the reviewer rendered with the page can be out of date (another user's Update
+// clears it, another provider reviews first), so the page never decides first versus additional
+// review. It asks for a review and the action decides from the stored document.
+for (const value of ['', 'null', '999997']) {
+  test(`Reviewed asks the server for a review whatever reviewer was rendered (${JSON.stringify(value)})`, () => {
     const form = review(value);
-    assert.equal(form.reviewerId.value, '');
     assert.equal(String(form.reviewDoc.value), 'true');
-    assert.equal(form.extraReviewerId.value, '');
-    assert.equal(form.extraReviewDoc.value, 'false');
+    assert.equal(form.reviewerId.value, value, 'the rendered reviewer is left as loaded and is not trusted');
+    assert.deepEqual(Object.keys(form).sort(), ['reviewDoc', 'reviewerId', 'submit']);
   });
 }
-test('another review retains the primary reviewer and submits an extra reviewer', () => {
-  const form = review('999997');
-  assert.equal(form.reviewerId.value, '999997');
-  assert.equal(form.reviewDoc.value, 'false');
-  assert.equal(String(form.extraReviewerId.value), '999998');
-  assert.equal(String(form.extraReviewDoc.value), 'true');
+test('the edit form no longer posts client-chosen extra-review fields', () => {
+  assert.doesNotMatch(jsp, /name="extraReviewerId"|name="extraReviewDoc"/);
 });

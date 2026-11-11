@@ -7,7 +7,8 @@
  * redirects disabled so a refusal probe cannot leak them to another origin.
  */
 async function prepareRead(session, target, options, requireSessionCookie) {
-  const {allowSecurityErrorRedirect = false, allowPost = false, ...requestOptions} = options;
+  const {allowSecurityErrorRedirect = false, allowPost = false, mutatingPost = false, ...requestOptions} = options;
+  if(mutatingPost&&(!requireSessionCookie||allowPost!==true||options.method!=='POST'))throw new Error('Mutating probe requires an explicitly enabled authenticated POST');
   const base = session.config.baseUrl;
   const url = new URL(target, base);
   if (url.origin !== base.origin || url.username || url.password) {
@@ -18,9 +19,9 @@ async function prepareRead(session, target, options, requireSessionCookie) {
   if (!['http:', 'https:'].includes(url.protocol) || (url.protocol === 'http:' && !loopback)) {
     throw new Error('Authenticated probes require HTTPS outside loopback');
   }
-  // Shared read probes remain read-only unless a caller explicitly opts into
-  // a known read-only POST (the print preview). Authentication-state probes
-  // never have that capability, even if a caller supplies the flag.
+  // Shared probes remain read-only unless a caller explicitly enables POST.
+  // Mutating POST callers additionally track unacknowledged writes below.
+  // Authentication-state probes always remain read-only.
   const postEnabled = requireSessionCookie && allowPost === true;
   if (!(postEnabled ? ['GET', 'HEAD', 'POST'] : ['GET', 'HEAD']).includes(options.method || 'GET')) {
     throw new Error(!requireSessionCookie ? 'Authentication-state probes support only GET and HEAD'
@@ -90,12 +91,18 @@ async function authenticatedProbe(session,target,options={}) {
       headers['CSRF-TOKEN'] = match[1];
     } finally { await tokenResponse.dispose(); }
   }
-  const response = await session.context.request.fetch(url.href, {
-    ...requestOptions,
-    headers,
-    maxRedirects: 0,
-    failOnStatusCode: false,
-  });
+  // Only the final request can mutate. Failed heartbeat/token preflights must
+  // not falsely retain fixtures. A lost write acknowledgement must retain them.
+  const operation=(async()=>{
+    try {return await session.context.request.fetch(url.href, {
+      ...requestOptions,headers,maxRedirects:0,failOnStatusCode:false,
+    });} catch(error) {
+      if(options.mutatingPost)require('./uncertain-server-writes').retainFixtures(session.context);
+      throw error;
+    }
+  })();
+  if(options.mutatingPost)require('./uncertain-server-writes').trackWrite(session.context,operation);
+  const response=await operation;
   // Even no-write/include assertions must not accept a logged-out redirect.
   const status = response.status();
   if (status >= 300 && status < 400) {

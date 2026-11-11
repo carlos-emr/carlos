@@ -155,6 +155,8 @@ public class SearchConfigTo1 {
         this.bookingAppointmentTypes = bookingAppointmentTypes;
     }
 
+    /** Returns the duration map; a present empty map retains its published XML container. */
+    @jakarta.xml.bind.annotation.XmlElement(required = true)
     @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
             io.github.carlos_emr.carlos.utility.xml.CharacterIntegerMapXmlAdapter.class)
     public Map<Character, Integer> getAppointmentCodeDurations() {

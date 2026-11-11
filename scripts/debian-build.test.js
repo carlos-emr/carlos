@@ -15,12 +15,16 @@ test('source Debian build clears stale versioned WARs before selecting its outpu
 
 // The carlos-ctl(8) render gate moved to the carlos-ctl package with the man
 // page (#4001). What dh_auto_test checks here is the payload that package
-// reads: every shipped OSCAR 19 manifest parses and carries format 1 -- a
+// reads: every shipped OSCAR 19 manifest parses and carries its kind's format -- a
 // malformed one fails an import at a clinic, not a build, unless it is caught
 // here. The recipe is run against a tree of manifests, good and bad.
 for (const [label, body, expected] of [
   ['the shipped manifests', null, 0],
-  ['a manifest of another format', '{"format": 2, "kind": "o19map-schema"}', 1],
+  ['an older schema format', '{"format": 1, "kind": "o19map-schema"}', 1],
+  ['a newer schema format', '{"format": 3, "kind": "o19map-schema"}', 1],
+  ['a props manifest with schema format', '{"format": 2, "kind": "o19map-props"}', 1],
+  ['a preflight manifest with schema format', '{"format": 2, "kind": "o19-preflight"}', 1],
+  ['an unknown kind', '{"format": 1, "kind": "unknown"}', 1],
   ['a boolean format', '{"format": true, "kind": "o19map-schema"}', 1],
   ['a manifest with no kind', '{"format": 1}', 1],
   ['a file that is not JSON', '{not json', 1],
@@ -178,4 +182,14 @@ test('render browser names avoid everything the old renderer purge touches', () 
   ].join('\n');
   assert.doesNotMatch(shipped, /carlos-emr-chromedriver|render-browser\.env|\/var\/lib\/carlos-emr\/render(?![a-z])/);
   assert.match(shipped, /carlos-emr-render-browser/);
+});
+
+test('source builds retain both dependency-lock gates', () => {
+  const rules = fs.readFileSync(path.join(__dirname, '..', 'debian', 'rules'), 'utf8');
+  const flags = rules.match(/^MVN_FLAGS\s*:=([^\n]*)/m)[1];
+  assert.doesNotMatch(flags, /skip-dependency-lock/);
+  const recipe = rules.match(/\$\(MVN\) -f "\$\$src\/pom\.xml"[\s\S]*?clean package;/)[0];
+  assert.match(recipe, /se\.vandmo:dependency-lock-maven-plugin:1\.1\.1:check/);
+  assert.match(recipe, /-DdependencyLock\.filename=\$\$lock/);
+  assert.match(rules, /lock=.*debian\/drugref-dependencies-lock\.json/);
 });

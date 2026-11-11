@@ -32,7 +32,6 @@ package io.github.carlos_emr.carlos.billings.ca.bc.Teleplan;
 
 import java.util.Arrays;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -79,6 +78,6 @@ public class WCBCodes {
 
     @Override
     public String toString() {
-        return ReflectionToStringBuilder.toString(this);
+        return getClass().getSimpleName() + "[protected]";
     }
 }

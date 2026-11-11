@@ -1,0 +1,27 @@
+[
+  {
+    "classname": "io.github.carlos_emr.CarlosPropertiesModernChartPersistenceUnitTest",
+    "name": "shouldRefuseCutover_whenUnsafeSourceIsReadOnly",
+    "container": ""
+  },
+  {
+    "classname": "io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtilsOutboxTimestampUnitTest",
+    "name": "shouldCopyNothing_whenTheLastOpenCannotBeRecorded",
+    "container": "ActionUtils outbox staging window"
+  },
+  {
+    "classname": "io.github.carlos_emr.carlos.managers.ApplicationTempPurgeJobUnitTest",
+    "name": "shouldCountScanFailure_whenDirectoryUnreadable",
+    "container": ""
+  },
+  {
+    "classname": "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOutputLockUnitTest",
+    "name": "shouldReportUnavailableOutputFolder_whenFolderIsReadOnly",
+    "container": ""
+  },
+  {
+    "classname": "io.github.carlos_emr.carlos.decision.AntenatalRiskConfigServiceUnitTest",
+    "name": "shouldRefuse_whenExistingConfigurationIsUnreadable",
+    "container": "Antenatal risk configuration service"
+  }
+]

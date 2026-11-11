@@ -1,0 +1,152 @@
+# Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
+name: Debian build and installed smoke
+
+on:
+  pull_request:
+    branches: [main, 'release/**']
+    paths:
+      - '.github/workflows/package-smoke.yml'
+      - 'debian/**'
+      - 'src/main/**'
+      - 'database/**'
+      - 'scripts/**'
+      - 'local_repo/**'
+      - 'pom.xml'
+      - 'dependency-lock.json'
+      - 'package*.json'
+  push:
+    branches: [main, 'release/**']
+    paths:
+      - '.github/workflows/package-smoke.yml'
+      - 'debian/**'
+      - 'src/main/**'
+      - 'database/**'
+      - 'scripts/**'
+      - 'local_repo/**'
+      - 'pom.xml'
+      - 'dependency-lock.json'
+      - 'package*.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Every branch push keeps its own qualification; only superseded PR heads cancel.
+  group: package-smoke-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: Source build with dependency locks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    container:
+      image: ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
+      options: --volume /etc/ssl/certs/ca-certificates.crt:/run/carlos-ci-ca.crt:ro
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Install Ubuntu 26.04 build dependencies
+        run: |
+          set -euo pipefail
+          test -s /run/carlos-ci-ca.crt
+          printf '%s\n' 'Acquire::https::CaInfo "/run/carlos-ci-ca.crt";' \
+            'Acquire::Retries "3";' 'Acquire::https::Timeout "30";' \
+            'Acquire::https::No-Cache "true";' \
+            > /etc/apt/apt.conf.d/80-carlos-ci
+          sed -i -e 's#http://#https://#g' \
+            -e 's#https://security.ubuntu.com/ubuntu#https://archive.ubuntu.com/ubuntu#g' \
+            /etc/apt/sources.list.d/ubuntu.sources
+          for attempt in 1 2 3; do
+            apt-get -o Acquire::Retries=3 -o Acquire::http::No-Cache=true \
+              -o Acquire::https::No-Cache=true -o Acquire::By-Hash=force -o APT::Update::Error-Mode=any update \
+              && DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::https::No-Cache=true install -y --no-install-recommends \
+                build-essential debhelper devscripts lintian fakeroot maven \
+                openjdk-25-jdk-headless tomcat11 git ca-certificates curl xz-utils unzip \
+              && break
+            test "$attempt" -lt 3 || exit 1
+            rm -rf /var/lib/apt/lists/*
+            sleep 2
+          done
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build both complete packages from source
+        # checkout's temporary HOME does not configure Maven's later git child.
+        # Trust exactly this CI checkout through inherited command-scope config.
+        env:
+          GIT_CONFIG_COUNT: '1'
+          GIT_CONFIG_KEY_0: safe.directory
+          GIT_CONFIG_VALUE_0: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          # Exercise the shipping debian/rules pipeline, including both Maven
+          # locks, the pinned renderer and every WAR/staging guard.
+          dpkg-buildpackage -us -uc -b
+          lintian --fail-on error ../carlos-emr_*.changes
+          mkdir -p target/pr-debs
+          cp ../carlos-emr_*_amd64.deb ../carlos-emr-drugref_*_all.deb target/pr-debs/
+          cd target/pr-debs
+          sha256sum ./*.deb > SHA256SUMS
+      - name: Retain candidate packages
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pr-debs
+          path: target/pr-debs/
+          if-no-files-found: error
+          retention-days: 7
+
+  installed:
+    name: Ubuntu 26.04 installed smoke (${{ matrix.province }})
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        province: [on, bc]
+    env:
+      CARLOS_DISPOSABLE_HOST: 'true'
+      APT_FORCE_HTTPS: 'true'
+      CARLOS_PROVINCE: ${{ matrix.province }}
+      CONTAINER: carlos-pr-smoke
+      BASE_IMAGE: ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
+      DEBS_DIR: ${{ github.workspace }}/target/pr-debs
+      LOG_DIR: ${{ github.workspace }}/target/package-smoke-logs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: pr-debs
+          path: ${{ env.DEBS_DIR }}
+      - name: Verify candidate bytes and obtain pinned CLI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          (cd "$DEBS_DIR" && sha256sum -c SHA256SUMS)
+          debian/fetch-carlos-ctl.sh "$DEBS_DIR"
+      - name: Install complete packages and reset the initial account
+        run: bash scripts/deb-docker-validation.sh up
+      - name: Exercise installed HTTPS and database contracts
+        run: |
+          bash scripts/deb-docker-validation.sh suite \
+            --only application-health --only drug-search --only schedule-links \
+            --only eform-visual-widgets --only audit-log-chart-read \
+            --only lab-version-ingestion --only lab-qualified-results \
+            --only report-cdm --only cdm-measurement-report
+      - name: Retain install and browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: package-smoke-${{ matrix.province }}
+          path: ${{ env.LOG_DIR }}/
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Remove the disposable installation
+        if: always()
+        run: bash scripts/deb-docker-validation.sh down

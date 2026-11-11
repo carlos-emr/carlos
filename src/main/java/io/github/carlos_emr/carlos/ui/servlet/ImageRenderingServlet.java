@@ -239,7 +239,7 @@ public final class ImageRenderingServlet extends HttpServlet {
             }
             return bais.toByteArray();
         } catch (IOException e) {
-            logger.error("Error reading default image.", e);
+            logger.error("Error reading default image.: {}", LogSafe.exceptionTrace(e));
         }
         return null;
     }
@@ -270,7 +270,7 @@ public final class ImageRenderingServlet extends HttpServlet {
                 // Reject any path traversal attempts
                 if (signatureRequestId.contains("..") || signatureRequestId.contains("/") || 
                     signatureRequestId.contains("\\") || signatureRequestId.contains(File.separator)) {
-                    logger.warn("SECURITY WARNING: Path traversal attempt detected in signature request ID: {}", LogSafe.sanitize(signatureRequestId));
+                    logger.warn("SECURITY WARNING: Path traversal attempt detected in signature request ID");
                     throw new IllegalArgumentException("Invalid signature request ID");
                 }
 
@@ -287,7 +287,7 @@ public final class ImageRenderingServlet extends HttpServlet {
                 // nosemgrep: carlos.httpservlet-path-traversal
                 File targetFile = new File(tempFilePath);
                 if (!PathValidationUtils.isInAllowedTempDirectory(targetFile)) {
-                    logger.warn("SECURITY WARNING: Attempt to access file outside temp directory: {}", LogSafe.sanitize(tempFilePath));
+                    logger.warn("SECURITY WARNING: Attempt to access file outside temp directory");
                     throw new IllegalArgumentException("Invalid file path");
                 }
 
@@ -305,7 +305,7 @@ public final class ImageRenderingServlet extends HttpServlet {
                 return;
             }
         } catch (Exception e) {
-            logger.error("Unexpected error.", e);
+            logger.error("Unexpected error.: {}", LogSafe.exceptionTrace(e));
         }
 
         response.sendError(HttpServletResponse.SC_NOT_FOUND);
@@ -425,7 +425,7 @@ public final class ImageRenderingServlet extends HttpServlet {
                 return;
             }
         } catch (Exception e) {
-            logger.error("Unexpected error.", e);
+            logger.error("Unexpected error.: {}", LogSafe.exceptionTrace(e));
         }
 
         response.sendError(HttpServletResponse.SC_NOT_FOUND);

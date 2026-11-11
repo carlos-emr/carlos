@@ -15,10 +15,102 @@ CRITICAL = {
     "ProviderLabRoutingDaoIntegrationTest": 1,
     "BillingONCHeader1DaoIntegrationTest": 1,
 }
+# Surefire's default JUnit 5 names distinguish both boolean invocations. Counts
+# alone cannot prove archive-failure or demographic-audit regressions executed.
+REQUIRED_CASES = {
+    "EncounterFormDaoGroupedHistoryIntegrationTest": {
+        "shouldGroupPhysicalHistory_onTheNativeTable",
+        "shouldRejectUnregisteredTableBeforeHistorySql_whenIdentifierIsOtherwiseValid",
+    },
+    "LabRoutingLookupDaoIntegrationTest": {
+        "shouldPreserveBcLikeMatchingAndSpireShortestNameLimit_forProviderSearch",
+        "shouldNeverMatchMissingCmlHin_evenWithOnePlausiblePatient",
+    },
+    "LegacyLabUploadDaoIntegrationTest": {
+        "shouldKeepMissingIdentifiersUnmatched_withOnePlausibleBlankHinPatient",
+        "shouldRejectWholeFile_whenSecondPatientRecordIsMalformed",
+    },
+    'ReportingPatientListAuditMariaDbIntegrationTest': {
+        'shouldCommitPatientNameAudit_withAnUnassignedOrMissingProvider(String)[1]',
+        'shouldCommitPatientNameAudit_withAnUnassignedOrMissingProvider(String)[2]',
+        'shouldRollbackEarlierNameAudits_whenLaterCheckedFailureEscapes',
+        'shouldRollbackEarlierNameAudits_whenLaterPatientEnrichmentFails',
+    },
+    "AppointmentUpdateDaoIntegrationTest": {
+        "shouldRefuseStoredPatient_beforeArchivalOrMutation",
+        "shouldRollbackArchiveAndEdit_whenReplacementPatientIsDenied",
+        "shouldAllowAssignedPatientWrite_withoutReadPermission",
+    },
+    "ProgramAdmissionAuditMariaDbIntegrationTest": {
+        "shouldRollbackReadAudits_whenALaterCheckedFailureEscapes",
+
+        "shouldCommitSynchronousAdmissionAudits_withThePatientFilteredResponse",
+        "shouldRollbackEarlierReadAudits_whenLaterPatientPolicyAbortsTheResponse",
+    },
+    "TicklerPatientAccessMariaDbIntegrationTest": {
+        "shouldRetainClinicalPriorityOrdering_whenUsingTypedCriteria",
+        "shouldRollbackLegacyResolution_whenALaterStoredPatientIsDenied",
+        "shouldRollbackLegacyResolutionAlias_whenALaterStoredPatientIsDenied",
+        "shouldBindFilterValues_andKeepSortHintsOutOfNativeQueryText",
+
+        "shouldAuthorizeTheStoredAndRequestedPatients_beforeFlushingAManagedEdit",
+        "shouldDenyTheCurrentStoredPatient_beforeAnyNativeMutation",
+        "shouldHoldThePhysicalPatientLock_untilTheMutationTransactionCommits",
+        "shouldKeepDiscoveryRowsAndTotals_inOneNativeReadSnapshot",
+        "shouldPageAndCountOnlyPermittedRows_afterNativeDeniedBatches",
+        "shouldRetainUpdateOnlyAuthority_withoutAddingReadPermission",
+        "shouldRollbackEarlierNativeWrites_whenALaterMutationFails",
+        "shouldRollbackManagedFieldChanges_whenValidationReturnsFalse",
+    },
+    "RxPrescribeMariaDbIntegrationTest": {
+        "shouldCommitPrescriptionAndDrugs_whenNativeWritesSucceed",
+        "shouldRequireReconciliation_whenCommitSucceedsButAcknowledgementIsLost",
+        "shouldRollbackHeaderEarlierDrugsAndArchive_whenALaterNativeWriteFails",
+        "shouldRollbackPhysicalState_whenCommitFailsBeforeSubmission",
+    },
+    "ScheduleSyncMariaDbIntegrationTest": {
+        "shouldApplyProgramProviderPatientFilters_whilePagingNativeTies",
+        "shouldContinuePastConsentBlockedRows_withoutReturningAFalseEmptyNativePage",
+        "shouldFaultLegacyTiePages_andKeepCompleteNativeTimestampGroups",
+        "shouldKeepASingleRepeatableReadSnapshot_acrossNativeBatchQueries",
+        "shouldPageArchiveTiesWithoutLoss_onTheNativeSchema",
+        "shouldPageCurrentTiesWithoutLoss_onTheNativeSchema",
+        "shouldPropagateASecondNativeQueryFailure_withoutReturningAPartialPage",
+        "shouldRequireReconciliationForLateWritesBehindAnAlreadyReturnedCursor",
+        "shouldRetainTheDaoHardPageLimit_atMaximumNativePageSize",
+    },
+    "SoapTokenHousekeepingDaoIntegrationTest": {
+        *(f"shouldUseEpochExpiryAcrossDatabaseZones_withoutDeletingRecentOrOtherPurposeTokens(String)[{index}]"
+          for index in (1, 2, 3)),
+        "shouldBoundDeletionBatches_andReportActualIdempotentCounts",
+        "shouldRefuseCorruptSoapMetadata_withoutPartiallyDeletingValidRows",
+        "shouldRollbackEarlierDeletes_whenALaterDeleteFails",
+        "shouldRefuseNonTransactionalStorage_beforeAnyDeletion",
+        "shouldRefuseAnExistingTransaction_withoutCommittingOrRollingBackCallerWork",
+    },
+    "DemographicIdentifierPreservationMariaDbIntegrationTest": {
+        "shouldStartItsOwnJpaTransaction_andPreserveUndisclosedIdentifiers",
+        "shouldRefreshPreviouslyCachedIdentifiers_afterTakingTheWriteLock",
+        "shouldRollbackTheNativeWrite_whenALaterFailureOccurs",
+        "shouldRetainExplicitEmptyStringClears_inTheNativeTransaction",
+        "shouldReportConflict_withoutOverwritingAnOlderTransactionSnapshot",
+    },
+    "DemographicMergeMariaDbIntegrationTest": {
+        "shouldRefuseDeniedParticipants_beforeAnyDatabaseOrAuditChange",
+    },
+    "Growth0To36FormPersistenceIntegrationTest": {
+        f"{method}(boolean)[{index}]"
+        for method in (
+            "shouldRetainCommittedFormAndLogSafely_whenArchiveReadOrWriteFails",
+            "shouldCommitDemographicAudit_whenLoadingWithoutAnMrp",
+        )
+        for index in (1, 2)
+    },
+}
 # AbstractDaoFindAllOrderingIntegrationTest pins issue #5308 where it matters: MariaDB returns an
 # unordered page in secondary-index order, so its paging cases must execute on the physical server.
 # CaseManagementIssueDAO adds one duplicate-link case on the legacy Flyway schema only.
-REQUIRED = {"generated": {**CRITICAL, "LegacyLabUploadDaoIntegrationTest": 6, "LabRoutingLookupDaoIntegrationTest": 4, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
+REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
                           "JdbcConnectorMariaDbIntegrationTest": 32,
                           "BillingHistoryDaoIntegrationTest": 1, "LookupDaoIntegrationTest": 1,
                           "AbstractDaoFindAllOrderingIntegrationTest": 6,
@@ -26,24 +118,76 @@ REQUIRED = {"generated": {**CRITICAL, "LegacyLabUploadDaoIntegrationTest": 6, "L
                           "ConsultationListProjectionIntegrationTest": 17,
                           "BCAR2020FormSaveTransactionIntegrationTest": 15,
                           "RxCorrectionSaveRollbackIntegrationTest": 2,
-                          "DemographicMergeMariaDbIntegrationTest": 8},
-            "flyway": {**CRITICAL, "LegacyLabUploadDaoIntegrationTest": 6, "LabRoutingLookupDaoIntegrationTest": 4,
-                       "LegacyLabNativeMariaDbIntegrationTest": 4, "ConsultationArchiveDaoIntegrationTest": 1,
+                          "RxStrictAuditIntegrationTest": 1, "RxSaveReceiptCommitIntegrationTest": 8,
+                          "RxConcurrencyIntegrationTest": 6,
+                          "RxFavoriteGroupIntegrationTest": 6,
+                          "RxFavoriteCopyIntegrationTest": 1,
+                          "RxRestPrescriptionRollbackIntegrationTest": 1,
+                          "DemographicMergeMariaDbIntegrationTest": 9,
+                          "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
+                          "ScheduleSyncMariaDbIntegrationTest": 9,
+                          "RxPrescribeMariaDbIntegrationTest": 4,
+                          "TicklerPatientAccessMariaDbIntegrationTest": 12,
+                          "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
+                          "ReportingPatientListAuditMariaDbIntegrationTest": 4,
+                          "SoapTokenHousekeepingDaoIntegrationTest": 8,
+                          "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 2},
+            "flyway": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6,
+                       "LegacyLabNativeMariaDbIntegrationTest": 7, "ConsultationArchiveDaoIntegrationTest": 1,
                        "ArchiveAuditTimestampIntegrationTest": 2,
                        "CaseManagementNoteLockMariaDbIntegrationTest": 15,
                        "CaseManagementIssueDAOIntegrationTest": 22,
                        "ConsultationListProjectionIntegrationTest": 17,
                        "RxCorrectionSaveRollbackIntegrationTest": 2,
-                       "DemographicMergeMariaDbIntegrationTest": 8},
-            "bc-flyway": {"LabRoutingLookupDaoIntegrationTest": 4,
-                           "LegacyLabNativeMariaDbIntegrationTest": 4,
+                       "DemographicMergeMariaDbIntegrationTest": 9,
+                          "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
+                          "ScheduleSyncMariaDbIntegrationTest": 9,
+                          "RxPrescribeMariaDbIntegrationTest": 4,
+                          "TicklerPatientAccessMariaDbIntegrationTest": 12,
+                          "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
+                          "ReportingPatientListAuditMariaDbIntegrationTest": 4,
+                          "SoapTokenHousekeepingDaoIntegrationTest": 8,
+                       "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 2},
+            "bc-flyway": {"FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementTransactionIntegrationTest": 2, "LabRoutingLookupDaoIntegrationTest": 6,
+                           "LegacyLabNativeMariaDbIntegrationTest": 7,
                            "ConsultationArchiveDaoIntegrationTest": 1,
                            "ArchiveAuditTimestampIntegrationTest": 2,
                            "CaseManagementNoteLockMariaDbIntegrationTest": 15,
-                           "BcBillingNativeMariaDbIntegrationTest": 8,
+                           "BcBillingNativeMariaDbIntegrationTest": 22,
+                           "FormXmlImportServiceIntegrationTest": 7,
+                           "EFormApColumnLookupIntegrationTest": 2,
+                           "AppointmentDaySheetServiceIntegrationTest": 4,
+                           "AntenatalReportDaoIntegrationTest": 5,
+                           "EFormGroupDaoIntegrationTest": 9,
                            "BcBillingDaoTransactionIntegrationTest": 4,
+                           "LegacyBcTeleplanExportMariaDbIntegrationTest": 29,
                            "BCAR2020FormSaveTransactionIntegrationTest": 15,
-                           "DemographicMergeMariaDbIntegrationTest": 8}}
+                           "DemographicMergeMariaDbIntegrationTest": 9,
+                          "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
+                          "ScheduleSyncMariaDbIntegrationTest": 9,
+                          "RxPrescribeMariaDbIntegrationTest": 4,
+                          "TicklerPatientAccessMariaDbIntegrationTest": 12,
+                          "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
+                          "ReportingPatientListAuditMariaDbIntegrationTest": 4,
+                          "SoapTokenHousekeepingDaoIntegrationTest": 8,
+                           "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 2}}
+
+
+INBOX_CASES = (
+    'shouldCountOnlyTheSelectedPatientLabs_andKeepZeroAndMissingPatientsUnmatched',
+    'shouldCountDistinctPatientDocuments_andSeparateUnmatchedAndAcknowledgedRouting',
+    'shouldCountDistinctHrmReports_byPatientProviderAndSignoffIndependentlyOfViewed',
+)
+INBOX_CLASS = 'io.github.carlos_emr.carlos.commn.dao.LegacyLabNativeMariaDbIntegrationTest'
+BC_PHYSICAL_CASES = {
+    'io.github.carlos_emr.carlos.appointment.service.AppointmentDaySheetServiceIntegrationTest': (
+        'shouldReadPhysicalIdsAndEditVersions_beforeAcknowledgingNativeDaySheetRows',),
+    'io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingNativeMariaDbIntegrationTest': (
+        'shouldRetainNumericTimeRules_fromPhysicalTinyintFlags',
+        'shouldPreserveCharacterStatusAndCallerWrites_whenReadingCurrentBillState'),
+    'io.github.carlos_emr.carlos.commn.dao.AntenatalReportDaoIntegrationTest': (
+        'shouldRetainPhysicalPlannerTextAndTinyintFlags_whenPatientOwnsTheForm',),
+}
 
 
 def verify(reports: Path, output: Path) -> dict:
@@ -54,7 +198,10 @@ def verify(reports: Path, output: Path) -> dict:
         raise EvidenceError("No MariaDB DAO reports found")
     counts = {mode: dict(tests=0, failures=0, skipped=0) for mode in REQUIRED}
     families = {mode: dict.fromkeys(required, 0) for mode, required in REQUIRED.items()}
+    passed_cases = {mode: {family: set() for family in REQUIRED_CASES} for mode in REQUIRED}
     identities = set()
+    inbox_cases = {mode: set() for mode in REQUIRED}
+    bc_physical_cases = set()
     collisions = []
     lines = []
     for report in paths:
@@ -76,8 +223,14 @@ def verify(reports: Path, output: Path) -> dict:
             counts[mode]["tests"] += 1
             if case.outcome != "pass":
                 counts[mode]["failures" if case.outcome == "failure" else "skipped"] += 1
+            if case.classname == INBOX_CLASS and not case.container and case.outcome == 'pass':
+                inbox_cases[mode].add(case.name)
+            if mode == 'bc-flyway' and case.classname == suite and not case.container and case.outcome == 'pass':
+                bc_physical_cases.add((case.classname, case.name))
             if family in families[mode] and case.outcome == "pass":
                 families[mode][family] += 1
+                if family in REQUIRED_CASES and case.classname == suite:
+                    passed_cases[mode][family].add(case.name)
             label = f" [{case.container}]" if case.container else ""
             lines.append(f"{mode} {case.outcome}: {case.classname}{label}::{case.name}")
     summary = {"counts": counts, "families": families, "counterCollisions": collisions}
@@ -92,6 +245,17 @@ def verify(reports: Path, output: Path) -> dict:
         for family, minimum in required.items():
             if families[mode][family] < minimum:
                 raise EvidenceError(f"Required MariaDB {mode} coverage missing: {family}")
+        for family, names in REQUIRED_CASES.items():
+            if family not in required:
+                continue
+            missing = names - passed_cases[mode][family]
+            if missing:
+                raise EvidenceError(f"Required MariaDB {mode} cases missing: {family}: " + ", ".join(sorted(missing)))
+    for mode in ('flyway', 'bc-flyway'):
+        if not set(INBOX_CASES) <= inbox_cases[mode]:
+            raise EvidenceError(f'Required MariaDB {mode} inbox case identities missing')
+    if not {(family, name) for family, names in BC_PHYSICAL_CASES.items() for name in names} <= bc_physical_cases:
+        raise EvidenceError('Required MariaDB bc-flyway physical-type case identities missing')
     return summary
 
 

@@ -27,6 +27,8 @@
 
 package io.github.carlos_emr.carlos.managers;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import io.github.carlos_emr.carlos.commn.dao.DigitalSignatureDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
@@ -164,13 +166,13 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
             Path filePath = validatedFile.toPath();
 
             if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
-                logger.debug("Signature file not found or not a regular file: {}", filePath);
+                logger.debug("Signature file not found or not a regular file");
                 return null;
             }
 
             byte[] image = Files.readAllBytes(filePath);
             if (image.length == 0) {
-                logger.debug("Signature file is empty: {}", filePath);
+                logger.debug("Signature file is empty");
                 return null;
             }
 
@@ -182,11 +184,11 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
                     moduleType
             );
         } catch (FileNotFoundException e) {
-            logger.debug("Signature file not found. User probably didn't collect a signature.", e);
+            logger.debug("Signature file not found. User probably didn't collect a signature.: {}", LogSafe.exceptionTrace(e));
         } catch (SecurityException e) {
-            logger.warn("Blocked unsafe file access attempt.", e);
+            logger.warn("Blocked unsafe file access attempt.: {}", LogSafe.exceptionTrace(e));
         } catch (Exception e) {
-            logger.error("Unexpected error processing digital signature.", e);
+            logger.error("Unexpected error processing digital signature.: {}", LogSafe.exceptionTrace(e));
         }
 
         return null;
@@ -220,7 +222,7 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
             File stampFile = PathValidationUtils.validatePath(stampFilename, imageFolder);
 
             if (!stampFile.exists()) {
-                logger.debug("Stamp signature file not found: {}", stampFilename);
+                logger.debug("Stamp signature file not found");
                 return null;
             }
 
@@ -231,7 +233,7 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
             // rendered consult that no gate can see, because the decrypt-failure defence below only
             // inspects bytes that failed to decrypt. Refuse to store what can only render blank.
             if (imageData.length == 0) {
-                logger.warn("Stamp signature file is empty; refusing to store it: {}", stampFilename);
+                logger.warn("Stamp signature file is empty; refusing to store it");
                 return null;
             }
             return this.saveDigitalSignature(
@@ -239,11 +241,11 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
                     providerNo, demographicNo, imageData, moduleType
             );
         } catch (SecurityException e) {
-            logger.warn("Blocked unsafe file access attempt for stamp signature.", e);
+            logger.warn("Blocked unsafe file access attempt for stamp signature.: {}", LogSafe.exceptionTrace(e));
         } catch (IOException e) {
-            logger.error("Error reading stamp signature file: {}", stampFilename, e);
+            logger.error("Error reading stamp signature file: {}", LogSafe.exceptionTrace(e));
         } catch (RuntimeException e) {
-            logger.error("Error persisting stamp signature for provider {}: {}", providerNo, e.getMessage(), e);
+            logger.error("Error persisting stamp signature for provider {}: {}", providerNo, LogSafe.exceptionTrace(e));
         }
 
         return null;

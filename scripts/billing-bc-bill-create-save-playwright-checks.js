@@ -34,6 +34,7 @@ const ui = require('./lib/playwright-ui');
 const { expectValue, runWorkflow } = require('./lib/workflow-session');
 const bc = require('./lib/bc-billing-fixture');
 const { masterRecordLink } = require('./lib/master-record-link');
+const { observeBillingNameQueries } = require('./lib/billing-url-privacy');
 
 const TIMEOUT = 30000;
 const FEE = '12.34';
@@ -59,6 +60,8 @@ function createCodes(s) {
 }
 
 async function workflow(s) {
+  const privacy = observeBillingNameQueries(s.context);
+  s.cleanup(privacy.dispose);
   const { sql, marker, patient } = s;
   const q = h.sqlString;
   const physician = bc.createBillingPhysician(s);
@@ -163,6 +166,7 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM billing WHERE demographic_no=${patient} AND demographic_name LIKE ${q(`${marker}%`)}`) === '1',
       'The bill is not named for the owned patient');
   });
+  await s.step('bill-entry navigation uses patient identifiers without patient-name query parameters', async () => privacy.assertNoNames());
 }
 
 async function preflight({ sql }) {

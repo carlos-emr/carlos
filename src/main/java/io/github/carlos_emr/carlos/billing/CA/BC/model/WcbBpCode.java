@@ -33,7 +33,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
@@ -59,7 +58,8 @@ public class WcbBpCode extends AbstractModel<Integer> {
     @Column(length = 5)
     private String code;
 
-    @Lob
+    // The legacy column is BLOB, but contains UTF-8 reference text. Read it as text rather than a JDBC Clob.
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.LONGVARCHAR)
     private String usagenote;
 
     public Integer getId() {

@@ -29,14 +29,12 @@
 
 package io.github.carlos_emr.carlos.webserv;
 
-import java.io.IOException;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
 import jakarta.jws.WebParam;
 import jakarta.jws.WebService;
-import jakarta.xml.ws.WebServiceException;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.cxf.annotations.GZIP;
@@ -53,9 +51,11 @@ import org.springframework.stereotype.Component;
 
 @WebService(targetNamespace = "http://ws.oscarehr.org/")
 @Component
+@org.apache.cxf.interceptor.OutInterceptors(interceptors = {"io.github.carlos_emr.carlos.webserv.DocumentListProfileOutInterceptor"})
+@org.apache.cxf.interceptor.OutFaultInterceptors(interceptors = {"io.github.carlos_emr.carlos.webserv.DocumentListProfileOutInterceptor"})
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)
 public class DocumentWs extends AbstractWs {
-    private Logger logger = MiscUtils.getLogger();
+    private final Logger logger = MiscUtils.getLogger();
 
     @Autowired
     private DocumentManager documentManager;
@@ -64,24 +64,28 @@ public class DocumentWs extends AbstractWs {
     private ProgramManager programManager;
 
     public DocumentTransfer getDocument(Integer documentId) {
+        DocumentListProfile.current();
         try {
             LoggedInInfo loggedInInfo = getLoggedInInfo();
             Document document = documentManager.getDocument(loggedInInfo, documentId);
             CtlDocument ctlDocument = documentManager.getCtlDocumentByDocumentId(loggedInInfo, documentId);
             return (DocumentTransfer.toTransfer(document, ctlDocument));
-        } catch (IOException e) {
-            logger.error("Unexpected error", e);
-            throw (new WebServiceException(e));
+        } catch (java.io.IOException e) {
+            logger.error("Document content read failed: {}", io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(e));
+            throw new org.apache.cxf.binding.soap.SoapFault("Document content could not be read",
+                    org.apache.cxf.binding.soap.SoapFault.FAULT_CODE_SERVER);
         }
     }
 
     public DocumentTransfer[] getDocumentsUpdateAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn) {
+        DocumentListProfile.current();
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Document> documents = documentManager.getDocumentsUpdateAfterDate(loggedInInfo, updatedAfterThisDateExclusive, itemsToReturn);
         return (DocumentTransfer.getTransfers(loggedInInfo, documents));
     }
 
     public DocumentTransfer[] getDocumentsByProgramProviderDemographicDate(Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateExclusive, int itemsToReturn) {
+        DocumentListProfile.current();
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Document> documents = documentManager.getDocumentsByProgramProviderDemographicDate(loggedInInfo, programId, providerNo, demographicId, updatedAfterThisDateExclusive, itemsToReturn);
         logger.debug("programId=" + programId + ", providerNo=" + providerNo + ", demographicId=" + demographicId + ", updatedAfterThisDateExclusive=" + DateFormatUtils.ISO_DATETIME_FORMAT.format(updatedAfterThisDateExclusive) + ", itemsToReturn=" + itemsToReturn + ", results=" + documents.size());
@@ -89,6 +93,7 @@ public class DocumentWs extends AbstractWs {
     }
 
     public DocumentTransfer[] getDocumentsByDemographicIdAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "demographicId") Integer demographicId) {
+        DocumentListProfile.current();
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Document> documents = documentManager.getDocumentsByDemographicIdUpdateAfterDate(loggedInInfo, demographicId, lastUpdate.getTime());
         return (DocumentTransfer.getTransfers(loggedInInfo, documents));

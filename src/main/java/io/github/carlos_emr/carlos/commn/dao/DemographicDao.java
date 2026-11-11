@@ -56,6 +56,11 @@ import org.springframework.context.ApplicationEventPublisher;
  */
 public interface DemographicDao {
 
+    record LabPatientChoice(String id, String firstName, String lastName, String rosterStatus,
+            String patientStatus, String sex, String chartNo, String year, String month, String day, String providerNo) { }
+
+    List<LabPatientChoice> findLabPatientChoices(String mode, String keyword, String sort, int offset, int limit);
+
     /** Maximum number of patient search results returned in one request. */
     int MAX_SEARCH_RESULT_SIZE = 500;
 
@@ -70,6 +75,11 @@ public interface DemographicDao {
     public Long getActiveDemographicCount();
 
     public List<Demographic> getActiveDemographics(final int offset, final int limit);
+
+    /** Bounded identifier-only scan used to count authorized active patients. */
+    default List<Integer> getActiveDemographicIds(int offset, int limit) {
+        return getActiveDemographics(offset, limit).stream().map(Demographic::getDemographicNo).toList();
+    }
 
     public Demographic getDemographicById(Integer demographic_id);
 
@@ -388,6 +398,15 @@ public interface DemographicDao {
      * @since 2026-10-15
      */
     public Demographic findForUpdate(Integer demographicNo);
+
+    /**
+     * Fresh current row under a write lock, including when this context already cached it.
+     * Existing extension DAOs remain binary compatible and refuse an unsupported safety guarantee.
+     */
+    default Demographic findFreshForUpdate(Integer demographicNo) {
+        throw new UnsupportedOperationException("Fresh locked patient reads are not supported by this DAO");
+    }
+
 
     /**
      * Locks an existing participant row for a merge inside the caller's transaction.

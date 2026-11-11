@@ -101,6 +101,62 @@ function xmlText(value) {
     .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, '\'').replace(/&amp;/g, '&');
 }
 
+/**
+ * Excel's own escape for characters XML cannot carry: _xHHHH_ is the code unit, and a literal
+ * underscore that could open one is written _x005F_ (SpreadsheetExport does so before every
+ * "xHHHH", closed or not, since its next escape may close it). Decoded after the XML entities,
+ * left to right and without overlap, as Excel and Apache POI do.
+ */
+function excelText(value) {
+  // Decode each token once. Consuming a following literal token would swallow the
+  // leading underscore of the next escaped token when original tokens overlap.
+  return value.replace(/_x([0-9A-Fa-f]{4})_/g,
+    (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
+
+/**
+ * One worksheet <row>, with its cells in group 1. A row without cells may be written self-closing
+ * (<row r="3"/>, as Woodstox does); matching it as an opening tag would swallow the next row.
+ */
+const ROW = /<row\b(?:[^>]*?\/>|[^>]*>([\s\S]*?)<\/row>)/g;
+
+/**
+ * The first worksheet of an .xlsx as rows of cells { type: 'text' | 'number', value }: a numeric
+ * cell reads as a Number, a shared or inline string as its text, a blank as { type: 'text', value: '' }.
+ */
+function xlsxCells(buffer) {
+  const entries = unzip(buffer);
+  h.assert(entries['xl/workbook.xml'], 'The file is a ZIP but not an Excel workbook');
+  const shared = [];
+  if (entries['xl/sharedStrings.xml']) {
+    for (const si of entries['xl/sharedStrings.xml'].toString('utf8').matchAll(/<si\b[^>]*>([\s\S]*?)<\/si>/g)) {
+      shared.push(xmlText([...si[1].matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map(t => t[1]).join('')));
+    }
+  }
+  const sheetName = Object.keys(entries).filter(name => /^xl\/worksheets\/sheet\d+\.xml$/.test(name)).sort()[0];
+  h.assert(sheetName, 'The workbook has no worksheet');
+  const rows = [];
+  for (const row of entries[sheetName].toString('utf8').matchAll(ROW)) {
+    const cells = [];
+    for (const cell of (row[1] || '').matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+      const ref = /\br="([A-Z]+)\d+"/.exec(cell[1]);
+      const type = /\bt="(\w+)"/.exec(cell[1]);
+      let column = 0;
+      for (const letter of ref[1]) column = column * 26 + letter.charCodeAt(0) - 64;
+      const body = cell[2] || '';
+      const v = /<v>([\s\S]*?)<\/v>/.exec(body);
+      let value;
+      if (type && type[1] === 's') value = { type: 'text', value: v ? excelText(shared[Number(v[1])]) : '' };
+      else if (type && type[1] === 'inlineStr') value = { type: 'text', value: excelText(xmlText([...body.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map(t => t[1]).join(''))) };
+      else if (type && type[1] !== 'n') value = { type: 'text', value: v ? excelText(xmlText(v[1])) : '' };
+      else value = v ? { type: 'number', value: Number(v[1]) } : { type: 'text', value: '' };
+      cells[column - 1] = value;
+    }
+    rows.push(Array.from(cells, c => c === undefined ? { type: 'text', value: '' } : c));
+  }
+  return rows;
+}
+
 /** The first worksheet of an .xlsx as an array of rows of strings (blank cells are ''). */
 function xlsxRows(buffer) {
   const entries = unzip(buffer);
@@ -114,17 +170,17 @@ function xlsxRows(buffer) {
   const sheetName = Object.keys(entries).filter(name => /^xl\/worksheets\/sheet\d+\.xml$/.test(name)).sort()[0];
   h.assert(sheetName, 'The workbook has no worksheet');
   const rows = [];
-  for (const row of entries[sheetName].toString('utf8').matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
+  for (const row of entries[sheetName].toString('utf8').matchAll(ROW)) {
     const cells = [];
-    for (const cell of row[1].matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+    for (const cell of (row[1] || '').matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
       const ref = /\br="([A-Z]+)\d+"/.exec(cell[1]);
       const type = /\bt="(\w+)"/.exec(cell[1]);
       let column = 0;
       for (const letter of ref[1]) column = column * 26 + letter.charCodeAt(0) - 64;
       const body = cell[2] || '';
       let value = '';
-      if (type && type[1] === 's') { const v = /<v>([\s\S]*?)<\/v>/.exec(body); value = v ? shared[Number(v[1])] : ''; }
-      else if (type && type[1] === 'inlineStr') value = xmlText([...body.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map(t => t[1]).join(''));
+      if (type && type[1] === 's') { const v = /<v>([\s\S]*?)<\/v>/.exec(body); value = v ? excelText(shared[Number(v[1])]) : ''; }
+      else if (type && type[1] === 'inlineStr') value = excelText(xmlText([...body.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map(t => t[1]).join('')));
       else { const v = /<v>([\s\S]*?)<\/v>/.exec(body); value = v ? xmlText(v[1]) : ''; }
       cells[column - 1] = value;
     }
@@ -294,4 +350,4 @@ function squash(value) {
   return String(value).normalize('NFC').replace(/\s+/g, '');
 }
 
-module.exports = { scratchDir, saveDownload, parseCsv, unzip, xlsxRows, xlsCells, requirePoppler, pdfText, pdfTextBuffer, assertEmbeddedFonts, squash };
+module.exports = { scratchDir, saveDownload, parseCsv, unzip, xlsxRows, xlsxCells, xlsCells, requirePoppler, pdfText, pdfTextBuffer, assertEmbeddedFonts, squash };

@@ -43,6 +43,11 @@
 <%@ page import="java.io.InputStream" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.PatientRecordAccess" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.PatientReadAccess" %>
 
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
@@ -74,6 +79,18 @@
 <%-- ========== BUSINESS LOGIC ========== --%>
 <%
     String demographic_no = request.getParameter("demographic_no");
+    final Integer patient;
+    try {
+        patient = Integer.valueOf(demographic_no);
+        if (patient <= 0) throw new IllegalArgumentException("Invalid patient");
+    } catch (IllegalArgumentException invalidPatient) {
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+        return;
+    }
+    SecurityInfoManager security = SpringUtils.getBean(SecurityInfoManager.class);
+    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    PatientRecordAccess.require(security, loggedInInfo, demographic_no, "_lab", "r");
+    PatientReadAccess.requirePatient(security, loggedInInfo, patient, "_lab", SecurityInfoManager.READ);
 
     LinkedHashMap<String, String> nameMap = new LinkedHashMap<>();
     List<String> idList = new ArrayList<>();
@@ -256,6 +273,9 @@
 </div>
 
 <div class="table-responsive">
+    <p class="alert alert-info" data-carlos-lab-grid-scope="measurements">
+        <fmt:message key="lab.measurementGrid.scope"/>
+    </p>
     <table id="cumulativeLabTable" class="table table-sm table-bordered table-hover">
         <thead class="table-light">
             <tr>
