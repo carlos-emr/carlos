@@ -12,10 +12,15 @@ public record QueryPage<T>(List<T> rows, long total, int page, int size) {
     public long getTotal() { return total; }
     public int getPage() { return page; }
     public int getSize() { return size; }
-    public long getEnd() { return (long) page * size + rows.size(); }
-    public int getPageCount() { return (int) Math.max(1, (total + size - 1) / size); }
-    public boolean isPrevious() { return page > 0; }
-    public boolean isNext() { return page + 1 < getPageCount(); }
+    // Jakarta's RecordELResolver calls property(), including computed properties.
+    public long end() { return (long) page * size + rows.size(); }
+    public int pageCount() { return (int) Math.max(1, (total + size - 1) / size); }
+    public boolean previous() { return page > 0; }
+    public boolean next() { return page + 1 < pageCount(); }
+    public long getEnd() { return end(); }
+    public int getPageCount() { return pageCount(); }
+    public boolean isPrevious() { return previous(); }
+    public boolean isNext() { return next(); }
 
     /**
      * The supplied query must be a DAO-owned single-root SELECT with no outer ORDER BY.

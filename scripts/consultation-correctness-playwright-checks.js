@@ -93,8 +93,8 @@ async function workflow(s) {
         h.assert(await reopened.locator('#consultAttachmentsNotIncluded').count() === 0, 'HRM omission notice survived explicit removal');
     });
 
-    const contact = h.insertId(sql, `INSERT INTO DemographicContact(demographicNo,contactId,category,type,role,deleted,facilityId,creator)
-        VALUES(${patient},${q(referrals.specId)},'professional',3,'1',0,1,${q(provider)})`, 'specialist contact');
+    const contact = h.insertId(sql, `INSERT INTO DemographicContact(demographicNo,contactId,category,type,role,deleted,facilityId,creator,active,consentToContact)
+        VALUES(${patient},${q(referrals.specId)},'professional',3,'1',0,1,${q(provider)},1,1)`, 'specialist contact');
     s.cleanup(() => sql.execute(`DELETE FROM DemographicContact WHERE id=${contact} AND demographicNo=${patient}`));
     async function editor() {
         const page = await context.newPage();
