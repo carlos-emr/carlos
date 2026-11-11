@@ -9969,6 +9969,26 @@
       "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), one plain note written and signed through the chart's note editor and one CPP Social History item written through the CPP editor. Cleanup deletes by the patient key every note (with its link, extension and issue rows), casemgmt_issue row, CPP summary (casemgmt_cpp), draft, note lock and eChart row of the patient and asserts them all gone. The catalog issue (CTCMM1000 'Safety') is only read. No clinic-wide state is changed."
     },
     {
+      "name": "echart-issue-mutation-identity",
+      "script": "scripts/echart-issue-mutation-identity-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "ISSUE_IDENTITY_SCREENSHOT_DIR"
+      ],
+      "mutates": [
+        "log"
+      ],
+      "notes": "Issue #6090. Resolves one issue so the next editor refresh reorders the note editor's checklist, holds that refresh's response, and clicks another issue's Acute radio; then deletes two issues, the second behind the first's held response. Asserts each casemgmt_issue row's flags and existence by identity, the controls disabled while an update is in flight, and the radios showing the stored state.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name) with four casemgmt_issue rows created with SQL from catalog issues of the CTCMM1000 role, linked to no note. Cleanup deletes the patient's issues, notes, links, drafts, note locks and eChart row by the patient key and asserts them gone. The catalog is only read. No clinic-wide state is changed."
+    },
+    {
       "name": "echart-issues-filter-note-editor",
       "script": "scripts/echart-issues-filter-playwright-checks.js",
       "envSet": {

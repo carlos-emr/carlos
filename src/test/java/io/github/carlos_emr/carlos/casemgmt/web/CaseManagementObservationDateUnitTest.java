@@ -383,10 +383,10 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
         if ("issueDelete".equals(operation)) note.setId(null);
         postDurationMode(mode);
         action.setObservation_date("15-Oct-2026 19:14");
-        action.setLineId("0");
-        action.setDeleteId("0");
+        request.setParameter("caseIssueId", "71");
         request.setParameter("ajax", "true");
-        request.setParameter("issueCheckList[0].issue.certain", "true");
+        request.setParameter("issueField", "certain");
+        request.setParameter("issueValue", "true");
         stubPatientDisplay();
         var properties = mock(io.github.carlos_emr.CarlosProperties.class);
         try (var config = mockStatic(io.github.carlos_emr.CarlosProperties.class)) {
@@ -435,13 +435,10 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
         request.setParameter("caseNote_note", rawDraft);
         doReturn(rawDraft).when(action).getCaseNote_note();
         request.setParameter(field, value);
-        request.setParameter("issueCheckList[0].issue.acute", "true");
-        request.setParameter("issueCheckList[0].issue.certain", "true");
-        request.setParameter("issueCheckList[0].issue.major", "true");
-        request.setParameter("issueCheckList[0].issue.resolved", "true");
+        request.setParameter("caseIssueId", "71");
+        request.setParameter("issueField", "resolved");
+        request.setParameter("issueValue", "true");
         action.setObservation_date("15-Oct-2026 19:14");
-        action.setLineId("0");
-        action.setDeleteId("0");
 
         assertThat("issueChange".equals(operation) ? action.issueChange() : action.issueDelete())
                 .isEqualTo("issueChange".equals(operation) ? "none" : "windowCloseError");
@@ -599,7 +596,7 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
         var entry = new CheckBoxBean();
         entry.setIssue(issue);
         form.getIssueCheckList().add(entry);
-        action.setDeleteId("0");
+        request.setParameter("caseIssueId", "71");
         action.setObservation_date(posted);
 
         assertThat(action.issueDelete()).isEqualTo("windowCloseError");
@@ -623,7 +620,7 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
         form.getIssueCheckList().add(entry);
         // Issues can be removed while the editor holds a new, as-yet-unsaved note.
         note.setId(null);
-        action.setDeleteId("0");
+        request.setParameter("caseIssueId", "71");
         action.setObservation_date(posted);
         doReturn("").when(action).getDemoName(anyString());
         doReturn("").when(action).getDemoAge(anyString());

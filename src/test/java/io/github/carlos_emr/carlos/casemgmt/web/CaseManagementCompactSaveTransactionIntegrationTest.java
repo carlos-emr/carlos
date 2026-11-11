@@ -847,6 +847,67 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         assertThat(form.getIssueCheckList()).hasSize(1);
     }
 
+    @Test
+    void shouldDeleteOnlyTheClickedIssue_whenAnEditorRefreshReorderedTheList() throws Exception {
+        CheckBoxBean clicked = prepareIssueDeletion();
+        // A second unused issue of the patient, which an editor refresh rebuilt ahead of the
+        // clicked one: the position the page rendered for the clicked issue now names it (#6090).
+        Long neighbourId = tx().execute(status -> {
+            Issue lookup = new Issue();
+            lookup.setCode("CMN" + UUID.randomUUID().toString().substring(0, 8));
+            lookup.setDescription("Reordered neighbour issue");
+            lookup.setRole("doctor");
+            lookup.setType("system");
+            entityManager.persist(lookup);
+            entityManager.flush();
+            pendingLookupId = lookup.getId();
+            CaseManagementIssue neighbour = new CaseManagementIssue();
+            neighbour.setDemographic_no(1);
+            neighbour.setIssue_id(lookup.getId());
+            neighbour.setIssue(lookup);
+            neighbour.setProgram_id(8);
+            neighbour.setType("doctor");
+            neighbour.setUpdate_date(new Date(1_700_000_000_000L));
+            entityManager.persist(neighbour);
+            return neighbour.getId();
+        });
+        CaseManagementIssue stored = tx().execute(status -> entityManager.find(CaseManagementIssue.class, neighbourId));
+        CheckBoxBean neighbour = new CheckBoxBean();
+        neighbour.setIssue(stored);
+        neighbour.getIssueDisplay().setCode(stored.getIssue().getCode());
+        neighbour.getIssueDisplay().setDescription(stored.getIssue().getDescription());
+        neighbour.getIssueDisplay().setWriteAccess(true);
+        form.setIssueCheckList(new ArrayList<>(List.of(neighbour, clicked)));
+        // A page from before the refresh would have sent the clicked issue's old position.
+        request.setParameter("deleteId", "0");
+
+        assertThat(action.issueDelete()).isEqualTo("view");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        tx().executeWithoutResult(status -> {
+            assertThat(entityManager.find(CaseManagementIssue.class, caseIssueId)).isNull();
+            assertThat(entityManager.find(CaseManagementIssue.class, neighbourId)).isNotNull();
+        });
+        var committed = (CaseManagementEntryFormBean) request.getSession().getAttribute(ChartProgramContext.formKey(request, "1"));
+        assertThat(committed.getIssueCheckList()).extracting(entry -> entry.getIssue().getId()).containsExactly(neighbourId);
+        verify(target, never()).deleteIssueById(argThat(issue -> neighbourId.equals(issue.getId())));
+    }
+
+    @Test
+    void shouldRefuseDeletionWithoutWrites_whenTheClickedIssueLeftTheEditor() throws Exception {
+        prepareIssueDeletion();
+        form.setIssueCheckList(new ArrayList<>());
+        Snapshot before = snapshot();
+
+        assertThat(action.issueDelete()).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(snapshot()).isEqualTo(before);
+        assertThat(request.getSession().getAttribute(ChartProgramContext.formKey(request, "1"))).isSameAs(form);
+        verify(target, never()).deleteIssueById(any());
+        verify(locks, never()).merge(any());
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"save", "saveAndExit"})
     void shouldPreserveBothStoredNotesAndDrafts_whenAStaleFullFormTargetsAnotherWindowsEditor(String operation) throws Exception {
@@ -1647,7 +1708,8 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         SecurityInfoManager security = (SecurityInfoManager) ReflectionTestUtils.getField(action, "securityInfoManager");
         when(security.hasPrivilege(login, "_demographic", "r", "1")).thenReturn(true);
         when(security.hasPrivilege(login, "_casemgmt.issues", "w", "1")).thenReturn(true);
-        action.setDeleteId("0");
+        // Name the issue the rendered row carries, as the page does (#6090).
+        request.setParameter("caseIssueId", String.valueOf(caseIssueId));
         return checkbox;
     }
 

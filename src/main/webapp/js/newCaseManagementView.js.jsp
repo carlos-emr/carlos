@@ -3161,7 +3161,10 @@ function updateCPPNote() {
     }
 
     var changeIssueMsg;
+    // issueId is the row's patient issue (casemgmt_issue id), captured at this click and
+    // resolved by the server; it is never the row's list position (#6090).
     function changeDiagnosis(issueId) {
+        if (!/^[1-9]\d{0,18}$/.test(String(issueId))) return false;
         document.forms['caseManagementEntryForm'].change_diagnosis_id.value = issueId;
         var button = document.getElementById('asgnIssues');
         if (button) {
@@ -3388,6 +3391,92 @@ function updateCPPNote() {
     function setNoteIssueControlsBusy(busy) {
         if ($("issueAutocomplete")) $("issueAutocomplete").disabled = busy;
         if ($("asgnIssues")) $("asgnIssues").disabled = busy;
+        setNoteIssueRowsBusy(busy);
+    }
+
+    // Issue-row mutations (#6090). Every Change, Delete and status radio names its patient issue
+    // (data-case-issue-id), and the request carries that id and the clicked value, captured at the
+    // click. The server resolves the id, so a refresh that rebuilds or reorders the checklist cannot
+    // turn the click into a change to another issue. While any issue update or refresh is in flight
+    // the row controls are disabled and further clicks are refused rather than queued: the next
+    // fragment shows the stored state, and the clinician makes the next change from what it shows.
+    var NOTE_ISSUE_FIELDS = ['acute', 'certain', 'major', 'resolved'];
+    var CASE_ISSUE_ID_PATTERN = /^[1-9]\d{0,18}$/;
+
+    function setNoteIssueRowsBusy(busy) {
+        var issues = $("noteIssues");
+        if (!issues || typeof issues.querySelectorAll !== 'function') return;
+        issues.querySelectorAll('input[type="radio"][data-issue-field], a[data-issue-action]').forEach(function (control) {
+            if (control.tagName === 'A') {
+                if (busy) control.setAttribute('aria-disabled', 'true');
+                else control.removeAttribute('aria-disabled');
+            } else if (busy && !control.disabled) {
+                // Remember which radios this busy state disabled; read-only rows stay disabled.
+                control.disabled = true;
+                control.setAttribute('data-issue-busy', 'true');
+            } else if (!busy && control.getAttribute('data-issue-busy') === 'true') {
+                control.disabled = false;
+                control.removeAttribute('data-issue-busy');
+            }
+        });
+    }
+
+    function noteIssueMutationRefused() {
+        if (noteSwitchSavePending) {
+            alert(noteSavingMessage);
+            return true;
+        }
+        return issueUpdatesPending > 0;
+    }
+
+    // Put a radio group back on the state the server rendered, so a refused or failed change
+    // never leaves a choice on screen that was not saved.
+    function restoreRenderedIssueChoice(control) {
+        var form = control.form;
+        if (!form) return;
+        Array.from(form.elements).forEach(function (other) {
+            if (other.type === 'radio' && other.name === control.name) other.checked = other.defaultChecked;
+        });
+    }
+
+    function changeNoteIssue(control) {
+        var id = control.getAttribute('data-case-issue-id');
+        var field = control.getAttribute('data-issue-field');
+        var value = control.value;
+        if (!CASE_ISSUE_ID_PATTERN.test(id || '') || NOTE_ISSUE_FIELDS.indexOf(field) < 0
+                || (value !== 'true' && value !== 'false')) {
+            restoreRenderedIssueChoice(control);
+            alert(updateIssueError);
+            return false;
+        }
+        if (noteIssueMutationRefused()) {
+            restoreRenderedIssueChoice(control);
+            return false;
+        }
+        return requestIssueMutation('issueChange', {caseIssueId: id, issueField: field, issueValue: value},
+            function () { restoreRenderedIssueChoice(control); });
+    }
+
+    function deleteNoteIssue(link, detailsId) {
+        var id = link.getAttribute('data-case-issue-id');
+        if (!CASE_ISSUE_ID_PATTERN.test(id || '')) {
+            alert(updateIssueError);
+            return false;
+        }
+        if (noteIssueMutationRefused()) return false;
+        removeIssue(detailsId);
+        return requestIssueMutation('issueDelete', {caseIssueId: id});
+    }
+
+    function requestIssueMutation(method, params, onRejected) {
+        var issues = $("noteIssues");
+        var container = issues ? issues.parentNode : null;
+        if (!container || !container.id) {
+            if (onRejected) onRejected();
+            alert(updateIssueError);
+            return false;
+        }
+        return ajaxUpdateIssues(method, container.id, false, {params: params, onRejected: onRejected});
     }
 
     function finishIssueUpdate(succeeded) {
@@ -3404,8 +3493,16 @@ function updateCPPNote() {
         }
     }
 
-    function ajaxUpdateIssues(method, div, preserveSelections) {
+    /**
+     * Posts the note editor form and installs the returned issue fragment.
+     * mutation (optional) carries {params, onRejected}: params are the target and value captured
+     * at the click (appended to the body here, before any later click can change the form), and
+     * onRejected runs when the request is refused or fails, so the row can show the stored state.
+     */
+    function ajaxUpdateIssues(method, div, preserveSelections, mutation) {
+        var rejected = mutation && mutation.onRejected ? mutation.onRejected : function () {};
         if (noteSwitchSavePending) {
+            rejected();
             alert(noteSavingMessage);
             return false;
         }
@@ -3415,6 +3512,7 @@ function updateCPPNote() {
 
         var url = chartActionUrl("/CaseManagementEntry");
         var p = Form.serialize(frm);
+        if (mutation && mutation.params) p += "&" + new URLSearchParams(mutation.params).toString();
         if (issueUpdatesPending === 0) issueUpdateFailed = false;
         issueUpdatesPending += 1;
         setNoteIssueControlsBusy(true);
@@ -3440,8 +3538,14 @@ function updateCPPNote() {
                             if (selectedIssues.has(id)) checkbox.checked = selectedIssues.get(id);
                         });
                     }
+                    // The new fragment's row controls render enabled; keep them disabled until
+                    // the Unresolved Issues refresh below has finished too.
+                    setNoteIssueControlsBusy(true);
                     onIssueUpdate(finishIssueUpdate);
-                } else finishIssueUpdate(false);
+                } else {
+                    rejected();
+                    finishIssueUpdate(false);
+                }
             },
             onFailure: function (response) {
                 alert(response.status + " " + updateIssueError);

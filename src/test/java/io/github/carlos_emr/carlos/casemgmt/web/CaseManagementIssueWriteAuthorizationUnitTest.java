@@ -32,7 +32,9 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         action.response = new MockHttpServletResponse();
         request.setParameter("method", "issueChange");
         request.setParameter("demographicNo", "101");
-        request.setParameter("issueCheckList[0].issue.resolved", "true");
+        request.setParameter("caseIssueId", "71");
+        request.setParameter("issueField", "resolved");
+        request.setParameter("issueValue", "true");
         request.getSession().setAttribute("userrole", "read-only");
         var user = mock(LoggedInInfo.class);
         when(user.getLoggedInProviderNo()).thenReturn("999998");
@@ -43,9 +45,11 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         var manager = mock(CaseManagementManager.class);
         action.caseManagementMgr = manager;
         var form = new CaseManagementEntryFormBean();
-        form.setIssueCheckList(new ArrayList<>(List.of(new CheckBoxBean())));
+        var box = new CheckBoxBean();
+        box.getIssue().setId(71L);
+        box.getIssue().setDemographic_no(101);
+        form.setIssueCheckList(new ArrayList<>(List.of(box)));
         request.getSession().setAttribute("caseManagementEntryForm101", form);
-        action.setLineId("0");
         // Stop at the first attempted write so unrelated rendering cannot hide a missing gate.
         doThrow(new SecurityException("Synthetic unauthorized storage access"))
                 .when(manager).saveAndUpdateCaseIssues(any());
@@ -137,7 +141,6 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         note.setDemographic_no("101");
         note.setNote("Existing clinical text");
         fixture.form.setCaseNote(note);
-        fixture.action.setDeleteId("0");
         var existingIssues = fixture.form.getIssueCheckList();
 
         assertThat(fixture.action.issueDelete()).isEqualTo("none");
@@ -156,7 +159,6 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         note.setDemographic_no("101");
         note.setNote("Unsaved editor text");
         fixture.form.setCaseNote(note);
-        fixture.action.setDeleteId("0");
         doReturn("").when(fixture.action).getDemoName(anyString());
         doReturn("").when(fixture.action).getDemoAge(anyString());
         doReturn("").when(fixture.action).getDemoDOB(anyString());
@@ -193,7 +195,6 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         note.setNote("Existing clinical text");
         note.setHourOfEncounterTime(1);
         fixture.form.setCaseNote(note);
-        fixture.action.setDeleteId("0");
         ((MockHttpServletRequest) fixture.action.request).setParameter("hourOfEncounterTime", "3");
         var existingIssues = fixture.form.getIssueCheckList();
         var locks = mock(CasemgmtNoteLockDao.class);
@@ -237,7 +238,6 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         note.setDemographic_no("101");
         note.setNote("Existing clinical text");
         fixture.form.setCaseNote(note);
-        fixture.action.setDeleteId("0");
         doReturn(text).when(fixture.action).getCaseNote_note();
         var captured = new CasemgmtNoteLock();
         captured.setId(75L);
@@ -265,7 +265,11 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         var action=mock(CaseManagementEntry2Action.class,CALLS_REAL_METHODS);
         var request=new MockHttpServletRequest("POST","/CaseManagementEntry");action.request=request;
         action.response=new MockHttpServletResponse();request.setParameter("demographicNo","101");
-        request.setParameter("issueCheckList[0].issue.resolved","true");request.getSession().setAttribute("userrole","doctor");
+        // The page sends the clicked patient issue and the one value chosen, never a row index (#6090).
+        request.setParameter("caseIssueId", "71");
+        request.setParameter("issueField", "resolved");
+        request.setParameter("issueValue", "true");
+        request.getSession().setAttribute("userrole","doctor");
         var user=mock(LoggedInInfo.class);when(user.getLoggedInProviderNo()).thenReturn("999998");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(),user);
         var permissions=mock(SecurityInfoManager.class);
@@ -275,8 +279,10 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         injectDependency(action,"securityInfoManager",permissions);
         var manager=mock(CaseManagementManager.class);action.caseManagementMgr=manager;
         var form=new CaseManagementEntryFormBean();var box=new CheckBoxBean();
-        box.getIssue().setDemographic_no(101);form.setIssueCheckList(new ArrayList<>(List.of(box)));
-        request.getSession().setAttribute("caseManagementEntryForm101",form);action.setLineId("0");
+        box.getIssue().setId(71L);
+        box.getIssue().setDemographic_no(101);
+        form.setIssueCheckList(new ArrayList<>(List.of(box)));
+        request.getSession().setAttribute("caseManagementEntryForm101",form);
         request.getSession().setAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.class.getName() + ".101", "0");
         return new Fixture(action,manager,form);
     }

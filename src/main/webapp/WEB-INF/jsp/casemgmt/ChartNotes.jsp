@@ -552,8 +552,6 @@
     <input type="hidden" name="apptProvider" value="<carlos:encode value='<%= apptProv %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="providerview" value="<carlos:encode value='<%= provView %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="toBill" id="toBill" value="false">
-    <input type="hidden" name="deleteId" value="0">
-    <input type="hidden" name="lineId" value="0">
     <input type="hidden" name="from" value="casemgmt">
     <input type="hidden" name="method" value="save">
     <input type="hidden" name="change_diagnosis" value="${carlos:forHtmlAttribute(change_diagnosis)}">
