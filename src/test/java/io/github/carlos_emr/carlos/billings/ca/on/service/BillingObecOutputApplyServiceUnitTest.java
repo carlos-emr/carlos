@@ -349,19 +349,39 @@ class BillingObecOutputApplyServiceUnitTest {
     }
 
     @Test
-    void shouldCountEachLineBreakAsTheFormSendsIt_soTheAlertStaysSavable() {
-        // Fits when each line break counts once (as stored), not when it counts as the form's CR LF:
-        // written, the alert could no longer be saved from the Master Record.
-        String existing = "A".repeat(DemographicCust.ALERT_MAX_LENGTH - formLength("") + 1);
+    void shouldCountAnEarlierBareLineFeedAsTheFormWillSendIt_whenTheAlertHoldsOne() {
+        // An earlier apply left a bare LF in the alert. Stored, it is one character and the alert would
+        // fit; the Master Record form sends it back as CR LF, so it is one over and stays unwritten.
+        String existing = "A".repeat(100) + "\n" + "A".repeat(DemographicCust.ALERT_MAX_LENGTH - formLength("") - 101);
         String stored = existing + "\n" + MESSAGE;
         assertThat(stored.length()).isLessThanOrEqualTo(DemographicCust.ALERT_MAX_LENGTH);
+        assertThat(BillingObecOutputApplyService.asFormSubmits(stored).length())
+                .isEqualTo(DemographicCust.ALERT_MAX_LENGTH + 1);
         var cust = new DemographicCust();
         cust.setAlert(existing);
 
-        applyWithAlert(cust, demographic(42, "ZZ"));
+        var result = applyWithAlert(cust, demographic(42, "ZZ"));
 
         assertThat(cust.getAlert()).isEqualTo(existing);
         verify(demographicCustDao, never()).merge(any(DemographicCust.class));
+        assertThat(result.reasons()).singleElement().asString().startsWith("Alert not updated for row 1:");
+    }
+
+    @Test
+    void shouldCountTheFormsOwnCrLfOnce_whenTheAlertWasSavedFromTheForm() {
+        // A form save stored CR LF. It counts as the two characters it is, not four: the alert fills the
+        // limit exactly and is written.
+        String existing = "A".repeat(100) + "\r\n" + "A".repeat(DemographicCust.ALERT_MAX_LENGTH - formLength("") - 102);
+        String stored = existing + "\n" + MESSAGE;
+        assertThat(BillingObecOutputApplyService.asFormSubmits(stored).length()).isEqualTo(DemographicCust.ALERT_MAX_LENGTH);
+        var cust = new DemographicCust();
+        cust.setAlert(existing);
+
+        var result = applyWithAlert(cust, demographic(42, "ZZ"));
+
+        assertThat(cust.getAlert()).isEqualTo(stored);
+        verify(demographicCustDao).merge(cust);
+        assertThat(result.reasons()).isEmpty();
     }
 
     @Test
