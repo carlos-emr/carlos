@@ -495,8 +495,16 @@
                 }
             }
             if (myCarlosRoute) {
+                // The dialog (mycarlosSendDialog.jspf) is rendered after the last form below.
+                pageContext.setAttribute("mycarlosSendDialog", Boolean.TRUE);
+                pageContext.setAttribute("mycarlosSendDocumentId", docId);
+                pageContext.setAttribute("mycarlosSendPatient", String.valueOf(demoI));
         %>
-        <a class="btn btn-outline-primary btn-sm" id="mycarlos-document-send"
+        <%-- Opens the document's Send to myCarlos dialog (mycarlos-send-dialog.js); without script,
+             or where there is no <dialog>, the link opens the standalone page as before. --%>
+        <a class="btn btn-outline-primary btn-sm" id="mycarlos-document-send-<carlos:encode value='<%=docId%>' context="htmlAttribute"/>"
+           data-mycarlos-dialog="mycarlos-send-dialog-<carlos:encode value='<%=docId%>' context="htmlAttribute"/>"
+           aria-haspopup="dialog"
            href="<carlos:encode value='<%=request.getContextPath()%>' context="htmlAttribute"/>/demographic/PortalDelivery?demographicNo=<carlos:encode value='<%=String.valueOf(demoI)%>' context="uriComponent"/>&amp;documentId=<carlos:encode value='<%=docId%>' context="uriComponent"/>"
            target="_blank" rel="noopener"><fmt:message key="mycarlos.delivery.send"/></a>
         <% } else if (myCarlosRouteUnavailable) { %>
@@ -933,6 +941,9 @@
         </tr>
     </table>
 </div>
+<c:if test="${pageScope.mycarlosSendDialog}">
+    <%@ include file="/WEB-INF/jsp/documentManager/mycarlosSendDialog.jspf" %>
+</c:if>
 
 <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/library/dompurify/purify.min.js"></script>
@@ -942,6 +953,12 @@
         src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
 <script type="text/javascript" src="showDocument.js"></script>
 <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/csrfTokenFetch.js"></script>
+<c:if test="${pageScope.mycarlosSendDialog}">
+    <%-- In the inbox, which does not run this page's scripts, the host pages load these too. The version
+         query is set by mycarlosSendDialog.jspf above. --%>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/demographic/mycarlos-send.js?v=${carlos:forUriComponent(mycarlosSendVersion)}"></script>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/demographic/mycarlos-send-dialog.js?v=${carlos:forUriComponent(mycarlosSendVersion)}"></script>
+</c:if>
 <script type="text/javascript">
     /**
      * Override removeLink for the single-document popup view.
