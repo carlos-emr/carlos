@@ -411,6 +411,75 @@ test('upgrade verifier rejects a changed properties value even when the key move
   assert.match(result.stdout, /FAIL cfg.carlos.properties.sha changed/);
 });
 
+// The Query by Example reporting account (#3372): carlos-ctl db-users appends its two
+// keys on the first upgrade whose package ships the grant list.
+function reportingFixture(t, { before = '', after = '', shipsGrantList = true } = {}) {
+  const fixture = setup(t);
+  const props = path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties');
+  const grantList = path.join(fixture.env.CARLOS_SHARE_DIR, 'webapp/carlos/WEB-INF/classes/db/reporting/carlos_report_grants.sql');
+  fs.writeFileSync(props, `consultation_signature_enabled=true\n${before}`);
+  const snapshot = fixture.baseline();
+  fs.writeFileSync(props, `consultation_signature_enabled=true\n${after}`);
+  if (shipsGrantList) {
+    fs.mkdirSync(path.dirname(grantList), { recursive: true }); fs.writeFileSync(grantList, '-- fixture\n');
+  }
+  return { fixture, snapshot };
+}
+
+test('upgrade verifier accepts the reporting account recorded by the upgrade that ships the grant list', t => {
+  const secret = crypto.randomBytes(16).toString('hex');
+  const { fixture, snapshot } = reportingFixture(t,
+    { after: `db_reporting_username = carlos_report\ndb_reporting_password = ${secret}\n` });
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /reporting account: added/);
+  assert.match(result.stdout, /records the Query by Example reporting account/);
+  assert.ok(!snapshot.includes(secret));
+  assert.ok(!fs.readFileSync(fixture.env.POST, 'utf8').includes(secret));
+});
+
+test('upgrade verifier keeps an already recorded reporting account as unchanged', t => {
+  const keys = `db_reporting_username=carlos_report\ndb_reporting_password=${crypto.randomBytes(16).toString('hex')}\n`;
+  const { fixture } = reportingFixture(t, { before: keys, after: keys });
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /cfg\.carlos\.properties\.sha preserved/);
+});
+
+// Generated per run: the fixtures carry no credential-looking literal.
+const [firstPw, secondPw] = [crypto.randomBytes(16).toString('hex'), crypto.randomBytes(16).toString('hex')];
+for (const [name, before, after] of [
+  ['a reporting password replaced across the upgrade',
+    `db_reporting_username=carlos_report\ndb_reporting_password=${firstPw}\n`,
+    `db_reporting_username=carlos_report\ndb_reporting_password=${secondPw}\n`],
+  ['a reporting account renamed across the upgrade',
+    `db_reporting_username=carlos_report\ndb_reporting_password=${firstPw}\n`,
+    `db_reporting_username=someone_else\ndb_reporting_password=${firstPw}\n`],
+  ['a reporting account added under another name', '',
+    `db_reporting_username=carlos\ndb_reporting_password=${firstPw}\n`],
+]) {
+  test(`upgrade verifier rejects ${name}`, t => {
+    const { fixture } = reportingFixture(t, { before, after });
+    const result = fixture.run('deb-upgrade-verify.sh');
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, /FAIL cfg\.carlos\.properties\.sha changed: .*reporting account: .*sanctioned=0/);
+  });
+}
+
+test('upgrade verifier fails when the package ships the grant list but no reporting account is recorded', t => {
+  const { fixture } = reportingFixture(t);
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stdout, /ships the Query by Example grant list but carlos\.properties does not record carlos_report/);
+});
+
+test('upgrade verifier asks nothing of a package without the grant list', t => {
+  const { fixture } = reportingFixture(t, { shipsGrantList: false });
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.doesNotMatch(result.stdout, /reporting account/);
+});
+
 test('upgrade verifier refuses a POST hard link to PRE without overwriting the baseline', t => {
   const fixture = setup(t); const original = fixture.baseline();
   fs.linkSync(fixture.env.PRE, fixture.env.POST);

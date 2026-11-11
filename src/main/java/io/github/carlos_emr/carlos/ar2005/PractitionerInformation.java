@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -105,27 +103,6 @@ public interface PractitionerInformation extends XmlObject
         public static PractitionerInformation parse(final Node node, final XmlOptions options) throws XmlException {
             return (PractitionerInformation)XmlBeans.getContextTypeLoader().parse(node, PractitionerInformation.type, options);
         }
-        
-        @Deprecated
-        public static PractitionerInformation parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (PractitionerInformation)XmlBeans.getContextTypeLoader().parse(xis, PractitionerInformation.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static PractitionerInformation parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (PractitionerInformation)XmlBeans.getContextTypeLoader().parse(xis, PractitionerInformation.type, options);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, PractitionerInformation.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, PractitionerInformation.type, options);
-        }
-        
         private Factory() {
         }
     }

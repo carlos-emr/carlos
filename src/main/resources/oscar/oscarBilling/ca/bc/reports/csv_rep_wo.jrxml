@@ -5,6 +5,8 @@
 	<import>net.sf.jasperreports.engine.*</import>
 	<import>java.util.*</import>
 	<import>net.sf.jasperreports.engine.data.*</import>
+	<!-- CSV still measures text before export; bundled 8pt metrics fit even the 10pt summary rows. -->
+	<style name="csvText" default="true" fontName="DejaVu Sans" fontSize="8" />
 	<parameter name="startDate" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>

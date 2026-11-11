@@ -45,7 +45,9 @@ import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequestArchive;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequestExt;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequestExtArchive;
 import io.github.carlos_emr.carlos.commn.model.ConsultationResponse;
 import io.github.carlos_emr.carlos.commn.model.ConsultationServices;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -73,6 +75,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.MockedStatic;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -1374,6 +1377,37 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
     @DisplayName("Archive Consultation Request")
     @Tag("update")
     class ArchiveConsultationRequest {
+
+        @Test
+        @DisplayName("should preserve long imported text when archiving consultation and extensions")
+        void shouldPreserveLongImportedText_whenArchivingConsultationAndExtensions() {
+            String text = "é".repeat(40_000);
+            ConsultationRequest request = createRequestWithId(TEST_REQUEST_ID);
+            request.setAllergies(text);
+            request.setClinicalInfo(text);
+            request.setConcurrentProblems(text);
+            request.setCurrentMeds(text);
+            request.setLetterheadAddress(text);
+            request.setReasonForReferral(text);
+            request.setStatusText(text);
+            when(mockConsultRequestDao.find(TEST_REQUEST_ID)).thenReturn(request);
+            when(mockConsultationRequestExtDao.getConsultationRequestExts(TEST_REQUEST_ID))
+                .thenReturn(Collections.singletonList(createExt(1, TEST_REQUEST_ID, "legacyText", text)));
+
+            consultationManager.archiveConsultationRequest(TEST_REQUEST_ID);
+
+            ArgumentCaptor<ConsultationRequestArchive> archived = ArgumentCaptor.forClass(ConsultationRequestArchive.class);
+            verify(mockConsultationRequestArchiveDao).persist(archived.capture());
+            assertThat(archived.getValue())
+                .extracting(ConsultationRequestArchive::getAllergies, ConsultationRequestArchive::getClinicalInfo,
+                    ConsultationRequestArchive::getConcurrentProblems, ConsultationRequestArchive::getCurrentMeds,
+                    ConsultationRequestArchive::getLetterheadAddress, ConsultationRequestArchive::getReasonForReferral,
+                    ConsultationRequestArchive::getStatusText)
+                .containsExactly(text, text, text, text, text, text, text);
+            ArgumentCaptor<ConsultationRequestExtArchive> extension = ArgumentCaptor.forClass(ConsultationRequestExtArchive.class);
+            verify(mockConsultationRequestExtArchiveDao).persist(extension.capture());
+            assertThat(extension.getValue().getValue()).isEqualTo(text);
+        }
 
         @Test
         @DisplayName("should persist archive copy when request exists")

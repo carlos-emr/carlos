@@ -7,6 +7,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import org.apache.struts2.ActionSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -79,7 +80,8 @@ class PageMonitoring2ActionUnitTest extends CarlosWebTestBase {
         addRequestParameter("method", "update");
         addRequestParameter("lock", "true");
 
-        executeAction(new PageMonitoring2Action());
+        // The JSON is written straight to the response, so no Struts result may follow it.
+        assertThat(executeAction(new PageMonitoring2Action())).isEqualTo(ActionSupport.NONE);
 
         assertThat(mockResponse.getStatus()).isEqualTo(200);
         ArgumentCaptor<PageMonitor> persisted = ArgumentCaptor.forClass(PageMonitor.class);
@@ -185,7 +187,7 @@ class PageMonitoring2ActionUnitTest extends CarlosWebTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("w"), isNull())).thenReturn(true);
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), anyString(), isNull())).thenReturn(false);
 
-        executeAction(new PageMonitoring2Action());
+        assertThat(executeAction(new PageMonitoring2Action())).isEqualTo(ActionSupport.NONE);
 
         verify(dao).cancelPageIdForProvider("addappointment", PAGE_ID, "999998");
     }

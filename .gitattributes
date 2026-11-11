@@ -1,6 +1,10 @@
 # Default: treat all files as text with LF line endings
 * text=auto eol=lf
 
+# Official OntarioMD schemas are hash pinned byte for byte, including their original CRLF.
+src/main/resources/cds-import/schema/EMR_Data_Migration_Schema.xsd -text
+src/main/resources/cds-import/schema/EMR_Data_Migration_Schema_DT.xsd -text
+
 # Binary images
 *.png binary
 *.jpg binary

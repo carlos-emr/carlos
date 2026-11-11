@@ -73,7 +73,7 @@ async function workflow(s){
     h.assert(new URL(page.url()).searchParams.get('demographic_no')===patient,'Saved entry opened another patient');
   }
   await s.step('create the owned baseline through the real Forms menu and Save',async()=>{
-    await chart.locator('#menuTitle1 a').hover();
+    await ui.openFormsMenu(chart);
     page=await s.popup(chart,chart.getByRole('link',{name:title,exact:true}),'followup-baseline');
     if(form.reveal)await form.reveal(page);
     for(const f of fields){if(f.check)await input(f).setChecked(stored(f)==='1');else await input(f).fill(f.value);}

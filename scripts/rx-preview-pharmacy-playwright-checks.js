@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * Modifications by CARLOS Contributors, 2026.
  *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -378,10 +379,11 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRun);
     await screenshot(rxPage, config.screenshotDir, 'rx-preview-pharmacy-empty');
 
     // Branch 2: the literal string "null" clients can echo back, rendered as
-    // a top-level viewScript page like the prescription-signature check does.
+    // a top-level viewScript page. Name its patient explicitly: the foreign
+    // patient's window above can still own the active-session fallback.
     const nullPage = await context.newPage();
     wirePage(nullPage, 'rx-null-literal', recorder);
-    await gotoApp(nullPage, config.baseUrl, `/rx/viewScript?scriptId=${scriptId}&pharmacyId=null`);
+    await gotoApp(nullPage, config.baseUrl, `/rx/viewScript?demographicNo=${demographicNo}&scriptId=${scriptId}&pharmacyId=null`);
     await nullPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(nullPage, 'reprint view (pharmacyId=null literal)');
     await assertPreviewRenders(nullPage.mainFrame(), 'reprint preview (pharmacyId=null literal)');

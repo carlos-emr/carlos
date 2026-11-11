@@ -163,7 +163,8 @@ public class WLWaitingListUtil {
         dao.merge(waitingListEntry);
     }
 
-    public static void rePositionWaitingList(String waitingListID) {
+    /** Shares the mutation monitor, including when called directly by an action. */
+    public static synchronized void rePositionWaitingList(String waitingListID) {
         int i = 1;
         WaitingListDao dao = SpringUtils.getBean(WaitingListDao.class);
         for (WaitingList waitingList : dao.findByWaitingListId(ConversionUtils.fromIntString(waitingListID))) {

@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+// Modifications by CARLOS Contributors, 2026.
 'use strict';
 /*
  * Role-matrix fixture for the authz-read-* checks ("does a read route serve data to a
@@ -426,7 +427,7 @@ function seedPatientDomains({ sql, demo, tag, provider, register, documentStore 
     VALUES (${p},${d},CURDATE(),DATE_ADD(CURDATE(),INTERVAL 30 DAY),CURDATE(),${T('rx')},${T('rx')},0,0,NOW(),0,0); SELECT LAST_INSERT_ID()`));
   ids.prev = track('preventions', 'id', sql.value(`INSERT INTO preventions
     (demographic_no,creation_date,prevention_date,provider_no,provider_name,prevention_type,deleted,refused,never,creator,lastUpdateDate)
-    VALUES (${d},NOW(),CURDATE(),${p},${T('prev')},'Flu','0','0','0',${p},NOW()); SELECT LAST_INSERT_ID()`));
+    VALUES (${d},NOW(),CURDATE(),${p},${T('prev')},'Inf','0','0','0',${p},NOW()); SELECT LAST_INSERT_ID()`));
   ids.meas = track('measurements', 'id', sql.value(`INSERT INTO measurements
     (type,demographicNo,providerNo,dataField,measuringInstruction,comments,dateObserved,dateEntered)
     VALUES ('WT',${d},${p},'77','kg',${T('meas')},NOW(),NOW()); SELECT LAST_INSERT_ID()`));

@@ -60,6 +60,7 @@ import io.github.carlos_emr.carlos.webserv.oauth.Client;
 // OAuth 1.0a - replaced cxf OAuthServiceException. 
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Permission;
+import io.github.carlos_emr.carlos.webserv.oauth.OAuthAccessTokenLifetime;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestToken;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestTokenRegistration;
 import io.github.carlos_emr.carlos.webserv.oauth.UserSubject;
@@ -190,16 +191,20 @@ public class OscarOAuthDataProvider {
         String tokenSecret = UUID.randomUUID().toString();
         long issuedAt = System.currentTimeMillis() / 1000;
 
-        AccessToken at = new AccessToken(requestToken.getClient(), accessTokenId, tokenSecret, 3600, issuedAt);
+        // The client is looked up only AFTER the atomic consume above, so a lost race never reads the client.
+        // The lifetime is computed once so the in-memory and the persisted token always agree.
+        ServiceClient sc = serviceClientDao.findByKey(requestToken.getClient().getConsumerKey());
+        long lifetime = OAuthAccessTokenLifetime.forClient(sc);
+
+        AccessToken at = new AccessToken(requestToken.getClient(), accessTokenId, tokenSecret, lifetime, issuedAt);
         at.setSubject(new UserSubject(srt.getProviderNo(), new ArrayList<>()));
         at.setScopes(requestToken.getScopes());
 
         ServiceAccessToken sat = new ServiceAccessToken();
-        ServiceClient sc = serviceClientDao.findByKey(requestToken.getClient().getConsumerKey());
         sat.setClientId(sc.getId());
         sat.setDateCreated(new Date());
         sat.setIssued(issuedAt);
-        sat.setLifetime(3600);
+        sat.setLifetime(lifetime);
         sat.setTokenId(accessTokenId);
         sat.setTokenSecret(tokenSecret);
         sat.setProviderNo(srt.getProviderNo());
@@ -242,6 +247,23 @@ public class OscarOAuthDataProvider {
     public String getAccessTokenSecret(String accessTokenId) {
         ServiceAccessToken sat = findUnexpiredAccessToken(accessTokenId);
         return sat != null ? sat.getTokenSecret() : null;
+    }
+
+    /**
+     * Retrieves a signing secret only for an unexpired grant owned by the supplied consumer.
+     *
+     * @param accessTokenId the persisted access-token key
+     * @param consumerKey the registered consumer key that must own the grant
+     * @return the original token secret, or {@code null} if the token is missing, expired,
+     *         malformed, or does not belong to an existing client with this consumer key
+     */
+    public String getAccessTokenSecret(String accessTokenId, String consumerKey) {
+        ServiceAccessToken token = findUnexpiredAccessToken(accessTokenId);
+        if (token == null || token.getClientId() == null || consumerKey == null) {
+            return null;
+        }
+        ServiceClient client = serviceClientDao.find(token.getClientId());
+        return client != null && consumerKey.equals(client.getKey()) ? token.getTokenSecret() : null;
     }
 
     public String getProviderNoByAccessToken(String accessTokenId) {
@@ -371,16 +393,8 @@ public class OscarOAuthDataProvider {
     }
 
     private boolean isAccessTokenExpired(ServiceAccessToken token) {
-        if (token.getLifetime() <= 0 || token.getIssued() <= 0) {
-            return true;
-        }
-        long expiresAt;
-        try {
-            expiresAt = Math.addExact(token.getIssued(), token.getLifetime());
-        } catch (ArithmeticException e) {
-            return true;
-        }
-        return System.currentTimeMillis() / 1000 >= expiresAt;
+        return OAuthAccessTokenLifetime.isExpired(token.getIssued(), token.getLifetime(),
+                System.currentTimeMillis() / 1000);
     }
 
     private static void validateCallbackAllowed(RequestTokenRegistration reg) {

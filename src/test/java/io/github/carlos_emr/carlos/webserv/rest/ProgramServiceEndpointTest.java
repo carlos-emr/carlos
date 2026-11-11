@@ -63,10 +63,8 @@ class ProgramServiceEndpointTest extends CarlosRestTestBase {
 
     @Override
     protected Object getServiceBean() {
-        ProgramService service = new ProgramService();
-        injectDependency(service, "programManager", mockProgramManager);
-        injectDependency(service, "admissionManager", mockAdmissionManager);
-        return service;
+        return new ProgramService(mockProgramManager, mockAdmissionManager,
+                authorizeEndpoint("r", "_pmm_management"));
     }
 
     @BeforeEach

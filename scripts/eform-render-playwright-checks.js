@@ -77,6 +77,7 @@ const transparentPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0
 const badResponses = [];
 const consoleIssues = [];
 const displayImageResponses = [];
+const strictRecorder = h.createRecorder();
 
 function assert(condition, message) {
   if (!condition) {
@@ -205,10 +206,7 @@ function isSevereConsoleMessage(message) {
 }
 
 function wirePage(page, label) {
-  page.on('dialog', async (dialog) => {
-    consoleIssues.push({ label, type: 'dialog', text: dialog.message() });
-    await dialog.dismiss().catch(() => {});
-  });
+  h.wireStrictPage(page, label, strictRecorder, { baseline: [] });
   page.on('response', (response) => {
     const responseUrl = response.url();
     const status = response.status();
@@ -256,6 +254,21 @@ async function login(context) {
   return page;
 }
 
+async function submitUploadAndAwaitAdmin(page, submitButton, section) {
+  const administration = new URL(appUrl('/administration'));
+  // The upload iframe redirects the top window from its AJAX completion handler.
+  // A current URL/load state is not evidence that this new navigation finished.
+  const completed = page.waitForNavigation({
+    url: url => url.origin === administration.origin && url.pathname === administration.pathname
+      && url.searchParams.get('show') === section,
+    waitUntil: 'networkidle', timeout: 30000,
+  });
+  completed.catch(() => {});
+  await submitButton.click();
+  const response = await completed;
+  assert(response && response.status() === 200, 'The native upload did not finish on its administration page');
+}
+
 async function ensureImageUploaded(context, imagePath, imageName) {
   const page = await context.newPage();
   wirePage(page, `image:${imageName}`);
@@ -269,8 +282,7 @@ async function ensureImageUploaded(context, imagePath, imageName) {
 
     const frame = page.frameLocator('#uploadFrame');
     await frame.locator('#image').setInputFiles(imagePath);
-    await frame.locator('input.upload[type="submit"]').click();
-    await page.waitForURL(/administration\?show=ImageUpload/, { timeout: 10000 }).catch(() => {});
+    await submitUploadAndAwaitAdmin(page, frame.locator('input.upload[type="submit"]'), 'ImageUpload');
     await gotoApp(page, '/eform/efmimagemanager');
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await page.locator('#tblImage a.viewImage', { hasText: imageName }).first().waitFor({ state: 'visible', timeout: 15000 });
@@ -291,9 +303,7 @@ async function uploadEform(context, formName, formSubject, htmlPath) {
     await frame.locator('input[name="formSubject"]').fill(formSubject);
     await frame.locator('#patientIndependent').check();
     await frame.locator('#formHtml').setInputFiles(htmlPath);
-    await frame.locator('input.upload[type="submit"]').click();
-
-    await page.waitForURL(/administration\?show=Forms/, { timeout: 10000 }).catch(() => {});
+    await submitUploadAndAwaitAdmin(page, frame.locator('input.upload[type="submit"]'), 'Forms');
     await gotoApp(page, '/eform/efmformmanager');
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
@@ -404,6 +414,7 @@ function assertDisplayImageFetchesSucceeded(imageName) {
     patient = createOwnedPatient(sql, { marker: ownedMarker, provider });
     browser = await chromium.launch(launchOptions);
     const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1100, height: 1600 } });
+    context.on('page', page => h.wireStrictPage(page, 'eform-render', strictRecorder, { baseline: [] }));
     const landingPage = await login(context);
     await landingPage.close();
 
@@ -481,6 +492,7 @@ function assertDisplayImageFetchesSucceeded(imageName) {
       !(issue.label === 'eform-popup' && /Failed to load resource/.test(issue.text) && /\/oscar\/eform\/displayImage\?imagefile=/.test(issue.location && issue.location.url ? issue.location.url : '')));
     assert(fatalBadResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(fatalBadResponses, null, 2)}`);
     assert(fatalConsoleIssues.length === 0, `unexpected browser console failures: ${JSON.stringify(fatalConsoleIssues, null, 2)}`);
+    h.assertStrictPage(strictRecorder);
 
     console.log(JSON.stringify({
       importedFormName,
@@ -527,9 +539,11 @@ function assertDisplayImageFetchesSucceeded(imageName) {
     'The eForm instances or the template this run created were not removed');
     removeOwnedPatient(sql, patient, ownedMarker);
   }
+  h.assertStrictPage(strictRecorder);
 })().catch((error) => {
   console.error('FAIL app-backed eForm render pipeline Playwright check');
   console.error(error.stack || error.message);
+  console.error(JSON.stringify(h.buildFailureDetails(strictRecorder), null, 2));
   if (badResponses.length) {
     console.error(`HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
   }

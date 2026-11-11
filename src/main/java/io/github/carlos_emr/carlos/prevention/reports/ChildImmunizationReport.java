@@ -90,15 +90,15 @@ public class ChildImmunizationReport implements PreventionReport {
             log.debug("fieldList " + fieldList.size());
 
             // search prevention_date prevention_type deleted refused
-            ArrayList<Map<String, Object>> prevs1 = PreventionData.getPreventionData(loggedInInfo, "DTaP-IPV", demo);
+            ArrayList<Map<String, Object>> prevs1 = PreventionData.getExactPreventionData(loggedInInfo, "DTaP-IPV", demo);
 
-            ArrayList<Map<String, Object>> prevsDtapIPVHIB = PreventionData.getPreventionData(loggedInInfo, "DTaP-IPV-Hib", demo);
+            ArrayList<Map<String, Object>> prevsDtapIPVHIB = PreventionData.getExactPreventionData(loggedInInfo, "DTaP-IPV-Hib", demo);
 
-            ArrayList<Map<String, Object>> prevs2 = PreventionData.getPreventionData(loggedInInfo, "Hib", demo);
+            ArrayList<Map<String, Object>> prevs2 = PreventionData.getExactPreventionData(loggedInInfo, "Hib", demo);
 
-            ArrayList<Map<String, Object>> prevs4 = PreventionData.getPreventionData(loggedInInfo, "MMR", demo);
+            ArrayList<Map<String, Object>> prevs4 = PreventionData.getExactPreventionData(loggedInInfo, "MMR", demo);
 
-            prevs4.addAll(PreventionData.getPreventionData(loggedInInfo, "MMRV", demo));
+            prevs4.addAll(PreventionData.getExactPreventionData(loggedInInfo, "MMRV", demo));
 
 
             //need to compile accurate dtap numbers

@@ -289,9 +289,27 @@
 							<div class="row">
 							<div class="col-sm-12 mb-3">
 							  <label for="senderFaxAccount"><fmt:message key="coverPage.lbl.faxAccount"/></label>
+							  <%-- The consultation form posts the chosen Fax Account as that account's fax
+							       number (faxAccount). Comparing it with the account id, as this used to, never
+							       matched, so the cover page fell back to the letterhead's fax or the first
+							       account and sent from a sender nobody chose (issue #5278). With no choice
+							       posted (the other fax entry points) the letterhead fax picks, as before. --%>
+							  <c:set var="chosenSenderFax" value="${ not empty requestScope.faxAccount ? requestScope.faxAccount : param.letterheadFax }"/>
+							  <c:set var="chosenSenderOffered" value="${ false }"/>
+							  <c:forEach items="${ requestScope.accounts }" var="account">
+								  <c:if test="${ account.faxNumber eq chosenSenderFax }"><c:set var="chosenSenderOffered" value="${ true }"/></c:if>
+							  </c:forEach>
 							  <select class="form-select" name="senderFaxNumber"  id="senderFaxAccount">
+									<%-- A chosen account that is no longer active is not replaced by another:
+									     the empty value makes Send refuse until the clinician picks one. --%>
+									<c:if test="${ not empty requestScope.faxAccount and not chosenSenderOffered }">
+										<fmt:message var="faxAccountUnavailable" key="coverPage.msg.faxAccountUnavailable">
+											<fmt:param value="${ requestScope.faxAccount }"/>
+										</fmt:message>
+										<option value="" selected><carlos:encode value='${ faxAccountUnavailable }' context="html"/></option>
+									</c:if>
 									<c:forEach items="${ requestScope.accounts }" var="account">
-							    		<option value="<carlos:encode value='${ account.faxNumber }' context="htmlAttribute"/>" ${ account.id eq requestScope.faxAccount or account.faxNumber eq param.letterheadFax ? 'selected' : '' } >
+										<option value="<carlos:encode value='${ account.faxNumber }' context="htmlAttribute"/>" ${ chosenSenderOffered and account.faxNumber eq chosenSenderFax ? 'selected' : '' } >
 							    			${carlos:forHtml(account.accountName)} (${carlos:forHtml(account.faxNumber)})
 							    		</option>
 									</c:forEach>

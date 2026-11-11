@@ -74,6 +74,10 @@ public interface EFormDataDao extends AbstractDao<EFormData> {
 
     public List<Integer> findAllFdidByFormId(Integer formId);
 
+    /**
+     * The id, patient, date, time and provider of every current instance of an eForm, for the EForm Report Tool.
+     * Instances deleted from the chart are left out.
+     */
     public List<Object[]> findMetaFieldsByFormId(Integer formId);
 
     public List<Integer> findAllCurrentFdidByFormId(Integer formId);

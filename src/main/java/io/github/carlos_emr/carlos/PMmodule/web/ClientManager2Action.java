@@ -794,7 +794,6 @@ public class ClientManager2Action extends ActionSupport {
             String inProgramId = String.valueOf(admission.getProgramId());
             String inProgramType = admission.getProgramType();
             if ("service".equalsIgnoreCase(inProgramType)) {
-                se.setAttribute("performDischargeService", Boolean.valueOf(caseManagementManager.hasAccessRight("perform discharges", "access", providerNo, demographicNo, inProgramId)));
                 se.setAttribute("performAdmissionService", Boolean.valueOf(caseManagementManager.hasAccessRight("perform admissions", "access", providerNo, demographicNo, inProgramId)));
 
             }

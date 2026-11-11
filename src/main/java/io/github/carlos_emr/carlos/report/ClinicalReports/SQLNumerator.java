@@ -100,6 +100,7 @@ public class SQLNumerator implements Numerator {
 
     //TODO:Do i change this to pull fields out of the query?
     public boolean evaluateOLD(String demographicNo) {
+        requireSafePreventionSql(demographicNo);
         boolean evalTrue = false;
 
         try {
@@ -130,6 +131,7 @@ public class SQLNumerator implements Numerator {
     //as apposed to looking for the value of count(*).
     // change to get a list of params
     public boolean evaluate(LoggedInInfo loggedInInfo, String demographicNo) {
+        requireSafePreventionSql(demographicNo);
         boolean evalTrue = false;
 
         outputValues = null;
@@ -157,6 +159,12 @@ public class SQLNumerator implements Numerator {
         }
 
         return evalTrue;
+    }
+
+    private void requireSafePreventionSql(String demographicNo) {
+        if (io.github.carlos_emr.carlos.prevention.PreventionReadSafetyService.readsPreventions(sql)) {
+            io.github.carlos_emr.carlos.prevention.PreventionData.requireExactDates(Integer.valueOf(demographicNo));
+        }
     }
 
 

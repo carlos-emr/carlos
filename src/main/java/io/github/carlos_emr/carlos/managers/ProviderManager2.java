@@ -725,7 +725,7 @@ public class ProviderManager2 {
 		return propertyDao.isActiveBooleanProperty(Property.PROPERTY_KEY.auto_link_to_mrp);
 	}
 
-	// If no property is found, it returns true by default.
+	// Filing for others is offered only after an explicit opt-in.
 	public boolean isHl7OfferFileForOthers(LoggedInInfo loggedInInfo, String providerNo) {
 		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
 			throw new RuntimeException("missing required security object _lab");
@@ -735,7 +735,7 @@ public class ProviderManager2 {
 				.stream()
 				.findFirst()
 				.map(p -> "true".equals(p.getValue()))
-				.orElse(true); // default to true
+				.orElse(false); // default off
 	}
 
 	public boolean isHl7AllowOthersFileForYou(LoggedInInfo loggedInInfo, String providerNo) {

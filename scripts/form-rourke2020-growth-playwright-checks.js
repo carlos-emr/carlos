@@ -56,8 +56,8 @@
 // pair once. Only the pair's OWN failure keeps the pinned step label (lib/form-claims.js claimFailure): a concern that
 // depends on another is blocked ("not reached") when the other fails, a control that cannot be found or clicked is a
 // precondition, and a browser problem a concern did not cause is not absorbed by a concern that did no browser work,
-// so none of them reads as the known defect. Finding 251 (Save and Print take 7 and 11 seconds) is deliberately
-// not pinned: the timings are unstable and no budget is agreed, so there is no step that could assert it.
+// so none of them reads as the known defect. Issue 5400 adds Save response budgets below;
+// Print still has no performance assertion.
 //
 // Fixtures: the owned synthetic patient (given a complete demographic record and an infant's date of birth), one
 // marker-named Forms-menu registration per form (the shipped rows are hidden on Ontario installs and are clinic-wide,
@@ -77,6 +77,15 @@ const { revealSavedForm } = require('./form-catalog-smoke-playwright-checks');
 const NAME = 'form-rourke2020-growth';
 const ONLY = 'ROURKE_GROWTH_ONLY';
 const EXCEPT = 'ROURKE_GROWTH_EXCEPT';
+
+// Include front-door WAF processing: SQL-only tests missed the packaged slowdown.
+const ROURKE_SAVE_BUDGET_MS = 6500;
+const ROURKE_SWEEP_SAVE_BUDGET_MS = 15000;
+
+function judgeRourkeSaveDuration(duration, sweep = false) {
+  const budget = sweep ? ROURKE_SWEEP_SAVE_BUDGET_MS : ROURKE_SAVE_BUDGET_MS;
+  h.assert(duration <= budget, `Rourke ${sweep ? 'all-controls' : 'ordinary'} Save took ${duration} ms, exceeding the ${budget} ms response budget`);
+}
 
 /** The infant's age in days. 560 puts the 18-month visit (548 days) twelve days ago. */
 const INFANT_DAYS = 560;
@@ -353,6 +362,28 @@ function judgeMeasureDate({ expected, utc, offered, stored, clockMoved }, zone) 
   h.assert(stored === expected, `the dialog offered ${offered} and filed ${stored} on a day that is ${expected} where the clinician is (${zone}); it uses the UTC date`);
 }
 
+/** Observe the owned Rourke's writes before any form can open or autosave can start. */
+function trackRourkeWrites(context, sql, patient) {
+  const query = `SELECT COUNT(*) FROM formRourke2020 WHERE demographic_no=${patient}`;
+  const baseline = sql.value(query);
+  const state = { query, before: Number(baseline), requests: new Set(), manual: 0 };
+  h.assert(/^\d+$/.test(String(baseline)) && Number.isSafeInteger(state.before), 'The owned Rourke baseline count is invalid');
+  const onRequest = request => {
+    if (request.method() !== 'POST') return;
+    const url = new URL(request.url());
+    if (!url.pathname.endsWith('/form/formname')) return;
+    const params = new URLSearchParams(request.postData() || '');
+    if (params.get('form_class') !== 'Rourke2020' || params.get('demographic_no') !== String(patient)) return;
+    const submit = url.searchParams.get('submit') || params.get('submit');
+    if (!['save', 'exit', 'autosaveAjax'].includes(submit) || state.requests.has(request)) return;
+    state.requests.add(request);
+    if (submit !== 'autosaveAjax') state.manual++;
+  };
+  context.on('request', onRequest);
+  state.stop = () => context.off('request', onRequest);
+  return state;
+}
+
 async function workflow(s, { select = validatePin() } = {}) {
   const { sql, patient, provider, marker } = s;
   const wanted = new Set(select);
@@ -453,6 +484,8 @@ async function workflow(s, { select = validatePin() } = {}) {
     sql.execute(`INSERT INTO encounterForm (form_value,form_name,form_table,hidden)
       SELECT ${h.sqlString(value)},${h.sqlString(name)},${h.sqlString(table)},COALESCE(MAX(hidden),0)+1 FROM encounterForm`);
   }
+  const rourkeWrites = entries.some(entry => entry.form.key === 'rourke2020') ? trackRourkeWrites(s.context, sql, patient) : null;
+  if (rourkeWrites) s.cleanup(rourkeWrites.stop);
   const chart = await s.chart();
 
   // ---- recording -------------------------------------------------------------------------------------------------
@@ -586,14 +619,26 @@ async function workflow(s, { select = validatePin() } = {}) {
     // Getting to the menu entry and through it is what the check needs in order to look at the form: a menu that does not list
     // the registration or a window that does not open is a precondition, not a defect of the form under test.
     const link = await claims.asPrecondition(async () => {
-      await chart.locator('#menuTitle1 a').hover();
+      await ui.openFormsMenu(chart);
       // The menu entry (#menu1) opens a new record; the saved records of the same form are listed again in #formslist below it.
       const found = chart.locator('#menu1').getByRole('link', { name: entry.name, exact: true });
       const listed = await found.count();
       claims.precondition(listed === 1, `the Forms menu lists the registered form ${listed} times, not once`);
       return found;
     }, 'finding the Forms-menu entry');
-    entry.page = await claims.reaching(() => s.popup(chart, link, `form-${form.code}`));
+    entry.page = await claims.reaching(async () => {
+      try {
+        return await s.popup(chart, link, `form-${form.code}`);
+      } catch (error) {
+        // Since #5074 a patient who already has a saved copy of a longitudinal form is asked "Saved form exists"
+        // instead of getting a blank window (formOpenGuard closes the window it reserved). The sweep's second record
+        // is meant to be new, so take the explicit blank choice. Left open, the modal would also block every later
+        // Forms-menu click on this chart (the guard ignores clicks while it is pending).
+        const dialog = chart.getByRole('dialog', { name: 'Saved form exists' });
+        if (!await dialog.waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false)) throw error;
+        return s.popup(chart, dialog.getByRole('button', { name: 'Create a new blank version', exact: true }), `form-${form.code}`);
+      }
+    });
     h.assert(new URL(entry.page.url()).searchParams.get('demographic_no') === patient, 'the form opened for another patient');
     await claims.reaching(async () => {
       await entry.page.getByRole('button', { name: 'Save', exact: true }).first().waitFor({ state: 'attached', timeout: 10000 });
@@ -694,17 +739,19 @@ async function workflow(s, { select = validatePin() } = {}) {
   }
 
   /** Press Save and judge the answer. Returns when the row is stored; records the redirect's frame for the redisplay. */
-  async function pressSave(entry, { exactRows, exit = false }) {
+  async function pressSave(entry, { exactRows, exit = false, sweep = false }) {
     const { page, form } = entry;
     const save = form.key === 'rourke2020'
       ? page.locator(`#tab-cp1 input[type="submit"][value="${exit ? 'Save and Exit' : 'Save'}"]`).first()
       : page.getByRole('button', { name: 'Save', exact: true }).first();
-    entry.before = Number(sql.value(`SELECT COUNT(*) FROM ${form.table} WHERE demographic_no=${patient}`));
+    entry.before = form.key === 'rourke2020' ? rourkeWrites.before
+      : Number(sql.value(`SELECT COUNT(*) FROM ${form.table} WHERE demographic_no=${patient}`));
+    const manualBefore = rourkeWrites && rourkeWrites.manual;
     entry.writes = 0;
     const onRequest = request => {
       if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/form/formname')) entry.writes++;
     };
-    page.on('request', onRequest);
+    if (form.key !== 'rourke2020') page.on('request', onRequest);
     const stop = watchPages(entry, `form-${form.code}`);
     // Capture the UI immediately before native submit; pausing a navigation
     // request and evaluating its departing document can deadlock the browser.
@@ -734,9 +781,11 @@ async function workflow(s, { select = validatePin() } = {}) {
     try {
       const dialogs = await h.withExpectedDialogs(page, () => save.click());
       const response = await posted.catch(() => null);
-      detail(entry, `Save was answered after ${Date.now() - started} ms`);
+      const duration = Date.now() - started;
+      detail(entry, `Save was answered after ${duration} ms`);
       h.assert(response, `Save posted nothing to form/formname (dialogs: ${dialogs.map(d => `${d.type} "${d.text.slice(0, 60)}"`).join('; ') || 'none'})`);
       h.assert(response.status() === (exit ? 200 : 302), `the save was answered ${response.status()}, not ${exit ? 'the close page' : 'a redirect'}`);
+      if (form.key === 'rourke2020') judgeRourkeSaveDuration(duration, sweep);
       if (!exit) entry.saveFrame = response.frame();
     } finally {
       stop();
@@ -745,10 +794,16 @@ async function workflow(s, { select = validatePin() } = {}) {
     if (form.key === 'rourke2020') {
       h.assert(progress?.visible && progress.text && !progress.text.includes('???') && progress.busy === 'true',
         'Save must display a resolved progress message and mark the form busy before the response arrives');
+      h.assert(rourkeWrites.manual === manualBefore + 1, 'One Save click must make exactly one manual Rourke write');
+      entry.writes = rourkeWrites.requests.size;
+      // An autosave sent while typing can still commit after manual Save starts.
+      // Count the entire observed flow and wait for its writes; do not disable or replay autosave.
+      await expectValue(sql, rourkeWrites.query, String(entry.before + entry.writes), 'The observed Rourke writes did not all store one row');
+      h.assert(rourkeWrites.requests.size === entry.writes, 'Rourke write requests changed while their rows were settling');
     }
     const after = Number(sql.value(`SELECT COUNT(*) FROM ${form.table} WHERE demographic_no=${patient}`));
     // The Rourke form autosaves every ten seconds while it is changed, and each autosave is a row of its own, so its
-    // rows are counted against the writes the page made (the Save and any autosave in the same window), not assumed to be one.
+    // rows are counted against the writes observed since the form could first open, not assumed to be one.
     h.assert(entry.writes >= 1, 'no write reached form/formname');
     h.assert(after - entry.before === entry.writes, `Save wrote ${after - entry.before} rows for ${entry.writes} requests, not one row each`);
     if (exactRows) h.assert(entry.writes === 1, `Save made ${entry.writes} requests, not one`);
@@ -1193,7 +1248,7 @@ async function workflow(s, { select = validatePin() } = {}) {
         for (const { name, value } of extras) { const element = document.querySelector(`#frmP1 [name="${name}"]`); if (element) element.value = value; }
         for (const element of document.querySelectorAll('#frmP1 input[type="radio"], #frmP1 input[type="checkbox"]')) element.checked = true;
       }, { extras: entry.extras });
-      await pressSave(entry, { exactRows: false });
+      await pressSave(entry, { exactRows: false, sweep: true });
       const { landed, id } = await redisplayedId(entry);
       sweepId = id;
       const stored = entry.extras.filter(extra => extra.stored);
@@ -1228,7 +1283,7 @@ async function workflow(s, { select = validatePin() } = {}) {
       await openTab(boxes, 0);
       const closed = boxes.waitForEvent('close', { timeout: 90000 });
       closed.catch(() => {});
-      await pressSave(entry, { exactRows: false, exit: true });
+      await pressSave(entry, { exactRows: false, exit: true, sweep: true });
       await closed;
       const saved = sql.rows(`SELECT provider_no,p3_immunization,p4_immunization FROM formRourke2020
         WHERE demographic_no=${patient} ORDER BY ID DESC LIMIT 1`);
@@ -1332,7 +1387,9 @@ async function workflow(s, { select = validatePin() } = {}) {
     }
   }
   const rourkeEntry = byKey('rourke2020');
-  if (rourkeEntry) blocked(rourkeEntry, 'graphgrowth', 'the Rourke graphs or the Growth 0-36 form were not reached');
+  if (rourkeEntry && wanted.has(claims.claimKey('rourke2020', 'graphgrowth'))) {
+    blocked(rourkeEntry, 'graphgrowth', 'the Rourke graphs or the Growth 0-36 form were not reached');
+  }
 
   // ---- Phase 3: assert the claimed pairs, in table order ----
   excuseViewerAborts();
@@ -1368,5 +1425,6 @@ module.exports = {
   ROURKE_LENGTH_WEIGHT_POINTS, ROURKE_HEAD_POINTS, CHART_POINTS, GROWTH_ROWS, MEASURE_OR_DATE, ROURKE_NOTES,
   ROURKE_LENGTH_WEIGHT_PAGES, ROURKE_HEAD_PAGES, ROURKE_PRINT_PAGES, GROWTH_PRINT_PAGES, PRINT_PAGE, PRINT_BOXES, BOX_SLACK,
   PATIENT_SEX, utcDate, sexMarks, printedGestation, judgeMeasureDate,
-  UNICODE_NOTE, overflowNote, missingNoteText, judgePrintPending,
+  UNICODE_NOTE, overflowNote, missingNoteText, judgePrintPending, trackRourkeWrites,
+  judgeRourkeSaveDuration, ROURKE_SAVE_BUDGET_MS, ROURKE_SWEEP_SAVE_BUDGET_MS,
 };

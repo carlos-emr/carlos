@@ -24,10 +24,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockServletContext;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
 import java.io.IOException;
@@ -79,6 +81,7 @@ class FrmVtRetentionIntegrationTest {
 
         var security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(any(), anyString(), anyString(), eq("101"))).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(any(), eq(101))).thenReturn(true);
         var forms = mock(EncounterFormDao.class);
         for (String name : List.of("VTForm", "OtherForm")) {
             var registration = new EncounterForm();
@@ -103,6 +106,9 @@ class FrmVtRetentionIntegrationTest {
         spring.when(() -> SpringUtils.getBean(EncounterFormDao.class)).thenReturn(forms);
         spring.when(() -> SpringUtils.getBean(DemographicManager.class)).thenReturn(demographics);
         spring.when(() -> SpringUtils.getBean(MeasurementDao.class)).thenReturn(measurements);
+        // The save runs the form insert and the measurement writes in one transaction (#4674).
+        spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class))
+                .thenReturn(new DataSourceTransactionManager(source));
         var config = mock(CarlosProperties.class);
         when(config.getProperty("db_type", "")).thenReturn("mysql");
         when(config.getProperty("save_as_xml", "false")).thenReturn("false");
@@ -122,6 +128,7 @@ class FrmVtRetentionIntegrationTest {
             }
         });
         response = new MockHttpServletResponse();
+        request.setMethod("POST");
         var login = new LoggedInInfo();
         var provider = new Provider();
         provider.setProviderNo("999998");

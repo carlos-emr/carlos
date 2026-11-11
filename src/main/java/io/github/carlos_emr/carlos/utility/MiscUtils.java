@@ -76,7 +76,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public final class MiscUtils {
     public static final String DEFAULT_UTF8_ENCODING = "UTF-8";
-    private static boolean shutdownSignaled = false;
+    // Lifecycle writers and background-worker readers do not share a monitor.
+    private static volatile boolean shutdownSignaled = false;
     private static Thread shutdownHookThread = null;
 
     /** Maximum deserialization object graph depth to prevent stack-overflow bombs. */

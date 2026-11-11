@@ -1,8 +1,8 @@
 {
- "format": 1,
+ "format": 3,
  "kind": "o19map-schema",
  "generator": "scripts/migration/o19/generate_manifests.py",
- "SCHEMA_MAP_VERSION": "o19map-3+6ea61c42",
+ "SCHEMA_MAP_VERSION": "o19map-8+37a29865",
  "O19_PROFILE": "on",
  "O19_SOURCE_COMMIT": "a7900d569d3faf741993e5e1da8c14021bbefede",
  "TABLES": {
@@ -94,8 +94,13 @@
     "last_entered_by",
     "consent_date",
     "optout_date",
-    "edit_date"
+    "edit_date",
+    "deleted"
    ],
+   "value_exprs": {
+    "optout": "COALESCE(s.`optout`, 1)",
+    "deleted": "COALESCE((SELECT r.`deleted` FROM {archive}.`Consent__live` r WHERE r.`id` = s.`id`), 1)"
+   },
    "fk_remap": {
     "consent_type_id": "consentType"
    }
@@ -182,7 +187,8 @@
     "providerNo",
     "demographicId",
     "dateSigned",
-    "signatureImage"
+    "signatureImage",
+    "ModuleType"
    ]
   },
   "DrugProduct": {
@@ -768,7 +774,18 @@
    "class": "archive"
   },
   "ServiceAccessToken": {
-   "class": "archive"
+   "class": "copy",
+   "cols": [
+    "id",
+    "clientId",
+    "tokenId",
+    "tokenSecret",
+    "lifetime",
+    "issued",
+    "providerNo",
+    "scopes",
+    "dateCreated"
+   ]
   },
   "ServiceClient": {
    "class": "copy",
@@ -778,7 +795,8 @@
     "clientKey",
     "clientSecret",
     "uri",
-    "dateCreated"
+    "dateCreated",
+    "lifetime"
    ]
   },
   "ServiceRequestToken": {
@@ -1182,7 +1200,11 @@
     "status",
     "total",
     "timestamp"
-   ]
+   ],
+   "value_exprs": {
+    "ohipfilename": "(SELECT f.`imported_filename` FROM {archive}.`billing_on_diskname__filenames` f WHERE f.`row_id` = s.`id`)"
+   },
+   "billing_filename": "o19-billing-v1"
   },
   "billing_on_eareport": {
    "class": "copy",
@@ -1251,7 +1273,11 @@
     "status",
     "total",
     "timestamp"
-   ]
+   ],
+   "value_exprs": {
+    "htmlfilename": "(SELECT f.`imported_filename` FROM {archive}.`billing_on_filename__filenames` f WHERE f.`row_id` = s.`id`)"
+   },
+   "billing_filename": "o19-billing-v1"
   },
   "billing_on_header": {
    "class": "copy",
@@ -12665,7 +12691,8 @@
    "consent_date",
    "optout_date",
    "edit_date",
-   "deleted"
+   "deleted",
+   "live_demographic_no"
   ],
   "Contact": [
    "id",
@@ -12723,7 +12750,8 @@
    "demographicId",
    "dateSigned",
    "signatureImage",
-   "ModuleType"
+   "ModuleType",
+   "demographicFkId"
   ],
   "DrugProduct": [
    "id",
@@ -13104,7 +13132,19 @@
    "passwordUpdateDate",
    "pinUpdateDate",
    "lastUpdateUser",
-   "lastUpdateDate"
+   "lastUpdateDate",
+   "usingMfa"
+  ],
+  "ServiceAccessToken": [
+   "id",
+   "clientId",
+   "tokenId",
+   "tokenSecret",
+   "lifetime",
+   "issued",
+   "providerNo",
+   "scopes",
+   "dateCreated"
   ],
   "ServiceClient": [
    "id",
@@ -14163,7 +14203,9 @@
    "pronoun",
    "pronounId",
    "gender",
-   "pref_name"
+   "pref_name",
+   "cds_identity_hin",
+   "cds_identity_issuer"
   ],
   "demographicArchive": [
    "id",
@@ -14365,7 +14407,8 @@
    "abnormal",
    "receivedDate",
    "report_media",
-   "sent_date_time"
+   "sent_date_time",
+   "cds_content_precision"
   ],
   "document_storage": [
    "id",
@@ -14447,7 +14490,10 @@
    "demographic_contact_id",
    "protocol",
    "priorRxProtocol",
-   "pharmacyId"
+   "pharmacyId",
+   "cds_currentness",
+   "cds_dose_text",
+   "cds_projection_incomplete"
   ],
   "dsGuidelineProviderMap": [
    "mapid",
@@ -22926,7 +22972,7 @@
   "ctl_frequency": 20,
   "ctl_specialinstructions": 26,
   "default_role_access": 982,
-  "encounterForm": 99,
+  "encounterForm": 98,
   "encountertemplate": 186,
   "frm_labreq_preset": 193,
   "groups_tbl": 1,
@@ -23016,6 +23062,7 @@
  "SEED_USER_NAME": "carlosdoc",
  "CREDENTIAL_TABLES": [
   "ServiceClient",
+  "ServiceAccessToken",
   "oscarKeys",
   "publicKeys"
  ],
@@ -23379,7 +23426,6 @@
    "archived",
    "custom_instructions",
    "hide_cpp",
-   "nosubs",
    "prn",
    "start_date_unknown",
    "takemax",
@@ -24626,16 +24672,11 @@
   ],
   "program": [
    "alcohol",
-   "allowBatchAdmission",
-   "allowBatchDischarge",
    "firstNation",
-   "hic",
-   "holdingTank",
    "housing",
    "mentalHealth",
    "physicalHealth",
-   "transgender",
-   "userDefined"
+   "transgender"
   ],
   "program_access": [
    "all_roles"
@@ -24739,7 +24780,7 @@
  },
  "PROFILES": {
   "bc": {
-   "SCHEMA_MAP_VERSION": "o19map-3+f2e0d233",
+   "SCHEMA_MAP_VERSION": "o19map-8+bfb0898a",
    "O19_PROFILE": "bc",
    "TABLES": {
     "AppDefinition": {
@@ -24830,8 +24871,13 @@
       "last_entered_by",
       "consent_date",
       "optout_date",
-      "edit_date"
+      "edit_date",
+      "deleted"
      ],
+     "value_exprs": {
+      "optout": "COALESCE(s.`optout`, 1)",
+      "deleted": "COALESCE((SELECT r.`deleted` FROM {archive}.`Consent__live` r WHERE r.`id` = s.`id`), 1)"
+     },
      "fk_remap": {
       "consent_type_id": "consentType"
      }
@@ -24918,7 +24964,8 @@
       "providerNo",
       "demographicId",
       "dateSigned",
-      "signatureImage"
+      "signatureImage",
+      "ModuleType"
      ]
     },
     "DrugProduct": {
@@ -25504,7 +25551,18 @@
      "class": "archive"
     },
     "ServiceAccessToken": {
-     "class": "archive"
+     "class": "copy",
+     "cols": [
+      "id",
+      "clientId",
+      "tokenId",
+      "tokenSecret",
+      "lifetime",
+      "issued",
+      "providerNo",
+      "scopes",
+      "dateCreated"
+     ]
     },
     "ServiceClient": {
      "class": "copy",
@@ -25514,7 +25572,8 @@
       "clientKey",
       "clientSecret",
       "uri",
-      "dateCreated"
+      "dateCreated",
+      "lifetime"
      ]
     },
     "ServiceRequestToken": {
@@ -29573,13 +29632,9 @@
       "ar2_tweakW",
       "ar2_tweakE",
       "ar2_tweakA",
-      "ar2_tweakK"
-     ],
-     "dropped": {
-      "ar2_urineCStxt": {
-       "nondefault": "s.`ar2_urineCStxt` IS NOT NULL AND s.`ar2_urineCStxt` <> ''"
-      }
-     }
+      "ar2_tweakK",
+      "ar2_urineCStxt"
+     ]
     },
     "formBCAR2012": {
      "class": "copy",
@@ -41916,7 +41971,11 @@
      ]
     },
     "wcb_bp_code": {
-     "class": "copy",
+     "class": "merge",
+     "merge_keys": [
+      "code"
+     ],
+     "surrogate_pk": "wcb_bp_code_no",
      "cols": [
       "wcb_bp_code_no",
       "level1",
@@ -41927,7 +41986,11 @@
      ]
     },
     "wcb_noi_code": {
-     "class": "copy",
+     "class": "merge",
+     "merge_keys": [
+      "code"
+     ],
+     "surrogate_pk": "wcb_noi_code_no",
      "cols": [
       "wcb_noi_code_no",
       "level1",
@@ -41938,7 +42001,10 @@
      ]
     },
     "wcb_side": {
-     "class": "copy",
+     "class": "merge",
+     "merge_keys": [
+      "sidetype"
+     ],
      "cols": [
       "sidetype",
       "sidedesc",
@@ -42684,7 +42750,8 @@
      "consent_date",
      "optout_date",
      "edit_date",
-     "deleted"
+     "deleted",
+     "live_demographic_no"
     ],
     "Contact": [
      "id",
@@ -42742,7 +42809,8 @@
      "demographicId",
      "dateSigned",
      "signatureImage",
-     "ModuleType"
+     "ModuleType",
+     "demographicFkId"
     ],
     "DrugProduct": [
      "id",
@@ -43123,7 +43191,19 @@
      "passwordUpdateDate",
      "pinUpdateDate",
      "lastUpdateUser",
-     "lastUpdateDate"
+     "lastUpdateDate",
+     "usingMfa"
+    ],
+    "ServiceAccessToken": [
+     "id",
+     "clientId",
+     "tokenId",
+     "tokenSecret",
+     "lifetime",
+     "issued",
+     "providerNo",
+     "scopes",
+     "dateCreated"
     ],
     "ServiceClient": [
      "id",
@@ -44147,7 +44227,9 @@
      "pronoun",
      "pronounId",
      "gender",
-     "pref_name"
+     "pref_name",
+     "cds_identity_hin",
+     "cds_identity_issuer"
     ],
     "demographicArchive": [
      "id",
@@ -44349,7 +44431,8 @@
      "abnormal",
      "receivedDate",
      "report_media",
-     "sent_date_time"
+     "sent_date_time",
+     "cds_content_precision"
     ],
     "document_storage": [
      "id",
@@ -44431,7 +44514,10 @@
      "demographic_contact_id",
      "protocol",
      "priorRxProtocol",
-     "pharmacyId"
+     "pharmacyId",
+     "cds_currentness",
+     "cds_dose_text",
+     "cds_projection_incomplete"
     ],
     "dsGuidelineProviderMap": [
      "mapid",
@@ -46645,7 +46731,8 @@
      "ar2_tweakW",
      "ar2_tweakE",
      "ar2_tweakA",
-     "ar2_tweakK"
+     "ar2_tweakK",
+     "ar2_urineCStxt"
     ],
     "formBCAR2012": [
      "ID",
@@ -57298,7 +57385,7 @@
     "ctl_frequency": 20,
     "ctl_specialinstructions": 26,
     "default_role_access": 982,
-    "encounterForm": 55,
+    "encounterForm": 54,
     "encountertemplate": 186,
     "groups_tbl": 1,
     "issue": 71,
@@ -57569,7 +57656,6 @@
      "archived",
      "custom_instructions",
      "hide_cpp",
-     "nosubs",
      "prn",
      "start_date_unknown",
      "takemax",
@@ -58833,16 +58919,11 @@
     ],
     "program": [
      "alcohol",
-     "allowBatchAdmission",
-     "allowBatchDischarge",
      "firstNation",
-     "hic",
-     "holdingTank",
      "housing",
      "mentalHealth",
      "physicalHealth",
-     "transgender",
-     "userDefined"
+     "transgender"
     ],
     "program_access": [
      "all_roles"
@@ -58951,9 +59032,7 @@
      "ID",
      "billing_no",
      "demographic_no",
-     "formNeeded",
-     "provider_no",
-     "w_duration"
+     "provider_no"
     ]
    },
    "PRISTINE_TOLERATED_TABLES": [

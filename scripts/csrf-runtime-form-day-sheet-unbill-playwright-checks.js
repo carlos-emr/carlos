@@ -21,6 +21,7 @@
  * they are gone.
  */
 const h = require('./lib/playwright-harness');
+const {captureScheduleContext, assertScheduleContext} = require('./lib/native-schedule-context');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { seedOwnedBill, billDate } = require('./billing-on-invoice-third-party-playwright-checks');
 
@@ -28,6 +29,7 @@ const ROUTE = '/billing/CA/ON/BillingDeleteWithoutNo';
 
 async function workflow(s) {
   const { sql, patient, marker, provider } = s;
+  const scheduleContext = await captureScheduleContext(s);
   const code = 'A007A';
   const date = billDate();
   const fee = sql.value(`SELECT value FROM billingservice WHERE service_code=${h.sqlString(code)}
@@ -45,12 +47,13 @@ async function workflow(s) {
   for (let candidate = Number(startHour) + 1; candidate < Number(endHour) && !start; candidate++) {
     const from = `${String(candidate).padStart(2, '0')}:00:00`;
     const to = sql.value(`SELECT ADDTIME(${h.sqlString(from)}, SEC_TO_TIME(${Number(everyMin) * 60 - 1}))`);
-    if (sql.value(`SELECT COUNT(*) FROM appointment WHERE provider_no=${providerKey} AND appointment_date=CURDATE()
+    if (sql.value(`SELECT COUNT(*) FROM appointment WHERE provider_no=${providerKey} AND appointment_date=${h.sqlString(scheduleContext.date)}
       AND start_time<=${h.sqlString(to)} AND end_time>=${h.sqlString(from)}`) === '0') [start, end] = [from, to];
   }
   if (!start) throw new h.SkipCheck('No free slot inside the provider schedule hours today');
   let appointment = null;
   s.cleanup(() => {
+    h.assert(s.context.browser().isConnected() === false, 'Appointment cleanup retained: browser close is unconfirmed');
     if (!appointment) return;
     sql.execute(`DELETE FROM appointmentArchive WHERE appointment_no=${appointment} AND demographic_no=${patient};
       DELETE FROM appointment WHERE appointment_no=${appointment} AND demographic_no=${patient} AND name=${h.sqlString(name)}`);
@@ -61,8 +64,8 @@ async function workflow(s) {
   appointment = sql.value(`INSERT INTO appointment (provider_no, appointment_date, start_time, end_time, name,
       demographic_no, program_id, notes, reason, location, resources, type, style, billing, status, createdatetime,
       updatedatetime, creator, remarks, urgency)
-    VALUES (${h.sqlString(provider)}, CURDATE(), ${h.sqlString(start)}, ${h.sqlString(end)}, ${h.sqlString(name)}, ${patient},
-      0, '', 'Unbill workflow', '', '', '', '', '', 'B', NOW(), NOW(), ${h.sqlString(provider)}, '', '');
+    VALUES (${h.sqlString(provider)}, ${h.sqlString(scheduleContext.date)}, ${h.sqlString(start)}, ${h.sqlString(end)}, ${h.sqlString(name)}, ${patient},
+      0, '', 'Unbill workflow', ${h.sqlString(scheduleContext.location)}, '', '', '', '', 'B', NOW(), NOW(), ${h.sqlString(provider)}, '', '');
     SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(appointment), 'The appointment fixture was not created');
   const bill = seedOwnedBill(s, { payProgram: 'HCP', status: 'O', code, fee, date });
@@ -75,6 +78,7 @@ async function workflow(s) {
   await s.step('the day sheet offers "-B" (Unbill) for the owned billed appointment', async () => {
     await s.schedule.reload({ waitUntil: 'domcontentloaded' }); // the appointment was seeded after login
     await s.schedule.waitForLoadState('networkidle').catch(() => {});
+    await assertScheduleContext(s, scheduleContext);
     h.assert(await unbill().count() === 1, 'The day sheet does not offer "-B" for the owned appointment');
     h.assert(sql.value(`SELECT CONCAT_WS('|', h.status, GROUP_CONCAT(i.status)) FROM billing_on_cheader1 h
       JOIN billing_on_item i ON i.ch1_id=h.id WHERE h.id=${bill.headerId} GROUP BY h.id`) === 'O|O',

@@ -25,9 +25,11 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.LegacyXmlBeans;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
@@ -337,7 +339,7 @@ public class DemographicExportAction42Action extends ActionSupport {
             "msp", DiagnosticCodeDao.class
     );
 
-    private transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     Integer exportNo = 0;
     ArrayList<String> exportError = null;
@@ -433,6 +435,31 @@ public class DemographicExportAction42Action extends ActionSupport {
             list.add(demographicNo);
         }
 
+        try {
+            var projection = SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class);
+            for (String patient : list) projection.requireWholeChartSupported(Integer.parseInt(patient));
+        } catch (io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException unsupported) {
+            writeExportAuditLog(loggedInInfo, list.size(), "unsupported_structured_projection", "<unavailable>", null);
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            response.setContentType("text/plain;charset=UTF-8");
+            response.setHeader("Cache-Control", "no-store");
+            response.getWriter().write(unsupported.getMessage());
+            return NONE;
+        }
+
+        // This legacy export performs Date-only native prevention calculations. Refuse before
+        // creating an archive rather than inventing a day or publishing a partial package.
+        if (exImmunizations || exPastHealth) {
+            try {
+                for (String patient : list) PreventionData.requireExactDates(Integer.valueOf(patient));
+            } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException review) {
+                writeExportAuditLog(loggedInInfo, list.size(), "precision_review_required", "<unavailable>", null);
+                response.sendError(HttpServletResponse.SC_CONFLICT,
+                        "Prevention timing requires review before this legacy export can run.");
+                return NONE;
+            }
+        }
+
         String ffwd = "fail";
         boolean fileStreamed = false;
         String tmpDir = oscarProperties.getProperty("TMP_DIR") + File.separator + RandomStringUtils.random(8, true, false);
@@ -448,9 +475,9 @@ public class DemographicExportAction42Action extends ActionSupport {
                     logger.debug("Error! Cannot write to TMP_DIR - Check carlos.properties or dir permissions. (" + tmpDir + ")");
                 } else {
                     XmlOptions options = new XmlOptions();
-                    options.put(XmlOptions.SAVE_PRETTY_PRINT);
-                    options.put(XmlOptions.SAVE_PRETTY_PRINT_INDENT, 3);
-                    options.put(XmlOptions.SAVE_AGGRESSIVE_NAMESPACES);
+                    options.setSavePrettyPrint();
+                    options.setSavePrettyPrintIndent(3);
+                    options.setSaveAggressiveNamespaces();
 
                     HashMap<String, String> suggestedPrefix = new HashMap<String, String>();
                     suggestedPrefix.put("cds_dt", "cdsd");
@@ -486,7 +513,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                         HashMap<String, String> demoExt = new HashMap<String, String>();
                         demoExt.putAll(demographicExtDao().getAllValuesForDemo(Integer.parseInt(demoNo)));
 
-                        OmdCdsDocument omdCdsDoc = OmdCdsDocument.Factory.newInstance();
+                        OmdCdsDocument omdCdsDoc = LegacyXmlBeans.newInstance(OmdCdsDocument.class, OmdCdsDocument.type);
                         OmdCdsDocument.OmdCds omdCds = omdCdsDoc.addNewOmdCds();
                         PatientRecord patientRec = omdCds.addNewPatientRecord();
                         Demographics demo = patientRec.addNewDemographics();

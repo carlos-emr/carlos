@@ -8,8 +8,9 @@ const positiveId = value => {
   return String(value);
 };
 const decode = value => {
-  assert(value === 'NULL' || /^(?:[0-9A-Fa-f]{2})*$/.test(value), 'invalid hexadecimal snapshot');
-  return value === 'NULL' ? 'NULL' : `UNHEX('${value}')`;
+  const isNull = value === null || value === 'NULL'; // The actual mysql batch parser returns JS null for SQL NULL.
+  assert(isNull || /^(?:[0-9A-Fa-f]{2})*$/.test(value), 'invalid hexadecimal snapshot');
+  return isNull ? 'NULL' : `UNHEX('${value}')`;
 };
 
 /** Owns only its inserted IDs; restores exact review fields for the frozen source chain. */

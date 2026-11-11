@@ -62,8 +62,6 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="form.PositionHazard.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <link rel="stylesheet" type="text/css" media="screen"
-              href="<%= request.getContextPath() %>/form/positionHazardStyle.css">
         <link rel="stylesheet" type="text/css" media="print" href="<%= request.getContextPath() %>/form/print.css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     </head>

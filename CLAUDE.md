@@ -56,6 +56,19 @@
 - SRFax duplicate prevention policy is unread/read flag based (unread-only pull + mark-as-read), not remote delete.
 - See `docs/fax-provider-configuration-and-ux.md` for implementation and operational details.
 
+## CDS Import Context (AI + Dev)
+
+- Start at `docs/cds-import.md`; server defaults and delegation are in
+  `docs/cds-import-configuration.md`. Admission defaults off. Enabling imports requires the
+  installed qualification and maintenance prerequisites in the operator guide.
+- Browser and trusted CLI imports share `demographic/cdsimport`. Resume intent is a durable
+  audited event. Preserve physical ownership, epochs, receipt verification, patient holds and
+  separate report/cleanup outcomes when changing recovery.
+- Preserve source values and partial-date precision alongside native projections. Read the
+  clinical and legacy-reader contracts before changing persisters or downstream readers.
+- Generate crosswalks and physical schema contracts with their tools. Qualify native changes
+  with the fresh ON/BC MariaDB tier and the actual packaged WAR.
+
 ## eForm Chrome Styling
 
 - eForm pages must not receive a global stylesheet: the renderers (`efmshowform_data.jsp`,
@@ -65,6 +78,87 @@
   `eform/eformFloatingToolbar/bootstrap-eform-scoped.min.css`, generated (never hand-edited) by
   `scripts/build-eform-scoped-bootstrap.js`; new chrome goes inside an element with
   `class="carlos-eform-ui"`. See `docs/eform-chrome-bootstrap-scope.md`.
+
+## eForm Signature Data URIs and the WAF
+
+- Signature pads store data URIs in author-named eForm fields, which the packaged WAF cannot name.
+  `eform_floating_toolbar.js` moves each image data URI into the fixed `carlos-data-uri` argument
+  while the save request is built (leaving `carlos-data-uri:<nonce>:<n>` in the field, with a
+  per-submission nonce in `carlos-data-uri-nonce` so typed text is never taken for a reference), and
+  `AddEForm2Action` restores it through `EFormDataUriCarrier` before anything is stored (#3552).
+- WAF rule 1040 exempts only `ARGS:carlos-data-uri`; never return to a request-wide
+  `ruleRemoveById`. `EFormDataUriCarrier` is the boundary: it accepts only padded Base64
+  PNG/JPEG/GIF/WebP (file signature checked) and jSignature base30, never SVG. The page and server
+  rules must stay identical: `scripts/fixtures/eform/data-uri-carrier-cases.json` drives both sides'
+  tests, and `scripts/waf/check-clinical-policy.py` (`data-uri-*`) pins the real-engine behaviour.
+
+## Query by Example Reporting Account
+
+- Query by Example runs every query as the read-only database account `carlos_report`
+  (`db_reporting_username` / `db_reporting_password`), never as `db_username`, and refuses to run
+  without it (issue #3372). There is no fallback to the application account.
+- `src/main/resources/db/reporting/carlos_report_grants.sql` lists every table as `reportable` or
+  `restricted` and rebuilds the account's grants. A migration that creates a table must add its
+  row there; `QueryByExampleReportingClassificationUnitTest` fails the build until it does, and
+  when the restricted rows differ from `QueryByExampleSqlValidator.SECURITY_SENSITIVE_TABLES`.
+- The application reads the same file from the WAR (`ReportingGrantList`) and refuses an account
+  whose `SHOW GRANTS` reach past it, so keep its one-row-per-line format: a row the reader cannot
+  parse closes Query by Example rather than being skipped.
+- Provisioning: `carlos-ctl db-users` / `db-migrate` on packaged installs; `populate_db.sh` and
+  the `qbe-reporting-account` helper in the devcontainer. See
+  `docs/query-by-example-least-privilege.md`.
+
+## PDF and Report Fonts
+
+- Never let a host font decide what prints (#5046). Jasper templates name a bundled DejaVu family
+  or nothing: `src/main/resources/jasperreports.properties` makes DejaVu Sans the default, and
+  `fonts/carlos-jasper-fonts.xml` maps Java's logical names to bundled faces. A fixed-height Jasper
+  text box must fit one line of its face, or Jasper prints nothing; `JasperTemplateFontPolicyUnitTest`
+  fails the build otherwise.
+- OpenPDF record text goes through `PdfFonts.phrase`/`paragraph`/`addText`/`showTextAligned`, which
+  fall back to bundled CJK and symbol faces. Not `new Phrase(text, font)`, `Phrase.add(String)`,
+  font-less chunks, `addCell(String)`, `PdfContentByte.showText*` or OpenPDF's default font.
+- `bash scripts/check-report-fonts.sh` re-runs the report tests under other host fonts in fresh
+  JVMs. See `docs/pdf-font-policy.md`.
+- Non-scripted HTML-to-PDF (forms, HRM reports, email, Messenger) goes through
+  `HtmlPdfRenderService`, never a new `ITextRenderer`; see `docs/html-pdf-rendering.md`.
+
+## Container-Provided Jakarta APIs
+
+- Tomcat 11 supplies Servlet 6.1, Pages 4.0, Expression Language 6.0 and Annotations 3.0 and
+  always loads those packages from its own `lib/`, so `pom.xml` keeps them `provided`, even when a
+  library asks for one at compile scope (#5416: EL 5.0.1 shipped beside Tomcat's EL 6.0). JSTL is
+  the exception: Tomcat has none, so its API and the Glassfish implementation stay `compile`.
+- `ContainerApiPackagingUnitTest` (dependency graph) and `scripts/check-war-container-apis.py`
+  (the built WAR, run by `debian/rules`) enforce this from
+  `scripts/fixtures/tomcat-container-packages.json`. The `jspc` profile compiles with Tomcat 11's
+  Jasper (`${tomcat.version}`), not the plugin's default 10.1. See `docs/container-provided-apis.md`.
+## HAPI HL7 v2 Parsing
+
+- `ca.uhn.hapi` (HL7 v2, 2.6.0; not the `ca.uhn.hapi.fhir` line) reads lab and PHS/STAR messages
+  (#5414). Keep `hapi-base` and the five `hapi-structures-vNN` modules on the one
+  `hapi-hl7.version` property, and never reintroduce a vendored copy under `local_repo/`.
+- Text from outside CARLOS that may be HL7 v2 XML goes through `Hl7XmlMessageValidator` before
+  `GenericParser` / `DefaultXMLParser.parse`: HAPI 2.x no longer loads external entities or DTDs
+  but still expands internal ones. `PipeParser` never reads XML. Tests that need hostile XML use
+  `HostileHl7Xml` (loopback observer, synthetic marker file); never contact a public service.
+- Typed HAPI accessors report a missing repetition as a `RuntimeException` caused by an
+  `HL7Exception`. Where a handler answers such a miss with an empty value, catch `RuntimeException`
+  and call `Hl7Utils.rethrowUnlessHl7AccessFailure`; do not rely on `catch (HL7Exception)`.
+- Do not look repetitions of a generic message up by HAPI's segment names (`"OBR" + n`); use
+  `GenericSegmentNames`. See `docs/hapi-hl7v2-xml-hardening.md`.
+
+## Generic DAO Paging Order
+
+- `AbstractDaoImpl.findAll(offset, limit)` always orders by the entity identifier, read from the
+  JPA metamodel (composite `@EmbeddedId`/`@IdClass` keys expand to every component, by attribute
+  name), so offset pages never overlap or skip on an unchanged table (#5308). Never page with
+  `setFirstResult`/`setMaxResults` over a query without a unique `ORDER BY`: MariaDB returns
+  unordered rows in whatever index order it scans. A DAO needing a business order overrides
+  `getFindAllDomainOrder(alias)`; the identifier is still appended as the tie-breaker, and
+  `getIdentifierOrder(alias)` gives the same tie-breaker to a DAO's own paged queries.
+- Ordering is not a snapshot: see `AbstractDao#findAll` and
+  `docs/architecture/dao-findall-ordering.md` for concurrent inserts/deletes.
 
 ## Debian Packaging and carlos-ctl
 
@@ -359,6 +453,13 @@ the top of that file:
 - `NON_MUTATOR_GATES` — a read-scope gate that permits GET and only 405s
   on truly unsupported methods like DELETE/PUT.
 
+`HttpMethodGuardFilter` only infers a write from the route name or the
+`method` value. When a route picks its write from another parameter
+(`buttonUpdate`, `delete`, `forward`, ...), the action must refuse the GET
+itself; also list the route in the filter's
+`MUTATION_INTENT_PARAMS_BY_ROUTE`, and the contract test drives every entry
+there against its action (issue #3394).
+
 **When a new slice is migrated**, extend `IN_SCOPE_PACKAGE_PREFIXES` with
 the slice's package prefix only after the existing guarded actions in that
 slice have been audited and classified in the contract manifest. For a
@@ -588,7 +689,7 @@ or per-site `@SuppressFBWarnings`; Semgrep uses CARLOS sanitizer-aware rules in 
 rule-specific `nosemgrep` comments only when the code is already encoded/sanitized and the rule
 cannot model that sanitizer. Semgrep CI filters suppressed SARIF results before GitHub Code Scanning
 upload, so `nosemgrep` suppressions must remain specific and justified; do not blanket-disable
-Semgrep Pro or broad rule groups to clear PR noise. The `IMPROPER_UNICODE` detector is
+Semgrep Pro or broad rule groups to clear PR noise. SonarCloud path-traversal false positives (`javasecurity:S2083`/`S6549`/`S6096`) are excluded in `pom.xml` one file at a time, never by package, each with a source-and-helper comment; `SonarPathTraversalExclusionPolicyUnitTest` enforces this (issue #5316, see `docs/static-analysis-workflows.md`). The `IMPROPER_UNICODE` detector is
 *informational* — it flags `equalsIgnoreCase`/`toLowerCase`/`Normalizer` case folding **regardless
 of `Locale`** (so it cannot be cleared by adding `Locale.ROOT`), and almost all hits are intended
 case-insensitive domain comparisons. It is suppressed **per-site** with

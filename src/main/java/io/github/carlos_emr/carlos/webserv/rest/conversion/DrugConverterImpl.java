@@ -28,12 +28,14 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: preserve imported clinical uncertainty.
  */
 
 package io.github.carlos_emr.carlos.webserv.rest.conversion;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Drug;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsMedicationCompatibilityException;
 import io.github.carlos_emr.carlos.managers.DrugLookUp;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -181,6 +183,9 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
     @Override
     public DrugTo1 getAsTransferObject(LoggedInInfo loggedInInfo, Drug d) throws ConversionException {
 
+        // This Date/float-based protocol cannot carry partial dates, source dose text,
+        // unknown authority/substitution or independent imported lifecycle states.
+        CdsMedicationCompatibilityException.requireLegacyCompatible(d);
         DrugTo1 t = new DrugTo1();
 
         // Copy over the fields from the Drug to the new transfer object.

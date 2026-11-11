@@ -4,7 +4,7 @@
      POST form writes; current episodes offer completion and completed episodes are read-only. --%>
 <%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <%@ page contentType="text/html; charset=UTF-8" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Episode,io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Episode,io.github.carlos_emr.carlos.utility.SafeEncode,io.github.carlos_emr.carlos.utility.FormSubmissionGuard" %>
 <%
     Episode episode = (Episode) request.getAttribute("episode");
     String patient = (String) request.getAttribute("demographicNo");
@@ -29,6 +29,7 @@
     <input type="hidden" name="method" value="<%=creating ? "create" : "complete"%>">
     <input type="hidden" name="demographicNo" value="<%=SafeEncode.forHtmlAttribute(patient)%>">
     <% if (creating) { %>
+    <input type="hidden" name="<%= FormSubmissionGuard.PARAMETER %>" value="<%=SafeEncode.forHtmlAttribute((String) request.getAttribute("formSubmissionToken"))%>">
     <input type="hidden" name="code" value="<%=SafeEncode.forHtmlAttribute((String) request.getAttribute("code"))%>">
     <% } else { %>
     <input type="hidden" name="episodeId" value="<%=episode.getId()%>">

@@ -12,6 +12,8 @@
  */
 package io.github.carlos_emr.carlos.providers.gate;
 
+import io.github.carlos_emr.carlos.utility.BoundedSessionAttributes;
+
 import java.io.IOException;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -90,7 +92,7 @@ public final class ViewStoreApptInSession2Action extends BaseProviderViewGate2Ac
             // request only names an appointment, as digits checked above.
             String key = ChartSessionKeys.currentAppointment(Integer.toString(appointment.getDemographicNo()));
             String storedAppointmentNo = Integer.toString(appointment.getId());
-            request.getSession().setAttribute(key, storedAppointmentNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- key and value come from the appointment row
+            BoundedSessionAttributes.put(request.getSession(), "appointments", key, storedAppointmentNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- key and value come from the appointment row
         }
         response.setStatus(HttpServletResponse.SC_NO_CONTENT);
         return NONE;

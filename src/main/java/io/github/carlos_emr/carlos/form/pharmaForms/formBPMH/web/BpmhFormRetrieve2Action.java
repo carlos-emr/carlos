@@ -74,6 +74,17 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         }
 
         String method = request.getParameter("method");
+        // Save and print both store the form (print saves a new one, formId 0, before streaming it), so they
+        // come only as the form's POST, as the page sends them. Opening a form stays open to GET.
+        if (("save".equals(method) || "print".equals(method)) && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            try {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            } catch (IOException e) {
+                logger.error("BPMH method refusal failed", e);
+            }
+            return NONE;
+        }
         if ("save".equals(method)) {
             return save(loggedInInfo);
         } else if ("print".equals(method)) {
@@ -228,6 +239,7 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         bpmhFormHandler.populateFormBean();
 
         PDFController pdfController = new PDFController(ServletActionContext.getServletContext().getRealPath(BPMH_PDF_TEMPLATE));
+        pdfController.setContinueInstructions(true);
         pdfController.setOutputPath(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         try {
             // The filled copy, not the posted form: the PDF needs the patient, provider and medication data.

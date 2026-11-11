@@ -36,6 +36,12 @@ that also offers the form issues a new token, as Add Service does, so adding ano
 works. The guard identifies repeated submissions of one rendering. It does not deduplicate records
 by content.
 
+The Add pregnancy form uses `PREGNANCY_CREATE`, bound to its authorized patient. Both the first
+successful POST and a saved replay redirect to that patient's pregnancy history. The patient-row
+lock also prevents two different forms from creating concurrent current episodes. The token is
+still needed after completion: replaying an old create must not start another episode. Opening
+Add again issues a fresh token for an intentional later pregnancy.
+
 ### When a token is freed for a retry
 
 The claim frees the token only when the attempt provably wrote nothing:

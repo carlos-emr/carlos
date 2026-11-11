@@ -34,7 +34,7 @@ async function workflow(s) {
     h.assert(s.sql.value(`SELECT COUNT(*) FROM workflow WHERE demographic_no=${h.sqlString(s.patient)}`) === '0', 'Unexpected workflow rows remain on the owned patient');
   });
   let chart = await s.chart();
-  await chart.locator('#menuTitle1 a').hover();
+  await ui.openFormsMenu(chart);
   let page = await s.popup(chart, chart.getByRole('link', { name: formName, exact: true }), 'rh-new-form');
   let workflowId;
   const latest = () => s.sql.rows(`SELECT ID,workflowId,comments FROM formRhImmuneGlobulin WHERE demographic_no=${s.patient} ORDER BY ID DESC LIMIT 1`)[0];

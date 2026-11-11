@@ -828,8 +828,8 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should still move the cursor through the fallback patient for action=edit")
-        void shouldMoveCursor_whenLegacyEditNamesNoPatient() throws Exception {
+        @DisplayName("should refuse action=edit when its request names no patient")
+        void shouldRefuseCursorMove_whenLegacyEditNamesNoPatient() throws Exception {
             when(stagedCard.getDraftRevision()).thenReturn("rendered-revision");
             request.setParameter("randomId", "111111");
             request.setParameter("draftRevision", "rendered-revision");
@@ -837,10 +837,12 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
             action.setAction("edit");
             action.setStashId(0);
 
+            int originalIndex = bean.getStashIndex();
             String result = action.execute();
 
-            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-            assertThat(bean.getStashIndex()).isZero();
+            assertThat(result).isNull();
+            assertThat(response.getRedirectedUrl()).isEqualTo("error.html");
+            assertThat(bean.getStashIndex()).isEqualTo(originalIndex);
         }
     }
 }

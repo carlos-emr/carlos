@@ -268,3 +268,11 @@ test('shouldRejectAttachmentDownloadsAndMissingPrintProgress', () => {
     assert.throws(() => check.judgePrintPending('inline', invalid), /progress message/);
   }
 });
+
+test('Rourke save budgets reject the reported ordinary and sweep slowdowns', () => {
+  assert.doesNotThrow(() => check.judgeRourkeSaveDuration(6500));
+  assert.throws(() => check.judgeRourkeSaveDuration(6501), /ordinary Save.*6500 ms/);
+  assert.throws(() => check.judgeRourkeSaveDuration(13600), /response budget/);
+  assert.doesNotThrow(() => check.judgeRourkeSaveDuration(15000, true));
+  assert.throws(() => check.judgeRourkeSaveDuration(18800, true), /all-controls Save.*15000 ms/);
+});

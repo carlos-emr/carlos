@@ -44,6 +44,9 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { selectBillingSiteAndProvider, validateBillingContext } = require('./lib/billing-site-context');
+const { selectBillingReportContext } = require('./lib/billing-report-context');
+const { createOwnedBillingPhysician } = require('./lib/owned-billing-physician');
 // Shared Ontario bill fixture and page helpers: one seeding shape and one complete
 // cleanup (repo/proc/eareport/transaction/item_payment/payment/ext/item/header).
 const {
@@ -90,6 +93,8 @@ async function saveCorrection(s, popup) {
 
 async function workflow(s) {
   const { sql, patient, marker, provider } = s;
+  const physician = createOwnedBillingPhysician(s);
+  const billSession = physician.dependentSession;
   const code = serviceCode();
   const date = billDate();
   const fee = sql.value(`SELECT value FROM billingservice WHERE service_code=${h.sqlString(code)}
@@ -100,16 +105,38 @@ async function workflow(s) {
   const unitFee = money(fee);
   const feeTimesTwo = money(Number(fee) * 2);
 
+  let billingContext;
+  await s.step('the native invoice form supplies an allowed clinic and physician without saving a bill', async () => {
+    const before = sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE demographic_no=${patient}`);
+    const invoice = s.master.getByRole('link', { name: 'Create Invoice', exact: true }).first();
+    const form = await s.popup(s.master, invoice, 'billing-correction-fixture-context');
+    try {
+      await physician.selectClinic(form);
+      billingContext = await selectBillingSiteAndProvider(form, physician.providerNo);
+      physician.assertContext(billingContext);
+      validateBillingContext(sql, provider, billingContext);
+    } finally { if (!form.isClosed()) await form.close(); }
+    h.assert(sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE demographic_no=${patient}`) === before,
+      'Choosing the owned billing fixture context saved a bill');
+  });
+
   // One open OHIP (HCP) bill, dx 250, comment1 = marker. seedOwnedBill registers
   // the complete cleanup before its first insert, bills under an active provider
-  // with an OHIP number (the correction page lists only those) and adds that
-  // provider to the operator's sites it is missing from (_site_access_privacy).
-  const bill = seedOwnedBill(s, { payProgram: 'HCP', status: 'O', code, fee, date });
+  // with the native eligible provider and exact offered clinic. Existing site
+  // operator memberships remain unchanged; only the owned physician membership
+  // is removed after every owned claim cleanup succeeds.
+  const bill = seedOwnedBill(billSession, { payProgram: 'HCP', status: 'O', code, fee, date, billingContext });
   const { headerId, itemId, provider: billingProvider } = bill;
   // A second owned bill already submitted to OHIP (status B): the one Unbill must refuse.
-  const billedBill = seedOwnedBill(s, { payProgram: 'HCP', status: 'B', code, fee, date });
+  const billedBill = seedOwnedBill(billSession, { payProgram: 'HCP', status: 'B', code, fee, date, billingContext });
   // A third owned bill already settled (status S): history offers no Unbill for it either.
-  const settledBill = seedOwnedBill(s, { payProgram: 'HCP', status: 'S', code, fee, date });
+  const settledBill = seedOwnedBill(billSession, { payProgram: 'HCP', status: 'S', code, fee, date, billingContext });
+  for (const ownedBill of [bill, billedBill, settledBill]) {
+    const clinicPredicate = billingContext.multisites ? `clinic=${h.sqlString(billingContext.clinic)}` : 'clinic IS NULL';
+    h.assert(sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE id=${ownedBill.headerId}
+      AND demographic_no=${patient} AND provider_no=${h.sqlString(billingContext.providerNo)} AND ${clinicPredicate}`) === '1',
+    'An owned correction header does not retain its offered clinic/provider binding');
+  }
   const claimSnapshot = bill => sql.value(`SELECT CONCAT_WS('|', h.status, h.total, GROUP_CONCAT(i.status))
     FROM billing_on_cheader1 h JOIN billing_on_item i ON i.ch1_id=h.id WHERE h.id=${bill.headerId} GROUP BY h.id`);
   const billedSnapshot = () => claimSnapshot(billedBill);
@@ -191,15 +218,12 @@ async function workflow(s) {
     const status = await (await iframe.elementHandle()).contentFrame();
     h.assert(status, 'The bill status page did not load in the administration frame');
     await status.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 20000 });
+    await selectBillingReportContext(status, billingContext);
     await fillDate(status, '#xml_vdate', date);
     await fillDate(status, '#xml_appointment_date', date);
     await status.locator('input[name="demographicNo"]').fill(patient);
     // The report defaults to "O | Invoiced"; the bill now carries status W.
     await status.locator('#statusTypeAll').check();
-    const providers = status.locator('select[name="providerview"]').last();
-    const offered = await providers.locator('option').evaluateAll(options => options.map(option => option.value));
-    if (offered.includes(billingProvider)) await providers.selectOption(billingProvider);
-    else if (offered.includes('all')) await providers.selectOption('all');
     const navigated = admin.waitForEvent('framenavigated', { predicate: frame => frame === status, timeout: 30000 });
     navigated.catch(() => {});
     await status.locator('input[type="submit"][value="Create Report"]').click();

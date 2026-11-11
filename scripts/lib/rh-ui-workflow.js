@@ -1,5 +1,6 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 const h = require('./playwright-harness');
+const ui = require('./playwright-ui');
 
 // Register the optional form only on the disposable test install. RHWorkFlow's
 // queue link looks it up by this catalog name, so a marker name would test a
@@ -35,8 +36,10 @@ async function prepareRhWorkflow(s) {
   });
   const chart = await s.chart();
   async function openNew() {
-    await chart.locator('#menuTitle1 a').hover();
-    const page = await s.popup(chart, chart.getByRole('link', { name: definition[0][0], exact: true }), 'rh-form');
+    await ui.openFormsMenu(chart);
+    // The "+" menu (#menu1) opens a new form. Once an RH form is saved, the chart's forms list also carries an
+    // entry with the same name, so a page-wide lookup can match both (as in billing-bc-wcb-links).
+    const page = await s.popup(chart, chart.locator('#menu1').getByRole('link', { name: definition[0][0], exact: true }), 'rh-form');
     await page.locator('[name="edd"]').waitFor();
     return page;
   }

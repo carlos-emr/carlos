@@ -46,6 +46,13 @@ public interface BillingServiceDao extends AbstractDao<BillingService> {
 
     List<BillingService> findByServiceCode(String code);
 
+    /**
+     * Adds a new private code only if none exists, serializing private-code additions in this database
+     * until the caller's transaction completes. Existing fee-history rows are left unchanged.
+     * @return false when the code is already present
+     */
+    boolean persistPrivateCodeIfAbsent(BillingService code);
+
     List<BillingService> findByServiceCodeAndDate(String code, Date date);
 
     List<BillingService> findByServiceCodes(List<String> codes);

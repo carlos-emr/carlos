@@ -3,7 +3,7 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const {refreshPregnancy} = require('../src/main/webapp/js/pregnancy');
-const {grantPregnancyModule, isPregnancyPost, withPatientPrivilege} = require('./pregnancy-lifecycle-playwright-checks');
+const {grantPregnancyModule, isPregnancyPost, assertPregnancyRedirect, withPatientPrivilege} = require('./pregnancy-lifecycle-playwright-checks');
 
 function opener({url = 'http://localhost/CaseManagementEntry?demographicNo=101', global = '101', hidden = ['101'], closed = false} = {}) {
   const calls = [];
@@ -64,6 +64,20 @@ function fixture(initial = {}) {
   return {sql, rows, statements, provider: '999001', cleanup: callback => cleanups.push(callback),
     restore: () => {for (const callback of [...cleanups].reverse()) callback();}};
 }
+
+test('pregnancy redirect assertion distinguishes refusal, rendering and unsafe destinations', () => {
+  const target = 'https://localhost/carlos/Pregnancy';
+  const response = (status, location) => ({status: () => status, headers: () => ({location})});
+  const saved = '/carlos/Pregnancy?demographicNo=101&saved=true';
+  assert.doesNotThrow(() => assertPregnancyRedirect(response(302, saved), target, '101'));
+  for (const status of [200, 403, 409, 500]) {
+    assert.throws(() => assertPregnancyRedirect(response(status, saved), target, '101'), /save is not established/);
+  }
+  for (const location of [undefined, 'https://other.invalid' + saved, saved.replace('101', '202'),
+    saved.replace('Pregnancy', 'Other'), saved + '&method=create', saved.replace('saved=true', 'saved=false')]) {
+    assert.throws(() => assertPregnancyRedirect(response(302, location), target, '101'), /Location|read-only history/);
+  }
+});
 test('temporary provider grants restore complete preexisting rows and remove owned inserts', () => {
   const s = fixture({_pregnancy: ['r', '7', 'other-provider']});
   grantPregnancyModule(s);

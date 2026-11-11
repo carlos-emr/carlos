@@ -60,12 +60,11 @@
 <fmt:setBundle basename="oscarResources"/>
 <%
 
-    String postTo = request.getParameter("postTo");
-    if (null == postTo) {
-        out.println("<script language=\"JavaScript\">javascript:window.close();</SCRIPT>");
+    String pid = request.getParameter("pid");
+    if (pid == null || !pid.matches("[1-9][0-9]*")) {
+        response.sendError(400);
         return;
     }
-
 
     String startLimit = Misc.check(request.getParameter("startLimit"), "0");
     String orderby = Misc.check(request.getParameter("orderby"), "LastName");
@@ -87,12 +86,13 @@
         keyword = ConversionUtils.fromIntString(keyword);
     }
 
-    String url = request.getContextPath() + "/lab/CA/BC/ViewDemoSelect?keyword=" + URLEncoder.encode(String.valueOf(keyword), StandardCharsets.UTF_8) + "&postTo=" + URLEncoder.encode(postTo, StandardCharsets.UTF_8) + (column.equals("") ? "" : "&column=" + URLEncoder.encode(column, StandardCharsets.UTF_8));
+    String url = request.getContextPath() + "/lab/CA/BC/ViewDemoSelect?keyword=" + URLEncoder.encode(String.valueOf(keyword), StandardCharsets.UTF_8) + "&pid=" + pid + (column.equals("") ? "" : "&column=" + URLEncoder.encode(column, StandardCharsets.UTF_8));
 
     DemographicDao dao = SpringUtils.getBean(DemographicDao.class);
 
-    String keywordForSearch = (keyword == null || "".equals(keyword)) ? "" : keyword + "%";
-    List<Demographic> demographics = dao.findByField(column, (Object) keywordForSearch, orderby, ConversionUtils.fromIntString(startLimit).intValue()); // deepcode ignore SqlInjection: column and orderby validated against validColumns allowlist above; keywordForSearch bound via named parameter in DAO
+    Object keywordForSearch = (keyword == null || "".equals(keyword)) ? ""
+            : ("DemographicNo".equals(column) ? keyword : keyword + "%");
+    List<Demographic> demographics = dao.findByField(column, keywordForSearch, orderby, ConversionUtils.fromIntString(startLimit).intValue()); // deepcode ignore SqlInjection: column and orderby validated against validColumns allowlist above; keywordForSearch bound via named parameter in DAO
 %>
 
 <html>
@@ -103,7 +103,7 @@
     <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/oscar.css">
     <script language="JavaScript">
         function PopupReturn(index) {
-            window.opener.location = '<carlos:encode value='<%= postTo.replaceAll("-","&") %>' context="javaScriptBlock"/>' + index;
+            window.opener.selectPathnetPatient(<%=pid%>, index);
             window.opener.focus();
             window.close();
         };
@@ -120,8 +120,9 @@
     </table>
     <table>
         <tr>
-            <td><input type="hidden" name="postTo" value="<carlos:encode value='<%= postTo %>' context="htmlAttribute"/>"/> <input
-                    type="text" name="keyword" value="<carlos:encode value='<%= String.valueOf(keyword) %>' context="htmlAttribute"/>"/> <input
+            <td><input type="hidden" name="pid" value="<%=pid%>"/>
+                <label for="patientKeyword"><fmt:message key="demographic.search.msgSearchPatient"/></label> <input
+                    type="text" id="patientKeyword" name="keyword" value="<carlos:encode value='<%= String.valueOf(keyword) %>' context="htmlAttribute"/>"/> <input
                     type="submit" value="<fmt:message key='demographic.search.btnSearch'/>"/></td>
         </tr>
     </table>
@@ -161,7 +162,7 @@
             for (Demographic d : demographics) {
         %>
         <tr class="<%=(other? "LightBG" : "WhiteBG")%>">
-            <td class="Text" align="center"><a
+            <td class="Text" style="text-align:center"><a
                     href="javascript:PopupReturn('<carlos:encode value='<%= String.valueOf(d.getDemographicNo()) %>' context="javaScript"/>')">
                 <carlos:encode value='<%= String.valueOf(d.getDemographicNo()) %>' context="html"/>
             </a></td>

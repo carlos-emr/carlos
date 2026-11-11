@@ -73,6 +73,7 @@ Parameters: id identifies the form row; the hidden association ID starts at zero
             title="${procontactConsentTitle}">
         <option value="1"><fmt:message key="demographic.procontact.consent"/></option>
         <option value="0"><fmt:message key="demographic.procontact.noConsent"/></option>
+        <option value="">Unknown</option>
     </select>
 
     &nbsp;

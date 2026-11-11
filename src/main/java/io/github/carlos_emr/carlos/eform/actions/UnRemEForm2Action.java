@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -53,6 +54,16 @@ public class UnRemEForm2Action extends ActionSupport {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
             throw new SecurityException("missing required sec object (_eform)");
+        }
+        // Restoring an eForm is a write; its two list pages post it (carlosPostForm).
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            try {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            } catch (java.io.IOException e) {
+                MiscUtils.getLogger().info("Could not send 405 for an eForm restore: {}", e.getClass().getSimpleName());
+            }
+            return NONE;
         }
 
         String fdid = request.getParameter("fdid");

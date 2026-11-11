@@ -127,6 +127,51 @@ const server = http.createServer(async (req, res) => {
     }
     assert.deepEqual(rourkeErrors, []);
 
+    // Hospital billing's service dates (billingShortcutPg1.jsp, #5055): the field is a read-only
+    // textarea named, not identified, billDate, so the trigger has no field; the page collects
+    // several dates and copies them in its own onClose, which ends with the legacy cal.hide().
+    // The calendar used to open and close on the same click, and that hide() re-entered close()
+    // until the stack overflowed, so no hospital bill could be dated.
+    const shortcutJsp = fs.readFileSync(path.join(web, 'WEB-INF/jsp/billing/CA/ON/billingShortcutPg1.jsp'), 'utf8');
+    assert.ok(/<a id="trigger"\s+href="#">/.test(shortcutJsp), 'the service-date trigger is a link');
+    assert.ok(/<textarea name="billDate" [^>]*readonly>/.test(shortcutJsp), 'the service dates go in a read-only textarea');
+    assert.ok(!/id="billDate"/.test(shortcutJsp), 'the page names its date box without an id, as this case models');
+    const shortcutStart = shortcutJsp.indexOf('var MA = [];');
+    const shortcutEnd = shortcutJsp.indexOf('//]]>', shortcutStart);
+    assert.ok(shortcutStart >= 0 && shortcutEnd > shortcutStart, 'the service-date script is missing');
+    const shortcut = await browser.newPage();
+    const shortcutErrors = [];
+    shortcut.on('pageerror', error => shortcutErrors.push(error.message));
+    await shortcut.setContent('<form name="titlesearch"><b id="label">Billing</b> <a id="trigger" href="#">[Service Date]</a><br>'
+      + '<textarea name="billDate" cols="11" rows="5" readonly></textarea></form>');
+    await shortcut.addStyleTag({path:path.join(web, 'library/flatpickr/flatpickr.min.css')});
+    await shortcut.addScriptTag({path:path.join(web, 'library/flatpickr/flatpickr.min.js')});
+    await shortcut.evaluate(() => {window.Calendar = {_flatpickrReady:true};});
+    // The page loads its calendar lang file too; the legacy date formatter reads its day names.
+    await shortcut.addScriptTag({path:path.join(web, 'share/calendar/lang/calendar-en.js')});
+    await shortcut.addScriptTag({path:path.join(web, 'share/calendar/calendar-setup.js')});
+    await shortcut.addScriptTag({content:shortcutJsp.slice(shortcutStart, shortcutEnd)});
+    const shortcutOpen = () => shortcut.locator('.flatpickr-calendar.open').count();
+    await shortcut.locator('#trigger').click();
+    assert.equal(await shortcutOpen(), 1, 'the service-date trigger opens the calendar');
+    assert.equal(await shortcut.locator('form input:visible').count(), 0, 'the stand-in field the calendar is bound to stays hidden');
+    const todayIso = await shortcut.locator('.flatpickr-calendar.open .flatpickr-day.today').evaluate(el => {
+      const d = el.dateObj;
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    });
+    await shortcut.locator('.flatpickr-calendar.open .flatpickr-day.today').click();
+    assert.equal(await shortcutOpen(), 1, 'several dates can be picked: the calendar stays open after a pick');
+    await shortcut.locator('#label').click();
+    assert.equal(await shortcutOpen(), 0, 'a click elsewhere closes it');
+    assert.equal(await shortcut.locator('textarea[name="billDate"]').inputValue(), `${todayIso}\n`,
+      'the page\'s onClose copies the picked date into the read-only box');
+    await shortcut.locator('#trigger').click();
+    assert.equal(await shortcutOpen(), 1);
+    await shortcut.locator('#trigger').click();
+    assert.equal(await shortcutOpen(), 0, 'the trigger closes the calendar it opened');
+    assert.equal(await shortcut.locator('textarea[name="billDate"]').inputValue(), `${todayIso}\n`);
+    assert.deepEqual(shortcutErrors, [], 'closing must not re-enter itself through the page\'s cal.hide()');
+
     // Production path: flatpickr and the French locale load asynchronously, so the setups are
     // queued and replayed once both have arrived, still without rewriting the fields.
     const queued = await browser.newPage();

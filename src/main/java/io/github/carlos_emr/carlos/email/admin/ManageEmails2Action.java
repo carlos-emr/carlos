@@ -358,7 +358,9 @@ public class ManageEmails2Action extends ActionSupport {
                     emailAttachment.setFileSize(emailComposeManager.getFileSize(eFormPDFPath));
                     break;
                 case DOC:
-                    Path eDocPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.DOC, emailAttachment.getDocumentId());
+                    // A PDF document renders in place; the preview needs an application temp copy.
+                    Path eDocPDFPath = emailComposeManager.applicationTempFile(
+                            documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.DOC, emailAttachment.getDocumentId()));
                     emailAttachment.setFilePath(eDocPDFPath.toString());
                     emailAttachment.setFileSize(emailComposeManager.getFileSize(eDocPDFPath));
                     break;

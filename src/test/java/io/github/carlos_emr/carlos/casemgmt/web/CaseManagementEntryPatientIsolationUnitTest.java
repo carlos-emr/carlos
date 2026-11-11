@@ -62,6 +62,8 @@ class CaseManagementEntryPatientIsolationUnitTest extends CarlosUnitTestBase {
         assertThat(billing()).containsEntry("demographic_no", "303")
                 .containsEntry("demographic_name", ",").containsEntry("appointment_no", "0")
                 .containsEntry("user_no", "999998");
+        assertThat(URI.create((String) request.getAttribute("billing_url")))
+                .hasScheme("https").hasHost("clinic.example").hasPath("/billing");
         assertOtherChartUnchanged();
     }
 
@@ -76,6 +78,49 @@ class CaseManagementEntryPatientIsolationUnitTest extends CarlosUnitTestBase {
                 .containsEntry("demographic_name", "Clark,Carol").containsEntry("appointment_no", "0")
                 .containsEntry("user_no", "999998");
         assertOtherChartUnchanged();
+    }
+
+    @Test
+    void shouldAppendBillingRouteOnce_whenBaseUrlIsTheContextPathIndex2Stores() {
+        request.getSession().setAttribute("casemgmt_oscar_baseurl", "/carlos");
+
+        billing();
+
+        assertThat(billingPath()).isEqualTo("/carlos/billing");
+    }
+
+    @Test
+    void shouldKeepExternalBase_whenBaseUrlIncludesTheOriginAndContext() {
+        request.getSession().setAttribute("casemgmt_oscar_baseurl", "https://clinic.example/carlos");
+
+        billing();
+
+        assertThat(URI.create((String) request.getAttribute("billing_url")))
+                .hasScheme("https").hasHost("clinic.example").hasPath("/carlos/billing");
+    }
+
+    @Test
+    void shouldFallBackToContextPath_whenBaseUrlIsAbsent() {
+        request.getSession().removeAttribute("casemgmt_oscar_baseurl");
+
+        billing();
+
+        assertThat(billingPath()).isEqualTo("/carlos/billing");
+        assertThat((String) request.getAttribute("billing_url")).doesNotContain("null");
+    }
+
+    @Test
+    void shouldBuildRootBillingPath_whenApplicationIsDeployedAtRootContext() {
+        request.setContextPath("");
+        request.getSession().setAttribute("casemgmt_oscar_baseurl", "");
+
+        billing();
+
+        assertThat(billingPath()).isEqualTo("/billing");
+    }
+
+    private String billingPath() {
+        return URI.create((String) request.getAttribute("billing_url")).getPath();
     }
 
     private Map<String, String> billing() {

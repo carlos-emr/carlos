@@ -35,6 +35,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TicklerAddOverdueConsultationJspRegressionTest {
 
     private static final Path TICKLER_ADD_JSP = Path.of("src/main/webapp/WEB-INF/jsp/tickler/ticklerAdd.jsp");
+    private static final Path PATIENT_READ_ACCESS =
+            Path.of("src/main/java/io/github/carlos_emr/carlos/demographic/PatientReadAccess.java");
     private static final Path CONSULTATION_LIST_JSP = Path.of(
             "src/main/webapp/WEB-INF/jsp/encounter/oscarConsultationRequest/ViewConsultationRequests.jsp");
 
@@ -51,6 +53,14 @@ class TicklerAddOverdueConsultationJspRegressionTest {
 
         assertThat(names).isNotEmpty();
         for (String name : names) {
+            if ("demographic_no".equals(name)) {
+                // The patient is read only through the patient-lock check (#5067), which accepts
+                // both demographic_no and demographicNo.
+                assertThat(form).as("ticklerAdd.jsp must read the overdue link's patient through PatientReadAccess")
+                        .contains("PatientReadAccess.authorizedOptionalPatient(request,");
+                assertThat(Files.readString(PATIENT_READ_ACCESS, StandardCharsets.UTF_8)).contains("\"demographic_no\"");
+                continue;
+            }
             assertThat(form).as("ticklerAdd.jsp must read the '%s' parameter the overdue link sends", name)
                     .contains("request.getParameter(\"" + name + "\")");
         }

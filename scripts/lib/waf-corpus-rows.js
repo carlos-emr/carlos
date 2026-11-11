@@ -25,6 +25,7 @@
  * name is the rename key-up (rx-custom-drug-name) and the Save Only box (rx-custom-drug-save).
  *
  * Exclusions this check does not drive, and why:
+ *   1098                pregnancy notes: pregnancy-lifecycle verifies literal markup through native create/complete
  *   1100 and 1131       the consultation request and the master record's Alert/Notes: clinical-freetext
  *   1400, 1401, 1402    report authoring: report-query-by-example-front-door and report-by-template-editor-front-door
  *   1137                BC billing reprocess notes: no British Columbia work is in scope (issue #4439)

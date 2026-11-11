@@ -128,7 +128,7 @@ case "$1" in
         # the import and is KEPT — it is named in the notice below.
         #
         # The clinic's OWN oscar.properties goes too, and it is why the
-        # depth is 2: a run abandoned before `--cleanup` (a P2 no-go, or
+        # traversal includes nested inputs: a run abandoned before `--cleanup` (a P2 no-go, or
         # a failure the operator gave up on — and `--cleanup` REFUSES a
         # mid-import workspace) leaves the extracted bundle in place,
         # and bundle/oscar.properties is the superset the derived
@@ -150,17 +150,17 @@ case "$1" in
         O19_SHREDDED=1
         O19_DELETE_FAILED=0
         if [ -d "${STATE}/o19-import" ]; then
-            find "${STATE}/o19-import" -maxdepth 2 -type f \
+            find -P "${STATE}/o19-import" -type f \
                 \( -name 'admin-credentials.txt*' \
                    -o -name 'o19-derived-carlos.properties*' \
-                   -o -name 'oscar.properties' \) \
+                   -o -name 'source.properties*' -o -name 'oscar.properties' \) \
                 -exec shred -u {} + 2>/dev/null \
               || {
                 O19_SHREDDED=0
-                find "${STATE}/o19-import" -maxdepth 2 -type f \
+                find -P "${STATE}/o19-import" -type f \
                    \( -name 'admin-credentials.txt*' \
                       -o -name 'o19-derived-carlos.properties*' \
-                      -o -name 'oscar.properties' \) -delete
+                      -o -name 'source.properties*' -o -name 'oscar.properties' \) -delete
               } || O19_DELETE_FAILED=1
         fi
         if [ "$O19_DELETE_FAILED" = 1 ]; then

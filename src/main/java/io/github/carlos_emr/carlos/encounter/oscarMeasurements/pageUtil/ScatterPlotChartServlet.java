@@ -57,6 +57,7 @@ import io.github.carlos_emr.carlos.commn.model.Validations;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
@@ -85,7 +86,10 @@ public class ScatterPlotChartServlet extends HttpServlet {
             return;
         }
         SecurityInfoManager security = SpringUtils.getBean(SecurityInfoManager.class);
-        if (!security.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", demographicNo)) {
+        try {
+            PatientRecordAccess.require(security, LoggedInInfo.getLoggedInInfoFromSession(request),
+                    demographicNo, "_measurement", "r");
+        } catch (SecurityException deniedRecord) {
             httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }

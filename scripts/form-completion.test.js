@@ -156,3 +156,45 @@ test('the completion JSP encodes each request attribute once in JavaScript conte
   assert.match(jsp, /\/form\/form-completion\.js/);
   assert.doesNotMatch(jsp, /write2Parent|self\.open\.window|onunload|request\.getAttribute\("diagnosisVT"\)/);
 });
+
+test('Save and Exit refreshes only the owning patient Forms list and never reloads another chart', () => {
+  for (const patient of ['123', '456']) {
+    const f = fixture({globalId: undefined, query: `?demographic_no=${patient}`, hidden: []});
+    f.opener.location = new URL(`https://fixture.invalid/clinic/encounter/ViewFormlist?demographic_no=${patient}`);
+    let reloaded = false;
+    f.opener.location.reload = () => { reloaded = true; };
+    completeEncounterForm(f.popup, '123', '');
+    assert.equal(reloaded, patient === '123');
+    assert.equal(f.editor.value, 'Existing draft');
+    assert.deepEqual(f.actions, [['close']]);
+  }
+});
+
+test('ordinary Save refreshes the owning chart without closing the form or changing its draft', () => {
+  const {refreshEncounterForms} = require('../src/main/webapp/form/form-completion');
+  for (const patient of ['123', '456']) {
+    const f = fixture();
+    refreshEncounterForms(f.popup, patient);
+    assert.equal(f.editor.value, 'Existing draft');
+    assert.deepEqual(f.actions.map(action => action[0]), patient === '123' ? ['refresh', 'refresh'] : []);
+  }
+});
+
+test('the legacy chart refresh uses encounterConfig and rejects conflicting configured patients', () => {
+  const {refreshEncounterForms} = require('../src/main/webapp/form/form-completion');
+  for (const patient of ['123', '456']) {
+    const f = fixture({globalId: undefined, query: '', hidden: []});
+    delete f.opener.ctx;
+    f.opener.encounterConfig = {ctx: '/clinic', demographicNo: patient};
+    refreshEncounterForms(f.popup, '123');
+    assert.deepEqual(f.actions.map(action => action[0]), patient === '123' ? ['refresh', 'refresh'] : []);
+    if (patient === '123') assert.match(f.actions[0][2], /\/clinic\/encounter\/displayForms/);
+  }
+});
+
+test('the generic Save and Exit page supplies either legacy or BC-AR patient parameter to the shared completion helper', () => {
+  const page = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/encounter/close.jsp'), 'utf8');
+  assert.match(page, /completeEncounterForm\(window,/);
+  assert.match(page, /not empty param\.demographic_no \? param\.demographic_no : param\.demographicNo/);
+  assert.doesNotMatch(page, /window\.opener\.location\.reload\(/);
+});

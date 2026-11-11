@@ -8,6 +8,7 @@ import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -124,6 +125,39 @@ class LabMrpTransactionIntegrationTest extends CarlosTestBase {
         });
         router.reconcileMrpRouting(REPORT, "HL7", 202, "NEW-MRP");
         assertThat(providers()).containsExactly("NEW-MRP");
+    }
+
+    @Test
+    void shouldPreserveRemovedMrpRouting_untilExplicitlyForwarded() {
+        router.reconcileMrpRouting(REPORT, "HL7", 101, "OLD-MRP");
+        var originalIds = tx.execute(status -> {
+            var rows = routes.findAllLabRoutingByIdandType(REPORT, "HL7");
+            for (var row : rows) {
+                row.setStatus("X");
+                row.setComment("removed review");
+                row.setTimestamp(new Date(1000));
+                routes.merge(row);
+            }
+            return rows.stream().map(ProviderLabRoutingModel::getId).toList();
+        });
+
+        assertThat(router.reconcileMrpRouting(REPORT, "HL7", 101, "OLD-MRP")).isFalse();
+        tx.executeWithoutResult(status -> assertThat(routes.findAllLabRoutingByIdandType(REPORT, "HL7"))
+                .hasSize(2).allSatisfy(row -> {
+                    assertThat(row.getStatus()).isEqualTo("X");
+                    assertThat(row.getComment()).isEqualTo("removed review");
+                    assertThat(row.getTimestamp().getTime()).isEqualTo(1000L);
+                    assertThat(row.getMrpDemographicNo()).isEqualTo(101);
+                }).extracting(ProviderLabRoutingModel::getId).containsExactlyInAnyOrderElementsOf(originalIds));
+
+        router.routeMagic(REPORT, "OLD-MRP", "HL7");
+        tx.executeWithoutResult(status -> assertThat(routes.findAllLabRoutingByIdandType(REPORT, "HL7"))
+                .hasSize(2).allSatisfy(row -> {
+                    assertThat(row.getStatus()).isEqualTo("N");
+                    assertThat(row.getComment()).isEqualTo("removed review");
+                    assertThat(row.getTimestamp().getTime()).isGreaterThan(1000L);
+                    assertThat(row.getMrpDemographicNo()).isNull();
+                }).extracting(ProviderLabRoutingModel::getId).containsExactlyInAnyOrderElementsOf(originalIds));
     }
 
     @Test

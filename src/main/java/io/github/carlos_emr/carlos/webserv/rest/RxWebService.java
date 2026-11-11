@@ -96,6 +96,14 @@ public class RxWebService extends AbstractServiceImpl {
     @Autowired
     protected SecurityInfoManager securityInfoManager;
 
+    protected io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService legacyProjection;
+
+    /** Keeps the framework's public no-argument endpoint lifecycle and requires its projection guard. */
+    @Autowired
+    public void setCdsLegacyProjectionService(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService service) {
+        this.legacyProjection = java.util.Objects.requireNonNull(service);
+    }
+
     @Autowired
     protected RxManager rxManager;
 
@@ -240,6 +248,7 @@ public class RxWebService extends AbstractServiceImpl {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_rx", "r", demographicNo)) {
             throw new AccessDeniedException("_rx", "r", demographicNo);
         }
+        legacyProjection.requireRestSupported(demographicNo, java.util.Set.of("MedicationsAndTreatments"));
     }
 
     /**

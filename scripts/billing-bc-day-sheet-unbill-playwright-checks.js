@@ -14,8 +14,8 @@
  * appointment row it changed; -B on a billed appointment whose claim was already submitted (status
  * B) says it cannot delete billed items and changes nothing; a GET carrying the unbill is refused and
  * changes nothing.
- * Known failure, recorded in the manifest notes: the last step fails on 2026.08 because
- * BillingDeleteWithoutNo has no method guard (#4439, D12).
+ * The last step failed on 2026.08 while BillingDeleteWithoutNo also took a GET (#4439, D12); it now
+ * takes only posts and answers a GET with 405.
  * Fixtures: one billing physician (bc.createBillingPhysician), the workflow's own FAKE patient made
  * a BC patient, and three appointments for it today on the test login's day sheet: one to bill,
  * one billed with a submitted claim and one billed with an open claim (both claims seeded). Cleanup

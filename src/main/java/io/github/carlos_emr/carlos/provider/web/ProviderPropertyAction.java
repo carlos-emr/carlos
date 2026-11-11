@@ -124,6 +124,8 @@ public class ProviderPropertyAction {
         saveCheckbox(request, propertyDAO, providerNo, UserProperty.LAB_ACK_COMMENT, "lab_ack_comment");
 
         // Display preferences
+        saveAllowEmpty(request, propertyDAO, providerNo, UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE,
+                UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE);
         saveAllowEmpty(request, propertyDAO, providerNo, UserProperty.PATIENT_NAME_LENGTH, "patient_name_length");
         saveAllowEmpty(request, propertyDAO, providerNo, UserProperty.DISPLAY_DOCUMENT_AS, "display_document_as");
         saveCheckbox(request, propertyDAO, providerNo, UserProperty.EDOC_BROWSER_IN_DOCUMENT_REPORT, "edoc_browser_in_document_report");

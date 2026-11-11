@@ -150,7 +150,7 @@ class AddEForm2ActionFaxRedirectTest extends CarlosUnitTestBase {
                 "src/main/webapp/WEB-INF/jsp/eform/EFormFaxPreparation.jsp"));
         assertThat(jsp).contains("method=\"post\"", "<csrf:tokenname/>", "<csrf:tokenvalue/>",
                 "${requestScope.preparedFaxTarget}", "context=\"htmlAttribute\"", "form.requestSubmit()");
-        assertThat(jsp).doesNotContain("paramValues", "parameterMap", "openosp-image-link", "sendRedirect");
+        assertThat(jsp).doesNotContain("paramValues", "parameterMap", "carlos-image-link", "sendRedirect");
         assertThat(jsp.split("<input ", -1)).hasSize(2);
         String mappings = java.nio.file.Files.readString(java.nio.file.Path.of(
                 "src/main/webapp/WEB-INF/classes/struts-eform.xml"));

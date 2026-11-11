@@ -31,8 +31,30 @@ const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
+const {serverLogFromEnvironment, splitLogEvents} = require('./lib/server-log');
 
 async function workflow(s) {
+  const log = serverLogFromEnvironment();
+  if (!log.configured) throw new h.SkipCheck('A readable LAB_UPLOAD_JOURNAL_UNIT or LAB_UPLOAD_SERVER_LOG is required to verify rule-free flowsheets');
+  const logMark = log.mark();
+  await s.step('the configured server log records a refused Health Tracker GET', async () => {
+    // This endpoint rejects GET before reading or saving any patient data. Its fresh WARN proves
+    // the configured stream is live even when a successful flowsheet request logs nothing.
+    const response = await s.context.request.get(`${s.config.baseUrl}/encounter/oscarMeasurements/HealthTrackerUpdate`,
+      {maxRedirects: 0});
+    const status = response.status();
+    const allow = response.headers().allow;
+    await response.dispose();
+    h.assert(status === 405 && allow === 'POST', `The read-only log-source probe answered HTTP ${status}`);
+    const deadline = Date.now() + 5000;
+    do {
+      if (splitLogEvents(log.since(logMark)).some(event => event.level === 'WARN'
+        && /HealthTrackerUpdate2Action/.test(event.logger)
+        && /Rejected Health Tracker save with method GET/.test(event.text))) return;
+      await new Promise(resolve => setTimeout(resolve, 200));
+    } while (Date.now() < deadline);
+    h.assert(false, `The configured server log did not record the live method-refusal probe: ${log.source}`);
+  });
   const {sql, patient, provider, marker} = s;
   const q = h.sqlString;
   const code = sql.value(`SELECT icd9 FROM icd9 WHERE icd9 REGEXP '^[0-9]{3,4}$'
@@ -154,6 +176,17 @@ async function workflow(s) {
       AND measurement='HT' AND provider_no=${q(provider)} AND archived='0'`, '0', 'Show left the provider-scope delete active');
     await openFlowsheet('flowsheet-restored');
     h.assert((await page.locator('body').innerText()).includes(names.HT), 'The restored clinic item is not back on the patient\'s flowsheet');
+  });
+
+  await s.step('a custom flowsheet without decision-support rules renders without logging a flowsheet exception', async () => {
+    // Browser assertions passed before #5187: the exception was caught and only logged by the JSP.
+    // The fixture deliberately adds measurements and guidelines, with no decision-support rules.
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    const errors = splitLogEvents(log.since(logMark)).filter(event =>
+      /^(ERROR|FATAL)$/.test(event.level)
+      && /TemplateFlowSheetPage|MeasurementFlowSheet|Error getting messages for flowsheet/.test(event.text));
+    h.assert(errors.length === 0, `The rule-free flowsheet logged ${errors.length} exception event(s) in ${log.source}: `
+      + errors.map(event => `${event.level} ${event.logger}`).join('; '));
   });
 }
 

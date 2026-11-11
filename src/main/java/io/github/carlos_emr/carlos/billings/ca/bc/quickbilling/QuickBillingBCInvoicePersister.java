@@ -40,7 +40,6 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.BillingHistory;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.BillingNotes;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
-import io.github.carlos_emr.carlos.util.UtilMisc;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -77,7 +76,8 @@ public class QuickBillingBCInvoicePersister {
             note.setBillingmasterNo(line.getBillingmasterNo());
             note.setProviderNo(creator);
             note.setCreatedate(new Date());
-            note.setNote(UtilMisc.mysqlEscape(Misc.removeNewLine(message)));
+            // JPA binds the note as data; SQL escaping would persist extra backslashes before quotes.
+            note.setNote(Misc.removeNewLine(message));
             note.setNoteType(BillingNotes.DEFAULT_NOTE_TYPE);
             entityManager.persist(note);
         }

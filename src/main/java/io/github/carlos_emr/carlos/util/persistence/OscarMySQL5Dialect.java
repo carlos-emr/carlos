@@ -29,6 +29,7 @@
 package io.github.carlos_emr.carlos.util.persistence;
 
 import org.hibernate.dialect.MySQLDialect;
+import org.hibernate.query.sqm.CastType;
 
 /**
  * Custom MySQL dialect for CARLOS EMR.
@@ -47,6 +48,14 @@ public class OscarMySQL5Dialect extends MySQLDialect {
 
     public OscarMySQL5Dialect() {
         super();
+    }
+
+    /** Uses a cast target accepted by MariaDB and current MySQL releases. */
+    @Override
+    public String castPattern(CastType from, CastType to) {
+        // Hibernate's MySQL FLOAT(53) cast target is rejected by MariaDB.
+        // DOUBLE retains the floating-point semantics of existing HQL casts.
+        return to == CastType.DOUBLE ? "cast(?1 as double)" : super.castPattern(from, to);
     }
 
     /**

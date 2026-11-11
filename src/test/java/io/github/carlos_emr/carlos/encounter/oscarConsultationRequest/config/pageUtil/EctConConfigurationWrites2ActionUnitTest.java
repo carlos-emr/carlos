@@ -69,7 +69,6 @@ import org.springframework.transaction.support.DefaultTransactionStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
@@ -133,7 +132,7 @@ class EctConConfigurationWrites2ActionUnitTest extends CarlosUnitTestBase {
         security = createAndRegisterMock(SecurityInfoManager.class);
         // Add Service commits its insert in a transaction its submission guard observes (issue #4225).
         registerMock(PlatformTransactionManager.class, new NoOpTransactionManager());
-        when(security.hasPrivilege(any(LoggedInInfo.class), eq("_con"), anyString(), ArgumentMatchers.<String>isNull()))
+        when(security.hasPrivilege(any(LoggedInInfo.class), eq("_admin,_admin.consult"), eq("w"), ArgumentMatchers.<String>isNull()))
                 .thenReturn(true);
 
         request = new MockHttpServletRequest("POST", "/carlos/encounter");

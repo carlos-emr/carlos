@@ -137,10 +137,13 @@ async function workflow(s) {
       { context: s.context, recorder, label: 'bc-report-centre-index' });
     const link = index.locator(`a[href*="${CENTRE_ROUTE}"]`).first();
     await link.waitFor({ timeout: TIMEOUT });
-    const opened = s.context.waitForEvent('page', { timeout: TIMEOUT });
-    await link.click();
-    centre = await opened;
-    await centre.waitForLoadState('domcontentloaded');
+    const opened = await ui.clickOpensPopupOrNavigates(index, link,
+      { context: s.context, recorder, label: 'bc-report-centre', timeout: TIMEOUT });
+    h.assert(opened.isPopup, 'The billing report centre did not open in a new page');
+    centre = opened.page;
+    // A popup can still expose its initial empty document when the page event fires.
+    await centre.waitForURL(url => url.pathname.endsWith(CENTRE_ROUTE),
+      { waitUntil: 'domcontentloaded', timeout: TIMEOUT });
     h.assert(h.pathOnly(centre.url()).endsWith(CENTRE_ROUTE), `The link opened ${h.pathOnly(centre.url())}`);
     await centre.locator('input[name="reportAction"][value="billed"]').waitFor({ timeout: TIMEOUT });
     h.assert(await centre.locator(`select[name="providerview"] option[value="${provider}"]`).count() === 1,

@@ -141,8 +141,8 @@ Every failing check passes the steps it reaches before the one that hits the def
 | `rx-print-profile` | §3.2 | all | PASS |
 | `consultation-edit-status` | §3.3 | all | PASS |
 | `consultation-services-admin` | §3.3 | all | PASS |
-| `messenger-attachments` | §3.4 | all | FAIL on confirmed defects. Fails on 2026.08: the patient-search page closes itself on load (null-safe encoder vs "null" comparison) and throws a TypeError; through the front door the WAF blocks the Doc2PDF preview/attach POSTs. |
-| `messenger-demographic-link` | §3.4 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: the Search Patient popup closes itself before listing anyone, and Link to Patient posts a runtime-built form without a CSRF token. |
+| `messenger-attachments` | §3.4 | all | PASS on 2026.09.0~snapshot27 (#5349), all 11 steps through the front door: the patient-search page no longer closes itself on load (#4514) and the Doc2PDF preview and attach POSTs are not blocked. |
+| `messenger-demographic-link` | §3.4 | all | PASS on 2026.09.0~snapshot27 (#5349). The Search Patient popup and Link to Patient's CSRF token were fixed by #4149 and #4130; the later last-step timeout was the check's own Inbox locator, which #5250's `boxType=0` Inbox tab no longer matched. |
 | `prevention-admin` | §3.4 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: Preventions Print posts to a /WEB-INF/ URL (404). |
 | `tickler-forward-filters` | §3.4 | all | PASS |
 | `tickler-preferences` | §3.4 | all | FAIL on confirmed defects. Fails on 2026.08: the Preferences link opens the stale-note-date page instead of the tickler preference form (and further defects behind it). |
@@ -241,6 +241,9 @@ own fixture. `scripts/xss-poison-helpers.test.js` pins these rules.
 `patient-retired-spreadsheet` regression checks that authenticated GET and CSRF-valid
 POST requests return 404 without patient data or a download.
 
+`billing/CA/ON/billingShortcutPg1View` was on this list until #5055 restored its opener,
+Master Record ▸ Billing ▸ Hospital Billing; `billing-on-hospital-shortcut` now covers it.
+
 Per the suite's rule a route with no link gets no check; each is a finding about the route.
 The checks' authors confirmed these by source search and by the absence of an opener on the
 live install:
@@ -265,8 +268,7 @@ live install:
 - **Administration and preferences:** `admin/ViewLookupLists*`, the waiting-list management
   page, `provider/ViewProviderDefaultDxCode`, `ViewPreferenceAction`, `UserPreference`,
   `PrinterList`, `Provider/showPersonal`, `EditAddress` / `EditFaxNum` / `EditPhoneNum`,
-  `appointment/appointmentaddrecordcard` / `appointmentaddrecordprint`,
-  `billingShortcutPg1View` (so no check was written for the billing shortcut).
+  `appointment/appointmentaddrecordcard` / `appointmentaddrecordprint`.
 - **Billing:** `ViewGenReport`, `ViewGenGroupReport`, `ImportOnRA`, `ViewGenRASummary` /
   `ViewGenRASummaryDetail`, `BillingInvoice`, `ViewBillingON3rdPayments`,
   `Add3rdPartyPayment`, `BillingEditWithApptNo`, `inr/DbINRbilling`,

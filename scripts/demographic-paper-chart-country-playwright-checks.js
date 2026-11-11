@@ -15,6 +15,7 @@
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { prepareOwnedMasterPostal, assertOwnedMasterPostal } = require('./lib/owned-master-postal');
 
 const TIMEOUT = 20000;
 const ARCHIVED_ON = '2025-06-07';
@@ -25,7 +26,9 @@ async function openEdit(master) {
   await master.locator('#updateButton').waitFor({ state: 'visible', timeout: TIMEOUT });
 }
 
-async function update(master) {
+async function update(s) {
+  await assertOwnedMasterPostal(s);
+  const { master } = s;
   await ui.clickAndAwaitReload(master, master.locator('#updateButton input[type="submit"]').first(), { timeout: TIMEOUT, label: 'Update Record' });
 }
 
@@ -40,7 +43,8 @@ async function paperChartSection(master) {
 async function workflow(s) {
   const { sql, patient, master } = s;
   // The parent cleanup removes the patient's demographicExt and demographicArchive rows; an update also writes
-  // demographicExtArchive (keyed by archive id) and demographiccust, so those go first.
+  // demographicExtArchive and demographiccust, so those go first. Imported history can reuse archive IDs;
+  // only demographic_no identifies this fixture's children safely.
   s.cleanup(() => {
     sql.execute(`DELETE FROM demographicExtArchive WHERE demographic_no=${patient};
       DELETE FROM demographiccust WHERE demographic_no=${patient}`);
@@ -55,6 +59,8 @@ async function workflow(s) {
   h.assert(countryId, 'The country list has no Canada to choose');
   let program;
 
+  await prepareOwnedMasterPostal(s);
+
   await s.step('Archived paper chart Yes with a date and a country of origin are stored and the patient is archived once', async () => {
     h.assert(ext('paper_chart_archived') === '(none)' && sql.value(`SELECT IFNULL(country_of_origin,'') FROM demographic WHERE demographic_no=${patient}`) === '',
       'The fixture patient already has an archived paper chart or a country of origin');
@@ -63,7 +69,7 @@ async function workflow(s) {
     program = await master.locator('#paper_chart_archived_program').inputValue();
     await master.locator('#paper_chart_archived_date').fill(ARCHIVED_ON);
     await master.locator('#countryOfOrigin').selectOption(countryId);
-    await update(master);
+    await update(s);
     h.assert(ext('paper_chart_archived') === 'YES', `paper_chart_archived is ${ext('paper_chart_archived')}, not YES`);
     h.assert(ext('paper_chart_archived_date') === ARCHIVED_ON, `The archive date is ${ext('paper_chart_archived_date')}`);
     h.assert(ext('paper_chart_archived_program') === program, 'The stored archive program is not the one the page filled in');
@@ -91,7 +97,7 @@ async function workflow(s) {
     h.assert(await master.locator('#paper_chart_archived_date').inputValue() === ''
       && await master.locator('#paper_chart_archived_program').inputValue() === '', 'Choosing No left the archive date or program filled in');
     await master.locator('#countryOfOrigin').selectOption('-1');
-    await update(master);
+    await update(s);
     h.assert(ext('paper_chart_archived') === 'NO', `paper_chart_archived is ${ext('paper_chart_archived')}, not NO`);
     h.assert(['', '(none)'].includes(ext('paper_chart_archived_date')), `The cleared archive date was stored as ${ext('paper_chart_archived_date')}`);
     h.assert(['', '-1'].includes(sql.value(`SELECT IFNULL(country_of_origin,'') FROM demographic WHERE demographic_no=${patient}`)),

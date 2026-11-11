@@ -535,7 +535,7 @@ Remote documents not supported
                             for (int i2 = 0; i2 < docs.size(); i2++) {
                                 EDoc cmicurdoc = docs.get(i2);
                         %>
-                        <option VALUE="<carlos:encode value='<%= cmicurdoc.getDocId() + "-" + cmicurdoc.getContentType() %>' context="htmlAttribute"/>"><carlos:encode value='<%= sortorder.equals("Content") ? UtilDateUtilities.DateToString(cmicurdoc.getContentDateTime(), "yyyy-MM-dd") : cmicurdoc.getDateTimeStamp() %>' context="html"/>&nbsp;&nbsp; <carlos:encode value='<%= cmicurdoc.getObservationDate() %>' context="html"/>
+                        <option VALUE="<carlos:encode value='<%= cmicurdoc.getDocId() + "-" + cmicurdoc.getContentType() %>' context="htmlAttribute"/>"><carlos:encode value='<%= sortorder.equals("Content") ? cmicurdoc.getContentDateTimeDisplay("yyyy-MM-dd") : cmicurdoc.getDateTimeStamp() %>' context="html"/>&nbsp;&nbsp; <carlos:encode value='<%= cmicurdoc.getObservationDate() %>' context="html"/>
                             [<carlos:encode value='<%= cmicurdoc.getType() %>' context="html"/>] <carlos:encode value='<%= cmicurdoc.getDescription() %>' context="html"/>
                         </option>
                         <%}%>

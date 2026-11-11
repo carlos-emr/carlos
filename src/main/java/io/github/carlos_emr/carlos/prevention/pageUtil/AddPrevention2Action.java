@@ -386,7 +386,15 @@ public class AddPrevention2Action extends ActionSupport {
         return NONE;
     }
 
-    private List<String> validate(String preventionType, String demographic_no, String id, boolean deleting) {
+    /**
+     * The type the RH form's injection editor ({@code form/addRhInjection}) and its panel's Delete
+     * post (issue #4992). RH injections are recorded as preventions but are not a Preventions-page
+     * item, so {@code PreventionItems.xml} does not list the type and the configured-type check
+     * alone refused every RH injection save and delete.
+     */
+    static final String RH_INJECTION_TYPE = "RH";
+
+    private List<String> validate(String preventionType, String demographicNo, String id, boolean deleting) {
         List<String> result = new ArrayList<String>();
 
         if (deleting) {
@@ -394,15 +402,22 @@ public class AddPrevention2Action extends ActionSupport {
         } else {
             PreventionDisplayConfig pdc = PreventionDisplayConfig.getInstance();
             HashMap<String, String> prevention = pdc.getPrevention(preventionType);
-            if (prevention == null) result.add("Invalid Prevention Type");
+            if (prevention == null && !RH_INJECTION_TYPE.equals(preventionType)) {
+                result.add("Invalid Prevention Type");
+            }
         }
 
         try {
-            int demographicId = Integer.parseInt(demographic_no);
+            int demographicId = Integer.parseInt(demographicNo);
             if (demographicId <= 0 || !demographicDao.clientExists(demographicId)) {
                 result.add("Patient not found");
             } else if (id != null) {
                 PreventionData.requirePreventionInChart(Integer.parseInt(id), demographicId);
+                if (RH_INJECTION_TYPE.equals(preventionType)) {
+                    // The RH type is accepted without a Preventions-page item, so an RH edit or delete
+                    // must name an RH record: it may not reach another type's record in the chart.
+                    PreventionData.requirePreventionType(Integer.parseInt(id), RH_INJECTION_TYPE);
+                }
             }
         } catch (IllegalArgumentException invalidRecord) {
             result.add("Invalid patient or prevention record");

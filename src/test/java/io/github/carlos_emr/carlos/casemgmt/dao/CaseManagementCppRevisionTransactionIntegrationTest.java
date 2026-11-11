@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -182,6 +183,34 @@ class CaseManagementCppRevisionTransactionIntegrationTest extends CaseManagement
         assertThat(draft.getIssues()).allSatisfy(issue -> assertThat(issue.getId()).isNull());
     }
 
+    @ParameterizedTest
+    @CsvSource({"2,0,1,2", "2,1,0,2", "0,2,0,1"})
+    void shouldCommitContiguousPositionsAndPreserveHistory_whenMovingCppRevision(
+            int oldPosition, int newPosition, int firstPosition, int secondPosition) {
+        Fixture fixture = tx.execute(status -> fixture(true));
+        Long secondId = tx.execute(status -> {
+            caseManagementNoteDAO.getNote(fixture.originalId()).setPosition(oldPosition);
+            caseManagementNoteDAO.getNote(fixture.siblingId()).setPosition(oldPosition == 0 ? 1 : 0);
+            CaseManagementNote second = createNote(demo, "Second sibling", new Date(1000));
+            second.setPosition(oldPosition == 0 ? 2 : 1);
+            return second.getId();
+        });
+        CaseManagementNote submitted = draft(fixture);
+        submitted.setPosition(newPosition);
+        CaseManagementNote saved = service(extensions).saveCppNoteRevision(submitted, "Doctor", "",
+                Map.of(fixture.siblingId(), firstPosition, secondId, secondPosition), List.of()).note();
+
+        // Read in a separate committed transaction, not from the objects passed into the service.
+        tx.executeWithoutResult(status -> {
+            assertThat(caseManagementNoteDAO.getMostRecentNote(saved.getUuid()).getPosition()).isEqualTo(newPosition);
+            assertThat(caseManagementNoteDAO.getNote(fixture.siblingId()).getPosition()).isEqualTo(firstPosition);
+            assertThat(caseManagementNoteDAO.getNote(secondId).getPosition()).isEqualTo(secondPosition);
+            assertThat(caseManagementNoteDAO.getNote(fixture.originalId()).getPosition()).isEqualTo(oldPosition);
+            assertThat(caseManagementNoteDAO.getNote(fixture.originalId()).getNote()).isEqualTo("Original signed history");
+            assertThat(saved.getId()).isNotEqualTo(fixture.originalId());
+        });
+    }
+
     @Test
     void shouldClearEveryCurrentTextExtensionAndPreserveHistory_whenSubmittedValueIsEmpty() {
         Fixture fixture = tx.execute(status -> fixture(true));
@@ -207,6 +236,68 @@ class CaseManagementCppRevisionTransactionIntegrationTest extends CaseManagement
             assertThat(extensions.getExtByNote(saved.getId())).filteredOn(e -> "unsubmitted".equals(e.getKeyVal()))
                     .singleElement().satisfies(e -> assertThat(e.getValue()).isEqualTo("keep"));
             assertHistoricalRows(fixture.originalId(), saved, "Second treatment", "First treatment", "keep", "2002", "2001");
+        });
+    }
+
+    /** Whitespace-only text is no value: it clears a held key to empty rather than storing the spaces. */
+    @Test
+    void shouldClearHeldKeyToEmpty_whenSubmittedValueIsWhitespaceOnly() {
+        Fixture fixture = tx.execute(status -> fixture(true));
+        tx.executeWithoutResult(status -> {
+            CaseManagementNoteExt historical = extension(CaseManagementNoteExt.TREATMENT, "Held treatment", null);
+            historical.setNoteId(fixture.originalId());
+            extensions.save(historical);
+        });
+
+        CaseManagementNote saved = service(extensions).saveCppNoteRevision(draft(fixture), "Doctor", "",
+                Map.of(), List.of(extension(CaseManagementNoteExt.TREATMENT, " \t ", null))).note();
+
+        tx.executeWithoutResult(status -> {
+            assertThat(extensions.getExtByNote(saved.getId()))
+                    .filteredOn(e -> CaseManagementNoteExt.TREATMENT.equals(e.getKeyVal()))
+                    .singleElement().satisfies(e -> {
+                        assertThat(e.getValue()).isEmpty();
+                        assertThat(e.getDateValue()).isNull();
+                    });
+            assertThat(extensions.getExtByNote(fixture.originalId()))
+                    .filteredOn(e -> CaseManagementNoteExt.TREATMENT.equals(e.getKeyVal()))
+                    .singleElement().extracting(CaseManagementNoteExt::getValue).isEqualTo("Held treatment");
+        });
+    }
+
+    /**
+     * The chart editor posts every extension input, including the ones the box hides and the ones
+     * left empty. A blank value for a key the revision does not hold must not become an empty row
+     * (#5365); only an existing key is cleared by a blank (see the test above). A full-precision
+     * date carries the empty string as its precision marker and is still stored.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldStoreNoRowForBlankField_whenRevisionHoldsNoValueForKey(boolean existingNote) {
+        Fixture fixture = tx.execute(status -> fixture(existingNote));
+
+        CaseManagementNote saved = service(extensions).saveCppNoteRevision(draft(fixture), "Doctor", "", Map.of(),
+                List.of(extension(CaseManagementNoteExt.TREATMENT, "PW rest", null),
+                        extension(CaseManagementNoteExt.AGEATONSET, "", null),
+                        extension(CaseManagementNoteExt.RELATIONSHIP, "   ", null),
+                        extension(CaseManagementNoteExt.LIFESTAGE, null, null),
+                        extension(CaseManagementNoteExt.STARTDATE, "", java.sql.Date.valueOf("2018-03-04")))).note();
+
+        tx.executeWithoutResult(status -> {
+            List<CaseManagementNoteExt> current = extensions.getExtByNote(saved.getId());
+            List<String> expectedKeys = new ArrayList<>(List.of(CaseManagementNoteExt.TREATMENT, CaseManagementNoteExt.STARTDATE));
+            if (existingNote) expectedKeys.addAll(List.of("startDate", "startDate", "unsubmitted"));
+            assertThat(current).extracting(CaseManagementNoteExt::getKeyVal)
+                    .as("blank fields the revision did not hold add no rows")
+                    .containsExactlyInAnyOrderElementsOf(expectedKeys);
+            assertThat(current).filteredOn(e -> CaseManagementNoteExt.TREATMENT.equals(e.getKeyVal()))
+                    .singleElement().satisfies(e -> assertThat(e.getValue()).isEqualTo("PW rest"));
+            assertThat(current).filteredOn(e -> CaseManagementNoteExt.STARTDATE.equals(e.getKeyVal()))
+                    .singleElement().satisfies(e -> {
+                        assertThat(e.getValue()).isEmpty();
+                        assertThat(e.getDateValue()).isEqualTo(java.sql.Date.valueOf("2018-03-04"));
+                    });
+            if (existingNote) assertHistoricalRows(fixture.originalId(), saved, "keep", "2002", "2001");
         });
     }
 

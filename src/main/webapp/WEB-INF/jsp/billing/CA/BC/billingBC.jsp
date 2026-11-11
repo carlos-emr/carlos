@@ -101,8 +101,9 @@
             String value = (String) assocCodeMap.get(key);
             String rowName = assocArrayName + "row";
             out.append("var " + rowName + index + " = new Array(2);\n");
-            out.append(rowName + index + "[0]='" + key + "'; ");
-            out.append(rowName + index + "[1]='" + value + "';\n");
+            // Codes come from the association tables, which an administrator edits: write them as JS strings.
+            out.append(rowName + index + "[0]='" + SafeEncode.forJavaScript(key) + "'; ");
+            out.append(rowName + index + "[1]='" + SafeEncode.forJavaScript(value) + "';\n");
             out.append(assocArrayName + "[" + index + "]=" + rowName + index + ";\n");
             index++;
         }
@@ -211,12 +212,8 @@
         }
     }
 
-    // 3.a. in some situations if the default billing form is set as Private it may be possible
-    // to set the Billing Type to private as well
-    // The commons code for a private billing form is PRI
-    if ("PRI".equals(defaultBillingForm)) {
-        bean.setBillType("Pri");
-    }
+    // The configured default, before step 4 can replace it with the bill's own form (read by 3.a below).
+    String configuredBillingForm = defaultBillingForm;
 
     // 4. logged in user is overriding billing form preference during billing process.
     /* horrible hack. Do not repeat.
@@ -232,6 +229,15 @@
     }
 
     bean.setBillForm(billform.resolveBillingForm(defaultBillingForm));
+
+    // 3.a. in some situations if the default billing form is set as Private it may be possible
+    // to set the Billing Type to private as well
+    // The commons code for a private billing form is PRI
+    // Only once the form is chosen, and only when the chosen form is that PRI form: a PRI default this install does
+    // not have is replaced by the fallback above, and must not leave a private billing type on the form that replaced it.
+    if ("PRI".equals(configuredBillingForm) && "PRI".equals(bean.getBillForm())) {
+        bean.setBillType("Pri");
+    }
 
     // 1. global default billing visit location: carlos properties
     String defaultServiceLocation = CarlosProperties.getInstance().getProperty("visittype");

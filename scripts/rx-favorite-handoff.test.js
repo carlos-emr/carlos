@@ -8,6 +8,7 @@ const vm = require('node:vm');
 const root = path.join(__dirname, '..');
 const jspRoot = path.join(root, 'src/main/webapp/WEB-INF/jsp/rx');
 const jsp = fs.readFileSync(path.join(jspRoot, 'SearchDrug3.jsp'), 'utf8');
+const patientContext = require('../src/main/webapp/share/javascript/rx-patient-context');
 function slice(startMarker, endMarker) {
   const start = jsp.indexOf(startMarker);
   const end = jsp.indexOf(endMarker, start);
@@ -35,6 +36,49 @@ function fixture() {
     slice('function reprint2(', '/**'),
   ].join('\n'), context);
   return { requests, alerts, context, restore() { restored = true; } };
+}
+
+function addFavoriteFixture(name, chartContext) {
+  const requests = [];
+  const context = {
+    ctx: '/carlos', RxPatientContext: patientContext.create('1001', chartContext),
+    window: { prompt: () => name, location: { href: '/carlos/rx/choosePatient?demographicNo=1001&rx2=true' } },
+    CarlosAjax: { request(url, options) { requests.push({ url, options }); } },
+  };
+  vm.runInNewContext(slice('function addFav(', 'var resHidden2'), context);
+  context.addFav('42', 'Synthetic drug');
+  return { requests, context };
+}
+
+test('adding a card favourite returns to the same patient prescribing page only after the save succeeds', () => {
+  const f = addFavoriteFixture("O'Neil & favourite");
+  assert.equal(f.requests.length, 1);
+  const { url, options } = f.requests[0];
+  assert.equal(url, '/carlos/rx/addFavorite2');
+  assert.equal(options.method, 'post');
+  assert.equal(new URLSearchParams(options.parameters).get('favoriteName'), "O'Neil & favourite");
+  assert.equal(new URLSearchParams(options.parameters).get('randomId'), '42');
+  assert.equal(f.context.window.location.href, '/carlos/rx/choosePatient?demographicNo=1001&rx2=true');
+  options.onSuccess({ status: 200 });
+  assert.equal(f.context.window.location.href, '/carlos/rx/choosePatient?demographicNo=1001');
+});
+
+test('adding a favourite returns to its prescribing page with the originating chart program context', () => {
+  const f = addFavoriteFixture('Program favourite', 'originating-chart-context');
+  f.requests[0].options.onSuccess({ status: 200 });
+  const destination = new URL(f.context.window.location.href, 'https://emr.example');
+  assert.equal(destination.origin, 'https://emr.example');
+  assert.equal(destination.pathname, '/carlos/rx/choosePatient');
+  assert.deepEqual(destination.searchParams.getAll('demographicNo'), ['1001']);
+  assert.deepEqual(destination.searchParams.getAll('chartContext'), ['originating-chart-context']);
+});
+
+for (const name of [null, '']) {
+  test(`a ${name === null ? 'cancelled' : 'blank'} favourite name sends no save and stays on the prescribing page`, () => {
+    const f = addFavoriteFixture(name);
+    assert.equal(f.requests.length, 0);
+    assert.equal(f.context.window.location.href, '/carlos/rx/choosePatient?demographicNo=1001&rx2=true');
+  });
 }
 
 test('favorite handoff waits until the initial stash response has been inserted', () => {

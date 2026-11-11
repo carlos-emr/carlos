@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.test.base;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -71,7 +72,8 @@ import java.lang.reflect.Field;
  * @since 2025-09-19
  */
 @ExtendWith(SpringExtension.class)
-@ContextConfiguration(locations = {
+@Tag("spring-context")
+@ContextConfiguration(initializers = MariaDbDaoTestContextInitializer.class, locations = {
     "classpath:test-context-full.xml"
 })
 @WebAppConfiguration

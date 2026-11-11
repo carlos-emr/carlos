@@ -208,21 +208,46 @@ if [ "$hu_pre" = "$hu_post" ]; then
 elif [ "$hu_pre" = "$HELP_URL_OLD" ] && [ "$hu_post" = "$HELP_URL_NEW" ] && [ "$hu_sentinel_pre" != yes ]; then
   hu_ok=1; hu_changed=yes
 fi
+# The Query by Example reporting account (#3372): either both keys stayed put,
+# or the install recorded none and carlos-ctl db-users added carlos_report with a
+# password (the snapshots hold only a digest of it). A changed name, or a password
+# replaced across an upgrade, is not sanctioned.
+rp_user_pre=$(g "$PRE" cfg.reportingUser 2>/dev/null || true); rp_user_post=$(g "$POST" cfg.reportingUser 2>/dev/null || true)
+rp_pw_pre=$(g "$PRE" cfg.reportingPassword 2>/dev/null || true); rp_pw_post=$(g "$POST" cfg.reportingPassword 2>/dev/null || true)
+rp_ok=0; rp_changed=no
+if [ "$rp_user_pre" = "$rp_user_post" ] && [ "$rp_pw_pre" = "$rp_pw_post" ]; then
+  rp_ok=1
+elif { [ -z "$rp_user_pre" ] || [ "$rp_user_pre" = db_reporting_username= ]; } \
+    && { [ -z "$rp_pw_pre" ] || [ "$rp_pw_pre" = none ]; } \
+    && [ "$rp_user_post" = db_reporting_username=carlos_report ] \
+    && [ -n "$rp_pw_post" ] && [ "$rp_pw_post" != none ]; then
+  rp_ok=1; rp_changed=added
+fi
 if [ "$(g "$PRE" cfg.carlos.properties.sha)" = "$(g "$POST" cfg.carlos.properties.sha)" ]; then
   ok "cfg.carlos.properties.sha preserved"
-elif [ "$ht_ok" = 1 ] && [ "$od_ok" = 1 ] && [ "$oa_ok" = 1 ] && [ "$lf_ok" = 1 ] && [ "$hu_ok" = 1 ] \
+elif [ "$ht_ok" = 1 ] && [ "$od_ok" = 1 ] && [ "$oa_ok" = 1 ] && [ "$lf_ok" = 1 ] && [ "$hu_ok" = 1 ] && [ "$rp_ok" = 1 ] \
     && [ -n "$(g "$PRE" cfg.carlos.properties.otherKeys.sha 2>/dev/null || true)" ] \
     && [ "$(g "$PRE" cfg.carlos.properties.otherKeys.sha)" = "$(g "$POST" cfg.carlos.properties.otherKeys.sha)" ]; then
-  ok "cfg.carlos.properties.sha changed only by the one-time stock-default migrations (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults:${od_changed:- none}; OAuth access:${oa_changed:- none}; lab filter: $lf_changed; Help link: $hu_changed)"
+  ok "cfg.carlos.properties.sha changed only by the one-time stock-default migrations (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults:${od_changed:- none}; OAuth access:${oa_changed:- none}; lab filter: $lf_changed; Help link: $hu_changed; reporting account: $rp_changed)"
 elif [ -n "$(g "$PRE" cfg.carlos.properties.active.sha 2>/dev/null || true)" ] \
     && [ "$(g "$PRE" cfg.carlos.properties.active.sha)" = "$(g "$POST" cfg.carlos.properties.active.sha)" ] \
-    && [ "$ht_ok" = 1 ] && [ "$od_ok" = 1 ] && [ "$oa_ok" = 1 ] && [ "$lf_ok" = 1 ] && [ "$hu_ok" = 1 ]; then
+    && [ "$ht_ok" = 1 ] && [ "$od_ok" = 1 ] && [ "$oa_ok" = 1 ] && [ "$lf_ok" = 1 ] && [ "$hu_ok" = 1 ] && [ "$rp_ok" = 1 ]; then
   # Same active settings apart from any sanctioned migration, different bytes:
   # a key was commented out and re-appended with its old value (see
   # deb-upgrade-baseline.sh).
-  ok "cfg.carlos.properties layout changed but every active setting is preserved (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults:${od_changed:- none}; lab filter: $lf_changed; Help link: $hu_changed)"
+  ok "cfg.carlos.properties layout changed but every active setting is preserved (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults:${od_changed:- none}; lab filter: $lf_changed; Help link: $hu_changed; reporting account: $rp_changed)"
 else
-  bad "cfg.carlos.properties.sha changed: $(g "$PRE" cfg.carlos.properties.sha) -> $(g "$POST" cfg.carlos.properties.sha) (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults changed:${od_changed:- none}; OAuth access changed:${oa_changed:- none}; lab filter: '$lf_pre' -> '$lf_post', sanctioned=$lf_ok; Help link: '$hu_pre' -> '$hu_post', sanctioned=$hu_ok)"
+  bad "cfg.carlos.properties.sha changed: $(g "$PRE" cfg.carlos.properties.sha) -> $(g "$POST" cfg.carlos.properties.sha) (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults changed:${od_changed:- none}; OAuth access changed:${oa_changed:- none}; lab filter: '$lf_pre' -> '$lf_post', sanctioned=$lf_ok; Help link: '$hu_pre' -> '$hu_post', sanctioned=$hu_ok; reporting account: '$rp_user_pre' -> '$rp_user_post', password digest $([ "$rp_pw_pre" = "$rp_pw_post" ] && echo kept || echo changed), sanctioned=$rp_ok)"
+fi
+# A package that ships the Query by Example grant list runs carlos-ctl db-users,
+# which records the account: an install it leaves without one has Query by
+# Example closed (it never falls back to the application account).
+if [ "$(g "$POST" cfg.reportingGrantList 2>/dev/null || true)" = present ]; then
+  if [ "$rp_user_post" = db_reporting_username=carlos_report ] && [ -n "$rp_pw_post" ] && [ "$rp_pw_post" != none ]; then
+    ok "carlos.properties records the Query by Example reporting account"
+  else
+    bad "the package ships the Query by Example grant list but carlos.properties does not record carlos_report ('$rp_user_post')"
+  fi
 fi
 # The OAuth access-mode reset is asserted when the PRE snapshot carries a
 # single definition of either key that is not the stock default.

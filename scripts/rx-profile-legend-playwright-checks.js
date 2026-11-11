@@ -17,11 +17,12 @@ async function workflow(s) {
     sql.execute(`INSERT INTO drugs(provider_no,demographic_no,rx_date,end_date,written_date,
       BN,GCN_SEQNO,customName,takemin,takemax,freqcode,duration,durunit,quantity,\`repeat\`,
       special,archived,archived_reason,position,dispenseInternal,create_date,lastUpdateDate,long_term,
-      outside_provider_name,outside_provider_ohip)
+      outside_provider_name,outside_provider_ohip,non_authoritative,comment)
       VALUES(${h.sqlString(provider)},${patient},CURDATE(),${suffix === 'INACTIVE' ? 'DATE_SUB(CURDATE(),INTERVAL 7 DAY)' : 'DATE_ADD(CURDATE(),INTERVAL 30 DAY)'},CURDATE(),
       ${h.sqlString(`${marker}-${suffix}`)},0,${h.sqlString(`${marker}-${suffix}`)},1,1,'OD','30','D','30',0,
       ${h.sqlString(`${marker}-${suffix} one tablet daily`)},0,'',0,0,NOW(),NOW(),${longTerm},
-      ${suffix === 'EXTERNAL' ? "'FAKE external','000000'" : "NULL,NULL"})`);
+      ${suffix === 'EXTERNAL' ? "'FAKE external','000000'" : "NULL,NULL"},
+      ${suffix === 'ACUTE' ? `1,${h.sqlString(`${marker} FAKE acute comment`)}` : '0,NULL'})`);
   }
   const rx = await s.popup(s.master,
     masterRecordLink(s.master, '/rx/choosePatient').first(), 'rx-profile');
@@ -112,6 +113,11 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}
       AND customName=${h.sqlString(`${marker}-ACUTE`)} AND archived=0 AND long_term=1 AND drugid<>${id}`) === '1',
     'Long-term change did not save exactly one active replacement');
+    // The replacement is the same prescription, not a renewal: it keeps the source's
+    // Non-Authoritative tick and comment (#5056; the toggle used to clear the tick).
+    h.assert(sql.value(`SELECT CONCAT(non_authoritative,'|',IFNULL(comment,'')) FROM drugs WHERE demographic_no=${patient}
+      AND customName=${h.sqlString(`${marker}-ACUTE`)} AND archived=0 AND drugid<>${id}`) === `1|${marker} FAKE acute comment`,
+    'Long-term change dropped the Non-Authoritative tick or the comment');
     const longTermText = await profile.locator('table[id="Drug_tableLong Term Meds"]').innerText();
     h.assert(longTermText.includes(`${marker}-ACUTE`),
       `Refresh did not move the changed medication into Long Term Meds: ${longTermText}`);

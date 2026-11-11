@@ -28,6 +28,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: preserve imported clinical uncertainty.
  */
 
 package io.github.carlos_emr.carlos.managers;
@@ -40,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.dao.FavoriteDao;
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Drug;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsMedicationCompatibilityException;
 import io.github.carlos_emr.carlos.commn.model.Favorite;
 import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -278,6 +280,12 @@ public class RxManagerImpl implements RxManager {
             throw new AccessDeniedException("_rx", "w", String.valueOf(d.getDemographicId()));
         }
 
+        // The legacy replacement DTO omits imported uncertainty and authority. Refuse
+        // before creating a replacement or archiving the source, even if the caller
+        // omitted its CDS fields from the incoming object.
+        CdsMedicationCompatibilityException.requireLegacyCompatible(old);
+        CdsMedicationCompatibilityException.requireLegacyCompatible(d);
+
         // Attempt to add the new drug first, if this fails
         // the don't try to update the old drug to archived.
 
@@ -462,6 +470,21 @@ public class RxManagerImpl implements RxManager {
             if (!canPrescribe(d)) {
                 logger.error("Can't prescribe drug returning null");
                 return null;
+            }
+        }
+
+        // Complete every imported-source compatibility check before creating the
+        // prescription or mutating any candidate. A mixed batch must not partly write.
+        for (Drug candidate : drugs) {
+            CdsMedicationCompatibilityException.requireLegacyCompatible(candidate);
+            if (candidate.getId() != null) {
+                Drug source = drugDao.find(candidate.getId());
+                if (source != null) {
+                    if (!Objects.equals(source.getDemographicId(), demoNo)) {
+                        throw new AccessDeniedException("_rx", "w", String.valueOf(demoNo));
+                    }
+                    CdsMedicationCompatibilityException.requireLegacyCompatible(source);
+                }
             }
         }
 

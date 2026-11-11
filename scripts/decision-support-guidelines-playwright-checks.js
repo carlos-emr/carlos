@@ -15,6 +15,9 @@
 // nothing from it. A second owned patient is the control. Cleanup deletes only the marker
 // guideline, its mapping, the owned patients' rows and the control patient; the throwaway
 // login and its rows go with its fixture.
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { clickAndAwaitReload } = ui;
@@ -33,13 +36,59 @@ async function conditionRows(page) {
   return rows.evaluateAll(trs => trs.map(tr => [...tr.cells].map(td => td.innerText.trim())));
 }
 
+/** Reserve only this scenario's Dx-registry preference after proving an empty baseline. */
+function createGuidelineLoginFixture(s) {
+  const {sql, marker, provider} = s;
+  const fixture = throwawayLoginFixture({sql, marker, provider, testUser: s.config.testUser});
+  let quickListBaselineVerified = false;
+  let quickListRemoved = false;
+  const assertBrowserDrained = () => h.assert(s.context.browser() && !s.context.browser().isConnected(),
+    'The guideline browser drain is unconfirmed; retaining throwaway provider and preferences');
+  // Registered first, so the child callback below runs before this parent cleanup.
+  // A refused child cleanup retains the marker-bearing parent for exact recovery.
+  s.cleanup(() => {
+    assertBrowserDrained();
+    h.assert(!quickListBaselineVerified || quickListRemoved,
+      'Owned Dx-registry preference cleanup is unconfirmed; retaining its throwaway provider');
+    fixture.cleanup();
+  });
+  fixture.create();
+  const providerNo = h.sqlString(fixture.providerNo);
+  const owner = `provider_no=${providerNo} AND last_name=${h.sqlString(marker)}`;
+  h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE ${owner}`) === '1',
+    'The guideline provider ownership changed before the quick-list baseline');
+  h.assert(sql.value(`SELECT COUNT(*) FROM quickListUser WHERE providerNo=${providerNo}`) === '0',
+    'A pre-existing quick-list preference uses the guideline provider number; refusing to adopt it');
+  quickListBaselineVerified = true;
+  s.cleanup(() => {
+    assertBrowserDrained();
+    h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE ${owner}`) === '1',
+      'The guideline provider ownership changed; refusing quick-list cleanup');
+    sql.execute(`DELETE FROM quickListUser WHERE providerNo=${providerNo}
+      AND EXISTS (SELECT 1 FROM provider WHERE ${owner})`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM quickListUser WHERE providerNo=${providerNo}`) === '0',
+      'The owned Dx-registry preference was not removed');
+    quickListRemoved = true;
+  });
+  // Write the provider/marker/empty baseline before its first UI session. The
+  // generated artifact is private, exclusive and durable; no credentials enter it.
+  const directory = process.env.ARTIFACT_DIR || path.join(os.tmpdir(), `carlos-guideline-${marker}`);
+  const receiptPath = h.buildArtifactPath(directory, `${marker}-guideline-provider`, '.json');
+  const descriptor = fs.openSync(receiptPath, 'wx', 0o600);
+  try {
+    fs.writeFileSync(descriptor, `${JSON.stringify({check: 'decision-support-guidelines', marker,
+      providerNo: fixture.providerNo, quickListUserBaseline: {count: 0, rows: []},
+      verifiedBeforeThrowawayUi: true}, null, 2)}\n`);
+    fs.fsyncSync(descriptor);
+  } finally { fs.closeSync(descriptor); }
+  return fixture;
+}
+
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
   const q = h.sqlString;
   // The throwaway login the guideline is mapped to, with the test provider's roles and programs.
-  const fixture = throwawayLoginFixture({ sql, marker, provider, testUser: s.config.testUser });
-  s.cleanup(() => fixture.cleanup());
-  fixture.create();
+  const fixture = createGuidelineLoginFixture(s);
   s.cleanup(() => {
     sql.execute(`DELETE FROM provider_default_program WHERE provider_no=${q(fixture.providerNo)}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM provider_default_program WHERE provider_no=${q(fixture.providerNo)}`) === '0',

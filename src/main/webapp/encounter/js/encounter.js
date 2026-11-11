@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later.
+ * Modifications by CARLOS Contributors, 2026.
+ *
  * CARLOS EMR - Encounter Page JavaScript
  *
  * Consolidates inline scripts from the legacy Index2.jsp encounter page.
@@ -135,8 +138,31 @@ function presBoxFull()   { setPresBoxSize(full, 'presTopTable'); }
 // ============================================================
 // Window Management
 // ============================================================
+/** Keeps the originating chart program on same-patient chart and Rx requests. */
+function legacyChartUrl(url) {
+    if (!encounterConfig.chartContext) return url;
+    var target = new URL(url, document.baseURI || window.location.href);
+    if (target.origin !== window.location.origin
+            || !/\/(?:encounter\/|rx\/|casemgmt\/|CaseManagement)/.test(target.pathname)) return url;
+    for (var name of ['demographicNo', 'demographic_no']) {
+        if (target.searchParams.getAll(name).some(function (patient) {
+            return Number(patient) !== Number(encounterConfig.demographicNo);
+        })) return url;
+    }
+    if (target.searchParams.has('chartContext')) return url;
+    // Navbar requests also submit their URL as reloadURL. Preserve relative links: turning a
+    // local path into an absolute IP-address URL triggers the packaged WAF's RFI protection.
+    var hashIndex = url.indexOf('#');
+    var hash = hashIndex < 0 ? '' : url.substring(hashIndex);
+    var base = hashIndex < 0 ? url : url.substring(0, hashIndex);
+    var separator = '&';
+    if (!base.includes('?')) separator = '?';
+    else if (/[?&]$/.test(base)) separator = '';
+    return base + separator + 'chartContext=' + encodeURIComponent(encounterConfig.chartContext) + hash;
+}
+
 function popupPage(vheight, vwidth, name, varpage) {
-    var page = "" + varpage;
+    var page = legacyChartUrl("" + varpage);
     name = name.replace(/\s+/g, "_");
     var windowprops = "height=" + vheight + ",width=" + vwidth +
         ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=600,screenY=200,top=0,left=0";
@@ -153,7 +179,7 @@ function popupPage(vheight, vwidth, name, varpage) {
 function popupStart(vheight, vwidth, varpage) {
     var windowprops = "height=" + vheight + ",width=" + vwidth +
         ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-    var popup = window.open(varpage, "", windowprops);
+    var popup = window.open(legacyChartUrl(varpage), "", windowprops);
     if (popup != null && popup.opener == null) {
         popup.opener = self;
     }
@@ -162,7 +188,7 @@ function popupStart(vheight, vwidth, varpage) {
 function popupStart1(vheight, vwidth, varpage) {
     var windowprops = "height=" + vheight + ",width=" + vwidth +
         ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-    window.open(varpage, encounterConfig.i18n.title, windowprops);
+    window.open(legacyChartUrl(varpage), encounterConfig.i18n.title, windowprops);
 }
 
 function closeEncounterWindow() {
@@ -172,10 +198,6 @@ function closeEncounterWindow() {
 function onSplit() {
     document.forms['encForm'].btnPressed.value = 'Split Chart';
     return confirm(encounterConfig.i18n.confirmSplit);
-}
-
-function getAnotherEncounter(newAppointmentNo) {
-    location = "./IncomingEncounter?appointmentList=true&appointmentNo=" + newAppointmentNo;
 }
 
 function measurementLoaded(name) {
@@ -340,7 +362,7 @@ function clickLoadDiv(e) {
 }
 
 function loadDiv(div, url) {
-    CarlosAjax.request(url, {
+    CarlosAjax.request(legacyChartUrl(url), {
         method: 'post',
         postBody: 'demographicNo=' + encodeURIComponent(encounterConfig.demographicNo)
             + '&appointmentNo=' + encodeURIComponent(encounterConfig.appointmentNo || '0'),
@@ -357,7 +379,7 @@ function loadDiv(div, url) {
 function popLeftColumn(url, div, params) {
     params = "cmd=" + params + '&demographicNo=' + encodeURIComponent(encounterConfig.demographicNo)
         + '&appointmentNo=' + encodeURIComponent(encounterConfig.appointmentNo || '0');
-    CarlosAjax.request(url, {
+    CarlosAjax.request(legacyChartUrl(url), {
         method: 'post',
         postBody: params,
         onSuccess: function (request) {
@@ -391,17 +413,7 @@ function listDisplay(Id, threshold) {
     var topImage = document.getElementById(topName);
     var midImage = document.getElementById(midName);
     var lastImage = document.getElementById(lastName);
-    var expand;
-
-    for (var idx = threshold; idx < items.length; ++idx) {
-        if (items[idx].style.display == 'block') {
-            items[idx].style.display = 'none';
-            expand = true;
-        } else {
-            items[idx].style.display = 'block';
-            expand = false;
-        }
-    }
+    var expand = toggleItemsPastThreshold(items, threshold);
 
     if (expand) {
         topImage.src = encounterConfig.images.transparent;
@@ -423,6 +435,25 @@ function listDisplay(Id, threshold) {
         imgfunc[lastName] = function(event) { return clickListDisplay.call(obj, event, Id, threshold); };
         lastImage.addEventListener("click", imgfunc[lastName]);
     }
+}
+
+// Hides the items past the threshold, or shows them again. Returns true when the last item it
+// touched was hidden (the list is now collapsed), false when shown or when there was nothing to toggle.
+function toggleItemsPastThreshold(items, threshold) {
+    var expand = false;
+    for (var idx = threshold; idx < items.length; ++idx) {
+        // LeftNavBarDisplay renders flex rows; a visible row is not always block.
+        if (items[idx].style.display != 'none') {
+            items[idx].carlosExpandedDisplay = items[idx].style.display;
+            items[idx].style.display = 'none';
+            expand = true;
+        } else {
+            items[idx].style.display = items[idx].carlosExpandedDisplay !== undefined
+                ? items[idx].carlosExpandedDisplay : 'flex';
+            expand = false;
+        }
+    }
+    return expand;
 }
 
 function clickListDisplay(e) {
@@ -471,6 +502,7 @@ function navBarLoader() {
     };
 
     this.popColumn = function (url, div, params, navBar) {
+        url = legacyChartUrl(url);
         params = "reloadURL=" + encodeURIComponent(url) + "&numToDisplay=6&cmd=" + params
             + "&demographicNo=" + encodeURIComponent(encounterConfig.demographicNo)
             + "&appointmentNo=" + encodeURIComponent(encounterConfig.appointmentNo || "0");
@@ -622,6 +654,20 @@ function menuAction() {
     if (action.indexOf("ajaxInsertTemplate(") === 0) {
         var tmplName = action.replace("ajaxInsertTemplate('", "").replace("')", "");
         ajaxInsertTemplate(tmplName);
+    } else if (action.indexOf("openEncounterForm.apply(null,") === 0 && action.endsWith(");")) {
+        // Parse data only; never execute a stored action string. JSON also preserves
+        // commas, quotes and backslashes in form names and URLs.
+        var formArgs;
+        try {
+            formArgs = JSON.parse(action.slice("openEncounterForm.apply(null,".length, -2));
+        } catch {
+            return;
+        }
+        if (Array.isArray(formArgs) && formArgs.length === 3 && formArgs.every(function (value) {
+            return typeof value === 'string';
+        })) {
+            openEncounterForm(formArgs[0], formArgs[1], formArgs[2]);
+        }
     } else if (action.indexOf("popupPage(") === 0) {
         // Calculator actions are popupPage calls - parse the arguments
         var argsStr = action.substring(action.indexOf("(") + 1, action.lastIndexOf(")"));

@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.dxresearch.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
+
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -68,13 +70,20 @@ public class dxResearch2Action extends ActionSupport {
             return NONE;
         }
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "w", null)) {
-            throw new RuntimeException("missing required sec object (_dxresearch)");
+            throw new SecurityException("missing required sec object (_dxresearch)");
         }
 
         //dxResearchForm frm = (dxResearchForm) form;
         //request.getSession().setAttribute("dxResearchForm", frm);
         String codingSystem = this.getSelectedCodingSystem();
-        String demographicNo = this.getDemographicNo();
+        String demographicNo = dxSetupResearch2Action.canonicalPatientNo(this.getDemographicNo());
+        if (demographicNo == null) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_dxresearch", "w");
+        PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_demographic", "r");
         String providerNo = this.getProviderNo();
         String forward = this.getForward();
         String[] xml_research = null;
@@ -167,11 +176,9 @@ public class dxResearch2Action extends ActionSupport {
             // Re-render this form's own patient. The page used to take its patient and diagnoses
             // from the session, i.e. from the registry opened last in any window, so it could show
             // another patient, and its next submission then wrote to that patient (issue #4673).
-            if (demographicNo != null && demographicNo.matches("\\d{1,9}")) {
-                String formProvider = providerNo != null && providerNo.matches("\\d{1,10}")
-                        ? providerNo : LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
-                dxSetupResearch2Action.publishPatient(request, String.valueOf(Integer.parseInt(demographicNo)), formProvider);
-            }
+            String formProvider = providerNo != null && providerNo.matches("\\d{1,10}")
+                    ? providerNo : LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+            dxSetupResearch2Action.publishPatient(request, demographicNo, formProvider);
             return "failure";
         }
 

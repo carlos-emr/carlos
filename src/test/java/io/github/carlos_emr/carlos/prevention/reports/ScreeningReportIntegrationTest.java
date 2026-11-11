@@ -109,9 +109,9 @@ class ScreeningReportIntegrationTest extends CarlosTestBase {
              MockedConstruction<EctMeasurementsDataBeanHandler> measurements = mockConstruction(
                      EctMeasurementsDataBeanHandler.class,
                      (mock, context) -> when(mock.getMeasurementsDataVector()).thenReturn(List.of()))) {
-            data.when(() -> PreventionData.getPreventionData(info, type, 770001)).thenReturn(history);
+            data.when(() -> PreventionData.getExactPreventionData(info, type, 770001)).thenReturn(history);
             data.when(() -> PreventionData.getExtValue("880001", "result")).thenReturn(result);
-            data.when(() -> PreventionData.getPreventionData(info, "COLONOSCOPY", 770001)).thenReturn(new ArrayList<>());
+            data.when(() -> PreventionData.getExactPreventionData(info, "COLONOSCOPY", 770001)).thenReturn(new ArrayList<>());
             PreventionReport report = switch (type) {
                 case "MAM" -> new MammogramReport();
                 case "PAP" -> new PapReport();
@@ -121,7 +121,8 @@ class ScreeningReportIntegrationTest extends CarlosTestBase {
             };
             Hashtable output = report.runReport(info, new ArrayList<>(List.of(new ArrayList<>(List.of("770001")))),
                     new SimpleDateFormat("yyyy-MM-dd").parse(asOf));
-            data.verify(() -> PreventionData.getPreventionData(info, type, 770001));
+            data.verify(() -> PreventionData.getExactPreventionData(info, type, 770001));
+            data.verify(() -> PreventionData.getPreventionData(info, type, 770001), never());
             return output;
         }
     }

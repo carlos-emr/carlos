@@ -36,6 +36,18 @@ const SIGNATURE_STAMP = /\[Signed on [^\]\n]+\]/;
 const isEntry = method => r => r.request().method() === 'POST' && /\/CaseManagementEntry(\?|$)/.test(r.url())
   && new URLSearchParams(r.request().postData() || '').get('method') === method;
 
+// Edit replaces rendered text with a textarea whose value is not DOM text.
+// Keep the stored row's identity instead of re-resolving a hasText filter.
+const noteContents = (chart, id) => chart.locator(`#encMainDiv #n${id}`);
+
+async function waitVisible(locator, label, timeout = TIMEOUT) {
+  try {
+    await locator.waitFor({ state: 'visible', timeout });
+  } catch (error) {
+    throw new Error(`${label}: ${error.message}`, { cause: error });
+  }
+}
+
 /** Sign & Save posts the entry form natively (saveAndExit) and the chart window closes itself. */
 async function signAndSave(chart) {
   const closed = chart.waitForEvent('close', { timeout: TIMEOUT }).then(() => true).catch(() => false);
@@ -53,7 +65,8 @@ async function signAndSave(chart) {
 async function reopenChart(s) {
   await s.master.waitForLoadState('domcontentloaded', { timeout: TIMEOUT }).catch(() => {});
   await s.master.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
-  await s.master.locator('a').filter({ hasText: /^\s*E-?Chart\s*$/i }).first().waitFor({ state: 'visible', timeout: TIMEOUT });
+  await waitVisible(s.master.locator('a').filter({ hasText: /^\s*E-?Chart\s*$/i }).first(),
+    'Reopen chart: Master Record E-Chart link');
   return s.chart();
 }
 
@@ -89,7 +102,7 @@ async function workflow(s) {
   await s.step('E-Chart ▸ type a note ▸ Sign & Save stores it signed by the test provider', async () => {
     const chart = await s.chart();
     const editor = chart.locator('#encMainDiv textarea[name="caseNote_note"]');
-    await editor.first().waitFor({ state: 'visible', timeout: TIMEOUT });
+    await waitVisible(editor.first(), 'Create note: open note editor');
     h.assert(await editor.count() === 1, `Expected one open note editor, found ${await editor.count()}`);
     await editor.click();
     await editor.fill(firstText);
@@ -107,12 +120,13 @@ async function workflow(s) {
   let noteDiv;
   await s.step('reopened, the signed note is read-only; Edit loads it and offers Sign & Save but not Save', async () => {
     chart = await reopenChart(s);
-    noteDiv = chart.locator('#encMainDiv div[id^="n"]').filter({ hasText: firstText }).last();
-    await noteDiv.waitFor({ state: 'visible', timeout: TIMEOUT });
+    noteDiv = noteContents(chart, first.id);
+    await waitVisible(noteDiv, 'Reopen signed note: stored note contents');
+    h.assert((await noteDiv.innerText()).includes(firstText), 'The reopened note does not show the stored text');
     h.assert(await noteDiv.locator('textarea[name="caseNote_note"]').count() === 0,
       'The signed note opened in an editor instead of read-only');
     const editLink = noteDiv.locator('a[id^="edit"]').first();
-    await editLink.waitFor({ state: 'visible', timeout: TIMEOUT });
+    await waitVisible(editLink, 'Reopen signed note: Edit link');
     // editNote() posts the note's issue list (method=edit) and then reloads the issues panel.
     await Promise.all([
       chart.waitForResponse(isEntry('edit'), { timeout: TIMEOUT }),
@@ -120,7 +134,7 @@ async function workflow(s) {
       editLink.click(),
     ]);
     const editor = noteDiv.locator('textarea[name="caseNote_note"]');
-    await editor.waitFor({ state: 'visible', timeout: TIMEOUT });
+    await waitVisible(editor, 'Edit signed note: caseNote_note textarea');
     const loaded = await editor.inputValue();
     h.assert(loaded.startsWith(firstText) && SIGNATURE_STAMP.test(loaded), 'Edit did not load the signed note text');
     h.assert(await chart.locator('#signSaveImg').first().isVisible(), 'Edit of a signed note offers no Sign & Save');
@@ -147,8 +161,8 @@ async function workflow(s) {
 
   await s.step('the chart shows the edited note once, and its revision link opens both revisions newest first', async () => {
     chart = await reopenChart(s);
-    const shown = chart.locator('#encMainDiv div[id^="n"]').filter({ hasText: addedText });
-    await shown.first().waitFor({ state: 'visible', timeout: TIMEOUT });
+    const shown = chart.locator('#encMainDiv .note-contents').filter({ hasText: addedText });
+    await waitVisible(noteContents(chart, second.id), 'Reopen edited note: new revision contents');
     h.assert(await shown.count() === 1, `The chart shows the edited note ${await shown.count()} times`);
     const rev = shown.first().locator('a[onclick^="return showHistory("]').first();
     h.assert((await rev.innerText()).trim() === second.revision, `The revision link reads "${(await rev.innerText()).trim()}"`);
@@ -156,7 +170,7 @@ async function workflow(s) {
     const url = new URL(history.url());
     h.assert(url.searchParams.get('method') === 'notehistory' && url.searchParams.get('noteId') === second.id
       && url.searchParams.get('demographicNo') === patient, 'The revision link opened the history of another note or patient');
-    await history.locator('h3', { hasText: 'Note Revision History' }).waitFor({ timeout: TIMEOUT });
+    await waitVisible(history.locator('h3', { hasText: 'Note Revision History' }), 'Note history: revision heading');
     const body = (await history.locator('body').innerText()).replace(/\s+/g, ' ');
     const newest = body.indexOf(addedText);
     const oldest = body.lastIndexOf(firstText);
@@ -167,4 +181,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('echart-note-lifecycle', workflow, { openPatient: true });
-module.exports = { workflow };
+module.exports = { workflow, noteContents, waitVisible };

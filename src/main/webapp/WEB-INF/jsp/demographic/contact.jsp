@@ -91,6 +91,7 @@ Parameters: id identifies the form row; the hidden association ID starts at zero
     <select name="contact_${carlos:forHtmlAttribute(param.id)}.consentToContact" id="contact_${carlos:forHtmlAttribute(param.id)}.consentToContact" title="Consent to Contact">
         <option value="1">Consent</option>
         <option value="0">No Consent</option>
+        <option value="">Unknown</option>
     </select>
 
     &nbsp;

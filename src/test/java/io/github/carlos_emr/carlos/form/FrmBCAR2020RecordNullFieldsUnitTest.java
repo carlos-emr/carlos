@@ -25,9 +25,11 @@ import java.util.List;
 import java.util.Properties;
 
 import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
+import io.github.carlos_emr.carlos.commn.dao.forms.FormBCAR2020Dao;
 import io.github.carlos_emr.carlos.commn.dao.forms.FormBCAR2020DataDao;
 import io.github.carlos_emr.carlos.commn.dao.forms.FormBCAR2020TextDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.form.model.FormBCAR2020;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
@@ -82,6 +84,12 @@ class FrmBCAR2020RecordNullFieldsUnitTest extends CarlosUnitTestBase {
         FormBCAR2020TextDao textDao = mock(FormBCAR2020TextDao.class);
         when(textDao.findFieldsForPage(anyInt(), anyInt())).thenReturn(List.of());
         registerMock(FormBCAR2020TextDao.class, textDao);
+        // The saved form the reopen case loads (form 7) is the patient's own, as a saved form's row says.
+        FormBCAR2020 saved = new FormBCAR2020();
+        saved.setDemographicNo(PATIENT);
+        FormBCAR2020Dao formDao = mock(FormBCAR2020Dao.class);
+        when(formDao.find(7)).thenReturn(saved);
+        registerMock(FormBCAR2020Dao.class, formDao);
     }
 
     @Test

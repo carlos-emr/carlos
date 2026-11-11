@@ -30,14 +30,17 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    boolean authed = true;
+    boolean authed = false;
 %>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="*" reverse="<%=true%>">
-    <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w">
+    <%authed = true; %>
+</security:oscarSec>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.userAdmin" rights="w">
+    <%authed = true; %>
 </security:oscarSec>
 <%
     if (!authed) {
+        response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");
         return;
     }
 %>

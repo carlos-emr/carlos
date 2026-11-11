@@ -19,6 +19,7 @@
  * Implements the gap-billing "bill types" workflow.
  */
 const h = require('./lib/playwright-harness');
+const {captureScheduleContext, assertScheduleContext, seedScheduleAppointment} = require('./lib/native-schedule-context');
 const { runWorkflow } = require('./lib/workflow-session');
 const { createBillingFixture } = require('./billing-on-ohip-simulation-report-playwright-checks');
 const g = require('./lib/gap-billing-support');
@@ -56,6 +57,7 @@ async function selectBillType(form, prefix) {
 
 async function workflow(s) {
   const { sql, patient } = s;
+  const scheduleContext = await captureScheduleContext(s);
   const owned = createBillingFixture(s);
   g.registerOwnedBillCleanup(s);
   const fee = g.scheduleFee(sql, 'A007A');
@@ -64,13 +66,14 @@ async function workflow(s) {
 
   const appointments = TYPES.map(() => {
     const clock = 15 * 60 + minute;
-    const appointment = g.seedAppointment(s, {
+    const appointment = seedScheduleAppointment(s, scheduleContext, {
       time: `${String(Math.floor(clock / 60)).padStart(2, '0')}:${String(clock % 60).padStart(2, '0')}:00`,
     });
     minute += 15;
     return appointment;
   });
   await g.showSeededAppointments(s);
+  await assertScheduleContext(s, scheduleContext);
 
   for (const [index, [prefix, payProgram, status, thirdParty, privateCode]] of TYPES.entries()) {
     const appointment = appointments[index];

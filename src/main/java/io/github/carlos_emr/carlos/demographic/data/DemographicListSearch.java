@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.data;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Search state shared by the patient list and appointment patient picker.
@@ -37,11 +38,19 @@ import java.util.List;
  * @since 2026-10-03
  */
 public record DemographicListSearch(String mode, String keyword, String orderBy,
-                                    List<String> statuses, boolean excludeStatuses, int offset, int limit) {
+                                    List<String> statuses, boolean excludeStatuses, int offset, int limit, Set<Integer> deniedPatients) {
+    public DemographicListSearch(String mode, String keyword, String orderBy, List<String> statuses,
+            boolean excludeStatuses, int offset, int limit) {
+        this(mode, keyword, orderBy, statuses, excludeStatuses, offset, limit, Set.of());
+    }
     public DemographicListSearch {
         mode = mode == null ? "search_name" : mode;
         orderBy = orderBy == null || orderBy.isEmpty() ? "last_name" : orderBy;
         statuses = statuses == null ? null : List.copyOf(statuses);
+        deniedPatients = deniedPatients == null ? Set.of() : Set.copyOf(deniedPatients);
+        if (deniedPatients.stream().anyMatch(id -> id <= 0)) {
+            throw new IllegalArgumentException("Positive excluded patient identifiers required");
+        }
         if (offset < 0 || limit < 1 || limit > 500 || offset > Integer.MAX_VALUE - limit - 1) {
             throw new IllegalArgumentException("Invalid patient page bounds");
         }

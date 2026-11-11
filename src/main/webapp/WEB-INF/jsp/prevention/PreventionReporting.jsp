@@ -215,6 +215,9 @@
 
     </div>
 
+    <% if (Boolean.TRUE.equals(request.getAttribute("preventionDateReview"))) { %>
+    <div class="alert alert-warning" role="alert">Prevention timing requires review before this report can run.</div>
+    <% } %>
     <%
         ArrayList overDueList = new ArrayList();
         String type = (String) request.getAttribute("ReportType");

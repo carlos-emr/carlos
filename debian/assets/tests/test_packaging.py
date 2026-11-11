@@ -17,6 +17,7 @@ Run (from the repository root):
 """
 
 import os
+import importlib.util
 import re
 import subprocess
 import tempfile
@@ -27,6 +28,23 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 BACKUP = ROOT / "debian" / "assets" / "bin" / "carlos-emr-backup"
 POSTRM = ROOT / "debian" / "carlos-emr.postrm"
+
+
+class TestCdsPublishedDocumentMode(unittest.TestCase):
+    def test_installed_qualification_accepts_only_shared_group_readable_documents(self):
+        spec = importlib.util.spec_from_file_location("packaged_cds_document_gate", ROOT / "scripts/ci/run-cds-performance.py")
+        gate = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(gate)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            document = root / "owned-synthetic-report.pdf"
+            document.write_bytes(b"synthetic packaging proof")
+            document.chmod(0o600)
+            with self.assertRaises(RuntimeError):
+                gate.native_document_proof(document, root)
+            document.chmod(0o640)
+            self.assertEqual(gate.native_document_proof(document, root),
+                             (document.stat().st_size, gate.digest(document)))
 
 
 def backup_excludes():
@@ -48,10 +66,9 @@ def postrm_shredded_names():
     """The `-name` globs the postrm shreds out of the import workspace:
     the package's own statement of what in there is a credential."""
     text = POSTRM.read_text(encoding="utf-8")
-    # the depth is part of the block's shape and has changed once (the
-    # clinic's own oscar.properties sits one level down, inside the
-    # extracted bundle), so it is matched rather than spelled
-    m = re.search(r'o19-import" -maxdepth \d+ -type f(.*?)-exec', text,
+    # Match recursive traversal and older depth-limited forms. Nested
+    # backup layouts and immutable source snapshots require recursion.
+    m = re.search(r'find(?:\s+-P)?\s+"\$\{STATE\}/o19-import"\s+(?:-maxdepth \d+\s+)?-type f(.*?)-exec', text,
                   re.S)
     if not m:
         raise AssertionError(
@@ -68,19 +85,20 @@ class TestSecretsAreNotBackedUp(unittest.TestCase):
     def test_every_file_the_postrm_shreds_is_excluded(self):
         names = postrm_shredded_names()
         self.assertTrue(names, "no shredded names parsed from the postrm")
-        excluded = {e.rsplit("/", 1)[-1] for e in backup_excludes()}
+        excluded = set(backup_excludes())
         # No exemptions. `oscar.properties` sits inside the excluded
         # bundle/ today, so "the directory covers it" was true -- and it
         # left the two scripts free to disagree the moment that file is
-        # written anywhere else the postrm's -maxdepth 2 find reaches.
-        # The backup names it instead, at both depths.
+        # written anywhere else the postrm's recursive find reaches.
+        # Require both root and nested exclusions for every credential name.
         for name in names:
-            self.assertIn(
-                name, excluded,
-                "the postrm shreds {0} from the import workspace because it "
-                "holds credentials, but the nightly backup copies it into "
-                "the restic repository, where the retention policy keeps it "
-                "for up to a year".format(name))
+            for directory in ("${O19_DIR}/", "${O19_DIR}/**/"):
+                self.assertIn(
+                    directory + name, excluded,
+                    "the postrm shreds {0} from the import workspace because it "
+                    "holds credentials, but the nightly backup copies it into "
+                    "the restic repository, where the retention policy keeps it "
+                    "for up to a year".format(directory + name))
 
     def test_the_extracted_bundle_is_excluded(self):
         # bundle/ is the clinic's whole database as plaintext SQL, their
@@ -90,7 +108,7 @@ class TestSecretsAreNotBackedUp(unittest.TestCase):
         # import guarantees an unmanaged second copy of the entire
         # pre-migration record in the repository.
         excluded = {e.rsplit("/", 1)[-1] for e in backup_excludes()}
-        for name in ("bundle", "bundle-assess"):
+        for name in ("bundle", "bundle-assess", "bundle-sources", "bundle-assess-sources"):
             self.assertIn(
                 name, excluded,
                 "the extracted bundle directory {0}/ is not excluded from "
@@ -112,10 +130,11 @@ class TestSecretsAreNotBackedUp(unittest.TestCase):
 
 class TestTheCarlosCtlPin(unittest.TestCase):
 
-    """debian/carlos-ctl.pin is read by three hands: the release build
-    (fetch-carlos-ctl.sh, the tag only), and the two CI jobs that check
-    out the pinned CLI and, until that tag is published, its fallback
-    commit. Its shape is a contract between them."""
+    """The release build reads the tag; CI reads the tag or exact fallback.
+
+    The installed CDS resource gate always requires the fallback commit, so
+    it remains mandatory even after the tag is published.
+    """
 
     PIN = ROOT / "debian" / "carlos-ctl.pin"
     WORKFLOWS = (ROOT / ".github" / "workflows" / "debian-python-tests.yml",
@@ -133,11 +152,11 @@ class TestTheCarlosCtlPin(unittest.TestCase):
         tag = self._fields().get("tag")
         self.assertRegex(tag or "", r"^\d+\.\d+\.\d+(-[A-Za-z0-9.]+)?$")
 
-    def test_a_fallback_names_one_full_commit(self):
+    def test_fallback_names_one_full_commit(self):
+        """Require the immutable CLI source commit used by installed CI."""
         # a branch name would move under the job; a short id is ambiguous
         fallback = self._fields().get("fallback")
-        if fallback is not None:
-            self.assertRegex(fallback, r"^[0-9a-f]{40}$")
+        self.assertRegex(fallback or "", r"^[0-9a-f]{40}$")
         self.assertEqual(set(self._fields()) - {"tag", "fallback"}, set(),
                          "unknown key in debian/carlos-ctl.pin")
 
@@ -150,6 +169,36 @@ class TestTheCarlosCtlPin(unittest.TestCase):
         # the release build never falls back: a missing release is a failure
         fetch = (ROOT / "debian" / "fetch-carlos-ctl.sh").read_text(encoding="utf-8")
         self.assertNotIn("fallback", fetch)
+
+
+class TestTheDrugrefPin(unittest.TestCase):
+
+    """debian/drugref.pin names the DrugRef revision carlos-emr-drugref is
+    built from when no DRUGREF_SRC or DRUGREF_WAR is given. debian/rules
+    reads it with sed and debian/fetch-drugref.sh checks that revision out,
+    so a branch name would ship different code under one package version
+    and a short id can become ambiguous (#5006 moved it by hand)."""
+
+    PIN = ROOT / "debian" / "drugref.pin"
+
+    def _fields(self):
+        fields = {}
+        for line in self.PIN.read_text(encoding="utf-8").splitlines():
+            if line and not line.startswith("#"):
+                key, _, value = line.partition("=")
+                self.assertNotIn(key, fields, f"{key}= appears twice in debian/drugref.pin")
+                fields[key] = value
+        return fields
+
+    def test_the_ref_names_one_full_commit(self):
+        fields = self._fields()
+        self.assertEqual(set(fields), {"ref"}, "debian/drugref.pin must hold exactly one ref= line")
+        self.assertRegex(fields["ref"], r"^[0-9a-f]{40}$")
+
+    def test_the_build_reads_the_ref_the_way_the_pin_writes_it(self):
+        rules = (ROOT / "debian" / "rules").read_text(encoding="utf-8")
+        self.assertIn("DRUGREF_REF ?= $(shell sed -n 's/^ref=//p' debian/drugref.pin)", rules)
+        self.assertIn('debian/fetch-drugref.sh "$(DRUGREF_REF)"', rules)
 
 
 class TestPinnedCliWorkflowCheckout(unittest.TestCase):

@@ -133,9 +133,13 @@ public class FrmBCAR20202Action extends ActionSupport {
 
         int formId = StringUtils.isNotEmpty(request.getParameter("formId")) ? Integer.parseInt(request.getParameter("formId")) : 0;
         int demographicNo = StringUtils.isNotEmpty(request.getParameter("demographicNo")) ? Integer.parseInt(request.getParameter("demographicNo")) : 0;
-        String providerNo = StringUtils.isNotEmpty(request.getParameter("provNo")) ? request.getParameter("provNo") : "0";
+        // Stored as the signed-in provider's form, never a provider number taken from the request.
+        String providerNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
         Integer page = StringUtils.isNotEmpty(request.getParameter("pageNo")) ? Integer.parseInt(request.getParameter("pageNo")) : 1;
         Integer forwardTo = StringUtils.isNotEmpty(request.getParameter("forwardTo")) ? Integer.parseInt(request.getParameter("forwardTo")) : page;
+        // A save copies the earlier version's rows into the new one, so that version must be this patient's.
+        requirePatientRights(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo, "w");
+        FrmBCAR2020Record.requireFormOfPatient(bcar2020Dao, formId, demographicNo);
 
         List<FormBCAR2020Data> currentRecords = bcar2020DataDao.findFields(formId);
         List<FormBCAR2020Text> currentTextRecords = bcar2020TextDao.findFields(formId);
@@ -236,6 +240,8 @@ public class FrmBCAR20202Action extends ActionSupport {
         Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
         Integer formId = Integer.parseInt(request.getParameter("formId"));
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        requirePatientRights(loggedInInfo, demographicNo, "r");
+        FrmBCAR2020Record.requireFormOfPatient(bcar2020Dao, formId, demographicNo);
 
         List<Integer> pagesToPrint = new ArrayList<>();
         // Loops through checking which pages were selected for printing
@@ -256,6 +262,20 @@ public class FrmBCAR20202Action extends ActionSupport {
         }
 
         return null;
+    }
+
+    /**
+     * Requires the BC-AR rights ({@code _form}) and the rights to this patient's record ({@code _demographic}), as
+     * {@code FrmForm2Action} does: a per-patient restriction is held on {@code _demographic$N}, which a
+     * {@code _form} check alone never reads.
+     */
+    private void requirePatientRights(LoggedInInfo loggedInInfo, int demographicNo, String rights) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", rights, demographicNo)) {
+            throw new SecurityException("missing required sec object (_form)");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", rights, demographicNo)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
     }
 
     public void printPdf(OutputStream os, LoggedInInfo loggedInInfo, Integer demographicNo, Integer formId, List<Integer> pagesToPrint) {

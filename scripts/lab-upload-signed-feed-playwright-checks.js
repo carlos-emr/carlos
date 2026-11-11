@@ -64,6 +64,7 @@ const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { serverLogFromEnvironment, verifyStorageFailureLog } = require('./lib/server-log');
 const { syntheticCmlLab, openUploader } = require('./lab-upload-playwright-checks');
+const { createFaultReceipt, ownedTriggerStatements, sha } = require('./lib/lab-signed-fault-proof');
 
 /** Encrypts and signs a lab the way the legacy sender protocol does. */
 function sealForUpload(plaintext, serverPublicKey, senderPrivateKey) {
@@ -83,9 +84,10 @@ function sealForUpload(plaintext, serverPublicKey, senderPrivateKey) {
  * 409 and 406 on purpose, and the strict page recorder would report those as page failures. The
  * request still carries the session cookie and its CSRF token, and still goes through the front door.
  */
-async function postSigned(session, page, sealed, service) {
+async function postSigned(session, page, sealed, service, proof, phase) {
   const csrf = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue().catch(() => '');
   h.assert(csrf, 'The uploader page carried no CSRF token to send with the signed post');
+  proof.request(phase, {method: 'POST', path: '/lab/newLabUpload', startedAt: new Date().toISOString()});
   const response = await session.context.request.post(h.appUrl(session.config.baseUrl, '/lab/newLabUpload'), {
     headers: { 'CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest' },
     multipart: {
@@ -97,6 +99,7 @@ async function postSigned(session, page, sealed, service) {
     },
     maxRedirects: 0,
   });
+  proof.request(phase, {status: response.status(), finishedAt: new Date().toISOString()});
   return response.status();
 }
 
@@ -111,6 +114,15 @@ async function workflow(session) {
   const md5 = crypto.createHash('md5').update(plaintext).digest('hex'); // nosemgrep: javascript.node-stdlib.cryptography.crypto-weak-algorithm.crypto-weak-algorithm -- matches FileUploadCheck's MD5 duplicate index, not a security control
   const ownChecksum = `md5sum=${h.sqlString(md5)}`;
   const store = process.env.LAB_UPLOAD_DOCUMENT_STORE ? fs.realpathSync(process.env.LAB_UPLOAD_DOCUMENT_STORE) : null;
+  h.assert(store, 'Signed-feed fault validation requires LAB_UPLOAD_DOCUMENT_STORE');
+  h.assert(serverLogFromEnvironment().configured, 'Signed-feed fault validation requires an actual server-log reader');
+  const proof = createFaultReceipt(process.env.LAB_SIGNED_FAULT_ARTIFACT_DIR || process.env.ARTIFACT_DIR || '/tmp/carlos-lab-signed-fault', {
+    triggerName: failureTrigger, accession, testSourceSha256: sha(fs.readFileSync(__filename)), payloadSha256: sha(plaintext),
+    helperSourceSha256: sha(fs.readFileSync(require.resolve('./lib/lab-signed-fault-proof'))),
+    handlerSourceSha256: sha(fs.readFileSync(path.resolve(__dirname, '../src/main/java/io/github/carlos_emr/carlos/lab/ca/all/upload/handlers/CMLHandler.java'))),
+    logTimeZone: new Date().getTimezoneOffset() === 0 ? 'UTC' : 'UNVERIFIED',
+  });
+  cleanup(() => proof.close());
   let triggerMayExist = false;
   let installedServerKey = null;
 
@@ -178,6 +190,7 @@ async function workflow(session) {
       + (SELECT COUNT(*) FROM publicKeys WHERE service=${h.sqlString(service)})
       + (SELECT COUNT(*) FROM hl7TextMessage WHERE FROM_BASE64(message) LIKE ${h.sqlString(`%${accession}%`)})`) === '0',
     'The synthetic signed-feed rows were not all removed');
+    proof.update({cleanupAcknowledged: true});
   });
 
   const sender = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -213,24 +226,30 @@ async function workflow(session) {
     // raw message were inserted, the half-failed upload #4086 describes.
     triggerMayExist = true;
     try {
-      sql.execute(`DELIMITER //
-        CREATE TRIGGER ${failureTrigger} BEFORE INSERT ON hl7TextInfo FOR EACH ROW
-        BEGIN
-          IF NEW.accessionNum=${h.sqlString(accession)} THEN
-            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Synthetic signed upload failure probe';
-          END IF;
-        END//
-        DELIMITER ;`);
+      const {body: triggerBody, sql: triggerSql} = ownedTriggerStatements(failureTrigger, accession);
+      proof.update({triggerSqlSha256: sha(triggerSql), expectedTriggerBodySha256: sha(triggerBody)});
+      sql.execute(triggerSql);
+      const metadata = sql.rows(`SELECT EVENT_OBJECT_TABLE,EVENT_MANIPULATION,ACTION_TIMING,HEX(ACTION_STATEMENT)
+        FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME=${h.sqlString(failureTrigger)}`);
+      h.assert(metadata.length === 1 && metadata[0][0] === 'hl7TextInfo' && metadata[0][1] === 'INSERT' && metadata[0][2] === 'BEFORE',
+        'Owned fault trigger scope changed');
+      const observedBody = Buffer.from(metadata[0][3], 'hex').toString('utf8');
+      h.assert(observedBody === triggerBody, 'Owned fault trigger body differs from intent');
+      proof.update({observedTriggerBodySha256: sha(observedBody), observedTriggerScope: {table: 'hl7TextInfo', event: 'INSERT', timing: 'BEFORE'}});
       const serverLog = serverLogFromEnvironment();
       const logMark = serverLog.mark();
-      const status = await postSigned(session, popup, sealed, service);
+      h.assert(serverLog.configured, 'Signed fault requires actual server-log proof');
+      proof.update({logCursorBeforeFault: logMark?.cursor || null, logSource: serverLog.source});
+      const status = await postSigned(session, popup, sealed, service, proof, 'fault');
       h.assert(status === 500, `A failed signed upload answered HTTP ${status}; a sender must be told to retry`);
       h.assert(sql.value(`SELECT
           (SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownChecksum})
         + (SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)})
         + (SELECT COUNT(*) FROM hl7TextMessage WHERE FROM_BASE64(message) LIKE ${h.sqlString(`%${accession}%`)})`) === '0',
       'The failed upload left its checksum or partial lab rows, which would refuse the retry');
+      h.assert(store, 'Signed fault requires the installed document store');
       expectCopies(0, 'after the failed upload');
+      proof.update({rollbackRows: 0, decryptedCopiesAfterFailure: 0});
       // After the rollback, which matters more, so a log failure cannot mask it. #4436: the rejected
       // insert must surface as the database's own error, not as Hibernate's HHH000099.
       await verifyStorageFailureLog({ reader: serverLog, mark: logMark,
@@ -238,11 +257,14 @@ async function workflow(session) {
     } finally {
       sql.execute(`DROP TRIGGER IF EXISTS ${failureTrigger}`);
       triggerMayExist = false;
+      const absent = sql.value(`SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME=${h.sqlString(failureTrigger)}`) === '0';
+      h.assert(absent, 'Owned fault trigger remains after DROP');
+      proof.update({triggerDropAcknowledged: true, triggerAbsentAfterDrop: true});
     }
   });
 
   await session.step('the sender\'s retry of the same file is delivered, not answered 409', async () => {
-    const status = await postSigned(session, popup, sealed, service);
+    const status = await postSigned(session, popup, sealed, service, proof, 'retry');
     h.assert(status === 200, `The retry answered HTTP ${status} instead of 200`);
     await expectValue(sql, `SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`, '1',
       'The retried lab did not reach hl7TextInfo under its accession');
@@ -256,7 +278,7 @@ async function workflow(session) {
   });
 
   await session.step('a real duplicate is answered 409 and stores nothing new', async () => {
-    const status = await postSigned(session, popup, sealed, service);
+    const status = await postSigned(session, popup, sealed, service, proof, 'duplicate');
     h.assert(status === 409, `A delivered lab sent again answered HTTP ${status} instead of 409`);
     h.assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`) === '1',
       'The duplicate filed a second copy of the lab');
@@ -267,7 +289,7 @@ async function workflow(session) {
     // A valid MD5withRSA signature over other bytes: the legacy protocol's wrong-signature case.
     const wrongSignature = crypto.sign('md5', Buffer.from(`not ${accession}`), sender.privateKey); // nosemgrep: javascript.node-stdlib.cryptography.crypto-weak-algorithm.crypto-weak-algorithm -- legacy sender signature (#3413)
     const forged = { ...sealed, signature: wrongSignature.toString('base64') };
-    const status = await postSigned(session, popup, forged, service);
+    const status = await postSigned(session, popup, forged, service, proof, 'wrong-signature');
     h.assert(status === 406, `A wrongly signed lab answered HTTP ${status} instead of 406`);
     expectCopies(1, 'after the wrongly signed upload');
   });

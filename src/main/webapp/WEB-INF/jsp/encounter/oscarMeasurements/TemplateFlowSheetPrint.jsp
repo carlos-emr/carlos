@@ -120,7 +120,8 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
     if (elesToPrint != null) {
         for (String toPrint : elesToPrint) {
             String printStyle = request.getParameter("printStyle" + toPrint);
-            if (printStyle != null && printStyle.equals("all")) {
+            // Prevention checkboxes have no print-style selector; include every value by default.
+            if (printStyle == null || printStyle.equals("all")) {
                 forPrint.put(toPrint, "all");
             } else if (printStyle != null && printStyle.equals("num")) {
                 String numEle = request.getParameter("numEle" + toPrint);
@@ -806,8 +807,8 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                                     Hashtable dates = (Hashtable) oj;
                                     Date sdate = (Date) dates.get("sdate");
                                     Date edate = (Date) dates.get("edate");
-                                    Date itDate = UtilDateUtilities.StringToDate((String) hdata.get("prevention_date"));
-                                    if (itDate.before(sdate) || itDate.after(edate)) {
+                                    Date itDate = (Date) hdata.get("prevention_date_asDate");
+                                    if (itDate != null && (itDate.before(sdate) || itDate.after(edate))) {
                                         hider = "style=\"display:none\"";
                                     }
                                 }
@@ -816,6 +817,9 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                             if (k > num) {
                                 hider = "style=\"display:none;\"";
                             }
+                            Object preventionDateInfo = hdata.get("prevention_date_info");
+                            if (preventionDateInfo instanceof io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO
+                                    && !((io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO) preventionDateInfo).isExact()) hider = "";
 
                             //////PREV END
                     %>

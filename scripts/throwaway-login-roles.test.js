@@ -12,6 +12,7 @@ function fixture() {
       statements.push(query);
       if (query.startsWith('SELECT (SELECT COUNT')) return '0';
       if (query.startsWith('SELECT COUNT(*) FROM security WHERE user_name=')) return query.includes("'source-login'") ? '1' : '0';
+      if (query.startsWith('SELECT COUNT(*) FROM security WHERE provider_no=')) return '0';
       if (query.startsWith('SELECT COUNT(*) FROM provider')) return '1';
       if (query.startsWith('INSERT INTO security')) return '501';
       if (query.startsWith('SELECT password FROM security')) return 'fixture-hash';
@@ -50,3 +51,18 @@ for (const roleNames of [[], ["bad'role"]]) {
     assert.equal(statements.length, 0);
   });
 }
+
+test('the add-appointment page locks under the throwaway number are part of its rows', () => {
+  const {login, statements} = fixture();
+  login.create();
+  const lock = `FROM PageMonitor WHERE providerNo='${login.providerNo}'`;
+  assert.ok(statements.find(query => query.startsWith('SELECT (SELECT COUNT')).includes(lock), 'the free-number check skips page locks');
+  statements.length = 0;
+  login.cleanup();
+  const deletes = statements.filter(query => query.includes('DELETE FROM'));
+  assert.equal(deletes.length, 1);
+  assert.ok(deletes[0].includes(`DELETE ${lock}`), 'cleanup does not delete the page locks');
+  assert.ok(deletes[0].indexOf(`DELETE ${lock}`) < deletes[0].indexOf('DELETE FROM provider '), 'the page locks are not deleted before the provider row');
+  assert.ok(statements.filter(query => query.startsWith('SELECT (SELECT COUNT')).every(query => query.includes(lock)),
+    'the leftover count skips page locks');
+});

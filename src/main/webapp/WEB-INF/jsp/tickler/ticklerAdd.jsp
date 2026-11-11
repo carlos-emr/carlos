@@ -46,6 +46,8 @@
       marker, then drives the opener refresh and window close. On success, broadcasts
       to BroadcastChannel('carlos_tickler_refresh_' + demographicNo) so ticklerMain.jsp and
       newEncounterLayout.jsp for the same patient can reload without a full page refresh.
+      It also posts to 'carlos_tickler_refresh_all', the channel the provider-wide task
+      list listens on (#4993).
 
     Parameters:
     - demographic_no:       Patient demographic number. Ignored when ForwardDemographicTickler2Action
@@ -72,6 +74,8 @@
 --%>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.PatientReadAccess" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
@@ -135,14 +139,26 @@
     // A document forward whose document is not this patient's drops the patient (#4839).
     boolean patientDroppedForDocument = Boolean.TRUE.equals(
             request.getAttribute(ForwardDemographicTickler2Action.PATIENT_DROPPED_FOR_DOCUMENT));
-    String requestDemographicNo = patientDroppedForDocument ? null : request.getParameter("demographic_no");
+    String requestDemographicNo = null;
+    if (!patientDroppedForDocument) {
+        // The legacy forward action also reaches this JSP. Resolve the same actual patient
+        // before any demographic lookup; blank/0 forms have no patient to authorize or load.
+        try {
+            requestDemographicNo = PatientReadAccess.authorizedOptionalPatient(request,
+                    SpringUtils.getBean(SecurityInfoManager.class), LoggedInInfo.getLoggedInInfoFromSession(request),
+                    "_tickler", SecurityInfoManager.WRITE);
+        } catch (IllegalArgumentException invalid) {
+            response.setStatus(400);
+            return;
+        }
+    }
 
     // Text the opener suggests for the task. It only seeds the Reminder Message box, where it is
     // HTML-encoded, and the clinician reviews it before Save.
     String suggestedMessage = Objects.toString(request.getParameter("ticklerMessage"), "");
 
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-    Demographic demographic = demographicDao.getDemographic(requestDemographicNo);
+    Demographic demographic = requestDemographicNo == null ? null : demographicDao.getDemographic(requestDemographicNo);
     if (demographic != null) {
         demoName = demographic.getFormattedName();
         demoMRP = demographic.getProviderNo();
@@ -530,9 +546,12 @@
                     // Always broadcast for cross-window listeners (e.g. ticklerMain.jsp)
                     try {
                         var demoNo = '<carlos:encode value='<%= requestDemographicNo != null ? requestDemographicNo : "0" %>' context="javaScriptBlock"/>';<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
-                        var bc = new BroadcastChannel('carlos_tickler_refresh_' + demoNo);
-                        bc.postMessage({ action: 'refresh' });
-                        bc.close();
+                        // Patient-scoped listeners (encounter, patient task list) and the provider-wide list ("all").
+                        ['all', demoNo].forEach(function (scope) {
+                            var bc = new BroadcastChannel('carlos_tickler_refresh_' + scope);
+                            bc.postMessage({ action: 'refresh' });
+                            bc.close();
+                        });
                     } catch (e) {
                         console.error('[ticklerAdd] BroadcastChannel broadcast failed:', e);
                         // Fallback: reload the opener directly so the tickler list stays current

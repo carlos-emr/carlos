@@ -68,6 +68,7 @@ class SaveAssoc2ActionUnitTest extends CarlosUnitTestBase {
     private static final String DX = "250";
 
     private MockHttpServletRequest request;
+    private MockHttpServletResponse response;
     private MockedStatic<ServletActionContext> servlet;
     private MockedConstruction<BillingAssociationPersistence> persistence;
     private SaveAssoc2Action action;
@@ -81,7 +82,8 @@ class SaveAssoc2ActionUnitTest extends CarlosUnitTestBase {
         when(security.hasPrivilege(info, "_billing", "w", null)).thenReturn(true);
         servlet = mockStatic(ServletActionContext.class);
         servlet.when(ServletActionContext::getRequest).thenReturn(request);
-        servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+        response = new MockHttpServletResponse();
+        servlet.when(ServletActionContext::getResponse).thenReturn(response);
         persistence = mockConstruction(BillingAssociationPersistence.class, (mock, context) -> {
             when(mock.serviceCodeExists(CODE)).thenReturn(true);
             when(mock.dxcodeExists(DX)).thenReturn(true);
@@ -163,6 +165,22 @@ class SaveAssoc2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(action.getActionErrors()).containsExactly(
                 "oscar.billing.CA.BC.billingBC.error.invalidsvccode:99999", "oscar.billing.CA.BC.billingBC.error.invaliddxcode:Z0000");
         assertThat(request.getAttribute("mode")).isEqualTo("edit");
+    }
+
+    /** The editor posts; a GET or HEAD is refused before any code is checked or saved (#4439 D12). */
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void shouldRefuseWith405_whenTheSaveIsNotPosted(String httpMethod) {
+        request.setMethod(httpMethod);
+        action.setMode("edit");
+        action.setXml_other1(CODE);
+        action.setXml_diagnostic_detail1(DX);
+
+        assertThat(action.execute()).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        assertThat(persistence.constructed()).isEmpty();
     }
 
     @Test

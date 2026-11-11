@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -77,19 +78,31 @@ import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ManageTeleplan2Action extends ActionSupport {
+    private static final String SET_USER_NAME = "setUserName";
+    private static final String GET_SEQUENCE_NUMBER = "getSequenceNumber";
+    private static final String SET_SEQUENCE_NUMBER = "setSequenceNumber";
+    private static final String SET_PASS = "setPass";
+
     private static final Set<String> POST_ONLY_METHODS = Set.of(
-            "setUserName",
+            SET_USER_NAME,
             "updateBillingCodes",
             "updateteleplanICDCodesList",
             "updateExplanatoryCodesList",
             "commitUpdateBillingCodes",
-            "getSequenceNumber",
-            "setSequenceNumber",
+            GET_SEQUENCE_NUMBER,
+            SET_SEQUENCE_NUMBER,
             "sendFile",
             "remit",
-            "setPass",
+            SET_PASS,
             "changePass",
             "checkElig");
+    /**
+     * The writes the page offers only to the billing superuser (BILLING_SUPERUSER, compared as the page's
+     * oscarPropertiesCheck does): the Teleplan sequence, set by hand or fetched from Teleplan and stored, and the
+     * stored Teleplan username and password.
+     */
+    private static final Set<String> SUPERUSER_METHODS =
+            Set.of(SET_SEQUENCE_NUMBER, GET_SEQUENCE_NUMBER, SET_USER_NAME, SET_PASS);
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -119,9 +132,10 @@ public class ManageTeleplan2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
+        requireBillingSuperuser(method, loggedInInfo);
 
         //log.debug("UNSPECIFIED ACTION!");
-        if ("setUserName".equals(method)) {
+        if (SET_USER_NAME.equals(method)) {
             return setUserName();
         } else if ("updateBillingCodes".equals(method)) {
             return updateBillingCodes();
@@ -131,15 +145,15 @@ public class ManageTeleplan2Action extends ActionSupport {
             return updateExplanatoryCodesList();
         } else if ("commitUpdateBillingCodes".equals(method)) {
             return commitUpdateBillingCodes();
-        } else if ("getSequenceNumber".equals(method)) {
+        } else if (GET_SEQUENCE_NUMBER.equals(method)) {
             return getSequenceNumber();
-        } else if ("setSequenceNumber".equals(method)) {
+        } else if (SET_SEQUENCE_NUMBER.equals(method)) {
             return setSequenceNumber();
         } else if ("sendFile".equals(method)) {
             return sendFile();
         } else if ("remit".equals(method)) {
             return remit();
-        } else if ("setPass".equals(method)) {
+        } else if (SET_PASS.equals(method)) {
             return setPass();
         } else if ("changePass".equals(method)) {
             return changePass();
@@ -390,6 +404,23 @@ public class ManageTeleplan2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    /**
+     * Refuses one of {@link #SUPERUSER_METHODS} to any login but the billing superuser. Hiding the forms is not enough: a
+     * POST from another billing login reaches the same methods.
+     */
+    private static void requireBillingSuperuser(String method, LoggedInInfo loggedInInfo) {
+        if (method != null && SUPERUSER_METHODS.contains(method) && !isBillingSuperuser(loggedInInfo)) {
+            throw new SecurityException("missing required billing superuser (BILLING_SUPERUSER)");
+        }
+    }
+
+    /** Whether the login is the one BILLING_SUPERUSER names, exactly as ManageTeleplan.jsp decides to show the forms. */
+    private static boolean isBillingSuperuser(LoggedInInfo loggedInInfo) {
+        String superUser = CarlosProperties.getInstance().getProperty("BILLING_SUPERUSER");
+        return superUser != null && !superUser.isEmpty() && loggedInInfo != null
+                && superUser.equals(loggedInInfo.getLoggedInProviderNo());
+    }
+
     public String setSequenceNumber() {
         log.debug("setSequenceNumber");
         String sequence = request.getParameter("num");
@@ -397,12 +428,13 @@ public class ManageTeleplan2Action extends ActionSupport {
         try {
             sequenceNumber = Integer.parseInt(sequence);
         } catch (Exception _) {
-            //TODO: ADDED ERROR MESSAGE ABOUT THE NUMBER NOT BEING A NUMBER!
+            // A refused number stores nothing; the page shows "error" so the user knows why (issue #5066).
+            request.setAttribute("error", LocaleUtils.getMessage(request, "billing.bc.manageTeleplan.sequenceNotNumber"));
             return SUCCESS;
         }
 
         if (sequenceNumber < 0 || sequenceNumber > 9999999) {
-            //TODO: ADDED ERROR MESSAGE ABOUT NUMBER BEING OUT OF RANGE
+            request.setAttribute("error", LocaleUtils.getMessage(request, "billing.bc.manageTeleplan.sequenceOutOfRange"));
             return SUCCESS;
         }
 

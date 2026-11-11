@@ -3,9 +3,15 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {createInboxAcknowledgementFixture} = require('./lib/inbox-acknowledgement-fixture');
+const {parseMysqlBatchOutput} = require('./lib/playwright-harness');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
 
-function environment({unassigned = false, ignoredRestore = false} = {}) {
-  let rows = [['7', '100', '4E', 'NULL', 'NULL']];
+function environment({unassigned = false, ignoredRestore = false, parserOutput = false} = {}) {
+  const original = parserOutput ? parseMysqlBatchOutput('7\t100\t4E\tNULL\tNULL\n')
+    : [['7', '100', '4E', 'NULL', 'NULL']];
+  let rows = structuredClone(original);
   let marker = '';
   let disposed = false;
   const writes = [];
@@ -21,7 +27,7 @@ function environment({unassigned = false, ignoredRestore = false} = {}) {
       } else if (query.startsWith('DELETE')) rows = rows.filter(row => row[0] !== '8');
       else if (query.startsWith('UPDATE') && !ignoredRestore) {
         const row = rows.find(row => row[0] === '7');
-        if (row) Object.assign(row, ['7', '100', '4E', 'NULL', 'NULL']);
+        if (row) Object.assign(row, structuredClone(original[0]));
       }
     },
     dispose() { disposed = true; },
@@ -76,3 +82,46 @@ test('rejects malformed source chains before querying the database', async () =>
   const fixture = createInboxAcknowledgementFixture(config, () => { throw new Error('must not query'); });
   await assert.rejects(fixture.prepare(view('100,1 OR 1=1'), 'HL7:100'), /Invalid acknowledgement/);
 });
+
+for (const mode of ['preview', 'rapid']) {
+  test(`actual native ${mode} main composes parser-null routing preparation and post-browser cleanup`, async () => {
+    const filename = mode === 'preview' ? 'inbox-preview-acknowledge-playwright-checks.js'
+      : 'inbox-rapid-review-advance-playwright-checks.js';
+    const source = fs.readFileSync(path.join(__dirname, filename), 'utf8');
+    const env = environment({parserOutput: true});
+    assert.equal(env.rows()[0][3], null);
+    const prepared = new Error('Stop after actual routing preparation; do not mock a clinical acknowledgement');
+    const order = [], cleanup = [];
+    const real = createInboxAcknowledgementFixture(config, () => env.sql);
+    const frame = view('100');
+    const target = {identity: 'HL7:100', index: 1, frame, popup: frame};
+    const scenario = {inbox: {evaluate: async () => true}, target,
+      before: ['HL7:99', 'HL7:100', 'HL7:101']};
+    const fixture = {async prepare(...args) {
+      await real.prepare(...args); order.push('routing-prepared'); throw prepared;
+    }, cleanup() { real.cleanup(); order.push('routing-cleaned'); }};
+    const module = {exports: {}};
+    const requireForCaller = name => {
+      if (name === './lib/playwright-harness') return {assert, SkipCheck: Error};
+      if (name === './lib/inbox-acknowledgement-fixture') return {createInboxAcknowledgementFixture: () => fixture};
+      if (name === './lib/playwright-ui') return {};
+      if (name === './inboxhub-filters-playwright-checks') return {settle: async () => {}};
+      if (name === './inbox-preview-acknowledge-playwright-checks') return {widenToAnyProvider: async () => {}};
+      throw new Error('Unexpected native-main dependency: ' + name);
+    };
+    const substitutions = mode === 'preview'
+      ? 'openInbox=async()=>scenario.inbox;enterPreviewMode=async()=>3;settleList=async()=>{};loadEveryPreviewPage=async()=>{};shownCards=async()=>scenario.before;findAcknowledgeable=async()=>scenario.target;'
+      : 'openInbox=async()=>scenario.inbox;enterListMode=async()=>3;rowsInDisplayOrder=async()=>scenario.before;openAcknowledgeableTarget=async()=>scenario.target;';
+    vm.runInNewContext(source + '\n' + substitutions, {module, exports: module.exports,
+      require: requireForCaller, process: {env: {}}, scenario}, {filename});
+    const session = {config, recorder: {}, schedule: {},
+      context: {async close() { order.push('browser-drained'); }}, cleanup(fn) { cleanup.push(fn); }};
+    await assert.rejects(module.exports.main({session}), error => error === prepared);
+    assert.deepEqual(order, ['routing-prepared', 'browser-drained']);
+    for (const dispose of cleanup.reverse()) await dispose();
+    assert.deepEqual(order, ['routing-prepared', 'browser-drained', 'routing-cleaned']);
+    assert.equal(env.disposed(), true);
+    assert.deepEqual(env.rows(), parseMysqlBatchOutput('7\t100\t4E\tNULL\tNULL\n'));
+    assert.match(env.writes.at(-1), /comment=NULL,\s+timestamp=NULL/);
+  });
+}

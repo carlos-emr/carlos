@@ -84,11 +84,13 @@ public final class MsgViewCreateMessage2Action extends ActionSupport {
         // a new message.
         String forwardMessage = request.getParameter(FORWARD_MESSAGE_PARAMETER);
         String attachmentKey = request.getParameter(MsgAttachmentStaging.KEY_PARAMETER);
-        if (forwardMessage != null && forwardMessage.matches("[1-9][0-9]{0,8}")) {
-            request.setAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE,
-                    MsgAttachmentStaging.composeKey(request.getSession(), Integer.parseInt(forwardMessage)));
-        } else if (MsgAttachmentStaging.isKey(attachmentKey)) {
+        if (MsgAttachmentStaging.isKey(attachmentKey)) {
             request.setAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE, attachmentKey);
+        } else if (forwardMessage != null && forwardMessage.matches("[1-9][0-9]*")
+                && io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(forwardMessage) > 0) {
+            request.setAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE,
+                    MsgAttachmentStaging.composeKey(request.getSession(),
+                            io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(forwardMessage)));
         }
 
         return SUCCESS;

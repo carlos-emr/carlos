@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.commn.model.Billingreferral;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.billings.ca.on.web.BillingRequestGuards;
 
 /**
  * @author Jay Gallagher
@@ -61,6 +62,10 @@ public class AddReferralDoc2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
+        }
+        // The referral doctor form posts; a GET or HEAD is refused before a doctor is added or changed.
+        if (!BillingRequestGuards.requirePost(request, response)) {
+            return NONE;
         }
 
         String af = SUCCESS;

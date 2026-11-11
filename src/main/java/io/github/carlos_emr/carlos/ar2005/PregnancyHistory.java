@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -677,64 +675,6 @@ public interface PregnancyHistory extends XmlObject
          */
         public static PregnancyHistory parse(final Node node, final XmlOptions options) throws XmlException {
             return (PregnancyHistory)XmlBeans.getContextTypeLoader().parse(node, PregnancyHistory.type, options);
-        }
-
-        /**
-         * Parses XML from an XMLInputStream into a PregnancyHistory instance.
-         *
-         * @param xis XMLInputStream the XML input stream
-         * @return PregnancyHistory the parsed pregnancy history object
-         * @throws XmlException if the XML is invalid or cannot be parsed
-         * @throws XMLStreamException if there is an error with the XML stream
-         * @deprecated XMLInputStream is deprecated in XMLBeans
-         */
-        @Deprecated
-        public static PregnancyHistory parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (PregnancyHistory)XmlBeans.getContextTypeLoader().parse(xis, PregnancyHistory.type, (XmlOptions)null);
-        }
-
-        /**
-         * Parses XML from an XMLInputStream into a PregnancyHistory instance with specified options.
-         *
-         * @param xis XMLInputStream the XML input stream
-         * @param options XmlOptions the XML options to use during parsing
-         * @return PregnancyHistory the parsed pregnancy history object
-         * @throws XmlException if the XML is invalid or cannot be parsed
-         * @throws XMLStreamException if there is an error with the XML stream
-         * @deprecated XMLInputStream is deprecated in XMLBeans
-         */
-        @Deprecated
-        public static PregnancyHistory parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (PregnancyHistory)XmlBeans.getContextTypeLoader().parse(xis, PregnancyHistory.type, options);
-        }
-
-        /**
-         * Creates a new validating XMLInputStream for PregnancyHistory.
-         *
-         * @param xis XMLInputStream the XML input stream to validate
-         * @return XMLInputStream a validating XML input stream
-         * @throws XmlException if there is an error creating the validating stream
-         * @throws XMLStreamException if there is an error with the XML stream
-         * @deprecated XMLInputStream is deprecated in XMLBeans
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, PregnancyHistory.type, (XmlOptions)null);
-        }
-
-        /**
-         * Creates a new validating XMLInputStream for PregnancyHistory with specified options.
-         *
-         * @param xis XMLInputStream the XML input stream to validate
-         * @param options XmlOptions the XML options to use during validation
-         * @return XMLInputStream a validating XML input stream
-         * @throws XmlException if there is an error creating the validating stream
-         * @throws XMLStreamException if there is an error with the XML stream
-         * @deprecated XMLInputStream is deprecated in XMLBeans
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, PregnancyHistory.type, options);
         }
 
         /**

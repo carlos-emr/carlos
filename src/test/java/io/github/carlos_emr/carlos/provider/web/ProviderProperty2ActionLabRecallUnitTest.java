@@ -46,6 +46,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
@@ -60,23 +61,26 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Issues #4720 and #4721: Preferences ▸ Lab Recall Settings. The page stored the message subject under a
+ * Issues #4720, #4721 and #5185: Preferences ▸ Lab Recall Settings. The page stored the message subject under a
  * name the messenger does not read, so a lab's Recall message never got it; and its banner printed the
  * message key (and a stray {@code "/>}) instead of the message, with the refused-delegate key missing from
  * every bundle.
+ * The delegate provider number is independent of the tickler's default-to-delegate yes/no flag (#5185).
  *
  * @since 2026-10-17
  */
 @Tag("unit")
-@DisplayName("Lab Recall Settings subject and banner (#4720, #4721)")
+@DisplayName("Lab Recall Settings subject, banner and delegate (#4720, #4721, #5185)")
 class ProviderProperty2ActionLabRecallUnitTest extends CarlosUnitTestBase {
 
     private static final Path PAGE = Path.of("src/main/webapp/WEB-INF/jsp/provider/setLabRecallPrefs.jsp");
     private static final String OWNER = "999998";
+    private static final String DELEGATE = "999997";
     private static final String SUBJECT = "FAKE-PW recall: please book a follow-up";
 
     private final MockHttpServletRequest request = new MockHttpServletRequest("POST", "/setProviderStaleDate");
@@ -128,6 +132,45 @@ class ProviderProperty2ActionLabRecallUnitTest extends CarlosUnitTestBase {
         request.setParameter("labRecallDelegate.value", delegate);
         request.setParameter("labRecallTicklerPriority.value", "High");
         action.setLabRecallMsgSubject(property(0, null, SUBJECT));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"true, false", "false, false", "true, true", "false, true"})
+    @DisplayName("should store and reload the selected provider independently of the default-to-delegate flag")
+    void shouldKeepDelegateSeparateFromFlag_whenCreatingOrUpdating(boolean checked, boolean existing) {
+        Provider delegate = new Provider();
+        delegate.setProviderNo(DELEGATE);
+        delegate.setLastName("FAKE-Delegate");
+        delegate.setFirstName("Provider");
+        when(providers.getProviders(true)).thenAnswer(call -> new ArrayList<>(List.of(delegate)));
+        if (existing) {
+            when(properties.getProp(OWNER, UserProperty.LAB_RECALL_DELEGATE))
+                    .thenReturn(property(10, UserProperty.LAB_RECALL_DELEGATE, OWNER));
+            when(properties.getProp(OWNER, UserProperty.LAB_RECALL_TICKLER_ASSIGNEE))
+                    .thenReturn(property(11, UserProperty.LAB_RECALL_TICKLER_ASSIGNEE, checked ? "no" : "yes"));
+        }
+        submit(DELEGATE);
+        if (checked) {
+            request.setParameter("labRecallTicklerAssignee.checked", "on");
+        }
+
+        assertThat(action.saveLabRecallPrefs()).isEqualTo("genLabRecallPrefs");
+
+        ArgumentCaptor<UserProperty> saved = ArgumentCaptor.forClass(UserProperty.class);
+        verify(properties, times(4)).saveProp(saved.capture());
+        assertThat(saved.getAllValues()).allSatisfy(p -> assertThat(p.getProviderNo()).isEqualTo(OWNER));
+        assertThat(saved.getAllValues()).filteredOn(p -> UserProperty.LAB_RECALL_DELEGATE.equals(p.getName()))
+                .extracting(UserProperty::getValue).containsExactly(DELEGATE);
+        assertThat(saved.getAllValues()).filteredOn(p -> UserProperty.LAB_RECALL_TICKLER_ASSIGNEE.equals(p.getName()))
+                .extracting(UserProperty::getValue).containsExactly(checked ? "yes" : "no");
+        for (UserProperty value : saved.getAllValues()) {
+            when(properties.getProp(OWNER, value.getName())).thenReturn(value);
+        }
+
+        action.viewLabRecall();
+
+        assertThat(action.getLabRecallDelegate().getValue()).isEqualTo(DELEGATE);
+        assertThat(action.getLabRecallTicklerAssignee().isChecked()).isEqualTo(checked);
     }
 
     @Test

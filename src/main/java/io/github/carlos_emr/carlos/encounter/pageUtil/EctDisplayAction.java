@@ -37,6 +37,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -182,9 +183,8 @@ public class EctDisplayAction extends ActionSupport {
     }
 
     private void ensureChartReadPrivilege(String demographicNo) {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eChart", "r", demographicNo)) {
-            throw new SecurityException("missing required sec object (_eChart)");
-        }
+        PatientRecordAccess.require(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                demographicNo, "_eChart", "r");
     }
 
     private EctSessionBean rebuildEncounterSessionBean(String demographicNo) {

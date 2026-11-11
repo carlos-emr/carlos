@@ -11,10 +11,12 @@
  * exactly the rows MariaDB returns for the owned FAKE- patients (the sex filter excludes the
  * second one); the manage page lists it and Delete Selected archives only that row (a second,
  * unticked marker favourite stays active) and drops it from the dropdown. Negative probes on a second marker favourite: a tokenless POST and a GET of
- * the delete mutator must leave it unarchived (GET must answer 405), and a GET of the tool with
- * Save Query intent must store nothing (405).
+ * the delete mutator must leave it unarchived (GET must answer 405), and both tool write intents refuse GET/HEAD (405 + Allow: POST) and tokenless POST (403),
+ * storing neither favourites nor patient sets. Native POST controls carry actual CSRF tokens;
+ * read-only GET display and query execution remain available.
  * Fixtures: the runWorkflow patient plus a second marker patient; favourites named with the
- * marker. Cleanup deletes only marker rows and asserts they are gone.
+ * marker, plus uniquely named patient sets (20 characters) restricted to those owned patients.
+ * Zero-name baselines and foreign-patient refusal gates precede owned-set cleanup.
  * Implements coverage plan §3.6 (report: Demographic Report Tool saved queries).
  */
 const h = require('./lib/playwright-harness');
@@ -24,11 +26,68 @@ const {runWorkflow} = require('./lib/workflow-session');
 const TIMEOUT = 30000;
 const COLUMNS = ['demographic_no', 'last_name', 'first_name', 'sex'];
 
+const WRITE_INTENTS = ['Save Query', 'Run Query And Save to Patient Set'];
+
+function reportMutationNames(marker, suffix) {
+  h.assert(/^FAKE-PW[0-9a-f]{16}$/.test(marker) && /^[A-Z][0-9]$/.test(suffix), 'Invalid owned report probe marker');
+  return {queryName: `${marker}-${suffix}`, setName: `PW${marker.slice(-16)}${suffix}`};
+}
+
+function registerOwnedPatientSets(s, secondPatient) {
+  const names = ['G0', 'G1', 'H0', 'H1', 'P0', 'P1', 'S0'].map(suffix => reportMutationNames(s.marker, suffix).setName);
+  const where = `set_name IN (${names.map(h.sqlString).join(',')})`;
+  h.assert(s.sql.value(`SELECT COUNT(*) FROM demographicSets WHERE ${where}`) === '0',
+    "A patient set already uses this run's exact owned names; refusing to adopt it");
+  let cleaned = false;
+  const reservation = {where, assertClean() {h.assert(cleaned, 'Owned patient-set cleanup is unconfirmed; retaining the second owned patient');}};
+  const patients = [s.patient, secondPatient];
+  h.assert(patients.every(value => /^[1-9]\d*$/.test(String(value))), 'Owned patient set keys are invalid');
+  s.cleanup(() => {
+    h.assert(s.context.browser() && !s.context.browser().isConnected(), 'Report browser drain is unconfirmed; retaining patient sets');
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM demographicSets WHERE ${where}
+      AND (demographic_no IS NULL OR demographic_no NOT IN (${patients.join(',')}))`) === '0',
+      'An owned-name patient set references a foreign patient; refusing cleanup');
+    s.sql.execute(`DELETE FROM demographicSets WHERE ${where} AND demographic_no IN (${patients.join(',')})`);
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM demographicSets WHERE ${where}`) === '0', 'Owned patient sets were not removed');
+    cleaned = true;
+  });
+  return reservation;
+}
+
+async function assertReportMutationRefused(s, {method, intent, queryName, setName}) {
+  h.assert(['GET', 'HEAD', 'POST'].includes(method) && WRITE_INTENTS.includes(intent), 'Invalid report refusal probe');
+  const favouriteWhere = `queryName=${h.sqlString(queryName)}`;
+  const setWhere = `set_name=${h.sqlString(setName)}`;
+  h.assert(s.sql.value(`SELECT COUNT(*) FROM demographicQueryFavourites WHERE ${favouriteWhere}`) === '0'
+    && s.sql.value(`SELECT COUNT(*) FROM demographicSets WHERE ${setWhere}`) === '0', 'Report probe names are not empty');
+  const fields = {query: intent, queryName, setName, select: 'demographic_no', lastName: s.marker, sex: '1'};
+  const response = await s.context.request.fetch(h.appUrl(s.config.baseUrl, '/report/DemographicReport'),
+    {method, ...(method === 'POST' ? {form: fields} : {params: fields}), maxRedirects: 0});
+  const expectedStatus = method === 'POST' ? 403 : 405;
+  h.assert(response.status() === expectedStatus, `${method} report write intent answered HTTP ${response.status()}, expected ${expectedStatus}`);
+  if (method !== 'POST') h.assert(response.headers().allow === 'POST', `${method} report write refusal did not advertise Allow: POST`);
+  await h.assertRefused(s, {response, table: 'demographicQueryFavourites', where: favouriteWhere, before: '0', label: `${method} report write intent`});
+  h.assert(s.sql.value(`SELECT COUNT(*) FROM demographicSets WHERE ${setWhere}`) === '0', `${method} report refusal wrote a patient-set row`);
+}
+
+async function submitReportWrite(page, intent, submit, reportUrl) {
+  const native = page.waitForRequest(request => request.method() === 'POST'
+    && new URL(request.url()).origin === new URL(reportUrl).origin
+    && new URL(request.url()).pathname === new URL(reportUrl).pathname
+    && new URLSearchParams(request.postData() || '').get('query') === intent, {timeout: TIMEOUT});
+  const [request] = await Promise.all([native, submit(page, intent)]);
+  const fields = new URLSearchParams(request.postData() || '');
+  h.assert(Boolean(request.headers()['csrf-token'] || fields.get('CSRF-TOKEN')), 'Native report POST did not carry a CSRF token');
+  const response = await request.response();
+  h.assert(response && response.status() === 200, 'Native report POST did not complete successfully');
+}
+
 async function workflow(s) {
   const {sql, patient, marker, context, recorder} = s;
   const queryName = `${marker} Fav "A&B" O'Neil`;
   const favourites = `demographicQueryFavourites WHERE queryName LIKE ${h.sqlString(marker + '%')}`;
   let secondPatient;
+  let ownedSets;
   let favouriteId;
   s.cleanup(() => {
     sql.execute(`DELETE FROM ${favourites}`);
@@ -36,6 +95,8 @@ async function workflow(s) {
   });
   s.cleanup(() => {
     if (!secondPatient) return;
+    h.assert(context.browser() && !context.browser().isConnected(), 'Report browser drain is unconfirmed; retaining the second owned patient');
+    if (ownedSets) ownedSets.assertClean();
     sql.execute(`DELETE FROM demographic WHERE demographic_no=${secondPatient} AND last_name=${h.sqlString(marker)}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${secondPatient}`) === '0',
       'The second owned patient was not removed');
@@ -46,6 +107,9 @@ async function workflow(s) {
     VALUES (${h.sqlString(marker)},'Second','1975','03','04','M','AC',
       ${h.sqlString(s.provider)},'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(secondPatient), 'The second owned patient was not created');
+  ownedSets = registerOwnedPatientSets(s, secondPatient);
+  const ownedSetsWhere = ownedSets.where;
+  const reportUrl = h.appUrl(s.config.baseUrl, '/report/DemographicReport');
 
   const {page: reportIndex} = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('a[title="Generate a report"]').first(),
     {context, recorder, label: 'report-index', timeout: TIMEOUT});
@@ -64,7 +128,7 @@ async function workflow(s) {
     await tool.locator('#lastName').fill(marker);
     await tool.locator('select[name="sex"]').selectOption('1');
     await tool.locator('#queryName').fill(queryName);
-    await submit(tool, 'Save Query');
+    await submitReportWrite(tool, 'Save Query', submit, reportUrl);
     favouriteId = sql.value(`SELECT favId FROM demographicQueryFavourites WHERE queryName=${h.sqlString(queryName)}`);
     h.assert(/^[1-9]\d*$/.test(favouriteId), 'Save Query did not reach demographicQueryFavourites');
     h.assert(sql.value(`SELECT COUNT(*) FROM ${favourites}`) === '1', 'Save Query stored the query more than once');
@@ -108,6 +172,29 @@ async function workflow(s) {
     h.assert(!rendered.some(cells => cells[0] === secondPatient), 'The sex criterion did not exclude the second owned patient');
   });
 
+  await s.step('native POST with CSRF saves the exact owned patient set', async () => {
+    const setName = reportMutationNames(marker, 'S0').setName;
+    await tool.locator('input[name="setName"]').fill(setName);
+    await submitReportWrite(tool, WRITE_INTENTS[1], submit, reportUrl);
+    const rows = sql.rows(`SELECT demographic_no,archive FROM demographicSets WHERE set_name=${h.sqlString(setName)} ORDER BY demographic_no`);
+    h.assert(JSON.stringify(rows) === JSON.stringify([[patient, '0']]), 'Native patient-set POST stored different patients or archive state');
+    h.assert(sql.value(`SELECT COUNT(*) FROM ${favourites}`) === '1', 'Saving a patient set also wrote a favourite');
+  });
+
+  await s.step('read-only GET still displays and runs the report without creating rows', async () => {
+    const counts = () => [sql.value(`SELECT COUNT(*) FROM ${favourites}`), sql.value(`SELECT COUNT(*) FROM demographicSets WHERE ${ownedSetsWhere}`)];
+    const before = counts();
+    const display = await context.request.get(reportUrl, {maxRedirects: 0});
+    h.assert(display.status() === 200 && (await display.text()).includes('id="select_demographic_no"'), 'Read-only report GET did not display its form');
+    // The native report form submits age=0 for its default no-age criterion.
+    const run = await context.request.get(reportUrl, {params: {query: 'Run Query', select: 'demographic_no', lastName: marker, sex: '1', age: '0'}, maxRedirects: 0});
+    const body = await run.text();
+    const results = body.match(/Search Returned:\s*1 Results<\/div>\s*<table[^>]*>([\s\S]*?)<\/table>/);
+    const patients = results ? [...results[1].matchAll(/<td>\s*(\d+)\s*<\/td>/g)].map(match => match[1]) : [];
+    h.assert(run.status() === 200 && JSON.stringify(patients) === JSON.stringify([patient]), 'Read-only Run Query GET did not return exactly the owned patient');
+    h.assert(JSON.stringify(counts()) === JSON.stringify(before), 'A read-only report GET created an owned favourite or patient set');
+  });
+
   await s.step('manage ▸ Delete Selected archives only the saved query and drops it from the list', async () => {
     // A second owned active favourite, left unticked, proves the delete is limited to the selection.
     const keptId = sql.value(`INSERT INTO demographicQueryFavourites (queryName,archived,selects,lastName)
@@ -143,15 +230,18 @@ async function workflow(s) {
       `GET of report/DeleteDemographicReport was not rejected (status ${unsafeGet.status()}, archived=${archivedByGet})`);
   });
 
-  await s.step('a GET of the tool with Save Query intent stores nothing (405)', async () => {
-    const getName = `${marker}-GET`;
-    const unsafeSave = await context.request.get(h.appUrl(s.config.baseUrl, '/report/DemographicReport'),
-      {params: {query: 'Save Query', queryName: getName, select: 'demographic_no', lastName: marker}, maxRedirects: 0});
-    const stored = sql.value(`SELECT COUNT(*) FROM demographicQueryFavourites WHERE queryName=${h.sqlString(getName)}`);
-    h.assert(unsafeSave.status() === 405 && stored === '0',
-      `GET of report/DemographicReport?query=Save Query was not rejected (status ${unsafeSave.status()}, rows stored=${stored})`);
+  await s.step('both report write intents refuse GET and HEAD with 405, Allow POST and no rows', async () => {
+    for (const method of ['GET', 'HEAD']) for (const [index, intent] of WRITE_INTENTS.entries()) {
+      await assertReportMutationRefused(s, {method, intent, ...reportMutationNames(marker, `${method[0]}${index}`)});
+    }
+  });
+
+  await s.step('both report write intents refuse tokenless POST without storing rows', async () => {
+    for (const [index, intent] of WRITE_INTENTS.entries()) {
+      await assertReportMutationRefused(s, {method: 'POST', intent, ...reportMutationNames(marker, `P${index}`)});
+    }
   });
 }
 
 if (require.main === module) runWorkflow('demographic-report-favourites', workflow, {openPatient: true, openMaster: false});
-module.exports = {workflow};
+module.exports = {workflow, reportMutationNames, registerOwnedPatientSets, assertReportMutationRefused, submitReportWrite};

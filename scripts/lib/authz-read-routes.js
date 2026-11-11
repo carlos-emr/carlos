@@ -53,7 +53,6 @@ const DENIED = {
     'casemgmt/ViewIssueSearch',
     'casemgmt/ViewMessages',
     'casemgmt/ViewNewEncounterLayout',
-    'casemgmt/ViewSearch',
     'common/omdDiseaseList',
     'demographic/ViewDemographicEditDemographicJs',
     'demographic/ViewPrintClientLabLabel',
@@ -326,7 +325,6 @@ const DENIED = {
     'web/inboxhub/Inboxhub',
   ],
   doctor: [
-    'admin/ManageFlowsheets',
     'admin/ViewJobTypes',
     'admin/ViewJobs',
     'admin/ViewLotNrDeleteRecordHtm',

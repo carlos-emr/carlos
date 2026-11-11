@@ -185,7 +185,6 @@ public final class FormViewRoutes {
                     "formVTForm",
                     "graphHeadCirc",
                     "graphLengthWeight",
-                    "patientEncounterWorksheet",
                     "RhInjectionDisplay"
             )));
 

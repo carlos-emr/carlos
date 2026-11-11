@@ -69,6 +69,7 @@ MANIFEST_DIR = REPO_ROOT / "debian" / "assets" / "o19-manifest"
 #: format it does not know, and the content is versioned separately by
 #: SCHEMA_MAP_VERSION / PROPS_MAP_VERSION.
 MANIFEST_FORMAT = 1
+SCHEMA_MANIFEST_FORMAT = 3
 #: manifest kind -> file name; the kind is written into the file too
 MANIFEST_FILES = {
     "o19map-schema": "o19map_schema.json",
@@ -212,7 +213,7 @@ def _split_top_level(body: str) -> List[str]:
 
 
 def strip_line_comments(text: str) -> str:
-    """Remove `-- ` and `#` line comments outside string literals.
+    """Remove ordinary SQL comments outside string literals.
 
     initcaisi.sql carries a commented-out `-- CREATE TABLE surveyData` whose
     empty body would otherwise REPLACE the real oscarinit definition. Quote
@@ -223,6 +224,12 @@ def strip_line_comments(text: str) -> str:
     n = len(text)
     while i < n:
         c = text[i]
+        if text.startswith("/*", i) and not text.startswith("/*!", i):
+            end = text.find("*/", i + 2)
+            end = n if end == -1 else end + 2
+            out.extend(char if char in "\r\n" else " " for char in text[i:end])
+            i = end
+            continue
         if c in ("'", '"', "`"):
             quote = c
             out.append(c)
@@ -297,11 +304,47 @@ def walk_ddl(text: str):
     literal is misread, and the cursor skips past each body so statement
     text inside an INSERTed string is never re-matched.
 
-    Kept separate from Schema so the parse has two consumers: the model
-    below, and verify_ddl_parse.py, which replays the same statements
-    through a real MariaDB and compares. One walk, so the oracle cannot
-    drift from the thing it verifies.
+    Kept separate from Schema so literal DDL has two consumers: the model
+    below, and verify_ddl_parse.py, which replays those statements through
+    MariaDB. Known guarded dynamic CARLOS effects are modeled in load_schema;
+    independent physical-contract inventory checks cover that separate path.
     """
+    # Dynamic migrations contain DDL inside CONCAT string literals. Those
+    # fragments are not executable declarations and can carry only part of
+    # a column type. Preserve offsets while excluding them from matching.
+    masked = list(text)
+    uncommented = list(text)
+    quote = None
+    cursor = 0
+    while cursor < len(text):
+        char = text[cursor]
+        if quote is None:
+            if text.startswith("/*", cursor) and not text.startswith("/*!", cursor):
+                end = text.find("*/", cursor + 2)
+                end = len(text) if end == -1 else end + 2
+                for index in range(cursor, end):
+                    if text[index] not in "\r\n":
+                        masked[index] = uncommented[index] = " "
+                cursor = end
+                continue
+            if char in ("'", '"'):
+                quote = char
+                masked[cursor] = " "
+        else:
+            masked[cursor] = " "
+            if char == "\\":
+                cursor += 1
+                if cursor < len(text):
+                    masked[cursor] = " "
+            elif char == quote:
+                if cursor + 1 < len(text) and text[cursor + 1] == quote:
+                    cursor += 1
+                    masked[cursor] = " "
+                else:
+                    quote = None
+        cursor += 1
+    text = "".join(uncommented)
+    searchable = "".join(masked)
     patterns = (("create", _CREATE_RE), ("drop", _DROP_RE),
                 ("rename", _RENAME_RE), ("alter", _ALTER_RE))
     i = 0
@@ -311,7 +354,7 @@ def walk_ddl(text: str):
         # alone so nothing else in the tuple is ever compared
         found = [(m.start(), kind, m)
                  for kind, rx in patterns
-                 for m in (rx.search(text, i),) if m]
+                 for m in (rx.search(searchable, i),) if m]
         if not found:
             return
         _, kind, m = min(found, key=lambda hit: hit[0])
@@ -335,7 +378,7 @@ def walk_ddl(text: str):
                             sql=text[m.start():m.end()], new_name=m.group(2))
             i = m.end()
         else:  # alter
-            stmt_end = text.find(";", m.end())
+            stmt_end = searchable.find(";", m.end())
             if stmt_end == -1:
                 stmt_end = n
             yield Statement("alter", m.group(1),
@@ -439,6 +482,7 @@ class Schema:
 
     def apply_create(self, name: str, body: str,
                      if_not_exists: bool = False) -> None:
+        """Read complete quoted column names and retain union/guarded CREATE rules."""
         # CREATE TABLE IF NOT EXISTS on an existing table is a NO-OP in
         # MySQL — the restore migrations (V1.0.5/V1.0.6) re-issue old
         # definitions guarded this way, and replacing the baseline's
@@ -459,10 +503,11 @@ class Schema:
             part = part.strip()
             if not part:
                 continue
-            m = re.match(r"(`?)(\w+)`?\s*(.*)", part, re.S)
+            m = re.match(r"(?:`((?:[^`]|``)+)`|(\w+))\s*(.*)", part, re.S)
             if not m:
                 continue
-            quoted, first = m.group(1) == "`", m.group(2)
+            quoted = m.group(1) is not None
+            first = m.group(1).replace("``", "`") if quoted else m.group(2)
             # A BACKTICKED first token is a column name, never a
             # constraint keyword -- MySQL requires the quoting precisely
             # so a column may be called `key`, `index` or `check`. Without
@@ -503,6 +548,7 @@ class Schema:
             del self.pks[name]
 
     def apply_alter(self, name: str, clause_text: str) -> None:
+        """Apply ordered column/key changes while retaining names and declarations."""
         if name not in self.tables:
             # ALTER against a table this source set never created (e.g. a
             # BC-only table altered by a shared update script) — ignore.
@@ -601,8 +647,19 @@ class Schema:
                     self.tables[name] = rebuilt
                     cols = rebuilt
                 continue
-            # MODIFY changes type only — column set is unaffected; other
-            # clauses (indexes, engine, charset) don't affect the column map.
+            # Keep the final declaration as well as the names. Ignoring
+            # MODIFY hid capacity changes in later OSCAR/CARLOS updates.
+            m = re.match(r"modify\s+(?:column\s+)?`?(\w+)`?\s+(.+)",
+                         clause, re.I | re.S)
+            if m:
+                column = next((c for c in cols
+                               if c.lower() == m.group(1).lower()), None)
+                if column is not None:
+                    ctype, position = split_column_position(
+                        re.sub(r"\s+", " ", m.group(2)).strip())
+                    cols = place_column(cols, column, ctype, position)
+                    self.tables[name] = cols
+                continue
         # A DROP COLUMN takes the column out of the primary key too, and a
         # key naming no column would be looked up in tables[t] and missed.
         # Re-resolving against the final column set covers every clause that
@@ -1015,6 +1072,26 @@ def load_schema(files: List[Path],
     schema = Schema(if_not_exists_mode)
     for f in files:
         schema.feed(strip_line_comments(read_sql(f)))
+        # These committed CARLOS migrations execute guarded dynamic DDL.
+        # Do not parse arbitrary CONCAT fragments as SQL declarations. Model
+        # their canonical schema effects explicitly instead; independent
+        # physical-contract tests require the resulting column inventory.
+        if f.name == "V1.0.54__allow_dashboard_exclusion_history.sql":
+            key = schema.tables.get("demographicExt", {}).get("key_val", "")
+            kind = re.match(r"varchar\(\d+\)", key, re.I)
+            if not kind:
+                raise ValueError("dashboard helper requires the demographicExt key declaration")
+            schema.apply_alter("demographicExt", "ADD COLUMN IF NOT EXISTS "
+                               "dashboard_single_value_key " + kind.group() +
+                               " GENERATED ALWAYS AS (CASE WHEN key_val = 'excludeIndicator' "
+                               "THEN NULL ELSE key_val END) VIRTUAL INVISIBLE")
+        elif f.name == "V1.0.59__archive_security_mfa_setting.sql":
+            schema.apply_alter("SecurityArchive", "ADD COLUMN IF NOT EXISTS "
+                               "usingMfa TINYINT(1) NULL DEFAULT NULL")
+        elif f.name == "V1.0.57__preserve_rourke2020_immunization_notes.sql":
+            for column in ("p3_immunization", "p4_immunization"):
+                schema.apply_alter("formRourke2020", "ADD COLUMN IF NOT EXISTS "
+                                   + column + " TEXT NULL")
     return schema
 
 
@@ -1036,24 +1113,33 @@ def carlos_migration_files(dirs: List[Path]) -> List[Path]:
     return sorted(files, key=lambda f: (flyway_version(f), f.name))
 
 
-def expand_sources(base: Path, patterns: List[str]) -> List[Path]:
+def expand_sources(base: Path, patterns: List[str], strict: bool = False) -> List[Path]:
     """Resolve the configured source patterns against `base`, globs sorted
     for determinism.
 
     A missing NON-glob file warns rather than dying: the source list
     spans several OSCAR 19 patch levels and not every checkout carries
-    every file."""
+    every file. Audits use strict mode: every configured file or glob must
+    resolve before any source declarations can be trusted."""
     out: List[Path] = []
+    missing = []
     for pat in patterns:
         if "*" in pat:
-            out.extend(sorted(base.glob(pat)))
+            matches = sorted(path for path in base.glob(pat) if path.is_file())
+            out.extend(matches)
+            if not matches:
+                missing.append(str(base / pat))
         else:
             p = base / pat
             if p.is_file():
                 out.append(p)
             else:
-                print("warning: missing O19 source {}".format(p),
-                      file=sys.stderr)
+                missing.append(str(p))
+                if not strict:
+                    print("warning: missing O19 source {}".format(p),
+                          file=sys.stderr)
+    if strict and missing:
+        raise FileNotFoundError("incomplete OSCAR source checkout: " + ", ".join(missing))
     return out
 
 
@@ -1260,6 +1346,7 @@ class TableRules(object):
     bucket it was never meant to see."""
 
     def __init__(self, ov, province: str = "on"):
+        """Resolve base and per-province table rulings for one destination profile."""
         self.ov = ov
         self.province = province
         # Rulings scoped to ONE province, dropped when generating any
@@ -1313,7 +1400,8 @@ class TableRules(object):
         # table -> {target: source}
         self.renames = dict(getattr(ov, "RENAMES", {}))
         # table -> {target: expr}
-        self.value_exprs = dict(getattr(ov, "VALUE_EXPRS", {}))
+        self.value_exprs = keep(dict(getattr(ov, "VALUE_EXPRS", {})), "VALUE_EXPRS")
+        self.billing_rules = keep(dict(getattr(ov, "BILLING_FILENAME_RULES", {})), "BILLING_FILENAME_RULES")
         # child -> {col: parent}
         self.fk_remap = dict(getattr(ov, "FK_REMAP", {}))
         self.b3 = set(ov.B3_COLUMNS)                     # {(table, col)}
@@ -1415,6 +1503,13 @@ def _shared_table_columns(t, o19, carlos, r):
     for col in value_exprs.get(t, {}):
         if col in carlos.tables[t] and col not in cols:
             cols.append(col)
+    # Known later O19 columns must survive even when the reproducible baseline
+    # predates them. The CLI intersects these with the actual staged schema.
+    for col in sorted(getattr(r.ov, "SOURCE_OPTIONAL_COLUMNS", {}).get(t, ())):
+        if col not in carlos.tables[t]:
+            raise SystemExit("optional source column has no target: {}.{}".format(t, col))
+        if col not in cols:
+            cols.append(col)
     return cols, ren_out, mapped_sources
 
 
@@ -1448,6 +1543,9 @@ def _apply_table_rules(t, entry, o19, carlos, cols, r):
 
     if t in value_exprs:
         entry["value_exprs"] = dict(value_exprs[t])
+    billing_rule = r.billing_rules.get(t)
+    if billing_rule:
+        entry["billing_filename"] = billing_rule
     if t in fk_remap:
         for col, parent in fk_remap[t].items():
             if col not in cols:
@@ -2067,7 +2165,7 @@ def emit_json(kind: str, data: Dict) -> str:
     the file being four times the size it needs to be."""
     if kind not in MANIFEST_FILES:
         raise SystemExit("unknown manifest kind: {0}".format(kind))
-    envelope = {"format": MANIFEST_FORMAT, "kind": kind,
+    envelope = {"format": SCHEMA_MANIFEST_FORMAT if kind == "o19map-schema" else MANIFEST_FORMAT, "kind": kind,
                 "generator": "scripts/migration/o19/generate_manifests.py"}
     envelope.update(data)
     return json.dumps(envelope, indent=1, ensure_ascii=False) + "\n"
@@ -2521,6 +2619,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--oscar-src", required=True,
                     help="path to an oscaremr/oscar (OSCAR 19) checkout")
+    ap.add_argument("--oscar-commit", help="verified source commit for an extracted OSCAR archive")
     ap.add_argument("--check", action="store_true",
                     help="verify committed outputs match; write nothing")
     ap.add_argument("--ctl-src", type=Path, default=None,
@@ -2529,6 +2628,8 @@ def main() -> int:
                          "parser, and its o19_preflight.py generated-data "
                          "block is rewritten (or, with --check, compared)")
     args = ap.parse_args()
+    if args.oscar_commit is not None and not re.fullmatch(r"[0-9a-f]{40}", args.oscar_commit):
+        return ap.error("--oscar-commit must be a full lowercase commit SHA")
     global CTL_SRC
     CTL_SRC = args.ctl_src
 
@@ -2577,6 +2678,11 @@ def main() -> int:
                             capture_output=True, text=True)
         if cp.returncode == 0:
             commit = cp.stdout.strip()
+
+    if args.oscar_commit is not None:
+        if commit != "unknown" and commit != args.oscar_commit:
+            return ap.error("--oscar-commit differs from the source checkout HEAD")
+        commit = args.oscar_commit
 
     o19_defaults = parse_properties(oscar / O19_PROPERTIES)
     # the file the deb installs as /etc/carlos-emr/carlos.properties: what

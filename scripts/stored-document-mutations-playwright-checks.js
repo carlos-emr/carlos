@@ -13,6 +13,7 @@ const h = require('./lib/playwright-harness');
 const {runWorkflow} = require('./lib/workflow-session');
 const {prepareIncomingFilingProgram} = require('./lib/incoming-filing-program-fixture');
 const {createStoredDocumentFixture} = require('./lib/stored-document-mutation-fixture');
+const {planDocumentFixtureId} = require('./lib/document-fixture-allocation');
 const {withStoredCapacityCheck} = require('./lib/stored-document-capacity-check');
 const {observeStoredPreviewCapacity} = require('./lib/stored-preview-capacity-check');
 const {preflightMetadataSchema} = require('./lib/document-metadata-check');
@@ -387,6 +388,6 @@ async function workflow(s) {
   }
 }
 if (require.main === module) runWorkflow('stored-document-mutations', workflow, {openPatient: true, openMaster: false,
-  preflight: ({sql}) => {if (metadataEnabled()) metadataPreflight(sql);},
+  preflight: ({sql}) => {planDocumentFixtureId(sql); if (metadataEnabled()) metadataPreflight(sql);},
   patientFixtureFactory: metadataEnabled() ? createMetadataPatientFixture : undefined});
 module.exports = {workflow, validateOwnedPost, expectedContentUpdates, validatePolicyRefusal, createMutationTracker, probeAssignedPolicy};

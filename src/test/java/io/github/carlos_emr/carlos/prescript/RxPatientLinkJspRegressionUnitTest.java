@@ -174,13 +174,20 @@ class RxPatientLinkJspRegressionUnitTest {
     }
 
     @Test
-    @DisplayName("should name this page's patient on every pharmacy modal URL")
+    @DisplayName("should preserve this page's patient and chart context on every pharmacy modal URL")
     void shouldNamePatient_onPharmacyModalUrls() throws IOException {
         String jsp = read("rx/SelectPharmacy2.jsp");
         int start = jsp.indexOf("function openPharmacyModal(url) {");
-        int end = jsp.indexOf("iframe.src = url;", start);
-        assertThat(start).isPositive();
-        assertThat(jsp.substring(start, end)).contains("\"demographicNo=\" + encodeURIComponent(demo)");
+        assertThat(start).as("pharmacy modal function exists").isGreaterThanOrEqualTo(0);
+        Matcher nextFunction = Pattern.compile("\\bfunction\\s+\\w+\\s*\\(").matcher(jsp);
+        assertThat(nextFunction.find(start + "function openPharmacyModal".length()))
+                .as("pharmacy modal function has a bounded source section").isTrue();
+        int end = nextFunction.start();
+        assertThat(end).isGreaterThan(start);
+        assertThat(jsp.substring(start, end))
+                .contains("\"demographicNo=\" + encodeURIComponent(demo)")
+                .contains("RxPatientContext.withPatient(url)");
+        assertThat(jsp).contains("data-chart-context=", "ChartProgramContext.token(request)");
     }
 
     @Test
@@ -272,7 +279,7 @@ class RxPatientLinkJspRegressionUnitTest {
                     .contains("/rx/choosePatient?demographicNo=<%= bean2.getDemographicNo() %>&usefav=true");
         }
         assertThat(read("rx/SearchDrug3.jsp"))
-                .contains("window.location.href = RxPatientContext.withPatient(ctx + \"/rx/searchDrug\");")
+                .contains("window.location.href = RxPatientContext.withPatient(ctx + \"/rx/choosePatient\");")
                 .contains("onFailure: reportRefusedSave");
     }
 

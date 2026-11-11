@@ -38,6 +38,7 @@ import org.apache.logging.log4j.Level;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -99,6 +100,8 @@ class DemographicAddRecord2ActionSubmissionUnitTest extends CarlosUnitTestBase {
     }
 
     private MockHttpServletRequest request;
+    /** The Name Used the next {@link #submit} sends; none when null. */
+    private String nameUsed;
     private MockHttpServletResponse response;
     private MockedStatic<ServletActionContext> servlet;
     private MockedStatic<LoggedInInfo> sessions;
@@ -161,6 +164,9 @@ class DemographicAddRecord2ActionSubmissionUnitTest extends CarlosUnitTestBase {
         request.setParameter("month_of_birth", "01");
         request.setParameter("date_of_birth", "15");
         request.setParameter("postal", "M5W 1E6");
+        if (nameUsed != null) {
+            request.setParameter("nameUsed", nameUsed);
+        }
         if (token != null) {
             request.setParameter(FormSubmissionGuard.PARAMETER, token);
         }
@@ -282,5 +288,52 @@ class DemographicAddRecord2ActionSubmissionUnitTest extends CarlosUnitTestBase {
         submit(null, "FAKE-PW-1");
 
         verify(demographics, times(2)).save(any(Demographic.class));
+    }
+
+    /** Issue #5128: the saved patient keeps Name Used whole in the alias; pref_name holds what fits. */
+    private Demographic savedWithNameUsed(String value) {
+        nameUsed = value;
+        assertThat(submit(rendering(), "FAKE-NAMEUSED")).isEqualTo(ActionSupport.SUCCESS);
+        ArgumentCaptor<Demographic> saved = ArgumentCaptor.forClass(Demographic.class);
+        verify(demographics).save(saved.capture());
+        return saved.getValue();
+    }
+
+    // getPrefName() answers the alias first, so read the value pref_name is written from.
+    private static String storedPrefName(Demographic demographic) {
+        try {
+            java.lang.reflect.Field field = Demographic.class.getDeclaredField("prefName");
+            field.setAccessible(true);
+            return (String) field.get(demographic);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    @Test
+    void shouldKeepNameUsedWholeInAlias_whenItIsThirtyOneCharacters() {
+        String value = "A".repeat(30) + "B";
+
+        Demographic saved = savedWithNameUsed(value);
+
+        assertThat(saved.getAlias()).isEqualTo(value);
+        assertThat(storedPrefName(saved)).isEqualTo("A".repeat(30));
+    }
+
+    @Test
+    void shouldKeepNameUsedWholeInAlias_whenItIsSeventyCharacters() {
+        String value = "C".repeat(Demographic.ALIAS_MAX_LENGTH);
+
+        Demographic saved = savedWithNameUsed(value);
+
+        assertThat(saved.getAlias()).isEqualTo(value);
+        assertThat(storedPrefName(saved)).isEqualTo("C".repeat(Demographic.PREF_NAME_MAX_LENGTH));
+    }
+
+    @Test
+    void shouldStoreEmptyPrefName_whenNoNameUsedIsSent() {
+        Demographic saved = savedWithNameUsed(null);
+
+        assertThat(storedPrefName(saved)).isEmpty();
     }
 }

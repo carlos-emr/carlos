@@ -97,13 +97,21 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "Appointment not found");
             return NONE;
         }
+        boolean statusOnly = "Cancel Appt".equals(request.getParameter("buttoncancel"))
+                || "No Show".equals(request.getParameter("buttoncancel"));
+        AppointmentTextBounds.Values text = null;
+        if (!statusOnly) {
+            text = AppointmentTextBounds.submitted(request, request.getParameter("keyword"), appt);
+            AppointmentTextBounds.Violation invalidText = AppointmentTextBounds.validate(text, appt);
+            if (invalidText != null) {
+                return AppointmentTextBounds.refuse(request, response, invalidText);
+            }
+        }
         appointmentArchiveDao.archiveAppointment(appt);
 
         String changedStatus = null;
 
-        if (request.getParameter("buttoncancel") != null
-                && (request.getParameter("buttoncancel").equals("Cancel Appt")
-                || request.getParameter("buttoncancel").equals("No Show"))) {
+        if (statusOnly) {
             changedStatus = request.getParameter("buttoncancel").equals("Cancel Appt") ? "C" : "N";
             appt.setStatus(changedStatus);
             appt.setLastUpdateUser(updateuser);
@@ -118,11 +126,13 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
                     MyDateFormat.getTimeXX_XX_XX(request.getParameter("start_time"))));
             appt.setEndTime(ConversionUtils.fromTimeString(
                     MyDateFormat.getTimeXX_XX_XX(request.getParameter("end_time"))));
-            appt.setName(request.getParameter("keyword"));
-            appt.setNotes(request.getParameter("notes"));
-            appt.setReason(request.getParameter("reason"));
+            appt.setName(text.name());
+            // Hibernate loads legacy CR/CRLF directly into fields. Leave logically unchanged
+            // text there: the setters normalize new writes and would rewrite those stored bytes.
+            if (!StringUtils.equals(appt.getNotes(), text.notes())) appt.setNotes(text.notes());
+            if (!StringUtils.equals(appt.getReason(), text.reason())) appt.setReason(text.reason());
             appt.setLocation(request.getParameter("location"));
-            appt.setResources(request.getParameter("resources"));
+            appt.setResources(text.resources());
             appt.setType(request.getParameter("type"));
             appt.setStyle(request.getParameter("style"));
             appt.setBilling(request.getParameter("billing"));

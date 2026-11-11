@@ -78,6 +78,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
+const {captureScheduleContext, assertScheduleContext} = require('./lib/native-schedule-context');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
@@ -155,6 +156,7 @@ async function workflow(s) {
   validatePin();
   const full = PIN === '';
   const { sql, patient, marker, provider, config, schedule } = s;
+  const scheduleContext = await captureScheduleContext(s);
   const q = h.sqlString;
   const signedLabel = bundleMessage('encounter.class.EctSaveEncounterAction.msgSigned');
   const byLabel = bundleMessage('encounter.class.EctSaveEncounterAction.msgSigBy');
@@ -168,6 +170,7 @@ async function workflow(s) {
   let beforeSignArchives;
   let beforeSignAppointment;
   s.cleanup(() => {
+    h.assert(s.context.browser().isConnected() === false, 'Appointment cleanup retained: browser close is unconfirmed');
     // The patient is owned by this run, so everything below is the run's, deleted by the patient key.
     const notes = `SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient}`;
     sql.execute(`DELETE FROM casemgmt_issue_notes WHERE note_id IN (${notes});
@@ -188,9 +191,10 @@ async function workflow(s) {
     'Owned chart notes, drafts, locks, appointments or archive rows were not removed');
   });
 
-  const [[today, startHour, endHour, everyMin]] = sql.rows(`SELECT CURDATE(), COALESCE(MAX(startHour),8),
+  const today = scheduleContext.date;
+  const [[startHour, endHour, everyMin]] = sql.rows(`SELECT COALESCE(MAX(startHour),8),
     COALESCE(MAX(endHour),18), COALESCE(MAX(everyMin),15) FROM ProviderPreference WHERE providerNo=${q(provider)}`);
-  h.assert(/^\d{4}-\d{2}-\d{2}$/.test(today), 'The database did not report today');
+  h.assert(/^\d{4}-\d{2}-\d{2}$/.test(today), 'The native day sheet did not report its date');
   const [year, month, day] = today.split('-').map(Number);
   const slotLength = Number(everyMin) * 60;
   /** The icon file the application draws for a status code: "<second letter><icon of the first letter>". */
@@ -208,12 +212,12 @@ async function workflow(s) {
     for (let candidate = fromHour; candidate < Number(endHour); candidate++) {
       const start = `${String(candidate).padStart(2, '0')}:00:00`;
       const end = sql.value(`SELECT ADDTIME(${q(start)}, SEC_TO_TIME(${slotLength}))`);
-      if (sql.value(`SELECT COUNT(*) FROM appointment WHERE provider_no=${q(provider)} AND appointment_date=CURDATE()
+      if (sql.value(`SELECT COUNT(*) FROM appointment WHERE provider_no=${q(provider)} AND appointment_date=${q(scheduleContext.date)}
         AND start_time<${q(end)} AND end_time>${q(start)}`) !== '0') continue;
       const id = sql.value(`INSERT INTO appointment (provider_no, appointment_date, start_time, end_time, name, demographic_no,
           notes, reason, location, resources, type, style, billing, status, createdatetime, updatedatetime, creator, lastupdateuser)
-        VALUES (${q(provider)}, CURDATE(), ${q(start)}, ${q(end)}, ${q(`${marker},Workflow`)}, ${patient},
-          '', ${q(`${marker} ${label}`)}, '', '', NULL, '', '', ${q(status)}, NOW(), NOW(), ${q(config.testUser)}, ${q(provider)});
+        VALUES (${q(provider)}, ${q(scheduleContext.date)}, ${q(start)}, ${q(end)}, ${q(`${marker},Workflow`)}, ${patient},
+          '', ${q(`${marker} ${label}`)}, ${q(scheduleContext.location)}, '', NULL, '', '', ${q(status)}, NOW(), NOW(), ${q(config.testUser)}, ${q(provider)});
         SELECT LAST_INSERT_ID()`);
       h.assert(/^[1-9]\d*$/.test(id), `The ${label} appointment fixture was not created`);
       return { id, candidate };
@@ -279,6 +283,7 @@ async function workflow(s) {
     await schedule.reload({ waitUntil: 'domcontentloaded' });
     await schedule.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
     await schedule.locator('span.dateAppointment').waitFor({ timeout: TIMEOUT });
+    await assertScheduleContext(s, scheduleContext);
     excuseStoreAppointmentAborts(s.recorder);
   }
   const statusLink = id => schedule.locator(`a.apptStatus[onclick*="appointment_no=${id}&"]`);

@@ -6,6 +6,7 @@ const { assertPopupScope } = require('./page-health-master-record-playwright-che
 const HOST = 'https://fixture.invalid/carlos/demographic/DemographicEdit?demographic_no=42';
 const targets = [
   '/billing/CA/ON/ViewBillingONHistory?demographic_no=42',
+  '/billing/CA/ON/billingShortcutPg1View?billRegion=ON&appointment_no=0&demographic_no=42&apptProvider_no=none',
   '/billing/CA/BC/reprocessBill?demographicNo=42&lastName=O%27Neil%26Co',
   '/billing?demographic_no=42',
   '/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests?de=42',

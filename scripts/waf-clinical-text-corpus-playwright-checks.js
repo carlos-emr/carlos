@@ -56,7 +56,7 @@
  */
 const { randomUUID } = require('node:crypto');
 const h = require('./lib/playwright-harness');
-const { clickAndAwaitReload } = require('./lib/playwright-ui');
+const { clickAndAwaitReload, openFormsMenu } = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const { watchFrontDoor } = require('./lib/front-door-checks');
@@ -808,7 +808,7 @@ function rows(s, ctx) {
         let form;
         try {
           const chart = await s.chart();
-          await chart.locator('#menuTitle1 a').hover();
+          await openFormsMenu(chart);
           form = await s.popup(chart, chart.getByRole('link', { name: 'Rourke2017', exact: true }), 'rourke');
           await form.locator('#frmP1').waitFor();
           await form.locator(`a[onclick*="displayDemographicMeasurements('p1_wt1w'"]`).first().click();
@@ -843,8 +843,10 @@ function rows(s, ctx) {
     family.aim = async (captured) => {
       // Prevention's token is issued by the server and bound to this form.
       // Reload the captured form to obtain a new intent; reusing the control's
-      // completed token correctly returns its old result without another write.
-      const formUrl = new URL(captured.headers.referer);
+      // completed token correctly returns its old result without another write. The form's address is
+      // the page that sent the save: the front door's Referrer-Policy: no-referrer leaves no Referer.
+      h.assert(captured.frameUrl, 'the capture did not record the prevention form that sent the save');
+      const formUrl = new URL(captured.frameUrl);
       h.assert(formUrl.origin === baseUrl.origin && formUrl.pathname === pathOf('prevention/ViewAddPreventionData')
         && formUrl.searchParams.get('demographic_no') === String(patient), 'the prevention form does not target the owned patient');
       const response = await s.context.request.get(formUrl.toString(), { maxRedirects: 0, failOnStatusCode: false });

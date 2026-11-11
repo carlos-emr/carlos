@@ -124,11 +124,14 @@
     pageContext.setAttribute("navigationMessages", navigationMessages);
     String bsurl = (String) session.getAttribute("casemgmt_oscar_baseurl");
     String backurl = bsurl + "/encounter/IncomingEncounter?";
+    String navigationChartContext = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request);
+    if (navigationChartContext != null) backurl += "chartContext=" + SafeEncode.forUriComponent(navigationChartContext) + "&";
 //get programId
-    String pgId = (String) session.getAttribute("case_program_id");
+    String pgId = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request);
     if (pgId == null) pgId = "";
 %>
 
+<script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlosCsrfForm.js"></script>
 <script type="text/javascript" language=javascript>
     function popupPage(varpage) {
         var page = "" + varpage;
@@ -137,9 +140,15 @@
         window.open(page, "", windowprops);
     }
 
+    // The unbill (-B) link: billing deletes take only form posts, so post the link's parameters into
+    // the popup (opened in the click so popup blockers allow it); carlosPostForm adds the CSRF token.
     function onUnbilled(url) {
         if (confirm("You are about to delete the previous billing, are you sure?")) {
-            popupPage(url);
+            var parts = String(url).split('?');
+            var fields = {};
+            new URLSearchParams(parts[1] || '').forEach(function (value, key) { fields[key] = value; });
+            var popup = window.open('', 'unbilled', 'height=600,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,top=0,left=0');
+            carlosPostForm(parts[0], fields, {target: 'unbilled', popup: popup});
         }
     }
 
@@ -288,7 +297,7 @@
 
                     <tr>
                         <td><a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/rx/choosePatient?providerNo=<%=bean.providerNo%>&demographicNo=<%=bean.demographicNo%>');return false;">Prescriptions</a>
+                               onClick="popupPage('<%=bsurl%>/rx/choosePatient?providerNo=<%=bean.providerNo%>&demographicNo=<%=bean.demographicNo%><%= navigationChartContext == null ? "" : "&chartContext=" + SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(navigationChartContext)) %>');return false;">Prescriptions</a>
                         </td>
                     </tr>
 

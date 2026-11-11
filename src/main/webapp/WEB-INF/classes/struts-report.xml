@@ -122,6 +122,7 @@
             <result name="success">/WEB-INF/jsp/report/GenerateLetters.jsp</result>
         </action>
         <action name="report/DeleteLetter" class="io.github.carlos_emr.carlos.report.pageUtil.DeletePatientLetters2Action">
+            <result name="input">/WEB-INF/jsp/report/ManageLetters.jsp</result>
             <result name="success">/WEB-INF/jsp/report/ManageLetters.jsp</result>
         </action>
         <action name="oscarReport/reportByTemplate/GenerateReportAction" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.GenerateReport2Action">
@@ -303,7 +304,7 @@
         <action name="report/ViewReportdaysheet" class="io.github.carlos_emr.carlos.report.gate.ViewReport2Action">
             <result name="success">/WEB-INF/jsp/report/reportdaysheet.jsp</result>
         </action>
-        <action name="report/ViewReportecharthistory" class="io.github.carlos_emr.carlos.report.gate.ViewReport2Action">
+        <action name="report/ViewReportecharthistory" class="io.github.carlos_emr.carlos.report.gate.ViewReportEChartHistory2Action">
             <result name="success">/WEB-INF/jsp/report/reportecharthistory.jsp</result>
         </action>
         <action name="report/ViewReportedblist" class="io.github.carlos_emr.carlos.report.gate.ViewReport2Action">

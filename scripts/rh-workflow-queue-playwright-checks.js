@@ -28,7 +28,9 @@ async function workflow(s) {
     h.assert(new URL(reopened.url()).pathname.startsWith(`${s.config.baseUrl.pathname}/form/`),
       `The RH queue link navigated outside its form route: ${h.pathOnly(reopened.url())}`);
     await reopened.locator('[name="formId"]').waitFor({ state: 'attached' });
-    h.assert(await reopened.locator('[name="demographic_no"]').inputValue() === s.patient
+    // The injection panel's delete form, later on the page, carries its own demographic_no. The RH
+    // form's fields cannot be scoped by the form element: its table markup ends it early in the DOM.
+    h.assert(await reopened.locator('[name="demographic_no"]').first().inputValue() === s.patient
       && await reopened.locator('[name="workflowId"]').inputValue() === rh.workflowId,
     'The queue link opened a different patient or pregnancy');
     h.assert(await reopened.locator('[name="comments"]').inputValue() === `${s.marker} first pregnancy`,

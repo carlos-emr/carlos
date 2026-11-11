@@ -47,7 +47,9 @@
       'carlos_tickler_refresh_<demographicNo>') so ticklerMain.jsp and
       newEncounterLayout.jsp for the same patient can reload without a full
       page refresh. The channel name is scoped per patient to prevent
-      cross-patient refresh triggers.
+      cross-patient refresh triggers. It also posts to 'carlos_tickler_refresh_all'
+      (a payload-free refresh signal) because the provider-wide task list spans
+      every patient and listens only there (#4993).
 
     Parameters:
     - tickler_no:           ID of the tickler to edit (required)
@@ -432,9 +434,12 @@
                         }
                         try {
                             var demoNo = '<carlos:encode value='<%= String.valueOf(t.getDemographicNo()) %>' context="javaScriptBlock"/>';
-                            var bc = new BroadcastChannel('carlos_tickler_refresh_' + demoNo);
-                            bc.postMessage({ action: 'refresh' });
-                            bc.close();
+                            // Patient-scoped listeners (encounter, patient task list) and the provider-wide list ("all").
+                            ['all', demoNo].forEach(function (scope) {
+                                var bc = new BroadcastChannel('carlos_tickler_refresh_' + scope);
+                                bc.postMessage({ action: 'refresh' });
+                                bc.close();
+                            });
                         } catch (e) {
                             console.error('[ticklerEdit] BroadcastChannel broadcast failed:', e);
                             // Fallback: reload the opener directly so the tickler list stays current

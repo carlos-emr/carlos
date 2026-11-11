@@ -229,7 +229,8 @@ public class PageMonitoring2Action extends ActionSupport {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         response.getWriter().print(jsonArray);
-        return null;
+        // The JSON is the whole answer: NONE stops Struts from forwarding to a result after it.
+        return NONE;
     }
 
     public String cancel() {
@@ -242,7 +243,8 @@ public class PageMonitoring2Action extends ActionSupport {
         //User hit cancel, so they actively want to release their (potential) lock on the page
         pageMonitorDao.cancelPageIdForProvider(pageName, pageId, providerNo);
 
-        return null;
+        // The page ignores the answer to its cancel request: NONE ends it with no result.
+        return NONE;
     }
 
     private List<PageMonitor> findByPageName(List<PageMonitor> existingParsed, String pageId, Locale locale) throws ParseException {

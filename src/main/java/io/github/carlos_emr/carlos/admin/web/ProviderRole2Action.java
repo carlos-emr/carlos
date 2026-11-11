@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.admin.web;
 
+import java.util.List;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -30,25 +32,31 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Security gate for the Provider Role admin page.
  *
- * <p>Requires either {@code _admin} or {@code _admin.userAdmin} read privilege.
- * POST method is enforced when a write operation is submitted (add, delete, or
- * update actions detected via the {@code submit} parameter); non-POST requests
- * for those operations receive HTTP 405. Read-only display requests are
- * forwarded directly to the JSP.</p>
+ * <p>Opening the page and filtering its list need {@code _admin} or {@code _admin.userAdmin}
+ * read privilege. The page's writes happen in {@code providerRole.jsp}, keyed on parameter
+ * names rather than on {@code method}, so {@code HttpMethodGuardFilter}'s generic check never
+ * sees them. Any request carrying one of {@link #WRITE_PARAMETERS} must be a POST (405
+ * otherwise) and needs write privilege on one of those objects, as Provider Privilege does.</p>
  *
  * @since 2026-04-05
  */
 public class ProviderRole2Action extends ActionSupport {
 
+    /**
+     * Parameters whose presence makes {@code providerRole.jsp} write: {@code submit} (Add or
+     * Delete a role), {@code buttonUpdate} (change a role) and {@code buttonSetPrimaryRole}
+     * (set the primary EMR role). The JSP compares {@code submit} with the <em>localized</em>
+     * button label, so this gate must not compare it with English words: {@code submit=Ajouter}
+     * from a French browser adds a role just as {@code submit=Add} does (issue #3394).
+     */
+    static final List<String> WRITE_PARAMETERS = List.of("submit", "buttonUpdate", "buttonSetPrimaryRole");
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -61,15 +69,23 @@ public class ProviderRole2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
         }
 
-        String submit = request.getParameter("submit");
-        boolean isWriteOperation = submit != null && (
-                submit.equalsIgnoreCase("add")
-                || submit.equalsIgnoreCase("delete")
-                || submit.toLowerCase().startsWith("update"));
+        // Any value counts, an empty one included: the JSP decides what to write, not this gate.
+        boolean writes = WRITE_PARAMETERS.stream().anyMatch(name -> request.getParameter(name) != null);
+        if (!writes) {
+            return SUCCESS;
+        }
 
-        if (isWriteOperation && !"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
             return NONE;
+        }
+
+        // Assigning or removing a role changes what that provider may do, so it needs the write
+        // right that Provider Privilege already requires for the same objects; read only lists.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
         }
 
         return SUCCESS;

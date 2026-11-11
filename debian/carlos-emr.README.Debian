@@ -465,7 +465,75 @@ log setting in the drop-in is therefore RELATIVE (log_bin = binlog) so that it
 follows the datadir; an absolute /var/lib/mysql/binlog stops the server from
 starting on this release.
 
-MariaDB runs on this host, listening on loopback only, with three
+Missing MariaDB system tables. After a purge/reinstall, MariaDB may abort
+with "Table 'mysql.db' doesn't exist" (often also mysql.servers and
+mysql.gtid_slave_pos). These are MariaDB's own system tables, created by
+mariadb-install-db, before CARLOS can provision its application schema.
+The distribution's MariaDB postinst ignores initializer failures, so a
+configured mariadb-server package does not guarantee those tables exist.
+The systemd message about unset MYSQLD_OPTS/_WSREP_NEW_CLUSTER is not the
+reason the server aborts.
+
+When mariadb.service fails during configure, this package retries the
+initializer only for an unfinished first initialization: carlos.properties
+must still be byte-identical to the shipped skeleton and no retained clinical
+documents may exist. The data directory must have no mysql schema and contain
+nothing except files a failed first start can create. An empty mountpoint on
+an established site is NOT a new database: a configured site or retained
+documents prevent automatic initialization, including after an application purge.
+
+The helper validates the service's mysql identity, command, environment and
+filesystem context before probing its configured datadir. Custom service
+arguments (including MYSQLD_OPTS), nonempty Galera settings, environment files
+other than the distribution's optional empty wsrep files, or an unsupported
+service context require manual recovery. A datadir configured normally under
+/etc/mysql is supported. The probe and bootstrap both run as mysql with a
+clean environment, so root's .my.cnf cannot redirect them to another database.
+The helper keeps existing files, uses socket authentication for root, and
+creates no test database. During initialization it also loads the operating
+system's timezone data into the new mysql schema, so the configured named
+timezone can be used at normal service startup. It refuses existing schemas,
+upgrade-info files, unrecognized files, a partial mysql schema, running
+database processes, other provisioning runs, imports, and a missing or
+nonexecutable import guard. Paths
+with whitespace also require manual recovery (unsupported by the vendor's
+shell initializer). A refusal leaves the normal install-incomplete notice.
+
+After installing the fixed package, retry with:
+
+    sudo dpkg-reconfigure carlos-emr
+    sudo dpkg-reconfigure carlos-emr-drugref     (if installed)
+
+If a configured site has no mysql schema, first check that its original data
+volume is mounted and recover the database from a matching backup. Do not
+initialize a blank mountpoint and start a new clinical database in its place.
+Only when a NEW empty database is intentional (for example, after explicitly
+removing MariaDB's databases during purge), also check the document store.
+Purge deliberately retains /var/lib/carlos-emr/CarlosDocument. Restore the
+matching database and documents together, or verify a complete backup and
+archive the old document store outside its active path before creating a new
+database. Do not pair a fresh clinical schema with retained patient documents.
+The helper refuses document files, symlinks and unreadable document subtrees
+even with the explicit acceptance option. Once the active store is empty (or
+absent after a deliberate archive), accept the new database configuration with:
+
+    sudo /usr/lib/carlos-emr/carlos-emr-mariadb-init --accept-empty-datadir
+    sudo dpkg-reconfigure carlos-emr
+    sudo dpkg-reconfigure carlos-emr-drugref     (if installed)
+
+This option bypasses only the first-install configuration provenance check.
+It still refuses retained/unreadable documents, existing schemas or unrecognized datadir files,
+unknown service options, imports and locks.
+For an existing database with missing system tables, restore its mysql system
+schema from a matching backup before running `sudo carlos-ctl finish-install`.
+Do not delete the data directory, remove ibdata1, or run an initializer over
+a populated database to make the startup error disappear: CARLOS and DrugRef
+may still hold data even though MariaDB cannot open its privilege tables.
+To see which directory the server actually uses (do not assume a path):
+
+    sudo mariadbd --verbose --help 2>/dev/null | awk '$1 == "datadir" {sub(/^datadir[ \t]+/, ""); print}'
+
+MariaDB runs on this host, listening on loopback only, with four
 least-privilege accounts and no application ever connecting as root:
 
   carlos    ALL PRIVILEGES on the EMR schema, nothing anywhere else
@@ -475,10 +543,77 @@ least-privilege accounts and no application ever connecting as root:
             it stream binary logs off the server without being able to read
             the datadir. Deliberately no PROCESS: a leak of backup.env must
             not let someone watch clinicians' live SQL.
+  carlos_report
+            the account Query by Example runs as: SELECT on the reportable
+            tables of the EMR schema only, never on the tables holding
+            passwords, PINs, tokens, keys, session identifiers or integration
+            settings, and never on a table no one has classified yet. At most
+            6 connections and 30 seconds per statement. Its grants come from
+            the list this package ships
+            (webapp/carlos/WEB-INF/classes/db/reporting/carlos_report_grants.sql)
+            and are re-applied by `carlos-ctl db-users` and after every
+            `carlos-ctl db-migrate`; `carlos-ctl check` reports any drift.
+            Query by Example refuses to run without it, and never falls back
+            to the carlos account. See docs/query-by-example-least-privilege.md
+            in the source for the threat model, rollback and rotation.
 
 Administrative access is root@localhost over the unix socket, which on Ubuntu
 authenticates by uid. That is why this package never asks for, and never
 stores, a MariaDB root password.
+
+MariaDB root access. CARLOS administers MariaDB as the system root user over
+the unix socket, with no MariaDB root password at all. That is the
+distribution's own default since MariaDB 10.4 -- there is no root password to
+leak or guess, and database root is exactly operating-system root -- and it is
+why this package never asks for, and never stores, a MariaDB root password.
+
+A MariaDB set up before this package (an earlier MariaDB or MySQL install, a
+web-stack tutorial, another application's installer) may instead have given
+root@localhost a password, often with the legacy SHA-1 based
+mysql_native_password method, and no socket login. The install then reports
+that root@localhost "refuses the system root user over the unix socket" and
+provisions nothing. Put root back to the distribution default rather than
+keeping that password:
+
+  1. Find whatever else logs in as root with it (phpMyAdmin, a backup script,
+     another application) and give it its own account with only the
+     privileges it needs: root's password stops working in step 2.
+  2. Log in once with the old password (the prompt takes it as typed),
+
+         sudo mariadb -u root -p
+
+     and run
+
+         ALTER USER root@localhost IDENTIFIED VIA unix_socket
+             OR mysql_native_password USING 'invalid';
+
+     'invalid' is not a password: no password can match it, so root logs in
+     over the socket only, exactly as on a fresh install.
+  3. Delete any root password stored in /root/.my.cnf (an "Access denied ...
+     (using password: YES)" error means one is being sent). It is no longer
+     used, and a plaintext root credential on disk is a liability.
+
+`sudo mariadb -e 'SELECT 1'` now answers without a password. Then:
+
+    sudo carlos-ctl finish-install
+    sudo dpkg-reconfigure carlos-emr-drugref     (if DrugRef was installed too)
+
+If nobody knows the old root password, or root is locked ("this account is
+locked" -- a locked root cannot log in to unlock itself), reset it with the
+grant tables switched off. For that short window any local user can connect
+without a password, so networking stays off and the server is restarted
+normally straight after:
+
+    sudo systemctl stop mariadb
+    sudo systemctl set-environment MYSQLD_OPTS="--skip-grant-tables --skip-networking"
+    sudo systemctl start mariadb
+    sudo mariadb -e "FLUSH PRIVILEGES; ALTER USER root@localhost ACCOUNT UNLOCK;
+        ALTER USER root@localhost IDENTIFIED VIA unix_socket
+        OR mysql_native_password USING 'invalid'"
+    sudo systemctl unset-environment MYSQLD_OPTS
+    sudo systemctl restart mariadb
+
+Then do steps 1 and 3 above and finish the install the same way.
 
 The schema is managed with Flyway. The application boots with
 `carlos.flyway.onBoot=validate`, so it refuses to start against a schema it was
@@ -1014,6 +1149,49 @@ eForm print, fax or archive fails
   The render browser ships inside carlos-emr. Only a development build made
   with SKIP_EFORM_RENDERER lacks it; the application then says so once at
   startup rather than failing a print later.
+
+nginx will not start: port 80 or 443 is already in use
+  The nginx journal says "bind() to 0.0.0.0:80 failed (98: Address already in
+  use)": another program held the front-door ports when nginx started. Each
+  configure looks for any other system service holding them, whatever
+  installed it: a Debian package (apache2, lighttpd, haproxy, ...), a snap (the
+  Nextcloud snap Ubuntu Server's installer offers serves 80/443) or a unit you
+  wrote. An interactive install ASKS first (carlos-emr/stop-port-conflicts,
+  listing each service); a non-interactive one takes the default and goes
+  ahead. Each one stopped is disabled, or masked when it cannot be disabled,
+  and a note names it; nothing is uninstalled, and the note gives the command
+  that brings it back once it has been moved to other ports. What was stopped,
+  or declined, is in the install output, /var/log/apt/term.log and the
+  journal (journalctl -t carlos-emr). To keep every configure hands-off:
+
+      echo 'carlos-emr carlos-emr/stop-port-conflicts boolean false' | sudo debconf-set-selections
+
+  Named but left running: containers and the container engines (stopping one
+  stops every container), programs started by hand (an nginx started outside
+  nginx.service included), ssh, systemd and database servers, and any service
+  when /usr/sbin/policy-rc.d forbids service changes, as image builds do. An
+  nginx you stopped yourself stays stopped on an upgrade; a first install, or
+  an nginx that failed to start, is started. nginx's own setup runs first, so its red "Failed to start" may
+  still appear earlier in the same install; the CARLOS step says when it was
+  this conflict. To see what holds the ports (as root: without sudo the owner
+  column is blank):
+
+      sudo /usr/lib/carlos-emr/carlos-emr-host-conflicts front-door --report 0.0.0.0
+      sudo ss -ltnp '( sport = :80 or sport = :443 )'
+
+  Use CARLOS_BIND_IP from /etc/carlos-emr/carlos-emr.env in place of 0.0.0.0.
+  Stop what it names, then: sudo carlos-ctl finish-install
+
+MariaDB is not reachable as root
+  The install names the cause on the line after "could not reach MariaDB as
+  root over the unix socket", and in /var/lib/carlos-emr/.install-incomplete:
+  the service is stopped or failed (with what holds port 3306, or its last
+  [ERROR] line), it was still starting, or root@localhost has a password (see
+  "MariaDB root access" under section 6). To ask again:
+
+      sudo /usr/lib/carlos-emr/carlos-emr-host-conflicts mariadb
+
+  Fix the cause, then: sudo carlos-ctl finish-install
 
 The application will not start
   Almost always the schema gate or the database. `carlos-ctl db-info` shows the

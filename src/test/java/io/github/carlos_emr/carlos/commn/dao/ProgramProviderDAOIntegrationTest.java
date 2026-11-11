@@ -78,7 +78,8 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
 
         // Ensure secrole and program records exist for FK constraints
         entityManager.createNativeQuery(
-                "MERGE INTO secrole (role_no, role_name) KEY(role_no) VALUES (983430, 'old_fixture_role'), (983431, 'new_fixture_role')")
+                "INSERT INTO secRole (role_no, role_name) VALUES (983430, 'old_fixture_role'), (983431, 'new_fixture_role') "
+                        + "ON DUPLICATE KEY UPDATE role_name=VALUES(role_name)")
                 .executeUpdate();
         // Persist the entity defaults, including primitive flags that a partial native row leaves null.
         Program program = new Program();

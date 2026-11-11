@@ -7,6 +7,7 @@ import io.github.carlos_emr.carlos.commn.model.Episode;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import java.util.List;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.orm.jpa.EntityManagerFactoryUtils;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -85,6 +87,11 @@ class PregnancyTransactionIntegrationTest {
     }
 
     private int submit(String operation, int patientId, Integer episodeId, String notes) throws Exception {
+        return submit(operation, patientId, episodeId, notes, new MockHttpSession(), null);
+    }
+
+    private int submit(String operation, int patientId, Integer episodeId, String notes,
+                       MockHttpSession session, String token) throws Exception {
         try (var spring = mockStatic(SpringUtils.class)) {
             SecurityInfoManager security = mock(SecurityInfoManager.class);
             when(security.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
@@ -95,6 +102,8 @@ class PregnancyTransactionIntegrationTest {
             spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactions);
             var request = new MockHttpServletRequest();
             var response = new MockHttpServletResponse();
+            request.setSession(session);
+            if (token != null) request.setParameter(FormSubmissionGuard.PARAMETER, token);
             request.setMethod("POST");
             request.setParameter("method", operation);
             request.setParameter("demographicNo", Integer.toString(patientId));
@@ -118,7 +127,7 @@ class PregnancyTransactionIntegrationTest {
                     assertThat(action.getDemographicNo()).isEqualTo(patientId);
                     assertThat(response.getRedirectedUrl()).isNull();
                 } else {
-                    assertThat(result).isEqualTo("none");
+                    assertThat(result).isIn("none", FormSubmissionGuard.REFUSED_RESULT);
                 }
                 return response.getStatus();
             } finally {
@@ -201,5 +210,50 @@ class PregnancyTransactionIntegrationTest {
         Episode before = rows().get(0);
         assertThat(submit("complete", patient, id, "Overwrite")).isEqualTo(409);
         assertThat(rows().get(0)).usingRecursiveComparison().ignoringFields("formatter").isEqualTo(before);
+    }
+
+    @Test void shouldKeepOneEpisode_whenCreateReplayedAfterCompletion() throws Exception {
+        var session = new MockHttpSession();
+        String token = FormSubmissionGuard.issue(session, FormSubmissionGuard.Scope.PREGNANCY_CREATE, Integer.toString(patient));
+        assertThat(submit("create", patient, null, "Original", session, token)).isEqualTo(200);
+        int id = rows().get(0).getId();
+        submit("complete", patient, id, "Final");
+        Episode before = rows().get(0);
+        assertThat(submit("create", patient, null, "Replayed", session, token)).isEqualTo(200);
+        assertThat(rows()).hasSize(1);
+        assertThat(rows().get(0)).usingRecursiveComparison().ignoringFields("formatter").isEqualTo(before);
+        String intentional = FormSubmissionGuard.issue(session, FormSubmissionGuard.Scope.PREGNANCY_CREATE, Integer.toString(patient));
+        assertThat(submit("create", patient, null, "Later pregnancy", session, intentional)).isEqualTo(200);
+        assertThat(rows()).hasSize(2);
+    }
+
+    @Test void shouldReleaseCreateToken_whenStorageTransactionRollsBack() throws Exception {
+        var session = new MockHttpSession();
+        String token = FormSubmissionGuard.issue(session, FormSubmissionGuard.Scope.PREGNANCY_CREATE, Integer.toString(patient));
+        write(em -> em.createNativeQuery("ALTER TABLE Episode ADD CONSTRAINT pregnancy_failure CHECK (notes <> 'fail')").executeUpdate());
+        assertThatThrownBy(() -> submit("create", patient, null, "fail", session, token)).isInstanceOf(RuntimeException.class);
+        assertThat(rows()).isEmpty();
+        assertThat(submit("create", patient, null, "Retry", session, token)).isEqualTo(200);
+        assertThat(rows()).hasSize(1);
+    }
+
+    @Test void shouldReturnSameHistory_whenGuardedCreatesRace() throws Exception {
+        var session = new MockHttpSession();
+        String token = FormSubmissionGuard.issue(session, FormSubmissionGuard.Scope.PREGNANCY_CREATE, Integer.toString(patient));
+        CyclicBarrier start = new CyclicBarrier(2);
+        Callable<Integer> create = () -> {
+            start.await(10, TimeUnit.SECONDS);
+            return submit("create", patient, null, "Concurrent guarded", session, token);
+        };
+        var executor = Executors.newFixedThreadPool(2);
+        try {
+            var first = executor.submit(create);
+            var second = executor.submit(create);
+            assertThat(List.of(first.get(15, TimeUnit.SECONDS), second.get(15, TimeUnit.SECONDS))).containsExactly(200, 200);
+            assertThat(rows()).hasSize(1);
+        } finally {
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
+        }
     }
 }

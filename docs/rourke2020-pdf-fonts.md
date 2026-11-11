@@ -88,6 +88,13 @@ The matrix is reproducible with:
 bash scripts/check-rourke-fonts.sh
 ```
 
+That script now runs the application-wide report font matrix
+(`scripts/check-report-fonts.sh`, see [pdf-font-policy.md](pdf-font-policy.md)), which adds a
+tall-line host face and the other report renderers. It also gives every scenario its own
+`user.home`: the JDK caches its fontconfig answer there, and the runs above did not isolate it,
+so the Liberation-only rows most likely still measured with the cached host mapping. Rourke 2020
+itself is unaffected, because it pins the bundled DejaVu extension.
+
 Additional Maven options can be passed as arguments. The script requires
 fontconfig and Liberation fonts, already present in the development image. Each
 case starts a fresh JVM, because AWT and Jasper cache font resolution. The
@@ -108,6 +115,42 @@ Synthetic PDFs, previews and logs are saved before assertions under
 `target/rourke-pdf/` or `target/rourke-font-matrix/`. CI uploads those directories
 even after a failure. The Rourke JavaScript regression and scoped BDD naming
 check also passed.
+
+## Field layout
+
+Issue #5046 found two growth values printed over the form's own guidance: the 12-month head
+circumference over "(avg 47 cm)" and the 24-month one over "if prior abN". Checking every
+field filled to capacity against the blank form found the same problem across all four
+pages, so the boxes were re-measured from the background scans (108 dpi, 1.5 pixels per
+template point):
+
+| Fields | Before | Now |
+| --- | --- | --- |
+| Growth values, pages 1–3 | Touched the descenders of "Length" and "Weight"; two page 1 values ran over "(avg 35 cm)" or out of their cell into the next section | On their own line under the label, centred in the space left in the cell |
+| Head circumference at 1 week, 12 and 24 months; weight at 2 weeks | Over the second-line guidance | Beside it, in the same cell |
+| Visit dates, pages 1–3 | Crossed by the printed `___/___/20__` slashes | Above the guide, as page 4 already printed them |
+| Parent/caregiver concerns, problems and plans | Full notes ran over the next section header (page 4's last two problem lines were unreadable) | Fitted to the blank space between the headers |
+| Name; birth head circumference and discharge weight | Long values ran into "Birth Day", "cm" and "g" | Ends before the printed text |
+| Birth remarks and family history | The two boxes overlapped | One column each |
+| Signatures, Nipissing items | Ran past the end of their line or onto the next heading | Fitted to their line |
+
+The birth date still prints across its d/m/yy guide: there is no blank space for it in the
+header.
+
+Where a box had to get smaller (page 4 concerns and problems, page 2 problems, narrowed growth
+boxes, names, birth remarks), it uses `textAdjust="ScaleFont"` so an entry that used to fit
+still prints, smaller, instead of overprinting the form. Jasper would shrink such text without
+limit, so the renderer refuses text below 8 points (the size of the form's own footnotes) with
+the same "does not fit" error as any other overflow. Every main-page text field also has
+`blankWhenNull`, so a record with no value prints an empty box rather than `null` (a record
+without a gestational age did).
+
+`Rourke2020PdfReportIntegrationTest#shouldKeepFullFields_clearOfPrintedForm` pins this. It
+fills every field to capacity (five-character growth values, full dates, full lines of text),
+renders each page and the blank form at 108 dpi, and requires that each box covers only paper
+and the thin ruled lines it is written on, that every printed pixel stays inside its own box,
+two pixels clear of print outside it, and that no two boxes overlap. Against the previous
+templates it reports more than 150 problems, including both reported collisions.
 
 ## Deployment and release disposition
 
@@ -134,9 +177,9 @@ the authenticated browser flow on an installed system.
 Full installed-service acceptance and the alpha20 release decision remain tracked
 in #4903; this application fix does not publish or promote a release.
 
-The four Rourke 2017 templates have the same unnamed-default-font pattern.
-Other forms/reports require effective-style and rendering checks before being
-classified as affected. #4907 tracks that audit, including paths outside Jasper.
+The four Rourke 2017 templates had the same unnamed-default-font pattern. The
+application-wide policy and audit in [pdf-font-policy.md](pdf-font-policy.md) (#5046, which
+absorbed #4907) now cover them and every other shipped template.
 
 Land this supported-release correctness fix on `release/2026.08`, preserving its
 snapshot version and SCM metadata, then forward-merge through the normal release

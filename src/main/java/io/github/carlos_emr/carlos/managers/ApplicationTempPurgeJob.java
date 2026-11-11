@@ -58,8 +58,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
  *   <li><b>Application temp root</b> ({@code <java.io.tmpdir>/carlos-temp}, see
  *       {@link PathValidationUtils#APPLICATION_TEMP_ROOT_NAME}) &mdash; the root
  *       {@code NioFileManagerImpl.saveTempFile} (which writes {@code tempPDF*} subdirectories) and
- *       {@code createTempFile} (which writes {@code tempDirectory*} subdirectories, used by
- *       {@code ImportDemographicDataAction42Action} to stage multi-patient demographic import files)
+ *       {@code createTempFile} (which writes {@code tempDirectory*} working subdirectories)
  *       write generated output under. This root is exclusively CARLOS-owned, so every direct child
  *       (file or directory, regardless of name) older than the configured max age is removed.</li>
  *   <li><b>Document preview cache</b> ({@code document_cache}, see

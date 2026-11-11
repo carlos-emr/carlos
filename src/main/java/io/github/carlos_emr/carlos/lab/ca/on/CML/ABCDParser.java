@@ -29,6 +29,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 import io.github.carlos_emr.Misc;
 import org.apache.logging.log4j.Logger;
@@ -40,6 +42,7 @@ import io.github.carlos_emr.carlos.commn.model.LabPatientPhysicianInfo;
 import io.github.carlos_emr.carlos.commn.model.LabReportInformation;
 import io.github.carlos_emr.carlos.commn.model.LabTestResults;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
+import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -201,9 +204,23 @@ public class ABCDParser {
                 pstmt.setString(i + 1, params[i]);
             }
             try (ResultSet rs = pstmt.executeQuery()) {
+                // A merged source record and its head share the patient's HIN: count distinct heads, not rows.
+                // A row inside a merge cycle has no head to deliver to, so it makes the whole match unresolved.
+                DemographicMerged mergeChain = new DemographicMerged();
+                Set<Integer> matchedHeads = new HashSet<>();
+                boolean unresolvedChain = false;
                 while (rs.next()) {
-                    countHolder[0]++;
-                    demo = Misc.getString(rs, "demographic_no");
+                    Integer head = mergeChain.findHead(Integer.valueOf(Misc.getString(rs, "demographic_no")));
+                    if (head == null) {
+                        unresolvedChain = true;
+                    } else if (matchedHeads.add(head)) {
+                        countHolder[0]++;
+                        demo = head.toString();
+                    }
+                }
+                if (unresolvedChain) {
+                    countHolder[0] = 0;
+                    demo = "0";
                 }
             }
         }

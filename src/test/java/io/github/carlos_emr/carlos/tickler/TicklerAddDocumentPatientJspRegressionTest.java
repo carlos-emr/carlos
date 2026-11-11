@@ -35,11 +35,13 @@ class TicklerAddDocumentPatientJspRegressionTest {
         String source = Files.readString(TICKLER_ADD_JSP, StandardCharsets.UTF_8);
 
         assertThat(source).contains("request.getAttribute(ForwardDemographicTickler2Action.PATIENT_DROPPED_FOR_DOCUMENT)");
-        assertThat(source).contains(
-                "String requestDemographicNo = patientDroppedForDocument ? null : request.getParameter(\"demographic_no\");");
-        // That assignment is the only read of the parameter: the patient lookup, the hidden
-        // demographic_no input and the refresh broadcast all use the guarded value.
-        assertThat(source.split("request\\.getParameter\\(\"demographic_no\"\\)", -1)).hasSize(2);
+        // A dropped document patient is never read; otherwise the patient comes only from the
+        // patient-lock check (#5067), which reads demographic_no / demographicNo itself.
+        assertThat(source).containsPattern("String requestDemographicNo = null;\\s*if \\(!patientDroppedForDocument\\) \\{"
+                + "[^}]*requestDemographicNo = PatientReadAccess\\.authorizedOptionalPatient\\(request,");
+        // No raw read of the parameter remains: the patient lookup, the hidden demographic_no
+        // input and the refresh broadcast all use the guarded value.
+        assertThat(source).doesNotContain("request.getParameter(\"demographic_no\")");
         assertThat(source).contains("demographicDao.getDemographic(requestDemographicNo)");
         assertThat(source).contains("String demoNoParam = requestDemographicNo;");
         assertThat(source).contains("requestDemographicNo != null ? requestDemographicNo : \"0\"");

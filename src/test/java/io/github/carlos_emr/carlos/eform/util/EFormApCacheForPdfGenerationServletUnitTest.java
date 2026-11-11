@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -226,13 +227,15 @@ class EFormApCacheForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
         data.setProviderNo("999998");
         data.setFormData("<html></html>");
         EFormDataDao dao = mock(EFormDataDao.class);
-        when(dao.find(77)).thenReturn(data);
+        // EForm(String) resolves the boxed persistence key through find(Object),
+        // not the separate primitive convenience overload.
+        when(dao.find((Object) Integer.valueOf(77))).thenReturn(data);
         registerMock(EFormDataDao.class, dao);
 
         try (MockedStatic<EFormUtil> eFormUtil = mockStatic(EFormUtil.class);
                 RenderFixture fixture = fixture(key)) {
             eFormUtil.when(() -> EFormUtil.getValuesOrNull(
-                    anyList(), any(ParameterizedSql.class)))
+                    anyList(), any(ParameterizedSql.class), anyInt()))
                     .thenReturn(new ArrayList<>());
             MockHttpServletRequest request = fixture.request(key);
             HttpServletResponse response = mock(HttpServletResponse.class);

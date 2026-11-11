@@ -255,7 +255,14 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
 
     }
 
+    /**
+     * Creates a consent type. Consent types are clinic configuration, so this requires write
+     * privilege on {@code _admin}.
+     */
     public ConsentType addConsentType(LoggedInInfo loggedinInfo, ConsentType consentType) {
+        if (!securityInfoManager.hasPrivilege(loggedinInfo, "_admin", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
 
         LogAction.addLog(loggedinInfo.getLoggedInProviderNo(), "PatientConsentManager.addConsentType", consentType.getType(), consentType.toString());
 

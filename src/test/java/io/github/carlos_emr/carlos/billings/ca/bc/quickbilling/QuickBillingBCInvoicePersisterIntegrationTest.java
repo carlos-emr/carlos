@@ -98,6 +98,18 @@ class QuickBillingBCInvoicePersisterIntegrationTest {
     }
 
     @Test
+    void shouldPreserveNotePunctuationAndFlattenLineBreaks_whenInvoiceCommits() {
+        persister.saveInvoice(header(), List.of(line("00100", "33.70")), "999998",
+                "Patient's note: C:\\claims\\draft\r\nSecond line\nFinal line");
+
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            BillingNotes note = entityManager.createQuery("from BillingNotes", BillingNotes.class)
+                    .getSingleResult();
+            assertThat(note.getNote()).isEqualTo("Patient's note: C:\\claims\\draft  Second line Final line");
+        });
+    }
+
+    @Test
     void shouldRollbackAllInvoiceTables_whenNoteWriteFailsAfterClaimsAndHistory() {
         // provider_no is NOT NULL. The failure happens after header, claim and history inserts.
         assertThatThrownBy(() -> persister.saveInvoice(header(), List.of(line("00100", "33.70")),

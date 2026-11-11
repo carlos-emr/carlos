@@ -96,6 +96,13 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRenderUploadFormWithoutError_whenOpenedWithGet() {
+        request.setMethod("GET");
+        assertThat(execute(null)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("outcome")).isNull();
+    }
+
+    @Test
     void shouldExplainMissingUpload_whenNoFileProvided() {
         assertThat(execute(null)).isEqualTo(ActionSupport.SUCCESS);
         assertThat(request.getAttribute("outcome")).isEqualTo("exception");

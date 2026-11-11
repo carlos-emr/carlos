@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.LegacyXmlBeans;
 import cdsrourke.PatientDocument;
 import cdsrourke.PatientDocument.Patient;
 import org.apache.struts2.ActionSupport;
@@ -71,15 +72,16 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * and are restricted to the configured document directory.
  */
 public class RourkeExport2Action extends ActionSupport {
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    // Spring services belong to this request-scoped action, not its serializable form.
+    private final transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private ClinicDAO clinicDAO = SpringUtils.getBean(ClinicDAO.class);
-    private DataExportDao dataExportDAO = SpringUtils.getBean(DataExportDao.class);
-    private DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-    private Rourke2009DAO frmRourke2009DAO = SpringUtils.getBean(Rourke2009DAO.class);
+    private transient ClinicDAO clinicDAO = SpringUtils.getBean(ClinicDAO.class);
+    private transient DataExportDao dataExportDAO = SpringUtils.getBean(DataExportDao.class);
+    private transient DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
+    private transient Rourke2009DAO frmRourke2009DAO = SpringUtils.getBean(Rourke2009DAO.class);
 
     private Logger log = MiscUtils.getLogger();
 
@@ -266,7 +268,7 @@ public class RourkeExport2Action extends ActionSupport {
         String demoNo;
         Demographic demo;
 
-        PatientDocument patientDocument = PatientDocument.Factory.newInstance();
+        PatientDocument patientDocument = LegacyXmlBeans.newInstance(PatientDocument.class, PatientDocument.type);
         Patient patient;
 
         for (int idx = 0; idx < patientList.size(); ++idx) {
@@ -3835,9 +3837,9 @@ public class RourkeExport2Action extends ActionSupport {
 
     private String makeFiles(PatientDocument patientDocument, String tmpDir) throws Exception {
         XmlOptions options = new XmlOptions();
-        options.put(XmlOptions.SAVE_PRETTY_PRINT);
-        options.put(XmlOptions.SAVE_PRETTY_PRINT_INDENT, 3);
-        options.put(XmlOptions.SAVE_AGGRESSIVE_NAMESPACES);
+        options.setSavePrettyPrint();
+        options.setSavePrettyPrintIndent(3);
+        options.setSaveAggressiveNamespaces();
 
         options.setSaveOuter();
 

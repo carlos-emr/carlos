@@ -21,9 +21,17 @@
  */
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -89,8 +97,11 @@ class MsgAttachmentStagingUnitTest {
         String window = MsgAttachmentStaging.newKey();
         MsgAttachmentStaging.stagePdfs(session, window, 101, "<PDF>A</PDF>");
 
-        assertThat(MsgAttachmentStaging.take(session, window)).isNotNull();
+        MsgAttachmentStaging.Staged taken = MsgAttachmentStaging.take(session, window);
+        assertThat(taken).isNotNull();
         assertThat(MsgAttachmentStaging.take(session, window)).isNull();
+        assertThat(Collections.list(session.getAttributeNames())).hasSize(1);
+        MsgAttachmentStaging.releaseSource(session, window, taken);
         assertThat(Collections.list(session.getAttributeNames())).isEmpty();
     }
 
@@ -142,6 +153,210 @@ class MsgAttachmentStagingUnitTest {
         MsgAttachmentStaging.stagePdfs(session, window, 101, "<PDF>newer</PDF>");
         MsgAttachmentStaging.restore(session, window, again);
         assertThat(MsgAttachmentStaging.peek(session, window).pdfAttachment()).isEqualTo("<PDF>newer</PDF>");
+    }
+
+    @Test
+    void shouldKeepPdfsCleared_whenAnEarlierSendFails() {
+        String window = MsgAttachmentStaging.newKey();
+        MsgAttachmentStaging.stagePdfs(session, window, 101, "<PDF>FAKE A</PDF>");
+        MsgAttachmentStaging.Staged sending = MsgAttachmentStaging.take(session, window);
+
+        // The chooser submits no selected records while sendMessage2 is still in flight.
+        MsgAttachmentStaging.stagePdfs(session, window, 101, null);
+        MsgAttachmentStaging.restore(session, window, sending);
+
+        assertThat(MsgAttachmentStaging.peek(session, window)).isNull();
+    }
+
+    @Test
+    void shouldKeepItemsCleared_whenAnEarlierSendFails() {
+        String window = MsgAttachmentStaging.newKey();
+        MsgAttachmentStaging.stageItems(session, window, "<root>FAKE item</root>");
+        MsgAttachmentStaging.Staged sending = MsgAttachmentStaging.take(session, window);
+
+        MsgAttachmentStaging.stageItems(session, window, null);
+        MsgAttachmentStaging.restore(session, window, sending);
+
+        assertThat(MsgAttachmentStaging.peek(session, window)).isNull();
+    }
+
+    @Test
+    void shouldKeepDiscardedAttachmentsAbsent_whenAnEarlierSendFails() {
+        String window = MsgAttachmentStaging.newKey();
+        MsgAttachmentStaging.stagePdfs(session, window, 101, "<PDF>FAKE A</PDF>");
+        MsgAttachmentStaging.stageItems(session, window, "<root>FAKE item</root>");
+        MsgAttachmentStaging.Staged sending = MsgAttachmentStaging.take(session, window);
+
+        MsgAttachmentStaging.discard(session, window);
+        MsgAttachmentStaging.restore(session, window, sending);
+
+        assertThat(MsgAttachmentStaging.peek(session, window)).isNull();
+    }
+
+    @Test
+    void shouldRestoreOnlyTheNewerSend_whenTwoAttemptsFinishOutOfOrder() {
+        String window = MsgAttachmentStaging.newKey();
+        MsgAttachmentStaging.stagePdfs(session, window, 101, "<PDF>FAKE A</PDF>");
+        MsgAttachmentStaging.Staged first = MsgAttachmentStaging.take(session, window);
+        MsgAttachmentStaging.stagePdfs(session, window, 202, "<PDF>FAKE B</PDF>");
+        MsgAttachmentStaging.Staged second = MsgAttachmentStaging.take(session, window);
+
+        MsgAttachmentStaging.restore(session, window, first);
+        assertThat(MsgAttachmentStaging.peek(session, window)).isNull();
+        MsgAttachmentStaging.restore(session, window, second);
+        assertThat(MsgAttachmentStaging.peek(session, window).pdfAttachment()).isEqualTo("<PDF>FAKE B</PDF>");
+        assertThat(MsgAttachmentStaging.peek(session, window).pdfDemographicNo()).isEqualTo(202);
+    }
+
+    @Test
+    void shouldKeepTheReplacement_whenAnOlderSendFailsAfterClearAndRestage() {
+        String window = MsgAttachmentStaging.newKey();
+        MsgAttachmentStaging.stagePdfs(session, window, 101, "<PDF>FAKE A</PDF>");
+        MsgAttachmentStaging.Staged sending = MsgAttachmentStaging.take(session, window);
+        MsgAttachmentStaging.stagePdfs(session, window, 101, null);
+        MsgAttachmentStaging.stageItems(session, window, "<root>FAKE replacement</root>");
+
+        MsgAttachmentStaging.restore(session, window, sending);
+
+        assertThat(MsgAttachmentStaging.peek(session, window).pdfAttachment()).isNull();
+        assertThat(MsgAttachmentStaging.peek(session, window).itemAttachment())
+                .isEqualTo("<root>FAKE replacement</root>");
+    }
+
+    @Test
+    void shouldConsumeRestorationOwnership_whenTheSendSucceededWithoutASource() {
+        String window = MsgAttachmentStaging.newKey();
+        MsgAttachmentStaging.stagePdfs(session, window, 101, "<PDF>FAKE A</PDF>");
+        MsgAttachmentStaging.Staged sent = MsgAttachmentStaging.take(session, window);
+
+        MsgAttachmentStaging.releaseSource(session, window, sent);
+        MsgAttachmentStaging.restore(session, window, sent);
+
+        assertThat(MsgAttachmentStaging.peek(session, window)).isNull();
+        assertThat(Collections.list(session.getAttributeNames())).isEmpty();
+    }
+
+    @Test
+    void shouldKeepTheNewerClaim_whenAnOlderSendSucceeds() {
+        String window = MsgAttachmentStaging.newKey();
+        MsgAttachmentStaging.stagePdfs(session, window, 101, "<PDF>FAKE A</PDF>");
+        MsgAttachmentStaging.Staged first = MsgAttachmentStaging.take(session, window);
+        MsgAttachmentStaging.stagePdfs(session, window, 202, "<PDF>FAKE B</PDF>");
+        MsgAttachmentStaging.Staged second = MsgAttachmentStaging.take(session, window);
+
+        MsgAttachmentStaging.releaseSource(session, window, first);
+        MsgAttachmentStaging.restore(session, window, second);
+
+        assertThat(MsgAttachmentStaging.peek(session, window).pdfAttachment()).isEqualTo("<PDF>FAKE B</PDF>");
+        assertThat(MsgAttachmentStaging.peek(session, window).pdfDemographicNo()).isEqualTo(202);
+    }
+
+    @Test
+    void shouldGiveRetriesNewOwnership_whenTheSameValuesAreTakenAgain() {
+        String window = MsgAttachmentStaging.newKey();
+        MsgAttachmentStaging.stagePdfs(session, window, 101, "<PDF>FAKE A</PDF>");
+        MsgAttachmentStaging.Staged first = MsgAttachmentStaging.take(session, window);
+        MsgAttachmentStaging.restore(session, window, first);
+        MsgAttachmentStaging.Staged retry = MsgAttachmentStaging.take(session, window);
+        assertThat(retry).isEqualTo(first).isNotSameAs(first);
+        assertThat(retry.hashCode()).isEqualTo(first.hashCode());
+
+        MsgAttachmentStaging.restore(session, window, first);
+        assertThat(MsgAttachmentStaging.peek(session, window)).isNull();
+        MsgAttachmentStaging.releaseSource(session, window, first);
+        MsgAttachmentStaging.restore(session, window, retry);
+        assertThat(MsgAttachmentStaging.peek(session, window)).isSameAs(retry);
+    }
+
+    @Test
+    void shouldNotResurrectAClaim_whenClearIsFollowedByManyOtherSends() {
+        String window = MsgAttachmentStaging.newKey();
+        MsgAttachmentStaging.stagePdfs(session, window, 101, "<PDF>FAKE A</PDF>");
+        MsgAttachmentStaging.Staged first = MsgAttachmentStaging.take(session, window);
+        MsgAttachmentStaging.discard(session, window);
+        for (int i = 0; i < 5 * MsgAttachmentStaging.MAX_ENTRIES; i++) {
+            String other = MsgAttachmentStaging.newKey();
+            MsgAttachmentStaging.stageItems(session, other, "<root>FAKE other</root>");
+            MsgAttachmentStaging.take(session, other);
+        }
+
+        MsgAttachmentStaging.restore(session, window, first);
+
+        assertThat(MsgAttachmentStaging.peek(session, window)).isNull();
+        assertThat(MsgAttachmentStaging.claimDropped(session, window)).isFalse();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldBoundOpaqueClaimsAndReportReleasedAttachments_whenTooManySendsOverlap() {
+        List<String> windows = new ArrayList<>();
+        List<MsgAttachmentStaging.Staged> sending = new ArrayList<>();
+        for (int i = 0; i <= 4 * MsgAttachmentStaging.MAX_ENTRIES; i++) {
+            String window = MsgAttachmentStaging.newKey();
+            windows.add(window);
+            MsgAttachmentStaging.stagePdfs(session, window, 101, "<PDF>FAKE patient chart</PDF>");
+            sending.add(MsgAttachmentStaging.take(session, window));
+        }
+        Map<String, String> claims = (Map<String, String>) session.getAttribute(
+                MsgAttachmentStaging.class.getName() + ".restores");
+        assertThat(claims).hasSize(4 * MsgAttachmentStaging.MAX_ENTRIES);
+        assertThat(claims.values()).allMatch(MsgAttachmentStaging::isKey);
+        assertThat(claims.toString()).doesNotContain("<PDF>", "<root>", "FAKE patient chart");
+        assertThatThrownBy(claims::clear).isInstanceOf(UnsupportedOperationException.class);
+
+        MsgAttachmentStaging.restore(session, windows.get(0), sending.get(0));
+        assertThat(MsgAttachmentStaging.peek(session, windows.get(0))).isNull();
+        assertThat(MsgAttachmentStaging.claimDropped(session, windows.get(0))).isTrue();
+        assertThat(MsgAttachmentStaging.claimDropped(session, windows.get(0))).isFalse();
+        MsgAttachmentStaging.restore(session, windows.get(1), sending.get(1));
+        assertThat(MsgAttachmentStaging.peek(session, windows.get(1))).isEqualTo(sending.get(1));
+    }
+
+    @Test
+    void shouldRestoreTheExactAttempt_whenSessionMetadataIsSerialized() throws Exception {
+        String window = MsgAttachmentStaging.newKey();
+        MsgAttachmentStaging.stagePdfs(session, window, 101, "<PDF>FAKE A</PDF>");
+        MsgAttachmentStaging.Staged sending = MsgAttachmentStaging.take(session, window);
+        Map<String, Object> attributes = new LinkedHashMap<>();
+        Collections.list(session.getAttributeNames()).forEach(name -> attributes.put(name, session.getAttribute(name)));
+        MockHttpSession persisted = new MockHttpSession();
+        serializedCopy(attributes).forEach(persisted::setAttribute);
+        MsgAttachmentStaging.Staged persistedSending = serializedCopy(sending);
+
+        MsgAttachmentStaging.restore(persisted, window, persistedSending);
+
+        assertThat(persistedSending).isEqualTo(sending).isNotSameAs(sending);
+        assertThat(MsgAttachmentStaging.peek(persisted, window)).isEqualTo(sending);
+        assertThat(Collections.list(persisted.getAttributeNames())).hasSize(1);
+    }
+
+    @Test
+    void shouldReadPreviousSessionEntries_whenTheirSerializedRecordPredatesRevisions() throws Exception {
+        // Written by the original 3-component Staged record (serialVersionUID 0) before this fix.
+        String legacy = "rO0ABXNyAEppby5naXRodWIuY2FybG9zX2Vtci5jYXJsb3MubWVzc2VuZ2VyLnBhZ2VVdGlsLk1zZ0F0dGFjaG1lbnRTdGFnaW5nJFN0YWdlZAAAAAAAAAAAAgADSQAQcGRmRGVtb2dyYXBoaWNOb0wADml0ZW1BdHRhY2htZW50dAASTGphdmEvbGFuZy9TdHJpbmc7TAANcGRmQXR0YWNobWVudHEAfgABeHAAAABldAAWPHJvb3Q+RkFLRSBpdGVtPC9yb290PnQAETxQREY+RkFLRSBBPC9QREY+";
+        MsgAttachmentStaging.Staged saved;
+        try (ObjectInputStream input = new ObjectInputStream(new ByteArrayInputStream(Base64.getDecoder().decode(legacy)))) {
+            saved = (MsgAttachmentStaging.Staged) input.readObject();
+        }
+        String window = MsgAttachmentStaging.newKey();
+        session.setAttribute(MsgAttachmentStaging.class.getName() + ".entries", Map.of(window, saved));
+
+        MsgAttachmentStaging.Staged sending = MsgAttachmentStaging.take(session, window);
+        MsgAttachmentStaging.restore(session, window, serializedCopy(sending));
+
+        assertThat(MsgAttachmentStaging.peek(session, window))
+                .isEqualTo(new MsgAttachmentStaging.Staged(101, "<PDF>FAKE A</PDF>", "<root>FAKE item</root>"));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> T serializedCopy(T value) throws Exception {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
+            output.writeObject(value);
+        }
+        try (ObjectInputStream input = new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+            return (T) input.readObject();
+        }
     }
 
     @Test

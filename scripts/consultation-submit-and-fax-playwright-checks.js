@@ -138,7 +138,17 @@ async function workflow(s) {
       throw new h.SkipCheck('An active fax sender account exists; Send is not pressed where it could transmit');
     }
     h.assert(await form.locator('#senderFaxAccount option').count() === 0, 'The cover page offers a fax sender account');
-    await form.locator('#searchProfessionalSpecialist_name').fill(`${lastName}, Ann`);
+    const recipientName = `${lastName}, Ann`;
+    const search = form.waitForResponse(response => {
+      const url = new URL(response.url());
+      return url.pathname.endsWith('/fax/SearchFaxRecipient') && url.searchParams.get('term') === recipientName;
+    });
+    search.catch(() => {});
+    await form.locator('#searchProfessionalSpecialist_name').fill(recipientName);
+    const searchResponse = await search;
+    h.assert(searchResponse.status() === 200, 'The recipient search did not complete successfully');
+    // Send reloads the form: finish reading the debounced search before navigating.
+    await searchResponse.finished();
     const refusal = await h.withExpectedDialogs(form, () => clickAndAwaitReload(form, form.locator('#btnSend')));
     h.assert(refusal.length === 1 && /could not be sent/i.test(refusal[0].text) && /not configured/i.test(refusal[0].text),
       'The fax Send was not refused for the missing sender account');

@@ -84,12 +84,20 @@ class FormSubmissionGuardWiringRegressionTest {
             "struts-scheduling.xml, appointment/AddRecord",
             "struts-billing.xml, billing/CA/ON/BillingONSave",
             "struts-demographic.xml, demographic/DemographicAddRecord",
-            "struts-encounter.xml, encounter/AddService"
+            "struts-encounter.xml, encounter/AddService",
+            "struts-clinical.xml, Pregnancy"
     })
     void shouldMapTheRefusalPage_forEachGuardedAction(String strutsFile, String action) throws IOException {
         assertThat(actionElement(strutsFile, action)).contains("<result name=\"" + FormSubmissionGuard.REFUSED_RESULT
                 + "\">/WEB-INF/jsp/common/formSubmissionRefused.jsp</result>");
         assertThat(JSP.resolve(Path.of("common", "formSubmissionRefused.jsp"))).exists();
+    }
+
+    @Test
+    void shouldRenderTheActionIssuedToken_inThePregnancyCreateForm() throws IOException {
+        String page = read(JSP.resolve(Path.of("pregnancy", "form.jsp")));
+        assertThat(page).contains("name=\"<%= FormSubmissionGuard.PARAMETER %>\"");
+        assertThat(page).contains("request.getAttribute(\"formSubmissionToken\")");
     }
 
     @Test

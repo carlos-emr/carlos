@@ -137,6 +137,7 @@ async function workflow(s) {
     }
     await wcb.locator('#w_problem').fill('FAKE prior problem');
     await wcb.locator('#w_clinicinfo').fill('FAKE clinical information');
+    await wcb.locator('#w_side').selectOption('L');
     await wcb.locator('#w_doi').evaluate((input) => { input.value = new Date().toISOString().slice(0, 10); });
     const before = wcbRows().length;
     const [replaced, posted] = await Promise.all([
@@ -159,6 +160,7 @@ async function workflow(s) {
       `The saved form does not hold the employer, ICD9, fee item and diagnosis entered: ${JSON.stringify(saved)}`);
     h.assert(status === 'W', `The saved form's status is "${status}"`);
     h.assert(pracNo === physician.ohipNo && payeeNo === physician.payeeNo, 'The saved form does not hold the physician\'s numbers');
+    h.assert(sql.value(`SELECT w_side FROM wcb WHERE ID=${id}`) === 'L', 'The saved form does not hold the chosen side');
     await form.waitForFunction(() => !window.jQuery || window.jQuery.active === 0, null, { timeout: TIMEOUT });
     const choice = form.locator(`#wcbForms input[name="WCBid"][value="${id}"]`);
     h.assert(await choice.count() === 1, 'The bill form\'s WCB list does not offer the saved form');
@@ -173,6 +175,7 @@ async function workflow(s) {
     h.assert(await view.locator('input[name="w_reporttype"][value="C"]').isChecked(), 'The saved form opens without its report type');
     h.assert(await view.locator('input[name="formNeeded"]').isChecked(), 'The saved form opens with Form Needed clear');
     h.assert(await view.locator('#w_problem').inputValue() === 'FAKE prior problem', 'The saved form opens without its problem text');
+    h.assert(await view.locator('#w_side').inputValue() === 'L', 'The saved form opens without its chosen side');
     await view.close();
   });
 

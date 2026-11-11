@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -900,64 +898,6 @@ public interface PhysicalExaminationType extends XmlObject
          */
         public static PhysicalExaminationType parse(final Node node, final XmlOptions options) throws XmlException {
             return (PhysicalExaminationType)XmlBeans.getContextTypeLoader().parse(node, PhysicalExaminationType.type, options);
-        }
-
-        /**
-         * Parses XML from an XMLInputStream into a PhysicalExaminationType instance.
-         *
-         * @param xis XMLInputStream the XML input stream
-         * @return PhysicalExaminationType the parsed instance
-         * @throws XmlException if the XML is malformed or invalid
-         * @throws XMLStreamException if an XML streaming error occurs
-         * @deprecated XMLInputStream is deprecated. Use InputStream or Reader instead.
-         */
-        @Deprecated
-        public static PhysicalExaminationType parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (PhysicalExaminationType)XmlBeans.getContextTypeLoader().parse(xis, PhysicalExaminationType.type, (XmlOptions)null);
-        }
-
-        /**
-         * Parses XML from an XMLInputStream into a PhysicalExaminationType instance with specified options.
-         *
-         * @param xis XMLInputStream the XML input stream
-         * @param options XmlOptions the XML parsing/validation options
-         * @return PhysicalExaminationType the parsed instance
-         * @throws XmlException if the XML is malformed or invalid
-         * @throws XMLStreamException if an XML streaming error occurs
-         * @deprecated XMLInputStream is deprecated. Use InputStream or Reader instead.
-         */
-        @Deprecated
-        public static PhysicalExaminationType parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (PhysicalExaminationType)XmlBeans.getContextTypeLoader().parse(xis, PhysicalExaminationType.type, options);
-        }
-
-        /**
-         * Creates a validating XMLInputStream wrapper for the given input stream.
-         *
-         * @param xis XMLInputStream the XML input stream to wrap with validation
-         * @return XMLInputStream a validating wrapper around the input stream
-         * @throws XmlException if the XML is malformed or invalid
-         * @throws XMLStreamException if an XML streaming error occurs
-         * @deprecated XMLInputStream is deprecated. Use InputStream or Reader instead.
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, PhysicalExaminationType.type, (XmlOptions)null);
-        }
-
-        /**
-         * Creates a validating XMLInputStream wrapper for the given input stream with specified options.
-         *
-         * @param xis XMLInputStream the XML input stream to wrap with validation
-         * @param options XmlOptions the XML parsing/validation options
-         * @return XMLInputStream a validating wrapper around the input stream
-         * @throws XmlException if the XML is malformed or invalid
-         * @throws XMLStreamException if an XML streaming error occurs
-         * @deprecated XMLInputStream is deprecated. Use InputStream or Reader instead.
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, PhysicalExaminationType.type, options);
         }
 
         /**

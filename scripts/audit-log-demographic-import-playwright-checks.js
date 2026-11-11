@@ -16,15 +16,13 @@
  * the violated ones are reported together in the last step.
  *
  * Fixtures and cleanup: the patient exists only because the check imported it (surname = the run marker; health
- * card number 9 + nine random digits). Cleanup, registered before the upload, removes every row the importer wrote
- * for that demographic_no, the audit rows scoped to it or to the health card number, and asserts each is gone.
+ * card number 9 + nine random digits). Cleanup removes only completed owned clinical fixtures; audit/ledger evidence
+ * remains, and any held/incomplete clinical fixture is retained with a visible cleanup failure.
  */
 const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
-const { revealAuditLink } = require('./lib/playwright-link-audit');
-const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
-const { buildCdsXml, fixtureValues } = require('./demographic-cds-import-playwright-checks');
+const {buildCdsXml,fixtureValues,assertSchemaValid,openImportFrame,uploadAndAwaitRun,registerImportCleanup} = require('./demographic-cds-import-playwright-checks');
 const { phiLeaks, label, PATIENT_KEYED_CONTENT } = require('./lib/audit-log-helpers');
 
 const q = h.sqlString;
@@ -37,40 +35,10 @@ async function workflow(s) {
   const owner = `last_name=${q(v.lastName)} AND first_name=${q(v.firstName)}`;
   const hinRowsWhere = `(data LIKE ${q(`%${hin}%`)} OR content LIKE ${q(`%${hin}%`)} OR contentId LIKE ${q(`%${hin}%`)})`;
   const importedIds = () => sql.rows(`SELECT demographic_no FROM demographic WHERE ${owner} ORDER BY demographic_no`).flat();
-  let before; // audit watermark: cleanup touches only rows this run wrote
+  let before; // Audit watermark bounds all observations to this synthetic import attempt.
   const defects = [];
   const expect = (ok, message) => { if (!ok) defects.push(message); };
-  s.cleanup(() => {
-    for (const id of importedIds()) {
-      h.assert(/^[1-9]\d*$/.test(id), 'Imported patient has an invalid identity');
-      const drugs = `SELECT drugid FROM drugs WHERE demographic_no=${id}`;
-      const allergies = `SELECT allergyid FROM allergies WHERE demographic_no=${id}`;
-      const notes = `SELECT note_id FROM casemgmt_note WHERE demographic_no=${q(id)}`;
-      sql.execute([
-        `DELETE FROM partial_date WHERE (table_name=2 AND table_id IN (${drugs})) OR (table_name=1 AND table_id IN (${allergies}))`,
-        `DELETE FROM casemgmt_note_link WHERE note_id IN (SELECT note_id FROM (${notes}) n)`,
-        `DELETE FROM casemgmt_issue_notes WHERE note_id IN (SELECT note_id FROM (${notes}) n)`,
-        `DELETE FROM casemgmt_note WHERE demographic_no=${q(id)}`, `DELETE FROM casemgmt_issue WHERE demographic_no=${q(id)}`,
-        `DELETE FROM drugReason WHERE demographicNo=${id}`, `DELETE FROM drugs WHERE demographic_no=${id}`,
-        `DELETE FROM allergies WHERE demographic_no=${id}`, `DELETE FROM admission WHERE client_id=${id}`,
-        `DELETE FROM demographiccust WHERE demographic_no=${id}`, `DELETE FROM demographicExt WHERE demographic_no=${id}`,
-        `DELETE FROM demographicArchive WHERE demographic_no=${id}`, `DELETE FROM DemographicContact WHERE demographicNo=${id}`,
-        `DELETE FROM demographicPharmacy WHERE demographic_no=${id}`,
-        `DELETE FROM log WHERE demographic_no=${id} OR (content IN (${KEYED}) AND contentId=${q(id)}) OR data REGEXP ${q(`(emographic(No|_no| id| no)?[ =:]+)${id}([^0-9]|$)`)}`,
-      ].join(';\n'));
-      h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM drugs WHERE demographic_no=${id}) + (SELECT COUNT(*) FROM allergies WHERE demographic_no=${id})
-        + (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${q(id)}) + (SELECT COUNT(*) FROM log WHERE demographic_no=${id})`) === '0',
-      'Imported patient child rows were not removed');
-      sql.execute(`DELETE FROM demographic WHERE demographic_no=${id} AND ${owner}`);
-    }
-    h.assert(importedIds().length === 0, 'The imported patient was not removed');
-    // The leak check looks for the number in content, contentId and data, so remove by all three, but only rows written
-    // after the watermark; without one nothing of this run's was recorded and no unrelated row is touched.
-    if (Number.isInteger(before)) {
-      sql.execute(`DELETE FROM log WHERE id>${before} AND ${hinRowsWhere}`);
-      h.assert(sql.value(`SELECT COUNT(*) FROM log WHERE id>${before} AND ${hinRowsWhere}`) === '0', 'Audit rows carrying the run health number were not removed');
-    }
-  });
+  registerImportCleanup(s, owner); // Retain audit and immutable import evidence; never hide an incomplete held import.
   const [first, last] = sql.rows(`SELECT first_name,last_name FROM provider WHERE provider_no=${q(provider)}`)[0] || [];
   h.assert(first && last, 'The test provider has no name to match as primary physician');
   h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE first_name=${q(first)} AND last_name=${q(last)}`) === '1',
@@ -80,29 +48,18 @@ async function workflow(s) {
   h.assert(xml.includes(hin), 'The health card element was not added to the fixture');
   const file = { name: `${marker}.xml`, mimeType: 'text/xml', buffer: Buffer.from(xml, 'utf8') };
 
-  let admin;
-  let frame;
-  await s.step('Administration > Data Management > Demographic Import opens the upload form', async () => {
-    ({ page: admin } = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
-      { context: s.context, recorder: s.recorder, label: 'audit-import-admin', timeout: 20000 }));
-    const link = admin.locator('#adminNav a.xlink[rel$="/form/importUpload"]');
-    await revealAuditLink(admin, link, 20000);
-    await link.click();
-    const iframe = admin.locator('#dynamic-content iframe#myFrame');
-    await iframe.waitFor();
-    frame = await (await iframe.elementHandle()).contentFrame();
-    h.assert(frame, 'Demographic Import frame did not load');
-    await frame.locator('form[name="ImportDemographicDataForm"] #importFile').waitFor();
+  assertSchemaValid(xml);
+  let admin,frame;
+  await s.step('Existing administration menu opens the durable import UI', async () => {
+    ({admin,frame}=await openImportFrame(s,'audit-import-admin'));
   });
 
   let id;
   await s.step('importing the CDS file creates exactly one patient (audit rows observed)', async () => {
     before = Number(sql.value('SELECT COALESCE(MAX(id),0) FROM log'));
-    await frame.locator('#importFile').setInputFiles(file);
-    const uploaded = admin.waitForResponse(r => new URL(r.url()).pathname.endsWith('/form/importUpload') && r.request().method() === 'POST', { timeout: 120000 });
-    await frame.locator('input[type="submit"][name="Submit"]').click();
-    h.assert((await uploaded).status() === 200, 'Import upload was refused');
-    await frame.locator('#result > div').filter({ hasText: file.name }).getByRole('link', { name: 'Download Import Event Log' }).waitFor({ timeout: 120000 });
+    const run=await uploadAndAwaitRun(s,admin,frame,file);
+    h.assert(run.summary.clinicalComplete === true && run.summary.cleanComplete === true,
+      'Import did not deliver a complete clinical and operational receipt');
     const ids = importedIds();
     h.assert(ids.length === 1, `Expected exactly one imported patient, found ${ids.length}`);
     [id] = ids;

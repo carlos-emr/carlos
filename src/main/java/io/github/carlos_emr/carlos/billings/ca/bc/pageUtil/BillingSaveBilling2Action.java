@@ -74,6 +74,10 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class BillingSaveBilling2Action extends ActionSupport {
+    /** The private bill review's receipt button (billingCreated.jsp). */
+    static final String RECEIPT_SUBMIT = "Save and Print Receipt";
+    /** The button's value before #4439; the packaged WAF refuses it, but a direct Tomcat request may still send it. */
+    static final String LEGACY_RECEIPT_SUBMIT = "Save & Print Receipt";
     private static final String BILLING_SESSION_EXPIRED_KEY = "billing.billingSave.sessionExpired";
     private static final String BILLING_SESSION_EXPIRED_FALLBACK = "Billing session expired.";
     private static final String MALFORMED_BILLING_REQUEST_KEY = "billing.billingSave.malformedBillingRequest";
@@ -223,7 +227,11 @@ public class BillingSaveBilling2Action extends ActionSupport {
         // Saved and finished with: a repeated submit still finds the bill, but it is the first to
         // go when room is needed, before bills still open in other windows.
         BcBillStaging.release(request);
-        if ("Save & Print Receipt".equals(submit)) {
+        // The button posts a machine value. Retain both former display-label values: "& Print" in a request value is CRS rule 932115's Windows
+        // "print" command, so the packaged front door answered every Save & Print Receipt with 403 (#4439). The old
+        // value is still accepted from a review page rendered before the change.
+        if ("saveAndPrintReceipt".equals(submit)
+                || RECEIPT_SUBMIT.equals(submit) || LEGACY_RECEIPT_SUBMIT.equals(submit)) {
             String redirectUrl = receiptRedirectUrl(request.getContextPath(), billingIds);
             sendReceiptRedirect(response, redirectUrl);
             return NONE;

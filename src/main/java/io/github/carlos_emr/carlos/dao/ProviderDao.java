@@ -46,6 +46,16 @@ public class ProviderDao extends OscarSuperDao {
     public ProviderDao() {
     }
 
+    @Override
+    public java.util.List<java.util.Map<String, Object>> executeSelectQuery(String queryName, Object[] params) {
+        if ("intake_preventions".equals(queryName)) {
+            Integer demographicNo = params == null || params.length == 0 || params[0] == null
+                    ? null : Integer.valueOf(params[0].toString());
+            io.github.carlos_emr.carlos.prevention.PreventionData.requireExactDates(demographicNo);
+        }
+        return super.executeSelectQuery(queryName, params);
+    }
+
     private String[][] dbQueries = new String[][]{
             {"searchappointmentday", "select * from appointment where provider_no=? and appointment_date=? and program_id=? order by start_time, status desc "},
             {"searchappointmentdaywithlocation", "select * from appointment where provider_no=? and appointment_date=? and program_id=? and location=? order by start_time, status desc "},

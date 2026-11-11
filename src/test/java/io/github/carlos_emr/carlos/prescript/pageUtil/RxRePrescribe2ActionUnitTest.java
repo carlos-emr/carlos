@@ -59,6 +59,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @DisplayName("RxRePrescribe2Action prescription signature tests")
@@ -904,7 +905,13 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         RxRePrescribe2Action legacyReprint = new RxRePrescribe2Action();
         legacyReprint.setDrugList("12");
 
-        assertThat(legacyReprint.execute()).isEqualTo(ActionSupport.NONE);
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class);
+             MockedStatic<LogAction> audit = mockStatic(LogAction.class)) {
+            assertThat(legacyReprint.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(data.constructed()).isEmpty();
+            verifyNoInteractions(mockPrescriptionManager, mockDigitalSignatureManager);
+            audit.verifyNoInteractions();
+        }
 
         assertThat(response.getStatus()).isEqualTo(405);
         assertThat(response.getHeader("Allow")).isEqualTo("POST");
@@ -952,30 +959,64 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         }
     }
 
-    @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"reprint", "reprint2"})
-    @DisplayName("should look up the named patient's script with read privilege even when another patient is active")
-    void shouldLoadNamedPatient_whenOnlyReadPrivilegeIsGranted(String method) throws Exception {
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("r"), isNull()))
-                .thenReturn(true);
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull()))
-                .thenReturn(false);
-        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), anyInt())).thenReturn(false);
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0}: {1}")
+    @org.junit.jupiter.params.provider.CsvSource({
+            "reprint, global write", "reprint2, global write",
+            "reprint, patient write", "reprint2, patient write",
+            "reprint, record access", "reprint2, record access"
+    })
+    @DisplayName("should refuse reprint audit writes before any lookup when write access is missing")
+    void shouldRejectReprint_whenWriteAccessIsDenied(String method, String denied) throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), isNull())).thenReturn(true);
+        if ("global write".equals(denied)) {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull())).thenReturn(false);
+        } else if ("patient write".equals(denied)) {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), eq(SIGNATURE_DEMOGRAPHIC_NO)))
+                    .thenReturn(false);
+        } else {
+            when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), eq(SIGNATURE_DEMOGRAPHIC_NO)))
+                    .thenReturn(false);
+        }
         request.setParameter("method", method);
         request.setParameter("demographic_no", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
         request.setParameter("scriptNo", "12");
         action.setDrugList("12");
+        RxSessionBean originalBean = new RxSessionBean();
+        originalBean.setDemographicNo(SIGNATURE_DEMOGRAPHIC_NO);
+        RxReprintWorkspace.Entry original = RxReprintWorkspace.store(request.getSession(), originalBean, "previous");
+
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class);
+             MockedStatic<LogAction> audit = mockStatic(LogAction.class)) {
+            assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_rx)");
+
+            assertThat(data.constructed()).isEmpty();
+            assertThat(RxReprintWorkspace.find(request.getSession(), SIGNATURE_DEMOGRAPHIC_NO)).isSameAs(original);
+            assertThat(RxReprintWorkspace.isReprinting(request.getSession(), 1)).isFalse();
+            verifyNoInteractions(mockPrescriptionManager, mockDigitalSignatureManager);
+            audit.verifyNoInteractions();
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"reprint", "reprint2"})
+    @DisplayName("should require write on the named patient even when another patient is active")
+    void shouldLoadNamedPatient_whenWritePrivilegeIsGranted(String method) throws Exception {
+        request.setParameter("method", method);
+        request.setParameter("demographic_no", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
+        request.setParameter("scriptNo", "12");
+        action.setDrugList("12");
+        // Read permission on the active patient cannot authorize a write to the named patient.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), eq(1))).thenReturn(false);
 
         try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class)) {
             assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
 
-            // No saved row in this fixture: reaching the scoped lookup produces 404, not a
-            // patient-binding or permission refusal, and never falls back to active patient 1.
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
             assertThat(data.constructed()).hasSize(1);
             verify(data.constructed().getFirst()).getPrescriptionsByScriptNo(12, SIGNATURE_DEMOGRAPHIC_NO);
-            verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", SIGNATURE_DEMOGRAPHIC_NO);
-            verify(mockSecurityInfoManager, never()).hasPrivilege(any(), eq("_rx"), eq("w"), anyInt());
+            verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "w", SIGNATURE_DEMOGRAPHIC_NO);
+            verify(mockSecurityInfoManager, never()).hasPrivilege(any(), eq("_rx"), anyString(), eq(1));
         }
     }
 
@@ -1026,7 +1067,13 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         request.setParameter("demographicNo", "1");
         request.setParameter("scriptNo", "12");
 
-        assertThat(new RxRePrescribe2Action().execute()).isEqualTo(ActionSupport.NONE);
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class);
+             MockedStatic<LogAction> audit = mockStatic(LogAction.class)) {
+            assertThat(new RxRePrescribe2Action().execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(data.constructed()).isEmpty();
+            verifyNoInteractions(mockPrescriptionManager, mockDigitalSignatureManager);
+            audit.verifyNoInteractions();
+        }
 
         assertThat(response.getStatus()).isEqualTo(405);
         assertThat(response.getHeader("Allow")).isEqualTo("POST");
@@ -1074,6 +1121,9 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
             action.execute();
             assertThat(response.getStatus()).isEqualTo(200);
             assertThat(RxReprintWorkspace.find(request.getSession(), 1).bean().getStash()).containsExactly(first, second);
+            verify(first, never()).Print(any());
+            verify(second).Print(mockLoggedInInfo);
+            verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "w", 1);
         }
     }
 

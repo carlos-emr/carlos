@@ -342,11 +342,26 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         @DisplayName("should persist consent type and return it")
         void shouldPersistAndReturn_theSavedEntity() {
             ConsentType ct = createActiveConsentType(0, "NEW_TYPE");
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq(SecurityInfoManager.WRITE), nullable(String.class)))
+                    .thenReturn(true);
 
             ConsentType result = manager.addConsentType(loggedInInfo, ct);
 
             assertThat(result).isSameAs(ct);
             verify(mockConsentTypeDao).persist(ct);
+        }
+
+        @Test
+        @DisplayName("should throw and persist nothing without admin write privilege")
+        void shouldThrow_whenAdminWriteDenied() {
+            ConsentType ct = createActiveConsentType(0, "NEW_TYPE");
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq(SecurityInfoManager.WRITE), nullable(String.class)))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> manager.addConsentType(loggedInInfo, ct))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_admin)");
+            verifyNoInteractions(mockConsentTypeDao);
         }
     }
 }

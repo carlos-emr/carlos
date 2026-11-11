@@ -5,6 +5,7 @@ import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl.SearchCriteria;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -30,6 +31,7 @@ class EctMeasurementsRequestIsolationUnitTest extends CarlosUnitTestBase {
     private SecurityInfoManager security;
     private MeasurementDao measurements;
     private MeasurementTypeDao types;
+    private CaseManagementManager notes;
     private LoggedInInfo login;
     private MockHttpSession session;
     private EctSessionBean global;
@@ -39,10 +41,12 @@ class EctMeasurementsRequestIsolationUnitTest extends CarlosUnitTestBase {
         security = createAndRegisterMock(SecurityInfoManager.class);
         measurements = createAndRegisterMock(MeasurementDao.class);
         types = createAndRegisterMock(MeasurementTypeDao.class);
+        notes = createAndRegisterMock(CaseManagementManager.class);
         login = mock(LoggedInInfo.class);
         session = new MockHttpSession();
         session.setAttribute("user", "999998");
         LoggedInInfo.setLoggedInInfoIntoSession(session, login);
+        when(security.isAllowedAccessToPatientRecord(eq(login), anyInt())).thenReturn(true);
         global = new EctSessionBean();
         global.demographicNo = "202";
         session.setAttribute("EctSessionBean", global);
@@ -113,6 +117,26 @@ class EctMeasurementsRequestIsolationUnitTest extends CarlosUnitTestBase {
         request.setParameter("comments-0", "");
         request.setParameter("date-0", "2026-10-15");
         return request;
+    }
+
+    @Test
+    void shouldRefuseLockedRecord_beforeMeasurementValidationOrClinicalNoteWrites() {
+        when(security.hasPrivilege(login, "_measurement", "w", "101")).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(login, 101)).thenReturn(false);
+        MockHttpServletRequest request = request();
+        request.setParameter("demographicNo", "000101");
+        request.removeParameter("skipCreateNote");
+        session.setAttribute("textOnEncounter", "Retained clinical draft");
+        try (var validation = mockConstruction(EctValidation.class)) {
+            assertThatThrownBy(() -> submit(request, new MockHttpServletResponse()))
+                    .isInstanceOf(SecurityException.class).hasMessage("Patient record access denied");
+            verify(security).isAllowedAccessToPatientRecord(login, 101);
+            assertThat(validation.constructed()).isEmpty();
+            verifyNoInteractions(types, measurements, notes);
+            assertThat(session.getAttribute("textOnEncounter")).isEqualTo("Retained clinical draft");
+            assertThat(session.getAttribute("EctSessionBean")).isSameAs(global);
+            assertThat(global.demographicNo).isEqualTo("202");
+        }
     }
 
     private String submit(MockHttpServletRequest request, MockHttpServletResponse response) throws Exception {

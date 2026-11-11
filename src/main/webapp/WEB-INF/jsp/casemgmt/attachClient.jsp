@@ -131,13 +131,16 @@
         }
         event.preventDefault();
         var client = link.getAttribute('data-client');
-        carlosPostForm('<%= SafeEncode.forJavaScript(request.getContextPath()) %>/encounter/IncomingEncounter', [
+        var fields = [
             ['PEAttach', 'yes'],
             ['noteId', link.getAttribute('data-note')],
             ['selectId', client],
             ['demographicNo', client],
             ['appointmentNo', '0']
-        ]);
+        ];
+        var sourceContext = document.clientSearchForm2.elements['sourceChartContext'];
+        if (sourceContext && sourceContext.value) fields.push(['sourceChartContext', sourceContext.value]);
+        carlosPostForm('<%= SafeEncode.forJavaScript(request.getContextPath()) %>/encounter/IncomingEncounter', fields);
     });
 </script>
 <script src="${pageContext.request.contextPath}/share/javascript/carlosCsrfForm.js"></script>
@@ -151,6 +154,9 @@
 <form name="clientSearchForm2" action="${pageContext.request.contextPath}/PMmodule/ClientSearch2" method="post">
     <input type="hidden" name="method" value="attachSearch"/>
     <input type="hidden" name="noteId" value="<carlos:encode value='<%= noteId$ %>' context="htmlAttribute"/>"/>
+    <c:if test="${not empty requestScope.sourceChartContext}">
+        <input type="hidden" name="sourceChartContext" value="${carlos:forHtmlAttribute(requestScope.sourceChartContext)}"/>
+    </c:if>
 
     <div id="projecthome" class="app">
         <div class="h4">

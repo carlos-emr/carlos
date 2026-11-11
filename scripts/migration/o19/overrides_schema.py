@@ -40,9 +40,17 @@ ran those updates they surface through preflight's unknown-table flow (B2,
 archive-by-default).
 """
 
-# The nullable consultation booking field no longer needs primitive coercion.
+# Nullable Program flags no longer need primitive coercion during import.
 # Refuse resuming a partially applied import under the previous conversion rules.
-SCHEMA_MAP_VERSION = "o19map-3"
+SCHEMA_MAP_VERSION = "o19map-8"
+
+# Every colliding member receives a new name: an old shared file cannot be
+# assigned to a particular submission from its basename alone. CLI 1.3.2
+# builds and independently verifies these helpers and the live audit.
+BILLING_FILENAME_RULES = {
+    "billing_on_diskname": "o19-billing-v1",
+    "billing_on_filename": "o19-billing-v1",
+}
 
 #: Provinces the import verb will actually RUN, as opposed to provinces
 #: the package carries a profile for (generate_manifests.PROVINCES).
@@ -213,6 +221,8 @@ MERGE_EXCLUDE = {
 # Seed rows a later Flyway migration DELETEs again (the static tuple count
 # over-counts them): table -> rows to subtract from the P0 floor.
 SEED_COUNT_DELETIONS = {
+    # V1.0.59.2 retires the worksheet menu entry in both provinces.
+    "encounterForm": 1,
     # common/V1.0.9 removes the carlosdoc-scoped _admin.schedule.groupCreate
     # denial the on_data baseline seeded
     "secObjPrivilege": 1,
@@ -273,15 +283,24 @@ FK_REMAP = {
 
 # --- shared tables that must NOT copy ---------------------------------------
 
-# Bearer/OAuth tokens issued by the OSCAR 19 install. Copying them would let
-# every token that was live on the old server authenticate against CARLOS;
-# they are archived for the record and never restored into the live schema
-# (integrations re-authorize after the migration).
-ARCHIVE_SHARED = {"SecurityToken", "ServiceAccessToken", "ServiceRequestToken"}
+# Preserve established OAuth 1.0a grants across a clinic migration. Browser/security
+# sessions and unfinished authorization handshakes still stay in the archive.
+ARCHIVE_SHARED = {"SecurityToken", "ServiceRequestToken"}
 
-# Copied verbatim, but they ARE credentials: the ETL report names them under
-# a rotate/verify advisory (OAuth consumer secrets, signing key pairs).
-CREDENTIAL_TABLES = ["ServiceClient", "oscarKeys", "publicKeys"]
+# Copied verbatim, including access-token secrets. The existing carry-credentials
+# acknowledgement covers these; migration does not rotate or renew credentials.
+CREDENTIAL_TABLES = ["ServiceClient", "ServiceAccessToken", "oscarKeys", "publicKeys"]
+
+# The pinned early O19 tree predates the configurable client lifetime column.
+# Later O19 clinics have it: include it in the manifest so effective_entry copies
+# their setting, rather than treating it as a vendor column to archive. The CLI
+# supplies -1 ONLY when this column is absent (the early O19 issuance behavior).
+SOURCE_OPTIONAL_COLUMNS = {
+    "ServiceClient": {"lifetime"},
+    # The pinned early O19 baseline predates this column. Later clinics
+    # carry it; NULL and each known enum value must arrive unchanged.
+    "DigitalSignature": {"ModuleType"},
+}
 
 # The claim header P7 aggregates by fiscal year, per province. It is the
 # money check -- the one verification an operator's accountant will ask
@@ -328,6 +347,8 @@ CLAIM_HEADER_TABLE = {
 #   where the CARLOS schema has no such table and the clinic's rows must
 #   be preserved.
 PROVINCE_SCOPED = {
+    "billing_on_diskname": "on",
+    "billing_on_filename": "on",
     # live in the CARLOS BC schema; removed from the Ontario one
     "formBCAR2007": "on",
     # Ontario billing and lab stacks: no BC install carries them
@@ -374,7 +395,16 @@ BY_PROVINCE = {
         # plus the nine MSP has added since (B, J, K, L, N, Q, U, V, W).
         # So it is the textbook union: CARLOS's codes win, anything the
         # clinic added appends.
-        "CLASS_MERGE": {"billingvisit": ["visittype", "region"]},
+        "CLASS_MERGE": {
+            "billingvisit": ["visittype", "region"],
+            # V1.0.59.3 seeds WorkSafeBC catalogs by these natural codes.
+            # Forms store codes, not the lookup surrogate IDs. Keep the
+            # CARLOS reference wording and append clinic-only codes;
+            # original clinic rows remain in the merge archive.
+            "wcb_bp_code": ["code"],
+            "wcb_noi_code": ["code"],
+            "wcb_side": ["sidetype"],
+        },
         # Three directories CARLOS seeds ONLY in the BC migration set
         # (V1.0.6, INSERT IGNORE without the surrogate column, so the
         # seeded rows take auto_increment ids 1..N):
@@ -676,13 +706,14 @@ NOT_RENAMES = {
     # itself was ruled on when it was added to B3_COLUMNS.
     ("document", "fileSignature"): (
         "curated B3 drop; CARLOS's abnormal/report_media/sent_date_time "
-        "are additions",
-        ("abnormal", "report_media", "sent_date_time")),
+        "and CDS source content-precision metadata are additions, not file signatures",
+        ("abnormal", "report_media", "sent_date_time", "cds_content_precision")),
     ("drugs", "dispensingUnits"): (
         "curated B3 drop; CARLOS's demographic_contact_id/protocol/"
-        "priorRxProtocol/pharmacyId are additions",
+        "priorRxProtocol/pharmacyId and CDS currentness, exact dose text and "
+        "projection-completeness metadata are additions, not dispensing units",
         ("demographic_contact_id", "protocol", "priorRxProtocol",
-         "pharmacyId")),
+         "pharmacyId", "cds_currentness", "cds_dose_text", "cds_projection_incomplete")),
 
     # The eRx module CARLOS removed. CARLOS's defaultBillingLocation and
     # defaultSliCode are unrelated additions.
@@ -708,6 +739,14 @@ NOT_RENAMES = {
         "are additions",
         ("oneIdKey", "oneIdEmail", "delegateOneIdEmail", "usingMfa",
          "mfaSecret")),
+    # The archive mirrors `security`, so the same pair recurs one table
+    # over. CARLOS's archived usingMfa (V1.0.59, #5120) is the MFA on/off
+    # setting O19 never had; an imported O19 archive row keeps NULL there
+    # ("not recorded"), which is the truth about it.
+    ("SecurityArchive", "storageVersion"): (
+        "O19 storage-scheme marker; CARLOS's archived usingMfa is an "
+        "addition",
+        ("usingMfa",)),
 }
 
 # The same question one level up: (o19_table, carlos_table) -> why the pair
@@ -808,6 +847,21 @@ CARLOSDOC_SEED_DELETES = [
 # synthesizes for them (SQL over the staging row alias `s`). The ETL
 # pre-check aborts naming any such column that lacks an entry here.
 VALUE_EXPRS = {
+    "billing_on_diskname": {
+        "ohipfilename": "(SELECT f.`imported_filename` FROM {archive}.`billing_on_diskname__filenames` f WHERE f.`row_id` = s.`id`)",
+    },
+    "billing_on_filename": {
+        "htmlfilename": "(SELECT f.`imported_filename` FROM {archive}.`billing_on_filename__filenames` f WHERE f.`row_id` = s.`id`)",
+    },
+    # The CLI builds this helper from the actual source flags and remapped
+    # consent type before copying. Keep deleted history and retire undecided
+    # and surplus live records; never turn a missing decision into consent.
+    "Consent": {
+        "optout": "COALESCE(s.`optout`, 1)",
+        "deleted": "COALESCE((SELECT r.`deleted` FROM "
+                   "{archive}.`Consent__live` r "
+                   "WHERE r.`id` = s.`id`), 1)",
+    },
     # uid groups pharmacy record revisions in CARLOS; each imported O19
     # pharmacy heads its own group.
     "pharmacyInfo": {"uid": "s.`recordID`"},

@@ -63,8 +63,10 @@ import io.github.carlos_emr.carlos.encounter.data.EctEChartBean;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.EctFindMeasurementTypeUtil;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
+import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /*
@@ -82,8 +84,21 @@ public final class FrmSetupForm2Action extends ActionSupport {
 
 
     private String _dateFormat = "yyyy-MM-dd";
-    private transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private transient EncounterFormDao encounterFormDao = SpringUtils.getBean(EncounterFormDao.class);
+    private transient SecurityInfoManager securityInfoManager;
+    private transient EncounterFormDao encounterFormDao;
+    private final transient CdsTemporalReadService medicationDates;
+
+    public FrmSetupForm2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EncounterFormDao.class),
+                SpringUtils.getBean(CdsTemporalReadService.class));
+    }
+
+    FrmSetupForm2Action(SecurityInfoManager securityInfoManager, EncounterFormDao encounterFormDao,
+            CdsTemporalReadService medicationDates) {
+        this.securityInfoManager = securityInfoManager;
+        this.encounterFormDao = encounterFormDao;
+        this.medicationDates = medicationDates;
+    }
     
     // Pattern to validate form names - only alphanumeric characters and underscores allowed
     private static final Pattern VALID_FORM_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]+$");
@@ -105,9 +120,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form patient or record");
             return NONE;
         }
-        if (!securityInfoManager().hasPrivilege(loggedInInfo, "_demographic", "w", demo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
-        }
+        PatientRecordAccess.require(securityInfoManager(), loggedInInfo, demo, "_demographic", "w");
         if (!securityInfoManager().hasPrivilege(loggedInInfo, "_form", "r", demo)) {
             throw new SecurityException("missing required sec object (_form)");
         }
@@ -131,6 +144,30 @@ public final class FrmSetupForm2Action extends ActionSupport {
             return NONE;
         }
 
+        return render(loggedInInfo, demo, formId, formName, null);
+    }
+
+    /**
+     * Shows a refused save again: the form as {@link #execute()} renders it, with the values the
+     * clinician typed in place of the stored ones and the refusal reasons (the {@code actionErrors}
+     * request attribute the page lists). {@link FrmForm2Action} calls it after its own patient,
+     * privilege and form-name checks, in the same request, before anything is written (issue #4674).
+     *
+     * @param trustedFormName a registered SetupForm name the caller already validated
+     * @param formId          the record the form was opened from ({@code 0} for a new form)
+     * @param demo            the patient, already checked by the caller
+     * @param submitted       typed values keyed as the page names its fields ({@code WTValue}, ...)
+     * @return {@link #NONE}: the page is forwarded to directly
+     * @throws Exception as {@link #execute()} does
+     */
+    String redisplay(String trustedFormName, String formId, String demo, Map<String, String> submitted)
+            throws Exception {
+        this.setValue("formId", formId);
+        return render(LoggedInInfo.getLoggedInInfoFromSession(request), demo, formId, trustedFormName, submitted);
+    }
+
+    private String render(LoggedInInfo loggedInInfo, String demo, String formId, String formName,
+                          Map<String, String> submitted) throws Exception {
         // An existing record must belong to the explicit patient before any clinical prefill.
         Properties currentRec;
         try {
@@ -229,6 +266,16 @@ public final class FrmSetupForm2Action extends ActionSupport {
             MiscUtils.getLogger().debug("This file must be placed at www/form");
             MiscUtils.getLogger().error("Error", e);
         }
+        if (submitted != null) {
+            // A refused save shows what was typed, not the stored record. The page restores every
+            // formValues entry into its field; Date and Comments are also read as request attributes.
+            for (Map.Entry<String, String> field : submitted.entrySet()) {
+                values.put(field.getKey(), field.getValue());
+                if (field.getKey().endsWith("Date") || field.getKey().endsWith("Comments")) {
+                    request.setAttribute(field.getKey(), field.getValue());
+                }
+            }
+        }
         // Keep patient identity and clinical prefill in this request, never in the shared session.
         request.setAttribute("formValues", values);
         request.getRequestDispatcher("/WEB-INF/jsp/form/form" + formName + ".jsp").forward(request, response);
@@ -245,10 +292,19 @@ public final class FrmSetupForm2Action extends ActionSupport {
         RxPrescriptionData.Prescription[] prescribedDrugs = p.getPrescribedDrugsUnique();
         if (prescribedDrugs.length == 0 && fluShot == null) drugs = null;
         for (int i = 0; i < prescribedDrugs.length; i++) {
-            drugs.add(prescribedDrugs[i].getRxDate().toString() + "    " + prescribedDrugs[i].getRxDisplay());
+            drugs.add(medicationLine(prescribedDrugs[i]));
         }
 
         return drugs;
+    }
+
+    String medicationLine(RxPrescriptionData.Prescription medication) {
+        if (medication.getCdsCurrentness() == null)
+            return (medication.getRxDate() == null ? "" : medication.getRxDate().toString())
+                    + "    " + medication.getRxDisplay();
+        String date = medicationDates.medicationStart(medication.getDrugId(), medication.getRxDate(),
+                medication.getStartDateUnknown()).display();
+        return date + "    " + RxPrescriptionData.getFullOutLine(medication.getSpecial());
     }
 
     private List getDrugAllegyList(LoggedInInfo loggedInInfo, String demographicNo) {

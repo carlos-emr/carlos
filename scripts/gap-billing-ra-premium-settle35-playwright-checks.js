@@ -168,16 +168,21 @@ async function workflow(s) {
     h.assert(!text.includes('555.55'), 'Payment Received lists a premium that was never applied');
   });
 
-  // The apply endpoint changes the premium when it is simply requested: no GET/HEAD rejection.
-  await s.step('GET against the premium apply is refused and changes nothing', async () => {
-    const before = premiumState(appliedId);
-    const params = { rano: String(seededRa), [`providerNo${appliedId}`]: owned.providerNo };
-    const probe = await context.request.get(h.appUrl(s.config.baseUrl, '/billing/CA/ON/ApplyPractitionerPremium'),
-      { params, maxRedirects: 0 });
-    h.assert(premiumState(appliedId) === before && premiumState(unappliedId) === '0|none',
-      'A GET changed a premium (ApplyPractitionerPremium applies the unticked state on GET)');
-    h.assert(probe.status() === 405, `ApplyPractitionerPremium must reject GET with 405 (answered ${probe.status()})`);
-  });
+  // Read verbs must be refused before changing either owned premium.
+  for (const method of ['GET', 'HEAD']) {
+    await s.step(`${method} against the premium apply is refused and changes nothing`, async () => {
+      const before = { applied: premiumState(appliedId), unapplied: premiumState(unappliedId) };
+      h.assert(before.applied === `1|${owned.providerNo}` && before.unapplied === '0|none',
+        'The owned premium baseline does not match the seeded applied/unapplied states');
+      const params = { rano: String(seededRa), [`providerNo${appliedId}`]: owned.providerNo };
+      const probe = await context.request.fetch(h.appUrl(s.config.baseUrl, '/billing/CA/ON/ApplyPractitionerPremium'),
+        { method, params, maxRedirects: 0 });
+      h.assert(premiumState(appliedId) === before.applied && premiumState(unappliedId) === before.unapplied,
+        `A ${method} changed a premium`);
+      h.assert(probe.status() === 405, `ApplyPractitionerPremium must reject ${method} with 405 (answered ${probe.status()})`);
+      h.assert(probe.headers().allow === 'POST', `${method} refusal must advertise Allow: POST`);
+    });
+  }
 
   let report;
   let frame;
@@ -198,8 +203,7 @@ async function workflow(s) {
     await popup.waitForLoadState('load');
   };
 
-  // The steps below sit behind Billing Reconciliation's Report / S35 links, which post a runtime form
-  // without a CSRF token (HTTP 403) today.
+  // Report and S35 use the native token-aware postTo path; exercise their complete business assertions.
   await s.step('Report parses the RA premium message into one premium row that is not applied yet', async () => {
     report = await openReport();
     const rows = premiums();

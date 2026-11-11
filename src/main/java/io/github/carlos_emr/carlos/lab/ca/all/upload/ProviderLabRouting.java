@@ -41,6 +41,7 @@ package io.github.carlos_emr.carlos.lab.ca.all.upload;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
@@ -91,7 +92,9 @@ public class ProviderLabRouting {
 
     /**
      * Creates missing provider routing and forwarding rows in the acknowledgement lock domain.
-     * Existing clinical routing status is preserved on repeated delivery.
+     * Removed rows are reactivated using the current forwarding rules only when no
+     * active matching routing exists. Acknowledged, filed and new routing status is
+     * preserved on repeated delivery, including alongside legacy removed duplicates.
      * @param labId report identifier
      * @param provider_no destination provider identifier
      * @param labType exact routing type
@@ -109,26 +112,39 @@ public class ProviderLabRouting {
     }
 
     private void routeInTransaction(int labId, String providerNo, String labType) {
-        routeInTransaction(labId, providerNo, labType, null, new LinkedHashSet<>());
+        routeInTransaction(labId, providerNo, labType, null, new LinkedHashSet<>(), true);
     }
 
+    /**
+     * Routes within the caller's report lock and transaction. Direct delivery and
+     * forwarding may reactivate removed rows; automatic MRP reconciliation preserves
+     * prior removals. Creation alone is reported so MRP auditing excludes reactivation.
+     * @return true only when a new routing row is created
+     */
     private boolean routeInTransaction(int labId, String providerNo, String labType,
-                                       Integer demographicNo, Set<String> visited) {
+                                       Integer demographicNo, Set<String> visited, boolean reactivateRemoved) {
         if (!visited.add(providerNo)) return false;
         List<ProviderLabRoutingModel> routings = providerLabRoutingDao.findRoutingForUpdate(labId, labType, providerNo);
         boolean created = routings.isEmpty();
-        boolean promoted = false;
-        if (!created && demographicNo == null) {
-            for (ProviderLabRoutingModel row : routings) {
-                if (row.getMrpDemographicNo() != null) {
-                    row.setMrpDemographicNo(null);
-                    providerLabRoutingDao.merge(row);
-                    promoted = true;
-                }
+        boolean hasActiveRouting = routings.stream().anyMatch(row -> !"X".equals(row.getStatus()));
+        ForwardingRules rules = new ForwardingRules();
+        boolean changed = false;
+        for (ProviderLabRoutingModel row : routings) {
+            boolean reactivated = reactivateRemoved && !hasActiveRouting && "X".equals(row.getStatus());
+            boolean promoted = demographicNo == null && row.getMrpDemographicNo() != null;
+            if (reactivated) {
+                // Inspect every matching row first: a removed legacy duplicate must
+                // not reopen an existing acknowledgement or filing decision.
+                row.setStatus(rules.getStatus(providerNo, labType));
+                row.setTimestamp(new Date());
+            }
+            if (promoted) row.setMrpDemographicNo(null);
+            if (reactivated || promoted) {
+                providerLabRoutingDao.merge(row);
+                changed = true;
             }
         }
-        if (!created && !promoted) return false;
-        ForwardingRules rules = new ForwardingRules();
+        if (!created && !changed) return false;
         if (created) {
             ProviderLabRoutingModel row = new ProviderLabRoutingModel();
             row.setProviderNo(providerNo);
@@ -138,9 +154,9 @@ public class ProviderLabRouting {
             row.setMrpDemographicNo(demographicNo);
             providerLabRoutingDao.persist(row);
         }
-        // Explicit visited state also terminates cycles when promoting automatic assignments.
+        // Also terminate cycles when reactivating rows or promoting automatic assignments.
         for (ArrayList<String> recipient : rules.getProviders(providerNo, labType)) {
-            routeInTransaction(labId, recipient.get(0), labType, demographicNo, visited);
+            routeInTransaction(labId, recipient.get(0), labType, demographicNo, visited, reactivateRemoved);
         }
         return created;
     }
@@ -169,7 +185,7 @@ public class ProviderLabRouting {
             if (!desired.isEmpty()) {
                 Set<String> visited = new LinkedHashSet<>();
                 for (String recipient : desired) {
-                    boolean added = routeInTransaction(labId, recipient, labType, demographicNo, visited);
+                    boolean added = routeInTransaction(labId, recipient, labType, demographicNo, visited, false);
                     if (recipient.equals(providerNo)) created = added;
                 }
                 // An existing direct MRP assignment must not prevent a newly configured
@@ -179,7 +195,7 @@ public class ProviderLabRouting {
                     providerLabRoutingDao.remove(row.getId());
                 }
             } else if (providerLabRoutingDao.findAllLabRoutingByIdandType(labId, labType).isEmpty()) {
-                routeInTransaction(labId, "0", labType);
+                routeInTransaction(labId, "0", labType, null, new LinkedHashSet<>(), false);
             }
             return created;
         }));

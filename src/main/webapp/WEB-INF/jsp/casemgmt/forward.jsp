@@ -45,6 +45,7 @@
 <%
     String redirectURL = request.getContextPath() +
         "/CaseManagementEntry?method=setUpMainEncounter&from=casemgmt&chain=list" +
+        (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) == null ? "" : "&chartContext=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request))) +
         "&demographicNo=" + (request.getParameter("demographicNo") != null ? URLEncoder.encode(request.getParameter("demographicNo"), StandardCharsets.UTF_8) : "") +
         "&providerNo=" + (request.getParameter("providerNo") != null ? URLEncoder.encode(request.getParameter("providerNo"), StandardCharsets.UTF_8) : "") +
         "&reason=" + (request.getParameter("reason") != null ? URLEncoder.encode(request.getParameter("reason"), StandardCharsets.UTF_8) : "") +

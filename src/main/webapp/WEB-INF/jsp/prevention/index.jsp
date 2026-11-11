@@ -50,6 +50,7 @@
     @since 2005-10-26
 --%>
 
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CVCMappingDao" %>
@@ -643,6 +644,7 @@
     </head>
 
     <body class="BodyStyle">
+    <div><source:cdsSourceFields demographicNo="${param.demographic_no}" category="Immunizations"/></div>
     <!--  -->
     <%=WebUtils.popErrorAndInfoMessagesAsHtml(session)%>
     <%

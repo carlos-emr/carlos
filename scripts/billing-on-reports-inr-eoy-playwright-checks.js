@@ -14,7 +14,8 @@
  * both MOH stylesheets, visible malformed-report errors, and the INR edit form's read-only GET
  * opener. Saving/deleting and batch generation still require POST.
  * Fixtures: runWorkflow FAKE- patient, a FAKE- billable provider + reportprovider row, a billinginr
- * row, four seeded claims, uploaded L files (DOCUMENT_DIR + ONEDT_INBOX); all removed and
+ * row, five seeded claims and another patient's PAT invoice, uploaded L files
+ * (DOCUMENT_DIR + ONEDT_INBOX); all removed and
  * re-checked in cleanup. Without pdftotext, or without DOCUMENT_DIR and the MOH inbox, only the
  * PDF / L-report step is reported SKIP; the rest still runs and the check then ends SKIP, never PASS.
  * Implements coverage-plan billing-on-reports-inr-eoy.
@@ -27,6 +28,8 @@ const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { statementInvoiceRows } = require('./lib/end-year-statement-pdf');
+const { seedOwnedBill } = require('./billing-on-invoice-third-party-playwright-checks');
 // Administration ▸ <xlink> into the #dynamic-content iframe: one shared copy of the helper.
 const { openAdminFrame } = require('./billing-on-ohip-simulation-report-playwright-checks');
 
@@ -139,10 +142,11 @@ async function workflow(s) {
     VALUES (${p},'',${q('billingreport')},'A'); SELECT LAST_INSERT_ID()`);
   h.assert(owned(ids.report), 'The report-provider fixture was not created');
   const demoName = `${marker},Workflow`;
-  // [pay program, billing date, code, total, paid]: two PAT invoices in the window, one OHIP
-  // claim in the window and one PAT invoice outside it.
-  const seeds = [['PAT', '2025-03-10', 'A007A', '25.00'], ['PAT', '2025-06-20', 'K030A', null],
-    ['HCP', '2025-04-02', 'A007A', '0.00'], ['PAT', '2024-12-15', 'A007A', '0.00']];
+  // Two PAT invoices on the inclusive boundaries, one OHIP claim in the window,
+  // and PAT invoices immediately before and after it.
+  const seeds = [['PAT', WINDOW.from, 'A007A', '25.00'], ['PAT', WINDOW.to, 'K030A', null],
+    ['HCP', '2025-04-02', 'A007A', '0.00'], ['PAT', '2024-12-31', 'A007A', '0.00'],
+    ['PAT', '2026-01-01', 'A007A', '0.00']];
   for (const [program, date, code, paid] of seeds) {
     const total = fee(code);
     h.assert(/^\d+\.\d{2}$/.test(total), `${code} has no Ontario fee`);
@@ -158,6 +162,34 @@ async function workflow(s) {
       VALUES (${id},'HE','T',${q(code)},${q(total)},'1',${q(date)},'250','','','O')`);
     ids.bills.push({ id, program, date, code, total, paid: paid === null ? total : paid });
   }
+  // Deliberately collide with the excluded invoice number in patient details.
+  // Whole-PDF number searches reject this valid statement; invoice-row checks must not.
+  const phoneCollision = ids.bills[3].id;
+  sql.execute(`UPDATE demographic SET phone=${q(phoneCollision)},phone2=''
+    WHERE demographic_no=${patient} AND last_name=${q(marker)}`);
+  // A real second patient is essential: a nonexistent demographic would also be
+  // excluded by the report's JOIN, even if its patient predicate were missing.
+  let otherPatient;
+  const otherMarker = `${marker}-Other`;
+  s.cleanup(() => {
+    if (!otherPatient) return;
+    h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${otherPatient}
+      AND last_name=${q(otherMarker)}`) === '1', 'The other patient fixture ownership changed');
+    h.assert(sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE demographic_no=${otherPatient}`) === '0',
+      'The other patient still has billing fixtures');
+    sql.execute(`DELETE FROM demographic WHERE demographic_no=${otherPatient} AND last_name=${q(otherMarker)}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${otherPatient}`) === '0',
+      'The other patient fixture was not removed');
+  });
+  otherPatient = sql.value(`INSERT INTO demographic
+    (last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,
+      provider_no,hc_type,province,roster_status,lastUpdateDate)
+    VALUES (${q(otherMarker)},'Workflow','1980','01','02','F','AC',${q(provider)},'ON','ON','NR',NOW());
+    SELECT LAST_INSERT_ID()`);
+  h.assert(owned(otherPatient), 'The other patient fixture was not created');
+  seedOwnedBill({ ...s, patient: otherPatient, marker: otherMarker }, {
+    payProgram: 'PAT', status: 'O', date: '2025-06-15', code: 'A001A', fee: '519.10',
+  });
   ids.inr = sql.value(`INSERT INTO billinginr (demographic_no,demographic_name,hin,dob,provider_no,provider_ohip_no,provider_rma_no,
       creator,diagnostic_code,service_code,service_desc,billing_amount,billing_unit,createdatetime,status)
     VALUES (${patient},${q(demoName)},'','19800102',${p},${q(ids.ohip)},'',${q(provider)},${q(INR_DX)},${q(INR_CODE)},
@@ -325,10 +357,11 @@ async function workflow(s) {
     const invoiced = statement.reduce((sum, b) => sum + Number(b.total), 0).toFixed(2);
     const paid = statement.reduce((sum, b) => sum + Number(b.paid), 0).toFixed(2);
     h.assert(text.includes('End Year Statement') && text.includes(marker), 'The PDF does not name the statement and patient');
-    h.assert(statement.every(b => new RegExp(`\\b${b.id}\\b`).test(text) && text.includes(b.code)),
-      'The PDF does not list every owned PAT invoice and its service code');
-    h.assert(ids.bills.filter(b => !statement.includes(b)).every(b => !new RegExp(`\\b${b.id}\\b`).test(text)),
-      'The PDF lists an invoice outside the PAT/date selection');
+    h.assert(text.split(/\b/).includes(phoneCollision), 'The PDF omitted the synthetic phone/invoice-number collision');
+    const expectedRows = statement.map(b => ({ id: b.id, date: b.date, invoiced: b.total, paid: b.paid }));
+    h.assert(JSON.stringify(statementInvoiceRows(text)) === JSON.stringify(expectedRows),
+      'The PDF invoice rows do not match the PAT/patient/date selection');
+    h.assert(statement.every(b => text.includes(b.code)), 'The PDF omitted an eligible service code');
     h.assert(text.includes(invoiced) && text.includes(paid), 'The PDF does not carry the invoiced and paid totals');
   });
 

@@ -7,12 +7,16 @@ import io.github.carlos_emr.carlos.commn.model.Episode;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.TypedQuery;
 import jakarta.persistence.Query;
 import org.apache.struts2.ActionContext;
+import org.apache.struts2.ActionProxy;
+import org.apache.struts2.ActionProxyFactory;
+import org.apache.struts2.dispatcher.Dispatcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,6 +30,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -250,5 +256,93 @@ class Pregnancy2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(stored.getLastUpdateUser()).isEqualTo("999001");
         verify(em).flush();
         verify(transactions).commit(any());
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"create", "complete"})
+    void shouldSendRedirect_afterStrutsExecutesSavedResult(String operation) throws Exception {
+        request.setContextPath("/carlos");
+        request.setRequestURI("/carlos/Pregnancy");
+        request.setParameter("method", operation);
+        var springContext = new org.springframework.web.context.support.GenericWebApplicationContext();
+        springContext.refresh();
+        request.getServletContext().setAttribute(
+                org.springframework.web.context.WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, springContext);
+        ClassLoader previous = Thread.currentThread().getContextClassLoader();
+        var loader = new java.net.URLClassLoader(new java.net.URL[] {
+                java.nio.file.Path.of("src/main/webapp/WEB-INF/classes").toUri().toURL()}, previous);
+        Thread.currentThread().setContextClassLoader(loader);
+        Dispatcher dispatcher = new Dispatcher(request.getServletContext(), Map.of(
+                "config", "struts-default.xml,struts-plugin.xml,struts.xml"));
+        try {
+            dispatcher.init();
+            var container = dispatcher.getContainer();
+            var context = ActionContext.of(new HashMap<String, Object>())
+                    .withContainer(container).withServletContext(request.getServletContext())
+                    .withServletRequest(request).withServletResponse(response).withSession(new HashMap<>())
+                    .withParameters(org.apache.struts2.dispatcher.HttpParameters.create(request.getParameterMap()).build());
+            context.bind();
+            ActionProxy proxy = container.getInstance(ActionProxyFactory.class).createActionProxy(
+                    "/", "Pregnancy", null, context.getContextMap(), true, true);
+            assertThat(proxy.execute()).isEqualTo("saved");
+            assertThat(response.getStatus()).isEqualTo(302);
+            assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/Pregnancy?demographicNo=101&saved=true");
+            verify(transactions).commit(any());
+        } finally {
+            dispatcher.cleanup();
+            Dispatcher.clearInstance();
+            Thread.currentThread().setContextClassLoader(previous);
+            loader.close();
+            springContext.close();
+        }
+    }
+
+    private String createToken(String patient) {
+        return FormSubmissionGuard.issue(request.getSession(), FormSubmissionGuard.Scope.PREGNANCY_CREATE, patient);
+    }
+
+    @Test void shouldReuseSavedHistory_whenCreateTokenReplayedWithChangedFields() throws Exception {
+        request.setParameter(FormSubmissionGuard.PARAMETER, createToken("101"));
+        assertThat(action.create()).isEqualTo("saved");
+        clearInvocations(em, transactions);
+        request.setParameter("code", "invalid");
+        assertThat(action.create()).isEqualTo("saved");
+        verifyNoInteractions(em, transactions);
+    }
+
+    @Test void shouldRefuseCreate_whenTokenBelongsToAnotherPatient() throws Exception {
+        request.setParameter(FormSubmissionGuard.PARAMETER, createToken("202"));
+        assertThat(action.create()).isEqualTo("submissionRefused");
+        assertThat(response.getStatus()).isEqualTo(409);
+        verifyNoInteractions(em, transactions);
+    }
+
+    @Test void shouldPermitRetry_whenValidationWroteNothing() throws Exception {
+        request.setParameter(FormSubmissionGuard.PARAMETER, createToken("101"));
+        request.setParameter("startDate", "bad");
+        assertThat(action.create()).isEqualTo("none");
+        verifyNoInteractions(em, transactions);
+        request.setParameter("startDate", "2026-01-02");
+        assertThat(action.create()).isEqualTo("saved");
+        verify(em).persist(any());
+    }
+
+    @Test void shouldRefuseReplay_whenCommitOutcomeUnknown() throws Exception {
+        request.setParameter(FormSubmissionGuard.PARAMETER, createToken("101"));
+        doThrow(new IllegalStateException("Commit acknowledgement lost")).when(transactions).commit(any());
+        assertThatThrownBy(action::create).isInstanceOf(IllegalStateException.class);
+        clearInvocations(em, transactions);
+        assertThat(action.create()).isEqualTo("submissionRefused");
+        assertThat(response.getStatus()).isEqualTo(409);
+        verifyNoInteractions(em, transactions);
+    }
+
+    @Test void shouldIssueFreshPatientBoundToken_whenAddFormRenderedAgain() throws Exception {
+        assertThat(action.newPregnancy()).isEqualTo("form");
+        String first = (String) request.getAttribute("formSubmissionToken");
+        action.newPregnancy();
+        String second = (String) request.getAttribute("formSubmissionToken");
+        assertThat(first).isNotBlank().isNotEqualTo(second);
+        request.setParameter(FormSubmissionGuard.PARAMETER, first);
+        assertThat(action.create()).isEqualTo("saved");
     }
 }

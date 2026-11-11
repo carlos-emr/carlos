@@ -55,6 +55,7 @@ public class FrmFormRecordOwnershipIntegrationTest {
         jdbc.update("INSERT INTO formVTForm VALUES (?, ?, ?, ?)", 99, 202, "88.5", "Synthetic B <text>");
         security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(any(), anyString(), anyString(), anyString())).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(any(), eq(101))).thenReturn(true);
         forms = mock(EncounterFormDao.class);
         EncounterForm registration = new EncounterForm();
         registration.setFormTable("formVTForm");
@@ -87,6 +88,7 @@ public class FrmFormRecordOwnershipIntegrationTest {
     void shouldRejectBeforeAnyClinicalWrite_whenFormIsForeignOrAbsent(boolean setup, String formId) throws Exception {
         List<Map<String, Object>> before = jdbc.queryForList("SELECT * FROM formVTForm ORDER BY ID");
         MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod(setup ? "GET" : "POST");
         request.setParameter("demographic_no", "101");
         request.setParameter("formName", "VTForm");
         request.setParameter("value(formName)", "VTForm");

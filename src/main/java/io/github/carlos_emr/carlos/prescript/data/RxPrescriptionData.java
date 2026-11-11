@@ -25,6 +25,8 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ *
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 package io.github.carlos_emr.carlos.prescript.data;
@@ -186,7 +188,7 @@ public class RxPrescriptionData {
         prescription.setSpecial(drug.getSpecial());
         prescription.setGenericName(drug.getGenericName());
         prescription.setAtcCode(drug.getAtc());
-        prescription.setScript_no(String.valueOf(drug.getScriptNo()));
+        prescription.setScript_no(drug.getScriptNo() == null ? null : drug.getScriptNo().toString());
         prescription.setRegionalIdentifier(drug.getRegionalIdentifier());
         prescription.setUnit(drug.getUnit());
         prescription.setUnitName(drug.getUnitName());
@@ -212,9 +214,13 @@ public class RxPrescriptionData {
         prescription.setPriorRxProtocol(drug.getPriorRxProtocol());
         prescription.setETreatmentType(drug.getETreatmentType());
         prescription.setRxStatus(drug.getRxStatus());
+        prescription.setCdsCurrentness(drug.getCdsCurrentness());
+        prescription.setCdsDoseText(drug.getCdsDoseText());
+        prescription.setCdsProjectionIncomplete(drug.getCdsProjectionIncomplete());
+        prescription.setCdsSubstitutionNotAllowed(drug.getNoSubs());
+        prescription.setCdsNonAuthoritative(drug.getNonAuthoritative());
         if (drug.getDispenseInterval() != null) prescription.setDispenseInterval(drug.getDispenseInterval());
-        if (drug.getRefillDuration() != null) prescription.setRefillDuration(drug.getRefillDuration());
-        if (drug.getRefillQuantity() != null) prescription.setRefillQuantity(drug.getRefillQuantity());
+        copyRefills(drug, prescription);
 
         String prescriptionSpecial = prescription.getSpecial();
         if (prescriptionSpecial == null || prescriptionSpecial.length() <= 6) {
@@ -222,6 +228,9 @@ public class RxPrescriptionData {
         }
         prescription.setDispenseInternal(Boolean.TRUE.equals(drug.getDispenseInternal()));
         prescription.setPharmacyId(drug.getPharmacyId());
+        // Read it like toPrescription does. The Long Term toggle saves this same prescription
+        // again as a new drugs row, which would otherwise lose the tick (#5056).
+        if (drug.isNonAuthoritative() != null) prescription.setNonAuthoritative(drug.isNonAuthoritative());
         return prescription;
     }
 
@@ -275,7 +284,27 @@ public class RxPrescriptionData {
         return prescription;
     }
 
+    /**
+     * Creates the in-memory copy that re-prescribing (ReRx) stages from a saved prescription.
+     *
+     * <p>A renewal defaults to what the prescriber set on the old card, with two deliberate
+     * exceptions (clinical guidance on #5169, settling #5056):</p>
+     * <ul>
+     *   <li>the Non-Authoritative tick is not copied: a renewal is itself an original
+     *       prescription, so it starts authoritative;</li>
+     *   <li>the Comment is not copied: it belongs to one prescribing of a given set of
+     *       medications.</li>
+     * </ul>
+     * <p>A reprint, which shows the original script, keeps both. The copy starts and is written
+     * today, has no end date, and records the old drug as its {@code drugReferenceId}.</p>
+     *
+     * @param providerNo the prescribing provider
+     * @param demographicNo the current patient
+     * @param rePrescribe the saved prescription being re-prescribed
+     * @return an unsaved prescription staged from {@code rePrescribe}
+     */
     public Prescription newPrescription(String providerNo, int demographicNo, Prescription rePrescribe) {
+        rePrescribe.requireSafeImportedRenewal();
         // Create new prescription
         Prescription prescription = new Prescription(0, providerNo, demographicNo);
 
@@ -328,6 +357,7 @@ public class RxPrescriptionData {
         prescription.setDispenseInternal(rePrescribe.getDispenseInternal());
         prescription.setProtocol(rePrescribe.getProtocol());
         prescription.setPriorRxProtocol(rePrescribe.getPriorRxProtocol());
+        // The Comment and the Non-Authoritative tick are deliberately not copied (see Javadoc).
         return prescription;
     }
 
@@ -379,7 +409,7 @@ public class RxPrescriptionData {
         p.setArchived(String.valueOf(drug.isArchived()));
         p.setGenericName(drug.getGenericName());
         p.setAtcCode(drug.getAtc());
-        p.setScript_no(String.valueOf(drug.getScriptNo()));
+        p.setScript_no(drug.getScriptNo() == null ? null : drug.getScriptNo().toString());
         p.setRegionalIdentifier(drug.getRegionalIdentifier());
         p.setUnit(drug.getUnit());
         p.setUnitName(drug.getUnitName());
@@ -404,15 +434,30 @@ public class RxPrescriptionData {
         p.setPriorRxProtocol(drug.getPriorRxProtocol());
         p.setETreatmentType(drug.getETreatmentType());
         p.setRxStatus(drug.getRxStatus());
+        p.setCdsCurrentness(drug.getCdsCurrentness());
+        p.setCdsDoseText(drug.getCdsDoseText());
+        p.setCdsProjectionIncomplete(drug.getCdsProjectionIncomplete());
+        p.setCdsSubstitutionNotAllowed(drug.getNoSubs());
+        p.setCdsNonAuthoritative(drug.getNonAuthoritative());
         if (drug.getDispenseInterval() != null) p.setDispenseInterval(drug.getDispenseInterval());
-        if (drug.getRefillDuration() != null) p.setRefillDuration(drug.getRefillDuration());
-        if (drug.getRefillQuantity() != null) p.setRefillQuantity(drug.getRefillQuantity());
+        copyRefills(drug, p);
         p.setHideCpp(drug.getHideFromCpp());
         p.setPharmacyId(drug.getPharmacyId());
         if (drug.isNonAuthoritative() != null) p.setNonAuthoritative(drug.isNonAuthoritative());
         p.discontinued = drug.isDiscontinued();
         p.setArchivedDate(drug.getArchivedDate());
         return p;
+    }
+
+    /** Imported optional refill values are independent; native rows retain their legacy zero defaults. */
+    private static void copyRefills(Drug source, Prescription target) {
+        if (source.getCdsCurrentness() != null) {
+            target.refillDuration = source.getRefillDuration();
+            target.refillQuantity = source.getRefillQuantity();
+        } else {
+            if (source.getRefillDuration() != null) target.setRefillDuration(source.getRefillDuration());
+            if (source.getRefillQuantity() != null) target.setRefillQuantity(source.getRefillQuantity());
+        }
     }
 
     public Prescription[] getPrescriptionScriptsByPatientATC(int demographicNo, String atc) {
@@ -683,6 +728,11 @@ public class RxPrescriptionData {
         java.util.Date writtenDate = null;
         String writtenDateFormat = null;
         String rxDateFormat = null;
+        private String cdsCurrentness;
+        private String cdsDoseText;
+        private Boolean cdsProjectionIncomplete;
+        private Boolean cdsSubstitutionNotAllowed;
+        private Boolean cdsNonAuthoritative;
         java.util.Date printDate = null;
         int numPrints = 0;
         String BN = null; // regular
@@ -1138,6 +1188,7 @@ public class RxPrescriptionData {
          * Current should contain non-expired drugs, as well as long terms drugs that are not deleted/discontinued
          */
         public boolean isCurrent() {
+            if (cdsCurrentness != null) return "CURRENT".equals(cdsCurrentness) && !isArchived();
             if (isLongTerm() && !isDiscontinued() && !isArchived()) {
                 return true;
             }
@@ -1160,6 +1211,8 @@ public class RxPrescriptionData {
         // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
         @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
         public void calcEndDate() {
+            // Imported dispense duration/refills do not establish a treatment discontinuation date.
+            if (cdsCurrentness != null) return;
             try {
                 GregorianCalendar cal = new GregorianCalendar(Locale.CANADA);
                 int days = 0;
@@ -1548,12 +1601,18 @@ public class RxPrescriptionData {
                 extra += "SUBSTITUTION NOT ALLOWED";
             }
             if ((getRefillQuantity() != null && getRefillQuantity() > 0) || (getRefillDuration() != null && getRefillDuration() > 0)) {
-                extra = "Refill: Qty:" + (getRefillQuantity() != null ? getRefillQuantity() : "0") + " Duration:" + (getRefillDuration() != null ? getRefillDuration() : "0") + " Days";
+                if (cdsCurrentness != null) {
+                    extra += (extra.isEmpty() ? "" : "\n") + "Refill: Qty:" + (getRefillQuantity() == null ? "Unknown" : getRefillQuantity())
+                            + " Duration:" + (getRefillDuration() == null ? "Unknown" : getRefillDuration() + " Days");
+                } else {
+                    extra = "Refill: Qty:" + (getRefillQuantity() != null ? getRefillQuantity() : "0") + " Duration:" + (getRefillDuration() != null ? getRefillDuration() : "0") + " Days";
+                }
             }
             return (RxPrescriptionData.getFullOutLine(getSpecial() + "\n" + extra));
         }
 
         public String getDosageDisplay() {
+            if (cdsDoseText != null) return cdsDoseText;
             String ret = "";
             if (this.getTakeMin() != this.getTakeMax()) {
                 ret += this.getTakeMinString() + "-" + this.getTakeMaxString();
@@ -1561,6 +1620,37 @@ public class RxPrescriptionData {
                 ret += this.getTakeMinString();
             }
             return ret;
+        }
+
+        public String getCdsCurrentness() { return cdsCurrentness; }
+
+        public void setCdsCurrentness(String value) { this.cdsCurrentness = value; }
+
+        public String getCdsDoseText() { return cdsDoseText; }
+
+        public void setCdsDoseText(String value) { this.cdsDoseText = value; }
+
+        public Boolean getCdsProjectionIncomplete() { return cdsProjectionIncomplete; }
+
+        public void setCdsProjectionIncomplete(Boolean value) { this.cdsProjectionIncomplete = value; }
+
+        public Boolean getCdsSubstitutionNotAllowed() { return cdsSubstitutionNotAllowed; }
+
+        public void setCdsSubstitutionNotAllowed(Boolean value) { this.cdsSubstitutionNotAllowed = value; }
+
+        public Boolean getCdsNonAuthoritative() { return cdsNonAuthoritative; }
+
+        public void setCdsNonAuthoritative(Boolean value) { this.cdsNonAuthoritative = value; }
+
+        /** Imported history cannot silently resolve unknown currentness, substitution or authority. */
+        public void requireSafeImportedRenewal() {
+            if (cdsCurrentness != null && (!"CURRENT".equals(cdsCurrentness)
+                    || !Boolean.FALSE.equals(cdsProjectionIncomplete)
+                    || cdsSubstitutionNotAllowed == null || cdsNonAuthoritative == null
+                    || Boolean.TRUE.equals(cdsNonAuthoritative)
+                    || io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsMedicationDose.parse(cdsDoseText).isEmpty())) {
+                throw io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsMedicationCompatibilityException.renewalRequiresReview();
+            }
         }
 
         public String getFreqDisplay() {
@@ -1758,7 +1848,8 @@ public class RxPrescriptionData {
 
         private void syncDrug(Drug drug, Integer scriptId) {
             // the fields set are based on previous code, I don't know the details of why which are and are not set and can not audit it at this point in time.
-            drug.setProviderNo(getProviderNo());
+            if (cdsCurrentness == null) drug.setProviderNo(getProviderNo());
+            else drug.setImportedPrescriberNo(getProviderNo());
             drug.setDemographicId(getDemographicNo());
             drug.setRxDate(getRxDate());
             drug.setEndDate(getEndDate());
@@ -1774,7 +1865,7 @@ public class RxPrescriptionData {
             drug.setQuantity(getQuantity());
             drug.setRepeat(getRepeat());
             drug.setLastRefillDate(getLastRefillDate());
-            drug.setNoSubs(getNosubs());
+            drug.setNoSubs(cdsCurrentness == null ? Boolean.valueOf(getNosubs()) : cdsSubstitutionNotAllowed);
             drug.setPrn(getPrn());
             drug.setSpecial(getSpecial());
             drug.setGenericName(getGenericName());
@@ -1797,16 +1888,25 @@ public class RxPrescriptionData {
             drug.setDispenseInternal(getDispenseInternal());
             drug.setSpecialInstruction(getSpecialInstruction());
             drug.setPatientCompliance(getPatientCompliance());
-            drug.setNonAuthoritative(isNonAuthoritative());
+            drug.setNonAuthoritative(cdsCurrentness == null ? Boolean.valueOf(isNonAuthoritative()) : cdsNonAuthoritative);
             drug.setPickUpDateTime(getPickupDate());
             drug.setETreatmentType(getETreatmentType());
             drug.setRxStatus(getRxStatus());
+            drug.setCdsCurrentness(getCdsCurrentness());
+            drug.setCdsDoseText(getCdsDoseText());
+            drug.setCdsProjectionIncomplete(getCdsProjectionIncomplete());
             drug.setDispenseInterval(getDispenseInterval());
-            drug.setRefillQuantity(getRefillQuantity());
-            drug.setRefillDuration(getRefillDuration());
+            if (cdsCurrentness == null) {
+                drug.setRefillQuantity(getRefillQuantity());
+                drug.setRefillDuration(getRefillDuration());
+            } else {
+                drug.setImportedRefillQuantity(getRefillQuantity());
+                drug.setImportedRefillDuration(getRefillDuration());
+            }
             drug.setHideFromCpp(false);
             drug.setPosition(position);
-            drug.setComment(getComment());
+            if (cdsCurrentness == null) drug.setComment(getComment());
+            else drug.setImportedProviderNotes(getComment());
             drug.setStartDateUnknown(getStartDateUnknown());
             drug.setDispenseInternal(getDispenseInternal());
             drug.setProtocol(protocol);

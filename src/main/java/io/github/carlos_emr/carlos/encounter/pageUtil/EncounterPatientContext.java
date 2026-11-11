@@ -1,6 +1,10 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
+import java.util.List;
+
+import io.github.carlos_emr.carlos.utility.BoundedSessionAttributes;
+
 import io.github.carlos_emr.carlos.casemgmt.common.ChartSessionKeys;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
@@ -48,10 +52,10 @@ public final class EncounterPatientContext {
     /** Retains immutable entry metadata separately for each patient opened in this login. */
     public static void rememberEncounter(HttpServletRequest request, EctSessionBean bean) {
         String patient = canonicalPatient(bean.demographicNo);
-        request.getSession().setAttribute(ENCOUNTER_PREFIX + patient, new SavedEncounter(
+        BoundedSessionAttributes.put(request.getSession(), "encounters", ENCOUNTER_PREFIX + patient, new SavedEncounter(
                 patient, bean.providerNo, bean.curProviderNo, bean.userName, bean.appointmentNo,
                 bean.appointmentDate, bean.startTime, bean.encType, bean.reason,
-                bean.patientFirstName, bean.patientLastName, bean.status));
+                bean.patientFirstName, bean.patientLastName, bean.status, bean.source, bean.templateNames));
         request.setAttribute("EctSessionBean", bean);
     }
 
@@ -158,7 +162,13 @@ public final class EncounterPatientContext {
                                   String userName, String appointmentNo, String appointmentDate,
                                   String startTime, String encType, String reason,
                                   String patientFirstName, String patientLastName,
-                                  String status) implements Serializable {
+                                  String status, String source, List<String> templateNames) implements Serializable {
+        private SavedEncounter {
+            // Session snapshots from before templates were retained deserialize the new
+            // component as null. The canonical constructor also protects restored lists.
+            templateNames = templateNames == null ? List.of() : List.copyOf(templateNames);
+        }
+
         private EctSessionBean toBean() {
             EctSessionBean bean = new EctSessionBean();
             bean.demographicNo = demographicNo;
@@ -173,6 +183,8 @@ public final class EncounterPatientContext {
             bean.patientFirstName = patientFirstName;
             bean.patientLastName = patientLastName;
             bean.status = status;
+            bean.source = source;
+            bean.templateNames = new java.util.ArrayList<>(templateNames);
             return bean;
         }
     }

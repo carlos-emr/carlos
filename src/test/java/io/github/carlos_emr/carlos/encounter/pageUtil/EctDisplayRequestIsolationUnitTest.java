@@ -69,6 +69,7 @@ class EctDisplayRequestIsolationUnitTest extends CarlosUnitTestBase {
         session.setAttribute("user", "999998");
         session.setAttribute("userrole", "doctor");
         LoggedInInfo.setLoggedInInfoIntoSession(session, login);
+        when(security.isAllowedAccessToPatientRecord(eq(login), anyInt())).thenReturn(true);
         global = new EctSessionBean();
         global.demographicNo = "202";
         global.appointmentNo = "9002";
@@ -477,6 +478,24 @@ class EctDisplayRequestIsolationUnitTest extends CarlosUnitTestBase {
         request.setParameter("appointmentNo", appointment);
         if (patient != null) request.setParameter("demographicNo", patient);
         return request;
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldRefuseLockedRecord_beforeNavbarContextOrClinicalReads(boolean json) {
+        MockHttpServletRequest request = request("000101", "9001");
+        request.setParameter("json", String.valueOf(json));
+        when(security.hasPrivilege(login, "_eChart", "r", "101")).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(login, 101)).thenReturn(false);
+        try (var beans = mockConstruction(EctSessionBean.class)) {
+            assertThatThrownBy(() -> execute(request, new MockHttpServletResponse()))
+                    .isInstanceOf(SecurityException.class).hasMessage("Patient record access denied");
+            verify(security).isAllowedAccessToPatientRecord(login, 101);
+            assertThat(beans.constructed()).isEmpty();
+            assertThat(request.getAttribute("EctSessionBean")).isNull();
+            verifyNoInteractions(demographics, templates, groups, charts, appointments, messages);
+            assertGlobalUnchanged();
+        }
     }
 
     private MockHttpServletRequest reloadRequest(String url) {

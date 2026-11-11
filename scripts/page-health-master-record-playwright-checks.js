@@ -36,6 +36,7 @@ const EXPECTED_LINKS = ['Appointment History', 'Consultations', 'Prescriptions',
 // Every clinical/billing sidebar popup must keep the displayed patient's scope.
 const PATIENT_PARAMETERS = [
   ['/billing/CA/ON/ViewBillingONHistory', 'demographic_no'],
+  ['/billing/CA/ON/billingShortcutPg1View', 'demographic_no'],
   ['/billing/CA/BC/reprocessBill', 'demographicNo'],
   ['/billing', 'demographic_no'],
   ['/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests', 'de'],

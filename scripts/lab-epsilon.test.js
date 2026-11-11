@@ -4,7 +4,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  buildFeed, PDF, HTML_PAYLOAD, PDF_ROW, HTML_ROW, HEADER, FT_LINE,
+  removeEpsilonLabRows, buildFeed, PDF, HTML_PAYLOAD, PDF_ROW, HTML_ROW, HEADER, FT_LINE,
 } = require('./lab-epsilon-playwright-checks');
 
 const feed = buildFeed('PW4124TEST', 'FAKE-PWTEST');
@@ -44,4 +44,36 @@ test('puts the PDF and the non-PDF ED payload at the rows the check addresses', 
   assert.equal(rows[PDF_ROW.group][5], `^TEXT^PDF^Base64^${PDF.toString('base64')}`);
   assert.equal(rows[HTML_ROW.group][5], `^TEXT^HTML^Base64^${HTML_PAYLOAD.toString('base64')}`);
   assert.equal(PDF.subarray(0, 5).toString('ascii'), '%PDF-');
+});
+
+function cleanupSql({left = '0'} = {}) {
+  const writes = [], reads = [];
+  return {writes, reads, rows() { return []; },
+    execute(query) { writes.push(query); },
+    value(query) { reads.push(query); return left; }};
+}
+
+test('two PID cleanup removes their unshared routing locks before deleting messages', () => {
+  const sql = cleanupSql();
+  removeEpsilonLabRows(sql, ['175', '176']);
+  const statement = sql.writes.join('\n');
+  assert.match(statement, /DELETE FROM providerLabRoutingLock WHERE lab_no IN \(175,176\) AND NOT EXISTS \(SELECT 1 FROM providerLabRouting other\s+WHERE other\.lab_no=providerLabRoutingLock\.lab_no AND other\.lab_type<>'HL7'\)/);
+  assert.ok(statement.indexOf("DELETE FROM providerLabRouting WHERE lab_type='HL7'") < statement.indexOf('DELETE FROM providerLabRoutingLock'));
+  assert.ok(statement.indexOf('DELETE FROM providerLabRoutingLock') < statement.indexOf('DELETE FROM hl7TextMessage'));
+  // The final assertion uses the same ownership guard; a foreign DOC mutex is retained.
+  assert.match(sql.reads.join('\n'), /FROM providerLabRoutingLock WHERE lab_no IN \(175,176\) AND NOT EXISTS/);
+  assert.match(sql.reads.join('\n'), /other\.lab_type<>'HL7'/);
+});
+
+test('cleanup fails when either owned PID message or eligible lock remains', () => {
+  assert.throws(() => removeEpsilonLabRows(cleanupSql({left:'1'}), ['175','176']), /not all removed/);
+});
+
+test('cleanup refuses invalid IDs without writes and does nothing for no owned messages', () => {
+  for (const ids of [['0'], ['-1'], ['175); DELETE FROM document; --'], ['175', 'unknown']]) {
+    const sql = cleanupSql();
+    assert.throws(() => removeEpsilonLabRows(sql, ids), /Invalid owned Epsilon/);
+    assert.deepEqual(sql.writes, []);
+  }
+  const sql = cleanupSql(); removeEpsilonLabRows(sql, []); assert.deepEqual(sql.writes, []);
 });

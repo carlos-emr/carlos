@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Date;
 
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
@@ -51,6 +52,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.OscarLogManager;
 import io.github.carlos_emr.carlos.managers.PatientConsentManager;
 import io.github.carlos_emr.carlos.managers.ProviderManager2;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsentTypeTo1;
@@ -62,6 +64,18 @@ import org.springframework.stereotype.Component;
  * 
  * This service provides endpoints for managing consent types and patient consents.
  * It uses ScribeJava OAuth1 for authentication.
+ *
+ * <p><b>Authorization (#2798).</b> The {@code /ws/rs} and {@code /ws/services} interceptors only
+ * establish who the caller is; every endpoint here also checks a security object before touching
+ * the consent catalogue, and answers 403 when the check fails:</p>
+ * <ul>
+ *   <li>Reading consent types requires {@code _demographic} read. The catalogue is the vocabulary a
+ *       user picks from when recording a patient's consent on the demographic record, so it follows
+ *       the same right as the demographic add/edit screens that already list it.</li>
+ *   <li>Creating a consent type requires {@code _admin} write, because it changes clinic-wide
+ *       configuration. {@code PatientConsentManager.addConsentType} enforces the same right as a
+ *       second line of defence for non-REST callers.</li>
+ * </ul>
  */
 @Component("ConsentService")
 @Path("/consentService/")
@@ -86,9 +100,28 @@ public class ConsentService extends AbstractServiceImpl {
     @Autowired
     PatientConsentManager patientConsentManager;
 
+    @Autowired
+    SecurityInfoManager securityInfoManager;
 
+    /** Security object for reading the consent-type catalogue; see the class Javadoc. */
+    static final String CONSENT_TYPE_READ_OBJECT = "_demographic";
+
+    /** Security object for adding to the consent-type catalogue (clinic configuration). */
+    static final String CONSENT_TYPE_WRITE_OBJECT = "_admin";
 
     public ConsentService() {
+    }
+
+    /**
+     * Fails closed with HTTP 403 unless the caller holds {@code privilege} on {@code objectName}.
+     * Runs before any lookup or logging so a denied caller learns nothing about the catalogue.
+     *
+     * @throws ForbiddenException when the privilege is missing
+     */
+    private void requirePrivilege(String objectName, String privilege) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), objectName, privilege, null)) {
+            throw new ForbiddenException("missing required sec object (" + objectName + ")");
+        }
     }
 
     /**
@@ -100,6 +133,7 @@ public class ConsentService extends AbstractServiceImpl {
     @Path("/consentTypes")
     @Produces("application/json")
     public AbstractSearchResponse<ConsentTypeTo1> getActiveConsentTypes() {
+        requirePrivilege(CONSENT_TYPE_READ_OBJECT, SecurityInfoManager.READ);
         try {
             logger.debug("Retrieving active consent types");
 
@@ -144,6 +178,7 @@ public class ConsentService extends AbstractServiceImpl {
     @Path("/consentType/{id}")
     @Produces("application/json")
     public ConsentTypeTo1 getConsentType(@PathParam("id") Integer id) {
+        requirePrivilege(CONSENT_TYPE_READ_OBJECT, SecurityInfoManager.READ);
         try {
             logger.debug("Retrieving consent type {}", id);
 
@@ -185,6 +220,7 @@ public class ConsentService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public RestResponse<String> addConsentType(ConsentTypeTo1 consentType) {
+        requirePrivilege(CONSENT_TYPE_WRITE_OBJECT, SecurityInfoManager.WRITE);
         try {
             logger.debug("Adding consent type");
 
@@ -210,6 +246,10 @@ public class ConsentService extends AbstractServiceImpl {
         } catch (jakarta.ws.rs.WebApplicationException e) {
             // propagate JAX-RS errors (e.g. 400 Bad Request)
             throw e;
+        } catch (SecurityException e) {
+            // A permission denial is not a server error: answer 403 and keep it out of the error log.
+            logger.warn("Consent type add denied: {}", e.getMessage());
+            throw new jakarta.ws.rs.WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
         } catch (Exception e) {
             // log full stack trace internally
             logger.error("Error adding consent type {}", consentType, e);

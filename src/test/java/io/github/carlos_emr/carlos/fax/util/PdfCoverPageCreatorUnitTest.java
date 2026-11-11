@@ -89,4 +89,31 @@ class PdfCoverPageCreatorUnitTest {
         }
     }
 
+    @Test
+    void shouldKeepChineseJapaneseAndKorean_whenPrintingFaxCover() throws Exception {
+        // Issue #5046: cover-page cells were Phrases in DejaVu alone, which has no CJK characters.
+        // Values are synthetic.
+        FaxRecipient recipient = new FaxRecipient();
+        recipient.setName("FAKE-诊所 陈");
+        recipient.setFax("5551234567");
+        FaxAccount account = new FaxAccount();
+        account.setName("FAKE-さくら");
+        account.setPhone("5551234567");
+        account.setFax("5557654321");
+        account.setAddress("FAKE 1 北京路");
+        account.setSubText("FAKE-김민준 의원");
+        account.setFaxNumberOwner("FAKE-さくら");
+        account.setLetterheadName("Dr FAKE-김민준");
+        byte[] bytes = new PdfCoverPageCreator("FAKE-请回电 ≥ 5", 2, recipient, account).createCoverPage();
+        try (var pdf = org.apache.pdfbox.Loader.loadPDF(bytes)) {
+            for (var page : pdf.getPages()) {
+                for (var name : page.getResources().getFontNames()) {
+                    assertThat(page.getResources().getFont(name).isEmbedded()).as("font %s", name).isTrue();
+                }
+            }
+            assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(pdf))
+                    .contains("To: FAKE-诊所 陈", "From: Dr FAKE-김민준", "FAKE-さくら", "FAKE 1 北京路",
+                            "FAKE-김민준 의원", "FAKE-请回电 ≥ 5");
+        }
+    }
 }

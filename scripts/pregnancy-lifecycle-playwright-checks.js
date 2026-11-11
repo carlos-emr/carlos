@@ -43,6 +43,17 @@ function isPregnancyPost(response, target, patient, operation) {
   return body.get('demographicNo') === String(patient) && body.get('method') === operation;
 }
 
+function assertPregnancyRedirect(response, target, patient) {
+  assert(response.status() === 302, `Pregnancy POST returned ${response.status()}, expected 302; a save is not established`);
+  const location = response.headers().location;
+  assert(location, 'Pregnancy POST has no Location header');
+  const redirect = new URL(location, target);
+  const route = new URL(target);
+  assert(redirect.origin === route.origin && redirect.pathname === route.pathname
+    && redirect.searchParams.get('demographicNo') === String(patient) && redirect.searchParams.get('saved') === 'true'
+    && !redirect.searchParams.has('method'), 'Pregnancy redirect is not the own-patient read-only history');
+}
+
 async function withPatientPrivilege(s, object, privilege, operation) {
   assert(/^_(?:pregnancy|demographic)\$[1-9]\d*$/.test(object) && ['r', 'o'].includes(privilege),
     'Patient privilege fixture is outside its owned access probes');
@@ -101,6 +112,7 @@ async function workflow(s) {
   let id;
   let target;
   let csrf;
+  let createSubmission;
   const literalNotes = `${marker}\nLiteral <script>not executable</script> & ' " notes`;
   const wireNotes = literalNotes.replace(/\n/g, '\r\n');
   async function captureToken() {
@@ -116,8 +128,12 @@ async function workflow(s) {
     const waiting = popup.waitForResponse(response => isPregnancyPost(response, target, patient, operation));
     const [response] = await Promise.all([waiting, popup.getByRole('button', {name: label, exact: true}).click()]);
     await response.finished();
-    assert(response.status() === 302, 'Pregnancy native POST did not redirect after commit');
+    assertPregnancyRedirect(response, target, patient);
     const submitted = new URLSearchParams(response.request().postData() || '');
+    if (operation === 'create') {
+      assert(submitted.get('carlosFormSubmission'), 'Pregnancy create form has no submission guard');
+      createSubmission = Object.fromEntries(submitted);
+    }
     assert(submitted.get('notes') === wireNotes, 'Pregnancy native POST changed literal notes');
     await popup.getByRole('status').filter({hasText: 'Pregnancy saved.'}).waitFor();
     assert(new URL(popup.url()).searchParams.get('demographicNo') === patient, 'Pregnancy redirect lost patient identity');
@@ -168,10 +184,22 @@ async function workflow(s) {
       && rows[0][6].startsWith('2026-01-02') && rows[0][8] === String(provider) && rows[0][10] === wireNotes,
     'Create lost pregnancy type, start date, provider or literal notes');
     await chart.locator(`#pregnancy a[onclick*="episodeId=${id}"]`).first().waitFor();
+    assert(await chart.locator(`#pregnancy a[onclick*="episodeId=${id}"]`).first().getAttribute('title') === literalNotes,
+      'Pregnancy chart tooltip did not preserve literal notes safely');
     const before = snapshot();
     await popup.reload();
     assert(JSON.stringify(snapshot()) === JSON.stringify(before), 'Reload after create duplicated pregnancy');
     await popup.close();
+    patientsUnchanged();
+  });
+  await s.step('repeated create submissions redirect without changing the current episode', async () => {
+    const before = snapshot();
+    const replies = await Promise.all([1, 2].map(() => s.context.request.post(target, {form: createSubmission, maxRedirects: 0})));
+    for (const reply of replies) {
+      assertPregnancyRedirect(reply, target, patient);
+      await reply.body();
+    }
+    assert(JSON.stringify(snapshot()) === JSON.stringify(before), 'Repeated create changed the saved pregnancy');
     patientsUnchanged();
   });
   await s.step('current episode reopens safely and native Complete persists history', async () => {
@@ -192,6 +220,14 @@ async function workflow(s) {
     assert(await popup.getByRole('button', {name: 'Complete pregnancy', exact: true}).count() === 0, 'Completed history offers another completion');
     patientsUnchanged();
   });
+  await s.step('old create form cannot start another pregnancy after completion', async () => {
+    const before = snapshot();
+    const reply = await s.context.request.post(target, {form: createSubmission, maxRedirects: 0});
+    assertPregnancyRedirect(reply, target, patient);
+    await reply.body();
+    assert(JSON.stringify(snapshot()) === JSON.stringify(before), 'Old create form started another pregnancy after completion');
+    patientsUnchanged();
+  });
   await s.step('GET mutations, malformed dates, legacy handlers and stale completion are rejected without writes', async () => {
     const before = snapshot();
     const probe = async (method, data, status, verb = 'post') => {
@@ -209,7 +245,7 @@ async function workflow(s) {
     await probe('complete', {episodeId: id, endDate: '2026-02-03', notes: 'Overwritten'}, 409);
     await probe('saveMeasurementAjax', {}, 400);
     await probe('list', {demographicNo: 'bad'}, 400, 'get');
-    await probe('edit', {episodeId: id, demographic_no: '2147483647'}, 400, 'get');
+    await probe('edit', {episodeId: id, demographic_no: other}, 400, 'get');
     patientsUnchanged();
   });
   await s.step('another owned patient episode cannot be read or completed through this chart', async () => {
@@ -260,4 +296,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('pregnancy-lifecycle', workflow);
-module.exports = {workflow, grantPregnancyModule, isPregnancyPost, withPatientPrivilege};
+module.exports = {workflow, grantPregnancyModule, isPregnancyPost, assertPregnancyRedirect, withPatientPrivilege};

@@ -22,6 +22,8 @@ import org.owasp.encoder.Encode;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.lab.service.LabPatientAccess;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -52,6 +54,16 @@ public class CreateLabLabel2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
             throw new SecurityException("missing required sec object (_lab)");
         }
+
+        Integer labNo = LabPatientAccess.positiveIdentity(this.getLab_no());
+        if (labNo == null) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        // A caller-supplied patient/provider is not the owner of this lab. Check real routing
+        // before label access, logging, DAO writes or the direct lab-display forward.
+        LabPatientAccess.requireLab(securityInfoManager, SpringUtils.getBean(PatientLabRoutingDao.class),
+                LoggedInInfo.getLoggedInInfoFromSession(request), labNo, "HL7");
 
         String label = this.getLabel(); //request.getParameter("label");
         logger.info("Label before db insert =" + label);

@@ -32,6 +32,7 @@
 <%@page import="io.github.carlos_emr.Misc" %>
 <%@page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@page import="java.util.Enumeration" %>
 <%@page import="io.github.carlos_emr.carlos.encounter.pageUtil.NavBarDisplayDAO" %>
@@ -67,6 +68,14 @@
 
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
+
+<fmt:setBundle basename="cdsImportMessages" var="cdsSourceLabels"/>
+<div class="cds-chart-source-links">
+    <fmt:message key="sourceClinicalNotes" bundle="${cdsSourceLabels}"/>: <source:cdsSourceFields demographicNo="${not empty requestScope.demographicNo ? requestScope.demographicNo : param.demographicNo}" category="ClinicalNotes"/>
+    — <fmt:message key="sourceAdditionalCategories" bundle="${cdsSourceLabels}"/>: <source:cdsSourceFields demographicNo="${not empty requestScope.demographicNo ? requestScope.demographicNo : param.demographicNo}" category="NewCategory"/>
+</div>
+
+<p class="cds-note-source-timing"><fmt:message key="sourceClinicalNotesTimingHelp" bundle="${cdsSourceLabels}"/></p>
 
 <div id="cppBoxes">
     <div id="divR1">

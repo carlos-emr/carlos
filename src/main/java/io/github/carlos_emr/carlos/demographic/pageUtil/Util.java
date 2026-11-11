@@ -39,6 +39,7 @@
 
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.LegacyXmlBeans;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -805,7 +806,7 @@ public class Util {
 
     public static cdsDt.ResidualInformation fillResidualInfo(String name, String dataType, String content) {
         List<cdsDt.ResidualInformation.DataElement> dataElementArray = new ArrayList<cdsDt.ResidualInformation.DataElement>();
-        cdsDt.ResidualInformation residualInformation = cdsDt.ResidualInformation.Factory.newInstance();
+        cdsDt.ResidualInformation residualInformation = LegacyXmlBeans.newInstance(cdsDt.ResidualInformation.class, cdsDt.ResidualInformation.type);
         
         cdsDt.ResidualInformation.DataElement data = residualInformation.addNewDataElement();
         data.setName(name);

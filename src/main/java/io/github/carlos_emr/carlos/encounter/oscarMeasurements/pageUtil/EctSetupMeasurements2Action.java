@@ -40,6 +40,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBeanHandler;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasuringInstructionBeanHandler;
@@ -65,9 +66,8 @@ public final class EctSetupMeasurements2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
             return NONE;
         }
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", demo)) {
-            throw new SecurityException("missing required sec object (_measurement)");
-        }
+        PatientRecordAccess.require(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                demo, "_measurement", "r");
 
         //EctMeasurementsForm frm = (EctMeasurementsForm) form;
 

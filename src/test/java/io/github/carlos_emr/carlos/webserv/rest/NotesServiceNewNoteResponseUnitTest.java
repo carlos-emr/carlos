@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.NoteTo1;
@@ -47,6 +48,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -103,6 +105,10 @@ class NotesServiceNewNoteResponseUnitTest extends CarlosUnitTestBase {
         inject("caseManagementMgr", manager);
         inject("programManager2", mock(ProgramManager2.class));
         inject("programMgr", mock(ProgramManager.class));
+        SecurityInfoManager security = mock(SecurityInfoManager.class);
+        when(security.hasPrivilege(any(), anyString(), anyString(), anyString())).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
+        inject("securityInfoManager", security);
     }
 
     @Test

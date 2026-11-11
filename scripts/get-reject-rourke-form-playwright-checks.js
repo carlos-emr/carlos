@@ -20,6 +20,7 @@
  * Risk sweep "get-reject" (STATE-CHANGING ACTIONS THAT ACCEPT GET).
  */
 const h = require('./lib/playwright-harness');
+const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { captureRequest, replayParams, createLedger } = require('./lib/get-reject-probe');
 
@@ -48,7 +49,7 @@ async function workflow(s) {
 
   await s.step('E-Chart ▸ Forms ▸ Rourke2017 opens the form for the owned patient', async () => {
     const chart = await s.chart();
-    await chart.locator('#menuTitle1 a').hover();
+    await ui.openFormsMenu(chart);
     const link = chart.getByRole('link', { name: 'Rourke2017', exact: true });
     h.assert(await link.count() === 1, 'The Forms menu does not list Rourke2017 exactly once');
     form = await s.popup(chart, link, 'rourke2017');

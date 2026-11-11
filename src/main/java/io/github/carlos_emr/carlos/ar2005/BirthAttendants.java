@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -118,27 +116,6 @@ public interface BirthAttendants extends XmlObject
         public static BirthAttendants parse(final Node node, final XmlOptions options) throws XmlException {
             return (BirthAttendants)XmlBeans.getContextTypeLoader().parse(node, BirthAttendants.type, options);
         }
-        
-        @Deprecated
-        public static BirthAttendants parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (BirthAttendants)XmlBeans.getContextTypeLoader().parse(xis, BirthAttendants.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static BirthAttendants parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (BirthAttendants)XmlBeans.getContextTypeLoader().parse(xis, BirthAttendants.type, options);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, BirthAttendants.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, BirthAttendants.type, options);
-        }
-        
         private Factory() {
         }
     }

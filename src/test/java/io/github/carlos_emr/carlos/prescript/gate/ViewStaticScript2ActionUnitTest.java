@@ -138,11 +138,11 @@ class ViewStaticScript2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should leave a request that names no patient to the page, which refuses it")
-    void shouldSkipPatientCheck_whenNoPatientNamed() throws Exception {
+    @DisplayName("should refuse a request that names no patient")
+    void shouldRefusePatientCheck_whenNoPatientNamed() throws Exception {
         request.removeParameter("demographicNo");
 
-        assertThat(new ViewStaticScript2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThatThrownBy(() -> new ViewStaticScript2Action().execute()).isInstanceOf(SecurityException.class);
         verify(securityInfoManager, never()).isAllowedAccessToPatientRecord(any(), anyInt());
     }
 }

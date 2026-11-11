@@ -447,8 +447,32 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should restore all CARLOS image links without saving them as form fields")
+    void shouldRestoreImageLinks_withoutPersistingTransportFields() throws Exception {
+        String[] images = {
+                "{\"id\":\"signature\",\"value\":\"data:image/png;base64,AQID\"}",
+                "{\"id\":\"letterhead\",\"value\":\"/carlos/eform/displayImage?imagefile=logo.png\"}"
+        };
+        mockRequest.setParameter("carlos-image-link", images);
+        mockRequest.setParameter("clinicalNote", "Synthetic follow-up");
+        try (var forms = mockConstruction(io.github.carlos_emr.carlos.eform.data.EForm.class,
+                (form, construction) -> {
+                    when(form.getFormFileName()).thenReturn("test.html");
+                    when(form.getOpenerNames()).thenReturn(new java.util.ArrayList<>());
+                })) {
+            assertThat(new AddEForm2Action().execute()).isEqualTo("faxPreparation");
+            assertThat(forms.constructed()).hasSize(1);
+            verify(forms.constructed().getFirst()).addImagePathPlaceholders(images);
+            eFormUtilMock.verify(() -> EFormUtil.addEFormValues(
+                    argThat(names -> names.contains("clinicalNote") && !names.contains("carlos-image-link")),
+                    argThat(values -> values.contains("Synthetic follow-up") && !values.contains(images[0])
+                            && !values.contains(images[1])), eq(42), eq(1), eq(123)));
+        }
+    }
+
+    @Test
     void shouldKeepImageFailuresAndRejectedLinkValuesOutOfDiagnostics() throws Exception {
-        mockRequest.setParameter("openosp-image-link", "PRIVATE_IMAGE_CONTENT");
+        mockRequest.setParameter("carlos-image-link", "PRIVATE_IMAGE_CONTENT");
         mockRequest.setParameter("eform_link", "PRIVATE_LINK_VALUE");
         var failure = new IllegalArgumentException("PRIVATE_IMAGE_MESSAGE",
                 new IllegalStateException("PRIVATE_IMAGE_CAUSE"));

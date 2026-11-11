@@ -70,6 +70,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean" %>
 <%@ page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
+<%@ page import="io.github.carlos_emr.carlos.appointment.AppointmentCardContact" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow" %>
 <%!
     // DAOs declared at class level -- thread-safe Spring singletons shared across all requests
@@ -163,6 +164,8 @@
     // Lab & messaging preferences
     boolean labAckComment = "yes".equalsIgnoreCase(props.getOrDefault(UserProperty.LAB_ACK_COMMENT, "no"));
     String patientNameLen = props.getOrDefault(UserProperty.PATIENT_NAME_LENGTH, "");
+    boolean groupEchartDocuments = "true".equals(org.apache.commons.lang3.StringUtils.trimToEmpty(
+            props.get(UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE)));
     String displayDocAs = props.getOrDefault(UserProperty.DISPLAY_DOCUMENT_AS, "");
     boolean eDocInReport = "yes".equalsIgnoreCase(
             props.getOrDefault(UserProperty.EDOC_BROWSER_IN_DOCUMENT_REPORT, "no"));
@@ -194,10 +197,11 @@
     String colour = props.getOrDefault("ProviderColour", "");
     boolean dashboardShare = "yes".equalsIgnoreCase(props.getOrDefault(UserProperty.DASHBOARD_SHARE, "no"));
 
-    // Appointment card preferences
-    String apptCardName = props.getOrDefault("appointmentCardName", "");
-    String apptCardPhone = props.getOrDefault("appointmentCardPhone", "");
-    String apptCardFax = props.getOrDefault("appointmentCardFax", "");
+    // Appointment card preferences: what the card prints, so the older APPT_CARD_* values an
+    // upgraded install may hold show here and the next save carries them over (issue #5134).
+    String apptCardName = AppointmentCardContact.shownValue(props, AppointmentCardContact.Field.NAME);
+    String apptCardPhone = AppointmentCardContact.shownValue(props, AppointmentCardContact.Field.PHONE);
+    String apptCardFax = AppointmentCardContact.shownValue(props, AppointmentCardContact.Field.FAX);
 
     // Signature stamp
     boolean hasConsultSignature = false;
@@ -1049,6 +1053,18 @@
                 </div>
             </div>
             <div class="pref-row">
+                <fmt:message key="provider.providerpreference.label.echartDocumentGrouping" var="echartDocumentGroupingLabel"/>
+                <fmt:message key="provider.providerpreference.documentGrouping.none" var="echartGroupingNoneLabel"/>
+                <fmt:message key="provider.providerpreference.documentGrouping.type" var="echartGroupingTypeLabel"/>
+                <div class="pref-label"><label for="echartDocumentGrouping">${carlos:forHtml(echartDocumentGroupingLabel)}</label></div>
+                <div class="pref-value">
+                    <select id="echartDocumentGrouping" name="<%= UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE %>" class="pref-input form-select-sm">
+                        <option value="false" <%=!groupEchartDocuments ? "selected" : ""%>>${carlos:forHtml(echartGroupingNoneLabel)}</option>
+                        <option value="true" <%=groupEchartDocuments ? "selected" : ""%>>${carlos:forHtml(echartGroupingTypeLabel)}</option>
+                    </select>
+                </div>
+            </div>
+            <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.displayDocAs"/></div>
                 <div class="pref-value">
                     <select name="display_document_as" class="pref-input form-select-sm">
@@ -1090,6 +1106,10 @@
     <div id="secLab" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
         <div class="accordion-body">
 
+            <div class="pref-row">
+                <a href="${pageContext.request.contextPath}/setProviderStaleDate?method=viewHl7LabResultPrefs"
+                   target="_blank" rel="noopener"><fmt:message key="provider.setHl7LabResultPrefs.title"/></a>
+            </div>
             <%-- Lab acknowledgement --%>
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.disableLabAckComment"/></div>

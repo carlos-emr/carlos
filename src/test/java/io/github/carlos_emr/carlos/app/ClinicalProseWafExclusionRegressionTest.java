@@ -125,6 +125,7 @@ class ClinicalProseWafExclusionRegressionTest {
                 Arguments.of("1118", "/carlos/documentManager/ManageDocument", "POST", List.of("documentDescription")),
                 Arguments.of("1119", "/carlos/documentManager/ViewIncomingDocs", "POST", List.of("documentDescription")),
                 Arguments.of("1120", "/carlos/oscarMDS/UpdateStatus", "POST", List.of("comment")),
+                Arguments.of("1145", "/carlos/oscarMDS/FileLabsOnBehalf", "POST", List.of("comment")),
                 Arguments.of("1121", "/carlos/lab/CA/ALL/UnlinkDemographic", "POST", List.of("reason")),
                 Arguments.of("1122", "/carlos/hospitalReportManager/Modify", "POST", List.of("comment", "description")),
                 Arguments.of("1123", "/carlos/messenger/CreateMessage", "POST", List.of("message", "subject")),

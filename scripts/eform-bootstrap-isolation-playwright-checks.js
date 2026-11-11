@@ -37,7 +37,8 @@
  * caught here rather than in a clinic's printout. For each renderer it asserts that:
  *
  *   1. every measured element of a legacy eForm has the same box and computed style as the same
- *      eForm opened on its own, on screen and in print media;
+ *      eForm opened on its own, on screen and in print media, and a change made while printing
+ *      does not move the toolbar once the screen layout is back;
  *   2. the toolbar is still styled by Bootstrap (button colours, input-group, navbar, badge);
  *   3. the save alert is styled, positioned, works whatever `this` its caller binds, and does not
  *      move the eForm while it is shown;
@@ -200,6 +201,11 @@ async function checkRenderer(page, origin, renderer, expected) {
   const label = `${renderer}.jsp`;
   await page.goto(`${origin}/eform/${renderer}`, { waitUntil: 'load' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- this script's own loopback server and a RENDERERS constant
   await page.locator('#toolbarWrapper #remoteSubmitButton').waitFor();
+  // The toolbar places itself below the lowest piece of page content, one animation frame after a
+  // change; two frames later its placement has settled.
+  const toolbarTop = () => page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(
+    () => resolve(Math.round(document.getElementById('toolbarWrapper').getBoundingClientRect().top + window.scrollY))))));
+  const restingTop = await toolbarTop();
 
   // 1. The eForm itself, as the clinician sees and prints it.
   const onScreen = differences(expected.screen, await measureEform(page));
@@ -209,7 +215,16 @@ async function checkRenderer(page, origin, renderer, expected) {
   assert.deepEqual(inPrint, [], `${label}: the eForm chrome restyled the eForm in print`);
   assert.equal((await style(page, '#toolbarWrapper', ['display'])).display, 'none',
     `${label}: the toolbar must not print`);
+  // A change made while printing, outside the toolbar, places the toolbar while print media hides it.
+  // It used to measure the hidden toolbar's top as 0 and add the form's height again to its gap, so the
+  // toolbar came back from printing a second form-height down. This was the intermittent "showing the
+  // alert moved the toolbar" failure of #5193 item 4 whenever a resize landed during the print check.
+  await page.evaluate(() => document.body.classList.add('carlos-print-check'));
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await page.emulateMedia({ media: 'screen' });
+  assert.equal(await toolbarTop(), restingTop, `${label}: a change made while printing moved the toolbar`);
+  await page.evaluate(() => document.body.classList.remove('carlos-print-check'));
+  assert.equal(await toolbarTop(), restingTop, `${label}: the toolbar did not settle after printing`);
 
   // 2. The toolbar keeps the Bootstrap look it was designed with.
   assert.equal(await page.locator('#toolbarWrapper').evaluate((wrapper) => wrapper.matches('.carlos-eform-ui')), true,
@@ -229,11 +244,9 @@ async function checkRenderer(page, origin, renderer, expected) {
     `${label}: .d-block inside the toolbar menus no longer applies`);
 
   // 3. The save alert: styled, and callable with any receiver (it used to need this === window).
-  // The toolbar places itself below the lowest piece of page content; the alert and dialog hosts are
-  // box-less so that showing either never counts as content and pushes the toolbar down.
-  const toolbarTop = () => page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(
-    () => resolve(Math.round(document.getElementById('toolbarWrapper').getBoundingClientRect().top + window.scrollY))))));
-  const restingTop = await toolbarTop();
+  // The alert and dialog hosts are box-less so that showing either never counts as content and pushes
+  // the toolbar down.
+  assert.equal(await toolbarTop(), restingTop, `${label}: the toolbar moved before the alert was shown`);
   await page.evaluate(() => showErrorAlert.call(document.getElementById('legacyForm')));
   const alert = page.locator('#submit-error-alert');
   await alert.waitFor();

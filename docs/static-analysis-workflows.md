@@ -138,9 +138,9 @@ includes a comment explaining its category.
 
 ### How it runs
 
-PMD does not need compiled code. The workflow uses the official `pmd/pmd-github-action@v2`
-action, which downloads PMD and runs it directly against `src/main/java` — no dev container
-or Maven build required.
+PMD does not need compiled code. The workflow downloads the pinned PMD CLI release (cached
+between runs) and runs it directly against `src/main/java` and `src/test/java` — no third-party
+action, dev container, or Maven build required.
 
 ---
 
@@ -234,13 +234,17 @@ a revision conflict never uses that automatic retry path.
 SpotBugs needs compiled `.class` files, so the workflow uses the dev container (same as
 `maven-project.yml`):
 
-1. Pull or build the `carlos-tomcat-dev` container
-2. Restore Maven dependency cache
-3. Run `mvn -DskipTests -Pspotbugs,skip-dependency-lock compile spotbugs:spotbugs`
-4. Convert the SpotBugs XML report (`target/spotbugs-result.xml`) to SARIF format
-5. Upload SARIF to GitHub Security tab
+1. Start the `carlos-tomcat-dev` container through the `.github/actions/dev-container`
+   composite action (pulled from ghcr.io, or built locally when it is not in the registry),
+   which also restores the shared Maven dependency cache
+2. Run `mvn -DskipTests -Pspotbugs,skip-dependency-lock compile spotbugs:spotbugs`
+3. Convert the SpotBugs XML report (`target/spotbugs-result.xml`) to SARIF with
+   `scripts/ci/spotbugs-xml-to-sarif.py`
+4. Upload SARIF to GitHub Security tab
 
-The XML-to-SARIF conversion uses an inline Python script (no third-party action dependency).
+The XML-to-SARIF conversion is a plain Python script (no third-party action dependency); run it
+locally with `REPORT=target/spotbugs-result.xml python3 scripts/ci/spotbugs-xml-to-sarif.py`
+(it needs `defusedxml`: `python3 -m pip install -r scripts/ci/requirements.txt`).
 
 ---
 
@@ -253,9 +257,8 @@ uploads to a separate SARIF category (`pmd` and `spotbugs`) so alerts can be fil
 
 ### Pull Request Annotations
 
-PMD findings appear as inline annotations on the PR diff via `pmd-github-action`.
-SpotBugs findings appear via the SARIF upload (GitHub renders them as code scanning alerts on
-the PR).
+PMD and SpotBugs findings appear via their SARIF uploads (GitHub renders them as code scanning
+alerts on the PR).
 
 ### Job Summary
 
@@ -406,6 +409,103 @@ For generated-JSP sinks the suppression lives in `.github/spotbugs/spotbugs-excl
 the generated `_jspService` class name — note that such entries silently stop matching if the JSP is
 renamed or migrated to a `2Action`, so prefer an in-source `@SuppressFBWarnings` once the sink moves
 to Java.
+
+---
+
+## SonarCloud scanner heap
+
+`.github/workflows/sonarcloud.yml` runs `sonar-maven-plugin`, which starts the scanner engine in a
+separate JVM that it provisions itself. That JVM does not read `MAVEN_OPTS`. Without a setting it
+gets the JVM default heap, a quarter of the runner's memory. After the 2026.08 CDS import landed, the
+full-branch Java bug detection pass (`Sensor javabugs [dbd]`, 55,194 of 74,231 functions) ran out of
+heap (`java.lang.OutOfMemoryError: Java heap space`). It failed this way on every push analysis of
+`main`, `develop` and `release/2026.08`. Pull-request analyses are incremental and stayed green, so
+the failure appeared only after merge.
+
+`pom.xml` sets `sonar.scanner.javaOpts` (`-Xmx8g`). The plugin passes top-level POM properties to the
+engine launcher, so the setting applies to push and pull-request runs alike, and the workflow needs
+no change. If the branch analysis runs out of heap again, raise this value. The hosted runner has
+16 GB, and the Maven JVM that launches the scanner also needs memory.
+
+---
+
+## SonarCloud path-traversal exclusions
+
+SonarCloud's taint rules for file paths (`javasecurity:S2083`, plus `S6549` and `S6096`) cannot be
+told that the `PathValidationUtils` helpers sanitize: custom sanitizer configuration is a SonarQube
+Server Enterprise feature, and `@SuppressWarnings` is not honoured for these rules. The remaining
+false positives are therefore excluded in `pom.xml` (`sonar.issue.ignore.multicriteria`), and only
+**one file at a time** (issue #5316).
+
+Until #5316 the POM excluded S2083 from ten whole packages (`eform`, `documentManager`, `lab`,
+`integration`, `form`, `fax`, `encounter`, `dxresearch`, `demographic`, `billings`), so any new
+unvalidated file operation in roughly 1,300 files was hidden too. One was:
+`EFormPDFServlet` built a `PdfReader` path from the `__template` request parameter with no
+validation, and is now fixed.
+
+### What the list contains
+
+The list was rebuilt by reading each file in those packages that performs a file operation. A file
+is listed when a value from a request parameter, an upload, a web-service call or a remote
+billing/fax/lab message reaches a file operation in that file, and every such operation goes
+through a containment helper first. Files whose file operations only see configuration, generated
+names or database-stored paths are not listed: Sonar has no taint source to report there. The
+comment above each entry names the source and the helper.
+
+| Reviewed in the excluded packages | Files |
+|---|---:|
+| Perform a file operation and were reviewed | 124 |
+| Listed: request/upload/message path, guarded by `PathValidationUtils` | 57 |
+| Not listed: no untrusted path reaches a file operation | 62 |
+| Not listed: made safe without `PathValidationUtils` (fixed allowlist, session-issued key, own containment check) | 3 |
+| Fixed in #5316 and left under the rule (`EFormPDFServlet`) | 1 |
+| Not listed: weak but not exploitable, left visible for follow-up (`EDocUtil.getPDFPageCount` checks that a raw absolute path exists before validating it; the result is a page count of 0 either way) | 1 |
+
+Every other file, including every new file in those packages, stays under the rules.
+
+### Guard test
+
+`SonarPathTraversalExclusionPolicyUnitTest` reads the POM and evaluates each criterion the way the
+scanner does (Sonar wildcards against the project-relative path). It fails the build when a
+path-rule entry:
+
+- uses a package or name wildcard, or matches anything other than exactly one main-source file;
+- names a file that no longer calls `PathValidationUtils` or no longer performs a file operation;
+- has no justification comment on the line above it.
+
+It also keeps a controlled unsafe fixture for each formerly excluded package (a new file the retired
+package glob would have hidden) unmatched, and keeps known `PathValidationUtils`-guarded files
+matched.
+
+### Adding or dropping an entry
+
+1. Fix the flow first. Most new reports are fixed by passing the request value through the right
+   helper (see [`path-validation-utils.md`](path-validation-utils.md)) and using its return value
+   at the file operation.
+2. Add an entry only for a report SonarCloud actually raised, on a file whose untrusted path is
+   already validated by a containment helper. Name the file by its full package path with a leading
+   `**/` (for example
+   `**/io/github/carlos_emr/carlos/eform/actions/DisplayImage2Action.java`). Put a one-line comment
+   above it stating the source and the helper, and add its id to the list.
+3. Use SonarCloud's "False positive" status instead when only one issue in a file is a false
+   positive and the file has other file operations worth keeping under the rule.
+4. Drop an entry when its file is deleted or stops using untrusted paths. The guard test reports a
+   file that no longer calls `PathValidationUtils`.
+
+### Measuring the effect
+
+SonarCloud only reports issues on changed lines in a pull request, so narrowing the exclusions
+shows no new issues on the PR itself. The first analysis of the target branch after merge is the
+real measurement. It re-analyses the 1,249 now-uncovered files in those packages and reports any
+S2083 they raise. The project's quality gate fails on any open vulnerability (`security_rating`),
+so such a report is triaged straight away. Fix it, or exclude it as described above if it is a
+false positive.
+
+For reference, before this change SonarCloud reported no `S2083`, `S6549` or `S6096` issue anywhere
+in the project. That includes 17 files outside the excluded packages that pass request parameters
+through `PathValidationUtils` to file reads (for example `GenericDownload`, `OscarDownload`,
+`DocumentUploadServlet`), which suggests the scanner already accepts the canonical-path checks in
+`validatePath`.
 
 ---
 

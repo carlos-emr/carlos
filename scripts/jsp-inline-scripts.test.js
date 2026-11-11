@@ -277,7 +277,8 @@ test('the note browser re-opens its GET-only gate with GET and keeps Print from 
   assert.match(reload, /window\.location\.href\s*=\s*'[^']*\/casemgmt\/ViewNoteBrowser\?'\s*\+\s*params\.toString\(\)/,
     'reloadNoteBrowser must navigate (GET) to ViewNoteBrowser with the built query');
   assert.deepEqual([...reload.matchAll(/params\.set\('([^']+)'/g)].map(match => match[1]),
-    ['demographic_no', 'view', 'viewstatus', 'sortorder'], 'reloadNoteBrowser must carry only the filter fields');
+    ['demographic_no', 'view', 'viewstatus', 'sortorder', 'chartContext'],
+    'reloadNoteBrowser must carry the filter fields and its originating chart context');
   assert.doesNotMatch(reload, /submit\(|CSRF|method\s*=|\.post\(|fetch\(|XMLHttpRequest/,
     'reloadNoteBrowser must not POST or copy the CSRF token');
   for (const name of ['ReLoadDoc', 'LoadView']) {

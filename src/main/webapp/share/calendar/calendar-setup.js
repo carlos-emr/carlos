@@ -215,14 +215,23 @@ Calendar._doSetup = function (params) {
         fpOpts.onChange = function () { params.onUpdate(); };
     }
 
+    /* onClose hooks: the page's own (below), then the keyboard focus return.
+     * Flatpickr accepts a list of hooks. */
+    var closeHooks = [];
+    fpOpts.onClose = closeHooks;
+
     /* onClose → flatpickr onClose with legacy cal shim.
      * jscalendar passed the calendar instance to onClose(cal), where cal had
      * .multiple (hash of Date objects with .print(fmt)), .hide(), .date, and
      * .params. billingShortcutPg1.jsp relies on cal.multiple and cal.hide(). */
     if (typeof params.onClose === "function") {
-        fpOpts.onClose = function (selectedDates, dateStr, instance) {
+        closeHooks.push(function (selectedDates, dateStr, instance) {
             var calShim = {
-                hide: function () { instance.close(); },
+                // jscalendar's onClose handlers end with cal.hide(). Flatpickr's
+                // close() has no re-entry guard and fires onClose again, so a hide()
+                // made while closing recursed until the stack overflowed (#5055).
+                // It clears isOpen before firing onClose, which is what this tests.
+                hide: function () { if (instance.isOpen) instance.close(); },
                 multiple: {},
                 date: selectedDates[0] || new Date(),
                 params: params
@@ -235,11 +244,49 @@ Calendar._doSetup = function (params) {
                 calShim.multiple[ci] = wrapped;
             }
             params.onClose(calShim);
-        };
+        });
     }
+
+    /* Focus back to the trigger once the calendar closes, when it was opened from
+     * the trigger with the keyboard (returnFocusTo, set below), unless the user
+     * has already moved focus somewhere else (another field). Registered before
+     * flatpickr() runs: Flatpickr copies its hook lists when it starts. */
+    var returnFocusTo = null;
+    closeHooks.push(function (selectedDates, dateStr, instance) {
+        var back = returnFocusTo;
+        returnFocusTo = null;
+        if (!back) return;
+        var active = document.activeElement;
+        if (!active || active === document.body || active === inputEl || active === back
+            || (instance.calendarContainer && instance.calendarContainer.contains(active))) {
+            back.focus();
+        }
+    });
 
     /* ── Initialise flatpickr on the input element ───────────────────── */
     var target = inputEl || buttonEl;
+    // A page that names its field by `name` only has no inputField element, and
+    // reads the dates in its own onClose (billingShortcutPg1.jsp's billDate
+    // textarea, #5055). Flatpickr bound to the trigger itself opened on the same
+    // click the trigger handler below toggles, so the calendar never appeared, and
+    // its key and blur handlers read a .value a link does not have. Give it a
+    // hidden stand-in field beside the trigger, placed at the trigger, instead.
+    // Hidden by style, not type="hidden": Flatpickr turns its field into a text box.
+    // Only for a page that takes the dates in its own hook: with no field and no
+    // hook, a calendar that opened would have nowhere to put the pick.
+    var pageTakesDates = typeof params.onClose === "function" || typeof params.onUpdate === "function";
+    if (!inputEl && buttonEl && buttonEl.parentNode && pageTakesDates) {
+        target = document.createElement("input");
+        target.type = "text";
+        target.style.display = "none";
+        target.tabIndex = -1;
+        target.setAttribute("aria-hidden", "true");
+        buttonEl.parentNode.insertBefore(target, buttonEl.nextSibling);
+        fpOpts.positionElement = buttonEl;
+        // A press on the trigger is then outside Flatpickr's field: without this the
+        // press closed an open calendar and the click reopened it at once.
+        fpOpts.ignoredFocusElements = [buttonEl];
+    }
     // Legacy Calendar.setup did not rewrite the field before the form's onload
     // handler. eForms often receive an ISO date and format it themselves there.
     var initialValue = inputEl ? inputEl.value : null;
@@ -250,21 +297,111 @@ Calendar._doSetup = function (params) {
     if (inputEl && !params.multiple) inputEl.value = initialValue;
 
     /* ── Button trigger ──────────────────────────────────────────────── */
+    // returnFocusTo is the trigger only when the calendar was opened from it with
+    // the keyboard; a mouse user's focus is left exactly where Flatpickr leaves it.
     if (buttonEl && buttonEl !== inputEl) {
-        buttonEl.addEventListener("click", function (e) {
-            e.preventDefault();
-            e.stopPropagation();
+        var openFromTrigger = function () {
             fp.toggle();
             // Hand keyboard activation to a selectable day so arrow keys and Enter
             // work even when allowInput prevents Flatpickr's input-key navigation.
-            if (params.clickOpens === false && e.detail === 0 && fp.isOpen && fp.calendarContainer) {
-                var day = fp.calendarContainer.querySelector(".flatpickr-day.selected:not(.flatpickr-disabled)")
-                    || fp.calendarContainer.querySelector(".flatpickr-day.today:not(.flatpickr-disabled)")
-                    || fp.calendarContainer.querySelector(".flatpickr-day:not(.flatpickr-disabled):not(.hidden)");
-                if (day) day.focus();
+            if (fp.isOpen && Calendar._focusDay(fp)) returnFocusTo = buttonEl;
+        };
+        buttonEl.addEventListener("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            // A click with no pointer behind it (detail 0) is a real button or link
+            // activated from the keyboard; a mouse click only toggles, as before.
+            if (e.detail === 0) openFromTrigger();
+            else fp.toggle();
+        });
+        // Most triggers are an <img> or an <a> with no href, which Tab never reaches
+        // and Enter never activates: make them a focusable button.
+        if (Calendar._makeKeyboardTrigger(buttonEl)) {
+            buttonEl.addEventListener("keydown", function (e) {
+                if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
+                e.preventDefault();
+                e.stopPropagation();
+                openFromTrigger();
+            });
+        }
+    }
+
+    /* ── Keyboard from the date box ──────────────────────────────────── */
+    // With allowInput the arrow keys stay in the box for typing. Alt+ArrowDown
+    // (or ArrowDown in an empty box) moves focus into the calendar instead, and
+    // Escape closes it; focus then stays in the box.
+    if (inputEl && fp && inputEl === fp.input) {
+        inputEl.addEventListener("keydown", function (e) {
+            if (e.key === "Escape" || e.key === "Esc") {
+                if (!fp.isOpen) return;
+                e.preventDefault();
+                returnFocusTo = null;
+                fp.close();
+                return;
+            }
+            if ((e.key !== "ArrowDown" && e.key !== "Down") || e.ctrlKey || e.metaKey || e.shiftKey) return;
+            if (!e.altKey && inputEl.value !== "") return;
+            // A page that reserves opening for its button keeps that: the box only moves into a calendar already open.
+            if (!fp.isOpen && e.altKey && params.clickOpens !== false) fp.open();
+            if (fp.isOpen && Calendar._focusDay(fp)) {
+                e.preventDefault();
+                returnFocusTo = null;
             }
         });
     }
 
     return fp;
+};
+
+/* ── Keyboard helpers ───────────────────────────────────────────────────── */
+
+/**
+ * Move focus into an open calendar: to the selected day, else today, else the
+ * first day that can be chosen. Flatpickr's own keys (arrows, Enter, Escape)
+ * work from there.
+ *
+ * @param {Object} fp  the flatpickr instance
+ * @returns {boolean} whether a day took focus
+ * @private
+ */
+Calendar._focusDay = function (fp) {
+    if (!fp || !fp.isOpen || !fp.calendarContainer) return false;
+    var day = fp.calendarContainer.querySelector(".flatpickr-day.selected:not(.flatpickr-disabled)")
+        || fp.calendarContainer.querySelector(".flatpickr-day.today:not(.flatpickr-disabled)")
+        || fp.calendarContainer.querySelector(".flatpickr-day:not(.flatpickr-disabled):not(.hidden)");
+    if (!day) return false;
+    day.focus();
+    return true;
+};
+
+/**
+ * Make a calendar trigger reachable with Tab and named for a screen reader. A
+ * control the keyboard already activates (a button, a link with an href, a
+ * button-type input) only gets a name when it has none (an icon-only button).
+ * Anything else (an <img>, an <a> with no href, a <span>) also becomes a
+ * focusable button. A form field used as the trigger, or one the page took out
+ * of the tab order (tabindex="-1"), is left as it is.
+ *
+ * @param {Element} el  the trigger element
+ * @returns {boolean} true when the caller must wire Enter and Space itself
+ * @private
+ */
+Calendar._makeKeyboardTrigger = function (el) {
+    var tag = String(el.tagName || "").toUpperCase();
+    var type = String(el.getAttribute("type") || "").toLowerCase();
+    var formField = tag === "SELECT" || tag === "TEXTAREA"
+        || (tag === "INPUT" && !/^(button|submit|reset|image)$/.test(type));
+    if (formField) return false;
+    var native = tag === "BUTTON" || tag === "INPUT" || (tag === "A" && el.hasAttribute("href"));
+    if (!native && el.getAttribute("tabindex") === "-1") return false;
+    // A link around an <img alt="..."> is named by the image (the prevention report's calendar).
+    var image = el.querySelector ? el.querySelector("img[alt]:not([alt='']), img[title]:not([title=''])") : null;
+    var named = el.getAttribute("aria-label") || el.getAttribute("aria-labelledby") || el.getAttribute("title")
+        || String(el.getAttribute("alt") || "").trim() || String(el.getAttribute("value") || "").trim()
+        || String(el.textContent || "").trim() || image;
+    if (!named) el.setAttribute("aria-label", (Calendar._TT && Calendar._TT["CHOOSE_DATE"]) || "Choose a date");
+    if (native) return false;
+    if (!el.hasAttribute("tabindex")) el.setAttribute("tabindex", "0");
+    if (!el.hasAttribute("role")) el.setAttribute("role", "button");
+    return true;
 };

@@ -60,6 +60,7 @@ import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -77,6 +78,7 @@ class BillingPreferencesProviderUnitTest extends CarlosUnitTestBase {
     private static final String SIGNED_IN = "111111";
 
     private final HttpServletRequest request = mock(HttpServletRequest.class);
+    private final HttpServletResponse response = mock(HttpServletResponse.class);
     private final LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
     private final PropertyDao propertyDao = mock(PropertyDao.class);
     private final BillingPreferencesDAO preferencesDao = mock(BillingPreferencesDAO.class);
@@ -94,10 +96,12 @@ class BillingPreferencesProviderUnitTest extends CarlosUnitTestBase {
         registerMock(ProviderDao.class, providerDao);
         when(propertyDao.findByNameAndProvider(any(Property.PROPERTY_KEY.class), any())).thenReturn(List.of());
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn(SIGNED_IN);
+        // The page's Save form posts; a GET is refused (see shouldRefuseWith405_whenTheSaveIsNotPosted).
+        when(request.getMethod()).thenReturn("POST");
         // The actions read the request in their field initialisers, so these come first.
         servletActionContext = mockStatic(ServletActionContext.class);
         servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
-        servletActionContext.when(ServletActionContext::getResponse).thenReturn(mock(HttpServletResponse.class));
+        servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
         loggedInInfoStatic = mockStatic(LoggedInInfo.class);
         loggedInInfoStatic.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class))).thenReturn(loggedInInfo);
     }
@@ -131,6 +135,22 @@ class BillingPreferencesProviderUnitTest extends CarlosUnitTestBase {
         verify(preferencesDao).persist(preference.capture());
         assertThat(preference.getValue().getProviderNo()).isEqualTo(SIGNED_IN);
         verify(request).setAttribute("providerNo", SIGNED_IN);
+    }
+
+    /** The save left refusing a GET to HttpMethodGuardFilter's route-name rule (#4439 D12); it refuses one itself. */
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void shouldRefuseWith405_whenTheSaveIsNotPosted(String httpMethod) throws Exception {
+        when(request.getMethod()).thenReturn(httpMethod);
+        SaveBillingPreferences2Action save = new SaveBillingPreferences2Action();
+        save.setDefaultBillingForm("ER");
+
+        assertThat(save.execute()).isEqualTo("none");
+
+        verify(response).setHeader("Allow", "POST");
+        verify(response).sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        verifyNoInteractions(propertyDao, preferencesDao);
+        verify(request, never()).setAttribute(anyString(), any());
     }
 
     @Test

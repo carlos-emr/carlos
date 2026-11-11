@@ -150,6 +150,20 @@ $(document).ready(function() {
             document.querySelectorAll('#dynamic-content .dropdown-toggle').forEach(function(el) { new bootstrap.Dropdown(el); });
         });
     });
+
+    // The eForm Library's Visual eForm Editor links (#3166). The editor is a full page with its own
+    // jQuery UI, globals and keyboard handlers, so it cannot be injected as a fragment the way the
+    // HTML editor is; inside the Administration panel it is framed in the panel instead, through the
+    // shell's own iframe loader (leftNav.jspf). Opened standalone there is no panel and no loader,
+    // and the link navigates normally, the same tab the HTML editor opens in.
+    $(document).on("click", '#dynamic-content a.eformVisualEditorLink', function(e) {
+        var href = $(this).attr("href");
+        if (!href || typeof window.carlosOpenInAdminFrame !== 'function') {
+            return;
+        }
+        e.preventDefault();
+        window.carlosOpenInAdminFrame(href, $(this).attr("title"));
+    });
 });
 }
 </script>

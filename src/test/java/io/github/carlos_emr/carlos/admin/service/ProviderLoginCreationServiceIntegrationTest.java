@@ -32,12 +32,14 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
+import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
 import io.github.carlos_emr.carlos.commn.dao.SecRoleDao;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.daos.security.SecuserroleDao;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.model.security.Secuserrole;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
@@ -54,6 +56,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -105,9 +108,14 @@ class ProviderLoginCreationServiceIntegrationTest extends CarlosTestBase {
     private ProviderLoginCreationService service;
     private Long programId;
     private LoggedInInfo admin;
+    private OscarLogDao originalOscarLogDao;
 
     @BeforeEach
     void setUp() {
+        // Another Spring test context may have populated LogAction's static DAO cache. Bind
+        // strict audit writes to this context so they join this test's rollback transaction.
+        originalOscarLogDao = (OscarLogDao) ReflectionTestUtils.getField(LogAction.class, "oscarLogDao");
+        ReflectionTestUtils.setField(LogAction.class, "oscarLogDao", applicationContext.getBean(OscarLogDao.class));
         for (String name : PROPERTIES) {
             originalProperties.put(name, CarlosProperties.getInstance().getProperty(name));
         }
@@ -142,6 +150,7 @@ class ProviderLoginCreationServiceIntegrationTest extends CarlosTestBase {
 
     @AfterEach
     void restoreProperties() {
+        ReflectionTestUtils.setField(LogAction.class, "oscarLogDao", originalOscarLogDao);
         originalProperties.forEach((name, value) -> {
             if (value == null) {
                 CarlosProperties.getInstance().remove(name);

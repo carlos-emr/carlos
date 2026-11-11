@@ -71,8 +71,6 @@ public interface FormsManager {
 
     public List<PatientForm> getEncounterFormsbyDemographicNumber(LoggedInInfo loggedInInfo, Integer demographicId, boolean getAllVersions, boolean getOnlyPDFReadyForms);
 
-    public Integer saveFormDataAsEDoc(LoggedInInfo loggedInInfo, FormTransportContainer formTransportContainer);
-
     public Path renderForm(HttpServletRequest request, HttpServletResponse response, Integer formId, Integer demographicNo) throws PDFGenerationException;
 
     public Path renderForm(LoggedInInfo loggedInInfo, FormTransportContainer formTransportContainer);

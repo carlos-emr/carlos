@@ -9,7 +9,8 @@
  * User path: Schedule ▸ Administration ▸ Billing ▸ Settle Paid Claims (billing/CA/BC/ViewSettleBG, in the
  * #dynamic-content iframe) ▸ Submit (POST settled=false to the same route) ▸ "All claims with an explanation of type
  * 'BG' have been adjusted and settled".
- * Asserted: the menu item opens the settle form; Submit says the claims were settled, writes one internal adjustment
+ * Asserted: the menu item opens the settle form; the same request as a GET or HEAD is refused with 405 and settles
+ * nothing; Submit says the claims were settled, writes one internal adjustment
  * (payment type 10) for exactly the FAKE claim's underpayment and marks its bill line settled (S); a second Submit
  * from the menu writes nothing more.
  *
@@ -37,6 +38,7 @@ const OWING = '13.70';
 /** The step labels; one place, so the script and the manifest agree. */
 const STEP = {
   open: 'Administration ▸ Billing ▸ Settle Paid Claims opens the settle form',
+  getRefused: 'a GET or HEAD asking to settle (settled=false) is refused with 405 and settles nothing',
   settle: "Submit adjusts the FAKE claim's BG underpayment and settles its bill line",
   again: 'a second Submit adjusts nothing more',
 };
@@ -148,6 +150,20 @@ async function workflow(s) {
     frame = await openSettle();
     h.assert(await frame.locator('h4', { hasText: 'Automatically settle claims' }).count() === 1,
       'The settle form does not say what Submit does');
+  });
+
+  // Only Submit's POST settles; the same request as a link (a GET) or a HEAD must not (#4439 task 7).
+  await s.step(STEP.getRefused, async () => {
+    const url = new URL(`${MENU_ROUTE.slice(1)}?settled=false`, `${s.config.baseUrl.href.replace(/\/$/, '')}/`).toString();
+    for (const method of ['GET', 'HEAD']) {
+      assertOnlyOwnClaim();
+      const before = sql.value(`SELECT COUNT(*) FROM billing_history WHERE billingmaster_no=${rows.master}`);
+      const response = await s.context.request.fetch(url, { method, maxRedirects: 0, failOnStatusCode: false });
+      h.assert(response.status() === 405, `A ${method} with settled=false answered HTTP ${response.status()}, not 405`);
+      await h.assertRefused(s, { response, table: 'billing_history', where: `billingmaster_no=${rows.master}`, before,
+        label: `a ${method} with settled=false` });
+      h.assert(lineStatus() === 'E', `A ${method} with settled=false moved the FAKE claim's bill line to ${lineStatus()}`);
+    }
   });
 
   await s.step(STEP.settle, async () => {

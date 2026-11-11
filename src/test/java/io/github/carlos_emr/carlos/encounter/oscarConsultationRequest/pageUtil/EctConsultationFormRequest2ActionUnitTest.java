@@ -88,6 +88,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
@@ -144,7 +147,11 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(ConsultationSignatureService.class, consultationSignatureService);
         registerMock(ConsultationRequestDao.class, consultationRequestDao);
         registerMock(ConsultationRequestExtDao.class, mock(ConsultationRequestExtDao.class));
-        registerMock(ProfessionalSpecialistDao.class, mock(ProfessionalSpecialistDao.class));
+        ProfessionalSpecialistDao specialists = mock(ProfessionalSpecialistDao.class);
+        ProfessionalSpecialist activeConsultant = new ProfessionalSpecialist();
+        ReflectionTestUtils.setField(activeConsultant, "id", 7);
+        when(specialists.find((Object) 7)).thenReturn(activeConsultant);
+        registerMock(ProfessionalSpecialistDao.class, specialists);
         registerMock(DemographicManager.class, demographicManager);
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
@@ -438,7 +445,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setSubmission("Update");
         action.setRequestId("9");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setSignatureImg("123"); // submitted form value — now untrusted for fallback
         request.setParameter("newSignature", "true");
 
@@ -462,7 +469,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setRequestId("../9");
         action.setDemographicNo("1");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
 
         String result = action.execute();
 
@@ -480,7 +487,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setRequestId("9");
         action.setDemographicNo("1");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
 
         String result = action.execute();
 
@@ -503,7 +510,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setRequestId("9");
         action.setDemographicNo("1");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
 
         String result = action.execute();
 
@@ -520,7 +527,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setRequestId("9");
         action.setDemographicNo("2");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
 
         assertThatThrownBy(() -> action.execute())
                 .isInstanceOf(SecurityException.class)
@@ -594,7 +601,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setSubmission("Update");
         action.setRequestId("9");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setSignatureImg("");
         request.setParameter("newSignature", "false");
 
@@ -613,7 +620,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         capturePersistedConsultationRequest();
         action.setSubmission("Submit");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         request.setParameter("newSignature", "true");
         org.mockito.Mockito.doThrow(new IllegalArgumentException("ambiguous lab source"))
                 .when(documentAttachmentManager).attachToConsult(eq(loggedInInfo),
@@ -640,7 +647,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         action.setSubmission("Submit");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setSignatureImg("123");
         request.setParameter("newSignature", "true");
 
@@ -673,7 +680,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         action.setSubmission("Submit");
         action.setService("");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
 
         when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
                 .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
@@ -684,153 +691,64 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(persisted[0].getServiceId()).isNull();
     }
 
-    /**
-     * Regression for #2241. A blank consultant left {@code specId} null, and the Health Care Team
-     * branch then unboxed it via {@code Integer.valueOf(specId)} before reaching the null-tolerant
-     * lookup — a NullPointerException on the create path only; the update path already passed the
-     * Integer through untouched.
-     */
-    @Test
-    @DisplayName("persists the consultation instead of throwing when the consultant is blank on create")
-    void shouldPersistConsultation_whenConsultantIsBlankOnCreate() throws Exception {
-        ConsultationRequest[] persisted = capturePersistedConsultationRequest();
-
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "0", "-1", "abc", "2147483648", "999999"})
+    void shouldRejectConsultant_beforeAnyCreateSideEffect(String specialist) throws Exception {
         action.setSubmission("Submit");
         action.setService("1");
-        action.setSpecialist("");
+        action.setSpecialist(specialist);
+        action.setReasonForConsultation("Entered referral reason");
+        action.setClinicalInformation("Entered clinical information");
+        action.setAppointmentNotes("Entered appointment notes");
 
-        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
-                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+        assertThat(action.execute()).isEqualTo(ActionSupport.INPUT);
 
-        // The NPE lived inside the Health Care Team branch, which is skipped entirely when the
-        // property is off. Without forcing it on, this test passes against the unfixed action and
-        // proves nothing.
-        CarlosProperties carlosProperties = mock(CarlosProperties.class);
-        when(carlosProperties.getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true"))
-                .thenReturn(true);
-        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
-            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
-
-            action.execute();
-        }
-
-        assertThat(persisted[0]).isNotNull();
-        assertThat(persisted[0].getServiceId()).isEqualTo(1);
+        assertThat(request.getAttribute("demographicId")).isEqualTo("1");
+        assertThat(request.getAttribute("errorMessage")).asString().contains("active consultant");
+        assertThat(((java.util.Map<?, ?>) request.getAttribute("consultationSubmittedValues")).get("reasonForConsultation"))
+                .isEqualTo("Entered referral reason");
+        verify(consultationRequestDao, never()).persist(any());
+        verifyNoInteractions(consultationManager, digitalSignatureManager);
+        verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), anyInt());
     }
 
-    /**
-     * The Health Care Team bridge is OFF in the shipped carlos.properties, and with it off a blank
-     * consultant left {@code specId} null all the way to {@code professionalSpecialistDao.find(null)}.
-     * Hibernate rejects a null identifier with {@link IllegalArgumentException} instead of returning
-     * null, so on a default install every new consultation without a consultant died in the Struts
-     * global {@code Exception -> error} mapping: nothing persisted, nothing logged, and the clinician
-     * was told the form "could not be printed". The mocked DAO has to reject null the way the real one
-     * does, or this test passes against the unfixed action.
-     */
-    @Test
-    @DisplayName("persists the consultation without a specialist lookup when the consultant is blank and the health care team bridge is off")
-    void shouldPersistConsultationWithoutSpecialistLookup_whenConsultantIsBlankAndHealthCareTeamOffOnCreate() throws Exception {
-        ConsultationRequest[] persisted = capturePersistedConsultationRequest();
-        ProfessionalSpecialistDao professionalSpecialistDao = mock(ProfessionalSpecialistDao.class);
-        when(professionalSpecialistDao.find((Object) null))
-                .thenThrow(new IllegalArgumentException("Identifier may not be null"));
-        registerMock(ProfessionalSpecialistDao.class, professionalSpecialistDao);
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"0", "-1", "abc", "2147483648", "999999"})
+    void shouldRejectConsultant_beforeArchivingOrMutatingExistingRequest(String specialist) throws Exception {
+        ConsultationRequest stored = consultationRequest(1);
+        ProfessionalSpecialist original = new ProfessionalSpecialist();
+        stored.setProfessionalSpecialist(original);
+        stored.setReasonForReferral("Original reason");
+        when(consultationRequestDao.find(9)).thenReturn(stored);
+        action.setSubmission("Update");
+        action.setSpecialist(specialist);
+        action.setReasonForConsultation("Unsaved reason");
 
+        assertThat(action.execute()).isEqualTo(ActionSupport.INPUT);
+
+        assertThat(stored.getProfessionalSpecialist()).isSameAs(original);
+        assertThat(stored.getReasonForReferral()).isEqualTo("Original reason");
+        assertThat(request.getAttribute("reqId")).isEqualTo("9");
+        verify(consultationRequestDao, never()).merge(any());
+        verifyNoInteractions(consultationManager, digitalSignatureManager);
+    }
+
+    @Test
+    void shouldRejectInactiveConsultant_beforeSaving() throws Exception {
+        ProfessionalSpecialist inactive = new ProfessionalSpecialist();
+        ReflectionTestUtils.setField(inactive, "id", 8);
+        inactive.setDeleted(true);
+        ProfessionalSpecialistDao specialists = mock(ProfessionalSpecialistDao.class);
+        when(specialists.find((Object) 8)).thenReturn(inactive);
+        registerMock(ProfessionalSpecialistDao.class, specialists);
         action.setSubmission("Submit");
-        action.setService("1");
-        action.setSpecialist("");
+        action.setSpecialist("8");
 
-        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
-                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
-
-        CarlosProperties carlosProperties = mock(CarlosProperties.class);
-        when(carlosProperties.getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true"))
-                .thenReturn(false);
-        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
-            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
-
-            action.execute();
-        }
-
-        assertThat(persisted[0]).isNotNull();
-        assertThat(persisted[0].getProfessionalSpecialist()).isNull();
-        verify(professionalSpecialistDao, never()).find((Object) null);
-    }
-
-    /**
-     * The update branch guarded the null lookup but seeded its local with a bare
-     * {@code new ProfessionalSpecialist()}, attached that placeholder to the consultation, and merged.
-     * The association cascades MERGE, so every edit that left the consultant blank INSERTed an
-     * all-NULL professionalSpecialists row and re-pointed the request at it. A blank consultant on
-     * an edit must clear the link, and must not consult the DAO at all.
-     */
-    @Test
-    @DisplayName("clears the specialist instead of attaching a blank placeholder when the consultant is blank on update")
-    void shouldClearSpecialist_whenConsultantIsBlankOnUpdate() throws Exception {
-        ProfessionalSpecialistDao professionalSpecialistDao = mock(ProfessionalSpecialistDao.class);
-        registerMock(ProfessionalSpecialistDao.class, professionalSpecialistDao);
-        ConsultationRequest stored = consultationRequest(1);
-        stored.setProfessionalSpecialist(new ProfessionalSpecialist());
-        when(consultationRequestDao.find(9)).thenReturn(stored);
-
-        action.setSubmission("Update");
-        action.setService("1");
-        action.setSpecialist("");
-
-        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
-                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
-
-        CarlosProperties carlosProperties = mock(CarlosProperties.class);
-        when(carlosProperties.getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true"))
-                .thenReturn(false);
-        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
-            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
-
-            action.execute();
-        }
-
-        ArgumentCaptor<ConsultationRequest> mergedConsultation =
-                ArgumentCaptor.forClass(ConsultationRequest.class);
-        verify(consultationRequestDao).merge(mergedConsultation.capture());
-        assertThat(mergedConsultation.getValue().getProfessionalSpecialist()).isNull();
-        verifyNoInteractions(professionalSpecialistDao);
-    }
-
-    /**
-     * The consultant field is authoritative on an edit: an id that does not resolve (the bridge's 0,
-     * a deleted specialist) clears the link the same way a blank does, instead of silently keeping
-     * whoever the request pointed at before.
-     */
-    @Test
-    @DisplayName("clears the specialist when the consultant id does not resolve on update")
-    void shouldClearSpecialist_whenConsultantIdDoesNotResolveOnUpdate() throws Exception {
-        ProfessionalSpecialistDao professionalSpecialistDao = mock(ProfessionalSpecialistDao.class);
-        when(professionalSpecialistDao.find((Object) 0)).thenReturn(null);
-        registerMock(ProfessionalSpecialistDao.class, professionalSpecialistDao);
-        ConsultationRequest stored = consultationRequest(1);
-        stored.setProfessionalSpecialist(new ProfessionalSpecialist());
-        when(consultationRequestDao.find(9)).thenReturn(stored);
-
-        action.setSubmission("Update");
-        action.setService("1");
-        action.setSpecialist("0");
-
-        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
-                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
-
-        CarlosProperties carlosProperties = mock(CarlosProperties.class);
-        when(carlosProperties.getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true"))
-                .thenReturn(false);
-        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
-            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
-
-            action.execute();
-        }
-
-        ArgumentCaptor<ConsultationRequest> mergedConsultation =
-                ArgumentCaptor.forClass(ConsultationRequest.class);
-        verify(consultationRequestDao).merge(mergedConsultation.capture());
-        assertThat(mergedConsultation.getValue().getProfessionalSpecialist()).isNull();
+        assertThat(action.execute()).isEqualTo(ActionSupport.INPUT);
+        verify(consultationRequestDao, never()).persist(any());
+        verifyNoInteractions(consultationManager, digitalSignatureManager);
     }
 
     /**
@@ -842,7 +760,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     void shouldMergeNullServiceId_whenServiceIsBlankOnUpdate() throws Exception {
         action.setSubmission("Update");
         action.setService("");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
 
         when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
                 .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
@@ -853,6 +771,160 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
                 ArgumentCaptor.forClass(ConsultationRequest.class);
         verify(consultationRequestDao).merge(mergedConsultation.capture());
         assertThat(mergedConsultation.getValue().getServiceId()).isNull();
+    }
+
+    /** Prepares an Update of request 9 whose stored Last Follow-up is 2026-11-04. */
+    private ConsultationRequest updateWithStoredFollowUp() throws Exception {
+        ConsultationRequest existing = consultationRequest(1);
+        existing.setFollowUpDate(org.apache.commons.lang3.time.DateUtils.parseDateStrictly("2026-11-04", "yyyy-MM-dd"));
+        when(consultationRequestDao.find(9)).thenReturn(existing);
+        action.setSubmission("Update Consultation Request");
+        action.setRequestId("9");
+        action.setService("1");
+        action.setSpecialist("7");
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+        return existing;
+    }
+
+    /**
+     * Issue #5272: the form posts Last Follow-up empty when the clinician clears it. The update
+     * branch only ever set a non-blank date, so a cleared field kept the stored date.
+     */
+    @Test
+    @DisplayName("clears the stored follow-up date when the form posts the field empty on update")
+    void shouldClearFollowUpDate_whenFieldIsPostedEmptyOnUpdate() throws Exception {
+        ConsultationRequest existing = updateWithStoredFollowUp();
+        action.setFollowUpDate("");
+        request.addParameter("followUpDate", "");
+
+        action.execute();
+
+        verify(consultationRequestDao).merge(existing);
+        assertThat(existing.getFollowUpDate()).isNull();
+    }
+
+    /** A client that does not post the field at all is not asking to clear it. */
+    @Test
+    @DisplayName("keeps the stored follow-up date when the update does not post the field")
+    void shouldKeepFollowUpDate_whenFieldIsNotPostedOnUpdate() throws Exception {
+        ConsultationRequest existing = updateWithStoredFollowUp();
+
+        action.execute();
+
+        verify(consultationRequestDao).merge(existing);
+        assertThat(existing.getFollowUpDate())
+                .isEqualTo(org.apache.commons.lang3.time.DateUtils.parseDateStrictly("2026-11-04", "yyyy-MM-dd"));
+    }
+
+    @Test
+    @DisplayName("replaces the stored follow-up date with a posted valid one on update")
+    void shouldReplaceFollowUpDate_whenValidDateIsPostedOnUpdate() throws Exception {
+        ConsultationRequest existing = updateWithStoredFollowUp();
+        action.setFollowUpDate("2026-12-01");
+        request.addParameter("followUpDate", "2026-12-01");
+
+        action.execute();
+
+        verify(consultationRequestDao).merge(existing);
+        assertThat(existing.getFollowUpDate())
+                .isEqualTo(org.apache.commons.lang3.time.DateUtils.parseDateStrictly("2026-12-01", "yyyy-MM-dd"));
+    }
+
+    /**
+     * Issue #5272: commons-lang's lenient parseDate stored 2026-02-30 as 2026-03-02. An impossible
+     * date is now refused before the archive copy, the stamp and the merge, so nothing changes.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"followUp:2026-02-30", "followUp:2026-13-01", "appointment:2026-04-31",
+            "referral:2026-00-10", "followUp:20260-01-01", "followUp:0999-12-31"})
+    @DisplayName("refuses an impossible posted date on update before archiving or saving anything")
+    void shouldRefuseImpossibleDate_beforeAnyUpdateSideEffect(String fieldAndValue) throws Exception {
+        ConsultationRequest existing = updateWithStoredFollowUp();
+        String value = fieldAndValue.substring(fieldAndValue.indexOf(':') + 1);
+        switch (fieldAndValue.substring(0, fieldAndValue.indexOf(':'))) {
+            case "followUp" -> action.setFollowUpDate(value);
+            case "appointment" -> action.setAppointmentDate(value);
+            default -> action.setReferalDate(value);
+        }
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verify(consultationManager, never()).archiveConsultationRequest(anyInt());
+        verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
+        verify(consultationRequestDao, never()).merge(any());
+        assertThat(existing.getFollowUpDate())
+                .isEqualTo(org.apache.commons.lang3.time.DateUtils.parseDateStrictly("2026-11-04", "yyyy-MM-dd"));
+    }
+
+    @Test
+    @DisplayName("refuses an impossible follow-up date on create before the stamp or the consultation is saved")
+    void shouldRefuseImpossibleDate_beforeAnyCreateSideEffect() throws Exception {
+        action.setSubmission("Submit Consultation Request");
+        action.setService("1");
+        action.setSpecialist("7");
+        action.setFollowUpDate("2026-02-30");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
+        verify(consultationRequestDao, never()).persist(any());
+    }
+
+    /**
+     * A whitespace date passes the up-front check as "no date"; the save paths must read it the same
+     * way, or it would fail to parse after the stamp or the archive copy had been written.
+     */
+    @Test
+    @DisplayName("saves a new consultation without dates when the dates are posted as whitespace")
+    void shouldSaveWithoutDates_whenCreateDatesAreWhitespace() throws Exception {
+        ConsultationRequest[] persisted = capturePersistedConsultationRequest();
+        action.setSubmission("Submit Consultation Request");
+        action.setService("1");
+        action.setSpecialist("7");
+        action.setReferalDate(" ");
+        action.setAppointmentDate("  ");
+        action.setFollowUpDate(" ");
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+
+        action.execute();
+
+        assertThat(response.getStatus()).isNotEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(persisted[0]).isNotNull();
+        assertThat(persisted[0].getReferralDate()).isNull();
+        assertThat(persisted[0].getAppointmentDate()).isNull();
+        assertThat(persisted[0].getFollowUpDate()).isNull();
+    }
+
+    @Test
+    @DisplayName("clears the follow-up date when the update posts it as whitespace, with no refusal")
+    void shouldClearFollowUpDate_whenFieldIsPostedAsWhitespaceOnUpdate() throws Exception {
+        ConsultationRequest existing = updateWithStoredFollowUp();
+        action.setFollowUpDate(" ");
+        request.addParameter("followUpDate", " ");
+
+        action.execute();
+
+        assertThat(response.getStatus()).isNotEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verify(consultationManager).archiveConsultationRequest(9);
+        verify(consultationRequestDao).merge(existing);
+        assertThat(existing.getFollowUpDate()).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"2026-02-28", "2028-02-29", "2026/02/28", "1000-01-01", "9999-12-31", "", " "})
+    @DisplayName("accepts real calendar dates and blank values")
+    void shouldAcceptPostedDates_whenEachIsBlankOrARealDate(String value) {
+        action.setFollowUpDate(value);
+        action.setAppointmentDate(value);
+        action.setReferalDate(value);
+
+        assertThat(action.postedDatesAreValid(new String[]{"yyyy-MM-dd", "yyyy/MM/dd"})).isTrue();
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -879,7 +951,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         action.setSubmission("Submit");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setSignatureImg("");
         request.setParameter("newSignature", "false");
 
@@ -902,7 +974,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         action.setSubmission("Submit");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setSignatureImg("");
         request.setParameter("newSignature", "true");
 
@@ -927,7 +999,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         action.setSubmission("Submit");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setSignatureImg("");
         request.setParameter("newSignature", "true");
 
@@ -955,7 +1027,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setSubmission("Update");
         action.setRequestId("9");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setSignatureImg("");
         request.setParameter("newSignature", "false");
 
@@ -979,7 +1051,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setSubmission("Update");
         action.setRequestId("9");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setSignatureImg("");
         request.setParameter("newSignature", "false");
 
@@ -1003,7 +1075,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setSubmission("Update");
         action.setRequestId("9");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setSignatureImg("");
         request.setParameter("newSignature", "true");
 
@@ -1040,7 +1112,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     void shouldReturnInput_beforeAnyWriteWhenCreateAttachmentNotOwned() throws Exception {
         action.setSubmission("Submit");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setDocNo(new String[] {"10"});
         action.setLabNo(new String[] {"999"});
         org.mockito.Mockito.doThrow(new SecurityException("attachment does not belong to the consultation patient"))
@@ -1068,7 +1140,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setSubmission("Update");
         action.setRequestId("9");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setDocNo(new String[] {"999"});
         org.mockito.Mockito.doThrow(new SecurityException("attachment does not belong to the consultation patient"))
                 .when(documentAttachmentManager).verifyConsultAttachments(eq(loggedInInfo), eq(9), eq(1),
@@ -1111,7 +1183,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(1))).thenReturn(false);
         action.setSubmission("Submit");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setDocNo(new String[] {"10"});
 
         assertThatThrownBy(() -> action.execute())
@@ -1130,7 +1202,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setSubmission("Update");
         action.setRequestId("9");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setLabNo(new String[] {"20"});
 
         assertThatThrownBy(() -> action.execute())
@@ -1149,7 +1221,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setSubmission("Update And Fax");
         action.setRequestId("9");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         CarlosProperties properties = mock(CarlosProperties.class);
         when(properties.isConsultationFaxEnabled()).thenReturn(true);
         try (MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class)) {
@@ -1171,7 +1243,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(1))).thenReturn(false);
         action.setSubmission("Update");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
                 .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
 
@@ -1186,7 +1258,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         ConsultationRequest[] persisted = capturePersistedConsultationRequest();
         action.setSubmission("Submit");
         action.setService("1");
-        action.setSpecialist("0");
+        action.setSpecialist("7");
         action.setDocNo(new String[] {"10"});
         when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
                 .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));

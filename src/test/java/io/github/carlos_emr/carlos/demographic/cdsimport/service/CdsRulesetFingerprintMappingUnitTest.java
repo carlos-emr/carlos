@@ -1,0 +1,150 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsimport.service;
+
+
+import static org.assertj.core.api.Assertions.*;
+
+
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
+
+import java.io.IOException;
+import java.net.URL;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
+@Tag("unit")
+class CdsRulesetFingerprintMappingUnitTest {
+    @Test
+    @ResourceLock("java.util.TimeZone")
+    @ResourceLock("java.util.Locale")
+    void shouldChangeFullFingerprint_whenActualProgramOrAuthorizationMappingBytesChange() {
+        assertMappedByteChanges(
+                List.of(
+                        "PMmodule/model/Program",
+                        "PMmodule/model/ProgramProvider",
+                        "commn/model/ProviderDefaultProgram",
+                        "model/security/Secrole",
+                        "commn/model/Facility",
+                        "utility/CdsImportKeys",
+                        "utility/CdsJdbcConnectionTimeouts",
+                        "commn/dto/CdsProgramContextDto",
+                        "commn/dto/CdsProgramMembershipDto",
+                        "commn/dto/CdsImportControlDto",
+                        "commn/dto/CdsImportPatientOutcomeDto",
+                        "commn/dto/CdsImportDiagnosticSummaryDto",
+                        "commn/dto/CdsImportReviewSummaryDto",
+                        "commn/dto/CdsImportReviewOriginDto",
+                        "commn/dto/CdsImportReviewProvenanceDto",
+                        "commn/dto/CdsImportJobBindingDto",
+                        "commn/dto/CdsImportReportEntryDto"));
+    }
+
+    @Test
+    @ResourceLock("java.util.TimeZone")
+    @ResourceLock("java.util.Locale")
+    void shouldChangeFullFingerprint_whenParticipatingDaoImplementationBytesChange() {
+        assertMappedByteChanges(
+                List.of(
+                        "commn/dao/DemographicDao",
+                        "commn/dao/DemographicDaoImpl",
+                        "commn/dao/DemographicExtDao",
+                        "commn/dao/DemographicExtDaoImpl",
+                        "commn/dao/AdmissionDao",
+                        "commn/dao/AdmissionDaoImpl",
+                        "commn/dao/OscarAppointmentDao",
+                        "commn/dao/OscarAppointmentDaoImpl",
+                        "commn/dao/DocumentDao",
+                        "commn/dao/DocumentDaoImpl",
+                        "commn/dao/CtlDocumentDao",
+                        "commn/dao/CtlDocumentDaoImpl",
+                        "commn/dao/Hl7TextMessageDao",
+                        "commn/dao/Hl7TextMessageDaoImpl",
+                        "commn/dao/Hl7TextInfoDao",
+                        "commn/dao/Hl7TextInfoDaoImpl",
+                        "commn/dao/PatientLabRoutingDao",
+                        "commn/dao/PatientLabRoutingDaoImpl",
+                        "commn/dao/SecurityDao",
+                        "commn/dao/SecurityDaoImpl",
+                        "commn/dao/ProviderFacilityDao",
+                        "commn/dao/ProviderFacilityDaoImpl",
+                        "casemgmt/dao/CaseManagementNoteDAO",
+                        "casemgmt/dao/CaseManagementNoteDAOImpl",
+                        "casemgmt/dao/CaseManagementIssueDAO",
+                        "casemgmt/dao/CaseManagementIssueDAOImpl",
+                        "casemgmt/dao/IssueDAO",
+                        "casemgmt/dao/IssueDAOImpl"));
+    }
+
+    private static void assertMappedByteChanges(List<String> mappings) {
+        ClassLoader deployed = CdsImportJobService.class.getClassLoader();
+        var original = CdsRulesetFingerprint.forClassLoader(deployed, URL::openStream);
+        for (String mapping : mappings) {
+            String resource = "io/github/carlos_emr/carlos/" + mapping + ".class";
+            var reads = new AtomicInteger();
+            var changed =
+                    CdsRulesetFingerprint.forClassLoader(
+                            deployed,
+                            url -> {
+                                if (!url.toExternalForm().endsWith("/" + resource))
+                                    return url.openStream();
+                                reads.incrementAndGet();
+                                // Alter only the streamed hash input; never edit or define a
+                                // modified entity class.
+                                return new java.io.FilterInputStream(url.openStream()) {
+                                    private boolean first = true;
+
+                                    @Override
+                                    public int read() throws IOException {
+                                        int value = in.read();
+                                        if (value >= 0 && first) {
+                                            first = false;
+                                            return value ^ 1;
+                                        }
+                                        return value;
+                                    }
+
+                                    @Override
+                                    public int read(byte[] bytes, int offset, int length)
+                                            throws IOException {
+                                        int count = in.read(bytes, offset, length);
+                                        if (count > 0 && first) {
+                                            first = false;
+                                            bytes[offset] ^= 1;
+                                        }
+                                        return count;
+                                    }
+                                };
+                            });
+            assertThat(changed.sha256())
+                    .as("deployed mapped dependency %s", mapping)
+                    .isNotEqualTo(original.sha256());
+            assertThat(reads)
+                    .as("actual mapped resource was hashed: %s", mapping)
+                    .hasPositiveValue();
+        }
+        assertThat(CdsRulesetFingerprint.forClassLoader(deployed, URL::openStream))
+                .isEqualTo(original);
+    }
+}

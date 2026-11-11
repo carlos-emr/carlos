@@ -87,6 +87,11 @@ class MsgViewMessage2ActionUnitTest extends CarlosUnitTestBase {
 
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER);
+        var message = new io.github.carlos_emr.carlos.commn.model.MessageTbl();
+        message.setSentByNo(PROVIDER);
+        when(createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.MessageTblDao.class).find(100))
+                .thenReturn(message);
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.OscarCommLocationsDao.class);
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_msg"), eq(SecurityInfoManager.READ), isNull()))
                 .thenReturn(true);
 

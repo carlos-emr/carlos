@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -90,27 +88,6 @@ public interface FamilyHistoryType extends XmlObject
         public static FamilyHistoryType parse(final Node node, final XmlOptions options) throws XmlException {
             return (FamilyHistoryType)XmlBeans.getContextTypeLoader().parse(node, FamilyHistoryType.type, options);
         }
-        
-        @Deprecated
-        public static FamilyHistoryType parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (FamilyHistoryType)XmlBeans.getContextTypeLoader().parse(xis, FamilyHistoryType.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static FamilyHistoryType parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (FamilyHistoryType)XmlBeans.getContextTypeLoader().parse(xis, FamilyHistoryType.type, options);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, FamilyHistoryType.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, FamilyHistoryType.type, options);
-        }
-        
         private Factory() {
         }
     }

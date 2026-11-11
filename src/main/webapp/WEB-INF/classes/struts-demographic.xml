@@ -69,17 +69,38 @@
         <action name="demographic/DeleteRelation" class="io.github.carlos_emr.carlos.demographic.pageUtil.DeleteDemographicRelationship2Action">
             <result name="success">/WEB-INF/jsp/demographic/AddAlternateContact.jsp</result>
         </action>
-        <action name="form/importUpload" class="io.github.carlos_emr.carlos.demographic.pageUtil.ImportDemographicDataAction42Action">
-            <!-- "input": where the workflow interceptor lands when the multipart layer
-                 rejects the upload (e.g. an empty file) before the action runs; without
-                 it the request falls through to errorpage.jsp as a raw 500. -->
-            <result name="input">/WEB-INF/jsp/demographic/demographicImport.jsp</result>
+        <action name="form/importUpload" class="viewCdsImport2Action">
+            <result name="input" type="httpheader"><param name="status">409</param></result>
             <interceptor-ref name="carlosDefaultStack"/>
             <result name="success">/WEB-INF/jsp/demographic/demographicImport.jsp</result>
         </action>
-        <action name="form/importLogDownload" class="io.github.carlos_emr.carlos.demographic.pageUtil.ImportLogDownload2Action">
-            <result name="success">/WEB-INF/jsp/demographic/demographicImport.jsp</result>
-            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
+        <action name="form/cdsUpload" class="cdsUpload2Action">
+            <result name="input" type="httpheader"><param name="status">400</param></result>
+        </action>
+        <action name="form/cdsImportSubmit" class="submitCdsImport2Action">
+            <result name="input" type="httpheader"><param name="status">400</param></result>
+        </action>
+        <action name="form/cdsImportStatus" class="cdsImportStatus2Action">
+            <result name="input" type="httpheader"><param name="status">400</param></result>
+        </action>
+        <action name="form/cdsImportControl" class="cdsImportControl2Action">
+            <result name="input" type="httpheader"><param name="status">400</param></result>
+        </action>
+        <action name="form/cdsImportReport" class="cdsImportReport2Action">
+            <result name="input" type="httpheader"><param name="status">400</param></result>
+        </action>
+        <action name="form/cdsImportDiagnostic" class="cdsImportDiagnostic2Action">
+            <result name="input" type="httpheader"><param name="status">400</param></result>
+        </action>
+        <action name="form/importLogDownload" class="legacyCdsImportLog2Action">
+            <result name="input" type="httpheader"><param name="status">400</param></result>
+        </action>
+        <action name="demographic/cdsSourceFields" class="viewCdsSourceFields2Action">
+            <result name="input" type="httpheader"><param name="status">400</param></result>
+            <result name="success">/WEB-INF/jsp/demographic/cdsSourceFields.jsp</result>
+        </action>
+        <action name="demographic/cdsSourceFieldContent" class="cdsSourceFieldContent2Action">
+            <result name="input" type="httpheader"><param name="status">400</param></result>
         </action>
         <action name="demographic/DemographicExport" class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action">
             <result name="success">/WEB-INF/jsp/demographic/demographicExport.jsp</result>

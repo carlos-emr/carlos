@@ -58,6 +58,7 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.EFormOpenerLinks;
+import io.github.carlos_emr.carlos.eform.EFormDataUriCarrier;
 import io.github.carlos_emr.carlos.eform.EFormSubmissionGuard;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
@@ -224,10 +225,14 @@ public class AddEForm2Action extends ActionSupport {
                 new String[] {getText(followOnStep.labelKey)}));
     }
 
+    private String answerConflict(String message) {
+        return answerPlainText(HttpServletResponse.SC_CONFLICT, message);
+    }
+
     // FindSecBugs XSS_SERVLET: only fixed resource-bundle messages, served as non-sniffable plain text.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "Only constant-key localized messages; UTF-8 text/plain and nosniff; no request values are written")
-    private String answerConflict(String message) {
-        response.setStatus(HttpServletResponse.SC_CONFLICT);
+    private String answerPlainText(int status, String message) {
+        response.setStatus(status);
         response.setContentType("text/plain;charset=UTF-8");
         response.setHeader("Cache-Control", "no-store");
         response.setHeader("X-Content-Type-Options", "nosniff");
@@ -293,7 +298,14 @@ public class AddEForm2Action extends ActionSupport {
          * Part 2 of "counter hack for a hack" initialized in Javascript file
          * eform_floating_toolbar.js
          */
-        String[] imagePathPlaceHolders = request.getParameterValues("openosp-image-link");
+        String[] imagePathPlaceHolders = request.getParameterValues("carlos-image-link");
+
+        /*
+         * Signature and drawing data URIs the page moved out of the form's own fields so the WAF can
+         * exclude one known argument instead of the whole save (#3552); restored below.
+         */
+        String[] carriedDataUris = request.getParameterValues(EFormDataUriCarrier.PARAMETER);
+        String carriedDataUriNonce = request.getParameter(EFormDataUriCarrier.NONCE_PARAMETER);
 
         /*
          * An eform developer may add these to the eForm in order to auto
@@ -316,7 +328,9 @@ public class AddEForm2Action extends ActionSupport {
              * Remove these parameters from the request after the imagePathPlaceHolders variable is set.
              * These values do not need to be saved into the eform_values table.
              */
-            if (curField.equalsIgnoreCase("openosp-image-link")) {
+            if (curField.equalsIgnoreCase("carlos-image-link")
+                    || curField.equals(EFormDataUriCarrier.PARAMETER)
+                    || curField.equals(EFormDataUriCarrier.NONCE_PARAMETER)) {
                 continue;
             }
 
@@ -325,6 +339,18 @@ public class AddEForm2Action extends ActionSupport {
                 paramValues.add(request.getParameter(curField));
             }
 
+        }
+
+        // Before anything reads paramValues: the stored values, the rendered form and the template's
+        // chart writes must all see the signature itself, never the reference the page left behind.
+        try {
+            EFormDataUriCarrier.restore(paramValues, carriedDataUris, carriedDataUriNonce);
+        } catch (EFormDataUriCarrier.InvalidCarriedValueException e) {
+            // Nothing is stored yet, so the claim stays retryable. The reason names the failed rule
+            // only; the value is a signature and is never logged. Answered directly, not through the
+            // error result: efmshowform_data.jsp renders a SAVED eForm and fails without an fdid.
+            logger.warn("Rejected eForm submission: {}", e.getMessage());
+            return answerPlainText(HttpServletResponse.SC_BAD_REQUEST, getText("eform.submitDataUriRefused"));
         }
 
         EForm curForm = new EForm(fid, demographic_no, providerNo);

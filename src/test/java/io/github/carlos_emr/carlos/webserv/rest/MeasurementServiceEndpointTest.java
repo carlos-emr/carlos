@@ -17,6 +17,7 @@
  *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
@@ -62,6 +63,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 @Tag("rest")
 @DisplayName("MeasurementService REST endpoint tests")
 class MeasurementServiceEndpointTest extends CarlosRestTestBase {
+    @Mock
+    private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
 
     @Mock
     private SecurityInfoManager mockSecurityInfoManager;
@@ -69,9 +72,22 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
     @Mock
     private MeasurementManager mockMeasurementManager;
 
+    @Test
+    void shouldReturnConflictInsteadOfEmptySubset_whenStructuredCareCannotBeProjected() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class),eq("_measurement"),eq("r"),eq("123"))).thenReturn(true);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class),eq(123))).thenReturn(true);
+        org.mockito.Mockito.doThrow(new jakarta.ws.rs.WebApplicationException(Response.status(409)
+                .type("text/plain").entity("Structured projection requires review").build()))
+                .when(projections).requireRestSupported(123,java.util.Set.of("CareElements"));
+        Response response=request().path("/measurements/123").post(Entity.json("{\"types\":[\"BP\"]}"));
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.readEntity(String.class)).contains("requires review");
+    }
+
     @Override
     protected Object getServiceBean() {
         MeasurementService service = new MeasurementService();
+        injectDependency(service,"projections",projections);
         injectDependency(service, "securityInfoManager", mockSecurityInfoManager);
         injectDependency(service, "measurementManager", mockMeasurementManager);
         return service;

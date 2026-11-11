@@ -35,6 +35,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.ProviderManager2;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.ProviderTransfer;
 import jakarta.ws.rs.WebApplicationException;
@@ -70,6 +71,9 @@ class ProviderServiceRegressionTest {
     @Mock
     private ProviderManager2 providerManager;
 
+    @Mock
+    private SecurityInfoManager securityInfoManager;
+
     private ProviderService service;
 
     @BeforeEach
@@ -82,6 +86,7 @@ class ProviderServiceRegressionTest {
         };
         service.providerDao = providerDao;
         service.providerManager = providerManager;
+        service.securityInfoManager = securityInfoManager;
     }
 
     @Test

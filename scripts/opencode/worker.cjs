@@ -84,6 +84,8 @@ function snapshot(source, root, sha) {
             const chunk = read(block.subarray(0, Math.min(left, block.length)));
             fs.writeFileSync(out, chunk); left -= chunk.length;
           }
+          // open's mode is filtered by the worker's umask; restore Git's actual file mode.
+          fs.fchmodSync(out, entry.mode === '100755' ? 0o755 : 0o644);
         } finally { fs.closeSync(out); }
       }
       if (read(byte)[0] !== 10) throw new Error('Invalid source object boundary.');

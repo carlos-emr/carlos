@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -1728,64 +1726,6 @@ public interface PartnerInformation extends XmlObject
          */
         public static PartnerInformation parse(final Node node, final XmlOptions options) throws XmlException {
             return (PartnerInformation)XmlBeans.getContextTypeLoader().parse(node, PartnerInformation.type, options);
-        }
-
-        /**
-         * Parses partner information from an XMLInputStream with default options.
-         *
-         * @deprecated XMLInputStream is deprecated in XMLBeans. Use XMLStreamReader instead.
-         * @param xis XMLInputStream the input stream containing the XML document
-         * @return PartnerInformation the parsed partner information instance
-         * @throws XmlException if the XML is malformed or does not conform to the schema
-         * @throws XMLStreamException if an error occurs processing the XML stream
-         */
-        @Deprecated
-        public static PartnerInformation parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (PartnerInformation)XmlBeans.getContextTypeLoader().parse(xis, PartnerInformation.type, (XmlOptions)null);
-        }
-
-        /**
-         * Parses partner information from an XMLInputStream with specified options.
-         *
-         * @deprecated XMLInputStream is deprecated in XMLBeans. Use XMLStreamReader instead.
-         * @param xis XMLInputStream the input stream containing the XML document
-         * @param options XmlOptions the parsing options
-         * @return PartnerInformation the parsed partner information instance
-         * @throws XmlException if the XML is malformed or does not conform to the schema
-         * @throws XMLStreamException if an error occurs processing the XML stream
-         */
-        @Deprecated
-        public static PartnerInformation parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (PartnerInformation)XmlBeans.getContextTypeLoader().parse(xis, PartnerInformation.type, options);
-        }
-
-        /**
-         * Creates a validating XMLInputStream wrapper with default options.
-         *
-         * @deprecated XMLInputStream is deprecated in XMLBeans. Use XMLStreamReader with validation instead.
-         * @param xis XMLInputStream the input stream to wrap with validation
-         * @return XMLInputStream a validating wrapper around the input stream
-         * @throws XmlException if validation setup fails
-         * @throws XMLStreamException if an error occurs setting up the validation stream
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, PartnerInformation.type, (XmlOptions)null);
-        }
-
-        /**
-         * Creates a validating XMLInputStream wrapper with specified options.
-         *
-         * @deprecated XMLInputStream is deprecated in XMLBeans. Use XMLStreamReader with validation instead.
-         * @param xis XMLInputStream the input stream to wrap with validation
-         * @param options XmlOptions the validation options
-         * @return XMLInputStream a validating wrapper around the input stream
-         * @throws XmlException if validation setup fails
-         * @throws XMLStreamException if an error occurs setting up the validation stream
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, PartnerInformation.type, options);
         }
 
         /**

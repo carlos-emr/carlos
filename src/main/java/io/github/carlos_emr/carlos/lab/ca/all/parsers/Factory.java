@@ -22,6 +22,7 @@
  * Ontario, Canada
  
  * <p>
+ * Modifications by CARLOS Contributors, 2026.
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
@@ -41,6 +42,7 @@ package io.github.carlos_emr.carlos.lab.ca.all.parsers;
 
 import java.io.InputStream;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -71,35 +73,44 @@ public final class Factory {
     }
 
     /**
-     * Find the lab corresponding to segmentID and return the appropriate MessageHandler for it
+     * Find the HL7 lab corresponding to segmentID and return its MessageHandler,
+     * or null when the record is missing or cannot be parsed. IDs from legacy
+     * PathNet and other lab stores must not be passed to this factory.
      */
     public static MessageHandler getHandler(String segmentID) {
         try {
             Hl7TextMessageDao hl7TextMessageDao = (Hl7TextMessageDao) SpringUtils.getBean(Hl7TextMessageDao.class);
-            Hl7TextMessage hl7TextMessage = hl7TextMessageDao.find(Integer.parseInt(segmentID));
-
-            String type = hl7TextMessage.getType();
-            String hl7Body = new String(Base64.decodeBase64(hl7TextMessage.getBase64EncodedeMessage()), MiscUtils.DEFAULT_UTF8_ENCODING);
-            return getHandler(type, hl7Body);
+            return getHandler(hl7TextMessageDao.find(Integer.parseInt(segmentID)));
         } catch (Exception e) {
             logger.error("Could not retrieve lab for segmentID(" + segmentID + ")", e);
         }
 
-        return getHandler("", "");
+        return null;
     }
 
 
-	public static MessageHandler getHandler(Hl7TextMessage hl7TextMessage) {
-		try {
-			String type = hl7TextMessage.getType();
-			String hl7Body = new String(Base64.decodeBase64(hl7TextMessage.getBase64EncodedeMessage()), MiscUtils.DEFAULT_UTF8_ENCODING);
-			return getHandler(type, hl7Body);
-		} catch (Exception e) {
-			logger.error("Could not retrieve lab for segmentID(" + hl7TextMessage.getId() + ")", e);
-		}
+    public static MessageHandler getHandler(Hl7TextMessage hl7TextMessage) {
+        try {
+            String hl7Body = decodeHL7Body(hl7TextMessage);
+            return hl7Body == null ? null : getHandler(hl7TextMessage.getType(), hl7Body);
+        } catch (Exception e) {
+            logger.error("Could not create handler for stored HL7 message", e);
+        }
+        return null;
+    }
 
-		return getHandler("", "");
-	}
+    private static String decodeHL7Body(Hl7TextMessage hl7TextMessage) {
+        if (hl7TextMessage == null) {
+            logger.warn("HL7 message was not found; cannot read or parse it");
+            return null;
+        }
+        String encodedBody = hl7TextMessage.getBase64EncodedeMessage();
+        if (encodedBody == null || encodedBody.isBlank()) {
+            logger.warn("HL7 message {} has no encoded body; cannot read or parse it", hl7TextMessage.getId());
+            return null;
+        }
+        return new String(Base64.decodeBase64(encodedBody), StandardCharsets.UTF_8);
+    }
 
     public static String getHL7Body(String segmentID) {
         String ret = null;
@@ -107,7 +118,7 @@ public final class Factory {
             Hl7TextMessageDao hl7TextMessageDao = (Hl7TextMessageDao) SpringUtils.getBean(Hl7TextMessageDao.class);
             Hl7TextMessage hl7TextMessage = hl7TextMessageDao.find(Integer.parseInt(segmentID));
 
-            ret = new String(Base64.decodeBase64(hl7TextMessage.getBase64EncodedeMessage()), MiscUtils.DEFAULT_UTF8_ENCODING);
+            ret = decodeHL7Body(hl7TextMessage);
         } catch (Exception e) {
             logger.error("Could not retrieve lab for segmentID(" + segmentID + ")", e);
         }
@@ -122,6 +133,22 @@ public final class Factory {
             value = {"PATH_TRAVERSAL_IN", "IMPROPER_UNICODE"},
             justification = "LAB_TYPES is admin-only config; case folding is not used for a security or authorization decision")
     public static MessageHandler getHandler(String type, String hl7Body) {
+        if (hl7Body == null || hl7Body.isBlank()) {
+            logger.warn("HL7 message body is missing; cannot create a message handler");
+            return null;
+        }
+        // Imported CDS results require the precision-preserving adapter even when an existing
+        // installation overrides LAB_TYPES with a configuration predating this built-in type.
+        if ("CARLOS-CDS".equals(type)) {
+            try {
+                MessageHandler handler = new CdsLaboratoryMessageParser();
+                handler.init(hl7Body);
+                return handler;
+            } catch (ca.uhn.hl7v2.HL7Exception invalid) {
+                logger.error("Could not parse a stored CDS laboratory result");
+                return null;
+            }
+        }
         Document doc = null;
         String msgType;
         String msgHandler = "";

@@ -222,7 +222,9 @@ async function workflow(s) {
     }
     h.assert(answers.length === 1, `Create Report for ${begin} + ${NUM_DAYS} days got ${answers.length} answers from oscarReport/obec`);
     const response = answers[0];
-    const sent = new URL(response.url()).searchParams;
+    // Create Report writes the OBEC file, so the page posts its form: Begin Date and Days are in the request body.
+    h.assert(response.request().method() === 'POST', `Create Report sent ${response.request().method()}, not the form's POST`);
+    const sent = new URLSearchParams(response.request().postData() || '');
     h.assert(sent.get('xml_vdate') === begin && sent.get('numDays') === String(NUM_DAYS),
       `Create Report sent Begin Date ${sent.get('xml_vdate')} and Days ${sent.get('numDays')}, not ${begin} and ${NUM_DAYS}`);
     h.assert(response.status() === 200, `Create Report for ${begin} + ${NUM_DAYS} days answered HTTP ${response.status()}`);

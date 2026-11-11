@@ -29,6 +29,7 @@
 
 --%>
 
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils"%>
 
 <%
@@ -70,6 +71,7 @@
 </head>
 <body>
 <div class="container mt-2">
+    <div><source:cdsSourceFields demographicNo="${demographicNo}" category="CareElements"/></div>
 
     <%-- Session-level error and info messages --%>
     <%=WebUtils.popErrorAndInfoMessagesAsHtml(session)%>

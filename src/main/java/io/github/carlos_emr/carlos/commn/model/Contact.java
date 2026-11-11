@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: render unknown source names truthfully.
  */
 
 
@@ -246,7 +247,10 @@ public class Contact extends AbstractModel<Integer> implements ContactInterface 
     }
 
     public String getFormattedName() {
-        return getLastName() + "," + getFirstName();
+        String first = getFirstName(), last = getLastName();
+        if (first == null || first.isBlank()) return last == null || last.isBlank() ? "Unknown" : last;
+        if (last == null || last.isBlank()) return first;
+        return last + "," + first;
     }
 
     @Override

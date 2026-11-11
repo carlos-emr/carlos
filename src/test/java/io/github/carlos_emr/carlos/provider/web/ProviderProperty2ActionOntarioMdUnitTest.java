@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.ProviderManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ServletActionContext;
@@ -36,6 +37,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import java.util.Collections;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -48,6 +50,7 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 @Tag("provider")
 class ProviderProperty2ActionOntarioMdUnitTest extends CarlosUnitTestBase {
+    private static final String PASSWORD = "FAKE-omd-secret-7c1";
     private MockHttpServletRequest request;
     private UserPropertyDAO properties;
     private MockedStatic<ServletActionContext> servlet;
@@ -156,5 +159,38 @@ class ProviderProperty2ActionOntarioMdUnitTest extends CarlosUnitTestBase {
         ArgumentCaptor<UserProperty> saved = ArgumentCaptor.forClass(UserProperty.class);
         verify(properties).saveProp(saved.capture());
         assertThat(saved.getValue().getName()).isEqualTo(UserProperty.ONTARIO_MD_USERNAME);
+    }
+
+    @Test
+    void shouldStoreForTheSignedInProvider_whenTheFormNamesAnother() {
+        // What parameter binding builds from dateProperty.providerNo=other&dateProperty2.providerNo=other.
+        UserProperty username = typed("drsmith");
+        username.setProviderNo("other");
+        UserProperty password = typed(PASSWORD);
+        password.setProviderNo("other");
+
+        action.setDateProperty(username);
+        action.setDateProperty2(password);
+        assertThat(action.saveOntarioMDId()).isEqualTo("gen");
+
+        ArgumentCaptor<UserProperty> saved = ArgumentCaptor.forClass(UserProperty.class);
+        verify(properties, times(2)).saveProp(saved.capture());
+        assertThat(saved.getAllValues()).extracting(UserProperty::getProviderNo).containsOnly("owner");
+        verify(properties, never()).getProp(eq("other"), any());
+    }
+
+    @Test
+    void shouldNeitherLogThePassword_norHandItBackToThePage() {
+        try (LogCapture log = LogCapture.forLogger(ProviderProperty2Action.class)) {
+            submit("drsmith", typed(PASSWORD));
+            assertThat(log.messages()).noneMatch(message -> message.contains(PASSWORD));
+        }
+        for (String name : Collections.list(request.getAttributeNames())) {
+            Object value = request.getAttribute(name);
+            String shown = value instanceof UserProperty property
+                    ? property.getName() + "=" + property.getValue()
+                    : String.valueOf(value);
+            assertThat(shown).as("request attribute %s", name).doesNotContain(PASSWORD);
+        }
     }
 }

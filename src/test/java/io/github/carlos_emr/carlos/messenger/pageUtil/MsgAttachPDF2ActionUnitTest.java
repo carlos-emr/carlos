@@ -45,8 +45,10 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import io.github.carlos_emr.carlos.commn.dao.EChartDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EChart;
+import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.messenger.data.MsgMessageData;
 import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -102,6 +104,8 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
     /** HTML handed to the PDF converter, in order. */
     private final List<String> convertedHtml = new ArrayList<>();
     private boolean renderFails;
+    /** What the converter returns for every rendered item. */
+    private String base64Pdf = "JVBERi0xLjQ=";
 
     @BeforeEach
     void setUp() {
@@ -185,7 +189,7 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
             @Override
             public String toBase64Pdf(HttpServletRequest req, HttpServletResponse res, String html) {
                 convertedHtml.add(html);
-                return "JVBERi0xLjQ=";
+                return base64Pdf;
             }
         };
         MsgAttachPDF2Action action = new MsgAttachPDF2Action(securityInfoManager, demographicManager,
@@ -437,6 +441,90 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
                     .contains("<FILE_ID>0</FILE_ID>", "<FILE_ID>1</FILE_ID>", "<FILE_ID>2</FILE_ID>");
             assertThat(bean.getPDFAttachment()).isNull();
             assertThat(bean.getAttachment()).isNull();
+        }
+
+        @Test
+        @DisplayName("should refuse chart PDFs that together are larger than a message can hold, and keep what was attached before")
+        void shouldReturn413AndKeepExistingAttachments_whenPdfsAreTooLargeForAMessage() throws Exception {
+            givenEarlierAttachment();
+            // Two PDFs that are each just over half of what a message holds.
+            base64Pdf = "A".repeat(MessageTbl.PDF_ATTACHMENT_MAX_BYTES / 2 + 1);
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic", "prescriptions"});
+
+            assertThat(action.execute()).isEqualTo("none");
+
+            assertThat(response.getStatus()).isEqualTo(413);
+            assertThat(response.getErrorMessage()).isEqualTo(MsgAttachPDF2Action.PDFS_TOO_LARGE);
+            assertThat(stagedPdfs()).contains("FAKE earlier attachment").doesNotContain("AAAA");
+        }
+
+        /** How long the record of one attached PDF is besides the PDF's own text, found by attaching a one-character one. */
+        private int recordFramingLength() throws Exception {
+            base64Pdf = "A";
+            MsgAttachPDF2Action probe = newAction();
+            probe.setItem(new String[]{"demographic"});
+            assertThat(probe.execute()).isEqualTo("success");
+            return stagedPdfs().length() - base64Pdf.length();
+        }
+
+        @Test
+        @DisplayName("should judge chart PDFs by the text the send stores, with a backslash doubled, and keep what was attached before")
+        void shouldReturn413_whenPdfsOnlyOverflowOnceQuoted() throws Exception {
+            int framing = recordFramingLength();
+            givenEarlierAttachment();
+            // Not the base64 of a real PDF: a record of exactly the column's size as it is attached, with one backslash in
+            // it, which is one byte over once the send doubles it.
+            base64Pdf = "A".repeat(MessageTbl.PDF_ATTACHMENT_MAX_BYTES - framing - 1) + "\\";
+            assertThat(framing + base64Pdf.length()).isEqualTo(MessageTbl.PDF_ATTACHMENT_MAX_BYTES);
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic"});
+
+            assertThat(action.execute()).isEqualTo("none");
+
+            assertThat(response.getStatus()).isEqualTo(413);
+            assertThat(response.getErrorMessage()).isEqualTo(MsgAttachPDF2Action.PDFS_TOO_LARGE);
+            assertThat(stagedPdfs()).contains("FAKE earlier attachment");
+        }
+
+        @Test
+        @DisplayName("should attach chart PDFs that fill a message exactly once a backslash is doubled, and stage them whole")
+        void shouldStageWhole_whenPdfsFillAMessageExactlyOnceQuoted() throws Exception {
+            int framing = recordFramingLength();
+            base64Pdf = "A".repeat(MessageTbl.PDF_ATTACHMENT_MAX_BYTES - framing - 2) + "\\";
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic"});
+
+            assertThat(action.execute()).isEqualTo("success");
+
+            assertThat(stagedPdfs()).contains(base64Pdf).hasSize(MessageTbl.PDF_ATTACHMENT_MAX_BYTES - 1);
+        }
+
+        @Test
+        @DisplayName("should attach several PDFs of about 40 KB to one message, which its column now holds")
+        void shouldStageAll_whenSeveralPdfsFitAMessage() throws Exception {
+            base64Pdf = "A".repeat(55_000);
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic", "encounter", "prescriptions"});
+
+            assertThat(action.execute()).isEqualTo("success");
+
+            assertThat(stagedPdfs()).contains("<FILE_ID>0</FILE_ID>", "<FILE_ID>1</FILE_ID>", "<FILE_ID>2</FILE_ID>");
+            assertThat(stagedPdfs().length()).isGreaterThan(3 * 55_000);
+            assertThat(MsgMessageData.pdfAttachmentFits(stagedPdfs())).isTrue();
+        }
+
+        @Test
+        @DisplayName("should attach one PDF of about 40 KB, which fits a message, and stage it whole")
+        void shouldStageWhole_whenOnePdfFitsAMessage() throws Exception {
+            base64Pdf = "A".repeat(55_000);
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic"});
+
+            assertThat(action.execute()).isEqualTo("success");
+
+            assertThat(stagedPdfs()).contains("A".repeat(55_000));
+            assertThat(MessageTbl.pdfAttachmentFits(stagedPdfs())).isTrue();
         }
 
         @Test

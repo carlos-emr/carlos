@@ -43,21 +43,45 @@ class QueryByExampleSqlValidatorUnitTest {
     private static final Set<String> EXPECTED_SECURITY_SENSITIVE_TABLES = Set.of(
             "appdefinition",
             "appuser",
+            "casemgmt_note_lock",
+            "cds_import_admission",
+            "cds_import_checkpoint",
+            "cds_import_dependency",
+            "cds_import_diagnostic",
+            "cds_import_event",
+            "cds_import_field",
+            "cds_import_file",
+            "cds_import_file_reference",
+            "cds_import_identity",
+            "cds_import_lineage",
+            "cds_import_patient",
+            "cds_import_preparation",
+            "cds_import_review",
+            "cds_import_run",
+            "cds_import_unit",
+            "cds_import_upload",
+            "cds_laboratory_result",
             "emailconfig",
             "emaillog",
             "fax_config",
+            "oceansetting",
+            "o19_imported_signature_owner",
             "oscarcommlocations",
+            "oscarjob",
             "oscarkeys",
+            "pagemonitor",
             "professionalspecialists",
             "property",
             "publickeys",
+            "report_date",
             "security",
             "securityarchive",
             "securitytoken",
             "serviceaccesstoken",
             "serviceclient",
             "serviceoauthnonce",
-            "servicerequesttoken");
+            "servicerequesttoken",
+            "studylogin");
 
     private final Properties properties = properties("oscar_mcmaster?useUnicode=true");
 
@@ -131,11 +155,11 @@ class QueryByExampleSqlValidatorUnitTest {
 
     @ParameterizedTest(name = "rejects sensitive table: {0}")
     @MethodSource("securitySensitiveTables")
-    @DisplayName("rejects tables containing authentication secrets")
+    @DisplayName("rejects restricted tables holding credentials, keys, sessions or integration settings")
     void shouldRejectSecuritySensitiveTables(String table) {
         assertThatThrownBy(() -> QueryByExampleSqlValidator.validate("select * from " + table, properties))
                 .isInstanceOf(QueryByExampleValidationException.class)
-                .hasMessage("Queries may not read tables containing authentication secrets");
+                .hasMessage("Queries may not read restricted tables holding credentials, keys, sessions or integration settings");
     }
 
     @Test

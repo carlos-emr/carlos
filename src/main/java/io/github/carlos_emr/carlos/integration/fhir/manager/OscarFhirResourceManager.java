@@ -26,6 +26,7 @@ package io.github.carlos_emr.carlos.integration.fhir.manager;
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 
 import java.util.ArrayList;
@@ -75,7 +76,11 @@ public class OscarFhirResourceManager {
         List<Immunization<Prevention>> immunizations = null;
         List<Prevention> preventions = preventionManager.getPreventionsByDemographicNo(configurationManager.getLoggedInInfo(), demographicNo);
 
+        requireStructuredProjectionSupported(demographicNo, "Immunizations");
         if (preventions != null) {
+            for (Prevention prevention : preventions) {
+                requireExactImmunizationDate(prevention);
+            }
             LogAction.addLogSynchronous(configurationManager.getLoggedInInfo(), "OscarFhirResourceManager.getImmunizationsByDemographicNo", "Retrieved Immunization list for FHIR transport ");
 
             for (Prevention prevention : preventions) {
@@ -107,11 +112,33 @@ public class OscarFhirResourceManager {
         Immunization<Prevention> immunization = null;
 
         if (prevention != null) {
+            requireStructuredProjectionSupported(prevention.getDemographicId(), "Immunizations");
+            requireExactImmunizationDate(prevention);
             LogAction.addLogSynchronous(configurationManager.getLoggedInInfo(), "OscarFhirResourceManager.getImmunizationsByDemographicNo", "Retrieved Immunization list for FHIR transport ");
             immunization = new Immunization<Prevention>(prevention, configurationManager);
         }
 
         return immunization;
+    }
+
+    private static void requireStructuredProjectionSupported(int demographicNo, String category) {
+        try {
+            SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class)
+                    .requireSupported(demographicNo, java.util.Set.of(category));
+        } catch (io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException unsupported) {
+            throw new ca.uhn.fhir.rest.server.exceptions.UnprocessableEntityException(unsupported.getMessage());
+        }
+    }
+
+    private static void requireExactImmunizationDate(Prevention prevention) {
+        if (!prevention.isCdsImported()) return;
+        try {
+            SpringUtils.getBean(io.github.carlos_emr.carlos.prevention.PreventionDateService.class)
+                    .getDate(prevention).requireExact();
+        } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException review) {
+            throw new ca.uhn.fhir.rest.server.exceptions.UnprocessableEntityException(
+                    "Prevention timing requires a precision-aware representation before FHIR transport");
+        }
     }
 
     /**
@@ -126,6 +153,7 @@ public class OscarFhirResourceManager {
         Patient patient = null;
 
         if (demographic != null) {
+            requireStructuredProjectionSupported(demographic_no, "Demographics");
             patient = new Patient(demographic, configurationManager);
             LogAction.addLogSynchronous(configurationManager.getLoggedInInfo(), "OscarFhirResourceManager.getPatientByDemographicNumber", "Retrieved demographic " + demographic_no + " " + patient.toString());
         }
@@ -148,6 +176,9 @@ public class OscarFhirResourceManager {
         List<Patient> patientList = null;
 
         if (demographicList != null) {
+            for (Demographic demographic : demographicList) {
+                requireStructuredProjectionSupported(demographic.getDemographicNo(), "Demographics");
+            }
             LogAction.addLogSynchronous(configurationManager.getLoggedInInfo(), "OscarFhirResourceManager.getPatientsByPHN", "Retrieved demographic hcn " + hcn + " " + demographicList.toString());
 
             for (Demographic demographic : demographicList) {

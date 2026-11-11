@@ -117,8 +117,9 @@
                 document.forms[0].action = "<%= request.getContextPath() %>/form/formmhoutcomeprint";
                 document.forms[0].target = "planner";
                 HTMLFormElement.prototype.submit.call(document.forms[0]);
-                document.forms[0].target = "apptProviderSearch";
-                //}
+                // Leave the form as Save expects to find it.
+                document.forms[0].action = mainAction;
+                document.forms[0].target = mainTarget;
                 return false;
             }
 
@@ -134,6 +135,8 @@
             }
 
             function onSaveExit() {
+                // Set, not left to the hidden default: after Print the field holds "print".
+                document.forms[0].submit.value = "exit";
                 var ret = checkAllDates();
                 document.forms[0].action = mainAction;
                 document.forms[0].target = mainTarget;
@@ -502,7 +505,7 @@
                             %> <a
                                     href="javascript: function myFunction() {return false; }"
                                     class="mhlink" onclick="javascript:insert('o_sp', <%=i+1%>);"><%=i + 1%>.
-                                <%= sp[i] %>
+                                <%= SafeEncode.forHtmlContent(sp[i]) %>
                             </a><br>
                             <%
                                     }
@@ -525,7 +528,7 @@
                             %> <a
                                     href="javascript: function myFunction() {return false; }"
                                     class="mhlink" onclick="javascript:insert('o_pe', <%=i+1%>);"><%=i + 1%>.
-                                <%= pe[i] %>
+                                <%= SafeEncode.forHtmlContent(pe[i]) %>
                             </a><br>
                             <%
                                     }
@@ -548,7 +551,7 @@
                             %> <a
                                     href="javascript: function myFunction() {return false; }"
                                     class="mhlink" onclick="javascript:insert('o_d', <%=i+1%>);"><%=i + 1%>.
-                                <%= d[i] %>
+                                <%= SafeEncode.forHtmlContent(d[i]) %>
                             </a><br>
                             <%
                                     }
@@ -570,7 +573,7 @@
                             %> <a
                                     href="javascript: function myFunction() {return false; }"
                                     class="mhlink" onclick="javascript:insert('o_pns', <%=i+1%>);"><%=i + 1%>.
-                                <%= pns[i] %>
+                                <%= SafeEncode.forHtmlContent(pns[i]) %>
                             </a><br>
                             <%
                                     }

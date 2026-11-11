@@ -108,11 +108,19 @@ class BundledDatabaseApSqlUnitTest extends CarlosUnitTestBase {
         assertThatCode(() -> EFormSqlSafety.validateLegacySqlSafety(sql)).doesNotThrowAnyException();
         // Execute the exact projection shipped in the AP, rather than a duplicate
         // expression in the test. Bind clinical strings, including hostile content.
-        var matcher = Pattern.compile("(?m)^\\s*(.*?)\\s*AS\\s+datafield\\s*,\\s*$", Pattern.CASE_INSENSITIVE).matcher(sql);
-        assertThat(matcher.find()).isTrue();
+        // A line scan rather than a regex: the projection is the one line ending "AS datafield,".
+        String projectionSuffix = " AS datafield,";
+        String projection = sql.lines()
+                .map(String::strip)
+                .filter(line -> line.length() > projectionSuffix.length() && line.regionMatches(true,
+                        line.length() - projectionSuffix.length(), projectionSuffix, 0, projectionSuffix.length()))
+                .map(line -> line.substring(0, line.length() - projectionSuffix.length()).strip())
+                .findFirst()
+                .orElse(null);
+        assertThat(projection).isNotBlank();
         String json;
         try (var connection = DriverManager.getConnection("jdbc:h2:mem:bundled_latest_lab;MODE=MySQL");
-             var statement = connection.prepareStatement("SELECT JSON_OBJECT('measurementValue': " + matcher.group(1)
+             var statement = connection.prepareStatement("SELECT JSON_OBJECT('measurementValue': " + projection
                      + ") FROM (SELECT CAST(? AS VARCHAR) AS dataField) m")) {
             statement.setString(1, input);
             try (var rows = statement.executeQuery()) {
@@ -195,6 +203,8 @@ class BundledDatabaseApSqlUnitTest extends CarlosUnitTestBase {
             loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
             loader.when(() -> EFormLoader.getAP("literal_output")).thenReturn(ap);
             util.when(() -> EFormUtil.getValuesOrNull(anyList(), any(ParameterizedSql.class))).thenReturn(values);
+            util.when(() -> EFormUtil.getValuesOrNull(anyList(), any(ParameterizedSql.class),
+                    org.mockito.ArgumentMatchers.eq(7))).thenReturn(values);
             util.when(() -> EFormUtil.getValues(anyList(), any(ParameterizedSql.class))).thenReturn(values);
             assertThat(new APExecute().execute("literal_output", "7")).isEqualTo(expected);
             assertThat(new APExecute().execute("literal_output", "7", 19)).isEqualTo(expected);

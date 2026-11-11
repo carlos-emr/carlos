@@ -43,6 +43,7 @@ concurrency:
 jobs:
   label:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Derive and apply the type label from the PR title
         env:

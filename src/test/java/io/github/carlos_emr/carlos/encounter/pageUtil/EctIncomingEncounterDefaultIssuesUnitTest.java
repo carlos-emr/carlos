@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.dao.EChartDao;
 import io.github.carlos_emr.carlos.commn.dao.EncounterWindowDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.daos.DefaultIssueDao;
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
@@ -107,6 +108,7 @@ class EctIncomingEncounterDefaultIssuesUnitTest extends CarlosUnitTestBase {
         notes = createAndRegisterMock(CaseManagementNoteDAO.class);
         createAndRegisterMock(CaseManagementManager.class);
         security = createAndRegisterMock(SecurityInfoManager.class);
+        createAndRegisterMock(OscarAppointmentDao.class);
         createAndRegisterMock(EChartDao.class);
         createAndRegisterMock(EncounterWindowDao.class);
         createAndRegisterMock(DrugDao.class);

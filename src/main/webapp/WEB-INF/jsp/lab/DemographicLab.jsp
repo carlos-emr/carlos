@@ -30,7 +30,12 @@
 --%>
 
 <%-- ========== PAGE IMPORTS ========== --%>
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.lab.service.LabPatientAccess" %>
+<%@page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayLabAction2" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -80,6 +85,10 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
     ArrayList<LabResultData> labs = comLab.populateLabResultsData(loggedInInfo, "", demographicNo, "", "", "", "U");
+    // The no-demographic inbox also contains routed labs: hide locked rows before any grouping
+    // or rendering, using the row's actual source-specific ownership rather than URL filters.
+    labs = LabPatientAccess.visibleResults(labs, SpringUtils.getBean(SecurityInfoManager.class),
+            SpringUtils.getBean(PatientLabRoutingDao.class), loggedInInfo);
     labs = getLatestLabVersions(labs);
     Collections.sort(labs);
 
@@ -180,6 +189,7 @@
 </head>
 
 <body>
+<div><source:cdsSourceFields demographicNo="${pageScope.demographicNo}" category="LaboratoryResults"/></div>
 <div class="container-fluid mt-2">
 
     <form name="reassignForm" method="post" action="${ctx}/oscarMDS/ReportReassign" id="lab_form">
@@ -252,7 +262,7 @@
                 <thead>
                     <tr>
                         <c:if test="${hasLabsAndNoDemographicNo}">
-                            <th><input type="checkbox" id="checkA" name="checkA" onclick="checkAll('lab_form')"/></th>
+                            <th><label for="checkA" class="visually-hidden"><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.selectAll"/></label><input type="checkbox" id="checkA" name="checkA" onclick="checkAll('lab_form')"/></th>
                         </c:if>
                         <th><fmt:message key="oscarMDS.index.msgDateTest"/></th>
                         <th><fmt:message key="oscarMDS.index.msgLabel"/></th>
@@ -279,7 +289,8 @@
                         <%  if (demographicNo == null) { %>
                         <td>
                             <%-- data-lab-type: the picker posts each checked lab as "<id>:<type>" (issue #4558). --%>
-                            <input type="checkbox" name="flaggedLabs" value="<carlos:encode value='<%= segmentID %>' context='htmlAttribute'/>"
+                            <label for="flaggedLab<%= i %>" class="visually-hidden"><fmt:message key="dms.incomingDocs.select"/> — <fmt:message key="oscarMDS.index.msgDateTest"/>: <carlos:encode value='<%= formattedDate %>'/></label>
+                            <input type="checkbox" id="flaggedLab<%= i %>" name="flaggedLabs" value="<carlos:encode value='<%= segmentID %>' context='htmlAttribute'/>"
                                    data-lab-type="<carlos:encode value='<%= result.labType %>' context='htmlAttribute'/>"/>
                         </td>
                         <% } %>
@@ -346,21 +357,6 @@
     }
 
     public ArrayList<LabResultData> getLatestLabVersions(ArrayList<LabResultData> labs) {
-        List<String> allLabIds = new ArrayList<>();
-        ArrayList<LabResultData> latestLabVersions = new ArrayList<>();
-        for (LabResultData lab : labs) {
-            if (allLabIds.contains(lab.getSegmentID())) {
-                continue;
-            }
-            String[] allLabVersionIdsOfLab = Hl7textResultsData.getMatchingLabs(lab.getSegmentID()).split(",");
-            allLabIds.addAll(Arrays.asList(allLabVersionIdsOfLab));
-            for (LabResultData labResultData : labs) {
-                if (allLabVersionIdsOfLab[allLabVersionIdsOfLab.length - 1].equals(labResultData.getSegmentID())) {
-                    latestLabVersions.add(labResultData);
-                    break;
-                }
-            }
-        }
-        return latestLabVersions;
+        return CommonLabResultData.latestVisibleVersions(labs);
     }
 %>

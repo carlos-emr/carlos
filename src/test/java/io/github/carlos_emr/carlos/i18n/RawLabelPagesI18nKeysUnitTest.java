@@ -45,7 +45,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * The provider edit page, the annual female V2, HOME FAST and FDI function forms, the Rourke 2006 pages and the Intake
  * Information, Position Hazard and Self Efficacy forms showed raw {@code ???key???} labels: they named keys that no
  * bundle defined (the raw-label finding behind #4949, and #4593 for the form titles and headings). Every label key
- * these pages render must be defined in every shipped locale.
+ * these pages render must be defined in every shipped locale. The Mental Health pages are held to the same rule since
+ * their titles and date messages moved into the bundles (#4597).
  *
  * @since 2026-10-18
  */
@@ -84,7 +85,10 @@ class RawLabelPagesI18nKeysUnitTest {
     @ParameterizedTest
     @ValueSource(strings = {"admin/providerupdateprovider.jsp", "form/formannualfemaleV2.jsp", "form/formhomefalls.jsp",
             "form/formlatelifeFDIfunction.jsp", "form/formrourke2006p1.jsp", "form/formrourke2006p2.jsp", "form/formrourke2006p3.jsp",
-            "form/formrourke2006p4.jsp", "form/formintakeinfo.jsp", "form/formPositionHazard.jsp", "form/formselfefficacy.jsp"})
+            "form/formrourke2006p4.jsp", "form/formintakeinfo.jsp", "form/formPositionHazard.jsp", "form/formselfefficacy.jsp",
+            "form/formMentalHealthForm1.jsp", "form/formMentalHealthForm14.jsp", "form/formMentalHealthForm42.jsp",
+            "form/formmhreferral.jsp", "form/formmhassessment.jsp", "form/formmhoutcome.jsp", "form/formmhreferralprint.jsp",
+            "form/formmhassessmentprint.jsp", "form/formmhoutcomeprint.jsp"})
     void shouldDefineEveryLabelKey_inEveryLocale(String page) throws IOException {
         Set<String> keys = renderedKeys(page);
         assertThat(keys).as("%s renders message keys", page).isNotEmpty();

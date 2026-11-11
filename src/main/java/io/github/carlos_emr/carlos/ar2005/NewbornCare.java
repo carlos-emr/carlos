@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -118,27 +116,6 @@ public interface NewbornCare extends XmlObject
         public static NewbornCare parse(final Node node, final XmlOptions options) throws XmlException {
             return (NewbornCare)XmlBeans.getContextTypeLoader().parse(node, NewbornCare.type, options);
         }
-        
-        @Deprecated
-        public static NewbornCare parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (NewbornCare)XmlBeans.getContextTypeLoader().parse(xis, NewbornCare.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static NewbornCare parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (NewbornCare)XmlBeans.getContextTypeLoader().parse(xis, NewbornCare.type, options);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, NewbornCare.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, NewbornCare.type, options);
-        }
-        
         private Factory() {
         }
     }

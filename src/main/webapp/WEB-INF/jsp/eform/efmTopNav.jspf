@@ -51,7 +51,9 @@
 
 		<li><a href='<%= request.getContextPath() %>/eform/visualEformEditor' onclick="window.open(this.href, '_blank'); return false;" class="dropdown-item"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.visual.editor.title"/></a></li>
 		<li><a href="#" onclick="newWindow('<%= request.getContextPath() %>/eform/eformGenerator', 'createGenerator'); return false;" class="dropdown-item contentLink">eForm Generator</a></li>
-		<li><a href='<%= request.getContextPath() %>/eform/efmformmanageredit<%= efmScheduleNavSuffix %>' class="dropdown-item contentLink">Create In Editor</a></li>
+		<%-- The HTML source editor stays available for hand-authored forms (#3166); the Visual eForm
+		     Editor above is the primary way to create one. --%>
+		<li><a href='<%= request.getContextPath() %>/eform/efmformmanageredit<%= efmScheduleNavSuffix %>' class="dropdown-item contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.create.htmlEditor"/></a></li>
 
 		</ul>
 	</li>

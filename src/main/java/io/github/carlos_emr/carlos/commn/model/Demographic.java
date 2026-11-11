@@ -23,6 +23,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 
@@ -65,16 +66,18 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     private static final String DEFAULT_FUTURE_DATE = "2100-01-01";
     public static final String ANONYMOUS = "ANONYMOUS";
     public static final String UNIQUE_ANONYMOUS = "UNIQUE_ANONYMOUS";
-    public static final int LAST_NAME_MAX_LENGTH = 30;
-    public static final int FIRST_NAME_MAX_LENGTH = 30;
+    public static final int LAST_NAME_MAX_LENGTH = 50;
+    public static final int FIRST_NAME_MAX_LENGTH = 50;
     public static final int MIDDLE_NAMES_MAX_LENGTH = 100;
     public static final int ALIAS_MAX_LENGTH = 70;
+    /** The pref_name column ({@code varchar(30) NOT NULL}); see {@link #prefNameForNameUsed(String)}. */
+    public static final int PREF_NAME_MAX_LENGTH = 30;
     public static final int ADDRESS_MAX_LENGTH = 60;
-    public static final int CITY_MAX_LENGTH = 50;
+    public static final int CITY_MAX_LENGTH = 80;
     public static final int PROVINCE_MAX_LENGTH = 20;
     public static final int POSTAL_MAX_LENGTH = 9;
     public static final int RESIDENTIAL_ADDRESS_MAX_LENGTH = 60;
-    public static final int RESIDENTIAL_CITY_MAX_LENGTH = 50;
+    public static final int RESIDENTIAL_CITY_MAX_LENGTH = 80;
     public static final int RESIDENTIAL_PROVINCE_MAX_LENGTH = 20;
     public static final int RESIDENTIAL_POSTAL_MAX_LENGTH = 9;
     public static final int EMAIL_MAX_LENGTH = 100;
@@ -87,8 +90,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public static final int YEAR_OF_BIRTH_MAX_LENGTH = 4;
     public static final int ROSTER_STATUS_MAX_LENGTH = 20;
     public static final int ROSTER_ENROLLED_TO_MAX_LENGTH = 20;
-    public static final int PATIENT_STATUS_MAX_LENGTH = 20;
-    public static final int CHART_NO_MAX_LENGTH = 10;
+    public static final int PATIENT_STATUS_MAX_LENGTH = 50;
+    public static final int CHART_NO_MAX_LENGTH = 15;
     public static final int PROVIDER_NO_MAX_LENGTH = 250;
     public static final int PCN_INDICATOR_MAX_LENGTH = 20;
     public static final int HC_TYPE_MAX_LENGTH = 20;
@@ -110,35 +113,65 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
 
     private int hashCode = Integer.MIN_VALUE; // primary key
     private Integer demographicNo; // fields
-    private String phone;
-    private String patientStatus;
+    // Persist raw legacy values directly. Friendly getters and hydration setters must
+    // not turn a read into an UPDATE; explicit setters retain the existing write rules.
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "phone", length = 20)
+    private String phone = "";
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "patient_status", length = 50)
+    private String patientStatus = "";
     private Date patientStatusDate;
-    private String rosterStatus;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "roster_status", length = 20)
+    private String rosterStatus = "";
     private String providerNo;
     private String hin;
+    /** Indexed search normalization; original HIN remains unchanged and independently auditable. */
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "cds_identity_hin", length = 20, insertable = false, updatable = false)
+    private String cdsIdentityHin;
+    /** Known health-card authority for indexed identity; sentinels and arbitrary legacy codes stay unknown. */
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "cds_identity_issuer", length = 5, insertable = false, updatable = false)
+    private String cdsIdentityIssuer;
     private String address;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "province", length = 20)
     private String province;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "month_of_birth", length = 2)
     private String monthOfBirth;
     private String ver;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "date_of_birth", length = 2)
     private String dateOfBirth;
     private String sex;
     private String sexDesc;
     private Date dateJoined;
-    private String familyDoctor;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "family_doctor", length = 80)
+    private String familyDoctor = "";
     private String familyPhysician;
 
     private String city;
     private String firstName;
     private String postal;
     private Date hcRenewDate;
-    private String phone2;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "phone2", length = 20)
+    private String phone2 = "";
     private String pcnIndicator;
     private Date endDate;
     private String lastName;
     private String hcType;
-    private String chartNo;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "chart_no", length = 15)
+    private String chartNo = "";
     private String email;
     private Boolean consentToUseEmailForCare;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "year_of_birth", length = 4)
     private String yearOfBirth;
     private Date effDate;
     private Date rosterDate;
@@ -146,7 +179,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     private String rosterTerminationReason;
     private String links;
     private DemographicExt[] extras;
-    private String alias;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "alias", length = 70)
+    private String alias = "";
     private String previousAddress;
     private String children;
     private String sourceOfIncome;
@@ -182,12 +217,24 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     private String residentialCity;
     private String residentialProvince;
     private String residentialPostal;
-    private String gender;
-    private String pronoun;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "gender")
+    private String gender = "";
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "pronoun")
+    private String pronoun = "";
     private Integer genderId;
     private Integer pronounId;
     private String patientType;
 
+    /**
+     * The stored pref_name column, mapped by field (issue #4835). The entity uses property access,
+     * and {@link #getPrefName()} answers the alias when one is set, so a getter mapping made every
+     * loaded patient with a differing alias look changed: the next flush wrote the alias into
+     * pref_name, and an alias longer than the 30-character column failed the page.
+     */
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "pref_name", length = 30)
     private String prefName;
 
     private Provider mrp;
@@ -324,11 +371,35 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
 
     private static void addFieldLengthError(List<String> errors, String fieldName, String value, int maxLength) {
-        if (StringUtils.length(value) > maxLength) {
+        if (value != null && value.codePointCount(0, value.length()) > maxLength) {
             String unit = maxLength == 1 ? "character" : "characters";
             errors.add(fieldName + " exceeds maximum length of " + maxLength + " " + unit + ".");
         }
     }
+
+    /**
+     * The pref_name value for a Name Used typed on the Master Record (issue #5128).
+     *
+     * <p>Name Used is stored whole in the alias (70 characters, checked by
+     * {@link #validateFieldLengths()}) and copied into pref_name, which holds only 30. A longer
+     * copy failed the save under a strict sql_mode (HTTP 500, nothing saved) and was cut silently
+     * under an empty one. The copy is now cut to the column here, at whole characters, so a
+     * surrogate pair is never split; {@link #getPrefName()} shows the alias first, so the cut copy
+     * is not what the patient's name reads as. pref_name is NOT NULL, so no value becomes "".</p>
+     *
+     * @param nameUsed the submitted Name Used, or {@code null} when the form sent none
+     * @return at most {@link #PREF_NAME_MAX_LENGTH} characters of it, never {@code null}
+     */
+    public static String prefNameForNameUsed(String nameUsed) {
+        if (nameUsed == null) {
+            return "";
+        }
+        if (nameUsed.codePointCount(0, nameUsed.length()) <= PREF_NAME_MAX_LENGTH) {
+            return nameUsed;
+        }
+        return nameUsed.substring(0, nameUsed.offsetByCodePoints(0, PREF_NAME_MAX_LENGTH));
+    }
+
     @jakarta.persistence.Transient
 
     public String getDisplayName() {
@@ -436,7 +507,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: phone
      */
-    @jakarta.persistence.Column(name = "phone", length = 20)
+    @jakarta.persistence.Transient
     public String getPhone() {
         if (phone == null) {
             return "";
@@ -450,13 +521,13 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
      * @param phone the phone value
      */
     public void setPhone(String phone) {
-        this.phone = phone;
+        this.phone = StringUtils.defaultString(phone);
     }
 
     /**
      * Return the value associated with the column: patient_status
      */
-    @jakarta.persistence.Column(name = "patient_status", length = 20)
+    @jakarta.persistence.Transient
     public String getPatientStatus() {
         if (patientStatus == null) {
             return "";
@@ -477,7 +548,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
      * @param patientStatus the patient_status value
      */
     public void setPatientStatus(String patientStatus) {
-        this.patientStatus = patientStatus;
+        this.patientStatus = StringUtils.defaultString(patientStatus);
     }
 
     public void setPatientStatusDate(Date patientStatusDate) {
@@ -487,7 +558,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: roster_status
      */
-    @jakarta.persistence.Column(name = "roster_status", length = 20)
+    @jakarta.persistence.Transient
     public String getRosterStatus() {
         if (rosterStatus == null) {
             return "";
@@ -501,7 +572,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
      * @param rosterStatus the roster_status value
      */
     public void setRosterStatus(String rosterStatus) {
-        this.rosterStatus = rosterStatus;
+        this.rosterStatus = StringUtils.defaultString(rosterStatus);
     }
 
     /**
@@ -561,9 +632,11 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: province
      */
-    @jakarta.persistence.Column(name = "province", length = 20)
+    @jakarta.persistence.Transient
     public String getProvince() {
-        return province;
+        String normalized = StringUtils.trimToNull(province);
+        // Retain the deployment locale used by the existing explicit setter.
+        return normalized == null ? null : normalized.toUpperCase(Locale.getDefault());
     }
 
     /**
@@ -582,9 +655,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: month_of_birth
      */
-    @jakarta.persistence.Column(name = "month_of_birth", length = 2)
+    @jakarta.persistence.Transient
     public String getMonthOfBirth() {
-        return monthOfBirth;
+        return StringUtils.trimToNull(monthOfBirth);
     }
 
     /**
@@ -616,9 +689,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: date_of_birth
      */
-    @jakarta.persistence.Column(name = "date_of_birth", length = 2)
+    @jakarta.persistence.Transient
     public String getDateOfBirth() {
-        return dateOfBirth;
+        return StringUtils.trimToNull(dateOfBirth);
     }
 
     /**
@@ -675,12 +748,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: family_doctor
      */
-    @jakarta.persistence.Column(name = "family_doctor", length = 80)
+    @jakarta.persistence.Transient
     public String getFamilyDoctor() {
-        if (StringUtils.isBlank(familyDoctor)) {
-            this.familyDoctor = "";
-        }
-        return familyDoctor;
+        return StringUtils.isBlank(familyDoctor) ? "" : familyDoctor;
     }
 
     /**
@@ -689,7 +759,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
      * @param familyDoctor the family_doctor value
      */
     public void setFamilyDoctor(String familyDoctor) {
-        this.familyDoctor = familyDoctor;
+        this.familyDoctor = StringUtils.isBlank(familyDoctor) ? "" : familyDoctor;
     }
 
     /**
@@ -819,7 +889,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: city
      */
-    @jakarta.persistence.Column(name = "city", length = 50)
+    @jakarta.persistence.Column(name = "city", length = 80)
     public String getCity() {
         return city;
     }
@@ -836,7 +906,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: first_name
      */
-    @jakarta.persistence.Column(name = "first_name", length = 30, nullable = false)
+    @jakarta.persistence.Column(name = "first_name", length = 50, nullable = false)
     public String getFirstName() {
         return firstName;
     }
@@ -861,11 +931,12 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
 
     /**
-     * Gets demographic's preferred name.
+     * Gets the name to show for the patient: the alias when one is set, otherwise the stored
+     * preferred name. Not mapped; Hibernate reads and writes the {@code prefName} field.
      *
-     * @return Returns the preferred name.
+     * @return the alias, or the stored preferred name when there is no alias
      */
-    @jakarta.persistence.Column(name = "pref_name")
+    @jakarta.persistence.Transient
     public String getPrefName() {
         if (getAlias() != null && !getAlias().isEmpty()) {
             return getAlias();
@@ -925,7 +996,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: phone2
      */
-    @jakarta.persistence.Column(name = "phone2", length = 20)
+    @jakarta.persistence.Transient
     public String getPhone2() {
         if (phone2 == null) {
             return "";
@@ -939,7 +1010,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
      * @param phone2 the phone2 value
      */
     public void setPhone2(String phone2) {
-        this.phone2 = phone2;
+        this.phone2 = StringUtils.defaultString(phone2);
     }
 
     /**
@@ -987,7 +1058,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: last_name
      */
-    @jakarta.persistence.Column(name = "last_name", length = 30, nullable = false)
+    @jakarta.persistence.Column(name = "last_name", length = 50, nullable = false)
     public String getLastName() {
         return lastName;
     }
@@ -1021,7 +1092,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: chart_no
      */
-    @jakarta.persistence.Column(name = "chart_no", length = 10)
+    @jakarta.persistence.Transient
     public String getChartNo() {
         if (chartNo == null) {
             return "";
@@ -1035,7 +1106,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
      * @param chartNo the chart_no value
      */
     public void setChartNo(String chartNo) {
-        this.chartNo = chartNo;
+        this.chartNo = StringUtils.defaultString(chartNo);
     }
 
     /**
@@ -1058,9 +1129,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: year_of_birth
      */
-    @jakarta.persistence.Column(name = "year_of_birth", length = 4)
+    @jakarta.persistence.Transient
     public String getYearOfBirth() {
-        return yearOfBirth;
+        return StringUtils.trimToNull(yearOfBirth);
     }
 
     /**
@@ -1143,7 +1214,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setEffDate(Date effDate) {
         this.effDate = effDate;
     }
-    @jakarta.persistence.Column(name = "alias", length = 70)
+    @jakarta.persistence.Transient
 
     public String getAlias() {
         if (alias == null) {
@@ -1153,7 +1224,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
 
     public void setAlias(String alias) {
-        this.alias = alias;
+        this.alias = StringUtils.defaultString(alias);
     }
     @jakarta.persistence.Column(name = "children", length = 255)
 
@@ -1224,7 +1295,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setPhoneComment(String phoneComment) {
         this.phoneComment = phoneComment;
     }
-    @jakarta.persistence.Column(name = "gender")
+    @jakarta.persistence.Transient
 
     public String getGender() {
         if (gender == null) {
@@ -1234,9 +1305,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
 
     public void setGender(String gender) {
-        this.gender = gender;
+        this.gender = StringUtils.defaultString(gender);
     }
-    @jakarta.persistence.Column(name = "pronoun")
+    @jakarta.persistence.Transient
 
     public String getPronoun() {
         if (pronoun == null) {
@@ -1246,7 +1317,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
 
     public void setPronoun(String pronoun) {
-        this.pronoun = pronoun;
+        this.pronoun = StringUtils.defaultString(pronoun);
     }
 
     @Override
@@ -1568,12 +1639,14 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     // that exercised it. The instance returned is still a GregorianCalendar.
     public Calendar getBirthDay() {
         GregorianCalendar cal = null;
-
-        if (dateOfBirth != null && monthOfBirth != null && yearOfBirth != null) {
+        String day = getDateOfBirth();
+        String month = getMonthOfBirth();
+        String year = getYearOfBirth();
+        if (day != null && month != null && year != null) {
             cal = new GregorianCalendar();
             // Clear the epoch's local time-of-day before setting this date-only value.
             cal.clear();
-            cal.set(Integer.parseInt(yearOfBirth), Integer.parseInt(monthOfBirth) - 1, Integer.parseInt(dateOfBirth));
+            cal.set(Integer.parseInt(year), Integer.parseInt(month) - 1, Integer.parseInt(day));
 
             // force materialisation of data
             cal.getTimeInMillis();
@@ -2070,7 +2143,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setResidentialAddress(String residentialAddress) {
         this.residentialAddress = residentialAddress;
     }
-    @jakarta.persistence.Column(name = "residentialCity", length = 50)
+    @jakarta.persistence.Column(name = "residentialCity", length = 80)
 
     public String getResidentialCity() {
         return residentialCity;

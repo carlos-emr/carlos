@@ -44,6 +44,12 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class BillActivityDaoImpl extends AbstractDaoImpl<BillActivity> implements BillActivityDao {
 
+    @Override
+    public boolean isImportedFilenameReserved(String filename) {
+        return io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingFilenameImportDao.isReserved(
+                entityManager, filename);
+    }
+
     public BillActivityDaoImpl() {
         super(BillActivity.class);
     }
@@ -68,6 +74,18 @@ public class BillActivityDaoImpl extends AbstractDaoImpl<BillActivity> implement
                 "SELECT b FROM BillActivity b WHERE b.updateDateTime >= ?1 AND  b.updateDateTime <= ?2 AND b.status != 'D' ORDER BY b.id DESC");
         q.setParameter(1, startDate);
         q.setParameter(2, endDate);
+
+        @SuppressWarnings("unchecked")
+        List<BillActivity> results = q.getResultList();
+
+        return results;
+    }
+
+    @Override
+    public List<BillActivity> findCurrentByFilename(String filename) {
+        Query q = entityManager.createQuery(
+                "SELECT b FROM BillActivity b WHERE (b.ohipFilename = ?1 OR b.htmlFilename = ?1) AND b.status != 'D' ORDER BY b.id");
+        q.setParameter(1, filename);
 
         @SuppressWarnings("unchecked")
         List<BillActivity> results = q.getResultList();

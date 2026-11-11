@@ -16,6 +16,7 @@
 // concurrently with other checks: live wrapper EXCLUSIVE=1). Cleanup deletes the patient's formAdfV2
 // rows and the registration and asserts both gone.
 const h = require('./lib/playwright-harness');
+const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
 const NAME = 'form-adfv2-save-exit';
@@ -66,7 +67,7 @@ async function workflow(s) {
   const chart = await s.chart();
   let form;
   await s.step('ADFv2 opens from the Forms menu for the owned patient', async () => {
-    await chart.locator('#menuTitle1 a').hover();
+    await ui.openFormsMenu(chart);
     const link = chart.getByRole('link', { name, exact: true });
     const listed = await link.count();
     h.assert(listed === 1, `The Forms menu lists the registered ADFv2 ${listed} times, not once`);

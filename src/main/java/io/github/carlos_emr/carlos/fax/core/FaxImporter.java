@@ -431,6 +431,7 @@ public class FaxImporter {
      */
     private Path saveToIncoming(FaxConfig faxConfig, FaxJob receivedFax, FaxJob faxFile) {
         File tempFile = null;
+        Path downloadedPath = faxFile.getDocumentPath();
 
         try {
             // Create config-specific subdirectory
@@ -444,24 +445,19 @@ public class FaxImporter {
             File validatedPathFile = PathValidationUtils.validatePath(uniqueFilename, configDir.toFile());
             Path targetFile = validatedPathFile.toPath();
 
-            // Decode to temp file first (atomic write pattern)
+            // The final rename always publishes from this same-filesystem temporary file.
             tempFile = Files.createTempFile(configDir, "fax-tmp-", ".pdf").toFile();
-
-            try {
+            if (downloadedPath != null) {
+                stageDownloadedSpool(downloadedPath, tempFile.toPath());
+            } else {
                 String document = faxFile.getDocument();
                 if (document == null) {
-                    // This is a locally established condition, not provider exception text.
                     log.warn("Incoming fax Base64 document payload is missing");
                     receivedFax.setStatus(FaxJob.STATUS.ERROR);
                     receivedFax.setStatusString("Base64 decode failed: missing fax document payload");
                     return null;
                 }
-                // Use getMimeDecoder() to tolerate MIME-formatted (line-wrapped) Base64
-                // payloads that fax providers may return per RFC 2045
-                byte[] decodedBytes = java.util.Base64.getMimeDecoder().decode(document);
-                Files.write(tempFile.toPath(), decodedBytes);
-            } catch (IllegalArgumentException e) {
-                throw new FaxProviderException("Base64 decode failed", e);
+                decodeLegacyDocument(document, tempFile.toPath());
             }
 
             if (tempFile.length() == 0) {
@@ -474,7 +470,7 @@ public class FaxImporter {
             }
 
             // Atomic move to final location within incoming directory
-            moveFile(tempFile.toPath(), targetFile);
+            Files.move(tempFile.toPath(), targetFile, StandardCopyOption.ATOMIC_MOVE);
             tempFile = null; // Moved successfully
             log.info("Fax saved to incoming directory for account {}", faxConfig.getId());
             return targetFile;
@@ -495,11 +491,57 @@ public class FaxImporter {
             receivedFax.setStatusString("Security validation failed - suspicious filename");
             return null;
         } finally {
-            if (tempFile != null && tempFile.exists()) {
-                if (!tempFile.delete()) {
-                    log.warn("Failed to delete temporary incoming fax file");
+            faxFile.setDocumentPath(null);
+            deleteDownloadedSpool(downloadedPath);
+            deleteStagingFile(tempFile);
+        }
+    }
+
+    private void stageDownloadedSpool(Path source, Path target) throws IOException {
+        File spoolFile = source.toFile();
+        if (!PathValidationUtils.isInAllowedTempDirectory(spoolFile)) {
+            throw new SecurityException("Fax spool is outside the temporary directory");
+        }
+        PathValidationUtils.validateExistingPath(spoolFile, new File(System.getProperty("java.io.tmpdir")));
+        // A cross-filesystem copy/delete fallback targets a name the retry scanner ignores.
+        moveFile(source, target);
+    }
+
+    private void decodeLegacyDocument(String document, Path target) throws IOException, FaxProviderException {
+        try (var text = org.apache.commons.io.input.ReaderInputStream.builder()
+                    .setReader(new java.io.StringReader(document))
+                    .setCharset(java.nio.charset.StandardCharsets.US_ASCII).get();
+                var decoded = java.util.Base64.getMimeDecoder().wrap(text);
+                var output = Files.newOutputStream(target)) {
+            byte[] buffer = new byte[8192];
+            while (true) {
+                int read;
+                try {
+                    read = decoded.read(buffer);
+                } catch (IOException e) {
+                    throw new FaxProviderException("Base64 decode failed", e);
                 }
+                if (read < 0) {
+                    break;
+                }
+                output.write(buffer, 0, read);
             }
+        }
+    }
+
+    private void deleteDownloadedSpool(Path path) {
+        if (path != null && PathValidationUtils.isInAllowedTempDirectory(path.toFile())) {
+            try {
+                Files.deleteIfExists(path);
+            } catch (IOException _) {
+                log.warn("Failed to delete incoming fax spool file");
+            }
+        }
+    }
+
+    private void deleteStagingFile(File file) {
+        if (file != null && file.exists() && !file.delete()) {
+            log.warn("Failed to delete temporary incoming fax file");
         }
     }
 
@@ -799,7 +841,8 @@ public class FaxImporter {
      * @param target target path
      * @throws IOException if the move fails
      */
-    private void moveFile(Path source, Path target) throws IOException {
+    // Package-private seam for simulating a failed cross-filesystem staging copy.
+    void moveFile(Path source, Path target) throws IOException {
         try {
             Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);
         } catch (AtomicMoveNotSupportedException e) {
@@ -867,9 +910,10 @@ public class FaxImporter {
      * @throws FaxProviderException if PDF is corrupted, password-protected, or has 0 pages
      */
     private int validateAndCountPages(File pdfFile) throws FaxProviderException {
-        PdfReader reader = null;
-        try {
-            reader = new PdfReader(pdfFile.getAbsolutePath());
+        // Keep the file scoped even if PdfReader's constructor rejects a corrupt PDF.
+        // Partial reading prevents validation from materializing the streamed document.
+        try (var file = new org.openpdf.text.pdf.RandomAccessFileOrArray(pdfFile.getAbsolutePath(), false, true);
+                var reader = new PdfReader(file, null)) {
             int pages = reader.getNumberOfPages();
 
             if (pages == 0) {
@@ -883,10 +927,6 @@ public class FaxImporter {
             throw new FaxProviderException("PDF is password-protected - cannot process");
         } catch (IOException e) {
             throw new FaxProviderException("Cannot read PDF file for incoming fax");
-        } finally {
-            if (reader != null) {
-                reader.close();
-            }
         }
     }
 

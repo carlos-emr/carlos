@@ -92,6 +92,12 @@ class MsgHandleMessages2ActionUnitTest extends CarlosUnitTestBase {
         message.setDate(new Date());
         message.setTime(new Date());
         when(messagingManager.getMessage(loggedInInfo, MESSAGE_ID)).thenReturn(message);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("101");
+        message.setSentByNo("101");
+        when(createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.MessageTblDao.class).find(MESSAGE_ID))
+                .thenReturn(message);
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.OscarCommLocationsDao.class);
+
         when(messengerDemographicManager.getAttachedDemographicList(loggedInInfo, MESSAGE_ID)).thenReturn(List.of());
 
         request = new MockHttpServletRequest("POST", "/carlos/messenger/HandleMessages");
@@ -120,6 +126,7 @@ class MsgHandleMessages2ActionUnitTest extends CarlosUnitTestBase {
         request.addParameter(button, "pressed");
 
         assertThat(execute()).isEqualTo("reply");
+        assertThat(request.getAttribute("archiveMessageId")).isEqualTo(MESSAGE_ID);
 
         String handedOver = (String) request.getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE);
         assertThat(MsgAttachmentStaging.isKey(handedOver)).isTrue();
@@ -151,6 +158,29 @@ class MsgHandleMessages2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(MsgAttachmentStaging.peek(session, forwardKey).pdfAttachment()).isNull();
         assertThat(MsgAttachmentStaging.peek(session, second).itemAttachment())
                 .isEqualTo("<root>FAKE chart item</root>");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"reply", "replyAll", "forward"})
+    @DisplayName("should reconstruct a reply or forward on GET while retaining its compose attachments")
+    void shouldRetainComposeAttachments_whenReloadingReplyOrForward(String operation) throws Exception {
+        String composeKey = MsgAttachmentStaging.newKey();
+        MsgAttachmentStaging.stageItems(session, composeKey, "<root>FAKE own item</root>");
+        MsgAttachmentStaging.stagePdfs(session, composeKey, 900001, "FAKE own PDF");
+        request.setMethod("GET");
+        request.addParameter(operation, "1");
+        request.addParameter(MsgAttachmentStaging.KEY_PARAMETER, composeKey);
+
+        assertThat(execute()).isEqualTo("reply");
+
+        assertThat(request.getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(composeKey);
+        assertThat(request.getAttribute("ReSubject")).isEqualTo(
+                "forward".equals(operation) ? "Fwd:FAKE subject" : "Re:FAKE subject");
+        assertThat((String) request.getAttribute("ReText")).contains("FAKE body");
+        assertThat(MsgAttachmentStaging.peek(session, composeKey).itemAttachment())
+                .isEqualTo("<root>FAKE own item</root>");
+        assertThat(MsgAttachmentStaging.peek(session, composeKey).pdfAttachment())
+                .isEqualTo("FAKE own PDF");
     }
 
     @Test

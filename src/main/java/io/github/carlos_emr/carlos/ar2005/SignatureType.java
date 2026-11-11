@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -376,64 +374,6 @@ public interface SignatureType extends XmlObject
          */
         public static SignatureType parse(final Node node, final XmlOptions options) throws XmlException {
             return (SignatureType)XmlBeans.getContextTypeLoader().parse(node, SignatureType.type, options);
-        }
-
-        /**
-         * Parses a SignatureType instance from an XMLInputStream.
-         *
-         * @param xis XMLInputStream the XML input stream to parse
-         * @return SignatureType the parsed signature instance
-         * @throws XmlException if the XML is invalid or does not conform to the SignatureType schema
-         * @throws XMLStreamException if an error occurs processing the XML stream
-         * @deprecated XMLInputStream is deprecated in XMLBeans; use alternative parse methods with standard Java streams
-         */
-        @Deprecated
-        public static SignatureType parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (SignatureType)XmlBeans.getContextTypeLoader().parse(xis, SignatureType.type, (XmlOptions)null);
-        }
-
-        /**
-         * Parses a SignatureType instance from an XMLInputStream with specified options.
-         *
-         * @param xis XMLInputStream the XML input stream to parse
-         * @param options XmlOptions configuration options for XML parsing and validation
-         * @return SignatureType the parsed signature instance
-         * @throws XmlException if the XML is invalid or does not conform to the SignatureType schema
-         * @throws XMLStreamException if an error occurs processing the XML stream
-         * @deprecated XMLInputStream is deprecated in XMLBeans; use alternative parse methods with standard Java streams
-         */
-        @Deprecated
-        public static SignatureType parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (SignatureType)XmlBeans.getContextTypeLoader().parse(xis, SignatureType.type, options);
-        }
-
-        /**
-         * Creates a validating XMLInputStream wrapper for signature validation.
-         *
-         * @param xis XMLInputStream the XML input stream to validate
-         * @return XMLInputStream a validating wrapper around the input stream
-         * @throws XmlException if the XML is invalid or does not conform to the SignatureType schema
-         * @throws XMLStreamException if an error occurs processing the XML stream
-         * @deprecated XMLInputStream is deprecated in XMLBeans; use alternative validation methods
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, SignatureType.type, (XmlOptions)null);
-        }
-
-        /**
-         * Creates a validating XMLInputStream wrapper for signature validation with specified options.
-         *
-         * @param xis XMLInputStream the XML input stream to validate
-         * @param options XmlOptions configuration options for XML parsing and validation
-         * @return XMLInputStream a validating wrapper around the input stream
-         * @throws XmlException if the XML is invalid or does not conform to the SignatureType schema
-         * @throws XMLStreamException if an error occurs processing the XML stream
-         * @deprecated XMLInputStream is deprecated in XMLBeans; use alternative validation methods
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, SignatureType.type, options);
         }
 
         /**

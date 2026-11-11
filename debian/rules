@@ -123,6 +123,19 @@ override_dh_auto_build:
 	# needs no separate Flyway CLI download and the migrations it applies are
 	# byte-identical to the ones the deployed WAR validates against at boot.
 	$(CURDIR)/debian/build-flyway-runner.sh $(BUILDDIR)/carlos.war $(BUILDDIR)
+	# Bind the supplied/built WAR to the committed physical schema contract.
+	python3 scripts/schema-contract.py --verify-files --verify-war $(BUILDDIR)/carlos.war
+	# Refuse a WAR that bundles an API Tomcat 11 supplies (EL, Servlet,
+	# Annotations, Tomcat's own classes) or lacks JSTL, which Tomcat does not
+	# supply (#5416). Tomcat loads those packages from its own lib/ first, so such
+	# a copy is used only for a class the container lacks; otherwise it only
+	# misleads what runs beside Tomcat, such as the Flyway runner's class path.
+	python3 scripts/check-war-container-apis.py $(BUILDDIR)/carlos.war
+	# Exactly one Commons Logging implementation in the WAR (#5413). Maven bans
+	# the known duplicates; this also covers a prebuilt CARLOS_WAR and any
+	# library that shades its own copy of org.apache.commons.logging.
+	python3 $(CURDIR)/debian/check-war-commons-logging.py $(BUILDDIR)/carlos.war
+	python3 scripts/test-o19-input-lifecycle.py
 ifeq ($(SKIP_DRUGREF),)
 	set -e; \
 	if [ -n "$$DRUGREF_WAR" ]; then \
@@ -174,9 +187,12 @@ override_dh_auto_test:
 	# because a malformed one fails an import at a clinic, not a build.
 	set -e; for f in debian/assets/o19-manifest/*.json; do \
 	  python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); \
-	    assert type(d.get("format")) is int and d["format"]==1 and d.get("kind")' "$$f" \
-	    || { echo "carlos-emr: OSCAR 19 manifest $$f is malformed (not format 1, or not JSON)" >&2; exit 1; }; \
+	    formats={"o19map-schema":3,"o19map-props":1,"o19-preflight":1,"o19-stock-eform-assets":1}; \
+	    assert type(d.get("format")) is int and d["format"]==formats.get(d.get("kind"))' "$$f" \
+	    || { echo "carlos-emr: OSCAR 19 manifest $$f is malformed (unsupported kind/format, or not JSON)" >&2; exit 1; }; \
 	done
+	python3 -c 'import hashlib,json,pathlib; d=json.load(open("debian/assets/o19-manifest/stock-eform-assets.json")); root=pathlib.Path("src/main/webapp/WEB-INF/eform-assets"); assert all(hashlib.sha256((root/name).read_bytes()).hexdigest()==rule["sha256"] for name,rule in d["assets"].items())'
+	python3 -c 'import json; d=json.load(open("debian/assets/o19-manifest/stock-eform-assets.json")); expected={"BNK.png","LabDecisionSupport3_2024.js","LabEngine_2023.js","LocationsLab_Nov2020.js","blank.rtl","clinic_letter.rtl","consultation_letter.rtl","editControl2.js","editor_help.html","jquery-1.12.0.min.js","jquery-3.1.0.min.js","patient_letter.rtl","signature_pad.min.js"}; assert set(d["deployed"])==expected and len(d["deployed"])==len(expected)'
 
 override_dh_auto_clean:
 	rm -rf $(BUILDDIR)
@@ -199,6 +215,9 @@ override_dh_auto_install:
 	# diff the SQL that carlos-ctl applies without unpacking a webapp.
 	install -d $(STAGE)/$(SHAREDIR)/schema
 	cp -a database/mysql/migration $(STAGE)/$(SHAREDIR)/schema/
+	install -d $(STAGE)/$(SHAREDIR)/schema/contracts
+	install -m 0644 database/mysql/schema-contract/*.json $(STAGE)/$(SHAREDIR)/schema/contracts/
+	install -m 0644 database/mysql/collation-policy.json $(STAGE)/$(SHAREDIR)/schema/
 	# Data-fixup scripts for IMPORTED rows: Flyway runs on the empty deploy
 	# before an import and never sees clinic data, so carlos-ctl import-o19
 	# replays the Rich Text Letter seed + 2026.3.0 scripts itself. The
@@ -302,12 +321,17 @@ override_dh_auto_install:
 	# (/usr/lib/carlos-ctl, /usr/sbin/carlos-ctl and the carlosctl alias);
 	# through 2026.08.0~alpha15 (snapshot24) it was installed here.
 	install -d $(STAGE)/$(LIBDIR)
+	install -m 0755 debian/assets/bin/carlos-emr-mariadb-init $(STAGE)/$(LIBDIR)/
 	install -m 0755 debian/assets/bin/carlos-emr-backup $(STAGE)/$(LIBDIR)/carlos-emr-backup
 	install -m 0755 debian/assets/bin/carlos-emr-cert $(STAGE)/$(LIBDIR)/carlos-emr-cert
 	install -m 0755 debian/assets/bin/carlos-emr-tomcat $(STAGE)/$(LIBDIR)/carlos-emr-tomcat
 	# The OSCAR 19 import-in-progress predicate, consulted by the unit's
 	# ExecCondition= and by the postinst (see the file's header).
 	install -m 0755 debian/assets/bin/carlos-emr-o19-guard $(STAGE)/$(LIBDIR)/carlos-emr-o19-guard
+	# Names (and, for another packaged web server, stops) what holds the
+	# front-door ports or keeps MariaDB from answering root; the postinst runs
+	# it on configure (see the file's header).
+	install -m 0755 debian/assets/bin/carlos-emr-host-conflicts $(STAGE)/$(LIBDIR)/carlos-emr-host-conflicts
 	# The OSCAR 19 import manifests, generated from THIS tree's schema by
 	# scripts/migration/o19/generate_manifests.py and read by carlos-ctl's
 	# importer at run time (its loader checks the "format" every file
@@ -315,6 +339,8 @@ override_dh_auto_install:
 	# never needs a CLI release.
 	install -d $(STAGE)/$(SHAREDIR)/o19-manifest
 	install -m 0644 debian/assets/o19-manifest/*.json $(STAGE)/$(SHAREDIR)/o19-manifest/
+	install -d $(STAGE)/$(SHAREDIR)/o19-stock-assets
+	install -m 0644 src/main/webapp/WEB-INF/eform-assets/blank.rtl src/main/webapp/WEB-INF/eform-assets/editControl2.js src/main/webapp/WEB-INF/eform-assets/editor_help.html $(STAGE)/$(SHAREDIR)/o19-stock-assets/
 	# Config skeletons the maintainer scripts instantiate (never conffiles:
 	# they carry generated credentials).
 	install -d $(STAGE)/$(SHAREDIR)/skel

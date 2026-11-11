@@ -631,14 +631,14 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should still re-render through the fallback patient for a non-update action")
-    void shouldRefresh_whenNonUpdateActionNamesNoPatient() throws Exception {
+    @DisplayName("should refuse a render that does not name its patient")
+    void shouldRefuseRefresh_whenNonUpdateActionNamesNoPatient() throws Exception {
         action.setAction("refresh");
 
         String result = action.execute();
 
-        assertThat(result).isEqualTo("refresh");
-        assertThat(response.getRedirectedUrl()).isNull();
+        assertThat(result).isNull();
+        assertThat(response.getRedirectedUrl()).isEqualTo("error.html");
         verifyNoInteractions(stagedCard);
     }
 
@@ -721,7 +721,8 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should still allow a GET re-render that is not an update")
-    void shouldAllowGet_forNonUpdateRender() throws Exception {
+    void shouldAllowGet_whenNonUpdateRenderNamesPatient() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
         request.setMethod("GET");
         action.setAction("edit");
 

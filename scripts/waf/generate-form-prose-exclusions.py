@@ -49,6 +49,7 @@ How a form is resolved:
     JSP that includes it, and the form_class posted by that page set is the hidden input
     found in the wrapper or in any page it includes.
 """
+import json
 import os
 import posixpath
 import re
@@ -65,6 +66,12 @@ FIRST_RULE_ID = 1200
 # raw, so the XSS layer stays on every form cell as defence in depth.
 CONTENT_ATTACK_TAGS = ("attack-sqli", "attack-rce", "attack-injection-php",
                        "attack-protocol", "attack-lfi", "attack-rfi")
+# ModSecurity 3.0.14 resolves every tag for every excluded field on every
+# argument. Rourke's 1,397 controls make that expensive even with no attacks.
+# IDs retain the same targets without repeated tag expansion. The real-engine
+# harness checks this inventory against the installed CRS before loading policy.
+with open(os.path.join(ROOT, "scripts", "waf", "rourke-prose-rule-ids.json"), encoding="utf-8") as inventory:
+    ROURKE_PROSE_RULE_IDS_BY_LEVEL = json.load(inventory)["rules_by_paranoia_level"]
 # Name fragments that mark a single-line text input as a narrative box on these forms.
 # "other" starts a token (or camel-case Other); it must not match mother/brother.
 PROSE_INPUT_NAME = re.compile(
@@ -324,33 +331,46 @@ def render(groups):
                "# the CRS content-attack rules are phase 2 as well, and this file loads\n"
                "# before them, so the exclusions still apply first. Route-only rules stay\n"
                "# phase 1 like the rest of the BEFORE-CRS exclusions.")
+    out.append("# Rourke 2020 uses equivalent exact rule IDs to avoid repeated tag expansion\n"
+               "# across 1,397 controls (issue 5400). Only active paranoia levels contribute\n"
+               "# exclusions. scripts/waf/rourke-prose-rule-ids.json records the CRS 3.3.8\n"
+               "# inventory; check-clinical-policy.py verifies it against installed CRS rules.\n"
+               "# Review that inventory on CRS upgrades. Other forms retain tag exclusions.")
     rule_id = FIRST_RULE_ID
     total = 0
     for (route, form_class), names in groups.items():
         total += len(names)
-        label = f"{route} form_class={form_class}" if form_class else route
-        out.append(f"\n# {rule_id}: {label} ({len(names)} free-text cells)")
-        # A rule that reads ARGS:form_class from the POST body must run in phase 2, where
-        # the body has been parsed; the CRS content-attack rules are phase 2 too and this
-        # file is included before them, so the ctl actions still land first.
-        phase = 2 if form_class else 1
-        lines = [f'SecRule REQUEST_URI "@rx ^{re.escape(route)}(?:[;?]|$)" \\',
-                 f'    "id:{rule_id},phase:{phase},pass,nolog,chain"',
-                 '    SecRule REQUEST_METHOD "@streq POST" \\']
-        if form_class:
-            lines += ['        "chain"',
-                      f'        SecRule ARGS:form_class "@streq {form_class}" \\',
-                      '            "t:none,\\']
-            indent = "            "
-        else:
-            lines += ['        "t:none,\\']
-            indent = "        "
-        ctl = [f"{indent}ctl:ruleRemoveTargetByTag={tag};ARGS:{name}"
-               for name in names for tag in CONTENT_ATTACK_TAGS]
-        lines += [c + ",\\" for c in ctl[:-1]] + [ctl[-1] + '"']
-        out.append("\n".join(lines))
-        rule_id += 1
-    out.insert(3, f"# {len(groups)} rules, {total} free-text cells, ids {FIRST_RULE_ID}-{rule_id - 1}.")
+        variants = ROURKE_PROSE_RULE_IDS_BY_LEVEL.items() if form_class == "Rourke2020" else [(None, None)]
+        for level, rule_ids in variants:
+            label = f"{route} form_class={form_class}" if form_class else route
+            if level:
+                label += f" paranoia>={level}"
+            out.append(f"\n# {rule_id}: {label} ({len(names)} free-text cells)")
+            phase = 2 if form_class else 1
+            lines = [f'SecRule REQUEST_URI "@rx ^{re.escape(route)}(?:[;?]|$)" \\',
+                     f'    "id:{rule_id},phase:{phase},pass,nolog,chain"',
+                     '    SecRule REQUEST_METHOD "@streq POST" \\']
+            if form_class:
+                lines += ['        "chain"',
+                          f'        SecRule ARGS:form_class "@streq {form_class}" \\']
+                indent = "            "
+                if level:
+                    lines += ['            "chain"',
+                              f'            SecRule TX:executing_paranoia_level "@ge {level}" \\']
+                    indent += "    "
+            else:
+                indent = "        "
+            lines += [indent + '"t:none,\\']
+            if rule_ids is not None:
+                ctl = [f"{indent}ctl:ruleRemoveTargetById={rule};ARGS:{name}"
+                       for name in names for rule in rule_ids]
+            else:
+                ctl = [f"{indent}ctl:ruleRemoveTargetByTag={tag};ARGS:{name}"
+                       for name in names for tag in CONTENT_ATTACK_TAGS]
+            lines += [c + ",\\" for c in ctl[:-1]] + [ctl[-1] + '"']
+            out.append("\n".join(lines))
+            rule_id += 1
+    out.insert(3, f"# {rule_id - FIRST_RULE_ID} rules, {total} free-text cells, ids {FIRST_RULE_ID}-{rule_id - 1}.")
     return "\n".join(out) + "\n"
 
 

@@ -29,6 +29,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -36,12 +38,14 @@ import org.springframework.mock.web.MockHttpSession;
 
 import io.github.carlos_emr.carlos.PMmodule.service.ClientManager;
 import io.github.carlos_emr.carlos.PMmodule.web.formbean.ClientSearchFormBean;
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -113,6 +117,81 @@ class ClientSearchAttachNoteUnitTest extends CarlosUnitTestBase {
         search.attachSearch();
 
         assertThat(request.getAttribute("noteId")).isNull();
+    }
+
+    @Test
+    void shouldKeepThePopupsNondefaultSourceContext_whenAnotherProgramPopupSearchesLater() {
+        useSourcePatient();
+        String first = sourceContext("202", "8");
+        String second = sourceContext("202", "7");
+        newRequest().setParameter("noteId", "11");
+        request.setParameter("sourceChartContext", first);
+        new ClientSearchAction22Action().attachForm();
+        assertThat(request.getAttribute("sourceChartContext")).isEqualTo(first);
+
+        newRequest().setParameter("noteId", "11");
+        request.setParameter("sourceChartContext", second);
+        new ClientSearchAction22Action().attachForm();
+
+        newRequest().setParameter("noteId", "11");
+        request.setParameter("sourceChartContext", first);
+        ClientSearchAction22Action search = new ClientSearchAction22Action();
+        search.setCriteria(new ClientSearchFormBean());
+        search.attachSearch();
+
+        assertThat(request.getAttribute("sourceChartContext")).isEqualTo(first);
+        assertThat(request.getAttribute("noteId")).isEqualTo("11");
+        assertThat(session.getAttribute("sourceChartContext")).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"null", "0"})
+    void shouldPreserveAnIssuedLegacySourceToken_insteadOfDroppingItsNonblankContext(String program) {
+        useSourcePatient();
+        String token = sourceContext("202", "null".equals(program) ? null : program);
+        newRequest().setParameter("noteId", "11");
+        request.setParameter("sourceChartContext", token);
+
+        new ClientSearchAction22Action().attachForm();
+
+        assertThat(request.getAttribute("sourceChartContext")).isEqualTo(token);
+        assertThat(request.getAttribute("noteId")).isEqualTo("11");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"forged", "wrong-patient", "conflicting", "blank"})
+    void shouldRefuseUntrustedSourceContext_beforePublishingAnAttachableNote(String invalid) {
+        useSourcePatient();
+        String valid = sourceContext("202", "7");
+        newRequest().setParameter("noteId", "11");
+        switch (invalid) {
+            case "forged" -> request.setParameter("sourceChartContext", "forged");
+            case "wrong-patient" -> request.setParameter("sourceChartContext", sourceContext("303", "7"));
+            case "conflicting" -> request.setParameter("sourceChartContext", valid, sourceContext("202", "8"));
+            default -> request.setParameter("sourceChartContext", "");
+        }
+
+        assertThatThrownBy(() -> new ClientSearchAction22Action().attachForm())
+                .isInstanceOf(SecurityException.class);
+
+        assertThat(request.getAttribute("noteId")).isNull();
+        assertThat(request.getAttribute("sourceChartContext")).isNull();
+    }
+
+    private void useSourcePatient() {
+        CaseManagementNote source = new CaseManagementNote();
+        source.setDemographic_no("202");
+        CaseManagementNoteDAO notes = mock(CaseManagementNoteDAO.class);
+        when(notes.getNote(11L)).thenReturn(source);
+        registerMock(CaseManagementNoteDAO.class, notes);
+    }
+
+    private String sourceContext(String patient, String program) {
+        MockHttpServletRequest source = new MockHttpServletRequest();
+        source.setSession(session);
+        source.setParameter("demographicNo", patient);
+        ChartProgramContext.remember(source, program);
+        return ChartProgramContext.token(source);
     }
 
     private MockHttpServletRequest newRequest() {

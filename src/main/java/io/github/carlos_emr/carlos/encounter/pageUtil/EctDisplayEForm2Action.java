@@ -93,7 +93,8 @@ public class EctDisplayEForm2Action extends EctDisplayAction {
                 //logging calls, etc. This makes this result set huge. People can click on the eform tab and view the full
                 //history if they need to.
                 List<EFormData> eFormDatas = EFormUtil.listPatientEformsCurrent(Integer.valueOf(bean.demographicNo), true, 0, 100);
-                filterRoles(eFormDatas, roleName);
+                // filterRoles returns a new list; the panel lists only the copies the login's role may see.
+                eFormDatas = filterRoles(eFormDatas, roleName);
                 //Collections.sort(eFormDatas, EFormData.FORM_DATE_COMPARATOR);
                 //Collections.reverse(eFormDatas);
 

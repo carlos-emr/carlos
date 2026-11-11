@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {createLabRoutingFixture} = require('./lib/lab-routing-fixture');
+const {parseMysqlBatchOutput} = require('./lib/playwright-harness');
 
 function fixture(original = []) {
   const writes = [];
@@ -30,6 +31,33 @@ test('restores original comments, NULL status and review timestamp by exact row 
   assert.match(restore, /timestamp=UNHEX\('323032362D30312D30322030333A30343A3035'\)/);
   assert.match(restore, /WHERE id=5 AND lab_no=100 AND provider_no='101' AND lab_type='HL7'/);
   assert.equal(env.writes.filter(s => s.startsWith('DELETE')).length, 0);
+});
+
+test('restores real mysql-parser SQL NULL without confusing literal NULL or empty comments', () => {
+  const timestamp = Buffer.from('2026-10-19 21:27:00').toString('hex').toUpperCase();
+  const original = parseMysqlBatchOutput(`5\t100\t4E\tNULL\t${timestamp}\n6\t101\tNULL\t4E554C4C\tNULL\n7\t102\t4E\t\t${timestamp}\n`);
+  assert.equal(original[0][3], null, 'Exercise the actual parser, not a string-NULL mock');
+  const env = fixture(original);
+  const value = createLabRoutingFixture(env.sql, env.rows, '101', ['100', '101', '102']);
+  value.prepare(false);
+  assert.deepEqual(env.writes, [], 'Snapshot and prepare must not mutate existing routes');
+  value.cleanup();
+  const restores = env.writes.filter(statement => statement.startsWith('UPDATE'));
+  assert.equal(restores.length, 3);
+  assert.match(restores[0], /status=UNHEX\('4E'\), comment=NULL/);
+  assert.match(restores[0], new RegExp(`timestamp=UNHEX\\('${timestamp}'\\)`));
+  assert.match(restores[1], /status=NULL, comment=UNHEX\('4E554C4C'\)/);
+  assert.match(restores[1], /timestamp=NULL/);
+  assert.match(restores[2], /comment=UNHEX\(''\)/);
+  for (const statement of restores) assert.match(statement, /AND provider_no='101' AND lab_type='HL7' AND lab_no IN \(100,101,102\)$/);
+});
+
+test('actual parser non-null malformed hexadecimal snapshots still refuse before writes', () => {
+  for (const value of ['4G', 'F', 'NULL;DROP TABLE providerLabRouting']) {
+    const env = fixture(parseMysqlBatchOutput(`5\t100\t4E\t${value}\tNULL\n`));
+    assert.throws(() => createLabRoutingFixture(env.sql, env.rows, '101', ['100']), /invalid hexadecimal snapshot/);
+    assert.deepEqual(env.writes, []);
+  }
 });
 
 test('tracks inserted routing for every version before acknowledgement and deletes only owned IDs', () => {

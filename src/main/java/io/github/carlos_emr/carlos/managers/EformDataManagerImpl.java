@@ -140,36 +140,6 @@ public class EformDataManagerImpl implements EformDataManager {
         return formid;
     }
 
-    /**
-     * Saves an form as PDF EDoc.
-     * Returns the Eform id that was saved.
-     */
-    public Integer saveEformDataAsEDoc(LoggedInInfo loggedInInfo, String fdid) {
-
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.UPDATE, null)) {
-            throw new RuntimeException("missing required sec object (_eform)");
-        }
-        Integer documentId = null;
-        Integer formid = null;
-
-        if (fdid != null) {
-            formid = Integer.parseInt(fdid);
-            EFormData eformData = eFormDataDao.find(formid);
-            EDoc edoc = ConvertToEdoc.from(eformData);
-            documentManager.moveDocumentToOscarDocuments(loggedInInfo, edoc.getDocument(), edoc.getFilePath());
-            edoc.setFilePath(null);
-            documentId = documentManager.saveDocument(loggedInInfo, edoc);
-        }
-
-        if (documentId != null) {
-            LogAction.addLogSynchronous(loggedInInfo, "EformDataManager.saveEformDataAsEDoc", "Document ID saved: " + documentId);
-        } else {
-            LogAction.addLogSynchronous(loggedInInfo, "EformDataManager.saveEformDataAsEDoc", "Document conversion for Eform id: " + formid + " failed.");
-        }
-
-        return documentId;
-    }
-
     public Integer saveEFormWithAttachmentsAsEDoc(LoggedInInfo loggedInInfo, String fdid, String demographicId, Path eFormPDFPath) throws PDFGenerationException {
         EFormData eForm = eFormDataDao.find(Integer.parseInt(fdid));
         if (eForm == null || eForm.getDemographicId() == null) {

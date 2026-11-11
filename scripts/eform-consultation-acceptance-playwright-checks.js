@@ -44,6 +44,11 @@
  *   LIBRARY_EFORM_NAME='Signature trick' (optional stored form with BGImage1/BGImage2)
  *   EFORM_CC_BADGE_FIXTURE=/path/to/cc-by-sa-3.0-80x15.png (optional pinned official offline badge;
  *     requires adjacent .provenance.json; records cache identity/use, does not test external internet availability)
+ *   EFORM_WAF_AUDIT_LOG=/absolute/path/to/modsec_audit.log and
+ *   EFORM_WAF_ERROR_LOG=/absolute/path/to/nginx-error.log (both required for the
+ *     installed-release hostile POST/no-save proof; absent paths leave that
+ *     negative transport check explicitly unrequested, while DOM and positive
+ *     clinical save/reopen coverage still execute)
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  *
  * FIXTURE. The eForm is saved for a FAKE patient this check creates (lib/owned-patient.js: last name = a FAKE-PW run marker). It
@@ -62,6 +67,7 @@ const h = require('./lib/playwright-harness');
 const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const { storedBackgroundSnapshot, expectedBackgrounds, imageIdentity, assertLibraryBackgrounds } = require('./eform-library-background-probe');
 const { installOfflineCcBadge } = require('./lib/eform-offline-cc-badge');
+const { proveWafNegative, transitionToClinicalValues, assertPersistedLabValues } = require('./lib/eform-ap-probe');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -71,6 +77,9 @@ const testPin = process.env.TEST_PIN || '2026';
 // The owned patient the eForm is saved for, created in main (never a demo patient).
 let demographicNo = null;
 const screenshotDir = process.env.EFORM_CONSULT_SCREENSHOT_DIR || '/tmp';
+const wafAuditLog = process.env.EFORM_WAF_AUDIT_LOG;
+const wafErrorLog = process.env.EFORM_WAF_ERROR_LOG;
+assert(Boolean(wafAuditLog) === Boolean(wafErrorLog), 'Set both explicit EFORM_WAF_AUDIT_LOG and EFORM_WAF_ERROR_LOG for the installed-release negative check');
 
 const bgImageName = 'playwright_consult_acceptance_bg.png';
 const transparentPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl5n2QAAAAASUVORK5CYII=';
@@ -219,7 +228,7 @@ function seedOwnedLatestLabValues(sql, provider, marker) {
     const identifier = `${marker}-lab-${index}`;
     sql.execute(`INSERT INTO measurementsExt (measurement_id,keyval,val)
       VALUES (${measurement},'identifier',${h.sqlString(identifier)})`);
-    return { identifier, value };
+    return { identifier, value, measurement };
   });
 }
 
@@ -555,7 +564,7 @@ async function capturePersistenceState(page) {
   });
 }
 
-async function saveEformAndCaptureFdid(page, expectedState) {
+async function fillEformForSave(page, expectedState) {
   await assertNotErrorPage(page, 'add eForm page');
   await assertImageLoaded(page, '#BGImage1', 'add eForm fixture background image');
   await page.locator('#playwright_text_field').fill(expectedState.textValue);
@@ -573,7 +582,10 @@ async function saveEformAndCaptureFdid(page, expectedState) {
     element.dispatchEvent(new Event('change', { bubbles: true }));
   });
   await page.locator('#remote_eform_subject').fill(expectedState.subjectValue);
+}
 
+async function saveEformAndCaptureFdid(page, expectedState) {
+  await fillEformForSave(page, expectedState);
   await Promise.all([
     page.waitForLoadState('domcontentloaded').catch(() => {}),
     page.locator('#remoteSubmitButton').click(),
@@ -694,7 +706,7 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
     assert(provider, 'The configured test login has no provider');
     demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
     seedOwnedMedicalHistory(sql, provider, medicalHistory);
-    const latestLabValues = seedOwnedLatestLabValues(sql, provider, ownedMarker);
+    let latestLabValues = seedOwnedLatestLabValues(sql, provider, ownedMarker);
     browser = await chromium.launch(launchOptions);
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1600 } });
     offlineBadge = await installOfflineCcBadge(context, process.env.EFORM_CC_BADGE_FIXTURE);
@@ -721,13 +733,31 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
     managerPage = uploadResult.page;
     importedFid = uploadResult.fid;
 
-    const addPage = await openAddEform(context, importedFid);
-    assert(await addPage.locator('#playwright_textarea_field').inputValue() === medicalHistory,
+    const probePage = await openAddEform(context, importedFid);
+    assert(await probePage.locator('#playwright_textarea_field').inputValue() === medicalHistory,
       'The bundled medical_history AP silently omitted or changed the owned clinical history');
     console.log('PASS bundled medical_history AP populated the exact owned clinical history before editing');
-    await assertOwnedLatestLabValues(addPage, latestLabValues);
+    await assertOwnedLatestLabValues(probePage, latestLabValues);
     console.log('PASS bundled latest_lab_values AP preserved all nine owned literal results as JSON without executable markup');
+    const labScope = { baseUrl: baseUrl.href, fid: importedFid, patient: demographicNo, provider,
+      marker: ownedMarker, expected: latestLabValues };
+    if (wafAuditLog && wafErrorLog) {
+      await fillEformForSave(probePage, expectedState);
+      const receipt = await proveWafNegative({ context, page: probePage, sql, scope: labScope,
+        auditLog: wafAuditLog, errorLog: wafErrorLog });
+      console.log(`AP intentional hostile POST WAF-negative/no-save receipt: ${JSON.stringify(receipt)}`);
+    } else {
+      console.log('AP WAF-negative coverage NOT_REQUESTED: explicit audit/error paths absent; no WAF denial or no-save transport claim is made');
+    }
+    await probePage.close();
+    latestLabValues = transitionToClinicalValues(sql, labScope);
+    const addPage = await openAddEform(context, importedFid);
+    assert(await addPage.locator('#playwright_textarea_field').inputValue() === medicalHistory,
+      'The fresh positive form changed the literal medical-history AP value');
+    await assertOwnedLatestLabValues(addPage, latestLabValues);
+    console.log('PASS fresh clinical form preserved all nine benign clinical lab values before saving');
     const fdid = await saveEformAndCaptureFdid(addPage, expectedState);
+    assertPersistedLabValues(sql, { ...labScope, expected: latestLabValues }, fdid);
     await screenshot(addPage, 'consult-acceptance-after-save');
     await addPage.close();
 

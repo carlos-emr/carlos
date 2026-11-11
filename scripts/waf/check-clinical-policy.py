@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 CARLOS Contributors
-"""Real nginx/ModSecurity/CRS regression checks for issues #4571--4575 and the
-add-prevention free text of PR #4742.
+"""Real nginx/ModSecurity/CRS regression checks for issues #4571--4575, the
+add-prevention free text of PR #4742, and the eForm signature data-URI
+carrier of issue #3552.
 
 Run from any directory (Python >= 3.10, Node for the shared prose corpus):
   python3 scripts/waf/check-clinical-policy.py
   python3 scripts/waf/check-clinical-policy.py --evidence-dir /tmp/waf-evidence
   python3 scripts/waf/check-clinical-policy.py --check-config
+  python3 scripts/waf/check-clinical-policy.py --check-inventory
   python3 scripts/waf/check-clinical-policy.py --self-test
 
 No root, production listener, service command, application, or database is used.
@@ -41,6 +43,7 @@ Without it, all runtime artifacts are removed, including after failures.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import html
 import http.client
@@ -57,6 +60,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest.mock import patch
 from dataclasses import asdict, dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
@@ -73,6 +77,7 @@ VITALS = "/carlos/encounter/Measurements"
 FORWARD = "/carlos/casemgmt/ViewForward"
 ENTRY = "/carlos/CaseManagementEntry"
 PREVENTION = "/carlos/prevention/AddPrevention"
+PREGNANCY = "/carlos/Pregnancy"
 ERROR_LOG = "/carlos/eform/logEformError"
 # What a browser hands window.onerror for a broken eForm script, plus the two fixed reports CARLOS
 # itself sends. The first was answered 403 on a packaged install (932130 reads jQuery's "$(...)"
@@ -131,6 +136,7 @@ class Case:
     mime: str = "application/json"
     text: str = ""
     response_status: int = 200
+    response_budget_seconds: float | None = None
 
 
 def request_case(name, issue, route, field, value, method="POST", extra=(), **kw):
@@ -158,8 +164,66 @@ def load_corpus(node, root):
     return phrases, corpus
 
 
-def build_cases(phrases, corpus):
+def signature_png(size=96 * 1024):
+    """A signature-sized PNG data URI: the PNG file signature, then deterministic noise.
+
+    Real canvas output is compressed image data, so its Base64 is about as random as this.
+    """
+    noise = bytearray()
+    counter = 0
+    while len(noise) < size:
+        noise += hashlib.sha256(b"carlos-3552-signature-%d" % counter).digest()
+        counter += 1
+    image = b"\x89PNG\r\n\x1a\n" + bytes(noise[:size])
+    return "data:image/png;base64," + base64.b64encode(image).decode("ascii")
+
+
+def build_cases(phrases, corpus, repo=ROOT):
     cases = []
+    rourke = "/carlos/form/formname"
+    identity = (("form_class", "Rourke2020"),)
+    cases.append(request_case("rourke-prose", 5400, rourke, "c_birthRemarks", corpus, extra=identity))
+    for label, route, field, method, extra in (
+        ("wrong-route", rourke + "Evil", "c_birthRemarks", "POST", identity),
+        ("wrong-form", rourke, "c_birthRemarks", "POST", (("form_class", "Other"),)),
+        ("wrong-method", rourke, "c_birthRemarks", "GET", identity),
+        ("other-field", rourke, "demographic_no", "POST", identity),
+    ):
+        cases.append(request_case("rourke-" + label, 5400, route, field, RFI, method, extra=extra,
+                                  expect="inbound", signatures=("931100",)))
+    cases.append(request_case("rourke-xss", 5400, rourke, "c_birthRemarks", XSS, extra=identity,
+                              expect="inbound", signatures=("941100", "941110")))
+    # Exercise the real exclusion scan at normal/sweep cardinalities. Browser
+    # integration separately proves the actual controls and stored clinical data.
+    generated = (repo / "debian/assets/modsecurity/REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf").read_text()
+    block = re.search(r"(?ms)^# \d+: /carlos/form/formname form_class=Rourke2020\b[^\n]*\n(.*?)(?=^# \d+:|\Z)", generated)
+    if not block:
+        raise ValueError("generated Rourke prose exclusions are missing")
+    prose_names = sorted(set(re.findall(r";ARGS:([A-Za-z0-9_.-]+)", block[1])))
+    for count, budget in ((450, 6.5), (1397, 15)):
+        fields = [*identity, *((name, "FAKE clinical note") for name in prose_names),
+                  *((f"checkbox{i}", "on") for i in range(count))]
+        cases.append(Case(f"rourke-{count}-controls-budget", 5400, "POST", rourke,
+                          urlencode(fields), response_budget_seconds=budget))
+    for operation in ("create", "complete"):
+        for name, value in (("baseline", "Routine follow up."), ("corpus", corpus), ("literal-markup", XSS)):
+            cases.append(request_case(f"pregnancy-{operation}-{name}", 5184, PREGNANCY, "notes", value,
+                                      extra=(("method", operation),)))
+    for field in ("demographicNo", "episodeId", "code", "startDate", "endDate", "method", "unrelatedField"):
+        cases.append(request_case(f"pregnancy-protected-{field}", 5184, PREGNANCY, field, XSS,
+                                  extra=() if field == "method" else (("method", "create"),),
+                                  expect="inbound", signatures=("941100", "941110")))
+    for suffix in ("Evil", "/child"):
+        cases.append(request_case(f"pregnancy-wrong-route-{suffix.replace('/', '-')}", 5184, PREGNANCY + suffix,
+                                  "notes", XSS, extra=(("method", "create"),),
+                                  expect="inbound", signatures=("941100", "941110")))
+    for verb in ("GET", "PUT"):
+        cases.append(request_case(f"pregnancy-wrong-{verb}", 5184, PREGNANCY, "notes", XSS, method=verb,
+                                  extra=(("method", "create"),), expect="inbound", signatures=("941100", "941110")))
+    for name, extra in (("absent", ()), ("unknown", (("method", "saveFormAjax"),)),
+                        ("duplicate", (("method", "create"), ("method", "complete")))):
+        cases.append(request_case(f"pregnancy-operation-{name}", 5184, PREGNANCY, "notes", XSS, extra=extra,
+                                  expect="inbound", signatures=("941100", "941110")))
     # Preserve diagnostic case names while the submitted Rx comment name is
     # distinct from comment_<n> used by the unrelated growth forms.
     rx_fields = {"instructions": "instructions", "drugName": "drugName", "comment": "rxComment"}
@@ -341,6 +405,84 @@ def build_cases(phrases, corpus):
     cases.append(request_case("eform-error-xss-other-route", 0, ERROR_LOG + "Evil", "error", XSS, extra=form_id,
                               expect="inbound", signatures=("941100", "941110")))
 
+    # Image placeholder transport was renamed together with browser and server.
+    # Only the exact argument name is exempt (1030): a stale or mismatched name
+    # is still scored, by the RCE marker and by the data-URI XSS rules.
+    image_source = '{"id":"signature","value":"data:image/png;base64,AQID$(id)"}'
+    cases.append(request_case("carlos-image-link-save", 3352, LETTER, "carlos-image-link", image_source))
+    for field in ("openosp-image-link", "clinicalNote"):
+        cases.append(request_case(f"image-link-inspected-{field}", 3352, LETTER, field, image_source, **rce))
+    for method in ("GET", "PUT"):
+        cases.append(request_case(f"image-link-wrong-{method}", 3352, LETTER, "carlos-image-link", image_source, method, **rce))
+    cases.append(request_case("image-link-wrong-route", 3352, LETTER + "Evil", "carlos-image-link", image_source, **rce))
+
+    # Exclusion 1040 (#3552): the page moves signature data URIs out of the eForm's own
+    # (author-named) fields into ARGS:carlos-data-uri and leaves "carlos-data-uri:<nonce>:<n>"
+    # behind, the nonce in ARGS:carlos-data-uri-nonce (scored like any field).
+    # A signature-sized carried value passes; the same value left in an author-named field, and
+    # every attribute-XSS vector the old request-wide 941130/941170 removal let through, is
+    # scored again; and the carrier itself is still scored off its route/method and by the
+    # families it does not unhook.
+    png, jsignature = signature_png(), "data:image/jsignature;base30,3E13Z5Y5_1O24Z66_1O1Z3_3E2Z4"
+    nonce = "0123456789abcdef0123456789abcdef"
+    cases.append(Case("data-uri-carried-save", 3552, "POST", LETTER, urlencode([
+        ("SignatureBox", f"carlos-data-uri:{nonce}:0"), ("StoreSignature1", f"carlos-data-uri:{nonce}:1"),
+        ("clinicalNote", "Routine follow up."), ("carlos-data-uri", png), ("carlos-data-uri", jsignature),
+        ("carlos-data-uri-nonce", nonce)])))
+    data_uri_xss = {"expect": "inbound", "signatures": ("941130", "941170")}
+    for name, value in (("png", png), ("jsignature", jsignature)):
+        cases.append(request_case(f"data-uri-in-author-field-{name}", 3552, LETTER, "SignatureBox", value, **data_uri_xss))
+    for name, value, signatures in (
+        ("data-html", "data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==", ("941130", "941170")),
+        ("svg", "data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+", ("941130", "941170")),
+        ("javascript", "javascript:alert(document.domain)", ("941170",)),
+        ("xlink", "a xlink:href=x", ("941130",)),
+        ("formaction", "a formaction=x", ("941130",)),
+    ):
+        cases.append(request_case(f"data-uri-author-field-{name}", 3552, LETTER, "clinicalNote", value,
+                                  extra=(("carlos-data-uri", png),), expect="inbound", signatures=signatures))
+    # Random Base64 trips more than the two data-URI rules: with "==" padding at its end and
+    # "/if+" anywhere before it, 932140 (attack-rce, Windows "if ... ==") matches on its own. 9 of
+    # 300 random 30-200 KB payloads did, so under the former by-id 1040 about one signature save in
+    # 33 was refused. The carried argument must keep attack-rce unhooked; the control shows the
+    # value really does score 932140 on an argument 1040 does not name.
+    rce_shaped = "data:image/png;base64,iVBORw0KGgoAAAA/if+AAAAAAAAAAAAAAA=="
+    cases.append(Case("data-uri-carried-rce-shaped", 3552, "POST", LETTER, urlencode([
+        ("SignatureBox", f"carlos-data-uri:{nonce}:0"), ("carlos-data-uri", rce_shaped),
+        ("carlos-data-uri-nonce", nonce)])))
+    cases.append(request_case("data-uri-rce-shaped-control", 3552, LETTER, "carlos-data-uri-x", rce_shaped,
+                              expect="inbound", signatures=("932140",)))
+    # The nonce is drawn afresh for every submission, and it is scored like any field, both in
+    # ARGS:carlos-data-uri-nonce and inside every "carlos-data-uri:<nonce>:<n>" reference. A nonce
+    # that tripped CRS would refuse saves at random, as random Base64 did with 932140. Pin a fixed
+    # sample: edge shapes (all digits, all letters, exponent-like) and SHA-256-derived nonces, in
+    # references with index 0 and 255 (the largest one a save can carry; this is policy only, so
+    # the indices need not resolve). 1,500 random nonces passed when this was added.
+    one_pixel = ("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB"
+                 "9Wl5n2QAAAAASUVORK5CYII=")
+    sample_nonces = ["0" * 32, "f" * 32, "1e" + "0" * 30, "0e1" + "9" * 29, "deadbeef" * 4]
+    sample_nonces += [hashlib.sha256(b"carlos-3552-nonce-%d" % k).hexdigest()[:32] for k in range(19)]
+    for k, sample in enumerate(sample_nonces):
+        cases.append(Case(f"data-uri-nonce-sample-{k:02d}", 3552, "POST", LETTER, urlencode([
+            ("SignatureBox", f"carlos-data-uri:{sample}:0"), ("MirrorPad", f"carlos-data-uri:{sample}:255"),
+            ("clinicalNote", "Routine follow up."), ("carlos-data-uri", one_pixel),
+            ("carlos-data-uri-nonce", sample)])))
+    carrier_probe = "data:image/png;base64,AQID"
+    for method in ("GET", "PUT"):
+        cases.append(request_case(f"data-uri-carrier-wrong-{method}", 3552, LETTER, "carlos-data-uri",
+                                  carrier_probe, method, **data_uri_xss))
+    for suffix in ("Evil", "/child"):
+        cases.append(request_case(f"data-uri-carrier-route-{suffix.replace('/', '-')}", 3552, LETTER + suffix,
+                                  "carlos-data-uri", carrier_probe, **data_uri_xss))
+    for similar in ("carlos-data-uri-x", "carlos-data-uri-nonce"):
+        cases.append(request_case(f"data-uri-carrier-similar-name-{similar}", 3552, LETTER, similar, carrier_probe,
+                                  **data_uri_xss))
+    for family, value, signatures in (("lfi", TRAVERSAL, ("930100", "930110")),
+                                      ("rfi", RFI, ("931100",)),
+                                      ("php", "<?php echo 1;", ("933100",))):
+        cases.append(request_case(f"data-uri-carrier-{family}-still-inspected", 3552, LETTER, "carlos-data-uri",
+                                  value, expect="inbound", signatures=signatures))
+
     if len({case.name for case in cases}) != len(cases):
         raise ValueError("duplicate case names")
     return cases
@@ -459,6 +601,35 @@ def relocate(text, mappings):
     return "".join(lines)
 
 
+def validate_rourke_rule_inventory(repo, crs_dir, installed_version=None):
+    """Fail on CRS drift before exercising the generated ID-based exclusions."""
+    inventory = json.loads((repo / "scripts/waf/rourke-prose-rule-ids.json").read_text())
+    if installed_version is not None:
+        upstream_version = installed_version.split(":")[-1].split("-")[0]
+        if upstream_version != inventory["crs_version"]:
+            raise ValueError("installed CRS version differs from the reviewed Rourke inventory; review before upgrading")
+    tags = {"attack-sqli", "attack-rce", "attack-injection-php", "attack-protocol", "attack-lfi", "attack-rfi"}
+    if set(inventory["content_attack_tags"]) != tags:
+        raise ValueError("Rourke inventory must retain exactly the six existing prose attack families")
+    actual = {str(level): [] for level in range(1, 5)}
+    for source in (crs_dir / "rules").glob("*.conf"):
+        for line in source.read_text().replace("\\\n", " ").splitlines():
+            rule = re.match(r"^\s*SecRule\s+(\S+).*?\bid:(\d+)", line)
+            if not rule or not any(v == "ARGS" or v.startswith("ARGS:") for v in rule[1].split("|")):
+                continue
+            rule_tags = set(re.findall(r"tag:'([^']+)'", line))
+            if rule_tags & tags:
+                levels = [tag.split("/")[1] for tag in rule_tags if tag.startswith("paranoia-level/")]
+                if len(levels) != 1 or levels[0] not in actual:
+                    raise ValueError("CRS prose rule has no supported paranoia level")
+                actual[levels[0]].append(int(rule[2]))
+    actual = {level: sorted(ids) for level, ids in actual.items()}
+    expected = inventory["rules_by_paranoia_level"]
+    if not any(actual.values()) or any(type(rule) is not int for ids in expected.values() for rule in ids) or expected != actual:
+        raise ValueError("Rourke prose rule inventory differs from installed CRS ARGS rules; review and regenerate before upgrading")
+    return expected
+
+
 def prepare_prefix(prefix, args):
     for name in ("logs", "state/tmp", "state/data", "nginx-body", "nginx-proxy", "nginx-fastcgi", "nginx-uwsgi", "nginx-scgi"):
         (prefix / name).mkdir(parents=True)
@@ -478,6 +649,9 @@ def prepare_prefix(prefix, args):
     corpus_file = args.repo / "scripts/lib/clinical-prose-corpus.js"
     hashes[str(corpus_file)] = hashlib.sha256(corpus_file.read_bytes()).hexdigest()
     shutil.copyfile(corpus_file, prefix / "clinical-prose-corpus.js")
+    validate_rourke_rule_inventory(args.repo, prefix / "crs")
+    inventory_file = args.repo / "scripts/waf/rourke-prose-rule-ids.json"
+    hashes[str(inventory_file)] = hashlib.sha256(inventory_file.read_bytes()).hexdigest()
     mappings = [
         ("/etc/carlos-emr/modsecurity", prefix / "policy"),
         ("/usr/share/modsecurity-crs", prefix / "crs"),
@@ -655,8 +829,14 @@ def run_case(prefix, server, port, case, token, args):
     paths = {key: prefix / "logs" / name for key, name in
              (("audit", "modsec_audit.log"), ("error", "error.log"), ("access", "access.log"))}
     offsets = {key: path.stat().st_size if path.exists() else 0 for key, path in paths.items()}
+    # The connector may finish writing the previous JSON transaction after we
+    # snapshot its size. Starting mid-object can decode a string instead of a
+    # transaction. Parse the complete stream and keep the existing token filter.
+    offsets["audit"] = 0
     start = time.monotonic()
-    status, body, marker, error = perform_request(port, case, token, args.request_timeout)
+    status, body, marker, error = perform_request(port, case, token,
+                                                max(args.request_timeout, case.response_budget_seconds or 0))
+    request_elapsed = time.monotonic() - start
     deadline = time.monotonic() + args.evidence_timeout
     while True:
         logs = {key: read_since(path, offsets[key]) for key, path in paths.items()}
@@ -668,6 +848,8 @@ def run_case(prefix, server, port, case, token, args):
         time.sleep(0.02)
     receipts = server.receipts.get(token, [])
     reasons = assess(case, token, status, body, marker, error, receipts, rules)
+    if case.response_budget_seconds is not None and request_elapsed > case.response_budget_seconds:
+        reasons.append(f"response took {request_elapsed:.3f}s; budget {case.response_budget_seconds}s")
     if not finished:
         reasons.append("missing correlated nginx access-log completion")
     return {
@@ -757,6 +939,34 @@ def run_engine(prefix, args, cases, report):
 
 
 class MechanicsTests(unittest.TestCase):
+    def test_rourke_inventory_matches_tagged_args_and_rejects_crs_drift(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "scripts/waf").mkdir(parents=True)
+            rules = root / "crs/rules"
+            rules.mkdir(parents=True)
+            inventory = root / "scripts/waf/rourke-prose-rule-ids.json"
+            manifest = {"crs_version": "3.3.8", "content_attack_tags": ["attack-sqli", "attack-rce", "attack-injection-php",
+                                               "attack-protocol", "attack-lfi", "attack-rfi"],
+                        "rules_by_paranoia_level": {"1": [942100], "2": [], "3": [], "4": []}}
+            inventory.write_text(json.dumps(manifest))
+            source = rules / "sample.conf"
+            source.write_text("SecRule ARGS \"@rx sql\" \"id:942100,tag:'attack-sqli',tag:'paranoia-level/1'\"\n"
+                              "SecRule ARGS \"@rx script\" \"id:941100,tag:'attack-xss'\"\n"
+                              "SecRule REQUEST_HEADERS \"@rx protocol\" \"id:920100,tag:'attack-protocol'\"\n")
+            self.assertEqual(validate_rourke_rule_inventory(root, root / "crs"), manifest["rules_by_paranoia_level"])
+            self.assertEqual(validate_rourke_rule_inventory(root, root / "crs", "1:3.3.8-1ubuntu1"),
+                             manifest["rules_by_paranoia_level"])
+            with self.assertRaisesRegex(ValueError, "installed CRS version differs"):
+                validate_rourke_rule_inventory(root, root / "crs", "3.3.9-1")
+            source.write_text(source.read_text() + "SecRule ARGS \"@rx sql\" \"id:942110,tag:'attack-sqli',tag:'paranoia-level/2'\"\n")
+            with self.assertRaisesRegex(ValueError, "differs from installed CRS"):
+                validate_rourke_rule_inventory(root, root / "crs")
+            manifest["content_attack_tags"].append("attack-xss")
+            inventory.write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(ValueError, "six existing prose attack families"):
+                validate_rourke_rule_inventory(root, root / "crs")
+
     """Harness integrity tests, not substitutes for live security checks."""
 
     @staticmethod
@@ -849,6 +1059,30 @@ class MechanicsTests(unittest.TestCase):
         self.assertEqual(relocated, source.replace('Include /etc/site/rules.conf', 'Include /tmp/snapshot/rules.conf').replace('SecUnicodeMapFile /etc/site/map', 'SecUnicodeMapFile /tmp/snapshot/map'))
         with self.assertRaises(ValueError):
             relocate("SecAuditLog /production/audit\n", [])
+
+    def test_run_case_reads_complete_audit_transactions_after_delayed_write(self):
+        case = Case("delayed-audit", 0, "GET", "/fixture")
+        token = "current-audit"
+        server = SimpleNamespace(fixtures={}, receipts={})
+        args = SimpleNamespace(request_timeout=1, evidence_timeout=0)
+        with tempfile.TemporaryDirectory() as directory:
+            prefix = Path(directory)
+            (prefix / "logs").mkdir()
+            audit = prefix / "logs/modsec_audit.log"
+            # The next read would start at a JSON string in the previous object.
+            audit.write_text('{"transaction":{')
+
+            def finish_request(*unused):
+                with audit.open("a") as stream:
+                    stream.write('"unique_id":"previous"}}\n')
+                    stream.write(json.dumps({"transaction": {"unique_id": token}}))
+                (prefix / "logs/access.log").write_text(token + " 200\n")
+                server.receipts[token] = [{"method": "GET", "target": case.target, "body": ""}]
+                return 200, response_body(case, token), token, ""
+
+            with patch(__name__ + ".perform_request", side_effect=finish_request):
+                result = run_case(prefix, server, 1, case, token, args)
+            self.assertEqual(result["audit_transactions"], [{"unique_id": token}])
 
     def test_audit_and_error_evidence_are_transaction_scoped(self):
         def tx(token, rule):
@@ -972,6 +1206,7 @@ def parse_args(argv=None):
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--self-test", action="store_true", help="test harness mechanics without listeners or host dependencies")
     mode.add_argument("--check-config", action="store_true", help="run isolated nginx -t without listeners")
+    mode.add_argument("--check-inventory", action="store_true", help="validate installed CRS version and rule inventory without nginx or Node")
     mode.add_argument("--list-cases", action="store_true", help="list the selected cases without listeners")
     parser.add_argument("--repo", type=Path, default=ROOT)
     parser.add_argument("--nginx", default=shutil.which("nginx") or "/usr/sbin/nginx")
@@ -1000,12 +1235,21 @@ def main(argv=None):
     report = {"results": [], "scope": "nginx/ModSecurity/CRS policy against a fixture upstream; no real application", "filters": args.case}
     exit_code = 2
     try:
+        if args.check_inventory:
+            # Fixed package query, never a shell command or request-derived path.
+            version = subprocess.run(  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
+                ["dpkg-query", "-W", "-f=${Version}", "modsecurity-crs"],
+                capture_output=True, text=True, timeout=5, check=True, shell=False,
+            ).stdout.strip()
+            validate_rourke_rule_inventory(args.repo, args.crs_dir, version)
+            print("PASS installed CRS version and Rourke rule inventory")
+            return 0
         if args.evidence_dir:
             args.evidence_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
             if any(args.evidence_dir.iterdir()):
                 raise ValueError("--evidence-dir must be empty (existing evidence is never overwritten)")
         phrases, corpus = load_corpus(args.node, args.repo)
-        cases = build_cases(phrases, corpus)
+        cases = build_cases(phrases, corpus, args.repo)
         if args.case:
             cases = [case for case in cases if any(fragment in case.name for fragment in args.case)]
         if not cases:

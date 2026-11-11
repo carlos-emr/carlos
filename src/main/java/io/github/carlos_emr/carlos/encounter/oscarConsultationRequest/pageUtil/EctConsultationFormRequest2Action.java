@@ -169,24 +169,39 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         }
     }
 
-    /**
-     * Parses an optional numeric form id, returning {@code null} when the field was left blank.
-     *
-     * <p>{@code consultationRequests.serviceId} and {@code .specId} are both nullable, so "not
-     * chosen" is a legitimate stored state. Parsing these with {@code Integer.valueOf} threw
-     * {@link NumberFormatException} on the empty string, and because the enclosing catch only
-     * handles {@link java.text.ParseException} the request died in the Struts global
-     * {@code Exception -> error} mapping: no log, no saved consultation, and a blank page for the
-     * clinician. Blank must therefore be a value here, not an exception.</p>
-     *
-     * @param rawValue the submitted field value; may be {@code null}, empty, or blank
-     * @return the parsed id, or {@code null} when no value was submitted
-     * @throws NumberFormatException if a non-blank value is not a valid integer, which is a
-     *         genuinely malformed request rather than an unfilled field
-     */
+    /** Parses the optional service id; consultant ids are validated separately before any write. */
     private static Integer parseOptionalId(String rawValue) {
         String trimmed = StringUtils.trimToNull(rawValue);
         return trimmed == null ? null : Integer.valueOf(trimmed);
+    }
+
+    private ConsultationConsultantSelection resolveConsultant(LoggedInInfo loggedInInfo, int demographicId,
+            Integer consultationRequestId, ProfessionalSpecialistDao specialists) {
+        boolean healthCareTeam = CarlosProperties.getInstance()
+                .getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true");
+        ConsultationConsultantSelection selection = ConsultationConsultantSelection.resolve(specialists,
+                healthCareTeam ? SpringUtils.getBean(DemographicContactDao.class) : null,
+                healthCareTeam ? SpringUtils.getBean(ContactDao.class) : null,
+                demographicId, getSpecialist(), healthCareTeam);
+        if (selection == null) {
+            request.setAttribute("demographicId", String.valueOf(demographicId));
+            if (consultationRequestId != null) request.setAttribute("reqId", String.valueOf(consultationRequestId));
+            request.setAttribute("validateError", Boolean.TRUE);
+            Map<String, Object> values = new HashMap<>();
+            org.springframework.beans.BeanWrapper submitted = new org.springframework.beans.BeanWrapperImpl(this);
+            for (String field : List.of("allergies", "appointmentDate", "appointmentHour", "appointmentMinute",
+                    "appointmentNotes", "appointmentPm", "clinicalInformation", "concurrentProblems",
+                    "currentMedications", "patientWillBook", "providerNo", "reasonForConsultation",
+                    "referalDate", "sendTo", "service", "status", "urgency", "siteName", "signatureImg",
+                    "followUpDate", "letterheadName", "letterheadAddress", "letterheadPhone", "letterheadFax",
+                    "appointmentInstructions", "docNo", "labNo", "formNo", "eFormNo", "hrmNo", "faxAccount")) {
+                values.put(field, submitted.getPropertyValue(field));
+            }
+            request.setAttribute("consultationSubmittedValues", values);
+            rejectInput("Please select an active consultant from the consultant directory before saving.");
+            request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
+        }
+        return selection;
     }
 
     private Integer parseUpdateInteger(String rawValue, String logMessage, String actionErrorMessage) {
@@ -497,6 +512,15 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     return INPUT;
                 }
 
+                ConsultationConsultantSelection consultant = resolveConsultant(loggedInInfo, demographicId,
+                        null, professionalSpecialistDao);
+                if (consultant == null) return INPUT;
+
+                // Before the signature and the consultation are written (issue #5272).
+                if (!postedDatesAreValid(format)) {
+                    return refuseInvalidDates();
+                }
+
                 if (newSignature) {
                     // Manual signature from tablet/signature pad. Capture intent up front: a null result
                     // is a genuine failure only when a signature was actually collected (a stamp-less
@@ -533,8 +557,8 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 ConsultationRequest consult = new ConsultationRequest();
                 String dateString = this.getReferalDate();
                 Date date = null;
-                if (dateString != null && !dateString.isEmpty()) {
-                    date = DateUtils.parseDate(dateString, format);
+                if (StringUtils.isNotBlank(dateString)) {
+                    date = DateUtils.parseDateStrictly(dateString, format);
                 }
                 consult.setReferralDate(date);
                 consult.setServiceId(parseOptionalId(this.getService()));
@@ -546,8 +570,8 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 consult.setLetterheadPhone(this.getLetterheadPhone());
                 consult.setLetterheadFax(this.getLetterheadFax());
 
-                if (this.getAppointmentDate() != null && !this.getAppointmentDate().equals("")) {
-                    date = DateUtils.parseDate(this.getAppointmentDate(), format);
+                if (StringUtils.isNotBlank(this.getAppointmentDate())) {
+                    date = DateUtils.parseDateStrictly(this.getAppointmentDate(), format);
                     consult.setAppointmentDate(date);
 
                     if (!StringUtils.isEmpty(appointmentHour) && !StringUtils.isEmpty(this.getAppointmentMinute())) {
@@ -582,60 +606,14 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 }
                 consult.setPatientWillBook(pWillBook);
 
-                if (this.getFollowUpDate() != null && !this.getFollowUpDate().equals("")) {
-                    date = DateUtils.parseDate(this.getFollowUpDate(), format);
+                if (StringUtils.isNotBlank(this.getFollowUpDate())) {
+                    date = DateUtils.parseDateStrictly(this.getFollowUpDate(), format);
                     consult.setFollowUpDate(date);
                 }
 
-                Integer specId = null;
-
-                if (!this.getSpecialist().isEmpty()) {
-                    specId = Integer.parseInt(this.getSpecialist());
-                }
-
-                // converting the newer Contacts Table and Health Care Team back and forth
-                // from the older professionalSpecialist module.
-                // This should persist and retrieve values to be backwards compatible.
-                if (CarlosProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) {
-
-                    // when this is enabled the demographicContactId is being posted as a specId variable.
-                    // Kept as an Integer: specId is null whenever the consultant field was left blank, and
-                    // unboxing it here threw NPE before the (null-tolerant) lookup below ever ran. The
-                    // update branch already passes the Integer through untouched.
-                    Integer demographicContactId = specId;
-
-                    // specId is reset to unknown.
-                    specId = 0;
-
-                    DemographicContact demographicContact = demographicManager.getHealthCareMemberbyId(loggedInInfo, demographicContactId);
-
-                    if (demographicContact != null) {
-
-                        consult.setDemographicContact(demographicContact);
-
-                        // If the demographicContact is holding the specId, then retrieve it for backwards
-                        // compatibility. For the most part only contacts in the professionalSpecialist table should get through the
-                        // filters.
-                        if (DemographicContact.TYPE_PROFESSIONALSPECIALIST == demographicContact.getType()) {
-                            specId = Integer.parseInt(demographicContact.getContactId());
-                        }
-                    }
-                }
-
-                // Look the specialist up only when there is an id to look up. specId is still null here
-                // whenever the consultant was left blank and the Health Care Team bridge above is off,
-                // which is the shipped carlos.properties default; entityManager.find(null) throws
-                // IllegalArgumentException rather than returning null, and that exception escaped into
-                // the Struts global Exception -> error mapping, so an unfilled consultant discarded the
-                // referral with nothing persisted and nothing logged. The bridge's 0 ("unknown") still
-                // resolves to null through the DAO, which is the "no specialist" outcome either way.
-                ProfessionalSpecialist professionalSpecialist =
-                        specId == null ? null : professionalSpecialistDao.find(specId);
-
-                if (professionalSpecialist != null) {
-                    request.setAttribute("professionalSpecialistName", professionalSpecialist.getFormattedTitle());
-                    consult.setProfessionalSpecialist(professionalSpecialist);
-                }
+                consult.setProfessionalSpecialist(consultant.specialist());
+                consult.setDemographicContact(consultant.contact());
+                request.setAttribute("professionalSpecialistName", consultant.displayName());
 
                 int consultationRequestId = saveConsultationWithAttachments(loggedInInfo, consult, true);
                 requestId = String.valueOf(consultationRequestId);
@@ -672,6 +650,15 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             if (!consultAttachmentsVerified(loggedInInfo, consultationRequestId, demographicId, getDocNo(),
                     getLabNo(), getFormNo(), geteFormNo(), getHrmNo())) {
                 return INPUT;
+            }
+
+            ConsultationConsultantSelection consultant = resolveConsultant(loggedInInfo, demographicId,
+                    consultationRequestId, professionalSpecialistDao);
+            if (consultant == null) return INPUT;
+
+            // Before the archive copy, the signature and the merge are written (issue #5272).
+            if (!postedDatesAreValid(format)) {
+                return refuseInvalidDates();
             }
 
             try {
@@ -727,7 +714,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 // By default, the referral date will not have a value on edit, so we need to make sure
                 // that the newly inputted date is parsed, or pulled from the previous date value
                 if (StringUtils.isNotBlank(this.getReferalDate())) {
-                    date = DateUtils.parseDate(this.getReferalDate(), format);
+                    date = DateUtils.parseDateStrictly(this.getReferalDate(), format);
                 } else {
                     date = consult.getReferralDate();
                 }
@@ -741,42 +728,12 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 consult.setLetterheadPhone(this.getLetterheadPhone());
                 consult.setLetterheadFax(this.getLetterheadFax());
 
-                Integer specId = null;
-                if (!this.getSpecialist().isEmpty()) {
-                    specId = Integer.valueOf(this.getSpecialist());
-                }
+                consult.setProfessionalSpecialist(consultant.specialist());
+                consult.setDemographicContact(consultant.contact());
+                request.setAttribute("professionalSpecialistName", consultant.displayName());
 
-                // converting the newer Contacts Table and Health Care Team back and forth
-                // from the older professionalSpecialist module.
-                // This should persist and retrieve values to be backwards compatible.
-                if (CarlosProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) {
-                    DemographicContact demographicContact = demographicManager.getHealthCareMemberbyId(loggedInInfo, specId);
-                    if (demographicContact != null) {
-                        consult.setDemographicContact(demographicContact);
-
-                        // add in the professional specialist to enable backwards compatibility.
-                        if (DemographicContact.TYPE_PROFESSIONALSPECIALIST == demographicContact.getType()) {
-                            specId = Integer.parseInt(demographicContact.getContactId());
-                        }
-                    }
-                }
-
-                // On an edit the consultant field is authoritative: blank, the bridge's 0 ("unknown"),
-                // or an id that no longer resolves all mean "no consultant", so the link is cleared
-                // rather than left pointing at whoever was there before. The previous placeholder, a
-                // bare new ProfessionalSpecialist() whenever specId was null, was attached to the
-                // consultation, and because the association cascades MERGE every such edit INSERTed
-                // an all-NULL professionalSpecialists row and re-pointed the request at it.
-                ProfessionalSpecialist professionalSpecialist =
-                        specId == null ? null : professionalSpecialistDao.find(specId);
-                if (professionalSpecialist != null) {
-                    request.setAttribute("professionalSpecialistName", professionalSpecialist.getFormattedTitle());
-                }
-                consult.setProfessionalSpecialist(professionalSpecialist);
-
-
-                if (this.getAppointmentDate() != null && !this.getAppointmentDate().equals("")) {
-                    date = DateUtils.parseDate(this.getAppointmentDate(), format);
+                if (StringUtils.isNotBlank(this.getAppointmentDate())) {
+                    date = DateUtils.parseDateStrictly(this.getAppointmentDate(), format);
                     consult.setAppointmentDate(date);
                     try {
                         date = DateUtils.setHours(date, Integer.valueOf(appointmentHour));
@@ -807,9 +764,14 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 }
                 consult.setPatientWillBook(pWillBook);
 
-                if (this.getFollowUpDate() != null && !this.getFollowUpDate().equals("")) {
-                    date = DateUtils.parseDate(this.getFollowUpDate(), format);
+                if (StringUtils.isNotBlank(this.getFollowUpDate())) {
+                    date = DateUtils.parseDateStrictly(this.getFollowUpDate(), format);
                     consult.setFollowUpDate(date);
+                } else if (request.getParameter("followUpDate") != null) {
+                    // The form posted Last Follow-up empty: the clinician cleared it. Keeping the
+                    // stored date here made the field impossible to clear (issue #5272). A client
+                    // that does not post the field at all still keeps the stored date.
+                    consult.setFollowUpDate(null);
                 }
                 saveConsultationWithAttachments(loggedInInfo, consult, false);
             } catch (ParseException | IllegalArgumentException e) {
@@ -929,6 +891,54 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             forward += "&signatureNotApplied=1";
         }
         response.sendRedirect(forward);
+        return NONE;
+    }
+
+    /**
+     * The years a MariaDB DATE column supports (1000-9999). A date input accepts a five-digit year,
+     * so a posted date outside them is refused rather than stored mangled or failing the save.
+     */
+    private static final int FIRST_STORABLE_YEAR = 1000;
+    private static final int LAST_STORABLE_YEAR = 9999;
+
+    /**
+     * Whether every date this submission posts is either blank or a real calendar date.
+     *
+     * <p>Parsing is strict: the lenient {@code DateUtils.parseDate} this action used turned an
+     * impossible date such as {@code 2026-02-30} into {@code 2026-03-02} and saved it as if the
+     * clinician had typed it (issue #5272). Callers run this before the archive copy, the
+     * signature and the consultation are written, so a refusal leaves nothing behind.</p>
+     *
+     * @param format the accepted patterns, as the save paths use them
+     * @return {@code false} when any posted referral, appointment or follow-up date is not a real date
+     */
+    boolean postedDatesAreValid(String[] format) {
+        for (String value : new String[]{getReferalDate(), getAppointmentDate(), getFollowUpDate()}) {
+            // Blank, whitespace included, is "no date", exactly as the save paths read it, so a value
+            // accepted here can never fail to parse after a side effect. Each save path decides
+            // whether no date keeps or clears the stored one.
+            if (StringUtils.isBlank(value)) {
+                continue;
+            }
+            try {
+                Calendar parsed = Calendar.getInstance();
+                parsed.setTime(DateUtils.parseDateStrictly(value, format));
+                int year = parsed.get(Calendar.YEAR);
+                if (year < FIRST_STORABLE_YEAR || year > LAST_STORABLE_YEAR) {
+                    return false;
+                }
+            } catch (ParseException e) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Answers an impossible posted date with 400, before anything is written. */
+    private String refuseInvalidDates() throws IOException {
+        logger.warn("Consultation save refused: a posted date is not a real calendar date");
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+                "A consultation date is not a real calendar date. Nothing was saved; go back and correct it.");
         return NONE;
     }
 
