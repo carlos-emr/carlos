@@ -19,6 +19,31 @@ class AuditLogPurgeServiceUnitTest {
     @TempDir Path temporary;
 
     @Test
+    void shouldLogSafePreparationFailure_withoutOpeningDatabaseOrCreatingBackups() throws Exception {
+        var source = org.mockito.Mockito.mock(javax.sql.DataSource.class);
+        var settings = new java.util.Properties();
+        settings.setProperty("log.purge.minDays", "FAKE-sensitive-retention");
+        var messages = new java.util.ArrayList<String>();
+        var logger = (org.apache.logging.log4j.core.Logger) org.apache.logging.log4j.LogManager.getLogger(AuditLogPurgeService.class);
+        var appender = new org.apache.logging.log4j.core.appender.AbstractAppender("audit-preparation-test", null,
+                org.apache.logging.log4j.core.layout.PatternLayout.createDefaultLayout(), false,
+                org.apache.logging.log4j.core.config.Property.EMPTY_ARRAY) {
+            @Override public void append(org.apache.logging.log4j.core.LogEvent event) {
+                messages.add(event.getMessage().getFormattedMessage());
+            }
+        };
+        appender.start(); logger.addAppender(appender);
+        try {
+            assertThatThrownBy(() -> new AuditLogPurgeService(source).purge(settings, new java.util.Date(), () -> {}))
+                    .isInstanceOf(java.io.IOException.class).hasMessageContaining("retention policy", "no rows were deleted");
+        } finally { logger.removeAppender(appender); appender.stop(); }
+        assertThat(messages).anyMatch(message -> message.contains("retention policy") && message.contains("no rows were deleted"))
+                .noneMatch(message -> message.contains("FAKE-sensitive-retention"));
+        org.mockito.Mockito.verifyNoInteractions(source);
+        try (var files = Files.list(temporary)) { assertThat(files).isEmpty(); }
+    }
+
+    @Test
     void shouldRefuseUnsafeRetention_whenDateOrSettingIsInvalid() {
         LocalDate today = LocalDate.of(2026, 11, 10);
         for (String setting : List.of("-1", "invalid", "2147483648")) {

@@ -10,7 +10,6 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.time.Duration;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
 import java.util.Properties;
@@ -31,13 +30,14 @@ class AuditLogPurgeMariaDbIntegrationTest {
     private final String database = "carlos_test_audit_" + UUID.randomUUID().toString().replace("-", "");
     private BasicDataSource source;
     private Properties settings;
-    private final Date through = Date.from(LocalDate.of(2000, 1, 1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+    private final Date through = java.sql.Date.valueOf(LocalDate.of(2000, 1, 1));
 
     @BeforeEach
     void createOwnedSchema() throws Exception {
         String server = System.getenv("CARLOS_TEST_MARIADB_URL");
         assertThat(server).matches("jdbc:mariadb://[^/@?#;\\s]+/");
-        source = new BasicDataSource();
+        source = new io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource();
+        source.setDriverClassName("org.mariadb.jdbc.Driver");
         source.setUrl(server + database + "?sslMode=disable");
         source.setUsername(System.getenv().getOrDefault("CARLOS_TEST_MARIADB_USER", "root"));
         source.setPassword(System.getenv().getOrDefault("CARLOS_TEST_MARIADB_PASSWORD", ""));
@@ -162,7 +162,8 @@ class AuditLogPurgeMariaDbIntegrationTest {
             }
             statement.execute("GRANT ALL ON " + database + ".* TO '" + user + "'@'%'");
         }
-        try (var application = new BasicDataSource()) {
+        try (var application = new io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource()) {
+            application.setDriverClassName("org.mariadb.jdbc.Driver");
             application.setUrl(source.getUrl()); application.setUsername(user); application.setPassword(password);
             assertThat(new AuditLogPurgeService(application).purge(settings, through, () -> {})).isEqualTo(2);
             assertThat(ids()).containsExactly(3L);

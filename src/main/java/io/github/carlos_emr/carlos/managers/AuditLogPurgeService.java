@@ -74,24 +74,37 @@ public class AuditLogPurgeService {
      * Failed attempts retain their private artifacts for diagnosis/recovery.
      */
     public int purge(Properties settings, java.util.Date through, Runnable recordAudit) throws Exception {
-        ZoneId zone = ZoneId.systemDefault();
-        LocalDate date = through == null ? null : through.toInstant().atZone(zone).toLocalDate();
-        validateRetention(settings.getProperty("log.purge.minDays", "3650"), date, LocalDate.now(zone));
-        // log.dateTime is a DATETIME wall clock, matching the form's calendar
-        // date. LocalDateTime avoids connection-zone conversion of Timestamp.
-        LocalDateTime cutoff = date.plusDays(1).atStartOfDay();
-        String executable = settings.getProperty("log.purge.mysqldump");
-        if (executable == null || executable.isBlank()) {
-            throw new IOException("No log.purge.mysqldump command is configured");
+        LocalDate date;
+        LocalDateTime cutoff;
+        String executable;
+        Path job;
+        Path options;
+        String preparation = "retention policy (log.purge.minDays)";
+        try {
+            ZoneId zone = ZoneId.systemDefault();
+            // java.sql.Date is a supported Date subtype but rejects toInstant().
+            date = through == null ? null : java.time.Instant.ofEpochMilli(through.getTime()).atZone(zone).toLocalDate();
+            validateRetention(settings.getProperty("log.purge.minDays", "3650"), date, LocalDate.now(zone));
+            // DATETIME is a wall clock; avoid connection-zone Timestamp conversion.
+            cutoff = date.plusDays(1).atStartOfDay();
+            preparation = "dump executable (log.purge.mysqldump)";
+            executable = settings.getProperty("log.purge.mysqldump");
+            if (executable == null || executable.isBlank()) throw new IOException("No dump command is configured");
+            executable = executable(executable);
+            preparation = "backup directory (log.purge.outputdir / DOCUMENT_DIR)";
+            String output = settings.getProperty("log.purge.outputdir", settings.getProperty("DOCUMENT_DIR"));
+            Path directory = PathValidationUtils.resolveConfiguredDirectory(output, "audit purge output directory").toPath();
+            if (!Files.isDirectory(directory)) throw new IOException("Audit purge output directory does not exist");
+            job = Files.createDirectory(directory.resolve("OSCAR_AUDIR_LOG_PURGE_" + UUID.randomUUID()),
+                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
+            force(directory);
+            options = privateFile(job, "connection.cnf");
+        } catch (Exception failure) {
+            // The form directs operators to the log. Preparation failures must
+            // leave an actionable entry too, without echoing configured values.
+            LOGGER.error("Audit purge refused during {}; no rows were deleted ({})", preparation, failure.getClass().getSimpleName());
+            throw new IOException("Audit purge could not prepare " + preparation + "; no rows were deleted. Consult the server log.");
         }
-        executable = executable(executable);
-        String output = settings.getProperty("log.purge.outputdir", settings.getProperty("DOCUMENT_DIR"));
-        Path directory = PathValidationUtils.resolveConfiguredDirectory(output, "audit purge output directory").toPath();
-        if (!Files.isDirectory(directory)) throw new IOException("Audit purge output directory does not exist");
-        Path job = Files.createDirectory(directory.resolve("OSCAR_AUDIR_LOG_PURGE_" + UUID.randomUUID()),
-                PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
-        force(directory); // Persist the new job directory before any cohort can be deleted.
-        Path options = privateFile(job, "connection.cnf");
         int removed = 0;
         try (Connection connection = source.getConnection()) {
             String catalog = connection.getCatalog();

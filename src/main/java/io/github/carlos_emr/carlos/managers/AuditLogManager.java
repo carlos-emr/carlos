@@ -53,6 +53,7 @@ public class AuditLogManager {
         }
         return SpringUtils.getBean(AuditLogPurgeService.class).purge(settings, endDateToPurge,
                 () -> LogAction.addLogStrict(loggedInInfo, "AuditLogManager.purgeAuditLog", null, null, null,
-                        endDateToPurge.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()));
+                        java.time.Instant.ofEpochMilli(endDateToPurge.getTime())
+                                .atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()));
     }
 }

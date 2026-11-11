@@ -4,7 +4,7 @@ The administrator's Audit Log Purge form requires `_admin.auditLogPurge` write
 permission and a CSRF-protected POST. Opening the form is read-only. Dates are
 strict `yyyy-MM-dd` calendar dates. Purge includes the entire selected day and
 preserves the following midnight. `log.purge.minDays` retains its default of
-3650 days; missing, negative or malformed retention settings refuse the operation.
+3650 days; missing/future dates and negative or malformed retention settings refuse the operation.
 
 `log.purge.mysqldump` selects an executable, without shell arguments. Set
 `log.purge.outputdir` to an existing private backup location; otherwise
@@ -35,7 +35,8 @@ deleting its cohort. The public manager method and general-purpose DAO purge
 signature remain available.
 
 If a run reports failure, some earlier cohorts may already have committed.
-The server log records the confirmed deletion count and retained backup path,
+Preparation failures name the setting stage and confirm that no rows were deleted.
+Later failures record the confirmed deletion count and retained backup path,
 without raw client/SQL errors or record values. The form reports failure even
 when an exception has no cause. Inspect the private SQL, manifest and stderr
 files before retrying; `.partial` files are not certified backups. Verify the

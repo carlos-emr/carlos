@@ -58,8 +58,8 @@ public final class PackagedConfigurationPreflight {
             // Only our own contextual message and the exception type are emitted.
             System.err.println("carlos-emr: configuration preflight refused ("
                     + failure.getClass().getSimpleName() + "): " + safe(failure.getMessage()));
-            System.err.println("carlos-emr: the application was not started. Restore the configuration/key "
-                    + "or run sudo dpkg-reconfigure carlos-emr; see docs/modern-chart-cutover.md.");
+            System.err.println("carlos-emr: the application was not started. Restore the original configuration/key "
+                    + "before retrying; see docs/modern-chart-cutover.md. Do not generate a replacement key for existing encrypted data.");
             System.exit(1);
         }
     }

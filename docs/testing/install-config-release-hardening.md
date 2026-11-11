@@ -26,19 +26,25 @@ commands and arguments are unchanged; compatibility tests use published 1.3.2.
 | #5743 | Freeze the final stamp before qualification; reuse the candidate; compare final Debian contents and every asset hash. | Byte-preserving stamp, frozen-build reuse, final package payload and changed-asset rejection tests. |
 | #5742 | Gate both publication paths on trusted exact-commit qualification, raw evidence and the latest required CI/job results. | Forged/stale/fork/failed/skipped/missing/duplicate evidence controls; workflow validation. |
 
-The focused Java run passed 283 cases with zero failures/skips, including seven
-real MariaDB purge cases. After preserving write-only public API compatibility,
-its four-case properties suite passed again. The clean JDK 25 build compiled all
+The final focused Java run passed 341 cases with zero failures/skips, including
+seven real MariaDB purge cases through the production tracking datasource and
+compatibility driver. It covers SQL Date callers, write-only properties files,
+and logged preparation failures without accessing the database. The clean JDK 25 build compiled all
 JSP translation units under the repository's jspc validation profile and built
 the WAR. The pinned DrugRef source also built successfully.
 
-The complete Node 22.22.2 regression run passed all 7,911 cases across 560 files,
+The complete Node 22.22.2 regression run passed all 7,913 cases across 560 files,
 with zero skipped/cancelled/todo cases. Only then was its reviewed case inventory
 regenerated. Packaging's Python 3.14 run passed all 258 cases with real restic;
 the CI helper suite passed all 416 cases with real XML validation. The encoder,
 BDD naming, SecurityException convention, SQL safety (116 cases), release-plan
 validation and actionlint checks passed. The installed preflight also passed
 inside the exact digest-pinned release JDK image with networking disabled.
+An actual ON package installation passed the published CLI health checks and
+first-login reset. Real systemd probes repaired a restored flag while holding
+the CLI lock, refused a missing key and an unwritable home override, preserved
+the original key, and kept nginx inactive through forced certificate renewal.
+Health checks passed again after restoring the test configuration/certificates.
 
 These are development and regression results, not a release qualification
 receipt. Native package installation results are recorded in the PR. The wider

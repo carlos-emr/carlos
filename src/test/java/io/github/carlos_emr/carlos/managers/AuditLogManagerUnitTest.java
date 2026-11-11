@@ -33,7 +33,7 @@ class AuditLogManagerUnitTest extends CarlosUnitTestBase {
         var service = mock(AuditLogPurgeService.class);
         registerMock(AuditLogPurgeService.class, service);
         var login = mock(LoggedInInfo.class);
-        Date through = new Date(946684800000L);
+        Date through = new java.sql.Date(946684800000L);
         when(service.purge(any(), eq(through), any())).thenAnswer(invocation -> {
             ((Runnable) invocation.getArgument(2)).run(); return 7;
         });
