@@ -232,6 +232,43 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
      * Issue #5128: Name Used is kept whole in the alias (70) and pref_name (30) holds only what
      * fits. A longer pref_name failed the whole save under a strict sql_mode.
      */
+    @ParameterizedTest
+    @CsvSource({"alert,Alert,A", "nurse,Nurse,A", "resident,Resident,A", "midwife,Midwife,A",
+            "alert,Alert,😀", "midwife,Midwife,😀"})
+    void shouldRejectOverlongCustomFields_beforeAnyWrite(String field, String label, String character) throws Exception {
+        // Issue #5869: these VARCHAR(255) fields were cut silently under an empty sql_mode.
+        allowPrivilege("_demographic", "w");
+        replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
+        mockRequest.setMethod("POST");
+        addRequestParameter("demographic_no", "123");
+        addRequestParameter(field, character.repeat(256));
+        when(mockDemographicDao.getDemographic("123")).thenReturn(new Demographic(123));
+
+        assertThat(executeAction(action)).isEqualTo("validationError");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(mockRequest.getAttribute("fieldLengthValidationErrors"))
+                .isEqualTo(List.of(label + " exceeds maximum length of 255 characters."));
+        verify(mockDemographicDao, never()).save(any(Demographic.class));
+    }
+
+    @Test
+    @DisplayName("should accept a 255-character alert and report only the field that is too long")
+    void shouldAcceptFullLengthAlert_whenAnotherFieldIsTooLong() throws Exception {
+        allowPrivilege("_demographic", "w");
+        replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
+        mockRequest.setMethod("POST");
+        addRequestParameter("demographic_no", "123");
+        addRequestParameter("alert", "😀".repeat(255));
+        // An over-long province stops the save at validation, before any write.
+        addRequestParameter("province", "X".repeat(Demographic.PROVINCE_MAX_LENGTH + 1));
+        when(mockDemographicDao.getDemographic("123")).thenReturn(new Demographic(123));
+
+        assertThat(executeAction(action)).isEqualTo("validationError");
+        assertThat(mockRequest.getAttribute("fieldLengthValidationErrors"))
+                .isEqualTo(List.of("Province exceeds maximum length of 20 characters."));
+        verify(mockDemographicDao, never()).save(any(Demographic.class));
+    }
+
     @Nested
     @DisplayName("Name Used on save")
     class NameUsed {
@@ -389,6 +426,48 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
 
             assertThat(result).isEqualTo("validationError");
             verifyNoInteractions(mockWaitingListAvailability);
+        }
+
+        @Test
+        @DisplayName("should refuse a waiting-list note over 255 characters before any write")
+        void shouldRejectOverlongWaitingListNote_whenAListIsChosen() throws Exception {
+            addRequestParameter("list_id", "12");
+            addRequestParameter("waiting_list_note", "😀".repeat(256));
+            when(mockWaitingListAvailability.isSelectable(providerPreference, 12)).thenReturn(true);
+
+            String result = executeAction(action);
+
+            // Issue #5869: the note was cut to 255 characters while the save reported success.
+            assertThat(result).isEqualTo("validationError");
+            assertThat(mockResponse.getStatus()).isEqualTo(400);
+            assertThat(mockRequest.getAttribute("fieldLengthValidationErrors"))
+                    .isEqualTo(List.of("Waiting list note exceeds maximum length of 255 characters."));
+            verify(mockDemographicDao, never()).save(any(Demographic.class));
+        }
+
+        @Test
+        @DisplayName("should accept a 255-character waiting-list note when a list is chosen")
+        void shouldAcceptFullLengthWaitingListNote_whenAListIsChosen() throws Exception {
+            addRequestParameter("list_id", "12");
+            addRequestParameter("waiting_list_note", "😀".repeat(255));
+            addRequestParameter("province", "X".repeat(Demographic.PROVINCE_MAX_LENGTH + 1));
+            when(mockWaitingListAvailability.isSelectable(providerPreference, 12)).thenReturn(true);
+
+            assertThat(executeAction(action)).isEqualTo("validationError");
+            assertThat(mockRequest.getAttribute("fieldLengthValidationErrors"))
+                    .isEqualTo(List.of("Province exceeds maximum length of 20 characters."));
+        }
+
+        @Test
+        @DisplayName("should not check the waiting-list note when no list is chosen, as it is not saved")
+        void shouldIgnoreWaitingListNoteLength_whenNoListIsChosen() throws Exception {
+            addRequestParameter("list_id", "0");
+            addRequestParameter("waiting_list_note", "A".repeat(256));
+            addRequestParameter("province", "X".repeat(Demographic.PROVINCE_MAX_LENGTH + 1));
+
+            assertThat(executeAction(action)).isEqualTo("validationError");
+            assertThat(mockRequest.getAttribute("fieldLengthValidationErrors"))
+                    .isEqualTo(List.of("Province exceeds maximum length of 20 characters."));
         }
 
         @Test

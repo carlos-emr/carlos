@@ -189,7 +189,14 @@ public class DemographicUpdate2Action extends ActionSupport {
 
         applyForm(demographic, proNo);
 
-        List<String> fieldLengthValidationErrors = demographic.validateFieldLengths();
+        List<String> fieldLengthValidationErrors = new ArrayList<>(demographic.validateFieldLengths());
+        // The custom fields (alert, nurse, resident, midwife) and the waiting-list note are written
+        // after the patient row, so they are checked here too, before anything is saved (#5869).
+        fieldLengthValidationErrors.addAll(postedCust(demographicNo).validateFieldLengths());
+        if (waitingListChosen) {
+            fieldLengthValidationErrors.addAll(
+                    WaitingList.validateNoteLength(request.getParameter("waiting_list_note")));
+        }
         if (!fieldLengthValidationErrors.isEmpty()) {
             logger.warn("DemographicUpdate2Action: rejected demographic input due to field length limits: {}",
                     LogSafe.sanitize(String.join("; ", fieldLengthValidationErrors)));

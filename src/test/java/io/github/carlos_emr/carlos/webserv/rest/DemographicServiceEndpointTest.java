@@ -241,6 +241,57 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             assertThat(saved.getValue().getPronoun()).isEqualTo(exact);
             assertThat(saved.getValue().getGender()).isEqualTo(exact);
         }
+
+        @ParameterizedTest
+        @CsvSource({"alert,Alert,A", "nurse,Nurse,A", "resident,Resident,A", "midwife,Midwife,A",
+                "alert,Alert,😀", "waitingListNote,Waiting list note,A", "waitingListNote,Waiting list note,😀"})
+        void shouldRejectOverlongCustomFieldsAndNote_beforeAnyWrite(String field, String label, String character) {
+            // Issue #5869: these VARCHAR(255) fields were cut silently under an empty sql_mode.
+            DemographicTo1 data = payload("PUT");
+            String invalid = character.repeat(256);
+            switch (field) {
+                case "alert" -> data.setAlert(invalid);
+                case "nurse" -> data.setNurse(invalid);
+                case "resident" -> data.setResident(invalid);
+                case "midwife" -> data.setMidwife(invalid);
+                default -> data.setWaitingListNote(invalid);
+            }
+            data.setWaitingListID(7);
+
+            try (Response response = request().path("/demographics").invoke("PUT", data)) {
+                assertThat(response.getStatus()).isEqualTo(400);
+                assertThat(response.readEntity(String.class))
+                        .isEqualTo(label + " exceeds maximum length of 255 characters.");
+            }
+            verifyNoInteractions(mockDemographicManager, mockWaitingListDao, updateRecords);
+        }
+
+        @ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"A", "😀"})
+        void shouldKeepCustomFieldsAndNoteWhole_whenTheyAreAtTheLimit(String character) {
+            registerMock(WaitingListDao.class, mockWaitingListDao);
+            DemographicTo1 data = payload("PUT");
+            String exact = character.repeat(255);
+            data.setAlert(exact);
+            data.setNurse(exact);
+            data.setResident(exact);
+            data.setMidwife(exact);
+            data.setWaitingListID(7);
+            data.setWaitingListNote(exact);
+
+            try (Response response = request().path("/demographics").invoke("PUT", data)) {
+                assertThat(response.getStatus()).isEqualTo(200);
+            }
+            ArgumentCaptor<io.github.carlos_emr.carlos.commn.model.DemographicCust> cust =
+                    ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.DemographicCust.class);
+            verify(mockDemographicManager).createUpdateDemographicCust(any(LoggedInInfo.class), cust.capture());
+            assertThat(cust.getValue().getAlert()).isEqualTo(exact);
+            assertThat(cust.getValue().getNurse()).isEqualTo(exact);
+            assertThat(cust.getValue().getResident()).isEqualTo(exact);
+            assertThat(cust.getValue().getMidwife()).isEqualTo(exact);
+            // The note reached the waiting-list write (the patient is not on list 7, so nothing is added).
+            verify(mockWaitingListDao).findByWaitingListIdAndDemographicId(7, 42);
+        }
     }
 
     @ParameterizedTest
