@@ -335,6 +335,26 @@ class RptDownloadCSVServletTest {
         assertThat(response.getContentAsString()).isEmpty();
     }
 
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"row limit", "deadline"})
+    void shouldAnswer413WithWhatToDo_whenTheReportIsRefusedByItsLimit(String refusal) throws Exception {
+        // #5850: a row, size or time refusal used to become a 500 "Unable to generate report".
+        java.sql.SQLException thrown = "row limit".equals(refusal)
+                ? new ConfiguredReportQuery.LimitExceededException("Report row budget exceeded; narrow the report filters")
+                : new java.sql.SQLTimeoutException("Report query deadline exceeded");
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(
+                        org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(Object[].class)))
+                .thenThrow(thrown);
+        var request = baseRequest(); request.getSession(true);
+        request.setParameter("demoReport", "true"); request.setParameter("last_name", "on");
+        addFilter(request, 1, "demographic.demographic_no=42", "unused", "");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        new RptDownloadCSVServlet().service(request, response);
+        assertThat(response.getStatus()).isEqualTo(413);
+        assertThat(response.getErrorMessage()).isEqualTo(RptDownloadCSVServlet.LIMIT_REFUSAL_MESSAGE);
+        assertThat(response.getContentAsString()).isEmpty();
+    }
+
     @Test
     void shouldKeepEachDownloadFilename_whenRequestsOverlap() throws Exception {
         RptDownloadCSVServlet servlet = new RptDownloadCSVServlet();

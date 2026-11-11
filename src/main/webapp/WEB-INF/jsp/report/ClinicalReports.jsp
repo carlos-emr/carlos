@@ -617,6 +617,11 @@
 
                 </div>
 
+                <%-- A row, size or time refusal is the user's to fix by narrowing the filters (#5850). --%>
+                <% if (Boolean.TRUE.equals(request.getAttribute("reportLimitRefused"))) { %>
+                <p class="report-limit-refused" role="alert"><fmt:message key="report.limitRefused"/></p>
+                <% } %>
+
                 <% if (request.getAttribute("denominator") != null) {%>
                 <div>
                     <H3><fmt:message key="report.ClinicalReports.msgResults"/></H3>

@@ -51,6 +51,7 @@ import io.github.carlos_emr.carlos.report.ClinicalReports.ClinicalReportManager;
 import io.github.carlos_emr.carlos.report.ClinicalReports.Denominator;
 import io.github.carlos_emr.carlos.report.ClinicalReports.Numerator;
 import io.github.carlos_emr.carlos.report.ClinicalReports.ReportEvaluator;
+import io.github.carlos_emr.carlos.report.data.ReportLimitRefusal;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -200,7 +201,25 @@ public class RunClinicalReport2Action extends ActionSupport {
 
 
         ReportEvaluator re = new ReportEvaluator();
-        re.evaluate(LoggedInInfo.getLoggedInInfoFromSession(request), d, n, numerators, extraVal, inclNonPositiveResults);
+        try {
+            re.evaluate(LoggedInInfo.getLoggedInInfoFromSession(request), d, n, numerators, extraVal, inclNonPositiveResults);
+        } catch (RuntimeException e) {
+            // SQLDenominator and SQLNumerator wrap a row, size or time refusal in an
+            // IllegalStateException. Show it on the report page, with the chosen report still
+            // selected, instead of the error page (#5850); any other failure still goes there.
+            if (!ReportLimitRefusal.isRefusal(e)) {
+                throw e;
+            }
+            MiscUtils.getLogger().warn("Clinical report refused by its row, size or time limit");
+            request.setAttribute("reportLimitRefused", Boolean.TRUE);
+            request.setAttribute("numeratorId", numeratorId);
+            for (int x = 0; x < 11; x++) {
+                request.setAttribute("numerator" + x + "Id", numeratorIds[x]);
+            }
+            request.setAttribute("denominatorId", denominatorId);
+            request.setAttribute("includeNonPositiveResults", inclNonPositiveResults);
+            return SUCCESS;
+        }
 
         int num = re.getNumeratorCount();
         int denom = re.getDenominatorCount();
