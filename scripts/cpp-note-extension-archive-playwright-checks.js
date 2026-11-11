@@ -766,7 +766,8 @@ async function main() {
         const before = readCppWriteSnapshot(sql, fixture.demographicNo);
         const badBefore = recorder.badResponses.length;
         const consoleBefore = recorder.consoleIssues.length;
-        const expectedAlert = await chartPage.evaluate(() => savingNoteError + ' 500');
+        // A failed CPP save names the CPP editor's own error (#6103), not the note's.
+        const expectedAlert = await chartPage.evaluate(() => cppSaveError + ' 500');
         const failedAction = await chartPage.locator('#frmIssueNotes').evaluate(form => form.action);
         let failed;
         const dialogs = await withExpectedDialogs(chartPage, async () => {
