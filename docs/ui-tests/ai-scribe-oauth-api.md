@@ -12,7 +12,9 @@ together.
   signed token-identity request.
 - Scoped demographic list/detail/basic/summary reads, both search forms,
   create/update/delete, and database-backed read-after-write.
-- Scoped measurement read using an owned synthetic BP measurement.
+- Scoped measurement read and new-measurement write using an owned synthetic BP
+  measurement. Each new reading is saved separately; existing measurements
+  remain unchanged.
 - eForm template listing, create, load, update, and persisted read-after-write.
 - HL7 lab message listing and malformed-upload rejection. A valid synthetic
   PATHL7 ORU upload and patient-specific read-after-upload are also tested when
@@ -23,19 +25,18 @@ together.
   the endpoint used to find the patient's existing appointments.
 - `insufficient_scope` refusals for demographic and eForm operations when the
   token lacks the corresponding scope.
-- The current REST measurement-write gap: a suitably scoped `PUT` is expected
-  to return HTTP 405.
 
 The eForm endpoints manage templates, not completed patient eForm instances.
-Measurement REST currently supports reads only; adding measurements is a
-separate SOAP/WS-Security API. Both limited-scope and fully scoped REST
-measurement `PUT` probes return HTTP 405 because the route does not exist; the
-limited-scope probe therefore does not demonstrate `measurement.write` scope
-enforcement. Provider availability is also not routed (the implementation is
-commented out), and is reported as a capability gap. When the document-store
-environment variable is omitted, the check still verifies rejection of a
-malformed upload but marks successful HL7 import as unverified rather than
-leaving a stored lab file behind.
+New patient measurements use `POST /ws/services/measurements/{demographicNo}/new`
+with a measurement `type` and `dataField`, plus optional comments, instructions,
+and observation timestamp. This records a separate reading and does not edit a
+previous measurement, preserving CARLOS EMR's measurement immutability and audit
+history.
+Provider availability is not routed (the implementation is commented out),
+and is reported as a capability gap. When the document-store environment
+variable is omitted, the check still verifies rejection of a malformed upload
+but marks successful HL7 import as unverified rather than leaving a stored lab
+file behind.
 
 ## Prerequisites and execution
 
@@ -62,6 +63,29 @@ From the repository root, run:
 EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
 ```
 
+For focused runs, set `AI_SCRIBE_API_ONLY` to one of:
+
+```sh
+AI_SCRIBE_API_ONLY=demographics EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
+AI_SCRIBE_API_ONLY=measurements EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
+AI_SCRIBE_API_ONLY=measurements.read EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
+AI_SCRIBE_API_ONLY=measurements.write EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
+AI_SCRIBE_API_ONLY=labs EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
+AI_SCRIBE_API_ONLY=rxlookup EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
+AI_SCRIBE_API_ONLY=rx EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
+AI_SCRIBE_API_ONLY=schedule EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
+AI_SCRIBE_API_ONLY=eforms EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
+```
+
+`all` or an unset selector runs the full check. `measurements` runs both the
+read and new-measurement write checks. The `.read` and `.write` selectors run only
+that operation group; the write group also verifies that a token without
+`measurement.write` is refused and reads the saved result back to verify
+persistence. Every focused run still performs OAuth and creates the synthetic
+patient and measurement fixture used by the API workflows, then skips the
+other endpoint groups. Cleanup removes the temporary patient and its clinical
+rows.
+
 `EXPECT_OAUTH_MODE` is an assertion, not a server configuration mechanism.
 The script refuses a non-scoped expectation, and the OAuth consent page must
 not show a legacy-mode warning. A run prints an endpoint-by-endpoint table after
@@ -86,8 +110,6 @@ against a shared or production database.
 
 ## API capability follow-up
 
-If AI-Scribe requires writing measurements through OAuth REST, CARLOS needs a
-REST operation and matching `measurement.write` scope/privilege implementation;
-the live check currently proves that the route is not available. If AI-Scribe
-needs completed eForm instances rather than reusable templates, that workflow
-also needs a distinct API contract and test coverage.
+Measurement creation saves a new row and preserves previous readings. If
+AI-Scribe needs completed eForm instances rather than reusable
+templates, that workflow needs a distinct API contract and test coverage.

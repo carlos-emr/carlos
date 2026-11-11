@@ -43,6 +43,7 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -53,6 +54,7 @@ import java.util.List;
  * <p>The service follows REST conventions and provides JSON-based endpoints for:</p>
  * <ul>
  *   <li><strong>Data retrieval</strong>: Getting measurements by type, patient, and date ranges</li>
+ *   <li><strong>Data recording</strong>: Adding a new measurement without changing existing clinical history</li>
  *   <li><strong>Security enforcement</strong>: Session/OAuth authentication and patient-scoped authorization</li>
  *   <li><strong>Data transformation</strong>: Converting internal models to API-friendly formats</li>
  *   <li><strong>Type filtering</strong>: Selective measurement retrieval by clinical type</li>
@@ -62,13 +64,14 @@ import java.util.List;
  * <ul>
  *   <li>All endpoints require an authenticated UI session or OAuth 1.0a authentication</li>
  *   <li>Users must have "_measurement" read privileges</li>
+ *   <li>New measurements require "_measurement" write privileges and patient-record access</li>
  *   <li>Patient demographic access is validated per request</li>
  *   <li>Audit logging tracks all API access</li>
  * </ul>
  * 
  * <p>Data formats:</p>
  * <ul>
- *   <li>Input: JSON with measurement type arrays</li>
+ *   <li>Input: JSON with measurement type arrays for reads, or measurement data for writes</li>
  *   <li>Output: {@link MeasurementResponse} objects with measurement collections</li>
  *   <li>All responses include metadata and status information</li>
  * </ul>
@@ -169,5 +172,84 @@ public class MeasurementService extends AbstractServiceImpl {
         List<Measurement> measurements = measurementManager.getMeasurementByType(loggedInInfo, demoId, new ArrayList<String>(Arrays.asList(types)));
         response.addMeasurements(measurements);
         return response;
+    }
+
+    /**
+     * Records a new measurement for a patient without changing any existing measurement.
+     *
+     * @param json measurement fields: required {@code type} and {@code dataField}, and optional
+     *             {@code comments}, {@code measuringInstruction}, and epoch-millisecond
+     *             {@code dateObserved}
+     * @param demoId patient identifier
+     * @return the newly recorded measurement
+     * @throws BadRequestException if identifiers or measurement fields are invalid
+     * @throws ForbiddenException if the caller lacks measurement write or patient access
+     */
+    @POST
+    @Path("/{demographicNo}/new")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Measurement addMeasurement(ObjectNode json, @PathParam("demographicNo") Integer demoId) {
+        if (demoId == null || demoId <= 0) {
+            throw new BadRequestException("Invalid demographic identifier");
+        }
+        if (json == null || !json.isObject()) {
+            throw new BadRequestException("Measurement data is required");
+        }
+        for (var field = json.fieldNames(); field.hasNext();) {
+            String name = field.next();
+            if (!List.of("type", "dataField", "comments", "measuringInstruction", "dateObserved").contains(name)) {
+                throw new BadRequestException("Unsupported measurement field");
+            }
+        }
+        if (!json.has("type") || !json.get("type").isTextual()
+                || json.get("type").textValue().isBlank() || json.get("type").textValue().length() > 50) {
+            throw new BadRequestException("A valid measurement type is required");
+        }
+        if (!json.has("dataField") || !json.get("dataField").isTextual()
+                || json.get("dataField").textValue().isBlank()
+                || json.get("dataField").textValue().length() > Measurement.DATA_FIELD_MAX_LENGTH) {
+            throw new BadRequestException("A valid measurement dataField is required");
+        }
+        String comments = optionalText(json, "comments", 255);
+        String instruction = optionalText(json, "measuringInstruction", 255);
+        if (json.has("dateObserved") && (!json.get("dateObserved").isIntegralNumber()
+                || !json.get("dateObserved").canConvertToLong())) {
+            throw new BadRequestException("dateObserved must be epoch milliseconds");
+        }
+
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "w", demoId.toString())
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demoId)) {
+            throw new ForbiddenException("Access Denied: measurement or patient-record access is restricted");
+        }
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+        if (providerNo == null || providerNo.isBlank()) {
+            throw new ForbiddenException("A provider identity is required to record a measurement");
+        }
+
+        projections.requireRestSupported(demoId, java.util.Set.of("CareElements"));
+
+        Measurement measurement = new Measurement();
+        measurement.setType(json.get("type").textValue());
+        measurement.setDemographicId(demoId);
+        measurement.setProviderNo(providerNo);
+        measurement.setDataField(json.get("dataField").textValue());
+        measurement.setComments(comments == null ? "" : comments);
+        measurement.setMeasuringInstruction(instruction == null ? "" : instruction);
+        if (json.has("dateObserved")) {
+            measurement.setDateObserved(new Date(json.get("dateObserved").longValue()));
+        }
+        return measurementManager.addMeasurement(loggedInInfo, measurement);
+    }
+
+    private String optionalText(ObjectNode json, String field, int maxLength) {
+        if (!json.has(field)) {
+            return null;
+        }
+        if (!json.get(field).isTextual() || json.get(field).textValue().length() > maxLength) {
+            throw new BadRequestException("Invalid measurement " + field);
+        }
+        return json.get(field).textValue();
     }
 }

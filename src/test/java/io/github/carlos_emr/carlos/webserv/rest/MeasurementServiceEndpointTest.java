@@ -23,10 +23,11 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import java.util.Calendar;
 import java.util.Collections;
@@ -236,6 +237,117 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
 
             assertThat(response.getStatus()).isEqualTo(400);
             verifyNoInteractions(mockSecurityInfoManager, mockMeasurementManager);
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /measurements/{demographicNo}/new")
+    class AddMeasurement {
+
+        private void allowMeasurementWrite() {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("w"), eq("123")))
+                .thenReturn(true);
+            when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(123)))
+                .thenReturn(true);
+            when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("123456");
+        }
+
+        @Test
+        @DisplayName("should record a new measurement for an authorized patient")
+        void shouldRecordMeasurement_whenAuthorizedForPatient() {
+            allowMeasurementWrite();
+            when(mockMeasurementManager.addMeasurement(any(LoggedInInfo.class), any(Measurement.class)))
+                .thenAnswer(invocation -> invocation.getArgument(1));
+
+            Response response = request().path("/measurements/123/new")
+                .post(Entity.json("{\"type\":\"BP\",\"dataField\":\"122/80\",\"comments\":\"New reading\","
+                    + "\"measuringInstruction\":\"Standing\",\"dateObserved\":1770000000000}"));
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            var wireJson = responseJson(response);
+            assertThat(wireJson.at("/type").textValue()).isEqualTo("BP");
+            assertThat(wireJson.at("/demographicId").intValue()).isEqualTo(123);
+            assertThat(wireJson.at("/providerNo").textValue()).isEqualTo("123456");
+            assertThat(wireJson.at("/dataField").textValue()).isEqualTo("122/80");
+            assertThat(wireJson.at("/comments").textValue()).isEqualTo("New reading");
+            assertThat(wireJson.at("/measuringInstruction").textValue()).isEqualTo("Standing");
+            assertThat(wireJson.at("/dateObserved").longValue()).isEqualTo(1770000000000L);
+            verify(mockMeasurementManager).addMeasurement(any(LoggedInInfo.class), argThat(measurement ->
+                measurement.getDemographicId().equals(123)
+                    && measurement.getType().equals("BP")
+                    && measurement.getDataField().equals("122/80")
+                    && measurement.getProviderNo().equals("123456")
+                    && measurement.getComments().equals("New reading")
+                    && measurement.getMeasuringInstruction().equals("Standing")));
+        }
+
+        @Test
+        @DisplayName("should reject a new measurement without a type")
+        void shouldReturn400_whenTypeIsMissing() {
+            Response response = request().path("/measurements/123/new")
+                .post(Entity.json("{\"dataField\":\"122/80\"}"));
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockSecurityInfoManager, mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should reject a new measurement without a value")
+        void shouldReturn400_whenDataFieldIsMissing() {
+            Response response = request().path("/measurements/123/new")
+                .post(Entity.json("{\"type\":\"BP\"}"));
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockSecurityInfoManager, mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should reject timestamps outside the epoch-millisecond range")
+        void shouldReturn400_whenObservedTimestampExceedsLongRange() {
+            Response response = request().path("/measurements/123/new")
+                .post(Entity.json("{\"type\":\"BP\",\"dataField\":\"122/80\","
+                    + "\"dateObserved\":9223372036854775808}"));
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockSecurityInfoManager, mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should refuse writes without patient-scoped measurement privilege")
+        void shouldReturn403_whenWritePrivilegeIsMissing() {
+            Response response = request().path("/measurements/123/new")
+                .post(Entity.json("{\"type\":\"BP\",\"dataField\":\"122/80\"}"));
+
+            assertThat(response.getStatus()).isEqualTo(403);
+            verify(mockSecurityInfoManager)
+                .hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("w"), eq("123"));
+            verifyNoInteractions(mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should refuse new measurements when patient record access is blocked")
+        void shouldReturn403_whenPatientRecordAccessIsDenied() {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("w"), eq("123")))
+                .thenReturn(true);
+
+            Response response = request().path("/measurements/123/new")
+                .post(Entity.json("{\"type\":\"BP\",\"dataField\":\"122/80\"}"));
+
+            assertThat(response.getStatus()).isEqualTo(403);
+            verify(mockSecurityInfoManager).isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(123));
+            verifyNoInteractions(mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should not accept caller-controlled measurement identity fields")
+        void shouldReturn400_whenRequestAttemptsToChangeOwnership() {
+            allowMeasurementWrite();
+
+            Response response = request().path("/measurements/123/new")
+                .post(Entity.json("{\"type\":\"BP\",\"dataField\":\"122/80\",\"demographicId\":789}"));
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockMeasurementManager);
         }
     }
 }

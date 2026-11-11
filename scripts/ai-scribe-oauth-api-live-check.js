@@ -22,9 +22,8 @@
  * credentials. Cleanup removes only rows keyed by the unique run markers,
  * including when a request fails part-way through.
  *
- * REST currently reads measurements but has no REST write route. The scoped
- * PUT probe below requires measurement.write and asserts that CXF rejects the
- * unsupported method; SOAP MeasurementService is a separate WS-Security API.
+ * Measurement rows are immutable. The REST write operation records a separate
+ * new measurement for the patient and leaves previous readings unchanged.
  * The eForm REST API manages templates, not completed patient eForm instances.
  */
 const crypto = require('node:crypto');
@@ -37,12 +36,21 @@ const {
 const { oauthHeader, pct } = require('./oauth-rest-surfaces-playwright-checks');
 
 const EXPECT_OAUTH_MODE = process.env.EXPECT_OAUTH_MODE || 'scoped';
+const API_ONLY = process.env.AI_SCRIBE_API_ONLY?.trim().toLowerCase() || '';
+const API_TEST_GROUPS = new Set([
+  'demographics', 'measurements', 'measurements.read', 'measurements.write',
+  'labs', 'rxlookup', 'rx', 'schedule', 'eforms',
+]);
 const REQUIRED_SCOPES = [
   'demographic.read', 'demographic.write', 'measurement.read', 'measurement.write',
   'eform.read', 'eform.write', 'lab.read', 'lab.write',
   'rx.read', 'rx.write', 'schedule.read', 'schedule.write',
 ].join(' ');
 const LIMITED_SCOPES = 'demographic.read measurement.read';
+
+function shouldRun(group) {
+  return !API_ONLY || API_ONLY === 'all' || API_ONLY === group;
+}
 
 function formFields(body) {
   return Object.fromEntries(new URLSearchParams(body.trim()));
@@ -241,6 +249,9 @@ async function cleanup(state) {
 async function main(state = {}) {
   assert(EXPECT_OAUTH_MODE === 'scoped',
     'AI-Scribe API acceptance requires EXPECT_OAUTH_MODE=scoped on a separate disposable installation');
+  assert(!API_ONLY || API_ONLY === 'all' || API_TEST_GROUPS.has(API_ONLY),
+    `Unsupported AI_SCRIBE_API_ONLY=${API_ONLY}; use all, demographics, measurements, `
+      + 'measurements.read, measurements.write, labs, rxlookup, rx, schedule, or eforms');
   const config = readConfig();
   const sql = createSqlRunner(config.mysql);
   state.sql = sql;
@@ -413,7 +424,7 @@ async function main(state = {}) {
     'Demographic create did not return the uniquely owned synthetic record');
   state.patientNo = patientNo;
   recordEndpoint('POST', '/ws/services/demographics/', createDemographicResponse,
-    'synthetic patient created through the REST API');
+    'temporary patient created as selected-workflow setup');
 
   const measurementComment = `AI-Scribe OAuth measurement ${runMarker}`;
   sql.execute(`INSERT INTO measurements
@@ -423,6 +434,8 @@ async function main(state = {}) {
     WHERE demographicNo=${patientNo} AND type='BP' AND comments=${sqlString(measurementComment)}`);
   sqlId(measurementId, 'AI-Scribe measurement fixture id');
 
+  const demographicPath = `/ws/services/demographics/${patientNo}`;
+  if (shouldRun('demographics')) {
   const allDemographicsResponse = await signedRequest(
     'GET', '/ws/services/demographics/?offset=0&limit=2', fullToken,
   );
@@ -448,7 +461,6 @@ async function main(state = {}) {
   recordEndpoint('GET', '/ws/services/demographics/', patientPageResponse,
     'synthetic patient returned at the matching pagination offset');
 
-  const demographicPath = `/ws/services/demographics/${patientNo}`;
   const demographicResponse = await signedRequest('GET', demographicPath, fullToken);
   await expectStatus(demographicResponse, 200, 'OAuth demographic fetch');
   const demographic = await demographicResponse.json();
@@ -523,19 +535,83 @@ async function main(state = {}) {
     'OAuth demographic update with a token lacking demographic.write');
   recordEndpoint('PUT', '/ws/services/demographics/', limitedDemographicUpdate,
     'missing demographic.write refused with insufficient_scope');
+  }
 
-  const measurementsResponse = await signedRequest('POST', `/ws/services/measurements/${patientNo}`, fullToken, {
-    types: ['BP'],
-  });
-  await expectStatus(measurementsResponse, 200, 'OAuth measurement fetch');
-  const measurements = await measurementsResponse.json();
-  const bpRows = measurements.measurements && measurements.measurements.BP;
-  assert(Array.isArray(bpRows) && bpRows.some((row) =>
-    row.dataField === '121/79' && row.comments === measurementComment),
-  'OAuth measurement fetch did not return the owned BP fixture');
-  recordEndpoint('POST', '/ws/services/measurements/{demographicNo}', measurementsResponse,
-    'owned BP measurement returned');
+  if (shouldRun('measurements') || shouldRun('measurements.read')) {
+    const measurementsResponse = await signedRequest('POST', `/ws/services/measurements/${patientNo}`, fullToken, {
+      types: ['BP'],
+    });
+    await expectStatus(measurementsResponse, 200, 'OAuth measurement fetch');
+    const measurements = await measurementsResponse.json();
+    const bpRows = measurements.measurements && measurements.measurements.BP;
+    assert(Array.isArray(bpRows) && bpRows.some((row) =>
+      row.dataField === '121/79' && row.comments === measurementComment),
+    'OAuth measurement fetch did not return the owned BP fixture');
+    recordEndpoint('POST', '/ws/services/measurements/{demographicNo}', measurementsResponse,
+      'owned BP measurement returned');
+  }
 
+  if (shouldRun('measurements') || shouldRun('measurements.write')) {
+    const newMeasurementComment = `AI-Scribe OAuth new measurement ${runMarker}`;
+    const newMeasurementPayload = {
+      type: 'BP',
+      dataField: '122/80',
+      comments: newMeasurementComment,
+      measuringInstruction: 'Standing',
+      dateObserved: Date.now(),
+    };
+    const limitedMeasurementCreate = await signedRequest(
+      'POST', `/ws/services/measurements/${patientNo}/new`, limitedToken, newMeasurementPayload,
+    );
+    await expectInsufficientScope(limitedMeasurementCreate,
+      'OAuth new measurement without measurement.write');
+    recordEndpoint('POST', '/ws/services/measurements/{demographicNo}/new', limitedMeasurementCreate,
+      'missing measurement.write refused with insufficient_scope');
+
+    const newMeasurementResponse = await signedRequest(
+      'POST', `/ws/services/measurements/${patientNo}/new`, fullToken, newMeasurementPayload,
+    );
+    await expectStatus(newMeasurementResponse, 200, 'OAuth new measurement create');
+    const newMeasurement = await newMeasurementResponse.json();
+    const newMeasurementId = sqlId(newMeasurement.id, 'created new measurement id');
+    assert(newMeasurementId !== measurementId
+      && String(newMeasurement.demographicId) === patientNo
+      && newMeasurement.type === newMeasurementPayload.type
+      && newMeasurement.dataField === newMeasurementPayload.dataField
+      && newMeasurement.comments === newMeasurementComment,
+    'OAuth new measurement did not return the saved patient reading');
+    recordEndpoint('POST', '/ws/services/measurements/{demographicNo}/new', newMeasurementResponse,
+      'new BP measurement recorded for the patient');
+
+    const newMeasurementReadResponse = await signedRequest(
+      'POST', `/ws/services/measurements/${patientNo}`, fullToken, { types: ['BP'] },
+    );
+    await expectStatus(newMeasurementReadResponse, 200, 'OAuth new measurement read-after-write');
+    const newMeasurementRead = await newMeasurementReadResponse.json();
+    const bpRowsAfterCreate = newMeasurementRead.measurements && newMeasurementRead.measurements.BP;
+    assert(Array.isArray(bpRowsAfterCreate)
+      && bpRowsAfterCreate.some((row) => String(row.id) === newMeasurementId
+        && row.dataField === newMeasurementPayload.dataField && row.comments === newMeasurementComment)
+      && bpRowsAfterCreate.some((row) => String(row.id) === measurementId
+        && row.dataField === '121/79' && row.comments === measurementComment),
+    'OAuth new measurement was not persisted or an existing reading changed');
+    recordEndpoint('POST', '/ws/services/measurements/{demographicNo}', newMeasurementReadResponse,
+      'new reading persisted and previous reading retained on read-after-write');
+  }
+
+  if (API_ONLY.startsWith('measurements')) {
+    assertStrictPage(recorder);
+    const failedEndpoints = endpointResults.filter((row) => row.outcome === 'FAIL');
+    assert(failedEndpoints.length === 0,
+      `${failedEndpoints.length} endpoint validation(s) failed; see the endpoint results table`);
+    return {
+      oauthMode: 'scoped',
+      selected: API_ONLY,
+      checked: ['OAuth bootstrap', 'temporary demographic fixture setup', `${API_ONLY} API workflow`],
+    };
+  }
+
+  if (shouldRun('labs')) {
   const labReadResponse = await signedRequest(
     'GET', `/ws/services/labs/hl7LabsByDemographicNo?demographicNo=${patientNo}&offset=0&limit=10`, fullToken,
   );
@@ -613,7 +689,9 @@ async function main(state = {}) {
     recordEndpoint('GET', '/ws/services/labs/hl7LabsByDemographicNo', importedLabReadResponse,
       'uploaded synthetic result is linked to and retrievable for the owned patient');
   }
+  }
 
+  if (shouldRun('rxlookup')) {
   const drugLookupResponse = await signedRequest(
     'GET', `/ws/services/rxlookup/search?string=${encodeURIComponent('acetaminophen')}`, fullToken,
   );
@@ -670,7 +748,9 @@ async function main(state = {}) {
     'Instruction parsing did not extract the seven-day duration');
   recordEndpoint('POST', '/ws/services/rxlookup/parse', parseDrugResponse,
     'prescription instructions parsed into drug fields');
+  }
 
+  if (shouldRun('rx')) {
   const rxReadRoutes = [
     ['/rx/drugs', 'all drugs'],
     [`/rx/drugs/all/${patientNo}`, 'all-drugs view'],
@@ -817,7 +897,9 @@ async function main(state = {}) {
     'Prescriptions endpoint did not return a list');
   recordEndpoint('GET', '/ws/services/rx/prescriptions', prescriptionsResponse,
     'patient prescription list returned');
+  }
 
+  if (shouldRun('schedule')) {
   const scheduleRoutes = [
     ['/schedule/day/today', 'daily appointment list'],
     ['/schedule/statuses', 'appointment statuses'],
@@ -854,7 +936,9 @@ async function main(state = {}) {
     `Provider-availability route should be unavailable, got HTTP ${availabilityResponse.status()}`);
   recordEndpoint('GET', '/ws/services/schedule/{date}/{provider}/{start}/{end}/checkProvAvali',
     availabilityResponse, 'availability operation is commented out and not routed', 'GAP');
+  }
 
+  if (shouldRun('eforms')) {
   const eformsResponse = await signedRequest('GET', '/ws/services/eforms/', fullToken);
   const eforms = await expectSuccessJson(eformsResponse, 'OAuth eForm listing');
   assert(Array.isArray(eforms), 'OAuth eForm listing did not return an array');
@@ -910,21 +994,9 @@ async function main(state = {}) {
   await expectInsufficientScope(limitedEformUpdate, 'OAuth eForm update with a token lacking eform.write');
   recordEndpoint('PUT', '/ws/services/eform/{id}/json', limitedEformUpdate,
     'missing eform.write refused with insufficient_scope');
+  }
 
-  const limitedMeasurementWrite = await signedRequest(
-    'PUT', `/ws/services/measurements/${patientNo}`, limitedToken, { types: ['BP'] },
-  );
-  await expectStatus(limitedMeasurementWrite, 405, 'REST measurement update capability probe without write scope');
-  recordEndpoint('PUT', '/ws/services/measurements/{demographicNo}', limitedMeasurementWrite,
-    'route unavailable; method rejection occurs before scope enforcement', 'GAP');
-
-  const unsupportedMeasurementWrite = await signedRequest(
-    'PUT', `/ws/services/measurements/${patientNo}`, fullToken, { types: ['BP'] },
-  );
-  await expectStatus(unsupportedMeasurementWrite, 405, 'REST measurement update capability probe');
-  recordEndpoint('PUT', '/ws/services/measurements/{demographicNo}', unsupportedMeasurementWrite,
-    'REST measurement update is not implemented, even with measurement.write', 'GAP');
-
+  if (shouldRun('demographics')) {
   const deleteDemographicResponse = await signedRequest(
     'DELETE', demographicPath, fullToken,
   );
@@ -936,6 +1008,7 @@ async function main(state = {}) {
   state.demographicDeleted = true;
   recordEndpoint('DELETE', '/ws/services/demographics/{dataId}', deleteDemographicResponse,
     'patient deletion endpoint returned the owned patient; cleanup verifies no row remains');
+  }
 
   assertStrictPage(recorder);
   const failedEndpoints = endpointResults.filter((row) => row.outcome === 'FAIL');
@@ -943,15 +1016,9 @@ async function main(state = {}) {
     `${failedEndpoints.length} endpoint validation(s) failed; see the endpoint results table`);
   return {
     oauthMode: 'scoped',
-    checked: [
-      'signed OAuth request-token and access-token flow',
-      'demographic read, update, and persisted read-after-write',
-      'insufficient-scope refusal for demographic update',
-      'measurement read',
-      'eForm list, create, load, update, and persisted read-after-write',
-      'insufficient-scope refusals for eForm and demographic operations',
-      'measurement REST update is currently unsupported (HTTP 405)',
-    ],
+    selected: API_ONLY || 'all',
+    checked: ['signed OAuth request-token and access-token flow',
+      `${API_ONLY && API_ONLY !== 'all' ? API_ONLY : 'all'} API workflow(s)`],
   };
 }
 
