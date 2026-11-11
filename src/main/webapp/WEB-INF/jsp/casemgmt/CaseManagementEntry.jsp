@@ -54,6 +54,7 @@
 <fmt:message var="draftSaveFailedLabel" key="encounter.draftSaveFailed.msg"/>
 <fmt:message var="draftSaveConflictLabel" key="encounter.draftSaveConflict.msg"/>
 <fmt:message var="draftSavedLabel" key="encounter.draftSaved.msg"/>
+<fmt:message var="noteLockLostLabel" key="encounter.noteLockLostError.msg"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 
@@ -281,8 +282,48 @@
         });
 
         function init() {
+            // Only an editor that can be used takes the lock: without the right to write notes the
+            // page has no form, and nothing is locked.
+            if (document.getElementById('caseManagementEntryForm')) takeNoteLock();
             setTimer();
             window.opener.location.reload(true);
+        }
+
+        // Opening this editor (a link, a note search result) takes no note lock: the page takes it
+        // here by POST, as the chart's own editor does, and Save needs this session's lock. When
+        // another provider holds it, or the request fails, say so now, before anything is typed.
+        function takeNoteLock() {
+            var lockRequest = window.XMLHttpRequest ? new XMLHttpRequest() : null;
+            var warned = false;
+            function warn() {
+                if (warned) return;
+                warned = true;
+                alert('${carlos:forJavaScriptBlock(noteLockLostLabel)}');
+            }
+            if (!lockRequest) {
+                warn();
+                return;
+            }
+            lockRequest.onreadystatechange = function () {
+                if (lockRequest.readyState !== 4) return;
+                var answer = null;
+                if (lockRequest.status === 200) {
+                    try {
+                        answer = JSON.parse(lockRequest.responseText).isNoteEdited;
+                    } catch (e) {
+                        answer = null;
+                    }
+                }
+                if (answer !== 'unlocked' && answer !== 'user') warn();
+            };
+            lockRequest.open('POST', '<%=request.getContextPath() %>/CaseManagementEntry', true);
+            lockRequest.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            var demographicNo = '${carlos:forJavaScript(param.demographicNo)}';
+            var noteId = '<carlos:encode value='<%= String.valueOf(form.getCaseNote().getId() == null || form.getCaseNote().getId() <= 0 ? 0 : form.getCaseNote().getId()) %>' context="javaScriptBlock"/>';<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+            var chartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>';
+            lockRequest.send((chartContext ? "chartContext=" + encodeURIComponent(chartContext) + "&" : "")
+                + "method=isNoteEdited&demographicNo=" + encodeURIComponent(demographicNo)
+                + "&noteId=" + encodeURIComponent(noteId));
         }
 
         function restore() {
