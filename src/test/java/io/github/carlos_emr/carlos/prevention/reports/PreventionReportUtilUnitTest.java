@@ -31,7 +31,6 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Date;
 import java.util.List;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -65,19 +64,13 @@ class PreventionReportUtilUnitTest extends CarlosUnitTestBase {
     private static final Date IN_CURRENT_PERIOD = day(2025, 6, 15);
 
     private final LoggedInInfo loggedInInfo = new LoggedInInfo();
-    private DemographicManager originalManager;
-    private DemographicArchiveDao originalArchiveDao;
 
     @BeforeEach
-    void replaceDependencies() {
+    void registerDependencies() {
+        // PreventionReportUtil looks both up through SpringUtils on each use, so the base class's
+        // per-test SpringUtils mock answers with these and nothing outlives the test.
         DemographicManager demographicManager = createAndRegisterMock(DemographicManager.class);
         DemographicArchiveDao archiveDao = createAndRegisterMock(DemographicArchiveDao.class);
-        // PreventionReportUtil resolves both in its static initializer, which may run here
-        // (answered by the mocks above) or may already have run in another test.
-        originalManager = PreventionReportUtil.demographicManager;
-        originalArchiveDao = PreventionReportUtil.demographicArchiveDao;
-        PreventionReportUtil.demographicManager = demographicManager;
-        PreventionReportUtil.demographicArchiveDao = archiveDao;
 
         Demographic current = new Demographic();
         current.setRosterDate(day(2025, 2, 1));
@@ -92,12 +85,6 @@ class PreventionReportUtilUnitTest extends CarlosUnitTestBase {
         archived.setRosterEnrolledTo(ARCHIVED_ENROLLED_TO);
         archived.setProviderNo(ARCHIVED_PROVIDER);
         when(archiveDao.findByDemographicNo(DEMOGRAPHIC_NO)).thenReturn(List.of(archived));
-    }
-
-    @AfterEach
-    void restoreDependencies() {
-        PreventionReportUtil.demographicManager = originalManager;
-        PreventionReportUtil.demographicArchiveDao = originalArchiveDao;
     }
 
     private static Date day(int year, int month, int dayOfMonth) {
