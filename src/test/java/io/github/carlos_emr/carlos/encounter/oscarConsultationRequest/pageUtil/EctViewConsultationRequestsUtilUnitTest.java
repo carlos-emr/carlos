@@ -115,6 +115,11 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         requests = mock(ConsultationRequestDao.class);
         extensions = mock(ConsultationRequestExtDao.class);
         demographics = mock(DemographicManager.class);
+        lenient().when(demographics.getReadableDemographicFormattedNames(any(), any())).thenAnswer(invocation -> {
+            Map<Integer, String> names = new HashMap<>();
+            for (Integer id : (Collection<Integer>) invocation.getArgument(1)) names.put(id, "");
+            return names;
+        });
         providers = mock(ProviderDao.class);
         info = mock(LoggedInInfo.class);
         registerMock(ConsultationRequestDao.class, requests);
@@ -155,7 +160,7 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldBatchLookups_forManyRowsWithRepeatedPatientAndProvider() {
         when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(1, 42, 0, "101", null), row(2, 42, 0, "101", 8)));
-        when(demographics.getDemographicFormattedNames(info, Set.of(42))).thenReturn(Map.of(42, "Doe, Jane"));
+        when(demographics.getReadableDemographicFormattedNames(info, Set.of(42))).thenReturn(Map.of(42, "Doe, Jane"));
         ProviderSummaryDTO ordering = new ProviderSummaryDTO("201", "Order", "Pat", null, null, null);
         when(providers.getProviderSummariesByIds(Set.of("201"))).thenReturn(Map.of("201", ordering));
         ConsultationRequestExt service = new ConsultationRequestExt();
@@ -181,7 +186,7 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         assertThat(util.patientWillBook).containsExactly("false", "false");
         assertThat(util.consultProvider).containsExactly(ordering, ordering);
         verify(requests).getConsultationListRows(filter());
-        verify(demographics).getDemographicFormattedNames(info, Set.of(42));
+        verify(demographics).getReadableDemographicFormattedNames(info, Set.of(42));
         verify(providers).getProviderSummariesByIds(Set.of("201"));
         verify(extensions).getConsultationRequestExts(List.of(1, 2));
         verifyNoMoreInteractions(requests, demographics, providers, extensions);
@@ -213,11 +218,46 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldPublishNoRows_whenPatientReadIsDenied() {
         when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(7, 42, null, null, null)));
-        when(demographics.getDemographicFormattedNames(info, Set.of(42))).thenThrow(new SecurityException("denied"));
+        when(demographics.getReadableDemographicFormattedNames(info, Set.of(42))).thenThrow(new SecurityException("denied"));
         assertThat(util.estConsultationVecByTeam(info, filter())).isFalse();
         assertThat(util.ids).isEmpty();
         assertThat(util.patient).isEmpty();
         verifyNoInteractions(providers, extensions);
+    }
+
+    @Test
+    void shouldKeepPageBoundary_whenDeniedRowsAndLookaheadArePresent() {
+        when(requests.getConsultationListRows(filter())).thenReturn(List.of(
+                row(1, 41, null, null, null), row(2, 42, null, null, null), row(3, 43, null, null, null)));
+        when(demographics.getReadableDemographicFormattedNames(info, Set.of(41, 42)))
+                .thenReturn(Map.of(42, "Readable patient"));
+        assertThat(util.estConsultationPageByTeam(info, filter(), 2)).isTrue();
+        assertThat(util.ids).containsExactly("2");
+        assertThat(util.hasMoreRows()).isTrue();
+        assertThat(util.hasRestrictedRows()).isTrue();
+        verify(extensions).getConsultationRequestExts(List.of(2));
+    }
+
+    @Test
+    void shouldKeepNavigation_whenEveryRowOnThePageIsDenied() {
+        when(requests.getConsultationListRows(filter())).thenReturn(List.of(
+                row(1, 41, null, null, null), row(2, 42, null, null, null)));
+        when(demographics.getReadableDemographicFormattedNames(info, Set.of(41))).thenReturn(Map.of());
+        assertThat(util.estConsultationPageByTeam(info, filter(), 1)).isTrue();
+        assertThat(util.ids).isEmpty();
+        assertThat(util.hasMoreRows()).isTrue();
+        assertThat(util.hasRestrictedRows()).isTrue();
+        verifyNoInteractions(providers, extensions);
+    }
+
+    @Test
+    void shouldClearPreviousResults_whenPageLoadingFails() {
+        when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(1, 42, null, null, null)));
+        assertThat(util.estConsultationPageByTeam(info, filter(), 1)).isTrue();
+        when(requests.getConsultationListRows(filter())).thenThrow(new IllegalStateException("database unavailable"));
+        assertThat(util.estConsultationPageByTeam(info, filter(), 1)).isFalse();
+        assertThat(util.ids).isEmpty();
+        assertThat(util.hasMoreRows()).isFalse();
     }
 
     @Test

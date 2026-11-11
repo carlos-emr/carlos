@@ -257,25 +257,26 @@
     </div>
 </form>
 <br/>
+<div id="serverTableRegion" data-server-page-region>
 <c:if test="${requestScope.clients != null}">
     <form method="post" name="mergeform" action="<%=request.getContextPath()%>/admin/MergeRecords">
         <%-- Local paging excludes hidden-row controls from this merge form. The banner sits below
              the table and a sort orders the whole list, as this page set paging.banner.placement
              and sort.amount for displaytag. --%>
         <c:if test="${not empty clients}">
-        <table class="carlos-table-spaced simple" id="client" data-carlos-table data-page-size="10" data-default-sort="0" data-default-order="ascending" data-banner-placement="bottom" data-sort-amount="list">
+        <table class="carlos-table-spaced simple" id="client">
 <thead><tr>
 
 
 
 
-                <th scope="col"><span data-table-sort>Client No</span></th>
-            <th scope="col"><span data-table-sort>Name</span></th>
-            <th scope="col"><span data-table-sort>Date of Birth</span></th>
-            <th scope="col"><span data-table-sort>Gender</span></th>
-            <th scope="col"><span data-table-sort>Chart No</span></th>
-            <th scope="col"><span data-table-sort>Admitted to Program</span></th>
-            <th scope="col"><span data-table-sort>H&S Alert</span></th>
+                <th scope="col"><button type="submit" form="serverTablePageForm" name="tableSortChange" value="1">Client No</button></th>
+            <th scope="col"><button type="submit" form="serverTablePageForm" name="tableSortChange" value="2">Name</button></th>
+            <th scope="col"><button type="submit" form="serverTablePageForm" name="tableSortChange" value="3">Date of Birth</button></th>
+            <th scope="col"><button type="submit" form="serverTablePageForm" name="tableSortChange" value="4">Gender</button></th>
+            <th scope="col"><button type="submit" form="serverTablePageForm" name="tableSortChange" value="5">Chart No</button></th>
+            <th scope="col"><button type="submit" form="serverTablePageForm" name="tableSortChange" value="6">Admitted to Program</button></th>
+            <th scope="col"><button type="submit" form="serverTablePageForm" name="tableSortChange" value="7">H&S Alert</button></th>
 
             <security:oscarSec roleName="<%=roleName$%>" objectName="_merge"
                                rights="r">
@@ -369,5 +370,7 @@
     </security:oscarSec> <br/>
     </form>
 </c:if>
+<%@ include file="/WEB-INF/jspf/server-table-page.jspf" %>
+</div>
 </body>
 </html>

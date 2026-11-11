@@ -451,6 +451,8 @@ public interface DemographicDao {
 
     public List<Demographic> search(ClientSearchFormBean bean);
 
+    QueryPage<Demographic> searchClientPage(ClientSearchFormBean bean, int page, int sort, boolean descending);
+
     public void saveClient(Demographic client);
 
     // public Map<String, ClientListsReportResults>

@@ -51,6 +51,7 @@
 
 
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 
 <html>
     <head>
@@ -250,6 +251,10 @@
 
     <form action="<%= request.getContextPath() %>/demographic/Contact" method="post" id="addEditProfessionalForm" name="contactForm">
 
+        <c:if test="${specialistContactConflict}">
+            <div class="alert alert-danger" role="alert"><fmt:message key="contact.specialist.editRefused"/></div>
+        </c:if>
+        <input type="hidden" name="specialistEditVersion" value="${carlos:forHtmlAttribute(requestScope.specialistEditVersion)}"/>
         <c:if test="${ pcontact.id gt 0 }">
             <input type="hidden" name="pcontact.id" value="${ pcontact.id }"/>
         </c:if>
@@ -284,8 +289,7 @@
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.address"/></b></td>
                 <td>
-                    <input type="text" name="pcontact.address" id="pcontact.address"
-                           value="${carlos:forHtmlAttribute(pcontact.address)}" size="50">
+                    <textarea name="pcontact.address" id="pcontact.address" cols="50" rows="2">${carlos:forHtml(pcontact.address)}</textarea>
                 </td>
             </tr>
             <tr>
@@ -311,7 +315,12 @@
                         <c:set var="select" value="${ pcontact.province }"/>
                     </c:if>
 
+                    <c:if test="${pcontact.id gt 0}"><c:set var="select" value="${pcontact.province}" scope="page"/></c:if>
                     <select name="pcontact.province" id="pcontact.province">
+                        <c:set var="selectedProvinceToken" value="|${pageScope.select}|"/>
+                        <c:if test="${empty pageScope.select or not fn:contains('|AB|BC|MB|NB|NL|NT|NS|NU|ON|PE|QC|SK|YT|US|', selectedProvinceToken)}">
+                            <option value="${carlos:forHtmlAttribute(pageScope.select)}" selected="selected">${carlos:forHtml(pageScope.select)}</option>
+                        </c:if>
                         <option value="AB" ${ pageScope.select eq 'AB' ? 'selected' : '' }><fmt:message key="admin.sitesAdminDetail.province.AB"/></option>
                         <option value="BC" ${ pageScope.select eq 'BC' ? 'selected' : '' }><fmt:message key="admin.sitesAdminDetail.province.BC"/></option>
                         <option value="MB" ${ pageScope.select eq 'MB' ? 'selected' : '' }><fmt:message key="admin.sitesAdminDetail.province.MB"/></option>

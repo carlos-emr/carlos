@@ -80,22 +80,10 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
         return ((Number) query.getSingleResult()).intValue();
     }
 
+    @Deprecated(since = "2026.08", forRemoval = false)
     public List<ConsultationRequest> getConsults(Integer demoNo) {
-        // A consultation request belongs to the PATIENT and must appear in the
-        // patient's chart regardless of the state of the ordering provider's record.
-        // The previous query cross-joined Demographic AND Provider purely as existence
-        // filters (neither table is projected), so a consult whose providerNo was null
-        // or referenced a provider row that no longer exists was silently dropped from
-        // the Consultations tab. The demographic constraint (cr.demographicId = ?1)
-        // already scopes the result to this patient, and the caller
-        // (EctViewConsultationRequestsUtil) null-tolerantly re-resolves the provider
-        // and demographic per row, so select on the demographic alone.
-        //
-        // That null-tolerance is a CONTRACT this query depends on, not an incidental
-        // detail: dropping the joins is what lets rows with a dangling demographic or
-        // provider reach the caller, and the caller shares one try/catch across its
-        // whole loop, so a single unguarded dereference there blanks the entire
-        // Consultations tab rather than degrading one row.
+        // Compatibility entity lookup. Production lists use getConsultationListRows instead;
+        // retain this patient-only query and the merged override for external callers.
         Query query = entityManager.createQuery(
                 "select cr from ConsultationRequest cr where cr.demographicId = ?1");
         query.setParameter(1, demoNo);
@@ -105,6 +93,7 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
     }
 
 
+    @Deprecated(since = "2026.08", forRemoval = false)
     public List<ConsultationRequest> getConsults(String team, boolean showCompleted, Date startDate, Date endDate, String orderby, String desc, String searchDate, Integer offset, Integer limit) {
         return getConsults(new ConsultationListFilterDto(team, showCompleted, startDate, endDate, orderby, desc,
                 searchDate, offset, limit, null, null));
@@ -113,6 +102,7 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
     private static final String LIST_ROW_SELECTION = "new io.github.carlos_emr.carlos.consultation.dto.ConsultationListRow(cr.id, cr.status, cr.demographicId, d.alias, cr.providerNo, cr.serviceId, service.serviceId, service.serviceDesc, specialist.id, specialist.lastName, specialist.firstName, p.providerNo, p.lastName, p.firstName, cr.urgency, cr.siteName, cr.sendTo, cr.referralDate, cr.appointmentDate, cr.appointmentTime, cr.followUpDate, cr.patientWillBook)";
 
     @Override
+    @Deprecated(since = "2026.08", forRemoval = false)
     public List<ConsultationRequest> getConsults(ConsultationListFilterDto filter) {
         Query query = consultationListQuery(filter, "cr");
         return query == null ? List.of() : query.getResultList();
@@ -125,7 +115,11 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
         return query == null ? List.of() : query.getResultList();
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     * LEFT joins retain orphaned relationships. The list assembler must tolerate null related
+     * fields and authorize patient names separately; joining names here does not authorize them.
+     */
     @Override
     public List<ConsultationListRow> getConsultationListRows(Integer demographicNo) {
         return entityManager.createQuery("SELECT " + LIST_ROW_SELECTION
@@ -167,7 +161,7 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
         if (filter.visibleSiteNames() != null) sql.append("and cr.siteName in (:visibleSites) ");
 
         if (!showCompleted) {
-            sql.append("and cr.status != '4' ");
+            sql.append("and (cr.status IS NULL OR cr.status <> '4') ");
         }
 
         if (team != null && !team.isEmpty()) {
@@ -221,6 +215,8 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
             sql.append("order by cr.appointmentDate " + orderDesc);
         } else if (orderby.equals("9")) {               //9 = FollowUp Date
             sql.append("order by cr.followUpDate " + orderDesc);
+        } else if (orderby.equals("10")) {              //10 = Site
+            sql.append("order by cr.siteName " + orderDesc + service);
         } else {
             sql.append("order by cr.referralDate desc");
         }

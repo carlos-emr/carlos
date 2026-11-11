@@ -25,12 +25,13 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="encounter.oscarConsultationRequest.attachmentsNotIncluded.restricted" var="hrmOmissionText"/>
 <c:if test="${not empty consultAttachmentsNotIncluded}">
     <div id="consultAttachmentsNotIncluded" class="alert alert-warning" role="alert">
         <strong><fmt:message key="encounter.oscarConsultationRequest.attachmentsNotIncluded.title"/></strong>
         <ul class="mb-0">
             <c:forEach items="${consultAttachmentsNotIncluded}" var="attachmentNotIncluded">
-                <li><carlos:encode value="${attachmentNotIncluded}"/></li>
+                <li data-hrm-omission="${attachmentNotIncluded eq hrmOmissionText}"><carlos:encode value="${attachmentNotIncluded}"/></li>
             </c:forEach>
         </ul>
     </div>

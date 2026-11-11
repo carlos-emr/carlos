@@ -2191,6 +2191,71 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     @SuppressWarnings("unchecked")
     @Override
     public List<Demographic> search(ClientSearchFormBean bean) {
+        return searchClients(bean, null);
+    }
+
+    @Override
+    public QueryPage<Demographic> searchClientPage(ClientSearchFormBean bean, int page, int sort, boolean descending) {
+        ClientSearchWindow window = new ClientSearchWindow(page, sort, descending);
+        List<Demographic> rows = searchClients(bean, window);
+        return new QueryPage<>(rows, window.total, window.page, 10);
+    }
+
+    private static final class ClientSearchWindow {
+        final int requested;
+        final int sort;
+        final boolean descending;
+        long total;
+        int page;
+        ClientSearchWindow(int requested, int sort, boolean descending) {
+            this.requested = requested; this.sort = sort; this.descending = descending;
+        }
+    }
+
+    private List<Demographic> clientSearchResults(EntityManager session, Query query,
+            ClientSearchWindow window, boolean nativeSql, String queryText) {
+        if (window == null) return query.getResultList();
+        String id = nativeSql ? "d.demographic_no" : "d.demographicNo";
+        String last = nativeSql ? "d.last_name" : "d.lastName";
+        String first = nativeSql ? "d.first_name" : "d.firstName";
+        String year = nativeSql ? "d.year_of_birth" : "d.yearOfBirth";
+        String month = nativeSql ? "d.month_of_birth" : "d.monthOfBirth";
+        String day = nativeSql ? "d.date_of_birth" : "d.dateOfBirth";
+        String active = nativeSql ? "(select count(*) from admission a2 where a2.client_id=d.demographic_no and a2.admission_status='current' and a2.program_id in (select p.id from program p where p.type='Service'))" : "d.activeCount";
+        String alert = nativeSql ? "(select count(*) from health_safety hs where hs.demographic_no=d.demographic_no)" : "d.hsAlertCount";
+        String direction = window.descending ? " DESC" : " ASC";
+        String primary = switch (window.sort) {
+            case 2 -> "lower(coalesce(" + last + ", ''))" + direction + ", lower(coalesce(" + first + ", ''))";
+            case 3 -> "concat(coalesce(" + year + ", ''), '/', coalesce(" + month + ", ''), '/', coalesce(" + day + ", ''))";
+            case 4 -> nativeSql ? "(select lst.description from lst_gender lst where lst.code=d.sex)" : "d.sexDesc";
+            case 5 -> nativeSql ? "d.chart_no" : "d.chartNo";
+            case 6 -> "case when " + active + " = 0 then 0 else 1 end";
+            case 7 -> "case when " + alert + " = 0 then 0 else 1 end";
+            default -> id;
+        };
+        String order = primary + direction + ", " + id + " ASC";
+        if (nativeSql) {
+            // Native d.* does not supply Hibernate's four derived/formula columns. Page IDs
+            // in SQL, then hydrate only that window through HQL so every mapped field is valid.
+            QueryPage<Integer> ids = QueryPage.load(session, query, queryText, window.requested, 10,
+                    order, true, Integer.class);
+            window.total = ids.total(); window.page = ids.page();
+            if (ids.rows().isEmpty()) return List.of();
+            Map<Integer, Demographic> patients = session.createQuery(
+                    "FROM Demographic d WHERE d.demographicNo IN :ids", Demographic.class)
+                    .setParameter("ids", ids.rows()).getResultList().stream()
+                    .collect(java.util.stream.Collectors.toMap(Demographic::getDemographicNo, patient -> patient));
+            return ids.rows().stream().map(key -> java.util.Objects.requireNonNull(patients.get(key),
+                    "Client search row disappeared")).toList();
+        }
+        QueryPage<Demographic> page = QueryPage.load(session, query, queryText, window.requested, 10,
+                order, false, Demographic.class);
+        window.total = page.total();
+        window.page = page.page();
+        return page.rows();
+    }
+
+    private List<Demographic> searchClients(ClientSearchFormBean bean, ClientSearchWindow window) {
 
         EntityManager session = entityManager();
 
@@ -2214,9 +2279,8 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         if (clientNo != null && !"".equals(clientNo)) {
             if (Utility.IsInt(clientNo)) {
                 String hql = "FROM Demographic d WHERE d.demographicNo = :demoNo";
-                return session.createQuery(hql, Demographic.class)
-                    .setParameter("demoNo", Integer.valueOf(clientNo))
-                    .getResultList();
+                return clientSearchResults(session, session.createQuery(hql, Demographic.class)
+                    .setParameter("demoNo", Integer.valueOf(clientNo)), window, false, hql);
             } else {
                 return new ArrayList<Demographic>();
             }
@@ -2224,7 +2288,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
         // For soundex mode, we must use a native SQL query because SOUNDEX() is MySQL-specific
         if (bean.isSearchUsingSoundex() && (firstName.length() > 0 || lastName.length() > 0)) {
-            return searchWithSoundex(session, bean, firstName, lastName, firstNameL, lastNameL);
+            return searchWithSoundex(session, bean, firstName, lastName, firstNameL, lastNameL, window);
         }
 
         String hql = "FROM Demographic d WHERE (d.anonymous != 'one-time-anonymous' OR d.anonymous IS NULL)";
@@ -2305,7 +2369,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             }
         }
 
-        List<Demographic> results = query.getResultList();
+        List<Demographic> results = clientSearchResults(session, query, window, false, hql);
 
         if (log.isDebugEnabled()) {
             log.debug("search: # of results=" + results.size());
@@ -2335,8 +2399,9 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     @SuppressWarnings("unchecked")
     @NativeSql("demographic")
     private List<Demographic> searchWithSoundex(EntityManager session, ClientSearchFormBean bean,
-                                                 String firstName, String lastName, String firstNameL, String lastNameL) {
-        String sql = "SELECT d.* FROM demographic d WHERE (d.anonymous != 'one-time-anonymous' OR d.anonymous IS NULL)";
+                                                 String firstName, String lastName, String firstNameL, String lastNameL, ClientSearchWindow window) {
+        String sql = "SELECT " + (window == null ? "d.*" : "d.demographic_no")
+                + " FROM demographic d WHERE (d.anonymous != 'one-time-anonymous' OR d.anonymous IS NULL)";
         Map<String, Object> params = new HashMap<>();
 
         if (bean.getChartNo() != null && bean.getChartNo().length() > 0) {
@@ -2411,16 +2476,15 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             params.put("gender", gender);
         }
 
-        @SuppressWarnings("unchecked")
-        NativeQuery<Demographic> nativeQuery = session.createNativeQuery(sql, Demographic.class)
-            .unwrap(NativeQuery.class);
+        Query nativeQuery = window == null ? session.createNativeQuery(sql, Demographic.class)
+                : session.createNativeQuery(sql, Integer.class);
         for (Map.Entry<String, Object> entry : params.entrySet()) {
             // Hibernate's JPA mode accepts Collection values via setParameter for IN clauses,
             // so we no longer need the Hibernate-specific setParameterList.
             nativeQuery.setParameter(entry.getKey(), entry.getValue());
         }
 
-        List<Demographic> results = nativeQuery.getResultList();
+        List<Demographic> results = clientSearchResults(session, nativeQuery, window, true, sql);
 
         if (log.isDebugEnabled()) {
             log.debug("search (soundex): # of results=" + results.size());

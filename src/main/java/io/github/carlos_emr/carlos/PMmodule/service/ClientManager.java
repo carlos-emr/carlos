@@ -53,6 +53,8 @@ public interface ClientManager {
 
     List<Demographic> search(ClientSearchFormBean criteria);
 
+    io.github.carlos_emr.carlos.commn.dao.QueryPage<Demographic> searchClientPage(ClientSearchFormBean criteria, int page, int sort, boolean descending);
+
     List<ClientReferral> getReferrals();
 
     List<ClientReferral> getReferrals(String clientId);

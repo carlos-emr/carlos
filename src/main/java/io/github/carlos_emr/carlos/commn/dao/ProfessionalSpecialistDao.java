@@ -41,6 +41,9 @@ public interface ProfessionalSpecialistDao extends AbstractDao<ProfessionalSpeci
 
     List<ProfessionalSpecialist> findAll();
 
+    QueryPage<ProfessionalSpecialist> findDirectoryPage(String referralNo, String lastName, String firstName,
+            String specialty, String address, boolean includeHidden, int page);
+
     /**
      * Returns active directory rows in last-name, first-name order without eager associations.
      *

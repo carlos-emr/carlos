@@ -39,7 +39,7 @@ class SupServiceCodeAssoc2ActionUnitTest extends CarlosUnitTestBase {
         when(security.hasPrivilege(info, "_billing", "w", null)).thenReturn(true);
         when(security.hasPrivilege(info, "_admin.billing,_admin", "w", null)).thenReturn(true);
         dao = createAndRegisterMock(SupServiceCodeAssocDAO.class);
-        when(dao.getServiceCodeAssociactions()).thenReturn(List.of());
+        when(dao.getServiceCodeAssociationsPage(0)).thenReturn(new io.github.carlos_emr.carlos.commn.dao.QueryPage<>(List.of(), 0, 0, 50));
         servlet = mockStatic(ServletActionContext.class);
         servlet.when(ServletActionContext::getRequest).thenReturn(request);
         servlet.when(ServletActionContext::getResponse).thenReturn(response);
@@ -83,7 +83,7 @@ class SupServiceCodeAssoc2ActionUnitTest extends CarlosUnitTestBase {
     }
     @Test void shouldRenderList_withoutWritingOnDefaultView() {
         request.setMethod("GET"); assertThat(action.execute()).isEqualTo("success");
-        verify(dao).getServiceCodeAssociactions();
+        verify(dao).getServiceCodeAssociationsPage(0);
         verify(dao, never()).saveOrUpdateServiceCodeAssociation(any(), any());
         verify(dao, never()).deleteServiceCodeAssociation(any());
     }
@@ -115,7 +115,7 @@ class SupServiceCodeAssoc2ActionUnitTest extends CarlosUnitTestBase {
     @Test void shouldRenderList_forBillingUserWithoutAdminRights() {
         when(security.hasPrivilege(info, "_admin.billing,_admin", "w", null)).thenReturn(false);
         request.setMethod("GET"); assertThat(action.execute()).isEqualTo("success");
-        verify(dao).getServiceCodeAssociactions();
+        verify(dao).getServiceCodeAssociationsPage(0);
     }
     @Test void shouldStripLegacyBreakTags_fromRenderedErrors() {
         // Every locale ends these bundle messages with <br/>, and some carry one mid-string.
