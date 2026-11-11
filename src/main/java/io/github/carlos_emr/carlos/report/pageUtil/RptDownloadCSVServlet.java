@@ -52,6 +52,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery;
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
+import io.github.carlos_emr.carlos.report.data.ReportLimitRefusal;
 import io.github.carlos_emr.carlos.report.data.RptReportConfigData;
 import io.github.carlos_emr.carlos.report.data.RptReportCreator;
 import io.github.carlos_emr.carlos.report.data.RptReportItem;
@@ -63,6 +64,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
 
     private static final Logger _logger = MiscUtils.getLogger();
     public static final int MAX_CSV_EXPORT_BYTES = 5 * 1024 * 1024;
+    static final String LIMIT_REFUSAL_MESSAGE = "Report is too large or took too long; narrow the report filters";
     private static final String SQL_AND = " and ";
 
     String DELIMETER = "\t";
@@ -77,10 +79,16 @@ public class RptDownloadCSVServlet extends HttpServlet {
         try {
             report = request.getParameter("demoReport") != null ? demoReport(request) : formReport(request);
         } catch (ServletException e1) {
+            if (refusedByLimit(response, e1)) {
+                return;
+            }
             _logger.error("RptDownloadCSVServlet service() - form report failed", e1);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate report");
             return;
         } catch (Exception e1) {
+            if (refusedByLimit(response, e1)) {
+                return;
+            }
             _logger.error("RptDownloadCSVServlet service() - report generation failed", e1);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate report");
             return;
@@ -103,6 +111,19 @@ public class RptDownloadCSVServlet extends HttpServlet {
             response.setHeader("X-Content-Type-Options", "nosniff");
             out.write(bytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- bounded UTF-8 CSV attachment with text/csv and nosniff headers; not HTML
         }
+    }
+
+    /**
+     * A report refused by its row, size or time limit is not a server failure: answer 413 with
+     * what the user can do, as the byte check in {@link #service} does, instead of a 500 (#5850).
+     */
+    private static boolean refusedByLimit(HttpServletResponse response, Exception failure) throws IOException {
+        if (!ReportLimitRefusal.isRefusal(failure)) {
+            return false;
+        }
+        _logger.warn("RptDownloadCSVServlet service() - report refused by its row, size or time limit");
+        response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, LIMIT_REFUSAL_MESSAGE);
+        return true;
     }
 
     public void init(ServletConfig config) throws ServletException {
