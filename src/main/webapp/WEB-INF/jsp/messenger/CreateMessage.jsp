@@ -289,9 +289,6 @@
 <%-- Extract i18n alert messages into page-scope variables so they can be safely encoded for JavaScript --%>
 <fmt:message key="messenger.CreateMessage.msgEmptyMessage" var="msg_EmptyMessage"/>
 <fmt:message key="messenger.CreateMessage.msgNoProvider" var="msg_NoProvider"/>
-<fmt:message key="messenger.CreateMessage.archiveFailed" var="msg_ArchiveFailed"/>
-<fmt:message key="messenger.CreateMessage.archiveError" var="msg_ArchiveError"/>
-<fmt:message key="messenger.CreateMessage.archiveTimeout" var="msg_ArchiveTimeout"/>
 <fmt:message key="messenger.CreateMessage.msgSelectDemographic" var="msg_SelectDemographic"/>
 
 <script>
@@ -300,9 +297,6 @@
 // (e.g. "n'a", "L'archivage") are safely escaped by forJavaScript()
 var msgEmptyMessage     = '${carlos:forJavaScript(msg_EmptyMessage)}';
 var msgNoProvider       = '${carlos:forJavaScript(msg_NoProvider)}';
-var msgArchiveFailed    = '${carlos:forJavaScript(msg_ArchiveFailed)}';
-var msgArchiveError     = '${carlos:forJavaScript(msg_ArchiveError)}';
-var msgArchiveTimeout   = '${carlos:forJavaScript(msg_ArchiveTimeout)}';
 var msgSelectDemographic = '${carlos:forJavaScript(msg_SelectDemographic)}';
 
 // Displays a dismissable Bootstrap alert in the fixed alert container at the top of the page.
@@ -372,43 +366,18 @@ function validateFields() {
 	  return "0";
 	}
 
-	// Archives the current message via XHR before submitting the compose form.
-	// Includes CSRF token and 10-second timeout. On failure or timeout, still submits
-	// the message without archiving.
-	function XMLHttpRequestSendnArch() {
+	// Send and Archive (#6042): submits the reply once, asking the server to archive the message
+	// replied to only after the reply is sent. It used to archive first with a background POST, so a
+	// refused reply left the message archived with no reply. The original ID comes from the server
+	// (the packaged front door sends Referrer-Policy: no-referrer); without a valid one the reply is
+	// sent as an ordinary Send.
+	function sendAndArchive() {
 		if (!validateFields()) {
 			return;
 		}
-		// The packaged front door deliberately sends Referrer-Policy: no-referrer.
-		// HandleMessages supplies the original ID independently of browser headers.
 		var messageNo = document.getElementById('sendArchive').dataset.messageId;
-		if (!/^[1-9]\d*$/.test(messageNo || '')) {
-			document.forms[0].submit();
-			return;
-		}
-		var oRequest = new XMLHttpRequest();
-		var theArchiveLink = '${pageContext.request.contextPath}/messenger/DisplayMessages';
-
-		oRequest.open('POST', theArchiveLink, true);
-		oRequest.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-		oRequest.timeout = 10000;
-		oRequest.onload = function() {
-			if (oRequest.status >= 200 && oRequest.status < 300) {
-				document.forms[0].submit();
-			} else {
-				showAlert(msgArchiveFailed, 'warning');
-				setTimeout(function() { document.forms[0].submit(); }, 2500);
-			}
-		};
-		oRequest.onerror = function() {
-			showAlert(msgArchiveError, 'danger');
-			setTimeout(function() { document.forms[0].submit(); }, 2500);
-		};
-		oRequest.ontimeout = function() {
-			showAlert(msgArchiveTimeout, 'warning');
-			setTimeout(function() { document.forms[0].submit(); }, 2500);
-		};
-		oRequest.send('btnDelete=archive&messageNo=' + encodeURIComponent(messageNo));
+		document.forms[0].archiveAfterSend.value = /^[1-9]\d*$/.test(messageNo || '') ? '1' : '';
+		document.forms[0].submit();
 	}
 
 	// Opens demographic attachment popup for attaching documents from a patient record
@@ -532,6 +501,8 @@ function validateFields() {
                     <% } %>
                     <input type="hidden" name="attachmentKey" value="<%= SafeEncode.forHtmlAttribute(attachmentKey) %>">
                     <input type="hidden" name="archiveMessageId" value="${carlos:forHtmlAttribute(archiveMessageId)}">
+                    <%-- Set by Send and Archive only; the plain Send clears it (#6042). --%>
+                    <input type="hidden" name="archiveAfterSend" value="">
 				<table class="card card-body bg-body-tertiary" style="width:100%">
 						<tr class="subheader">
 							<th><fmt:message key="messenger.CreateMessage.msgRecipients" /></th>
@@ -627,10 +598,10 @@ function validateFields() {
 					<textarea name="message" rows="15" style="min-width: 100%">${carlos:forHtml(messageBody)}</textarea>
 							<table>
 								<tr>
-									<td><button type="submit" class="btn btn-primary" onclick="writeToMessage();"
+									<td><button type="submit" class="btn btn-primary" onclick="writeToMessage(); this.form.archiveAfterSend.value = '';"
 										title="<fmt:message key="messenger.CreateMessage.btnSendMessage"/>"><i class="fa-solid fa-share-from-square"></i>&nbsp;<fmt:message key="messenger.CreateMessage.btnSendMessage"/></button>
 									</td>
-									<td><button type="button" class="btn btn-secondary" id="sendArchive" data-message-id="${carlos:forHtmlAttribute(archiveMessageId)}" onclick="writeToMessage(); XMLHttpRequestSendnArch();"
+									<td><button type="button" class="btn btn-secondary" id="sendArchive" data-message-id="${carlos:forHtmlAttribute(archiveMessageId)}" onclick="writeToMessage(); sendAndArchive();"
 										title="<fmt:message key="messenger.CreateMessage.btnSendnArchiveMessage"/>"><i class="fa-solid fa-envelope-circle-check"></i>&nbsp;<fmt:message key="messenger.CreateMessage.btnSendnArchiveMessage"/></button>
 									</td>
 								</tr>
