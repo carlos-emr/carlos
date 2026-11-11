@@ -1,0 +1,5 @@
+Correct DRAFT_SUMMARY using only MACHINE_CONFIRMED_VIOLATIONS.
+
+MACHINE_CONFIRMED_VIOLATIONS were produced from authoritative structured CARLOS data. Apply every listed correction. Do not introduce additional corrections, reinterpretations, or new pending actions. Preserve all unlisted facts, statuses, citations, and sections.
+
+Return the complete corrected summary using exactly the original REQUIRED JSON STRUCTURE. Return one valid JSON object only, with no commentary, Markdown, audit, or code fences.
