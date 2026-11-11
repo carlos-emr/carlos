@@ -236,6 +236,55 @@ def find_append_operands(statement: str) -> list[str]:
     return operands
 
 
+# Formatting calls splice their non-literal arguments into the format string:
+# "...".formatted(a, b) and String.format("...", a, b).
+_FORMAT_CALL = re.compile(r'(\.\s*formatted|String\s*\.\s*format)\s*\(')
+_NUMERIC_LITERAL = re.compile(r'\d+(?:\.\d+)?[lLdDfF]?')
+
+
+def _split_top_level_args(args: str) -> list[str]:
+    """Split an argument list on commas that are not nested in brackets."""
+    parts = []
+    depth = 0
+    current = []
+    for c in args:
+        if c in '([{':
+            depth += 1
+        elif c in ')]}':
+            depth -= 1
+        if c == ',' and depth == 0:
+            parts.append(''.join(current))
+            current = []
+        else:
+            current.append(c)
+    parts.append(''.join(current))
+    return parts
+
+
+def find_format_operands(statement: str) -> list[str]:
+    """Return the non-literal arguments passed to a formatting call.
+
+    ``"... last_name = '%s'".formatted(name)`` and
+    ``String.format("... = :id AND last_name = '%s'", name)`` interpolate
+    ``name`` into the SQL text. A named placeholder elsewhere in the literal
+    does not make that argument safe, so these arguments are scanned like
+    '+' and ``.append()`` operands. The format string itself (the first
+    argument of ``String.format``) is a literal and is skipped.
+    """
+    masked = _mask_string_literals(statement)
+    operands = []
+    for m in _FORMAT_CALL.finditer(masked):
+        args = _split_top_level_args(_extract_call_argument(masked, m.end()))
+        if m.group(1).startswith('String'):
+            args = args[1:]
+        for arg in args:
+            arg = arg.strip()
+            if not arg or _ONLY_STRING_LITERAL.fullmatch(arg) or _NUMERIC_LITERAL.fullmatch(arg):
+                continue
+            operands.append(arg)
+    return operands
+
+
 def is_safe_operand(operand: str) -> bool:
     """True if a concatenated operand is structurally safe (not user data).
 
@@ -270,7 +319,11 @@ def has_raw_concat_operand(statement: str) -> bool:
     vetoes every allowlist check, because placeholders or metadata elsewhere
     in the statement must not excuse a raw value being spliced into SQL.
     """
-    operands = find_concat_operands(statement) + find_append_operands(statement)
+    operands = (
+        find_concat_operands(statement)
+        + find_append_operands(statement)
+        + find_format_operands(statement)
+    )
     return any(not is_safe_operand(op) for op in operands)
 
 
@@ -360,6 +413,43 @@ def mask_java_comments(content: str) -> str:
                         out[k] = ' '
                 i = end
                 continue
+        i += 1
+    return ''.join(out)
+
+
+_SQL_TERMINATOR = re.compile(r';(?=\s*")')
+
+
+def mask_literal_semicolons(content: str) -> str:
+    """Blank the ';' characters that a literal uses as an SQL terminator.
+
+    The SQL patterns stop at ';' so a match cannot run into the next Java
+    statement. A terminated SQL literal such as ``"... = '%s';".formatted(x)``
+    carries a ';' that belongs to the SQL text; leaving it in would stop the
+    match before the ``.formatted`` call and let the query through. Only a ';'
+    directly before the literal's closing quote is blanked: a ';' in the middle
+    of a literal (CSS, prose such as ``"; parsed from ..."``) stays a boundary,
+    so ordinary text does not start matching across it. Every ';' inside a char
+    literal is blanked because a char literal never holds SQL. Offsets and
+    newlines are preserved. Runs after mask_java_comments, so comment text is
+    already blank.
+    """
+    out = list(content)
+    i = 0
+    n = len(content)
+    while i < n:
+        c = content[i]
+        if c == '"' or c == "'":
+            j = i + 1
+            while j < n and content[j] != c:
+                if content[j] == '\\':
+                    j += 2
+                    continue
+                if content[j] == ';' and (c == "'" or _SQL_TERMINATOR.match(content, j)):
+                    out[j] = ' '
+                j += 1
+            i = j + 1
+            continue
         i += 1
     return ''.join(out)
 
@@ -479,6 +569,12 @@ def is_safe_pattern(match_text: str, statement: str, content: str) -> bool:
     if has_raw_concat_operand(statement):
         return False
 
+    # Constant-only formatting: a formatting call whose arguments are all
+    # literals (find_format_operands skips them) splices nothing into the SQL.
+    # Any raw operand in the statement has already been vetoed above.
+    if _FORMAT_CALL.search(match_text) and not find_format_operands(statement):
+        return True
+
     # 1. Parameter placeholder building within the statement
     if has_param_placeholder_in_context(statement):
         return True
@@ -572,22 +668,65 @@ def check_sql_injection_patterns(content: str) -> list[str]:
     # Mask comments up front so (a) SQL inside comments is never flagged and
     # (b) comment text can never provide allowlisting evidence. Offsets are
     # preserved, so reported positions remain valid.
-    content = mask_java_comments(content)
+    content = mask_literal_semicolons(mask_java_comments(content))
 
     # SQL keywords to look for
-    sql_keywords = r'(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|INTO|VALUES|SET|JOIN|ORDER\s+BY|GROUP\s+BY)'
+    # Word boundaries stop substrings in ordinary text ("updated", "charset",
+    # "offset") from counting as SQL clauses now that literal bodies can run
+    # further (a ';' inside a literal no longer ends the match).
+    sql_keywords = r'\b(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|INTO|VALUES|SET|JOIN|ORDER\s+BY|GROUP\s+BY)\b'
+
+    # Java string literals are double-quoted only. A single quote is a char
+    # literal (' ', 'x') or an embedded SQL quote inside a string ("... = '"),
+    # never a delimiter, so patterns anchor on '"' and let "'" live in the body.
+    # Bodies exclude ';': outside a terminating SQL position it is a statement
+    # boundary. mask_literal_semicolons has already blanked a terminator such
+    # as "... = '%s';" so a terminated query still reaches these patterns.
 
     # Pattern 1: String concatenation with SQL keywords
-    concat_pattern = rf'["\'][^"\']*{sql_keywords}[^"\']*["\']\s*\+\s*\w+'
-    concat_pattern2 = rf'\w+\s*\+\s*["\'][^"\']*{sql_keywords}'
-    concat_pattern3 = rf'["\'][^"\']*{sql_keywords}[^"\']*["\']\s*\+\s*["\'][^"\']*["\']\s*\+\s*\w+'
+    concat_pattern = rf'"[^";]*{sql_keywords}[^";]*"\s*\+\s*\w+'
+    concat_pattern2 = rf'\w+\s*\+\s*"[^";]*{sql_keywords}'
+    concat_pattern3 = rf'"[^";]*{sql_keywords}[^";]*"\s*\+\s*"[^";]*"\s*\+\s*\w+'
 
-    # Pattern 2: String.format with SQL
-    format_pattern = rf'String\s*\.\s*format\s*\(\s*["\'][^"\']*{sql_keywords}'
+    # Pattern 2: String.format with SQL, and text blocks filled with .formatted(args).
+    # .formatted() only counts when the literal has a real SQL clause shape, so
+    # free text such as "Update your profile: %s".formatted(x) is not flagged.
+    format_pattern = rf'String\s*\.\s*format\s*\(\s*"[^";]*{sql_keywords}'
+    formatted_shape = (
+        r'(?:SELECT\b[^";]*\bFROM\b|INSERT\s+INTO\b|UPDATE\s+\w+\s+SET\b'
+        r'|DELETE\s+FROM\b|WHERE\s+\w+(?:\.\w+)?\s*(?:=|<|>|!=|<>|\bLIKE\b|\bIN\b))'
+    )
+    # The literal may sit in parentheses or be a grouped literal concatenation:
+    # ("SELECT ... = '" + "%s'").formatted(name).
+    formatted_pattern = (
+        rf'"[^";]*{formatted_shape}[^";]*"(?:\s*\+\s*"[^";]*")*'
+        r'\s*\)*\s*\.\s*formatted\s*\(\s*(?!\))'
+    )
 
     # Pattern 3: StringBuilder/StringBuffer append with SQL
-    builder_pattern = rf'(?:StringBuilder|StringBuffer)\s*\(\s*["\'][^"\']*{sql_keywords}'
-    append_pattern = rf'\.append\s*\(\s*["\'][^"\']*{sql_keywords}'
+    builder_pattern = rf'(?:StringBuilder|StringBuffer)\s*\(\s*"[^";]*{sql_keywords}'
+    append_pattern = rf'\.append\s*\(\s*"[^";]*{sql_keywords}'
+    # A literal ending in a quote (e.g. "... = '") appended before a non-literal
+    # argument: the quote opens a sandwich around the appended value. This is
+    # only SQL when the literal carries SQL evidence (a clause keyword, an
+    # AND/OR predicate, or a comparison operator right before the quote); a
+    # warning such as "... default value: '" is ordinary text. The lookahead
+    # checks the literal's own body, so evidence elsewhere cannot excuse it.
+    # A complete char literal argument (.append('x')) is constant, not a value.
+    sandwich_evidence = (
+        rf'\b{sql_keywords}\b'
+        r'|\b(?:AND|OR)\s+[\w.]+\s*(?:<>|!=|<=|>=|=|<|>|\bLIKE\b|\bIN\b)'
+        r"|[\w.]\s*(?:<>|!=|<=|>=|=|<|>|\bLIKE\b|\bIN\b)\s*\(?\s*'(?=\")"
+    )
+    append_sandwich_pattern = (
+        r'\.\s*append\s*\(\s*"'
+        rf'(?=[^"]*(?:{sandwich_evidence}))'
+        r'[^"]*\'"\s*\)\s*\.\s*append\s*\(\s*'
+        # Only a complete literal (.append("abc") or .append(0)) is constant.
+        # A literal opening a concatenation (.append("prefix" + name)) is not.
+        r'(?![\s)])(?!"[^"]*"\s*\))(?!\d+\s*\))'
+        r"(?!'(?:[^'\\]|\\.)'\s*\))"
+    )
 
     # Pattern 4: executeQuery/executeUpdate with concatenation
     execute_concat = rf'(?:executeQuery|executeUpdate|execute)\s*\(\s*["\'][^"\']*{sql_keywords}[^"\']*["\']\s*\+'
@@ -606,7 +745,15 @@ def check_sql_injection_patterns(content: str) -> list[str]:
     # In Java source, this appears as a string ending with ' (single-quote before
     # the closing double-quote), then + variable +, then a string starting with '
     # Example: "WHERE name = '" + patientName + "' AND ..."
-    quote_sandwich = r"""'"\s*\+\s*\w+\s*\+\s*"'"""
+    # The embedded value may be a dotted field or a call (request.getParameter("x")).
+    quote_sandwich = r"""'"\s*\+\s*""" + _OPERAND_CHAIN + r"""\s*\+\s*"'"""
+
+    # Pattern 8: Concatenated operand inside a quoted LIKE value, e.g.
+    # " AND p.last_name LIKE '" + n + "%' AND id = :id". The closing literal is
+    # "%'" rather than "'", so quote-sandwich misses it, and the keyword-less
+    # predicate rule would let a named placeholder elsewhere allowlist it.
+    # Like quote-sandwich, a raw value between SQL quotes is never allowlistable.
+    like_sandwich = r"""\bLIKE\s*'[^"';]*"\s*\+\s*""" + _OPERAND_CHAIN
 
     patterns_to_check = [
         (concat_pattern, "String concatenation in SQL query", False),
@@ -615,16 +762,21 @@ def check_sql_injection_patterns(content: str) -> list[str]:
         (format_pattern, "String.format() with SQL query", False),
         (builder_pattern, "StringBuilder with SQL query", False),
         (append_pattern, "StringBuilder.append() with SQL fragment", False),
+        (formatted_pattern, "String.formatted() with SQL query", False),
+        (append_sandwich_pattern, "StringBuilder.append() value embedded between SQL quotes", False),
         (execute_concat, "executeQuery() with string concatenation", False),
         (execute_concat2, "executeQuery() with string concatenation", False),
         (create_query_concat, "createQuery() with string concatenation", False),
         (create_query_concat2, "createQuery() with string concatenation", False),
         (table_concat, "Table name concatenation in SQL", False),
         (where_concat, "WHERE clause concatenation in SQL", False),
-        # Quote-sandwich is never allowlistable: a raw variable embedded
-        # between SQL quotes is injectable regardless of any parameter
-        # placeholders or class metadata elsewhere in the statement.
+        # Quote-sandwich is never allowlistable: once a statement is shown to
+        # be SQL, a raw variable embedded between SQL quotes is injectable
+        # regardless of any parameter placeholders or class metadata elsewhere
+        # in the statement. It is gated on SQL evidence (checked in the loop
+        # below), so non-SQL CSV building is not flagged.
         (quote_sandwich, "Value embedded between SQL quotes (injection)", True),
+        (like_sandwich, "Concatenated value inside a quoted LIKE pattern (injection)", True),
     ]
 
     found_patterns = set()  # Avoid duplicate messages
@@ -636,6 +788,13 @@ def check_sql_injection_patterns(content: str) -> list[str]:
 
             # Get the full statement containing this match
             statement = get_statement_containing(content, match.start(), match.end())
+
+            # Quote-sandwich without SQL evidence in its statement is non-SQL
+            # text (e.g. a CSV row of quoted values). The gate reuses the
+            # append-sandwich evidence: a SQL clause keyword, an AND/OR
+            # predicate, or a comparison right before the quote.
+            if pattern in (quote_sandwich, like_sandwich) and not re.search(sandwich_evidence, statement, re.IGNORECASE):
+                continue
 
             # Skip if match is a safe pattern (never for always-unsafe patterns)
             if not always_unsafe and is_safe_pattern(match_text, statement, content):
@@ -664,6 +823,16 @@ def check_sql_injection_patterns(content: str) -> list[str]:
         # A SQL fragment concatenated with a variable during query assignment.
         (rf'\w+\s*=\s*["\'][^"\']*{sql_keywords}[^"\']*["\']\s*\+',
          "SQL query built with string concatenation", False),
+        # Keyword-less predicate fragment: " AND d.demographic_no = " + demoNo.
+        # The literal must open an expression (assignment, paren, comma, '+',
+        # statement start or return), and its column must look like a SQL column
+        # (qualified alias.column or snake_case), so free text such as
+        # "ALL OR NONE = " + count or " OR count = " + count is not treated as SQL.
+        # Only the statement's raw operand decides, so placeholders still allowlist.
+        # '?' and ':' admit a ternary branch: cond ? " AND d.x = " + v : "".
+        (r'(?:[=(,+;{?:]|\breturn)\s*"\s*(?:AND|OR)\s+(?:\w+\.\w+|\w+_\w+)\s*'
+         r'(?:<>|!=|<=|>=|=|<|>|\bLIKE\b|\bIN\b)\s*[(\']?\s*"?\s*\+(?![+=])',
+         "SQL predicate built with string concatenation", False),
     ]
 
     for pattern, description, always_unsafe in raw_query_patterns:
