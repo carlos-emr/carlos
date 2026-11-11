@@ -638,14 +638,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (!authorizeEditorNoteReference(loggedInInfo, demono, programIdString, note)) return NONE;
 
             if (note.getHistory() == null || note.getHistory().equals("")) {
-                // An old note has no history yet: the editor's form keeps the original text as its
-                // history, so a save carries it into the next revision. It is stored right away only
-                // when the editor opens by POST. (The note is detached here: setting it writes nothing.)
-                note.setHistory(note.getNote());
-                if (opensForEditing) {
-                    caseManagementMgr.saveNoteSimple(note);
-                    caseManagementMgr.addNewNoteLink(Long.parseLong(nId));
-                }
+                keepOriginalAsHistory(note, nId, opensForEditing);
             }
 
         }
@@ -735,19 +728,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         //check to see if someone else is editing note in this chart
         String ipAddress = request.getRemoteAddr();
-        CasemgmtNoteLock casemgmtNoteLock = null;
         Long note_id = note.getId() != null && note.getId() >= 0 ? note.getId() : 0L;
-        boolean lockedByAnotherProvider;
-        if (opensForEditing) {
-            casemgmtNoteLock = isNoteEdited(note_id, demographicNo, providerNo, ipAddress, request.getSession().getId());
-            lockedByAnotherProvider = casemgmtNoteLock.isLocked();
-        } else {
-            // A GET only looks at the lock and leaves this session's cached lock as it is, so an
-            // editor already open for this chart keeps its own.
-            lockedByAnotherProvider = isLockedByAnotherProvider(note_id, demographicNo, providerNo);
-        }
+        NoteOpenLock noteOpenLock = checkNoteLockOnOpen(opensForEditing, note_id, demographicNo, providerNo, ipAddress);
 
-        if (lockedByAnotherProvider) {
+        if (noteOpenLock.lockedByAnotherProvider()) {
             note = makeNewNote(providerNo, demono, request);
             cform.setCaseNote(note);
         }
@@ -760,9 +744,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 LogSafe.sanitize(String.valueOf(note.getId())),
                 cform.getCaseNote_note() == null ? 0 : cform.getCaseNote_note().length());
         synchronized (org.springframework.web.util.WebUtils.getSessionMutex(session)) {
-            if (casemgmtNoteLock != null) {
-                session.setAttribute("casemgmtNoteLock" + demono, casemgmtNoteLock); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- publish this authorized editor's cache and form together
-            }
+            cacheNoteLock(session, demono, noteOpenLock.lock());
             mySessionMap.put(frmName, cform);
         }
 
@@ -945,6 +927,59 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         restored.setNote(draftText == null ? "" : draftText);
         return restored;
+    }
+
+    /**
+     * An old note that has no history yet: the editor's form keeps the original text as its history,
+     * so a save carries it into the next revision. It is stored right away only when the editor
+     * opens by POST. (The note is detached here: setting the history writes nothing by itself.)
+     *
+     * @param note the saved note being opened
+     * @param noteId the request's note id, for the note link
+     * @param opensForEditing true when the editor opens by POST
+     */
+    private void keepOriginalAsHistory(CaseManagementNote note, String noteId, boolean opensForEditing) {
+        note.setHistory(note.getNote());
+        if (opensForEditing) {
+            caseManagementMgr.saveNoteSimple(note);
+            caseManagementMgr.addNewNoteLink(Long.parseLong(noteId));
+        }
+    }
+
+    /**
+     * The note lock as the editor opens: the lock taken for this session (by POST only) and whether
+     * another provider holds the note.
+     *
+     * @param lock the lock {@link #isNoteEdited(Long, Integer, String, String, String)} took or refreshed,
+     *        or null when the editor opened by GET
+     * @param lockedByAnotherProvider true when another provider holds the note
+     */
+    private record NoteOpenLock(CasemgmtNoteLock lock, boolean lockedByAnotherProvider) {
+    }
+
+    /**
+     * Checks the note's lock as the editor opens. By POST it takes (or refreshes) this session's lock
+     * through {@link #isNoteEdited(Long, Integer, String, String, String)}. A GET only looks at the lock
+     * and leaves this session's cached lock as it is, so an editor already open for this chart keeps
+     * its own.
+     */
+    private NoteOpenLock checkNoteLockOnOpen(boolean opensForEditing, Long noteId, Integer demographicNo,
+            String providerNo, String ipAddress) {
+        if (opensForEditing) {
+            CasemgmtNoteLock lock = isNoteEdited(noteId, demographicNo, providerNo, ipAddress, request.getSession().getId());
+            return new NoteOpenLock(lock, lock.isLocked());
+        }
+        return new NoteOpenLock(null, isLockedByAnotherProvider(noteId, demographicNo, providerNo));
+    }
+
+    /**
+     * Caches the lock this editor took for the chart, under the session mutex held by the caller,
+     * together with the editor's form. A GET took no lock and leaves the cache as it is.
+     */
+    private static void cacheNoteLock(HttpSession session, String demono, CasemgmtNoteLock lock) {
+        if (lock != null) {
+            session.setAttribute("casemgmtNoteLock" + demono, lock); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- publish this authorized editor's cache and form together
+        }
     }
 
     /**
