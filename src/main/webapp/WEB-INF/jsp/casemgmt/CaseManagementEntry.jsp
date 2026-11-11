@@ -281,6 +281,14 @@
             setTimer();
         });
 
+        function init() {
+            // Only an editor that can be used takes the lock: without the right to write notes the
+            // page has no form, and nothing is locked.
+            if (document.getElementById('caseManagementEntryForm')) takeNoteLock();
+            setTimer();
+            window.opener.location.reload(true);
+        }
+
         // Opening this editor (a link, a note search result) takes no note lock: the page takes it
         // here by POST, as the chart's own editor does, and Save needs this session's lock. When
         // another provider holds it, or the request fails, say so now, before anything is typed.
@@ -316,14 +324,6 @@
             lockRequest.send((chartContext ? "chartContext=" + encodeURIComponent(chartContext) + "&" : "")
                 + "method=isNoteEdited&demographicNo=" + encodeURIComponent(demographicNo)
                 + "&noteId=" + encodeURIComponent(noteId));
-        }
-
-        function init() {
-            // Only an editor that can be used takes the lock: without the right to write notes the
-            // page has no form, and nothing is locked.
-            if (document.getElementById('caseManagementEntryForm')) takeNoteLock();
-            setTimer();
-            window.opener.location.reload(true);
         }
 
         function restore() {
