@@ -232,29 +232,30 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
     @CsvSource({"alert,Alert,A", "nurse,Nurse,A", "resident,Resident,A", "midwife,Midwife,A",
             "alert,Alert,😀", "midwife,Midwife,😀"})
     void shouldRejectOverlongCustomFields_beforeAnyWrite(String field, String label, String character) throws Exception {
-        // Issue #5869: these VARCHAR(255) fields were cut silently under an empty sql_mode.
+        // Issue #5869: these fields were cut silently under an empty sql_mode. The alert is TEXT (D244).
+        int limit = "alert".equals(field) ? io.github.carlos_emr.carlos.commn.model.DemographicCust.ALERT_MAX_LENGTH : 255;
         allowPrivilege("_demographic", "w");
         replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
         mockRequest.setMethod("POST");
         addRequestParameter("demographic_no", "123");
-        addRequestParameter(field, character.repeat(256));
+        addRequestParameter(field, character.repeat(limit + 1));
         when(mockDemographicDao.getDemographic("123")).thenReturn(new Demographic(123));
 
         assertThat(executeAction(action)).isEqualTo("validationError");
         assertThat(mockResponse.getStatus()).isEqualTo(400);
         assertThat(mockRequest.getAttribute("fieldLengthValidationErrors"))
-                .isEqualTo(List.of(label + " exceeds maximum length of 255 characters."));
+                .isEqualTo(List.of(label + " exceeds maximum length of " + limit + " characters."));
         verify(mockDemographicDao, never()).save(any(Demographic.class));
     }
 
     @Test
-    @DisplayName("should accept a 255-character alert and report only the field that is too long")
+    @DisplayName("should accept a full-length alert and report only the field that is too long")
     void shouldAcceptFullLengthAlert_whenAnotherFieldIsTooLong() throws Exception {
         allowPrivilege("_demographic", "w");
         replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
         mockRequest.setMethod("POST");
         addRequestParameter("demographic_no", "123");
-        addRequestParameter("alert", "😀".repeat(255));
+        addRequestParameter("alert", "😀".repeat(io.github.carlos_emr.carlos.commn.model.DemographicCust.ALERT_MAX_LENGTH));
         // An over-long province stops the save at validation, before any write.
         addRequestParameter("province", "X".repeat(Demographic.PROVINCE_MAX_LENGTH + 1));
         when(mockDemographicDao.getDemographic("123")).thenReturn(new Demographic(123));

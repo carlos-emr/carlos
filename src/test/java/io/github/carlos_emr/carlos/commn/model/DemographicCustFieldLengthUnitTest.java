@@ -34,8 +34,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Unit tests for the demographiccust custom-field length check (issue #5869).
  *
- * <p>cust1 to cust4 are VARCHAR(255). Under an empty sql_mode MariaDB cut a longer value with only
- * a warning, so the end of a long patient alert was lost while the save reported success.</p>
+ * <p>Nurse, resident and midwife (cust1, cust2, cust4) are VARCHAR(255); the patient alert (cust3) is
+ * TEXT (D244). Under an empty sql_mode MariaDB cut a longer value with only a warning, so the end of a
+ * long patient alert was lost while the save reported success.</p>
  *
  * @since 2026-11-11
  */
@@ -43,6 +44,27 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 @Tag("demographic")
 class DemographicCustFieldLengthUnitTest {
+
+    private static int limitFor(String field) {
+        return switch (field) {
+            case "alert" -> DemographicCust.ALERT_MAX_LENGTH;
+            case "nurse" -> DemographicCust.NURSE_MAX_LENGTH;
+            case "resident" -> DemographicCust.RESIDENT_MAX_LENGTH;
+            case "midwife" -> DemographicCust.MIDWIFE_MAX_LENGTH;
+            default -> throw new IllegalArgumentException(field);
+        };
+    }
+
+    @Test
+    @DisplayName("should keep the alert's TEXT size and the other three fields at 255")
+    void shouldSizeEachFieldToItsColumn_forTheAlertAndTheOthers() {
+        // TEXT holds 65,535 bytes; at up to 4 bytes per utf8mb4 character, 16,383 always fit.
+        assertThat(DemographicCust.ALERT_MAX_LENGTH).isEqualTo(16_383);
+        assertThat(DemographicCust.ALERT_MAX_LENGTH * 4).isLessThanOrEqualTo(65_535);
+        assertThat(DemographicCust.NURSE_MAX_LENGTH).isEqualTo(255);
+        assertThat(DemographicCust.RESIDENT_MAX_LENGTH).isEqualTo(255);
+        assertThat(DemographicCust.MIDWIFE_MAX_LENGTH).isEqualTo(255);
+    }
 
     private static BiConsumer<DemographicCust, String> setterFor(String field) {
         return switch (field) {
@@ -59,32 +81,34 @@ class DemographicCustFieldLengthUnitTest {
             "alert,Alert,😀", "nurse,Nurse,😀", "resident,Resident,😀", "midwife,Midwife,😀"})
     void shouldAcceptTheFullColumn_andRefuseOneMoreCharacter(String field, String label, String character) {
         DemographicCust cust = new DemographicCust();
-        String exact = character.repeat(255);
+        int limit = limitFor(field);
+        String exact = character.repeat(limit);
         setterFor(field).accept(cust, exact);
         assertThat(cust.validateFieldLengths()).isEmpty();
 
         setterFor(field).accept(cust, exact + character);
         assertThat(cust.validateFieldLengths())
-                .containsExactly(label + " exceeds maximum length of 255 characters.");
+                .containsExactly(label + " exceeds maximum length of " + limit + " characters.");
     }
 
     @Test
     @DisplayName("should count a CR LF line break in the alert as two characters, as the column does")
     void shouldCountLineBreaksAsStored_forTheAlert() {
         DemographicCust cust = new DemographicCust();
-        cust.setAlert("A".repeat(126) + "\r\n" + "A".repeat(127));
+        int letters = DemographicCust.ALERT_MAX_LENGTH - 2;
+        cust.setAlert("A".repeat(letters / 2) + "\r\n" + "A".repeat(letters - letters / 2));
         assertThat(cust.validateFieldLengths()).isEmpty();
 
-        cust.setAlert("A".repeat(127) + "\r\n" + "A".repeat(127));
+        cust.setAlert("A".repeat(letters / 2 + 1) + "\r\n" + "A".repeat(letters - letters / 2));
         assertThat(cust.validateFieldLengths())
-                .containsExactly("Alert exceeds maximum length of 255 characters.");
+                .containsExactly("Alert exceeds maximum length of " + DemographicCust.ALERT_MAX_LENGTH + " characters.");
     }
 
     @Test
     @DisplayName("should report every over-long field without echoing the values or checking the notes")
     void shouldReportEachField_withoutValuesOrNotes() {
         DemographicCust cust = new DemographicCust();
-        String tooLong = "FAKE-ALERT-".repeat(30);
+        String tooLong = "FAKE-ALERT-".repeat(DemographicCust.ALERT_MAX_LENGTH / 11 + 1);
         cust.setAlert(tooLong);
         cust.setNurse("N".repeat(256));
         cust.setResident(null);
@@ -93,7 +117,7 @@ class DemographicCustFieldLengthUnitTest {
         cust.setNotes("FAKE-NOTE ".repeat(1000));
 
         assertThat(cust.validateFieldLengths())
-                .containsExactly("Alert exceeds maximum length of 255 characters.",
+                .containsExactly("Alert exceeds maximum length of " + DemographicCust.ALERT_MAX_LENGTH + " characters.",
                         "Nurse exceeds maximum length of 255 characters.")
                 .noneMatch(message -> message.contains("FAKE-"));
     }
@@ -102,7 +126,7 @@ class DemographicCustFieldLengthUnitTest {
     @DisplayName("should keep the value whole while reporting the error")
     void shouldNotCutTheValue_whenItIsTooLong() {
         DemographicCust cust = new DemographicCust();
-        String tooLong = "😀".repeat(256);
+        String tooLong = "😀".repeat(DemographicCust.ALERT_MAX_LENGTH + 1);
         cust.setAlert(tooLong);
 
         assertThat(cust.validateFieldLengths()).hasSize(1);
