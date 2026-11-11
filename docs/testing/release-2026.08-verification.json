@@ -3155,6 +3155,19 @@
               "container": ""
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.billings.ca.on.service.BillingObecAlertDaoMariaDbIntegrationTest": {
+          "check": "java-native-generated",
+          "cases": [
+            {
+              "name": "shouldLeaveTheStoredAlertWhole_whenTheMessageWouldMakeItTooLong(String)[2]",
+              "container": "OBEC apply and the patient alert column, on the database"
+            },
+            {
+              "name": "shouldStoreTheAlertWhole_whenItFillsTheLimitAsTheFormCountsIt(String)[2]",
+              "container": "OBEC apply and the patient alert column, on the database"
+            }
+          ]
         }
       },
       "runtimeConstraints": {
@@ -3254,7 +3267,8 @@
         "RxFavoriteGroupIntegrationTest": 6,
         "RxFavoriteCopyIntegrationTest": 1,
         "RxRestPrescriptionRollbackIntegrationTest": 1,
-        "RxStrictAuditIntegrationTest": 1
+        "RxStrictAuditIntegrationTest": 1,
+        "BillingObecAlertDaoMariaDbIntegrationTest": 4
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
