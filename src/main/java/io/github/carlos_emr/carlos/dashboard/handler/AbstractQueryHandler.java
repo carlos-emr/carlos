@@ -49,6 +49,9 @@ import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+// Instances hold one request's parameters, query and results in fields, so the three handler beans
+// are prototype-scoped in applicationContext.xml (#3947): fetch a fresh one with SpringUtils.getBean
+// for each request, and never keep one in, or inject one into, a singleton.
 @Service
 // @Transactional at class level so the protected execute() / execute(String)
 // entry points are both covered when subclasses (DrilldownQueryHandler,
