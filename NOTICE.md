@@ -55,6 +55,16 @@ the GNU General Public License.
   https://creativecommons.org/licenses/by/3.0/us/
   Local changes include filtering for lowercase ASCII words, removing
   patient-unfriendly terms, and reducing the list to 4096 entries.
+- The development-only synthetic patients
+  (`.devcontainer/db/scripts/demo-synthetic-patients.sql`) are converted from the
+  sample patients published with Synthea, The MITRE Corporation's synthetic
+  patient generator. The records are synthetic, not real people.
+  Source: https://github.com/synthetichealth/synthea-sample-data
+  (Synthea: https://github.com/synthetichealth/synthea)
+  License: Apache License 2.0, https://www.apache.org/licenses/LICENSE-2.0
+  Local changes: Canadian names, places, units and products; FAKE identities;
+  and the clean-up rules listed in `scripts/devdata/synthea/README.md`. Never
+  shipped in the application or its packages.
 
 ## Trademark Notice
 
