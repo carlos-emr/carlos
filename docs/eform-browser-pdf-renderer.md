@@ -91,12 +91,14 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 > (`--renderer-process-limit=4`, all render content is same-origin loopback), and drop the GPU
 > process (`--disable-gpu`; headless print rasters in software). On the `.deb`, the
 > `carlos-emr-render-browser` unit additionally carries a cgroup ceiling for the whole browser tree
-> (`MemoryHigh=1G`, `MemoryMax=1536M`): under pressure the kernel throttles and, at the limit,
+> (`MemoryHigh=1324M`, `MemoryMax=1836M`): under pressure the kernel throttles and, at the limit,
 > OOM-kills **inside the unit** — a runaway form's render fails (retryably, via the normal
 > fail-closed render error, with `Restart=always` recycling the driver) instead of the browser
 > squeezing the EMR beside it. Size hosts for steady state: up to `MAX_CONCURRENT_RENDERS` (2)
-> concurrent Chromium instances of roughly 150–300 MB each, plus chromedriver (~20 MB), on top of
-> the Tomcat JVM. Deployments that raise concurrency must raise the unit ceiling to match.
+> shared Chromium instances plus `CHART_ONLY_RENDERS` (1) kept for measurement, lab and medication
+> graphs (#5853), roughly 150–300 MB each, plus chromedriver (~20 MB), on top of the Tomcat JVM.
+> The graph browser raised the unit ceiling by one browser's peak (300M) from `1G` / `1536M`.
+> Deployments that raise concurrency must raise the unit ceiling to match.
 
 > **Containerized deployments MUST run an init process (zombie reaping).** Each render launches a
 > Chromium process tree; on an abnormal teardown (a killed chromedriver, a deploy mid-render, an
@@ -265,7 +267,9 @@ heuristic.
   caller-owned chromedriver service is stopped afterwards as a backstop
   when quit times out.
 - **Bounded concurrency.** At most 2 concurrent renders (30s slot wait, then a clean failure)
-  so rendering can never saturate Tomcat's request workers. Every WebDriver/CDP HTTP command is
+  so rendering can never saturate Tomcat's request workers. Graphs (`BrowserChartRenderer`) also
+  have 1 browser of their own, which they take first, so a graph never waits behind eForm PDFs; a
+  PDF never takes it (#5853). At most 3 browsers run at once. Every WebDriver/CDP HTTP command is
   additionally client-bounded at 90s (vs Selenium's ~180s default), which sharply cuts down —
   but does not eliminate — how long a wedged Chromium can hold one of the 2 render slots; see
   "Known limitations and tracked follow-ups" for the honest worst-case shape.
@@ -641,8 +645,8 @@ carryovers from PR #3164:
   render's `finally` block is itself one more WebDriver command bound by that same 90-second client
   read timeout. Worst case that is roughly three 90-second spans — **up to ~4.5 minutes** — before
   `stopServiceQuietly`'s process-level kill actually frees the render
-  slot. `MAX_CONCURRENT_RENDERS=2` bounds the blast radius to at most 2 stuck slots at a time, not
-  the whole renderer, but a wedged browser is not guaranteed to fail within the nominal 90-second
+  slot. `MAX_CONCURRENT_RENDERS=2` bounds the blast radius to at most 2 stuck shared slots at a
+  time (plus the 1 graph-only slot), not the whole renderer, but a wedged browser is not guaranteed to fail within the nominal 90-second
   budget.
 
 ## Output contract

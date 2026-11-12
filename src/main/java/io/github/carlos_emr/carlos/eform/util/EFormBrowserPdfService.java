@@ -125,7 +125,8 @@ public class EFormBrowserPdfService {
      * deliberately 3x the 30s in-band {@link #PAGE_LOAD_TIMEOUT}/{@link #SCRIPT_TIMEOUT} so legitimate
      * slow pages always hit the in-band timeout first. A longer bound (the former Selenium transport
      * defaulted to ~180s) lets a wedged Chromium hold one of the {@link #MAX_CONCURRENT_RENDERS}
-     * global render slots for ~6 minutes (blocked command + blocked quit) and starve all rendering.
+     * global render slots (or the {@link #CHART_ONLY_RENDERS} chart slot) for ~6 minutes (blocked
+     * command + blocked quit) and starve all rendering.
      */
     static final Duration WEBDRIVER_COMMAND_READ_TIMEOUT = RENDER_TIMEOUT;
     static final Duration WEBDRIVER_CONNECTION_TIMEOUT = Duration.ofSeconds(10);
@@ -188,9 +189,17 @@ public class EFormBrowserPdfService {
 
     /** Bound both active browsers and waiting servlet threads, leaving workers for renderer callbacks. */
     private static final int MAX_CONCURRENT_RENDERS = 2;
+    /**
+     * Browsers only measurement, lab and medication graphs use, beside the {@link #MAX_CONCURRENT_RENDERS}
+     * shared ones, so a graph never waits behind eForm PDFs (#5853). At most
+     * {@code MAX_CONCURRENT_RENDERS + CHART_ONLY_RENDERS} browsers run at once; the carlos-emr-render-browser
+     * unit's memory ceiling is sized for that many.
+     */
+    static final int CHART_ONLY_RENDERS = 1;
     private static final Duration RENDER_SLOT_WAIT = Duration.ofSeconds(30);
     static final Semaphore RENDER_SLOTS = new Semaphore(MAX_CONCURRENT_RENDERS, true);
-    static final RenderAdmission ADMISSION = new RenderAdmission(RENDER_SLOTS);
+    static final Semaphore CHART_RENDER_SLOTS = new Semaphore(CHART_ONLY_RENDERS, true);
+    static final RenderAdmission ADMISSION = new RenderAdmission(RENDER_SLOTS, CHART_RENDER_SLOTS);
 
     /**
      * Filename prefix of the renderer's output PDF. The {@link RenderedEformPdf} guard keys on it
@@ -1532,7 +1541,8 @@ public class EFormBrowserPdfService {
                 // KNOWN OVERSHOOT: the caller's finally releases this render's slot now, while the
                 // reaper may keep the late session's browser alive for up to LATE_SESSION_REAP_TIMEOUT.
                 // Under repeated start-timeouts (a memory-starved host — the same condition that causes
-                // them) live browser TREES can therefore briefly exceed MAX_CONCURRENT_RENDERS. Total
+                // them) live browser TREES can therefore briefly exceed MAX_CONCURRENT_RENDERS
+                // + CHART_ONLY_RENDERS. Total
                 // browser-tree MEMORY stays bounded regardless: the carlos-emr-render-browser unit's
                 // MemoryHigh/MemoryMax cgroup ceiling covers every tree the driver spawned, so the
                 // overshoot cannot compound the pressure that caused it. Holding the slot until the

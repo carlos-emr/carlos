@@ -77,6 +77,7 @@ class BrowserChartRendererUnitTest {
     @Test
     void shouldPreserveInterruption_withoutReadingScriptsOrTakingASlot() {
         int permits = EFormBrowserPdfService.RENDER_SLOTS.availablePermits();
+        int chartPermits = EFormBrowserPdfService.CHART_RENDER_SLOTS.availablePermits();
         Thread.currentThread().interrupt();
         try {
             assertThatThrownBy(this::render).isInstanceOf(ChartRenderFailure.class)
@@ -84,6 +85,7 @@ class BrowserChartRendererUnitTest {
             assertThat(Thread.currentThread().isInterrupted()).isTrue();
             assertThat(libraryReads.get()).isZero();
             assertThat(EFormBrowserPdfService.RENDER_SLOTS.availablePermits()).isEqualTo(permits);
+            assertThat(EFormBrowserPdfService.CHART_RENDER_SLOTS.availablePermits()).isEqualTo(chartPermits);
         } finally {
             Thread.interrupted();
         }
@@ -146,6 +148,7 @@ class BrowserChartRendererUnitTest {
         EFormBrowserPdfService.RendererBrowser session = new EFormBrowserPdfService.RendererBrowser(
                 driver, URI.create("http://127.0.0.1:9515"), "synthetic-session");
         int permits = EFormBrowserPdfService.RENDER_SLOTS.availablePermits();
+        int chartPermits = EFormBrowserPdfService.CHART_RENDER_SLOTS.availablePermits();
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (var _ = mockConstruction(EFormBrowserPdfService.class,
                 (service, ignored) -> when(service.createDriver(any())).thenReturn(session))) {
@@ -156,11 +159,42 @@ class BrowserChartRendererUnitTest {
         verify(driver, never()).executeCdpCommand(anyString(), any());
         verify(driver).quit();
         assertThat(EFormBrowserPdfService.RENDER_SLOTS.availablePermits()).isEqualTo(permits);
+        assertThat(EFormBrowserPdfService.CHART_RENDER_SLOTS.availablePermits()).isEqualTo(chartPermits);
+    }
+
+    /** #5853: eForm PDFs holding both shared browsers do not hold up a graph; it draws in its own. */
+    @Test
+    void shouldDrawAChart_whilePdfRendersHoldBothSharedSlots() throws Exception {
+        RenderBrowser driver = mock(RenderBrowser.class);
+        when(driver.executeScript(eq("return window.carlosDrawChart(arguments[0], arguments[1], arguments[2]).length > 0;"),
+                any(), eq(100), eq(100))).thenReturn(true);
+        when(driver.executeCdpCommand(eq("Page.captureScreenshot"), any()))
+                .thenReturn(java.util.Map.of("data", java.util.Base64.getEncoder().encodeToString(new byte[]{4, 5, 6})));
+        EFormBrowserPdfService.RendererBrowser session = new EFormBrowserPdfService.RendererBrowser(
+                driver, URI.create("http://127.0.0.1:9515"), "synthetic-session");
+        int chartPermits = EFormBrowserPdfService.CHART_RENDER_SLOTS.availablePermits();
+        int held = EFormBrowserPdfService.RENDER_SLOTS.drainPermits();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (var _ = mockConstruction(EFormBrowserPdfService.class,
+                (service, ignored) -> when(service.createDriver(any())).thenAnswer(invocation -> {
+                    assertThat(EFormBrowserPdfService.CHART_RENDER_SLOTS.availablePermits())
+                            .as("the graph draws in the chart-only browser").isEqualTo(chartPermits - 1);
+                    return session;
+                }))) {
+            BrowserChartRenderer.write(context, output, chart(), 100, 100, "png");
+        } finally {
+            EFormBrowserPdfService.RENDER_SLOTS.release(held);
+        }
+        assertThat(output.toByteArray()).containsExactly(4, 5, 6);
+        verify(driver).quit();
+        assertThat(EFormBrowserPdfService.CHART_RENDER_SLOTS.availablePermits()).isEqualTo(chartPermits);
     }
 
     @Test
     void shouldQueueForRenderSlot_whileSlotsAreBusy() throws Exception {
+        // Every browser busy: the shared ones and the chart-only one (#5853).
         int permits = EFormBrowserPdfService.RENDER_SLOTS.drainPermits();
+        int chartPermits = EFormBrowserPdfService.CHART_RENDER_SLOTS.drainPermits();
         List<Thread> waiters = new ArrayList<>();
         List<String> outcomes = java.util.Collections.synchronizedList(new ArrayList<>());
         CountDownLatch started = new CountDownLatch(6);
@@ -187,6 +221,7 @@ class BrowserChartRendererUnitTest {
             assertThat(outcomes).as("no chart request fails fast while slots are merely busy").isEmpty();
         } finally {
             EFormBrowserPdfService.RENDER_SLOTS.release(permits);
+            EFormBrowserPdfService.CHART_RENDER_SLOTS.release(chartPermits);
         }
         for (Thread thread : waiters) thread.join(30_000);
         assertThat(outcomes).hasSize(6).containsOnly("Chart rendering failed");

@@ -150,12 +150,14 @@ LimitNOFILE=16384
 # render push the host into memory pressure -- on a small clinic box the browser
 # must be the thing that dies, never the EMR next to it. A kill mid-render
 # surfaces as a failed (retryable) render via the JVM's fail-closed error path,
-# and Restart=always recycles the driver. Sized for the steady state: up to two
-# concurrent renders (each further bounded by the JVM's --js-flags V8 heap cap
-# and --renderer-process-limit) plus chromedriver, with headroom.
+# and Restart=always recycles the driver. Sized for the steady state: up to three
+# concurrent browsers -- the two that eForm PDFs and graphs share, plus the one
+# kept for graphs only (#5853) -- each further bounded by the JVM's --js-flags V8
+# heap cap and --renderer-process-limit, plus chromedriver, with headroom. The
+# graph browser raised both limits by one browser's peak (300M) from 1G / 1536M.
 MemoryAccounting=yes
-MemoryHigh=1G
-MemoryMax=1536M
+MemoryHigh=1324M
+MemoryMax=1836M
 
 [Install]
 WantedBy=multi-user.target

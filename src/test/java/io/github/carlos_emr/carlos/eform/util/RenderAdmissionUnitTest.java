@@ -103,6 +103,131 @@ class RenderAdmissionUnitTest {
         }
     }
 
+    /** #5853: with every shared slot held by PDFs, a chart still gets its own browser at once. */
+    @Test
+    void shouldAdmitAChart_whilePdfsHoldEverySharedSlot() throws Exception {
+        var slots = new Semaphore(2);
+        var chartSlots = new Semaphore(1);
+        var admission = new RenderAdmission(slots, chartSlots);
+        try (var firstPdf = admission.acquire(RenderAdmission.Kind.PDF, Duration.ZERO);
+             var secondPdf = admission.acquire(RenderAdmission.Kind.PDF, Duration.ZERO)) {
+            assertThat(firstPdf).isNotNull();
+            assertThat(secondPdf).isNotNull();
+            try (var chart = admission.acquire(RenderAdmission.Kind.CHART, Duration.ZERO)) {
+                assertThat(chart).isNotNull();
+                assertThat(chartSlots.availablePermits()).isZero();
+                // Three browsers is the ceiling: a fourth render of either class waits.
+                assertThat(admission.acquire(RenderAdmission.Kind.CHART, Duration.ofMillis(10))).isNull();
+                assertThat(admission.acquire(RenderAdmission.Kind.PDF, Duration.ofMillis(10))).isNull();
+            }
+            assertThat(chartSlots.availablePermits()).isEqualTo(1);
+        }
+        assertThat(slots.availablePermits()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldNeverGiveAPdfTheChartSlot_evenWhenItIsFree() throws Exception {
+        var slots = new Semaphore(0);
+        var chartSlots = new Semaphore(1);
+        var admission = new RenderAdmission(slots, chartSlots);
+
+        assertThat(admission.acquire(RenderAdmission.Kind.PDF, Duration.ofMillis(10))).isNull();
+        assertThat(chartSlots.availablePermits()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldTakeTheChartSlotFirst_andASharedSlotOnlyWhenItIsBusy() throws Exception {
+        var slots = new Semaphore(2);
+        var chartSlots = new Semaphore(1);
+        var admission = new RenderAdmission(slots, chartSlots);
+        var first = admission.acquire(RenderAdmission.Kind.CHART, Duration.ZERO);
+        assertThat(first).isNotNull();
+        assertThat(chartSlots.availablePermits()).isZero();
+        assertThat(slots.availablePermits()).isEqualTo(2);
+
+        var second = admission.acquire(RenderAdmission.Kind.CHART, Duration.ZERO);
+        assertThat(second).isNotNull();
+        assertThat(slots.availablePermits()).isEqualTo(1);
+
+        // Each lease gives back exactly the slot it took, once.
+        first.close(); first.close();
+        assertThat(chartSlots.availablePermits()).isEqualTo(1);
+        assertThat(slots.availablePermits()).isEqualTo(1);
+        second.close(); second.close();
+        assertThat(slots.availablePermits()).isEqualTo(2);
+        assertThat(chartSlots.availablePermits()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldServeAWaitingChart_whenTheChartSlotIsReleased() throws Exception {
+        var chartSlots = new Semaphore(1);
+        var admission = new RenderAdmission(new Semaphore(0), chartSlots);
+        var first = admission.acquire(RenderAdmission.Kind.CHART, Duration.ZERO);
+        assertThat(first).isNotNull();
+        var task = new FutureTask<>(() -> admission.acquire(RenderAdmission.Kind.CHART, Duration.ofSeconds(5)));
+        Thread worker = new Thread(task);
+        worker.start();
+        try {
+            awaitTimedWaiting(worker);
+            first.close();
+            try (var next = task.get(2, java.util.concurrent.TimeUnit.SECONDS)) {
+                assertThat(next).isNotNull();
+                assertThat(chartSlots.availablePermits()).isZero();
+            }
+            assertThat(chartSlots.availablePermits()).isEqualTo(1);
+        } finally {
+            worker.interrupt(); worker.join(2000);
+            assertThat(worker.isAlive()).isFalse();
+        }
+    }
+
+    /**
+     * A chart in its own slot counts as holding one: while a PDF waits, a second chart does not take
+     * the shared slot the PDF is waiting for, but waits for the chart slot.
+     */
+    @Test
+    void shouldGiveAFreedSharedSlotToTheWaitingPdf_whileAChartHoldsItsOwnSlot() throws Exception {
+        var slots = new Semaphore(1);
+        var chartSlots = new Semaphore(1);
+        var admission = new RenderAdmission(slots, chartSlots);
+        var firstChart = admission.acquire(RenderAdmission.Kind.CHART, Duration.ZERO);
+        var firstPdf = admission.acquire(RenderAdmission.Kind.PDF, Duration.ZERO);
+        assertThat(firstChart).isNotNull();
+        assertThat(firstPdf).isNotNull();
+        var pdfTask = new FutureTask<>(() -> admission.acquire(RenderAdmission.Kind.PDF, Duration.ofSeconds(5)));
+        var chartTask = new FutureTask<>(() -> admission.acquire(RenderAdmission.Kind.CHART, Duration.ofSeconds(5)));
+        Thread pdfWorker = new Thread(pdfTask);
+        Thread chartWorker = new Thread(chartTask);
+        pdfWorker.start();
+        awaitTimedWaiting(pdfWorker);
+        chartWorker.start();
+        awaitTimedWaiting(chartWorker);
+        try {
+            firstPdf.close();
+            try (var secondPdf = pdfTask.get(2, java.util.concurrent.TimeUnit.SECONDS)) {
+                assertThat(secondPdf).isNotNull();
+                assertThat(chartTask.isDone()).isFalse();
+                firstChart.close();
+                try (var secondChart = chartTask.get(2, java.util.concurrent.TimeUnit.SECONDS)) {
+                    assertThat(secondChart).isNotNull();
+                    assertThat(chartSlots.availablePermits()).isZero();
+                }
+            }
+            assertThat(slots.availablePermits()).isEqualTo(1);
+            assertThat(chartSlots.availablePermits()).isEqualTo(1);
+        } finally {
+            for (Thread worker : java.util.List.of(pdfWorker, chartWorker)) { worker.interrupt(); worker.join(2000); }
+            assertThat(pdfWorker.isAlive()).isFalse();
+            assertThat(chartWorker.isAlive()).isFalse();
+        }
+    }
+
+    private static void awaitTimedWaiting(Thread worker) {
+        long deadline = System.nanoTime() + Duration.ofSeconds(2).toNanos();
+        while (worker.getState() != Thread.State.TIMED_WAITING && System.nanoTime() < deadline) Thread.yield();
+        assertThat(worker.getState()).isEqualTo(Thread.State.TIMED_WAITING);
+    }
+
     @Test
     void shouldRefusePreInterruptedAdmission_withoutTakingAnAvailableSlot() {
         var slots = new Semaphore(2);
