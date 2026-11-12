@@ -113,6 +113,16 @@ class ViewBillingOnHistory2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"042", "+42", " 42 "})
+    void shouldAuditUnderThePatientThePageLists_whenTheNumberIsWrittenAnotherWay(String demographicNo) {
+        // The page reads the parameter as an integer, so each of these lists patient 42's invoices.
+        ViewBillingOnHistory2Action.auditHistoryRead(login, demographicNo);
+
+        logActionMock.verify(() -> LogAction.addLog(login, LogConst.READ, LogConst.CON_BILLING_HISTORY, "42", "42", null));
+        logActionMock.verifyNoMoreInteractions();
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"", "abc", "42 OR 1=1", "-5", "0"})
     void shouldNotAuditAPatientRead_whenNoPatientIsNamed(String demographicNo) throws Exception {
         request.setParameter("demographic_no", demographicNo);

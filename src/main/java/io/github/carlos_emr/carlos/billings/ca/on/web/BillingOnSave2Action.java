@@ -239,9 +239,8 @@ public class BillingOnSave2Action extends ActionSupport {
             // The claim committed: audit the invoice against its patient. The invoice number and the
             // patient only; the health number, diagnosis and fees stay in the billing tables. A
             // repeated submission is answered above from the first save and is not audited again.
-            String patient = request.getParameter("demographic_no");
             LogAction.addLog(loggedInInfo, LogConst.ADD, LogConst.CON_BILLING, String.valueOf(billingNo),
-                    patient != null && patient.matches("[1-9]\\d{0,8}") ? patient : null, null);
+                    ViewBillingOnHistory2Action.auditPatientNumber(request.getParameter("demographic_no")), null);
             return routeSavedBill(request, loggedInInfo, billingAction, safeUrlBack);
         }
 

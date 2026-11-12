@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.hospitalReportManager;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -154,6 +155,12 @@ class HRMUtilPatientAccessUnitTest extends CarlosUnitTestBase {
         assertThat(listed).isEmpty();
         verifyNoInteractions(links, documents);
         parser.verify(() -> HRMReportParser.parseReport(any(LoggedInInfo.class), anyString()), never());
+        // The refusal is audited as one ("no right"), under the patient. The recent-patient lists
+        // leave that action out, so being refused does not list the patient as recently opened.
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog(eq("999998"),
+                eq(io.github.carlos_emr.carlos.log.LogConst.NORIGHT), eq(io.github.carlos_emr.carlos.log.LogConst.CON_HRM),
+                eq(Integer.toString(PATIENT)), org.mockito.ArgumentMatchers.nullable(String.class),
+                eq(Integer.toString(PATIENT)), eq("list")));
     }
 
     @Test

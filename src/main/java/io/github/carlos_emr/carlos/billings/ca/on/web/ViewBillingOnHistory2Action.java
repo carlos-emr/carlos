@@ -71,6 +71,25 @@ public class ViewBillingOnHistory2Action extends ActionSupport {
     }
 
     /**
+     * The patient a billing page acts on, written the one way the audit trail keys it.
+     *
+     * <p>The billing pages read {@code demographic_no} as an integer, so {@code 042} and
+     * {@code +42} list patient 42. The audit row must name that same patient: a stricter pattern
+     * here would show the patient's billing with no row at all.</p>
+     *
+     * @param demographicNo the {@code demographic_no} request parameter as received
+     * @return the positive patient number in plain decimal, or {@code null} when the value names no patient
+     */
+    static String auditPatientNumber(String demographicNo) {
+        try {
+            int patient = Integer.parseInt(demographicNo == null ? "" : demographicNo.trim());
+            return patient > 0 ? Integer.toString(patient) : null;
+        } catch (NumberFormatException notANumber) {
+            return null;
+        }
+    }
+
+    /**
      * Audits the opening of a patient's billing history: the page lists every invoice of the
      * patient (dates, codes, amounts), so it is a read of that patient's billing record. One row
      * for the page, keyed by the patient like the chart's own read rows, never one per invoice
@@ -80,8 +99,9 @@ public class ViewBillingOnHistory2Action extends ActionSupport {
      * @param demographicNo the {@code demographic_no} request parameter as received
      */
     static void auditHistoryRead(LoggedInInfo loggedInInfo, String demographicNo) {
-        if (loggedInInfo != null && demographicNo != null && demographicNo.matches("[1-9]\\d{0,8}")) {
-            LogAction.addLog(loggedInInfo, LogConst.READ, LogConst.CON_BILLING_HISTORY, demographicNo, demographicNo, null);
+        String patient = auditPatientNumber(demographicNo);
+        if (loggedInInfo != null && patient != null) {
+            LogAction.addLog(loggedInInfo, LogConst.READ, LogConst.CON_BILLING_HISTORY, patient, patient, null);
         }
     }
 }

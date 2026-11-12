@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.lab.ca.on.HRMResultsData;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -87,7 +88,11 @@ public class HRMUtil {
         Integer patient = HRMReportAccess.number(demographicNo);
         if (patient != null && patient > 0
                 && !HRMReportAccess.mayReadPatient(securityInfoManager(), loggedInInfo, patient)) {
-            LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), "HRMUtil.listHRMDocuments", "UNAUTHORIZED", "missing required patient read access", loggedInInfo.getIp(), demographicNo, null);
+            // Audited as a refusal ("no right") under the patient, like a refused Master Record
+            // open: the recent-patient lists leave that action out, so a patient the provider may
+            // not open is never listed as one the provider recently opened.
+            LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.NORIGHT, LogConst.CON_HRM,
+                    Integer.toString(patient), loggedInInfo.getIp(), Integer.toString(patient), "list");
             logger.warn("HRM report list withheld: missing required patient read access");
             return new ArrayList<>();
         }
