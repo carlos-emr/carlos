@@ -62,6 +62,20 @@ class LabTextResultLabelJspRegressionTest {
                 "CommonLabTestValues.isTextResult(");
     }
 
+    /**
+     * The value history and Row Display print each result as its report holds it. A final word result now reaches them
+     * (#6122), and its lab line breaks arrive as {@code <br />} markers, which must show as line breaks, not as text.
+     */
+    @ParameterizedTest(name = "{0} shows a result's line breaks")
+    @ValueSource(strings = {"WEB-INF/jsp/lab/DisplayLabValue.jsp", "WEB-INF/jsp/lab/CA/ON/labValues.jsp"})
+    void shouldShowLineBreakMarkersAsBreaks_inEachHistoryView(String page) throws IOException {
+        String jsp = read("src/main/webapp/" + page);
+
+        assertThat(jsp).containsPattern("<carlos:encode value='<%= String\\.valueOf\\((h|hMap)\\.get\\(\"result\"\\)\\) %>'"
+                + " context=\"htmlWithBreakMarkers\"/>");
+        assertThat(jsp).doesNotContainPattern("get\\(\"result\"\\)\\) %>' context=\"html\"/>");
+    }
+
     @Test
     void shouldLabelEveryGridCell_includingTheLatestValue() throws IOException {
         String grid = read("src/main/webapp/WEB-INF/jsp/lab/CumulativeLabValues3.jsp");
