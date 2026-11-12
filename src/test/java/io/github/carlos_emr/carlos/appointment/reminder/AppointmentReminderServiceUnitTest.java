@@ -331,20 +331,6 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
          * A booking whose reminder already went for this visit covers it whatever staff did to the booking after:
          * unticked its box, cancelled it, or moved it. Otherwise ticking another booking sends a second email.
          */
-        /** #884 (review): a text handed to the SMS queue is handed over, so the query also reads queued ones. */
-        @Test
-        void shouldAskForQueuedTexts_amongTheRemindersHandedOver() {
-            assertThat(AppointmentReminderService.HANDED_OVER).contains(AppointmentReminderStatus.QUEUED);
-            Appointment appointment = appointment(start, PATIENT, "t");
-            AppointmentReminder reminder = requested();
-            stored(reminder, appointment, appointment);
-
-            service.processDue(10);
-
-            verify(reminders).findSameVisit(eq(ReminderChannel.EMAIL), eq(PATIENT), eq(start), eq(7L),
-                    org.mockito.ArgumentMatchers.argThat(statuses -> statuses.contains(AppointmentReminderStatus.QUEUED)));
-        }
-
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"unticked", "cancelled", "moved"})
         void shouldRecordTheReminderAsCovered_whenTheBookingThatWasRemindedChangedAfter(String change) {
@@ -357,6 +343,20 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
 
             assertThat(handed).isEmpty();
             assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.DUPLICATE);
+        }
+
+        /** #884 (review): a text handed to the SMS queue is handed over, so the query also reads queued ones. */
+        @Test
+        void shouldAskForQueuedTexts_amongTheRemindersHandedOver() {
+            assertThat(AppointmentReminderService.HANDED_OVER).contains(AppointmentReminderStatus.QUEUED);
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+
+            service.processDue(10);
+
+            verify(reminders).findSameVisit(eq(ReminderChannel.EMAIL), eq(PATIENT), eq(start), eq(7L),
+                    org.mockito.ArgumentMatchers.argThat(statuses -> statuses.contains(AppointmentReminderStatus.QUEUED)));
         }
 
         /** A booking not yet reminded that left the visit will never send for it: this one must. */
