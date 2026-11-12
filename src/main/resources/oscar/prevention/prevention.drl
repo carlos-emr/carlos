@@ -738,10 +738,11 @@ end
 //   Booster doses are DTaP-IPV and Tdap-IPV, and DTaP-IPV-Hib or the older TdP-IPV-Hib when given at 4 years
 //   (48 months) or later: the CIG does not need a separate 4-6-year booster after a fourth dose given after the
 //   fourth birthday. Infant doses of the -Hib products (2, 4, 6, 18 months) do not start the 10-year clock.
-// Td 1: no Td on file, and the most recent of the adolescent/adult tetanus products that "Td 2" counts (Tdap,
-//   Td-IPV, TdP-IPV-Hib, Tdap-IPV) is >=120mo old (#5048). By decision, both reminders show when both apply: a
-//   patient whose last tetanus vaccine is a 10-year-old Tdap-IPV school booster, with no Tdap since, sees
-//   "Needs Tdap" and "Needs Td".
+// Td 1: no Td on file, and the most recent of the booster-age tetanus products is >=120mo old (#5048): Tdap,
+//   Td-IPV and Tdap-IPV, and TdP-IPV-Hib only when given at 4 years (48 months) or later, as in "Tdap 1". The
+//   older TdP-IPV-Hib is also an infant combination (2, 4, 18 months): its infant doses must not ask a child of
+//   11 or 12 for a Td. By decision, both reminders show when both apply: a patient whose last tetanus vaccine is
+//   a 10-year-old Tdap-IPV school booster, with no Tdap since, sees "Needs Tdap" and "Needs Td".
 // Td 2: Repeat Td booster every 10 years; checks ALL tetanus-containing vaccines:
 //   Tdap, Td, Td-IPV, TdP-IPV-Hib, Tdap-IPV (any resets the 10-year clock)
 // A vaccine type the patient never had (-1 months) does not count as a recent one.
@@ -769,14 +770,15 @@ rule "Td 1"
     when
         prev : Prevention()
         eval( prev.getNumberOfPreventionType("Td") == 0 )
+        // TdP-IPV-Hib counts only when its last dose was given at 48 months or later; an absent type gives -1.
         eval( prev.getNumberOfPreventionType("Tdap")
             + prev.getNumberOfPreventionType("Td-IPV")
-            + prev.getNumberOfPreventionType("TdP-IPV-Hib")
             + prev.getNumberOfPreventionType("Tdap-IPV")
-            >= 1 )
+            >= 1
+            || prev.getAgeInMonthsLastPreventionTypeGiven("TdP-IPV-Hib") >= 48 )
         eval( prev.getHowManyMonthsSinceLast("Tdap") == -1 || prev.getHowManyMonthsSinceLast("Tdap") >= 120 )
         eval( prev.getHowManyMonthsSinceLast("Td-IPV") == -1 || prev.getHowManyMonthsSinceLast("Td-IPV") >= 120 )
-        eval( prev.getHowManyMonthsSinceLast("TdP-IPV-Hib") == -1 || prev.getHowManyMonthsSinceLast("TdP-IPV-Hib") >= 120 )
+        eval( prev.getAgeInMonthsLastPreventionTypeGiven("TdP-IPV-Hib") < 48 || prev.getHowManyMonthsSinceLast("TdP-IPV-Hib") >= 120 )
         eval( prev.getHowManyMonthsSinceLast("Tdap-IPV") == -1 || prev.getHowManyMonthsSinceLast("Tdap-IPV") >= 120 )
     then
         prev.log("Td 1");

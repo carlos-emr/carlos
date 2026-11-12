@@ -45,9 +45,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>#5048, following the Canadian Immunization Guide (Tetanus toxoid): the teen Tdap ("Tdap 1") is due from age 14,
  * ten years after the 4-6-year booster whichever product it was (DTaP-IPV, Tdap-IPV, or a DTaP-IPV-Hib or TdP-IPV-Hib
- * given at 4 years or later; infant doses do not count), and the first Td ("Td 1") ten years after the most recent of
- * the adolescent/adult tetanus products "Td 2" counts. When both apply, as for a teen whose school booster was a
- * Tdap-IPV ten years ago, both reminders show.</p>
+ * given at 4 years or later; infant doses do not count), and the first Td ("Td 1") ten years after the most recent
+ * booster-age tetanus product (Tdap, Td-IPV, Tdap-IPV, or a TdP-IPV-Hib given at 4 years or later; its infant doses
+ * do not count here either). When both apply, as for a teen whose school booster was a Tdap-IPV ten years ago, both
+ * reminders show.</p>
  *
  * @since 2026-10-18
  */
@@ -215,6 +216,28 @@ class TdPreventionRulesDroolsUnitTest {
     @Test
     void shouldAskForATd_whenTheOnlyTetanusVaccineIsATdpIpvHibTwelveYearsOld() {
         assertThat(fireRules(adultWith("TdP-IPV-Hib", 12)).getWarnings()).contains(NEEDS_TD).doesNotContain(REPEAT_TD);
+    }
+
+    @Test
+    void shouldNotAskForATd_whenATwelveYearOldHadOnlyInfantTdpIpvHibDoses() {
+        assertThat(fireRules(personWithDosesAtAgeInMonths(12, "TdP-IPV-Hib", 2, 4, 18)).getWarnings())
+                .doesNotContain(NEEDS_TD, NEEDS_TDAP, REPEAT_TD);
+    }
+
+    @Test
+    void shouldNotAskForATd_whenATwelveYearOldHadInfantTdpIpvHibAndADtapIpvBoosterAtFive() {
+        Prevention child = personWithDosesAtAgeInMonths(12, "TdP-IPV-Hib", 2, 4, 18);
+        Calendar booster = Calendar.getInstance();
+        booster.setTime(yearsAgo(12));
+        booster.add(Calendar.MONTH, 60);
+        child.addPreventionItem(new PreventionItem("DTaP-IPV", booster.getTime()));
+        assertThat(fireRules(child).getWarnings()).doesNotContain(NEEDS_TD, NEEDS_TDAP, REPEAT_TD);
+    }
+
+    @Test
+    void shouldAskForATd_whenATdpIpvHibBoosterGivenAtFiveIsElevenYearsOld() {
+        assertThat(fireRules(personWithDosesAtAgeInMonths(16, "TdP-IPV-Hib", 2, 4, 18, 60)).getWarnings())
+                .contains(NEEDS_TD).doesNotContain(REPEAT_TD);
     }
 
     @Test
