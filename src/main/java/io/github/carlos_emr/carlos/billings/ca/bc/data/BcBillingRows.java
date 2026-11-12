@@ -202,6 +202,11 @@ public final class BcBillingRows {
      * two-digit end-day field. Time columns retain legacy fixed-width text. Nulls/blanks and padding
      * decisions stay with the existing formatter and validator.
      *
+     * <p>The formatter writes only what this row carries: a claim column the C02 record uses but this
+     * projection does not load goes out blank without an error, as {@code claimComment} (P58) once did.
+     * A column added to {@code ExtractBean.getClaimDetailRecord} must be added here, to the SELECT in
+     * {@code BillingmasterDAO.readExtractClaims} and to {@code ExtractBean.formatterClaim}.</p>
+     *
      * @since 2026-11-02
      */
     public record ExtractClaimRow(
@@ -237,6 +242,7 @@ public final class BcBillingRows {
             String serviceEndTime,
             String birthDate,
             String correspondenceCode,
+            String claimComment,
             String mvaClaimCode,
             String icbcClaimNo,
             String originalClaim,

@@ -21,11 +21,13 @@
  */
 package io.github.carlos_emr.carlos.report.data;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
@@ -101,7 +103,14 @@ class ConfiguredReportQueryUnitTest {
         try (var jdbc = mockStatic(LegacyJdbcQuery.class)) {
             jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(), eq(10_001), anyLong(), any(Object[].class))).thenReturn(rows);
             assertThatThrownBy(() -> ConfiguredReportQuery.read("select 1"))
-                    .isInstanceOf(SQLException.class).hasMessageContaining("row budget");
+                    .isInstanceOfSatisfying(ConfiguredReportQuery.LimitExceededException.class, e -> {
+                        assertThat(e.limit()).isEqualTo(ConfiguredReportQuery.Limit.ROWS);
+                        assertThat(e.value()).isEqualTo(10_000);
+                        // The refusal names its limit and tells the user an administrator can raise it.
+                        assertThat((Throwable) e).hasMessage("This report has more than 10000 rows, the most a report may return. "
+                                + "Narrow the report filters and run it again. An administrator can raise this limit "
+                                + "with the setting configured_report.max_rows in carlos.properties.");
+                    });
         }
         verify(rows).close();
     }
@@ -119,7 +128,12 @@ class ConfiguredReportQueryUnitTest {
         try (var jdbc = mockStatic(LegacyJdbcQuery.class)) {
             jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(), eq(10_001), anyLong(), any(Object[].class))).thenReturn(rows);
             assertThatThrownBy(() -> ConfiguredReportQuery.read("select value from report"))
-                    .isInstanceOf(SQLException.class).hasMessageContaining("output budget");
+                    .isInstanceOfSatisfying(ConfiguredReportQuery.LimitExceededException.class, e -> {
+                        assertThat(e.limit()).isEqualTo(ConfiguredReportQuery.Limit.OUTPUT);
+                        assertThat(e.value()).isEqualTo(ConfiguredReportQuery.MAX_OUTPUT_CHARACTERS);
+                        assertThat((Throwable) e).hasMessageContaining("more than 5242880 characters of text")
+                                .hasMessageContaining("configured_report.max_output_chars");
+                    });
         }
         verify(rows).close();
     }
@@ -175,8 +189,12 @@ class ConfiguredReportQueryUnitTest {
         try (var jdbc = mockStatic(LegacyJdbcQuery.class)) {
             jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(), eq(100_000), eq(30), any(Object[].class))).thenReturn(rows);
             assertThatThrownBy(() -> ConfiguredReportQuery.identifiers("select id from report"))
-                    .isInstanceOf(ConfiguredReportQuery.LimitExceededException.class)
-                    .hasMessageContaining("identifier budget");
+                    .isInstanceOfSatisfying(ConfiguredReportQuery.LimitExceededException.class, e -> {
+                        assertThat(e.limit()).isEqualTo(ConfiguredReportQuery.Limit.IDENTIFIERS);
+                        assertThat(e.value()).isEqualTo(100_000);
+                        assertThat((Throwable) e).hasMessageContaining("more than 100000 patients or records")
+                                .hasMessageContaining("configured_report.max_identifier_rows");
+                    });
         }
         verify(rows, times(ConfiguredReportQuery.MAX_IDENTIFIER_ROWS)).getInt(1);
         verify(rows).close();
@@ -228,8 +246,8 @@ class ConfiguredReportQueryUnitTest {
         try (var jdbc = mockStatic(LegacyJdbcQuery.class)) {
             jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(), eq(10_001), anyLong(), any(Object[].class))).thenReturn(rows);
             assertThatThrownBy(() -> ConfiguredReportQuery.read("select value from report"))
-                    .isInstanceOf(ConfiguredReportQuery.LimitExceededException.class)
-                    .hasMessageContaining("output budget");
+                    .isInstanceOfSatisfying(ConfiguredReportQuery.LimitExceededException.class,
+                            e -> assertThat(e.limit()).isEqualTo(ConfiguredReportQuery.Limit.OUTPUT));
         }
         assertThat(consumed.get()).isLessThanOrEqualTo(ConfiguredReportQuery.MAX_OUTPUT_CHARACTERS + 2048);
         assertThat(closed).isTrue();
@@ -276,6 +294,180 @@ class ConfiguredReportQueryUnitTest {
         }
         verify(reader).close();
         verify(rows).close();
+    }
+
+    // ---- Configurable limits (configured_report.* in carlos.properties) ----
+
+    private static final List<String> LIMIT_SETTINGS = List.of("configured_report.max_rows",
+            "configured_report.max_identifier_rows", "configured_report.timeout_seconds",
+            "configured_report.max_output_chars", "configured_report.max_csv_mb");
+
+    @AfterEach
+    void removeLimitSettings() {
+        LIMIT_SETTINGS.forEach(CarlosProperties.getInstance()::remove);
+    }
+
+    private static void configure(String setting, String value) {
+        CarlosProperties.getInstance().setProperty(setting, value);
+    }
+
+    @Test
+    void shouldKeepPublishedLimits_whenNoSettingIsConfigured() {
+        // The shipped carlos.properties only documents the settings, commented out.
+        assertThat(ConfiguredReportQuery.maxRows()).isEqualTo(10_000);
+        assertThat(ConfiguredReportQuery.maxIdentifierRows()).isEqualTo(100_000);
+        assertThat(ConfiguredReportQuery.timeoutSeconds()).isEqualTo(30);
+        assertThat(ConfiguredReportQuery.maxOutputCharacters()).isEqualTo(5 * 1024 * 1024);
+        assertThat(ConfiguredReportQuery.Limit.CSV.configured()).isEqualTo(5);
+    }
+
+    @Test
+    void shouldUseEachConfiguredLimit_atTheNextQuery() {
+        configure("configured_report.max_rows", "25000");
+        configure("configured_report.max_identifier_rows", "250000");
+        configure("configured_report.timeout_seconds", "120");
+        configure("configured_report.max_output_chars", "20000000");
+        configure("configured_report.max_csv_mb", "20");
+        assertThat(ConfiguredReportQuery.maxRows()).isEqualTo(25_000);
+        assertThat(ConfiguredReportQuery.maxIdentifierRows()).isEqualTo(250_000);
+        assertThat(ConfiguredReportQuery.timeoutSeconds()).isEqualTo(120);
+        assertThat(ConfiguredReportQuery.maxOutputCharacters()).isEqualTo(20_000_000);
+        assertThat(ConfiguredReportQuery.Limit.CSV.configured()).isEqualTo(20);
+        // Read at use time: an edit (applied by a restart in production) changes the next query.
+        configure("configured_report.max_rows", "30000");
+        assertThat(ConfiguredReportQuery.maxRows()).isEqualTo(30_000);
+    }
+
+    @Test
+    void shouldKeepDefaultsOrCapAtMaximums_whenSettingsAreNotAllowed() {
+        configure("configured_report.max_rows", "many");
+        configure("configured_report.max_identifier_rows", "0");
+        configure("configured_report.timeout_seconds", "-30");
+        configure("configured_report.max_output_chars", "999999999999");
+        configure("configured_report.max_csv_mb", "51");
+        assertThat(ConfiguredReportQuery.maxRows()).isEqualTo(10_000);
+        assertThat(ConfiguredReportQuery.maxIdentifierRows()).isEqualTo(100_000);
+        assertThat(ConfiguredReportQuery.timeoutSeconds()).isEqualTo(30);
+        assertThat(ConfiguredReportQuery.maxOutputCharacters()).isEqualTo(50 * 1024 * 1024);
+        assertThat(ConfiguredReportQuery.Limit.CSV.configured()).isEqualTo(50);
+    }
+
+    @Test
+    void shouldReturnRowsPastTheDefault_whenRowLimitIsRaised() throws Exception {
+        configure("configured_report.max_rows", "12000");
+        configure("configured_report.timeout_seconds", "90");
+        ResultSet rows = mock(ResultSet.class);
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        when(rows.getMetaData()).thenReturn(metadata);
+        when(metadata.getColumnCount()).thenReturn(0);
+        var count = new java.util.concurrent.atomic.AtomicInteger();
+        when(rows.next()).thenAnswer(call -> count.getAndIncrement() < 11_000);
+        long before = System.nanoTime();
+        var deadline = new java.util.concurrent.atomic.AtomicLong();
+        try (var jdbc = mockStatic(LegacyJdbcQuery.class)) {
+            // One overflow row past the configured limit, and the configured deadline.
+            jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(), eq(12_001), anyLong(), any(Object[].class)))
+                    .thenAnswer(call -> {
+                        deadline.set(call.getArgument(2));
+                        return rows;
+                    });
+            assertThat(ConfiguredReportQuery.read("select 1").rows()).hasSize(11_000);
+        }
+        // The configured 90 seconds, not the default 30 (the upper bound only allows for a slow machine).
+        assertThat(deadline.get() - before).isBetween(java.util.concurrent.TimeUnit.SECONDS.toNanos(90),
+                java.util.concurrent.TimeUnit.SECONDS.toNanos(150));
+        verify(rows).close();
+    }
+
+    @Test
+    void shouldRefuseAtTheLoweredRowLimit_withThatLimitInTheMessage() throws Exception {
+        configure("configured_report.max_rows", "2");
+        ResultSet rows = mock(ResultSet.class);
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        when(rows.getMetaData()).thenReturn(metadata);
+        when(metadata.getColumnCount()).thenReturn(0);
+        when(rows.next()).thenReturn(true);
+        try (var jdbc = mockStatic(LegacyJdbcQuery.class)) {
+            jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(), eq(3), anyLong(), any(Object[].class))).thenReturn(rows);
+            assertThatThrownBy(() -> ConfiguredReportQuery.read("select 1"))
+                    .isInstanceOfSatisfying(ConfiguredReportQuery.LimitExceededException.class, e -> {
+                        assertThat(e.limit()).isEqualTo(ConfiguredReportQuery.Limit.ROWS);
+                        assertThat(e.value()).isEqualTo(2);
+                        assertThat((Throwable) e).hasMessageStartingWith("This report has more than 2 rows");
+                    });
+        }
+        verify(rows).close();
+    }
+
+    @Test
+    void shouldUseConfiguredIdentifierLimitAndTimeout_forInternalCohorts() throws Exception {
+        configure("configured_report.max_identifier_rows", "150000");
+        configure("configured_report.timeout_seconds", "60");
+        ResultSet rows = mock(ResultSet.class);
+        var count = new java.util.concurrent.atomic.AtomicInteger();
+        when(rows.next()).thenAnswer(call -> count.getAndIncrement() < 120_000);
+        when(rows.getInt(1)).thenReturn(7);
+        try (var jdbc = mockStatic(LegacyJdbcQuery.class)) {
+            jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(), eq(150_000), eq(60), any(Object[].class))).thenReturn(rows);
+            // 120,000 identifiers: refused under the default 100,000, complete under the raised limit.
+            assertThat(ConfiguredReportQuery.identifiers("select id from report")).hasSize(120_000);
+        }
+        verify(rows).close();
+    }
+
+    @Test
+    void shouldAcceptTextPastTheDefault_whenOutputLimitIsRaised() throws Exception {
+        configure("configured_report.max_output_chars", "6000000");
+        ResultSet rows = mock(ResultSet.class);
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        when(rows.getMetaData()).thenReturn(metadata);
+        when(metadata.getColumnCount()).thenReturn(1);
+        when(metadata.getColumnName(1)).thenReturn("value");
+        when(metadata.getColumnLabel(1)).thenReturn("value");
+        when(rows.next()).thenReturn(true, false);
+        when(rows.getString(1)).thenReturn("a".repeat(ConfiguredReportQuery.MAX_OUTPUT_CHARACTERS + 1));
+        try (var jdbc = mockStatic(LegacyJdbcQuery.class)) {
+            jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(), eq(10_001), anyLong(), any(Object[].class))).thenReturn(rows);
+            assertThat(ConfiguredReportQuery.read("select value from report").rows().getFirst().value("value"))
+                    .hasSize(ConfiguredReportQuery.MAX_OUTPUT_CHARACTERS + 1);
+        }
+        verify(rows).close();
+    }
+
+    @Test
+    void shouldNameTheTimeLimit_whenTheQueryDeadlinePasses() throws Exception {
+        configure("configured_report.timeout_seconds", "45");
+        try (var jdbc = mockStatic(LegacyJdbcQuery.class)) {
+            jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(), anyInt(), anyLong(), any(Object[].class)))
+                    .thenThrow(new java.sql.SQLTimeoutException("Report query deadline exceeded"));
+            jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(), anyInt(), anyInt(), any(Object[].class)))
+                    .thenThrow(new java.sql.SQLTimeoutException("Report query deadline exceeded"));
+            for (org.assertj.core.api.ThrowableAssert.ThrowingCallable query : List.<org.assertj.core.api.ThrowableAssert.ThrowingCallable>of(
+                    () -> ConfiguredReportQuery.read("select 1"),
+                    () -> ConfiguredReportQuery.readFirst("select 1"),
+                    () -> ConfiguredReportQuery.identifiers("select 1"),
+                    () -> ConfiguredReportQuery.identifierColumn("select 1", "id"),
+                    () -> ConfiguredReportQuery.columnNames("select 1"))) {
+                assertThatThrownBy(query)
+                        .isInstanceOfSatisfying(ConfiguredReportQuery.LimitExceededException.class, e -> {
+                            assertThat(e.limit()).isEqualTo(ConfiguredReportQuery.Limit.TIME);
+                            assertThat(e.value()).isEqualTo(45);
+                            assertThat((Throwable) e).hasMessageStartingWith("This report did not finish within 45 seconds")
+                                    .hasMessageContaining("configured_report.timeout_seconds")
+                                    .hasCauseInstanceOf(java.sql.SQLTimeoutException.class);
+                        });
+            }
+        }
+    }
+
+    @Test
+    void shouldNotPromiseARaise_whenTheLimitIsAtItsMaximum() {
+        assertThat(ConfiguredReportQuery.Limit.ROWS.raisableSetting(10_000)).isEqualTo("configured_report.max_rows");
+        assertThat(ConfiguredReportQuery.Limit.ROWS.raisableSetting(100_000)).isNull();
+        assertThat(ConfiguredReportQuery.Limit.ROWS.english(100_000)).doesNotContain("administrator");
+        assertThat(ConfiguredReportQuery.Limit.CSV.english(5))
+                .startsWith("This report is larger than 5 MB, the most a report download may hold.")
+                .endsWith("with the setting configured_report.max_csv_mb in carlos.properties.");
     }
 
 }
