@@ -62,6 +62,7 @@ class PneuCRotaPreventionRulesDroolsUnitTest {
     private static final String NEEDS_SECOND_PNEU_C = "Needs Second Pneu-C";
     private static final String NEEDS_THIRD_PNEU_C = "Needs Third Pneu-C";
     private static final String NEEDS_FOURTH_PNEU_C = "Needs Fourth Pneu-C";
+    private static final String NEEDS_FIRST_ROTA = "Needs First Rota vaccine";
     private static final String NEEDS_SECOND_ROTA = "Needs Second Rota vaccine";
     private static final String NEEDS_THIRD_ROTA = "Needs Third Rota vaccine";
 
@@ -409,10 +410,22 @@ class PneuCRotaPreventionRulesDroolsUnitTest {
         }
 
         @Test
-        void shouldNotRemind_whenBothDosesWereRecordedUnderThePlainName() {
-            // Only a dose recorded as Rota-5 makes the series three doses.
+        void shouldRemind_whenBothDosesWereRecordedUnderThePlainName() {
+            // An unknown product counts as possibly Rot-5 (owner's decision): only an all-Rot-1 series ends at two.
             Prevention prev = infantWithRotaRecords(4, rotaRecord("Rota", 60, false, null), rotaRecord("Rota", 30, false, null));
-            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isZero();
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isEqualTo(1);
+        }
+
+        @Test
+        void shouldRemind_whenARota1DoseWasFollowedByAPlainRotaDose() {
+            Prevention prev = infantWithRotaRecords(4, rotaRecord("Rota-1", 60, false, null), rotaRecord("Rota", 30, false, null));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isEqualTo(1);
+        }
+
+        @Test
+        void shouldRemind_whenAPlainRotaDoseWasFollowedByARota1Dose() {
+            Prevention prev = infantWithRotaRecords(4, rotaRecord("Rota", 60, false, null), rotaRecord("Rota-1", 30, false, null));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isEqualTo(1);
         }
 
         @Test
@@ -472,6 +485,54 @@ class PneuCRotaPreventionRulesDroolsUnitTest {
         void shouldNotRemind_whenThePassedNextDateComesBeforeDayTwentyEight() {
             Prevention prev = infantWithRotaRecords(4, rotaRecord("Rota-5", 60, false, null), rotaRecord("Rota-5", 20, false, -2));
             assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isZero();
+        }
+    }
+
+    /**
+     * #5048, Canadian Immunization Guide, Rotavirus vaccine: "Vaccination should not be initiated in infants aged 15
+     * weeks or older." The first-dose reminder runs from 2 months of age and stops at 15 weeks (105 days).
+     */
+    @Nested
+    @DisplayName("Rota 1: first rotavirus dose before 15 weeks")
+    class FirstRotaDose {
+
+        private Prevention infantBornDaysAgo(int days) {
+            return new Prevention("F", daysFromToday(-days));
+        }
+
+        @Test
+        void shouldRemind_atFifteenWeeksLessOneDay() {
+            assertThat(reminders(infantBornDaysAgo(104), NEEDS_FIRST_ROTA)).isEqualTo(1);
+        }
+
+        @Test
+        void shouldNotRemind_atExactlyFifteenWeeks() {
+            assertThat(reminders(infantBornDaysAgo(105), NEEDS_FIRST_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldNotRemind_atFifteenWeeksAndOneDay() {
+            assertThat(reminders(infantBornDaysAgo(106), NEEDS_FIRST_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldNotRemind_atFourMonths() {
+            assertThat(reminders(infant(4), NEEDS_FIRST_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldRemind_atTwoMonths() {
+            assertThat(reminders(infant(2), NEEDS_FIRST_ROTA)).isEqualTo(1);
+        }
+
+        @Test
+        void shouldNotRemind_beforeTwoMonths() {
+            assertThat(reminders(infantBornDaysAgo(49), NEEDS_FIRST_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldNotRemind_whenADoseIsOnFile() {
+            assertThat(reminders(infantWithRotaRecords(3, rotaRecord("Rota-1", 20, false, null)), NEEDS_FIRST_ROTA)).isZero();
         }
     }
 }
