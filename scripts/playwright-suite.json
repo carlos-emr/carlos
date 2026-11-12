@@ -2531,6 +2531,7 @@
       ],
       "timeoutSec": 300,
       "env": [
+        "CARLOS_SUITE_PROVINCE",
         "MUTATOR_GET_TIMEOUT_MS"
       ]
     },

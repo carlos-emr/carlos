@@ -70,6 +70,20 @@ const { conditionalMutatorClasses, mutatorRoutes } = require('./lib/mutator-rout
 const EXPECTED_STATUS = 405;
 
 /**
+ * Routes BcBillingProvinceInterceptor (struts-billing.xml, #6097) answers before their action runs.
+ * On an install whose province is not BC it sends 404 for every method and never invokes the
+ * action, so no read method can reach a write: the property this check exists for holds, and a 405
+ * with `Allow: POST` would be untrue there because POST gets the same 404. The predicate is the
+ * interceptor's own. A BC install must still answer 405, and with the installed province unknown
+ * (CARLOS_SUITE_PROVINCE unset) nothing is relaxed.
+ */
+const BC_ONLY_ROUTE = /^(?:billing\/CA\/BC\/.+|quickBillingBC|saveQuickBillingBC)$/;
+const INSTALLED_PROVINCE = String(process.env.CARLOS_SUITE_PROVINCE || '').toUpperCase();
+function refusedByProvince(route, status, province = INSTALLED_PROVINCE) {
+  return status === 404 && province !== '' && province !== 'BC' && BC_ONLY_ROUTE.test(route);
+}
+
+/**
  * Both methods the contract names.
  *
  * HEAD is not a formality. Servlet containers answer HEAD by running doGet()
@@ -144,6 +158,7 @@ async function main() {
     const base = String(config.baseUrl).replace(/\/$/, '');
     const failures = [];
     const refused = [];
+    const provinceRefused = [];
     for (const entry of orderedRoutes(routes)) {
       const url = `${base}/${entry.route}`;
       for (const method of PROBED_METHODS) {
@@ -157,6 +172,10 @@ async function main() {
         }
         if (status === EXPECTED_STATUS) {
           refused.push(`${entry.route} ${method}`);
+          continue;
+        }
+        if (refusedByProvince(entry.route, status)) {
+          provinceRefused.push(`${entry.route} ${method}`);
           continue;
         }
         failures.push(
@@ -181,11 +200,16 @@ async function main() {
     // saying so invites reading it as the whole contract.
     const notProbed = conditionalMutatorClasses().map((name) => name.split('.').pop()).sort();
     console.log(`  ${refused.length} probe(s) across ${routes.length} mutator route(s) refused ${PROBED_METHODS.join('/')} with ${EXPECTED_STATUS}`);
+    if (provinceRefused.length > 0) {
+      console.log(`  ${provinceRefused.length} probe(s) of BC-only route(s) answered 404 before their action ran: `
+        + `this install is ${INSTALLED_PROVINCE}`);
+    }
     console.log(`  ${notProbed.length} conditional mutator(s) NOT probed here, by design -- their GET rejection `
       + 'depends on a mutation-intent parameter and is covered by their own unit tests: '
       + `${notProbed.join(', ')}`);
     return {
-      refused: refused.length, probes, routes: routes.length, conditionalNotProbed: notProbed.length,
+      refused: refused.length, provinceRefused: provinceRefused.length, probes, routes: routes.length,
+      conditionalNotProbed: notProbed.length,
     };
   } finally {
     await browser.close().catch(() => {});
@@ -197,5 +221,5 @@ if (require.main === module) {
 }
 
 module.exports = {
-  EXPECTED_STATUS, PROBED_METHODS, diagnose, main, orderedRoutes,
+  BC_ONLY_ROUTE, EXPECTED_STATUS, PROBED_METHODS, diagnose, main, orderedRoutes, refusedByProvince,
 };
