@@ -125,6 +125,48 @@ public class TicklerDaoWriteIntegrationTest extends TicklerDaoBaseIntegrationTes
     }
 
     @Test
+    @DisplayName("should hand the edit a locked tickler that was added outside a program")
+    void shouldLoadTheLockedTicklerForEdit_whenItsProgramIsZero() {
+        // The Add Tickler form stores program_id 0 when the user is in no program, and no program
+        // row has that id. The production schema has no foreign key there; the generated test
+        // schema does, so the value is stored with the key check off for that one statement.
+        Tickler tickler = createTickler(5004, "Added outside a program", Tickler.STATUS.A);
+        entityManager.flush();
+        storeProgramZero(tickler.getId());
+        entityManager.clear();
+        var manager = new io.github.carlos_emr.carlos.managers.TicklerManagerImpl();
+        var security = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class,
+                call -> call.getMethod().getReturnType() == boolean.class ? Boolean.TRUE : null);
+        org.springframework.test.util.ReflectionTestUtils.setField(manager, "ticklerDao", ticklerDao);
+        org.springframework.test.util.ReflectionTestUtils.setField(manager, "securityInfoManager", security);
+        var user = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.utility.LoggedInInfo.class);
+        org.mockito.Mockito.when(user.getLoggedInProviderNo()).thenReturn("999998");
+
+        // Edit Tickler answered HTTP 500 here: after the locked load, the detail query's join fetch
+        // of the program tried to fill the reference to program 0 from an all-NULL row.
+        Tickler forEdit = manager.getTicklerForUpdate(user, tickler.getId());
+
+        assertThat(forEdit.getProgramId()).isZero();
+        assertThat(forEdit.getMessage()).isEqualTo("Added outside a program");
+        assertThat(org.hibernate.Hibernate.isInitialized(forEdit.getComments())).isTrue();
+    }
+
+    /** Stores program_id 0, which the generated test schema's foreign key would refuse. */
+    private void storeProgramZero(Integer ticklerNo) {
+        boolean h2 = entityManager.unwrap(org.hibernate.Session.class).doReturningWork(
+                connection -> connection.getMetaData().getDatabaseProductName().toLowerCase(java.util.Locale.ROOT).contains("h2"));
+        String off = h2 ? "SET REFERENTIAL_INTEGRITY FALSE" : "SET FOREIGN_KEY_CHECKS=0";
+        String on = h2 ? "SET REFERENTIAL_INTEGRITY TRUE" : "SET FOREIGN_KEY_CHECKS=1";
+        entityManager.createNativeQuery(off).executeUpdate();
+        try {
+            entityManager.createNativeQuery("UPDATE tickler SET program_id = 0 WHERE tickler_no = ?1")
+                    .setParameter(1, ticklerNo).executeUpdate();
+        } finally {
+            entityManager.createNativeQuery(on).executeUpdate();
+        }
+    }
+
+    @Test
     @DisplayName("should return null when locking a tickler that does not exist")
     void shouldReturnNull_whenLockingMissingTickler() {
         assertThat(ticklerDao.findForUpdate(Integer.MAX_VALUE)).isNull();
