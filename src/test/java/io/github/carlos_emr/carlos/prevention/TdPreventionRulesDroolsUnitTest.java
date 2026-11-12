@@ -64,6 +64,8 @@ class TdPreventionRulesDroolsUnitTest {
     private static final String NEEDS_TD = "Needs Td";
     private static final String NEEDS_TDAP = "Needs Tdap";
     private static final String ADULT_TDAP = "Needs adult Tdap (one dose)";
+    private static final String SECOND_DTAP_IPV = "Needs Second DTaP-IPV /HIB";
+    private static final String THIRD_DTAP_IPV = "Needs Third DTaP-IPV /HIB";
 
     private static KieBase kieBase;
 
@@ -480,5 +482,30 @@ class TdPreventionRulesDroolsUnitTest {
         Prevention adult = adultWith();
         adult.addPreventionItem(declinedTdapToday(false));
         assertThat(fireRules(adult).getWarnings()).doesNotContain(NEEDS_TD, REPEAT_TD, ADULT_TDAP);
+    }
+
+    // DTaP-IPV is a childhood product (#5048): its next-date reminders ("DTaP-IPV 2.1", "3.1", "4.1") stop at 7, so
+    // an adult's old record raises no DTaP-IPV reminder beside the adult Tdap.
+
+    @Test
+    void shouldAskOnlyForTheAdultTdap_whenAnAdultHasOneOldDtapIpv() {
+        assertThat(fireRules(personWithDosesAtAgeInMonths(30, "DTaP-IPV", 2)).getWarnings())
+                .doesNotContain(SECOND_DTAP_IPV).containsOnlyOnce(ADULT_TDAP);
+    }
+
+    @Test
+    void shouldAskOnlyForTheAdultTdap_whenAnAdultHasTwoOldDtapIpv() {
+        assertThat(fireRules(personWithDosesAtAgeInMonths(30, "DTaP-IPV", 2, 4)).getWarnings())
+                .doesNotContain(THIRD_DTAP_IPV).containsOnlyOnce(ADULT_TDAP);
+    }
+
+    @Test
+    void shouldStillAskForTheSecondDtapIpv_whenASixYearOldHasOneDose() {
+        assertThat(fireRules(personWithDosesAtAgeInMonths(6, "DTaP-IPV", 2)).getWarnings()).contains(SECOND_DTAP_IPV);
+    }
+
+    @Test
+    void shouldNotAskForTheSecondDtapIpv_whenASevenYearOldHasOneDose() {
+        assertThat(fireRules(personWithDosesAtAgeInMonths(7, "DTaP-IPV", 2)).getWarnings()).doesNotContain(SECOND_DTAP_IPV);
     }
 }

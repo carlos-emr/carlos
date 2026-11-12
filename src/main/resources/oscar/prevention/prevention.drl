@@ -97,7 +97,8 @@
 //
 // CANADIAN IMMUNIZATION GUIDE, NOT MODELLED (#5048): the tetanus, pertussis and rotavirus rules follow the guide
 // except for these, which a clinician review may decide on:
-//   - Tdap in pregnancy: these rules have no pregnancy fact.
+//   - Tdap in every pregnancy (ideally at 27 to 32 weeks): pregnancy is not a prevention fact.
+//   - NACI's October 2026 hepatitis B statement, not yet in the guide's chapters.
 //   - A refused or "ineligible" tetanus record counts as a dose: it stops "Needs Tdap" and "Needs adult Tdap
 //     (one dose)" when dated in their age range, and restarts the 10-year Td clock, except a refused or
 //     "ineligible" Tdap, which "Td 1" and "Td 2" leave out so that dismissing the adult Tdap does not silence an
@@ -238,6 +239,9 @@ function boolean rotaDeclinedSinceLastDose(Prevention prev) {
 // Rules 5-6: Catch-up logic for 4-6yr and 14-16yr if last dose was before 48 months
 // QUIRK: Rules 4.1 duplicates 3.1 conditions (count==2); rules 5-6 say "Needs Third"
 //   but are actually for 5th/6th doses (copy-paste artifacts from original XML)
+// The next-date overrides 2.1, 3.1 and 4.1 stop at 7 years (84 months) and need a birth date: DTaP-IPV is a
+//   childhood product (the catalogue's age range ends at 6), so an adult's old record raises no DTaP-IPV reminder
+//   beside the adult Tdap (#5048).
 // --------------------------------------------------------------------------
 rule "DTaP-IPV 1"
     when
@@ -269,6 +273,7 @@ end
 rule "DTaP-IPV 2.1"
     when
         prev : Prevention()
+        eval( prev.getDOB() != null && prev.getAgeInMonths() < 84 )
         eval( prev.isPassedNextDate("DTaP-IPV") )
         eval( prev.getNumberOfPreventionType("DTaP-IPV") == 1 )
         eval( prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 2 )
@@ -294,6 +299,7 @@ end
 rule "DTaP-IPV 3.1"
     when
         prev : Prevention()
+        eval( prev.getDOB() != null && prev.getAgeInMonths() < 84 )
         eval( prev.isPassedNextDate("DTaP-IPV") )
         eval( prev.getNumberOfPreventionType("DTaP-IPV") == 2 )
         eval( prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 2 )
@@ -319,6 +325,7 @@ end
 rule "DTaP-IPV 4.1"
     when
         prev : Prevention()
+        eval( prev.getDOB() != null && prev.getAgeInMonths() < 84 )
         eval( prev.isPassedNextDate("DTaP-IPV") )
         eval( prev.getNumberOfPreventionType("DTaP-IPV") == 2 )
         eval( prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 2 )
