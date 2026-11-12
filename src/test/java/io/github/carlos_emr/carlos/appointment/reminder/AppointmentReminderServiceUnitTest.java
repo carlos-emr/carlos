@@ -345,6 +345,24 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.DUPLICATE);
         }
 
+        /**
+         * #884 (review): a text handed to the SMS queue covers the visit as a sent email does, also after its booking
+         * was unticked, cancelled or moved, so the decision is pinned here as well as the H2 query.
+         */
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"unticked", "cancelled", "moved"})
+        void shouldRecordTheReminderAsCovered_whenTheBookingWhoseTextWasQueuedChangedAfter(String change) {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            siblings(changed(sibling(12L, "t", AppointmentReminderStatus.QUEUED), change));
+
+            service.processDue(10);
+
+            assertThat(handed).isEmpty();
+            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.DUPLICATE);
+        }
+
         /** #884 (review): a text handed to the SMS queue is handed over, so the query also reads queued ones. */
         @Test
         void shouldAskForQueuedTexts_amongTheRemindersHandedOver() {
