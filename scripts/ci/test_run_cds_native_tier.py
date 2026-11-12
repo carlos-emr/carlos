@@ -272,5 +272,34 @@ class NativeReadinessTest(unittest.TestCase):
                 monotonic=lambda: next(times), sleep=lambda _: None)
 
 
+class EvidenceDestinationArgumentTest(unittest.TestCase):
+    """An invalid evidence destination is refused as a usage error before any container work."""
+
+    def refuse(self, arguments):
+        stderr = io.StringIO()
+        with patch.object(sys, 'argv', ['run-cds-native-tier.py', *arguments]), \
+                patch.object(sys, 'stderr', stderr), \
+                self.assertRaises(SystemExit) as refusal:
+            NATIVE.main()
+        self.assertEqual(refusal.exception.code, 2)
+        return stderr.getvalue()
+
+    def test_symlinked_evidence_output_is_a_usage_error(self):
+        with tempfile.TemporaryDirectory() as root:
+            link = Path(root, 'evidence')
+            link.symlink_to(root)
+            self.assertIn('evidence output must not be a symlink',
+                          self.refuse(['--evidence-output', str(link)]))
+
+    def test_container_evidence_path_without_host_output_is_a_usage_error(self):
+        self.assertIn('container evidence path requires an explicit host output and absolute mount path',
+                      self.refuse(['--container-evidence-output', '/evidence']))
+
+    def test_evidence_outside_target_without_shared_mount_is_a_usage_error(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.assertIn('outside target/ requires --container-evidence-output for an explicit shared mount',
+                          self.refuse(['--evidence-output', str(Path(root, 'evidence'))]))
+
+
 if __name__ == '__main__':
     unittest.main()

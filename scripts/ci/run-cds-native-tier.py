@@ -314,6 +314,15 @@ def publish_upgrade_proof(path, proof):
         pending.unlink(missing_ok=True)
 
 
+def usage_error(message):
+    """Refuse an invalid evidence destination as argparse refuses an invalid option (exit status 2).
+
+    ``main`` validates destinations that depend on the repository location after ``parse_args``
+    has returned, where that function's parser is no longer in scope.
+    """
+    argparse.ArgumentParser(prog=Path(sys.argv[0]).name, add_help=False).error(message)
+
+
 def main():
     args = parse_args()
     repository = Path(__file__).resolve().parents[2]
@@ -327,16 +336,16 @@ def main():
     network = name + '-net'
     output = args.evidence_output.resolve() if args.evidence_output else repository / 'target' / name
     if args.evidence_output and args.evidence_output.is_symlink():
-        parser.error('evidence output must not be a symlink')
+        usage_error('evidence output must not be a symlink')
     if args.container_evidence_output:
         if not args.evidence_output or not args.container_evidence_output.is_absolute() or '..' in args.container_evidence_output.parts:
-            parser.error('container evidence path requires an explicit host output and absolute mount path')
+            usage_error('container evidence path requires an explicit host output and absolute mount path')
         container_output = str(args.container_evidence_output)
     elif args.evidence_output:
         try:
             relative_output = output.relative_to(repository / 'target')
         except ValueError:
-            parser.error('outside target/ requires --container-evidence-output for an explicit shared mount')
+            usage_error('outside target/ requires --container-evidence-output for an explicit shared mount')
         container_output = args.container_workspace.rstrip('/') + '/target/' + relative_output.as_posix()
     else:
         container_output = args.container_workspace.rstrip('/') + '/target/' + name
