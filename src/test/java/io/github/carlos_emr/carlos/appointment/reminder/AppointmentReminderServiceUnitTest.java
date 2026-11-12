@@ -1085,7 +1085,8 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
                 reminder.finish(AppointmentReminderStatus.valueOf(status), null, at(NOW.minusMinutes(10)));
             }
             String expected = switch (status) {
-                case "SENDING", "UNCONFIRMED" -> "appointment.reminder.status.unconfirmed";
+                case "SENDING" -> "appointment.reminder.status.sending";
+                case "UNCONFIRMED" -> "appointment.reminder.status.unconfirmed";
                 case "FAILED" -> "appointment.reminder.status.failed";
                 case "BLOCKED_CONSENT" -> "appointment.reminder.status.blockedConsent";
                 case "NO_ADDRESS", "INVALID_ADDRESS" -> "appointment.reminder.status.noAddress";
@@ -1122,7 +1123,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         @ValueSource(strings = {"en", "fr", "es", "pl", "pt_BR"})
         void shouldHaveEveryStatusLine_inEveryBundle(String language) {
             ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", Locale.forLanguageTag(language.replace('_', '-')));
-            for (String key : new String[]{"sent", "unconfirmed", "failed", "blockedConsent", "noAddress", "notSetUp",
+            for (String key : new String[]{"sent", "sending", "unconfirmed", "failed", "blockedConsent", "noAddress", "notSetUp",
                     "notPermitted", "scheduled", "due", "tooLate", "duplicate"}) {
                 String pattern = bundle.getString("appointment.reminder.status." + key);
                 // The page always passes the value, so every line is a MessageFormat pattern.

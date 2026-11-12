@@ -229,7 +229,9 @@ public class AppointmentReminderService {
         if (start.equals(toLocal(reminder.getSentFor())) && reminder.getLastStatus() != null) {
             return Optional.of(switch (reminder.getLastStatus()) {
                 case SENT -> new ReminderStatusLine("appointment.reminder.status.sent", attemptedAt);
-                case SENDING, UNCONFIRMED -> new ReminderStatusLine("appointment.reminder.status.unconfirmed", attemptedAt);
+                // A send in progress lasts seconds; one a stopped server left becomes UNCONFIRMED when recovered.
+                case SENDING -> new ReminderStatusLine("appointment.reminder.status.sending", "");
+                case UNCONFIRMED -> new ReminderStatusLine("appointment.reminder.status.unconfirmed", attemptedAt);
                 case FAILED -> new ReminderStatusLine("appointment.reminder.status.failed", attemptedAt);
                 case BLOCKED_CONSENT -> new ReminderStatusLine("appointment.reminder.status.blockedConsent", "");
                 case NO_ADDRESS, INVALID_ADDRESS -> new ReminderStatusLine("appointment.reminder.status.noAddress", "");
