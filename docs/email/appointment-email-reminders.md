@@ -67,6 +67,10 @@ The subject is "Appointment reminder: {clinic}". The body:
   - no access;
   - too close to the appointment;
   - another booking for this patient at the same time carries the reminder.
+
+  Anyone who may open this patient's appointment sees the line, front desk included: it needs the Edit
+  Appointment page's own right (`_appointment` write) for this patient, with the patient's record locks, and no
+  right on their email. It holds only a time or one of the reasons above, never an address or message text.
 - **Administration > Manage Emails:** each sent reminder is an email log row, marked "Type: Appointment reminder".
   The Type filter lists reminders on their own. Failures and unconfirmed sends are handled there like any other
   email.

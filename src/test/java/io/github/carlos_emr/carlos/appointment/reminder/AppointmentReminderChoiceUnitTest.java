@@ -230,26 +230,40 @@ class AppointmentReminderChoiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldShowTheStatusLine_onlyToAUserWhoMayReadThisPatientsRecordAndEmail() {
+    void shouldShowTheStatusLine_toWhoeverMayOpenThisPatientsAppointment() {
         AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
         SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
         ReminderStatusLine line = new ReminderStatusLine("appointment.reminder.status.due", "");
         when(reminders.statusLine(any(Appointment.class), any(Locale.class))).thenReturn(Optional.of(line));
+        // A front-desk role: the appointment and the patient's record, but no right on their email.
         when(security.isAllowedAccessToPatientRecord(user, 42)).thenReturn(true);
         when(security.hasPrivilege(user, "_demographic", SecurityInfoManager.READ, 42)).thenReturn(true);
-        when(security.hasPrivilege(user, "_email", SecurityInfoManager.READ, 42)).thenReturn(true);
+        when(security.hasPrivilege(user, "_appointment", SecurityInfoManager.WRITE, 42)).thenReturn(true);
+        when(security.hasPrivilege(user, "_email", SecurityInfoManager.READ, 42)).thenReturn(false);
 
         assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), Locale.ENGLISH)).isEqualTo(line);
+    }
 
+    @Test
+    void shouldHideTheStatusLine_fromAUserWhoMayNotOpenThisPatientsAppointment() {
+        AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
+        SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
+        when(reminders.statusLine(any(Appointment.class), any(Locale.class)))
+                .thenReturn(Optional.of(new ReminderStatusLine("appointment.reminder.status.due", "")));
+        when(security.isAllowedAccessToPatientRecord(user, 42)).thenReturn(true);
+        when(security.hasPrivilege(user, "_demographic", SecurityInfoManager.READ, 42)).thenReturn(true);
+        // Email rights do not stand in for the appointment's.
+        when(security.hasPrivilege(user, "_email", SecurityInfoManager.READ, 42)).thenReturn(true);
+
+        assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), Locale.ENGLISH))
+                .as("no _appointment w for this patient").isNull();
+
+        when(security.hasPrivilege(user, "_appointment", SecurityInfoManager.WRITE, 42)).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(user, 42)).thenReturn(false);
-        assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), Locale.ENGLISH)).isNull();
+        assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), Locale.ENGLISH))
+                .as("the patient's record is locked to this user").isNull();
 
         when(security.isAllowedAccessToPatientRecord(user, 42)).thenReturn(true);
-
-        when(security.hasPrivilege(user, "_email", SecurityInfoManager.READ, 42)).thenReturn(false);
-        assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), Locale.ENGLISH)).isNull();
-
-        when(security.hasPrivilege(user, "_email", SecurityInfoManager.READ, 42)).thenReturn(true);
         when(security.hasPrivilege(user, "_demographic", SecurityInfoManager.READ, 42)).thenReturn(false);
         assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), Locale.ENGLISH)).isNull();
 

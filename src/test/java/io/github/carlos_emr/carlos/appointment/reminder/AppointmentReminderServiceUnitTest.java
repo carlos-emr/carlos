@@ -841,6 +841,28 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             assertThat(line(appointment(start, PATIENT, "t"), reminder)).map(ReminderStatusLine::messageKey).contains(expected);
         }
 
+        /**
+         * The line is shown to anyone who may open the appointment (#5887), so it carries a time or nothing:
+         * never an address, an email's id or text, or an error. Every outcome is checked, a stored email included.
+         */
+        @ParameterizedTest(name = "{0}")
+        @org.junit.jupiter.params.provider.EnumSource(AppointmentReminderStatus.class)
+        void shouldCarryOnlyATime_forEveryOutcome(AppointmentReminderStatus status) {
+            LocalDateTime start = NOW.plusHours(20);
+            AppointmentReminder reminder = requested();
+            reminder.startSending(at(start), at(NOW.minusMinutes(10)));
+            if (status != AppointmentReminderStatus.SENDING) {
+                reminder.finish(status, 900, at(NOW.minusMinutes(10)));
+            }
+
+            Optional<ReminderStatusLine> shownLine = line(appointment(start, PATIENT, "t"), reminder);
+
+            assertThat(shownLine).hasValueSatisfying(found -> {
+                assertThat(found.messageKey()).startsWith("appointment.reminder.status.").doesNotContain("900");
+                assertThat(found.argument()).isIn("", shown.format(NOW.minusMinutes(10)));
+            });
+        }
+
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"en", "fr", "es", "pl", "pt_BR"})
         void shouldHaveEveryStatusLine_inEveryBundle(String language) {

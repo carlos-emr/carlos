@@ -175,14 +175,17 @@ public final class AppointmentReminderChoice {
     }
 
     /**
-     * A per-patient check for the status line, as the email pages make it: access to this patient's record,
-     * and read on the record and on their email.
+     * A per-patient check for the status line: whoever may open this patient's appointment sees it, as the owner
+     * decided (#5887), front desk included. That is the Edit Appointment page's own right, {@code _appointment}
+     * write, asked for this patient, with the patient's locks: access to their record ({@code _eChart$N} and
+     * {@code _demographic$N}) and read on it. No right on the patient's email is needed: the line holds only a
+     * time or a fixed reason, never an address or message text.
      */
     static boolean mayReadStatus(SecurityInfoManager security, LoggedInInfo user, int demographicNo) {
         return user != null
                 && security.isAllowedAccessToPatientRecord(user, demographicNo)
                 && security.hasPrivilege(user, "_demographic", SecurityInfoManager.READ, demographicNo)
-                && security.hasPrivilege(user, "_email", SecurityInfoManager.READ, demographicNo);
+                && security.hasPrivilege(user, "_appointment", SecurityInfoManager.WRITE, demographicNo);
     }
 
     /** Whether Edit Appointment shows the box ticked for {@code appointmentNo}. */
