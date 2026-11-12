@@ -88,8 +88,7 @@ public final class GraphFailurePage {
         String destination = request.getHeader("Sec-Fetch-Dest");
         if (destination != null && !destination.isBlank()) {
             String kind = destination.trim();
-            return kind.equalsIgnoreCase("document") || kind.equalsIgnoreCase("iframe")
-                    || kind.equalsIgnoreCase("frame");
+            return Strings.CI.equalsAny(kind, "document", "iframe", "frame");
         }
         return Strings.CI.contains(request.getHeader("Accept"), "text/html");
     }
