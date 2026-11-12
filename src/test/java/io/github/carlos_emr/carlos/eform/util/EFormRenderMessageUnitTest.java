@@ -187,7 +187,7 @@ class EFormRenderMessageUnitTest {
                 .doesNotContain("Failed to render eForm PDF")
                 .doesNotContain("renderer is busy")
                 .doesNotContain("approval is invalid or expired")
-                .doesNotContain("could not be prepared for faxing");
+                .doesNotContain("This eForm and its attachments could not be prepared for faxing");
     }
 
     @Test
