@@ -427,8 +427,9 @@ public class Hl7textResultsData {
         String shadow = trimmed.toLowerCase(locale);
         String filter = CarlosProperties.getInstance().getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*");
         // A blank setting means no filter, as an unset one does (#6121). As a pattern it would match zero
-        // characters, so every result would be filed as an empty value.
-        if (StringUtils.isBlank(filter)) filter = ".*";
+        // characters, so every result would be filed as an empty value. (?s) lets the match run past a
+        // line break, so a multi-line result is filed whole, not just its first line.
+        if (StringUtils.isBlank(filter)) filter = "(?s).*";
         Matcher match = Pattern.compile(filter).matcher(shadow);
         if (!match.find()) return null;
         int start = originalBoundary(trimmed, shadow, match.start(), locale);

@@ -124,6 +124,15 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
                 .isEqualTo("5.7 mmol/L");
     }
 
+    @ParameterizedTest(name = "result [{0}]")
+    @ValueSource(strings = {"Positive\nSee comment", "Positive\r\nSee comment", "Positive\rSee comment"})
+    @DisplayName("should file a multi-line result whole when the filter setting is blank, not just its first line (#6121)")
+    void shouldFileTheWholeResult_whenABlankFilterMeetsALineBreak(String result) {
+        LocalDateTime entered = LocalDateTime.parse("2026-10-13T10:05:19");
+        assertThat(fileResult(result, "", "2026-10-09 11:20:29", entered).getDataField())
+                .isEqualTo(result);
+    }
+
     @Test
     void shouldPreserveUnicodeLiteralBoundaries_whenLowercaseMappingExpands() {
         LocalDateTime entered = LocalDateTime.parse("2026-10-13T10:05:19");
