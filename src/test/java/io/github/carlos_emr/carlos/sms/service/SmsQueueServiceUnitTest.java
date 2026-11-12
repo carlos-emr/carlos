@@ -91,6 +91,63 @@ class SmsQueueServiceUnitTest {
         verify(worker, never()).processDueMessages(anyInt());
     }
 
+    /** #884: an appointment reminder's text, never sent after {@code expiresAt}. */
+    private static SmsSendCommand reminder(Instant expiresAt) {
+        return SmsSendCommand.appointmentReminder(123, "416-555-1212", "FAKE reminder: appointment at FAKE Clinic",
+                "999998", 501, expiresAt);
+    }
+
+    @Test
+    @DisplayName("enqueue hands back the queued text's row, so an appointment reminder can follow it")
+    void shouldReturnTheRowId_whenAReminderIsQueued() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsQueueService service = new SmsQueueService(new SmsSendValidator(), command -> CONSENTED, recorder,
+                mock(SmsQueueProcessingService.class), new SmsDefaultProviderResolver(() -> "STUB"));
+        Instant limit = Instant.now().plus(java.time.Duration.ofHours(20));
+
+        SmsSendResultDto result = service.enqueue(reminder(limit));
+
+        assertThat(result.status()).isEqualTo(SmsStatus.QUEUED);
+        SmsTransaction row = recorder.transactions().get(0);
+        assertThat(result.transactionId()).isNotNull().isEqualTo(row.getId());
+        assertThat(row.getMessagePurpose()).isEqualTo(io.github.carlos_emr.carlos.sms.SmsMessagePurpose.APPOINTMENT_REMINDER);
+        assertThat(row.getAppointmentNo()).isEqualTo(501);
+        assertThat(row.getRecipientPhoneType()).isEqualTo(SmsRecipientPhoneType.CELL);
+        assertThat(row.getExpiresAt()).isEqualTo(Date.from(limit));
+    }
+
+    @Test
+    @DisplayName("enqueue hands back a consent-blocked text's row too")
+    void shouldReturnTheRowId_whenConsentBlocksAReminder() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsQueueService service = new SmsQueueService(new SmsSendValidator(),
+                command -> SmsConsentDecisionDto.blocked(SmsStatus.OPTOUT_BLOCKED, "SMS_CONSENT_OPTED_OUT",
+                        "The patient opted out of SMS."),
+                recorder, mock(SmsQueueProcessingService.class), new SmsDefaultProviderResolver(() -> "STUB"));
+
+        SmsSendResultDto result = service.enqueue(reminder(Instant.now().plus(java.time.Duration.ofHours(20))));
+
+        assertThat(result.status()).isEqualTo(SmsStatus.OPTOUT_BLOCKED);
+        assertThat(result.transactionId()).isNotNull().isEqualTo(recorder.transactions().get(0).getId());
+    }
+
+    @Test
+    @DisplayName("enqueue records nothing for a text whose time limit has already passed")
+    void shouldRecordNothing_whenTheTextsTimeLimitHasPassed() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsQueueProcessingService worker = mock(SmsQueueProcessingService.class);
+        SmsQueueService service = new SmsQueueService(new SmsSendValidator(), command -> CONSENTED, recorder, worker,
+                new SmsDefaultProviderResolver(() -> "STUB"));
+
+        SmsSendResultDto result = service.enqueueAndProcessNow(reminder(Instant.now().minusSeconds(1)));
+
+        assertThat(result.accepted()).isFalse();
+        assertThat(result.messages()).containsExactly(SmsSendService.SMS_EXPIRED_MESSAGE);
+        assertThat(result.transactionId()).isNull();
+        assertThat(recorder.transactions()).isEmpty();
+        verify(worker, never()).processDueMessages(anyInt());
+    }
+
     @Test
     @DisplayName("enqueue refuses without recording anything when SMS is turned off in Administration")
     void shouldRefuseQueue_whenSmsIsTurnedOff() {
@@ -294,6 +351,8 @@ class SmsQueueServiceUnitTest {
                                                     SmsConsentDecisionDto decision) {
             SmsTransaction transaction = SmsTransaction.outboundAttempt(command, providerType);
             transactions.add(transaction);
+            // As the database would: every recorded row has an id.
+            org.springframework.test.util.ReflectionTestUtils.setField(transaction, "id", (long) transactions.size());
             if (decision.allowed()) {
                 transaction.recordConsentDecision(decision);
             } else {

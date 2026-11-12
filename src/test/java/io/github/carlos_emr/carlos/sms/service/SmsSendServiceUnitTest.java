@@ -85,6 +85,25 @@ class SmsSendServiceUnitTest {
     }
 
     @Test
+    @DisplayName("send records nothing and reaches no SMS provider for a text whose time limit has passed")
+    void shouldRecordNothing_whenTheTextsTimeLimitHasPassed() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsProviderClient client = mock(SmsProviderClient.class);
+        when(client.providerType()).thenReturn(SmsProviderType.STUB);
+        SmsSendService service = new SmsSendService(new SmsSendValidator(), command -> CONSENTED,
+                new SmsProviderClientResolver(List.of(client)), recorder, providerType -> true,
+                new SmsDefaultProviderResolver(() -> "STUB"));
+
+        SmsSendResultDto result = service.send(SmsSendCommand.appointmentReminder(123, "416-555-1212",
+                "FAKE reminder", "999998", 501, Instant.now().minusSeconds(1)));
+
+        assertThat(result.accepted()).isFalse();
+        assertThat(result.messages()).containsExactly(SmsSendService.SMS_EXPIRED_MESSAGE);
+        assertThat(recorder.transactions()).isEmpty();
+        verify(client, never()).send(any(), anyString(), any());
+    }
+
+    @Test
     @DisplayName("send records a consent-blocked row and never reaches the SMS provider when consent denies")
     void shouldBlockSend_whenConsentServiceDenies() {
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();

@@ -70,6 +70,17 @@ Also not covered yet: an exception from the admission-time consent check propaga
 
 A direct-send response reflects the persisted result, including a delivery webhook that arrived before the adapter response was saved. Callback identifiers must match the stored outbound message and its authenticated SMS backend. Callbacks cannot introduce internal queue/consent states. Opaque provider identifiers are case-sensitive and must not be silently truncated. A delivery callback that moves a message CARLOS sent (`SENDING` or `SENT`) into `FAILED` publishes `SmsSendFailedEvent`, which failure listeners receive only after the write commits. Nothing is published for a message that is already `FAILED` (a replay, including `SENT` and `FAILED` callbacks replayed in turn, because a failed message ignores a later `SENT`), for a callback the message ignores (out of order, or after `DELIVERED`), or for a callback that matches no stored message, including later callbacks for the placeholder row it created. A message blocked by consent ignores every callback, so the record of the block stays. A message waiting in the queue, for its first attempt or a retry, ignores a failure report, so the send that is still due stands; a report that it was sent or delivered is applied. A message the carrier reported as failed accepts a `SENT` report only when that report is newer than the failure; a message CARLOS marked failed itself (for example an unknown outcome) accepts any `SENT` report. Adapters must echo the client reference in callbacks: a callback that carries only a provider message id and arrives before the send response is saved matches no row.
 
+### Time limits and appointment reminders (#884)
+
+- A text may carry a time limit, `expiresAt` on `SmsSendCommand` and `expires_at` on `sms_transaction`, after which it must not be sent at all. `SmsSendCommand.appointmentReminder(...)` makes an `APPOINTMENT_REMINDER` text to the patient's cell number. It sets the purpose server side, names the appointment, and requires a limit; the validator refuses a reminder without either.
+- A text whose limit has already passed is refused at admission (`SMS_EXPIRED_MESSAGE`), with nothing recorded.
+- A queued text whose limit passes while it waits (sending off, an outage, the rate limit, a retry backoff) is failed by the worker with `QUEUE_EXPIRED` when it is next claimed, before consent or a rate-limit permit is spent. It is never sent late. The failure is final and publishes `SmsSendFailedEvent` like any other.
+- A row the worker has already claimed and handed to the provider is not affected: stale recovery reconciles it as before, since it may have been sent.
+- A provider swap keeps the limit on the moved copy.
+- Texts without a limit (every text before #884) behave exactly as before.
+- `SmsSendResultDto.transactionId` names the stored row when there is one (queued, sent or consent-blocked), so a caller such as the appointment reminder can follow its text. `SmsTransactionDao.findLatestOutboundByAppointment(appointmentNo, purpose)` finds the newest outbound text for an appointment; a provider swap moves a waiting text to a new row, so the newest one is the text as it stands.
+- The column and the appointment index come with their own migration; until it is placed, the entity's `expires_at` mapping requires it.
+
 ## Rate-limit locking and regression check
 
 Each permit uses a separate transaction. An atomic `INSERT ... ON DUPLICATE KEY UPDATE` creates the

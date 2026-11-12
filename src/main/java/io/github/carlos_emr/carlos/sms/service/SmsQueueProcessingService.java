@@ -72,6 +72,13 @@ public class SmsQueueProcessingService {
     private static final String QUEUE_PROVIDER_NOT_ACTIVE_CODE = "QUEUE_PROVIDER_NOT_ACTIVE";
     private static final String QUEUE_PROVIDER_NOT_ACTIVE_MESSAGE =
             "SMS not sent: its SMS provider is no longer the one chosen in Administration > SMS; send it again.";
+    /**
+     * A text whose time limit passed while it waited (#884: an appointment reminder held back by an outage, the
+     * rate limit or sending being off). It is failed rather than sent late; nothing was sent.
+     */
+    static final String QUEUE_EXPIRED_CODE = "QUEUE_EXPIRED";
+    private static final String QUEUE_EXPIRED_MESSAGE =
+            "SMS not sent: the time it had to be sent by passed while it waited; nothing was sent.";
     private static final String QUEUE_SYSTEM_TEST_PROVIDER_CHANGED_CODE = "QUEUE_SYSTEM_TEST_PROVIDER_CHANGED";
     private static final String QUEUE_SYSTEM_TEST_PROVIDER_CHANGED_MESSAGE =
             "SMS system test not sent: its provider is not active; use Send test in Administration > SMS again.";
@@ -324,6 +331,12 @@ public class SmsQueueProcessingService {
                 shouldContinue = false;
             } else {
                 SmsTransaction claimed = transactions.get(0);
+                if (claimed.expiredBy(new Date())) {
+                    // Checked before consent and the rate limit: an expired text costs neither, and is never sent.
+                    shouldContinue = failExpired(claimed);
+                    processed++;
+                    continue;
+                }
                 SmsConsentDecisionDto decision = recheckConsent(claimed);
                 if (decision == null) {
                     // Consent could not be determined, so nothing may be sent on it. The failure may be an
@@ -354,6 +367,33 @@ public class SmsQueueProcessingService {
             }
         }
         return processed;
+    }
+
+    /**
+     * Fails a claimed text whose time limit has passed, with nothing sent. If that cannot be recorded, the claim is
+     * handed back a little later, as for a retired provider's row, so the row neither heads the queue on every run
+     * nor is left for stale recovery to report as an unknown outcome.
+     *
+     * @return true when the drain may go on to the next row
+     */
+    private boolean failExpired(SmsTransaction claimed) {
+        try {
+            transactionRecorder.markProviderResult(claimed,
+                    SmsProviderSendResultDto.failed(QUEUE_EXPIRED_CODE, QUEUE_EXPIRED_MESSAGE));
+            return true;
+        } catch (RuntimeException e) {
+            try {
+                transactionRecorder.releaseClaim(claimed, Date.from(Instant.now().plus(INACTIVE_PROVIDER_RETRY_DELAY)));
+            } catch (RuntimeException releaseFailure) {
+                if (releaseFailure != e) {
+                    releaseFailure.addSuppressed(e);
+                }
+                e = releaseFailure;
+            }
+            LOGGER.warn("SMS transaction {} past its time limit could not be failed; nothing was sent;{}",
+                    claimed.getId(), LogSafe.exceptionTrace(e));
+            return false;
+        }
     }
 
     /**

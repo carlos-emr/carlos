@@ -9,10 +9,16 @@ public record SmsSendResultDto(
         boolean accepted,
         SmsStatus status,
         String providerMessageId,
-        List<String> messages
+        List<String> messages,
+        Long transactionId
 ) {
     public SmsSendResultDto {
         messages = messages == null ? List.of() : List.copyOf(messages);
+    }
+
+    /** A result that names no stored text: nothing was recorded, or the caller does not need its id. */
+    public SmsSendResultDto(boolean accepted, SmsStatus status, String providerMessageId, List<String> messages) {
+        this(accepted, status, providerMessageId, messages, null);
     }
 
     public static SmsSendResultDto validationFailed(List<String> messages) {
@@ -20,16 +26,27 @@ public record SmsSendResultDto(
     }
 
     public static SmsSendResultDto consentBlocked(SmsConsentDecisionDto decision) {
+        return consentBlocked(decision, null);
+    }
+
+    /** @param transactionId the blocked text's stored row, so a caller can show it (#884) */
+    public static SmsSendResultDto consentBlocked(SmsConsentDecisionDto decision, Long transactionId) {
         return new SmsSendResultDto(
                 false,
                 decision.blockedStatus(),
                 null,
-                decision.operatorMessage() == null ? List.of() : List.of(decision.operatorMessage())
+                decision.operatorMessage() == null ? List.of() : List.of(decision.operatorMessage()),
+                transactionId
         );
     }
 
     public static SmsSendResultDto queued() {
-        return new SmsSendResultDto(true, SmsStatus.QUEUED, null, List.of());
+        return queued(null);
+    }
+
+    /** @param transactionId the queued text's row, so a caller can follow it (#884) */
+    public static SmsSendResultDto queued(Long transactionId) {
+        return new SmsSendResultDto(true, SmsStatus.QUEUED, null, List.of(), transactionId);
     }
 
     /** Uses the persisted result, including a delivery webhook that won a concurrent update. */
@@ -37,7 +54,7 @@ public record SmsSendResultDto(
         SmsStatus status = transaction.getStatus();
         return new SmsSendResultDto(status == SmsStatus.SENT || status == SmsStatus.DELIVERED,
                 status, transaction.getProviderMessageId(), transaction.getErrorMessage() == null
-                ? List.of() : List.of(transaction.getErrorMessage()));
+                ? List.of() : List.of(transaction.getErrorMessage()), transaction.getId());
     }
 
     public static SmsSendResultDto fromProvider(SmsProviderSendResultDto providerResult) {

@@ -163,6 +163,25 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
 
     @Override
     @Transactional(readOnly = true)
+    public Optional<SmsTransaction> findLatestOutboundByAppointment(int appointmentNo, SmsMessagePurpose purpose) {
+        if (appointmentNo <= 0 || purpose == null) {
+            return Optional.empty();
+        }
+        // The id is unique and grows with every row, so the first row is the newest and paging by it is stable.
+        TypedQuery<SmsTransaction> query = entityManager.createQuery(
+                "SELECT t FROM SmsTransaction t WHERE t.appointmentNo = :appointmentNo "
+                        + "AND t.messagePurpose = :purpose AND t.direction = :direction ORDER BY t.id DESC",
+                SmsTransaction.class
+        );
+        query.setParameter("appointmentNo", appointmentNo);
+        query.setParameter("purpose", purpose);
+        query.setParameter("direction", SmsDirection.OUTBOUND);
+        query.setMaxResults(1);
+        return query.getResultList().stream().findFirst();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Optional<SmsTransaction> findByClientReferenceId(SmsProviderType providerType, String clientReferenceId) {
         if (providerType == null || clientReferenceId == null || clientReferenceId.isBlank()) {
             return Optional.empty();
