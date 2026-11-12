@@ -78,12 +78,12 @@ class AddPreventionDataBrandCatalogueUnitTest {
     }
 
     @Test
-    @DisplayName("should default a new record to mL only when no unit is prefilled")
+    @DisplayName("should default only a new record to mL, and only when no unit is prefilled")
     void shouldKeepPrefilledUnit_forNewRecord() throws Exception {
         String form = Files.readString(FORM);
         assertThat(form)
                 .contains("String d2 = PreventionFormCodes.doseUnitCode(pUnit);")
-                .contains("if (\"\".equals(dose) && \"\".equals(d2)) {")
+                .contains("if (existingPrevention == null && \"\".equals(dose) && \"\".equals(d2)) {")
                 .contains("PreventionFormCodes.routeCode(storedRoute != null ? storedRoute : pRoute)");
     }
 

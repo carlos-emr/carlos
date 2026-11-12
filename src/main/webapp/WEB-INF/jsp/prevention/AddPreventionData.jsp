@@ -1026,8 +1026,9 @@
                                     d1 = pDose;
                                 }
 
-                                // mL is only the default for a new record that names no unit.
-                                if ("".equals(dose) && "".equals(d2)) {
+                                // mL is only the default for a new record that names no unit. An existing
+                                // record's blank dose stays blank: saving the edit must not store "mL" for it.
+                                if (existingPrevention == null && "".equals(dose) && "".equals(d2)) {
                                     d2 = "mL";
                                 }
                             %>
