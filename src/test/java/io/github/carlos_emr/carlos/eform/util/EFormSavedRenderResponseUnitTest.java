@@ -113,7 +113,7 @@ class EFormSavedRenderResponseUnitTest {
     }
 
     @Test
-    void addToDocumentsMessageFollowsTheViewersLanguage() {
+    void shouldGiveTheAddToDocumentsMessage_inTheViewersLanguage() {
         request.addHeader("Accept-Language", "fr-CA");
         request.setPreferredLocales(java.util.List.of(java.util.Locale.CANADA_FRENCH));
         EFormSavedRenderResponse.missing(request, service, user,
