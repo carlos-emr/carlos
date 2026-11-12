@@ -142,8 +142,10 @@ public class EmailReminderChannel implements AppointmentReminderChannel {
             }
             // getDemographic asks the same question but refuses with a plain RuntimeException, which would be
             // recorded as a failure and retried. Asked here, a refusal (a patient's record lock, or a clinic that
-            // removed the right) is recorded as no access.
-            if (!security.hasPrivilege(system, "_demographic", SecurityInfoManager.READ, reminder.demographicNo())) {
+            // removed the right) is recorded as no access. The read-only form: the job has no session, which the
+            // other form would mark on a lock, throwing inside the check and logging an error.
+            if (!security.hasPrivilegeReadOnly(system, "_demographic", SecurityInfoManager.READ,
+                    String.valueOf(reminder.demographicNo()))) {
                 return ReminderOutcome.because(AppointmentReminderStatus.NOT_PERMITTED, "noPatientAccess");
             }
             Demographic patient = demographics.getDemographic(system, reminder.demographicNo());
