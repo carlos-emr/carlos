@@ -1412,6 +1412,28 @@ public class EmailManager {
     }
 
     /**
+     * As {@link #getEmailStatusByDateDemographicSenderStatus(LoggedInInfo, String, String, String, String, String)},
+     * keeping only emails of {@code transactionType} (Manage Emails' Type filter, #5887).
+     */
+    public List<EmailStatusResult> getEmailStatusByDateDemographicSenderStatus(LoggedInInfo loggedInInfo, String dateBeginStr,
+            String dateEndStr, String demographic_no, String senderEmailAddress, String emailStatus,
+            EmailLog.TransactionType transactionType) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
+            throw new RuntimeException("missing required sec object (_email)");
+        }
+
+        Date dateBegin = parseDate(dateBeginStr, "yyyy-MM-dd", "00:00:00");
+        Date dateEnd = parseDate(dateEndStr, "yyyy-MM-dd", "23:59:59");
+        if (dateBegin == null || dateEnd == null) {
+            return Collections.emptyList();
+        }
+
+        List<EmailLog> resultList = emailLogDao.getEmailStatusByDateDemographicSenderStatusType(dateBegin, dateEnd,
+                demographic_no, senderEmailAddress, emailStatus, transactionType);
+        return retriveEmailStatusResultList(resultList);
+    }
+
+    /**
      * Retrieves the email log associated with a case management note.
      *
      * This method enables bidirectional navigation between chart notes and email communications.
@@ -1911,6 +1933,7 @@ public class EmailManager {
             emailStatusResult.applyConsentSnapshot(result);
             emailStatusResult.setResolvable(isManuallyResolvable(result));
             emailStatusResult.setPortalPasswordPending(result.isPortalDeliveryUnresolved());
+            emailStatusResult.setAppointmentReminder(result.getTransactionType() == EmailLog.TransactionType.APPOINTMENT_REMINDER);
             if (isPortalInvite(result) && demographic != null) {
                 emailStatusResult.setPortalInviteDemographicNo(demographic.getDemographicNo());
             }

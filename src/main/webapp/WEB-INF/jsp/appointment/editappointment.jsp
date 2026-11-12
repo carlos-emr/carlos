@@ -1500,6 +1500,16 @@
                     <td>
                 <input type="checkbox" class="form-check-input" name="emailPt" id="emailPt" value="email reminder" <%= emailReminderTicked ? "checked" : "" %>>
                 <input type="hidden" name="emailPtShown" value="1">
+                <%-- #5887: what happened to the reminder for this start, or when it will go. --%>
+                <% io.github.carlos_emr.carlos.appointment.reminder.ReminderStatusLine emailReminderStatus = apptFromRequest == null ? null
+                        : io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice.statusLine(apptFromRequest,
+                                (java.util.Locale) pageContext.getAttribute("appointmentLocale"));
+                    if (emailReminderStatus != null) {
+                        pageContext.setAttribute("emailReminderStatusKey", emailReminderStatus.messageKey());
+                        pageContext.setAttribute("emailReminderStatusArgument", emailReminderStatus.argument()); %>
+                <fmt:message key="${emailReminderStatusKey}" var="emailReminderStatusText"><fmt:param value="${emailReminderStatusArgument}"/></fmt:message>
+                <div class="form-text" id="emailReminderStatus"><carlos:encode value="${emailReminderStatusText}"/></div>
+                <% } %>
                     </td>
                 </tr>
                 <% } else { %>

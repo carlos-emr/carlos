@@ -70,6 +70,30 @@ class AppointmentReminderBoxJspRegressionTest {
     }
 
     @Test
+    void shouldShowTheReminderStatusEncoded_underTheBoxOnEdit() throws IOException {
+        assertThat(page("editappointment.jsp")).containsSubsequence(
+                "<input type=\"hidden\" name=\"emailPtShown\" value=\"1\">",
+                "AppointmentReminderChoice.statusLine(apptFromRequest,",
+                "<fmt:message key=\"${emailReminderStatusKey}\" var=\"emailReminderStatusText\"><fmt:param value=\"${emailReminderStatusArgument}\"/></fmt:message>",
+                "<carlos:encode value=\"${emailReminderStatusText}\"/>",
+                "<% } else { %>");
+    }
+
+    /** Manage Emails labels the reminder job's emails and can list them on their own. */
+    @Test
+    void shouldLabelAndFilterAppointmentReminders_onManageEmails() throws IOException {
+        Path admin = Path.of("src", "main", "webapp", "WEB-INF", "jsp", "admin");
+        String filter = Files.readString(admin.resolve("manageEmails.jsp"), StandardCharsets.UTF_8);
+        String card = Files.readString(admin.resolve("emailStatusResults.jspf"), StandardCharsets.UTF_8);
+
+        assertThat(filter).containsSubsequence("<select class=\"form-select\" name=\"emailType\" id=\"emailType\">",
+                "<option value=\"-1\">", "<option value=\"APPOINTMENT_REMINDER\">",
+                "admin.manageEmails.type.appointmentReminder", "</select>");
+        assertThat(card).containsSubsequence("<c:if test=\"${emailStatusResult.appointmentReminder}\">", "<tr>",
+                "admin.manageEmails.type.appointmentReminder", "</tr>", "</c:if>");
+    }
+
+    @Test
     void shouldSendTheMarker_onlyWithTheBox() throws IOException {
         for (String name : new String[]{"addappointment.jsp", "editappointment.jsp"}) {
             assertThat(page(name).split("name=\"emailPtShown\"", -1)).as(name).hasSize(2);

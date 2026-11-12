@@ -221,6 +221,37 @@ class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
         assertThat(request.getAttribute("canResolveEmails")).isEqualTo(false);
     }
 
+    /** #5887: the Type filter lists the reminder job's emails on their own. */
+    @Test
+    void shouldListOnlyAppointmentReminders_whenTheTypeFilterAsksForThem() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        request.setParameter("dateBegin", "2026-11-01");
+        request.setParameter("dateEnd", "2026-11-12");
+        request.setParameter("emailType", "APPOINTMENT_REMINDER");
+
+        assertThat(new ManageEmails2Action().fetchEmails()).isEqualTo("emailstatus");
+
+        verify(emailManager).getEmailStatusByDateDemographicSenderStatus(loggedInInfo, "2026-11-01", "2026-11-12",
+                null, null, null, EmailLog.TransactionType.APPOINTMENT_REMINDER);
+    }
+
+    /** Any other Type value, including another type's name, lists every type as before. */
+    @ParameterizedTest
+    @ValueSource(strings = {"-1", "DIRECT", "PORTAL_INVITE", "appointment_reminder", ""})
+    void shouldListEveryType_forAnyOtherTypeValue(String type) {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        request.setParameter("dateBegin", "2026-11-01");
+        request.setParameter("dateEnd", "2026-11-12");
+        request.setParameter("emailType", type);
+
+        new ManageEmails2Action().fetchEmails();
+
+        verify(emailManager).getEmailStatusByDateDemographicSenderStatus(loggedInInfo, "2026-11-01", "2026-11-12",
+                null, null, null);
+    }
+
     @Test
     @DisplayName("should dispatch POST setResolved and confirm persistence with no-content response")
     void shouldDispatchSetResolved_whenPostRequestIsValid() {

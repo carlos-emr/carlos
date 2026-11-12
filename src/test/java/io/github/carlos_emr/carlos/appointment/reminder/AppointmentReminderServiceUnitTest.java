@@ -37,15 +37,20 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionOperations;
 
+import java.text.MessageFormat;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.ResourceBundle;
 import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -385,6 +390,103 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             assertThat(service.isRequested(APPOINTMENT, ReminderChannel.EMAIL)).isTrue();
             assertThat(service.isRequested(102, ReminderChannel.EMAIL)).isFalse();
             assertThat(service.isRequested(103, ReminderChannel.EMAIL)).isFalse();
+        }
+    }
+
+    /** The line under the box on Edit Appointment. */
+    @Nested
+    @DisplayName("Status line on Edit")
+    class StatusLine {
+
+        private final DateTimeFormatter shown = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
+                .withLocale(Locale.ENGLISH);
+
+        private Optional<ReminderStatusLine> line(Appointment appointment, AppointmentReminder reminder) {
+            when(reminders.findByAppointment(APPOINTMENT, ReminderChannel.EMAIL)).thenReturn(Optional.ofNullable(reminder));
+            return service.statusLine(appointment, Locale.ENGLISH);
+        }
+
+        @Test
+        void shouldSayNothing_withoutARequestedReminder() {
+            Appointment appointment = appointment(NOW.plusHours(20), PATIENT, "t");
+            AppointmentReminder withdrawn = requested();
+            withdrawn.withdraw("999998", at(NOW));
+
+            assertThat(line(appointment, null)).isEmpty();
+            assertThat(line(appointment, withdrawn)).isEmpty();
+            assertThat(line(appointment(NOW.plusHours(20), PATIENT, "C"), requested())).isEmpty();
+            assertThat(line(appointment(NOW.minusHours(1), PATIENT, "t"), requested())).as("already started").isEmpty();
+        }
+
+        @Test
+        void shouldSayWhenItWillGo_beforeTheWindowOpens() {
+            LocalDateTime start = NOW.plusDays(3);
+
+            assertThat(line(appointment(start, PATIENT, "t"), requested()))
+                    .contains(new ReminderStatusLine("appointment.reminder.status.scheduled", shown.format(start.minusHours(24))));
+        }
+
+        @Test
+        void shouldSayItGoesSoon_insideTheWindow_andTooLate_afterTheCutoff() {
+            assertThat(line(appointment(NOW.plusHours(20), PATIENT, "t"), requested()))
+                    .contains(new ReminderStatusLine("appointment.reminder.status.due", ""));
+            assertThat(line(appointment(NOW.plusHours(1), PATIENT, "t"), requested()))
+                    .contains(new ReminderStatusLine("appointment.reminder.status.tooLate", ""));
+        }
+
+        @Test
+        void shouldSayWhenItWasSent_forTheCurrentStart() {
+            LocalDateTime start = NOW.plusHours(20);
+            AppointmentReminder reminder = requested();
+            reminder.startSending(at(start), at(NOW.minusHours(1)));
+            reminder.finish(AppointmentReminderStatus.SENT, 900, at(NOW.minusHours(1)));
+
+            assertThat(line(appointment(start, PATIENT, "t"), reminder))
+                    .contains(new ReminderStatusLine("appointment.reminder.status.sent", shown.format(NOW.minusHours(1))));
+        }
+
+        @Test
+        void shouldIgnoreAReminderSentForAnEarlierStart_afterTheAppointmentMoved() {
+            AppointmentReminder reminder = requested();
+            reminder.startSending(at(NOW.plusHours(3)), at(NOW.minusHours(1)));
+            reminder.finish(AppointmentReminderStatus.SENT, 900, at(NOW.minusHours(1)));
+
+            assertThat(line(appointment(NOW.plusDays(3), PATIENT, "t"), reminder)).map(ReminderStatusLine::messageKey)
+                    .contains("appointment.reminder.status.scheduled");
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"SENDING", "UNCONFIRMED", "FAILED", "BLOCKED_CONSENT", "NO_ADDRESS", "INVALID_ADDRESS",
+                "NO_SENDER", "NO_FOOTER", "NOT_PERMITTED"})
+        void shouldNameWhatHappened_forEveryOutcome(String status) {
+            LocalDateTime start = NOW.plusHours(20);
+            AppointmentReminder reminder = requested();
+            reminder.startSending(at(start), at(NOW.minusMinutes(10)));
+            if (!"SENDING".equals(status)) {
+                reminder.finish(AppointmentReminderStatus.valueOf(status), null, at(NOW.minusMinutes(10)));
+            }
+            String expected = switch (status) {
+                case "SENDING", "UNCONFIRMED" -> "appointment.reminder.status.unconfirmed";
+                case "FAILED" -> "appointment.reminder.status.failed";
+                case "BLOCKED_CONSENT" -> "appointment.reminder.status.blockedConsent";
+                case "NO_ADDRESS", "INVALID_ADDRESS" -> "appointment.reminder.status.noAddress";
+                case "NO_SENDER", "NO_FOOTER" -> "appointment.reminder.status.notSetUp";
+                default -> "appointment.reminder.status.notPermitted";
+            };
+
+            assertThat(line(appointment(start, PATIENT, "t"), reminder)).map(ReminderStatusLine::messageKey).contains(expected);
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"en", "fr", "es", "pl", "pt_BR"})
+        void shouldHaveEveryStatusLine_inEveryBundle(String language) {
+            ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", Locale.forLanguageTag(language.replace('_', '-')));
+            for (String key : new String[]{"sent", "unconfirmed", "failed", "blockedConsent", "noAddress", "notSetUp",
+                    "notPermitted", "scheduled", "due", "tooLate"}) {
+                String pattern = bundle.getString("appointment.reminder.status." + key);
+                // The page always passes the value, so every line is a MessageFormat pattern.
+                assertThat(new MessageFormat(pattern).format(new Object[]{"FAKE-WHEN"})).as(key).doesNotContain("{", "}");
+            }
         }
     }
 

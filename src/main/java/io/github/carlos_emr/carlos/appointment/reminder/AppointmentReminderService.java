@@ -43,9 +43,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -145,6 +148,52 @@ public class AppointmentReminderService {
     /** Whether staff asked for a reminder of this appointment on this channel (Edit shows the box ticked). */
     public boolean isRequested(int appointmentNo, ReminderChannel channel) {
         return reminders.findByAppointment(appointmentNo, channel).map(AppointmentReminder::isRequested).orElse(false);
+    }
+
+    /**
+     * What Edit Appointment shows under the Email Reminder box: what happened to the reminder for the
+     * appointment's current start, or when it will go. Empty when no reminder is requested, the appointment
+     * is cancelled, a no-show or past, or it has no patient.
+     */
+    public Optional<ReminderStatusLine> statusLine(Appointment appointment, Locale locale) {
+        if (appointment == null || appointment.getId() == null || appointment.getDemographicNo() <= 0
+                || isCancelledOrNoShow(appointment.getStatus())) {
+            return Optional.empty();
+        }
+        Optional<AppointmentReminder> stored = reminders.findByAppointment(appointment.getId(), ReminderChannel.EMAIL);
+        if (stored.isEmpty() || !stored.get().isRequested()) {
+            return Optional.empty();
+        }
+        AppointmentReminder reminder = stored.get();
+        LocalDateTime now = LocalDateTime.now(clock);
+        LocalDateTime start = toLocal(appointment.getStartTimeAsFullDate());
+        if (start == null) {
+            return Optional.empty();
+        }
+        DateTimeFormatter shown = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
+                .withLocale(locale == null ? Locale.ENGLISH : locale);
+        LocalDateTime attempted = toLocal(reminder.getLastAttemptAt());
+        String attemptedAt = attempted == null ? "" : shown.format(attempted);
+        if (start.equals(toLocal(reminder.getSentFor())) && reminder.getLastStatus() != null) {
+            return Optional.of(switch (reminder.getLastStatus()) {
+                case SENT -> new ReminderStatusLine("appointment.reminder.status.sent", attemptedAt);
+                case SENDING, UNCONFIRMED -> new ReminderStatusLine("appointment.reminder.status.unconfirmed", attemptedAt);
+                case FAILED -> new ReminderStatusLine("appointment.reminder.status.failed", attemptedAt);
+                case BLOCKED_CONSENT -> new ReminderStatusLine("appointment.reminder.status.blockedConsent", "");
+                case NO_ADDRESS, INVALID_ADDRESS -> new ReminderStatusLine("appointment.reminder.status.noAddress", "");
+                case NO_SENDER, NO_FOOTER -> new ReminderStatusLine("appointment.reminder.status.notSetUp", "");
+                case NOT_PERMITTED -> new ReminderStatusLine("appointment.reminder.status.notPermitted", "");
+            });
+        }
+        if (!now.isBefore(start)) {
+            return Optional.empty();
+        }
+        if (now.isBefore(window.opensAt(start))) {
+            return Optional.of(new ReminderStatusLine("appointment.reminder.status.scheduled", shown.format(window.opensAt(start))));
+        }
+        return Optional.of(window.isDue(start, now, null)
+                ? new ReminderStatusLine("appointment.reminder.status.due", "")
+                : new ReminderStatusLine("appointment.reminder.status.tooLate", ""));
     }
 
     /**

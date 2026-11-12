@@ -26,6 +26,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 
+import java.util.Locale;
+
 /**
  * The "Email Reminder" box on Add and Edit Appointment (#5887), shown when the clinic turns reminders on.
  *
@@ -64,6 +66,14 @@ public final class AppointmentReminderChoice {
         }
         SpringUtils.getBean(AppointmentReminderService.class).recordRequest(user, appointment.getId(),
                 appointment.getDemographicNo(), ReminderChannel.EMAIL, isTicked(request));
+    }
+
+    /** The line under the box on Edit Appointment, or {@code null} when there is nothing to say. */
+    public static ReminderStatusLine statusLine(Appointment appointment, Locale locale) {
+        if (appointment == null || appointment.getId() == null || appointment.getId() <= 0) {
+            return null;
+        }
+        return SpringUtils.getBean(AppointmentReminderService.class).statusLine(appointment, locale).orElse(null);
     }
 
     /** Whether Edit Appointment shows the box ticked for {@code appointmentNo}. */

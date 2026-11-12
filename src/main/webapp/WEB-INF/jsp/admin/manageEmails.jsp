@@ -365,6 +365,16 @@
                         </select>
                     </div>
                 </div>
+                <%-- #5887: the reminder job's emails can be listed on their own. --%>
+                <div class="row">
+                    <div class="col-sm-4 mb-3">
+                        <label for="emailType"><fmt:message key="admin.manageEmails.type"/></label>
+                        <select class="form-select" name="emailType" id="emailType">
+                            <option value="-1"><fmt:message key="admin.manageEmails.all"/></option>
+                            <option value="APPOINTMENT_REMINDER"><fmt:message key="admin.manageEmails.type.appointmentReminder"/></option>
+                        </select>
+                    </div>
+                </div>
                 <div class="row mt-3">
                     <div class="col-sm-12">
                         <button type="submit" id="btnFetch" class="btn btn-primary btn-md" value="<fmt:message key='admin.manageEmails.fetch'/>">

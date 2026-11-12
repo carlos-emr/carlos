@@ -567,6 +567,28 @@ class EmailManagerPendingStatusUnitTest extends CarlosUnitTestBase {
         assertThat(ordinaryResult.isResolvable()).isTrue();
     }
 
+    /** #5887: Manage Emails labels the reminder job's emails, and its Type filter reaches the query. */
+    @Test
+    @DisplayName("should label appointment reminders and pass the Type filter to the query")
+    void shouldLabelAppointmentReminders_andFilterByType() {
+        EmailLog reminder = new EmailLog(null, "", new String[] {"patient@example.invalid"},
+                "Appointment reminder: FAKE Clinic", "Body", EmailStatus.SUCCESS);
+        injectDependency(reminder, "id", 51);
+        reminder.setDemographic(demographic);
+        reminder.setProvider(provider);
+        reminder.setTransactionType(TransactionType.APPOINTMENT_REMINDER);
+        when(emailLogDao.getEmailStatusByDateDemographicSenderStatusType(any(), any(), nullable(String.class),
+                nullable(String.class), nullable(String.class), eq(TransactionType.APPOINTMENT_REMINDER)))
+                .thenReturn(List.of(reminder));
+
+        List<EmailStatusResult> results = emailManager.getEmailStatusByDateDemographicSenderStatus(
+                loggedInInfo, "2026-11-12", "2026-11-12", null, null, null, TransactionType.APPOINTMENT_REMINDER);
+
+        assertThat(results).singleElement().satisfies(result -> assertThat(result.isAppointmentReminder()).isTrue());
+        verify(emailLogDao, never()).getEmailStatusByDateDemographicSenderStatus(any(), any(), nullable(String.class),
+                nullable(String.class), nullable(String.class));
+    }
+
     private EmailLog portalInvitation(int id, EmailStatus status) {
         EmailLog emailLog = new EmailLog(null, "", new String[] {"patient@example.invalid"},
                 "Your patient portal invitation", "Body", status);

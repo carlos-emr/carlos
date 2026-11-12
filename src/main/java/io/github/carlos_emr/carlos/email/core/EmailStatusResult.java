@@ -52,6 +52,7 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
     private Date created;
     private boolean resolvable;
     private boolean portalPasswordPending;
+    private boolean appointmentReminder;
     private Integer portalInviteDemographicNo;
     private EmailConsentStatus consentStatus;
     private Integer consentId;
@@ -519,6 +520,15 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
 
     public void setPortalPasswordPending(boolean portalPasswordPending) {
         this.portalPasswordPending = portalPasswordPending;
+    }
+
+    /** An appointment reminder sent by the reminder job (#5887); Manage Emails labels it so. */
+    public boolean isAppointmentReminder() {
+        return appointmentReminder;
+    }
+
+    public void setAppointmentReminder(boolean appointmentReminder) {
+        this.appointmentReminder = appointmentReminder;
     }
 
     /**
