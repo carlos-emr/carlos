@@ -49,7 +49,9 @@ The `appointment_reminder` table and `sms_transaction.expires_at` come from the 
   `QUEUE_EXPIRED`: it is never sent late, and never at night. A text already handed over is not withdrawn when the
   appointment is cancelled or moved; the time limit still applies to it.
 - **The other buttons on the form keep it,** as for email: Repeat Booking, a repeat-series Group Update, Group Appt
-  (one booking gets the text) and Group Action then Group Update. Cut and Paste does not copy the choice.
+  (one booking gets the text) and Group Action then Group Update. Cut and Paste does not copy the choice. As for
+  email, the patient gets one text per visit: a box ticked later on another booking at the same time is not texted
+  again, and its line says so.
 - **Retries:** the SMS queue retries a text itself, so a text it took is never handed over again. A text that never
   reached the queue (a refusal, or an error before anything was stored) is tried once more 30 minutes later, while
   there is time. A refusal for consent, number or setup is never retried, and neither is a text too long for one SMS.

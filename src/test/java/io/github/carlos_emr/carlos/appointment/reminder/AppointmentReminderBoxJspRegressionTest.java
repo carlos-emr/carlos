@@ -156,6 +156,30 @@ class AppointmentReminderBoxJspRegressionTest {
                 "if (rowsAffected == 1) bSucc = true;");
         assertThat(group).containsSubsequence("equals(\"Group Update\")", "replacedNo = appt.getId();",
                 "appointmentDao.persist(a);", "AppointmentReminderChoice.moveReminders(request, groupUser, replacedNo, a);",
-                "AppointmentReminderChoice.record(request, groupUser, edited);");
+                "AppointmentReminderChoice.recordAfterGroupUpdate(request, groupUser, edited);");
+        // Each booking there is already saved: the reminder calls never stop the page (no transaction around it).
+        assertThat(group).doesNotContain("AppointmentReminderChoice.record(request");
+    }
+
+    /**
+     * When a reminder call there failed, the result says the appointment was saved but its reminder was not, and
+     * the window stays open to read it; otherwise it closes as before.
+     */
+    @Test
+    void shouldWarnThatTheReminderWasNotRecorded_onTheGroupPagesResult() throws IOException {
+        String group = page("appointmentgrouprecords.jsp");
+
+        assertThat(group).containsSubsequence(
+                "if (bSucc && AppointmentReminderChoice.notRecorded(request)) {",
+                "appointment.appointmentgrouprecords.msgAddSuccess",
+                "<p role=\"alert\" id=\"reminderNotRecorded\"><fmt:message key=\"appointment.reminder.notRecorded\"/></p>",
+                "onclick=\"self.close()\"",
+                "self.opener.refresh();",
+                "} else if (bSucc) {",
+                "self.opener.refresh();",
+                "self.close();");
+        String warned = group.substring(group.indexOf("if (bSucc && AppointmentReminderChoice.notRecorded(request))"),
+                group.indexOf("} else if (bSucc) {"));
+        assertThat(warned).as("the warning is not closed away").doesNotContain("self.close();\n");
     }
 }

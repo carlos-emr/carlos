@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.commn.dao.AppointmentReminderDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentReminder;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,6 +60,7 @@ import java.util.function.Function;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -139,6 +141,182 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         });
         when(appointments.find(Integer.valueOf(APPOINTMENT))).thenReturn(atClaim);
         when(reminders.find(Long.valueOf(7L))).thenReturn(reminder);
+    }
+
+    /**
+     * Group Appt books the patient with several providers at the same time. Only one booking holds the reminder,
+     * but another booking's box can be ticked later on Edit: the patient still gets one reminder for the visit.
+     */
+    @Nested
+    @DisplayName("Bookings for the same visit")
+    class SameVisit {
+
+        private final LocalDateTime start = NOW.plusHours(20);
+
+        private ReminderCandidate sibling(long id, String status, AppointmentReminderStatus outcome) {
+            Appointment other = appointment(start, PATIENT, status);
+            other.setId(APPOINTMENT + 1);
+            AppointmentReminder reminder = AppointmentReminder.requested(APPOINTMENT + 1, ReminderChannel.EMAIL, "999998",
+                    at(NOW.minusDays(1)));
+            ReflectionTestUtils.setField(reminder, "id", id);
+            if (outcome != null) {
+                reminder.startSending(at(start), at(NOW.minusHours(1)));
+                if (outcome != AppointmentReminderStatus.SENDING) {
+                    reminder.finish(outcome, 899, at(NOW.minusHours(1)));
+                }
+            }
+            return new ReminderCandidate(reminder, other);
+        }
+
+        /** A sibling that failed this start and has no retry left: both of its attempts are spent. */
+        private ReminderCandidate failedForGood(long id) {
+            ReminderCandidate sibling = sibling(id, "t", AppointmentReminderStatus.FAILED);
+            sibling.reminder().startSending(at(start), at(NOW.minusMinutes(40)));
+            sibling.reminder().finish(AppointmentReminderStatus.FAILED, null, at(NOW.minusMinutes(40)));
+            return sibling;
+        }
+
+        private void siblings(ReminderCandidate... found) {
+            when(reminders.findSameVisit(ReminderChannel.EMAIL, PATIENT, start, 7L)).thenReturn(List.of(found));
+        }
+
+        @Test
+        void shouldRecordTheReminderAsCovered_whenAnotherBookingAtTheSameTimeHoldsAnEarlierReminder() {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            siblings(sibling(3L, "t", null));
+
+            ReminderRun run = service.processDue(10);
+
+            assertThat(handed).as("never sent twice for one visit").isEmpty();
+            assertThat(run).isEqualTo(new ReminderRun(1, 0, 1));
+            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.DUPLICATE);
+            assertThat(reminder.getSentFor()).as("not due again for this start").isEqualTo(at(start));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        // QUEUED: a text handed to the SMS queue (#884) counts as sent for the visit.
+        @ValueSource(strings = {"SENT", "UNCONFIRMED", "QUEUED"})
+        void shouldRecordTheReminderAsCovered_whenAnotherBookingWasAlreadyRemindedForTheStart(String outcome) {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            siblings(sibling(12L, "t", AppointmentReminderStatus.valueOf(outcome)));
+
+            service.processDue(10);
+
+            assertThat(handed).isEmpty();
+            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.DUPLICATE);
+        }
+
+        @Test
+        void shouldSend_whenTheOtherBookingIsLaterAndNotYetRemindedOrCancelled() {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            siblings(sibling(12L, "t", null), sibling(3L, "C", null), sibling(14L, "t", AppointmentReminderStatus.BLOCKED_CONSENT));
+
+            service.processDue(10);
+
+            // A later booking waits for this one; a cancelled booking never covers it; a refusal is no reminder.
+            assertThat(handed).hasSize(1);
+            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.SENT);
+        }
+
+        /** Fail closed: never risk a second email. A definite failure, so its one retry checks again. */
+        @Test
+        void shouldNotSendButRecordAFailure_whenTheSameVisitCannotBeChecked() {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            when(reminders.findSameVisit(any(), anyInt(), any(), anyLong())).thenThrow(new IllegalStateException("FAKE"));
+
+            try (LogCapture log = LogCapture.forLogger(AppointmentReminderService.class)) {
+                service.processDue(10);
+
+                assertThat(handed).isEmpty();
+                assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.FAILED);
+                assertThat(reminder.getAttempts()).as("its one retry is left").isEqualTo(1);
+                assertThat(log.events()).filteredOn(event -> event.getLevel() == org.apache.logging.log4j.Level.WARN)
+                        .extracting(event -> event.getMessage().getFormattedMessage())
+                        .singleElement().satisfies(message -> assertThat(message)
+                                .isEqualTo("Appointment reminder 7 could not be checked for the same visit "
+                                        + "(java.lang.IllegalStateException); not sent")
+                                .doesNotContain(String.valueOf(PATIENT)).doesNotContain(String.valueOf(APPOINTMENT))
+                                .doesNotContain("FAKE"));
+            }
+        }
+
+        /**
+         * An earlier booking that joins the visit while a later one's reminder is being sent (re-ticked, moved onto
+         * this start, or un-cancelled) waits: it is not attempted, and the next run looks again.
+         */
+        @Test
+        void shouldWaitForTheNextRun_whileAnotherBookingsReminderForTheStartIsBeingSent() {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            siblings(sibling(12L, "t", AppointmentReminderStatus.SENDING));
+
+            ReminderRun run = service.processDue(10);
+
+            assertThat(handed).isEmpty();
+            assertThat(run.sent()).isZero();
+            assertThat(reminder.getLastStatus()).as("not attempted").isNull();
+            assertThat(reminder.getAttempts()).isZero();
+            assertThat(reminder.getClaimToken()).as("released for the next run").isNull();
+        }
+
+        @Test
+        void shouldSend_whenTheEarlierBookingEndedThisStartWithoutAReminder() {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            siblings(sibling(3L, "t", AppointmentReminderStatus.NO_SENDER), failedForGood(4L));
+
+            service.processDue(10);
+
+            // Neither earlier booking will send for this start, so this one must.
+            assertThat(handed).hasSize(1);
+        }
+
+        @Test
+        void shouldYield_toAnEarlierBookingWithItsRetryStillLeft() {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            siblings(sibling(3L, "t", AppointmentReminderStatus.FAILED));
+
+            service.processDue(10);
+
+            assertThat(handed).isEmpty();
+            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.DUPLICATE);
+        }
+
+        @Test
+        void shouldSend_whenALaterBookingYieldedToThisOne() {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            siblings(sibling(12L, "t", AppointmentReminderStatus.DUPLICATE));
+
+            service.processDue(10);
+
+            // The later booking was recorded as covered by this one: it must not cover this one in return.
+            assertThat(handed).hasSize(1);
+        }
+
+        @Test
+        void shouldSayAnotherBookingCarriesTheReminder_onTheStatusLine() {
+            AppointmentReminder reminder = requested();
+            reminder.startSending(at(start), at(NOW.minusMinutes(5)));
+            reminder.finish(AppointmentReminderStatus.DUPLICATE, null, at(NOW.minusMinutes(5)));
+            when(reminders.findByAppointment(APPOINTMENT, ReminderChannel.EMAIL)).thenReturn(Optional.of(reminder));
+
+            assertThat(service.statusLine(appointment(start, PATIENT, "t"), Locale.ENGLISH))
+                    .contains(new ReminderStatusLine("appointment.reminder.status.duplicate", ""));
+        }
     }
 
     @Nested
@@ -283,6 +461,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         private Long failReadsOf;
         private int failFromRead;
         private Integer failAppointmentReadsOf;
+        private int failAppointmentRead;
 
         @BeforeEach
         void table() {
@@ -315,7 +494,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             when(appointments.find(any(Integer.class))).thenAnswer(call -> {
                 Integer number = call.getArgument(0);
                 int read = reads.merge("appointment " + number, 1, Integer::sum);
-                if (number.equals(failAppointmentReadsOf) && read == 2) {
+                if (number.equals(failAppointmentReadsOf) && read == failAppointmentRead) {
                     throw new IllegalStateException("FAKE database failure");
                 }
                 return booked.get(number);
@@ -364,9 +543,10 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         void shouldSendTheRest_andRecordTheStrandedOneAsUnconfirmedLater_whenRecordingAnOutcomeFails() {
             AppointmentReminder first = row(7L, NOW.plusHours(20));
             AppointmentReminder second = row(8L, NOW.plusHours(21));
-            // The first read is the start; the second and third are the outcome and its one retry.
+            // The first read is the same-visit check, the second the start; the third and fourth are the outcome
+            // and its one retry.
             failReadsOf = 7L;
-            failFromRead = 2;
+            failFromRead = 3;
 
             ReminderRun run = service.processDue(10);
 
@@ -390,8 +570,9 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         void shouldSendTheRest_andLeaveTheOneThatCouldNotStartToALaterRun() {
             AppointmentReminder first = row(7L, NOW.plusHours(20));
             AppointmentReminder second = row(8L, NOW.plusHours(21));
-            // Read once by the claim, then again to start it: that second read fails.
+            // Read by the claim, then by the same-visit check, then to start it: that third read fails.
             failAppointmentReadsOf = 107;
+            failAppointmentRead = 3;
 
             ReminderRun run = service.processDue(10);
 
@@ -737,6 +918,28 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             assertThat(line(appointment(start, PATIENT, "t"), reminder)).map(ReminderStatusLine::messageKey).contains(expected);
         }
 
+        /**
+         * The line is shown to anyone who may open the appointment (#5887), so it carries a time or nothing:
+         * never an address, an email's id or text, or an error. Every outcome is checked, a stored email included.
+         */
+        @ParameterizedTest(name = "{0}")
+        @org.junit.jupiter.params.provider.EnumSource(AppointmentReminderStatus.class)
+        void shouldCarryOnlyATime_forEveryOutcome(AppointmentReminderStatus status) {
+            LocalDateTime start = NOW.plusHours(20);
+            AppointmentReminder reminder = requested();
+            reminder.startSending(at(start), at(NOW.minusMinutes(10)));
+            if (status != AppointmentReminderStatus.SENDING) {
+                reminder.finish(status, 900, at(NOW.minusMinutes(10)));
+            }
+
+            Optional<ReminderStatusLine> shownLine = line(appointment(start, PATIENT, "t"), reminder);
+
+            assertThat(shownLine).hasValueSatisfying(found -> {
+                assertThat(found.messageKey()).startsWith("appointment.reminder.status.");
+                assertThat(found.argument()).isIn("", shown.format(NOW.minusMinutes(10)));
+            });
+        }
+
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"en", "fr", "es", "pl", "pt_BR"})
         void shouldHaveEveryStatusLine_inEveryBundle(String language) {
@@ -744,7 +947,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             // Each channel words its own lines (#884), and QUEUED/EXPIRED come with the SMS channel.
             for (ReminderChannel channel : ReminderChannel.values()) {
                 for (String key : new String[]{"sent", "queued", "expired", "unconfirmed", "failed", "blockedConsent",
-                        "noAddress", "notSetUp", "notPermitted", "scheduled", "due", "tooLate"}) {
+                        "noAddress", "notSetUp", "notPermitted", "scheduled", "due", "tooLate", "duplicate"}) {
                     String fullKey = AppointmentReminderService.statusKeyPrefix(channel) + key;
                     String pattern = bundle.getString(fullKey);
                     // The page always passes the value, so every line is a MessageFormat pattern.

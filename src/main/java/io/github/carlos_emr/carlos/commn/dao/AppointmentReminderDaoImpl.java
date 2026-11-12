@@ -103,6 +103,30 @@ public class AppointmentReminderDaoImpl extends AbstractDaoImpl<AppointmentRemin
     }
 
     @Override
+    public List<ReminderCandidate> findSameVisit(ReminderChannel channel, int demographicNo, LocalDateTime start,
+                                                 long excludeReminderId) {
+        if (channel == null || demographicNo <= 0 || start == null) {
+            return List.of();
+        }
+        TypedQuery<Object[]> query = entityManager.createQuery(
+                "SELECT r, a FROM AppointmentReminder r, Appointment a "
+                        + "WHERE a.id = r.appointmentNo AND r.channel = :channel AND r.requested = true "
+                        + "AND r.id <> :excluded AND a.demographicNo = :demographicNo "
+                        + "AND a.appointmentDate = :date AND a.startTime = :time ORDER BY r.id",
+                Object[].class);
+        query.setParameter("channel", channel);
+        query.setParameter("excluded", excludeReminderId);
+        query.setParameter("demographicNo", demographicNo);
+        query.setParameter("date", java.sql.Date.valueOf(start.toLocalDate()));
+        query.setParameter("time", java.sql.Time.valueOf(start.toLocalTime().withNano(0)));
+        List<ReminderCandidate> found = new ArrayList<>();
+        for (Object[] row : query.getResultList()) {
+            found.add(new ReminderCandidate((AppointmentReminder) row[0], (Appointment) row[1]));
+        }
+        return found;
+    }
+
+    @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public List<AppointmentReminder> claim(Collection<Long> ids, String claimToken, Date now, Date staleBefore) {
         if (ids == null || ids.isEmpty() || claimToken == null || now == null || staleBefore == null) {
