@@ -1066,6 +1066,50 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should audit the accepted sign-in when completing it fails before the facility is known")
+    void shouldAuditTheAcceptedSignIn_whenCompletingItFails() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        stubSuccessfulProviderLogin();
+        // The credentials and the code are accepted and the session is assigned; the lookup that
+        // decides which facility the audit row names then fails.
+        when(providerDao.getFacilityIds("999998")).thenThrow(new IllegalStateException("FAKE facility lookup failure"));
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
+            Login2Action action = newAction(null, null, null);
+            action.setCode("123456");
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(action::execute)
+                    .isInstanceOf(IllegalStateException.class).hasMessage("FAKE facility lookup failure");
+
+            logActionMock.verify(() -> LogAction.addLog("999998", "log in", "login", "", request.getRemoteAddr()));
+        }
+    }
+
+    @Test
+    @DisplayName("should write one sign-in audit row when the sign-in completes")
+    void shouldWriteOneSignInRow_whenTheSignInCompletes() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        stubSuccessfulProviderLogin();
+        when(providerDao.getFacilityIds("999998")).thenReturn(Collections.singletonList(10));
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
+            Login2Action action = newAction(null, null, null);
+            action.setCode("123456");
+
+            action.execute();
+
+            logActionMock.verify(() -> LogAction.addLog(eq("999998"), eq("log in"), eq("login"), anyString(),
+                    anyString()), org.mockito.Mockito.times(1));
+        }
+    }
+
+    @Test
     @DisplayName("should record facility assignment when provider has one facility")
     void shouldRecordFacilityAssignment_whenProviderHasOneFacility() throws Exception {
         Security security = forcedResetSecurity();
