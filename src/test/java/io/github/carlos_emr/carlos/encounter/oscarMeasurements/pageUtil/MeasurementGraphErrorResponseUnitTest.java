@@ -122,6 +122,56 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldShowAPageWithRetry_whenAGraphWindowCannotBeDrawn() throws Exception {
+        // #5853: measurement history, the Health Tracker and flowsheets open the graph as a window.
+        request.addHeader("Sec-Fetch-Dest", "document");
+        DemographicNameAgeString nameLookup = mock(DemographicNameAgeString.class);
+        when(nameLookup.getNameAgeString(login, 101)).thenReturn("Synthetic patient");
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var names = mockStatic(DemographicNameAgeString.class);
+             var images = mockStatic(BrowserChartRenderer.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            names.when(DemographicNameAgeString::getInstance).thenReturn(nameLookup);
+            images.when(() -> BrowserChartRenderer.write(any(), any(), any(), anyInt(), anyInt(), anyString()))
+                    .thenThrow(new io.github.carlos_emr.carlos.eform.util.ChartRenderFailure(
+                            io.github.carlos_emr.carlos.eform.util.ChartRenderFailure.Reason.BUSY, "Chart renderer is busy"));
+
+            assertThat(action().execute()).isEqualTo("none");
+
+            assertThat(response.getStatus()).isEqualTo(503);
+            assertThat(response.getHeader("Retry-After")).isEqualTo("5");
+            assertThat(response.getContentType()).startsWith("text/html");
+            assertThat(response.getContentAsString())
+                    .contains("id=\"graphUnavailable\"").contains("window.location.reload()")
+                    .doesNotContain("Synthetic patient").doesNotContain("101");
+        }
+    }
+
+    @Test
+    void shouldKeep422_whenAGraphWindowHasInvalidData() throws Exception {
+        request.addHeader("Sec-Fetch-Dest", "document");
+        DemographicNameAgeString nameLookup = mock(DemographicNameAgeString.class);
+        when(nameLookup.getNameAgeString(login, 101)).thenReturn("Synthetic patient");
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var names = mockStatic(DemographicNameAgeString.class);
+             var images = mockStatic(BrowserChartRenderer.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            names.when(DemographicNameAgeString::getInstance).thenReturn(nameLookup);
+            images.when(() -> BrowserChartRenderer.write(any(), any(), any(), anyInt(), anyInt(), anyString()))
+                    // A stored value the chart cannot read: ChartRenderFailure.status gives 422.
+                    .thenThrow(new IllegalArgumentException("FAKE invalid stored value"));
+
+            assertThat(action().execute()).isEqualTo("none");
+
+            assertThat(response.getStatus()).isEqualTo(422);
+            assertThat(response.getHeader("Retry-After")).isNull();
+            assertThat(response.getContentAsString()).contains("id=\"graphUnavailable\"");
+        }
+    }
+
+    @Test
     void shouldSendImageHeadersOnlyAfterRendering_whenTheRendererSucceeds() throws Exception {
         DemographicNameAgeString nameLookup = mock(DemographicNameAgeString.class);
         when(nameLookup.getNameAgeString(login, 101)).thenReturn("Synthetic patient");

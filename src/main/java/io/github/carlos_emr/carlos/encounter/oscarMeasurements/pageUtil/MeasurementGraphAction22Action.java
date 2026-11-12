@@ -141,8 +141,10 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             if (!response.isCommitted()) {
                 response.resetBuffer();
                 int status = io.github.carlos_emr.carlos.eform.util.ChartRenderFailure.status(unavailable);
-                if (status == 503) response.setHeader("Retry-After", "5");
-                response.sendError(status, "Graph unavailable; " + (status == 503 ? "retry shortly." : "review the source history or contact your administrator."));
+                // An <img> gets the status only (its page shows the message); a graph opened as a
+                // window gets a short page saying so, with a Retry button (#5853).
+                GraphFailurePage.send(request, response, status, "Graph unavailable; "
+                        + (status == 503 ? "retry shortly." : "review the source history or contact your administrator."));
             }
             return NONE;
         }
