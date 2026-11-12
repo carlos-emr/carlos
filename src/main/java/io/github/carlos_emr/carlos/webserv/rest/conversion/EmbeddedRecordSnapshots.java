@@ -410,11 +410,11 @@ public final class EmbeddedRecordSnapshots {
         if (source == null) return null;
         initialized(source);
         EmbeddedProviderTo1 target = new EmbeddedProviderTo1();
-        boolean billing = actor != null && io.github.carlos_emr.carlos.webserv.ProviderBillingAccess.canRead(actor);
+        // Every scalar the embedded provider entity used to serialize, billing identifiers included.
         target.setProviderNo(source.getProviderNo());
         target.setComments(source.getComments());
         target.setPhone(source.getPhone());
-        if (billing) target.setBillingNo(source.getBillingNo());
+        target.setBillingNo(source.getBillingNo());
         target.setWorkPhone(source.getWorkPhone());
         target.setAddress(source.getAddress());
         target.setTeam(source.getTeam());
@@ -422,13 +422,13 @@ public final class EmbeddedRecordSnapshots {
         target.setLastName(source.getLastName());
         target.setProviderType(source.getProviderType());
         target.setSex(source.getSex());
-        if (billing) target.setOhipNo(source.getOhipNo());
+        target.setOhipNo(source.getOhipNo());
         target.setSpecialty(source.getSpecialty());
         target.setDob(source.getDob());
-        if (billing) target.setHsoNo(source.getHsoNo());
+        target.setHsoNo(source.getHsoNo());
         target.setProviderActivity(source.getProviderActivity());
         target.setFirstName(source.getFirstName());
-        if (billing) target.setRmaNo(source.getRmaNo());
+        target.setRmaNo(source.getRmaNo());
         target.setSignedConfidentiality(source.getSignedConfidentiality());
         target.setPractitionerNo(source.getPractitionerNo());
         target.setPractitionerNoType(source.getPractitionerNoType());

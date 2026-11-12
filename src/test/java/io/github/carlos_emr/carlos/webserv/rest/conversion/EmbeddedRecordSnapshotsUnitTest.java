@@ -78,12 +78,17 @@ class EmbeddedRecordSnapshotsUnitTest extends CarlosUnitTestBase {
         }
     }
     @ParameterizedTest @MethodSource("mappers")
-    void shouldPreserveAuthorizedProviderValues_andRedactBillingWithoutPermission(ObjectMapper mapper) throws Exception {
+    void shouldPreserveEveryProviderValue_withoutBillingPermissionOrCallerContext(ObjectMapper mapper) throws Exception {
         Provider source = provider();
-        when(security.hasPrivilege(actor,"_billing","r",(String)null)).thenReturn(true);
-        assertThat(mapper.<com.fasterxml.jackson.databind.JsonNode>valueToTree(EmbeddedRecordSnapshots.provider(actor,source))).isEqualTo(mapper.<com.fasterxml.jackson.databind.JsonNode>valueToTree(source));
-        when(security.hasPrivilege(actor,"_billing","r",(String)null)).thenReturn(false);
-        assertThat(mapper.writeValueAsString(EmbeddedRecordSnapshots.provider(actor,source))).doesNotContain("PRIVATE_");
+        var expected = mapper.<com.fasterxml.jackson.databind.JsonNode>valueToTree(source);
+        // The security mock denies every privilege: the billing identifiers of an embedded provider
+        // are part of the established wire contract and do not depend on _billing.
+        for (LoggedInInfo caller : new LoggedInInfo[]{actor, null}) {
+            var snapshot = mapper.<com.fasterxml.jackson.databind.JsonNode>valueToTree(EmbeddedRecordSnapshots.provider(caller,source));
+            assertThat(snapshot).isEqualTo(expected);
+            assertThat(snapshot.toString()).contains("PRIVATE_BILLING","PRIVATE_OHIP","PRIVATE_HSO","PRIVATE_RMA");
+        }
+        verifyNoInteractions(security);
         assertThat(source.getBillingNo()).isEqualTo("PRIVATE_BILLING");
     }
     @ParameterizedTest @MethodSource("mappers")
@@ -103,6 +108,8 @@ class EmbeddedRecordSnapshotsUnitTest extends CarlosUnitTestBase {
         var wire = mapper.<com.fasterxml.jackson.databind.JsonNode>valueToTree(appointment);
         assertThat(wire.at("/demographic/firstName").asText()).isEqualTo("Synthetic");
         assertThat(wire.at("/provider/providerNo").asText()).isEqualTo("7");
+        assertThat(wire.at("/provider/billingNo").asText()).isEqualTo("PRIVATE_BILLING");
+        assertThat(wire.at("/provider/ohipNo").asText()).isEqualTo("PRIVATE_OHIP");
         assertThat(wire.has("demographicSnapshot")).isFalse(); assertThat(wire.has("providerSnapshot")).isFalse();
         var decoded = mapper.readValue(mapper.writeValueAsBytes(appointment),AppointmentTo1.class);
         assertThat(decoded.getDemographic().getDemographicNo()).isEqualTo(42);
