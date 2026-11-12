@@ -101,18 +101,24 @@ class EntityDataGeneratorUnitTest {
         assertThat(entity.id).isBetween(1, 9999);
     }
 
-    /** Hand-set Integer id plus a plain int field. */
+    /**
+     * Hand-set Integer id plus a plain int field. The field starts at -1, so a test can tell
+     * "set to 0" from "skipped".
+     */
     static class ManualIntegerIdEntity {
         @Id
         private Integer id;
-        private int count;
+        private int count = -1;
     }
 
-    /** Hand-set Long id plus a plain long field. */
+    /**
+     * Hand-set Long id plus a plain long field. The field starts at -1, so a test can tell
+     * "set to 0" from "skipped".
+     */
     static class ManualLongIdEntity {
         @Id
         private Long id;
-        private long total;
+        private long total = -1L;
     }
 
     /** Property-access entity: the id annotation is on the getter. */
@@ -125,11 +131,14 @@ class EntityDataGeneratorUnitTest {
         }
     }
 
-    /** Database-generated id plus a plain int field. */
+    /**
+     * Database-generated id plus a plain int field. The field starts at -1, so a test can tell
+     * "set to 0" from "skipped".
+     */
     static class GeneratedIdEntity {
         @Id
         @GeneratedValue(strategy = GenerationType.IDENTITY)
         private Integer id;
-        private int count;
+        private int count = -1;
     }
 }
