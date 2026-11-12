@@ -137,10 +137,13 @@ public class MsgAttachPDF2Action extends ActionSupport {
                 throws IOException, DocumentException;
     }
 
-    /** Records attached chart notes ({@link MsgEncounterPdfComposer#recordAttached}); strict. */
+    /**
+     * Audits chart notes leaving the chart through Messenger, attached ({@link MsgEncounterPdfComposer#recordAttached})
+     * or previewed ({@link MsgEncounterPdfComposer#recordPreviewed}); strict.
+     */
     @FunctionalInterface
-    interface AttachedRecorder {
-        void recordAttached(LoggedInInfo loggedInInfo, int demographicNo);
+    interface ChartNotesAudit {
+        void record(LoggedInInfo loggedInInfo, int demographicNo, boolean preview);
     }
 
     private static final Logger logger = MiscUtils.getLogger();
@@ -158,7 +161,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
     private final RouteRenderer routeRenderer;
     private final PdfConverter pdfConverter;
     private final EncounterPrinter encounterPrinter;
-    private final AttachedRecorder attachedRecorder;
+    private final ChartNotesAudit chartNotesAudit;
 
     public MsgAttachPDF2Action() {
         this(SpringUtils.getBean(SecurityInfoManager.class),
@@ -177,19 +180,25 @@ public class MsgAttachPDF2Action extends ActionSupport {
                     }
                 },
                 MsgEncounterPdfComposer::composeWithChartServices,
-                MsgEncounterPdfComposer::recordAttached);
+                (login, demographicNo, preview) -> {
+                    if (preview) {
+                        MsgEncounterPdfComposer.recordPreviewed(login, demographicNo);
+                    } else {
+                        MsgEncounterPdfComposer.recordAttached(login, demographicNo);
+                    }
+                });
     }
 
     MsgAttachPDF2Action(SecurityInfoManager securityInfoManager, DemographicManager demographicManager,
                         MsgPdfAttachmentResolver resolver, RouteRenderer routeRenderer, PdfConverter pdfConverter,
-                        EncounterPrinter encounterPrinter, AttachedRecorder attachedRecorder) {
+                        EncounterPrinter encounterPrinter, ChartNotesAudit chartNotesAudit) {
         this.securityInfoManager = securityInfoManager;
         this.demographicManager = demographicManager;
         this.resolver = resolver;
         this.routeRenderer = routeRenderer;
         this.pdfConverter = pdfConverter;
         this.encounterPrinter = encounterPrinter;
-        this.attachedRecorder = attachedRecorder;
+        this.chartNotesAudit = chartNotesAudit;
     }
 
     /**
@@ -285,6 +294,9 @@ public class MsgAttachPDF2Action extends ActionSupport {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "PDF generation failed");
                 return NONE;
             }
+            // The full chart print reaches the browser, so it is audited as the chart's own Print is: before the
+            // first byte, strictly. If it cannot be recorded it throws, and nothing is sent.
+            chartNotesAudit.record(loggedInInfo, demographicNo, true);
             pdfConverter.streamPdfBytes(response, pdf);
             return NONE;
         }
@@ -381,7 +393,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
         if (chartNotesPrinted) {
             // The chart notes leave the chart here. Strict: if this cannot be recorded it throws, and
             // nothing is staged.
-            attachedRecorder.recordAttached(loggedInInfo, demographicNo);
+            chartNotesAudit.record(loggedInInfo, demographicNo, false);
         }
         MsgAttachmentStaging.stagePdfs(request.getSession(), attachmentKey, demographicNo, stored);
         return SUCCESS;

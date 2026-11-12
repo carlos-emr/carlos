@@ -116,6 +116,7 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
     private RuntimeException encounterFailure;
     /** Patients whose attached chart notes were recorded, in order. */
     private final List<Integer> recordedAttachments = new ArrayList<>();
+    private final List<Integer> recordedPreviews = new ArrayList<>();
     private RuntimeException recordFailure;
 
     @BeforeEach
@@ -219,11 +220,11 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
             }
             return encounterPdf;
         };
-        MsgAttachPDF2Action.AttachedRecorder recorder = (login, demographicNo) -> {
+        MsgAttachPDF2Action.ChartNotesAudit recorder = (login, demographicNo, preview) -> {
             if (recordFailure != null) {
                 throw recordFailure;
             }
-            recordedAttachments.add(demographicNo);
+            (preview ? recordedPreviews : recordedAttachments).add(demographicNo);
         };
         MsgAttachPDF2Action action = new MsgAttachPDF2Action(securityInfoManager, demographicManager,
                 new MsgPdfAttachmentResolver(eChartDao), renderer, converter, encounterPrinter, recorder);
@@ -823,13 +824,14 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should record attached chart notes once, before staging, and never a preview")
-        void shouldRecordAttachedChartNotes_butNotAPreview() throws Exception {
+        @DisplayName("should record attached chart notes once, before staging, and a preview as a preview")
+        void shouldRecordAttachedChartNotes_andAPreviewAsAPreview() throws Exception {
             MsgAttachPDF2Action preview = newAction();
             preview.setIsPreview(true);
             preview.setPreviewItem("currentEncounter");
             preview.execute();
-            assertThat(recordedAttachments).as("a preview stays with the user").isEmpty();
+            assertThat(recordedPreviews).as("the preview is the full chart print").containsExactly(PATIENT);
+            assertThat(recordedAttachments).isEmpty();
 
             MsgAttachPDF2Action attach = newAction();
             attach.setItem(new String[]{"demographic", "currentEncounter"});
@@ -843,6 +845,19 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
             others.setItem(new String[]{"demographic", "prescriptions"});
             others.execute();
             assertThat(recordedAttachments).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should send no preview when it cannot be recorded, as the chart print sends nothing")
+        void shouldSendNothing_whenThePreviewCannotBeRecorded() {
+            recordFailure = new IllegalStateException("FAKE audit failure");
+            MsgAttachPDF2Action preview = newAction();
+            preview.setIsPreview(true);
+            preview.setPreviewItem("currentEncounter");
+
+            assertThatThrownBy(preview::execute).isInstanceOf(IllegalStateException.class);
+            assertThat(printedEncounters).containsExactly(PATIENT);
+            assertThat(streamedPdfs).isEmpty();
         }
 
         @Test
@@ -879,6 +894,7 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
             preview.setPreviewItem("currentEncounter");
             assertThatThrownBy(preview::execute).isInstanceOf(SecurityException.class);
             assertThat(streamedPdfs).isEmpty();
+            assertThat(recordedPreviews).as("nothing was printed, so nothing is recorded").isEmpty();
 
             MsgAttachPDF2Action attach = newAction();
             attach.setItem(new String[]{"currentEncounter"});
@@ -899,6 +915,7 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
             assertThat(streamedPdfs).isEmpty();
+            assertThat(recordedPreviews).isEmpty();
         }
 
         @Test

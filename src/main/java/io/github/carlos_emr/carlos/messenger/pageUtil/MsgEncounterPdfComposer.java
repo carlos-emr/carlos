@@ -62,8 +62,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * {@code _demographic} and {@code _casemgmt.notes} for them, as the chart print does. The print itself
  * applies the chart's program note filter. A chart the print cannot show in full (an imported record
  * whose data the legacy print cannot project) is refused with {@link CdsLegacyProjectionException}, as
- * the chart print refuses it. An attached encounter is audited as a chart print sent through Messenger
- * ({@link #recordAttached}); a preview is not.</p>
+ * the chart print refuses it. Chart notes leaving the chart through Messenger are audited as the chart's own
+ * Print is: attached ({@link #recordAttached}) or previewed ({@link #recordPreviewed}).</p>
  *
  * @since 2026-11-12
  */
@@ -80,6 +80,8 @@ public class MsgEncounterPdfComposer {
 
     /** The audit row's data: which way the chart print left the chart. */
     static final String AUDIT_DATA = "messenger";
+    /** The audit data of chart notes shown through Messenger Preview. */
+    static final String PREVIEW_AUDIT_DATA = "messenger-preview";
 
     /** The chart's own print, separated so the composer can be unit tested without a PDF renderer. */
     @FunctionalInterface
@@ -117,8 +119,8 @@ public class MsgEncounterPdfComposer {
     }
 
     /**
-     * Prints the chart notes of an authorized patient. Nothing is audited here: a preview stays with
-     * the user who may read the chart; an attachment is audited when it is staged ({@link #recordAttached}).
+     * Prints the chart notes of an authorized patient. Nothing is audited here: the caller audits what
+     * leaves the chart ({@link #recordAttached}, {@link #recordPreviewed}).
      *
      * @param request the Messenger request (the print reads its session and attributes, never its
      *                parameters)
@@ -145,6 +147,16 @@ public class MsgEncounterPdfComposer {
     static void recordAttached(LoggedInInfo loggedInInfo, int demographicNo) {
         String patient = String.valueOf(demographicNo);
         LogAction.addLogStrict(loggedInInfo, "print", "echart", patient, patient, AUDIT_DATA);
+    }
+
+    /**
+     * Records that the chart notes of a patient were shown through Messenger Preview. The preview is the same
+     * full PDF the chart print gives, and can be saved from the browser, so it is audited as the chart print is,
+     * before the first byte is sent. Strict: if it cannot be recorded it throws, and nothing is sent.
+     */
+    static void recordPreviewed(LoggedInInfo loggedInInfo, int demographicNo) {
+        String patient = String.valueOf(demographicNo);
+        LogAction.addLogStrict(loggedInInfo, "print", "echart", patient, patient, PREVIEW_AUDIT_DATA);
     }
 
     /**

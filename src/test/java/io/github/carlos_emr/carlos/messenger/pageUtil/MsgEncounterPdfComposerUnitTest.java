@@ -131,6 +131,17 @@ class MsgEncounterPdfComposerUnitTest {
     }
 
     @Test
+    @DisplayName("should record a preview as a chart print shown through Messenger Preview")
+    void shouldRecordAPreview_asAChartPrintThroughMessengerPreview() {
+        try (var audit = mockStatic(LogAction.class)) {
+            MsgEncounterPdfComposer.recordPreviewed(user, PATIENT);
+
+            audit.verify(() -> LogAction.addLogStrict(user, "print", "echart", String.valueOf(PATIENT),
+                    String.valueOf(PATIENT), "messenger-preview"), times(1));
+        }
+    }
+
+    @Test
     @DisplayName("should let the print read none of the Messenger request's parameters")
     void shouldHideEveryRequestParameter_fromThePrint() {
         request.addParameter("extPrintMeasurements", "true");
