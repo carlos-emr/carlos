@@ -468,8 +468,9 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
 
             appointment.setCreateDateTime(null);
             when(reminders.findArchivedVersions(APPOINTMENT, PATIENT)).thenReturn(List.of());
-            // Not its last save, which ticking the box moves: unknown, which counts as already here (one reminder).
-            assertThat(service.atStartSince(appointment, start)).as("no creation time: unknown").isNull();
+            // Not its last save, which ticking the box moves: since when it has been at its start is unknown, which
+            // counts as already here (one reminder).
+            assertThat(service.atStartSince(appointment, start)).as("no creation time: since when is unknown").isNull();
         }
 
         @Test
