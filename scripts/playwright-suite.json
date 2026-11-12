@@ -10383,14 +10383,14 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 420,
       "env": [
         "DOCUMENT_DIR"
       ],
       "fixtures": "The runWorkflow FAKE- patient (HIN set to '' so the report does not trigger N9), one owned schema-valid text HRM XML file in DOCUMENT_DIR with HRMDocument / HRMDocumentToDemographic / HRMDocumentToProvider rows; a second active provider is only read. Cleanup deletes the owned rows and file and asserts them gone.",
-      "notes": "Fails at its last step on 2026.08: the provider autocomplete menu prints `<span class='match'>` markup as text (js/carlosAutocomplete.js renders an HTML label with .text()). Sign-Off, description, category, provider and patient steps pass first."
+      "notes": "Drives the HRM report viewer's Sign-Off and Revoke Sign-Off, Set Description, category, Assigned Providers autocomplete and the patient (remove) and autocomplete, each against its HRMDocument / HRMDocumentToProvider / HRMDocumentToDemographic rows; the last step asserts the provider autocomplete menu shows names and no match-highlighting markup (js/carlosAutocomplete.js now renders the escaped label as HTML). All seven steps pass on 2026.08. Ontario only: the chart's HRM Documents list is the entry (HRMUtil.listHRMDocuments returns no reports outside the Ontario billing region)."
     },
     {
       "name": "gap-records-demographic-report-criteria",
@@ -10447,14 +10447,14 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 300,
       "env": [
         "DOCUMENT_DIR"
       ],
       "fixtures": "EXCLUSIVE=1 (while the fixture exists every session's any-provider Inbox list is broken). The runWorkflow FAKE- patient with its HIN left NULL, one owned HRM XML file with HRMDocument / HRMDocumentToDemographic / HRMDocumentToProvider rows, all removed in cleanup and checked gone.",
-      "notes": "Verifies that the Inbox returns HTTP 200 and lists an HRM report matched to a NULL-HIN patient (issue #4176). Run with EXCLUSIVE=1."
+      "notes": "Verifies that the Inbox returns HTTP 200 and lists an HRM report matched to a NULL-HIN patient (issue #4176). Run with EXCLUSIVE=1. Ontario only: on a British Columbia install the Inbox has no HRM filter (InboxhubForm.jsp, InboxhubListMode.jsp) and its list does not show HRM reports."
     },
     {
       "name": "authz-read-role-matrix",
