@@ -47,7 +47,9 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
  * message saying what went wrong: the drawing service is busy or not running (with a Retry button), the
  * stored values cannot be drawn and why (422, naming the measurement type or lab test, with no Retry
  * button, since retrying cannot help), or an unexpected problem that has been logged (500). It shows no
- * stored value and nothing else about the patient.</p>
+ * stored value and nothing else about the patient. The page looks like the CARLOS error page: the Bootstrap copy
+ * bundled in the WAR, a light grey background, the message as a warning (503, 500) or an error (422), and Retry as
+ * a secondary button.</p>
  *
  * @since 2026-11-12
  */
@@ -60,6 +62,8 @@ public final class GraphFailurePage {
     static final String BUSY_KEY = "clinical.graph.busy";
     static final String SERVICE_DOWN_KEY = "clinical.graph.serviceDown";
     static final String FAILED_KEY = "clinical.graph.failed";
+    /** The Bootstrap copy bundled in the WAR, which the CARLOS error page ({@code errorpage.jsp}) also uses. */
+    static final String STYLESHEET = "/library/bootstrap/5.3.8/css/bootstrap.min.css";
 
     /**
      * What the page says for one failure: a bundle key and its English fallback, the measurement type or lab
@@ -144,17 +148,27 @@ public final class GraphFailurePage {
         page.write(SafeEncode.forHtmlAttribute(shown.getLanguage().isEmpty() ? "en" : shown.getLanguage()));
         page.write("\">\n<head><meta charset=\"UTF-8\"><title>");
         page.write(SafeEncode.forHtmlContent(label(labels, TITLE_KEY, "Clinical graph")));
-        page.write("</title></head>\n<body>\n<p role=\"alert\" id=\"graphUnavailable\">");
+        page.write("</title>\n");
+        String context = request.getContextPath();
+        page.write("<link rel=\"shortcut icon\" href=\"");
+        page.write(SafeEncode.forHtmlAttribute(context + "/images/favicon.ico"));
+        page.write("\">\n<link rel=\"stylesheet\" href=\"");
+        page.write(SafeEncode.forHtmlAttribute(context + STYLESHEET));
+        page.write("\">\n<style>body { background-color: #F5F5F5; }</style>\n</head>\n<body>\n");
+        page.write("<div class=\"container text-center mt-5\">\n");
+        // Stored values that cannot be drawn are an error; a busy or stopped service and the rest, a warning.
+        String alert = status == 422 ? "alert alert-danger" : "alert alert-warning";
+        page.write("<p role=\"alert\" id=\"graphUnavailable\" class=\"" + alert + "\">");
         Message message = messageFor(failure);
         // The whole sentence is encoded, so a measurement type's or test's name is never markup.
         page.write(SafeEncode.forHtmlContent(text(labels, shown, message)));
         page.write("</p>\n");
         if (message.retry()) {
-            page.write("<button type=\"button\" onclick=\"window.location.reload()\">");
+            page.write("<button type=\"button\" class=\"btn btn-secondary\" onclick=\"window.location.reload()\">");
             page.write(SafeEncode.forHtmlContent(label(labels, RETRY_KEY, "Retry")));
             page.write("</button>\n");
         }
-        page.write("</body>\n</html>\n");
+        page.write("</div>\n</body>\n</html>\n");
         page.flush();
     }
 

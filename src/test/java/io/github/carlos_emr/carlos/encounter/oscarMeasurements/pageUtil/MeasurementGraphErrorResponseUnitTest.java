@@ -541,7 +541,7 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
 
     private void assertDataProblemPage(String sentence) throws Exception {
         assertThat(response.getStatus()).isEqualTo(422);
-        assertThat(response.getContentAsString()).contains("id=\"graphUnavailable\">" + sentence + "</p>")
+        assertThat(response.getContentAsString()).contains("id=\"graphUnavailable\" class=\"alert alert-danger\">" + sentence + "</p>")
                 .doesNotContain("<button").doesNotContain("Synthetic patient");
     }
 

@@ -114,10 +114,42 @@ class GraphFailurePageUnitTest {
         assertThat(response.getContentType()).startsWith("text/html");
         assertThat(response.getContentAsString())
                 .contains("<html lang=\"en\">")
-                .contains("<p role=\"alert\" id=\"graphUnavailable\">The chart drawing service is busy."
-                        + " Try again in a moment.</p>")
-                .contains("<button type=\"button\" onclick=\"window.location.reload()\">Retry</button>")
+                .contains("<p role=\"alert\" id=\"graphUnavailable\" class=\"alert alert-warning\">The chart drawing"
+                        + " service is busy. Try again in a moment.</p>")
+                .contains("<button type=\"button\" class=\"btn btn-secondary\" onclick=\"window.location.reload()\">"
+                        + "Retry</button>")
                 .doesNotContain("CARLOS Error");
+    }
+
+    @Test
+    @DisplayName("should look like the CARLOS error page: the bundled Bootstrap, a grey background, a centred box")
+    void shouldStyleThePage_likeTheCarlosErrorPage() throws Exception {
+        MockHttpServletRequest request = request("document", null);
+        request.setContextPath("/carlos");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        GraphFailurePage.send(request, response, BUSY, "ignored");
+
+        assertThat(response.getContentAsString())
+                .contains("<link rel=\"stylesheet\" href=\"/carlos/library/bootstrap/5.3.8/css/bootstrap.min.css\">")
+                .contains("<link rel=\"shortcut icon\" href=\"/carlos/images/favicon.ico\">")
+                .contains("<style>body { background-color: #F5F5F5; }</style>")
+                .contains("<div class=\"container text-center mt-5\">");
+    }
+
+    @Test
+    @DisplayName("should encode the context path in the stylesheet and icon links")
+    void shouldEncodeTheContextPath_inTheLinks() throws Exception {
+        MockHttpServletRequest request = request("document", null);
+        request.setContextPath("/c\"x");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        GraphFailurePage.send(request, response, BUSY, "ignored");
+
+        assertThat(response.getContentAsString())
+                .contains("href=\"/c&#34;x/library/bootstrap/5.3.8/css/bootstrap.min.css\"")
+                .contains("href=\"/c&#34;x/images/favicon.ico\"")
+                .doesNotContain("/c\"x");
     }
 
     @Test
@@ -130,8 +162,8 @@ class GraphFailurePageUnitTest {
         assertThat(response.getStatus()).isEqualTo(422);
         assertThat(response.getHeader("Retry-After")).isNull();
         assertThat(response.getContentAsString())
-                .contains("<p role=\"alert\" id=\"graphUnavailable\">This graph cannot be drawn from the stored values."
-                        + " Contact your administrator.</p>")
+                .contains("<p role=\"alert\" id=\"graphUnavailable\" class=\"alert alert-danger\">This graph cannot"
+                        + " be drawn from the stored values. Contact your administrator.</p>")
                 .doesNotContain("<button")
                 .doesNotContain("Retry");
     }
@@ -218,7 +250,7 @@ class GraphFailurePageUnitTest {
 
         assertThat(response.getStatus()).isEqualTo(422);
         assertThat(response.getContentAsString())
-                .contains("<p role=\"alert\" id=\"graphUnavailable\">" + sentence + "</p>")
+                .contains("<p role=\"alert\" id=\"graphUnavailable\" class=\"alert alert-danger\">" + sentence + "</p>")
                 .doesNotContain("<button");
     }
 
