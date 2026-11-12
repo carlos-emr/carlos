@@ -5,15 +5,15 @@
   "comparisonSha256": "37abc634838cbda4f255010a5eadb5bf7c086fa788aec3c6530bc5f331a356c6",
   "baselineCommit": "1b27a8fd2c45fc9cc83cabad3d51ab5bddcc99f9",
   "baselineSourceTree": "76907d8676643bd7e3de27b3afc57ab1e733afdb",
-  "baselineReportSha256": "1d3b013cd91090b58293d18ae53baa282b19bcac84a57a5aaf9c17ba0ef444fe",
-  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5 complete H2 java-all run: the plan's own Maven command (offline, forkCount 2), not through verify-release-evidence.py, whose Python dependency defusedxml was not installed, so there is no receipt. Source: a local test merge (7bab8b12dc) of release 1b27a8fd2c with the heads of #6130, #5141, #6139, #6142, #6145, #6152, #6150, #6151, #6154 and #6153. 36,450 tests, 219 skipped, 2 failures, both fixed since by test-only commits (#6151 88d5204ece, #6142 5da3d1aea5).",
+  "baselineReportSha256": "0f62476456d9d173a7c42901ce45dc895601f43a0cfa6a3153b319545380f912",
+  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5 complete H2 java-all run (offline Maven) through verify-release-evidence.py: receipt PASS, run ab200761-f82b-4b79-895c-09bec0f34602. It used a local copy of the plan with forkCount 2 instead of 3, a 6-hour timeout instead of 40 minutes, and the routed skip that #6150 adds for its MariaDB test. Source: a local test merge (3ea3d17969) of release 1b27a8fd2c with the heads of #6130, #5141 (985aa46544), #6139 (a092a76172), #6142 (468a111070), #6145, #6152, #6150, #6151 (88d5204ece), #6154 (3b937c194f) and #6153. 36,467 tests, 219 skipped, 0 failures.",
   "baselineTestCounts": {
-    "tests": 36450,
+    "tests": 36467,
     "skipped": 219,
-    "failures": 2,
+    "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "8b318f3c1a22780062744df1d876bf92f9d41fcd0602d1793ff656d2b3be0c7d",
+  "baselineTestReportsSha256": "e42bcd0c62638541342eb52e660ec05384464d26c1819e6247e8469765f97576",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -4478,5 +4478,5 @@
   },
   "zeroCoverageWaivers": {},
   "baselineAdditionalTestRuns": [],
-  "baselineTestRunCommit": "7bab8b12dc236608d0c87c1fc78973b440254569"
+  "baselineTestRunCommit": "3ea3d1796990a1e6ce53b71f01b03f58a0a91fa1"
 }
