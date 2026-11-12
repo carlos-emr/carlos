@@ -141,18 +141,14 @@ public class EmailComposeManager {
         }
 
         List<EmailAttachment> emailAttachments = new ArrayList<>();
-        try {
+        renderOrDiscard(emailAttachments, () -> {
             for (Integer eFormId : patientAttachmentIds(DocumentType.EFORM, attachedEFormIds, demographicNo)) {
                 Path eFormPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.EFORM, eFormId);
                 if (eFormPDFPath != null) {
                     emailAttachments.add(new EmailAttachment(eFormPDFPath.getFileName().toString(), eFormPDFPath.toString(), DocumentType.EFORM, eFormId, getFileSize(eFormPDFPath)));
                 }
             }
-        } catch (PDFGenerationException | RuntimeException e) {
-            // This list is never returned, so the caller's clean-up cannot reach the files already in it.
-            discardPreparedAttachments(emailAttachments);
-            throw e;
-        }
+        });
 
         return emailAttachments;
     }
@@ -184,7 +180,7 @@ public class EmailComposeManager {
         List<String> attachedEDocIds = convertToList(attachedDocuments);
 
         List<EmailAttachment> emailAttachments = new ArrayList<>();
-        try {
+        renderOrDiscard(emailAttachments, () -> {
             for (Integer eDocId : patientAttachmentIds(DocumentType.DOC, attachedEDocIds, demographicNo)) {
                 Path eDocPDFPath = applicationTempFile(
                         documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.DOC, eDocId));
@@ -192,11 +188,7 @@ public class EmailComposeManager {
                     emailAttachments.add(new EmailAttachment(eDocPDFPath.getFileName().toString(), eDocPDFPath.toString(), DocumentType.DOC, eDocId, getFileSize(eDocPDFPath)));
                 }
             }
-        } catch (PDFGenerationException | RuntimeException e) {
-            // This list is never returned, so the caller's clean-up cannot reach the files already in it.
-            discardPreparedAttachments(emailAttachments);
-            throw e;
-        }
+        });
 
         return emailAttachments;
     }
@@ -261,6 +253,27 @@ public class EmailComposeManager {
         }
     }
 
+    /** One attachment type's render loop, filling that type's list. */
+    @FunctionalInterface
+    private interface AttachmentLoop {
+        void run() throws PDFGenerationException;
+    }
+
+    /**
+     * Runs one attachment type's render loop. If it fails part way, the files it already put in
+     * {@code emailAttachments} are deleted before the same failure goes on: that list is never
+     * returned, so the caller's clean-up cannot reach them.
+     */
+    private void renderOrDiscard(List<EmailAttachment> emailAttachments, AttachmentLoop loop)
+            throws PDFGenerationException {
+        try {
+            loop.run();
+        } catch (PDFGenerationException | RuntimeException e) {
+            discardPreparedAttachments(emailAttachments);
+            throw e;
+        }
+    }
+
     /**
      * Prepares laboratory result attachments for email composition by rendering them as PDF documents.
      *
@@ -288,18 +301,14 @@ public class EmailComposeManager {
         List<String> attachedLabIds = convertToList(attachedLabs);
 
         List<EmailAttachment> emailAttachments = new ArrayList<>();
-        try {
+        renderOrDiscard(emailAttachments, () -> {
             for (Integer labId : patientAttachmentIds(DocumentType.LAB, attachedLabIds, demographicNo)) {
                 Path labPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.LAB, labId);
                 if (labPDFPath != null) {
                     emailAttachments.add(new EmailAttachment(labPDFPath.getFileName().toString(), labPDFPath.toString(), DocumentType.LAB, labId, getFileSize(labPDFPath)));
                 }
             }
-        } catch (PDFGenerationException | RuntimeException e) {
-            // This list is never returned, so the caller's clean-up cannot reach the files already in it.
-            discardPreparedAttachments(emailAttachments);
-            throw e;
-        }
+        });
 
         return emailAttachments;
     }
@@ -336,18 +345,14 @@ public class EmailComposeManager {
         List<String> attachedHRMIds = convertToList(attachedHRMDocuments);
 
         List<EmailAttachment> emailAttachments = new ArrayList<>();
-        try {
+        renderOrDiscard(emailAttachments, () -> {
             for (Integer hrmId : patientAttachmentIds(DocumentType.HRM, attachedHRMIds, demographicNo)) {
                 Path hrmPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.HRM, hrmId);
                 if (hrmPDFPath != null) {
                     emailAttachments.add(new EmailAttachment(hrmPDFPath.getFileName().toString(), hrmPDFPath.toString(), DocumentType.HRM, hrmId, getFileSize(hrmPDFPath)));
                 }
             }
-        } catch (PDFGenerationException | RuntimeException e) {
-            // This list is never returned, so the caller's clean-up cannot reach the files already in it.
-            discardPreparedAttachments(emailAttachments);
-            throw e;
-        }
+        });
 
         return emailAttachments;
     }
@@ -376,18 +381,14 @@ public class EmailComposeManager {
         List<String> attachedFormIds = convertToList(attachedForms);
 
         List<EmailAttachment> emailAttachments = new ArrayList<>();
-        try {
+        renderOrDiscard(emailAttachments, () -> {
             for (String formId : attachedFormIds) {
                 Path formPDFPath = formsManager.renderForm(request, response, Integer.parseInt(formId), demographicId);
                 if (formPDFPath != null) {
                     emailAttachments.add(new EmailAttachment(formPDFPath.getFileName().toString(), formPDFPath.toString(), DocumentType.FORM, Integer.parseInt(formId), getFileSize(formPDFPath)));
                 }
             }
-        } catch (PDFGenerationException | RuntimeException e) {
-            // This list is never returned, so the caller's clean-up cannot reach the files already in it.
-            discardPreparedAttachments(emailAttachments);
-            throw e;
-        }
+        });
 
         return emailAttachments;
     }
