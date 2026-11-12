@@ -105,8 +105,8 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should suppress oversized sequenced CSV export payloads")
-    void shouldSuppressOversizedCsvExportPayloads_forSequencedReport() throws Exception {
+    @DisplayName("should show the report and hold back an oversized sequenced CSV (#5849, D260)")
+    void shouldShowReportAndHoldBackOversizedCsv_forSequencedReport() throws Exception {
         ReportTemplatesDao reportTemplatesDao = mock(ReportTemplatesDao.class);
         registerMock(ReportTemplatesDao.class, reportTemplatesDao);
         ReportTemplates activeTemplate = new ReportTemplates();
@@ -142,14 +142,58 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
 
             boolean generated = new SQLReporter().generateReport(request);
 
-            assertThat(generated).isFalse();
+            assertThat(generated).isTrue();
             verify(reportManagers.constructed().get(0)).getReportTemplateNoParam("1");
             verify(request).setAttribute("csv-0", "");
-            verify(request).setAttribute("errormsg", SQLReporter.CSV_EXPORT_LIMIT_MESSAGE);
+            // The flag names the query, so the page puts the note on that query's result (#5849).
+            verify(request).setAttribute("csvWithheld-0", Boolean.TRUE);
+            verify(request, never()).setAttribute(eq("csvWithheld"), any());
+            verify(request).setAttribute("csvWithheldMb", 5);
+            verify(request).setAttribute(eq("resultsethtml-0"), org.mockito.ArgumentMatchers.startsWith("<table"));
+            verify(request, never()).setAttribute(eq("errormsg"), any());
             verify(resultSet).close();
-            verify(report, never()).buildParameterizedSql(1, parameters);
+            verify(report).buildParameterizedSql(1, parameters);
         }
     }
+
+    @Test
+    @DisplayName("should show a single-query report and hold back its oversized CSV (#5849, D260)")
+    void shouldShowReportAndHoldBackOversizedCsv_forSingleQueryReport() throws Exception {
+        ReportTemplatesDao dao = mock(ReportTemplatesDao.class);
+        registerMock(ReportTemplatesDao.class, dao);
+        ReportTemplates template = new ReportTemplates();
+        template.setActive(1);
+        when(dao.find(1)).thenReturn(template);
+        var request = new org.springframework.mock.web.MockHttpServletRequest();
+        request.setParameter("templateId", "1");
+        ReportObjectGeneric report = mock(ReportObjectGeneric.class);
+        when(report.buildParameterizedSql(request.getParameterMap())).thenReturn(new ParameterizedSql("select 1", List.of()));
+        // 17 rows of 64 KiB: about 1.06 MiB of CSV, over a 1 MiB CSV limit, and well under the HTML limit.
+        ResultSet rs = mock(ResultSet.class);
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        when(rs.getMetaData()).thenReturn(metadata);
+        when(metadata.getColumnCount()).thenReturn(1);
+        when(metadata.getColumnType(1)).thenReturn(java.sql.Types.VARCHAR);
+        when(metadata.getColumnLabel(1)).thenReturn("value");
+        java.util.concurrent.atomic.AtomicInteger rows = new java.util.concurrent.atomic.AtomicInteger();
+        when(rs.next()).thenAnswer(ignored -> rows.getAndIncrement() < 17);
+        when(rs.getCharacterStream(1)).thenAnswer(ignored -> new java.io.StringReader("a".repeat(64 * 1024)));
+        var limits = new ReportResultBudget.Limits(10_000, 30, 10 * 1024 * 1024, 256, 1024 * 1024, 65_536);
+        try (MockedConstruction<ReportManager> managers = mockConstruction(ReportManager.class,
+                (manager, context) -> when(manager.getReportTemplateNoParam("1")).thenReturn(report));
+             MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
+            jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(ParameterizedSql.class), anyInt(), anyLong()))
+                    .thenReturn(rs);
+            assertThat(new SQLReporter(limits).generateReport(request)).isTrue();
+            assertThat(request.getAttribute("csv")).isEqualTo("");
+            assertThat(request.getAttribute("csvWithheld")).isEqualTo(Boolean.TRUE);
+            assertThat(request.getAttribute("csvWithheldMb")).isEqualTo(1);
+            assertThat((String) request.getAttribute("resultsethtml")).startsWith("<table");
+            assertThat(request.getAttribute("errormsg")).isNull();
+            verify(rs).close();
+        }
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"Only SELECT statements are allowed", "synthetic <query> & failure"})
     @DisplayName("should retain result-page navigation for an ordinary SQL refusal")
@@ -180,6 +224,7 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should discard earlier subreports and their held-back notes when a later query fails")
     void shouldDiscardEarlierSubreports_whenLaterQueryFails(boolean missingParameters) throws Exception {
         ReportTemplatesDao dao = mock(ReportTemplatesDao.class);
         registerMock(ReportTemplatesDao.class, dao);
@@ -207,9 +252,13 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
              MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
             jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(ParameterizedSql.class), anyInt(), anyLong()))
                     .thenReturn(rs).thenThrow(new java.sql.SQLException("synthetic <query> & failure"));
-            assertThat(new SQLReporter().generateReport(request)).isFalse();
+            // A 4-byte CSV limit holds back the first query's CSV, so its note must go with it (#5849).
+            var limits = new ReportResultBudget.Limits(10_000, 30, 10 * 1024 * 1024, 256, 4, 65_536);
+            assertThat(new SQLReporter(limits).generateReport(request)).isFalse();
             assertThat(managers.constructed()).hasSize(2);
             assertThat(request.getAttribute("csv-0")).isNull();
+            assertThat(request.getAttribute("csvWithheld-0")).isNull();
+            assertThat(request.getAttribute("csvWithheldMb")).isNull();
             assertThat(request.getAttribute("sql-0")).isNull();
             assertThat(request.getAttribute("resultsethtml-0")).isNull();
             assertThat(request.getAttribute("errormsg").toString())
@@ -250,12 +299,80 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
             assertThat(rowLimits).containsExactly(10001, 4001);
             assertThat(deadlines).hasSize(2);
             assertThat(deadlines.get(1)).isEqualTo(deadlines.get(0));
-            assertThat(request.getAttribute("errormsg")).isEqualTo(SQLReporter.REPORT_LIMIT_MESSAGE);
+            assertThat(request.getAttribute("errormsg"))
+                    .isEqualTo(ReportResultBudget.Limit.ROWS.english(ReportResultBudget.MAX_ROWS));
+            // #5849 (D262): the page shows the translated message for the limit, with its value.
+            assertThat(request.getAttribute("errormsgKey")).isEqualTo("report.byTemplate.limitRows");
+            assertThat(request.getAttribute("errormsgArg")).isEqualTo(ReportResultBudget.MAX_ROWS);
+            // Below its maximum, so the page also names the setting an administrator can raise.
+            assertThat(request.getAttribute("errormsgSetting")).isEqualTo("report_by_template.max_rows");
+            assertThat((String) request.getAttribute("errormsg")).endsWith(
+                    "An administrator can raise this limit with the setting report_by_template.max_rows in carlos.properties.");
             assertThat(request.getAttribute("resultsethtml-0")).isNull();
             assertThat(request.getAttribute("csv-0")).isNull();
             verify(report, never()).buildParameterizedSql(2, parameters);
             verify(first).close();
             verify(second).close();
+        }
+    }
+
+    @Test
+    @DisplayName("should show the time limit when the JDBC deadline passes (#5849)")
+    void shouldShowTheTimeLimit_whenTheQueryDeadlinePasses() throws Exception {
+        // The JDBC deadline, before or after a connection is acquired, is the time limit (#5849).
+        ReportTemplatesDao dao = mock(ReportTemplatesDao.class);
+        registerMock(ReportTemplatesDao.class, dao);
+        ReportTemplates template = new ReportTemplates();
+        template.setActive(1);
+        when(dao.find(1)).thenReturn(template);
+        var request = new org.springframework.mock.web.MockHttpServletRequest();
+        request.setParameter("templateId", "1");
+        var parameters = request.getParameterMap();
+        ReportObjectGeneric report = mock(ReportObjectGeneric.class);
+        when(report.buildParameterizedSql(parameters)).thenReturn(new ParameterizedSql("select 1", List.of()));
+        var limits = new ReportResultBudget.Limits(10_000, 45, 10 * 1024 * 1024, 256, SQLReporter.MAX_CSV_EXPORT_LENGTH, 65_536);
+        try (MockedConstruction<ReportManager> managers = mockConstruction(ReportManager.class,
+                (manager, context) -> when(manager.getReportTemplateNoParam("1")).thenReturn(report));
+             MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
+            jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(ParameterizedSql.class), anyInt(), anyLong()))
+                    .thenThrow(new java.sql.SQLTimeoutException("Report query deadline exceeded"));
+            assertThat(new SQLReporter(limits).generateReport(request)).isFalse();
+            assertThat(request.getAttribute("errormsgKey")).isEqualTo("report.byTemplate.limitTime");
+            assertThat(request.getAttribute("errormsgArg")).isEqualTo(45);
+            assertThat(request.getAttribute("errormsgSetting")).isEqualTo("report_by_template.timeout_seconds");
+            assertThat(request.getAttribute("errormsg")).isEqualTo(ReportResultBudget.Limit.TIME.english(45));
+            assertThat(request.getAttribute("csv")).isEqualTo("");
+        }
+    }
+
+    @Test
+    @DisplayName("should show the time limit when the connection pool fails after the deadline (#5849)")
+    void shouldShowTheTimeLimit_whenThePoolFailsAfterTheDeadline() throws Exception {
+        ReportTemplatesDao dao = mock(ReportTemplatesDao.class);
+        registerMock(ReportTemplatesDao.class, dao);
+        ReportTemplates template = new ReportTemplates();
+        template.setActive(1);
+        when(dao.find(1)).thenReturn(template);
+        var request = new org.springframework.mock.web.MockHttpServletRequest();
+        request.setParameter("templateId", "1");
+        ReportObjectGeneric report = mock(ReportObjectGeneric.class);
+        when(report.buildParameterizedSql(request.getParameterMap())).thenReturn(new ParameterizedSql("select 1", List.of()));
+        var limits = new ReportResultBudget.Limits(10_000, 15, 10 * 1024 * 1024, 256, SQLReporter.MAX_CSV_EXPORT_LENGTH, 65_536);
+        java.util.concurrent.atomic.AtomicLong clock = new java.util.concurrent.atomic.AtomicLong();
+        try (MockedConstruction<ReportManager> managers = mockConstruction(ReportManager.class,
+                (manager, context) -> when(manager.getReportTemplateNoParam("1")).thenReturn(report));
+             MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
+            // The pool waits longer (20 s by default) than this report's 15 s limit, then gives up.
+            jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(ParameterizedSql.class), anyInt(), anyLong()))
+                    .thenAnswer(ignored -> {
+                        clock.set(java.util.concurrent.TimeUnit.SECONDS.toNanos(20));
+                        throw new java.sql.SQLException("Unable to acquire legacy JDBC connection");
+                    });
+            assertThat(new SQLReporter(limits, clock::get).generateReport(request)).isFalse();
+            assertThat(request.getAttribute("errormsgKey")).isEqualTo("report.byTemplate.limitTime");
+            assertThat(request.getAttribute("errormsgArg")).isEqualTo(15);
+            assertThat(request.getAttribute("csv")).isEqualTo("");
+            assertThat(request.getAttribute("resultsethtml")).isNull();
         }
     }
 

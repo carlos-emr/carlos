@@ -108,8 +108,10 @@ class AntenatalReportDaoIntegrationTest extends CarlosTestBase {
             assertThat(reports.birthSummaryDemographics()).hasSize(100_000);
             entityManager.createNativeQuery("insert into formBCBirthSumMo values (100000)").executeUpdate();
             assertThatThrownBy(() -> reports.birthSummaryDemographics())
-                    .isInstanceOf(io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery.LimitExceededException.class)
-                    .hasMessageContaining("identifier budget");
+                    .isInstanceOfSatisfying(io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery.LimitExceededException.class,
+                            e -> assertThat(e.limit())
+                                    .isEqualTo(io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery.Limit.IDENTIFIERS))
+                    .hasMessageContaining("more than 100000 patients or records");
         } finally {
             entityManager.createNativeQuery("drop table formBCBirthSumMo").executeUpdate();
         }
