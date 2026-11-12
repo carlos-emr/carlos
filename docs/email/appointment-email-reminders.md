@@ -73,7 +73,8 @@ These need several bookings for the same patient at the same time, and a change 
   then left it (unticked, cancelled or moved), the rebooked booking counts as arrived after it, and may get a second
   reminder.
 - **A covered booking stays covered for that time.** A booking is covered, and recorded as `DUPLICATE`, when another
-  booking's reminder already went for that time, or when another booking still at that time has an earlier reminder
+  booking's reminder already went for that time (that booking still at it, or this one already there when it went:
+  see the Group Appt bullet above), or when another booking still at that time has an earlier reminder
   (its box was first ticked before this one's) that has not already ended without one going. `DUPLICATE` is final for
   that time, so the patient gets no reminder for the covered booking if the other booking then moves away (it may
   already have been reminded for the old time, and is reminded again for its new one), is unticked or cancelled
