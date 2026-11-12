@@ -11541,10 +11541,11 @@
         "PAGE_HEALTH_TIMEOUT_MS",
         "PAGE_HEALTH_PREVENTIONS",
         "MASTER_RECORD_SEARCH",
-        "MASTER_RECORD_DEMOGRAPHIC_NO"
+        "MASTER_RECORD_DEMOGRAPHIC_NO",
+        "CARLOS_SUITE_PROVINCE"
       ],
       "fixtures": "Read-only on an existing demo patient (MASTER_RECORD_DEMOGRAPHIC_NO, default 2); no fixtures; chart locks released as master-record-tabs does. Skips the Rx stale-date '*' and favourite 'copy' links, which write.",
-      "notes": "Includes Manage Contacts and add-prevention footers. About/License links must open healthy destinations; both native links and legacy JavaScript links remain included in footer coverage."
+      "notes": "Includes Manage Contacts and add-prevention footers. About/License links must open healthy destinations; both native links and legacy JavaScript links remain included in footer coverage. Each hub must offer a minimum number of links before they are crawled. Create Invoice must offer one on Ontario (and when CARLOS_SUITE_PROVINCE is unset) and none on BC: the BC bill form (billingBC.jsp) has only in-page javascript:void(0) anchors, so there the hub page itself is judged and nothing behind it is crawled."
     },
     {
       "name": "prevention-footer-popups",
