@@ -433,4 +433,192 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
             verifyNoInteractions(mockTicklerUpdateDao, mockTicklerCommentDao, mockTicklerDocsDao);
         }
     }
+    /**
+     * Ticklers stored before patient scoping could have no patient (demographic_no 0 or NULL).
+     * They cannot be created any more, but they must still be completable and deletable.
+     */
+    @Nested
+    @DisplayName("Legacy ticklers stored without a patient")
+    @Tag("update")
+    class LegacyPatientlessTicklers {
+
+        @ParameterizedTest
+        @org.junit.jupiter.params.provider.NullSource
+        @org.junit.jupiter.params.provider.ValueSource(ints = {0})
+        @DisplayName("should complete a stored tickler that has no patient")
+        void shouldCompleteStoredTickler_whenItHasNoPatient(Integer storedPatient) {
+            Integer ticklerId = 90;
+            Tickler tickler = createTestTicklerWithId(ticklerId);
+            tickler.setDemographicNo(storedPatient);
+            when(mockTicklerDao.lockPatientForUpdate(ticklerId)).thenReturn(java.util.Collections.singletonList(storedPatient));
+            when(mockTicklerDao.find(ticklerId)).thenReturn(tickler);
+
+            ticklerManager.completeTickler(mockLoggedInInfo, ticklerId, TEST_PROVIDER);
+
+            assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.C);
+            verify(mockTicklerDao).merge(tickler);
+            verify(mockTicklerUpdateDao).persist(any(TicklerUpdate.class));
+        }
+
+        @ParameterizedTest
+        @org.junit.jupiter.params.provider.NullSource
+        @org.junit.jupiter.params.provider.ValueSource(ints = {0})
+        @DisplayName("should delete a stored tickler that has no patient")
+        void shouldDeleteStoredTickler_whenItHasNoPatient(Integer storedPatient) {
+            Integer ticklerId = 91;
+            Tickler tickler = createTestTicklerWithId(ticklerId);
+            tickler.setDemographicNo(storedPatient);
+            when(mockTicklerDao.lockPatientForUpdate(ticklerId)).thenReturn(java.util.Collections.singletonList(storedPatient));
+            when(mockTicklerDao.find(ticklerId)).thenReturn(tickler);
+
+            ticklerManager.deleteTickler(mockLoggedInInfo, ticklerId, TEST_PROVIDER);
+
+            assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.D);
+            verify(mockTicklerDao).merge(tickler);
+        }
+
+        @Test
+        @DisplayName("should still require the global update right for a tickler that has no patient")
+        void shouldRequireGlobalUpdateRight_whenStoredTicklerHasNoPatient() {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_tickler"), eq("u"), any())).thenReturn(false);
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                    () -> ticklerManager.completeTickler(mockLoggedInInfo, 90, TEST_PROVIDER))
+                    .isInstanceOf(RuntimeException.class);
+            verifyNoInteractions(mockTicklerDao, mockTicklerUpdateDao);
+        }
+
+        @Test
+        @DisplayName("should still refuse to create a tickler without a patient")
+        void shouldRefuseNewTickler_whenItHasNoPatient() {
+            Tickler tickler = createTestTickler();
+            tickler.setDemographicNo(0);
+
+            assertThat(ticklerManager.addTickler(mockLoggedInInfo, tickler)).isFalse();
+            verify(mockTicklerDao, never()).persist(any());
+        }
+    }
+    /** The task lists' bulk Complete and Delete: a status another user set is not written over. */
+    @Nested
+    @DisplayName("Conditional status change from a task list")
+    @Tag("update")
+    class ConditionalStatusChange {
+
+        private Tickler stored(int id, Tickler.STATUS status) {
+            Tickler tickler = createTestTicklerWithId(id);
+            tickler.setStatus(status);
+            when(mockTicklerDao.findForUpdate(id)).thenReturn(tickler);
+            return tickler;
+        }
+
+        @Test
+        @DisplayName("should not complete a task that was deleted after the list was rendered")
+        void shouldLeaveDeletedTask_whenStaleListCompletesIt() {
+            Tickler tickler = stored(80, Tickler.STATUS.D);
+
+            var change = ticklerManager.updateStatusIfCurrent(mockLoggedInInfo, 80, TEST_PROVIDER,
+                    Tickler.STATUS.A, Tickler.STATUS.C);
+
+            assertThat(change).isEqualTo(io.github.carlos_emr.carlos.managers.TicklerManager.StatusChange.STALE);
+            assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.D);
+            verify(mockTicklerDao).findForUpdate(80);
+            verify(mockTicklerDao, never()).merge(any());
+            verifyNoInteractions(mockTicklerUpdateDao);
+        }
+
+        @Test
+        @DisplayName("should not delete a task that was completed after the list was rendered")
+        void shouldLeaveCompletedTask_whenStaleListDeletesIt() {
+            Tickler tickler = stored(81, Tickler.STATUS.C);
+
+            var change = ticklerManager.updateStatusIfCurrent(mockLoggedInInfo, 81, TEST_PROVIDER,
+                    Tickler.STATUS.A, Tickler.STATUS.D);
+
+            assertThat(change).isEqualTo(io.github.carlos_emr.carlos.managers.TicklerManager.StatusChange.STALE);
+            assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.C);
+            verifyNoInteractions(mockTicklerUpdateDao);
+        }
+
+        @Test
+        @DisplayName("should apply the change and write history when the task is as the list showed it")
+        void shouldApplyChange_whenTaskIsAsRendered() {
+            Tickler tickler = stored(82, Tickler.STATUS.A);
+
+            var change = ticklerManager.updateStatusIfCurrent(mockLoggedInInfo, 82, TEST_PROVIDER,
+                    Tickler.STATUS.A, Tickler.STATUS.C);
+
+            assertThat(change).isEqualTo(io.github.carlos_emr.carlos.managers.TicklerManager.StatusChange.APPLIED);
+            assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.C);
+            var update = org.mockito.ArgumentCaptor.forClass(TicklerUpdate.class);
+            verify(mockTicklerUpdateDao).persist(update.capture());
+            assertThat(update.getValue().getStatus()).isEqualTo(Tickler.STATUS.C);
+            assertThat(update.getValue().getProviderNo()).isEqualTo(TEST_PROVIDER);
+            verify(mockTicklerDao).merge(tickler);
+        }
+
+        @Test
+        @DisplayName("should report nothing to do when someone else already made the same change")
+        void shouldReportUnchanged_whenTaskAlreadyHasTheRequestedStatus() {
+            stored(83, Tickler.STATUS.C);
+
+            var change = ticklerManager.updateStatusIfCurrent(mockLoggedInInfo, 83, TEST_PROVIDER,
+                    Tickler.STATUS.A, Tickler.STATUS.C);
+
+            assertThat(change).isEqualTo(io.github.carlos_emr.carlos.managers.TicklerManager.StatusChange.UNCHANGED);
+            verify(mockTicklerDao, never()).merge(any());
+            verifyNoInteractions(mockTicklerUpdateDao);
+        }
+
+        @Test
+        @DisplayName("should never complete a deleted task when the list posted no rendered status")
+        void shouldLeaveDeletedTask_whenCompletedWithoutRenderedStatus() {
+            Tickler tickler = stored(84, Tickler.STATUS.D);
+
+            var change = ticklerManager.updateStatusIfCurrent(mockLoggedInInfo, 84, TEST_PROVIDER,
+                    null, Tickler.STATUS.C);
+
+            assertThat(change).isEqualTo(io.github.carlos_emr.carlos.managers.TicklerManager.StatusChange.STALE);
+            assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.D);
+        }
+
+        @Test
+        @DisplayName("should apply an unversioned change the lists offer")
+        void shouldApplyChange_whenNoRenderedStatusAndTransitionIsOffered() {
+            Tickler tickler = stored(85, Tickler.STATUS.C);
+
+            var change = ticklerManager.updateStatusIfCurrent(mockLoggedInInfo, 85, TEST_PROVIDER,
+                    null, Tickler.STATUS.D);
+
+            assertThat(change).isEqualTo(io.github.carlos_emr.carlos.managers.TicklerManager.StatusChange.APPLIED);
+            assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.D);
+        }
+
+        @ParameterizedTest
+        @org.junit.jupiter.params.provider.NullSource
+        @org.junit.jupiter.params.provider.ValueSource(ints = {0})
+        @DisplayName("should complete a legacy task that has no patient")
+        void shouldApplyChange_whenStoredTicklerHasNoPatient(Integer storedPatient) {
+            Tickler tickler = stored(86, Tickler.STATUS.A);
+            tickler.setDemographicNo(storedPatient);
+
+            var change = ticklerManager.updateStatusIfCurrent(mockLoggedInInfo, 86, TEST_PROVIDER,
+                    Tickler.STATUS.A, Tickler.STATUS.C);
+
+            assertThat(change).isEqualTo(io.github.carlos_emr.carlos.managers.TicklerManager.StatusChange.APPLIED);
+            assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.C);
+        }
+
+        @Test
+        @DisplayName("should refuse a patient the caller may not update before comparing or writing")
+        void shouldDenyPatient_beforeChangingStatus() {
+            Tickler tickler = stored(87, Tickler.STATUS.A);
+            when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), eq(TEST_DEMO_NO))).thenReturn(false);
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> ticklerManager.updateStatusIfCurrent(
+                    mockLoggedInInfo, 87, TEST_PROVIDER, Tickler.STATUS.A, Tickler.STATUS.C))
+                    .isInstanceOf(io.github.carlos_emr.carlos.commn.exception.AccessDeniedException.class);
+            assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.A);
+            verifyNoInteractions(mockTicklerUpdateDao);
+        }
+    }
 }

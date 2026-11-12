@@ -25,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -109,9 +110,38 @@ class DbTicklerMain2ActionTest extends CarlosWebTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         verify(ticklerManager).getTickler(any(LoggedInInfo.class), eq(123));
-        verify(ticklerManager).updateStatus(any(LoggedInInfo.class), eq(123), any(), eq(Tickler.STATUS.D));
+        verify(ticklerManager).updateStatusIfCurrent(any(LoggedInInfo.class), eq(123), any(), isNull(), eq(Tickler.STATUS.D));
         verifyNoMoreInteractions(ticklerManager);
         assertThat(mockResponse.getRedirectedUrl()).isEqualTo("/carlos/tickler/ViewTicklerMain");
     }
 
+    @Test
+    @DisplayName("should leave a task another user changed alone, apply the others and remember which was refused")
+    void shouldApplyOthersAndRememberRefused_whenOneTickedTaskIsStale() throws Exception {
+        Tickler deletedElsewhere = mock(Tickler.class);
+        when(deletedElsewhere.getId()).thenReturn(123);
+        Tickler untouched = mock(Tickler.class);
+        when(untouched.getId()).thenReturn(124);
+        when(ticklerManager.getTickler(any(LoggedInInfo.class), eq(123))).thenReturn(deletedElsewhere);
+        when(ticklerManager.getTickler(any(LoggedInInfo.class), eq(124))).thenReturn(untouched);
+        // The list showed both Active; 123 has been deleted by someone else since.
+        when(ticklerManager.updateStatusIfCurrent(any(LoggedInInfo.class), eq(123), any(), eq(Tickler.STATUS.A), eq(Tickler.STATUS.C)))
+                .thenReturn(TicklerManager.StatusChange.STALE);
+        when(ticklerManager.updateStatusIfCurrent(any(LoggedInInfo.class), eq(124), any(), eq(Tickler.STATUS.A), eq(Tickler.STATUS.C)))
+                .thenReturn(TicklerManager.StatusChange.APPLIED);
+        mockRequest.addParameter("checkbox", "123", "124");
+        mockRequest.addParameter("submit_form", "Complete");
+        mockRequest.addParameter(TicklerRenderedStatus.PARAMETER, "123:A,124:A");
+
+        String result = new DbTicklerMain2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        verify(ticklerManager).updateStatusIfCurrent(any(LoggedInInfo.class), eq(123), any(), eq(Tickler.STATUS.A), eq(Tickler.STATUS.C));
+        verify(ticklerManager).updateStatusIfCurrent(any(LoggedInInfo.class), eq(124), any(), eq(Tickler.STATUS.A), eq(Tickler.STATUS.C));
+        // A refused task is not a failed update: the redirect carries no failCount.
+        assertThat(mockResponse.getRedirectedUrl()).isEqualTo("/carlos/tickler/ViewTicklerMain");
+        assertThat(TicklerRenderedStatus.takeRefused(mockRequest.getSession())).containsExactly(123);
+        // The notice is shown once.
+        assertThat(TicklerRenderedStatus.takeRefused(mockRequest.getSession())).isEmpty();
+    }
 }

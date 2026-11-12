@@ -525,9 +525,10 @@ rendering with the first save's own result page, and map `submissionRefused` to
 `/WEB-INF/jsp/common/formSubmissionRefused.jsp` for the 409 cases. An edit form that posts every
 field must refuse a form rendered from an older version rather than overwrite the newer record;
 `DemographicEditVersion` with `DemographicDao.findForUpdate()` is the reference; the Edit
-Appointment form carries `appointmentVersion` (`AppointmentEditConflict`). Browser checks
-that deliberately replay a captured POST must drop `carlosFormSubmission`, `demographicVersion`
-and `appointmentVersion`. See `docs/form-submission-guard.md`.
+Appointment form carries `appointmentVersion` (`AppointmentEditConflict`) and the Edit Tickler
+form `ticklerVersion` (`TicklerEditVersion`). Browser checks that deliberately replay a captured
+POST must drop `carlosFormSubmission`, `demographicVersion`, `appointmentVersion` and
+`ticklerVersion`. See `docs/form-submission-guard.md`.
 
 ## Layer Names — class naming policy
 

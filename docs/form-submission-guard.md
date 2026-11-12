@@ -155,3 +155,48 @@ clicked on the day sheet, was silently undone.
 `concurrency-appointment-edit` pins the refusal: session A's stale Update Appt is answered 409,
 stores none of its fields and leaves session B's cancellation in place.
 
+## Stale task (tickler) edits and list actions
+
+Two tickler screens wrote over another user's change in the same way.
+
+**Edit Tickler popup.** The popup posts the status, priority, assignee and service date it showed,
+and `EditTickler2Action` wrote each one that differed from the stored row. A popup opened before
+another user completed the task put it back to Active when it only meant to raise the priority.
+
+- `ticklerEdit.jsp` renders `ticklerVersion` (`TicklerEditVersion.of`): a SHA-256 over the fields
+  the form writes, the row's `update_date` and the number of comments. `update_date` alone is not
+  enough because it is stored to the second.
+- With a version, the action calls `TicklerManager.getTicklerForUpdate()` first in its
+  transaction. `TicklerDao.findForUpdate()` locks the row and reads it again under the lock, so
+  the comparison and every write (attachments, comment, fields, history) see the same tickler.
+- A mismatch writes nothing: HTTP 409 and the `staleRefused` result
+  (`ticklerEditStaleRefused.jsp`, sentinel `#tickler-edit-stale`). The popup shows
+  `tickler.ticklerEdit.stale.error` in its error banner and in one alert, and leaves the Update
+  button disabled: the form can only be reopened.
+- A post with no version is saved without the check. Replay tooling drops `ticklerVersion`.
+
+**Task lists.** The lists post only the ticked task numbers, and `updateStatus` applied the
+requested status whatever the row held. A list loaded before another user deleted a task
+brought it back as Completed.
+
+- Each checkbox carries `data-rendered-status`. `ticklerStaleSelection.jspf` (included in the
+  bulk form of `ticklerMain.jsp` and `ticklerDemoMain.jsp`) wraps the form's `submit()` and posts
+  the ticked rows as `ticklerRendered` (`<tickler_no>:<status>` pairs in one field, so a long list
+  does not multiply request parameters).
+- `DbTicklerMain2Action` and `DbTicklerDemoMain2Action` call
+  `TicklerManager.updateStatusIfCurrent(..., renderedStatus, status)`. Under the row lock it
+  returns `APPLIED`, `UNCHANGED` (the task already has the requested status) or `STALE` (the
+  status is no longer the one the list showed). Without a rendered status the change is applied
+  as before, except that a Deleted task is never changed to Completed.
+- Stale tasks are left as they are; the other ticked tasks are still applied. The action
+  remembers the refused task numbers in the session (`TicklerRenderedStatus`) and the list it
+  redirects to names each one once, with patient, message and current status
+  (`#ticklerStaleSelection`). A refused task is not counted in `failCount`.
+
+`TicklerManager.updateStatus`, `completeTickler` and `deleteTickler` (REST) are unchanged, except
+that a legacy tickler stored without a patient (`demographic_no` 0 or NULL) can again be
+completed or deleted: `getTicklerDemographicNoForUpdate` applies the patient-specific rule only
+when the tickler has a patient. New patientless ticklers are still refused.
+
+`concurrency-tickler-edit` and `concurrency-tickler-list-status` pin both refusals.
+

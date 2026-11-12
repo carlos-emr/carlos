@@ -101,6 +101,21 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
     }
 
     @Override
+    public Tickler findForUpdate(Integer id) {
+        if (id == null) {
+            return null;
+        }
+        Tickler tickler = entityManager.find(Tickler.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (tickler == null) {
+            return null;
+        }
+        // find() only locks an instance this persistence context had already loaded. Read the row
+        // again under the lock so MariaDB REPEATABLE READ also returns the committed state.
+        entityManager.refresh(tickler, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        return tickler;
+    }
+
+    @Override
     public List<Integer> lockPatientForUpdate(Integer id) {
         return entityManager.createNativeQuery(
                 "SELECT demographic_no FROM tickler WHERE tickler_no = ?1 FOR UPDATE", Integer.class)

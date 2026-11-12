@@ -46,6 +46,21 @@ public interface TicklerDao extends AbstractDao<Tickler> {
     }
 
     /**
+     * Locks the tickler row and returns the tickler as currently committed. The row is read with
+     * a locking read, so the returned state is not the transaction's earlier snapshot, and it
+     * cannot change again before the transaction ends. Call it before the transaction modifies
+     * the tickler: an instance the persistence context already holds is read again and loses
+     * unsaved changes.
+     *
+     * @param id Integer tickler identifier
+     * @return Tickler the locked row, or {@code null} when there is no such tickler
+     * @since 2026-11-12
+     */
+    default Tickler findForUpdate(Integer id) {
+        throw new UnsupportedOperationException("Tickler row locking is not implemented");
+    }
+
+    /**
      * Finds a Tickler by its ID.
      */
     public Tickler find(Integer id);
