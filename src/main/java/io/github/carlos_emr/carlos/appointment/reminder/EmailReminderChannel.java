@@ -134,6 +134,12 @@ public class EmailReminderChannel implements AppointmentReminderChannel {
             if (emails.clinicFooterMissing()) {
                 return ReminderOutcome.of(AppointmentReminderStatus.NO_FOOTER);
             }
+            // getDemographic asks the same question but refuses with a plain RuntimeException, which would be
+            // recorded as a failure and retried. Asked here, a refusal (a patient's record lock, or a clinic that
+            // removed the right) is recorded as no access.
+            if (!security.hasPrivilege(system, "_demographic", SecurityInfoManager.READ, reminder.demographicNo())) {
+                return ReminderOutcome.because(AppointmentReminderStatus.NOT_PERMITTED, "noPatientAccess");
+            }
             Demographic patient = demographics.getDemographic(system, reminder.demographicNo());
             if (patient == null) {
                 return ReminderOutcome.of(AppointmentReminderStatus.NO_ADDRESS);

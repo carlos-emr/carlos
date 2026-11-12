@@ -57,6 +57,7 @@ import java.util.ResourceBundle;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -111,6 +112,8 @@ class EmailReminderChannelUnitTest {
         when(clinics.getClinic()).thenReturn(clinic);
         when(security.hasPrivilege(any(LoggedInInfo.class), eq("_email"), eq(SecurityInfoManager.WRITE), isNull()))
                 .thenReturn(true);
+        when(security.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq(SecurityInfoManager.READ),
+                eq(PATIENT))).thenReturn(true);
         channel = new EmailReminderChannel(emails, compose, senders, demographics, clinics, providers, security,
                 () -> configuredSender);
     }
@@ -252,10 +255,16 @@ class EmailReminderChannelUnitTest {
 
     @Test
     void shouldRefuseWithoutSending_whenTheSystemProviderMayNotReadThePatient() {
+        // As DemographicManagerImpl.getDemographic does: the same privilege question, refused with a plain
+        // RuntimeException, which on its own would read as a failure and be retried.
+        when(security.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq(SecurityInfoManager.READ),
+                eq(PATIENT))).thenReturn(false);
         when(demographics.getDemographic(any(LoggedInInfo.class), eq(Integer.valueOf(PATIENT))))
-                .thenThrow(new SecurityException("missing required sec object (_demographic)"));
+                .thenThrow(new RuntimeException("missing required sec object (_demographic)"));
 
-        assertThat(channel.send(REMINDER).status()).isEqualTo(AppointmentReminderStatus.NOT_PERMITTED);
+        assertThat(channel.send(REMINDER)).isEqualTo(
+                ReminderOutcome.because(AppointmentReminderStatus.NOT_PERMITTED, "noPatientAccess"));
+        verify(demographics, never()).getDemographic(any(LoggedInInfo.class), anyInt());
         verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class));
     }
 
