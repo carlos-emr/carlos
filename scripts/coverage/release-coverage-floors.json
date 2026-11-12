@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "bfbc7ef7d080eccc9eb5b551ee8c506b205d09e6",
-  "comparisonSha256": "b1f8d8cb128ba2b55a47a5c33efe8e56ca3a352c1fd3a788a22336295623b999",
-  "baselineCommit": "075d3112b6c2fe0c48b71ca4384d16939f2fcdb4",
-  "baselineSourceTree": "bfbc7ef7d080eccc9eb5b551ee8c506b205d09e6",
-  "baselineReportSha256": "66dcda8b48a4bdc2967b35c1a1ceda55ab57cc873d561657a15d787c7bb0aed5",
-  "baselineLane": "Ubuntu 26.04/OpenJDK 25.0.5.0.3 complete H2 baseline with final full retakes of four augmented test classes on the PR #6102 and release #6103 merged source, with pinned Chromium. All 43 combined Java paths (27 PR paths against the updated release branch) meet both parents' retained floors. Registered routed/prerequisite skips, the separate five-case permission lane and two physical MariaDB form-history cases are verified; all execution data use identical production classes. Higher historical floors, required refusal lines and zero-floor review requirements remain; this is not full release native-union qualification.",
+  "sourceTree": "44788d6d0b02a97b297b62d2953431497f429e93",
+  "comparisonSha256": "0ff387807f5ecad088e5881d9912bbcf63933a0814b318057c831c82c7344735",
+  "baselineCommit": "468a1110707ec3d8eaab0bcc20a62518daf78d0e",
+  "baselineSourceTree": "44788d6d0b02a97b297b62d2953431497f429e93",
+  "baselineReportSha256": "0f62476456d9d173a7c42901ce45dc895601f43a0cfa6a3153b319545380f912",
+  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5 complete H2 java-all run (offline Maven) through verify-release-evidence.py: receipt PASS, run ab200761-f82b-4b79-895c-09bec0f34602. It used a local copy of the plan with forkCount 2 instead of 3, a 6-hour timeout instead of 40 minutes, and the routed skip that #6150 adds for its MariaDB test. Source: a local test merge (3ea3d17969) of release 1b27a8fd2c with the heads of #6130, #5141 (985aa46544), #6139 (a092a76172), #6142 (468a111070), #6145, #6152, #6150, #6151 (88d5204ece), #6154 (3b937c194f) and #6153. 36,467 tests, 219 skipped, 0 failures.",
   "baselineTestCounts": {
-    "tests": 36113,
-    "skipped": 207,
+    "tests": 36467,
+    "skipped": 219,
     "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "8644a61dc5760ebf7aae79d3549ece4cda86997e447543bf19bb70cc5b780f98",
+  "baselineTestReportsSha256": "e42bcd0c62638541342eb52e660ec05384464d26c1819e6247e8469765f97576",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -1945,13 +1945,13 @@
       "lines": 99.33333333333333,
       "instructions": 99.42196531791907,
       "branches": 94.44444444444444,
-      "sourceBlob": "89c3d2d7ff520d3add107a7e0fc23834f8cdc33d"
+      "sourceBlob": "09691b31366280a938aa00d1b15d20135f48408b"
     },
     "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/MeasurementGraphAction22Action.java": {
       "lines": 81.02766798418972,
       "instructions": 79.12657290895633,
       "branches": 77.8894472361809,
-      "sourceBlob": "4ed5b28b808ebc182dfbd829c5929c86265cb5ed"
+      "sourceBlob": "b0c1695fa9d7d9c25f776766e70d04b8dc30e9a7"
     },
     "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/ScatterPlotChartServlet.java": {
       "lines": 100.0,
@@ -2449,7 +2449,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "412ebfc7c2593fac0b3b4d0a53a5ea0d45546c69"
+      "sourceBlob": "c784731df42072132530109ad493d2a2baa2715a"
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/pageUtil/LabUpload2Action.java": {
       "lines": 60.0,
@@ -2473,7 +2473,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "a93c66c71b6057737b6d1c8bf00f73dedbf188c1"
+      "sourceBlob": "e502dd02c8fb9658ad1a15310c9aafa72f586ef5"
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/parsers/MDSHandler.java": {
       "lines": 0.0,
@@ -2605,7 +2605,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "81d08e01ea1f7a42b5e23a0c55e2b38d0b34956c"
+      "sourceBlob": "592bae074cc4e456085a07ea77269cab2e5ac458"
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/ca/on/HRMResultsData.java": {
       "lines": 100.0,
@@ -4424,6 +4424,30 @@
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "aa62d526d7be5eb7f3b0c2ff44e141e0d997ef90"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/MeasurementDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "9c0e95797f1ca61102034e0f82147d976f335a26"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/MeasurementDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "c8fcc944b1c61076069f7cd21432b3259224f5a9"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/MeasurementsExt.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "90b03964181255227e7114c0e280101e5c1c1ad5"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/parsers/ObxResultStatus.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f15a89f5ee5f51bfe891da2e3ad1510938bdfeb0"
     }
   },
   "exclusions": {
@@ -4465,31 +4489,6 @@
     }
   },
   "zeroCoverageWaivers": {},
-  "baselineAdditionalTestRuns": [
-    {
-      "lane": "final-augmented-h2-test-class-retakes",
-      "tests": 132,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 0,
-      "reportsSha256": "837a312fd82813ac1d8647cbc0a38c405ad10dae8541f2baf419474f5f2b0d52"
-    },
-    {
-      "lane": "unprivileged-permissions",
-      "tests": 5,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 0,
-      "reportsSha256": "bd4b618bcb34c30301c0213f9faa75f5ecc7a560910fe4859c0e66dc914d8947"
-    },
-    {
-      "lane": "physical-mariadb-form-history",
-      "tests": 2,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 0,
-      "reportsSha256": "5fd7146bc023d344ab4e785af2cb2396c85b29fe02bae01bbfc1dc7c9810762e"
-    }
-  ],
-  "baselineTestRunCommit": "075d3112b6c2fe0c48b71ca4384d16939f2fcdb4"
+  "baselineAdditionalTestRuns": [],
+  "baselineTestRunCommit": "3ea3d1796990a1e6ce53b71f01b03f58a0a91fa1"
 }
