@@ -755,6 +755,140 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    /** #884: the text reminder's line, which knows the quiet hours and where a text failed. */
+    @Nested
+    @DisplayName("Text reminder status line")
+    class SmsStatusLine {
+
+        private static final String KEYS = "appointment.reminder.sms.status.";
+        private final DateTimeFormatter shown = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
+                .withLocale(Locale.ENGLISH);
+        private AppointmentReminderStatus queueSays;
+
+        /** The service as seen at {@code now}, with a text channel of {@code leadHours} and quiet hours 21:00-08:00. */
+        private Optional<ReminderStatusLine> line(LocalDateTime now, int leadHours, LocalDateTime start,
+                                                  AppointmentReminder reminder) {
+            ReminderWindow window = new ReminderWindow(Duration.ofHours(leadHours), Duration.ofHours(2),
+                    ReminderWindow.SMS_QUIET_FROM, ReminderWindow.SMS_QUIET_UNTIL);
+            AppointmentReminderChannel sms = new AppointmentReminderChannel() {
+                @Override
+                public ReminderChannel channel() {
+                    return ReminderChannel.SMS;
+                }
+
+                @Override
+                public ReminderOutcome send(ClaimedReminder claimed) {
+                    throw new AssertionError("not sent from the status line");
+                }
+
+                @Override
+                public int maxAttempts() {
+                    return 2;
+                }
+
+                @Override
+                public Optional<ReminderWindow> window() {
+                    return Optional.of(window);
+                }
+
+                @Override
+                public AppointmentReminderStatus currentStatus(AppointmentReminder stored) {
+                    return queueSays == null ? stored.getLastStatus() : queueSays;
+                }
+            };
+            AppointmentReminderService atNow = new AppointmentReminderService(reminders, appointments, () -> List.of(sms),
+                    TransactionOperations.withoutTransaction(), new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2)),
+                    Clock.fixed(now.atZone(ZONE).toInstant(), ZONE));
+            when(reminders.findByAppointment(APPOINTMENT, ReminderChannel.SMS)).thenReturn(Optional.of(reminder));
+            return atNow.statusLine(appointment(start, PATIENT, "t"), ReminderChannel.SMS, Locale.ENGLISH);
+        }
+
+        private AppointmentReminder textRequested() {
+            return AppointmentReminder.requested(APPOINTMENT, ReminderChannel.SMS, "999998", at(NOW.minusDays(3)));
+        }
+
+        @Test
+        @DisplayName("should say 08:00, not too close, for a box ticked at night for tomorrow afternoon")
+        void shouldSayItGoesAtEight_whenTickedAtNight() {
+            LocalDateTime night = NOW.withHour(22);
+            LocalDateTime tomorrow = NOW.plusDays(1).withHour(14);
+
+            assertThat(line(night, 24, tomorrow, textRequested()))
+                    .contains(new ReminderStatusLine(KEYS + "scheduled", shown.format(NOW.plusDays(1).withHour(8))));
+        }
+
+        @Test
+        @DisplayName("should say the quiet hours stop it when all the time left falls in them, never that it will go")
+        void shouldSayTheQuietHoursStopIt_whenAllTheTimeLeftFallsInThem() {
+            LocalDateTime night = NOW.withHour(22);
+            LocalDateTime earlyTomorrow = NOW.plusDays(1).withHour(9);
+
+            assertThat(line(night, 3, earlyTomorrow, textRequested()))
+                    .contains(new ReminderStatusLine(KEYS + "quietHours", ""));
+        }
+
+        @Test
+        @DisplayName("should say due inside the window by day, and too late after the cutoff")
+        void shouldSayDueByDay_andTooLateAfterTheCutoff() {
+            assertThat(line(NOW, 24, NOW.plusHours(20), textRequested()))
+                    .contains(new ReminderStatusLine(KEYS + "due", ""));
+            assertThat(line(NOW, 24, NOW.plusHours(1), textRequested()))
+                    .contains(new ReminderStatusLine(KEYS + "tooLate", ""));
+        }
+
+        @Test
+        @DisplayName("should say a text that never reached the queue sent nothing, and whether it is tried again")
+        void shouldSayNothingWasSent_whenTheTextNeverReachedTheQueue() {
+            LocalDateTime start = NOW.plusHours(20);
+            AppointmentReminder reminder = textRequested();
+            reminder.startSending(at(start), at(NOW.minusMinutes(10)));
+            reminder.finish(AppointmentReminderStatus.FAILED, null, null, at(NOW.minusMinutes(10)));
+
+            assertThat(line(NOW, 24, start, reminder))
+                    .contains(new ReminderStatusLine(KEYS + "notQueuedRetry", shown.format(NOW.minusMinutes(10))));
+
+            reminder.startSending(at(start), at(NOW.minusMinutes(5)));
+            reminder.finish(AppointmentReminderStatus.FAILED, null, null, at(NOW.minusMinutes(5)));
+            assertThat(line(NOW, 24, start, reminder))
+                    .contains(new ReminderStatusLine(KEYS + "notQueued", shown.format(NOW.minusMinutes(5))));
+        }
+
+        @Test
+        @DisplayName("should send staff to the SMS Queue only for a text the queue took and failed")
+        void shouldPointToTheSmsQueue_forATextTheQueueFailed() {
+            LocalDateTime start = NOW.plusHours(20);
+            AppointmentReminder reminder = textRequested();
+            reminder.startSending(at(start), at(NOW.minusMinutes(10)));
+            reminder.finish(AppointmentReminderStatus.QUEUED, null, 55L, at(NOW.minusMinutes(10)));
+            queueSays = AppointmentReminderStatus.FAILED;
+
+            assertThat(line(NOW, 24, start, reminder))
+                    .contains(new ReminderStatusLine(KEYS + "failed", shown.format(NOW.minusMinutes(10))));
+        }
+
+        @Test
+        @DisplayName("should say the clinic's details made the text too long")
+        void shouldSayTheTextDidNotFit_whenItWasTooLong() {
+            LocalDateTime start = NOW.plusHours(20);
+            AppointmentReminder reminder = textRequested();
+            reminder.startSending(at(start), at(NOW.minusMinutes(10)));
+            reminder.finish(AppointmentReminderStatus.TOO_LONG, null, null, at(NOW.minusMinutes(10)));
+
+            assertThat(line(NOW, 24, start, reminder)).contains(new ReminderStatusLine(KEYS + "doesNotFit", ""));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"en", "fr", "es", "pl", "pt_BR"})
+        void shouldHaveTheTextOnlyLines_inEveryBundle(String language) {
+            ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", Locale.forLanguageTag(language.replace('_', '-')));
+            for (String key : new String[]{"quietHours", "doesNotFit", "notQueued", "notQueuedRetry"}) {
+                String pattern = bundle.getString(KEYS + key);
+                assertThat(new MessageFormat(pattern).format(new Object[]{"FAKE-WHEN"})).as(key)
+                        .doesNotContain("{", "}").doesNotContain("''");
+            }
+        }
+    }
+
     /** #884: each channel has its own switch, window and number of attempts. */
     @Nested
     @DisplayName("Each channel's switch, window and attempts")

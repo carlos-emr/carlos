@@ -167,4 +167,40 @@ class ReminderWindowUnitTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    /** #884 S2: the line under the box says when the text will go, quiet hours included. */
+    @Test
+    void shouldFindTheNextSendTime_aroundTheQuietHours() {
+        ReminderWindow sms = ReminderWindow.forSmsHoursBefore("24");
+        LocalDateTime tomorrowAfternoon = LocalDateTime.of(2026, 11, 19, 14, 0);
+
+        assertThat(sms.nextSendTime(tomorrowAfternoon, LocalDateTime.of(2026, 11, 18, 22, 0)))
+                .as("ticked at night: 08:00").contains(LocalDateTime.of(2026, 11, 19, 8, 0));
+        assertThat(sms.nextSendTime(tomorrowAfternoon, LocalDateTime.of(2026, 11, 18, 15, 0)))
+                .as("due now").contains(LocalDateTime.of(2026, 11, 18, 15, 0));
+        assertThat(sms.nextSendTime(LocalDateTime.of(2026, 11, 21, 14, 0), LocalDateTime.of(2026, 11, 18, 15, 0)))
+                .as("before the window opens").contains(LocalDateTime.of(2026, 11, 20, 14, 0));
+        assertThat(sms.nextSendTime(tomorrowAfternoon, LocalDateTime.of(2026, 11, 19, 12, 30)))
+                .as("after the cutoff").isEmpty();
+        // A 3-hour lead for 09:00 opens at 06:00, inside the quiet hours, and the cutoff is 07:00: never sent.
+        assertThat(ReminderWindow.forSmsHoursBefore("3").nextSendTime(LocalDateTime.of(2026, 11, 19, 9, 0),
+                LocalDateTime.of(2026, 11, 18, 22, 0))).isEmpty();
+    }
+
+    /** #884 S1: a text the SMS queue holds up must not go out at night. */
+    @Test
+    void shouldLimitAText_toTheNextQuietHoursOrTheCutoff() {
+        ReminderWindow sms = ReminderWindow.forSmsHoursBefore("24");
+        LocalDateTime tomorrowAfternoon = LocalDateTime.of(2026, 11, 19, 14, 0);
+
+        assertThat(sms.sendBy(tomorrowAfternoon, LocalDateTime.of(2026, 11, 18, 15, 0)))
+                .as("handed over the day before: 21:00 that night").isEqualTo(LocalDateTime.of(2026, 11, 18, 21, 0));
+        assertThat(sms.sendBy(tomorrowAfternoon, LocalDateTime.of(2026, 11, 19, 9, 0)))
+                .as("the same morning: the cutoff").isEqualTo(LocalDateTime.of(2026, 11, 19, 12, 0));
+        assertThat(sms.sendBy(LocalDateTime.of(2026, 11, 20, 23, 30), LocalDateTime.of(2026, 11, 18, 23, 0)))
+                .as("seen after 21:00: the next evening's").isEqualTo(LocalDateTime.of(2026, 11, 19, 21, 0));
+        assertThat(new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2))
+                .sendBy(tomorrowAfternoon, LocalDateTime.of(2026, 11, 18, 15, 0)))
+                .as("no quiet hours: the cutoff").isEqualTo(LocalDateTime.of(2026, 11, 19, 12, 0));
+    }
+
 }

@@ -52,6 +52,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Clock;
 import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
@@ -78,6 +79,8 @@ class SmsReminderChannelUnitTest {
     private static final int PATIENT = 42;
     private static final ZoneId ZONE = ZoneId.of("America/Toronto");
     private static final LocalDateTime START = LocalDateTime.of(2026, 11, 18, 12, 30);
+    /** The job hands the text over 24 hours before the start. */
+    private static final Clock HANDOVER = Clock.fixed(START.minusHours(24).atZone(ZONE).toInstant(), ZONE);
     private static final ClaimedReminder REMINDER = new ClaimedReminder(7L, 101, PATIENT, START, "999998");
     private static final String LONGEST_NAME = "FAKE Maple Creek Family Clinic";
 
@@ -103,8 +106,12 @@ class SmsReminderChannelUnitTest {
         clinic.setClinicName("FAKE Maple Clinic");
         clinic.setClinicPhone("(613) 555-0100");
         when(clinics.getClinic()).thenReturn(clinic);
-        channel = new SmsReminderChannel(queue, texts, demographics, extras, clinics, providers, () -> switchedOn,
-                () -> null, ReminderWindow.forSmsHoursBefore("24"), ZONE);
+        channel = channelAt(HANDOVER);
+    }
+
+    private SmsReminderChannel channelAt(Clock clock) {
+        return new SmsReminderChannel(queue, texts, demographics, extras, clinics, providers, () -> switchedOn,
+                () -> null, ReminderWindow.forSmsHoursBefore("24"), clock);
     }
 
     private SmsSendCommand handedOver() {
@@ -114,7 +121,7 @@ class SmsReminderChannelUnitTest {
     }
 
     @Test
-    @DisplayName("should hand one reminder text to the SMS queue, for the cell number, never after start minus 2 h")
+    @DisplayName("should hand one reminder text to the SMS queue, for the cell number, never sent after 21:00 that night")
     void shouldQueueOneReminderText_forTheCellNumberWithItsTimeLimit() {
         when(queue.enqueue(any())).thenReturn(SmsSendResultDto.queued(55L));
 
@@ -128,9 +135,33 @@ class SmsReminderChannelUnitTest {
         assertThat(command.demographicNo()).isEqualTo(PATIENT);
         assertThat(command.appointmentNo()).isEqualTo(101);
         assertThat(command.requestedByHealthcareProviderNo()).isEqualTo("999998");
-        assertThat(command.expiresAt()).isEqualTo(START.minusHours(2).atZone(ZONE).toInstant());
+        // Handed over at 12:30 the day before: a text the queue holds up must not go out after 21:00 (#884 S1).
+        assertThat(command.expiresAt()).isEqualTo(START.minusDays(1).withHour(21).withMinute(0).atZone(ZONE).toInstant());
+        // No STOP invitation until STOP replies are handled.
         assertThat(command.body()).isEqualTo("Reminder: appointment at FAKE Maple Clinic on Wed Nov 18 at 12:30 PM. "
-                + "To change or cancel, call (613) 555-0100. Reply STOP to stop texts.");
+                + "To change or cancel, call (613) 555-0100.");
+    }
+
+    @Test
+    @DisplayName("should keep the start minus 2 h as the limit for a text handed over the same morning")
+    void shouldLimitTheText_toStartMinusTheCutoffOnTheSameMorning() {
+        when(queue.enqueue(any())).thenReturn(SmsSendResultDto.queued(55L));
+
+        channelAt(Clock.fixed(START.withHour(8).withMinute(30).atZone(ZONE).toInstant(), ZONE)).send(REMINDER);
+
+        assertThat(handedOver().expiresAt()).isEqualTo(START.minusHours(2).atZone(ZONE).toInstant());
+    }
+
+    @Test
+    @DisplayName("should invite a STOP reply only once STOP replies are handled")
+    void shouldInviteAStopReply_onlyOnceStopRepliesAreHandled() {
+        assertThat(SmsReminderChannel.STOP_REPLIES_HANDLED).isFalse();
+        assertThat(SmsReminderChannel.text(Locale.ENGLISH, "FAKE Clinic", "555-0100", START, true))
+                .endsWith("call 555-0100. Reply STOP to stop texts.");
+        assertThat(SmsReminderChannel.text(Locale.FRENCH, "FAKE Clinic", "", START, true))
+                .endsWith("joignez la clinique. Répondez STOP pour ne plus recevoir de textos.");
+        assertThat(SmsReminderChannel.text(Locale.ENGLISH, "FAKE Clinic", "555-0100", START, false))
+                .doesNotContain("STOP");
     }
 
     @Test
@@ -142,7 +173,7 @@ class SmsReminderChannelUnitTest {
         channel.send(REMINDER);
 
         assertThat(handedOver().body()).isEqualTo("Rappel : RDV à FAKE Maple Clinic le mer. 18/11 à 12 h 30. "
-                + "Modifier ou annuler : (613) 555-0100. Répondez STOP pour ne plus recevoir de textos.");
+                + "Modifier ou annuler : (613) 555-0100.");
     }
 
     @Test
@@ -159,15 +190,18 @@ class SmsReminderChannelUnitTest {
     @Test
     @DisplayName("should fit one GSM-7 segment in English and French, for every weekday, month and time")
     void shouldFitOneGsmSegment_forEveryWeekdayMonthAndTime() {
-        for (Locale locale : List.of(Locale.ENGLISH, Locale.FRENCH)) {
-            for (String phone : List.of("(613) 555-0100", "")) {
-                for (int day = 0; day < 365; day += 1) {
-                    LocalDateTime start = LocalDateTime.of(2026, 1, 1, 0, 0).plusDays(day)
-                            .with(day % 2 == 0 ? LocalTime.of(12, 45) : LocalTime.of(23, 59));
-                    String text = SmsReminderChannel.text(locale, LONGEST_NAME, phone, start);
-                    SmsSegments.Count count = SmsSegments.count(text);
-                    assertThat(count.encoding()).as(text).isEqualTo(SmsSegments.Encoding.GSM_7);
-                    assertThat(count.segments()).as(text).isEqualTo(1);
+        // With the STOP sentence too, so the text still fits once STOP replies are handled.
+        for (boolean stopLine : new boolean[]{false, true}) {
+            for (Locale locale : List.of(Locale.ENGLISH, Locale.FRENCH)) {
+                for (String phone : List.of("(613) 555-0100", "")) {
+                    for (int day = 0; day < 365; day += 1) {
+                        LocalDateTime start = LocalDateTime.of(2026, 1, 1, 0, 0).plusDays(day)
+                                .with(day % 2 == 0 ? LocalTime.of(12, 45) : LocalTime.of(23, 59));
+                        String text = SmsReminderChannel.text(locale, LONGEST_NAME, phone, start, stopLine);
+                        SmsSegments.Count count = SmsSegments.count(text);
+                        assertThat(count.encoding()).as(text).isEqualTo(SmsSegments.Encoding.GSM_7);
+                        assertThat(count.segments()).as(text).isEqualTo(1);
+                    }
                 }
             }
         }
@@ -175,21 +209,22 @@ class SmsReminderChannelUnitTest {
     }
 
     @Test
-    @DisplayName("should fail, never cut or split, a text the clinic's details make too long")
+    @DisplayName("should refuse, never cut, split or retry, a text the clinic's details make too long")
     void shouldFailATextTooLong_neverCutOrSplitIt() {
         patient.setOfficialLanguage("French");
         clinic.setClinicName(LONGEST_NAME);
-        clinic.setClinicPhone("(613) 555-0100 poste 12345");
+        // Over 160 characters with the longest name: five numbers where one was expected.
+        clinic.setClinicPhone("(613) 555-0100 ".repeat(5).trim());
 
-        assertThat(channel.send(REMINDER)).isEqualTo(ReminderOutcome.because(AppointmentReminderStatus.FAILED, "tooLong"));
+        assertThat(channel.send(REMINDER)).isEqualTo(ReminderOutcome.because(AppointmentReminderStatus.TOO_LONG, "tooLong"));
         verify(queue, never()).enqueue(any());
     }
 
     @Test
     @DisplayName("should send other languages in English, since they would not fit one segment")
     void shouldSendOtherLanguages_inEnglish() {
-        assertThat(SmsReminderChannel.text(Locale.of("es"), "FAKE Clinic", "555-0100", START)).startsWith("Reminder:");
-        assertThat(SmsReminderChannel.text(Locale.of("pl"), "FAKE Clinic", "555-0100", START)).startsWith("Reminder:");
+        assertThat(SmsReminderChannel.text(Locale.of("es"), "FAKE Clinic", "555-0100", START, false)).startsWith("Reminder:");
+        assertThat(SmsReminderChannel.text(Locale.of("pl"), "FAKE Clinic", "555-0100", START, false)).startsWith("Reminder:");
     }
 
     @Test
@@ -261,10 +296,10 @@ class SmsReminderChannelUnitTest {
     }
 
     @Test
-    @DisplayName("should never retry, run only while switched on, and keep quiet hours")
-    void shouldNeverRetry_runOnlyWhileOn_andKeepQuietHours() {
+    @DisplayName("should try a text that never reached the queue once more, run only while on, and keep quiet hours")
+    void shouldRetryOnceBeforeTheQueue_runOnlyWhileOn_andKeepQuietHours() {
         assertThat(channel.channel()).isEqualTo(ReminderChannel.SMS);
-        assertThat(channel.maxAttempts()).isEqualTo(1);
+        assertThat(channel.maxAttempts()).isEqualTo(2);
         assertThat(channel.enabled()).isTrue();
         switchedOn = false;
         assertThat(channel.enabled()).isFalse();
@@ -293,6 +328,30 @@ class SmsReminderChannelUnitTest {
         // A reminder that never reached the queue keeps its own outcome.
         reminder.finish(AppointmentReminderStatus.NO_ADDRESS, null, null, new Date());
         assertThat(channel.currentStatus(reminder)).isEqualTo(AppointmentReminderStatus.NO_ADDRESS);
+    }
+
+    /** #884 S3: Group Update moves the reminder to a new number; its text keeps the number it was sent under. */
+    @Test
+    @DisplayName("should follow the text it handed over, after Group Update moved the reminder to a new number")
+    void shouldFollowTheHandedOverText_afterGroupUpdateMovedTheReminder() {
+        AppointmentReminder reminder = AppointmentReminder.requested(101, ReminderChannel.SMS, "999998", new Date());
+        reminder.startSending(new Date(), new Date());
+        reminder.finish(AppointmentReminderStatus.QUEUED, null, 55L, new Date());
+        reminder.moveTo(201, "999998", new Date());
+        SmsTransaction handedOver = text(SmsStatus.QUEUED, null);
+        ReflectionTestUtils.setField(handedOver, "appointmentNo", 101);
+        when(texts.find((Object) 55L)).thenReturn(handedOver);
+
+        assertThat(statusFor(reminder, text(SmsStatus.SENT, null))).isEqualTo(AppointmentReminderStatus.SENT);
+        verify(texts, never()).findLatestOutboundByAppointment(201, SmsMessagePurpose.APPOINTMENT_REMINDER);
+
+        // A text row without a number, or one no longer found, falls back to the reminder's own number.
+        ReflectionTestUtils.setField(handedOver, "appointmentNo", null);
+        when(texts.findLatestOutboundByAppointment(201, SmsMessagePurpose.APPOINTMENT_REMINDER))
+                .thenReturn(Optional.of(text(SmsStatus.FAILED, "QUEUE_EXPIRED")));
+        assertThat(channel.currentStatus(reminder)).isEqualTo(AppointmentReminderStatus.EXPIRED);
+        when(texts.find((Object) 55L)).thenReturn(null);
+        assertThat(channel.currentStatus(reminder)).isEqualTo(AppointmentReminderStatus.EXPIRED);
     }
 
     private AppointmentReminderStatus statusFor(AppointmentReminder reminder, SmsTransaction text) {

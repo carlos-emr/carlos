@@ -237,7 +237,8 @@ public class AppointmentReminderService {
                 case QUEUED -> new ReminderStatusLine(keys + "queued", attemptedAt);
                 case EXPIRED -> new ReminderStatusLine(keys + "expired", "");
                 case SENDING, UNCONFIRMED -> new ReminderStatusLine(keys + "unconfirmed", attemptedAt);
-                case FAILED -> new ReminderStatusLine(keys + "failed", attemptedAt);
+                case FAILED -> failedLine(channel, reminder, keys, attemptedAt);
+                case TOO_LONG -> new ReminderStatusLine(keys + "doesNotFit", "");
                 case BLOCKED_CONSENT -> new ReminderStatusLine(keys + "blockedConsent", "");
                 case NO_ADDRESS, INVALID_ADDRESS -> new ReminderStatusLine(keys + "noAddress", "");
                 case NO_SENDER, NO_FOOTER -> new ReminderStatusLine(keys + "notSetUp", "");
@@ -248,13 +249,29 @@ public class AppointmentReminderService {
             return Optional.empty();
         }
         ReminderWindow channelWindow = windowFor(channel);
-        if (now.isBefore(channelWindow.opensAt(start))) {
-            return Optional.of(new ReminderStatusLine(keys + "scheduled",
-                    shown.format(channelWindow.opensAt(start))));
+        // #884: the next moment it can go, quiet hours included, so a text ticked at night says 08:00.
+        Optional<LocalDateTime> next = channelWindow.nextSendTime(start, now);
+        if (next.isEmpty()) {
+            // Time is left before the cutoff, but all of it is in the quiet hours (text reminders only).
+            return Optional.of(new ReminderStatusLine(keys + (now.isBefore(start.minus(channelWindow.cutoff()))
+                    ? "quietHours" : "tooLate"), ""));
         }
-        return Optional.of(channelWindow.isDue(start, now, null)
-                ? new ReminderStatusLine(keys + "due", "")
-                : new ReminderStatusLine(keys + "tooLate", ""));
+        return Optional.of(next.get().isAfter(now)
+                ? new ReminderStatusLine(keys + "scheduled", shown.format(next.get()))
+                : new ReminderStatusLine(keys + "due", ""));
+    }
+
+    /**
+     * A definite failure's line. A text reminder that failed before it reached the SMS queue has no SMS row to
+     * look at (#884), so its line says nothing was sent, and whether it is tried once more.
+     */
+    private ReminderStatusLine failedLine(ReminderChannel channel, AppointmentReminder reminder, String keys,
+                                          String attemptedAt) {
+        if (channel != ReminderChannel.SMS || reminder.getLastStatus() != AppointmentReminderStatus.FAILED) {
+            return new ReminderStatusLine(keys + "failed", attemptedAt);
+        }
+        return new ReminderStatusLine(keys + (reminder.getAttempts() < maxAttemptsFor(channel)
+                ? "notQueuedRetry" : "notQueued"), attemptedAt);
     }
 
     /**

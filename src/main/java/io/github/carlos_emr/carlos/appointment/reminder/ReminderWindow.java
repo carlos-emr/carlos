@@ -29,6 +29,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * When an appointment reminder is due (#5887). A reminder for an appointment starting at {@code start} may be
@@ -154,12 +155,44 @@ public final class ReminderWindow {
 
     /** The first moment a reminder for {@code start} may go: after the quiet hours, if it opens inside them. */
     public LocalDateTime opensAt(LocalDateTime start) {
+        return outsideQuietHours(start.minus(lead));
+    }
+
+    /**
+     * When a reminder for {@code start} will next be sent, seen at {@code now} (#884, for the status line): now
+     * when it is due, the window's opening or the end of the quiet hours when that comes first, or empty when no
+     * moment before the cutoff is outside the quiet hours.
+     */
+    public Optional<LocalDateTime> nextSendTime(LocalDateTime start, LocalDateTime now) {
         LocalDateTime opens = start.minus(lead);
-        if (!isQuiet(opens.toLocalTime())) {
-            return opens;
+        LocalDateTime next = outsideQuietHours(now.isAfter(opens) ? now : opens);
+        return next.isBefore(start.minus(cutoff)) ? Optional.of(next) : Optional.empty();
+    }
+
+    /**
+     * The latest moment a reminder handed over at {@code now} may still be sent (#884): the start minus the
+     * cutoff, or the next start of the quiet hours when that comes first, so a text held up in the SMS queue
+     * (a retry, the rate limit, an outage, sending switched off) never goes out at night.
+     */
+    public LocalDateTime sendBy(LocalDateTime start, LocalDateTime now) {
+        LocalDateTime limit = start.minus(cutoff);
+        if (quietFrom == null) {
+            return limit;
         }
-        LocalDateTime end = opens.toLocalDate().atTime(quietUntil);
-        return end.isAfter(opens) ? end : end.plusDays(1);
+        LocalDateTime quiet = now.toLocalDate().atTime(quietFrom);
+        if (!quiet.isAfter(now)) {
+            quiet = quiet.plusDays(1);
+        }
+        return quiet.isBefore(limit) ? quiet : limit;
+    }
+
+    /** {@code time}, or the end of the quiet hours when it falls inside them. */
+    private LocalDateTime outsideQuietHours(LocalDateTime time) {
+        if (!isQuiet(time.toLocalTime())) {
+            return time;
+        }
+        LocalDateTime end = time.toLocalDate().atTime(quietUntil);
+        return end.isAfter(time) ? end : end.plusDays(1);
     }
 
     /** The earliest appointment date that can be due at {@code now}. */

@@ -46,6 +46,7 @@ import org.springframework.stereotype.Service;
 
 import java.text.MessageFormat;
 import java.text.Normalizer;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -62,13 +63,15 @@ import java.util.function.Supplier;
  *
  * <p>The reminder job claims a due reminder and marks it as being sent for its start, exactly as for email. This
  * channel then hands one text to the SMS queue, with purpose {@code APPOINTMENT_REMINDER}, the appointment's
- * number, and a time limit of the start minus the cutoff. The queue sends, retries and recovers it, and checks the
- * patient's SMS consent again before sending; a text it could not send in time is failed, never sent late. So this
- * channel never retries ({@link #maxAttempts}), and the status line reads where the text got to
- * ({@link #currentStatus}).</p>
+ * number, and a time limit ({@link ReminderWindow#sendBy}): the start minus the cutoff, or the next start of the
+ * quiet hours when that comes first. The queue sends, retries and recovers it, and checks the patient's SMS consent
+ * again before sending; a text it could not send in time is failed, never sent late or at night. So a text the
+ * queue took is never handed over again; only one that never reached the queue is tried once more
+ * ({@link #maxAttempts}). The status line reads where the text got to ({@link #currentStatus}).</p>
  *
- * <p>The text carries the clinic's short name, the date and time, the clinic's phone (to change or cancel) and how
- * to stop texts, and nothing else: no provider, reason, notes or clinical detail. It must fit one GSM-7 segment
+ * <p>The text carries the clinic's short name, the date and time and the clinic's phone (to change or cancel), and
+ * nothing else: no provider, reason, notes or clinical detail. "Reply STOP to stop texts" is added only once STOP
+ * replies are handled ({@link #STOP_REPLIES_HANDLED}). It must fit one GSM-7 segment
  * (160 characters), so it is written in English or French only, and the clinic's name is at most
  * {@value #CLINIC_NAME_MAX} characters. Wording, clinic name, quiet hours and the switch are provisional, as
  * recommended to the owner.</p>
@@ -86,6 +89,12 @@ public class SmsReminderChannel implements AppointmentReminderChannel {
     static final int CLINIC_NAME_MAX = 30;
     static final String BODY_KEY = "appointment.reminder.sms.body";
     static final String BODY_WITHOUT_PHONE_KEY = "appointment.reminder.sms.bodyWithoutPhone";
+    static final String STOP_KEY = "appointment.reminder.sms.stop";
+    /**
+     * Whether CARLOS acts on a STOP reply. Not yet (#884: the STOP opt-out waits on the maintainers' agreement), so
+     * the texts do not invite one; the change that handles STOP turns this on.
+     */
+    static final boolean STOP_REPLIES_HANDLED = false;
     /** The demographicExt key of the patient's cell phone number. */
     static final String CELL_PHONE_KEY = "demo_cell";
 
@@ -98,6 +107,7 @@ public class SmsReminderChannel implements AppointmentReminderChannel {
     private final BooleanSupplier switchedOn;
     private final Supplier<String> clinicNameSetting;
     private final ReminderWindow window;
+    private final Clock clock;
     private final ZoneId zone;
 
     @Autowired
@@ -108,12 +118,12 @@ public class SmsReminderChannel implements AppointmentReminderChannel {
                 () -> CarlosProperties.getInstance().getProperty(CLINIC_NAME_PROPERTY, null),
                 ReminderWindow.forSmsHoursBefore(
                         CarlosProperties.getInstance().getProperty(ReminderWindow.SMS_HOURS_BEFORE_PROPERTY, null)),
-                ZoneId.systemDefault());
+                Clock.systemDefaultZone());
     }
 
     SmsReminderChannel(SmsQueueService queue, SmsTransactionDao texts, DemographicManager demographics,
                        DemographicExtDao extras, ClinicDAO clinics, ProviderDao providers, BooleanSupplier switchedOn,
-                       Supplier<String> clinicNameSetting, ReminderWindow window, ZoneId zone) {
+                       Supplier<String> clinicNameSetting, ReminderWindow window, Clock clock) {
         this.queue = Objects.requireNonNull(queue, "queue");
         this.texts = Objects.requireNonNull(texts, "texts");
         this.demographics = Objects.requireNonNull(demographics, "demographics");
@@ -123,7 +133,8 @@ public class SmsReminderChannel implements AppointmentReminderChannel {
         this.switchedOn = Objects.requireNonNull(switchedOn, "switchedOn");
         this.clinicNameSetting = Objects.requireNonNull(clinicNameSetting, "clinicNameSetting");
         this.window = Objects.requireNonNull(window, "window");
-        this.zone = Objects.requireNonNull(zone, "zone");
+        this.clock = Objects.requireNonNull(clock, "clock");
+        this.zone = clock.getZone();
     }
 
     @Override
@@ -141,10 +152,15 @@ public class SmsReminderChannel implements AppointmentReminderChannel {
         return Optional.of(window);
     }
 
-    /** The SMS queue retries a text itself; handing it over twice for one start could send it twice. */
+    /**
+     * Two: a text that never reached the SMS queue (a refusal, or an error before anything was stored) is tried
+     * once more, as an email is. A text the queue took is never handed over again (its status is not
+     * {@link AppointmentReminderStatus#FAILED}), since the queue retries it itself and a second handover could send
+     * it twice.
+     */
     @Override
     public int maxAttempts() {
-        return 1;
+        return 2;
     }
 
     @Override
@@ -173,12 +189,12 @@ public class SmsReminderChannel implements AppointmentReminderChannel {
         }
         String body = text(patient, reminder.start());
         if (SmsSegments.count(body).segments() > 1) {
-            // A clinic name or phone the wording did not plan for: never cut, never split.
-            return ReminderOutcome.because(AppointmentReminderStatus.FAILED, "tooLong");
+            // A clinic name or phone the wording did not plan for: never cut, never split, never retried.
+            return ReminderOutcome.because(AppointmentReminderStatus.TOO_LONG, "tooLong");
         }
         SmsSendCommand command = SmsSendCommand.appointmentReminder(reminder.demographicNo(), cell, body,
                 reminder.requestedBy(), reminder.appointmentNo(),
-                reminder.start().minus(window.cutoff()).atZone(zone).toInstant());
+                window.sendBy(reminder.start(), LocalDateTime.now(clock)).atZone(zone).toInstant());
         try {
             return outcome(queue.enqueue(command));
         } catch (RuntimeException e) {
@@ -189,14 +205,23 @@ public class SmsReminderChannel implements AppointmentReminderChannel {
 
     /**
      * Where the text got to: the queue sends it after this channel hands it over, so a reminder recorded as
-     * queued reads its newest text (a provider swap moves a waiting text to a new row).
+     * queued reads its newest text (a provider swap moves a waiting text to a new row). The text is found by the
+     * appointment number on the text the reminder handed over, so a reminder Group Update moved to a new number still
+     * finds the text it handed over under the old one.
      */
     @Override
     public AppointmentReminderStatus currentStatus(AppointmentReminder reminder) {
         if (reminder.getLastStatus() != AppointmentReminderStatus.QUEUED || reminder.getAppointmentNo() == null) {
             return reminder.getLastStatus();
         }
-        Optional<SmsTransaction> text = texts.findLatestOutboundByAppointment(reminder.getAppointmentNo(),
+        int appointmentNo = reminder.getAppointmentNo();
+        if (reminder.getLastSmsTransactionId() != null) {
+            SmsTransaction handedOver = texts.find(reminder.getLastSmsTransactionId());
+            if (handedOver != null && handedOver.getAppointmentNo() != null) {
+                appointmentNo = handedOver.getAppointmentNo();
+            }
+        }
+        Optional<SmsTransaction> text = texts.findLatestOutboundByAppointment(appointmentNo,
                 SmsMessagePurpose.APPOINTMENT_REMINDER);
         if (text.isEmpty()) {
             return AppointmentReminderStatus.QUEUED;
@@ -228,23 +253,24 @@ public class SmsReminderChannel implements AppointmentReminderChannel {
         String clinicName = clinicName(clinicNameSetting.get(), clinic == null ? null : clinic.getClinicName());
         Locale locale = Locale.FRENCH.equals(ReminderLanguage.of(patient.getOfficialLanguage(), patient.getSpokenLanguage()))
                 ? Locale.FRENCH : Locale.ENGLISH;
-        return text(locale, clinicName, phone, start);
+        return text(locale, clinicName, phone, start, STOP_REPLIES_HANDLED);
     }
 
     /**
      * The text in English or French, from the bundle. Only these four values ever reach it. Other languages would
      * need UCS-2, whose 70 characters cannot carry the details, so they get English.
      */
-    static String text(Locale locale, String clinicName, String phone, LocalDateTime start) {
+    static String text(Locale locale, String clinicName, String phone, LocalDateTime start, boolean stopLine) {
         boolean french = Locale.FRENCH.getLanguage().equals(locale.getLanguage());
         Locale shown = french ? Locale.FRENCH : Locale.ENGLISH;
         ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", shown);
         // Numeric French dates: some French month names ("août") are not GSM-7.
         String date = DateTimeFormatter.ofPattern(french ? "EEE dd/MM" : "EEE MMM d", shown).format(start);
         String time = DateTimeFormatter.ofPattern(french ? "H 'h' mm" : "h:mm a", shown).format(start);
-        return phone.isEmpty()
+        String body = phone.isEmpty()
                 ? new MessageFormat(bundle.getString(BODY_WITHOUT_PHONE_KEY), shown).format(new Object[]{clinicName, date, time})
                 : new MessageFormat(bundle.getString(BODY_KEY), shown).format(new Object[]{clinicName, date, time, phone});
+        return stopLine ? body + " " + bundle.getString(STOP_KEY) : body;
     }
 
     /**

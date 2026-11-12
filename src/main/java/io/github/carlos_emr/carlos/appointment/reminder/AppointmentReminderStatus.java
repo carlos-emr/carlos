@@ -41,6 +41,11 @@ public enum AppointmentReminderStatus {
     EXPIRED,
     /** The channel tried and definitely did not send it. */
     FAILED,
+    /**
+     * A text reminder that would not fit one SMS (#884): the clinic's name or phone made it too long. It is never
+     * cut or split, and never retried, since a retry would build the same text.
+     */
+    TOO_LONG,
     /** The channel tried but could not confirm whether it went; never retried. */
     UNCONFIRMED,
     /** The patient has not opted in to this channel, or has opted out. */
