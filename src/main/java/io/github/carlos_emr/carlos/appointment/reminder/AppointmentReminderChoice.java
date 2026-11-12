@@ -32,12 +32,14 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * The "Email Reminder" box on Add and Edit Appointment (#5887), shown when the clinic turns reminders on.
+ * The "Email Reminder" box on Add and Edit Appointment (#5887), and beside it the "Text Reminder" box (#884),
+ * each shown when the clinic turns that channel on.
  *
- * <p>The box keeps its historical name {@code emailPt}. A hidden {@code emailPtShown} travels with it: a form
- * that did not show the box (reminders off, or a page without it) carries no marker and leaves the stored
- * choice as it is, so an unticked box can be told from a missing one. The service is looked up only when the
- * box was on the form, so other callers of these actions are unaffected.
+ * <p>The email box keeps its historical name {@code emailPt}; the text box is {@code smsPt}. A hidden marker
+ * travels with each ({@code emailPtShown}, {@code smsPtShown}): a form that did not show a box (that channel
+ * off, or a page without it) carries no marker and leaves that channel's stored choice as it is, so an
+ * unticked box can be told from a missing one. The service is looked up only when some box was on the form,
+ * so other callers of these actions are unaffected.
  *
  * @since 2026-11-12
  */
@@ -47,26 +49,69 @@ public final class AppointmentReminderChoice {
     public static final String PARAMETER = "emailPt";
     /** Sent with the box, so its absence means "not on this form" rather than "unticked". */
     public static final String SHOWN_PARAMETER = "emailPtShown";
+    /** The Text Reminder box (#884), shown when the clinic has text reminders on. */
+    public static final String SMS_PARAMETER = "smsPt";
+    /** Sent with the Text Reminder box, as {@link #SHOWN_PARAMETER} is with the email one. */
+    public static final String SMS_SHOWN_PARAMETER = "smsPtShown";
 
     private AppointmentReminderChoice() {
     }
 
+    /** The Email Reminder box was on the form. */
     public static boolean isOnForm(HttpServletRequest request) {
-        return request != null && "1".equals(request.getParameter(SHOWN_PARAMETER));
+        return isOnForm(request, ReminderChannel.EMAIL);
     }
 
+    /** The Email Reminder box was ticked. */
     public static boolean isTicked(HttpServletRequest request) {
-        return request != null && request.getParameter(PARAMETER) != null;
+        return isTicked(request, ReminderChannel.EMAIL);
     }
 
-    /** {@link #isOnForm(HttpServletRequest)} for a form copied into a map, as the Repeat Booking page passes it. */
+    /** {@code channel}'s box was on the form (#884: each channel has its own). */
+    public static boolean isOnForm(HttpServletRequest request, ReminderChannel channel) {
+        return request != null && "1".equals(request.getParameter(shownParameter(channel)));
+    }
+
+    public static boolean isTicked(HttpServletRequest request, ReminderChannel channel) {
+        return request != null && request.getParameter(parameter(channel)) != null;
+    }
+
+    /** Some reminder box was on the form; without one, nothing about reminders is touched. */
+    static boolean isAnyOnForm(HttpServletRequest request) {
+        for (ReminderChannel channel : ReminderChannel.values()) {
+            if (isOnForm(request, channel)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** {@link #isOnForm(HttpServletRequest, ReminderChannel)} for a form copied into a map, as Repeat Booking passes it. */
+    public static boolean isOnCopiedForm(Map<String, String> values, ReminderChannel channel) {
+        return values != null && "1".equals(values.get(shownParameter(channel)));
+    }
+
+    /** {@link #isTicked(HttpServletRequest, ReminderChannel)} for a form copied into a map. */
+    public static boolean isTickedOnCopiedForm(Map<String, String> values, ReminderChannel channel) {
+        return values != null && values.get(parameter(channel)) != null;
+    }
+
+    /** The Email Reminder box was on a form copied into a map. */
     public static boolean isOnCopiedForm(Map<String, String> values) {
-        return values != null && "1".equals(values.get(SHOWN_PARAMETER));
+        return isOnCopiedForm(values, ReminderChannel.EMAIL);
     }
 
-    /** {@link #isTicked(HttpServletRequest)} for a form copied into a map. */
+    /** The Email Reminder box was ticked on a form copied into a map. */
     public static boolean isTickedOnCopiedForm(Map<String, String> values) {
-        return values != null && values.get(PARAMETER) != null;
+        return isTickedOnCopiedForm(values, ReminderChannel.EMAIL);
+    }
+
+    static String parameter(ReminderChannel channel) {
+        return channel == ReminderChannel.SMS ? SMS_PARAMETER : PARAMETER;
+    }
+
+    static String shownParameter(ReminderChannel channel) {
+        return channel == ReminderChannel.SMS ? SMS_SHOWN_PARAMETER : SHOWN_PARAMETER;
     }
 
     /**
@@ -74,11 +119,16 @@ public final class AppointmentReminderChoice {
      * the appointment, after it has its number, so the choice commits with it.
      */
     public static void record(HttpServletRequest request, LoggedInInfo user, Appointment appointment) {
-        if (appointment == null || appointment.getId() == null || appointment.getId() <= 0 || !isOnForm(request)) {
+        if (appointment == null || appointment.getId() == null || appointment.getId() <= 0 || !isAnyOnForm(request)) {
             return;
         }
-        SpringUtils.getBean(AppointmentReminderService.class).recordRequest(user, appointment.getId(),
-                appointment.getDemographicNo(), ReminderChannel.EMAIL, isTicked(request));
+        AppointmentReminderService reminders = SpringUtils.getBean(AppointmentReminderService.class);
+        for (ReminderChannel channel : ReminderChannel.values()) {
+            if (isOnForm(request, channel)) {
+                reminders.recordRequest(user, appointment.getId(), appointment.getDemographicNo(), channel,
+                        isTicked(request, channel));
+            }
+        }
     }
 
     /**
@@ -88,7 +138,7 @@ public final class AppointmentReminderChoice {
      */
     public static void recordForGroup(HttpServletRequest request, LoggedInInfo user, List<Appointment> bookings,
                                       String formProviderNo) {
-        if (!isOnForm(request)) {
+        if (!isAnyOnForm(request)) {
             return;
         }
         record(request, user, patientBooking(bookings, formProviderNo));
@@ -116,7 +166,7 @@ public final class AppointmentReminderChoice {
      */
     public static void moveReminders(HttpServletRequest request, LoggedInInfo user, Integer replacedNo,
                                      Appointment rebooked) {
-        if (replacedNo == null || rebooked == null || rebooked.getId() == null || !isOnForm(request)) {
+        if (replacedNo == null || rebooked == null || rebooked.getId() == null || !isAnyOnForm(request)) {
             return;
         }
         SpringUtils.getBean(AppointmentReminderService.class).moveReminders(user, replacedNo, rebooked.getId());
@@ -127,30 +177,50 @@ public final class AppointmentReminderChoice {
      * may not read it for this patient ({@link #mayReadStatus}).
      */
     public static ReminderStatusLine statusLine(LoggedInInfo user, Appointment appointment, Locale locale) {
+        return statusLine(user, appointment, ReminderChannel.EMAIL, locale);
+    }
+
+    /** The line under {@code channel}'s box (#884: the Text Reminder box has its own). */
+    public static ReminderStatusLine statusLine(LoggedInInfo user, Appointment appointment, ReminderChannel channel,
+                                                Locale locale) {
         if (appointment == null || appointment.getId() == null || appointment.getId() <= 0
                 || appointment.getDemographicNo() <= 0
-                || !mayReadStatus(SpringUtils.getBean(SecurityInfoManager.class), user, appointment.getDemographicNo())) {
+                || !mayReadStatus(SpringUtils.getBean(SecurityInfoManager.class), user, appointment.getDemographicNo(),
+                        channel)) {
             return null;
         }
-        return SpringUtils.getBean(AppointmentReminderService.class).statusLine(appointment, locale).orElse(null);
+        return SpringUtils.getBean(AppointmentReminderService.class).statusLine(appointment, channel, locale)
+                .orElse(null);
+    }
+
+    static boolean mayReadStatus(SecurityInfoManager security, LoggedInInfo user, int demographicNo) {
+        return mayReadStatus(security, user, demographicNo, ReminderChannel.EMAIL);
     }
 
     /**
-     * A per-patient check for the status line, as the email pages make it: access to this patient's record,
-     * and read on the record and on their email.
+     * A per-patient check for the status line, as the channel's own pages make it: access to this patient's
+     * record, read on the record, and read on their email ({@code _email}) or their texts ({@code _sms}, as the
+     * patient's SMS History asks).
      */
-    static boolean mayReadStatus(SecurityInfoManager security, LoggedInInfo user, int demographicNo) {
+    static boolean mayReadStatus(SecurityInfoManager security, LoggedInInfo user, int demographicNo,
+                                 ReminderChannel channel) {
         return user != null
                 && security.isAllowedAccessToPatientRecord(user, demographicNo)
                 && security.hasPrivilege(user, "_demographic", SecurityInfoManager.READ, demographicNo)
-                && security.hasPrivilege(user, "_email", SecurityInfoManager.READ, demographicNo);
+                && security.hasPrivilege(user, channel == ReminderChannel.SMS ? "_sms" : "_email",
+                        SecurityInfoManager.READ, demographicNo);
     }
 
-    /** Whether Edit Appointment shows the box ticked for {@code appointmentNo}. */
+    /** Whether Edit Appointment shows the Email Reminder box ticked for {@code appointmentNo}. */
     public static boolean isRequested(Integer appointmentNo) {
+        return isRequested(appointmentNo, ReminderChannel.EMAIL);
+    }
+
+    /** Whether Edit Appointment shows {@code channel}'s box ticked for {@code appointmentNo}. */
+    public static boolean isRequested(Integer appointmentNo, ReminderChannel channel) {
         if (appointmentNo == null || appointmentNo <= 0) {
             return false;
         }
-        return SpringUtils.getBean(AppointmentReminderService.class).isRequested(appointmentNo, ReminderChannel.EMAIL);
+        return SpringUtils.getBean(AppointmentReminderService.class).isRequested(appointmentNo, channel);
     }
 }

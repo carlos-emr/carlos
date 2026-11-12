@@ -1545,6 +1545,21 @@ Ontario, Canada
                             </div>
                         </div>
                         <% } %>
+                        <%-- #884: the Text Reminder box, on the switch the reminder job reads for texts. smsPtShown
+                             plays the part emailPtShown plays for the email box. --%>
+                        <% if (pros.isPropertyActive(io.github.carlos_emr.carlos.appointment.reminder.SmsReminderChannel.ENABLED_PROPERTY)) { %>
+                        <div class="mb-2 row">
+                            <label class="col-sm-4 col-form-label" for="smsPt"><fmt:message key="Appointment.formTextReminder"/>:</label>
+                            <div class="col-sm-8">
+                                <div class="form-check mt-1">
+                                    <input type="checkbox" class="form-check-input" name="smsPt" id="smsPt" value="text reminder"
+                                           <%= io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice.isTicked(request,
+                                                   io.github.carlos_emr.carlos.appointment.reminder.ReminderChannel.SMS) ? "checked" : "" %>>
+                                    <input type="hidden" name="smsPtShown" value="1">
+                                </div>
+                            </div>
+                        </div>
+                        <% } %>
                     </div>
                 </div>
                 <input type="hidden" name="orderby" value="last_name, first_name">
