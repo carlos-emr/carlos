@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
+import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentStatusDao;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao;
@@ -387,6 +389,35 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
         verifyNoInteractions(mockAppointmentArchiveDao);
         verify(mockOscarAppointmentDao, never()).merge(any());
         verify(mockOscarAppointmentDao, never()).flush();
+    }
+
+    @Test
+    @Tag("update")
+    void shouldAuditTheEditUnderTheAppointmentAndItsPatient_whenAnUpdateIsSaved() {
+        Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
+        current.setDemographicNo(TEST_DEMO_NO);
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(current);
+
+        scheduleManager.updateAppointment(mockLoggedInInfo, 77, null, row -> row.setReason("changed"));
+
+        // The overload that carries the client address and the patient: REST clients and the classic
+        // Edit Appointment form both save through this method, and an audit row without them cannot
+        // be found from the patient's audit trail. The action name and data stay as they were.
+        logActionMock.verify(() -> LogAction.addLogSynchronous(mockLoggedInInfo, "AppointmentManager.updateAppointment",
+                LogConst.CON_APPT, "77", String.valueOf(TEST_DEMO_NO), "appointmentId=77"));
+    }
+
+    @Test
+    @Tag("update")
+    void shouldAuditTheEditWithoutAPatient_whenTheSlotNamesNone() {
+        Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
+        current.setDemographicNo(0);
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(current);
+
+        scheduleManager.updateAppointment(mockLoggedInInfo, 77, null, row -> row.setReason("changed"));
+
+        logActionMock.verify(() -> LogAction.addLogSynchronous(mockLoggedInInfo, "AppointmentManager.updateAppointment",
+                LogConst.CON_APPT, "77", null, "appointmentId=77"));
     }
 
     // -----------------------------------------------------------------------

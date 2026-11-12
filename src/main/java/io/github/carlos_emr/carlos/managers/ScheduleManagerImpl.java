@@ -75,6 +75,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 
 @Service
 public class ScheduleManagerImpl implements ScheduleManager {
@@ -254,13 +255,27 @@ public class ScheduleManagerImpl implements ScheduleManager {
 
     public void updateAppointment(LoggedInInfo loggedInInfo, Appointment appointment) {
         //--- log action ---
-        LogAction.addLogSynchronous(loggedInInfo, "AppointmentManager.updateAppointment", "appointmentId=" + appointment.getId());
+        auditUpdate(loggedInInfo, appointment);
 
         // generate archive object
         oscarAppointmentDao.archiveAppointment(appointment.getId());
 
         // save new changes
         oscarAppointmentDao.merge(appointment);
+    }
+
+    /**
+     * Audits an appointment edit under the appointment and its patient, with the client address.
+     * REST clients and the classic Edit Appointment form both save through this manager; a row
+     * without the patient cannot be found from the patient's audit trail. The action name and the
+     * {@code appointmentId=N} data are unchanged for readers of earlier rows. A slot that names no
+     * patient ({@code demographic_no} 0) is filed under none.
+     */
+    private static void auditUpdate(LoggedInInfo loggedInInfo, Appointment appointment) {
+        LogAction.addLogSynchronous(loggedInInfo, "AppointmentManager.updateAppointment", LogConst.CON_APPT,
+                String.valueOf(appointment.getId()),
+                appointment.getDemographicNo() > 0 ? String.valueOf(appointment.getDemographicNo()) : null,
+                "appointmentId=" + appointment.getId());
     }
 
     /**
@@ -300,8 +315,7 @@ public class ScheduleManagerImpl implements ScheduleManager {
         oscarAppointmentDao.merge(current);
         // Run the version callback before serializing the response token.
         oscarAppointmentDao.flush();
-        LogAction.addLogSynchronous(loggedInInfo, "AppointmentManager.updateAppointment",
-                "appointmentId=" + current.getId());
+        auditUpdate(loggedInInfo, current);
         return current;
     }
 
