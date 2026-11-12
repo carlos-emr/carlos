@@ -206,7 +206,9 @@ async function deactivateCreatedAllergies(context) {
             { timeout: 30000 },
           ),
           expectedDialog,
-          cleanupPage.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+          // The link is href="#": waitForNavigation would be satisfied by that same-document step.
+          // The page-level event fires only for a new document, which is the reload the handler does.
+          cleanupPage.waitForEvent('domcontentloaded', { timeout: 30000 }),
           inactivateLink.click(),
         ]);
         assert(deleteResponse.status() === 200,
