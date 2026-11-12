@@ -69,6 +69,27 @@ public interface DemographicManager {
     Map<Integer, String> getDemographicFormattedNames(LoggedInInfo loggedInInfo,
                                                     Collection<Integer> demographicIds);
 
+    /**
+     * Bulk-loads the names of those patients the caller may read, for a list that mixes patients.
+     *
+     * <p>Each patient's read access is decided separately, with patient-specific privileges taking
+     * priority, as {@link #getDemographicFormattedNames} decides it. The difference is the outcome
+     * for a patient the caller may not read: that method refuses the whole batch, this one leaves
+     * that patient out and reads no name for it. The decision is a discovery check and leaves the
+     * session's lock state alone, unlike opening the patient explicitly.</p>
+     *
+     * @param loggedInInfo current user and session
+     * @param demographicIds patient IDs; null IDs and the blank-slot ID 0 are ignored
+     * @return an entry for every patient the caller may read: the formatted name, or an empty string
+     *     when the patient has no demographic record. A patient the caller may not read has no
+     *     entry, so a caller can tell a restricted patient from a missing one
+     * @throws RuntimeException when the access policy or the names cannot be read; a failure is
+     *     never reported as "no readable patients"
+     * @since 2026-11-12
+     */
+    Map<Integer, String> getReadableDemographicFormattedNames(LoggedInInfo loggedInInfo,
+                                                            Collection<Integer> demographicIds);
+
     public String getDemographicEmail(LoggedInInfo loggedInInfo, Integer demographicId);
 
 

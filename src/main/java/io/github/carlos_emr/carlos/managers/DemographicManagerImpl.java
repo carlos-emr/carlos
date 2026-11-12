@@ -210,6 +210,30 @@ public class DemographicManagerImpl implements DemographicManager {
     }
 
     @Override
+    public Map<Integer, String> getReadableDemographicFormattedNames(LoggedInInfo loggedInInfo,
+                                                                    Collection<Integer> demographicIds) {
+        Set<Integer> ids = new LinkedHashSet<>(demographicIds);
+        ids.remove(null);
+        ids.remove(0);
+        Map<Integer, String> names = new HashMap<>();
+        if (ids.isEmpty()) {
+            return names;
+        }
+        // The patient-specific decision for each ID. Only the readable ones reach the name query.
+        Set<Integer> readable = securityInfoManager.getReadableDemographicIds(loggedInInfo, ids);
+        for (Integer id : readable) {
+            // Readable but possibly without a demographic row: present, with no name.
+            names.put(id, "");
+        }
+        if (!readable.isEmpty()) {
+            for (DemographicName patient : demographicDao.getDemographicNames(readable)) {
+                names.put(patient.demographicNo(), patient.formattedName());
+            }
+        }
+        return names;
+    }
+
+    @Override
     public String getDemographicEmail(LoggedInInfo loggedInInfo, Integer demographicId) {
         Demographic result = getDemographic(loggedInInfo, demographicId);
         String email = null;
