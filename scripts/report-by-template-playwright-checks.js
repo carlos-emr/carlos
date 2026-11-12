@@ -55,11 +55,11 @@ function templateXml(title, description, query, params = '', sequence = false) {
     + `<query>${query}</query>${params}</report>`;
 }
 
-// The English limit messages (oscarResources_en, #5849). Numbers may be grouped in the page's locale.
-const grouped = digits => digits.replace(/(\d)(?=(\d{3})+$)/g, '$1[,.\\s\u00a0\u202f]?');
+// The English limit messages (oscarResources_en, #5849). The page's locale may group the digits with a comma,
+// a period, a space, a no-break space or a narrow no-break space.
 const LIMIT_TEXT = {
-  rows: new RegExp(`This report has more than ${grouped('10000')} rows, the most a report may return\\.`),
-  cell: new RegExp(`A value in this report is longer than ${grouped('65536')} characters, the most a report cell may hold\\.`),
+  rows: /This report has more than 10[,.\s\u00a0\u202f]?000 rows, the most a report may return\./,
+  cell: /A value in this report is longer than 65[,.\s\u00a0\u202f]?536 characters, the most a report cell may hold\./,
   html: /This report is larger than 10 MB, the most a report page may show\./,
 };
 const CSV_HELD_BACK = 'too large to download as CSV or XLSX (more than 5 MB)';
