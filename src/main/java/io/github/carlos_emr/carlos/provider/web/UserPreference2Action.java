@@ -40,8 +40,11 @@ import io.github.carlos_emr.carlos.commn.model.EForm;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.login.Login2Action;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PasswordPolicy;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
@@ -148,15 +151,20 @@ public class UserPreference2Action extends ActionSupport {
 
         String warning = request.getParameter("pref." + UserProperty.CONSULTATION_TIME_PERIOD_WARNING);
         if (!io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod.isValid(warning)) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            form();
-            @SuppressWarnings("unchecked")
-            Map<String, String> prefs = (Map<String, String>) request.getAttribute("prefs");
-            request.getParameterMap().forEach((key, values) -> {
-                if (key.startsWith("pref.") && values != null) prefs.put(key, String.join(",", values));
-            });
-            request.setAttribute("preferenceValidationError", getText("provider.consultationWarning.invalid"));
-            return "form";
+            return refuseSave(getText("provider.consultationWarning.invalid"));
+        }
+
+        // The page checks the password policy in the browser, which is feedback only: the
+        // configured policy is applied here, before anything is stored, as it is for a forced
+        // reset and for the administrator's security record.
+        String requestedPassword = getParameter(request, "new_password");
+        if (!requestedPassword.isEmpty()) {
+            PasswordPolicy.Validation policy = PasswordPolicy.validate(requestedPassword, CarlosProperties.getInstance());
+            if (!policy.isValid()) {
+                logger.info("Refused a preferences password change that breaks the configured policy: reason={}",
+                        policy.auditReason());
+                return refuseSave(policy.message(key -> Login2Action.message(request, key)));
+            }
         }
 
         //Is there a password change?
@@ -205,6 +213,19 @@ public class UserPreference2Action extends ActionSupport {
         }
 
         return form();
+    }
+
+    /** Re-renders the form with the submitted preferences and a message; nothing has been saved. */
+    private String refuseSave(String message) {
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        form();
+        @SuppressWarnings("unchecked")
+        Map<String, String> prefs = (Map<String, String>) request.getAttribute("prefs");
+        request.getParameterMap().forEach((key, values) -> {
+            if (key.startsWith("pref.") && values != null) prefs.put(key, String.join(",", values));
+        });
+        request.setAttribute("preferenceValidationError", message);
+        return "form";
     }
 
     private void changePassword(HttpServletRequest request) throws Exception {

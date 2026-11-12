@@ -24,7 +24,8 @@ package io.github.carlos_emr.carlos.utility;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * Shared configured password-complexity checks for account creation and forced resets.
+ * Shared configured password-complexity checks for account creation, forced resets and a
+ * provider's own password change.
  * Required values and confirmation are checked by each request handler before this policy.
  * @since 2026-10-03
  */
@@ -33,6 +34,8 @@ public final class PasswordPolicy {
 
     /** Default for {@code password_min_length} when the property is absent or malformed. */
     private static final int DEFAULT_POLICY_MIN_LENGTH = 8;
+    /** Default for {@code password_pin_min_length} when the property is absent or malformed. */
+    private static final int DEFAULT_POLICY_PIN_MIN_LENGTH = 4;
     /** Default for {@code password_min_groups} when the property is absent or malformed. */
     private static final int DEFAULT_POLICY_MIN_GROUPS = 3;
     /** Default for {@code password_group_lower_chars} when the property is absent. */
@@ -73,6 +76,24 @@ public final class PasswordPolicy {
     }
 
     /**
+     * Evaluates the clinic's minimum PIN length, the rule the change-password form states and
+     * checks in the browser. Unlike the password rules it is not bypassed by
+     * IGNORE_PASSWORD_REQUIREMENTS, which the browser check does not consult for a PIN either.
+     * @param pin candidate PIN
+     * @param properties clinic configuration
+     * @return policy decision with localization keys and a non-sensitive audit reason
+     */
+    public static Validation validatePinLength(String pin, CarlosProperties properties) {
+        int length = intProperty(properties, "password_pin_min_length", DEFAULT_POLICY_PIN_MIN_LENGTH, 1,
+                Integer.MAX_VALUE);
+        if (pin == null || pin.length() < length) {
+            return new Validation("password.policy.violation.msgPinLengthError", length,
+                    "password.policy.violation.msgDigits", "pin_policy_min_length");
+        }
+        return new Validation(null, 0, null, null);
+    }
+
+    /**
      * A policy decision containing no password or other credential data.
      * @param messageKey localized error prefix, or null for acceptance
      * @param minimum required length or number of groups
@@ -81,6 +102,15 @@ public final class PasswordPolicy {
      */
     public record Validation(String messageKey, int minimum, String unitMessageKey, String auditReason) {
         public boolean isValid() { return auditReason == null; }
+
+        /**
+         * The sentence the password forms show for the broken rule: prefix, minimum, unit.
+         * @param bundle resolves a localization key to its text
+         * @return display-safe rejection text; meaningful only for a rejection
+         */
+        public String message(java.util.function.UnaryOperator<String> bundle) {
+            return bundle.apply(messageKey) + " " + minimum + " " + bundle.apply(unitMessageKey);
+        }
     }
 
     /**

@@ -23,15 +23,23 @@ package io.github.carlos_emr.carlos.hospitalReportManager.v2018;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 
 import javax.xml.XMLConstants;
@@ -44,6 +52,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMCategoryDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMCategory;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -146,6 +157,122 @@ class HRM2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isNull();
         assertThat(response.getStatus()).isEqualTo(410);
         verifyNoInteractions(hrmDocumentDao, hrmCategoryDao, hrmDocumentToDemographicDao);
+    }
+
+    // ---- patient access (a report filed to a patient the provider is locked out of) ----------
+
+    private static final int PATIENT = 4242;
+
+    private HRMDocument report(int id, String patientName) {
+        HRMDocument document = mock(HRMDocument.class);
+        when(document.getId()).thenReturn(id);
+        when(document.getFormattedName()).thenReturn(patientName);
+        when(document.getHcn()).thenReturn("FAKE-HCN-" + id);
+        when(document.getDob()).thenReturn("1980-01-02");
+        return document;
+    }
+
+    private void fileReportTo(int reportId, Integer patient) {
+        HRMDocumentToDemographic link = new HRMDocumentToDemographic();
+        link.setHrmDocumentId(reportId);
+        link.setDemographicNo(patient);
+        when(hrmDocumentToDemographicDao.findByHrmDocumentId(Integer.toString(reportId))).thenReturn(List.of(link));
+        when(hrmDocumentToDemographicDao.findByHrmDocumentId(reportId)).thenReturn(List.of(link));
+    }
+
+    /** The read-only evaluation a list uses, and the stateful one a change uses, both answer yes. */
+    private void permitPatient() {
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, PATIENT)).thenReturn(true);
+        for (String object : new String[] {"_demographic", "_hrm"}) {
+            when(securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, object, "r", Integer.toString(PATIENT))).thenReturn(true);
+            when(securityInfoManager.hasPrivilege(loggedInInfo, object, "r", Integer.toString(PATIENT))).thenReturn(true);
+        }
+    }
+
+    private String listReports(HRMDocument... documents) throws Exception {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null)).thenReturn(true);
+        when(hrmDocumentDao.query(any(), anyBoolean(), anyBoolean(), anyBoolean(), anyInt(), anyInt(), any(), any()))
+                .thenReturn(List.of(documents));
+        request.setParameter("start", "0");
+        request.setParameter("length", "10");
+
+        new HRM2Action().execute();
+
+        return response.getContentAsString();
+    }
+
+    @Test
+    @DisplayName("should list a report filed to a patient the provider may read")
+    void shouldListReport_whenPatientIsReadable() throws Exception {
+        fileReportTo(7, PATIENT);
+        permitPatient();
+
+        String json = listReports(report(7, "FAKE-Readable, Patient"));
+
+        assertThat(json).contains("FAKE-Readable, Patient").contains("\"demographic_no\":\"" + PATIENT + "\"");
+    }
+
+    @Test
+    @DisplayName("should leave a report filed to a locked patient out of the list, with its name and health number")
+    void shouldLeaveReportOut_whenPatientIsLocked() throws Exception {
+        fileReportTo(7, PATIENT);
+        permitPatient();
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, PATIENT)).thenReturn(false);
+        when(hrmDocumentToDemographicDao.findByHrmDocumentId("8")).thenReturn(List.of());
+
+        String json = listReports(report(7, "FAKE-Locked, Patient"), report(8, "FAKE-Unfiled, Person"));
+
+        assertThat(json).doesNotContain("FAKE-Locked").doesNotContain("FAKE-HCN-7").doesNotContain("\"id\":\"7\"")
+                .contains("FAKE-Unfiled, Person").contains("\"id\":\"8\"");
+        // A list is filtered read-only: the stateful check, which marks the session, is not used.
+        verify(securityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), eq(Integer.toString(PATIENT)));
+    }
+
+    @Test
+    @DisplayName("should list a report filed to no patient on the module right alone")
+    void shouldListReport_whenFiledToNoPatient() throws Exception {
+        when(hrmDocumentToDemographicDao.findByHrmDocumentId("8")).thenReturn(List.of());
+
+        String json = listReports(report(8, "FAKE-Unfiled, Person"));
+
+        assertThat(json).contains("FAKE-Unfiled, Person");
+        verify(securityInfoManager, never()).isAllowedAccessToPatientRecord(any(LoggedInInfo.class), anyInt());
+    }
+
+    @Test
+    @DisplayName("should not change the category of a report filed to a locked patient")
+    void shouldNotSaveCategory_whenPatientIsLocked() throws Exception {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "w", null)).thenReturn(true);
+        when(hrmCategoryDao.find(3)).thenReturn(mock(HRMCategory.class));
+        fileReportTo(7, PATIENT);
+        request.setParameter("method", "saveCategory");
+        request.setParameter("hrmDocumentId", "7");
+        request.setParameter("categoryId", "3");
+
+        new HRM2Action().execute();
+
+        verify(hrmDocumentDao, never()).find(anyInt());
+        verify(hrmDocumentDao, never()).merge(any(HRMDocument.class));
+        assertThat(response.getContentAsString()).isEqualTo("{}");
+    }
+
+    @Test
+    @DisplayName("should change the category of a report filed to a patient the provider may read")
+    void shouldSaveCategory_whenPatientIsReadable() throws Exception {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "w", null)).thenReturn(true);
+        when(hrmCategoryDao.find(3)).thenReturn(mock(HRMCategory.class));
+        fileReportTo(7, PATIENT);
+        permitPatient();
+        HRMDocument document = mock(HRMDocument.class);
+        when(hrmDocumentDao.find(7)).thenReturn(document);
+        request.setParameter("method", "saveCategory");
+        request.setParameter("hrmDocumentId", "7");
+        request.setParameter("categoryId", "3");
+
+        new HRM2Action().execute();
+
+        verify(document).setHrmCategoryId(3);
+        verify(hrmDocumentDao).merge(document);
     }
 
     @Test

@@ -222,6 +222,23 @@ class HtmlPdfArchitectureUnitTest {
     }
 
     @Test
+    @DisplayName("should never load XHTML through Flying Saucer's string loader, which parses with the JDK's default XML limits")
+    void shouldParseXhtml_onlyThroughXhtmlDom() throws IOException {
+        // A call, not a mention: comments explain why the loader is avoided.
+        Pattern stringLoader = Pattern.compile("\\.\\s*setDocumentFromString\\s*\\(");
+        List<String> violations = new ArrayList<>();
+        for (SourceLine line : lines(allJavaFiles())) {
+            String code = line.text().strip();
+            if (!code.startsWith("//") && !code.startsWith("*") && stringLoader.matcher(code).find()) {
+                violations.add(line.toString());
+            }
+        }
+
+        assertThat(violations).as("XhtmlDom.parse states the limits and refuses a document type; "
+                + "setDocumentFromString would fail a deep or heavily escaped document").isEmpty();
+    }
+
+    @Test
     @DisplayName("should use no retired class-name suffix or SpringUtils lookup in the module")
     void shouldUseNoRetiredSuffix_orSpringUtilsLookupInTheModule() throws IOException {
         Pattern retired = Pattern.compile(".*(Prep|Manager|ManagerImpl|Helper|Utils|Util)\\.java$");

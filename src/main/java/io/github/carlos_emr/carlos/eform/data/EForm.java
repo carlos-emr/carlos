@@ -83,6 +83,8 @@ public class EForm extends EFormBase {
     private HashMap<String, String> fieldValues = new HashMap<String, String>();
     private int needValueInForm = 0;
     private boolean setAP2nd = false;
+    /** Every submitted value by field name while {@link #setValues} runs; a multiple select reads it. */
+    private Map<String, List<String>> submittedSelectValues = Map.of();
     private static final String INPUT_TAG = "input";
     private static final String HIDDEN_INPUT_TYPE = "hidden";
     private static final String VALUE_ATTRIBUTE = "value";
@@ -332,24 +334,45 @@ public class EForm extends EFormBase {
 
     // ------------------Saving the Form (inserting value= statements)---------------------
     public void setValues(ArrayList<String> names, ArrayList<String> values) {
+        setValues(names, values, Map.of());
+    }
+
+    /**
+     * Writes the submitted values into the form's controls.
+     *
+     * <p>{@code values} carries one value per name, which is all a text input, textarea, radio
+     * group or single select can hold. A {@code <select multiple>} submits one value per chosen
+     * option under the same name, so the caller may also pass every value it received in
+     * {@code submittedValues}; a name missing from that map falls back to its single value.</p>
+     *
+     * @param names submitted field names
+     * @param values the value of each name, in the same order
+     * @param submittedValues every submitted value by field name, for {@code <select multiple>}
+     */
+    public void setValues(ArrayList<String> names, ArrayList<String> values, Map<String, List<String>> submittedValues) {
         if (names.size() != values.size()) return;
-        StringBuilder html = new StringBuilder(this.formHtml);
-        int pointer = -1;
-        while ((pointer = getFieldIndex(html, pointer + 1)) >= 0) {
-            String fieldHeader = getFieldHeader(html, pointer);
-            String fieldName = EFormUtil.removeQuotes(EFormUtil.getAttribute("name", fieldHeader));
-            int i;
-            if ((i = names.indexOf(fieldName)) < 0) continue;
+        this.submittedSelectValues = submittedValues == null ? Map.of() : submittedValues;
+        try {
+            StringBuilder html = new StringBuilder(this.formHtml);
+            int pointer = -1;
+            while ((pointer = getFieldIndex(html, pointer + 1)) >= 0) {
+                String fieldHeader = getFieldHeader(html, pointer);
+                String fieldName = EFormUtil.removeQuotes(EFormUtil.getAttribute("name", fieldHeader));
+                int i;
+                if ((i = names.indexOf(fieldName)) < 0) continue;
 
-            String val = values.get(i);
-            pointer = nextSpot(html, pointer);
+                String val = values.get(i);
+                pointer = nextSpot(html, pointer);
 
-				/*
-				 * TODO: Remove the use of pointer completely from this method and update values using the org.jsoup.nodes.Document
-				 */
+                /*
+                 * TODO: Remove the use of pointer completely from this method and update values using the org.jsoup.nodes.Document
+                 */
                 html = putValue(val, getFieldType(fieldHeader), fieldName, pointer, html);
+            }
+            this.formHtml = html.toString();
+        } finally {
+            this.submittedSelectValues = Map.of();
         }
-        this.formHtml = html.toString();
     }
 
     // ------------------Saving the Form (inserting fdid$value= statements)---------------------
@@ -1072,19 +1095,60 @@ public class EForm extends EFormBase {
                 }
                 break;
             case "select":
-                for (Element option : field.select("option")) {
-                    if (option.attr(VALUE_ATTRIBUTE).equals(value)) {
-                        option.attr("selected", "selected");
-                    } else {
-                        option.removeAttr("selected");
-                    }
-                }
+                List<String> submitted = submittedSelectValues.get(fieldName);
+                selectSubmittedOptions(field, submitted == null || submitted.isEmpty() ? List.of(value) : submitted);
                 break;
             default:
                 // Do nothing for unknown types
         }
 
 		return new StringBuilder(getFormHtml());
+    }
+
+    /**
+     * Marks the options a browser submitted these values for, and clears every other option.
+     *
+     * <p>Selection follows the HTML rules the browser applied when it built the submission. A
+     * single select submits one value and its first matching option is the selected one; a
+     * {@code multiple} select submits one value per selected option, so each submitted value
+     * claims one option, in document order. An option that is disabled is never submitted, so an
+     * enabled option with the same value is preferred to it. A value that matches no option
+     * selects nothing: the template default it replaces is still cleared.</p>
+     */
+    private static void selectSubmittedOptions(Element select, List<String> submittedValues) {
+        List<Element> options = select.select("option");
+        List<String> wanted = select.hasAttr("multiple") ? submittedValues : submittedValues.subList(0, 1);
+        Set<Element> chosen = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (String value : wanted) {
+            Element match = firstUnclaimedOption(options, value, chosen, true);
+            if (match == null) match = firstUnclaimedOption(options, value, chosen, false);
+            if (match != null) chosen.add(match);
+        }
+        for (Element option : options) {
+            if (chosen.contains(option)) {
+                option.attr("selected", "selected");
+            } else {
+                option.removeAttr("selected");
+            }
+        }
+    }
+
+    private static Element firstUnclaimedOption(List<Element> options, String value, Set<Element> claimed, boolean enabledOnly) {
+        for (Element option : options) {
+            if (claimed.contains(option) || (enabledOnly && option.hasAttr("disabled"))) continue;
+            if (submittedOptionValue(option).equals(value)) return option;
+        }
+        return null;
+    }
+
+    /**
+     * The value a browser submits for an option: its {@code value} attribute when it has one,
+     * otherwise its text with whitespace stripped and collapsed. jsoup reads a missing attribute
+     * as an empty string, which is why the attribute alone cannot be compared: every value-less
+     * option would then equal a blank submission.
+     */
+    private static String submittedOptionValue(Element option) {
+        return option.hasAttr(VALUE_ATTRIBUTE) ? option.attr(VALUE_ATTRIBUTE) : option.text();
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

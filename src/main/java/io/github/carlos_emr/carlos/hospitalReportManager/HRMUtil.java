@@ -79,6 +79,19 @@ public class HRMUtil {
             return new ArrayList<>();
         }
 
+        // Every list of one patient's reports comes through here (the chart's HRM panel and popup,
+        // and the attachment pickers of consultations, eForms, ticklers and the document preview),
+        // so the patient's own access rules are applied here, before a link or a report file is
+        // read. The number is read as the DAO below reads it; one that names no patient is left
+        // to the DAO, as before.
+        Integer patient = HRMReportAccess.number(demographicNo);
+        if (patient != null && patient > 0
+                && !HRMReportAccess.mayReadPatient(securityInfoManager(), loggedInInfo, patient)) {
+            LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), "HRMUtil.listHRMDocuments", "UNAUTHORIZED", "missing required patient read access", loggedInInfo.getIp(), demographicNo, null);
+            logger.warn("HRM report list withheld: missing required patient read access");
+            return new ArrayList<>();
+        }
+
         ArrayList<HashMap<String, ? extends Object>> hrmdocslist = new ArrayList<HashMap<String, ?>>();
 
         //get a list of all HRM documents linked to a particular demographic
@@ -307,6 +320,8 @@ public class HRMUtil {
             throw new SecurityException("missing required sec object (_hrm)");
         }
 
+        HRMReportAccess.requireReport(securityInfoManager(), hrmDocumentToDemographicDao(), loggedInInfo, hrmId);
+
         HRMDocument hrmDocument = hrmDocumentDao().find(hrmId);
         HRMReport hrmReport = HRMReportParser.parseReport(loggedInInfo, hrmDocument.getReportFile());
         if (hrmReport == null) {
@@ -362,6 +377,8 @@ public class HRMUtil {
         if (!securityInfoManager().hasPrivilege(loggedInInfo, "_hrm", "r", null)) {
             throw new SecurityException("missing required sec object (_hrm)");
         }
+
+        HRMReportAccess.requireReport(securityInfoManager(), hrmDocumentToDemographicDao(), loggedInInfo, hrmId);
 
         Path path = null;
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
