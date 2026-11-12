@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "430b8b6efff975632a36d9e7e20550c9de09cf55",
-  "comparisonSha256": "ec017e372a147525929fe1b2b015da2a8aec61d060c4ca82f35672a40e1fe0f2",
-  "baselineCommit": "22d340f966fd893a90d64cccd3595e5e780d5a6f",
-  "baselineSourceTree": "430b8b6efff975632a36d9e7e20550c9de09cf55",
-  "baselineReportSha256": "ca0ec5082e6debff3c1febe8ac6904d63c803d3b3d1afdd8b8a26da2ba499f2d",
-  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5 complete H2 java-all run (offline Maven, forkCount 1 after a forkCount-2 attempt stopped at the 4 GiB memory guard), not through verify-release-evidence.py. Source: a local test merge (285ecce54e) of release 1b27a8fd2c with #6139 (ba5d934784), #6163 (22d340f966), #6161 (f8d722b66d), #6156 (75d5c77f8f), #6164 (7fec274a7f) and #6171 (b29c254728). Maven ran 36,370 tests, 219 skipped, 0 failures, 2 errors (PrescriptionQrCodeUIBeanUnitTest: its QR decoding check threw a ZXing ChecksumException in two cases; none of these PRs touches it).",
+  "sourceTree": "73e30e10303ab123f289249f65449ee1c6da6e91",
+  "comparisonSha256": "905cbef6f100fa6c09e15763be7e1720db202ff9f80b2fe7afd05c9957b2127c",
+  "baselineCommit": "39835729fceedbcde4f46d393839c80dae07a719",
+  "baselineSourceTree": "73e30e10303ab123f289249f65449ee1c6da6e91",
+  "baselineReportSha256": "f9b1aefcc6edc825d36a96af25b4760495dfe615284a5207e9ddf9f401b7185d",
+  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5: the union of a complete H2 java-all run (offline Maven, forkCount 2) and the release plan's java-browser-pdf lane (EFormBrowserPdfServiceSeleniumSmokeIntegrationTest, DhirReviewJspBrowserIntegrationTest, MeasurementChartSmokeIntegrationTest; headless Chrome for Testing 148 with chromedriver 148 on a loopback port; 5 tests, 0 failures, 0 skipped), both on the same compiled classes of a local test merge (f5c8f2b931) of release 1b27a8fd2c with #6174 (3e77d10d9a) and #6163 (39835729fc); not through verify-release-evidence.py. The H2 run had 36,234 tests, 217 skipped, 1 failure and 1 error in classes neither PR touches (CdsXmlParserLargeInputUnitTest's bounded parser probe passed its 180-second deadline under load; PrescriptionQrCodeUIBeanUnitTest's QR decoding threw a ZXing ChecksumException).",
   "baselineTestCounts": {
-    "tests": 36370,
-    "skipped": 219,
-    "failures": 0,
-    "errors": 2
+    "tests": 36234,
+    "skipped": 217,
+    "failures": 1,
+    "errors": 1
   },
-  "baselineTestReportsSha256": "d9d354f5bff1392e6a95c2fe8b3d4c20e1d513a5e58bfd139ca76e74dcc16d1b",
+  "baselineTestReportsSha256": "2d758624e9d35b037368d2aa99e8746558d412eceae0fe229e0a6f5fd673b67a",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -1759,7 +1759,7 @@
       "lines": 100.0,
       "instructions": 92.88389513108615,
       "branches": 68.75,
-      "sourceBlob": "211e3ac26ed861ef61334fbc99fd15128aac74e0"
+      "sourceBlob": "dc571bb92838a52ade2815476a573f37b10016da"
     },
     "src/main/java/io/github/carlos_emr/carlos/eform/util/BrowserOptions.java": {
       "lines": 100.0,
@@ -1777,7 +1777,7 @@
       "lines": 69.11764705882354,
       "instructions": 67.01754385964912,
       "branches": 70.83333333333333,
-      "sourceBlob": "f3dd9f05ef85cb91cf6d5cf38b4598ef43e9f22a"
+      "sourceBlob": "14ad74f0a5e12db4a48c74fa48d24cf03ec5ed03"
     },
     "src/main/java/io/github/carlos_emr/carlos/eform/util/EFormBrowserRendererStartupValidator.java": {
       "lines": 100.0,
@@ -1807,7 +1807,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 95.83333333333333,
-      "sourceBlob": "9962d354b079f5f57d1bf3dd25fdb0d592f8c881"
+      "sourceBlob": "e2eaa9c67a4ab62a7569abd6813a5cd108400057"
     },
     "src/main/java/io/github/carlos_emr/carlos/eform/util/RenderBrowser.java": {
       "lines": 94.64285714285714,
@@ -1951,7 +1951,7 @@
       "lines": 81.02766798418972,
       "instructions": 79.12657290895633,
       "branches": 77.8894472361809,
-      "sourceBlob": "212646fb12e80fa00115a7f1feeadd96bfd7c0de"
+      "sourceBlob": "9f25c59cb5b7da90608381adbfe133024ce847ed"
     },
     "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/ScatterPlotChartServlet.java": {
       "lines": 100.0,
@@ -4429,7 +4429,13 @@
       "lines": 100.0,
       "instructions": 98.51851851851852,
       "branches": 95.0,
-      "sourceBlob": "137340ad8c6ae33095dc69633d6fc027ae4e9149"
+      "sourceBlob": "d6908c345ae44ad46c95a2fbc03820d144baab8f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/GraphDataException.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "e3964101d95664debb45d46ea1e9c7057d728973"
     }
   },
   "exclusions": {
@@ -4471,6 +4477,15 @@
     }
   },
   "zeroCoverageWaivers": {},
-  "baselineAdditionalTestRuns": [],
-  "baselineTestRunCommit": "285ecce54e265a643cd600d3691ae3c8af9b4f96"
+  "baselineAdditionalTestRuns": [
+    {
+      "lane": "java-browser-pdf",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "reportsSha256": "b5425321153be6d1b8d24594fd5b8b2ff22b218498f7eb3d31235c3cac8581bf"
+    }
+  ],
+  "baselineTestRunCommit": "f5c8f2b931a77f368d8083ce9589356961483a93"
 }
