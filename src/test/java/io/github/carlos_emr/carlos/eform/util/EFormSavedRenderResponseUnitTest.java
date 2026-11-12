@@ -85,6 +85,8 @@ class EFormSavedRenderResponseUnitTest {
         assertThat(EFormSavedRenderResponse.missing(request, service, user, failure, 42, "123", "7", DOWNLOAD, previous, true))
                 .isEqualTo("missingContent");
         assertThat(request.getAttribute("approvalAction")).isEqualTo("eform/downloadEFormPdf");
+        // The page's first line (#6162): no Accept-Language gives the English.
+        assertThat(request.getAttribute("missingContentMessage")).isEqualTo(EFormRenderMessage.NOT_DOWNLOADED.english());
         assertThat(request.getAttribute("approvalAutoClose")).isEqualTo("true");
         assertThat(request.getAttribute("excludedContentElements")).isEqualTo(2);
         EFormRenderApproval combined = service.consume(request, user, 42, "123", DOWNLOAD,
@@ -107,6 +109,19 @@ class EFormSavedRenderResponseUnitTest {
         assertThat(refreshed.permits(42, "999998", report)).isFalse();
         assertThat(refreshed.permits(43, "999998", changed)).isTrue();
         assertThat(request.getAttribute("approvalAction")).isEqualTo("eform/saveEFormAsEDoc");
+        assertThat(request.getAttribute("missingContentMessage")).isEqualTo(EFormRenderMessage.NOT_ADDED_TO_DOCUMENTS.english());
+    }
+
+    @Test
+    void addToDocumentsMessageFollowsTheViewersLanguage() {
+        request.addHeader("Accept-Language", "fr-CA");
+        request.setPreferredLocales(java.util.List.of(java.util.Locale.CANADA_FRENCH));
+        EFormSavedRenderResponse.missing(request, service, user,
+                new EformContentUnavailableException("incomplete", 42, report), 42, "123", "7", EDOC, null, false);
+        // eform.renderMissingContent.msgNotAddedToDocuments in oscarResources_fr.
+        assertThat(request.getAttribute("missingContentMessage")).isEqualTo("Cet eForm n\u2019a pas pu \u00EAtre rendu "
+                + "enti\u00E8rement, il n\u2019a donc pas \u00E9t\u00E9 ajout\u00E9 aux documents du patient. Examinez les "
+                + "omissions ci-dessous avant de l\u2019archiver.");
     }
 
     @Test
