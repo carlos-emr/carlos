@@ -490,8 +490,18 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
                 "Non-reactive | Non-reactive",
                 "Test not performed | Test not performed",
                 "lrg++        | lrg++",
-                // A date that is the whole result is still filed (#6121).
-                "2026/11/01   | 2026/11/01"})
+                // A date that is the whole result is still filed (#6121); "2026 10 09" only through a date
+                // alternative, which the number alternative cannot file whole.
+                "2026/11/01   | 2026/11/01",
+                "2026 10 09   | 2026 10 09",
+                "2026.10.09   | 2026.10.09",
+                // Ordinary numbers keep the leading-number rule (#6121 skips only a leading date).
+                "5.6 mmol/L   | 5.6",
+                "120/80 mmHg  | 120/80",
+                "1.5-2.0      | 1.5-2.0",
+                "100,000      | 100,000",
+                "3.14159      | 3.14159",
+                "1:1280       | 1:1280"})
         void shouldFileValueTheLabSent_whenShippedFilterMatchesResult(String result, String expected) throws IOException {
             Measurement measurement = fileResult(result, shippedFilter(), OBSERVED, ENTERED);
 
@@ -510,12 +520,15 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
          * A listed word or a date counts only as the whole result (#6121). Matched at the start of a longer result, a
          * word filed an answer the lab did not give: "No organisms seen" as "No", "N/A" as "N", blood group
          * "A positive" as "A". Matched anywhere, a date filed the date instead of the lab's answer:
-         * "Negative 2026-10-09" as "2026-10-09".
+         * "Negative 2026-10-09" as "2026-10-09". A result that starts with a date and goes on ("2026-10-09 repeat") is
+         * not a date either.
          */
         @ParameterizedTest(name = "[{0}] is not filed")
         @CsvSource(delimiter = '|', value = {"No organisms seen", "N/A", "A positive", "Negative for malignancy",
                 "Positive for E. coli", "Normal flora", "Moderate growth", "No growth after 48 hours", "Yes - see report",
-                "Negative 2026-10-09", "Collected 2026-10-09", "Positive (2026-10-09)", "Positive, repeat 2026/11/01"})
+                "Negative 2026-10-09", "Collected 2026-10-09", "Positive (2026-10-09)", "Positive, repeat 2026/11/01",
+                // A result that starts with a date and goes on is not a date (#6121).
+                "2026-10-09 repeat", "12/05/2026 see note", "2026 10 09 repeat", "2026-10-09T10:30", "01/02/2026 (approx)"})
         void shouldNotFilePartOfTheResult_whenAWordOrDateIsNotTheWholeResult(String result) throws IOException {
             assertThat(fileResult(result, shippedFilter(), OBSERVED, ENTERED)).isNull();
             verify(measurementDao, never()).persist(any(Measurement.class));

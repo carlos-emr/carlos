@@ -110,9 +110,13 @@ class TestLabFilterWordsMigration(unittest.TestCase):
     def test_shipped_line_is_the_4613_line_with_whole_value_words_and_dates(self):
         old, new = alternatives(old_line()), alternatives(shipped_line())
         self.assertEqual(len(old), len(new))
-        # The two date alternatives must be the whole result; the leading number is unchanged.
+        # The two date alternatives must be the whole result; the leading number skips a result that
+        # starts with a date and goes on, and is otherwise unchanged.
         self.assertEqual(new[:2], ["^" + date + "$" for date in old[:2]])
-        self.assertEqual(old[2], new[2])
+        skip = ("(?![0-9]{4}[-/. ][0-9]{1,2}[-/. ][0-9]{1,2}[^0-9]"
+                "|[0-9]{1,2}[-/. ][0-9]{1,2}[-/. ][0-9]{4}[^0-9])")
+        self.assertTrue(old[2].startswith("^"), old[2])
+        self.assertEqual(new[2], "^" + skip + old[2][1:])
         for before, after in zip(old[3:], new[3:]):
             with self.subTest(word=before):
                 self.assertTrue(before.startswith("^\\\\b("), before)

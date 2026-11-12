@@ -169,8 +169,9 @@ See [Jasper/OpenPDF migration](jasperreports-openpdf3.md).
 - The stock `HL7_LAB_MEASUREMENT_FILTER` files a listed word or a date only when it is the
   whole lab result ([#6121](https://github.com/carlos-emr/carlos/issues/6121)): `No organisms seen`,
   `N/A` and the blood group `A positive` are no longer filed as `No`, `N` and `A`, and
-  `Negative 2026-10-09` or `Collected 2026-10-09` no longer as the date. Numbers, and a
-  result that is a date, are filed as before.
+  `Negative 2026-10-09` or `Collected 2026-10-09` no longer as the date. A result that starts
+  with a date and goes on (`2026-10-09 repeat`, `12/05/2026 see note`) is not filed either.
+  Other numbers, and a result that is only a date, are filed as before.
   - The package rewrites the exact previous stock line in `/etc/carlos-emr/carlos.properties`
     once. It leaves an edited line alone, and warns when that line still matches words at the
     start of a result.
