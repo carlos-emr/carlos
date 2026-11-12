@@ -10154,7 +10154,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "The runWorkflow FAKE- patient, made 70 by SQL; its preventions and their ext rows are removed in cleanup.",
-      "notes": "A patient's prevention reminders (the Prevention Recommendations box). Steps: a 70-year-old with no flu shot is told \"Needs Flu Shot\" and decision support reports no error; recording a flu shot today takes that reminder away; LAST, after an adult Tdap from forty years ago (the adult Tdap reminder comes first while due, #5048), a Td from twelve years ago, the patient's only Td, raises \"Needs repeat Td\". Its last step checks #4998 (no repeat-Td reminder appeared); its fix #5014 merged on 18 Oct. Every earlier step passes."
+      "notes": "A patient's prevention reminders (the Prevention Recommendations box). Steps: a 70-year-old with no flu shot is told \"Needs Flu Shot\" and decision support reports no error; recording a flu shot today takes that reminder away; with no Tdap on file, \"Needs adult Tdap (one dose)\" shows; LAST, after an adult Tdap from forty years ago (the adult Tdap reminder comes first while due, #5048), a Td from twelve years ago, the patient's only Td, raises \"Needs repeat Td\". Its last step checks #4998 (no repeat-Td reminder appeared); its fix #5014 merged on 18 Oct. Every earlier step passes."
     },
     {
       "name": "prevention-screening-reminder-controls",

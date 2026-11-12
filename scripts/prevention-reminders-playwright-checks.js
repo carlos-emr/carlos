@@ -7,9 +7,9 @@
  * User path: E-Chart ▸ Preventions (the Prevention Recommendations box); ▸ Inf ▸ Completed today ▸ Save; ▸ Tdap ▸
  * Completed forty years ago ▸ Save; ▸ Td ▸ Completed twelve years ago ▸ Save.
  * Asserts: a 70-year-old with no flu shot is told "Needs Flu Shot" and decision support reports no error; recording a
- * flu shot today takes that reminder away; LAST, after an adult Tdap from forty years ago (so the adult Tdap reminder,
- * which comes first while due, #5048, is satisfied), a Td from twelve years ago, the patient's only Td, raises
- * "Needs repeat Td".
+ * flu shot today takes that reminder away; with no Tdap on file, the adult Tdap reminder shows (#5048); LAST, after an
+ * adult Tdap from forty years ago (so that reminder, which comes first while due, is satisfied), a Td from twelve
+ * years ago, the patient's only Td, raises "Needs repeat Td".
  * Fixtures: the runWorkflow FAKE- patient, made 70 by SQL; its preventions and their ext rows are removed in cleanup.
  */
 const { assert, sqlString } = require('./lib/playwright-harness');
@@ -59,6 +59,11 @@ async function workflow(s) {
   await s.step('recording a flu shot today takes the flu reminder away', async () => {
     const shown = await remindersListing(await record('Inf', today));
     assert(!shown.includes('Needs Flu Shot'), `The flu reminder is still shown after today's flu shot: ${shown.slice(0, 300)}`);
+  });
+
+  await s.step('with no Tdap on file, the 70-year-old is told "Needs adult Tdap (one dose)"', async () => {
+    const shown = await reminders();
+    assert(shown.includes('Needs adult Tdap (one dose)'), `No adult Tdap reminder without a Tdap on file: ${shown.slice(0, 300)}`);
   });
 
   await s.step('after an adult Tdap forty years ago, a Td from twelve years ago, the only Td, raises "Needs repeat Td"', async () => {

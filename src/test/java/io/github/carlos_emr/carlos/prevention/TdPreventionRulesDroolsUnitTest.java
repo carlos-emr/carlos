@@ -130,6 +130,11 @@ class TdPreventionRulesDroolsUnitTest {
 
     /** A Tdap record dated today, saved the way the prevention page saves it: refused, or "ineligible". */
     private static PreventionItem declinedTdapToday(boolean ineligible) {
+        return declinedTdapToday(ineligible, false);
+    }
+
+    /** As above, with "never remind" ticked as well, as the prevention page saves it beside the status. */
+    private static PreventionItem declinedTdapToday(boolean ineligible, boolean neverRemind) {
         io.github.carlos_emr.carlos.commn.model.Prevention record = new io.github.carlos_emr.carlos.commn.model.Prevention();
         record.setPreventionType("Tdap");
         record.setPreventionDate(yearsAgo(0));
@@ -138,6 +143,7 @@ class TdPreventionRulesDroolsUnitTest {
         } else {
             record.setRefused(true);
         }
+        record.setNever(neverRemind);
         return new PreventionItem(record, PreventionDateDTO.from(record.getPreventionDate(), null));
     }
 
@@ -476,6 +482,14 @@ class TdPreventionRulesDroolsUnitTest {
         Prevention adult = adultWith("Td", 12);
         adult.addPreventionItem(declinedTdapToday(false));
         assertThat(fireRules(adult).getWarnings()).containsOnlyOnce(REPEAT_TD).doesNotContain(ADULT_TDAP, NEEDS_TD);
+    }
+
+    @Test
+    void shouldRemindOfARepeatTd_whenTheAdultTdapWasRefusedTodayWithNeverRemind() {
+        // The usual way to dismiss it for good: refused, and "never remind" ticked, dated today.
+        Prevention adult = adultWith("Td", 12);
+        adult.addPreventionItem(declinedTdapToday(false, true));
+        assertThat(fireRules(adult).getWarnings()).containsOnlyOnce(REPEAT_TD).doesNotContain(ADULT_TDAP);
     }
 
     @Test
