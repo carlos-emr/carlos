@@ -25,8 +25,10 @@ import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService;
 import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalEmailFooterAuditPage;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalEmailFooterAuditService;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -77,7 +79,7 @@ class ViewPortalEmailFooterAuditUnitTest {
         request.addParameter("portalFooterDate","2026-10-09");
         var row=new PortalEmailFooterAuditPage.Attempt("01791547200000000000-00000000000000000000000000000001",
                 "mfa",java.time.Instant.parse("2026-10-09T01:00:00Z"),"unknown",
-                java.time.Instant.parse("2026-10-09T01:00:01Z"),"a".repeat(64),"FAKE Saved Old Clinic",null);
+                java.time.Instant.parse("2026-10-09T01:00:01Z"),"a".repeat(64),"FAKE Saved Old Clinic",null,null);
         var history=new PortalEmailFooterAuditPage(LocalDate.of(2026,10,9),List.of(row),null);
         when(audit.read(any(),eq(history.date()),isNull())).thenReturn(history);
         assertThat(action().execute()).isEqualTo("success");
@@ -106,6 +108,30 @@ class ViewPortalEmailFooterAuditUnitTest {
         assertThat(request.getAttribute("portalFooterAuditError")).isEqualTo("unavailable");
         assertThat(request.getAttribute("portalFooterAudit")).isNull();
     }
+    @Test void shouldLogWhyHistoryIsUnavailable_whenPortalReplyIsMalformed() throws Exception {
+        authorize();
+        request.addParameter("portalFooterDate","2026-10-09");
+        when(audit.read(any(),any(),isNull())).thenThrow(PatientPortalException.ofMalformedResponse(200,
+                "/internal/carlos/email-footer-attempts",new IllegalStateException("FAKE remote detail")));
+        try (LogCapture logs=LogCapture.forLogger(ViewConfigureEmail2Action.class)) {
+            assertThat(action().execute()).isEqualTo("success");
+            // One line for the operator with the fixed refusal, never remote text.
+            assertThat(logs.messages()).hasSize(1);
+            assertThat(logs.messages().get(0)).contains("footer history refused","portal response is not valid JSON")
+                    .doesNotContain("FAKE remote detail");
+        }
+        assertThat(request.getAttribute("portalFooterAuditError")).isEqualTo("unavailable");
+        // A Portal that cannot be reached is not a refused reply: nothing extra is logged.
+        request.removeAttribute("portalFooterAuditError");
+        // doThrow: the mock already throws from read(), so it cannot be re-stubbed with when(read(...)).
+        doThrow(PatientPortalException.ofTransportFailure("/internal/carlos/email-footer-attempts",
+                new java.io.IOException("FAKE connect failure"))).when(audit).read(any(),any(),isNull());
+        try (LogCapture logs=LogCapture.forLogger(ViewConfigureEmail2Action.class)) {
+            action().execute();
+            assertThat(logs.messages()).isEmpty();
+        }
+        assertThat(request.getAttribute("portalFooterAuditError")).isEqualTo("unavailable");
+    }
     @Test void shouldOmitHistory_whenPortalIsOff_withoutClientLookup() throws Exception {
         authorize();
         var a=new ViewConfigureEmail2Action(security,logo,clinic,audit,()->false);
@@ -113,8 +139,55 @@ class ViewPortalEmailFooterAuditUnitTest {
         assertThat(request.getAttribute("portalFooterAuditEnabled")).isNull();
         verifyNoInteractions(audit);
     }
+    @Test void shouldShowSkippedReasonLabel_insteadOfFooterText() throws Exception {
+        String jsp=activeJsp();
+        int start=jsp.indexOf("<c:when test=\"${not empty attempt.footerSkipped}\">");
+        assertThat(start).isPositive();
+        String skipped=jsp.substring(start,jsp.indexOf("</c:when>",start));
+        String otherwise=jsp.substring(jsp.indexOf("<c:otherwise>",start),jsp.indexOf("</c:otherwise>",start));
+        // A send without the footer shows the localized sentence with the reason's localized label,
+        // encoded, and never a footer or the raw reason.
+        assertThat(skipped).contains(
+                "<fmt:message var=\"portalFooterSkippedReason\" key=\"admin.configureEmail.portalFooter.skippedReason.${attempt.footerSkipped}\"/>",
+                "<fmt:message key=\"admin.configureEmail.portalFooter.skipped\"><fmt:param><carlos:encode value=\"${portalFooterSkippedReason}\"/></fmt:param></fmt:message>")
+                .doesNotContain("<pre","footerText","value=\"${attempt.footerSkipped}\"","escapeXml");
+        // Every other attempt shows its saved footer text, encoded, as before.
+        assertThat(otherwise).contains("<pre class=\"mt-2\" style=\"white-space:pre-wrap;\"><carlos:encode value=\"${attempt.footerText}\"/></pre>");
+        assertThat(org.jsoup.Jsoup.parse(jsp).select("pre")).hasSize(1);
+    }
+    // JSP comments render nothing, so every source check below looks only at the active page.
+    private static final java.util.regex.Pattern JSP_COMMENT=java.util.regex.Pattern.compile("<%--.*?--%>",java.util.regex.Pattern.DOTALL);
+    private static String activeJsp() throws java.io.IOException {
+        return JSP_COMMENT.matcher(Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/portalFooterAudit.jspf"))).replaceAll("");
+    }
+    private static final String SKIPPED_MARKER="<c:if test=\"${not empty attempt.footerSkipped}\">&#8212; "
+            +"<fmt:message key=\"admin.configureEmail.portalFooter.skippedMarker\"/></c:if>";
+    private static String attemptSummary(String jsp){
+        int row=jsp.indexOf("<details class=\"portal-footer-attempt");
+        assertThat(row).isPositive();
+        return jsp.substring(jsp.indexOf("<summary>",row),jsp.indexOf("</summary>",row));
+    }
+    @Test void shouldEndSkippedRowsCollapsedLine_withTheMarker() throws Exception {
+        String jsp=activeJsp();
+        // A row sent without the footer says so on its collapsed line, after its status, so it is
+        // found without opening each row. The key is used nowhere else on the page.
+        String summary=attemptSummary(jsp);
+        assertThat(summary).contains(SKIPPED_MARKER);
+        assertThat(summary.indexOf(SKIPPED_MARKER)).isGreaterThan(summary.indexOf("status.${attempt.status}"));
+        assertThat(jsp.split("portalFooter\\.skippedMarker",-1)).hasSize(2);
+    }
+    @Test void shouldLeaveOrdinaryRowsCollapsedLine_unchanged() throws Exception {
+        String jsp=activeJsp();
+        // An ordinary row has no footerSkipped (the page parser leaves it null), so the marker's
+        // condition is false and its line is time, kind and status only, as before.
+        String ordinary=attemptSummary(jsp).replace(SKIPPED_MARKER,"");
+        assertThat(ordinary).contains("<carlos:encode value=\"${attempt.preparedAt}\"/> &#8212;",
+                "<fmt:message key=\"admin.configureEmail.portalFooter.kind.${attempt.kind}\"/> &#8212;",
+                "<fmt:message key=\"admin.configureEmail.portalFooter.status.${attempt.status}\"/>")
+                .doesNotContain("footerSkipped","skipped","<c:");
+    }
     @Test void shouldUseNativeCollapsedDetails_andEscapedSavedPlaintext() throws Exception {
-        String jsp=Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/portalFooterAudit.jspf"));
+        String jsp=activeJsp();
         var doc=org.jsoup.Jsoup.parse(jsp);
         assertThat(doc.select("details")).hasSize(2);
         assertThat(doc.select("details[open]")).isEmpty();
