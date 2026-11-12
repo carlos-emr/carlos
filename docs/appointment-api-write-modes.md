@@ -26,3 +26,11 @@ All modes retain authorization, the locked transactional read/archive/write,
 editable-field allowlist, actor metadata, audit behavior and response token.
 The compatibility mode does not permit arbitrary property writes. Legacy writes
 emit their fixed diagnostic at DEBUG, rather than a WARN on every request.
+
+The header is read from the request CXF is serving (`AbstractServiceImpl.getRequestHeader`),
+not from a `@Context` field. The REST resources are published as singletons behind a Spring
+CGLIB proxy; CXF injects a `@Context` field into the proxy object, the resource method runs on
+the proxy's target, and the field there stays null. Read that way, the header was ignored on
+every deployed request and each write silently took the "Absent" row above.
+`ScheduleServiceProxiedWriteModeEndpointTest` exercises this table through that proxy, and
+`RestServiceSurfaceRegistrationUnitTest` refuses a `@Context` field or setter on a REST resource.

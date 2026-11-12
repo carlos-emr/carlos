@@ -44,6 +44,8 @@ import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Repository
@@ -70,6 +72,13 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
 
     public OscarLogDaoImpl() {
         super(OscarLog.class);
+    }
+
+    // REQUIRES_NEW suspends the caller's transaction, if any, and inserts on a connection of its own.
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void persistInNewTransaction(OscarLog oscarLog) {
+        entityManager.persist(oscarLog);
     }
 
     @Override

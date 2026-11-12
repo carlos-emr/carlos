@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -182,6 +183,42 @@ class LogActionUnitTest {
                     || event.getMessage().getFormattedMessage().contains("chest pain")
                     || event.getMessage().getFormattedMessage().contains("chest-pain-501")
                     || event.getMessage().getFormattedMessage().contains("101"));
+        }
+    }
+
+    @Test
+    @Tag("create")
+    void shouldUseDaoOwnTransaction_forIndependentAudit() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        OscarLog entry = new OscarLog();
+        entry.setAction("REST WS: FAILURE: synthetic");
+
+        LogAction.addLogSynchronousInNewTransaction(entry);
+
+        // Not persist(), which would join a transaction the caller has open.
+        verify(oscarLogDao).persistInNewTransaction(entry);
+        verify(oscarLogDao, never()).persist(any());
+    }
+
+    @Test
+    @Tag("create")
+    void shouldSwallowPersistenceFailureAndNotLogAuditedData_fromIndependentAudit() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        doThrow(new IllegalStateException("synthetic persistence failure")).when(oscarLogDao)
+                .persistInNewTransaction(any());
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        OscarLog entry = new OscarLog();
+        entry.setAction("read");
+        entry.setContent("Jane Roe 4034-chart");
+        entry.setData(NOTE_TEXT_WITH_PHI);
+
+        try (LogCapture capture = LogCapture.forLogger(LogAction.class)) {
+            assertThatCode(() -> LogAction.addLogSynchronousInNewTransaction(entry)).doesNotThrowAnyException();
+
+            assertThat(capture.events()).anyMatch(event -> event.getMessage().getFormattedMessage().contains("action=read"));
+            assertThat(capture.events()).noneMatch(event -> event.getMessage().getFormattedMessage().contains("Jane Roe")
+                    || event.getMessage().getFormattedMessage().contains("chest pain"));
         }
     }
 
