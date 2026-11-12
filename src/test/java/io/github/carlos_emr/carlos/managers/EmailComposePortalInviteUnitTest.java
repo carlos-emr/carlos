@@ -99,6 +99,26 @@ class EmailComposePortalInviteUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should refuse to reopen an email that carried a myCarlos device code")
+    void shouldRefuseResend_forAMyCarlosDeviceCode() {
+        when(emailLogDao.find((Object) 7)).thenReturn(emailLog(TransactionType.MYCARLOS_CODE));
+
+        assertThatThrownBy(() -> emailComposeManager.prepareEmailForResend(loggedInInfo, 7))
+                .isInstanceOf(EmailComposeManager.DeviceCodeEmailException.class);
+    }
+
+    @Test
+    @DisplayName("should check the patient's record before refusing a myCarlos device code email")
+    void shouldRefuseAccess_beforeNamingTheDeviceCodeEmail() {
+        when(emailLogDao.find((Object) 7)).thenReturn(emailLog(TransactionType.MYCARLOS_CODE));
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(false);
+
+        assertThatThrownBy(() -> emailComposeManager.prepareEmailForResend(loggedInInfo, 7))
+                .isInstanceOf(SecurityException.class)
+                .isNotInstanceOf(EmailComposeManager.DeviceCodeEmailException.class);
+    }
+
+    @Test
     @DisplayName("should still reopen an ordinary patient email")
     void shouldAllowResend_forAnOrdinaryEmail() {
         when(emailLogDao.find((Object) 7)).thenReturn(emailLog(TransactionType.DIRECT));
