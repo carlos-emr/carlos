@@ -32,6 +32,13 @@ public enum AppointmentReminderStatus {
     SENDING,
     /** The channel accepted it (for email: accepted by the mail server). */
     SENT,
+    /**
+     * Handed to the SMS queue (#884), which sends, retries and recovers it; its text's row says how it ended.
+     * Never retried by the reminder job, so a text is never queued twice for one start.
+     */
+    QUEUED,
+    /** Not sent in time: the text's limit (the start minus the cutoff) passed while it waited (#884). */
+    EXPIRED,
     /** The channel tried and definitely did not send it. */
     FAILED,
     /** The channel tried but could not confirm whether it went; never retried. */

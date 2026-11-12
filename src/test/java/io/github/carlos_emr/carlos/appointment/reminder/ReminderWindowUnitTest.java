@@ -30,6 +30,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -124,4 +125,46 @@ class ReminderWindowUnitTest {
         assertThat(configuredWindow.isDue(START, START.minusHours(hours), null)).isTrue();
         assertThat(configuredWindow.isDue(START, START.minusHours(2), null)).isFalse();
     }
+
+    /** #884: texts keep quiet hours, 21:00 to 08:00, which wrap past midnight. */
+    @Test
+    void shouldKeepQuietHours_thatWrapPastMidnight() {
+        ReminderWindow sms = ReminderWindow.forSmsHoursBefore(null);
+
+        assertThat(sms.isQuiet(LocalTime.of(21, 0))).isTrue();
+        assertThat(sms.isQuiet(LocalTime.of(23, 59))).isTrue();
+        assertThat(sms.isQuiet(LocalTime.of(0, 0))).isTrue();
+        assertThat(sms.isQuiet(LocalTime.of(7, 59))).isTrue();
+        assertThat(sms.isQuiet(LocalTime.of(8, 0))).isFalse();
+        assertThat(sms.isQuiet(LocalTime.of(20, 59))).isFalse();
+        assertThat(new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2)).isQuiet(LocalTime.MIDNIGHT))
+                .as("email has none").isFalse();
+    }
+
+    @Test
+    void shouldHoldATextDueAtNight_untilEightIfStillDueThen() {
+        ReminderWindow sms = ReminderWindow.forSmsHoursBefore("24");
+        LocalDateTime start = LocalDateTime.of(2026, 11, 18, 23, 30);
+
+        assertThat(sms.isDue(start, start.minusHours(24), null)).as("23:30 the day before").isFalse();
+        assertThat(sms.isDue(start, LocalDateTime.of(2026, 11, 18, 8, 0), null)).isTrue();
+        assertThat(sms.opensAt(start)).isEqualTo(LocalDateTime.of(2026, 11, 18, 8, 0));
+        // Opening inside quiet hours after midnight: it opens at 08:00 the same morning.
+        assertThat(sms.opensAt(LocalDateTime.of(2026, 11, 19, 3, 0))).isEqualTo(LocalDateTime.of(2026, 11, 18, 8, 0));
+        // Opening outside them: unchanged.
+        assertThat(sms.opensAt(LocalDateTime.of(2026, 11, 19, 12, 0))).isEqualTo(LocalDateTime.of(2026, 11, 18, 12, 0));
+    }
+
+    @Test
+    void shouldReadTheTextLeadTime_andRefuseHalfAQuietPeriod() {
+        assertThat(ReminderWindow.forSmsHoursBefore("48").lead()).isEqualTo(Duration.ofHours(48));
+        assertThat(ReminderWindow.forSmsHoursBefore("1").lead()).isEqualTo(Duration.ofHours(ReminderWindow.MIN_HOURS_BEFORE));
+        assertThat(ReminderWindow.forSmsHoursBefore("FAKE").lead()).isEqualTo(Duration.ofHours(24));
+        assertThat(ReminderWindow.forSmsHoursBefore(null).cutoff()).isEqualTo(Duration.ofHours(2));
+        assertThatThrownBy(() -> new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2), LocalTime.NOON, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2), LocalTime.NOON, LocalTime.NOON))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
 }

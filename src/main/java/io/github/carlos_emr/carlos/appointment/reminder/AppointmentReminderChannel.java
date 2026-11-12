@@ -21,6 +21,9 @@
  */
 package io.github.carlos_emr.carlos.appointment.reminder;
 
+import io.github.carlos_emr.carlos.commn.model.AppointmentReminder;
+import java.util.Optional;
+
 /**
  * One way of reminding a patient of an appointment (#5887): email now, SMS (#3843) later. A channel checks
  * its own consent, reads the patient's address at send time, and puts no clinical detail in the message.
@@ -35,4 +38,31 @@ public interface AppointmentReminderChannel {
     ReminderChannel channel();
 
     ReminderOutcome send(ClaimedReminder reminder);
+
+    /** Whether the clinic has this channel on (#884). A channel that is off sends nothing, not even old rows. */
+    default boolean enabled() {
+        return true;
+    }
+
+    /** This channel's window, when it has its own lead time or quiet hours (#884); empty uses the service's. */
+    default Optional<ReminderWindow> window() {
+        return Optional.empty();
+    }
+
+    /**
+     * Attempts per appointment start: {@link AppointmentReminderService#MAX_ATTEMPTS} allows one retry after a
+     * definite failure. A channel that hands its message to a queue with retries of its own (SMS, #884) answers 1,
+     * so a message is never handed over twice for one start.
+     */
+    default int maxAttempts() {
+        return AppointmentReminderService.MAX_ATTEMPTS;
+    }
+
+    /**
+     * The reminder's outcome as it stands now, for the status line. A channel that hands its message on (SMS: the
+     * queue sends it later) reads where the message got to; the default is the recorded outcome.
+     */
+    default AppointmentReminderStatus currentStatus(AppointmentReminder reminder) {
+        return reminder.getLastStatus();
+    }
 }

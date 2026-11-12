@@ -155,7 +155,8 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             ReminderRun run = service.processDue(10);
 
             assertThat(run).isEqualTo(new ReminderRun(1, 1, 0));
-            assertThat(handed).containsExactly(new ClaimedReminder(7L, APPOINTMENT, PATIENT, start));
+            // The claim names who ticked the box, so an SMS failure alert can reach them (#884).
+            assertThat(handed).containsExactly(new ClaimedReminder(7L, APPOINTMENT, PATIENT, start, "999998"));
             assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.SENT);
             assertThat(reminder.getLastEmailLogId()).isEqualTo(900);
             assertThat(reminder.getSentFor()).isEqualTo(at(start));
@@ -740,12 +741,106 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         @ValueSource(strings = {"en", "fr", "es", "pl", "pt_BR"})
         void shouldHaveEveryStatusLine_inEveryBundle(String language) {
             ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", Locale.forLanguageTag(language.replace('_', '-')));
-            for (String key : new String[]{"sent", "unconfirmed", "failed", "blockedConsent", "noAddress", "notSetUp",
-                    "notPermitted", "scheduled", "due", "tooLate"}) {
-                String pattern = bundle.getString("appointment.reminder.status." + key);
-                // The page always passes the value, so every line is a MessageFormat pattern.
-                assertThat(new MessageFormat(pattern).format(new Object[]{"FAKE-WHEN"})).as(key).doesNotContain("{", "}");
+            // Each channel words its own lines (#884), and QUEUED/EXPIRED come with the SMS channel.
+            for (ReminderChannel channel : ReminderChannel.values()) {
+                for (String key : new String[]{"sent", "queued", "expired", "unconfirmed", "failed", "blockedConsent",
+                        "noAddress", "notSetUp", "notPermitted", "scheduled", "due", "tooLate"}) {
+                    String fullKey = AppointmentReminderService.statusKeyPrefix(channel) + key;
+                    String pattern = bundle.getString(fullKey);
+                    // The page always passes the value, so every line is a MessageFormat pattern.
+                    assertThat(new MessageFormat(pattern).format(new Object[]{"FAKE-WHEN"})).as(fullKey)
+                            .doesNotContain("{", "}");
+                }
             }
+        }
+    }
+
+    /** #884: each channel has its own switch, window and number of attempts. */
+    @Nested
+    @DisplayName("Each channel's switch, window and attempts")
+    class Channels {
+
+        private AppointmentReminderService serviceWith(boolean enabled, int attempts, ReminderWindow channelWindow) {
+            AppointmentReminderChannel channel = new AppointmentReminderChannel() {
+                @Override
+                public ReminderChannel channel() {
+                    return ReminderChannel.EMAIL;
+                }
+
+                @Override
+                public ReminderOutcome send(ClaimedReminder reminder) {
+                    handed.add(reminder);
+                    return new ReminderOutcome(AppointmentReminderStatus.SENT, 900);
+                }
+
+                @Override
+                public boolean enabled() {
+                    return enabled;
+                }
+
+                @Override
+                public int maxAttempts() {
+                    return attempts;
+                }
+
+                @Override
+                public Optional<ReminderWindow> window() {
+                    return Optional.ofNullable(channelWindow);
+                }
+            };
+            return new AppointmentReminderService(reminders, appointments, () -> List.of(channel),
+                    TransactionOperations.withoutTransaction(), new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2)),
+                    Clock.fixed(NOW.atZone(ZONE).toInstant(), ZONE));
+        }
+
+        @Test
+        void shouldSendNothing_forAChannelThatIsSwitchedOff() {
+            Appointment appointment = appointment(NOW.plusHours(20), PATIENT, "t");
+            stored(requested(), appointment, appointment);
+
+            serviceWith(false, 2, null).processDue(10);
+
+            assertThat(handed).isEmpty();
+            verify(reminders, never()).findDue(any(), any(), any(), anyInt(), anyInt());
+        }
+
+        @Test
+        void shouldNeverRetry_aChannelThatAllowsOneAttempt() {
+            LocalDateTime start = NOW.plusHours(20);
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            reminder.startSending(at(start), at(NOW.minusHours(2)));
+            reminder.finish(AppointmentReminderStatus.FAILED, null, at(NOW.minusHours(2)));
+            stored(reminder, appointment, appointment);
+
+            serviceWith(true, 1, null).processDue(10);
+
+            assertThat(handed).isEmpty();
+            verify(reminders).findDue(eq(ReminderChannel.EMAIL), any(), any(), eq(1), anyInt());
+        }
+
+        @Test
+        void shouldHoldAReminder_duringTheChannelsQuietHours() {
+            Appointment appointment = appointment(NOW.plusHours(20), PATIENT, "t");
+            stored(requested(), appointment, appointment);
+            ReminderWindow quietNow = new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2),
+                    NOW.toLocalTime().minusHours(1), NOW.toLocalTime().plusHours(1));
+
+            serviceWith(true, 2, quietNow).processDue(10);
+
+            assertThat(handed).as("held until the quiet hours end").isEmpty();
+        }
+
+        @Test
+        void shouldSend_onceTheChannelsQuietHoursAreOver() {
+            Appointment appointment = appointment(NOW.plusHours(20), PATIENT, "t");
+            stored(requested(), appointment, appointment);
+            ReminderWindow quietEarlier = new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2),
+                    NOW.toLocalTime().minusHours(3), NOW.toLocalTime().minusHours(1));
+
+            serviceWith(true, 2, quietEarlier).processDue(10);
+
+            assertThat(handed).hasSize(1);
         }
     }
 
