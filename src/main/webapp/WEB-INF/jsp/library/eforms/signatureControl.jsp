@@ -15,7 +15,8 @@
 --%>
 <%--
     The eForm signature control: a script library, served as text/javascript at
-    /library/eforms/signatureControl, that puts the tablet signature pad in a page.
+    /library/eforms/signatureControl (and at the legacy /library/eforms/signatureControl.jsp, which existing
+    eForms embed), that puts the tablet signature pad in a page.
 
     Features:
     - Empty unless eForm signatures are switched on (CarlosProperties.isEFormSignatureEnabled()).

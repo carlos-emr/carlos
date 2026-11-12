@@ -23,7 +23,8 @@
       (DigitalSignatureUtils.generateSignatureRequestId); a pad opened on its own, such as an eForm's
       signature box, is issued one here. The upload accepts only an id issued to this session, so a
       capture belongs to the page that asked for it.
-    - The pad's script gets the preview and stored-image URLs (ImageRenderingServlet) for that id.
+    - The pad's script gets the preview URL for that id, and the stored-image URL base that the saved
+      signature's id is added to (both ImageRenderingServlet).
 
     Parameters:
     - signatureRequestId: the issued id; optional, see above.
