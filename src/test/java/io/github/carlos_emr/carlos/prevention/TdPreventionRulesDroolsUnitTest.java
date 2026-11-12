@@ -100,6 +100,21 @@ class TdPreventionRulesDroolsUnitTest {
         return prev;
     }
 
+    /** A person of the given age in months with doses of one type given at the given ages in months. */
+    private static Prevention personWithDosesAtAgeInMonthsOld(int ageInMonths, String type, int... monthsOfAge) {
+        Calendar birth = Calendar.getInstance();
+        birth.setTime(yearsAgo(0));
+        birth.add(Calendar.MONTH, -ageInMonths);
+        Prevention prev = new Prevention("M", birth.getTime());
+        for (int months : monthsOfAge) {
+            Calendar given = Calendar.getInstance();
+            given.setTime(birth.getTime());
+            given.add(Calendar.MONTH, months);
+            prev.addPreventionItem(new PreventionItem(type, given.getTime()));
+        }
+        return prev;
+    }
+
     /** A person of the given age with doses of one type given at the given ages in months. */
     private static Prevention personWithDosesAtAgeInMonths(int ageInYears, String type, int... monthsOfAge) {
         Date birth = yearsAgo(ageInYears);
@@ -426,7 +441,7 @@ class TdPreventionRulesDroolsUnitTest {
 
     @Test
     void shouldNotAskForTheTeenTdap_whenACatchUpTdapIpvWasGivenAtTen() {
-        // Ten years after it is 20: the one Tdap then is also the adult dose.
+        // Ten years after it would be 20, past the teen rule; the adult Tdap is then due from 18.
         assertThat(fireRules(personWith(16, "Tdap-IPV", 6)).getWarnings()).doesNotContain(NEEDS_TDAP, ADULT_TDAP);
     }
 
@@ -507,5 +522,29 @@ class TdPreventionRulesDroolsUnitTest {
     @Test
     void shouldNotAskForTheSecondDtapIpv_whenASevenYearOldHasOneDose() {
         assertThat(fireRules(personWithDosesAtAgeInMonths(7, "DTaP-IPV", 2)).getWarnings()).doesNotContain(SECOND_DTAP_IPV);
+    }
+
+    @Test
+    void shouldStillAskForTheSecondDtapIpv_atEightyThreeMonths() {
+        assertThat(fireRules(personWithDosesAtAgeInMonthsOld(83, "DTaP-IPV", 2)).getWarnings()).contains(SECOND_DTAP_IPV);
+    }
+
+    @Test
+    void shouldStillAskForTheThirdDtapIpv_whenASixYearOldHasTwoDoses() {
+        assertThat(fireRules(personWithDosesAtAgeInMonths(6, "DTaP-IPV", 2, 4)).getWarnings()).contains(THIRD_DTAP_IPV);
+    }
+
+    @Test
+    void shouldNotAskForADtapIpvDose_whenTheBirthDateIsUnknown() {
+        Prevention unknown = new Prevention("M", null);
+        unknown.addPreventionItem(new PreventionItem("DTaP-IPV", yearsAgo(5)));
+        assertThat(fireRules(unknown).getWarnings()).doesNotContain(SECOND_DTAP_IPV, THIRD_DTAP_IPV);
+    }
+
+    @Test
+    void shouldAskOnlyForTheTeenTdap_whenAFifteenYearOldHadFourDtapIpvDosesByAgeFour() {
+        // The teen dose is the Tdap: no DTaP-IPV reminder at 14 or later ("DTaP-IPV 6" removed, #5048).
+        assertThat(fireRules(personWithDosesAtAgeInMonths(15, "DTaP-IPV", 2, 4, 6, 18)).getWarnings())
+                .containsOnlyOnce(NEEDS_TDAP).doesNotContain(THIRD_DTAP_IPV, SECOND_DTAP_IPV);
     }
 }

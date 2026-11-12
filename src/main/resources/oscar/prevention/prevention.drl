@@ -88,7 +88,7 @@
 //   - Inf 1: Hardcoded 2005-2006 flu season date range (historical, not updated)
 //   - "Rota 1"/"Rota 2" use System.out.println() instead of prev.log()
 //   - DTaP-IPV 4.1: Conditions duplicate DTaP-IPV 3.1 (checks count==2, not count==3)
-//   - DTaP-IPV 5/6: Warning says "Needs Third" but these are 5th/6th dose rules
+//   - DTaP-IPV 5: Warning says "Needs Third" but this is the 5th dose rule (rule 6 removed, #5048)
 //   - Men-C-C 1: Log message says "Pneu-C 4" (copy-paste artifact)
 //   - HPV-CERVIX 3: Typo in message "Neighter" should be "Neither"
 //   - "FOBT Inelligible": Misspelling of "Ineligible" in rule name and message
@@ -231,14 +231,15 @@ function boolean rotaDeclinedSinceLastDose(Prevention prev) {
 }
 
 // --------------------------------------------------------------------------
-// DTaP-IPV: Diphtheria-Tetanus-Pertussis-Polio (6 age-window rules + 3 next-date overrides)
+// DTaP-IPV: Diphtheria-Tetanus-Pertussis-Polio (5 age-window rules + 3 next-date overrides)
 // NACI Schedule: 2mo, 4mo, 6mo, 18mo booster, 4-6yr booster
 // Age range: 2-72 months (6 years) for primary series
 // Also checks DTaP-IPV-Hib combination vaccine count (rules 1, 4)
 // Minimum intervals: 2 months between doses 1-3, 12 months before dose 4
-// Rules 5-6: Catch-up logic for 4-6yr and 14-16yr if last dose was before 48 months
-// QUIRK: Rules 4.1 duplicates 3.1 conditions (count==2); rules 5-6 say "Needs Third"
-//   but are actually for 5th/6th doses (copy-paste artifacts from original XML)
+// Rule 5: Catch-up logic for 4-6yr if last dose was before 48 months. The former rule 6 (14-16yr, "Needs Third
+//   DTaP-IPV /HIB") is removed (#5048): the teen dose is the Tdap ("Tdap 1", "Tdap 2"), not a DTaP-IPV.
+// QUIRK: Rules 4.1 duplicates 3.1 conditions (count==2); rule 5 says "Needs Third"
+//   but is actually for the 5th dose (copy-paste artifact from original XML)
 // The next-date overrides 2.1, 3.1 and 4.1 stop at 7 years (84 months) and need a birth date: DTaP-IPV is a
 //   childhood product (the catalogue's age range ends at 6), so an adult's old record raises no DTaP-IPV reminder
 //   beside the adult Tdap (#5048).
@@ -340,20 +341,6 @@ rule "DTaP-IPV 5"
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 48 )
         eval( prev.getAgeInMonths() < 72 )
-        eval( prev.getNumberOfPreventionType("DTaP-IPV") == 4 )
-        eval( prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 1 )
-        eval( prev.getAgeInMonthsLastPreventionTypeGiven("DTaP-IPV") <= 48 )
-        eval( !prev.isPreventionNever("DTaP-IPV") )
-    then
-        prev.log("DTaP-IPV 3");
-        prev.addWarning("DTaP-IPV", "Needs Third DTaP-IPV /HIB");
-end
-
-rule "DTaP-IPV 6"
-    when
-        prev : Prevention()
-        eval( prev.getAgeInMonths() >= 168 )
-        eval( prev.getAgeInMonths() < 192 )
         eval( prev.getNumberOfPreventionType("DTaP-IPV") == 4 )
         eval( prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 1 )
         eval( prev.getAgeInMonthsLastPreventionTypeGiven("DTaP-IPV") <= 48 )
@@ -933,8 +920,8 @@ end
 //   tetanus and diphtheria toxoid-containing vaccine."
 // Tdap 1: age 14 to 17, no Tdap on file, and the most recent 4-6-year booster dose is >=120mo (10yr) old (#5048).
 //   A booster given late follows the guide's catch-up schedule for children 7 to 17 (Part 1, Table 3: "Tdap ... 10
-//   years after last dose of Tdap-IPV"): a booster given at 7 is followed by the teen Tdap at 17, one given at 10 by
-//   the one Tdap at 20, which is also the adult dose. From 18, "Tdap 3" takes over.
+//   years after last dose of Tdap-IPV"): a booster given at 7 is followed by the teen Tdap at 17. One given at 10
+//   raises no teen reminder (10 years would be 20); the adult Tdap ("Tdap 3") is due from 18.
 //   Booster doses are DTaP-IPV and Tdap-IPV, and DTaP-IPV-Hib or the older TdP-IPV-Hib when given at 4 years
 //   (48 months) or later: the CIG does not need a separate 4-6-year booster after a fourth dose given after the
 //   fourth birthday. Infant doses of the -Hib products (2, 4, 6, 18 months) do not start the 10-year clock.

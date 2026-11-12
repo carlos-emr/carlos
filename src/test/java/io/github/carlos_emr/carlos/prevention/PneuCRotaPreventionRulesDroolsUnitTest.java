@@ -502,6 +502,29 @@ class PneuCRotaPreventionRulesDroolsUnitTest {
         }
 
         @Test
+        void shouldNotRemind_whenARefusalIsDatedTheSameDayAsTheSecondDose() {
+            // "On or after" the latest dose: a refusal recorded that day stops the third-dose reminder.
+            Prevention prev = infantWithRotaRecords(5, rotaRecord("Rota-5", 70, false, null), rotaRecord("Rota-5", 40, false, null),
+                    rotaRecord("Rota", 40, true, null));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldNotRemindWithANextDate_whenTheBirthDateIsUnknown() {
+            Prevention prev = new Prevention("F", null);
+            prev.addPreventionItem(rotaRecord("Rota-5", 90, false, null));
+            prev.addPreventionItem(rotaRecord("Rota-5", 60, false, -2));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldNotRemindOfTheSecondDoseWithANextDate_whenTheBirthDateIsUnknown() {
+            Prevention prev = new Prevention("F", null);
+            prev.addPreventionItem(rotaRecord("Rota-1", 60, false, -2));
+            assertThat(reminders(prev, NEEDS_SECOND_ROTA)).isZero();
+        }
+
+        @Test
         void shouldNotRemindOfTheSecondDose_whenTheBirthDateIsUnknown() {
             Prevention prev = new Prevention("F", null);
             prev.addPreventionItem(rotaRecord("Rota-1", 60, false, null));
