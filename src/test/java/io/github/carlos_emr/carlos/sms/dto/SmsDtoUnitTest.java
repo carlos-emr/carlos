@@ -102,6 +102,22 @@ class SmsDtoUnitTest {
                 .containsExactly(true, SmsStatus.QUEUED, List.of());
     }
 
+    /** #884: a caller (the appointment reminder) can follow the text it handed over. */
+    @Test
+    @DisplayName("send results name the stored text's row when there is one, and none otherwise")
+    void shouldNameTheStoredRow_whenThereIsOne() {
+        assertThat(SmsSendResultDto.queued(41L).transactionId()).isEqualTo(41L);
+        assertThat(SmsSendResultDto.queued().transactionId()).isNull();
+        SmsConsentDecisionDto blocked = SmsConsentDecisionDto.blocked(SmsStatus.OPTOUT_BLOCKED, "SMS_CONSENT_OPTED_OUT",
+                "The patient opted out of SMS.");
+        assertThat(SmsSendResultDto.consentBlocked(blocked, 42L))
+                .extracting(SmsSendResultDto::status, SmsSendResultDto::transactionId)
+                .containsExactly(SmsStatus.OPTOUT_BLOCKED, 42L);
+        assertThat(SmsSendResultDto.validationFailed(List.of("FAKE refusal")).transactionId()).isNull();
+        assertThat(new SmsSendResultDto(true, SmsStatus.SENT, "provider-1", List.of()).transactionId()).isNull();
+        assertThat(SmsSendResultDto.queued(41L)).hasToString("SmsSendResultDto[redacted]");
+    }
+
     @Test
     @DisplayName("accepted SMS provider results require SMS provider id and send-success status")
     void shouldRejectAcceptedProviderResult_whenRequiredFieldsAreInvalid() {

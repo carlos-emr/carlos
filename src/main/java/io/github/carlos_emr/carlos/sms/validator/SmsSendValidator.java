@@ -32,6 +32,17 @@ public class SmsSendValidator {
             messages.add("A valid patient demographic number is required.");
         }
 
+        // An appointment reminder (#884) names its appointment, so its outcome can be shown there, and a time
+        // after which it must not be sent, so it never arrives after the appointment.
+        if (command.messagePurpose() == SmsMessagePurpose.APPOINTMENT_REMINDER) {
+            if (command.appointmentNo() == null || command.appointmentNo() <= 0) {
+                messages.add("An appointment reminder must name its appointment.");
+            }
+            if (command.expiresAt() == null) {
+                messages.add("An appointment reminder must say when it is too late to send.");
+            }
+        }
+
         if (SmsPhoneNumbers.normalizeToE164(command.recipientPhoneNumber()).isEmpty()) {
             messages.add("A valid recipient phone number is required.");
         }
