@@ -1095,8 +1095,16 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             }
 
             assertThat(line(NOW, 24, start, reminder)).hasValueSatisfying(found -> {
-                assertThat(found.messageKey()).startsWith(KEYS).doesNotContain("55");
                 assertThat(found.argument()).isIn("", shown.format(NOW.minusMinutes(10)));
+                // The sentence as staff read it, in every language: no SMS row id or anything but the time.
+                for (String language : new String[]{"en", "fr", "es", "pl", "pt_BR"}) {
+                    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources",
+                            Locale.forLanguageTag(language.replace('_', '-')));
+                    String shownLine = new MessageFormat(bundle.getString(found.messageKey()))
+                            .format(new Object[]{found.argument()});
+                    assertThat(shownLine).as(language + " " + found.messageKey()).doesNotContain("55")
+                            .doesNotContain("{").doesNotContain("''");
+                }
             });
         }
 

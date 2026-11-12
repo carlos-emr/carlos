@@ -1520,7 +1520,8 @@
                 <% }%>
                 <%-- #884: the Text Reminder box, as the email one above: the stored choice or the posted one,
                      smsPtShown so a form without the box never withdraws a text reminder, and its own status
-                     line, read on the patient's texts (_sms) rather than their email. --%>
+                     line, shown to whoever may open this patient's appointment (_appointment w for the patient,
+                     with the patient's record locks), as the email line is. --%>
                 <% if (pros.isPropertyActive(io.github.carlos_emr.carlos.appointment.reminder.SmsReminderChannel.ENABLED_PROPERTY)) { %>
                 <% boolean smsReminderTicked = io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice.isOnForm(request,
                                 io.github.carlos_emr.carlos.appointment.reminder.ReminderChannel.SMS)

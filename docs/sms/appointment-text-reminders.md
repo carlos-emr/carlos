@@ -84,8 +84,8 @@ recevoir de textos." (see **Replies**). It fits one SMS with that sentence too.
   - that the queue took it but could not send it ("See SMS Queue"), or could not send it in time;
   - that it never reached the queue, so nothing was sent, and whether it is tried once more;
   - or why it was not sent: no consent or opted out; no valid cell number; SMS not fully set up; no access; the
-    clinic's name or phone made it longer than one SMS; too close to the appointment; or the time left falls in the
-    quiet hours.
+    clinic's name or phone made it longer than one SMS; too close to the appointment; the time left falls in the
+    quiet hours; or another booking for this patient at the same time carries the text (see that booking's line).
 
   The line follows the text through the queue. Anyone who may open this patient's appointment sees it, front desk
   included: it needs the Edit Appointment page's own right (`_appointment` write) for this patient, with the

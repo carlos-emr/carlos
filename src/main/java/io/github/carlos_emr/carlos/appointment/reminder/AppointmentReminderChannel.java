@@ -51,8 +51,9 @@ public interface AppointmentReminderChannel {
 
     /**
      * Attempts per appointment start: {@link AppointmentReminderService#MAX_ATTEMPTS} allows one retry after a
-     * definite failure. A channel that hands its message to a queue with retries of its own (SMS, #884) answers 1,
-     * so a message is never handed over twice for one start.
+     * definite failure. A channel that hands its message to a queue with retries of its own (SMS, #884) never hands
+     * a message over twice once the queue took it (its status is then not a failure); only a message that never
+     * reached the queue is tried again.
      */
     default int maxAttempts() {
         return AppointmentReminderService.MAX_ATTEMPTS;
