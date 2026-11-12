@@ -72,7 +72,7 @@
 <fmt:setBundle basename="cdsImportMessages" var="cdsSourceLabels"/>
 <div class="cds-chart-source-links">
     <fmt:message key="sourceClinicalNotes" bundle="${cdsSourceLabels}"/>: <source:cdsSourceFields demographicNo="${not empty requestScope.demographicNo ? requestScope.demographicNo : param.demographicNo}" category="ClinicalNotes"/>
-    — <fmt:message key="sourceAdditionalCategories" bundle="${cdsSourceLabels}"/>: <source:cdsSourceFields demographicNo="${not empty requestScope.demographicNo ? requestScope.demographicNo : param.demographicNo}" category="NewCategory"/>
+    &#8212; <fmt:message key="sourceAdditionalCategories" bundle="${cdsSourceLabels}"/>: <source:cdsSourceFields demographicNo="${not empty requestScope.demographicNo ? requestScope.demographicNo : param.demographicNo}" category="NewCategory"/>
 </div>
 
 <p class="cds-note-source-timing"><fmt:message key="sourceClinicalNotesTimingHelp" bundle="${cdsSourceLabels}"/></p>
