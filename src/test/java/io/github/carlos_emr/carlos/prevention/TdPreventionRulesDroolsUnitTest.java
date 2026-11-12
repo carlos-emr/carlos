@@ -43,6 +43,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  * other tetanus-containing vaccine, is not, and an adult whose only tetanus vaccine is an old Tdap is told "Needs Td"
  * (rule "Td 1") rather than both.
  *
+ * <p>#5048, following the Canadian Immunization Guide (Tetanus toxoid): the teen Tdap ("Tdap 1") is due ten years
+ * after the 4-6-year booster whichever product it was (DTaP-IPV, Tdap-IPV or DTaP-IPV-Hib), and the first Td
+ * ("Td 1") ten years after the most recent tetanus-containing vaccine of any kind. When both apply, as for a teen
+ * whose school booster was a Tdap-IPV ten years ago, both reminders show.</p>
+ *
  * @since 2026-10-18
  */
 @Tag("unit")
@@ -53,6 +58,7 @@ class TdPreventionRulesDroolsUnitTest {
 
     private static final String REPEAT_TD = "Needs repeat Td";
     private static final String NEEDS_TD = "Needs Td";
+    private static final String NEEDS_TDAP = "Needs Tdap";
 
     private static KieBase kieBase;
 
@@ -75,7 +81,12 @@ class TdPreventionRulesDroolsUnitTest {
 
     /** A 70-year-old with the given tetanus-containing vaccines, each given the given number of years ago. */
     private static Prevention adultWith(Object... typeAndYearsAgo) {
-        Prevention prev = new Prevention("M", yearsAgo(70));
+        return personWith(70, typeAndYearsAgo);
+    }
+
+    /** A person of the given age with the given vaccines, each given the given number of years ago. */
+    private static Prevention personWith(int ageInYears, Object... typeAndYearsAgo) {
+        Prevention prev = new Prevention("M", yearsAgo(ageInYears));
         for (int i = 0; i < typeAndYearsAgo.length; i += 2) {
             prev.addPreventionItem(new PreventionItem((String) typeAndYearsAgo[i], yearsAgo((Integer) typeAndYearsAgo[i + 1])));
         }
@@ -121,5 +132,52 @@ class TdPreventionRulesDroolsUnitTest {
     @Test
     void shouldRaiseNeitherTdReminder_whenNoTetanusVaccineWasEverGiven() {
         assertThat(fireRules(adultWith()).getWarnings()).doesNotContain(REPEAT_TD, NEEDS_TD);
+    }
+
+    @Test
+    void shouldAskForTheTeenTdap_whenTheSchoolBoosterWasTdapIpvTenYearsAgo() {
+        Prevention teen = personWith(15, "DTaP-IPV-Hib", 15, "DTaP-IPV-Hib", 14, "Tdap-IPV", 10);
+        assertThat(fireRules(teen).getWarnings()).contains(NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldAskForTheTeenTdap_whenTheLastChildhoodDoseWasDtapIpvHibTenYearsAgo() {
+        assertThat(fireRules(personWith(15, "DTaP-IPV-Hib", 14, "DTaP-IPV-Hib", 10)).getWarnings()).contains(NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldStillAskForTheTeenTdap_whenTheSchoolBoosterWasDtapIpvTenYearsAgo() {
+        assertThat(fireRules(personWith(15, "DTaP-IPV", 14, "DTaP-IPV", 10)).getWarnings()).contains(NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldNotAskForTheTeenTdapYet_whenALaterTdapIpvBoosterIsUnderTenYearsOld() {
+        assertThat(fireRules(personWith(12, "DTaP-IPV", 11, "Tdap-IPV", 7)).getWarnings()).doesNotContain(NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldNotAskForATdap_whenATdapIsOnFile() {
+        assertThat(fireRules(personWith(30, "Tdap-IPV", 25, "Tdap", 15)).getWarnings()).doesNotContain(NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldAskForBothTheTdapAndATd_whenTheLastTetanusVaccineIsATdapIpvBoosterTenYearsOld() {
+        assertThat(fireRules(personWith(15, "Tdap-IPV", 10)).getWarnings())
+                .contains(NEEDS_TDAP, NEEDS_TD).doesNotContain(REPEAT_TD);
+    }
+
+    @Test
+    void shouldAskForATd_whenTheOnlyTetanusVaccineIsATdIpvTwelveYearsOld() {
+        assertThat(fireRules(adultWith("Td-IPV", 12)).getWarnings()).contains(NEEDS_TD).doesNotContain(NEEDS_TDAP, REPEAT_TD);
+    }
+
+    @Test
+    void shouldNotAskForATdYet_whenAnOldTdapWasFollowedByARecentTdIpv() {
+        assertThat(fireRules(adultWith("Tdap", 15, "Td-IPV", 3)).getWarnings()).doesNotContain(NEEDS_TD);
+    }
+
+    @Test
+    void shouldAskForATd_whenATdapWasFollowedByATdapIpvElevenYearsAgo() {
+        assertThat(fireRules(adultWith("Tdap", 20, "Tdap-IPV", 11)).getWarnings()).contains(NEEDS_TD);
     }
 }

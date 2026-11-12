@@ -45,6 +45,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * any of the names the rule counts, so a dose recorded under a product name (Pneu-C-13, Pneu-C-15, Rota-1, Rota-5)
  * raises the reminder just as the plain name does (#5009).
  *
+ * <p>#5048, following the Canadian Immunization Guide (Rotavirus vaccine): the second rotavirus dose is due 4 weeks
+ * after the first and before 8 months of age, whether or not a next date was set; a next date that was set still
+ * decides when the reminder starts ("Rota 2.1").</p>
+ *
  * @since 2026-10-18
  */
 @Tag("unit")
@@ -91,6 +95,27 @@ class PneuCRotaPreventionRulesDroolsUnitTest {
         Prevention prev = new Prevention("F", monthsAgo(5));
         Date nextDate = nextDateSet ? monthsAgo(0) : null;
         prev.addPreventionItem(new PreventionItem(type, monthsAgo(2), neverRemind ? "1" : "0", nextDate));
+        return prev;
+    }
+
+    private static Date daysFromToday(int days) {
+        Calendar cal = Calendar.getInstance();
+        cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+        cal.add(Calendar.DAY_OF_MONTH, days);
+        return cal.getTime();
+    }
+
+    /**
+     * An infant of the given age with one Rota-1 dose given the given number of days ago, and a next date that many
+     * days from today (negative: in the past), or none.
+     */
+    private static Prevention infantWithRota1DoseDaysAgo(int ageInMonths, int doseDaysAgo, Integer nextDateInDays) {
+        Prevention prev = new Prevention("F", monthsAgo(ageInMonths));
+        Date nextDate = nextDateInDays == null ? null : daysFromToday(nextDateInDays);
+        prev.addPreventionItem(new PreventionItem("Rota-1", daysFromToday(-doseDaysAgo), "0", nextDate));
         return prev;
     }
 
@@ -195,8 +220,38 @@ class PneuCRotaPreventionRulesDroolsUnitTest {
         }
 
         @Test
-        void shouldNotRemind_whenTheRota1DoseHasNoNextDate() {
-            assertThat(reminders(infantWithOneRotaDose("Rota-1", false, false), NEEDS_SECOND_ROTA)).isZero();
+        void shouldRemind_whenTheRota1DoseHasNoNextDate() {
+            assertThat(reminders(infantWithOneRotaDose("Rota-1", false, false), NEEDS_SECOND_ROTA)).isEqualTo(1);
+        }
+
+        @Test
+        void shouldRemind_whenAThreeMonthOldsFirstDoseIsFiveWeeksOld() {
+            assertThat(reminders(infantWithRota1DoseDaysAgo(3, 35, null), NEEDS_SECOND_ROTA)).isEqualTo(1);
+        }
+
+        @Test
+        void shouldNotRemind_whenTheFirstDoseIsThreeWeeksOld() {
+            assertThat(reminders(infantWithRota1DoseDaysAgo(3, 21, null), NEEDS_SECOND_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldRemind_whenASevenMonthOldStillNeedsTheSecondDose() {
+            assertThat(reminders(infantWithRota1DoseDaysAgo(7, 120, null), NEEDS_SECOND_ROTA)).isEqualTo(1);
+        }
+
+        @Test
+        void shouldNotRemind_whenTheInfantIsEightMonthsOld() {
+            assertThat(reminders(infantWithRota1DoseDaysAgo(8, 150, null), NEEDS_SECOND_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldNotRemind_beforeTheNextDateSetOnTheFirstDose() {
+            assertThat(reminders(infantWithRota1DoseDaysAgo(5, 60, 14), NEEDS_SECOND_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldRemind_onceTheNextDateSetOnTheFirstDoseHasPassed() {
+            assertThat(reminders(infantWithRota1DoseDaysAgo(5, 60, -3), NEEDS_SECOND_ROTA)).isEqualTo(1);
         }
 
         @Test

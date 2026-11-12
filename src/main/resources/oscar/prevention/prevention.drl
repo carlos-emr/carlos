@@ -245,11 +245,11 @@ rule "Tdap-IPV 1"
 end
 
 // --------------------------------------------------------------------------
-// Rota: Rotavirus vaccine (2 rules)
+// Rota: Rotavirus vaccine (3 rules)
 // NACI Schedule: 2 doses at 2mo and 4mo (must complete by 8 months of age)
-// Strict upper age limits: dose 1 by 5mo, dose 2 by 6mo
-// QUIRK: Uses System.out.println() instead of prev.log() (original code)
-// Uses isNextDateSet() for dose 2 sequencing
+// Upper age limits: dose 1 by 5mo; dose 2 before 8mo, at least 4 weeks after dose 1 (#5048)
+// QUIRK: "Rota 1"/"Rota 2" use System.out.println() instead of prev.log() (original code)
+// "Rota 2.1": a next date set on dose 1 takes precedence over the 4-week interval
 // MULTI-TYPE NOTE: Rule 1 counts Rota-1 (Rotarix) and Rota-5 (RotaTeq) as
 //   equivalent to generic Rota for the first-dose check. This allows records
 //   entered with product-specific codes to satisfy the rule.
@@ -270,23 +270,42 @@ rule "Rota 1"
 end
 
 // Rota 2 times the second dose, and reads "never remind" and the next date, from the dose under any of the three
-// names. It still needs a next date on that dose; whether it should is a separate clinical question.
+// names. Canadian Immunization Guide, Rotavirus vaccine: "The minimum interval between doses of RV vaccine is
+// 4 weeks" and "All doses of RV vaccine should be administered before 8 months of age" (#5048). This follows the
+// national guide; a clinic whose province ends the series earlier (24 weeks) uses its own rules file. A next date set
+// on the first dose takes precedence, as for flu: "Rota 2.1" reminds once that date has passed.
 rule "Rota 2"
     when
         prev : Prevention()
-        eval( prev.getAgeInMonths() >= 4 )
-        eval( prev.getAgeInMonths() <= 6 )
+        eval( prev.getAgeInMonths() < 8 )
         eval( prev.getNumberOfPreventionType("Rota")
             + prev.getNumberOfPreventionType("Rota-1")
             + prev.getNumberOfPreventionType("Rota-5")
             == 1 )
-        eval( prev.getHowManyMonthsSinceLast("Rota") == -1 || prev.getHowManyMonthsSinceLast("Rota") >= 1 )
-        eval( prev.getHowManyMonthsSinceLast("Rota-1") == -1 || prev.getHowManyMonthsSinceLast("Rota-1") >= 1 )
-        eval( prev.getHowManyMonthsSinceLast("Rota-5") == -1 || prev.getHowManyMonthsSinceLast("Rota-5") >= 1 )
+        eval( prev.getHowManyDaysSinceLast("Rota") == -1 || prev.getHowManyDaysSinceLast("Rota") >= 28 )
+        eval( prev.getHowManyDaysSinceLast("Rota-1") == -1 || prev.getHowManyDaysSinceLast("Rota-1") >= 28 )
+        eval( prev.getHowManyDaysSinceLast("Rota-5") == -1 || prev.getHowManyDaysSinceLast("Rota-5") >= 28 )
         eval( !prev.isPreventionNever("Rota") && !prev.isPreventionNever("Rota-1") && !prev.isPreventionNever("Rota-5") )
-        eval( prev.isNextDateSet("Rota") || prev.isNextDateSet("Rota-1") || prev.isNextDateSet("Rota-5") )
+        eval( !prev.isNextDateSet("Rota") && !prev.isNextDateSet("Rota-1") && !prev.isNextDateSet("Rota-5") )
     then
         System.out.println("Rota 2");
+        prev.addWarning("Rota", "Needs Second Rota vaccine");
+end
+
+rule "Rota 2.1"
+    when
+        prev : Prevention()
+        eval( prev.getAgeInMonths() < 8 )
+        eval( prev.getNumberOfPreventionType("Rota")
+            + prev.getNumberOfPreventionType("Rota-1")
+            + prev.getNumberOfPreventionType("Rota-5")
+            == 1 )
+        eval( !prev.isPreventionNever("Rota") && !prev.isPreventionNever("Rota-1") && !prev.isPreventionNever("Rota-5") )
+        eval( (prev.isNextDateSet("Rota") && prev.isPassedNextDate("Rota"))
+            || (prev.isNextDateSet("Rota-1") && prev.isPassedNextDate("Rota-1"))
+            || (prev.isNextDateSet("Rota-5") && prev.isPassedNextDate("Rota-5")) )
+    then
+        prev.log("Rota 2.1");
         prev.addWarning("Rota", "Needs Second Rota vaccine");
 end
 
@@ -703,19 +722,31 @@ rule "Var 4"
 end
 
 // --------------------------------------------------------------------------
-// Tdap / Td: Adult Tetanus-Diphtheria boosters (3 rules)
-// NACI Schedule: Tdap once in adulthood, then Td every 10 years
-// Tdap 1: First adult acellular pertussis booster, >=120mo (10yr) since last DTaP-IPV
-// Td 1: First tetanus-diphtheria booster, >=120mo since last Tdap
+// Tdap / Td: Tetanus-diphtheria(-pertussis) boosters (3 rules)
+// Canadian Immunization Guide, Tetanus toxoid: a DTaP-IPV or Tdap-IPV booster at 4-6 years, "10 years later, a
+//   booster dose of Tdap vaccine at 14 to 16 years of age", then "A booster dose of Td vaccine is recommended every
+//   10 years".
+// Tdap 1: no Tdap on file, and the most recent dose of the childhood series that ends with the 4-6-year booster
+//   (DTaP-IPV, Tdap-IPV or DTaP-IPV-Hib) is >=120mo (10yr) old (#5048)
+// Td 1: no Td on file, and the most recent tetanus-containing vaccine (Tdap, Td-IPV, TdP-IPV-Hib, Tdap-IPV) is
+//   >=120mo old (#5048). By decision, both reminders show when both apply: a patient whose last tetanus vaccine is a
+//   10-year-old Tdap-IPV school booster, with no Tdap since, sees "Needs Tdap" and "Needs Td".
 // Td 2: Repeat Td booster every 10 years; checks ALL tetanus-containing vaccines:
 //   Tdap, Td, Td-IPV, TdP-IPV-Hib, Tdap-IPV (any resets the 10-year clock)
+// A vaccine type the patient never had (-1 months) does not count as a recent one.
 // NOTE: No age restrictions on adult boosters - applies to all ages
 // --------------------------------------------------------------------------
 rule "Tdap 1"
     when
         prev : Prevention()
         eval( prev.getNumberOfPreventionType("Tdap") == 0 )
-        eval( prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 120 )
+        eval( prev.getNumberOfPreventionType("DTaP-IPV")
+            + prev.getNumberOfPreventionType("Tdap-IPV")
+            + prev.getNumberOfPreventionType("DTaP-IPV-Hib")
+            >= 1 )
+        eval( prev.getHowManyMonthsSinceLast("DTaP-IPV") == -1 || prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 120 )
+        eval( prev.getHowManyMonthsSinceLast("Tdap-IPV") == -1 || prev.getHowManyMonthsSinceLast("Tdap-IPV") >= 120 )
+        eval( prev.getHowManyMonthsSinceLast("DTaP-IPV-Hib") == -1 || prev.getHowManyMonthsSinceLast("DTaP-IPV-Hib") >= 120 )
     then
         prev.log("Tdap 1");
         prev.addWarning("Tdap", "Needs Tdap");
@@ -725,7 +756,15 @@ rule "Td 1"
     when
         prev : Prevention()
         eval( prev.getNumberOfPreventionType("Td") == 0 )
-        eval( prev.getHowManyMonthsSinceLast("Tdap") >= 120 )
+        eval( prev.getNumberOfPreventionType("Tdap")
+            + prev.getNumberOfPreventionType("Td-IPV")
+            + prev.getNumberOfPreventionType("TdP-IPV-Hib")
+            + prev.getNumberOfPreventionType("Tdap-IPV")
+            >= 1 )
+        eval( prev.getHowManyMonthsSinceLast("Tdap") == -1 || prev.getHowManyMonthsSinceLast("Tdap") >= 120 )
+        eval( prev.getHowManyMonthsSinceLast("Td-IPV") == -1 || prev.getHowManyMonthsSinceLast("Td-IPV") >= 120 )
+        eval( prev.getHowManyMonthsSinceLast("TdP-IPV-Hib") == -1 || prev.getHowManyMonthsSinceLast("TdP-IPV-Hib") >= 120 )
+        eval( prev.getHowManyMonthsSinceLast("Tdap-IPV") == -1 || prev.getHowManyMonthsSinceLast("Tdap-IPV") >= 120 )
     then
         prev.log("Td 1");
         prev.addWarning("Td", "Needs Td");
