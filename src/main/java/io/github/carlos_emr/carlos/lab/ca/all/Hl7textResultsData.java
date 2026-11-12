@@ -107,6 +107,20 @@ public class Hl7textResultsData {
         return io.github.carlos_emr.carlos.lab.ca.all.util.ObservationTime.parse(observationDate);
     }
 
+    /**
+     * Files a report's results as the patient's measurements when the report is the current version
+     * of its accession, and archives the measurements of every other version, so the chart holds
+     * exactly one version's values.
+     *
+     * <p>Which version is current depends on what the source tells us (see
+     * {@link #currentVersion(String[], boolean)}). A report that is not current is a late delivery of
+     * history: nothing is archived and nothing is filed for it.</p>
+     *
+     * @param lab_no the report to file: at upload, the report just received
+     * @param demographic_no the patient the report was matched to
+     * @throws IllegalStateException if the report cannot be read or is missing from its own chain;
+     *                               nothing has been archived when it is thrown
+     */
     public static void populateMeasurementsTable(String lab_no, String demographic_no) {
         MessageHandler h = Factory.getHandler(lab_no);
         if (h == null) {
@@ -116,28 +130,21 @@ public class Hl7textResultsData {
         }
         //Check for other versions of this lab
         String[] matchingLabs = getMatchingLabs(lab_no).split(",");
-        //if this lab is the latest version delete the measurements from the previous version and add the new ones
 
-        int k = 0;
-        while (k < matchingLabs.length && !matchingLabs[k].equals(lab_no)) {
-            k++;
-        }
-
-        if (k == matchingLabs.length) {
+        if (!java.util.Arrays.asList(matchingLabs).contains(lab_no)) {
             throw new IllegalStateException("The incoming lab is absent from its resolved version chain");
         }
         // A late historical delivery must not replace the current version's measurements.
-        if (k != matchingLabs.length - 1) return;
-
-        List<String> superseded = new ArrayList<>();
-        if (h instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler) {
-            // An older version delivered after a newer one is history: it used to remove the
-            // newer version's measurements and file its own stale values (#5820). The newest
-            // version replaces every version before it, including any left by that defect.
-            superseded.addAll(java.util.Arrays.asList(matchingLabs).subList(0, k));
-        } else if (k != 0) {
-            superseded.add(matchingLabs[k - 1]);
+        if (!lab_no.equals(currentVersion(matchingLabs, h instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler))) {
+            return;
         }
+
+        // The current version replaces every other version of its report, not only the one sorted
+        // just before it: the version whose values are on the chart is the previous delivery,
+        // wherever the chain's order puts it, and an older defect may have left two versions filed
+        // (#5820). Archiving only the neighbour left both versions' values on the chart.
+        java.util.Set<String> superseded = new java.util.LinkedHashSet<>(java.util.Arrays.asList(matchingLabs));
+        superseded.remove(lab_no);
         if (!superseded.isEmpty()) {
             List<MeasurementsDeleted> measurementsDeletedList = new ArrayList<>();
             List<Measurement> measurementsToRemove = new ArrayList<>();
@@ -151,6 +158,61 @@ public class Hl7textResultsData {
             measurementDao.batchRemoveAtomically(measurementsToRemove);
         }
         fileMeasurements(h, lab_no, demographic_no);
+    }
+
+    /**
+     * Files the current version of a report that has no measurements yet, whichever of its versions
+     * the caller names. A patient match made after upload uses this: the version to file is decided
+     * here, by the same rule as at upload, not by the caller's position in the display order.
+     *
+     * @param lab_no any version of the report
+     * @param demographic_no the patient the report was matched to
+     * @throws IllegalStateException if the report cannot be read; nothing has been archived
+     */
+    public static void populateCurrentVersionMeasurements(String lab_no, String demographic_no) {
+        MessageHandler named = Factory.getHandler(lab_no);
+        if (named == null) {
+            throw new IllegalStateException("Lab report could not be read; its measurements were not filed");
+        }
+        String[] matchingLabs = getMatchingLabs(lab_no).split(",");
+        populateMeasurementsTable(
+                currentVersion(matchingLabs, named instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler),
+                demographic_no);
+    }
+
+    /**
+     * The version of a report whose results are the patient's measurements.
+     *
+     * <p>A CML chain is ordered by the lab's own revision evidence ({@code CmlVersionPolicy}), so
+     * its last version is current even when an older version was delivered after it (#5820).</p>
+     *
+     * <p>No other source gives CARLOS revision evidence. Their chain is ordered for display by the
+     * count of final results, the report date and the lab number, and that order must not decide
+     * which version is current: a correction commonly reports fewer "final" results than the
+     * report it corrects (a corrected result has status C, which most handlers do not count), so
+     * it sorts before the original, and treating it as history left the uncorrected values on
+     * flowsheets, graphs and decision support. For these sources the current version is the one
+     * received last, which is the one with the highest lab number: lab numbers are assigned in the
+     * order reports arrive, and the newest delivery for an accession is the lab's latest word on
+     * it. This is the rule CARLOS applied to every source before the CML protection was added,
+     * with one difference: every other version is superseded, so two versions' values never stay
+     * on the chart together.</p>
+     *
+     * @param chain the report's versions as {@link #getMatchingLabs(String)} resolved them
+     * @param revisionOrdered true when the chain's order is the source's revision order (CML)
+     * @return the lab number of the current version
+     */
+    static String currentVersion(String[] chain, boolean revisionOrdered) {
+        if (revisionOrdered) {
+            return chain[chain.length - 1];
+        }
+        String newest = chain[0];
+        for (String version : chain) {
+            if (Integer.parseInt(version.trim()) > Integer.parseInt(newest.trim())) {
+                newest = version;
+            }
+        }
+        return newest;
     }
 
     /** Files every viewable result of one report as a measurement. */

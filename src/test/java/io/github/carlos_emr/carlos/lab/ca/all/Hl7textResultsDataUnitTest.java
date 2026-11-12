@@ -257,14 +257,145 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldKeepTheLegacyPreviousVersionScope_forANonCmlSource() {
+    void shouldSupersedeEveryOtherVersion_forANonCmlSource() {
         try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
             versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("1111,2222,4616");
             assertThat(fileResult("6.1", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00")))
                     .isNotNull();
         }
+        // Not only the neighbour in the display order: whichever version held the chart's values is
+        // archived, so two versions' values are never left together.
         verify(measurementDao).findByValue("lab_no", "2222");
-        verify(measurementDao, never()).findByValue("lab_no", "1111");
+        verify(measurementDao).findByValue("lab_no", "1111");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"4616,2222", "1111,4616,2222", "4616,1111,2222"})
+    @DisplayName("should file a correction that sorts before the report it corrects, and archive the original")
+    void shouldFileACorrection_whenFewerFinalResultsSortItBeforeTheOriginal(String chain) {
+        // A generic HL7 correction (4 F + 1 C) counts fewer final results than its original (5 F), so the
+        // display order puts it first. It is still the newest delivery: the highest lab number.
+        Measurement original = new Measurement();
+        original.setDataField("5.1");
+        when(measurementDao.findByValue("lab_no", "2222")).thenReturn(java.util.List.of(original));
+        Measurement filed;
+        try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn(chain);
+            filed = fileResult("12.7", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00"));
+        }
+
+        assertThat(filed).isNotNull();
+        assertThat(filed.getDataField()).isEqualTo("12.7");
+        // The original's value leaves the chart, so the uncorrected and corrected values never coexist.
+        verify(measurementDao).batchRemoveAtomically(java.util.List.of(original));
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<java.util.List<io.github.carlos_emr.carlos.commn.model.MeasurementsDeleted>> archived =
+                ArgumentCaptor.forClass(java.util.List.class);
+        verify((MeasurementsDeletedDao) mockedBeans.get(MeasurementsDeletedDao.class)).batchPersistAtomically(archived.capture());
+        assertThat(archived.getValue()).hasSize(1);
+        for (String other : chain.split(",")) {
+            if (!other.equals("4616")) verify(measurementDao).findByValue("lab_no", other);
+        }
+        verify(measurementDao, never()).findByValue("lab_no", "4616");
+    }
+
+    @Test
+    @DisplayName("should replace a partial report with the final that follows it, as before")
+    void shouldReplaceThePartial_whenTheFinalFollowsIt() {
+        Measurement partial = new Measurement();
+        partial.setDataField("5.1");
+        when(measurementDao.findByValue("lab_no", "1111")).thenReturn(java.util.List.of(partial));
+        Measurement filed;
+        try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
+            // The normal progression: more final results, a later report, a higher lab number.
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("1111,4616");
+            filed = fileResult("5.2", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00"));
+        }
+
+        assertThat(filed).isNotNull();
+        verify(measurementDao).batchRemoveAtomically(java.util.List.of(partial));
+    }
+
+    @Test
+    @DisplayName("should not archive anything for the only version of a report")
+    void shouldFileWithoutArchiving_whenTheReportHasOneVersion() {
+        try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("4616");
+            assertThat(fileResult("6.1", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00")))
+                    .isNotNull();
+        }
+        verify(measurementDao, never()).findByValue(any(), any());
+        verifyNoInteractions(mockedBeans.get(MeasurementsDeletedDao.class));
+    }
+
+    @Test
+    @DisplayName("should keep protecting a CML chain by its revision order, not by arrival")
+    void shouldLeaveCmlMeasurementsUntouched_whenALateHistoricalVersionHasTheHighestLabNumber() {
+        // The same chain a generic source would file ("4616,2222": the incoming report first, with the
+        // highest lab number). For CML the order is the lab's revision evidence: 2222 is current, and the
+        // late delivery of an older version must not replace its measurements (#5820).
+        try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("4616,2222");
+            assertThat(fileResult(io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler.class, "4.3", ".*",
+                    "2026-03-10 07:00:00", LocalDateTime.parse("2026-03-10T14:00:00"))).isNull();
+        }
+        verifyNoInteractions(measurementDao, mockedBeans.get(MeasurementsDeletedDao.class),
+                mockedBeans.get(io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao.class));
+    }
+
+    @Test
+    @DisplayName("should file the newest CML revision and archive every earlier version")
+    void shouldFileTheCurrentCmlVersion_andArchiveEveryEarlierVersion() {
+        try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("9999,1111,4616");
+            assertThat(fileResult(io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler.class, "12.7", ".*",
+                    "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00"))).isNotNull();
+        }
+        verify(measurementDao).findByValue("lab_no", "9999");
+        verify(measurementDao).findByValue("lab_no", "1111");
+    }
+
+    @Test
+    @DisplayName("should choose the current version by revision order for CML and by arrival for other sources")
+    void shouldChooseCurrentVersion_byRevisionOrderOrArrival() {
+        String[] correctionFirst = {"4616", "2222"};
+        assertThat(Hl7textResultsData.currentVersion(correctionFirst, false)).isEqualTo("4616");
+        assertThat(Hl7textResultsData.currentVersion(correctionFirst, true)).isEqualTo("2222");
+        assertThat(Hl7textResultsData.currentVersion(new String[]{"1111", "2222", "4616"}, false)).isEqualTo("4616");
+        assertThat(Hl7textResultsData.currentVersion(new String[]{"900", "1000", "99"}, false)).isEqualTo("1000");
+        assertThat(Hl7textResultsData.currentVersion(new String[]{"4616"}, false)).isEqualTo("4616");
+        assertThat(Hl7textResultsData.currentVersion(new String[]{"4616"}, true)).isEqualTo("4616");
+    }
+
+    @Test
+    @DisplayName("should file the newest delivery when a patient match names the last version of the display order")
+    void shouldFileTheNewestDelivery_whenAPatientMatchNamesAnotherVersion() {
+        // The display order ends with the original (2222: five final results); the correction (4616) is current.
+        Measurement filed;
+        try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("2222")).thenReturn("4616,2222");
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("4616,2222");
+            filed = fileResult(MessageHandler.class, "12.7", ".*", "2026-03-10 12:00:00",
+                    LocalDateTime.parse("2026-03-10T14:00:00"),
+                    () -> Hl7textResultsData.populateCurrentVersionMeasurements("2222", "42"));
+        }
+
+        // The correction's value is filed (the handler of 4616 supplied it), the original's is not read.
+        assertThat(filed).isNotNull();
+        assertThat(filed.getDataField()).isEqualTo("12.7");
+        verify(measurementDao).findByValue("lab_no", "2222");
+        verify(measurementDao, never()).findByValue("lab_no", "4616");
+    }
+
+    @Test
+    @DisplayName("should refuse a patient match for a report that cannot be read, before any measurement changes")
+    void shouldRefuseCurrentVersionFiling_whenTheNamedReportCannotBeRead() {
+        try (MockedStatic<Factory> factory = mockStatic(Factory.class)) {
+            factory.when(() -> Factory.getHandler("2222")).thenReturn(null);
+            assertThatThrownBy(() -> Hl7textResultsData.populateCurrentVersionMeasurements("2222", "42"))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+        verifyNoInteractions(measurementDao, mockedBeans.get(MeasurementsDeletedDao.class));
     }
 
     @Test
@@ -375,7 +506,23 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
      */
     private Measurement fileResult(String result, String filter, String observationTimestamp,
             LocalDateTime entryTimestamp) {
-        MessageHandler handler = mock(MessageHandler.class);
+        return fileResult(MessageHandler.class, result, filter, observationTimestamp, entryTimestamp);
+    }
+
+    /** As above, for a report read by the given handler type, which decides how its version chain is judged. */
+    private Measurement fileResult(Class<? extends MessageHandler> source, String result, String filter,
+            String observationTimestamp, LocalDateTime entryTimestamp) {
+        return fileResult(source, result, filter, observationTimestamp, entryTimestamp,
+                () -> Hl7textResultsData.populateMeasurementsTable("4616", "42"));
+    }
+
+    /**
+     * As above, through the given entry point. Report 4616 carries the result; report 2222 is another
+     * readable version of the same source with no result of its own.
+     */
+    private Measurement fileResult(Class<? extends MessageHandler> source, String result, String filter,
+            String observationTimestamp, LocalDateTime entryTimestamp, Runnable filing) {
+        MessageHandler handler = mock(source);
         when(handler.getOBRCount()).thenReturn(1);
         when(handler.getOBXCount(0)).thenReturn(1);
         when(handler.getOBXResult(0, 0)).thenReturn(result);
@@ -393,10 +540,11 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
              MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
              MockedStatic<Calendar> clock = mockStatic(Calendar.class, CALLS_REAL_METHODS)) {
             factory.when(() -> Factory.getHandler("4616")).thenReturn(handler);
+            factory.when(() -> Factory.getHandler("2222")).thenReturn(mock(source));
             configuration.when(CarlosProperties::getInstance).thenReturn(properties);
             clock.when(Calendar::getInstance).thenReturn(entryCalendar);
 
-            Hl7textResultsData.populateMeasurementsTable("4616", "42");
+            filing.run();
         }
 
         ArgumentCaptor<Measurement> measurement = ArgumentCaptor.forClass(Measurement.class);
