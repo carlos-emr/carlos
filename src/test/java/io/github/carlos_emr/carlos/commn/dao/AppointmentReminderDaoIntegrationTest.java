@@ -261,10 +261,61 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
         reminder(appointment(DAY, LocalTime.of(9, 0)), ReminderChannel.SMS);
         entityManager.flush();
 
-        assertThat(reminders.findSameVisit(ReminderChannel.EMAIL, 42, DAY.atTime(9, 0), mine.getId()))
+        assertThat(reminders.findSameVisit(ReminderChannel.EMAIL, 42, DAY.atTime(9, 0), mine.getId(), HANDED_OVER))
                 .extracting(found -> found.reminder().getId()).containsExactly(sibling.getId());
-        assertThat(reminders.findSameVisit(ReminderChannel.EMAIL, 0, DAY.atTime(9, 0), mine.getId())).isEmpty();
-        assertThat(reminders.findSameVisit(ReminderChannel.EMAIL, 42, null, mine.getId())).isEmpty();
+        assertThat(reminders.findSameVisit(ReminderChannel.EMAIL, 0, DAY.atTime(9, 0), mine.getId(), HANDED_OVER)).isEmpty();
+        assertThat(reminders.findSameVisit(ReminderChannel.EMAIL, 42, null, mine.getId(), HANDED_OVER)).isEmpty();
+    }
+
+    /** What a booking's reminder did that keeps covering the visit, whatever happens to the booking after. */
+    private static final java.util.Set<AppointmentReminderStatus> HANDED_OVER = java.util.EnumSet.of(
+            AppointmentReminderStatus.SENT, AppointmentReminderStatus.UNCONFIRMED, AppointmentReminderStatus.SENDING);
+
+    /** A reminder already sent for {@code start}, on a booking for {@code start}. */
+    private AppointmentReminder sentFor(LocalDateTime start, Appointment appointment) {
+        AppointmentReminder sent = reminder(appointment, ReminderChannel.EMAIL);
+        sent.startSending(at(start.toLocalDate(), start.toLocalTime()), now);
+        sent.finish(AppointmentReminderStatus.SENT, 900, now);
+        reminders.merge(sent);
+        entityManager.flush();
+        return sent;
+    }
+
+    /**
+     * A booking whose reminder was already sent for the visit still covers it after staff untick its box: the
+     * patient must not get a second email when another booking's box is ticked instead.
+     */
+    @Test
+    void shouldFindAReminderAlreadySentForTheVisit_afterItsBoxWasUnticked() {
+        AppointmentReminder mine = reminder(appointment(DAY, LocalTime.of(9, 0)), ReminderChannel.EMAIL);
+        AppointmentReminder unticked = sentFor(DAY.atTime(9, 0), appointment(DAY, LocalTime.of(9, 0)));
+        unticked.withdraw("999998", now);
+        reminders.merge(unticked);
+        entityManager.flush();
+
+        assertThat(reminders.findSameVisit(ReminderChannel.EMAIL, 42, DAY.atTime(9, 0), mine.getId(), HANDED_OVER))
+                .extracting(found -> found.reminder().getId()).containsExactly(unticked.getId());
+    }
+
+    /** ...and after its booking moved to another time: it was sent for this one. */
+    @Test
+    void shouldFindAReminderAlreadySentForTheVisit_afterItsBookingMoved() {
+        AppointmentReminder mine = reminder(appointment(DAY, LocalTime.of(9, 0)), ReminderChannel.EMAIL);
+        Appointment moved = appointment(DAY, LocalTime.of(9, 0));
+        AppointmentReminder sent = sentFor(DAY.atTime(9, 0), moved);
+        moved.setStartTime(java.sql.Time.valueOf(LocalTime.of(11, 0)));
+        moved.setEndTime(java.sql.Time.valueOf(LocalTime.of(11, 15)));
+        entityManager.merge(moved);
+        // A reminder sent for another start, or failed for this one, does not count from another time.
+        reminder(appointment(DAY, LocalTime.of(10, 0)), ReminderChannel.EMAIL);
+        AppointmentReminder failedElsewhere = reminder(appointment(DAY, LocalTime.of(10, 30)), ReminderChannel.EMAIL);
+        failedElsewhere.startSending(at(DAY, LocalTime.of(9, 0)), now);
+        failedElsewhere.finish(AppointmentReminderStatus.FAILED, null, now);
+        reminders.merge(failedElsewhere);
+        entityManager.flush();
+
+        assertThat(reminders.findSameVisit(ReminderChannel.EMAIL, 42, DAY.atTime(9, 0), mine.getId(), HANDED_OVER))
+                .extracting(found -> found.reminder().getId()).containsExactly(sent.getId());
     }
 
     @Test

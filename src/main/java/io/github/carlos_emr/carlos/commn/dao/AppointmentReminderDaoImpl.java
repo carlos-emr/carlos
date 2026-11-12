@@ -104,26 +104,47 @@ public class AppointmentReminderDaoImpl extends AbstractDaoImpl<AppointmentRemin
 
     @Override
     public List<ReminderCandidate> findSameVisit(ReminderChannel channel, int demographicNo, LocalDateTime start,
-                                                 long excludeReminderId) {
+                                                 long excludeReminderId, Collection<AppointmentReminderStatus> handedOver) {
         if (channel == null || demographicNo <= 0 || start == null) {
             return List.of();
         }
-        TypedQuery<Object[]> query = entityManager.createQuery(
+        java.util.Map<Long, ReminderCandidate> found = new java.util.LinkedHashMap<>();
+        TypedQuery<Object[]> booked = entityManager.createQuery(
                 "SELECT r, a FROM AppointmentReminder r, Appointment a "
                         + "WHERE a.id = r.appointmentNo AND r.channel = :channel AND r.requested = true "
                         + "AND r.id <> :excluded AND a.demographicNo = :demographicNo "
                         + "AND a.appointmentDate = :date AND a.startTime = :time ORDER BY r.id",
                 Object[].class);
-        query.setParameter("channel", channel);
-        query.setParameter("excluded", excludeReminderId);
-        query.setParameter("demographicNo", demographicNo);
-        query.setParameter("date", java.sql.Date.valueOf(start.toLocalDate()));
-        query.setParameter("time", java.sql.Time.valueOf(start.toLocalTime().withNano(0)));
-        List<ReminderCandidate> found = new ArrayList<>();
-        for (Object[] row : query.getResultList()) {
-            found.add(new ReminderCandidate((AppointmentReminder) row[0], (Appointment) row[1]));
+        booked.setParameter("channel", channel);
+        booked.setParameter("excluded", excludeReminderId);
+        booked.setParameter("demographicNo", demographicNo);
+        booked.setParameter("date", java.sql.Date.valueOf(start.toLocalDate()));
+        booked.setParameter("time", java.sql.Time.valueOf(start.toLocalTime().withNano(0)));
+        addCandidates(found, booked.getResultList());
+        if (handedOver != null && !handedOver.isEmpty()) {
+            // Handed over for this start, matched on the start it went for: the booking may be unticked,
+            // cancelled or moved since, and still covers the visit.
+            TypedQuery<Object[]> reminded = entityManager.createQuery(
+                    "SELECT r, a FROM AppointmentReminder r, Appointment a "
+                            + "WHERE a.id = r.appointmentNo AND r.channel = :channel AND r.id <> :excluded "
+                            + "AND a.demographicNo = :demographicNo AND r.sentFor = :start "
+                            + "AND r.lastStatus IN (:handedOver) ORDER BY r.id",
+                    Object[].class);
+            reminded.setParameter("channel", channel);
+            reminded.setParameter("excluded", excludeReminderId);
+            reminded.setParameter("demographicNo", demographicNo);
+            reminded.setParameter("start", java.sql.Timestamp.valueOf(start.withNano(0)));
+            reminded.setParameter("handedOver", handedOver);
+            addCandidates(found, reminded.getResultList());
         }
-        return found;
+        return new ArrayList<>(found.values());
+    }
+
+    private static void addCandidates(java.util.Map<Long, ReminderCandidate> found, List<Object[]> rows) {
+        for (Object[] row : rows) {
+            AppointmentReminder reminder = (AppointmentReminder) row[0];
+            found.putIfAbsent(reminder.getId(), new ReminderCandidate(reminder, (Appointment) row[1]));
+        }
     }
 
     @Override
