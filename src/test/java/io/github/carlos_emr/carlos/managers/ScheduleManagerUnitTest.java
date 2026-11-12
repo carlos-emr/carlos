@@ -409,6 +409,21 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
 
     @Test
     @Tag("update")
+    void shouldNameTheNewStatusInTheEditAudit_whenTheEditChangesIt() {
+        Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
+        current.setDemographicNo(TEST_DEMO_NO);
+        current.setStatus("t");
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(current);
+
+        scheduleManager.updateAppointment(mockLoggedInInfo, 77, null, row -> row.setStatus("C"));
+
+        // The status only: the reason, notes and name never reach the audit row.
+        logActionMock.verify(() -> LogAction.addLogSynchronous(mockLoggedInInfo, "AppointmentManager.updateAppointment",
+                LogConst.CON_APPT, "77", String.valueOf(TEST_DEMO_NO), "appointmentId=77; status=C"));
+    }
+
+    @Test
+    @Tag("update")
     void shouldAuditTheEditWithoutAPatient_whenTheSlotNamesNone() {
         Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
         current.setDemographicNo(0);

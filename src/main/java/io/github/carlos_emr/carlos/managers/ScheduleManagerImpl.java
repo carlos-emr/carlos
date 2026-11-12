@@ -255,7 +255,7 @@ public class ScheduleManagerImpl implements ScheduleManager {
 
     public void updateAppointment(LoggedInInfo loggedInInfo, Appointment appointment) {
         //--- log action ---
-        auditUpdate(loggedInInfo, appointment);
+        auditUpdate(loggedInInfo, appointment, null);
 
         // generate archive object
         oscarAppointmentDao.archiveAppointment(appointment.getId());
@@ -268,14 +268,18 @@ public class ScheduleManagerImpl implements ScheduleManager {
      * Audits an appointment edit under the appointment and its patient, with the client address.
      * REST clients and the classic Edit Appointment form both save through this manager; a row
      * without the patient cannot be found from the patient's audit trail. The action name and the
-     * {@code appointmentId=N} data are unchanged for readers of earlier rows. A slot that names no
-     * patient ({@code demographic_no} 0) is filed under none.
+     * {@code appointmentId=N} data are unchanged for readers of earlier rows; an edit that changed
+     * the status also names the new one ({@code ; status=C}), never the reason, notes or name. A
+     * slot that names no patient ({@code demographic_no} 0) is filed under none. This is the one
+     * audit row of an edit: callers do not write another.
+     *
+     * @param newStatus the status the edit set, or {@code null} when it left the status as it was
      */
-    private static void auditUpdate(LoggedInInfo loggedInInfo, Appointment appointment) {
+    private static void auditUpdate(LoggedInInfo loggedInInfo, Appointment appointment, String newStatus) {
         LogAction.addLogSynchronous(loggedInInfo, "AppointmentManager.updateAppointment", LogConst.CON_APPT,
                 String.valueOf(appointment.getId()),
                 appointment.getDemographicNo() > 0 ? String.valueOf(appointment.getDemographicNo()) : null,
-                "appointmentId=" + appointment.getId());
+                "appointmentId=" + appointment.getId() + (newStatus == null ? "" : "; status=" + newStatus));
     }
 
     /**
@@ -309,13 +313,15 @@ public class ScheduleManagerImpl implements ScheduleManager {
         // Archive the unmodified locked row. Validation, archive and mutation share this
         // transaction: a rejected edit or failed flush cannot leave a stray archive behind.
         appointmentArchiveDao.archiveAppointment(current);
+        String statusBefore = current.getStatus();
         edit.accept(current);
         AppointmentPatientAccess.require(loggedInInfo, securityInfoManager, current.getDemographicNo(), "w");
         current.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
         oscarAppointmentDao.merge(current);
         // Run the version callback before serializing the response token.
         oscarAppointmentDao.flush();
-        auditUpdate(loggedInInfo, current);
+        auditUpdate(loggedInInfo, current,
+                java.util.Objects.equals(statusBefore, current.getStatus()) ? null : current.getStatus());
         return current;
     }
 

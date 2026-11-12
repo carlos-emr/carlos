@@ -189,14 +189,8 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
             eventService.appointmentStatusChanged(this, apptNoStr, saved.getProviderNo(), changedStatus[0]);
         }
 
-        // Audit the edit against the appointment and its patient. A changed status is named; the
-        // reason, notes and name are not. Only a save that wrote reaches this line: a refused stale
-        // form and a repeated click answered from the stored row return above.
-        io.github.carlos_emr.carlos.log.LogAction.addLog(loggedInInfo,
-                io.github.carlos_emr.carlos.log.LogConst.UPDATE, io.github.carlos_emr.carlos.log.LogConst.CON_APPT,
-                String.valueOf(saved.getId()), saved.getDemographicNo() > 0 ? String.valueOf(saved.getDemographicNo()) : null,
-                changedStatus[0] == null ? null : "status=" + changedStatus[0]);
-
+        // The manager has audited the edit under the appointment and its patient, naming a changed
+        // status; a second row here would record one edit twice.
         return saved(request, apptNoStr);
     }
 

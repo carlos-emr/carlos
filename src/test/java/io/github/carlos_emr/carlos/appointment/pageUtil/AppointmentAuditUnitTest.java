@@ -248,39 +248,33 @@ class AppointmentAuditUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldAuditTheEditAgainstItsPatient_whenAnAppointmentIsUpdated() throws Exception {
+    void shouldLeaveTheEditAuditToTheManager_whenAnAppointmentIsUpdated() throws Exception {
         stored(77, 42, "t");
         fillEditForm("42", "t");
 
         String result = new AppointmentUpdateRecord2Action().execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        logActionMock.verify(() -> LogAction.addLog(info, LogConst.UPDATE, LogConst.CON_APPT, "77", "42", null), times(1));
+        // The schedule manager writes the edit's one audit row (ScheduleManagerUnitTest); a second
+        // row from the popup action would record the same edit twice.
+        verify(schedule).updateAppointment(eq(info), eq(77), any(), any());
+        logActionMock.verify(() -> LogAction.addLog(any(LoggedInInfo.class), anyString(), anyString(), anyString(),
+                nullable(String.class), nullable(String.class)), never());
         assertNoAppointmentTextIsAudited();
     }
 
     @Test
-    void shouldNameTheNewStatus_whenAnEditCancelsTheAppointment() throws Exception {
-        stored(77, 42, "t");
-        fillEditForm("42", "C");
-
-        new AppointmentUpdateRecord2Action().execute();
-
-        logActionMock.verify(() -> LogAction.addLog(info, LogConst.UPDATE, LogConst.CON_APPT, "77", "42", "status=C"),
-                times(1));
-        assertNoAppointmentTextIsAudited();
-    }
-
-    @Test
-    void shouldNameTheNewStatus_whenTheNoShowButtonIsUsed() throws Exception {
-        stored(77, 42, "t");
+    void shouldCancelThroughTheManager_whenTheCancelButtonIsUsed() throws Exception {
+        Appointment appt = stored(77, 42, "t");
         request.setParameter("appointment_no", "77");
-        request.setParameter("buttoncancel", "No Show");
+        request.setParameter("buttoncancel", "Cancel Appt");
 
         new AppointmentUpdateRecord2Action().execute();
 
-        logActionMock.verify(() -> LogAction.addLog(info, LogConst.UPDATE, LogConst.CON_APPT, "77", "42", "status=N"),
-                times(1));
+        // The status change the manager then names in its audit row.
+        assertThat(appt.getStatus()).isEqualTo("C");
+        logActionMock.verify(() -> LogAction.addLog(any(LoggedInInfo.class), anyString(), anyString(), anyString(),
+                nullable(String.class), nullable(String.class)), never());
     }
 
     @Test
