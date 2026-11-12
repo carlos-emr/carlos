@@ -5,8 +5,9 @@
 Single-point and constant-value measurement charts now draw useful markers and axes.
 Point labels retain Java HALF_EVEN rounding and the server's locale/date conventions.
 Graph failures return explicit 422, 500 or 503 responses; embedded lab and medication
-graphs provide a visible retry control, and graphs opened in their own window (measurement
-history, Health Tracker, flowsheets) show the same message with a Retry button.
+graphs provide a visible retry control.
+Graphs opened in their own window (measurement history, Health Tracker, flowsheets) show
+the same message with a Retry button.
 Measurement, lab and medication graphs are drawn by the bundled render browser that eForm
 print and fax use, and share its capacity: while it is busy or down, graphs ask to be
 retried. A standalone WAR without the render-browser service shows no graphs.
