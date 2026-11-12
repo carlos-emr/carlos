@@ -4091,7 +4091,7 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "Read-only. Pins the 410 contract for the retired HRM confidentiality statement operations and that the Administration panel no longer links the removed page."
+      "notes": "Read-only. Pins the 410 contract for the retired HRM confidentiality statement operations (a GET of the save name is refused earlier, with 405, by the method guard) and that the Administration panel no longer links the removed page."
     },
     {
       "name": "clinic-demo-name",
@@ -11851,7 +11851,7 @@
         "MYSQL_PASSWORD",
         "XSS_POISON_LEDGER_DIR"
       ],
-      "fixtures": "One owned FAKE patient (chart number XV...) with a measurement row for every Vascular Tracker measurement type, an active allergy and drug, Ongoing Concerns and a saved VT record whose smoking and foot-exam comments carry inert markup. Patient-scoped only; nothing global. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run. ",
+      "fixtures": "One owned FAKE patient (chart number XV...) with a measurement row for every Vascular Tracker measurement type, an active allergy and drug, an Ongoing Concerns CPP note and a saved VT record whose smoking and foot-exam comments carry inert markup. Patient-scoped only; nothing global. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run. ",
       "notes": "Issue #4681: the VT form printed stored measurement values, comments, drug and allergy text and Ongoing Concerns raw. Opens /form/SetupForm?formName=VTForm for the saved record (the VT registration is hidden by default, so there is no chart link to click), reveals the medication/allergy detail, and requires every seeded value the form shows to appear as literal text with no [data-xp] element, script error or broken inline handler. The foot-exam and smoking comment boxes must hold exactly the stored text (no template indentation). scripts/vt-form.test.js guards the source."
     },
     {
@@ -17567,14 +17567,14 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 180,
       "env": [],
       "envSet": {
         "RX_RENAL_CASE": "lab-only"
       },
-      "notes": "Independent renal input/source/threshold matrix case lab-only (#5263); isolated outcome and owned cleanup."
+      "notes": "Independent renal input/source/threshold matrix case lab-only (#5263); isolated outcome and owned cleanup. Ontario only: the lab fixture inserts a CML report header (labReportInformation), a table only the Ontario schema has."
     },
     {
       "name": "rx-renal-input-lab-newer",
@@ -17584,14 +17584,14 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 180,
       "env": [],
       "envSet": {
         "RX_RENAL_CASE": "lab-newer"
       },
-      "notes": "Independent renal input/source/threshold matrix case lab-newer (#5263); isolated outcome and owned cleanup."
+      "notes": "Independent renal input/source/threshold matrix case lab-newer (#5263); isolated outcome and owned cleanup. Ontario only: the lab fixture inserts a CML report header (labReportInformation), a table only the Ontario schema has."
     },
     {
       "name": "rx-renal-input-measurement-newer",
@@ -17601,14 +17601,14 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 180,
       "env": [],
       "envSet": {
         "RX_RENAL_CASE": "measurement-newer"
       },
-      "notes": "Independent renal input/source/threshold matrix case measurement-newer (#5263); isolated outcome and owned cleanup."
+      "notes": "Independent renal input/source/threshold matrix case measurement-newer (#5263); isolated outcome and owned cleanup. Ontario only: the lab fixture inserts a CML report header (labReportInformation), a table only the Ontario schema has."
     },
     {
       "name": "rx-renal-input-equal-date-lab",
@@ -17618,14 +17618,14 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 180,
       "env": [],
       "envSet": {
         "RX_RENAL_CASE": "equal-date-lab"
       },
-      "notes": "Independent renal input/source/threshold matrix case equal-date-lab (#5263); isolated outcome and owned cleanup."
+      "notes": "Independent renal input/source/threshold matrix case equal-date-lab (#5263); isolated outcome and owned cleanup. Ontario only: the lab fixture inserts a CML report header (labReportInformation), a table only the Ontario schema has."
     },
     {
       "name": "rx-renal-input-newer-unusable-source",
@@ -17635,14 +17635,14 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 180,
       "env": [],
       "envSet": {
         "RX_RENAL_CASE": "newer-unusable-source"
       },
-      "notes": "Independent renal input/source/threshold matrix case newer-unusable-source (#5263); isolated outcome and owned cleanup."
+      "notes": "Independent renal input/source/threshold matrix case newer-unusable-source (#5263); isolated outcome and owned cleanup. Ontario only: the lab fixture inserts a CML report header (labReportInformation), a table only the Ontario schema has."
     },
     {
       "name": "rx-renal-input-weight-blank",
