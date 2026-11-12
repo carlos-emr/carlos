@@ -100,4 +100,21 @@ class AppointmentReminderBoxJspRegressionTest {
             assertThat(page(name).split("name=\"emailPtShown\"", -1)).as(name).hasSize(2);
         }
     }
+
+    /**
+     * Group Appt and Group Update post the Add/Edit form here (every field copied forward, the box included).
+     * The page records the box after booking the group, and Group Update moves each reminder to the appointment
+     * it books in place of the old one before applying the box to the edited appointment.
+     */
+    @Test
+    void shouldKeepTheReminderChoice_onGroupAddAndGroupUpdate() throws IOException {
+        String group = page("appointmentgrouprecords.jsp");
+
+        assertThat(group).containsSubsequence("equals(\"Add Group Appointment\")", "appointmentDao.persist(a);",
+                "groupBookings.add(a);", "AppointmentReminderChoice.recordForGroup(request,", "groupBookings, curProvider_no);",
+                "if (rowsAffected == 1) bSucc = true;");
+        assertThat(group).containsSubsequence("equals(\"Group Update\")", "replacedNo = appt.getId();",
+                "appointmentDao.persist(a);", "AppointmentReminderChoice.moveReminders(request, groupUser, replacedNo, a);",
+                "AppointmentReminderChoice.record(request, groupUser, edited);");
+    }
 }

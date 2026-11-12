@@ -82,6 +82,8 @@
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="org.owasp.csrfguard.CsrfGuard" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -139,6 +141,8 @@
             param[19] = request.getParameter("reasonCode");
 
             String[] param2 = new String[7];
+            // #5887: the bookings made here, so the Email Reminder box can be recorded on one of them.
+            java.util.List<Appointment> groupBookings = new java.util.ArrayList<>();
             for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                 strbuf = new StringBuffer(e.nextElement().toString());
                 if (strbuf.toString().indexOf("one") == -1 && strbuf.toString().indexOf("two") == -1)
@@ -175,6 +179,7 @@
                 a.setReasonCode(Integer.parseInt(request.getParameter("reasonCode")));
 
                 appointmentDao.persist(a);
+                groupBookings.add(a);
                 rowsAffected = 1;
 
 
@@ -201,6 +206,9 @@
                     OtherIdManager.saveIdAppointment(apptNo, "appt_mc_number", mcNumber);
                 }
             }
+            // One reminder for the group: the patient is booked with several providers at the same time.
+            AppointmentReminderChoice.recordForGroup(request, LoggedInInfo.getLoggedInInfoFromSession(request),
+                    groupBookings, curProvider_no);
             if (rowsAffected == 1) bSucc = true;
         }
 
@@ -210,6 +218,11 @@
             StringBuffer strbuf = null;
             String createdDateTime = UtilDateUtilities.DateToString(new java.util.Date(), "yyyy-MM-dd HH:mm:ss");
             String userName = (String) session.getAttribute("userlastname") + ", " + (String) session.getAttribute("userfirstname");
+            // #5887: Group Update books each appointment again under a new number. Its reminder goes with it,
+            // and the Edit form's Email Reminder box applies to the appointment it was opened for.
+            LoggedInInfo groupUser = LoggedInInfo.getLoggedInInfoFromSession(request);
+            int editedNo = org.apache.commons.lang3.math.NumberUtils.toInt(request.getParameter("appointment_no"), 0);
+            Appointment editedBooking = null;
 
             for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                 strbuf = new StringBuffer(e.nextElement().toString());
@@ -244,11 +257,13 @@
                 }
 
                 if (request.getParameter("groupappt").equals("Group Update")) {
+                    Integer replacedNo = null;
                     if (request.getParameter("appointment_no" + datano) != null) {
                         Appointment appt = appointmentDao.find(Integer.parseInt(request.getParameter("appointment_no" + datano)));
                         if (appt != null) {
                             appointmentArchiveDao.archiveAppointment(appt);
                             appointmentDao.remove(appt.getId());
+                            replacedNo = appt.getId();
                             rowsAffected = 1;
 
                         }
@@ -305,6 +320,10 @@
 
                     appointmentDao.persist(a);
                     rowsAffected = 1;
+                    AppointmentReminderChoice.moveReminders(request, groupUser, replacedNo, a);
+                    if (replacedNo != null && replacedNo == editedNo) {
+                        editedBooking = a;
+                    }
 
                     if (rowsAffected == 1) {
 
@@ -327,6 +346,12 @@
                     }
                 }
                 if (rowsAffected != 1) break;
+            }
+            if (request.getParameter("groupappt").equals("Group Update")) {
+                // The box belongs to the appointment Edit was opened for: rebooked here, or left as it was.
+                Appointment edited = editedBooking != null ? editedBooking
+                        : editedNo > 0 ? appointmentDao.find(editedNo) : null;
+                AppointmentReminderChoice.record(request, groupUser, edited);
             }
             if (rowsAffected == 1) bSucc = true;
         }

@@ -162,6 +162,37 @@ public class AppointmentReminderService {
         return true;
     }
 
+    /**
+     * Group Update deletes each appointment and books it again under a new number (#5887). The reminder rows move
+     * to the new number, so the choice, and the start a reminder was already sent for, stay with the booking. A row
+     * already on the new number is kept as it is.
+     *
+     * @return the number of rows moved
+     */
+    @Transactional
+    public int moveReminders(LoggedInInfo user, int fromAppointmentNo, int toAppointmentNo) {
+        if (fromAppointmentNo <= 0 || toAppointmentNo <= 0 || fromAppointmentNo == toAppointmentNo) {
+            return 0;
+        }
+        String providerNo = user == null ? null : user.getLoggedInProviderNo();
+        Date now = Date.from(clock.instant());
+        int moved = 0;
+        for (ReminderChannel channel : ReminderChannel.values()) {
+            Optional<AppointmentReminder> reminder = reminders.findByAppointment(fromAppointmentNo, channel);
+            if (reminder.isEmpty() || reminders.findByAppointment(toAppointmentNo, channel).isPresent()) {
+                continue;
+            }
+            reminder.get().moveTo(toAppointmentNo, providerNo, now);
+            reminders.merge(reminder.get());
+            moved++;
+            if (user != null) {
+                LogAction.addLog(user, "AppointmentReminder.moved", LogConst.CON_APPT, String.valueOf(toAppointmentNo),
+                        null, "channel=" + channel + "&from=" + fromAppointmentNo);
+            }
+        }
+        return moved;
+    }
+
     /** Whether staff asked for a reminder of this appointment on this channel (Edit shows the box ticked). */
     public boolean isRequested(int appointmentNo, ReminderChannel channel) {
         return reminders.findByAppointment(appointmentNo, channel).map(AppointmentReminder::isRequested).orElse(false);

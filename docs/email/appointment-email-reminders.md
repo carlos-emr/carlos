@@ -28,8 +28,17 @@ The clinic email footer must be configured, as for every patient email. The `app
 - **Once per start:** each appointment start is reminded once. Moving the appointment by changing its date or time
   (Edit Appointment, dragging it on the schedule, REST, HL7, or a change to a whole repeat series) makes it due
   again for the new start. Unticking the box stops it. A reminder already sent cannot be recalled.
-- **New appointments do not inherit it:** Cut and Paste, and the copies a Repeat Booking makes, are new
-  appointments. The choice is not copied to them, so tick the box on each one that should be reminded.
+- **The other buttons on the form keep it:**
+  - **Repeat Booking** books every repeat with the box as it was on the form, and a repeat-series **Group Update**
+    applies it to every appointment in the series.
+  - **Group Appt** books the patient with several providers at the same time, so the box goes on one booking only:
+    the one for the provider the form was opened for, or else the first booking with the patient. The patient
+    gets one reminder.
+  - **Group Action, then Group Update**, books each appointment again under a new number. Its reminder, and the
+    start already reminded for, go with it, so the same start is not reminded twice. The Edit form's box applies to
+    the appointment Edit was opened for.
+- **Cut and Paste does not keep it:** the pasted appointment is new, and the choice is not copied, so tick the box
+  on it if it should be reminded.
 - **Retry:** one retry, 30 minutes after a definite failure (the mail server refused it, or it failed before
   being handed over). A refusal (consent, address, setup) or an unconfirmed send is never retried, so a patient is
   not emailed twice.

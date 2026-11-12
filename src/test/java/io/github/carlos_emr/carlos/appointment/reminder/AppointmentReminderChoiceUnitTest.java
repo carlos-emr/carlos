@@ -121,6 +121,66 @@ class AppointmentReminderChoiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldReadTheBox_fromAFormCopiedIntoAMap() {
+        assertThat(AppointmentReminderChoice.isOnCopiedForm(java.util.Map.of(AppointmentReminderChoice.SHOWN_PARAMETER, "1"))).isTrue();
+        assertThat(AppointmentReminderChoice.isOnCopiedForm(java.util.Map.of(AppointmentReminderChoice.PARAMETER, "on"))).isFalse();
+        assertThat(AppointmentReminderChoice.isOnCopiedForm(null)).isFalse();
+        assertThat(AppointmentReminderChoice.isTickedOnCopiedForm(java.util.Map.of(AppointmentReminderChoice.PARAMETER, "on"))).isTrue();
+        assertThat(AppointmentReminderChoice.isTickedOnCopiedForm(java.util.Map.of(AppointmentReminderChoice.SHOWN_PARAMETER, "1"))).isFalse();
+    }
+
+    private static Appointment booking(int id, String providerNo, int patient) {
+        Appointment booking = appointment(id);
+        booking.setProviderNo(providerNo);
+        booking.setDemographicNo(patient);
+        return booking;
+    }
+
+    /** #5887: Group Appt books the patient with several providers at once; one booking gets the reminder. */
+    @Test
+    void shouldRecordTheGroupsBoxOnce_onTheFormProvidersBookingWithThePatient() {
+        AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
+        var bookings = java.util.List.of(booking(201, "100001", 42), booking(202, "999998", 42), booking(203, "100002", 0));
+
+        AppointmentReminderChoice.recordForGroup(form(true, true), user, bookings, "999998");
+
+        verify(reminders).recordRequest(user, 202, 42, ReminderChannel.EMAIL, true);
+        verify(reminders, org.mockito.Mockito.times(1)).recordRequest(any(), anyInt(), anyInt(), any(), org.mockito.ArgumentMatchers.anyBoolean());
+    }
+
+    @Test
+    void shouldPickTheFirstBookingWithThePatient_whenTheFormProviderHasNone() {
+        var bookings = java.util.List.of(booking(201, "999998", 0), booking(202, "100001", 42), booking(203, "100002", 42));
+
+        assertThat(AppointmentReminderChoice.patientBooking(bookings, "999998").getId()).isEqualTo(202);
+        assertThat(AppointmentReminderChoice.patientBooking(java.util.List.of(booking(201, "999998", 0)), "999998")).isNull();
+        assertThat(AppointmentReminderChoice.patientBooking(java.util.List.of(), null)).isNull();
+    }
+
+    @Test
+    void shouldLeaveGroupBookingsAlone_whenTheFormHadNoBox() {
+        AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
+
+        AppointmentReminderChoice.recordForGroup(form(false, true), user, java.util.List.of(booking(201, "999998", 42)), "999998");
+        AppointmentReminderChoice.moveReminders(form(false, true), user, 101, appointment(201));
+
+        verifyNoInteractions(reminders);
+    }
+
+    /** Group Update books the appointment again under a new number; its reminder goes with it. */
+    @Test
+    void shouldMoveTheReminders_toTheRebookedAppointment() {
+        AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
+
+        AppointmentReminderChoice.moveReminders(form(true, false), user, 101, appointment(201));
+        AppointmentReminderChoice.moveReminders(form(true, false), user, null, appointment(202));
+        AppointmentReminderChoice.moveReminders(form(true, false), user, 103, appointment(null));
+
+        verify(reminders).moveReminders(user, 101, 201);
+        verify(reminders, org.mockito.Mockito.times(1)).moveReminders(any(), anyInt(), anyInt());
+    }
+
+    @Test
     void shouldAskTheStoredChoice_forTheEditPage() {
         AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
         when(reminders.isRequested(101, ReminderChannel.EMAIL)).thenReturn(true);

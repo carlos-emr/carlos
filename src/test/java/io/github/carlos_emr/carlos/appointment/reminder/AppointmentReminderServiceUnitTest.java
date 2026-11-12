@@ -608,6 +608,36 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             verify(reminders, never()).merge(any());
         }
 
+        /** Group Update deletes the appointment and books it again under a new number. */
+        @Test
+        void shouldMoveTheReminderWithItsRemindedStart_whenGroupUpdateRebooksTheAppointment() {
+            AppointmentReminder reminder = requested();
+            reminder.startSending(at(NOW.plusHours(20)), at(NOW));
+            when(reminders.findByAppointment(APPOINTMENT, ReminderChannel.EMAIL)).thenReturn(Optional.of(reminder));
+            when(reminders.findByAppointment(201, ReminderChannel.EMAIL)).thenReturn(Optional.empty());
+
+            assertThat(service.moveReminders(user, APPOINTMENT, 201)).isEqualTo(1);
+
+            assertThat(reminder.getAppointmentNo()).isEqualTo(201);
+            assertThat(reminder.isRequested()).isTrue();
+            assertThat(reminder.getSentFor()).as("the same start is not reminded twice").isEqualTo(at(NOW.plusHours(20)));
+            assertThat(reminder.getUpdatedBy()).isEqualTo("999998");
+            verify(reminders).merge(reminder);
+        }
+
+        @Test
+        void shouldMoveNothing_whenTheNewNumberHasItsOwnReminderOrTheNumbersAreNotTwo() {
+            when(reminders.findByAppointment(APPOINTMENT, ReminderChannel.EMAIL)).thenReturn(Optional.of(requested()));
+            when(reminders.findByAppointment(201, ReminderChannel.EMAIL)).thenReturn(Optional.of(requested()));
+
+            assertThat(service.moveReminders(user, APPOINTMENT, 201)).isZero();
+            assertThat(service.moveReminders(user, APPOINTMENT, APPOINTMENT)).isZero();
+            assertThat(service.moveReminders(user, 0, 201)).isZero();
+            assertThat(service.moveReminders(user, 202, 203)).as("nothing to move").isZero();
+
+            verify(reminders, never()).merge(any());
+        }
+
         @Test
         void shouldReadTheStoredChoice_forTheEditPage() {
             AppointmentReminder withdrawn = requested();

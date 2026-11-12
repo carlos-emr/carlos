@@ -148,6 +148,16 @@ public class AppointmentReminder extends AbstractModel<Long> {
         updatedAt = now;
     }
 
+    /**
+     * The appointment was booked again under a new number (Group Update deletes and re-creates it). The choice and
+     * the start already reminded for go with it, so the same start is not reminded twice.
+     */
+    public void moveTo(int newAppointmentNo, String providerNo, Date now) {
+        appointmentNo = newAppointmentNo;
+        updatedBy = providerNo;
+        updatedAt = now;
+    }
+
     /** Claimed by a run. The claim is only a lock: nothing is recorded as attempted yet. */
     public void claim(String token, Date now) {
         claimToken = token;

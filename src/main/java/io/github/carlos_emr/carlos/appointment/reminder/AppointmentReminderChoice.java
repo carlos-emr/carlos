@@ -27,7 +27,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * The "Email Reminder" box on Add and Edit Appointment (#5887), shown when the clinic turns reminders on.
@@ -57,6 +59,16 @@ public final class AppointmentReminderChoice {
         return request != null && request.getParameter(PARAMETER) != null;
     }
 
+    /** {@link #isOnForm(HttpServletRequest)} for a form copied into a map, as the Repeat Booking page passes it. */
+    public static boolean isOnCopiedForm(Map<String, String> values) {
+        return values != null && "1".equals(values.get(SHOWN_PARAMETER));
+    }
+
+    /** {@link #isTicked(HttpServletRequest)} for a form copied into a map. */
+    public static boolean isTickedOnCopiedForm(Map<String, String> values) {
+        return values != null && values.get(PARAMETER) != null;
+    }
+
     /**
      * Stores the box for {@code appointment} when the form showed it. Call inside the transaction that saves
      * the appointment, after it has its number, so the choice commits with it.
@@ -67,6 +79,47 @@ public final class AppointmentReminderChoice {
         }
         SpringUtils.getBean(AppointmentReminderService.class).recordRequest(user, appointment.getId(),
                 appointment.getDemographicNo(), ReminderChannel.EMAIL, isTicked(request));
+    }
+
+    /**
+     * Group Appt books the patient with several providers at the same time (#5887). One reminder is enough, so
+     * the box is recorded on one booking: the one for the provider the form was opened for, or else the first
+     * booking with the patient. The other bookings are not reminded.
+     */
+    public static void recordForGroup(HttpServletRequest request, LoggedInInfo user, List<Appointment> bookings,
+                                      String formProviderNo) {
+        if (!isOnForm(request)) {
+            return;
+        }
+        record(request, user, patientBooking(bookings, formProviderNo));
+    }
+
+    static Appointment patientBooking(List<Appointment> bookings, String formProviderNo) {
+        Appointment first = null;
+        for (Appointment booking : bookings) {
+            if (booking == null || booking.getId() == null || booking.getDemographicNo() <= 0) {
+                continue;
+            }
+            if (formProviderNo != null && formProviderNo.equals(booking.getProviderNo())) {
+                return booking;
+            }
+            if (first == null) {
+                first = booking;
+            }
+        }
+        return first;
+    }
+
+    /**
+     * Group Update deletes {@code replacedNo} and books it again as {@code rebooked} (#5887): its reminder rows go
+     * with it ({@link AppointmentReminderService#moveReminders}). Only when reminders are on, as the box shows.
+     */
+    public static void moveReminders(HttpServletRequest request, LoggedInInfo user, Integer replacedNo,
+                                     Appointment rebooked) {
+        if (replacedNo == null || rebooked == null || rebooked.getId() == null || !isOnForm(request)) {
+            return;
+        }
+        SpringUtils.getBean(AppointmentReminderService.class).moveReminders(user, replacedNo, rebooked.getId());
     }
 
     /**
