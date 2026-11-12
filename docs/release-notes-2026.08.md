@@ -212,6 +212,32 @@ counts the rows that are shown, and a list that cannot be loaded says so
   [HTML to PDF rendering](html-pdf-rendering.md). A page that declares a DOCTYPE with an
   internal subset is refused.
 
+### Stale forms and repeated submissions
+
+- **Edit Appointment.** Saving a form that was opened before someone else changed or
+  cancelled the appointment no longer puts the old values back. The save is refused
+  with HTTP 409, a message that nothing from the form was stored and a link to reopen
+  the appointment. Update, Update and Receipt, the status buttons, Cut, Delete, the
+  group actions and the repeat-booking anchor are covered. A second click on a form
+  whose first submission was saved ends as saved. A request that carries no
+  `appointmentVersion` keeps the previous last-writer-wins behavior.
+- **Ticklers.** Editing a tickler, and Complete, Delete and Activate on the tickler
+  lists, refuse a task someone else changed after the page was shown, name the refused
+  tasks and still apply the rest. A deleted task can no longer be turned into a
+  completed one from a stale list. Legacy ticklers stored without a patient can be
+  completed and deleted again by users with the tickler right.
+- **Messenger.** A compose page sends its message once, after a double click, a second
+  click on a slow response or a reload. A sent page that is changed and sent again is
+  shown back unsent with an explanation. A request without the page's submission token
+  sends each time, as before.
+- **Prescriptions.** When the reply to a save is lost and the prescription is edited and
+  saved again, the answer is no longer "already saved". CARLOS says that the earlier
+  version was saved and the changes were not (HTTP 409, code
+  `RX_SAVED_EARLIER_VERSION`), and the page shows a standing notice with a button to
+  reopen prescribing; nothing is written by the refused request. An unchanged repeat is
+  still answered `RX_ALREADY_SAVED`, and the notice then also offers the saved
+  prescription for printing. See [Rx recovery](rx/release-2026.08-recovery.md).
+
 ### Audit trail
 
 - A sign-in is recorded once, naming the facility the session was bound to. A provider
