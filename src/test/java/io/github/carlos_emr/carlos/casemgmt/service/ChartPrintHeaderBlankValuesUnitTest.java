@@ -78,9 +78,13 @@ class ChartPrintHeaderBlankValuesUnitTest extends CarlosUnitTestBase {
 
         try (var document = Loader.loadPDF(output.toByteArray())) {
             String printed = new PDFTextStripper().getText(document);
-            assertThat(printed).contains("PHN/HIN:", "Sex:", "MRP:", "Phone:", "Fax:").doesNotContain("null");
-            // No lone comma where the clinic's city and province would be (the footer's disclaimer has commas).
-            assertThat(printed.lines().map(String::strip)).doesNotContain(",");
+            assertThat(printed).doesNotContain("null");
+            // Each empty value prints its bare label, so a placeholder after it ("N/A", "-") fails too; and no lone
+            // comma where the clinic's city and province would be (the footer's disclaimer has commas).
+            assertThat(printed.lines().map(String::strip))
+                    .contains("Documentation for", "Sex:", "Date of Birth:", "Age:", "PHN/HIN:", "MRP:", "Phone:",
+                            "Fax:")
+                    .doesNotContain(",");
         }
         assertThat(CaseManagementPrintPdf.headerValue(request, "demoPhn")).isEmpty();
         request.setAttribute("demoPhn", "9876543217");

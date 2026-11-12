@@ -130,9 +130,11 @@ class OscarChartPrinterBlankFieldsUnitTest extends CarlosUnitTestBase {
         }
 
         String printed = text(output);
-        assertThat(printed).contains("Title:", "Last Name:", "Health Insurance #:", "HC Type:", "Work Phone:",
-                "Alerts:", "FAKE-Relative, FAKE-Bo");
+        assertThat(printed).contains("FAKE-Relative, FAKE-Bo");
         assertThat(printed).doesNotContain("null").doesNotContain("Notes:");
+        // Each empty field prints its bare label, so a placeholder after it ("N/A", "-") fails too.
+        assertThat(printed.lines().map(String::strip)).contains("Title:", "Last Name:", "Health Insurance #:",
+                "HC Type:", "Work Phone:", "Alerts:");
     }
 
     @Test
