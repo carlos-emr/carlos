@@ -410,8 +410,8 @@ public class Hl7textResultsData {
 
     /**
      * The value a result is filed as: the text {@code HL7_LAB_MEASUREMENT_FILTER} matches, in the
-     * lab's own case. {@code null} when the filter does not match or the match is longer than a
-     * measurement holds; the full result stays in the report.
+     * lab's own case. An unset or blank filter matches the whole result. {@code null} when the filter
+     * does not match or the match is longer than a measurement holds; the full result stays in the report.
      */
     private static String projectableValue(String result, String lab, int obr, int obx) {
         return projectableValue(result, "lab " + LogSafe.sanitize(lab) + ", OBX " + obr + "-" + obx);
@@ -425,8 +425,11 @@ public class Hl7textResultsData {
         String trimmed = StringUtils.trimToEmpty(result).replaceAll("\\<br\\s?/?\\>", "").trim();
         Locale locale = Locale.ROOT;
         String shadow = trimmed.toLowerCase(locale);
-        Matcher match = Pattern.compile(CarlosProperties.getInstance()
-                .getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).matcher(shadow);
+        String filter = CarlosProperties.getInstance().getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*");
+        // A blank setting means no filter, as an unset one does (#6121). As a pattern it would match zero
+        // characters, so every result would be filed as an empty value.
+        if (StringUtils.isBlank(filter)) filter = ".*";
+        Matcher match = Pattern.compile(filter).matcher(shadow);
         if (!match.find()) return null;
         int start = originalBoundary(trimmed, shadow, match.start(), locale);
         int end = originalBoundary(trimmed, shadow, match.end(), locale);
