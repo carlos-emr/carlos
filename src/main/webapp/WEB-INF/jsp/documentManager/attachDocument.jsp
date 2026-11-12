@@ -75,6 +75,12 @@
 <fmt:message var="lblDecorativeExcludedElements" key="eform.renderIssue.decorativeExcludedElements"/>
 <fmt:message var="lblStabilizationCapped" key="eform.renderIssue.stabilizationCapped"/>
 <fmt:message var="lblLabDecisionSupportStubbed" key="eform.renderIssue.labDecisionSupportStubbed"/>
+<%-- The rest of the render-failure dialog, also in the page's language (#6162). --%>
+<fmt:message var="lblYes" key="eform.renderIssue.yes"/>
+<fmt:message var="lblNo" key="eform.renderIssue.no"/>
+<fmt:message var="msgPreviewFailed" key="document.preview.msgFailed"/>
+<fmt:message var="msgConfirmApprove" key="eform.preview.confirmApprove"/>
+<fmt:message var="msgAdvisoryScriptErrors" key="eform.preview.advisoryScriptErrors"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
@@ -399,17 +405,16 @@
             }
             // textContent, not innerHTML: the count is server-generated, but this element sits in a
             // page that renders clinical documents and must never become an HTML sink.
-            advisory.textContent = "This form reported " + count
-                + (count === 1 ? " script error" : " script errors")
-                + " while rendering. The document below may be missing content — check it against the form.";
+            // The bundle text names the count after a colon, so it needs no plural forms.
+            advisory.textContent = "${carlos:forJavaScript(msgAdvisoryScriptErrors)}".replace("{0}", count);
             advisory.classList.remove('d-none');
         }
 
         function showError(errorMessage) {
             if (errorMessage) {
-                alert("A preview of this document could not be generated.\n\n" + errorMessage);
+                alert("${carlos:forJavaScript(msgPreviewFailed)}\n\n" + errorMessage);
             } else {
-                alert("A preview of this document could not be generated.");
+                alert("${carlos:forJavaScript(msgPreviewFailed)}");
             }
             HideSpin();
         }
@@ -449,16 +454,20 @@
                         // drift independently; one key per category means all three move together, and
                         // this dialog stops being English-only. forJavaScript, not forHtmlContent:
                         // these are interpolated into a JS string literal.
+                        // Yes/no values are words, not raw true/false (#6162).
+                        const yesNo = function (value) {
+                            return value ? "${carlos:forJavaScript(lblYes)}" : "${carlos:forJavaScript(lblNo)}";
+                        };
                         const details = "\n\n${carlos:forJavaScript(lblFailedContentResources)}: " + data.failedContentResources
                             + "\n${carlos:forJavaScript(lblExcludedContentElements)}: " + data.excludedContentElements
-                            + "\n${carlos:forJavaScript(lblSignatureMissing)}: " + data.signatureMissing
-                            + "\n${carlos:forJavaScript(lblProviderStampMissing)}: " + data.providerStampMissing
-                            + "\n${carlos:forJavaScript(lblTimerCompatibilityFailure)}: " + data.timerCompatibilityFailure
+                            + "\n${carlos:forJavaScript(lblSignatureMissing)}: " + yesNo(data.signatureMissing)
+                            + "\n${carlos:forJavaScript(lblProviderStampMissing)}: " + yesNo(data.providerStampMissing)
+                            + "\n${carlos:forJavaScript(lblTimerCompatibilityFailure)}: " + yesNo(data.timerCompatibilityFailure)
                             + "\n${carlos:forJavaScript(lblSevereConsoleErrors)}: " + data.severeConsoleErrors
                             + "\n${carlos:forJavaScript(lblContainedInteractions)}: " + data.containedInteractions
                             + "\n${carlos:forJavaScript(lblDecorativeExcludedElements)}: " + data.decorativeExcludedElements
-                            + "\n${carlos:forJavaScript(lblStabilizationCapped)}: " + data.stabilizationCapped
-                            + "\n${carlos:forJavaScript(lblLabDecisionSupportStubbed)}: " + data.labDecisionSupportStubbed;
+                            + "\n${carlos:forJavaScript(lblStabilizationCapped)}: " + yesNo(data.stabilizationCapped)
+                            + "\n${carlos:forJavaScript(lblLabDecisionSupportStubbed)}: " + yesNo(data.labDecisionSupportStubbed);
                         // PHI-safe per-error descriptions (script error type + source location only)
                         // so the clinician can judge the errors before approving the override.
                         let severeConsoleDetailText = "";
@@ -479,7 +488,7 @@
                             }
                         }
                         if (data.renderApproval
-                                && confirm(data.errorMessage + details + severeConsoleDetailText + "\n\nApprove these issues and render?")) {
+                                && confirm(data.errorMessage + details + severeConsoleDetailText + "\n\n${carlos:forJavaScript(msgConfirmApprove)}")) {
                             getPdf(attachmentName, attachmentId,
                                 CarlosDocumentPreviewRetry.replaceApproval(currentParameters, data.renderApproval));
                         }

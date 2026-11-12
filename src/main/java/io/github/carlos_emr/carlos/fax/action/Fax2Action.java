@@ -61,6 +61,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderCapacityResponse;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderMessage;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.form.JSONUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -91,9 +92,6 @@ public class Fax2Action extends ActionSupport {
     private static final String ACCESS_DENIED = "Access denied";
     /** Request attribute the error JSPs render; Struts action errors do not reach them on their own. */
     private static final String ACTION_ERRORS_ATTRIBUTE = "actionErrors";
-    private static final String EFORM_FAX_MISSING_CONTENT_MESSAGE =
-            "This eForm could not be fully rendered because required content or behavior is missing. "
-            + "You can fax it only after approving the listed issues, but the document may be incomplete.";
     private static final String FAX_FILE_PATH_PARAM = "faxFilePath";
     private static final String ERROR_SENDING_ERROR_RESPONSE = "Error sending error response";
     // Session-scoped record of every temp PDF path prepareFax() has handed to THIS authenticated
@@ -842,7 +840,8 @@ public class Fax2Action extends ActionSupport {
                             if (!ownershipTransferred) deleteUnownedStagedFaxPreview(rendered.path());
                         }
                         request.setAttribute("renderApproval", token);
-                        request.setAttribute("missingContentMessage", EFORM_FAX_MISSING_CONTENT_MESSAGE);
+                        // In the page's language (#6162); EFormMissingContent.jsp encodes it.
+                        request.setAttribute("missingContentMessage", EFormRenderMessage.NOT_FAXED.text(request));
                         request.setAttribute("transactionType", transactionType.name());
                         request.setAttribute("transactionId", transactionId);
                         request.setAttribute("demographicNo", demographicNo);
