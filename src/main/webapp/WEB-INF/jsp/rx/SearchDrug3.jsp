@@ -275,6 +275,8 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <fmt:message key="SearchDrug.js.saveRefused"               var="msg_saveRefused"/>
         <fmt:message key="oscarRx.stagedSourceChanged" var="msg_sourceChanged"/>
         <fmt:message key="oscarRx.saveAlreadySaved" var="msg_saveAlreadySaved"/>
+        <fmt:message key="oscarRx.saveEarlierVersionSaved" var="msg_saveEarlierVersionSaved"/>
+        <fmt:message key="SearchDrug.js.reopenToContinue"          var="msg_reopenToContinue"/>
 <fmt:message key="SearchDrug.js.saveIncomplete"            var="msg_saveIncomplete"/>
         <fmt:message key="SearchDrug.js.saveUncertain"             var="msg_saveUncertain"/>
         <fmt:message key="SearchDrug.js.discontinueIncomplete"     var="msg_discontinueIncomplete"/>
@@ -326,6 +328,8 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
                 saveRefused: '${carlos:forJavaScript(msg_saveRefused)}',
                 sourceChanged: '${carlos:forJavaScript(msg_sourceChanged)}',
                 alreadySaved: '${carlos:forJavaScript(msg_saveAlreadySaved)}',
+                earlierVersionSaved: '${carlos:forJavaScript(msg_saveEarlierVersionSaved)}',
+                reopenToContinue: '${carlos:forJavaScript(msg_reopenToContinue)}',
                 saveIncomplete: '${carlos:forJavaScript(msg_saveIncomplete)}',
                 saveUncertain: '${carlos:forJavaScript(msg_saveUncertain)}',
                 discontinueIncomplete: '${carlos:forJavaScript(msg_discontinueIncomplete)}',
@@ -890,6 +894,17 @@ function renderRxStage() {
                                     <table>
                                         <tr id="prescriptionStageRow">
                                             <td colspan="2">
+
+                                                <%-- Standing recovery notice, filled by showRxRecoveryNotice(): after a save
+                                                     this page can no longer settle, it says what happened and offers the way on
+                                                     (reopen the page, or open the saved prescription) instead of leaving every
+                                                     further Save and Remove refused. Outside the stage set, which hides when empty. --%>
+                                                <div id="rxRecoveryNotice" class="alert alert-warning" role="alert" style="display:none">
+                                                    <button type="button" class="btn-close float-end" aria-label="<fmt:message key="global.btnClose"/>" onclick="document.getElementById('rxRecoveryNotice').style.display='none';"></button>
+                                                    <p id="rxRecoveryMessage" style="margin-bottom:.5rem;"></p>
+                                                    <button type="button" id="rxRecoveryOpenSaved" class="btn btn-secondary btn-sm" style="display:none"><fmt:message key="SearchDrug.recovery.btnOpenSaved"/></button>
+                                                    <button type="button" id="rxRecoveryReopen" class="btn btn-primary btn-sm" onclick="reopenRxPage();"><fmt:message key="SearchDrug.recovery.btnReopen"/></button>
+                                                </div>
 
                                                 <div id="prescriptionStageSet" style="display:none">
 
@@ -2411,7 +2426,17 @@ function removeReRxDrugId(drugId, onRemoved, onFailure) {
     }
 }
 
-function reportRefusedRemoval() {
+function reportRefusedRemoval(transport) {
+    // After a save this page could not settle, its cards carry versions the server has already
+    // consumed: "please try again" can never work, so say that the page has to be reopened. While
+    // the outcome is merely unconfirmed, only a conflict shows that the cards are spent.
+    // Read as properties of the page: the save state is declared with the save functions below.
+    var conflict = transport && Number(transport.status) === 409;
+    if (globalThis.rxPageNeedsReopen || (globalThis.rxSaveNeedsReconciliation && conflict)) {
+        alert(jsMsg.reopenToContinue);
+        showRxRecoveryNotice(jsMsg.reopenToContinue);
+        return;
+    }
     alert(jsMsg.removeRefused);
 }
 
@@ -3177,6 +3202,62 @@ function updateQty(element){
      */
     var RX_SAVE_PRE_WRITE_ERRORS = ['RX_DRAFT_VALIDATION_FAILED'];
     var rxSaveNeedsReconciliation = false;
+    /**
+     * Set once this page shows cards whose rendered versions the server has consumed and will not
+     * give back: an earlier version of them was saved, or their save cannot be settled from here.
+     * Nothing this page sends for those cards can succeed any more.
+     */
+    var rxPageNeedsReopen = false;
+
+    /**
+     * Shows the standing recovery notice: what happened and the way on. An alert alone left the
+     * page where every further Save or Remove was refused, with a manual reload the only way out.
+     *
+     * @param {string} message the translated explanation
+     * @param {(string|number)} [scriptId] a prescription this page saved, offered for printing
+     */
+    function showRxRecoveryNotice(message, scriptId) {
+        if (typeof document === 'undefined') return;
+        var notice = document.getElementById('rxRecoveryNotice');
+        if (!notice) return;
+        document.getElementById('rxRecoveryMessage').textContent = message;
+        var openSaved = document.getElementById('rxRecoveryOpenSaved');
+        var canOpen = /^[1-9]\d*$/.test(String(scriptId));
+        // Offered, never opened unasked: opening for print can sign the prescription.
+        openSaved.onclick = canOpen ? function () { popForm2(scriptId, true); } : null;
+        openSaved.style.display = canOpen ? '' : 'none';
+        notice.style.display = '';
+    }
+
+    /** Reopens prescribing for this patient: the server drops saved cards and renders current drafts. */
+    function reopenRxPage() {
+        window.location.href = RxPatientContext.withPatient(ctx + "/rx/choosePatient");
+    }
+
+    /**
+     * Brings the page in line with a save the server confirms it already stored unchanged, as the
+     * lost reply would have. Cards the server still keeps staged (Save And Print keeps them for
+     * correction) take their acknowledged versions, so they can be saved or removed again; any
+     * other spent cards leave the page. Nothing unsaved is lost: the server answers "already saved"
+     * only when this page posted exactly what was stored.
+     *
+     * @param {Object} saved the RX_ALREADY_SAVED answer: scriptId and, optionally, draftRevisions
+     */
+    function acknowledgeSavedCards(saved) {
+        if (typeof document === 'undefined') return;
+        var form = document.getElementById('drugForm');
+        var revisions = saved && saved.draftRevisions ? saved.draftRevisions : {};
+        var keys = Object.keys(revisions).filter(function (key) { return /^[0-9]+$/.test(key); });
+        if (form && keys.length) {
+            keys.forEach(function (key) {
+                var field = form.elements.namedItem('draftRevision_' + key);
+                if (field) field.value = revisions[key];
+            });
+        } else {
+            clearStashDisplay();
+        }
+        showRxRecoveryNotice(jsMsg.alreadySaved, saved ? saved.scriptId : null);
+    }
 
     /**
      * Whether a save the server did not confirm may still have committed (#5686). Only a refusal
@@ -3219,21 +3300,38 @@ function updateQty(element){
             rxSaveNeedsReconciliation = false;
             alert('${carlos:forJavaScript(msg_rxDraftReviewRequired)}');
             location.reload();
-        } else if (transport && transport.responseJSON && transport.responseJSON.error === 'RX_ALREADY_SAVED') {
-            alert(jsMsg.alreadySaved);
+        } else if (transport && transport.responseJSON
+                && /^RX_(ALREADY_SAVED|SAVED_EARLIER_VERSION)$/.test(transport.responseJSON.error)) {
+            // The draft these cards were rendered from is saved, so the outcome is known. Whether
+            // this request is that save again or an edit of it is the server's call, from what was
+            // posted: an edit is neither "already saved" (it is not) nor "may be saved".
+            var editedSinceSaved = transport.responseJSON.error === 'RX_SAVED_EARLIER_VERSION';
+            alert(editedSinceSaved ? jsMsg.earlierVersionSaved : jsMsg.alreadySaved);
             rxSaveNeedsReconciliation = false;
             refreshDrugProfile();
+            if (editedSinceSaved) {
+                // The edited cards stay on screen to read from; they cannot be saved from here.
+                rxPageNeedsReopen = true;
+                showRxRecoveryNotice(jsMsg.earlierVersionSaved);
+            } else {
+                acknowledgeSavedCards(transport.responseJSON);
+            }
         } else if (rxSaveNeedsReconciliation) {
             // A later CSRF/login/stale refusal cannot establish the outcome of the earlier attempt.
             alert(jsMsg.saveUncertain);
             refreshDrugProfile();
+            // A conflict on top of it means the server no longer accepts these cards from here.
+            if (transport && transport.status === 409) showRxRecoveryNotice(jsMsg.reopenToContinue);
         } else if (transport && transport.responseJSON && transport.responseJSON.error === 'RX_SOURCE_CHANGED') {
             alert(jsMsg.sourceChanged);
             refreshDrugProfile();
         } else if (transport && transport.responseJSON && transport.responseJSON.error === 'RX_SAVE_OUTCOME_UNKNOWN') {
+            // The server holds these cards locked under versions this page was never given.
             rxSaveNeedsReconciliation = true;
+            rxPageNeedsReopen = true;
             alert(jsMsg.saveUncertain);
             refreshDrugProfile();
+            showRxRecoveryNotice(jsMsg.reopenToContinue);
         } else if (transport && transport.responseJSON && transport.responseJSON.error === 'INCOMPLETE_RX_SAVE') {
             alert(jsMsg.saveIncomplete);
         } else if (transport && transport.status === 409 && transport.responseJSON
