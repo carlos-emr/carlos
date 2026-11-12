@@ -26,7 +26,11 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,15 +39,22 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
@@ -54,6 +65,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -81,6 +94,8 @@ class EmailComposeManagerDocumentAttachmentUnitTest {
 
     @Mock
     private DocumentAttachmentManager documentAttachmentManager;
+    @Mock
+    private FormsManager formsManager;
 
     /** The real file manager, so the copy really lands where the preview check looks. */
     @Spy
@@ -93,6 +108,9 @@ class EmailComposeManagerDocumentAttachmentUnitTest {
 
     private Path created;
 
+    /** Files a test rendered into the application temp tree; removed after each test if still there. */
+    private final List<Path> rendered = new ArrayList<>();
+
     /** The manager takes SecurityInfoManager through its constructor; the collaborators used here are fields. */
     @BeforeEach
     void createManager() {
@@ -100,6 +118,7 @@ class EmailComposeManagerDocumentAttachmentUnitTest {
         ReflectionTestUtils.setField(emailComposeManager, "documentAttachmentManager", documentAttachmentManager);
         ReflectionTestUtils.setField(emailComposeManager, "nioFileManager", nioFileManager);
         ReflectionTestUtils.setField(emailComposeManager, "attachmentOwnershipService", attachmentOwnershipService);
+        ReflectionTestUtils.setField(emailComposeManager, "formsManager", formsManager);
     }
 
     @AfterEach
@@ -107,6 +126,10 @@ class EmailComposeManagerDocumentAttachmentUnitTest {
         if (created != null) {
             Files.deleteIfExists(created);
             Files.deleteIfExists(created.getParent());
+        }
+        for (Path file : rendered) {
+            Files.deleteIfExists(file);
+            Files.deleteIfExists(file.getParent());
         }
     }
 
@@ -180,5 +203,82 @@ class EmailComposeManagerDocumentAttachmentUnitTest {
 
         assertThat(stored).exists();
         verify(nioFileManager, never()).deleteTempFile(anyString());
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @EnumSource(value = DocumentType.class, names = {"EFORM", "DOC", "LAB", "HRM", "FORM"})
+    @DisplayName("should delete the files of a type already rendered when a later one of that type fails to render")
+    void shouldDeleteEarlierFilesOfType_whenLaterRenderFails(DocumentType type) throws Exception {
+        Path first = renderedTempFile("FAKE-first-" + type);
+        Path second = renderedTempFile("FAKE-second-" + type);
+        PDFGenerationException failure = new PDFGenerationException("FAKE render failed");
+        when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), nullable(String.class))).thenReturn(true);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        if (type == DocumentType.FORM) {
+            when(formsManager.renderForm(request, response, 9501, PATIENT)).thenReturn(first);
+            when(formsManager.renderForm(request, response, 9502, PATIENT)).thenReturn(second);
+            when(formsManager.renderForm(request, response, 9503, PATIENT)).thenThrow(failure);
+        } else {
+            when(attachmentOwnershipService.allBelongToDemographic(type, PATIENT, List.of(9501, 9502, 9503))).thenReturn(true);
+            when(documentAttachmentManager.renderDocument(any(), eq(type), eq(9501))).thenReturn(first);
+            when(documentAttachmentManager.renderDocument(any(), eq(type), eq(9502))).thenReturn(second);
+            when(documentAttachmentManager.renderDocument(any(), eq(type), eq(9503))).thenThrow(failure);
+        }
+
+        // HRM attachments exist only in Ontario billing regions.
+        try (MockedStatic<CarlosProperties> config = type == DocumentType.HRM ? ontario() : null) {
+            assertThatThrownBy(() -> prepare(type, new String[]{"9501", "9502", "9503"}, request, response))
+                    .isSameAs(failure);
+        }
+
+        assertThat(first).as("rendered before the failure, never handed to the window").doesNotExist();
+        assertThat(second).as("rendered before the failure, never handed to the window").doesNotExist();
+    }
+
+    @Test
+    @DisplayName("should delete the files already rendered when a later render throws an unchecked exception")
+    void shouldDeleteEarlierFiles_whenLaterRenderThrowsUnchecked() throws Exception {
+        Path first = renderedTempFile("FAKE-first-eform");
+        IllegalStateException failure = new IllegalStateException("FAKE renderer crashed");
+        when(securityInfoManager.hasPrivilege(any(), eq("_eform"), anyString(), nullable(String.class))).thenReturn(true);
+        when(attachmentOwnershipService.allBelongToDemographic(DocumentType.EFORM, PATIENT, List.of(9601, 9602))).thenReturn(true);
+        when(documentAttachmentManager.renderDocument(any(), eq(DocumentType.EFORM), eq(9601))).thenReturn(first);
+        when(documentAttachmentManager.renderDocument(any(), eq(DocumentType.EFORM), eq(9602))).thenThrow(failure);
+
+        assertThatThrownBy(() -> emailComposeManager.prepareEFormAttachments(null, null, new String[]{"9601", "9602"}, PATIENT))
+                .isSameAs(failure);
+
+        assertThat(first).doesNotExist();
+    }
+
+    /** A PDF the renderer would have written: a fresh file in its own application temp folder. */
+    private Path renderedTempFile(String name) throws IOException {
+        ByteArrayOutputStream pdf = new ByteArrayOutputStream();
+        pdf.writeBytes(("%PDF-1.4 " + name).getBytes(StandardCharsets.US_ASCII));
+        Path file = new NioFileManagerImpl().saveTempFile(name, pdf, "pdf");
+        rendered.add(file);
+        return file;
+    }
+
+    private static MockedStatic<CarlosProperties> ontario() {
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.isOntarioBillingRegion()).thenReturn(true);
+        MockedStatic<CarlosProperties> config = mockStatic(CarlosProperties.class);
+        config.when(CarlosProperties::getInstance).thenReturn(properties);
+        return config;
+    }
+
+    private void prepare(DocumentType type, String[] ids, HttpServletRequest request, HttpServletResponse response)
+            throws PDFGenerationException {
+        switch (type) {
+            case EFORM -> emailComposeManager.prepareEFormAttachments(null, null, ids, PATIENT);
+            case DOC -> emailComposeManager.prepareEDocAttachments(null, ids, PATIENT);
+            case LAB -> emailComposeManager.prepareLabAttachments(null, ids, PATIENT);
+            case HRM -> emailComposeManager.prepareHRMAttachments(null, ids, PATIENT);
+            case FORM -> emailComposeManager.prepareFormAttachments(request, response, ids, PATIENT);
+            default -> throw new IllegalArgumentException(type.name());
+        }
     }
 }
