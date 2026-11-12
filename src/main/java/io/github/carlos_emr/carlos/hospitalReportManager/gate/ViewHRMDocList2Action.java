@@ -26,6 +26,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+import io.github.carlos_emr.carlos.hospitalReportManager.HRMReportAccess;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -36,7 +37,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * reached via a direct GET to the public JSP URL with only the in-JSP
  * {@code <security:oscarSec>} taglib as protection. Now routed through
  * {@code /hospitalReportManager/ViewDocList} which enforces {@code _hrm r}
- * at the action layer before the container forwards.
+ * at the action layer before the container forwards, and the patient's own
+ * access rules ({@link HRMReportAccess}) for the {@code demographic_no} it lists.
  */
 public final class ViewHRMDocList2Action extends ActionSupport {
 
@@ -48,6 +50,13 @@ public final class ViewHRMDocList2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null)) {
             throw new SecurityException("missing required sec object (_hrm r)");
+        }
+        // The list is one patient's reports. A provider locked out of that patient is refused it
+        // as they are the chart, before the page reads anything. The page takes the same
+        // parameter; a value that names no patient is left to it, as before.
+        Integer patient = HRMReportAccess.number(request.getParameter("demographic_no"));
+        if (patient != null && patient > 0 && !HRMReportAccess.mayReadPatient(securityInfoManager, loggedInInfo, patient)) {
+            throw HRMReportAccess.denied();
         }
         return SUCCESS;
     }

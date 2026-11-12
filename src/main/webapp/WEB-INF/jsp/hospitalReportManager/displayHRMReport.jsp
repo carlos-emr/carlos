@@ -64,6 +64,7 @@
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.model.HRMReportCriteria" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <!DOCTYPE html>
 
@@ -78,6 +79,23 @@
     String hrmReportTime = "";
     Integer hrmDuplicateNum = null;
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+    // Patient access is decided before the report row or its file is read: a report filed to a
+    // patient this provider is locked out of is refused as the chart is. HRMDisplayReport2Action
+    // has already refused a direct request; the check is repeated here because the inbox
+    // (oscarMDS/Page.jsp) includes this page without going through that action. An included page
+    // cannot set a status, so there the refusal is a line of text in place of the report, and
+    // nothing of the report or the patient is written either way.
+    if (!HRMReportAccess.mayReadReport(SpringUtils.getBean(SecurityInfoManager.class),
+            hrmDocumentToDemographicDao, loggedInInfo, hrmReportId)) {
+        if (request.getAttribute(RequestDispatcher.INCLUDE_REQUEST_URI) == null) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+        } else {
+%><div class="hrm-report-refused" role="alert"><fmt:message key="demographic.demographiceditdemographic.accessDenied"/></div><%
+        }
+        return;
+    }
+
     HRMDocument document = hrmDocumentDao.findById(hrmReportId).get(0);
     HRMReport hrmReport = null;
     Map<Integer, Date> dupReportDates = new HashMap<Integer, Date>();

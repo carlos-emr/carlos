@@ -15,6 +15,7 @@
 package io.github.carlos_emr.carlos.hospitalReportManager;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.function.Supplier;
@@ -127,8 +128,28 @@ public class HRMModifyDocument2Action extends ActionSupport {
 
         String method = request.getParameter("method");
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
+        // One identity for both decisions below: the module right and the patient's own rules.
+        LoggedInInfo actor = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(actor, "_hrm", "w", null)) {
             throw new SecurityException("missing required sec object (_hrm)");
+        }
+
+        // A report filed to a patient this provider is locked out of is not theirs to change, and
+        // removeDemographic would otherwise be the way round the read guard: unlink the patient,
+        // then open the now unfiled report. Decided before any handler, so nothing is written and
+        // no routing detail is read out; the answer is this route's JSON, with a 403.
+        boolean permitted;
+        try {
+            permitted = mayReadNamedReports(method, actor);
+        } catch (RuntimeException e) {
+            // Guarded like the handlers' own lookups: this route answers JSON, never an error page.
+            MiscUtils.getLogger().error("Could not decide patient access for an HRM modify request.", e);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return writeResult(false, FAILURE_MESSAGE);
+        }
+        if (!permitted) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return writeResult(false, FAILURE_MESSAGE);
         }
 
         if (method != null) {
@@ -159,6 +180,44 @@ public class HRMModifyDocument2Action extends ActionSupport {
         // An unrecognised dispatch is a client bug, not a silent success.
         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
         return writeResult(false, "Unsupported HRM modify method");
+    }
+
+    /**
+     * Whether the user may read every report the request names ({@link HRMReportAccess}).
+     *
+     * <p>Most handlers name the report ({@code reportId}); {@code removeProvider} and
+     * {@code deleteComment} name one of its rows, which is resolved to its report first. A value
+     * that names nothing is not refused here: its handler reports the failure as it always did.</p>
+     *
+     * @return whether every named report is filed to no patient or only to readable ones
+     */
+    // FindSecBugs IMPROPER_UNICODE: matches the dispatch in execute(), which compares the method name without case; the names are this class's own ASCII literals.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "mirrors the case-insensitive dispatch on this class's own ASCII method names; not a locale-dependent decision")
+    private boolean mayReadNamedReports(String method, LoggedInInfo user) {
+        List<Integer> reportIds = new ArrayList<>();
+        String[] named = request.getParameterValues("reportId");
+        if (named != null) {
+            for (String value : named) {
+                Integer reportId = HRMReportAccess.number(value);
+                if (reportId != null) reportIds.add(reportId);
+            }
+        }
+        // intValue(): find(Object) and find(int) both exist, and an Integer binds to the wrong one.
+        if ("removeProvider".equalsIgnoreCase(method)) {
+            Integer mappingId = HRMReportAccess.number(request.getParameter("providerMappingId"));
+            HRMDocumentToProvider mapping = mappingId == null ? null : hrmDocumentToProviderDao.find(mappingId.intValue());
+            if (mapping != null && mapping.getHrmDocumentId() != null) reportIds.add(mapping.getHrmDocumentId());
+        } else if ("deleteComment".equalsIgnoreCase(method)) {
+            Integer commentId = HRMReportAccess.number(request.getParameter("commentId"));
+            HRMDocumentComment comment = commentId == null ? null : hrmDocumentCommentDao.find(commentId.intValue());
+            if (comment != null && comment.getHrmDocumentId() != null) reportIds.add(comment.getHrmDocumentId());
+        }
+        for (Integer reportId : reportIds) {
+            if (!HRMReportAccess.mayReadReport(securityInfoManager, hrmDocumentToDemographicDao, user, reportId)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
