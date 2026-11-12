@@ -79,7 +79,7 @@ class AddPreventionDataBrandCatalogueUnitTest {
 
     @Test
     @DisplayName("should default only a new record to mL, and only when no unit is prefilled")
-    void shouldKeepPrefilledUnit_forNewRecord() throws Exception {
+    void shouldDefaultToMl_onlyWhenANewRecordNamesNoUnit() throws Exception {
         String form = Files.readString(FORM);
         assertThat(form)
                 .contains("String d2 = PreventionFormCodes.doseUnitCode(pUnit);")
