@@ -9,6 +9,8 @@ graphs provide a visible retry control.
 Graphs opened in their own window (measurement history, Health Tracker, flowsheets) show
 the same message with a Retry button. A graph whose stored values cannot be drawn says so,
 without Retry.
+The medication-profile graph keeps its default height up to 20 drugs, then grows 30 px per
+drug; 11 to 19 drugs no longer draw a shorter chart than 10.
 Measurement, lab and medication graphs are drawn by the bundled render browser that eForm
 print and fax use, and share its capacity: while it is busy or down, graphs ask to be
 retried. A standalone WAR without the render-browser service shows no graphs.
