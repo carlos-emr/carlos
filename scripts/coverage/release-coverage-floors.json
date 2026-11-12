@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "d64bcb32d6c7fe5a44a9090473b75f7ed6711498",
-  "comparisonSha256": "b05b434d993d1eab6cfed404423ff7611577e051ce5d859604121cda1c664cd3",
-  "baselineCommit": "f8d722b66d894b495046a67223178860bf1be3e4",
-  "baselineSourceTree": "d64bcb32d6c7fe5a44a9090473b75f7ed6711498",
+  "sourceTree": "24db95f8de8e204c975a9c6001cec1f16dce12e2",
+  "comparisonSha256": "5137f6140cad37e70cc1c89d895f929e0f9abe203b0ef9f87d06138508ab80f7",
+  "baselineCommit": "13072b92bee218ef83f052a2d2a3f966420031f4",
+  "baselineSourceTree": "24db95f8de8e204c975a9c6001cec1f16dce12e2",
   "baselineReportSha256": "ca0ec5082e6debff3c1febe8ac6904d63c803d3b3d1afdd8b8a26da2ba499f2d",
-  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5 complete H2 java-all run (offline Maven, forkCount 1 after a forkCount-2 attempt stopped at the 4 GiB memory guard), not through verify-release-evidence.py. Source: a local test merge (285ecce54e) of release 1b27a8fd2c with #6139 (ba5d934784), #6163 (22d340f966), #6161 (f8d722b66d), #6156 (75d5c77f8f), #6164 (7fec274a7f) and #6171 (b29c254728). Maven ran 36,370 tests, 219 skipped, 0 failures, 2 errors (PrescriptionQrCodeUIBeanUnitTest: its QR decoding check threw a ZXing ChecksumException in two cases; none of these PRs touches it).",
+  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5 complete H2 java-all run (offline Maven, forkCount 1 after a forkCount-2 attempt stopped at the 4 GiB memory guard), not through verify-release-evidence.py. Source: a local test merge (285ecce54e) of release 1b27a8fd2c with #6139 (ba5d934784), #6163 (22d340f966), #6161 (f8d722b66d), #6156 (75d5c77f8f), #6164 (7fec274a7f) and #6171 (b29c254728). Maven ran 36,370 tests, 219 skipped, 0 failures, 2 errors (PrescriptionQrCodeUIBeanUnitTest: its QR decoding check threw a ZXing ChecksumException in two cases; none of these PRs touches it). Re-bound WITHOUT a new run to 13072b92be on this branch, which changes only JavaDoc comments in MsgAttachPDF2Action.java and MsgEncounterPdfComposer.java (no executable line); the values are from the run above, not re-measured.",
   "baselineTestCounts": {
     "tests": 36370,
     "skipped": 219,
@@ -2935,7 +2935,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "fe826e06c26d8fe3e2160e9e766e8f0f5172401b"
+      "sourceBlob": "f58ac2d01116f381e079d706c5b7b152f20e022d"
     },
     "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgPdfAttachmentResolver.java": {
       "lines": 100.0,
@@ -4435,7 +4435,7 @@
       "lines": 96.15384615384616,
       "instructions": 92.98245614035088,
       "branches": 100.0,
-      "sourceBlob": "bfd5103f683b96372040698ec4e050df2ebb8b9d"
+      "sourceBlob": "124cdb53874410841fb9695ec2511da54f24d79e"
     }
   },
   "exclusions": {
