@@ -1789,7 +1789,11 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 300
+      "timeoutSec": 300,
+      "env": [
+        "CARLOS_SUITE_PROVINCE"
+      ],
+      "notes": "Issue #3960: the unbilled-appointments report lists No-Show and Cancelled appointments only when asked. The Ontario report control (billing/CA/ON/ViewBillingReportControl) is driven on every install, through its four checkbox combinations; each listed row's Bill link is clicked and must name the appointment time, the province and the patient by number, with no patient name in the address (#6097 removed demographic_name from billing addresses). The BC report control (billing/CA/BC/ViewBillingReportControl), its omitted-date defaults, Manage Provider link and two calendars exist only on a BC install: BcBillingProvinceInterceptor answers every billing/CA/BC route with 404 elsewhere. With CARLOS_SUITE_PROVINCE=BC, or unset, those steps are driven as pages that must work; with another province the check instead asserts the BC control answers 404 and lists none of the fixtures."
     },
     {
       "name": "billing-bc-report-center",
