@@ -4,7 +4,10 @@ Top navigation bar for Report by Template
 
 --%>
 
-<div class="navbar fixed-top noprint">
+<%-- sticky-top, not fixed-top: a fixed bar leaves the page flow, so the heading every Report by Template page puts
+     right below it slid up underneath "Report By Template". A sticky bar keeps its own space and still stays at the
+     top while a long report scrolls; bg-body keeps the rows scrolling under it from showing through. --%>
+<div class="navbar sticky-top bg-body border-bottom mb-2 noprint">
     <div class="container-fluid">
 	    <a class="navbar-brand" href="#">Report By Template</a> <!-- oscarreport.reportbytemplate=Report By Template -->
 	    <ul class="nav">
