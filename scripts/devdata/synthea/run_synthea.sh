@@ -17,7 +17,9 @@
 # number with FAKE ones.
 #
 # Every setting that would otherwise come from the clock or the machine is fixed (seeds, the
-# reference and end date, one thread), so a rerun writes the same files, byte for byte.
+# reference and end date, one thread), so a rerun writes the same files, byte for byte. The Java build and
+# the locale are not: the pinned output was made with OpenJDK 21.0.11+10, en_US.UTF-8 and TZ America/Toronto
+# (see README.md); generate_dev_patients.py refuses any other output.
 set -euo pipefail
 
 JAR_SHA256=ed43c20ad40ba5c3bc724503a5af032715fe3c491620b766148e7c2361e6ecc1
@@ -38,7 +40,7 @@ if [ "$actual" != "$JAR_SHA256" ]; then
 fi
 # The data files only: the folder's own synthea.properties (from 2022) must not replace v4.0.0's defaults;
 # synthea-ca.properties carries the Canadian values instead.
-(cd "$ca" && sha256sum --quiet -c -) <<'SUMS' || { echo "$ca: a Canadian file is missing or differs from the pinned commit" >&2; exit 1; }
+CA_FILES=$(cat <<'SUMS'
 43ff1b71e45cf21f9380979e54fe8a96df9d7358aa569ab9ae542649988d3b61  geography/demographics_ca.csv
 caeaa36302adc72525bb486bbe1da854afd0c8d072e908271fc70b95bcc75c3c  geography/timezones_ca.csv
 d6cbd584048062a64c106158a614ea62621e7cc85141c5466584533c5066e305  geography/zipcodes_ca.csv
@@ -52,6 +54,8 @@ fae992fbb135c54a69bcc79a46972cfc73382a35bc09a3bf9a09f65b35c6977e  providers/nurs
 aa3e659f6ac2664dc2a6f006f82a6af73b0b52d58968d74848cf8418a9262123  providers/urgent_care_facilities_ca.csv
 aab284c0c7519648ec5b44d5667bf2f2fd61d7556947291c5fab86d0c806821d  providers/va_facilities_ca.csv
 SUMS
+)
+printf '%s\n' "$CA_FILES" | (cd "$ca" && sha256sum --quiet -c -) || { echo "$ca: a Canadian file is missing or differs from the pinned commit" >&2; exit 1; }
 if [ -e "$out" ] && [ -n "$(ls -A "$out")" ]; then
     echo "$out is not empty" >&2
     exit 1
@@ -59,7 +63,8 @@ fi
 mkdir -p "$out"
 out=$(realpath "$out")
 cp_dir="$out/.ca-classpath"
-for f in geography payers providers; do mkdir -p "$cp_dir/$f"; cp "$ca/$f"/*.csv "$cp_dir/$f/"; done
+# Exactly the 12 pinned files, so another checkout's extra CSVs stay off the classpath.
+while read -r _ f; do mkdir -p "$cp_dir/$(dirname "$f")"; cp "$ca/$f" "$cp_dir/$f"; done <<< "$CA_FILES"
 
 # -s/-cs: patient and clinician seeds. -r/-e: ages and the simulation end on 1 Nov 2026
 # (generate_dev_patients.REFERENCE). -a: adults only. years_of_history=0 keeps each patient's

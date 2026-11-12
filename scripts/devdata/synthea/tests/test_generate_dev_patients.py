@@ -213,15 +213,28 @@ class GeneratorTest(unittest.TestCase):
     def test_shouldPinEveryCsvFile_inTheInputDigest(self):
         with tempfile.TemporaryDirectory() as other:
             copy = write_csv_folder(other)
-            self.assertEqual(gen.input_digest(copy), gen.input_digest(self.csv))
+            previous = gen.input_digest(copy)
+            self.assertEqual(previous, gen.input_digest(self.csv))
             for name in gen.TABLES:
                 with open(copy / f"{name}.csv", "a", encoding="utf-8") as fh:
                     fh.write("\n")
                 changed = gen.input_digest(copy)
-                self.assertNotEqual(changed, gen.input_digest(self.csv), name)
+                # Each table must move the digest by itself, compared with the digest before its change.
+                self.assertNotEqual(changed, previous, name)
+                previous = changed
         pinned, _, _ = gen.build(gen.read_tables(self.csv), gen.INPUT_SHA256)
         self.assertIn("settings of scripts/devdata/synthea/run_synthea.sh.\n", pinned)
         self.assertNotIn("NOT the pinned", pinned)
+
+    def test_shouldRefuseAFolderWithAMissingCsv_withoutATraceback(self):
+        with tempfile.TemporaryDirectory() as other:
+            copy = write_csv_folder(other)
+            (copy / "allergies.csv").unlink()
+            stderr = io.StringIO()
+            with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit):
+                gen.main(["--csv", str(copy), "--out", str(Path(other) / "out.sql"), "--allow-other-input"])
+            self.assertIn("missing allergies.csv", stderr.getvalue())
+            self.assertNotIn("Traceback", stderr.getvalue())
 
 
 if __name__ == "__main__":

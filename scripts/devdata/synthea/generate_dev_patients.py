@@ -9,8 +9,8 @@
         --out .devcontainer/db/scripts/demo-synthetic-patients.sql
 
 run_synthea.sh runs the pinned Synthea release (SYNTHEA_JAR_URL, SYNTHEA_JAR_SHA256) in Ontario, with the
-pinned Canadian files of synthea-international and a fixed seed, dates and settings. Its CSV output stays out of the repository; this script refuses CSV files whose
-digest is not INPUT_SHA256. The output is deterministic: the same CSV files always give the same
+pinned Canadian files of synthea-international and a fixed seed, dates and settings. Its CSV output stays
+out of the repository; this script refuses CSV files whose digest is not INPUT_SHA256. The output is deterministic: the same CSV files always give the same
 file, byte for byte. See README.md for the selection, the FAKE identities, the mapping and the
 clean-up rules.
 
@@ -705,6 +705,10 @@ def main(argv=None):
     parser.add_argument("--allow-other-input", action="store_true",
                         help="build from CSV files other than the pinned run's (for trying another seed or release)")
     args = parser.parse_args(argv)
+    missing = [f"{name}.csv" for name in TABLES if not (args.csv / f"{name}.csv").is_file()]
+    if missing:
+        parser.error(f"{args.csv}: missing {', '.join(missing)}; pass the csv folder that "
+                     f"scripts/devdata/synthea/run_synthea.sh wrote")
     digest = input_digest(args.csv)
     if digest != INPUT_SHA256 and not args.allow_other_input:
         parser.error(f"{args.csv}: CSV digest {digest}, not the pinned run's {INPUT_SHA256}; run "

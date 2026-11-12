@@ -64,6 +64,12 @@ the GNU General Public License.
   (https://github.com/synthetichealth/synthea-international, Apache License
   2.0; its Canadian data come from Statistics Canada). The records are
   synthetic, not real people.
+  The Canadian files are adapted from Statistics Canada, Census Profile, 2016
+  Census of Population, and the Open Database of Healthcare Facilities, used
+  under the Statistics Canada Open Licence and the Open Government Licence -
+  Canada. This does not constitute an endorsement by Statistics Canada of
+  this product. They only shape the generated population; none of their
+  contents is stored in this repository.
   Synthea: Copyright 2017-2025 The MITRE Corporation; Apache License 2.0,
   https://www.apache.org/licenses/LICENSE-2.0. Synthea's own NOTICE covers the
   RxNorm, LOINC and SNOMED CT content of its modules; the generated file keeps

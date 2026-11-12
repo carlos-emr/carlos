@@ -41,7 +41,10 @@ python3 -I scripts/devdata/synthea/generate_dev_patients.py \
 
 `run_synthea.sh` refuses a jar with another SHA-256 and fixes every setting that would otherwise come
 from the clock or the machine: two runs on 12 November 2026 wrote byte-identical CSV files (181 patients,
-about 101 MB) in about three minutes each. The generator refuses CSV files with another digest
+about 101 MB) in about three minutes each. Not fixed by the script: the Java build and the locale. The pinned
+output was made with OpenJDK 21.0.11+10 (the development container's Java) under `LANG`/`LC_ALL=en_US.UTF-8`
+and `TZ=America/Toronto` (Synthea's own dates are UTC). A rerun with another Java or locale may write
+different files; the generator then refuses them rather than using them. The generator refuses CSV files with another digest
 (`--allow-other-input` overrides, for trying another seed or release), and the same CSV files always
 give the same SQL file, byte for byte.
 
@@ -108,4 +111,5 @@ python3 -m unittest discover -s scripts/devdata/synthea/tests -t .
 
 The tests write a tiny Synthea-shaped CSV folder to a temporary directory (no Synthea run): determinism,
 health numbers that fail the check digit, no UUID or long hex string in the output, the id range, the
-clean-up rules, the SQL quoting, and the input digest covering every CSV file.
+clean-up rules, the SQL quoting, the input digest covering each CSV file, and a clean refusal of a
+folder with a CSV missing.
