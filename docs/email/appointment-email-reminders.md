@@ -68,12 +68,20 @@ The subject is "Appointment reminder: {clinic}". The body:
 
 ## Known limits of one reminder per visit
 These need several bookings for the same patient at the same time, and a change in a particular order:
-- **After a Group Update.** Group Update books each appointment again under a new number, so a rebooked booking's
-  history starts at the rebook. If another booking's reminder already went for that time and that booking then left
-  it (unticked, cancelled or moved), the rebooked booking counts as arrived after it, and may get a second reminder.
-- **A booking moved into a time another booking still holds.** It is covered by that booking and recorded as
-  `DUPLICATE`, which is final for that time. If the covering booking then moves away before its reminder goes, the
-  covered one is not looked at again, and the patient gets no reminder for it; tick its box again to have it sent.
+- **After Group Action, then Group Update.** It books each appointment again under a new number, so a rebooked
+  booking's history starts at the rebook. If another booking's reminder already went for that time and that booking
+  then left it (unticked, cancelled or moved), the rebooked booking counts as arrived after it, and may get a second
+  reminder.
+- **A covered booking stays covered for that time.** A booking is covered, and recorded as `DUPLICATE`, when another
+  booking's reminder already went for that time, or when another booking still at that time has an earlier reminder
+  (its box was first ticked before this one's) that has not already ended without one going. `DUPLICATE` is final for
+  that time, so the patient gets no reminder for the covered booking if the other booking then moves away (it may
+  already have been reminded for the old time, and is reminded again for its new one), is unticked or cancelled
+  before its reminder goes, or fails its retry. There is no manual re-send: unticking and ticking the covered
+  booking's box again does not send it, and its line still says the reminder comes from another booking.
+- **A deleted booking stops covering.** Once a booking is deleted (Cut, Delete or Group Delete), its reminder no
+  longer counts for the visit: another booking at the same time whose box is ticked later sends a second reminder
+  for that time.
 - **A booking reminded again for a new time.** A reminder keeps only the last time it went for. If a booking was
   reminded for 14:00, then moved to 15:00 and reminded again, it no longer covers 14:00: another booking ticked later
   at 14:00 sends a second 14:00 reminder.
