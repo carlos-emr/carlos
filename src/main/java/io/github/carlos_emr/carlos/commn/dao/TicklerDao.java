@@ -52,8 +52,12 @@ public interface TicklerDao extends AbstractDao<Tickler> {
      * the tickler: an instance the persistence context already holds is read again and loses
      * unsaved changes.
      *
+     * <p>The returned tickler has its comments and update history loaded. Do not follow this call
+     * with {@link #find(Integer)} in the same transaction: its join fetch of the program fails for
+     * a locked tickler stored with {@code program_id} 0, which names no program row.</p>
+     *
      * @param id Integer tickler identifier
-     * @return Tickler the locked row, or {@code null} when there is no such tickler
+     * @return Tickler the locked row with comments and history loaded, or {@code null} when there is no such tickler
      * @since 2026-11-12
      */
     default Tickler findForUpdate(Integer id) {

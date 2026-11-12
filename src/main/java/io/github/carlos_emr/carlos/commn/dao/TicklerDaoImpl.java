@@ -112,6 +112,13 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         // find() only locks an instance this persistence context had already loaded. Read the row
         // again under the lock so MariaDB REPEATABLE READ also returns the committed state.
         entityManager.refresh(tickler, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        // Load what an edit reads on this instance, so the caller needs no later detail query. It
+        // must not run find(Integer) on a locked tickler: that query join-fetches the program, and
+        // for a tickler stored with program_id 0 (added outside a program; the id names no row)
+        // Hibernate then tries to fill the program reference this load created from the all-NULL
+        // joined row and fails with a PropertyAccessException.
+        Hibernate.initialize(tickler.getComments());
+        Hibernate.initialize(tickler.getUpdates());
         return tickler;
     }
 

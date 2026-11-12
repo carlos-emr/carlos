@@ -103,6 +103,28 @@ public class TicklerDaoWriteIntegrationTest extends TicklerDaoBaseIntegrationTes
     }
 
     @Test
+    @DisplayName("should load the comments and history on the locked tickler itself")
+    void shouldLoadCommentsAndHistory_onTheLockedTickler() {
+        Tickler tickler = createTickler(5003, "Edited under the lock", Tickler.STATUS.A);
+        entityManager.flush();
+        entityManager.createNativeQuery(
+                "INSERT INTO tickler_comments (tickler_no, message, provider_no, update_date) VALUES (?1, 'First comment', '999998', ?2)")
+                .setParameter(1, tickler.getId()).setParameter(2, new java.util.Date()).executeUpdate();
+        entityManager.clear();
+
+        Tickler locked = ticklerDao.findForUpdate(tickler.getId());
+
+        // Everything the Edit Tickler save reads is on the locked instance, so its caller needs no
+        // later detail query. It must not run one: find() join-fetches the program, and for a
+        // tickler added outside a program (program_id 0, which names no row and which the generated
+        // test schema's foreign key does not let a test store) Hibernate then fails filling the
+        // program reference that the locked load created.
+        assertThat(org.hibernate.Hibernate.isInitialized(locked.getComments())).isTrue();
+        assertThat(org.hibernate.Hibernate.isInitialized(locked.getUpdates())).isTrue();
+        assertThat(locked.getComments()).extracting("message").containsExactly("First comment");
+    }
+
+    @Test
     @DisplayName("should return null when locking a tickler that does not exist")
     void shouldReturnNull_whenLockingMissingTickler() {
         assertThat(ticklerDao.findForUpdate(Integer.MAX_VALUE)).isNull();

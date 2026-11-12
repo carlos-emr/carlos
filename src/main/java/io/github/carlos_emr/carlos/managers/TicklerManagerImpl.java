@@ -625,13 +625,14 @@ public class TicklerManagerImpl implements TicklerManager {
         if (isAssignedPatient(locked.getDemographicNo())) {
             requirePatientWrite(loggedInInfo, locked.getDemographicNo(), PRIVILEGE_UPDATE);
         }
-        // The same managed instance, now with the comments, history and names find() fetches.
-        Tickler tickler = ticklerDao.find(id);
+        // findForUpdate has loaded the comments and the history on the locked instance. The detail
+        // query of getTickler() is deliberately not run here: after the locked load it fails for a
+        // tickler stored with program_id 0 (see TicklerDaoImpl.findForUpdate).
 
         // --- log action ---
         LogAction.addLogSynchronous(loggedInInfo, "TicklerManager.getTickler", "id=" + id);
 
-        return tickler;
+        return locked;
     }
 
     @Deprecated

@@ -512,6 +512,22 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         }
 
         @Test
+        @DisplayName("should hand the edit the locked tickler without running the join-fetching detail query")
+        void shouldReturnTheLockedTickler_withoutTheDetailQuery() {
+            Tickler tickler = stored(81, Tickler.STATUS.A);
+
+            Tickler forEdit = ticklerManager.getTicklerForUpdate(mockLoggedInInfo, 81);
+
+            // The detail query join-fetches the program. After the locked load it fails for a tickler
+            // added outside a program (program_id 0 names no row), which is every tickler the Add
+            // Tickler form stores on an install without programs: Edit Tickler answered HTTP 500.
+            assertThat(forEdit).isSameAs(tickler);
+            verify(mockTicklerDao).findForUpdate(81);
+            verify(mockTicklerDao, never()).find(any(Integer.class));
+            verify(mockTicklerDao, never()).find(anyInt());
+        }
+
+        @Test
         @DisplayName("should not complete a task that was deleted after the list was rendered")
         void shouldLeaveDeletedTask_whenStaleListCompletesIt() {
             Tickler tickler = stored(80, Tickler.STATUS.D);
