@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "bfbc7ef7d080eccc9eb5b551ee8c506b205d09e6",
-  "comparisonSha256": "b1f8d8cb128ba2b55a47a5c33efe8e56ca3a352c1fd3a788a22336295623b999",
-  "baselineCommit": "075d3112b6c2fe0c48b71ca4384d16939f2fcdb4",
-  "baselineSourceTree": "bfbc7ef7d080eccc9eb5b551ee8c506b205d09e6",
-  "baselineReportSha256": "66dcda8b48a4bdc2967b35c1a1ceda55ab57cc873d561657a15d787c7bb0aed5",
-  "baselineLane": "Ubuntu 26.04/OpenJDK 25.0.5.0.3 complete H2 baseline with final full retakes of four augmented test classes on the PR #6102 and release #6103 merged source, with pinned Chromium. All 43 combined Java paths (27 PR paths against the updated release branch) meet both parents' retained floors. Registered routed/prerequisite skips, the separate five-case permission lane and two physical MariaDB form-history cases are verified; all execution data use identical production classes. Higher historical floors, required refusal lines and zero-floor review requirements remain; this is not full release native-union qualification.",
+  "sourceTree": "408722cb56c62d7bdbfd24ea0b48188b3fda052a",
+  "comparisonSha256": "64bb251a14d6aa754df17514e5447bd8c38190ba705376601f17a1dfc3fe63f1",
+  "baselineCommit": "58d59d191b8fb5ce2735ff108b3775354c43e186",
+  "baselineSourceTree": "408722cb56c62d7bdbfd24ea0b48188b3fda052a",
+  "baselineReportSha256": "5a2cadd8bed37bec7d5307ffed252b366459b1ad54401da97782391721ffaa57",
+  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5 complete H2 java-all run (offline Maven), not through verify-release-evidence.py, with a local copy of the plan at forkCount 1 instead of 3 (a forkCount-2 attempt stopped at the 4 GiB memory guard) and a longer timeout. Source: a local test merge (7e48fba772) of release 1b27a8fd2c with #6156 (58d59d191b), #6154's test head (3b937c194f) and #6157 (91465a6c3d). Maven ran 36,226 tests, 217 skipped, 0 failures.",
   "baselineTestCounts": {
-    "tests": 36113,
-    "skipped": 207,
+    "tests": 36226,
+    "skipped": 217,
     "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "8644a61dc5760ebf7aae79d3549ece4cda86997e447543bf19bb70cc5b780f98",
+  "baselineTestReportsSha256": "31577ba93295afb89e63ac0092645a4ef9fb389998382a5d52c9ee658d67dba4",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -3385,13 +3385,13 @@
       "lines": 96.90721649484536,
       "instructions": 94.4055944055944,
       "branches": 86.36363636363636,
-      "sourceBlob": "b4dd2a853b6c2b1efe70f6deacbc7058e907ad9d"
+      "sourceBlob": "bd736f0357cac31b77274d1f042fd086c2c4617d"
     },
     "src/main/java/io/github/carlos_emr/carlos/report/reportByTemplate/SQLReporter.java": {
       "lines": 81.25,
       "instructions": 83.4319526627219,
       "branches": 90.0,
-      "sourceBlob": "91591772283ff1cb0e2d95fff01076c506b208f9"
+      "sourceBlob": "25a5160e9c439ed2a95a3e47eb44cb2d66704140"
     },
     "src/main/java/io/github/carlos_emr/carlos/report/reportByTemplate/actions/GenerateOutFiles2Action.java": {
       "lines": 100.0,
@@ -4465,31 +4465,6 @@
     }
   },
   "zeroCoverageWaivers": {},
-  "baselineAdditionalTestRuns": [
-    {
-      "lane": "final-augmented-h2-test-class-retakes",
-      "tests": 132,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 0,
-      "reportsSha256": "837a312fd82813ac1d8647cbc0a38c405ad10dae8541f2baf419474f5f2b0d52"
-    },
-    {
-      "lane": "unprivileged-permissions",
-      "tests": 5,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 0,
-      "reportsSha256": "bd4b618bcb34c30301c0213f9faa75f5ecc7a560910fe4859c0e66dc914d8947"
-    },
-    {
-      "lane": "physical-mariadb-form-history",
-      "tests": 2,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 0,
-      "reportsSha256": "5fd7146bc023d344ab4e785af2cb2396c85b29fe02bae01bbfc1dc7c9810762e"
-    }
-  ],
-  "baselineTestRunCommit": "075d3112b6c2fe0c48b71ca4384d16939f2fcdb4"
+  "baselineAdditionalTestRuns": [],
+  "baselineTestRunCommit": "7e48fba77260a8f983177ea26300a17c8e9d5661"
 }
