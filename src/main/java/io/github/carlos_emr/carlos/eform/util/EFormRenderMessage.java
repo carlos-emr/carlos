@@ -1,7 +1,6 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.eform.util;
 
-import java.util.Locale;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
@@ -14,9 +13,12 @@ import io.github.carlos_emr.carlos.utility.LocaleUtils;
  * missing-content pages (Add to Documents, Download, Fax), in the document preview, and in the eForm page's
  * error and warning alerts. Each is a key in {@code oscarResources} (#6162); they were English-only before.
  *
- * <p>The text is resolved with {@link LocaleUtils#resolveBundleLocale}, the same Accept-Language policy the
- * JSPs use, so a message appears in the same language as the labels around it. The English here is
+ * <p>The text is resolved with {@link LocaleUtils#resolveBundleLocale}: the first Accept-Language preference that
+ * has a shipped bundle, otherwise English. For every shipped language this picks the same bundle as the JSPs'
+ * own JSTL negotiation, so a message appears in the same language as the labels around it. The English here is
  * identical to the {@code oscarResources_en} value and is what a lookup that cannot find the key returns.</p>
+ *
+ * @since 2026-11-12
  */
 public enum EFormRenderMessage {
     /** The missing-content page after Add to Documents. */
@@ -51,8 +53,6 @@ public enum EFormRenderMessage {
     PREVIEW_APPROVAL_INVALID("eform.preview.msgApprovalInvalid",
             "The incomplete-render approval is invalid or expired. Render the preview again.");
 
-    private static final String BUNDLE = "oscarResources";
-
     private final String key;
     private final String english;
 
@@ -78,10 +78,13 @@ public enum EFormRenderMessage {
      * @return the translated text, or the English when the key or bundle cannot be found
      */
     public String text(ServletRequest request) {
-        // BASE_NAME is set when the application starts; without it the locale cannot be negotiated.
-        Locale locale = LocaleUtils.BASE_NAME == null ? Locale.ENGLISH : LocaleUtils.resolveBundleLocale(request);
+        // The bundle LocaleUtils negotiates against (its static initializer names it), so the two cannot drift.
+        String bundle = LocaleUtils.BASE_NAME;
+        if (bundle == null) {
+            return english;
+        }
         try {
-            return ResourceBundle.getBundle(BUNDLE, locale).getString(key);
+            return ResourceBundle.getBundle(bundle, LocaleUtils.resolveBundleLocale(request)).getString(key);
         } catch (MissingResourceException _) {
             return english;
         }
