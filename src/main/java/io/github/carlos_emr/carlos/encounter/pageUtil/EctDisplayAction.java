@@ -95,7 +95,9 @@ public class EctDisplayAction extends ActionSupport {
     private static final Set<String> RELOAD_URL_SUPPRESSED_PARAMS =
             Set.of("reloadURL", "cmd", "numToDisplay", "CSRF-TOKEN");
     private static final Set<String> RELOAD_CONTEXT_PARAMS =
-            Set.of("demographicNo", "demographic_no", "appointmentNo", "curProviderNo", "providerNo");
+            Set.of("demographicNo", "demographic_no", "appointmentNo", "curProviderNo", "providerNo",
+                    // Posted in the body by every refresh as well as carried in the URL (#5250).
+                    "chartContext");
 
     private boolean enabled;
     private LoggedInInfo moduleLogin;

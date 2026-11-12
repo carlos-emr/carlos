@@ -192,6 +192,12 @@ restricted for the viewer. That patient's requests are left out with a notice, p
 counts the rows that are shown, and a list that cannot be loaded says so
 ([#5775](https://github.com/carlos-emr/carlos/issues/5775)).
 
+### Chart
+
+- A chart module that refreshes itself after a form or other window is closed no longer
+  lengthens its own reload address by one copy of the chart context on every refresh. The
+  address, and the links the module prints, stay the same for the life of the chart window.
+
 ### Security and access
 
 - The note and issue history popup prints the patient name and the issue title as
