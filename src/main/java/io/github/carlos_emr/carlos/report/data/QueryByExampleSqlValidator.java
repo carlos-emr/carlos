@@ -86,6 +86,7 @@ public final class QueryByExampleSqlValidator {
             "mycarlos_delivery_original",
             "mycarlos_delivery_outbox",
             "mycarlos_device_approval_challenge",
+            "mycarlos_device_approval_code",
             "mycarlos_device_approval_outbox",
             "mycarlos_patient_binding",
             "outboundemailarchive",
