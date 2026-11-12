@@ -111,8 +111,9 @@ class TestLabFilterWordsMigration(unittest.TestCase):
         old, new = alternatives(old_line()), alternatives(shipped_line())
         self.assertEqual(len(old), len(new))
         # The two date alternatives must be the whole result; the leading number skips a result that
-        # starts with a four-digit-year date and goes on, and is otherwise unchanged. Each date form
+        # starts with a 19xx or 20xx date and goes on, and is otherwise unchanged. Each date form
         # uses the same separator twice, so a number such as "6.5 2026-10-09" is still filed as 6.5.
+        self.assertEqual(new[:2], ["^" + date + "$" for date in old[:2]])
         year, part, dot = "(?:19|20)[0-9]{2}", "[0-9]{1,2}", "\\\\."
         sep = "(?:-" + part + "-|/" + part + "/|" + dot + part + dot + ")"
         month = ("(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?"
@@ -184,6 +185,19 @@ class TestLabFilterWordsMigration(unittest.TestCase):
         self.assertEqual(self.properties.read_bytes(), before)
         self.assertIn("still matches its words at the start of a result", result.stderr)
         self.assertIn("#6121", result.stderr)
+        self.assertTrue((self.state / SENTINEL).exists())
+
+    def test_warns_when_an_edited_line_keeps_any_word_start_alternative(self):
+        # A clinic's own line without the stock "no" alternative still files
+        # "Negative for malignancy" as "Negative": any ^\\b(word) is named.
+        self.write_properties(KEY + "^\\\\b(negative)\\\\b|^[0-9.]+")
+        before = self.properties.read_bytes()
+
+        result = self.run_block()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.properties.read_bytes(), before)
+        self.assertIn("still matches its words at the start of a result", result.stderr)
         self.assertTrue((self.state / SENTINEL).exists())
 
     def test_keeps_the_file_and_fails_when_the_rewrite_fails(self):

@@ -1198,11 +1198,12 @@ OAUTH_ACCESS_DEFAULTS
                         exit 1
                     fi
                 elif [ -f "${PROPERTIES}" ] \
-                    && grep -E "${LAB_FILTER_WORDS_KEY_RE}" "${PROPERTIES}" | tail -n 1 | grep -qF -e '|^\\b(no)\\b|'; then
+                    && grep -E "${LAB_FILTER_WORDS_KEY_RE}" "${PROPERTIES}" | tail -n 1 | grep -qF -e '^\\b('; then
                     # Not the exact stock line, so it is the operator's to change,
                     # but the definition in effect (java.util.Properties keeps the
-                    # last) still has the stock word alternatives that match the
-                    # start of a result: say so once, when the sentinel is written.
+                    # last) still has a #4613-style word alternative (^\\b(word),
+                    # any word) that matches the start of a result. The new stock
+                    # line has none. Say so once, when the sentinel is written.
                     echo "carlos-emr: WARNING: HL7_LAB_MEASUREMENT_FILTER in ${PROPERTIES} still matches its words at the start of a result (^\\b(word)\\b), which files \"No organisms seen\" as \"No\", and may match dates anywhere in it (#6121); it was left as it is because it is not the stock line" >&2
                 fi
                 mkdir -p "${STATE}"
