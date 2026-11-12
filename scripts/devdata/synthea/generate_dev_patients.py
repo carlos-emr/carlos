@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 CARLOS Contributors
 """Builds the development-only synthetic patients (#6148) from Synthea's ready-made CSV sample.
 
@@ -373,7 +373,18 @@ def text_value(ctype, value):
 
 # --- SQL ------------------------------------------------------------------------------------------------
 
+class Sql(str):
+    """A literal SQL expression written as is, for a value that must be computed at load time."""
+
+
+# An open course stays current wherever and whenever the file is loaded: Drug.isCurrent() compares end_date with
+# today, so a fixed date would leave the charts with no current medicines once it passed.
+OPEN_COURSE_END = Sql("DATE_ADD(CURDATE(), INTERVAL 3 YEAR)")
+
+
 def q(value):
+    if isinstance(value, Sql):
+        return str(value)
     if value is None:
         return "NULL"
     if isinstance(value, bool):
@@ -545,13 +556,13 @@ def patient_sql(index, who, tp, log):
     for c in meds:
         e = c["entry"]
         ongoing = c["end"] is None
-        end = c["end"] or (REFERENCE + timedelta(days=90))
-        days = max(1, (end - c["start"]).days) if not ongoing else 90
+        end = OPEN_COURSE_END if ongoing else c["end"]
+        days = 90 if ongoing else max(1, (end - c["start"]).days)
         qty, repeats = ("90", 3) if ongoing and e["long_term"] else ("", 0)
         method = {"INJ": "Inj", "MDI": "Inhal", "DPI": "Inhal", "NEB": "Inhal", "PATCH": "Apply", "RING": "Insrt",
                   "IUS": "Insrt", "IMPL": "Insrt"}.get(e["form"], "Take")
         special = f"{e['name']}\n{e['instructions']}" + (f"\nQty:{qty} Repeats:{repeats}" if qty else "")
-        drug_rows.append((who["provider"], who["no"], str(c["start"]), str(end), str(c["start"]), "", 0, e["name"],
+        drug_rows.append((who["provider"], who["no"], str(c["start"]), end if ongoing else str(end), str(c["start"]), "", 0, e["name"],
                           e["takemin"], e["takemax"], e["freq"], str(min(days, 9999)), "D", qty, repeats, 0, e["prn"],
                           special, 0, e["generic"], e["atc"], e["unit"], method, e["route"], e["form"],
                           f"{c['start']} 09:00:00", e["strength"], 0, bool(ongoing and e["long_term"]), 0,

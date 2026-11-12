@@ -59,9 +59,11 @@ the GNU General Public License.
   (`.devcontainer/db/scripts/demo-synthetic-patients.sql`) are converted from the
   sample patients published with Synthea, The MITRE Corporation's synthetic
   patient generator. The records are synthetic, not real people.
-  Source: https://github.com/synthetichealth/synthea-sample-data
-  (Synthea: https://github.com/synthetichealth/synthea)
-  License: Apache License 2.0, https://www.apache.org/licenses/LICENSE-2.0
+  Source: https://github.com/synthetichealth/synthea-sample-data, the output of
+  Synthea (https://github.com/synthetichealth/synthea).
+  Synthea: Copyright 2017-2025 The MITRE Corporation; Apache License 2.0,
+  https://www.apache.org/licenses/LICENSE-2.0. The sample-data repository
+  publishes no licence file of its own.
   Local changes: Canadian names, places, units and products; FAKE identities;
   and the clean-up rules listed in `scripts/devdata/synthea/README.md`. Never
   shipped in the application or its packages.

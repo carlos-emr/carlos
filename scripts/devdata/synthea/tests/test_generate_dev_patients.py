@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 CARLOS Contributors
 """Tests of the synthetic development patients generator (#6148).
 
@@ -183,6 +183,12 @@ class GeneratorTest(unittest.TestCase):
     def test_shouldWriteNoKnownDrugAllergies_whenTheSampleListsNone(self):
         self.assertIn("(90001,'2026-09-01','No Known Drug Allergies'", self.sql)
         self.assertIn("'Penicillin V',0,'Hives'", self.sql)
+
+    def test_shouldKeepOpenCoursesCurrent_wheneverTheFileIsLoaded(self):
+        # Drug.isCurrent() compares end_date with today: a fixed end date would expire every current medicine.
+        self.assertIn("DATE_ADD(CURDATE(), INTERVAL 3 YEAR)", self.sql)
+        self.assertNotIn("'2027-01-30'", self.sql)
+        self.assertRegex(self.sql, r"'atorvastatin[^']*'")
 
     def test_shouldUseTheAllergyFormCodes_forSeverityAndOnset(self):
         # The allergy page reads 1 mild, 2 moderate, 3 severe, 4 unknown; "0" shows as a black cell.

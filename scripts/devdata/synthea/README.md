@@ -5,6 +5,8 @@ the **development** database: 22 adults with long, consistent histories (several
 medicine changes over years, lab values, vaccines and visits), for testing the AI chart tools and
 anything else that needs a full chart.
 
+- Open medicine courses end three years after the file is loaded (`DATE_ADD(CURDATE(), INTERVAL 3 YEAR)`), so
+  they stay current; the file's text stays the same on every run.
 - Output: `.devcontainer/db/scripts/demo-synthetic-patients.sql`, loaded by
   `.devcontainer/db/scripts/populate_db.sh` after `development.sql` and the name sanitization.
 - **Never applied to a production database.** The packaged demo-data load (`carlos-ctl demo-data`)
@@ -20,7 +22,7 @@ anything else that needs a full chart.
 | Commit | `84f59805d481b9f01f3141ef39e68bdbbeb80132` (the sample repo's `latest` file changes often; this commit fixes it) |
 | URL | https://raw.githubusercontent.com/synthetichealth/synthea-sample-data/84f59805d481b9f01f3141ef39e68bdbbeb80132/downloads/latest/synthea_sample_data_csv_latest.zip |
 | SHA-256 | `990d52064037bbf83d10f13163da428964b56ae673b7f39bf549d78c1e7eda16` (5,446,315 bytes) |
-| Licence | Synthea is Apache-2.0; its output is synthetic. Attribution in `NOTICE.md` |
+| Licence | Synthea is Apache-2.0 (Copyright 2017-2025 The MITRE Corporation); its output is synthetic. The sample-data repository publishes no licence file of its own. Attribution in `NOTICE.md` |
 
 The zip stays **out of the repository**. To rebuild, download it to a folder of its own, treat it as
 data only, and run (from the repository root):
@@ -61,7 +63,8 @@ HL7 messages are a possible follow-up.
   deletes that range first, so loading it again is safe. MariaDB moves the `demographic`
   AUTO_INCREMENT past 90022, so patients added in a development database after this load are numbered
   from 90023.
-- Each patient's family doctor is one of `development.sql`'s demo doctors (providers 7–20).
+- Each patient's most responsible provider (MRP, `provider_no`) is one of `development.sql`'s demo doctors
+  (providers 7–20); the referring family doctor field is left empty.
 - An existing development database (a volume that never re-runs `populate_db.sh`) can load it by hand:
   `mariadb -h db -u root carlos < .devcontainer/db/scripts/demo-synthetic-patients.sql`.
 
