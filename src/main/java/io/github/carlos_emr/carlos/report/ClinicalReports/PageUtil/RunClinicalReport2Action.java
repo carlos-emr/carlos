@@ -87,6 +87,9 @@ public class RunClinicalReport2Action extends ActionSupport {
         ClinicalReportManager reports = ClinicalReportManager.getInstance();
 
         Denominator d = reports.getDenominatorById(denominatorId);
+        if (d == null) {
+            return unknownReport();
+        }
         if (d.hasReplaceableValues()) {
             String[] denomReplaceKeys = d.getReplaceableKeys();
             Hashtable h = new Hashtable();
@@ -119,6 +122,9 @@ public class RunClinicalReport2Action extends ActionSupport {
         // User-controlled input cannot influence the URL target, only which preconfigured
         // numerator is selected. // lgtm[java/ssrf]
         Numerator n = reports.getNumeratorById(numeratorId); // nosemgrep: java.lang.security.audit.ssrf.ssrf-java
+        if (n == null) {
+            return unknownReport();
+        }
         MiscUtils.getLogger().debug("n" + n + " " + n.hasReplaceableValues());
         if (n.hasReplaceableValues()) {
             String[] denomReplaceKeys = n.getReplaceableKeys();
@@ -148,6 +154,10 @@ public class RunClinicalReport2Action extends ActionSupport {
 
         for (int x = 0; x < 11; x++) {
             numerators[x] = reports.getNumeratorById(numeratorIds[x]);
+            // An extra numerator left at "Select Below" posts an empty id; any other id must be listed.
+            if (numerators[x] == null && numeratorIds[x] != null && !numeratorIds[x].isEmpty()) {
+                return unknownReport();
+            }
             if (numerators[x] != null) {
                 maxNumerator = x;
                 MiscUtils.getLogger().debug("n" + x + numerators[x] + " " + numerators[x].hasReplaceableValues());
@@ -194,7 +204,7 @@ public class RunClinicalReport2Action extends ActionSupport {
         }
 
 
-        request.setAttribute("showfields", request.getParameterValues("showfields"));
+        request.setAttribute("showfields", chosenFields(request.getParameterValues("showfields")));
 
         //Need to change the out put fields here On the JSP use an getDisplay MEthod that checks for instance of.
 
@@ -233,5 +243,22 @@ public class RunClinicalReport2Action extends ActionSupport {
 
         request.setAttribute("max_numerator", maxNumerator);
         return SUCCESS;
+    }
+
+    /**
+     * A numerator or denominator id that is not in ClinicalReports.xml (a stale page, or a report removed
+     * from the file): the report page says so instead of failing.
+     */
+    private String unknownReport() {
+        request.setAttribute("clinicalReportUnknown", Boolean.TRUE);
+        return SUCCESS;
+    }
+
+    /**
+     * The "Fields to include" boxes that were ticked. With none ticked the browser sends no
+     * {@code showfields} at all; the results table then has no extra columns rather than failing.
+     */
+    static String[] chosenFields(String[] posted) {
+        return posted == null ? new String[0] : posted;
     }
 }

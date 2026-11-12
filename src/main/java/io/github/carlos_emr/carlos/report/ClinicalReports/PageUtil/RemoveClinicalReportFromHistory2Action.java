@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.report.ClinicalReports.PageUtil;
 
-import java.util.ArrayList;
+import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -74,16 +74,19 @@ public class RemoveClinicalReportFromHistory2Action extends ActionSupport {
         try {
             nid = Integer.parseInt(id);
         } catch (NumberFormatException e) {
+            // Not a position in the list (a stale or hand-made request): show the page as it is. This
+            // route maps only "success", so an "error" result would end on the generic error page.
             MiscUtils.getLogger().debug("Invalid clinical report id parameter: {}", id);
-            return ERROR;
+            return SUCCESS;
         }
 
-        //Could be a concurrency issue here if they opened up more than one report screen
-        ArrayList<Integer> arrList = (ArrayList<Integer>) request.getSession().getAttribute("ClinicalReports");
-        if (arrList != null) {
-            arrList.remove(Integer.valueOf(nid));
+        // The page lists the session's run reports (ReportEvaluator) and posts each one's position.
+        // Could be a concurrency issue here if they opened up more than one report screen.
+        List<?> reports = (List<?>) request.getSession().getAttribute("ClinicalReports");
+        if (reports != null && nid >= 0 && nid < reports.size()) {
+            reports.remove(nid);
         }
-        if (arrList != null && arrList.isEmpty()) {
+        if (reports != null && reports.isEmpty()) {
             request.getSession().removeAttribute("ClinicalReports");
         }
 

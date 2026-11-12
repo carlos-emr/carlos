@@ -378,6 +378,10 @@
             </td>
             <td valign="top" class="MainTableRightColumn">
                 <div>
+                    <%-- A numerator or denominator that is not in the list: a stale page, or a changed report file. --%>
+                    <% if (Boolean.TRUE.equals(request.getAttribute("clinicalReportUnknown"))) { %>
+                    <p class="clinical-report-unknown" role="alert"><fmt:message key="report.ClinicalReports.unknownReport"/></p>
+                    <% } %>
                     <fieldset>
                         <form action="${pageContext.request.contextPath}/RunClinicalReport" method="post">
                             <!--
