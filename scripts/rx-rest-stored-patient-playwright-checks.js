@@ -15,9 +15,11 @@
  *   3. A script that also holds another patient's drug row (a legacy or imported mix) is refused with
  *      404, so that patient's drug text is never drawn into the first patient's watermark.
  *   4. Re-prescribing a drug whose patient grants the provider read but not write on _rx is refused
- *      with a plain-text 403 "Access denied" from the /ws/rs server's AccessDeniedExceptionMapper. The
- *      answer names no patient and no drugs row is added. This is also the live proof that the mapper
- *      is registered on that server: the web application context does not start when it is not.
+ *      with the structured 403 of the /ws/rs server's AccessDeniedExceptionMapper: a JSON body whose
+ *      code is ACCESS_DENIED (webserv.rest.exceptionMapping, since #6098; the mapper it replaced wrote
+ *      the plain text "Access denied"). The answer names no patient and no drugs row is added. This is
+ *      also the live proof that the mapper is registered on that server: the web application context
+ *      does not start when it is not.
  *
  * Fixtures: the owned FAKE- patient; a second owned FAKE- patient (the other path patient and the
  * foreign drug row's owner); one prescription row holding one drug for the first patient; and, for
@@ -70,15 +72,18 @@ async function workflow(s) {
 
   const printState = () => JSON.stringify(sql.rows(`SELECT IFNULL(date_printed,''),IFNULL(dates_reprinted,'')
     FROM prescription WHERE script_no=${ids.script}`));
-  const refused = async (response, status, label) => {
+  // `said` narrows the body to the text that could name a patient (a structured answer's timestamp is digits that name nobody).
+  const refused = async (response, status, label, { said = body => body } = {}) => {
     const body = await response.text();
     await response.dispose();
     h.assert(response.status() === status, `${label} answered HTTP ${response.status()}, not ${status}`);
     h.assert(!body.includes(marker), `${label} carried the prescription's drug text`);
     const patientIds = new Set([String(patient), String(ids.other)]);
-    h.assert(!body.split(/\D+/).some(number => patientIds.has(number)), `${label} named a patient`);
+    h.assert(!said(body).split(/\D+/).some(number => patientIds.has(number)), `${label} named a patient`);
     return body;
   };
+  /** The structured error body as an object, or null when the body is not JSON. */
+  const structured = (body) => { try { return JSON.parse(body); } catch { return null; } };
 
   await s.step('the stored patient\'s own script answers its watermark and records its print', async () => {
     const watermark = await context.request.get(`${rest}/${patient}/watermark/${ids.script}`);
@@ -116,7 +121,7 @@ async function workflow(s) {
     }
   });
 
-  await s.step('re-prescribing without write access to the drug\'s patient is a plain 403 that names no patient', async () => {
+  await s.step('re-prescribing without write access to the drug\'s patient is a structured 403 that names no patient', async () => {
     const drugsBefore = sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}`);
     sql.execute(`INSERT INTO secObjPrivilege (roleUserGroup,objectName,privilege,priority,provider_no)
       VALUES ('doctor',${h.sqlString(privilegeObject)},'r',0,${h.sqlString(provider)})`);
@@ -124,9 +129,12 @@ async function workflow(s) {
       const response = await context.request.post(`${rest}/drug/${ids.drug}`,
         { data: {}, headers: { Accept: 'application/json' } });
       const type = response.headers()['content-type'] || '';
-      const body = await refused(response, 403, 'Re-prescribing without _rx write access');
-      h.assert(type.startsWith('text/plain') && body === 'Access denied',
-        'The refusal is not the plain "Access denied" the REST exception mapper writes');
+      const body = await refused(response, 403, 'Re-prescribing without _rx write access', {
+        said: (text) => { const { timestamp, ...answer } = structured(text) || { text }; return JSON.stringify(answer); },
+      });
+      const answer = structured(body);
+      h.assert(type.startsWith('application/json') && answer && answer.code === 'ACCESS_DENIED',
+        'The refusal is not the structured ACCESS_DENIED answer the REST exception mapper writes');
     } finally {
       sql.execute(`DELETE FROM secObjPrivilege WHERE objectName=${h.sqlString(privilegeObject)}`);
     }
