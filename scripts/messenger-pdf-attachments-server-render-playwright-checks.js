@@ -255,27 +255,33 @@ async function workflow(s) {
   const noteText = `${notePrefix}note FAKE-PW current encounter note`;
   const cppText = `${notePrefix}cpp FAKE-PW social history`;
   await s.step('the current encounter previews and attaches the chart print of a saved note and the CPP', async () => {
-    const noteLike = h.sqlString(`${notePrefix}%`);
-    const ownedNotes = () => s.sql.rows(`SELECT note_id FROM casemgmt_note
-      WHERE demographic_no=${s.patient} AND note LIKE ${noteLike}`).map(([id]) => id);
+    // Every statement in this step binds its values (one statement per bound call).
+    const patientNo = Number(s.patient);
+    h.assert(Number.isSafeInteger(patientNo) && patientNo > 0, 'The owned patient has no numeric id');
+    const ownedNotes = () => s.sql.rows('SELECT note_id FROM casemgmt_note WHERE demographic_no=? AND note LIKE ?',
+      [patientNo, `${notePrefix}%`]).map(([id]) => id);
     // Registered before any write; only this run's notes, their issue and support rows.
     s.cleanup(() => {
       const ids = ownedNotes();
       h.assert(ids.every(id => /^[1-9]\d*$/.test(id)), 'Owned current-encounter note ids changed');
-      const list = ids.length ? ids.join(',') : '-1';
-      s.sql.execute(`DELETE FROM casemgmt_issue_notes WHERE note_id IN (${list});
-        DELETE FROM casemgmt_note_ext WHERE note_id IN (${list});
-        DELETE FROM casemgmt_note_link WHERE note_id IN (${list});
-        DELETE FROM hash_audit WHERE type='enc' AND id IN (${list});
-        DELETE FROM casemgmt_note WHERE note_id IN (${list}) AND demographic_no=${s.patient};
-        DELETE FROM casemgmt_issue WHERE demographic_no=${s.patient};
-        DELETE FROM casemgmt_tmpsave WHERE demographic_no=${s.patient};
-        DELETE FROM casemgmt_note_lock WHERE demographic_no=${s.patient}`);
-      h.assert(s.sql.value(`SELECT (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${s.patient})
-        + (SELECT COUNT(*) FROM casemgmt_issue WHERE demographic_no=${s.patient})`) === '0',
+      const noteIds = ids.map(Number);
+      if (noteIds.length) {
+        const marks = noteIds.map(() => '?').join(',');
+        s.sql.execute(`DELETE FROM casemgmt_issue_notes WHERE note_id IN (${marks})`, noteIds);
+        s.sql.execute(`DELETE FROM casemgmt_note_ext WHERE note_id IN (${marks})`, noteIds);
+        s.sql.execute(`DELETE FROM casemgmt_note_link WHERE note_id IN (${marks})`, noteIds);
+        s.sql.execute(`DELETE FROM hash_audit WHERE type='enc' AND id IN (${marks})`, noteIds);
+        s.sql.execute(`DELETE FROM casemgmt_note WHERE note_id IN (${marks}) AND demographic_no=?`,
+          [...noteIds, patientNo]);
+      }
+      s.sql.execute('DELETE FROM casemgmt_issue WHERE demographic_no=?', [patientNo]);
+      s.sql.execute('DELETE FROM casemgmt_tmpsave WHERE demographic_no=?', [patientNo]);
+      s.sql.execute('DELETE FROM casemgmt_note_lock WHERE demographic_no=?', [patientNo]);
+      h.assert(s.sql.value(`SELECT (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=?)
+        + (SELECT COUNT(*) FROM casemgmt_issue WHERE demographic_no=?)`, [patientNo, patientNo]) === '0',
       'Owned current-encounter notes or issues were not removed');
     });
-    h.assert(s.sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${s.patient}`) === '0',
+    h.assert(s.sql.value('SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=?', [patientNo]) === '0',
       'The owned patient unexpectedly has chart notes');
 
     // A note saved through the modern chart, as a clinician writes one.
@@ -291,29 +297,28 @@ async function workflow(s) {
       { timeout: TIMEOUT }),
       chart.locator('#saveImg').first().click(),
     ]);
-    await expectValue(s.sql, `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${s.patient}
-      AND note LIKE ${h.sqlString(`${noteText}%`)}`, '1', 'The chart did not save the current-encounter note');
+    await expectValue(s.sql, 'SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=? AND note LIKE ?', '1',
+      'The chart did not save the current-encounter note', [patientNo, `${noteText}%`]);
 
     // A Social History entry under the saved note's own program and role, so the print's
     // program filter treats both alike.
     const [program, role] = s.sql.rows(`SELECT program_no,reporter_caisi_role FROM casemgmt_note
-      WHERE demographic_no=${s.patient} AND note LIKE ${h.sqlString(`${noteText}%`)} ORDER BY note_id DESC LIMIT 1`)[0];
+      WHERE demographic_no=? AND note LIKE ? ORDER BY note_id DESC LIMIT 1`, [patientNo, `${noteText}%`])[0];
     h.assert(/^\d+$/.test(program || ''), `The saved note has no numeric program (${program})`);
     const cppNote = h.insertId(s.sql, `INSERT INTO casemgmt_note
       (update_date,observation_date,demographic_no,provider_no,note,signed,signing_provider_no,
        include_issue_innote,encounter_type,program_no,reporter_caisi_role,reporter_program_team,
        history,uuid,locked,archived,position,appointmentNo)
-      VALUES (NOW(),NOW(),${s.patient},${provider},${h.sqlString(cppText)},1,${provider},
-        0,'',${h.sqlString(program)},${h.sqlString(role || '')},'0',${h.sqlString(cppText)},UUID(),'0',0,0,0)`,
-    'owned Social History note');
+      VALUES (NOW(),NOW(),?,?,?,1,?,0,'',?,?,'0',?,UUID(),'0',0,0,0)`,
+    'owned Social History note', [patientNo, s.provider, cppText, s.provider, program, role || '', cppText]);
     const catalog = s.sql.rows(`SELECT issue_id,COALESCE(NULLIF(role,''),'system') FROM issue
       WHERE code='SocHistory' ORDER BY issue_id LIMIT 1`)[0];
     h.assert(catalog && /^[1-9]\d*$/.test(catalog[0]), 'The Social History issue is missing from the catalog');
     const issue = h.insertId(s.sql, `INSERT INTO casemgmt_issue
       (demographic_no,issue_id,acute,certain,major,resolved,program_id,type,update_date)
-      VALUES (${s.patient},${catalog[0]},0,0,0,0,${program},${h.sqlString(catalog[1])},NOW())`,
-    'owned Social History issue');
-    s.sql.execute(`INSERT INTO casemgmt_issue_notes(id,note_id) VALUES (${issue},${cppNote})`);
+      VALUES (?,?,0,0,0,0,?,?,NOW())`,
+    'owned Social History issue', [patientNo, Number(catalog[0]), Number(program), catalog[1]]);
+    s.sql.execute('INSERT INTO casemgmt_issue_notes(id,note_id) VALUES (?,?)', [Number(issue), Number(cppNote)]);
 
     await openChooser();
     const captured = await capturePreview('currentEncounter');
