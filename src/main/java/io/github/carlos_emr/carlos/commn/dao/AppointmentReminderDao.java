@@ -68,6 +68,15 @@ public interface AppointmentReminderDao extends AbstractDao<AppointmentReminder>
                                           long excludeReminderId, Collection<AppointmentReminderStatus> handedOver);
 
     /**
+     * The archived versions of one appointment, newest first: every path that changes an appointment's date or
+     * time (Edit, REST, HL7, a repeat series, a status change) archives the version it replaces. Read by the
+     * same-visit check to learn since when the appointment has been at its current start. Filtered on the
+     * patient too, which the archive table is indexed on.
+     */
+    List<io.github.carlos_emr.carlos.commn.model.AppointmentArchive> findArchivedVersions(int appointmentNo,
+                                                                                         int demographicNo);
+
+    /**
      * Rows on {@code channel} left {@link AppointmentReminderStatus#SENDING} by a run that stopped: their claim
      * is gone or older than {@code staleBefore}. Locked, skipping rows locked elsewhere; must run in the
      * caller's transaction.
