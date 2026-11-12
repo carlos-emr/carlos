@@ -180,6 +180,28 @@ class AppointmentReminderChoiceUnitTest extends CarlosUnitTestBase {
         verify(reminders, org.mockito.Mockito.times(1)).moveReminders(any(), anyInt(), anyInt());
     }
 
+    /**
+     * The group page has no transaction around its bookings: each one is already saved when the reminder is
+     * recorded. A reminder that cannot be stored must not stop the page halfway or show an error page that invites
+     * a second submit (and a duplicate booking); Edit then shows the box unticked, so staff can tick it again.
+     */
+    @Test
+    void shouldNotStopTheGroupPage_whenTheReminderCannotBeStored() {
+        AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
+        when(reminders.recordRequest(any(), anyInt(), anyInt(), any(), org.mockito.ArgumentMatchers.anyBoolean()))
+                .thenThrow(new IllegalStateException("FAKE"));
+        when(reminders.moveReminders(any(), anyInt(), anyInt())).thenThrow(new IllegalStateException("FAKE"));
+
+        assertThatCode(() -> AppointmentReminderChoice.recordForGroup(form(true, true), user,
+                java.util.List.of(booking(201, "999998", 42)), "999998")).doesNotThrowAnyException();
+        assertThatCode(() -> AppointmentReminderChoice.moveReminders(form(true, true), user, 101, appointment(201)))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> AppointmentReminderChoice.recordAfterGroupUpdate(form(true, true), user, appointment(202)))
+                .doesNotThrowAnyException();
+
+        verify(reminders).recordRequest(user, 202, 42, ReminderChannel.EMAIL, true);
+    }
+
     @Test
     void shouldAskTheStoredChoice_forTheEditPage() {
         AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);

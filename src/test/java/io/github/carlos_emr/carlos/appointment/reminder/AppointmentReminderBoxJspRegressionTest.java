@@ -115,6 +115,8 @@ class AppointmentReminderBoxJspRegressionTest {
                 "if (rowsAffected == 1) bSucc = true;");
         assertThat(group).containsSubsequence("equals(\"Group Update\")", "replacedNo = appt.getId();",
                 "appointmentDao.persist(a);", "AppointmentReminderChoice.moveReminders(request, groupUser, replacedNo, a);",
-                "AppointmentReminderChoice.record(request, groupUser, edited);");
+                "AppointmentReminderChoice.recordAfterGroupUpdate(request, groupUser, edited);");
+        // Each booking there is already saved: the reminder calls never stop the page (no transaction around it).
+        assertThat(group).doesNotContain("AppointmentReminderChoice.record(request");
     }
 }

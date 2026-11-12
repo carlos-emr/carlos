@@ -24,8 +24,10 @@ package io.github.carlos_emr.carlos.appointment.reminder;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
+import org.apache.logging.log4j.Logger;
 
 import java.util.List;
 import java.util.Locale;
@@ -47,6 +49,8 @@ public final class AppointmentReminderChoice {
     public static final String PARAMETER = "emailPt";
     /** Sent with the box, so its absence means "not on this form" rather than "unticked". */
     public static final String SHOWN_PARAMETER = "emailPtShown";
+
+    private static final Logger logger = MiscUtils.getLogger();
 
     private AppointmentReminderChoice() {
     }
@@ -91,7 +95,7 @@ public final class AppointmentReminderChoice {
         if (!isOnForm(request)) {
             return;
         }
-        record(request, user, patientBooking(bookings, formProviderNo));
+        onGroupPage(() -> record(request, user, patientBooking(bookings, formProviderNo)));
     }
 
     static Appointment patientBooking(List<Appointment> bookings, String formProviderNo) {
@@ -119,7 +123,31 @@ public final class AppointmentReminderChoice {
         if (replacedNo == null || rebooked == null || rebooked.getId() == null || !isOnForm(request)) {
             return;
         }
-        SpringUtils.getBean(AppointmentReminderService.class).moveReminders(user, replacedNo, rebooked.getId());
+        onGroupPage(() -> SpringUtils.getBean(AppointmentReminderService.class)
+                .moveReminders(user, replacedNo, rebooked.getId()));
+    }
+
+    /**
+     * {@link #record} for the appointment Group Update was opened for, after the group page saved it. As the
+     * page's other reminder calls, it never stops the page ({@link #onGroupPage}).
+     */
+    public static void recordAfterGroupUpdate(HttpServletRequest request, LoggedInInfo user, Appointment appointment) {
+        onGroupPage(() -> record(request, user, appointment));
+    }
+
+    /**
+     * Runs one of the group page's reminder calls. That page saves each booking on its own, with no transaction
+     * around them, so every booking is already saved when its reminder is recorded. A reminder that cannot be
+     * stored (a database error, an edit racing the reminder job) is logged and skipped: it must not stop a Group
+     * Appt or Group Update halfway, or show an error page that invites a second submit and a duplicate booking.
+     * Edit then shows the box unticked, so staff can tick it again. The class only is logged.
+     */
+    static void onGroupPage(Runnable reminderCall) {
+        try {
+            reminderCall.run();
+        } catch (RuntimeException e) {
+            logger.warn("Appointment reminder choice not stored on the group page ({})", e.getClass().getName());
+        }
     }
 
     /**

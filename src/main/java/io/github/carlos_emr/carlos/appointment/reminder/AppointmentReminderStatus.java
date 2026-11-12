@@ -47,5 +47,10 @@ public enum AppointmentReminderStatus {
     /** The clinic has not set up the footer every patient email must carry. */
     NO_FOOTER,
     /** The sender may not read this patient's record. */
-    NOT_PERMITTED
+    NOT_PERMITTED,
+    /**
+     * Not sent: another booking for the same visit (the same patient at the same start, as Group Appt books)
+     * carries the reminder, so the patient gets one, not one per booking.
+     */
+    DUPLICATE
 }

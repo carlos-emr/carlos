@@ -351,7 +351,7 @@
                 // The box belongs to the appointment Edit was opened for: rebooked here, or left as it was.
                 Appointment edited = editedBooking != null ? editedBooking
                         : editedNo > 0 ? appointmentDao.find(editedNo) : null;
-                AppointmentReminderChoice.record(request, groupUser, edited);
+                AppointmentReminderChoice.recordAfterGroupUpdate(request, groupUser, edited);
             }
             if (rowsAffected == 1) bSucc = true;
         }

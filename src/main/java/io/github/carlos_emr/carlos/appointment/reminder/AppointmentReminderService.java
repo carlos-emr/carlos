@@ -231,6 +231,7 @@ public class AppointmentReminderService {
                 case NO_ADDRESS, INVALID_ADDRESS -> new ReminderStatusLine("appointment.reminder.status.noAddress", "");
                 case NO_SENDER, NO_FOOTER -> new ReminderStatusLine("appointment.reminder.status.notSetUp", "");
                 case NOT_PERMITTED -> new ReminderStatusLine("appointment.reminder.status.notPermitted", "");
+                case DUPLICATE -> new ReminderStatusLine("appointment.reminder.status.duplicate", "");
             });
         }
         if (!now.isBefore(start)) {
@@ -337,7 +338,9 @@ public class AppointmentReminderService {
             return Optional.empty();
         }
         ClaimedReminder claimed = started.get();
-        ReminderOutcome outcome = sendSafely(channel, claimed);
+        ReminderOutcome outcome = coveredByAnotherBooking(channel.channel(), claimed)
+                ? ReminderOutcome.of(AppointmentReminderStatus.DUPLICATE)
+                : sendSafely(channel, claimed);
         recordSafely(claimed, claimToken, outcome);
         try {
             audit(channel.channel(), claimed, outcome);
@@ -345,6 +348,43 @@ public class AppointmentReminderService {
             logger.error("Appointment reminder {} could not be audited ({})", reminderId, e.getClass().getName());
         }
         return Optional.of(outcome);
+    }
+
+    /**
+     * Whether another booking for the same visit carries the reminder (#5887): the same patient at the same start,
+     * as Group Appt books one per provider, whose box can be ticked on Edit later. A booking covers this one when
+     * its reminder is the earlier one, or when it was already sent (or may have been) for this start; cancelled
+     * and no-show bookings never do. So exactly one is sent, whichever server runs first: the earliest reminder
+     * never yields to a later one still being sent. If the check fails, the reminder is sent: a second email is
+     * the lesser harm.
+     */
+    private boolean coveredByAnotherBooking(ReminderChannel channel, ClaimedReminder claimed) {
+        if (claimed.demographicNo() <= 0 || claimed.start() == null) {
+            return false;
+        }
+        try {
+            Boolean covered = transactions.execute(status -> {
+                for (ReminderCandidate sibling : reminders.findSameVisit(channel, claimed.demographicNo(), claimed.start(),
+                        claimed.reminderId())) {
+                    if (sibling.appointment() == null || isCancelledOrNoShow(sibling.appointment().getStatus())) {
+                        continue;
+                    }
+                    AppointmentReminder other = sibling.reminder();
+                    boolean remindedForThisStart = claimed.start().equals(toLocal(other.getSentFor()))
+                            && (other.getLastStatus() == AppointmentReminderStatus.SENT
+                            || other.getLastStatus() == AppointmentReminderStatus.UNCONFIRMED);
+                    if (other.getId() < claimed.reminderId() || remindedForThisStart) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+            return Boolean.TRUE.equals(covered);
+        } catch (RuntimeException e) {
+            logger.warn("Appointment reminder {} could not be checked for the same visit ({}); sending it",
+                    claimed.reminderId(), e.getClass().getName());
+            return false;
+        }
     }
 
     /**

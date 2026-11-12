@@ -243,6 +243,30 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
         assertThat(first.getClaimToken()).isEqualTo("FAKE-claim-3");
     }
 
+    /** Group Appt's bookings for the same patient at the same time: the same visit. */
+    @Test
+    void shouldFindTheOtherRequestedRemindersForTheSameVisit_onTheSameChannel() {
+        Appointment booked = appointment(DAY, LocalTime.of(9, 0));
+        AppointmentReminder mine = reminder(booked, ReminderChannel.EMAIL);
+        AppointmentReminder sibling = reminder(appointment(DAY, LocalTime.of(9, 0)), ReminderChannel.EMAIL);
+        reminder(appointment(DAY, LocalTime.of(9, 15)), ReminderChannel.EMAIL);
+        reminder(appointment(DAY.plusDays(1), LocalTime.of(9, 0)), ReminderChannel.EMAIL);
+        Appointment otherPatient = appointment(DAY, LocalTime.of(9, 0));
+        otherPatient.setDemographicNo(43);
+        entityManager.merge(otherPatient);
+        reminder(otherPatient, ReminderChannel.EMAIL);
+        AppointmentReminder withdrawn = reminder(appointment(DAY, LocalTime.of(9, 0)), ReminderChannel.EMAIL);
+        withdrawn.withdraw("999998", now);
+        reminders.merge(withdrawn);
+        reminder(appointment(DAY, LocalTime.of(9, 0)), ReminderChannel.SMS);
+        entityManager.flush();
+
+        assertThat(reminders.findSameVisit(ReminderChannel.EMAIL, 42, DAY.atTime(9, 0), mine.getId()))
+                .extracting(found -> found.reminder().getId()).containsExactly(sibling.getId());
+        assertThat(reminders.findSameVisit(ReminderChannel.EMAIL, 0, DAY.atTime(9, 0), mine.getId())).isEmpty();
+        assertThat(reminders.findSameVisit(ReminderChannel.EMAIL, 42, null, mine.getId())).isEmpty();
+    }
+
     @Test
     void shouldNotClaimAWithdrawnReminder() {
         AppointmentReminder withdrawn = reminder(appointment(DAY, LocalTime.of(9, 0)), ReminderChannel.EMAIL);

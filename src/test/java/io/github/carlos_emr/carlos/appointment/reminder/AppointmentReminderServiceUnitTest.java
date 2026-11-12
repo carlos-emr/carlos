@@ -59,6 +59,7 @@ import java.util.function.Function;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -139,6 +140,101 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         });
         when(appointments.find(Integer.valueOf(APPOINTMENT))).thenReturn(atClaim);
         when(reminders.find(Long.valueOf(7L))).thenReturn(reminder);
+    }
+
+    /**
+     * Group Appt books the patient with several providers at the same time. Only one booking holds the reminder,
+     * but another booking's box can be ticked later on Edit: the patient still gets one reminder for the visit.
+     */
+    @Nested
+    @DisplayName("Bookings for the same visit")
+    class SameVisit {
+
+        private final LocalDateTime start = NOW.plusHours(20);
+
+        private ReminderCandidate sibling(long id, String status, AppointmentReminderStatus outcome) {
+            Appointment other = appointment(start, PATIENT, status);
+            other.setId(APPOINTMENT + 1);
+            AppointmentReminder reminder = AppointmentReminder.requested(APPOINTMENT + 1, ReminderChannel.EMAIL, "999998",
+                    at(NOW.minusDays(1)));
+            ReflectionTestUtils.setField(reminder, "id", id);
+            if (outcome != null) {
+                reminder.startSending(at(start), at(NOW.minusHours(1)));
+                reminder.finish(outcome, 899, at(NOW.minusHours(1)));
+            }
+            return new ReminderCandidate(reminder, other);
+        }
+
+        private void siblings(ReminderCandidate... found) {
+            when(reminders.findSameVisit(ReminderChannel.EMAIL, PATIENT, start, 7L)).thenReturn(List.of(found));
+        }
+
+        @Test
+        void shouldRecordTheReminderAsCovered_whenAnotherBookingAtTheSameTimeHoldsAnEarlierReminder() {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            siblings(sibling(3L, "t", null));
+
+            ReminderRun run = service.processDue(10);
+
+            assertThat(handed).as("never sent twice for one visit").isEmpty();
+            assertThat(run).isEqualTo(new ReminderRun(1, 0, 1));
+            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.DUPLICATE);
+            assertThat(reminder.getSentFor()).as("not due again for this start").isEqualTo(at(start));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"SENT", "UNCONFIRMED"})
+        void shouldRecordTheReminderAsCovered_whenAnotherBookingWasAlreadyRemindedForTheStart(String outcome) {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            siblings(sibling(12L, "t", AppointmentReminderStatus.valueOf(outcome)));
+
+            service.processDue(10);
+
+            assertThat(handed).isEmpty();
+            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.DUPLICATE);
+        }
+
+        @Test
+        void shouldSend_whenTheOtherBookingIsLaterAndNotYetRemindedOrCancelled() {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            siblings(sibling(12L, "t", null), sibling(3L, "C", null), sibling(14L, "t", AppointmentReminderStatus.BLOCKED_CONSENT));
+
+            service.processDue(10);
+
+            // A later booking waits for this one; a cancelled booking never covers it; a refusal is no reminder.
+            assertThat(handed).hasSize(1);
+            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.SENT);
+        }
+
+        @Test
+        void shouldSend_whenTheSameVisitCannotBeChecked() {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            when(reminders.findSameVisit(any(), anyInt(), any(), anyLong())).thenThrow(new IllegalStateException("FAKE"));
+
+            service.processDue(10);
+
+            // A second email is the lesser harm: the patient is still reminded.
+            assertThat(handed).hasSize(1);
+        }
+
+        @Test
+        void shouldSayAnotherBookingCarriesTheReminder_onTheStatusLine() {
+            AppointmentReminder reminder = requested();
+            reminder.startSending(at(start), at(NOW.minusMinutes(5)));
+            reminder.finish(AppointmentReminderStatus.DUPLICATE, null, at(NOW.minusMinutes(5)));
+            when(reminders.findByAppointment(APPOINTMENT, ReminderChannel.EMAIL)).thenReturn(Optional.of(reminder));
+
+            assertThat(service.statusLine(appointment(start, PATIENT, "t"), Locale.ENGLISH))
+                    .contains(new ReminderStatusLine("appointment.reminder.status.duplicate", ""));
+        }
     }
 
     @Nested
@@ -741,7 +837,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         void shouldHaveEveryStatusLine_inEveryBundle(String language) {
             ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", Locale.forLanguageTag(language.replace('_', '-')));
             for (String key : new String[]{"sent", "unconfirmed", "failed", "blockedConsent", "noAddress", "notSetUp",
-                    "notPermitted", "scheduled", "due", "tooLate"}) {
+                    "notPermitted", "scheduled", "due", "tooLate", "duplicate"}) {
                 String pattern = bundle.getString("appointment.reminder.status." + key);
                 // The page always passes the value, so every line is a MessageFormat pattern.
                 assertThat(new MessageFormat(pattern).format(new Object[]{"FAKE-WHEN"})).as(key).doesNotContain("{", "}");
