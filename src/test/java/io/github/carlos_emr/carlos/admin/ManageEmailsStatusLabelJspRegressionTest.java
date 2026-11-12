@@ -73,7 +73,9 @@ class ManageEmailsStatusLabelJspRegressionTest {
     private static final List<String> LOCALES = List.of("en", "fr", "es", "pt_BR", "pl");
     /** Legitimately the same word as English in these languages. */
     private static final Map<String, Set<String>> SAME_AS_ENGLISH = Map.of(
-            "admin.manageEmails.status", Set.of("pl", "pt_BR"));
+            "admin.manageEmails.status", Set.of("pl", "pt_BR"),
+            // French writes "Type" too (le type de courriel).
+            "admin.manageEmails.type", Set.of("fr"));
     private static final Pattern MESSAGE_KEY = Pattern.compile("key=[\"']([A-Za-z0-9_.]+)[\"']");
 
     @Test

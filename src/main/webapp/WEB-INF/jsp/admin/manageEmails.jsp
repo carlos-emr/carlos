@@ -371,7 +371,7 @@
                         <label for="emailType"><fmt:message key="admin.manageEmails.type"/></label>
                         <select class="form-select" name="emailType" id="emailType">
                             <option value="-1"><fmt:message key="admin.manageEmails.all"/></option>
-                            <option value="APPOINTMENT_REMINDER"><fmt:message key="admin.manageEmails.type.appointmentReminder"/></option>
+                            <option value="${ emailReminderType }"><fmt:message key="admin.manageEmails.type.appointmentReminder"/></option>
                         </select>
                     </div>
                 </div>

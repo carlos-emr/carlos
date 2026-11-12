@@ -246,7 +246,7 @@ public class AppointmentReminderService {
             }
             String claimToken = UUID.randomUUID().toString();
             List<Long> claimed = transactions.execute(status -> claim(due, claimToken, now));
-            if (claimed == null || claimed.isEmpty()) {
+            if (claimed.isEmpty()) {
                 continue;
             }
             claimedCount += claimed.size();
@@ -294,7 +294,7 @@ public class AppointmentReminderService {
      * @return the outcome, or empty when nothing was sent (no longer due, or it could not be started)
      */
     private Optional<ReminderOutcome> sendOne(AppointmentReminderChannel channel, long reminderId, String claimToken) {
-        ClaimedReminder started;
+        Optional<ClaimedReminder> started;
         try {
             started = transactions.execute(status -> start(reminderId, claimToken, LocalDateTime.now(clock)));
         } catch (RuntimeException e) {
@@ -302,13 +302,14 @@ public class AppointmentReminderService {
             logger.error("Appointment reminder {} could not be started ({})", reminderId, e.getClass().getName());
             return Optional.empty();
         }
-        if (started == null) {
+        if (started.isEmpty()) {
             return Optional.empty();
         }
-        ReminderOutcome outcome = sendSafely(channel, started);
-        recordSafely(started, claimToken, outcome);
+        ClaimedReminder claimed = started.get();
+        ReminderOutcome outcome = sendSafely(channel, claimed);
+        recordSafely(claimed, claimToken, outcome);
         try {
-            audit(channel.channel(), started, outcome);
+            audit(channel.channel(), claimed, outcome);
         } catch (RuntimeException e) {
             logger.error("Appointment reminder {} could not be audited ({})", reminderId, e.getClass().getName());
         }
@@ -317,22 +318,23 @@ public class AppointmentReminderService {
 
     /**
      * Must run in a transaction: marks one claimed reminder as being sent for the appointment's start now, just
-     * before the send. {@code null} when the claim is no longer this run's, the box was unticked, or the
+     * before the send. Empty when the claim is no longer this run's, the box was unticked, or the
      * appointment is no longer due (its claim is then released).
      */
-    private ClaimedReminder start(long reminderId, String claimToken, LocalDateTime now) {
+    private Optional<ClaimedReminder> start(long reminderId, String claimToken, LocalDateTime now) {
         AppointmentReminder reminder = reminders.find(reminderId);
         if (reminder == null || !claimToken.equals(reminder.getClaimToken())) {
-            return null;
+            return Optional.empty();
         }
         Appointment appointment = appointments.find(reminder.getAppointmentNo());
         if (!reminder.isRequested() || appointment == null || !isDue(appointment, reminder, now)) {
             reminder.releaseClaim();
-            return null;
+            return Optional.empty();
         }
         Date start = appointment.getStartTimeAsFullDate();
         reminder.startSending(start, toDate(now));
-        return new ClaimedReminder(reminder.getId(), appointment.getId(), appointment.getDemographicNo(), toLocal(start));
+        return Optional.of(new ClaimedReminder(reminder.getId(), appointment.getId(), appointment.getDemographicNo(),
+                toLocal(start)));
     }
 
     /**
@@ -404,9 +406,6 @@ public class AppointmentReminderService {
             });
         } catch (RuntimeException e) {
             logger.error("Abandoned appointment reminders could not be recovered ({})", e.getClass().getName());
-            return;
-        }
-        if (recovered == null) {
             return;
         }
         for (ClaimedReminder reminder : recovered) {

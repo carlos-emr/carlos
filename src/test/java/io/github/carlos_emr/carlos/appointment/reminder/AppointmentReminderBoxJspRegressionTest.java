@@ -88,7 +88,7 @@ class AppointmentReminderBoxJspRegressionTest {
         String card = Files.readString(admin.resolve("emailStatusResults.jspf"), StandardCharsets.UTF_8);
 
         assertThat(filter).containsSubsequence("<select class=\"form-select\" name=\"emailType\" id=\"emailType\">",
-                "<option value=\"-1\">", "<option value=\"APPOINTMENT_REMINDER\">",
+                "<option value=\"-1\">", "<option value=\"${ emailReminderType }\">",
                 "admin.manageEmails.type.appointmentReminder", "</select>");
         assertThat(card).containsSubsequence("<c:if test=\"${emailStatusResult.appointmentReminder}\">", "<tr>",
                 "admin.manageEmails.type.appointmentReminder", "</tr>", "</c:if>");

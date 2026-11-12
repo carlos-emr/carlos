@@ -236,6 +236,15 @@ class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
                 null, null, null, EmailLog.TransactionType.APPOINTMENT_REMINDER);
     }
 
+    /** The page's Type option carries the value fetchEmails filters on, from the enum rather than markup. */
+    @Test
+    void shouldOfferTheReminderTypeTheFilterAccepts_onTheManageEmailsPage() {
+        assertThat(new ManageEmails2Action().showEmailManager()).isEqualTo("show");
+
+        assertThat(request.getAttribute("emailReminderType")).isEqualTo(EmailLog.TransactionType.APPOINTMENT_REMINDER);
+        assertThat(String.valueOf(request.getAttribute("emailReminderType"))).isEqualTo("APPOINTMENT_REMINDER");
+    }
+
     /** Any other Type value, including another type's name, lists every type as before. */
     @ParameterizedTest
     @ValueSource(strings = {"-1", "DIRECT", "PORTAL_INVITE", "appointment_reminder", ""})

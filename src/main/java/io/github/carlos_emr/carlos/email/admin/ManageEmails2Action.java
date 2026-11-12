@@ -169,6 +169,8 @@ public class ManageEmails2Action extends ActionSupport {
      */
     public String showEmailManager() {
         request.setAttribute("emailStatusList", EmailStatus.values());
+        // The Type filter's one choice (#5887): its value is the name fetchEmails compares against.
+        request.setAttribute("emailReminderType", TransactionType.APPOINTMENT_REMINDER);
         request.setAttribute("senderAccountList", emailComposeManager.getAllSenderAccounts());
         return "show";
     }
