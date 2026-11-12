@@ -333,8 +333,11 @@ class EFormRenderCompletenessReportUnitTest {
             assertThat(components)
                     .describedAs("%s must publish every completeness component as an output "
                             + "expression; approval binds a digest over all of them", surface.getKey())
-                    .allSatisfy(component -> assertThat(source)
-                            .contains(surface.getValue().formatted(component)));
+                    .allSatisfy(component -> assertThat(source).containsAnyOf(
+                            surface.getValue().formatted(component),
+                            // #6162: the JSPs print a yes/no flag as a translated word; the component is
+                            // still the expression's subject, so deleting the value cell still fails.
+                            "${%s ? 'eform.renderIssue.yes' : 'eform.renderIssue.no'}".formatted(component)));
             // The PHI-safe per-error console descriptions are display-only (never a record
             // component, never in the digest) but ride the same offer surfaces — the clinician
             // cannot weigh script errors they are not shown.
