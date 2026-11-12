@@ -9,9 +9,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Base64;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** Synthetic DATA and reported-observation fixtures; no verifier, DB, signature or send proof. */
+@Tag("unit")
 class PortalMyCarlosPairDispatchPolicyUnitTest {
     private static final String PAIR = "10000000-0000-4000-8000-000000000001";
     private static final String B = "20000000-0000-4000-8000-000000000002";
@@ -52,7 +54,7 @@ class PortalMyCarlosPairDispatchPolicyUnitTest {
                 () -> PortalMyCarlosManagedPairContext.decode(json.getBytes(StandardCharsets.UTF_8)));
     }
 
-    @Test void canonicalContextRoundTripRetainsDistinctIdentityDomains() {
+    @Test void shouldRetainDistinctIdentityDomains_whenCanonicalContextRoundTrips() {
         var value = context();
         assertEquals(value, PortalMyCarlosManagedPairContext.decode(value.encode()));
         assertArrayEquals(value.encode(), PortalMyCarlosManagedPairContext.decode(value.encode()).encode());
@@ -61,7 +63,7 @@ class PortalMyCarlosPairDispatchPolicyUnitTest {
         assertNotEquals(value.capture().rawSourceDocumentId(), value.original().documentId());
     }
 
-    @Test void unknownMissingDuplicateAndDecodedVerificationFlagsRefuse() {
+    @Test void shouldRefuseContext_withUnknownMissingDuplicateOrDecodedVerificationFlags() {
         String json = new String(context().encode(), StandardCharsets.UTF_8);
         refuses(json.substring(0, json.length()-1) + ",\"verified\":true}");
         refuses(json.replace("\"v\":1", "\"v\":1,\"v\":1"));
@@ -69,7 +71,7 @@ class PortalMyCarlosPairDispatchPolicyUnitTest {
         refuses(json.replace("\"size\":101", "\"size\":101,\"paired\":true"));
     }
 
-    @Test void noncanonicalWhitespaceNumericTypesVersionsAndTrailingDataRefuse() {
+    @Test void shouldRefuseContext_withNoncanonicalWhitespaceNumericTypesVersionsOrTrailingData() {
         String json = new String(context().encode(), StandardCharsets.UTF_8);
         for (String changed : new String[] {" " + json, json + "\n", json + "{}",
                 json.replace("\"v\":1", "\"v\":1.0"), json.replace("\"v\":1", "\"v\":2"),
@@ -77,7 +79,7 @@ class PortalMyCarlosPairDispatchPolicyUnitTest {
                 json.replace("carlos-managed-pair-context", "other-context")}) refuses(changed);
     }
 
-    @Test void malformedUtf8DepthAndOversizeRefuseBeforeContextCreation() {
+    @Test void shouldRefuseBeforeContextCreation_whenUtf8IsMalformedTooDeepOrOversize() {
         assertThrows(IllegalArgumentException.class, () -> PortalMyCarlosManagedPairContext.decode(new byte[] {(byte)0xc3, 0x28}));
         refuses("{\"nested\":".repeat(9) + "{}" + "}".repeat(9));
         byte[] oversized = new byte[PortalMyCarlosManagedPairContext.MAX_CONTEXT_BYTES + 1];
@@ -85,7 +87,7 @@ class PortalMyCarlosPairDispatchPolicyUnitTest {
         assertThrows(IllegalArgumentException.class, () -> PortalMyCarlosManagedPairContext.decode(oversized));
     }
 
-    @Test void invalidIdsDigestsSizesAndAmbiguousMemberIdentitiesRefuse() {
+    @Test void shouldRefuseContext_withInvalidIdsDigestsSizesOrAmbiguousMemberIdentities() {
         var value = context();
         assertThrows(IllegalArgumentException.class, () -> new PortalMyCarlosManagedPairContext.Member("invalid", "doc", HB, 1));
         assertThrows(IllegalArgumentException.class, () -> new PortalMyCarlosManagedPairContext.Member(B, "doc", "A".repeat(64), 1));
@@ -100,7 +102,7 @@ class PortalMyCarlosPairDispatchPolicyUnitTest {
         }
     }
 
-    @Test void labelAndCaptureBoundsRejectControlsInvalidMappingAndBlankProvenance() {
+    @Test void shouldRejectControlsInvalidMappingAndBlankProvenance_inLabelAndCaptureBounds() {
         for (String name : new String[] {"", " ", "bad\nlabel", "x".repeat(257)}) {
             assertThrows(IllegalArgumentException.class, () -> new PortalMyCarlosManagedPairContext.Member(B, name, HB, 1));
         }
@@ -114,7 +116,7 @@ class PortalMyCarlosPairDispatchPolicyUnitTest {
         assertEquals(longest, PortalMyCarlosManagedPairContext.decode(longest.encode()));
     }
 
-    @Test void aggregateUtf8ByteLimitAppliesDuringConstruction() {
+    @Test void shouldApplyAggregateUtf8ByteLimit_duringConstruction() {
         String wide = "\uD83D\uDE00".repeat(256);
         assertThrows(IllegalArgumentException.class, () -> new PortalMyCarlosManagedPairContext(PAIR, "c".repeat(64), "r",
                 new PortalMyCarlosManagedPairContext.Member(B, wide, HB, 1),
@@ -122,7 +124,7 @@ class PortalMyCarlosPairDispatchPolicyUnitTest {
                 new PortalMyCarlosManagedPairContext.Capture(RAW, SOURCE, wide, wide)));
     }
 
-    @Test void serializationOwnershipAndRedactedDescriptionsPreserveImmutableData() {
+    @Test void shouldPreserveImmutableData_throughSerializationOwnershipAndRedactedDescriptions() {
         var value = context(); byte[] before = value.encode(); byte[] callerCopy = value.encode();
         callerCopy[0] = 0;
         assertArrayEquals(before, value.encode());
@@ -131,7 +133,7 @@ class PortalMyCarlosPairDispatchPolicyUnitTest {
         assertEquals("ManagedPairCapture[REDACTED]", value.capture().toString());
     }
 
-    @Test void ownManifestIsBoundedRoleSpecificImmutableDataAndNotVerifiedAuthority() {
+    @Test void shouldKeepOwnManifestBoundedRoleSpecificAndImmutable_withoutVerifiedAuthority() {
         String manifest = "AA." + "A".repeat(86); // Explicit synthetic unsigned two-component data.
         var b = new PortalMyCarlosManagedPairContext.Item(PortalMyCarlosManagedPairContext.MemberRole.ORIGINAL, context(), manifest);
         var c = new PortalMyCarlosManagedPairContext.Item(PortalMyCarlosManagedPairContext.MemberRole.READING_AID, context(), manifest);
@@ -150,7 +152,7 @@ class PortalMyCarlosPairDispatchPolicyUnitTest {
         assertEquals(Disposition.HOLD, managed(Operation.CLAIM, c.core(), null).disposition());
     }
 
-    @Test void largestFormatCompatibleManifestAcceptsButOverLimitOrJwtRefuses() {
+    @Test void shouldAcceptLargestFormatCompatibleManifest_whileRefusingOverLimitOrJwtForms() {
         //64-byte signature takes86base64url chars.8192total is impossible because the payload
         // would have base64 length1mod4;8191 is the largest valid length within the8192bound.
         String largest = "A".repeat(8104) + "." + "A".repeat(86);
@@ -163,7 +165,7 @@ class PortalMyCarlosPairDispatchPolicyUnitTest {
         }
     }
 
-    @Test void retryEqualityRejectsScopePayloadPdfIdentityAndCaptureChanges() {
+    @Test void shouldRejectRetryAsSameIntent_whenScopePayloadPdfIdentityOrCaptureChanges() {
         var value = context(); value.requireSameIntent(PortalMyCarlosManagedPairContext.decode(value.encode()));
         var changedPdf = new PortalMyCarlosManagedPairContext.Member(B, value.original().documentId(), HC, value.original().size());
         var changedCapture = new PortalMyCarlosManagedPairContext.Capture(RAW, OTHER_SOURCE, "selected-signer", "registry-1");
@@ -177,7 +179,7 @@ class PortalMyCarlosPairDispatchPolicyUnitTest {
         }
     }
 
-    @Test void missingOrUnknownClassificationCannotFallBackToOrdinary() {
+    @Test void shouldNotFallBackToOrdinary_whenClassificationIsMissingOrUnknown() {
         for (Operation operation : Operation.values()) {
             if (operation != Operation.HISTORICAL_RECONCILIATION) {
                 assertEquals(Reason.CLASSIFICATION_UNAVAILABLE, managed(operation, context(), null).reason());
@@ -185,7 +187,7 @@ class PortalMyCarlosPairDispatchPolicyUnitTest {
         }
     }
 
-    @Test void ordinaryRouteIsOnlyADeferAndCannotBeUsedForReadingAidRole() {
+    @Test void shouldOnlyDeferOrdinaryRoute_andRefuseItForReadingAidRole() {
         var ordinary = new Observations(Classification.ORDINARY_ORIGINAL, null, Report.UNAVAILABLE, Report.UNAVAILABLE,
                 Report.UNAVAILABLE, Report.UNAVAILABLE, Report.UNAVAILABLE, null, null);
         assertEquals(Disposition.DEFER_TO_EXISTING_ORDINARY_PATH,
@@ -195,7 +197,7 @@ class PortalMyCarlosPairDispatchPolicyUnitTest {
                 assess(Operation.CLAIM, Role.ORIGINAL, context(), reported(context(), SOURCE, "selected-signer"), null).reason());
     }
 
-    @Test void recognizedReadingAidNeedsContextAndCannotSwapRetainedPair() {
+    @Test void shouldRequireContextForReadingAid_andRefuseASwappedRetainedPair() {
         var value = context();
         var missing = reported(null, SOURCE, "selected-signer");
         assertEquals(Reason.CONTEXT_UNAVAILABLE, managed(Operation.STAGE, value, missing).reason());
@@ -203,7 +205,7 @@ class PortalMyCarlosPairDispatchPolicyUnitTest {
         assertEquals(Reason.CONTEXT_CONFLICT, managed(Operation.STAGE, value, reported(different, SOURCE, "selected-signer")).reason());
     }
 
-    @Test void unavailableOrConflictingPairArtifactsApprovalScopeAndCapabilitiesHold() {
+    @Test void shouldHold_whenPairArtifactsApprovalScopeOrCapabilitiesAreUnavailableOrConflicting() {
         var value = context();
         for (Report refusal : new Report[] {Report.UNAVAILABLE, Report.CONFLICT}) {
             for (int index = 0; index < 5; index++) {
@@ -216,20 +218,20 @@ class PortalMyCarlosPairDispatchPolicyUnitTest {
         }
     }
 
-    @Test void preparationSourceMismatchAndUnavailableObservationHold() {
+    @Test void shouldHold_whenPreparationSourceMismatchesOrIsUnobserved() {
         var value = context();
         assertEquals(Reason.SOURCE_EVIDENCE_UNAVAILABLE, managed(Operation.STAGE, value, reported(value, null, "selected-signer")).reason());
         assertEquals(Reason.SOURCE_CHANGED_DURING_PREPARATION, managed(Operation.STAGE, value, reported(value, OTHER_SOURCE, "selected-signer")).reason());
     }
 
-    @Test void signerChangeOrMissingObservationHoldsWithoutChangingIntent() {
+    @Test void shouldHoldWithoutChangingIntent_whenSignerChangesOrIsUnobserved() {
         var value = context(); byte[] before = value.encode();
         assertEquals(Reason.SIGNER_EVIDENCE_UNAVAILABLE, managed(Operation.STAGE, value, reported(value, SOURCE, null)).reason());
         assertEquals(Reason.SIGNER_CHANGED, managed(Operation.STAGE, value, reported(value, SOURCE, "different-signer")).reason());
         assertArrayEquals(before, value.encode());
     }
 
-    @Test void everyQueuedUploadPathHoldsUnresolvedRetryPolicyWithoutChoosingSourceRule() {
+    @Test void shouldHoldEveryQueuedUploadPath_whenRetrySourcePolicyIsUnresolved() {
         var value = context(); byte[] before = value.encode();
         for (Operation operation : new Operation[] {Operation.CLAIM, Operation.TRANSMIT, Operation.RESUME, Operation.REFRESH_RETRY}) {
             for (String laterSource : new String[] {SOURCE, OTHER_SOURCE, null}) {
@@ -240,7 +242,7 @@ class PortalMyCarlosPairDispatchPolicyUnitTest {
         assertArrayEquals(before, value.encode());
     }
 
-    @Test void evenFabricatedAllMatchingReportsCannotAuthorizeManagedUpload() {
+    @Test void shouldNotAuthorizeManagedUpload_evenWithFabricatedAllMatchingReports() {
         var value = context();
         assertEquals(new Assessment(Disposition.HOLD, Reason.PRODUCTION_ADAPTERS_UNAVAILABLE),
                 managed(Operation.STAGE, value, reported(value, SOURCE, "selected-signer")));
@@ -248,7 +250,7 @@ class PortalMyCarlosPairDispatchPolicyUnitTest {
                 reported(value, SOURCE, "selected-signer"), null).disposition());
     }
 
-    @Test void historicalReconciliationStaysSeparateFromNewUploadAndPreservesIntent() {
+    @Test void shouldKeepHistoricalReconciliationSeparate_fromNewUploadAndPreserveIntent() {
         var value = context(); byte[] before = value.encode();
         assertEquals(new Assessment(Disposition.RECONCILIATION_ONLY, Reason.HISTORICAL_ONLY),
                 managed(Operation.HISTORICAL_RECONCILIATION, value, null));
