@@ -13,6 +13,32 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    The eForm signature control: a script library, served as text/javascript at
+    /library/eforms/signatureControl, that puts the tablet signature pad in a page.
+
+    Features:
+    - Empty unless eForm signatures are switched on (CarlosProperties.isEFormSignatureEnabled()).
+    - signatureControl.initialize(options) opens /signature_pad/tabletSignature in an iframe inside the
+      signature input element, and shows the saved signature in the display element.
+    - The pad is opened for one patient only: options.demographicNo, else (for an eForm) the form's own
+      #demographicNo input, also when a saved form is reopened; never session state. A patient number that
+      is not a whole number from 1 to 2147483647 gets an alert and no pad, because a signature saved
+      without its patient cannot be previewed or printed.
+    - The pad's URL always carries demographicNo and a ModuleType (E_FORM unless the URL already names
+      one); the upload saves both with the signature.
+    - window.signatureHandler(e) receives the pad's events: e.isDirty, and e.isSave with e.storedImageUrl.
+
+    Parameters (the options given to initialize):
+    - eform, or no options: the eForm set-up, with #signatureInput, #signatureDisplay and #signatureValue
+      (which keeps the saved image's URL). Optional: demographicNo; left, right, top and bottom to place
+      the display; width and height for the image.
+    - Any other options (a page with its own pad): sigHTML (the pad's URL) and demographicNo are required;
+      signatureInput and signatureDisplay are selectors; refreshImage(e) replaces the default refresh.
+    - signatureHandler(e), in either set-up, replaces the default event handler.
+
+    @since 2012-08-13
+--%>
     <%@ page import="io.github.carlos_emr.CarlosProperties" contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
 
     <%

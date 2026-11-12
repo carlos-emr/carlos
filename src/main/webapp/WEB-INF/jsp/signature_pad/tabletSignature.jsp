@@ -14,8 +14,27 @@
 
 --%>
 <%--
-When including the "inWindow" parameter as "true" it is assumed that tabletSignature.jsp
-is hosted in an IFrame and that the IFrame's parent window implements signatureHandler(e)
+    The tablet signature pad, at /signature_pad/tabletSignature: a canvas the user signs, which uploads
+    the image to /signature_pad/SaveSignatureUpload.
+
+    Features:
+    - Logged-in users only; anyone else is sent to /index.
+    - The signature request id: the page that opens the pad passes the id it was issued
+      (DigitalSignatureUtils.generateSignatureRequestId); a pad opened on its own, such as an eForm's
+      signature box, is issued one here. The upload accepts only an id issued to this session, so a
+      capture belongs to the page that asked for it.
+    - The pad's script gets the preview and stored-image URLs (ImageRenderingServlet) for that id.
+
+    Parameters:
+    - signatureRequestId: the issued id; optional, see above.
+    - inWindow: "true" when the pad is hosted in an iframe; the parent window must then implement
+      signatureHandler(e).
+    - saveToDB: "true" to save the signature in the database; the upload then answers with its id.
+    - demographicNo and ModuleType: passed to the upload, which saves them with the signature. A page that
+      saves to the database must send both: a signature saved with patient -1 or no module cannot be
+      previewed or printed.
+
+    @since 2012-04-09
 --%>
 <%@ page import="io.github.carlos_emr.carlos.utility.DigitalSignatureUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
