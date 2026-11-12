@@ -143,14 +143,23 @@ class ScheduleSyncMariaDbIntegrationTest {
         assertThat(second.items()).extracting(Appointment::getId).containsExactly(6,7,8,9);
         assertThat(second.hasMore()).isFalse();
     }
-    @Test void shouldFaultLegacyTiePages_andKeepCompleteNativeTimestampGroups() throws Exception {
-        seed(3); var calendar=java.util.Calendar.getInstance(); calendar.setTime(START);
-        assertThatThrownBy(() -> manager.getAppointmentUpdatedAfterDate(actor,START,2)).isInstanceOf(ScheduleSyncBoundaryException.class);
-        assertThatThrownBy(() -> manager.getAppointmentArchiveUpdatedAfterDate(actor,START,2)).isInstanceOf(ScheduleSyncBoundaryException.class);
-        assertThatThrownBy(() -> manager.getAppointmentsByProgramProviderDemographicDate(actor,5,"FAKE",42,calendar,2)).isInstanceOf(ScheduleSyncBoundaryException.class);
-        assertThat(manager.getAppointmentUpdatedAfterDate(actor,START,3)).extracting(Appointment::getId).containsExactly(1,2,3);
-        assertThat(manager.getAppointmentArchiveUpdatedAfterDate(actor,START,3)).extracting(AppointmentArchive::getId).containsExactly(1,2,3);
-        assertThat(manager.getAppointmentsByProgramProviderDemographicDate(actor,5,"FAKE",42,calendar,3)).extracting(Appointment::getId).containsExactly(1,2,3);
+    @Test void shouldExtendLegacyTiePages_toCompleteNativeTimestampGroups() throws Exception {
+        // Timestamp-only callers are never refused: a page that would end inside a shared second is completed.
+        seed(4); var calendar=java.util.Calendar.getInstance(); calendar.setTime(START);
+        // Rows 1 to 3 share a second; the fourth, one second later, must stay for the caller's next request.
+        jdbc.update("UPDATE appointment SET updatedatetime=? WHERE appointment_no=4",new Timestamp(UPDATED+1000));
+        jdbc.update("UPDATE appointmentArchive SET updatedatetime=? WHERE id=4",new Timestamp(UPDATED+1000));
+        for (int limit : List.of(1,2,3)) {
+            assertThat(manager.getAppointmentUpdatedAfterDate(actor,START,limit)).extracting(Appointment::getId).containsExactly(1,2,3);
+            assertThat(manager.getAppointmentArchiveUpdatedAfterDate(actor,START,limit)).extracting(AppointmentArchive::getId).containsExactly(1,2,3);
+            assertThat(manager.getAppointmentsByProgramProviderDemographicDate(actor,5,"FAKE",42,calendar,limit)).extracting(Appointment::getId).containsExactly(1,2,3);
+        }
+        // The caller continues strictly after the newest timestamp it saw and loses nothing.
+        Date seen=new Date(UPDATED); var next=java.util.Calendar.getInstance(); next.setTime(seen);
+        assertThat(manager.getAppointmentUpdatedAfterDate(actor,seen,2)).extracting(Appointment::getId).containsExactly(4);
+        assertThat(manager.getAppointmentArchiveUpdatedAfterDate(actor,seen,2)).extracting(AppointmentArchive::getId).containsExactly(4);
+        assertThat(manager.getAppointmentsByProgramProviderDemographicDate(actor,5,"FAKE",42,next,2)).extracting(Appointment::getId).containsExactly(4);
+        assertThat(rawLimits).isNotEmpty().allMatch(limit -> limit<=500);
     }
     @Test void shouldContinuePastConsentBlockedRows_withoutReturningAFalseEmptyNativePage() throws Exception {
         seed(9); when(security.hasPrivilege(any(),any(),any(),isNull())).thenReturn(false);
@@ -197,7 +206,10 @@ class ScheduleSyncMariaDbIntegrationTest {
         seed(5001); var page=manager.getAppointmentUpdatedPage(actor,START,Integer.MAX_VALUE,5000);
         assertThat(page.items()).hasSize(5000); assertThat(page.afterId()).isEqualTo(5000); assertThat(page.hasMore()).isTrue();
         assertThat(rawLimits).isNotEmpty().allMatch(limit -> limit<=500);
-        assertThatThrownBy(() -> manager.getAppointmentUpdatedAfterDate(actor,START,5000)).isInstanceOf(ScheduleSyncBoundaryException.class);
+        // 5,001 rows share the second: no timestamp-only page can hold them, and the caller is still answered.
+        assertThat(manager.getAppointmentUpdatedAfterDate(actor,START,5000)).hasSize(5000);
+        assertThat(manager.getAppointmentUpdatedAfterDate(actor,START,3)).extracting(Appointment::getId).containsExactly(1,2,3);
+        assertThat(rawLimits).allMatch(limit -> limit<=500);
     }
     @Test void shouldRequireReconciliationForLateWritesBehindAnAlreadyReturnedCursor() throws Exception {
         try(var writer=dataSource.getConnection()) {

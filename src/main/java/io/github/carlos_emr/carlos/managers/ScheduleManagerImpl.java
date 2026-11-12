@@ -236,8 +236,9 @@ public class ScheduleManagerImpl implements ScheduleManager {
             String providerNo, Integer demographicId, Calendar after, int limit) {
         if (limit == 0) return new ArrayList<>();
         if (after == null) throw new IllegalArgumentException("Schedule update timestamp is required");
-        var page = filteredUpdatePage(actor, programId, providerNo, demographicId, after.getTime(), Integer.MAX_VALUE, limit);
-        return AppointmentUpdatePages.legacy(page);
+        List<Appointment> rows = filteredUpdates(programId, providerNo, demographicId).timestampOnly(after.getTime(), limit);
+        logFilteredUpdates(actor, programId, providerNo, demographicId, after.getTime());
+        return rows;
     }
 
     public Appointment getAppointment(LoggedInInfo loggedInInfo, Integer appointmentId) {
@@ -317,7 +318,9 @@ public class ScheduleManagerImpl implements ScheduleManager {
             isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public List<Appointment> getAppointmentUpdatedAfterDate(LoggedInInfo actor, Date after, int limit) {
         if (limit == 0) return new ArrayList<>();
-        return AppointmentUpdatePages.legacy(currentUpdatePage(actor, after, Integer.MAX_VALUE, limit));
+        List<Appointment> rows = currentUpdates(actor).timestampOnly(after, limit);
+        LogAction.addLogSynchronous(actor, "ScheduleManager.getAppointmentUpdatedAfterDate", "updatedAfterThisDateExclusive=" + after);
+        return rows;
     }
 
     public List<Appointment> getAppointmentByDemographicIdUpdatedAfterDate(LoggedInInfo loggedInInfo, Integer demographicId, Date updatedAfterThisDateExclusive) {
@@ -334,7 +337,9 @@ public class ScheduleManagerImpl implements ScheduleManager {
             isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public List<AppointmentArchive> getAppointmentArchiveUpdatedAfterDate(LoggedInInfo actor, Date after, int limit) {
         if (limit == 0) return new ArrayList<>();
-        return AppointmentUpdatePages.legacy(archiveUpdatePage(actor, after, Integer.MAX_VALUE, limit));
+        List<AppointmentArchive> rows = archiveUpdates().timestampOnly(after, limit);
+        LogAction.addLogSynchronous(actor, "ScheduleManager.getAppointmentArchiveUpdatedAfterDate", "updatedAfterThisDateExclusive=" + after);
+        return rows;
     }
 
     public List<AppointmentStatus> getAppointmentStatuses(LoggedInInfo loggedInInfo) {
@@ -491,12 +496,17 @@ public class ScheduleManagerImpl implements ScheduleManager {
     }
 
     private AppointmentUpdatePage<Appointment> currentUpdatePage(LoggedInInfo actor, Date after, int afterId, int limit) {
-        boolean unrestrictedConsent = securityInfoManager.hasPrivilege(actor, "_appointment.UpdatedAfterDate", "x", null);
-        var page = AppointmentUpdatePages.read(after, afterId, limit,
-                (position, batch) -> oscarAppointmentDao.findByUpdateDateAndId(new Date(position.millis()), position.id(), batch),
-                rows -> unrestrictedConsent ? rows : consentFiltered(actor, rows), Appointment::getUpdateDateTime, Appointment::getId);
+        var page = currentUpdates(actor).page(after, afterId, limit);
         LogAction.addLogSynchronous(actor, "ScheduleManager.getAppointmentUpdatedAfterDate", "updatedAfterThisDateExclusive=" + after);
         return page;
+    }
+
+    /** Current appointments in update order; the consent policy applies unless the caller holds the bypass right. */
+    private AppointmentUpdatePages.Source<Appointment> currentUpdates(LoggedInInfo actor) {
+        boolean unrestrictedConsent = securityInfoManager.hasPrivilege(actor, "_appointment.UpdatedAfterDate", "x", null);
+        return new AppointmentUpdatePages.Source<>(
+                (position, batch) -> oscarAppointmentDao.findByUpdateDateAndId(new Date(position.millis()), position.id(), batch),
+                rows -> unrestrictedConsent ? rows : consentFiltered(actor, rows), Appointment::getUpdateDateTime, Appointment::getId);
     }
 
     private List<Appointment> consentFiltered(LoggedInInfo actor, List<Appointment> rows) {
@@ -512,22 +522,34 @@ public class ScheduleManagerImpl implements ScheduleManager {
     }
 
     private AppointmentUpdatePage<AppointmentArchive> archiveUpdatePage(LoggedInInfo actor, Date after, int afterId, int limit) {
-        var page = AppointmentUpdatePages.read(after, afterId, limit,
-                (position, batch) -> appointmentArchiveDao.findByUpdateDateAndId(new Date(position.millis()), position.id(), batch),
-                java.util.function.Function.identity(), AppointmentArchive::getUpdateDateTime, AppointmentArchive::getId);
+        var page = archiveUpdates().page(after, afterId, limit);
         LogAction.addLogSynchronous(actor, "ScheduleManager.getAppointmentArchiveUpdatedAfterDate", "updatedAfterThisDateExclusive=" + after);
         return page;
     }
 
+    private AppointmentUpdatePages.Source<AppointmentArchive> archiveUpdates() {
+        return new AppointmentUpdatePages.Source<>(
+                (position, batch) -> appointmentArchiveDao.findByUpdateDateAndId(new Date(position.millis()), position.id(), batch),
+                java.util.function.Function.identity(), AppointmentArchive::getUpdateDateTime, AppointmentArchive::getId);
+    }
+
     private AppointmentUpdatePage<Appointment> filteredUpdatePage(LoggedInInfo actor, Integer programId, String providerNo,
             Integer demographicId, Date after, int afterId, int limit) {
-        var page = AppointmentUpdatePages.read(after, afterId, limit,
+        var page = filteredUpdates(programId, providerNo, demographicId).page(after, afterId, limit);
+        logFilteredUpdates(actor, programId, providerNo, demographicId, after);
+        return page;
+    }
+
+    private AppointmentUpdatePages.Source<Appointment> filteredUpdates(Integer programId, String providerNo, Integer demographicId) {
+        return new AppointmentUpdatePages.Source<>(
                 (position, batch) -> oscarAppointmentDao.findByProgramProviderDemographicDateAndId(
                         programId, providerNo, demographicId, new Date(position.millis()), position.id(), batch),
                 java.util.function.Function.identity(), Appointment::getUpdateDateTime, Appointment::getId);
+    }
+
+    private void logFilteredUpdates(LoggedInInfo actor, Integer programId, String providerNo, Integer demographicId, Date after) {
         LogAction.addLogSynchronous(actor, "AppointmentManager.getAppointmentsByProgramProviderPatientDate",
                 "programId=" + programId + ", providerNo=" + providerNo + ", demographicId=" + demographicId + ", updatedAfter=" + after);
-        return page;
     }
 
 }
