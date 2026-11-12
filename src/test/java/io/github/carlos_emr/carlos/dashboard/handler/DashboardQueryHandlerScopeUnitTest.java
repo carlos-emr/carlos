@@ -98,11 +98,19 @@ class DashboardQueryHandlerScopeUnitTest {
 
     @Test
     void shouldNotInjectAHandlerIntoAnotherBean_inAnySpringFile() throws IOException {
-        // A prototype injected into a singleton is created once and shared again.
-        Pattern reference = Pattern.compile("ref\\s*=\\s*\"(" + String.join("|", HANDLERS) + ")\"");
+        // A prototype injected into a singleton is created once and shared again. Both ways to inject one: a ref
+        // attribute (ref, value-ref, key-ref) and a <ref bean="…"/> element.
+        Pattern reference = Pattern.compile(
+                "(?:\\bref\\s*=\\s*|<ref\\s[^>]*?\\bbean\\s*=\\s*)[\"'](" + String.join("|", HANDLERS) + ")[\"']");
+        assertThat(reference.matcher("<property name=\"handler\" ref=\"indicatorQueryHandler\"/>").find()).isTrue();
+        assertThat(reference.matcher("<constructor-arg><ref bean='exportQueryHandler' /></constructor-arg>").find())
+                .isTrue();
+        assertThat(reference.matcher("<entry key=\"d\" value-ref=\"drilldownQueryHandler\"/>").find()).isTrue();
+        assertThat(reference.matcher("<bean id=\"indicatorQueryHandler\" scope=\"prototype\"/>").find()).isFalse();
+
         List<Path> springFiles;
-        try (Stream<Path> resources = Files.list(Path.of("src", "main", "resources"));
-             Stream<Path> webInf = Files.list(Path.of("src", "main", "webapp", "WEB-INF"))) {
+        try (Stream<Path> resources = Files.walk(Path.of("src", "main", "resources"));
+             Stream<Path> webInf = Files.walk(Path.of("src", "main", "webapp", "WEB-INF"))) {
             springFiles = Stream.concat(resources, webInf).filter(path -> path.toString().endsWith(".xml")).toList();
         }
         assertThat(springFiles).isNotEmpty();
