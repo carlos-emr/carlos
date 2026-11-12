@@ -471,14 +471,18 @@
     // failed response body is never shown: it is an error page, not a panel.
     var carlosAdminRequestFailedMessage = '${carlos:forJavaScript(adminPanelRequestFailed)}';
 
-    function showAdminRequestFailure(form, xhr) {
+    function showAdminRequestFailure(form, xhr, usableWhenSent) {
         form.prevAll('.carlos-admin-request-failed').remove();
         let status = xhr && xhr.status ? 'HTTP ' + xhr.status + ': ' : '';
         let notice = $('<div class="alert alert-danger carlos-admin-request-failed" role="alert"></div>');
         notice.text(status + carlosAdminRequestFailedMessage);
         form.before(notice);
-        // A form that disabled its own button while sending must be usable again.
-        form.find(':submit').prop('disabled', false);
+        // A form that disabled its own button while sending must be usable again, but only the buttons
+        // that were usable when it was sent: a page may keep one disabled until its fields are valid
+        // (eForm groups' "Add group" for an empty or duplicate name). The event lets such a page check
+        // its fields again, since they may have changed while the request was out.
+        $(usableWhenSent || []).prop('disabled', false);
+        form.trigger('carlos:admin-request-failed');
         if (notice[0] && notice[0].scrollIntoView) {
             notice[0].scrollIntoView({block: 'nearest'});
         }
@@ -498,6 +502,7 @@
             // eForm editor's save changes encoding depending on how it was
             // reached; the WAF exclusions cover both shapes.)
             let isMultipart = (thisForm.attr('enctype') || '').toLowerCase() === 'multipart/form-data';
+            let usableWhenSent = thisForm.find(':submit').filter(function () { return !this.disabled; }).get();
             let ajaxOptions = {
                 url: thisForm.attr('action'),
                 type: thisForm.attr('method'),
@@ -506,7 +511,7 @@
                     $('#' + divId).html(returnData)
                 },
                 error: function (xhr) {
-                    showAdminRequestFailure(thisForm, xhr);
+                    showAdminRequestFailure(thisForm, xhr, usableWhenSent);
                 }
             };
             if (isMultipart) {
