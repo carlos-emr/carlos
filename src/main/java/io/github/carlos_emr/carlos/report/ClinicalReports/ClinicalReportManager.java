@@ -123,6 +123,10 @@ public class ClinicalReportManager {
         }
         //return (Numerator) numeratorHash.get(id);
         Hashtable numerHash = (Hashtable) numeratorHash.get(id);
+        if (numerHash == null) {
+            // Not in ClinicalReports.xml: a stale page, or a report removed from the file.
+            return null;
+        }
         String type = (String) numerHash.get("type");
         if (type != null && type.equals("SQL")) {
             SQLNumerator sqlN = new SQLNumerator();
@@ -184,6 +188,10 @@ public class ClinicalReportManager {
     }
 
     public Denominator getDenominatorById(String id) {
+        if (StringUtils.isEmpty(id)) {
+            // A request without a denominator: Hashtable.get(null) would throw.
+            return null;
+        }
         return (Denominator) denominatorHash.get(id);
     }
 

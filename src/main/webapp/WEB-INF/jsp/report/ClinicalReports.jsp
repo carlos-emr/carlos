@@ -358,7 +358,11 @@
                     ArrayList<ReportEvaluator> arrList = (ArrayList) session.getAttribute("ClinicalReports");
                     if (arrList != null) {
                 %>
-                <a href="<%= request.getContextPath() %>/report/RemoveClinicalReport?clear=yes"><fmt:message key="report.ClinicalReports.msgClear"/></a>
+                <%-- A form, not a link: the remove route accepts only the form post. --%>
+                <form method="post" action="<%= request.getContextPath() %>/report/RemoveClinicalReport" style="display:inline;">
+                    <input type="hidden" name="clear" value="yes"/>
+                    <a href="javascript:void(0);" onclick="this.closest('form').submit();"><fmt:message key="report.ClinicalReports.msgClear"/></a>
+                </form>
                 <ul style="list-style-type:square; margin-left:1px;padding-left:4px;padding-top:2px;margin-top:2px;">
                     <% for (int i = 0; i < arrList.size(); i++) {
                         ReportEvaluator re = arrList.get(i);
@@ -366,7 +370,7 @@
                     <li title="<%=re.getName()%>"><%=re.getNumeratorCount()%> / <%=re.getDenominatorCount()%>&nbsp;
                         <a style="text-decoration:none;" target="_blank" href="<%= request.getContextPath() %>/report/ViewReportExport?id=<%=i%>"><fmt:message key="report.ClinicalReports.msgCSV"/></a>&nbsp;
                         <form method="post" action="<%= request.getContextPath() %>/report/RemoveClinicalReport" style="display:inline;">
-                            <input type="hidden" name="id" value="<%=i%>"/>
+                            <input type="hidden" name="key" value="<carlos:encode value='<%= re.getKey() %>' context="htmlAttribute"/>"/>
                             <a style="text-decoration:none;" href="javascript:void(0);" onclick="this.closest('form').submit();"><fmt:message key="report.ClinicalReports.msgDel"/></a>
                         </form>
                     </li>
@@ -378,6 +382,10 @@
             </td>
             <td valign="top" class="MainTableRightColumn">
                 <div>
+                    <%-- A numerator or denominator that is not in the list: a stale page, or a changed report file. --%>
+                    <% if (Boolean.TRUE.equals(request.getAttribute("clinicalReportUnknown"))) { %>
+                    <p class="clinical-report-unknown" role="alert"><fmt:message key="report.ClinicalReports.unknownReport"/></p>
+                    <% } %>
                     <fieldset>
                         <form action="${pageContext.request.contextPath}/RunClinicalReport" method="post">
                             <!--
