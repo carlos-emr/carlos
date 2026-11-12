@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "408722cb56c62d7bdbfd24ea0b48188b3fda052a",
-  "comparisonSha256": "64bb251a14d6aa754df17514e5447bd8c38190ba705376601f17a1dfc3fe63f1",
-  "baselineCommit": "58d59d191b8fb5ce2735ff108b3775354c43e186",
-  "baselineSourceTree": "408722cb56c62d7bdbfd24ea0b48188b3fda052a",
-  "baselineReportSha256": "5a2cadd8bed37bec7d5307ffed252b366459b1ad54401da97782391721ffaa57",
-  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5 complete H2 java-all run (offline Maven), not through verify-release-evidence.py, with a local copy of the plan at forkCount 1 instead of 3 (a forkCount-2 attempt stopped at the 4 GiB memory guard) and a longer timeout. Source: a local test merge (7e48fba772) of release 1b27a8fd2c with #6156 (58d59d191b), #6154's test head (3b937c194f) and #6157 (91465a6c3d). Maven ran 36,226 tests, 217 skipped, 0 failures.",
+  "sourceTree": "839635b736e8fcd9be93cfa671375081f3eddb9d",
+  "comparisonSha256": "7dfc3f9bdfc50aaa709a0b19f997a92222e5181f73b4e871ecea88af563a1564",
+  "baselineCommit": "08c78e789e7d02a598ac6e2f7875f10dff8a4314",
+  "baselineSourceTree": "839635b736e8fcd9be93cfa671375081f3eddb9d",
+  "baselineReportSha256": "eb3bd08de2ac6741574680466f2ae2a27c949d4fa138f42b3277ef7b65afa11b",
+  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5 complete H2 java-all run (offline Maven, forkCount 1 after a forkCount-2 attempt stopped at the 4 GiB memory guard), not through verify-release-evidence.py. Source: this combined head 08c78e789e (#6156 with #6154 folded in) on release 1b27a8fd2c. Maven ran 36,199 tests, 217 skipped, 0 failures.",
   "baselineTestCounts": {
-    "tests": 36226,
+    "tests": 36199,
     "skipped": 217,
     "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "31577ba93295afb89e63ac0092645a4ef9fb389998382a5d52c9ee658d67dba4",
+  "baselineTestReportsSha256": "f7a9106f2adcd8773b539232b9ad31a9504fa5e35d404f6c60e73514e0d9dee5",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -3151,7 +3151,7 @@
       "lines": 50.0,
       "instructions": 18.181818181818183,
       "branches": 100.0,
-      "sourceBlob": "d813c0d4ca7d28f33ff95077ec8271cc8af209e1"
+      "sourceBlob": "8a6347a84c91b4c47642ee5bd3b02399806e4bba"
     },
     "src/main/java/io/github/carlos_emr/carlos/report/ClinicalReports/ReportEvaluator.java": {
       "lines": 100.0,
@@ -3367,7 +3367,7 @@
       "lines": 96.81818181818181,
       "instructions": 96.88365650969529,
       "branches": 80.12820512820512,
-      "sourceBlob": "558a45fc704d45c4dbd67fea36f518cda3f899e2"
+      "sourceBlob": "a47dd7773162200059c4f043a59d85942a52b68c"
     },
     "src/main/java/io/github/carlos_emr/carlos/report/pageUtil/printLabDaySheet2Action.java": {
       "lines": 100.0,
@@ -4424,6 +4424,12 @@
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "aa62d526d7be5eb7f3b0c2ff44e141e0d997ef90"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/data/ReportLimitRefusal.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "31a8c39e43a55c07eb01a69475749a38fa4be5c4"
     }
   },
   "exclusions": {
@@ -4466,5 +4472,5 @@
   },
   "zeroCoverageWaivers": {},
   "baselineAdditionalTestRuns": [],
-  "baselineTestRunCommit": "7e48fba77260a8f983177ea26300a17c8e9d5661"
+  "baselineTestRunCommit": "08c78e789e7d02a598ac6e2f7875f10dff8a4314"
 }
