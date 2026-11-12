@@ -84,3 +84,4 @@ common/V1.0.79__add_email_log_footer.sql
 common/V1.0.80__email_front_desk_default.sql
 common/V1.0.81__mycarlos_accepted_device_approval.sql
 common/V1.0.82__mycarlos_sender_outbox.sql
+common/V1.0.83__mycarlos_device_approval_code.sql
