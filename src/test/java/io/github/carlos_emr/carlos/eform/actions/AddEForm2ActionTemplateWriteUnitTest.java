@@ -239,6 +239,58 @@ class AddEForm2ActionTemplateWriteUnitTest extends CarlosUnitTestBase {
         assertThat(html.selectFirst("input[name=absent]").val()).isEqualTo("X");
     }
 
+    /**
+     * A select submitted blank is forwarded like any other explicit clear. Its options carry no
+     * {@code value} attribute, which jsoup reads as an empty string, so the save once marked every
+     * option selected and the reopened form showed the last one.
+     */
+    @Test
+    void shouldSelectOnlySubmittedOptions_whenSelectIsSubmittedBlankOrMultiple() throws Exception {
+        eFormUtilMock.close();
+        eFormUtilMock = mockStatic(EFormUtil.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+        eFormUtilMock.when(() -> EFormUtil.addEFormValues(any(), any(), anyInt(), anyInt(), anyInt()))
+                .then(invocation -> null);
+        eFormUtilMock.when(() -> EFormUtil.writeEformTemplate(any(), any(), any(), any(), anyString(), anyString(), anyString()))
+                .then(invocation -> null);
+        HashMap<String, Object> template = new HashMap<>();
+        template.put("formName", "Select restore");
+        template.put("formHtml", "<html><body>"
+                + "<select name='blank'><option></option><option>Yes</option><option>No</option></select>"
+                + "<select name='chosen'><option></option><option>Yes</option><option>No</option></select>"
+                + "<select name='many' multiple><option>a</option><option value='b'>B</option><option selected>c</option></select>"
+                + "</body></html>");
+        template.put("formSubject", "");
+        template.put("formDate", "");
+        template.put("formFileName", "select.html");
+        template.put("formCreator", "doc1");
+        eFormUtilMock.when(() -> EFormUtil.loadEForm(anyString())).thenReturn(template);
+        mockRequest.setParameter("blank", "");
+        mockRequest.setParameter("chosen", "Yes");
+        mockRequest.setParameter("many", "a", "b");
+        mockRequest.setParameter("saveAsEdoc", "true");
+        doThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("synthetic render failure"))
+                .when(mockDocumentAttachmentManager).saveEFormAsEDoc(any(), any());
+        AddEForm2Action action = spy(new AddEForm2Action());
+        doReturn("Synthetic post-save failure").when(action).getText(anyString());
+
+        action.execute();
+
+        var savedForm = org.mockito.ArgumentCaptor.forClass(io.github.carlos_emr.carlos.eform.data.EForm.class);
+        verify(mockEformDataManager).saveEformData(any(LoggedInInfo.class), savedForm.capture());
+        org.jsoup.nodes.Document html = org.jsoup.Jsoup.parse(savedForm.getValue().getFormHtml());
+        assertThat(html.select("select[name=blank] option[selected]").eachText()).isEmpty();
+        assertThat(html.select("select[name=blank] option[selected]")).hasSize(1);
+        assertThat(html.select("select[name=blank] option").first().hasAttr("selected")).isTrue();
+        assertThat(html.select("select[name=chosen] option[selected]").eachText()).containsExactly("Yes");
+        assertThat(html.select("select[name=many] option[selected]").eachText()).containsExactly("a", "B");
+        // The value rows keep one value per field, as before.
+        var names = org.mockito.ArgumentCaptor.forClass(java.util.ArrayList.class);
+        var values = org.mockito.ArgumentCaptor.forClass(java.util.ArrayList.class);
+        eFormUtilMock.verify(() -> EFormUtil.addEFormValues(names.capture(), values.capture(), eq(42), eq(1), eq(123)));
+        assertThat(names.getValue()).doesNotContain("blank");
+        assertThat(values.getValue().get(names.getValue().indexOf("many"))).isEqualTo("a");
+    }
+
     @Test
     void shouldWriteChartTemplateOnlyOnce_whenSubmissionIsReplayed() throws Exception {
         mockRequest.setParameter("saveAsEdoc", "true");
