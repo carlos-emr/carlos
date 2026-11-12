@@ -470,8 +470,9 @@ public class EmailManager {
             emailLog.setBody(forgotten);
         } catch (RuntimeException exception) {
             // Cleanup must preserve the send result or original exception and disclose no email content.
-            logger.warn("patient portal invitation email body could not be cleared: {}",
-                    exception.getClass().getSimpleName());
+            // A later sweep clears it (PortalInviteCodeSweeper, PortalMyCarlosCodeEmailSweeper).
+            logger.warn("one-time code email body could not be cleared now; a later sweep clears it: {} {}",
+                    emailLog.getTransactionType(), exception.getClass().getSimpleName());
         }
     }
 
