@@ -94,6 +94,19 @@ class TdPreventionRulesDroolsUnitTest {
         return prev;
     }
 
+    /** A person of the given age with doses of one type given at the given ages in months. */
+    private static Prevention personWithDosesAtAgeInMonths(int ageInYears, String type, int... monthsOfAge) {
+        Date birth = yearsAgo(ageInYears);
+        Prevention prev = new Prevention("M", birth);
+        for (int months : monthsOfAge) {
+            Calendar given = Calendar.getInstance();
+            given.setTime(birth);
+            given.add(Calendar.MONTH, months);
+            prev.addPreventionItem(new PreventionItem(type, given.getTime()));
+        }
+        return prev;
+    }
+
     private static Prevention fireRules(Prevention prev) {
         KieSession session = kieBase.newKieSession();
         try {
@@ -159,6 +172,33 @@ class TdPreventionRulesDroolsUnitTest {
     @Test
     void shouldNotAskForTheTeenTdap_beforeAgeFourteen() {
         assertThat(fireRules(personWith(13, "DTaP-IPV", 10)).getWarnings()).doesNotContain(NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldAskForTheTeenTdap_atExactlyFourteen() {
+        assertThat(fireRules(personWith(14, "DTaP-IPV", 10)).getWarnings()).contains(NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldNotStartTheTeenTdapClock_fromADtapIpvHibGivenAtFortySevenMonths() {
+        assertThat(fireRules(personWithDosesAtAgeInMonths(15, "DTaP-IPV-Hib", 2, 4, 6, 47)).getWarnings())
+                .doesNotContain(NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldStartTheTeenTdapClock_fromADtapIpvHibGivenAtFortyEightMonths() {
+        assertThat(fireRules(personWithDosesAtAgeInMonths(15, "DTaP-IPV-Hib", 2, 4, 6, 48)).getWarnings())
+                .contains(NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldNotAskForTheTeenTdapYet_whenALaterBoosterDtapIpvHibIsUnderTenYearsOld() {
+        Prevention teen = personWithDosesAtAgeInMonths(16, "DTaP-IPV", 6);
+        Calendar booster = Calendar.getInstance();
+        booster.setTime(yearsAgo(16));
+        booster.add(Calendar.MONTH, 100);
+        teen.addPreventionItem(new PreventionItem("DTaP-IPV-Hib", booster.getTime()));
+        assertThat(fireRules(teen).getWarnings()).doesNotContain(NEEDS_TDAP);
     }
 
     @Test

@@ -289,6 +289,11 @@ class PneuCRotaPreventionRulesDroolsUnitTest {
         }
 
         @Test
+        void shouldRemind_whenASetNextDatePassesBeforeDayTwentyEight() {
+            assertThat(reminders(infantWithRota1DoseDaysAgo(3, 14, -2), NEEDS_SECOND_ROTA)).isEqualTo(1);
+        }
+
+        @Test
         void shouldNotRemind_whenTheNextDateHasPassedButTheInfantIsEightMonthsOld() {
             assertThat(reminders(infantWithRota1DoseDaysAgo(8, 150, -3), NEEDS_SECOND_ROTA)).isZero();
         }
