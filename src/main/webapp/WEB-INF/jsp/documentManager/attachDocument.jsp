@@ -57,6 +57,9 @@
     }
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%-- The server's busy message (DocumentPreview2Action) replaces the preview's first busy line. Both use the locale
+     LocaleUtils picks, so an unusual Accept-Language cannot switch the notice's language part way through. --%>
+<fmt:setLocale value="<%= io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message var="previewAction" key="encounter.oscarConsultationRequest.AttachDocPopup.previewAction"/>
 <fmt:message var="hrmVersionsLabel" key="encounter.oscarConsultationRequest.AttachDocPopup.earlierVersions"/>

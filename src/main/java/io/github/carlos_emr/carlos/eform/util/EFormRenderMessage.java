@@ -11,7 +11,8 @@ import io.github.carlos_emr.carlos.utility.LocaleUtils;
 /**
  * The messages staff see when an eForm cannot be fully rendered, or its PDF cannot be produced: on the
  * missing-content pages (Add to Documents, Download, Fax), in the document preview, and in the eForm page's
- * error and warning alerts. Each is a key in {@code oscarResources} (#6162); they were English-only before.
+ * error and warning alerts, plus the document fax path's preparation failure beside the eForm one. Each is a key in
+ * {@code oscarResources} (#6162); they were English-only before.
  *
  * <p>The text is resolved with {@link LocaleUtils#resolveBundleLocale}: the first Accept-Language preference that
  * has a shipped bundle, otherwise English. For every shipped language this picks the same bundle as the JSPs'
@@ -55,7 +56,12 @@ public enum EFormRenderMessage {
     /** eForm fax: the PDF could not be prepared (for example, the render browser could not be reached); no fax was queued. */
     FAX_NOT_PREPARED("fax.eformRender.msgNotPrepared",
             "This eForm and its attachments could not be prepared for faxing. No fax was queued."
-                    + " Please retry or contact your administrator.");
+                    + " Please retry or contact your administrator."),
+    /**
+     * Document fax: the document could not be staged for faxing; no fax was queued. The eForm path's message above
+     * has its own wording; this one keeps the document path's English as it was.
+     */
+    FAX_DOCUMENT_NOT_PREPARED("fax.document.msgNotPrepared", "The document could not be prepared for faxing.");
 
     private final String key;
     private final String english;

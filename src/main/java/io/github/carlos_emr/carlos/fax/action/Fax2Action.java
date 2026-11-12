@@ -908,7 +908,7 @@ public class Fax2Action extends ActionSupport {
                 } catch (IOException e) {
                     logger.error("Could not stage document {} for fax", transactionId, e);
                     sendErrorQuietly(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                            "The document could not be prepared for faxing.");
+                            EFormRenderMessage.FAX_DOCUMENT_NOT_PREPARED.text(request));
                     return NONE;
                 }
                 // Claim the staged copy for THIS session, exactly as the eForm path does, so
