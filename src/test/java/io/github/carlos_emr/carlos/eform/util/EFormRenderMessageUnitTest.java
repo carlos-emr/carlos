@@ -187,7 +187,15 @@ class EFormRenderMessageUnitTest {
                 .doesNotContain("Failed to render eForm PDF")
                 .doesNotContain("renderer is busy")
                 .doesNotContain("approval is invalid or expired")
-                .doesNotContain("This eForm and its attachments could not be prepared for faxing");
+                .doesNotContain("This eForm and its attachments could not be prepared for faxing")
+                .doesNotContain("The document could not be prepared for faxing");
+    }
+
+    @Test
+    @DisplayName("should give the document fax path's preparation failure from the bundle")
+    void shouldTranslateTheDocumentFaxFailure_inFax2Action() throws IOException {
+        String java = Files.readString(JAVA.resolve("fax/action/Fax2Action.java"), StandardCharsets.UTF_8);
+        assertThat(java).contains("EFormRenderMessage.FAX_DOCUMENT_NOT_PREPARED.text(request)");
     }
 
     @Test
@@ -206,5 +214,15 @@ class EFormRenderMessageUnitTest {
                 .doesNotContain("Waiting for your preview")
                 .doesNotContain(">Cancel preview<")
                 .doesNotContain("title=\"Attachment preview\"");
+    }
+
+    @Test
+    @DisplayName("should load the attachment page's bundle in the language the server's busy message uses")
+    void shouldNegotiateLikeTheServer_inTheAttachmentPage() throws IOException {
+        String jsp = Files.readString(JSP.resolve("documentManager/attachDocument.jsp"), StandardCharsets.UTF_8);
+        String setLocale = "<fmt:setLocale value=\"<%= io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request) %>\"/>";
+        // The busy line starts as the page's own text and is then replaced by the server's: both must pick one language.
+        assertThat(jsp).contains(setLocale);
+        assertThat(jsp.indexOf(setLocale)).isLessThan(jsp.indexOf("<fmt:setBundle basename=\"oscarResources\"/>"));
     }
 }
