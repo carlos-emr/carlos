@@ -66,7 +66,7 @@ import io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBeanHandler
 @Tag("unit")
 @Tag("web")
 @Tag("waitinglist")
-class WLWaitingListNoteLengthActionTest extends CarlosWebTestBase {
+class WLWaitingListNoteLengthActionUnitTest extends CarlosWebTestBase {
 
     private static final String TOO_LONG = "N".repeat(WaitingList.NOTE_MAX_LENGTH + 1);
     private static final String LONGEST = "𝐀".repeat(WaitingList.NOTE_MAX_LENGTH);
