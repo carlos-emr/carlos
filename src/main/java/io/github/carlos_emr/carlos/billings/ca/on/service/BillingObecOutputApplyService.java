@@ -169,6 +169,12 @@ public class BillingObecOutputApplyService {
                                 reasons.add("Alert not updated for " + rowLabel + ": the eligibility message would make "
                                         + "it longer than " + DemographicCust.ALERT_MAX_LENGTH + " characters");
                             }
+                        } else {
+                            // #6140: whatever is not written is listed. Without a custom-fields row there is
+                            // no alert to add to; a code missing from the eligibility table has no message.
+                            reasons.add("Alert not updated for " + rowLabel + ": " + (demographicCust == null
+                                    ? "the patient has no custom-fields record to hold the alert"
+                                    : "response code " + responseCodeNum + " has no eligibility message"));
                         }
                     } else {
                         skippedCount++;

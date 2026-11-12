@@ -315,6 +315,41 @@ class BillingObecOutputApplyServiceUnitTest {
     }
 
     @Test
+    void shouldApplyTheRowAndSaySo_whenThePatientHasNoCustomFieldsRecord() {
+        var eligibility = mock(BatchEligibility.class);
+        when(batchEligibilityDao.find(60)).thenReturn(eligibility);
+        var patient = demographic(42, "ZZ");
+        when(demographicManager.searchByHealthCard(loggedInInfo, "1234567890")).thenReturn(List.of(patient));
+        when(demographicCustDao.find((Object) Integer.valueOf(42))).thenReturn(null);
+
+        var result = service.applyOutputSpec(loggedInInfo, List.of(record("1234567890", "ZZ", "60")));
+
+        assertThat(result.appliedCount()).isEqualTo(1);
+        assertThat(patient.getVer()).isEqualTo("##");
+        assertThat(result.reasons()).containsExactly(
+                "Alert not updated for row 1: the patient has no custom-fields record to hold the alert");
+        verify(demographicCustDao, never()).merge(any(DemographicCust.class));
+    }
+
+    @Test
+    void shouldApplyTheRowAndSaySo_whenTheResponseCodeHasNoEligibilityMessage() {
+        when(batchEligibilityDao.find(60)).thenReturn(null);
+        var patient = demographic(42, "ZZ");
+        when(demographicManager.searchByHealthCard(loggedInInfo, "1234567890")).thenReturn(List.of(patient));
+        var cust = new DemographicCust();
+        cust.setAlert("FAKE existing alert");
+        when(demographicCustDao.find((Object) Integer.valueOf(42))).thenReturn(cust);
+
+        var result = service.applyOutputSpec(loggedInInfo, List.of(record("1234567890", "ZZ", "60")));
+
+        assertThat(result.appliedCount()).isEqualTo(1);
+        assertThat(cust.getAlert()).isEqualTo("FAKE existing alert");
+        assertThat(result.reasons()).containsExactly("Alert not updated for row 1: response code 60 has no eligibility message");
+        assertThat(String.join("\n", result.reasons())).doesNotContain("1234567890");
+        verify(demographicCustDao, never()).merge(any(DemographicCust.class));
+    }
+
+    @Test
     void shouldWriteTheAlert_whenItFillsTheLimitExactly() {
         String existing = "A".repeat(DemographicCust.ALERT_MAX_LENGTH - formLength(""));
         assertThat(formLength(existing)).isEqualTo(DemographicCust.ALERT_MAX_LENGTH);

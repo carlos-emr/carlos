@@ -105,7 +105,10 @@ class BillingObecAlertDaoMariaDbIntegrationTest {
             }
             url = server + database + ("strict".equals(mode)
                     ? "?sessionVariables=sql_mode='STRICT_ALL_TABLES'"
-                    : "?sessionVariables=sql_mode='';jdbcCompliantTruncation=false");
+                    // jdbcCompliantTruncation is a driver option, not a session variable (inside
+                    // sessionVariables the connect fails). Off, the driver leaves truncation to the
+                    // empty sql_mode under test.
+                    : "?sessionVariables=sql_mode=''&jdbcCompliantTruncation=false");
         }
         var configuration = new Configuration().addAnnotatedClass(DemographicCust.class)
                 .setProperty("hibernate.connection.driver_class", server == null ? "org.h2.Driver" : "org.mariadb.jdbc.Driver")
