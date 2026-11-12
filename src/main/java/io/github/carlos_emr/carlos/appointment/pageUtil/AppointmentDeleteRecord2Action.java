@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -98,7 +99,10 @@ public final class AppointmentDeleteRecord2Action extends ActionSupport {
         }
         appointmentArchiveDao.archiveAppointment(appt);
 
-        LogAction.addLogSynchronous(loggedInInfo, "Appointment.delete", "id=" + appt.getId());
+        // Written before the row is removed, in this thread, and filed under the patient: once the
+        // appointment is gone the audit row is the only place the removal can be found from the chart.
+        LogAction.addLogSynchronous(loggedInInfo, LogConst.DELETE, LogConst.CON_APPT, String.valueOf(appt.getId()),
+                appt.getDemographicNo() > 0 ? String.valueOf(appt.getDemographicNo()) : null, null);
         appointmentDao.remove(appt.getId());
 
         request.setAttribute("success", true);

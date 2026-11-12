@@ -48,6 +48,8 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.event.EventService;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -185,6 +187,9 @@ public final class AppointmentAddRecord2Action extends ActionSupport {
             }
             if (apptId > 0) {
                 eventService.appointmentCreated(this, String.valueOf(apptId), request.getParameter("provider_no"));
+                // Audit the booking against the appointment and its patient; never the reason or notes.
+                LogAction.addLog(loggedInInfo, LogConst.ADD, LogConst.CON_APPT, String.valueOf(apptId),
+                        demographicNo > 0 ? String.valueOf(demographicNo) : null, null);
             }
         }
 

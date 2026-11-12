@@ -11,6 +11,9 @@ import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 import io.github.carlos_emr.carlos.event.EventService;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -45,9 +48,11 @@ class AppointmentStatusTransitionServiceUnitTest {
     private EventService eventService;
     private AppointmentStatusTransitionService service;
     private MockedStatic<AppointmentStatusMgrImpl> statusMgr;
+    private MockedStatic<LogAction> logAction;
 
     @BeforeEach
     void setUp() {
+        logAction = mockStatic(LogAction.class);
         // Appointment status editing is on by default, so ApptStatusData derives the next
         // status from the appointment_status rows rather than its hard-coded table. Serve the
         // head of the stock seed (V1.0.2 on_data, same order) so T -> H stays the valid step.
@@ -63,6 +68,7 @@ class AppointmentStatusTransitionServiceUnitTest {
 
     @AfterEach
     void tearDown() {
+        logAction.close();
         statusMgr.close();
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.clearSynchronization();
@@ -149,6 +155,77 @@ class AppointmentStatusTransitionServiceUnitTest {
 
         synchronizations.get(0).afterCommit();
 
+        verify(eventService).appointmentStatusChanged(service, "42", "7", "H");
+    }
+
+    @Test
+    void shouldAuditStatusChangeAgainstPatientOnlyAfterCommit_whenTransitionSucceeds() {
+        Appointment appointment = appointment("T", "7");
+        appointment.setDemographicNo(101);
+        appointment.setReason("FAKE-REASON chest pain");
+        when(appointmentDao.findForUpdate(42)).thenReturn(appointment);
+        LoggedInInfo actor = mock(LoggedInInfo.class);
+        TransactionSynchronizationManager.initSynchronization();
+
+        service.transition(42, "7", "T", "H", "9", actor);
+
+        logAction.verifyNoInteractions();
+
+        TransactionSynchronizationManager.getSynchronizations().get(0).afterCommit();
+
+        // The appointment, its patient and the new status; the actor supplies provider and address.
+        logAction.verify(() -> LogAction.addLog(actor, LogConst.UPDATE, LogConst.CON_APPT, "42", "101", "status=H"));
+        logAction.verifyNoMoreInteractions();
+    }
+
+    @Test
+    void shouldNotAuditAStatusChange_whenTransactionRollsBack() {
+        Appointment appointment = appointment("T", "7");
+        appointment.setDemographicNo(101);
+        when(appointmentDao.findForUpdate(42)).thenReturn(appointment);
+        TransactionSynchronizationManager.initSynchronization();
+
+        service.transition(42, "7", "T", "H", "9", mock(LoggedInInfo.class));
+        TransactionSynchronizationManager.getSynchronizations().get(0)
+                .afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
+
+        logAction.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldNotAuditAStatusChange_whenTheTransitionIsRefused() {
+        Appointment appointment = appointment("H", "7");
+        appointment.setDemographicNo(101);
+        when(appointmentDao.findForUpdate(42)).thenReturn(appointment);
+
+        assertThatThrownBy(() -> service.transition(42, "7", "T", "H", "9", mock(LoggedInInfo.class)))
+                .isInstanceOf(AppointmentStatusTransitionException.class);
+
+        logAction.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldAuditWithTheUpdatingProvider_whenNoSignedInActorIsSupplied() {
+        Appointment appointment = appointment("T", "7");
+        when(appointmentDao.findForUpdate(42)).thenReturn(appointment);
+
+        service.transition(42, "7", "T", "H", "9");
+
+        // No patient on this appointment (demographic 0): the row is not filed under a patient.
+        logAction.verify(() -> LogAction.addLog("9", LogConst.UPDATE, LogConst.CON_APPT, "42", null, null, "status=H"));
+    }
+
+    @Test
+    void shouldStillPublishTheEvent_whenTheAuditCannotBeQueued() {
+        Appointment appointment = appointment("T", "7");
+        when(appointmentDao.findForUpdate(42)).thenReturn(appointment);
+        LoggedInInfo actor = mock(LoggedInInfo.class);
+        logAction.when(() -> LogAction.addLog(actor, LogConst.UPDATE, LogConst.CON_APPT, "42", null, "status=H"))
+                .thenThrow(new IllegalStateException("audit store unavailable"));
+
+        AppointmentStatusTransitionService.TransitionResult result = service.transition(42, "7", "T", "H", "9", actor);
+
+        assertThat(result.appointmentStatus()).isEqualTo("H");
         verify(eventService).appointmentStatusChanged(service, "42", "7", "H");
     }
 

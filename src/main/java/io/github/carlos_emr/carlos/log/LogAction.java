@@ -204,6 +204,21 @@ public class LogAction {
     }
 
     /**
+     * Best-effort audit written in the calling thread: for a row that must exist before the caller
+     * goes on, such as the audit of a removal written before the record it names is gone. It
+     * carries the same columns as the asynchronous
+     * {@link #addLog(LoggedInInfo, String, String, String, String, String)} (provider, security
+     * id, client address, patient). Never throws; a persistence failure is logged
+     * (see {@link #addLogSynchronous(OscarLog)}).
+     *
+     * @since 2026-11-12
+     */
+    public static void addLogSynchronous(LoggedInInfo loggedInInfo, String action, String content, String contentId,
+            String demographicNo, String data) {
+        addLogSynchronous(buildEntry(loggedInInfo, action, content, contentId, demographicNo, data));
+    }
+
+    /**
      * Strict audit: persists the entry in the calling thread (joining the caller's transaction
      * if there is one) and lets any persistence failure propagate. Unlike the best-effort
      * {@code addLog}/{@code addLogSynchronous} methods, a caller can rely on a normal return
