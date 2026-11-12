@@ -202,19 +202,19 @@
       "check": "authz-write-role-matrix",
       "finding": 198,
       "step": "chart note save: the restricted login's replay with its own valid token is refused, and the full login's replay writes",
-      "disposition": "Source fix #5250 (a1592126): a chart note write is refused without _eChart w and _casemgmt.notes w before the session's editor is read, so the restricted replay answers 403 and writes nothing. The check's own write control was corrected with the retirement (it now opens a new note editor before the full login's replay, which the stale-form guard otherwise answers 409). Manifest pin retired; retained as an active regression. Installed PASS of every step on the packaged Ubuntu 26.04 Ontario install of 72c9a836 (2026.09.0~snapshot30 packages, nginx HTTPS, shipped Chromium 154.0.8025.0; 2026-11-12). A retake on the final release build is still required."
+      "disposition": "Source fix #5250 (a1592126): a chart note write is refused without _eChart w and _casemgmt.notes w before the session's editor is read, so the restricted replay answers 403 and writes nothing. The check's own write control was corrected with the retirement (it now opens a new note editor before the full login's replay, which the stale-form guard otherwise answers 409). Manifest pin retired; retained as an active regression. Installed PASS of every step on the packaged Ubuntu 26.04 Ontario install of 72c9a836 (2026.09.0~snapshot30 packages, nginx HTTPS, shipped Chromium 154.0.8025.0; 2026-11-12). Retaken after the retirement on the packaged Ubuntu 26.04 Ontario install of 291e630c (2026-11-12): every step passed as an ordinary PASS. A retake on the final release build is still required."
     },
     {
       "check": "audit-log-locked-patient",
       "finding": 344,
       "step": "the refused attempt is itself in the audit log, naming the patient and the refused login",
-      "disposition": "Source fix in this release line (4c1b7daf): DemographicEdit2Action queues a 'no right' audit row naming the patient, the refused login and the client address before it refuses a locked patient's Master Record. Manifest pin retired; retained as an active regression. Installed result on the packaged Ubuntu 26.04 Ontario install of the fix (2026-11-12): every step passed with the pin still present (reported unexpected-pass). A retake on the final release build is still required."
+      "disposition": "Source fix in this release line (4c1b7daf): DemographicEdit2Action queues a 'no right' audit row naming the patient, the refused login and the client address before it refuses a locked patient's Master Record. Manifest pin retired; retained as an active regression. Installed result on the packaged Ubuntu 26.04 Ontario install of the fix (2026-11-12): every step passed with the pin still present (reported unexpected-pass). Retaken after the retirement on the packaged Ubuntu 26.04 Ontario install of 291e630c (2026-11-12): every step passed as an ordinary PASS. A retake on the final release build is still required."
     },
     {
       "check": "xss-poison-note-history",
       "finding": 148,
       "step": "the popup found no output-encoding defect",
-      "disposition": "Source fix in this release line (0af51af0): casemgmt/showHistory.jsp encodes the heading and the patient name with the CARLOS HTML encoder. Manifest pin retired; retained as an active regression. Installed result on the packaged Ubuntu 26.04 Ontario install of the fix (2026-11-12): every step passed with the pin still present (reported unexpected-pass). A retake on the final release build is still required."
+      "disposition": "Source fix in this release line (0af51af0): casemgmt/showHistory.jsp encodes the heading and the patient name with the CARLOS HTML encoder. Manifest pin retired; retained as an active regression. Installed result on the packaged Ubuntu 26.04 Ontario install of the fix (2026-11-12): every step passed with the pin still present (reported unexpected-pass). Retaken after the retirement on the packaged Ubuntu 26.04 Ontario install of 291e630c (2026-11-12): every step passed as an ordinary PASS. A retake on the final release build is still required."
     }
   ]
 }
