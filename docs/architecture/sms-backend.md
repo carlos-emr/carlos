@@ -80,6 +80,7 @@ A direct-send response reflects the persisted result, including a delivery webho
 - Texts without a limit (every text before #884) behave exactly as before.
 - `SmsSendResultDto.transactionId` names the stored row when there is one (queued, sent or consent-blocked), so a caller such as the appointment reminder can follow its text. `SmsTransactionDao.findLatestOutboundByAppointment(appointmentNo, purpose)` finds the newest outbound text for an appointment; a provider swap moves a waiting text to a new row, so the newest one is the text as it stands.
 - The column and the appointment index come with their own migration; until it is placed, the entity's `expires_at` mapping requires it.
+- The appointment reminder itself (the Text Reminder box, timing, wording, status line) is described in [Text Appointment Reminders](../sms/appointment-text-reminders.md).
 
 ## Rate-limit locking and regression check
 

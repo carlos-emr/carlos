@@ -79,6 +79,6 @@ Each reminder is claimed with `SELECT … FOR UPDATE SKIP LOCKED` before it is s
 server may run the job. An attempt is recorded before the email is sent: a server stopping mid-send can leave a
 reminder "not confirmed", but never sends it twice.
 
-## Later: SMS
-Each reminder row names its channel. SMS reminders (#3843) can be added as a second channel without a schema
-change, using the SMS module's own consent gate.
+## Text reminders
+Each reminder row names its channel. Text reminders are the second channel, with their own box, switch and consent
+gate: see [Text Appointment Reminders](../sms/appointment-text-reminders.md) (#884).

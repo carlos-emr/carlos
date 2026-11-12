@@ -47,6 +47,7 @@ Key testing resources:
 | [Resources Directory](resources-directory.md) | Application resources structure |
 | [Provider-to-Patient Email Operations](email/provider-to-patient-email-operations.md) | Email workflow setup, monitoring, and safety runbook |
 | [Email Appointment Reminders](email/appointment-email-reminders.md) | Turning on appointment reminder emails: settings, consent, timing, wording, where staff see outcomes (#5887) |
+| [Text Appointment Reminders](sms/appointment-text-reminders.md) | Turning on appointment reminder texts: settings, consent, timing and quiet hours, wording, where staff see outcomes (#884) |
 | [GitHub Issue Management](github-issue-management.md) | Issue tracking and workflow |
 | [Appointment Settings](appointment-settings.md) | Statuses (inline styling) and the appointment Location List: write rule, booking screens, settings page (#3982) |
 | [Database Schema Management](database-schema-management.md) | Flyway baseline, forward migrations, where migrations run |
