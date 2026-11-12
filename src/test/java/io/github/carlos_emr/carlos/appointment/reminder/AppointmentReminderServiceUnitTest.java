@@ -446,6 +446,27 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.DUPLICATE);
         }
 
+        /**
+         * A booking with no creation time and no archived version cannot tell since when it has been at this start, so
+         * it counts as already here: the other booking's reminder, which went before that booking moved away, covers
+         * it. Its last save (ticking its box, 10 minutes ago) is not taken as the time it arrived.
+         */
+        @Test
+        void shouldRecordTheReminderAsCovered_whenThisBookingHasNoCreationTimeAndTheOtherHasLeft() {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            appointment.setCreateDateTime(null);
+            appointment.setUpdateDateTime(at(NOW.minusMinutes(10)));
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            when(reminders.findArchivedVersions(APPOINTMENT, PATIENT)).thenReturn(List.of());
+            siblings(changed(sibling(12L, "t", AppointmentReminderStatus.SENT), "moved"));
+
+            service.processDue(10);
+
+            assertThat(handed).isEmpty();
+            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.DUPLICATE);
+        }
+
         @Test
         void shouldReadSinceWhenTheBookingIsAtItsStart_fromItsArchivedVersions() {
             Appointment appointment = appointment(start, PATIENT, "t");
@@ -462,8 +483,9 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
 
             appointment.setCreateDateTime(null);
             when(reminders.findArchivedVersions(APPOINTMENT, PATIENT)).thenReturn(List.of());
-            // Not its last save, which ticking the box moves: unknown, which counts as already here (one reminder).
-            assertThat(service.atStartSince(appointment, start)).as("no creation time: unknown").isNull();
+            // Not its last save, which ticking the box moves: since when it has been at its start is unknown, which
+            // counts as already here (one reminder).
+            assertThat(service.atStartSince(appointment, start)).as("no creation time: since when is unknown").isNull();
         }
 
         /**

@@ -49,6 +49,7 @@ import java.time.format.FormatStyle;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Deque;
 import java.util.EnumSet;
@@ -401,7 +402,7 @@ public class AppointmentReminderService {
      * booking after: sent, or may have been, or being sent now. Only the last start a reminder went for is kept, so
      * a booking reminded again for a new time no longer covers the old one (a known limit, in the doc).
      */
-    public static final Set<AppointmentReminderStatus> HANDED_OVER = java.util.Collections.unmodifiableSet(
+    public static final Set<AppointmentReminderStatus> HANDED_OVER = Collections.unmodifiableSet(
             EnumSet.of(AppointmentReminderStatus.SENT, AppointmentReminderStatus.UNCONFIRMED,
                     AppointmentReminderStatus.SENDING, AppointmentReminderStatus.QUEUED));
 
