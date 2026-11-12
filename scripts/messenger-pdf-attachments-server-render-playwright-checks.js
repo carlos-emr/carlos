@@ -19,8 +19,11 @@
  *   - a request that still sends srcText cannot put that text into the PDF, and an item
  *     key the chooser never offers is refused (400);
  *   - Attach renders every ticked item in ONE request, closes the chooser and shows the
- *     compose attachment indicator; the encounter item is not offered for a patient
- *     with no encounter record;
+ *     compose attachment indicator; the historical encounter item is not offered for a
+ *     patient with no legacy encounter record;
+ *   - the current encounter (#5856) is offered for every patient: a note saved in the modern
+ *     chart and a Social History entry preview and attach as the chart print of them (the CPP
+ *     headings, both texts), never the frozen legacy record;
  *   - sending stores one OK PDF entry per ticked item, titled by the server, on the
  *     message linked to the patient.
  * Run it through the packaged front door (EXPECT_FRONT_DOOR=true) to prove no WAF
@@ -145,8 +148,8 @@ async function workflow(s) {
     await openChooser();
     h.assert(await chooser.locator('frame, iframe[name="srcFrame"]').count() === 0, 'The chooser still has a hidden source frame');
     const keys = await main.locator('input[name="item"]').evaluateAll(inputs => inputs.map(input => input.value));
-    h.assert(JSON.stringify(keys) === JSON.stringify(['demographic', 'prescriptions']),
-      `The chooser offered ${JSON.stringify(keys)}; a patient with no encounter record has no encounter item`);
+    h.assert(JSON.stringify(keys) === JSON.stringify(['demographic', 'currentEncounter', 'prescriptions']),
+      `The chooser offered ${JSON.stringify(keys)}; a patient with no legacy record has the current encounter only`);
     h.assert(await main.locator('input[name="srcText"], input[name="uriArray"]').count() === 0,
       'The chooser still carries page-HTML fields');
     h.assert(await main.locator('input[name="demographic_no"]').inputValue() === s.patient, 'The chooser is for another patient');
@@ -236,7 +239,7 @@ async function workflow(s) {
     // Compose stays open after Attach; previewing from a fresh chooser changes no attachment.
     await openChooser();
     const keys = await main.locator('input[name="item"]').evaluateAll(inputs => inputs.map(input => input.value));
-    h.assert(JSON.stringify(keys) === JSON.stringify(['demographic', 'encounter', 'prescriptions']),
+    h.assert(JSON.stringify(keys) === JSON.stringify(['demographic', 'currentEncounter', 'encounter', 'prescriptions']),
       `With an encounter record the chooser offered ${JSON.stringify(keys)}`);
     const captured = await capturePreview('encounter');
     h.assert(captured, 'The encounter preview did not post to messenger/Doc2PDF');
@@ -245,6 +248,101 @@ async function workflow(s) {
     h.assert(pdfText(captured.body).includes('FAKE-PW encounter text'), 'The encounter PDF does not carry the encounter record');
     await chooser.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
     await chooser.close();
+  });
+
+  // #5856: the current encounter is the modern chart's own print of the notes and CPP.
+  const notePrefix = `${s.marker}-CE-`;
+  const noteText = `${notePrefix}note FAKE-PW current encounter note`;
+  const cppText = `${notePrefix}cpp FAKE-PW social history`;
+  await s.step('the current encounter previews and attaches the chart print of a saved note and the CPP', async () => {
+    const noteLike = h.sqlString(`${notePrefix}%`);
+    const ownedNotes = () => s.sql.rows(`SELECT note_id FROM casemgmt_note
+      WHERE demographic_no=${s.patient} AND note LIKE ${noteLike}`).map(([id]) => id);
+    // Registered before any write; only this run's notes, their issue and support rows.
+    s.cleanup(() => {
+      const ids = ownedNotes();
+      h.assert(ids.every(id => /^[1-9]\d*$/.test(id)), 'Owned current-encounter note ids changed');
+      const list = ids.length ? ids.join(',') : '-1';
+      s.sql.execute(`DELETE FROM casemgmt_issue_notes WHERE note_id IN (${list});
+        DELETE FROM casemgmt_note_ext WHERE note_id IN (${list});
+        DELETE FROM casemgmt_note_link WHERE note_id IN (${list});
+        DELETE FROM hash_audit WHERE type='enc' AND id IN (${list});
+        DELETE FROM casemgmt_note WHERE note_id IN (${list}) AND demographic_no=${s.patient};
+        DELETE FROM casemgmt_issue WHERE demographic_no=${s.patient};
+        DELETE FROM casemgmt_tmpsave WHERE demographic_no=${s.patient};
+        DELETE FROM casemgmt_note_lock WHERE demographic_no=${s.patient}`);
+      h.assert(s.sql.value(`SELECT (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${s.patient})
+        + (SELECT COUNT(*) FROM casemgmt_issue WHERE demographic_no=${s.patient})`) === '0',
+      'Owned current-encounter notes or issues were not removed');
+    });
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${s.patient}`) === '0',
+      'The owned patient unexpectedly has chart notes');
+
+    // A note saved through the modern chart, as a clinician writes one.
+    const chart = await s.chart();
+    const editor = chart.locator('textarea[name="caseNote_note"]').first();
+    await editor.waitFor({ state: 'visible', timeout: TIMEOUT });
+    await editor.click();
+    await editor.fill(noteText);
+    await Promise.all([
+      chart.waitForResponse(r => r.request().method() === 'POST'
+        && new URL(r.url()).pathname.endsWith('/CaseManagementEntry')
+        && ['save', 'ajaxsave'].includes(new URLSearchParams(r.request().postData() || '').get('method')),
+      { timeout: TIMEOUT }),
+      chart.locator('#saveImg').first().click(),
+    ]);
+    await expectValue(s.sql, `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${s.patient}
+      AND note LIKE ${h.sqlString(`${noteText}%`)}`, '1', 'The chart did not save the current-encounter note');
+
+    // A Social History entry under the saved note's own program and role, so the print's
+    // program filter treats both alike.
+    const [program, role] = s.sql.rows(`SELECT program_no,reporter_caisi_role FROM casemgmt_note
+      WHERE demographic_no=${s.patient} AND note LIKE ${h.sqlString(`${noteText}%`)} ORDER BY note_id DESC LIMIT 1`)[0];
+    h.assert(/^\d+$/.test(program || ''), `The saved note has no numeric program (${program})`);
+    const cppNote = h.insertId(s.sql, `INSERT INTO casemgmt_note
+      (update_date,observation_date,demographic_no,provider_no,note,signed,signing_provider_no,
+       include_issue_innote,encounter_type,program_no,reporter_caisi_role,reporter_program_team,
+       history,uuid,locked,archived,position,appointmentNo)
+      VALUES (NOW(),NOW(),${s.patient},${provider},${h.sqlString(cppText)},1,${provider},
+        0,'',${h.sqlString(program)},${h.sqlString(role || '')},'0',${h.sqlString(cppText)},UUID(),'0',0,0,0)`,
+    'owned Social History note');
+    const catalog = s.sql.rows(`SELECT issue_id,COALESCE(NULLIF(role,''),'system') FROM issue
+      WHERE code='SocHistory' ORDER BY issue_id LIMIT 1`)[0];
+    h.assert(catalog && /^[1-9]\d*$/.test(catalog[0]), 'The Social History issue is missing from the catalog');
+    const issue = h.insertId(s.sql, `INSERT INTO casemgmt_issue
+      (demographic_no,issue_id,acute,certain,major,resolved,program_id,type,update_date)
+      VALUES (${s.patient},${catalog[0]},0,0,0,0,${program},${h.sqlString(catalog[1])},NOW())`,
+    'owned Social History issue');
+    s.sql.execute(`INSERT INTO casemgmt_issue_notes(id,note_id) VALUES (${issue},${cppNote})`);
+
+    await openChooser();
+    const captured = await capturePreview('currentEncounter');
+    h.assert(captured, 'The current-encounter preview did not post to messenger/Doc2PDF');
+    h.assert(new URLSearchParams(captured.post).get('previewItem') === 'currentEncounter',
+      'The current-encounter preview posted another item');
+    assertPdf('Current-encounter preview', captured.status, captured.type, captured.body);
+    const text = pdfText(captured.body);
+    h.assert(text.includes('Social History'), 'The current-encounter PDF has no CPP heading');
+    h.assert(compact(text).includes(compact(noteText)), 'The current-encounter PDF does not carry the saved note');
+    h.assert(compact(text).includes(compact(cppText)), 'The current-encounter PDF does not carry the Social History entry');
+    h.assert(!text.includes('FAKE-PW encounter text'), 'The current encounter printed the frozen legacy record');
+
+    // Attach the three items together; the send step below checks what was stored.
+    for (const key of ['demographic', 'currentEncounter', 'prescriptions']) {
+      await main.locator(`input[name="item"][value="${key}"]`).check();
+    }
+    const since = s.recorder.requestFailures.length;
+    await Promise.all([
+      chooser.waitForEvent('close', { timeout: 60000 }),
+      main.locator('button[name="Attach"]').click(),
+    ]);
+    await compose.locator('#pdf-attachment-indicator').waitFor({ state: 'visible', timeout: TIMEOUT });
+    // As in the first Attach: the result page closes its own window, cancelling only its csrfguard load.
+    for (let i = s.recorder.requestFailures.length - 1; i >= since; i--) {
+      const entry = s.recorder.requestFailures[i];
+      if (entry.resourceType === 'script' && entry.errorText === 'net::ERR_ABORTED'
+        && new URL(entry.url).pathname.endsWith('/csrfguard')) s.recorder.requestFailures.splice(i, 1);
+    }
   });
 
   await s.step('sending stores one titled, rendered PDF per ticked item on the patient-linked message', async () => {
@@ -265,13 +363,20 @@ async function workflow(s) {
       'The message was not linked to the patient');
     const stored = s.sql.value(`SELECT CAST(pdfattachment AS CHAR) FROM messagetbl WHERE messageid=${id}`);
     const entries = stored.match(/<PDF>.*?<\/PDF>/gs) || [];
-    h.assert(entries.length === 2, `The message stored ${entries.length} PDF entries instead of 2`);
+    h.assert(entries.length === 3, `The message stored ${entries.length} PDF entries instead of 3`);
     const fileIds = entries.map(entry => (entry.match(/<FILE_ID>([^<]*)<\/FILE_ID>/) || [])[1]);
-    h.assert(JSON.stringify(fileIds) === JSON.stringify(['0', '1']),
+    h.assert(JSON.stringify(fileIds) === JSON.stringify(['0', '1', '2']),
       `The stored PDFs do not carry distinct FILE_IDs: ${JSON.stringify(fileIds)}`);
     const titles = entries.map(entry => (entry.match(/<TITLE>([^<]*)<\/TITLE>/) || [])[1] || '');
-    h.assert(titles[0].includes(s.marker) && /information/i.test(titles[0]) && /prescriptions/i.test(titles[1]),
+    h.assert(titles[0].includes(s.marker) && /information/i.test(titles[0])
+      && /current encounter notes/i.test(titles[1]) && /prescriptions/i.test(titles[2]),
       `The stored titles are not the server-computed ones: ${JSON.stringify(titles)}`);
+    // #5856: the stored current encounter is the chart print of the saved note and the CPP.
+    const encounterContent = (entries[1].match(/<CONTENT>([^<]*)<\/CONTENT>/) || [])[1] || '';
+    const encounterText = pdfText(Buffer.from(encounterContent, 'base64'));
+    h.assert(encounterText.includes('Social History') && compact(encounterText).includes(compact(noteText))
+      && compact(encounterText).includes(compact(cppText)) && !encounterText.includes('FAKE-PW encounter text'),
+    'The stored current encounter is not the chart print of the saved note and its CPP');
     for (const entry of entries) {
       const content = (entry.match(/<CONTENT>([^<]*)<\/CONTENT>/) || [])[1] || '';
       h.assert(entry.includes('<STATUS>OK</STATUS>') && Buffer.from(content, 'base64').subarray(0, 5).toString('latin1') === '%PDF-',
