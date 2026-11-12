@@ -3249,7 +3249,7 @@
         "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
         "AppointmentUpdateDaoIntegrationTest": 17,
         "ReportingPatientListAuditMariaDbIntegrationTest": 4,
-        "RxSaveReceiptCommitIntegrationTest": 8,
+        "RxSaveReceiptCommitIntegrationTest": 19,
         "RxConcurrencyIntegrationTest": 6,
         "RxFavoriteGroupIntegrationTest": 6,
         "RxFavoriteCopyIntegrationTest": 1,
