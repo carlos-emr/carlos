@@ -18,8 +18,8 @@ import org.apache.logging.log4j.Logger;
  *
  * <p>Each image is drawn in a fresh headless Chromium session from the renderer service shared
  * with eForm PDFs, so a chart costs a browser start. Charts have one browser of their own and take it
- * first, so a chart never waits behind eForm PDFs (#5853). When it is busy they share the two-browser
- * budget with PDFs, and class-aware admission keeps either work class from repeatedly overtaking the other.
+ * first, so a chart does not wait behind eForm PDFs while it is free (#5853). When it is busy they share
+ * the two-browser budget with PDFs, and class-aware admission keeps either from repeatedly overtaking the other.
  * The bundled scripts are read from the WAR once and reused; chart requests queue for a slot for
  * {@link EFormBrowserPdfService}'s slot wait rather than failing while the slots are merely busy.
  */

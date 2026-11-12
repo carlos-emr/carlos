@@ -191,7 +191,7 @@ public class EFormBrowserPdfService {
     private static final int MAX_CONCURRENT_RENDERS = 2;
     /**
      * Browsers only measurement, lab and medication graphs use, beside the {@link #MAX_CONCURRENT_RENDERS}
-     * shared ones, so a graph never waits behind eForm PDFs (#5853). At most
+     * shared ones, so a graph does not wait behind eForm PDFs while its own browser is free (#5853). At most
      * {@code MAX_CONCURRENT_RENDERS + CHART_ONLY_RENDERS} browsers run at once; the carlos-emr-render-browser
      * unit's memory ceiling is sized for that many.
      */
