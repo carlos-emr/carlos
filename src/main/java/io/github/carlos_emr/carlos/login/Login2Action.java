@@ -1101,7 +1101,8 @@ public final class Login2Action extends ActionSupport {
         }
 
         logger.debug("Assigned new session for: {} : {} : {}", LogSafe.sanitize(strAuth[0]), LogSafe.sanitize(strAuth[3]), LogSafe.sanitize(strAuth[4])); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
-        LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "", ip);
+        // The sign-in is audited once, below, when its facility is known: a second bare
+        // "log in" row here made every sign-in read as two audit events.
 
         Properties pvar = CarlosProperties.getInstance();
 
@@ -1187,6 +1188,8 @@ public final class Login2Action extends ActionSupport {
         if (provider == null) {
             logger.error("Authenticated login could not load provider record: providerNo={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(providerNo), LogSafe.sanitize(ip));
+            // The credentials were accepted: keep that on the audit trail although the session ends here.
+            LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "", ip);
             session.invalidate();
             return loginFailureResult(message("login.errorUnableToProcess"));
         }
@@ -1196,6 +1199,8 @@ public final class Login2Action extends ActionSupport {
 
         List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
         if (facilityIds.size() > 1) {
+            // The authentication is audited now; SelectFacility2Action audits the facility then chosen.
+            LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "", ip);
             session.setAttribute(SessionConstants.PENDING_FACILITY_SELECTION, Boolean.TRUE);
             String facilityPath = "/select_facility?nextPage=";
             String newURL = request.getContextPath() + facilityPath + SafeEncode.forUriComponent(where);
@@ -1218,6 +1223,8 @@ public final class Login2Action extends ActionSupport {
                 request.getSession().setAttribute("currentFacility", facility); // nosemgrep: tainted-session-from-http-request -- fallback facility entity is DAO-loaded from active facility list
                 session.removeAttribute(SessionConstants.PENDING_FACILITY_SELECTION);
                 LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + first_id, ip);
+            } else {
+                LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "", ip);
             }
         }
 
