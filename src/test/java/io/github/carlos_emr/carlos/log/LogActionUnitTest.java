@@ -203,6 +203,28 @@ class LogActionUnitTest {
 
     @Test
     @Tag("create")
+    void shouldPersistCompleteRowInTheCallingThread_fromSynchronousLoggedInInfoAudit() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        java.util.concurrent.ExecutorService executor = mock(java.util.concurrent.ExecutorService.class);
+        LogAction.setExecutorServiceForTesting(executor);
+
+        LogAction.addLogSynchronous(loggedInInfo(), "delete", "appointment", "77", "42", null);
+
+        // Handed to the DAO by the caller's own thread, never queued.
+        org.mockito.Mockito.verifyNoInteractions(executor);
+        verify(oscarLogDao).persist(argThat((OscarLog log) ->
+                "999998".equals(log.getProviderNo())
+                        && "delete".equals(log.getAction())
+                        && "appointment".equals(log.getContent())
+                        && "77".equals(log.getContentId())
+                        && "127.0.0.1".equals(log.getIp())
+                        && Integer.valueOf(42).equals(log.getDemographicId())
+                        && log.getData() == null));
+    }
+
+    @Test
+    @Tag("create")
     void shouldSwallowPersistenceFailureAndNotLogAuditedData_fromIndependentAudit() {
         OscarLogDao oscarLogDao = mock(OscarLogDao.class);
         doThrow(new IllegalStateException("synthetic persistence failure")).when(oscarLogDao)
@@ -220,6 +242,17 @@ class LogActionUnitTest {
             assertThat(capture.events()).noneMatch(event -> event.getMessage().getFormattedMessage().contains("Jane Roe")
                     || event.getMessage().getFormattedMessage().contains("chest pain"));
         }
+    }
+
+    @Test
+    @Tag("create")
+    void shouldSwallowPersistenceFailure_fromSynchronousLoggedInInfoAudit() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        doThrow(new IllegalStateException("synthetic persistence failure")).when(oscarLogDao).persist(any());
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+
+        assertThatCode(() -> LogAction.addLogSynchronous(loggedInInfo(), "delete", "appointment", "77", "42", null))
+                .doesNotThrowAnyException();
     }
 
     private static LoggedInInfo loggedInInfo() {

@@ -25,6 +25,8 @@ package io.github.carlos_emr.carlos.report.pageUtil;
 import java.util.ArrayList;
 import java.util.List;
 
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.report.data.DemographicSets;
 import io.github.carlos_emr.carlos.report.data.RptDemographicQuery2Builder;
@@ -179,6 +181,115 @@ class RptDemographicReport2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(saver.constructed()).isEmpty();
             assertThat(sets.constructed()).isEmpty();
         }
+    }
+
+    /** Runs {@code query} over a builder that returns {@code rows}. */
+    private String run(RptDemographicReport2Action action, String query, ArrayList<ArrayList<String>> rows)
+            throws Exception {
+        action.getModel().setQuery(query);
+        try (var builder = mockConstruction(RptDemographicQuery2Builder.class,
+                     (mock, context) -> when(mock.buildQuery(login, action.getModel())).thenReturn(rows));
+             var sets = mockConstruction(DemographicSets.class)) {
+            return action.execute();
+        }
+    }
+
+    private static ArrayList<ArrayList<String>> listing(String... demographicNos) {
+        ArrayList<ArrayList<String>> rows = new ArrayList<>();
+        for (String demographicNo : demographicNos) {
+            rows.add(new ArrayList<>(List.of(demographicNo, "FAKE-SURNAME", "FAKE-GIVEN")));
+        }
+        return rows;
+    }
+
+    @Test
+    void shouldAuditTheListingWithItsSelectionAndSize_whenAQueryIsRun() throws Exception {
+        request.setMethod("POST");
+        var action = new RptDemographicReport2Action();
+        action.getModel().setSelect(new String[]{"demographic_no", "last_name", "first_name"});
+        action.getModel().setDemoIds("41, 43");
+        // A name typed as a criterion is patient text: the row says a listing was made, not for whom by name.
+        action.getModel().setLastName("FAKE-SURNAME");
+
+        assertThat(run(action, "Run Query", listing("41", "43"))).isEqualTo(ActionSupport.SUCCESS);
+
+        // One row for the whole listing, written with the signed-in user (provider, client address):
+        // the columns listed, the Demographic IDs criterion and how many patients came back.
+        logActionMock.verify(() -> LogAction.addLog(login, LogConst.READ, LogConst.CON_DEMOGRAPHIC_REPORT, null, null,
+                "run=Run Query; columns=demographic_no,last_name,first_name; demographicIds=41,43; rows=2"));
+        logActionMock.verifyNoMoreInteractions();
+    }
+
+    @Test
+    void shouldAuditTheListingWithoutAnIdCriterion_whenNoneWasGiven() throws Exception {
+        request.setMethod("GET");
+        var action = new RptDemographicReport2Action();
+        action.getModel().setSelect(new String[]{"demographic_no"});
+
+        run(action, "Run Query", listing("41"));
+
+        logActionMock.verify(() -> LogAction.addLog(login, LogConst.READ, LogConst.CON_DEMOGRAPHIC_REPORT, null, null,
+                "run=Run Query; columns=demographic_no; rows=1"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"Add to Study", "Run Query And Save to Patient Set"})
+    void shouldAuditTheListing_whenItIsRunForAStudyOrAPatientSet(String query) throws Exception {
+        request.setMethod("POST");
+        var action = new RptDemographicReport2Action();
+        action.getModel().setSelect(new String[]{"demographic_no"});
+        action.getModel().setSetName("FAKE-owned-set");
+
+        run(action, query, listing("41", "43", "47"));
+
+        logActionMock.verify(() -> LogAction.addLog(login, LogConst.READ, LogConst.CON_DEMOGRAPHIC_REPORT, null, null,
+                "run=" + query + "; columns=demographic_no; rows=3"));
+    }
+
+    @Test
+    void shouldKeepRequestTextOutOfTheAuditRow_whenAColumnNameIsNotAnIdentifier() throws Exception {
+        request.setMethod("GET");
+        var action = new RptDemographicReport2Action();
+        // Column keys come from fixed checkboxes; a crafted request must not turn the row into free text.
+        action.getModel().setSelect(new String[]{"demographic_no", "FAKE-SURNAME, Jane; DROP", "hin"});
+
+        run(action, "Run Query", listing("41"));
+
+        logActionMock.verify(() -> LogAction.addLog(login, LogConst.READ, LogConst.CON_DEMOGRAPHIC_REPORT, null, null,
+                "run=Run Query; columns=demographic_no,hin; rows=1"));
+    }
+
+    @Test
+    void shouldCapTheIdCriterion_whenVeryManyIdsAreGiven() throws Exception {
+        request.setMethod("GET");
+        var action = new RptDemographicReport2Action();
+        StringBuilder ids = new StringBuilder();
+        for (int id = 1; id <= 250; id++) {
+            ids.append(id).append(' ');
+        }
+        action.getModel().setDemoIds(ids.toString());
+
+        run(action, "Run Query", listing("41"));
+
+        logActionMock.verify(() -> LogAction.addLog(org.mockito.ArgumentMatchers.eq(login),
+                org.mockito.ArgumentMatchers.eq(LogConst.READ), org.mockito.ArgumentMatchers.eq(LogConst.CON_DEMOGRAPHIC_REPORT),
+                org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.argThat((String data) -> data.contains("demographicIds=1,2,3,")
+                        && data.contains(",200,(+50 more);") && !data.contains(",201,") && data.endsWith("rows=1"))));
+    }
+
+    @Test
+    void shouldNotAudit_whenNoListingIsProduced() throws Exception {
+        request.setMethod("POST");
+        var save = new RptDemographicReport2Action();
+        save.getModel().setQuery("Save Query");
+        try (var saver = mockConstruction(RptDemographicQuery2Saver.class)) {
+            save.execute();
+        }
+        request.setMethod("GET");
+        new RptDemographicReport2Action().execute();
+
+        logActionMock.verifyNoInteractions();
     }
 
     @Test

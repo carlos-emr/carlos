@@ -523,10 +523,15 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
 
             // ---
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
-            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
             // add note if document is added under a patient
             String module = this.getFunction().trim();
             String moduleId = this.getFunctionId().trim();
+            if (module.equals("demographic")) {
+                // Filed onto a chart: the audit row names the patient, so the upload can be found from it.
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr(), moduleId);
+            } else {
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+            }
             if (module.equals("demographic")) {// doc is uploaded under a patient, moduleId become demo no.
 
                 Date now = EDocUtil.getDmsDateTimeAsDate();

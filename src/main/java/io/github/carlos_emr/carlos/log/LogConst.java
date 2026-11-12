@@ -63,11 +63,16 @@ public class LogConst {
 
     public static final String CON_LOGIN_AGREEMENT = "login agreement";
     public static final String CON_OHIP = "ohip file";
+    // An invoice (contentId = the invoice number) and a patient's billing history page (contentId = the patient).
+    public static final String CON_BILLING = "billing";
+    public static final String CON_BILLING_HISTORY = "billing_history";
     public static final String CON_LOGIN = "login";
     public static final String CON_APPT = "appointment";
     public static final String CON_ECHART = "eChart";
     public static final String CON_DEMOGRAPHIC = "demographic";
     public static final String CON_DEMOGRAPHIC_RELATION = "demographic_relations";
+    // A listing of patients produced by the Demographic Report Tool (one row per run, not per patient).
+    public static final String CON_DEMOGRAPHIC_REPORT = "demographic_report";
     public static final String CON_ROLE = "role";
     public static final String CON_PRIVILEGE = "privilege";
     public static final String CON_FORM = "form";
@@ -77,6 +82,8 @@ public class LogConst {
     public static final String CON_DRUGS = "drugs";
     public static final String CON_DRUGREASON = "drugReason";
     public static final String CON_ALLERGY = "allergy";
+    public static final String CON_PREVENTION = "prevention";
+    public static final String CON_MEASUREMENT = "measurement";
     public static final String CON_JASPERREPORTLETER = "jr_letter";
     public static final String CON_TICKLER = "tickler";
     public static final String CON_CME_NOTE = "CME note";

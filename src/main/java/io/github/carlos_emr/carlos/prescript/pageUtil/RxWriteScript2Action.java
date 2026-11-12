@@ -2328,7 +2328,9 @@ public final class RxWriteScript2Action extends ActionSupport {
         if (scriptId == null || !scriptId.matches("[1-9][0-9]{0,9}")) {
             throw new IllegalStateException("Prescription header write did not return an identifier");
         }
-        StringBuilder auditStr = new StringBuilder();
+        // What the audit rows of this save carry in `data`: the ids of the medication rows written,
+        // never the drug names or instructions (clinical text; the rows themselves hold it).
+        StringBuilder auditStr = new StringBuilder("drugIds=");
         // Source drug ids actually re-prescribed by this save. A staged re-prescription carries
         // its source drug id in drugReferenceId, set by the re-prescribe newPrescription overload,
         // and only those sources may be archived as REPRESCRIBED.
@@ -2354,8 +2356,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                     represcribedSourceIds.add(rx.getDrugReferenceId());
                 }
                 bean.addRandomIdDrugIdPair(rx.getRandomId(), rx.getDrugId());
-                auditStr.append(rx.getAuditString());
-                auditStr.append("\n");
+                auditStr.append(i == 0 ? "" : ",").append(rx.getDrugId());
 
                 // save drug reason. Method borrowed from
                 // RxReason2Action.
@@ -2391,13 +2392,15 @@ public final class RxWriteScript2Action extends ActionSupport {
         // which reuses this same script row and renders the page — keeping the pad available
         // to override the stamp. Ordinary GET/HEAD preview navigation never stamps or saves.
 
-        if (!archiveReRxDrugs(loggedInInfo, bean, represcribedSourceIds, ip, auditStr.toString())) {
+        // The rows of the medications this save replaces name the script that replaced them.
+        String replacedBy = "scriptNo=" + scriptId;
+        if (!archiveReRxDrugs(loggedInInfo, bean, represcribedSourceIds, ip, replacedBy)) {
             throw new PrescriptionSaveException(null);
         }
         // The sources are settled: a later save from this window (Edit Rx after Save & Print)
         // must not archive them again with a second audit trail.
         bean.clearReRxDrugIdList();
-        if (!archiveSupersededSaves(loggedInInfo, bean, supersededDrugIds, ip, auditStr.toString())) {
+        if (!archiveSupersededSaves(loggedInInfo, bean, supersededDrugIds, ip, replacedBy)) {
             throw new PrescriptionSaveException(null);
         }
 
@@ -2820,7 +2823,7 @@ public final class RxWriteScript2Action extends ActionSupport {
 
         String ip = request.getRemoteAddr();
         LogAction.addLogStrict(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(),
-                LogConst.ADD, LogConst.CON_DRUGREASON, "" + dr.getId(), ip, demographicNo, dr.getAuditString());
+                LogConst.ADD, LogConst.CON_DRUGREASON, "" + dr.getId(), ip, demographicNo, "drugId=" + dr.getDrugId());
 
     }
 

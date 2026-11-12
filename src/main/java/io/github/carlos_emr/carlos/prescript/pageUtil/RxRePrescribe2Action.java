@@ -147,13 +147,15 @@ public final class RxRePrescribe2Action extends ActionSupport {
             return NONE;
         }
         RxPrescriptionData.Prescription p = null;
-        StringBuilder auditStr = new StringBuilder();
+        // The reprint is audited by the script and its medication row ids; the drug names and
+        // instructions it prints are clinical text and are not copied into the audit log.
+        StringBuilder auditStr = new StringBuilder("drugIds=");
         for (int idx = 0; idx < list.size(); ++idx) {
             p = list.get(idx);
             // Preserve every persisted line, including the same drug with different instructions.
             beanRX.getStashList().add(p);
             beanRX.setStashIndex(beanRX.getStashSize() - 1);
-            auditStr.append(p.getAuditString() + "\n");
+            auditStr.append(idx == 0 ? "" : ",").append(p.getDrugId());
         }
 
         // save print date/time to prescription table
@@ -226,13 +228,15 @@ public final class RxRePrescribe2Action extends ActionSupport {
             return NONE;
         }
         RxPrescriptionData.Prescription p = null;
-        StringBuilder auditStr = new StringBuilder();
+        // The reprint is audited by the script and its medication row ids; the drug names and
+        // instructions it prints are clinical text and are not copied into the audit log.
+        StringBuilder auditStr = new StringBuilder("drugIds=");
         for (int idx = 0; idx < list.size(); ++idx) {
             p = list.get(idx);
             // Preserve every persisted line, including the same drug with different instructions.
             beanRX.getStashList().add(p);
             beanRX.setStashIndex(beanRX.getStashSize() - 1);
-            auditStr.append(p.getAuditString() + "\n");
+            auditStr.append(idx == 0 ? "" : ",").append(p.getDrugId());
         }
         // p("auditStr "+auditStr.toString());
         // save print date/time

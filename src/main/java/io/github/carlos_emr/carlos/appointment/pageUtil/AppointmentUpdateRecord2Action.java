@@ -155,6 +155,13 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
             eventService.appointmentStatusChanged(this, apptNoStr, appt.getProviderNo(), changedStatus);
         }
 
+        // Audit the edit against the appointment and its patient. A changed status is named; the
+        // reason, notes and name are not. Fully qualified so this stays one self-contained hunk.
+        io.github.carlos_emr.carlos.log.LogAction.addLog(loggedInInfo,
+                io.github.carlos_emr.carlos.log.LogConst.UPDATE, io.github.carlos_emr.carlos.log.LogConst.CON_APPT,
+                String.valueOf(appt.getId()), appt.getDemographicNo() > 0 ? String.valueOf(appt.getDemographicNo()) : null,
+                changedStatus == null ? null : "status=" + changedStatus);
+
         boolean printReceipt = "1".equals(request.getParameter("printReceipt"));
         request.setAttribute("success", true);
         request.setAttribute("appointmentNo", apptNoStr);

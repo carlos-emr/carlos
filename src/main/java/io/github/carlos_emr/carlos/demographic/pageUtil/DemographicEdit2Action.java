@@ -109,6 +109,27 @@ public class DemographicEdit2Action extends ActionSupport {
         return securityInfoManager;
     }
 
+    /**
+     * Audits a refused attempt to open this patient's Master Record: the role may read
+     * demographics, but this patient's record is closed to this user (a patient-level lock or
+     * restriction). The refusal of access to a patient's record is the event a privacy officer
+     * looks for, so it is filed under the patient with the refused user's provider, security id
+     * and client address. It is written as {@code no right}, never as a read, names only the
+     * right refused, and carries nothing of the record.
+     *
+     * <p>The row is queued on the audit executor, outside any transaction of this request, so it
+     * survives the {@link SecurityException} that follows. An audit failure must not turn the
+     * refusal into another outcome: it is logged and the refusal proceeds.</p>
+     */
+    private static void auditRefusedOpen(LoggedInInfo loggedInInfo, String demographicNo) {
+        try {
+            LogAction.addLog(loggedInInfo, LogConst.NORIGHT, LogConst.CON_DEMOGRAPHIC, demographicNo, demographicNo,
+                    LogConst.READ);
+        } catch (RuntimeException e) {
+            logger.error("Unable to audit a refused attempt to open a patient record ({})", e.getClass().getSimpleName());
+        }
+    }
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
@@ -146,6 +167,7 @@ public class DemographicEdit2Action extends ActionSupport {
             return ERROR;
         }
         if (!securityInfoManager().hasPrivilege(loggedInInfo, "_demographic", "r", trimmedDemographicNo)) {
+            auditRefusedOpen(loggedInInfo, trimmedDemographicNo);
             throw new SecurityException("missing required sec object (_demographic)");
         }
         demographic_no = trimmedDemographicNo;

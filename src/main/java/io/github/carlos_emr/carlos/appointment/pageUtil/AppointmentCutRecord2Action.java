@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -104,7 +105,10 @@ public final class AppointmentCutRecord2Action extends ActionSupport {
         }
         appointmentArchiveDao.archiveAppointment(appt);
 
-        LogAction.addLogSynchronous(loggedInInfo, "Appointment.cut", "id=" + appt.getId());
+        // The action name and "id=N" data are the receipt the cut-recovery flow is checked by; the
+        // row now also names the appointment, its patient and the client address.
+        LogAction.addLogSynchronous(loggedInInfo, "Appointment.cut", LogConst.CON_APPT, String.valueOf(appt.getId()),
+                appt.getDemographicNo() > 0 ? String.valueOf(appt.getDemographicNo()) : null, "id=" + appt.getId());
         appointmentDao.remove(appt.getId());
 
         request.setAttribute("success", true);

@@ -20,6 +20,7 @@ import io.github.carlos_emr.carlos.commn.model.Queue;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
@@ -834,6 +835,60 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
             verify(securityInfoManager).isAllowedAccessToPatientRecord(any(), eq(10));
             paths.verifyNoInteractions();
         }
+    }
+
+    /** A stored PDF of patient 10 the signed-in provider may read, served by {@code method=display}. */
+    private void prepareDisplayOfPatientDocument() throws Exception {
+        authorizeEdocWrite();
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), eq("10"))).thenReturn(true);
+        when(ctlDocumentDao.findByDocumentNoAndModule(42, "demographic")).thenReturn(List.of(patientLink(10)));
+        when(ctlDocumentDao.getCtrlDocument(42)).thenReturn(patientLink(10));
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(10))).thenReturn(true);
+        Document stored = new Document(42);
+        stored.setDocfilename("stored.pdf");
+        stored.setContenttype("application/pdf");
+        stored.setDocdesc("FAKE-DESCRIPTION consult letter");
+        when(documentDao.getDocument("42")).thenReturn(stored);
+        Files.write(tempDir.resolve("stored.pdf"), "%PDF-1.4 synthetic".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
+        request.setParameter("method", "display");
+        request.setParameter("doc_no", "42");
+    }
+
+    @Test
+    void shouldWriteOneReadRowNamingThePatient_whenADocumentIsDisplayed() throws Exception {
+        prepareDisplayOfPatientDocument();
+
+        try (MockedStatic<PathValidationUtils> paths = cachePaths()) {
+            paths.when(() -> PathValidationUtils.validateExistingPath(any(File.class), any(File.class)))
+                    .thenReturn(tempDir.resolve("stored.pdf").toFile());
+            action.execute();
+        }
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsByteArray()).startsWith("%PDF".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
+        // One view is one audit event, under the one content spelling ("document") that the inbox's
+        // "has this provider read it" lookup uses, filed under the patient the document belongs to.
+        logActionMock.verify(() -> LogAction.addLog("999998", LogConst.READ, LogConst.CON_DOCUMENT, "42",
+                request.getRemoteAddr(), "10"));
+        logActionMock.verifyNoMoreInteractions();
+    }
+
+    @Test
+    void shouldWriteOneReadRowNamingThePatient_whenTheRequestAlsoNamesAPatient() throws Exception {
+        prepareDisplayOfPatientDocument();
+        // The inbox viewer adds demoNo to the URL; the row is still the one keyed by the stored link.
+        request.setParameter("demoNo", "10");
+
+        try (MockedStatic<PathValidationUtils> paths = cachePaths()) {
+            paths.when(() -> PathValidationUtils.validateExistingPath(any(File.class), any(File.class)))
+                    .thenReturn(tempDir.resolve("stored.pdf").toFile());
+            action.execute();
+        }
+
+        logActionMock.verify(() -> LogAction.addLog("999998", LogConst.READ, LogConst.CON_DOCUMENT, "42",
+                request.getRemoteAddr(), "10"));
+        logActionMock.verifyNoMoreInteractions();
     }
 
     @Test
