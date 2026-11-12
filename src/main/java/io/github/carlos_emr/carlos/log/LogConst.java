@@ -80,6 +80,7 @@ public class LogConst {
     public static final String CON_DRUGREASON = "drugReason";
     public static final String CON_ALLERGY = "allergy";
     public static final String CON_PREVENTION = "prevention";
+    public static final String CON_MEASUREMENT = "measurement";
     public static final String CON_JASPERREPORTLETER = "jr_letter";
     public static final String CON_TICKLER = "tickler";
     public static final String CON_CME_NOTE = "CME note";
