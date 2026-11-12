@@ -42,6 +42,19 @@ lock also prevents two different forms from creating concurrent current episodes
 still needed after completion: replaying an old create must not start another episode. Opening
 Add again issues a fresh token for an intentional later pregnancy.
 
+The Messenger compose page uses `MESSENGER_SEND` for every way a message is written: new,
+reply, reply all, forward, and a refused send shown again. `CreateMessage.jsp` issues the token
+itself, so each rendering has its own. `MsgCreateMessage2Action` claims it before it validates
+anything or takes the compose window's attachments, and stores the message and its delivery rows
+in the one observed transaction. What it records for a repeat is the message id, who the message
+was sent to, and a SHA-256 of what was submitted (recipients, subject, body, linked patient).
+A repeat with the same digest is answered with the "message sent" page of the first send. A
+submission of the same rendering with a different digest is not a repeat: the user went back to
+the page that had sent, changed the message and sent again. Answering it with the first send's
+confirmation would report a message as sent that never was, so the compose page is shown again
+with HTTP 409, what was submitted and `messenger.CreateMessage.msgChangedAfterSend`; that
+rendering has a new token, and sending from it delivers the changed message once.
+
 ### When a token is freed for a retry
 
 The claim frees the token only when the attempt provably wrote nothing:
@@ -117,3 +130,86 @@ and failed on `uk_demo_ext` with HTTP 500.
 
 `concurrency-demographic-edit` and `concurrency-demographic-ext-insert` pin the refusal, and
 `demographic-stale-edit-recovery` pins the conflict page and both recovery paths.
+
+## Stale Edit Appointment forms: `AppointmentEditConflict`
+
+The classic Edit Appointment popup also posts every field. A popup opened before another user's
+change wrote its stale fields back: a cancellation saved from a second popup, or a status letter
+clicked on the day sheet, was silently undone.
+
+- `editappointment.jsp` renders `appointmentVersion`, the appointment's
+  `Appointment.getEditVersion()` (its `updatedatetime`, which `@PreUpdate` advances by at least one
+  second on every write). A redisplay of posted fields (the patient search round trip, a
+  text-length retry) keeps the version those fields came from. This is the token the REST edit
+  already uses; there is no second scheme.
+- `AppointmentUpdateRecord2Action` (Update Appt, Update & Receipt, Cancel Appt, No Show) writes
+  through `ScheduleManager.updateAppointment(loggedInInfo, id, version, edit)`: `findForUpdate`
+  locks the row, the version is compared, and the archive row and the update commit together.
+  Delete and Cut use `ScheduleManager.removeAppointment(loggedInInfo, id, version)` the same way;
+  Cut copies the form into the session for Paste only after the removal, so a refused cut leaves
+  nothing to paste.
+- The group page (`appointmentgrouprecords.jsp`) echoes the edit form's fields and lists each
+  matching appointment with its own `appointment_version<N>`. Group Update, Group Cancel and Group
+  Delete run in one transaction that first calls `AppointmentEditConflict.staleUnderLock()` for the
+  form's appointment and every ticked row. The repeat page's `RecurringAppointmentService.apply()`
+  compares the version with the anchor row it already locks.
+- A stale form whose fields the appointment already holds is not a conflict: it is the second
+  click on a form whose first submission was saved (the browser shows the later response). The
+  action writes nothing and answers with the normal result page.
+- Any other mismatch is refused before anything is written: HTTP 409 and
+  `/WEB-INF/jsp/appointment/appointmentEditConflict.jsp` (result `editConflict`), which says that
+  nothing was saved, refreshes the day sheet behind the popup and offers to reopen the appointment
+  as it is now. The repeat page shows the same text in its own alert. An appointment that no longer
+  exists is still answered 404.
+- Copy writes nothing to the appointment, so it is not checked. A post with no version (an older
+  page, a hand-built request, a replay) is saved without the check, as the REST edit does for
+  clients that send no `editVersion`. Replay tooling drops `appointmentVersion` for that reason.
+
+`concurrency-appointment-edit` pins the refusal: session A's stale Update Appt is answered 409,
+stores none of its fields and leaves session B's cancellation in place.
+
+## Stale task (tickler) edits and list actions
+
+Two tickler screens wrote over another user's change in the same way.
+
+**Edit Tickler popup.** The popup posts the status, priority, assignee and service date it showed,
+and `EditTickler2Action` wrote each one that differed from the stored row. A popup opened before
+another user completed the task put it back to Active when it only meant to raise the priority.
+
+- `ticklerEdit.jsp` renders `ticklerVersion` (`TicklerEditVersion.of`): a SHA-256 over the fields
+  the form writes, the row's `update_date` and the number of comments. `update_date` alone is not
+  enough because it is stored to the second.
+- With a version, the action calls `TicklerManager.getTicklerForUpdate()` first in its
+  transaction. `TicklerDao.findForUpdate()` locks the row and reads it again under the lock, so
+  the comparison and every write (attachments, comment, fields, history) see the same tickler.
+- A mismatch writes nothing: HTTP 409 and the `staleRefused` result
+  (`ticklerEditStaleRefused.jsp`, sentinel `#tickler-edit-stale`). The popup shows
+  `tickler.ticklerEdit.stale.error` in its error banner and in one alert, and leaves the Update
+  button disabled: the form can only be reopened.
+- A post with no version is saved without the check. Replay tooling drops `ticklerVersion`.
+
+**Task lists.** The lists post only the ticked task numbers, and `updateStatus` applied the
+requested status whatever the row held. A list loaded before another user deleted a task
+brought it back as Completed.
+
+- Each checkbox carries `data-rendered-status`. `ticklerStaleSelection.jspf` (included in the
+  bulk form of `ticklerMain.jsp` and `ticklerDemoMain.jsp`) wraps the form's `submit()` and posts
+  the ticked rows as `ticklerRendered` (`<tickler_no>:<status>` pairs in one field, so a long list
+  does not multiply request parameters).
+- `DbTicklerMain2Action` and `DbTicklerDemoMain2Action` call
+  `TicklerManager.updateStatusIfCurrent(..., renderedStatus, status)`. Under the row lock it
+  returns `APPLIED`, `UNCHANGED` (the task already has the requested status) or `STALE` (the
+  status is no longer the one the list showed). Without a rendered status the change is applied
+  as before, except that a Deleted task is never changed to Completed.
+- Stale tasks are left as they are; the other ticked tasks are still applied. The action
+  remembers the refused task numbers in the session (`TicklerRenderedStatus`) and the list it
+  redirects to names each one once, with patient, message and current status
+  (`#ticklerStaleSelection`). A refused task is not counted in `failCount`.
+
+`TicklerManager.updateStatus`, `completeTickler` and `deleteTickler` (REST) are unchanged, except
+that a legacy tickler stored without a patient (`demographic_no` 0 or NULL) can again be
+completed or deleted: `getTicklerDemographicNoForUpdate` applies the patient-specific rule only
+when the tickler has a patient. New patientless ticklers are still refused.
+
+`concurrency-tickler-edit` and `concurrency-tickler-list-status` pin both refusals.
+

@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.messenger.data.MsgMessageData;
 import io.github.carlos_emr.carlos.commn.model.OscarMsgType;
 import io.github.carlos_emr.carlos.managers.MessengerDemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -53,6 +54,10 @@ import java.util.List;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
 
 /**
  * Struts2 Action for handling message creation and sending in the CARLOS EMR messaging system.
@@ -80,6 +85,14 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * open is refused once rather than sent without them. When the message does not go out, the
  * attachments are put back and the compose page is shown again with the error and what was
  * written.</p>
+ *
+ * <p><b>One send per rendered form.</b> The compose page carries a {@link FormSubmissionGuard}
+ * token ({@code MESSENGER_SEND}) for new messages, replies, reply-all and forwards alike. A double
+ * click, a re-click during a slow send or a reload of the confirmation page repeats the token and
+ * is answered with the first send's own confirmation; the cases that cannot be (still sending,
+ * unconfirmed, a token of another session) get HTTP 409 and the {@code submissionRefused}
+ * page. A used form submitted again with a different message is not such a repeat: the compose
+ * page is shown again with HTTP 409 and the reason, never the first send's confirmation.</p>
  * 
  * @version 2.0 Struts2 migration
  * @since 2003-07-21
@@ -142,9 +155,105 @@ public class MsgCreateMessage2Action extends ActionSupport {
         }
 
         String userName = bean.getUserName();
+        HttpSession session = request.getSession();
+
+        // One rendered compose form sends once (issue #4225): a double click, a second click while
+        // a slow send is still out, or a reload of the "message sent" page repeats the form's
+        // token, and the repeat ends as the first send did instead of delivering the message a
+        // second time. It is claimed before anything is validated or taken from the compose
+        // window, so a repeat never touches this window's attachments. A post without a token
+        // keeps the previous behaviour.
+        FormSubmissionGuard.Attempt attempt = FormSubmissionGuard.attempt(session,
+                request.getParameter(FormSubmissionGuard.PARAMETER), FormSubmissionGuard.Scope.MESSENGER_SEND,
+                null, FormSubmissionGuard.DEFAULT_WAIT_MILLIS);
+        switch (attempt.verdict()) {
+            case PROCEED, ABSENT -> { }
+            case ALREADY_SAVED -> {
+                return answerUsedForm(session, attempt.result());
+            }
+            default -> {
+                return FormSubmissionGuard.refuse(request, response, attempt.verdict());
+            }
+        }
+        try (FormSubmissionGuard.Claim claim = attempt.claim()) {
+            return send(loggedInInfo, userNo, userName, session, claim);
+        }
+    }
+
+    /**
+     * Answers a submission of a compose form that has already sent a message.
+     *
+     * <p>The same message again (a double click, a re-click during a slow send, a reload of the
+     * confirmation page) ends as the first send did: its confirmation, for what was sent. A
+     * <em>different</em> message is not a repeat: the user went back to the used page, changed the
+     * text or the recipients and sent again. Confirming the first send for it would tell them a
+     * message was sent that never was, so the compose page is shown again (HTTP 409) with what
+     * they submitted and the reason. That rendering has a token of its own, so sending from it
+     * delivers the changed message once.</p>
+     */
+    private String answerUsedForm(HttpSession session, String savedResult) {
+        String[] saved = savedResult == null ? new String[0] : savedResult.split(":", 3);
+        boolean sameMessage = saved.length == 3 && saved[1].equals(contentDigest())
+                // Attachments staged for this window after it sent are not part of what was sent.
+                && MsgAttachmentStaging.peek(session, attachmentKey) == null;
+        if (sameMessage) {
+            // Confirm what the first send delivered, never what this repeat carries.
+            request.setAttribute("SentMessageProvs", saved[2]);
+            return SUCCESS;
+        }
+        MiscUtils.getLogger().info("Refused a changed message submitted from a compose form that had already sent");
+        response.setStatus(HttpServletResponse.SC_CONFLICT);
+        response.setHeader("Cache-Control", "no-store");
+        String linkedPatient = demographic_no == null || demographic_no.isEmpty() || "null".equals(demographic_no)
+                ? null : demographic_no;
+        // Nothing is taken from the window: anything it has staged since stays under its key.
+        return redisplay(session, null,
+                LocaleUtils.getMessage(request, "messenger.CreateMessage.msgChangedAfterSend"),
+                ConversionUtils.fromIntString(linkedPatient));
+    }
+
+    /** What a saved send records for its repeats: the message id, what was submitted, and who it was sent to. */
+    private String savedResult(String messageId, String sentToWho) {
+        return messageId + ":" + contentDigest() + ":" + (sentToWho == null ? "" : sentToWho);
+    }
+
+    /**
+     * A digest of the message as this submission carries it: the ticked recipients (in any order),
+     * the subject, the body and the linked patient. Two submissions of one rendered form are the
+     * same message exactly when their digests are equal. Only the digest is kept in the session.
+     */
+    private String contentDigest() {
+        List<String> recipients = new ArrayList<>();
+        if (provider != null) {
+            for (String id : provider) {
+                if (id != null && !id.isBlank() && !recipients.contains(id.trim())) {
+                    recipients.add(id.trim());
+                }
+            }
+        }
+        java.util.Collections.sort(recipients);
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            for (String part : new String[]{String.join(",", recipients), subject, message, demographic_no}) {
+                byte[] bytes = (part == null ? "" : part).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                // Length-prefixed, so text moved from one field to the next is a different message.
+                digest.update(java.nio.ByteBuffer.allocate(4).putInt(bytes.length).array());
+                digest.update(bytes);
+            }
+            return java.util.HexFormat.of().formatHex(digest.digest());
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 is required by every Java runtime", impossible);
+        }
+    }
+
+    /**
+     * Validates and sends the message of one claimed submission. {@code claim} is null for a post
+     * that carried no token.
+     */
+    private String send(LoggedInInfo loggedInInfo, String userNo, String userName, HttpSession session,
+                        FormSubmissionGuard.Claim claim) {
         // This compose window's own attachments, taken once so a second submit of the same form
         // cannot send them again. Every path below that does not send puts them back.
-        HttpSession session = request.getSession();
         MsgAttachmentStaging.Staged staged = MsgAttachmentStaging.take(session, attachmentKey);
         String att = staged == null ? null : staged.itemAttachment();
         String pdfAtt = staged == null ? null : staged.pdfAttachment();
@@ -218,8 +327,27 @@ public class MsgCreateMessage2Action extends ActionSupport {
             if (sentToWho != null) {
                 sentToWho = sentToWho.trim();
             }
-            messageId = messageData.sendMessage2(message, subject, userName, sentToWho, userNo, providerListing, att, pdfAtt, OscarMsgType.GENERAL_TYPE);
+            // The message and its delivery rows commit together, in a transaction the claim
+            // observes: a send that rolled back leaves the form submittable, and one whose commit
+            // could not be confirmed never sends again from the same rendering.
+            final String sendSubject = subject;
+            final String sendTo = sentToWho;
+            final ArrayList<MsgProviderData> recipients = providerListing;
+            messageId = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class)).execute(status -> {
+                if (claim != null) {
+                    claim.storageStarted();
+                }
+                String stored = messageData.sendMessage2(message, sendSubject, userName, sendTo, userNo, recipients,
+                        att, pdfAtt, OscarMsgType.GENERAL_TYPE);
+                if (stored == null || stored.isEmpty()) {
+                    status.setRollbackOnly();
+                }
+                return stored;
+            });
             sent = messageId != null && !messageId.isEmpty();
+            if (claim != null && sent) {
+                claim.saved(savedResult(messageId, sentToWho));
+            }
 
             if (messageId == null || messageId.isEmpty()) {
                 MiscUtils.getLogger().error("sendMessage2 returned null or empty messageId");

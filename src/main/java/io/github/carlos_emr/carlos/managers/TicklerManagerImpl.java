@@ -177,7 +177,7 @@ public class TicklerManagerImpl implements TicklerManager {
             return false;
         }
         Integer storedPatient = getTicklerDemographicNoForUpdate(loggedInInfo, tickler.getId());
-        if (!storedPatient.equals(tickler.getDemographicNo())) {
+        if (!Objects.equals(storedPatient, tickler.getDemographicNo())) {
             requirePatientWrite(loggedInInfo, tickler.getDemographicNo(), PRIVILEGE_UPDATE);
         }
         for (TicklerUpdate tu : tickler.getUpdates()) {
@@ -465,8 +465,18 @@ public class TicklerManagerImpl implements TicklerManager {
         if (patients.isEmpty()) throw new jakarta.ws.rs.NotFoundException();
         if (patients.size() != 1) throw new IllegalStateException("Invalid tickler identity result");
         Integer patient = patients.getFirst();
-        requirePatientWrite(actor, patient, PRIVILEGE_UPDATE);
+        // A legacy tickler stored without a patient (demographic_no 0 or NULL) has no
+        // patient-specific rule to consult: the global _tickler right checked above governs
+        // it, as it did before patient scoping, so such a row can still be completed or
+        // deleted. New patientless ticklers stay impossible (validateTicklerIsValid).
+        if (isAssignedPatient(patient)) {
+            requirePatientWrite(actor, patient, PRIVILEGE_UPDATE);
+        }
         return patient;
+    }
+
+    private static boolean isAssignedPatient(Integer patient) {
+        return patient != null && patient > 0;
     }
 
     private void requirePatientWrite(LoggedInInfo actor, Integer patient, String right) {
@@ -543,25 +553,85 @@ public class TicklerManagerImpl implements TicklerManager {
 
         Integer storedPatient = getTicklerDemographicNoForUpdate(loggedInInfo, tickler_id);
         Tickler tickler = ticklerDao.find(tickler_id);
-        if (tickler == null || !storedPatient.equals(tickler.getDemographicNo())) {
+        if (tickler == null || !Objects.equals(storedPatient, tickler.getDemographicNo())) {
             throw new IllegalStateException("Tickler patient changed during authorization");
         }
         if (tickler.getStatus() != null && tickler.getStatus() != null
                 && !status.equals(tickler.getStatus())) {
-            tickler.setStatus(status);
-            TicklerUpdate update = new TicklerUpdate();
-            update.setProviderNo(provider);
-            update.setStatus(status);
-            update.setTicklerNo(tickler_id.intValue());
-            update.setUpdateDate(new Date());
-
-            ticklerUpdateDao.persist(update);
-            ticklerDao.merge(tickler);
-
-            // --- log action ---
-            LogAction.addLogSynchronous(loggedInInfo, "TicklerManager.updateStatus",
-                    "ticklerId=" + tickler_id + ",providers=" + provider + ",status=" + status);
+            applyStatus(loggedInInfo, tickler, provider, status);
         }
+    }
+
+    private void applyStatus(LoggedInInfo loggedInInfo, Tickler tickler, String provider, Tickler.STATUS status) {
+        tickler.setStatus(status);
+        TicklerUpdate update = new TicklerUpdate();
+        update.setProviderNo(provider);
+        update.setStatus(status);
+        update.setTicklerNo(tickler.getId().intValue());
+        update.setUpdateDate(new Date());
+
+        ticklerUpdateDao.persist(update);
+        ticklerDao.merge(tickler);
+
+        // --- log action ---
+        LogAction.addLogSynchronous(loggedInInfo, "TicklerManager.updateStatus",
+                "ticklerId=" + tickler.getId() + ",providers=" + provider + ",status=" + status);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>The row is read with a locking read, so the status compared here is the committed one
+     * even when this transaction's snapshot predates a concurrent change, and it cannot change
+     * again before this transaction ends.</p>
+     */
+    @Override
+    @Transactional
+    public StatusChange updateStatusIfCurrent(LoggedInInfo loggedInInfo, Integer ticklerId, String provider,
+                                              Tickler.STATUS renderedStatus, Tickler.STATUS status) {
+        checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
+        if (ticklerId == null || ticklerId <= 0) throw new jakarta.ws.rs.BadRequestException("Invalid tickler identifier");
+
+        Tickler tickler = ticklerDao.findForUpdate(ticklerId);
+        if (tickler == null) throw new jakarta.ws.rs.NotFoundException();
+        if (isAssignedPatient(tickler.getDemographicNo())) {
+            requirePatientWrite(loggedInInfo, tickler.getDemographicNo(), PRIVILEGE_UPDATE);
+        }
+
+        Tickler.STATUS current = tickler.getStatus();
+        if (current == null || status.equals(current)) {
+            // Nothing to change (updateStatus never wrote over a missing status either).
+            return StatusChange.UNCHANGED;
+        }
+        if (renderedStatus != null ? renderedStatus != current
+                : current == Tickler.STATUS.D && status == Tickler.STATUS.C) {
+            // Someone changed the status after the caller's page was rendered. With no rendered
+            // status to compare, the one transition no list offers is still refused: Complete
+            // must not bring a Deleted task back as Completed.
+            return StatusChange.STALE;
+        }
+        applyStatus(loggedInInfo, tickler, provider, status);
+        return StatusChange.APPLIED;
+    }
+
+    @Override
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public Tickler getTicklerForUpdate(LoggedInInfo loggedInInfo, Integer id) {
+        checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
+        if (id == null || id <= 0) return null;
+
+        Tickler locked = ticklerDao.findForUpdate(id);
+        if (locked == null) return null;
+        if (isAssignedPatient(locked.getDemographicNo())) {
+            requirePatientWrite(loggedInInfo, locked.getDemographicNo(), PRIVILEGE_UPDATE);
+        }
+        // The same managed instance, now with the comments, history and names find() fetches.
+        Tickler tickler = ticklerDao.find(id);
+
+        // --- log action ---
+        LogAction.addLogSynchronous(loggedInInfo, "TicklerManager.getTickler", "id=" + id);
+
+        return tickler;
     }
 
     @Deprecated

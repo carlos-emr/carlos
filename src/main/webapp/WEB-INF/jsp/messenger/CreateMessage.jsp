@@ -105,6 +105,7 @@
 <%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachmentStaging" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.FormSubmissionGuard" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MessengerGroupManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="java.util.Map" %>
@@ -531,6 +532,11 @@ function validateFields() {
                     <input type="hidden" name="scheduleNav" value="1">
                     <% } %>
                     <input type="hidden" name="attachmentKey" value="<%= SafeEncode.forHtmlAttribute(attachmentKey) %>">
+                    <%-- One send per rendering of this form (new message, reply, reply all, forward, or a refused
+                         send shown again): a double click, a re-click during a slow send or a reload of the
+                         confirmation page repeats this token and MsgCreateMessage2Action sends nothing more. --%>
+                    <input type="hidden" name="<%= FormSubmissionGuard.PARAMETER %>"
+                           value="<%= SafeEncode.forHtmlAttribute(FormSubmissionGuard.issue(session, FormSubmissionGuard.Scope.MESSENGER_SEND, null)) %>">
                     <input type="hidden" name="archiveMessageId" value="${carlos:forHtmlAttribute(archiveMessageId)}">
 				<table class="card card-body bg-body-tertiary" style="width:100%">
 						<tr class="subheader">

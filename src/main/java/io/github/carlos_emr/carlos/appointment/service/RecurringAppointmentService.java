@@ -4,6 +4,7 @@ package io.github.carlos_emr.carlos.appointment.service;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.managers.AppointmentUpdateException;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.sql.Date;
@@ -24,6 +25,9 @@ import org.springframework.transaction.annotation.Transactional;
 /** Atomic recurring-booking operations using the existing series identity (no schema change). */
 @Service
 public class RecurringAppointmentService {
+    /** The edit form's hidden field naming the version it was rendered from (AppointmentEditConflict.PARAMETER). */
+    static final String APPOINTMENT_VERSION = "appointmentVersion";
+
     private final OscarAppointmentDao appointments;
     private final AppointmentArchiveDao archives;
     private final SecurityInfoManager security;
@@ -35,7 +39,12 @@ public class RecurringAppointmentService {
         this.security = security;
     }
 
-    /** All validation and series discovery precede writes; a failure rolls back the entire operation. */
+    /**
+     * All validation and series discovery precede writes; a failure rolls back the entire operation.
+     *
+     * @throws AppointmentUpdateException when the form names the version it was rendered from and the
+     *         appointment has changed since (nothing is written)
+     */
     @Transactional
     public int apply(LoggedInInfo user, Map<String, String> values, int programId) {
         String requestedId = values.get("appointment_no");
@@ -68,6 +77,15 @@ public class RecurringAppointmentService {
                 : appointments.findForUpdate(number(id, "appointment number"));
         if ((id != null && !id.isBlank() && anchor == null) || (!adding && anchor == null)) {
             throw new IllegalArgumentException("This appointment no longer exists. Reopen the schedule.");
+        }
+        // The repeat page is opened from the Edit Appointment form and carries its fields and the
+        // version they were rendered from. A form another user's change has overtaken must not
+        // write those stale fields over the series; the anchor row is locked, so the comparison
+        // and the writes below see the same appointment.
+        String renderedVersion = values.get(APPOINTMENT_VERSION);
+        if (anchor != null && renderedVersion != null && !renderedVersion.isBlank()
+                && !renderedVersion.trim().equals(anchor.getEditVersion())) {
+            throw new AppointmentUpdateException(AppointmentUpdateException.Reason.STALE_VERSION);
         }
         if (anchor != null && !Objects.equals(anchor.getAppointmentDate(), template.getAppointmentDate())) {
             throw new IllegalArgumentException("Save the appointment date before changing its repeats.");

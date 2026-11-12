@@ -83,6 +83,32 @@ public class TicklerDaoWriteIntegrationTest extends TicklerDaoBaseIntegrationTes
         assertThat(loaded.getComments()).extracting("message").containsExactly("Atomic comment");
     }
 
+    @Test
+    @DisplayName("should read the stored row again under the lock when the tickler was already loaded")
+    void shouldReturnStoredState_whenLockingAnAlreadyLoadedTickler() {
+        Tickler tickler = createTickler(5002, "Stale list", Tickler.STATUS.A);
+        entityManager.flush();
+        // Another writer changes the row after this persistence context loaded it.
+        entityManager.createNativeQuery("UPDATE tickler SET status = 'D' WHERE tickler_no = ?1")
+                .setParameter(1, tickler.getId()).executeUpdate();
+        assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.A);
+
+        Tickler locked = ticklerDao.findForUpdate(tickler.getId());
+
+        assertThat(locked).isSameAs(tickler);
+        assertThat(locked.getStatus()).isEqualTo(Tickler.STATUS.D);
+        // The fetch-joined detail read used by the edit path still resolves to the locked instance.
+        assertThat(ticklerDao.find(tickler.getId())).isSameAs(locked);
+        assertThat(ticklerDao.find(tickler.getId()).getStatus()).isEqualTo(Tickler.STATUS.D);
+    }
+
+    @Test
+    @DisplayName("should return null when locking a tickler that does not exist")
+    void shouldReturnNull_whenLockingMissingTickler() {
+        assertThat(ticklerDao.findForUpdate(Integer.MAX_VALUE)).isNull();
+        assertThat(ticklerDao.findForUpdate(null)).isNull();
+    }
+
     @Nested
     @DisplayName("Create and Update Operations")
     class CreateAndUpdateOperations {

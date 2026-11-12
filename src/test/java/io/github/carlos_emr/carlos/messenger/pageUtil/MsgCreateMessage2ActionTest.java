@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.messenger.data.ContactIdentifier;
 import io.github.carlos_emr.carlos.messenger.data.MsgMessageData;
 import io.github.carlos_emr.carlos.messenger.data.MsgProviderData;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
+import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
@@ -352,6 +353,137 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
             assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNull();
             assertThat(MsgAttachmentStaging.peek(getMockSession(), otherWindow).pdfDemographicNo()).isEqualTo(202);
             verify(mockDemoManager).attachDemographicToMessage(any(), eq(77), eq(101));
+        }
+
+        /** The next HTTP request of the same rendered form: a new action, the same posted fields and token. */
+        private void repeatSubmission(String token) {
+            mockRequest = new org.springframework.mock.web.MockHttpServletRequest("POST", "/messenger/CreateMessage");
+            mockRequest.setSession(getMockSession());
+            mockResponse = new org.springframework.mock.web.MockHttpServletResponse();
+            if (token != null) {
+                mockRequest.setParameter(FormSubmissionGuard.PARAMETER, token);
+            }
+            setUpActionContext();
+            action = new MsgCreateMessage2Action();
+            injectField("securityInfoManager", mockSecurityInfoManager);
+            injectField("messengerDemographicManager", mockDemoManager);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            action.setSubject("FAKE subject");
+            action.setMessage("FAKE body");
+            action.setProvider(new String[]{RECIPIENT});
+        }
+
+        @Test
+        @DisplayName("should send one message when one rendered compose form is submitted twice")
+        void shouldSendOnce_whenTheSameRenderedFormIsSubmittedTwice() throws Exception {
+            String token = FormSubmissionGuard.issue(getMockSession(), FormSubmissionGuard.Scope.MESSENGER_SEND, null);
+            repeatSubmission(token);
+
+            assertThat(send()).isEqualTo("success");
+            assertThat(getMockRequest().getAttribute("SentMessageProvs")).isEqualTo(RECIPIENT);
+
+            // A double click, a re-click during a slow send or a reload of the result page.
+            repeatSubmission(token);
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sends.get()).isEqualTo(1);
+            // The repeat ends as the first send did: the same confirmation, for what was sent.
+            assertThat(getMockRequest().getAttribute("SentMessageProvs")).isEqualTo(RECIPIENT);
+            assertThat(getMockResponse().getStatus()).isEqualTo(200);
+            verify(mockDemoManager, times(1)).attachDemographicToMessage(any(), eq(77), eq(101));
+            // The repeat neither takes nor restores this window's attachments.
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNull();
+        }
+
+        @Test
+        @DisplayName("should not confirm a changed message as sent when the already used form is submitted again")
+        void shouldRedisplayUnsentChange_whenTheUsedFormIsResubmittedWithDifferentContent() throws Exception {
+            String token = FormSubmissionGuard.issue(getMockSession(), FormSubmissionGuard.Scope.MESSENGER_SEND, null);
+            repeatSubmission(token);
+            assertThat(send()).isEqualTo("success");
+
+            // The user went back to the page that had sent, changed the message and sent again.
+            repeatSubmission(token);
+            action.setSubject("FAKE corrected subject");
+            action.setMessage("FAKE corrected body");
+            String result = send();
+
+            // Not the first send's "message sent" page: the corrected message has not been sent.
+            assertThat(result).isEqualTo("error");
+            assertThat(getMockResponse().getStatus()).isEqualTo(409);
+            assertThat(sends.get()).isEqualTo(1);
+            assertThat(getMockRequest().getAttribute("SentMessageProvs")).isNull();
+            assertThat((String) getMockRequest().getAttribute("createMessageError")).isNotBlank();
+            // The compose page comes back with what was typed, so it can be sent as a new message.
+            assertThat(getMockRequest().getAttribute("ReSubject")).isEqualTo("FAKE corrected subject");
+            assertThat(getMockRequest().getAttribute("ReText")).isEqualTo("FAKE corrected body");
+
+            // The page shown again carries a token of its own; sending from it delivers the correction once.
+            String fresh = FormSubmissionGuard.issue(getMockSession(), FormSubmissionGuard.Scope.MESSENGER_SEND, null);
+            repeatSubmission(fresh);
+            action.setSubject("FAKE corrected subject");
+            action.setMessage("FAKE corrected body");
+            assertThat(send()).isEqualTo("success");
+            assertThat(sends.get()).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("should not confirm the first send when the used form is submitted again for other recipients")
+        void shouldRedisplayUnsentChange_whenTheUsedFormIsResubmittedForOtherRecipients() throws Exception {
+            String token = FormSubmissionGuard.issue(getMockSession(), FormSubmissionGuard.Scope.MESSENGER_SEND, null);
+            repeatSubmission(token);
+            assertThat(send()).isEqualTo("success");
+
+            repeatSubmission(token);
+            action.setProvider(new String[]{"999997-0-1"});
+
+            assertThat(send()).isEqualTo("error");
+            assertThat(getMockResponse().getStatus()).isEqualTo(409);
+            assertThat(sends.get()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("should keep the token usable when the first submission was refused before anything was stored")
+        void shouldSendOnRetry_whenTheFirstSubmissionWasRefusedBeforeStorage() throws Exception {
+            String token = FormSubmissionGuard.issue(getMockSession(), FormSubmissionGuard.Scope.MESSENGER_SEND, null);
+            repeatSubmission(token);
+            noRecipients = true;
+            assertThat(send()).isEqualTo("error");
+            assertThat(sends.get()).isZero();
+
+            // The same rendering submitted again (the second click of a double click) may still send.
+            repeatSubmission(token);
+            noRecipients = false;
+            assertThat(send()).isEqualTo("success");
+            assertThat(sends.get()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("should refuse a token this session did not issue for the compose form, and send nothing")
+        void shouldRefuseWithConflict_whenTheTokenWasNotIssuedForThisForm() throws Exception {
+            String foreign = FormSubmissionGuard.issue(getMockSession(), FormSubmissionGuard.Scope.APPOINTMENT_ADD, null);
+            repeatSubmission(foreign);
+
+            assertThat(send()).isEqualTo(FormSubmissionGuard.REFUSED_RESULT);
+
+            assertThat(getMockResponse().getStatus()).isEqualTo(409);
+            assertThat(sends.get()).isZero();
+            // Nothing was taken from this window: it can still be sent from a freshly opened form.
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNotNull();
+            verifyNoInteractions(mockDemoManager);
+        }
+
+        @Test
+        @DisplayName("should keep sending without a token as before")
+        void shouldSendEachSubmission_whenNoTokenIsPosted() throws Exception {
+            repeatSubmission(null);
+            assertThat(send()).isEqualTo("success");
+            MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 101, "<PDF>FAKE patient 101 chart</PDF>");
+            repeatSubmission(null);
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sends.get()).isEqualTo(2);
         }
 
         @Test

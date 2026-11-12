@@ -168,6 +168,8 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
                 assertThat(failedJdbc.queryForObject("SELECT COUNT(*) FROM prescription", Long.class)).isZero();
                 assertThat(failedJdbc.queryForObject("SELECT COUNT(*) FROM drugs", Long.class)).isZero();
                 assertThat(failedJdbc.queryForObject("SELECT COUNT(*) FROM log WHERE action='add'", Long.class)).isZero();
+                // The content evidence joins the clinical transaction: none survives its rollback.
+                assertThat(failedJdbc.queryForObject("SELECT COUNT(*) FROM rx_submission_receipt WHERE outcome='SAVED'", Long.class)).isZero();
                 setAudit(audit);
                 action.persistStash(info, bean); // Only a confirmed rollback releases the exact draft for retry.
             } else {
@@ -200,6 +202,9 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM prescription", Long.class)).isEqualTo(1L);
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM drugs", Long.class)).isEqualTo(1L);
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM log WHERE action='add' AND content='prescription'", Long.class)).isEqualTo(1L);
+            // The draft receipt and the evidence of what it stored, both naming the one script.
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM rx_submission_receipt WHERE outcome='SAVED' AND prescription_id="
+                    + receipt.scriptId(), Long.class)).isEqualTo(2L);
             assertThat(receipts.find("999997", 1001, token)).isNull();
             if (!auditFailure && !rollbackOnly) {
                 final var replayResponse = new org.springframework.mock.web.MockHttpServletResponse();
@@ -226,6 +231,8 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
                 }
                 request.removeParameter("draftRevision_456");
                 request.removeParameter("drugName_456");
+                // The exact replay below posts what the saved request posted, nothing more.
+                request.removeParameter("drugName_123");
                 request.setParameter("draftRevision_123", originalRevision);
             }
             // No Rx bean in this new request/session: replay is resolved from durable, ownership-scoped evidence.
@@ -248,6 +255,287 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
             assertThat(recoveryPage.select("a").attr("href")).isEqualTo(
                     request.getContextPath() + "/rx/choosePatient?demographicNo=1001");
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM drugs", Long.class)).isEqualTo(1L);
+        }
+    }
+
+    /**
+     * One staged card saved through the real clinical transaction by a request that carried a
+     * known set of fields, with the statics a replay needs kept open. The receipt alone used to
+     * decide a replay; these tests pin that the submitted fields decide it as well.
+     */
+    private final class SavedDraft implements AutoCloseable {
+        final RxSessionBean bean = new RxSessionBean();
+        final RxPrescriptionData.Prescription card = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        final LoggedInInfo info = mock(LoggedInInfo.class);
+        final String renderedRevision = card.getDraftRevision();
+        final int scriptId;
+        private final org.mockito.MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class);
+        private final org.mockito.MockedStatic<LoggedInInfo> session = mockStatic(LoggedInInfo.class);
+        private final org.mockito.MockedConstruction<RxPrescriptionData> headers = mockConstruction(RxPrescriptionData.class,
+                (data, context) -> when(data.saveScript(any(), any())).thenAnswer(invocation -> {
+                    var header = new Prescription(); header.setProviderNo("999998"); header.setDemographicId(1001);
+                    em.persist(header); return header.getId().toString();
+                }));
+
+        SavedDraft() {
+            try {
+                scriptId = save();
+            } catch (RuntimeException | Error failure) {
+                close();
+                throw failure;
+            }
+        }
+
+        private int save() {
+            bean.setProviderNo("999998"); bean.setDemographicNo(1001);
+            card.setRandomId(123); card.setGCN_SEQNO("0"); card.setBrandName("Synthetic receipt medication");
+            card.setSpecial("1 tab PO OD"); card.setRxDate(java.sql.Date.valueOf("2026-01-01"));
+            bean.getStashList().add(card);
+            when(info.getLoggedInProviderNo()).thenReturn("999998");
+            var security = mock(SecurityInfoManager.class); registerMock(SecurityInfoManager.class, security);
+            when(security.hasPrivilege(eq(info), eq("_rx"), anyString(), isNull())).thenReturn(true);
+            when(security.hasPrivilege(eq(info), eq("_rx"), anyString(), eq(1001))).thenReturn(true);
+            when(security.isAllowedAccessToPatientRecord(info, 1001)).thenReturn(true);
+            session.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(jakarta.servlet.http.HttpServletRequest.class))).thenReturn(info);
+            var request = submission("1 tab PO OD");
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            return Integer.parseInt(new RxWriteScript2Action(mock(PrescriptionSignatureStampService.class)).persistStash(info, bean));
+        }
+
+        /** The rendered form as the browser posts it; only the directions vary between posts. */
+        MockHttpServletRequest submission(String instructions) {
+            var request = new MockHttpServletRequest("POST", "/rx/WriteScript");
+            request.addParameter("demographicNo", "1001");
+            request.addParameter("draftRevision_123", renderedRevision);
+            request.addParameter("drugName_123", "Synthetic receipt medication");
+            request.addParameter("instructions_123", instructions);
+            request.addParameter("rxPharmacyId", "");
+            return request;
+        }
+
+        /** Posts {@code request} to the AJAX save in a fresh request-scoped action. */
+        com.fasterxml.jackson.databind.JsonNode replay(MockHttpServletRequest request, RxSessionBean staged) throws Exception {
+            var response = new MockHttpServletResponse();
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            var action = new RxWriteScript2Action(mock(PrescriptionSignatureStampService.class));
+            if (staged == null) {
+                // No Rx bean: the answer comes from durable, ownership-scoped evidence alone.
+                assertThat(action.updateSaveAllDrugs()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+            } else {
+                try (var resolver = mockStatic(RxSessionBeanResolver.class)) {
+                    resolver.when(() -> RxSessionBeanResolver.requestedDemographicNo(request)).thenReturn(1001);
+                    resolver.when(() -> RxSessionBeanResolver.resolve(request)).thenReturn(staged);
+                    resolver.when(() -> RxSessionBeanResolver.isRequestForBeanPatient(request, staged)).thenReturn(true);
+                    assertThat(action.updateSaveAllDrugs()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+                }
+            }
+            assertThat(response.getStatus()).isEqualTo(409);
+            return new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        }
+
+        /** Posts {@code request} to the legacy Save & Print form action. */
+        MockHttpServletResponse legacyReplay(MockHttpServletRequest request) throws Exception {
+            var response = new MockHttpServletResponse();
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            var legacy = new RxWriteScript2Action(mock(PrescriptionSignatureStampService.class));
+            legacy.setAction("updateAndPrint");
+            assertThat(legacy.execute()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+            return response;
+        }
+
+        /** Posts {@code request} to the programmatic save entry point with the workspace resolved. */
+        com.fasterxml.jackson.databind.JsonNode saveDrug(MockHttpServletRequest request) throws Exception {
+            var response = new MockHttpServletResponse();
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            var action = new RxWriteScript2Action(mock(PrescriptionSignatureStampService.class));
+            try (var resolver = mockStatic(RxSessionBeanResolver.class)) {
+                resolver.when(() -> RxSessionBeanResolver.resolve(request)).thenReturn(bean);
+                resolver.when(() -> RxSessionBeanResolver.isRequestForBeanPatient(request, bean)).thenReturn(true);
+                action.saveDrug(request);
+            }
+            assertThat(response.getStatus()).isEqualTo(409);
+            return new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        }
+
+        /** Everything a second save would add to. */
+        String storedRows() {
+            var jdbc = new JdbcTemplate(source);
+            return jdbc.queryForObject("SELECT COUNT(*) FROM prescription", Long.class) + " prescription, "
+                    + jdbc.queryForObject("SELECT COUNT(*) FROM drugs", Long.class) + " drugs, "
+                    + jdbc.queryForObject("SELECT COUNT(*) FROM log WHERE action='add'", Long.class) + " audits, "
+                    + jdbc.queryForList("SELECT submission_hash FROM rx_submission_receipt ORDER BY submission_hash", String.class);
+        }
+
+        @Override public void close() { headers.close(); session.close(); servlet.close(); }
+    }
+
+    @Test void shouldAnswerAlreadySaved_whenTheSavedDraftIsReplayedWithTheSameFields() throws Exception {
+        try (var saved = new SavedDraft()) {
+            String before = saved.storedRows();
+            var retry = saved.submission("1 tab PO OD");
+            // What legitimately differs between two posts of an unchanged form.
+            retry.addParameter("rand", "4711"); retry.addParameter("CSRF-TOKEN", "rotated-token");
+            retry.addParameter("clearSaved", "true"); retry.addParameter("searchString", "another search");
+            retry.addParameter("method", "brandName"); retry.addParameter("wildcard", "true");
+
+            var answer = saved.replay(retry, null);
+
+            assertThat(answer.path("error").asText()).isEqualTo("RX_ALREADY_SAVED");
+            assertThat(answer.path("scriptId").asInt()).isEqualTo(saved.scriptId);
+            assertThat(saved.storedRows()).isEqualTo(before);
+        }
+    }
+
+    @Test void shouldRefuseAsEarlierVersion_whenTheSavedDraftIsResubmittedWithEditedFields() throws Exception {
+        try (var saved = new SavedDraft()) {
+            String before = saved.storedRows();
+
+            var answer = saved.replay(saved.submission("2 tabs PO BID"), null);
+
+            // "Already saved; do not enter it again" would drop the correction without a word.
+            assertThat(answer.path("error").asText()).isEqualTo("RX_SAVED_EARLIER_VERSION");
+            assertThat(answer.path("scriptId").asInt()).isEqualTo(saved.scriptId);
+            assertThat(saved.storedRows()).isEqualTo(before);
+            assertThat(new JdbcTemplate(source).queryForObject("SELECT special FROM drugs", String.class)).contains("1 tab PO OD");
+        }
+    }
+
+    @Test void shouldRefuseAsEarlierVersion_whenAFieldIsAddedOrRemovedFromTheSavedDraft() throws Exception {
+        try (var saved = new SavedDraft()) {
+            var added = saved.submission("1 tab PO OD"); added.addParameter("repeats_123", "3");
+            var removed = saved.submission("1 tab PO OD"); removed.removeParameter("instructions_123");
+            var otherPharmacy = saved.submission("1 tab PO OD"); otherPharmacy.setParameter("rxPharmacyId", "7");
+
+            for (var edited : java.util.List.of(added, removed, otherPharmacy)) {
+                assertThat(saved.replay(edited, null).path("error").asText()).isEqualTo("RX_SAVED_EARLIER_VERSION");
+            }
+        }
+    }
+
+    @Test void shouldRefuseAsEarlierVersion_whenTheReceiptCarriesNoContentEvidence() throws Exception {
+        try (var saved = new SavedDraft()) {
+            // A receipt written before content was bound to it cannot vouch for what was stored.
+            String draft = RxSubmissionReceiptService.fingerprint(java.util.Map.of("123", saved.renderedRevision));
+            new JdbcTemplate(source).update("DELETE FROM rx_submission_receipt WHERE submission_hash<>?", draft);
+
+            var answer = saved.replay(saved.submission("1 tab PO OD"), null);
+
+            assertThat(answer.path("error").asText()).isEqualTo("RX_SAVED_EARLIER_VERSION");
+            assertThat(new JdbcTemplate(source).queryForObject("SELECT COUNT(*) FROM prescription", Long.class)).isEqualTo(1L);
+        }
+    }
+
+    @Test void shouldRenderEarlierVersionRecovery_whenTheLegacyFormResubmitsEditedFields() throws Exception {
+        try (var saved = new SavedDraft()) {
+            String before = saved.storedRows();
+            var messages = java.util.ResourceBundle.getBundle("oscarResources", java.util.Locale.ENGLISH);
+
+            var unchanged = saved.legacyReplay(saved.submission("1 tab PO OD"));
+            var edited = saved.legacyReplay(saved.submission("2 tabs PO BID"));
+
+            assertThat(unchanged.getStatus()).isEqualTo(409);
+            assertThat(org.jsoup.Jsoup.parse(unchanged.getContentAsString()).select("p[role=alert]").text())
+                    .isEqualTo(messages.getString("oscarRx.saveAlreadySaved"));
+            assertThat(edited.getStatus()).isEqualTo(409);
+            var page = org.jsoup.Jsoup.parse(edited.getContentAsString());
+            assertThat(page.select("p[role=alert]").text())
+                    .isEqualTo(messages.getString("oscarRx.saveEarlierVersionSaved"))
+                    .contains("NOT saved").doesNotContain("do not enter it again");
+            assertThat(page.select("a").attr("href")).isEqualTo("/rx/choosePatient?demographicNo=1001");
+            assertThat(saved.storedRows()).isEqualTo(before);
+        }
+    }
+
+    @Test void shouldTreatTheDrugMethodAsContent_whenTheLegacyFormIsResubmitted() throws Exception {
+        try (var saved = new SavedDraft()) {
+            // On the legacy form "method" is the drug's method (Take, Apply, ...), not SearchDrug3's
+            // search filter, so there a change to it is a change to the prescription.
+            var otherMethod = saved.submission("1 tab PO OD"); otherMethod.addParameter("method", "Apply");
+            var messages = java.util.ResourceBundle.getBundle("oscarResources", java.util.Locale.ENGLISH);
+
+            var page = org.jsoup.Jsoup.parse(saved.legacyReplay(otherMethod).getContentAsString());
+
+            assertThat(page.select("p[role=alert]").text()).isEqualTo(messages.getString("oscarRx.saveEarlierVersionSaved"));
+            // The same field on the SearchDrug3 save is its search filter and changes nothing.
+            assertThat(saved.replay(otherMethod, null).path("error").asText()).isEqualTo("RX_ALREADY_SAVED");
+        }
+    }
+
+    @Test void shouldTellReplayFromEdit_whenTheProgrammaticSaveSeesASavedDraft() throws Exception {
+        try (var saved = new SavedDraft()) {
+            String before = saved.storedRows();
+
+            var unchanged = saved.saveDrug(saved.submission("1 tab PO OD"));
+            var edited = saved.saveDrug(saved.submission("2 tabs PO BID"));
+
+            assertThat(unchanged.path("error").asText()).isEqualTo("RX_ALREADY_SAVED");
+            assertThat(edited.path("error").asText()).isEqualTo("RX_SAVED_EARLIER_VERSION");
+            assertThat(edited.path("scriptId").asInt()).isEqualTo(saved.scriptId);
+            assertThat(saved.storedRows()).isEqualTo(before);
+        }
+    }
+
+    @Test void shouldReturnAcknowledgedRevisions_whenTheReplayedCardsAreStillStaged() throws Exception {
+        try (var saved = new SavedDraft()) {
+            // Save & Print keeps its saved cards staged under new revisions the lost reply carried.
+            String acknowledged = saved.card.getDraftRevision();
+            assertThat(acknowledged).isNotEqualTo(saved.renderedRevision);
+
+            var answer = saved.replay(saved.submission("1 tab PO OD"), saved.bean);
+
+            assertThat(answer.path("error").asText()).isEqualTo("RX_ALREADY_SAVED");
+            assertThat(answer.path("draftRevisions").path("123").asText()).isEqualTo(acknowledged);
+            assertThat(saved.bean.getStash()).containsExactly(saved.card);
+            assertThat(saved.card.getDraftRevision()).isEqualTo(acknowledged);
+        }
+    }
+
+    @Test void shouldClearSavedCards_whenTheSaveOnlyReplayFindsThemStillStaged() throws Exception {
+        try (var saved = new SavedDraft()) {
+            var retry = saved.submission("1 tab PO OD"); retry.addParameter("clearSaved", "true");
+
+            var answer = saved.replay(retry, saved.bean);
+
+            // As the lost Save reply would have left it: nothing staged, nothing to acknowledge.
+            assertThat(answer.path("error").asText()).isEqualTo("RX_ALREADY_SAVED");
+            assertThat(answer.has("draftRevisions")).isFalse();
+            assertThat(saved.bean.getStashSize()).isZero();
+        }
+    }
+
+    @Test void shouldKeepAnotherWindowsDraft_whenTheSaveOnlyReplayIsAcknowledged() throws Exception {
+        try (var saved = new SavedDraft()) {
+            var newer = new RxPrescriptionData.Prescription(0, "999998", 1001);
+            newer.setRandomId(456); newer.setSpecial("Unsaved newer draft");
+            saved.bean.getStashList().add(newer);
+            var retry = saved.submission("1 tab PO OD"); retry.addParameter("clearSaved", "true");
+
+            var answer = saved.replay(retry, saved.bean);
+
+            assertThat(answer.path("error").asText()).isEqualTo("RX_ALREADY_SAVED");
+            assertThat(answer.has("draftRevisions")).isFalse();
+            assertThat(saved.bean.getStash()).contains(newer);
+        }
+    }
+
+    @Test void shouldLeaveStagedCardsUntouched_whenEditedFieldsAreRefused() throws Exception {
+        try (var saved = new SavedDraft()) {
+            String acknowledged = saved.card.getDraftRevision();
+            int drugId = saved.card.getDrugId();
+            var edited = saved.submission("2 tabs PO BID"); edited.addParameter("clearSaved", "true");
+
+            var answer = saved.replay(edited, saved.bean);
+
+            assertThat(answer.path("error").asText()).isEqualTo("RX_SAVED_EARLIER_VERSION");
+            assertThat(answer.has("draftRevisions")).isFalse();
+            assertThat(saved.bean.getStash()).containsExactly(saved.card);
+            assertThat(saved.card.getDraftRevision()).isEqualTo(acknowledged);
+            assertThat(saved.card.getDrugId()).isEqualTo(drugId);
+            assertThat(saved.card.getSpecial()).contains("1 tab PO OD");
         }
     }
 

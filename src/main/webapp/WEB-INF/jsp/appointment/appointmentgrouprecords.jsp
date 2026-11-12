@@ -53,6 +53,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@page import="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentEditConflict" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
 
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
@@ -182,6 +183,24 @@
 
         if (request.getParameter("groupappt").equals("Group Update") || request.getParameter("groupappt").equals("Group Cancel") ||
                 request.getParameter("groupappt").equals("Group Delete")) {
+            // The three group edits write the fields of the Edit Appointment form this page was opened from
+            // (Group Update removes each ticked appointment and books it again from them). They run in one
+            // transaction that first locks the appointments the form and this page were rendered from and
+            // refuses the whole action (HTTP 409, nothing written) when one of them was changed or removed by
+            // someone else in the meantime; see AppointmentEditConflict.
+            org.springframework.transaction.PlatformTransactionManager groupTxManager =
+                    SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class);
+            org.springframework.transaction.TransactionStatus groupTx = groupTxManager.getTransaction(
+                    new org.springframework.transaction.support.DefaultTransactionDefinition());
+            boolean groupTxEnded = false;
+            try {
+            if (AppointmentEditConflict.staleUnderLock(appointmentDao, request)) {
+                groupTxManager.rollback(groupTx);
+                groupTxEnded = true;
+                AppointmentEditConflict.refuse(request, response);
+                pageContext.forward(AppointmentEditConflict.VIEW);
+                return;
+            }
             int rowsAffected = 0, datano = 0;
             StringBuffer strbuf = null;
             String createdDateTime = UtilDateUtilities.DateToString(new java.util.Date(), "yyyy-MM-dd HH:mm:ss");
@@ -305,6 +324,12 @@
                 if (rowsAffected != 1) break;
             }
             if (rowsAffected == 1) bSucc = true;
+            groupTxManager.commit(groupTx);
+            groupTxEnded = true;
+            } finally {
+                // An exception part-way through leaves nothing half-applied.
+                if (!groupTxEnded) groupTxManager.rollback(groupTx);
+            }
         }
 
         if (bSucc) {
@@ -464,6 +489,7 @@
                 if (bTwo) otherAppt.setProperty(other.getProviderNo() + "two", "checked");
                 if (bOne || bTwo) {
                     otherAppt.setProperty(other.getProviderNo() + "apptno", String.valueOf(other.getId()));
+                    otherAppt.setProperty(other.getProviderNo() + "apptversion", other.getEditVersion());
                     appt += "<b>" + String.valueOf(ConversionUtils.toTimeStringNoSeconds(other.getStartTime())).substring(0, 5) + "-" + String.valueOf(ConversionUtils.toTimeStringNoSeconds(other.getEndTime())).substring(0, 5) + "|"
                             + dotStr + SafeEncode.forHtml(other.getName() == null ? "" : other.getName()) + "</b>|";
                 } else {
@@ -552,6 +578,9 @@
                     <% if (otherAppt.getProperty(provider.getProviderNo() + "apptno") != null) {%>
                     <input type="hidden" name="appointment_no<%=i%>"
                            value="<%=otherAppt.getProperty(provider.getProviderNo()+"apptno")%>">
+                    <%-- The version this row was listed at; a group edit refuses a row changed since. --%>
+                    <input type="hidden" name="<%= AppointmentEditConflict.ROW_PARAMETER_PREFIX %><%=i%>"
+                           value="<carlos:encode value='<%= otherAppt.getProperty(provider.getProviderNo() + "apptversion", "") %>' context="htmlAttribute"/>">
                     <% } %>
                 </td>
                 <td class="text-center">

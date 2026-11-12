@@ -33,6 +33,8 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 import io.github.carlos_emr.carlos.event.EventService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.managers.AppointmentUpdateException;
+import io.github.carlos_emr.carlos.managers.ScheduleManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -44,7 +46,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.InOrder;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -58,12 +59,12 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -86,6 +87,7 @@ class AppointmentAuditUnitTest extends CarlosUnitTestBase {
     private final SecurityInfoManager security = mock(SecurityInfoManager.class);
     private final OscarAppointmentDao appointments = mock(OscarAppointmentDao.class);
     private final AppointmentArchiveDao archives = mock(AppointmentArchiveDao.class);
+    private final ScheduleManager schedule = mock(ScheduleManager.class);
     private final EventService events = mock(EventService.class);
     private final LoggedInInfo info = mock(LoggedInInfo.class);
 
@@ -100,6 +102,7 @@ class AppointmentAuditUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, security);
         registerMock(OscarAppointmentDao.class, appointments);
         registerMock(AppointmentArchiveDao.class, archives);
+        registerMock(ScheduleManager.class, schedule);
         registerMock(WaitingListDao.class, mock(WaitingListDao.class));
         registerMock(EventService.class, events);
         registerMock(PlatformTransactionManager.class,
@@ -144,6 +147,13 @@ class AppointmentAuditUnitTest extends CarlosUnitTestBase {
         appt.setNotes(NOTES);
         appt.setLastUpdateUser("999998");
         when(appointments.find(id)).thenReturn(appt);
+        // The edit, Delete and Cut buttons go through the manager, which locks the row, applies the
+        // edit or archives and removes it, and hands back the row it wrote.
+        when(schedule.updateAppointment(eq(info), eq(id), any(), any())).thenAnswer(call -> {
+            call.<java.util.function.Consumer<Appointment>>getArgument(3).accept(appt);
+            return appt;
+        });
+        when(schedule.removeAppointment(eq(info), eq(id), any())).thenReturn(appt);
         return appt;
     }
 
@@ -285,20 +295,46 @@ class AppointmentAuditUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldAuditTheRemovalAgainstItsPatientBeforeRemoving_whenAnAppointmentIsDeleted() throws Exception {
+    void shouldAuditTheRemovalAgainstItsPatient_whenAnAppointmentIsDeleted() throws Exception {
         stored(77, 42, "t");
         request.setParameter("appointment_no", "77");
 
         String result = new AppointmentDeleteRecord2Action().execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        // The row is written in the request thread, before the appointment row it names is gone.
+        // The row is written in the request thread, for the appointment the manager archived and removed.
+        verify(schedule).removeAppointment(eq(info), eq(77), any());
         logActionMock.verify(() -> LogAction.addLogSynchronous(info, LogConst.DELETE, LogConst.CON_APPT, "77", "42",
                 null), times(1));
-        InOrder order = inOrder(archives, appointments);
-        order.verify(archives).archiveAppointment(any(Appointment.class));
-        order.verify(appointments).remove(77);
         assertNoAppointmentTextIsAudited();
+    }
+
+    @Test
+    void shouldNotAuditARemoval_whenAStaleDeleteIsRefused() throws Exception {
+        stored(77, 42, "t");
+        request.setParameter("appointment_no", "77");
+        when(schedule.removeAppointment(eq(info), eq(77), any()))
+                .thenThrow(new AppointmentUpdateException(AppointmentUpdateException.Reason.STALE_VERSION));
+
+        new AppointmentDeleteRecord2Action().execute();
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        logActionMock.verify(() -> LogAction.addLogSynchronous(any(LoggedInInfo.class), anyString(), anyString(),
+                anyString(), nullable(String.class), nullable(String.class)), never());
+    }
+
+    @Test
+    void shouldNotAuditACut_whenAStaleCutIsRefused() throws Exception {
+        stored(77, 42, "t");
+        request.setParameter("appointment_no", "77");
+        when(schedule.removeAppointment(eq(info), eq(77), any()))
+                .thenThrow(new AppointmentUpdateException(AppointmentUpdateException.Reason.STALE_VERSION));
+
+        new AppointmentCutRecord2Action().execute();
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        logActionMock.verify(() -> LogAction.addLogSynchronous(any(LoggedInInfo.class), anyString(), anyString(),
+                anyString(), nullable(String.class), nullable(String.class)), never());
     }
 
     @Test

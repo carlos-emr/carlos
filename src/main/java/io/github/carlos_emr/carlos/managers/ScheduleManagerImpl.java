@@ -305,6 +305,37 @@ public class ScheduleManagerImpl implements ScheduleManager {
         return current;
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>The lock, the version comparison, the archive row and the removal share one transaction,
+     * so a refused removal leaves no stray archive row behind. The caller writes the audit entry
+     * ({@code Appointment.delete} / {@code Appointment.cut}), as the form's actions always have.</p>
+     */
+    @Override
+    @Transactional
+    public Appointment removeAppointment(LoggedInInfo loggedInInfo, Integer appointmentId, String expectedVersion) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "d", null)) {
+            throw new SecurityException("missing required sec object (_appointment)");
+        }
+        boolean hasVersion = expectedVersion != null && !expectedVersion.isBlank();
+        Appointment current = oscarAppointmentDao.findForUpdate(appointmentId);
+        if (current == null) {
+            throw new AppointmentUpdateException(AppointmentUpdateException.Reason.NOT_FOUND);
+        }
+        AppointmentPatientAccess.require(loggedInInfo, securityInfoManager, current.getDemographicNo(), "d");
+        if (hasVersion && !current.getEditVersion().equals(expectedVersion)) {
+            throw new AppointmentUpdateException(AppointmentUpdateException.Reason.STALE_VERSION);
+        }
+        // The archive row names who removed an appointment nobody had edited since it was booked.
+        if (current.getLastUpdateUser() == null || current.getLastUpdateUser().isEmpty()) {
+            current.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
+        }
+        appointmentArchiveDao.archiveAppointment(current);
+        oscarAppointmentDao.remove(current);
+        return current;
+    }
+
     public List<Appointment> getAppointmentsForDateRangeAndProvider(LoggedInInfo loggedInInfo, Date startTime, Date endTime, String providerNo) {
         List<Appointment> appointments = oscarAppointmentDao.findByDateRangeAndProvider(startTime, endTime, providerNo);
 

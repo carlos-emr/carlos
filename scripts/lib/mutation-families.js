@@ -148,7 +148,9 @@ function appointmentUpdate(s) {
       if (!popup.isClosed()) await popup.close().catch(() => {});
       return captured;
     },
-    aim: (captured, tag) => ({ overrides: { reason: prefix + tag } }),
+    // The edit form names the appointment version it was rendered from; the UI's own save changed that version, so a replay
+    // carrying it would be refused as stale (HTTP 409). Replays drop it and take the unversioned path, as for demographicVersion.
+    aim: (captured, tag) => ({ overrides: { reason: prefix + tag, appointmentVersion: null } }),
   };
 }
 
@@ -180,7 +182,8 @@ function appointmentDelete(s) {
       if (!popup.isClosed()) await popup.close().catch(() => {});
       return captured;
     },
-    aim: (captured, tag) => ({ overrides: { appointment_no: target(tag) }, query: captured.query.has('appointment_no') ? { appointment_no: target(tag) } : {} }),
+    // A replay is aimed at another owned appointment, whose version the captured form does not hold: drop appointmentVersion.
+    aim: (captured, tag) => ({ overrides: { appointment_no: target(tag), appointmentVersion: null }, query: captured.query.has('appointment_no') ? { appointment_no: target(tag) } : {} }),
   };
 }
 
@@ -767,7 +770,9 @@ function messengerSend(s) {
       else await h.gotoApp(s.schedule, s.config.baseUrl, '/provider/providercontrol?displaymode=day&dboperation=searchappointmentday&viewall=1');
       return captured;
     },
-    aim: (captured, tag) => ({ overrides: { subject: prefix + tag } }),
+    // The compose form carries a one-send token (FormSubmissionGuard); the UI's own send spent it, so a replay carrying it
+    // would be answered from that first send and write nothing. Replays drop it and take the unguarded path.
+    aim: (captured, tag) => ({ overrides: { subject: prefix + tag, carlosFormSubmission: null } }),
   };
 }
 
