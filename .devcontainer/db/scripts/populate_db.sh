@@ -134,6 +134,12 @@ $SQL carlos < /scripts/demo-specialists.sql
 echo 'Preparing demographic and provider names for development environment...'
 $SQL carlos < /scripts/demo-name-sanitization.sql
 $SQL carlos < /scripts/demo-name-sanitization-on.sql
+# Synthetic patients with full histories for the AI chart tools (#6148): 22 FAKE adults
+# generated once with Synthea (scripts/devdata/synthea/run_synthea.sh) and converted by generate_dev_patients.py.
+# Loaded after the sanitization, whose rules they already meet (FAKE- names). Additive and
+# idempotent: the file owns demographic_no 90001-90099 and deletes that range first.
+echo 'Seeding synthetic patients with full histories (#6148)...'
+$SQL carlos < /scripts/demo-synthetic-patients.sql
 echo 'Seeding Rich Text Letter eForm...'
 $SQL carlos < /database/mysql/updates/update-2012-07-12.sql
 echo 'Modernizing Rich Text Letter eForm to 2026.3.0...'
