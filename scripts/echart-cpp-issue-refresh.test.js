@@ -134,6 +134,7 @@ for (const [name, landing] of [['the sign-in page', '/carlos/logoutPage'], ['fac
     h.requests[0].options.onSuccess({ status: 200, responseText: '<form id="loginForm">sign in</form>',
       responseURL: `https://emr.example.invalid${landing}` });
     assert.equal(h.fields.cppText, undefined, 'the CPP panel is not replaced by the sign-in page');
+    assert.equal(h.fields.frmIssueNotes.elements.noteEditTxt.value, 'synthetic CPP item', 'the typed CPP text is kept');
     assert.equal(h.fields.showEditNote.style.display, 'block');
     assert.equal(h.fields.channel.style.visibility, 'hidden');
     assert.equal(h.updates.length, 0, 'no issue refresh for an unsaved item');
@@ -150,6 +151,7 @@ test('a CPP save refused with 401 reopens the editor and says to sign in again',
   h.requests[0].options.onFailure({ status: 401 });
   assert.equal(h.fields.showEditNote.style.display, 'block');
   assert.equal(h.fields.cppText, undefined);
+  assert.equal(h.fields.frmIssueNotes.elements.noteEditTxt.value, 'synthetic CPP item', 'the typed CPP text is kept');
   assert.equal(h.updates.length, 0);
   assert.deepEqual(h.alerts, [SIGNED_OUT]);
 });

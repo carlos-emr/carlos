@@ -1,4 +1,7 @@
-/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+/*
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 CARLOS Contributors
+ */
 // Encounter note Save and Sign & Save once the sign-in has ended (#5868). After the
 // inactivity limit the login filter redirects every request; the browser follows the
 // redirect to the sign-in page as an ordinary HTTP 200. Save must not put that page in
