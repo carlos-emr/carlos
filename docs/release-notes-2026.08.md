@@ -87,6 +87,166 @@ with no type is now listed with an empty value. Previously such a document ended
 list, hiding every document after it. See
 [#5685](https://github.com/carlos-emr/carlos/issues/5685).
 
+## Corrections from the promotion review
+
+These entries correct candidate behavior found while reviewing `release/2026.08`
+for promotion. Where an earlier section of these notes describes the candidate
+behavior differently, this section is the current one.
+
+### Unmodified API clients keep working
+
+- **SOAP document lists return file contents again.** `getDocumentsUpdateAfterDate`,
+  `getDocumentsByProgramProviderDemographicDate` and `getDocumentsByDemographicIdAfter`
+  return each document's contents inline when the request carries no
+  `X-Carlos-Document-List-Profile` header, as they did before the candidate. A client
+  that wants metadata only sends `X-Carlos-Document-List-Profile: metadata`.
+  `legacy-inline` still selects inline contents and faults the whole page when a stored
+  file cannot be read; without the header such a file is left out of the page and logged.
+- **SOAP schedule synchronization never refuses a timestamp-only request.**
+  `getAppointmentsUpdatedAfterDate`, `getAppointmentArchivesUpdatedAfterDate` and
+  `getAppointmentsByProgramProviderDemographicDate` no longer answer with the
+  "splits a shared update timestamp" fault. When a page would end between appointments
+  updated in the same second, the response also carries the rest of that second, so a
+  client that continues from the newest timestamp it received loses no row. A page can
+  therefore hold more rows than requested, by the rest of that one second and never
+  more than 5,000 rows. A client that must page through more than 5,000 appointments
+  updated in one second uses `X-Carlos-Schedule-Sync-Profile: timestamp-id`.
+- **REST patient lists and searches include the health card number again.**
+  Demographic lists, search results, inbox items and the patients embedded in
+  appointment and consultation responses carry `hin` as before. Patients the caller may
+  not read are still left out of lists and totals, and SIN is still not returned.
+- **Provider billing identifiers are returned without `_billing` read.** `billingNo`,
+  `ohipNo`, `hsoNo` and `rmaNo` appear wherever a provider record is returned over REST
+  or SOAP. The older REST rule that another provider's record is a summary unless the
+  caller is that provider or an administrator is unchanged.
+- **`X-Carlos-Appointment-Write-Mode` is honoured on a deployed server.** The header was
+  read from the wrong request object behind the service proxy and ignored. `guarded`
+  now requires `editVersion` (HTTP 400 without it), `legacy-echo` ignores an echoed
+  version, and an unknown mode is refused with HTTP 400 before any update. Requests
+  without the header behave as described under
+  [REST appointment update compatibility](#rest-appointment-update-compatibility).
+- **REST reads no longer fail with HTTP 500 while writing their audit entry.** The
+  tickler list and search routes and stored demographic-set reads ran in a read-only
+  transaction that the audit insert joined. The REST audit entry is now written in a
+  transaction of its own, after the request's transaction has ended, so a failed or
+  refused REST write also keeps its `REST WS: FAILURE` entry.
+
+### Report limits are settings
+
+Report by Template and the configured form, antenatal and clinical reports keep their
+previous limits by default, and each limit is now a setting in `carlos.properties`
+that takes effect at the next restart:
+
+| Setting | Default | Maximum |
+|---|---|---|
+| `report_by_template.max_rows` | 10000 | 100000 |
+| `report_by_template.timeout_seconds` | 30 | 300 |
+| `report_by_template.max_html_mb` | 10 | 50 |
+| `report_by_template.max_columns` | 256 | 2000 |
+| `report_by_template.max_cell_chars` | 65536 | 1048576 |
+| `report_by_template.max_csv_mb` | 5 | 5 (can only be lowered) |
+| `configured_report.max_rows` | 10000 | 100000 |
+| `configured_report.max_identifier_rows` | 100000 | 1000000 |
+| `configured_report.timeout_seconds` | 30 | 300 |
+| `configured_report.max_output_chars` | 5242880 | 52428800 |
+| `configured_report.max_csv_mb` | 5 | 50 |
+
+A value that is not a whole number of at least 1 keeps the default, a value above the
+maximum is capped, and either case is logged once. A report stopped by a limit names
+the limit and the setting an administrator can raise. A Report by Template whose CSV
+is over the CSV limit is shown again, without its CSV and XLSX downloads. Raise the row
+and output limits only with heap to spare: a configured report holds every row until the
+page or file is written. See [report limits](test/report-template-budgets.md) and
+[report query boundaries](report-query-boundaries.md). Query by Example limits are
+unchanged.
+
+### British Columbia billing
+
+- The legacy Teleplan group export (`NEW_BC_TELEPLAN=no`) sends the claim comment in
+  C02 field P58 again; the candidate sent it blank. Claims already exported blank by a
+  candidate build are not corrected.
+- MSP remittance and remittance summary PDFs no longer answer HTTP 500 when a stored
+  Teleplan amount is malformed. The row is printed, the field is shown as an unparsed
+  Teleplan amount with its source text, and totals are marked as known amounts only
+  with a count of the fields left out. Payments and Refunds reports no longer list
+  held (S04) lines as $0.00 rows.
+
+### Laboratory results
+
+A corrected report from a source other than CML is filed to measurements again even
+when it carries fewer final results than the report it corrects, and the superseded
+version's values are archived. Flowsheets, graphs and decision support then show the
+corrected values. Corrections received by a candidate build that skipped them are not
+re-filed.
+
+### Consultations
+
+The team consultation list no longer comes up empty when one patient on the page is
+restricted for the viewer. That patient's requests are left out with a notice, paging
+counts the rows that are shown, and a list that cannot be loaded says so
+([#5775](https://github.com/carlos-emr/carlos/issues/5775)).
+
+### Security and access
+
+- The note and issue history popup prints the patient name and the issue title as
+  text. Markup stored in either was previously run in the reader's browser.
+- Hospital reports (HRM) follow the patient's own access rules. A provider who is
+  locked out of a patient, or lacks `_demographic` or `_hrm` read for that patient,
+  cannot list, open, print, download or change that patient's hospital reports from
+  the chart, the HRM list, the inbox or as an attachment. Reports not yet matched to
+  a patient are unaffected.
+- Changing your own password from Preferences applies the clinic's password policy on
+  the server as well as in the browser. A password that does not meet it, or a new PIN
+  shorter than `password_pin_min_length`, is refused with the form's message and
+  nothing is saved.
+
+### eForms and printing
+
+- Saving an eForm with a drop-down left blank no longer selects every option that has
+  no `value` attribute. A choice made from such a drop-down is restored when the form
+  is reopened, printed or faxed, and a multiple-selection list keeps every chosen option.
+- Printing, faxing or attaching a form, hospital report, message or letter no longer
+  falls back to a plain-text copy because the page is deeply nested, has an element
+  with very many attributes or contains a very large amount of escaped text. The print
+  path now states its own XML limits instead of inheriting the JDK defaults; see
+  [HTML to PDF rendering](html-pdf-rendering.md). A page that declares a DOCTYPE with an
+  internal subset is refused.
+
+### Audit trail
+
+- A sign-in is recorded once, naming the facility the session was bound to. A provider
+  who chooses among several facilities still has one entry for the sign-in and one
+  for the choice.
+- Booking, editing, cancelling, changing the status of and deleting an appointment
+  are recorded under the appointment and its patient with the user and client
+  address. The deletion entry is now action `delete`, content `appointment`; it was
+  action `Appointment.delete` with no content. Adjust saved audit queries.
+- Audit entries for allergies, prescriptions, drug reasons, reprints and chart notes
+  no longer copy the allergen, drug, instructions, diagnostic code or note text into
+  the audit log. They identify the record by id. Opening the chart on a new, unsaved
+  note writes no entry.
+- Recording, editing and deleting a prevention, entering and deleting a measurement,
+  saving an Ontario invoice, opening a patient's Billing History and each run of the
+  Demographic Report Tool are now audited.
+- Viewing a document is recorded once, as `read`/`document` under the patient; the
+  second entry with content `Document` is no longer written. An upload filed onto a
+  chart is recorded under that patient.
+- A refused attempt to open a locked patient's Master Record is recorded in that
+  patient's audit trail as action `no right`. Such entries do not add the patient to
+  the refused user's recent-patient lists.
+
+### Packaging and database migrations
+
+`release/2026.08` now contains `main` through 2026.09 snapshot 30. Four migrations that
+had not been released were renumbered to follow the two that `main` published at the
+same versions: `bc/V1.0.59.36__preserve_bc_history_amount`,
+`common/V1.0.59.37__rx_favorite_groups`, `common/V1.0.59.38__rx_submission_receipts`
+and `common/V1.0.59.39__rx_original_versions`. A database migrated by an unreleased
+candidate build that applied them under their old numbers must be rebuilt from a
+published release before upgrading. The package now depends on `carlos-ctl` 1.3.3,
+which reads the format 3 OSCAR 19 schema manifest this release installs. The bundled
+stock eForm asset list records the current `editControl2.js`.
+
 ## Upgrade notes
 
 ### Startup configuration and mandatory modern chart
