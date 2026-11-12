@@ -149,6 +149,15 @@ public class MsgEncounterPdfComposer {
         LogAction.addLogStrict(loggedInInfo, "print", "echart", patient, patient, AUDIT_DATA);
     }
 
+    /** Records chart notes leaving the chart through Messenger: previewed or attached. Strict. */
+    static void recordDisclosed(LoggedInInfo loggedInInfo, int demographicNo, boolean preview) {
+        if (preview) {
+            recordPreviewed(loggedInInfo, demographicNo);
+        } else {
+            recordAttached(loggedInInfo, demographicNo);
+        }
+    }
+
     /**
      * Records that the chart notes of a patient were shown through Messenger Preview. The preview is the same
      * full PDF the chart print gives, and can be saved from the browser, so it is audited as the chart print is,

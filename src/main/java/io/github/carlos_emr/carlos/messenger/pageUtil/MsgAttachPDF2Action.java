@@ -138,8 +138,8 @@ public class MsgAttachPDF2Action extends ActionSupport {
     }
 
     /**
-     * Audits chart notes leaving the chart through Messenger, attached ({@link MsgEncounterPdfComposer#recordAttached})
-     * or previewed ({@link MsgEncounterPdfComposer#recordPreviewed}); strict.
+     * Audits chart notes leaving the chart through Messenger, attached or previewed
+     * ({@link MsgEncounterPdfComposer#recordDisclosed}); strict.
      */
     @FunctionalInterface
     interface ChartNotesAudit {
@@ -180,13 +180,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
                     }
                 },
                 MsgEncounterPdfComposer::composeWithChartServices,
-                (login, demographicNo, preview) -> {
-                    if (preview) {
-                        MsgEncounterPdfComposer.recordPreviewed(login, demographicNo);
-                    } else {
-                        MsgEncounterPdfComposer.recordAttached(login, demographicNo);
-                    }
-                });
+                MsgEncounterPdfComposer::recordDisclosed);
     }
 
     MsgAttachPDF2Action(SecurityInfoManager securityInfoManager, DemographicManager demographicManager,

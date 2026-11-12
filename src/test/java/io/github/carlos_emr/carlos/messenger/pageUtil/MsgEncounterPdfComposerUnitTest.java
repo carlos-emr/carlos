@@ -44,6 +44,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -131,13 +132,20 @@ class MsgEncounterPdfComposerUnitTest {
     }
 
     @Test
-    @DisplayName("should record a preview as a chart print shown through Messenger Preview")
+    @DisplayName("should record a preview as a chart print shown through Messenger Preview, and an attachment as sent")
     void shouldRecordAPreview_asAChartPrintThroughMessengerPreview() {
         try (var audit = mockStatic(LogAction.class)) {
-            MsgEncounterPdfComposer.recordPreviewed(user, PATIENT);
+            MsgEncounterPdfComposer.recordDisclosed(user, PATIENT, true);
 
             audit.verify(() -> LogAction.addLogStrict(user, "print", "echart", String.valueOf(PATIENT),
                     String.valueOf(PATIENT), "messenger-preview"), times(1));
+            audit.verify(() -> LogAction.addLogStrict(user, "print", "echart", String.valueOf(PATIENT),
+                    String.valueOf(PATIENT), "messenger"), never());
+
+            MsgEncounterPdfComposer.recordDisclosed(user, PATIENT, false);
+
+            audit.verify(() -> LogAction.addLogStrict(user, "print", "echart", String.valueOf(PATIENT),
+                    String.valueOf(PATIENT), "messenger"), times(1));
         }
     }
 
