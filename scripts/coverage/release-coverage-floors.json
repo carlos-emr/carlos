@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "73e30e10303ab123f289249f65449ee1c6da6e91",
-  "comparisonSha256": "905cbef6f100fa6c09e15763be7e1720db202ff9f80b2fe7afd05c9957b2127c",
-  "baselineCommit": "39835729fceedbcde4f46d393839c80dae07a719",
-  "baselineSourceTree": "73e30e10303ab123f289249f65449ee1c6da6e91",
+  "sourceTree": "73453a1e004cabe7bbe4023348537fe0184e04f8",
+  "comparisonSha256": "9e9e94908b068ad97646dbcc15d9b5de9be7d5777a32c39add5cffa23e14f90e",
+  "baselineCommit": "09b2cb66cdfa0d984aca0549d5bb79c432aa8c89",
+  "baselineSourceTree": "73453a1e004cabe7bbe4023348537fe0184e04f8",
   "baselineReportSha256": "f9b1aefcc6edc825d36a96af25b4760495dfe615284a5207e9ddf9f401b7185d",
-  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5: the union of a complete H2 java-all run (offline Maven, forkCount 2) and the release plan's java-browser-pdf lane (EFormBrowserPdfServiceSeleniumSmokeIntegrationTest, DhirReviewJspBrowserIntegrationTest, MeasurementChartSmokeIntegrationTest; headless Chrome for Testing 148 with chromedriver 148 on a loopback port; 5 tests, 0 failures, 0 skipped), both on the same compiled classes of a local test merge (f5c8f2b931) of release 1b27a8fd2c with #6174 (3e77d10d9a) and #6163 (39835729fc); not through verify-release-evidence.py. The H2 run had 36,234 tests, 217 skipped, 1 failure and 1 error in classes neither PR touches (CdsXmlParserLargeInputUnitTest's bounded parser probe passed its 180-second deadline under load; PrescriptionQrCodeUIBeanUnitTest's QR decoding threw a ZXing ChecksumException).",
+  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5: the union of a complete H2 java-all run (offline Maven, forkCount 2) and the release plan's java-browser-pdf lane (EFormBrowserPdfServiceSeleniumSmokeIntegrationTest, DhirReviewJspBrowserIntegrationTest, MeasurementChartSmokeIntegrationTest; headless Chrome for Testing 148 with chromedriver 148 on a loopback port; 5 tests, 0 failures, 0 skipped), both on the same compiled classes of a local test merge (f5c8f2b931) of release 1b27a8fd2c with #6174 (3e77d10d9a) and #6163 (39835729fc); not through verify-release-evidence.py. The H2 run had 36,234 tests, 217 skipped, 1 failure and 1 error in classes neither PR touches (CdsXmlParserLargeInputUnitTest's bounded parser probe passed its 180-second deadline under load; PrescriptionQrCodeUIBeanUnitTest's QR decoding threw a ZXing ChecksumException). The Javadoc-only commit after the run (09b2cb66cd: BrowserChartRenderer, EFormBrowserPdfService) compiles to byte-identical classes, so the measurement applies to this head unchanged.",
   "baselineTestCounts": {
     "tests": 36234,
     "skipped": 217,
@@ -1759,7 +1759,7 @@
       "lines": 100.0,
       "instructions": 92.88389513108615,
       "branches": 68.75,
-      "sourceBlob": "dc571bb92838a52ade2815476a573f37b10016da"
+      "sourceBlob": "00e1d0722613421378e7f88a133f65bd5c5b10d3"
     },
     "src/main/java/io/github/carlos_emr/carlos/eform/util/BrowserOptions.java": {
       "lines": 100.0,
@@ -1777,7 +1777,7 @@
       "lines": 69.11764705882354,
       "instructions": 67.01754385964912,
       "branches": 70.83333333333333,
-      "sourceBlob": "14ad74f0a5e12db4a48c74fa48d24cf03ec5ed03"
+      "sourceBlob": "29ceaa11aa5cc9c34500a2c9793eac26b6f4040a"
     },
     "src/main/java/io/github/carlos_emr/carlos/eform/util/EFormBrowserRendererStartupValidator.java": {
       "lines": 100.0,
