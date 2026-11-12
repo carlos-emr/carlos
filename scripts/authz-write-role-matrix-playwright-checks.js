@@ -26,7 +26,7 @@
  *      role has no Search and its day sheet offers no M or E link, so the Master Record is opened at
  *      its address (a read the role holds) and the chart from its E-Chart link. The chart's Bill
  *      button sits in the note toolbar, which is not rendered at all for a role without note rights
- *      (ChartNotes.jsp:106-109), so this role cannot show whether Bill is hidden; the chart-bill mode
+ *      (ChartNotes.jsp:110-113), so this role cannot show whether Bill is hidden; the chart-bill mode
  *      below judges it;
  *   4. for tickler add, Rx Save, allergy add, demographic update, provider update, chart note save
  *      and the Ontario bill save: the full login's UI write lands; the replay with the restricted
@@ -432,7 +432,7 @@ async function workflow(s, { mode, only, name } = selection()) {
       + `${settled.failed.length ? `; navbar modules that failed for this role: ${settled.failed.join(', ')}` : ''}`);
     if (offers.toolbar === 0) {
       console.log(`  NOTE ${name}: Bill not judged here: the chart renders no note toolbar for a role without note rights `
-        + '(ChartNotes.jsp:106-109); authz-write-chart-bill judges it with read-only note rights');
+        + '(ChartNotes.jsp:110-113); authz-write-chart-bill judges it with read-only note rights');
     }
   });
 

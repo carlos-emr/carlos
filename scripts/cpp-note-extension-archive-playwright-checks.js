@@ -766,7 +766,9 @@ async function main() {
         const before = readCppWriteSnapshot(sql, fixture.demographicNo);
         const badBefore = recorder.badResponses.length;
         const consoleBefore = recorder.consoleIssues.length;
-        const expectedAlert = await chartPage.evaluate(() => savingNoteError + ' 500');
+        // The CPP dialog's own save error, with the status (updateCPPNote, since #6103): it tells the clinician
+        // to keep the CPP editor open and retry, where the page's general note save error did not.
+        const expectedAlert = await chartPage.evaluate(() => cppSaveError + ' 500');
         const failedAction = await chartPage.locator('#frmIssueNotes').evaluate(form => form.action);
         let failed;
         const dialogs = await withExpectedDialogs(chartPage, async () => {

@@ -10,7 +10,7 @@
  * share (and "---" for an empty group); Scheduled Appts, Encounter Note and Rx counts equal the rows
  * dated inside the typed range (2024-05-01 .. 2024-05-31); the last steps assert that the End Date is
  * inclusive (an appointment and an encounter note dated on it are counted) and that percentages read as
- * clean numbers -- both currently wrong on 2026.08.
+ * clean numbers (issue #4176; both hold on 2026.08 now).
  * Fixtures: an idle demo provider (no patients or activity of any kind, else SKIP), six active + one inactive patient (marker surname), appointments, encounter
  * notes and prescriptions with the marker; all deleted in cleanup and checked gone. Counts are scoped to the
  * owned provider, so nothing global is asserted.
@@ -22,19 +22,31 @@ const { runWorkflow } = require('./lib/workflow-session');
 
 const TIMEOUT = 20000;
 
+/** The Ontario bill header table. Only an Ontario schema has it (migration/on/V1.0.1__on_schema.sql). */
+const ONTARIO_BILL_HEADER = 'billing_on_cheader1';
+
+/** Whether the installed schema has `table`. */
+function hasTable(sql, table) {
+  return sql.value(`SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=${h.sqlString(table)}`) === '1';
+}
+
 /**
  * An active demo provider with no patients, appointments, notes or prescriptions at all. The provider
  * dropdown comes from a 5-minute cache of active providers, so a provider row inserted by SQL would not be
  * offered; an idle demo provider is, and holds nothing but this run's marker rows while the check runs.
+ * "No invoices" is asked of the Ontario bill header, the table the report's Billing figure is counted from,
+ * and only where the schema has it: naming it on a BC schema made this query, not the report, fail.
  */
 function idleProviderNo(sql) {
+  const noInvoices = hasTable(sql, ONTARIO_BILL_HEADER)
+    ? `AND NOT EXISTS (SELECT 1 FROM ${ONTARIO_BILL_HEADER} b WHERE b.provider_no=p.provider_no)` : '';
   const free = sql.rows(`SELECT p.provider_no FROM provider p WHERE p.status='1' AND p.provider_no NOT LIKE '-%'
     AND p.provider_no REGEXP '^[0-9]{1,2}$'
     AND NOT EXISTS (SELECT 1 FROM demographic d WHERE d.provider_no=p.provider_no)
     AND NOT EXISTS (SELECT 1 FROM appointment a WHERE a.provider_no=p.provider_no)
     AND NOT EXISTS (SELECT 1 FROM casemgmt_note n WHERE n.provider_no=p.provider_no)
     AND NOT EXISTS (SELECT 1 FROM drugs x WHERE x.provider_no=p.provider_no)
-    AND NOT EXISTS (SELECT 1 FROM billing_on_cheader1 b WHERE b.provider_no=p.provider_no)
+    ${noInvoices}
     AND NOT EXISTS (SELECT 1 FROM providerLabRouting r WHERE r.provider_no=p.provider_no)
     ORDER BY CAST(p.provider_no AS UNSIGNED) DESC LIMIT 1`);
   if (!free.length) throw new h.SkipCheck('no idle demo provider is available for the usage-report roster');
@@ -150,5 +162,5 @@ async function workflow(s) {
   });
 }
 
-module.exports = { workflow };
+module.exports = { workflow, idleProviderNo };
 if (require.main === module) runWorkflow('gap-records-usage-report', workflow, { openPatient: true, openMaster: false });

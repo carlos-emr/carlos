@@ -360,7 +360,7 @@ async function checkPmmAttachSourceContext(s, { context, login, target, ownedPat
     await s.step('PMM forged, foreign and hidden source contexts and read-only target refuse without clinical or draft changes', async () => {
         const csrf = await ui.csrfTokenPresent(sourceCharts[0]);
         const token = sourceTokens[0];
-        const forged = token.slice(0, -1) + (token.endsWith('A') ? 'B' : 'A');
+        const forged = forgeSignature(token);
         for (const [label, sourceToken, targetContext] of [
             ['forged source', forged, null], ['other patient source', targetToken, null],
             ['hidden reporter in default source', sourceTokens[1], null],
@@ -388,5 +388,24 @@ async function checkPmmAttachSourceContext(s, { context, login, target, ownedPat
     });
 }
 
+/**
+ * A chart context token (`payload.signature`, ChartProgramContext) whose signature decodes to other
+ * bytes than `token`'s, so the server cannot take it for the genuine one. One character in the MIDDLE
+ * of the signature is changed. The last one must not be: the 43rd base64url character of a 32-byte
+ * MAC carries four significant bits and two that the decoder discards, so turning a final "A" into
+ * "B" changes only discarded bits, the MAC still verifies, and the "forged" request is the genuine
+ * one (one token in sixteen ends in "A").
+ */
+function forgeSignature(token) {
+    const dot = String(token).lastIndexOf('.');
+    const signature = dot > 0 ? token.slice(dot + 1) : '';
+    h.assert(/^[A-Za-z0-9_-]{8,}$/.test(signature), 'The chart context token has no signature to forge');
+    const at = Math.floor(signature.length / 2);
+    const changed = signature.slice(0, at) + (signature[at] === 'A' ? 'B' : 'A') + signature.slice(at + 1);
+    h.assert(!Buffer.from(changed, 'base64url').equals(Buffer.from(signature, 'base64url')),
+        'The forged chart context signature decodes to the genuine one');
+    return `${token.slice(0, dot)}.${changed}`;
+}
+
 module.exports = { checkPmmAttachSourceContext, assertOwnedPrograms, assertOnlyCopiedNote,
-    assertStagedDefaults, assertCopyLocks, assertCopiedProvenance, ensureReadOnlyType };
+    assertStagedDefaults, assertCopyLocks, assertCopiedProvenance, ensureReadOnlyType, forgeSignature };

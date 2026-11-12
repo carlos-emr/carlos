@@ -436,9 +436,16 @@ async function workflow(session) {
     }
     h.assert(differences.length === 0,
       `legacy Print changed clinical field(s): ${differences.join(', ')}; values withheld`);
+    // The same form sent again, unchanged, is the save that already happened: the action finds its
+    // receipt and answers 409 with a page a person can read (reportLegacyRecovery, since #6099),
+    // where it used to answer the stash refusal's JSON. The page says the prescription is saved
+    // and must not be entered again.
     const duplicate = await postCapturedEditor();
-    h.assert(duplicate.status() === 409 && (await duplicate.json()).error === 'STALE_RX_STASH',
-      'duplicate legacy Print was accepted');
+    const duplicateBody = await duplicate.text();
+    h.assert(duplicate.status() === 409, `duplicate legacy Print answered HTTP ${duplicate.status()}; expected the already-saved refusal`);
+    h.assert(/^text\/html\b/i.test(duplicate.headers()['content-type'] || ''), 'the already-saved refusal of a duplicate legacy Print is not an HTML page');
+    h.assert(/<p role="alert">This prescription was already saved\. [^<]*do not enter it again\.<\/p>/.test(duplicateBody),
+      'the refusal of a duplicate legacy Print does not say the prescription was already saved');
     h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}
       AND customName=${h.sqlString(legacyName)}`) === '1', 'duplicate legacy Print created another medication');
     await page.close();
@@ -554,7 +561,9 @@ async function workflow(session) {
         await route.continue();
       });
       try {
-        await page.locator(`a[title="${name}"]`).click();
+        // The Rx page's own sidebar lists favourites as buttons (SideLinksEditFavorites2.jsp, since #6099);
+        // the other pages' sidebars still list them as links.
+        await page.locator(`:is(a, button)[title="${name}"]`).click();
         await page.waitForURL(/\/rx\/choosePatient\?[^#]*usefav=true/, { timeout: 15000 });
         await Promise.race([stashReceived, page.waitForTimeout(15000).then(() => {
           throw new Error('favorite handoff did not request the initial draft');

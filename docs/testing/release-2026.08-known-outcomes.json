@@ -80,12 +80,6 @@
       "disposition": "required installed retake; blocks release readiness"
     },
     {
-      "check": "authz-write-role-matrix",
-      "finding": 198,
-      "step": "chart note save: the restricted login's replay with its own valid token is refused, and the full login's replay writes",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
       "check": "authz-write-chart-bill",
       "finding": 200,
       "step": "the restricted chart's note toolbar offers no Bill button to a role without _billing",
@@ -215,6 +209,12 @@
       "finding": 337,
       "step": "dismissing task Delete confirms once and preserves every task and status history",
       "disposition": "Source fix in #5687 for #5683: Delete on the patient and main task lists asks for one localized confirmation, and Cancel leaves the selection, tasks and status history unchanged. Manifest pin retired; retained as an active regression. A fresh installed PASS is still required."
+    },
+    {
+      "check": "authz-write-role-matrix",
+      "finding": 198,
+      "step": "chart note save: the restricted login's replay with its own valid token is refused, and the full login's replay writes",
+      "disposition": "Source fix #5250 (a1592126): a chart note write is refused without _eChart w and _casemgmt.notes w before the session's editor is read, so the restricted replay answers 403 and writes nothing. The check's own write control was corrected with the retirement (it now opens a new note editor before the full login's replay, which the stale-form guard otherwise answers 409). Manifest pin retired; retained as an active regression. Installed PASS of every step on the packaged Ubuntu 26.04 Ontario install of 72c9a836 (2026.09.0~snapshot30 packages, nginx HTTPS, shipped Chromium 154.0.8025.0; 2026-11-12). A retake on the final release build is still required."
     }
   ]
 }
