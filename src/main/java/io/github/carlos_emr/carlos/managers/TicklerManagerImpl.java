@@ -567,7 +567,7 @@ public class TicklerManagerImpl implements TicklerManager {
         TicklerUpdate update = new TicklerUpdate();
         update.setProviderNo(provider);
         update.setStatus(status);
-        update.setTicklerNo(tickler.getId().intValue());
+        update.setTicklerNo(tickler.getId());
         update.setUpdateDate(new Date());
 
         ticklerUpdateDao.persist(update);

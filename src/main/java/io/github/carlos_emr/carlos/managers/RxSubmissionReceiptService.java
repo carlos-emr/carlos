@@ -24,6 +24,15 @@ public class RxSubmissionReceiptService {
     /** Pending attempts survive a process crash; they never authorize an automatic second prescription. */
     @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
     public Receipt find(String provider, int patient, String token) {
+        return lookup(provider, patient, token);
+    }
+
+    /**
+     * The receipt query itself. It runs in the transaction of the public method that calls it:
+     * a call from one transactional method of this class to another does not pass through the
+     * transaction proxy, so the shared read is kept out of any annotated method.
+     */
+    private Receipt lookup(String provider, int patient, String token) {
         if (token == null) return null;
         var ids = jdbc.query("SELECT prescription_id,outcome FROM rx_submission_receipt "
                 + "WHERE provider_no=? AND demographic_no=? AND submission_hash=? AND outcome <> 'FAILED'",
@@ -100,7 +109,7 @@ public class RxSubmissionReceiptService {
      */
     @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
     public boolean storedContent(String provider, int patient, Receipt saved, String contentToken) {
-        Receipt content = find(provider, patient, contentToken);
+        Receipt content = lookup(provider, patient, contentToken);
         return content != null && saved != null && "SAVED".equals(saved.outcome()) && "SAVED".equals(content.outcome())
                 && saved.scriptId() != null && saved.scriptId().equals(content.scriptId());
     }

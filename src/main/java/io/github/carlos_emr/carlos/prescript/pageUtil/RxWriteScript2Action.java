@@ -1446,7 +1446,12 @@ public final class RxWriteScript2Action extends ActionSupport {
                     RxSessionBean savedBean = RxSessionBeanResolver.resolve(request);
                     if (savedBean != null && savedBean.getDemographicNo() == receiptPatient) {
                         savedBean.retirePendingCards(receiptToken);
-                        if (sameContent) acknowledged = acknowledgeSavedCards(savedBean, saved.scriptId());
+                        if (sameContent) {
+                            // The workspace is shared by every window of this session's patient.
+                            synchronized (savedBean) {
+                                acknowledged = acknowledgeSavedCards(savedBean, saved.scriptId());
+                            }
+                        }
                     }
                 }
                 return reportReceipt(saved, sameContent, acknowledged);
@@ -1903,32 +1908,33 @@ public final class RxWriteScript2Action extends ActionSupport {
      * Unless every submitted card is still staged exactly as this script saved it, nothing is
      * changed or returned and the page drops its spent cards instead.
      *
-     * @param bean     the requested patient's workspace
+     * <p>The caller holds the workspace's monitor, as every other read and change of the stash in
+     * this action does.</p>
+     *
+     * @param bean     the requested patient's workspace, locked by the caller
      * @param scriptId the script the receipt names
      * @return the staged cards' current revisions by card key, or {@code null} when the page keeps none
      */
     private Map<String, String> acknowledgeSavedCards(RxSessionBean bean, Integer scriptId) {
-        synchronized (bean) {
-            Map<String, String> revisions = new java.util.TreeMap<>();
-            Enumeration<String> names = request.getParameterNames();
-            while (names.hasMoreElements()) {
-                String name = names.nextElement();
-                if (!name.startsWith("draftRevision_")) continue;
-                String key = name.substring("draftRevision_".length());
-                RxPrescriptionData.Prescription card = stagedCard(bean, key);
-                if (card == null || card.getDrugId() <= 0 || card.getPendingSubmission() != null
-                        || !String.valueOf(scriptId).equals(card.getScript_no())) {
-                    return null;
-                }
-                revisions.put(key, card.getDraftRevision());
-            }
-            if ("true".equals(request.getParameter("clearSaved"))) {
-                // Another window's draft in the same workspace is not this save's to discard.
-                if (revisions.size() == bean.getStashSize()) bean.clearStash();
+        Map<String, String> revisions = new java.util.TreeMap<>();
+        Enumeration<String> names = request.getParameterNames();
+        while (names.hasMoreElements()) {
+            String name = names.nextElement();
+            if (!name.startsWith("draftRevision_")) continue;
+            String key = name.substring("draftRevision_".length());
+            RxPrescriptionData.Prescription card = stagedCard(bean, key);
+            if (card == null || card.getDrugId() <= 0 || card.getPendingSubmission() != null
+                    || !String.valueOf(scriptId).equals(card.getScript_no())) {
                 return null;
             }
-            return revisions;
+            revisions.put(key, card.getDraftRevision());
         }
+        if ("true".equals(request.getParameter("clearSaved"))) {
+            // Another window's draft in the same workspace is not this save's to discard.
+            if (revisions.size() == bean.getStashSize()) bean.clearStash();
+            return null;
+        }
+        return revisions;
     }
 
     /** Answers a submission that is waiting on a save whose outcome is not yet known. */
