@@ -6,23 +6,34 @@ it does not rewind the result set or create an array of all rows. Spreadsheet
 formula guards, HTML encoding, column labels, null handling, CSV quoting and CRLF
 record separators are preserved.
 
-Every request, including all queries of a sequenced template, shares these limits:
+Every request, including all queries of a sequenced template, shares these limits,
+except the CSV limit, which applies to each query. Four of them are
+`carlos.properties` settings (#5849, D261); a missing setting keeps the default, a
+value above the maximum is capped, and any other value that is not a whole number
+of at least 1 keeps the default, with one warning in the log:
 
-| Resource | Limit |
-| --- | ---: |
-| Result rows | 10,000 |
-| CSV output, including headers, guards, quoting and separators | 5 MiB in UTF-8 |
-| Encoded HTML output | 10 MiB in UTF-8 |
-| Columns per query | 256 |
-| Characters per cell or column label | 65,536 UTF-16 code units |
-| Queries per sequence | 32 |
-| Query execution and consumption deadline | 30 seconds |
+| Resource | Default | Setting (maximum) |
+| --- | ---: | --- |
+| Result rows | 10,000 | `report_by_template.max_rows` (100,000) |
+| Query execution and consumption deadline | 30 seconds | `report_by_template.timeout_seconds` (300) |
+| Encoded HTML output | 10 MiB in UTF-8 | `report_by_template.max_html_mb` (50) |
+| Columns per query | 256 | `report_by_template.max_columns` (2,000) |
+| CSV output of each query, including headers, guards, quoting and separators | 5 MiB in UTF-8 | `report_by_template.max_csv_mb` (5; it can only lower the limit) |
+| Characters per cell or column label | 65,536 UTF-16 code units | fixed |
+| Queries per sequence | 32 | fixed |
 
-The CSV boundary remains inclusive: exactly 5 MiB is accepted; one byte more is
-refused. Exceeding a limit discards the report and returns a narrow-your-search
-message. A failed sequence removes its earlier output attributes and does not
-execute later queries. A sequence shares output and row limits so that splitting
-a large result into subqueries cannot multiply request memory use.
+Exceeding a limit discards the report and returns to the configuration page with a
+message, in the user's language, that names the limit and its value (D262). The CSV
+is the exception (D260): its boundary is inclusive (exactly 5 MiB is kept; one byte
+more is held back), and a query whose CSV goes over it is still shown, with a note
+above it, and without its CSV and XLSX downloads. In a sequence the note and each
+remaining download name their query. The CSV limit is per query because each
+download posts only its own query's CSV through the web firewall. A failed sequence
+removes its earlier output attributes, including held-back notes, and does not
+execute later queries. A sequence shares the row, HTML and time limits, so that
+splitting a large result into subqueries cannot multiply request memory use; a
+query's CSV is no larger than its HTML, except for characters the HTML encoder
+replaces with a space (up to three times larger).
 
 `LegacyJdbcQuery.getBoundedReportResultSet` validates the SELECT and binds its
 parameters before execution. It sets a JDBC row ceiling with one overflow row,
@@ -51,7 +62,13 @@ JDBC callers retain their scrollable cursor contract.
 
 The renderer bounds its own allocations. Connector/J can still retain the current
 row or field internally; these limits do not change the database's packet limits
-or promise a fixed total application heap size.
+or promise a fixed total application heap size. Raising `max_html_mb` raises the
+heap a running report may use: the HTML buffer grows to the next power of two and
+is copied once more into a string, so plan on roughly three times the setting per
+report running at once (about 160 MiB at the 50 MiB maximum). The packaged nginx
+proxy also stops waiting after 300 seconds (`proxy_read_timeout`), so at the
+300-second maximum the browser may see a gateway timeout instead of the time
+message; keep `timeout_seconds` a little lower, or raise the proxy timeout too.
 
 ## Synthetic database and heap probe
 
@@ -70,6 +87,9 @@ for scenario in 10 10000 100000 large-cell timeout stream-timeout; do
   java -Xmx128m -cp "/tmp/report-budget-probe:$probe_cp" \
     io.github.carlos_emr.carlos.report.reportByTemplate.ReportTemplateBudgetProbe "$scenario"
 done
+# Every setting at its maximum (#5849): 100,000 rows, 50 MiB of HTML, CSV held back.
+java -Xmx512m -cp "/tmp/report-budget-probe:$probe_cp" \
+  io.github.carlos_emr.carlos.report.reportByTemplate.ReportTemplateBudgetProbe maximums
 ```
 
 Each scenario uses a fresh JVM. The probe warms the connection, requests a GC,
@@ -96,6 +116,8 @@ DBCP pool, with `-Xmx128m`:
 | Immediate 32 KiB first row, then `SLEEP(0.2)` per row | 1,044 ms | 32.8 MiB | Timed out after query returned |
 
 These are synthetic local measurements, not production latency or exhaustion
-claims. Automated regressions cover the exact CSV byte boundary, UTF-8 and quote
-expansion, encoded HTML expansion, row sentinel, shared sequence budgets, wide
+claims; the table predates the `maximums` scenario (#5849), which prints whether
+the CSV was held back. Automated regressions cover the exact CSV byte boundary,
+the held-back CSV of each query, UTF-8 and quote expansion, encoded HTML
+expansion, row sentinel, shared sequence budgets, configured limits, wide
 metadata, oversized readers, deadline checks and JDBC cleanup.

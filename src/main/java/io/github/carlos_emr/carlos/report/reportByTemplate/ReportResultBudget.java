@@ -12,6 +12,8 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
 import java.util.function.UnaryOperator;
@@ -24,9 +26,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpreadsheetCsv;
 
 /**
- * Request-scoped budgets shared by every query of a sequenced template report.
- * Only the current cell and bounded HTML/CSV buffers are retained. JDBC may retain
- * the current row; Connector/J streaming prevents whole-result buffering.
+ * Request-scoped budgets shared by every query of a sequenced template report, except the CSV limit,
+ * which applies to each query's own download (#5849). Only the current cell and bounded HTML/CSV
+ * buffers are retained. JDBC may retain the current row; Connector/J streaming prevents whole-result
+ * buffering.
  */
 final class ReportResultBudget {
     // Defaults (the limits #5560 set) and hard maximums of the carlos.properties settings (#5849, D261).
@@ -42,6 +45,8 @@ final class ReportResultBudget {
     static final int MAX_CELL_CHARACTERS = 64 * 1024;
     static final int MAX_QUERIES = 32;
     private static final int MIB = 1024 * 1024;
+    /** Settings already warned about, so a misconfigured value is logged once, not on every report run. */
+    private static final Set<String> WARNED = ConcurrentHashMap.newKeySet();
 
     /**
      * The limit a refusal names. Each has its own message in the resource bundle (#5849, D262); the English
@@ -105,21 +110,33 @@ final class ReportResultBudget {
             if (raw == null || raw.isBlank()) {
                 return fallback;
             }
-            int value;
+            String text = raw.trim();
+            long value;
             try {
-                value = Integer.parseInt(raw.trim());
+                value = Long.parseLong(text);
             } catch (NumberFormatException e) {
-                value = 0;
+                // Digits too many for a long are still a number above the maximum.
+                value = text.matches("\\+?[0-9]+") ? Long.MAX_VALUE : 0;
             }
             if (value < 1) {
-                MiscUtils.getLogger().warn("{} must be a whole number of at least 1; using the default {}", key, fallback);
+                warnOnce(key, text, "{} must be a whole number of at least 1; using the default {}", fallback);
                 return fallback;
             }
             if (value > ceiling) {
-                MiscUtils.getLogger().warn("{} is above its maximum of {}; using {}", key, ceiling, ceiling);
+                warnOnce(key, text, "{} is above its maximum of {}; using {}", ceiling, ceiling);
                 return ceiling;
             }
-            return value;
+            return (int) value;
+        }
+
+        /** Logs the key, never the raw value, and only the first time this value is seen. */
+        private static void warnOnce(String key, String value, String message, Object... numbers) {
+            if (WARNED.add(key + '\n' + value)) {
+                Object[] arguments = new Object[numbers.length + 1];
+                arguments[0] = key;
+                System.arraycopy(numbers, 0, arguments, 1, numbers.length);
+                MiscUtils.getLogger().warn(message, arguments);
+            }
         }
     }
 
@@ -133,7 +150,6 @@ final class ReportResultBudget {
     private int rows;
     private int queries;
     private int htmlBytes;
-    private int csvBytes;
 
     ReportResultBudget() {
         this(Limits.defaults(), System::nanoTime);
@@ -154,9 +170,14 @@ final class ReportResultBudget {
     }
 
     void checkDeadline() throws LimitExceededException {
-        if (nanoTime.getAsLong() - started >= TimeUnit.SECONDS.toNanos(limits.timeoutSeconds())) {
+        if (pastDeadline()) {
             throw timeLimit();
         }
+    }
+
+    /** Whether the report's time limit has run out. */
+    boolean pastDeadline() {
+        return nanoTime.getAsLong() - started >= TimeUnit.SECONDS.toNanos(limits.timeoutSeconds());
     }
 
     /** The refusal for a report that ran out of time, including a JDBC deadline the driver reported. */
@@ -292,7 +313,7 @@ final class ReportResultBudget {
     }
 
     private final class LimitedOutput extends OutputStream {
-        private final ByteArrayOutputStream output = new ByteArrayOutputStream();
+        private ByteArrayOutputStream output = new ByteArrayOutputStream();
         private final boolean csv;
         /** The CSV went over its limit: it is held back and only the HTML goes on (D260). */
         private boolean withheld;
@@ -314,23 +335,22 @@ final class ReportResultBudget {
                 if (withheld) {
                     return;
                 }
-                if (length > limits.maxCsvBytes() - csvBytes) {
-                    // Hold back this query's CSV and keep showing the report. Its bytes no longer count
-                    // against the sequence's shared CSV budget, since none of them are kept.
+                // Each query's export form posts only its own CSV, so the limit applies to each query. The shared
+                // HTML budget still bounds memory: a query's CSV is no larger than its HTML, except for characters
+                // the HTML encoder replaces with a space, which can make it up to three times larger.
+                if (length > limits.maxCsvBytes() - written) {
+                    // Hold back this query's CSV, free what was kept, and keep showing the report (D260).
                     withheld = true;
-                    csvBytes -= written;
-                    written = 0;
-                    output.reset();
+                    output = new ByteArrayOutputStream(0);
                     return;
                 }
-                csvBytes += length;
-                written += length;
             } else {
                 if (length > limits.maxHtmlBytes() - htmlBytes) {
                     throw new LimitExceededException(Limit.HTML, limits.maxHtmlBytes() / MIB);
                 }
                 htmlBytes += length;
             }
+            written += length;
             output.write(bytes, offset, length);
         }
 

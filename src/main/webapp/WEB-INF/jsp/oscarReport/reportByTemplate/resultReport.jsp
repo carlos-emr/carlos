@@ -99,20 +99,26 @@
         List<String> sqlList = new ArrayList<String>();
         List<String> htmlList = new ArrayList<String>();
         List<String> csvList = new ArrayList<String>();
+        // Which queries' CSV went over the CSV limit and is held back (#5849, D260).
+        List<Boolean> csvWithheldList = new ArrayList<Boolean>();
 
         if (curreport.isSequence()) {
             for (int x = 0; x < sequenceLength; x++) {
                 sqlList.add((String) request.getAttribute("sql-" + x));
                 htmlList.add((String) request.getAttribute("resultsethtml-" + x));
                 csvList.add((String) request.getAttribute("csv-" + x));
+                csvWithheldList.add(Boolean.TRUE.equals(request.getAttribute("csvWithheld-" + x)));
             }
         } else {
             sqlList.add((String) request.getAttribute("sql"));
             htmlList.add((String) request.getAttribute("resultsethtml"));
             csvList.add((String) request.getAttribute("csv"));
+            csvWithheldList.add(Boolean.TRUE.equals(request.getAttribute("csvWithheld")));
         }
 
         pageContext.setAttribute("htmlList", htmlList);
+        pageContext.setAttribute("csvWithheldList", csvWithheldList);
+        pageContext.setAttribute("sequenced", curreport.isSequence());
 
     %>
 
@@ -134,13 +140,14 @@
         </c:choose>
         </div>
     </c:if>
-    <%-- Shown with the report when its CSV went over the CSV limit and the downloads are held back (#5849, D260). --%>
-    <c:if test="${csvWithheld}">
-        <div class="alert alert-info" role="status"><fmt:message key="report.byTemplate.csvWithheld"><fmt:param value="${csvWithheldMb}"/></fmt:message></div>
-    </c:if>
 
     <div class="reportBorderDiv row">
-        <c:forEach items="${ htmlList }" var="htmlOut">
+        <c:forEach items="${ htmlList }" var="htmlOut" varStatus="query">
+            <%-- Shown above a result whose CSV went over the CSV limit, so its downloads are held back (#5849, D260).
+                 In a sequence it names the query, as the export buttons below do. --%>
+            <c:if test="${csvWithheldList[query.index]}">
+                <div class="alert alert-info" role="status"><c:if test="${sequenced}"><strong><fmt:message key="report.byTemplate.queryNumber"><fmt:param value="${query.count}"/></fmt:message>:</strong> </c:if><fmt:message key="report.byTemplate.csvWithheld"><fmt:param value="${csvWithheldMb}"/></fmt:message></div>
+            </c:if>
             <c:choose>
                 <c:when test="${ not fn:startsWith(htmlOut, '<table') }">
                     <div class="alert alert-danger">
@@ -165,13 +172,14 @@
             <%
                 for (int x = 0; x < csvList.size(); x++) {
                     if (csvList.get(x) == null || csvList.get(x).isEmpty()) continue;
+                    pageContext.setAttribute("queryNumber", x + 1);
             %>
 
             <form style="display:inline;" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/generateOutFilesAction" method="post">
-                <%if (x > 1) { %>
-                <label><%=(x + 1)%>
-                </label>
-                <%}%>
+                <%-- Every export in a sequence names its query; a query whose CSV is held back has none (#5849). --%>
+                <c:if test="${sequenced}">
+                <span class="align-middle"><fmt:message key="report.byTemplate.queryNumber"><fmt:param value="${queryNumber}"/></fmt:message></span>
+                </c:if>
                 <input type="hidden" class="btn btn-secondary" name="csv" value="<carlos:encode value='<%= csvList.get(x) %>' context="htmlAttribute"/>">
                 <input type="submit" class="btn btn-secondary" name="getCSV" value="Export to CSV">
                 <input type="submit" class="btn btn-secondary" name="getXLS" value="Export to XLSX">

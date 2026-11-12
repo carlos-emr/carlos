@@ -161,8 +161,10 @@ See [Jasper/OpenPDF migration](jasperreports-openpdf3.md).
   large clinics may need narrower criteria. Administrators can change four limits in
   `carlos.properties`: `report_by_template.max_rows` (up to 100,000), `.timeout_seconds` (up to
   300), `.max_html_mb` (up to 50) and `.max_columns` (up to 2,000). The CSV and XLSX downloads stop
-  at 5 MB (`.max_csv_mb` can only lower this): a larger report is still shown on the page, with a
-  note that its downloads are held back.
+  at 5 MB for each query (`.max_csv_mb` can only lower this): a larger result is still shown on the
+  page, with a note that its downloads are held back. A larger `.max_html_mb` needs more server
+  memory (about three times the setting for each report running at once), and the packaged proxy
+  stops waiting after 300 seconds.
 - BC CSV exports use ungrouped decimal money (for example `1234.50`) and
   `dd-MMM-yy` dates. Update downstream parsers that assumed localized values.
 - Dx Research XLSX exports use string cells. Report by Template and Clinical

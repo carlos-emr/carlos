@@ -51,6 +51,7 @@ class ReportResultBudgetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should hold back the CSV and still stop the report at the HTML limit (#5849, D260)")
     void shouldHoldBackCsvButStillBoundHtml_whenEscapingGrowsBoth() throws Exception {
         // #5849 (D260): the CSV goes over 5 MiB first and is held back; the HTML, which escapes more, still
         // stops the report at its own 10 MiB.
@@ -64,6 +65,7 @@ class ReportResultBudgetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should keep exactly 5 MiB of CSV and hold back one byte more (#5849, D260)")
     void shouldKeepExactlyFiveMiBCsv_andHoldBackOneByteMore() throws Exception {
         int fullRows = 79;
         int finalCellLength = SQLReporter.MAX_CSV_EXPORT_LENGTH - 3 - fullRows * (65_536 + 2) - 2;
@@ -183,6 +185,7 @@ class ReportResultBudgetUnitTest extends CarlosUnitTestBase {
     private static final int MIB = 1024 * 1024;
 
     @Test
+    @DisplayName("should use the carlos.properties limits within their maximums (#5849, D261)")
     void shouldUseConfiguredLimits_withinTheirMaximums() {
         // #5849 (D261): administrators may raise or lower these in carlos.properties.
         Map<String, String> settings = Map.of(
@@ -196,6 +199,7 @@ class ReportResultBudgetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should cap values above a maximum and keep the default for values that are not allowed (#5849)")
     void shouldCapAtMaximumsAndKeepDefaults_forValuesOutOfRange() {
         Map<String, String> settings = Map.of(
                 "report_by_template.max_rows", "999999",
@@ -211,6 +215,20 @@ class ReportResultBudgetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should cap numbers too large for an int and keep the default for negative or decimal values (#5849)")
+    void shouldCapOverflowingNumbers_andKeepDefaultsForNegativeOrDecimalValues() {
+        Map<String, String> settings = Map.of(
+                "report_by_template.max_rows", "99999999999999999999999",
+                "report_by_template.timeout_seconds", "-5",
+                "report_by_template.max_html_mb", "9999999999",
+                "report_by_template.max_columns", "2.5",
+                "report_by_template.max_csv_mb", "-99999999999999999999999");
+        assertThat(ReportResultBudget.Limits.from(settings::get))
+                .isEqualTo(new ReportResultBudget.Limits(100_000, 30, 50 * MIB, 256, 5 * MIB));
+    }
+
+    @Test
+    @DisplayName("should refuse at the configured row limit and name that limit (#5849)")
     void shouldRefuseAtTheConfiguredRowLimit_withThatLimitInTheMessage() throws Exception {
         var limits = new ReportResultBudget.Limits(5, 30, 10 * MIB, 256, 5 * MIB);
         assertThatThrownBy(() -> new ReportResultBudget(limits).render(rows(6, "a"), null))
@@ -222,16 +240,25 @@ class ReportResultBudgetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldHoldBackOnlyTheLargeCsv_andFreeItsBytesForTheNextQuery() throws Exception {
+    @DisplayName("should apply the CSV limit to each query of a sequence and hold back only the large one (#5849)")
+    void shouldApplyCsvLimitToEachQuery_andHoldBackOnlyTheLargeOne() throws Exception {
+        // Each query's export form posts only its own CSV, so each query has the whole CSV limit.
         var limits = new ReportResultBudget.Limits(10_000, 30, 10 * MIB, 256, 100);
         ReportResultBudget budget = new ReportResultBudget(limits);
-        ReportResultBudget.Rendered large = budget.render(rows(10, "a".repeat(50)), null);
+        // "h" CRLF, then 80 characters and CRLF: 85 bytes each, so two of them would not fit one shared limit.
+        for (String value : new String[]{"a".repeat(80), "b".repeat(80)}) {
+            ReportResultBudget.Rendered kept = budget.render(rows(1, value), null);
+            assertThat(kept.csvWithheld()).isFalse();
+            assertThat(kept.csv()).isEqualTo("h\r\n" + value + "\r\n");
+        }
+        ReportResultBudget.Rendered large = budget.render(rows(10, "c".repeat(50)), null);
         assertThat(large.csvWithheld()).isTrue();
         assertThat(large.csv()).isEmpty();
-        assertThat(large.html()).contains("a".repeat(50));
-        ReportResultBudget.Rendered small = budget.render(rows(1, "b"), null);
-        assertThat(small.csvWithheld()).isFalse();
-        assertThat(small.csv()).contains("b");
+        assertThat(large.html()).contains("c".repeat(50));
+        // 95 bytes: a query after a held-back one still has the whole limit.
+        ReportResultBudget.Rendered after = budget.render(rows(1, "d".repeat(90)), null);
+        assertThat(after.csvWithheld()).isFalse();
+        assertThat(after.csv()).hasSize(95);
     }
 
     private ResultSet rows(int count, String value) throws Exception {

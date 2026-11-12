@@ -33,6 +33,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLTimeoutException;
 import java.util.Map;
+import java.util.function.LongSupplier;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -61,6 +62,7 @@ public class SQLReporter implements Reporter {
     private static final int ACTIVE_STATUS = 1;
 
     private final ReportResultBudget.Limits limits;
+    private final LongSupplier nanoTime;
 
     /** Runs reports under the limits set in carlos.properties (#5849); see {@link ReportResultBudget.Limits}. */
     public SQLReporter() {
@@ -68,7 +70,13 @@ public class SQLReporter implements Reporter {
     }
 
     SQLReporter(ReportResultBudget.Limits limits) {
+        this(limits, System::nanoTime);
+    }
+
+    /** Tests pass a clock to check the time limit without waiting for it. */
+    SQLReporter(ReportResultBudget.Limits limits, LongSupplier nanoTime) {
         this.limits = limits;
+        this.nanoTime = nanoTime;
     }
 
     /**
@@ -91,9 +99,13 @@ public class SQLReporter implements Reporter {
         }
     }
 
-    /** The report is shown, but a CSV over its limit is held back from the CSV and XLSX downloads (D260). */
-    private void markCsvWithheld(HttpServletRequest request) {
-        request.setAttribute("csvWithheld", Boolean.TRUE);
+    /**
+     * The report is shown, but a CSV over its limit is held back from the CSV and XLSX downloads (D260). The flag
+     * is {@code csvWithheld}, or {@code csvWithheld-N} for a sequence's query N (counting from 0), so the page puts
+     * the note on that query.
+     */
+    private void markCsvWithheld(HttpServletRequest request, String flag) {
+        request.setAttribute(flag, Boolean.TRUE);
         request.setAttribute("csvWithheldMb", limits.maxCsvBytes() / (1024 * 1024));
     }
 
@@ -154,7 +166,7 @@ public class SQLReporter implements Reporter {
             return false;
         }
 
-        QueryResult result = executeQuery(query, false, new ReportResultBudget(limits));
+        QueryResult result = executeQuery(query, false, new ReportResultBudget(limits, nanoTime));
         if (result.csv() == null) {
             showRefusal(request, result);
             request.setAttribute("templateid", templateId);
@@ -164,7 +176,7 @@ public class SQLReporter implements Reporter {
 
         request.setAttribute("csv", result.csv());
         if (result.csvWithheld()) {
-            markCsvWithheld(request);
+            markCsvWithheld(request, "csvWithheld");
         }
         request.setAttribute("sql", query.getSql());
         request.setAttribute("reportobject", curReport);
@@ -187,7 +199,7 @@ public class SQLReporter implements Reporter {
         Map<String, String[]> parameterMap = request.getParameterMap();
 
         int x = 0;
-        ReportResultBudget budget = new ReportResultBudget(limits);
+        ReportResultBudget budget = new ReportResultBudget(limits, nanoTime);
         if (curReport instanceof ReportObjectGeneric) {
             ReportObjectGeneric genericReport = (ReportObjectGeneric) curReport;
             ParameterizedSql query;
@@ -202,8 +214,6 @@ public class SQLReporter implements Reporter {
                 if (result.csv() == null) {
                     // Do not retain earlier successful subreports after the sequence fails.
                     clearSequenceOutput(request, x);
-                    request.removeAttribute("csvWithheld");
-                    request.removeAttribute("csvWithheldMb");
                     request.setAttribute("csv-" + x, "");
                     showRefusal(request, result);
                     request.setAttribute("templateid", templateId);
@@ -211,7 +221,7 @@ public class SQLReporter implements Reporter {
                 }
                 request.setAttribute("csv-" + x, result.csv());
                 if (result.csvWithheld()) {
-                    markCsvWithheld(request);
+                    markCsvWithheld(request, "csvWithheld-" + x);
                 }
                 request.setAttribute("sql-" + x, query.getSql());
                 request.setAttribute("resultsethtml-" + x, result.html());
@@ -233,9 +243,11 @@ public class SQLReporter implements Reporter {
     private void clearSequenceOutput(HttpServletRequest request, int count) {
         for (int previous = 0; previous < count; previous++) {
             request.removeAttribute("csv-" + previous);
+            request.removeAttribute("csvWithheld-" + previous);
             request.removeAttribute("sql-" + previous);
             request.removeAttribute("resultsethtml-" + previous);
         }
+        request.removeAttribute("csvWithheldMb");
     }
 
     /** Null CSV denotes a limit refusal or a failed sequence; ordinary single-query errors retain result navigation. */
@@ -246,16 +258,25 @@ public class SQLReporter implements Reporter {
         } catch (ReportResultBudget.LimitExceededException e) {
             return new QueryResult(e.getMessage(), null, false, e);
         } catch (SQLTimeoutException _) {
-            // A JDBC deadline, including time spent waiting for a pooled connection: the time limit's message
-            // names both causes.
-            ReportResultBudget.LimitExceededException time = budget.timeLimit();
-            return new QueryResult(time.getMessage(), null, false, time);
+            // The JDBC deadline: before or after a connection is acquired, the driver's query timeout, or an abort
+            // while streaming. The time limit's message names both a large report and a busy server.
+            return timeLimit(budget);
         } catch (SQLException | IOException e) {
             MiscUtils.getLogger().error("Error generating template report", e);
+            if (budget.pastDeadline()) {
+                // Any failure once the time limit has run out, such as an exhausted connection pool that kept
+                // the report waiting longer than its limit, is shown as the time limit too.
+                return timeLimit(budget);
+            }
             // Both destination JSPs encode error text. Keep it unencoded here so
             // diagnostic characters are displayed once, not as HTML entities.
             return new QueryResult("An SQL query error has occured " + e.getMessage(), sequenced ? null : "", false, null);
         }
+    }
+
+    private static QueryResult timeLimit(ReportResultBudget budget) {
+        ReportResultBudget.LimitExceededException time = budget.timeLimit();
+        return new QueryResult(time.getMessage(), null, false, time);
     }
 
     private ResultSet openReportQuery(ParameterizedSql query, ReportResultBudget budget) throws IOException, SQLException {

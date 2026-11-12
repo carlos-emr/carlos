@@ -20,8 +20,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * #5849: each Report by Template limit refusal, and the note for a held-back CSV, is shown in the user's
- * language (D262) with the limit's value.
+ * #5849: each Report by Template limit refusal, the note for a held-back CSV and the query label of a sequence
+ * are shown in the user's language (D262) with their value.
  */
 @DisplayName("Report by Template limit messages")
 @Tag("unit")
@@ -38,11 +38,13 @@ class ReportByTemplateLimitMessagesUnitTest {
             keys.add(limit.key());
         }
         keys.add("report.byTemplate.csvWithheld");
+        keys.add("report.byTemplate.queryNumber");
         return keys;
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"en", "fr", "es", "pl", "pt_BR"})
+    @DisplayName("should have every limit message, with its value, in every bundle")
     void shouldHaveEveryLimitMessage_inEveryBundle(String locale) throws IOException {
         Properties bundle = new Properties();
         try (InputStream in = Files.newInputStream(Path.of("src", "main", "resources", "oscarResources_" + locale + ".properties"))) {
@@ -59,6 +61,7 @@ class ReportByTemplateLimitMessagesUnitTest {
     }
 
     @Test
+    @DisplayName("should show the translated refusal on both report pages, and each held-back note on its query")
     void shouldShowTheTranslatedRefusal_onBothReportPages() throws IOException {
         String configuration = Files.readString(JSP.resolve("reportConfiguration.jsp"), StandardCharsets.UTF_8);
         String result = Files.readString(JSP.resolve("resultReport.jsp"), StandardCharsets.UTF_8);
@@ -66,6 +69,16 @@ class ReportByTemplateLimitMessagesUnitTest {
         assertThat(result).contains(TRANSLATED_REFUSAL)
                 .contains("<%@ taglib uri=\"jakarta.tags.fmt\" prefix=\"fmt\" %>")
                 .contains("<fmt:setBundle basename=\"oscarResources\"/>")
-                .containsSubsequence("${csvWithheld}", "<fmt:message key=\"report.byTemplate.csvWithheld\"><fmt:param value=\"${csvWithheldMb}\"/></fmt:message>");
+                // The note sits inside the loop over the results, flagged per query (csvWithheld-N in a sequence).
+                .containsSubsequence("request.getAttribute(\"csvWithheld-\" + x)", "request.getAttribute(\"csvWithheld\")",
+                        "<c:forEach items=\"${ htmlList }\" var=\"htmlOut\" varStatus=\"query\">",
+                        "<c:if test=\"${csvWithheldList[query.index]}\">",
+                        "<fmt:message key=\"report.byTemplate.queryNumber\"><fmt:param value=\"${query.count}\"/></fmt:message>",
+                        "<fmt:message key=\"report.byTemplate.csvWithheld\"><fmt:param value=\"${csvWithheldMb}\"/></fmt:message>",
+                        "</c:forEach>",
+                        // Every export form of a sequence names its query.
+                        "<fmt:message key=\"report.byTemplate.queryNumber\"><fmt:param value=\"${queryNumber}\"/></fmt:message>",
+                        "name=\"getCSV\"")
+                .doesNotContain("<%if (x > 1) { %>");
     }
 }
