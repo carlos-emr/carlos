@@ -55,6 +55,9 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("slow")
 public class TicklerDaoWriteIntegrationTest extends TicklerDaoBaseIntegrationTest {
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.transaction.PlatformTransactionManager transactionManager;
+
     @Test
     @DisplayName("should persist new history and comments during an intervening authorization query flush")
     void shouldPersistNewChildren_whenQueryFlushesManagedTickler() {
@@ -151,19 +154,51 @@ public class TicklerDaoWriteIntegrationTest extends TicklerDaoBaseIntegrationTes
         assertThat(org.hibernate.Hibernate.isInitialized(forEdit.getComments())).isTrue();
     }
 
-    /** Stores program_id 0, which the generated test schema's foreign key would refuse. */
+    /**
+     * Stores program_id 0, which the generated test schema's foreign key would refuse.
+     *
+     * <p>H2's switch applies to the whole database and commits the connection it runs on. On this
+     * test's connection it would commit the test's rows into the database that every later test
+     * in the same fork reads, so it runs in a transaction of its own and this test's transaction
+     * stays open, to be rolled back as usual. MariaDB's switch belongs to the session and commits
+     * nothing, so there it has to run on this test's connection.</p>
+     */
     private void storeProgramZero(Integer ticklerNo) {
         boolean h2 = entityManager.unwrap(org.hibernate.Session.class).doReturningWork(
                 connection -> connection.getMetaData().getDatabaseProductName().toLowerCase(java.util.Locale.ROOT).contains("h2"));
-        String off = h2 ? "SET REFERENTIAL_INTEGRITY FALSE" : "SET FOREIGN_KEY_CHECKS=0";
-        String on = h2 ? "SET REFERENTIAL_INTEGRITY TRUE" : "SET FOREIGN_KEY_CHECKS=1";
-        entityManager.createNativeQuery(off).executeUpdate();
+        setForeignKeyChecks(h2, false);
         try {
             entityManager.createNativeQuery("UPDATE tickler SET program_id = 0 WHERE tickler_no = ?1")
                     .setParameter(1, ticklerNo).executeUpdate();
         } finally {
-            entityManager.createNativeQuery(on).executeUpdate();
+            setForeignKeyChecks(h2, true);
         }
+        // Had the switch committed this test's transaction, another transaction would see its row.
+        assertThat(countInItsOwnTransaction(ticklerNo))
+                .as("the tickler this test stored must stay uncommitted").isZero();
+    }
+
+    private void setForeignKeyChecks(boolean h2, boolean checked) {
+        if (!h2) {
+            entityManager.createNativeQuery("SET FOREIGN_KEY_CHECKS=" + (checked ? 1 : 0)).executeUpdate();
+            return;
+        }
+        inItsOwnTransaction().executeWithoutResult(status -> entityManager
+                .createNativeQuery("SET REFERENTIAL_INTEGRITY " + (checked ? "TRUE" : "FALSE")).executeUpdate());
+    }
+
+    private long countInItsOwnTransaction(Integer ticklerNo) {
+        Number count = inItsOwnTransaction().execute(status -> (Number) entityManager
+                .createNativeQuery("SELECT COUNT(*) FROM tickler WHERE tickler_no = ?1")
+                .setParameter(1, ticklerNo).getSingleResult());
+        return count.longValue();
+    }
+
+    private org.springframework.transaction.support.TransactionTemplate inItsOwnTransaction() {
+        var separate = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+        separate.setPropagationBehavior(
+                org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        return separate;
     }
 
     @Test
