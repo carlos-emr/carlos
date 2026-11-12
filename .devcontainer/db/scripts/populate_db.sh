@@ -135,7 +135,7 @@ echo 'Preparing demographic and provider names for development environment...'
 $SQL carlos < /scripts/demo-name-sanitization.sql
 $SQL carlos < /scripts/demo-name-sanitization-on.sql
 # Synthetic patients with full histories for the AI chart tools (#6148): 22 FAKE adults
-# converted once from Synthea's sample data by scripts/devdata/synthea/generate_dev_patients.py.
+# generated once with Synthea (scripts/devdata/synthea/run_synthea.sh) and converted by generate_dev_patients.py.
 # Loaded after the sanitization, whose rules they already meet (FAKE- names). Additive and
 # idempotent: the file owns demographic_no 90001-90099 and deletes that range first.
 echo 'Seeding synthetic patients with full histories (#6148)...'

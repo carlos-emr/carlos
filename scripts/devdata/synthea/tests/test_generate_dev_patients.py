@@ -2,7 +2,8 @@
 # Copyright (C) 2026 CARLOS Contributors
 """Tests of the synthetic development patients generator (#6148).
 
-Run from the repository root (no download needed: the tests build a tiny sample in memory):
+Run from the repository root (no Synthea run needed: the tests write a tiny Synthea-shaped CSV folder
+to a temporary directory):
     python3 -m unittest discover -s scripts/devdata/synthea/tests -t .
 """
 
@@ -14,7 +15,6 @@ import re
 import sys
 import tempfile
 import unittest
-import zipfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -38,7 +38,7 @@ COLUMNS = {
 }
 
 
-def sample():
+def synthea_rows():
     rows = {name: [] for name in COLUMNS}
     rows["patients"] += [
         dict(Id=P1, BIRTHDATE="1960-03-04", DEATHDATE="", FIRST="Testa123", LAST="Person456", GENDER="F"),
@@ -100,15 +100,15 @@ def sample():
     return rows
 
 
-def write_zip(folder):
-    path = Path(folder) / "sample.zip"
-    with zipfile.ZipFile(path, "w") as archive:
-        for name, columns in COLUMNS.items():
-            buffer = io.StringIO()
-            writer = csv.DictWriter(buffer, fieldnames=columns)
+def write_csv_folder(folder):
+    """The tables as Synthea's CSV exporter writes them: one <name>.csv per table in a csv folder."""
+    path = Path(folder) / "csv"
+    path.mkdir()
+    for name, columns in COLUMNS.items():
+        with open(path / f"{name}.csv", "w", encoding="utf-8", newline="") as fh:
+            writer = csv.DictWriter(fh, fieldnames=columns)
             writer.writeheader()
-            writer.writerows(sample()[name])
-            archive.writestr(f"{name}.csv", buffer.getvalue())
+            writer.writerows(synthea_rows()[name])
     return path
 
 
@@ -117,15 +117,15 @@ class GeneratorTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.folder = tempfile.TemporaryDirectory()
-        cls.zip = write_zip(cls.folder.name)
-        cls.sql, cls.totals, cls.rules = gen.build(gen.read_sample(cls.zip), "test")
+        cls.csv = write_csv_folder(cls.folder.name)
+        cls.sql, cls.totals, cls.rules = gen.build(gen.read_tables(cls.csv), "test")
 
     @classmethod
     def tearDownClass(cls):
         cls.folder.cleanup()
 
-    def test_shouldWriteTheSameFile_forTheSameSample(self):
-        again, _, _ = gen.build(gen.read_sample(self.zip), "test")
+    def test_shouldWriteTheSameFile_forTheSameInput(self):
+        again, _, _ = gen.build(gen.read_tables(self.csv), "test")
         self.assertEqual(self.sql, again)
 
     def test_shouldTakeOnlyAdults_withRichHistories(self):
@@ -171,7 +171,7 @@ class GeneratorTest(unittest.TestCase):
         self.assertIn("'Anemia (resolved) (2005-2026)'", self.sql)
         self.assertIn("R8: metformin ER 500 mg: 2 renewals merged", self.sql)
         self.assertIn("S: medicine not in the code maps, left out: Some Unlisted Product", self.sql)
-        # R6: the serum creatinine (1.1 mg/dL = 97 umol/L) and an eGFR computed from it, never the sample's.
+        # R6: the serum creatinine (1.1 mg/dL = 97 umol/L) and an eGFR computed from it, never Synthea's.
         self.assertIn("('SCR',90001,'7','97'", self.sql)
         self.assertIn("('EGFR',90001,'7','56'", self.sql)  # a woman of 66: CKD-EPI 2021
         self.assertNotIn("'113.9'", self.sql)
@@ -180,7 +180,7 @@ class GeneratorTest(unittest.TestCase):
         self.assertNotIn("Gingivitis", self.sql)
         self.assertNotIn("Dental care", self.sql)
 
-    def test_shouldWriteNoKnownDrugAllergies_whenTheSampleListsNone(self):
+    def test_shouldWriteNoKnownDrugAllergies_whenSyntheaListsNone(self):
         self.assertIn("(90001,'2026-09-01','No Known Drug Allergies'", self.sql)
         self.assertIn("'Penicillin V',0,'Hives'", self.sql)
 
@@ -202,13 +202,26 @@ class GeneratorTest(unittest.TestCase):
         self.assertEqual(gen.q(None), "NULL")
         self.assertEqual(gen.q(True), "1")
 
-    def test_shouldRefuseAnotherSample_unlessAllowed(self):
+    def test_shouldRefuseOtherCsvFiles_unlessAllowed(self):
         out = Path(self.folder.name) / "out.sql"
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
-            gen.main(["--zip", str(self.zip), "--out", str(out)])
+            gen.main(["--csv", str(self.csv), "--out", str(out)])
         with contextlib.redirect_stdout(io.StringIO()):
-            self.assertEqual(gen.main(["--zip", str(self.zip), "--out", str(out), "--allow-other-sample"]), 0)
-        self.assertIn("(NOT the pinned zip)", out.read_text(encoding="utf-8"))
+            self.assertEqual(gen.main(["--csv", str(self.csv), "--out", str(out), "--allow-other-input"]), 0)
+        self.assertIn("(NOT the pinned run's CSV files)", out.read_text(encoding="utf-8"))
+
+    def test_shouldPinEveryCsvFile_inTheInputDigest(self):
+        with tempfile.TemporaryDirectory() as other:
+            copy = write_csv_folder(other)
+            self.assertEqual(gen.input_digest(copy), gen.input_digest(self.csv))
+            for name in gen.TABLES:
+                with open(copy / f"{name}.csv", "a", encoding="utf-8") as fh:
+                    fh.write("\n")
+                changed = gen.input_digest(copy)
+                self.assertNotEqual(changed, gen.input_digest(self.csv), name)
+        pinned, _, _ = gen.build(gen.read_tables(self.csv), gen.INPUT_SHA256)
+        self.assertIn("settings of scripts/devdata/synthea/run_synthea.sh.\n", pinned)
+        self.assertNotIn("NOT the pinned", pinned)
 
 
 if __name__ == "__main__":

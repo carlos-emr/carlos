@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 CARLOS Contributors
-"""Builds the development-only synthetic patients (#6148) from Synthea's ready-made CSV sample.
+"""Builds the development-only synthetic patients (#6148) from our own pinned Synthea run.
 
+    scripts/devdata/synthea/run_synthea.sh <synthea-with-dependencies.jar> <ca resources folder> <empty output folder>
     python3 -I scripts/devdata/synthea/generate_dev_patients.py \\
-        --zip <synthea_sample_data_csv_latest.zip> \\
+        --csv <output folder>/csv \\
         --out .devcontainer/db/scripts/demo-synthetic-patients.sql
 
-The zip is the pinned sample (SAMPLE_URL, SAMPLE_SHA256); it stays out of the repository. The
-output is deterministic: the same zip always gives the same file, byte for byte. See README.md for
-the selection, the FAKE identities, the mapping and the clean-up rules.
+run_synthea.sh runs the pinned Synthea release (SYNTHEA_JAR_URL, SYNTHEA_JAR_SHA256) in Ontario, with the
+pinned Canadian files of synthea-international and a fixed seed, dates and settings. Its CSV output stays out of the repository; this script refuses CSV files whose
+digest is not INPUT_SHA256. The output is deterministic: the same CSV files always give the same
+file, byte for byte. See README.md for the selection, the FAKE identities, the mapping and the
+clean-up rules.
 
 Development data only: populate_db.sh loads the file after development.sql. It is never applied to a
 production database.
@@ -17,11 +20,9 @@ production database.
 import argparse
 import csv
 import hashlib
-import io
 import random
 import re
 import sys
-import zipfile
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -29,11 +30,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import codemaps as cm  # noqa: E402  (beside this script; -I keeps the script's folder off sys.path)
 
-SAMPLE_URL = ("https://raw.githubusercontent.com/synthetichealth/synthea-sample-data/"
-              "84f59805d481b9f01f3141ef39e68bdbbeb80132/downloads/latest/synthea_sample_data_csv_latest.zip")
-SAMPLE_SHA256 = "990d52064037bbf83d10f13163da428964b56ae673b7f39bf549d78c1e7eda16"
+SYNTHEA_JAR_URL = "https://github.com/synthetichealth/synthea/releases/download/v4.0.0/synthea-with-dependencies.jar"
+SYNTHEA_JAR_SHA256 = "ed43c20ad40ba5c3bc724503a5af032715fe3c491620b766148e7c2361e6ecc1"  # also in run_synthea.sh
+TABLES = ("patients", "conditions", "medications", "observations", "encounters", "allergies", "immunizations")
+INPUT_SHA256 = "bbed687ce55a9057918b47eb4cb2b25e58a14cbcd3873d594431a5cfcd9f43f6"  # input_digest() of run_synthea.sh's CSV output
 
-REFERENCE = date(2026, 11, 1)  # the pinned sample's records run to October 2026
+REFERENCE = date(2026, 11, 1)  # run_synthea.sh ends the simulation on this date (-r and -e 20261101)
 FIRST_NO, LAST_NO = 90001, 90099  # demographic_no range owned by this file (development.sql uses 1-3000)
 COUNT = 22
 SEED = 6148
@@ -51,7 +53,7 @@ TOWNS = ("Testville", "Sampleford", "Exampleton", "Mockton", "Demoburg", "Placeh
 STREETS = ("Example Road", "Sample Avenue", "Placeholder Street", "Test Crescent", "Mock Lane", "Demo Drive",
            "Fixture Boulevard", "Stub Court")
 ONE_PER_CLASS = ("statin", "raas", "beta-blocker", "p2y12", "asa", "contraceptive", "nsaid", "antihistamine", "snri")
-FOOTER = "Synthetic test patient (FAKE): built from Synthea sample data for development and AI testing (#6148)."
+FOOTER = "Synthetic test patient (FAKE): generated with Synthea for development and AI testing (#6148)."
 
 RULES = {
     "R1": "HbA1c below 4.0% (below 5.0% with diabetes) replaced: about 7-9% with diabetes, 5.4% otherwise",
@@ -63,7 +65,7 @@ RULES = {
     "R7": "Short courses left open (antibiotics and the like) end 10 days after they started",
     "R8": "Yearly renewals of one medicine merged into one course",
     "C1": "US-only products replaced by the usual Canadian ones (see codemaps.canadian)",
-    "S": "A sample medicine with no code-map entry is left out (never guessed)",
+    "S": "A Synthea medicine with no code-map entry is left out (never guessed)",
 }
 
 
@@ -77,15 +79,20 @@ def sha256_of(path):
     return digest.hexdigest()
 
 
-def read_sample(zip_path, names=("patients", "conditions", "medications", "observations", "encounters",
-                                 "allergies", "immunizations")):
-    """The CSV tables of the zip, as lists of dicts. Read as data only."""
+def input_digest(folder):
+    """One SHA-256 over the CSV files this script reads: each file's name and SHA-256, in TABLES order."""
+    digest = hashlib.sha256()
+    for name in TABLES:
+        digest.update(f"{name}.csv {sha256_of(Path(folder) / f'{name}.csv')}\n".encode("ascii"))
+    return digest.hexdigest()
+
+
+def read_tables(folder):
+    """Synthea's CSV tables in `folder`, as lists of dicts. Read as data only."""
     tables = {}
-    with zipfile.ZipFile(zip_path) as archive:
-        members = {Path(n).name: n for n in archive.namelist() if n.endswith(".csv")}
-        for name in names:
-            with archive.open(members[f"{name}.csv"]) as raw:
-                tables[name] = list(csv.DictReader(io.TextIOWrapper(raw, "utf-8", newline="")))
+    for name in TABLES:
+        with open(Path(folder) / f"{name}.csv", encoding="utf-8", newline="") as fh:
+            tables[name] = list(csv.DictReader(fh))
     return tables
 
 
@@ -333,7 +340,7 @@ def measurements(rows, who, diabetic, index, log):
     for (ctype, when), (value, observed) in list(out.items()):
         if ctype == "SCR":
             out[("EGFR", when)] = (egfr(value, who["sex"], age_on(who["birth"], when)), observed)
-    # R1: an impossible HbA1c, or one far too low for diabetes: the sample keeps some patients on insulin at a flat
+    # R1: an impossible HbA1c, or one far too low for diabetes: Synthea keeps some patients on insulin at a flat
     # 3.1% or 4.0% at every visit.
     a1c = sorted((k for k in out if k[0] == "A1C"), key=lambda k: k[1])
     base = 7.0 + 0.3 * (index % 8)
@@ -438,7 +445,7 @@ def clean_description(text):
 
 
 def encounter_notes(who, tables_p, meds, measures, log):
-    """Short notes for recent visits, from what the sample recorded at each one (newest NOTE_LIMIT)."""
+    """Short notes for recent visits, from what Synthea recorded at each one (newest NOTE_LIMIT)."""
     since = REFERENCE - timedelta(days=365 * NOTE_YEARS)
     obs_by_enc = defaultdict(list)
     for o in tables_p["observations"]:
@@ -531,7 +538,7 @@ def patient_sql(index, who, tp, log):
                                 "discharge_from_transfer", "admission_status", "temporary_admission_flag",
                                 "automatic_discharge", "lastUpdateDate"),
                   [(who["no"], PROGRAM, who["provider"], joined_at, 0, 0, "current", 0, 0, joined_at)])
-    # Allergies (a "No Known Drug Allergies" row when the sample lists none).
+    # Allergies (a "No Known Drug Allergies" row when Synthea lists none).
     allergy_rows = []
     for a in sorted(tp["allergies"], key=lambda r: (r["START"], r["DESCRIPTION"])):
         if a["STOP"] or a["DESCRIPTION"] == "Allergic disposition (finding)":
@@ -622,7 +629,7 @@ def patient_sql(index, who, tp, log):
     return sql, stats
 
 
-def build(tables, sha):
+def build(tables, digest):
     chosen = choose(tables)
     patients = {p["Id"]: p for p in tables["patients"]}
     split = {name: by_patient(tables[name]) for name in tables if name != "patients"}
@@ -633,8 +640,9 @@ def build(tables, sha):
         "-- CARLOS development data: synthetic patients with full histories (#6148)",
         "--",
         "-- GENERATED by scripts/devdata/synthea/generate_dev_patients.py: do not edit by hand.",
-        "-- Source: Synthea's ready-made CSV sample (synthetic, Apache-2.0), pinned by commit and",
-        "-- SHA-256 in scripts/devdata/synthea/README.md" + ("" if sha == SAMPLE_SHA256 else " (NOT the pinned zip)") + ".",
+        "-- Source: our own run of Synthea v4.0.0 (synthetic patients; Synthea is Apache-2.0), with the",
+        "-- pinned jar, seed, dates and settings of scripts/devdata/synthea/run_synthea.sh"
+        + ("." if digest == INPUT_SHA256 else " (NOT the pinned run's CSV files)."),
         "-- Loaded by .devcontainer/db/scripts/populate_db.sh after development.sql and the name",
         "-- sanitization. Development data only: never applied to a production database.",
         "--",
@@ -691,15 +699,17 @@ def build(tables, sha):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--zip", required=True, type=Path, help="the pinned Synthea CSV sample zip")
+    parser.add_argument("--csv", required=True, type=Path,
+                        help="the csv folder that run_synthea.sh wrote (patients.csv, conditions.csv, ...)")
     parser.add_argument("--out", required=True, type=Path, help="the SQL file to write")
-    parser.add_argument("--allow-other-sample", action="store_true",
-                        help="build from a zip whose SHA-256 differs from the pinned one (for trying a newer sample)")
+    parser.add_argument("--allow-other-input", action="store_true",
+                        help="build from CSV files other than the pinned run's (for trying another seed or release)")
     args = parser.parse_args(argv)
-    sha = sha256_of(args.zip)
-    if sha != SAMPLE_SHA256 and not args.allow_other_sample:
-        parser.error(f"{args.zip} has SHA-256 {sha}, not the pinned {SAMPLE_SHA256}; download {SAMPLE_URL}")
-    text, totals, rules = build(read_sample(args.zip), sha)
+    digest = input_digest(args.csv)
+    if digest != INPUT_SHA256 and not args.allow_other_input:
+        parser.error(f"{args.csv}: CSV digest {digest}, not the pinned run's {INPUT_SHA256}; run "
+                     f"scripts/devdata/synthea/run_synthea.sh with the pinned jar ({SYNTHEA_JAR_URL})")
+    text, totals, rules = build(read_tables(args.csv), digest)
     args.out.write_text(text, encoding="utf-8")
     print(f"wrote {args.out}: " + ", ".join(f"{k} {v}" for k, v in sorted(totals.items())))
     print("rules fired: " + ", ".join(f"{k} {v}" for k, v in sorted(rules.items())))
