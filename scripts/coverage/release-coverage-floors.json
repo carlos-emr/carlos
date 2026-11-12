@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "0d9ed56215426db011ac8d92230dd1c1ecff9648",
-  "comparisonSha256": "9d668889bb66d2fe988ec29d89afe10974fe2d33f4ae341fc7e034975bc52478",
-  "baselineCommit": "a092a76172d1eefe7f0a0a328f8f66d9c75e4770",
-  "baselineSourceTree": "0d9ed56215426db011ac8d92230dd1c1ecff9648",
-  "baselineReportSha256": "0f62476456d9d173a7c42901ce45dc895601f43a0cfa6a3153b319545380f912",
-  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5 complete H2 java-all run (offline Maven) through verify-release-evidence.py: receipt PASS, run ab200761-f82b-4b79-895c-09bec0f34602. It used a local copy of the plan with forkCount 2 instead of 3, a 6-hour timeout instead of 40 minutes, and the routed skip that #6150 adds for its MariaDB test. Source: a local test merge (3ea3d17969) of release 1b27a8fd2c with the heads of #6130, #5141 (985aa46544), #6139 (a092a76172), #6142 (468a111070), #6145, #6152, #6150, #6151 (88d5204ece), #6154 (3b937c194f) and #6153. 36,467 tests, 219 skipped, 0 failures.",
+  "sourceTree": "7cca8d6d45eae872ff084ade300e3161cedd8733",
+  "comparisonSha256": "c36a90ef1591b492b004fccc5c0d6dd7b131bfee293ad828448ef5e52ba60769",
+  "baselineCommit": "ba5d934784241c22cfecdc1e64c78ff6cd6b49e7",
+  "baselineSourceTree": "7cca8d6d45eae872ff084ade300e3161cedd8733",
+  "baselineReportSha256": "ca0ec5082e6debff3c1febe8ac6904d63c803d3b3d1afdd8b8a26da2ba499f2d",
+  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5 complete H2 java-all run (offline Maven, forkCount 1 after a forkCount-2 attempt stopped at the 4 GiB memory guard), not through verify-release-evidence.py. Source: a local test merge (285ecce54e) of release 1b27a8fd2c with #6139 (ba5d934784), #6163 (22d340f966), #6161 (f8d722b66d), #6156 (75d5c77f8f), #6164 (7fec274a7f) and #6171 (b29c254728). Maven ran 36,370 tests, 219 skipped, 0 failures, 2 errors (PrescriptionQrCodeUIBeanUnitTest: its QR decoding check threw a ZXing ChecksumException in two cases; none of these PRs touches it).",
   "baselineTestCounts": {
-    "tests": 36467,
+    "tests": 36370,
     "skipped": 219,
     "failures": 0,
-    "errors": 0
+    "errors": 2
   },
-  "baselineTestReportsSha256": "e42bcd0c62638541342eb52e660ec05384464d26c1819e6247e8469765f97576",
+  "baselineTestReportsSha256": "d9d354f5bff1392e6a95c2fe8b3d4c20e1d513a5e58bfd139ca76e74dcc16d1b",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -4447,7 +4447,31 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "d1815d449b3b05279fe571e426d60a9b2d52cef8"
+      "sourceBlob": "cc96ef9adac43766c37fa7202b76d486cc30333f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingObecOutputApplyService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "41e42927661550a4eb27594cbdf151e2cdb0fee1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/waitinglist/pageUtil/WLAdd2WaitingList2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "eee00904ab1d17e163ed9209108ef9aeafcda10c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/waitinglist/pageUtil/WLSetupDisplayWaitingList2Action.java": {
+      "lines": 100.0,
+      "instructions": 95.83333333333333,
+      "branches": 87.5,
+      "sourceBlob": "075f29071701264ff0484f0648d97867e3adc3ad"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/waitinglist/util/WLWaitingListUtil.java": {
+      "lines": 87.5,
+      "instructions": 91.30434782608695,
+      "branches": 100.0,
+      "sourceBlob": "3e1b38d2f3f9de42c35b96b3d0d23dbd3cdcf035"
     }
   },
   "exclusions": {
@@ -4490,5 +4514,5 @@
   },
   "zeroCoverageWaivers": {},
   "baselineAdditionalTestRuns": [],
-  "baselineTestRunCommit": "3ea3d1796990a1e6ce53b71f01b03f58a0a91fa1"
+  "baselineTestRunCommit": "285ecce54e265a643cd600d3691ae3c8af9b4f96"
 }
