@@ -390,6 +390,80 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
     }
 
     // -----------------------------------------------------------------------
+    // removeAppointment (classic Edit Appointment form: Delete and Cut)
+    // -----------------------------------------------------------------------
+
+    @Test
+    @Tag("delete")
+    void shouldRejectStaleRemoval_beforeArchivingOrRemoving() {
+        Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
+        current.setUpdateDateTime(new Date(2000));
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(current);
+
+        assertThatThrownBy(() -> scheduleManager.removeAppointment(mockLoggedInInfo, 77, "1000"))
+                .isInstanceOfSatisfying(AppointmentUpdateException.class, refused ->
+                        assertThat(refused.getReason()).isEqualTo(AppointmentUpdateException.Reason.STALE_VERSION));
+
+        verifyNoInteractions(mockAppointmentArchiveDao);
+        verify(mockOscarAppointmentDao, never()).remove(any(Appointment.class));
+    }
+
+    @Test
+    @Tag("delete")
+    void shouldArchiveThenRemoveLockedRow_whenVersionIsCurrent() {
+        Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
+        current.setUpdateDateTime(new Date(2000));
+        current.setLastUpdateUser(null);
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(current);
+
+        Appointment removed = scheduleManager.removeAppointment(mockLoggedInInfo, 77, "2000");
+
+        assertThat(removed).isSameAs(current);
+        // The archive row names who removed an appointment nobody had edited before.
+        assertThat(current.getLastUpdateUser()).isEqualTo(mockLoggedInInfo.getLoggedInProviderNo());
+        var inOrder = inOrder(mockOscarAppointmentDao, mockAppointmentArchiveDao);
+        inOrder.verify(mockOscarAppointmentDao).findForUpdate(77);
+        inOrder.verify(mockAppointmentArchiveDao).archiveAppointment(current);
+        inOrder.verify(mockOscarAppointmentDao).remove(current);
+    }
+
+    @Test
+    @Tag("delete")
+    void shouldRemoveUnconditionally_whenNoVersionIsSupplied() {
+        Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
+        current.setUpdateDateTime(new Date(2000));
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(current);
+
+        scheduleManager.removeAppointment(mockLoggedInInfo, 77, " ");
+
+        verify(mockAppointmentArchiveDao).archiveAppointment(current);
+        verify(mockOscarAppointmentDao).remove(current);
+    }
+
+    @Test
+    @Tag("delete")
+    void shouldReportNotFound_whenRemovedRowNoLongerExists() {
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(null);
+
+        assertThatThrownBy(() -> scheduleManager.removeAppointment(mockLoggedInInfo, 77, "2000"))
+                .isInstanceOfSatisfying(AppointmentUpdateException.class, refused ->
+                        assertThat(refused.getReason()).isEqualTo(AppointmentUpdateException.Reason.NOT_FOUND));
+        verifyNoInteractions(mockAppointmentArchiveDao);
+    }
+
+    @Test
+    @Tag("delete")
+    void shouldRejectRemoval_whenDeletePrivilegeIsMissing() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("d"), isNull()))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> scheduleManager.removeAppointment(mockLoggedInInfo, 77, "2000"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_appointment)");
+        verifyNoInteractions(mockOscarAppointmentDao, mockAppointmentArchiveDao);
+    }
+
+    // -----------------------------------------------------------------------
     // getAppointmentsForPatient
     // -----------------------------------------------------------------------
 

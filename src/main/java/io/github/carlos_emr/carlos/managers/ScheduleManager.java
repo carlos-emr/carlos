@@ -98,6 +98,21 @@ public interface ScheduleManager {
     Appointment updateAppointment(LoggedInInfo loggedInInfo, Integer appointmentId,
             String expectedVersion, Consumer<Appointment> edit);
 
+    /**
+     * Archives and removes the locked current row, validating the client's read version when supplied.
+     * The classic Edit Appointment form's Delete and Cut use it so a popup opened before another
+     * user's change cannot remove (or cut and re-paste) the newer appointment unseen. Missing or
+     * blank versions preserve the unconditional removal those buttons had.
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated caller
+     * @param appointmentId Integer the appointment_no of the row to remove
+     * @param expectedVersion String the editVersion token the client read; null or blank for an unconditional removal
+     * @return Appointment the removed appointment as it was archived
+     * @throws AppointmentUpdateException when a supplied version is stale, or the row does not exist
+     * @throws SecurityException when the caller lacks the _appointment delete privilege
+     */
+    Appointment removeAppointment(LoggedInInfo loggedInInfo, Integer appointmentId, String expectedVersion);
+
     public List<Appointment> getAppointmentsForDateRangeAndProvider(LoggedInInfo loggedInInfo, Date startTime, Date endTime, String providerNo);
 
     public List<Appointment> getAppointmentUpdatedAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateExclusive, int itemsToReturn);

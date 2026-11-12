@@ -117,3 +117,41 @@ and failed on `uk_demo_ext` with HTTP 500.
 
 `concurrency-demographic-edit` and `concurrency-demographic-ext-insert` pin the refusal, and
 `demographic-stale-edit-recovery` pins the conflict page and both recovery paths.
+
+## Stale Edit Appointment forms: `AppointmentEditConflict`
+
+The classic Edit Appointment popup also posts every field. A popup opened before another user's
+change wrote its stale fields back: a cancellation saved from a second popup, or a status letter
+clicked on the day sheet, was silently undone.
+
+- `editappointment.jsp` renders `appointmentVersion`, the appointment's
+  `Appointment.getEditVersion()` (its `updatedatetime`, which `@PreUpdate` advances by at least one
+  second on every write). A redisplay of posted fields (the patient search round trip, a
+  text-length retry) keeps the version those fields came from. This is the token the REST edit
+  already uses; there is no second scheme.
+- `AppointmentUpdateRecord2Action` (Update Appt, Update & Receipt, Cancel Appt, No Show) writes
+  through `ScheduleManager.updateAppointment(loggedInInfo, id, version, edit)`: `findForUpdate`
+  locks the row, the version is compared, and the archive row and the update commit together.
+  Delete and Cut use `ScheduleManager.removeAppointment(loggedInInfo, id, version)` the same way;
+  Cut copies the form into the session for Paste only after the removal, so a refused cut leaves
+  nothing to paste.
+- The group page (`appointmentgrouprecords.jsp`) echoes the edit form's fields and lists each
+  matching appointment with its own `appointment_version<N>`. Group Update, Group Cancel and Group
+  Delete run in one transaction that first calls `AppointmentEditConflict.staleUnderLock()` for the
+  form's appointment and every ticked row. The repeat page's `RecurringAppointmentService.apply()`
+  compares the version with the anchor row it already locks.
+- A stale form whose fields the appointment already holds is not a conflict: it is the second
+  click on a form whose first submission was saved (the browser shows the later response). The
+  action writes nothing and answers with the normal result page.
+- Any other mismatch is refused before anything is written: HTTP 409 and
+  `/WEB-INF/jsp/appointment/appointmentEditConflict.jsp` (result `editConflict`), which says that
+  nothing was saved, refreshes the day sheet behind the popup and offers to reopen the appointment
+  as it is now. The repeat page shows the same text in its own alert. An appointment that no longer
+  exists is still answered 404.
+- Copy writes nothing to the appointment, so it is not checked. A post with no version (an older
+  page, a hand-built request, a replay) is saved without the check, as the REST edit does for
+  clients that send no `editVersion`. Replay tooling drops `appointmentVersion` for that reason.
+
+`concurrency-appointment-edit` pins the refusal: session A's stale Update Appt is answered 409,
+stores none of its fields and leaves session B's cancellation in place.
+

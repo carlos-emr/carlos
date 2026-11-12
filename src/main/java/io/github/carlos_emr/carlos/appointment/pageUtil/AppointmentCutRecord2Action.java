@@ -38,10 +38,10 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.carlos.appt.ApptUtil;
-import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
-import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.managers.AppointmentUpdateException;
+import io.github.carlos_emr.carlos.managers.ScheduleManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -58,8 +58,12 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public final class AppointmentCutRecord2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private final OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
-    private final AppointmentArchiveDao appointmentArchiveDao = SpringUtils.getBean(AppointmentArchiveDao.class);
+    private final ScheduleManager scheduleManager;
+
+    /** Struts creates this action through its no-argument constructor. */
+    public AppointmentCutRecord2Action() {
+        this.scheduleManager = SpringUtils.getBean(ScheduleManager.class);
+    }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -84,28 +88,40 @@ public final class AppointmentCutRecord2Action extends ActionSupport {
             return NONE;
         }
 
-        Appointment appt;
+        Integer apptNo;
         try {
-            appt = appointmentDao.find(Integer.parseInt(apptNoParam));
+            apptNo = Integer.valueOf(apptNoParam);
         } catch (NumberFormatException e) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid appointment_no");
             return NONE;
         }
-        if (appt == null) {
+
+        // Lock, compare the version the edit form was rendered from, archive and remove in one
+        // transaction. A form opened before another user changed the appointment is refused
+        // (HTTP 409) instead of removing the newer appointment unseen; a post without a version
+        // keeps the unconditional removal this route always had.
+        Appointment appt;
+        try {
+            appt = scheduleManager.removeAppointment(loggedInInfo, apptNo, AppointmentEditConflict.submittedVersion(request));
+        } catch (AppointmentUpdateException refused) {
+            if (refused.getReason() == AppointmentUpdateException.Reason.STALE_VERSION) {
+                return AppointmentEditConflict.refuse(request, response);
+            }
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "Appointment not found");
+            return NONE;
+        } catch (jakarta.ws.rs.ForbiddenException denied) {
+            // The manager also enforces a patient-specific denial of the appointment's patient.
+            throw new SecurityException("missing required sec object (_appointment)");
+        } catch (jakarta.ws.rs.BadRequestException invalid) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid appointment_no");
             return NONE;
         }
 
-        // Copy appointment into session AFTER validation to avoid corrupting session state on bad input
+        // Copy the form into the session only once the appointment is really gone: a refused
+        // (stale) cut must not leave fields behind that Paste would book as a new appointment.
         ApptUtil.copyAppointmentIntoSession(request);
 
-        if (appt.getLastUpdateUser() == null || appt.getLastUpdateUser().isEmpty()) {
-            appt.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
-        }
-        appointmentArchiveDao.archiveAppointment(appt);
-
         LogAction.addLogSynchronous(loggedInInfo, "Appointment.cut", "id=" + appt.getId());
-        appointmentDao.remove(appt.getId());
 
         request.setAttribute("success", true);
         return SUCCESS;
