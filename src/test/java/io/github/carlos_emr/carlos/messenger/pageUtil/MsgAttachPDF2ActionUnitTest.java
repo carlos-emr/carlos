@@ -44,6 +44,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.EChartDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException;
 import io.github.carlos_emr.carlos.commn.model.EChart;
 import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -106,6 +107,13 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
     private boolean renderFails;
     /** What the converter returns for every rendered item. */
     private String base64Pdf = "JVBERi0xLjQ=";
+    /** Patients the current encounter was printed for, in order. */
+    private final List<Integer> printedEncounters = new ArrayList<>();
+    /** PDF bytes streamed as a preview by an item that printed its own PDF. */
+    private final List<byte[]> streamedPdfs = new ArrayList<>();
+    /** What the current encounter's print does: returns these bytes, or throws. */
+    private byte[] encounterPdf = "%PDF-1.4 FAKE current encounter".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    private RuntimeException encounterFailure;
 
     @BeforeEach
     void setUp() {
@@ -133,6 +141,7 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
         allow("_demographic", "r");
         allow("_eChart", "r");
         allow("_rx", "r");
+        allow("_casemgmt.notes", "r");
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, PATIENT)).thenReturn(true);
 
         Demographic patient = new Demographic();
@@ -193,9 +202,22 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
                 convertedHtml.add(html);
                 return base64Pdf;
             }
+
+            @Override
+            public void streamPdfBytes(HttpServletResponse res, byte[] pdf) {
+                streamedPdfs.add(pdf);
+                res.setContentType("application/pdf");
+            }
+        };
+        MsgAttachPDF2Action.EncounterPrinter encounterPrinter = (req, login, demographicNo) -> {
+            printedEncounters.add(demographicNo);
+            if (encounterFailure != null) {
+                throw encounterFailure;
+            }
+            return encounterPdf;
         };
         MsgAttachPDF2Action action = new MsgAttachPDF2Action(securityInfoManager, demographicManager,
-                new MsgPdfAttachmentResolver(eChartDao), renderer, converter);
+                new MsgPdfAttachmentResolver(eChartDao), renderer, converter, encounterPrinter);
         action.setDemographic_no(String.valueOf(PATIENT));
         action.setAttachmentKey(key);
         return action;
@@ -678,6 +700,183 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
                         .noneMatch(message -> message.contains(String.valueOf(PATIENT)))
                         .noneMatch(message -> message.contains("FAKE-Doe"));
             }
+        }
+    }
+
+    /** #5856: the patient's current notes and CPP, printed by the modern chart's own print. */
+    @Nested
+    @DisplayName("current encounter")
+    class CurrentEncounter {
+
+        @Test
+        @DisplayName("should preview the chart print's PDF for the named patient, with no route or HTML")
+        void shouldStreamTheChartPrint_forACurrentEncounterPreview() throws Exception {
+            MsgAttachPDF2Action action = newAction();
+            action.setIsPreview(true);
+            action.setPreviewItem("currentEncounter");
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(printedEncounters).containsExactly(PATIENT);
+            assertThat(streamedPdfs).containsExactly(encounterPdf);
+            assertThat(renderedRoutes).isEmpty();
+            assertThat(convertedHtml).isEmpty();
+            verify(eChartDao, never()).getLatestChart(anyInt());
+        }
+
+        @Test
+        @DisplayName("should attach the chart print's PDF with its title, beside the other ticked items")
+        void shouldAttachTheChartPrint_withItsTitle() throws Exception {
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"prescriptions", "currentEncounter", "encounter"});
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+            String stored = stagedPdfs();
+            String printed = java.util.Base64.getEncoder().encodeToString(encounterPdf);
+            // Chooser order: the current encounter, then the historical one, then prescriptions.
+            assertThat(stored).containsSubsequence(
+                    "<TITLE>Current encounter notes</TITLE>", "<CONTENT>" + printed + "</CONTENT>",
+                    "<TITLE>Historical encounter:", "<TITLE>Current ")
+                    .containsPattern("(?i)<TITLE>Current prescriptions</TITLE>");
+            assertThat(stored.split("<STATUS>OK</STATUS>", -1)).hasSize(4);
+            assertThat(renderedRoutes).containsExactly(
+                    "/encounter/ViewEcharthistoryprint?echartid=77&demographic_no=" + PATIENT,
+                    "/rx/ViewPrintDrugProfile2?demographic_no=" + PATIENT);
+        }
+
+        @Test
+        @DisplayName("should refuse without note read, as the chart print does, before printing anything")
+        void shouldRefuse_withoutNoteRead() {
+            deny("_casemgmt.notes", "r");
+            MsgAttachPDF2Action action = newAction();
+            action.setIsPreview(true);
+            action.setPreviewItem("currentEncounter");
+
+            assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("_casemgmt.notes");
+            assertThat(printedEncounters).isEmpty();
+            assertThat(streamedPdfs).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should refuse a patient whose record is restricted, keeping the message's attachments")
+        void shouldRefuse_whenThePatientsDemographicIsRestricted() {
+            denyForPatient("_demographic");
+            givenEarlierAttachment();
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"currentEncounter"});
+
+            assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("_demographic");
+            assertThat(printedEncounters).isEmpty();
+            assertThat(stagedPdfs()).contains("FAKE earlier attachment");
+        }
+
+        @Test
+        @DisplayName("should answer 409 and stage nothing for a chart the print cannot show in full")
+        void shouldRefuseWith409_whenTheChartPrintCannotShowTheRecord() throws Exception {
+            encounterFailure = new CdsLegacyProjectionException();
+            givenEarlierAttachment();
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic", "currentEncounter"});
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
+            assertThat(stagedPdfs()).contains("FAKE earlier attachment").doesNotContain("Information");
+        }
+
+        @Test
+        @DisplayName("should answer 500 to a preview, and record a BAD entry on attach, when the print fails")
+        void shouldReportAFailedPrint_withoutItsContentOrThePatient() throws Exception {
+            encounterFailure = new IllegalStateException("FAKE print failure for FAKE-Doe " + PATIENT);
+            try (LogCapture logs = LogCapture.forLogger(MsgAttachPDF2Action.class)) {
+                MsgAttachPDF2Action preview = newAction();
+                preview.setIsPreview(true);
+                preview.setPreviewItem("currentEncounter");
+                assertThat(preview.execute()).isEqualTo(ActionSupport.NONE);
+                assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                assertThat(streamedPdfs).isEmpty();
+
+                response = new MockHttpServletResponse();
+                servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+                MsgAttachPDF2Action attach = newAction();
+                attach.setItem(new String[]{"currentEncounter"});
+                assertThat(attach.execute()).isEqualTo(ActionSupport.SUCCESS);
+                assertThat(stagedPdfs()).contains("<STATUS>BAD</STATUS>").contains("<CONTENT></CONTENT>");
+
+                assertThat(logs.messages())
+                        .isNotEmpty()
+                        .noneMatch(message -> message.contains(String.valueOf(PATIENT)))
+                        .noneMatch(message -> message.contains("FAKE-Doe"));
+            }
+        }
+
+        @Test
+        @DisplayName("should answer a preview with 409 for a chart the print cannot show in full")
+        void shouldRefusePreviewWith409_whenTheChartPrintCannotShowTheRecord() throws Exception {
+            encounterFailure = new CdsLegacyProjectionException();
+            MsgAttachPDF2Action action = newAction();
+            action.setIsPreview(true);
+            action.setPreviewItem("currentEncounter");
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
+            assertThat(streamedPdfs).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should treat a print that wrote nothing as a failed print")
+        void shouldTreatAnEmptyPrint_asAFailedPrint() throws Exception {
+            for (byte[] nothing : new byte[][]{null, new byte[0]}) {
+                encounterPdf = nothing;
+                response = new MockHttpServletResponse();
+                servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+                MsgAttachPDF2Action action = newAction();
+                action.setIsPreview(true);
+                action.setPreviewItem("currentEncounter");
+
+                assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+                assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
+            assertThat(streamedPdfs).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should stream a printed PDF as it is, with the PDF content type, by default")
+        void shouldStreamThePrintedBytes_forTheDefaultConverter() throws Exception {
+            MsgAttachPDF2Action.PdfConverter converter = new MsgAttachPDF2Action.PdfConverter() {
+                @Override
+                public void streamPdf(HttpServletRequest req, HttpServletResponse res, String html) {
+                    throw new AssertionError("not for a printed PDF");
+                }
+
+                @Override
+                public String toBase64Pdf(HttpServletRequest req, HttpServletResponse res, String html) {
+                    throw new AssertionError("not for a printed PDF");
+                }
+            };
+
+            converter.streamPdfBytes(response, encounterPdf);
+
+            assertThat(response.getContentType()).startsWith("application/pdf");
+            assertThat(response.getContentAsByteArray()).isEqualTo(encounterPdf);
+        }
+
+        @Test
+        @DisplayName("should offer the current encounter only with read on chart, record and notes")
+        void shouldRequireEveryChartPrintRead_forTheChooserRow() {
+            assertThat(MsgAttachPDF2Action.canReadItem(securityInfoManager, loggedInInfo,
+                    MsgPdfAttachmentResolver.Item.CURRENT_ENCOUNTER, PATIENT)).isTrue();
+
+            denyForPatient("_casemgmt.notes");
+            assertThat(MsgAttachPDF2Action.canReadItem(securityInfoManager, loggedInInfo,
+                    MsgPdfAttachmentResolver.Item.CURRENT_ENCOUNTER, PATIENT)).isFalse();
+            assertThat(MsgAttachPDF2Action.canReadItem(securityInfoManager, loggedInInfo,
+                    MsgPdfAttachmentResolver.Item.ENCOUNTER, PATIENT)).as("the historical item needs chart read only")
+                    .isTrue();
         }
     }
 

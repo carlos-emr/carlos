@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Enumeration;
@@ -52,8 +53,10 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.openpdf.text.DocumentException;
 
 import io.github.carlos_emr.carlos.commn.dao.EChartDao;
+import io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
@@ -87,9 +90,14 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * <p><b>Authorization.</b> {@code _msg} write and POST, as before; access to the named patient's
  * record; and, per item, read on the security object that item's route requires
- * ({@link Item#securityObject()}). The per-item check runs here, before the include, because an
+ * ({@link Item#securityObjects()}). The per-item check runs here, before the include, because an
  * included gate action that refuses would render the error page into the capture and that page
  * would be stored as the "PDF".</p>
+ *
+ * <p><b>The current encounter</b> (#5856) is the one item with no route: it is printed by the
+ * modern chart's own print ({@link MsgEncounterPdfComposer}), which makes the PDF itself, after the
+ * same checks the chart print makes. A chart the print cannot show in full is refused with 409, and
+ * nothing is staged.</p>
  *
  * <p><b>Which message.</b> The chooser posts the key of the compose window that opened it
  * ({@code attachmentKey}), and the PDFs are staged under that key with the patient they were
@@ -114,6 +122,18 @@ public class MsgAttachPDF2Action extends ActionSupport {
         void streamPdf(HttpServletRequest request, HttpServletResponse response, String html);
 
         String toBase64Pdf(HttpServletRequest request, HttpServletResponse response, String html);
+
+        /** Streams a PDF an item printed itself, as a preview. */
+        default void streamPdfBytes(HttpServletResponse response, byte[] pdf) {
+            Doc2PDF.PrintPDFFromBytes(response, pdf);
+        }
+    }
+
+    /** Prints the current encounter as a PDF ({@link MsgEncounterPdfComposer#compose}). */
+    @FunctionalInterface
+    interface EncounterPrinter {
+        byte[] print(HttpServletRequest request, LoggedInInfo loggedInInfo, int demographicNo)
+                throws IOException, DocumentException;
     }
 
     private static final Logger logger = MiscUtils.getLogger();
@@ -130,6 +150,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
     private final MsgPdfAttachmentResolver resolver;
     private final RouteRenderer routeRenderer;
     private final PdfConverter pdfConverter;
+    private final EncounterPrinter encounterPrinter;
 
     public MsgAttachPDF2Action() {
         this(SpringUtils.getBean(SecurityInfoManager.class),
@@ -146,16 +167,19 @@ public class MsgAttachPDF2Action extends ActionSupport {
                     public String toBase64Pdf(HttpServletRequest req, HttpServletResponse res, String html) {
                         return Doc2PDF.parseString2Bin(req, res, html);
                     }
-                });
+                },
+                MsgEncounterPdfComposer::composeWithChartServices);
     }
 
     MsgAttachPDF2Action(SecurityInfoManager securityInfoManager, DemographicManager demographicManager,
-                        MsgPdfAttachmentResolver resolver, RouteRenderer routeRenderer, PdfConverter pdfConverter) {
+                        MsgPdfAttachmentResolver resolver, RouteRenderer routeRenderer, PdfConverter pdfConverter,
+                        EncounterPrinter encounterPrinter) {
         this.securityInfoManager = securityInfoManager;
         this.demographicManager = demographicManager;
         this.resolver = resolver;
         this.routeRenderer = routeRenderer;
         this.pdfConverter = pdfConverter;
+        this.encounterPrinter = encounterPrinter;
     }
 
     /**
@@ -239,6 +263,21 @@ public class MsgAttachPDF2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Unknown attachment item");
             return NONE;
         }
+        if (item.get().printsOwnPdf()) {
+            byte[] pdf;
+            try {
+                pdf = printOwnPdf(attachment.get(), demographicNo, loggedInInfo);
+            } catch (CdsLegacyProjectionException unsupported) {
+                response.sendError(HttpServletResponse.SC_CONFLICT, unsupported.getMessage());
+                return NONE;
+            }
+            if (pdf == null) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "PDF generation failed");
+                return NONE;
+            }
+            pdfConverter.streamPdfBytes(response, pdf);
+            return NONE;
+        }
         String html = render(attachment.get(), demographicNo, loggedInInfo);
         if (html == null) {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "PDF generation failed");
@@ -288,8 +327,21 @@ public class MsgAttachPDF2Action extends ActionSupport {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Attachment item is unavailable");
                 return NONE;
             }
-            String html = render(attachment.get(), demographicNo, loggedInInfo);
-            String pdf = html == null ? null : pdfConverter.toBase64Pdf(request, response, html);
+            String pdf;
+            if (item.printsOwnPdf()) {
+                byte[] printed;
+                try {
+                    printed = printOwnPdf(attachment.get(), demographicNo, loggedInInfo);
+                } catch (CdsLegacyProjectionException unsupported) {
+                    // Nothing staged yet: the message keeps the attachments it had.
+                    response.sendError(HttpServletResponse.SC_CONFLICT, unsupported.getMessage());
+                    return NONE;
+                }
+                pdf = printed == null ? null : Base64.getEncoder().encodeToString(printed);
+            } else {
+                String html = render(attachment.get(), demographicNo, loggedInInfo);
+                pdf = html == null ? null : pdfConverter.toBase64Pdf(request, response, html);
+            }
             rendered.add(new String[]{pdf, attachment.get().title()});
         }
 
@@ -324,14 +376,16 @@ public class MsgAttachPDF2Action extends ActionSupport {
      * render once the included gate redirects).
      */
     private void requireItemPrivilege(LoggedInInfo loggedInInfo, Item item, int demographicNo) {
-        if (!canReadItem(securityInfoManager, loggedInInfo, item, demographicNo)) {
-            throw new SecurityException("missing required sec object (" + item.securityObject() + ")");
+        for (String object : item.securityObjects()) {
+            if (!canRead(securityInfoManager, loggedInInfo, object, demographicNo)) {
+                throw new SecurityException("missing required sec object (" + object + ")");
+            }
         }
     }
 
     /**
-     * Whether the user may read one chart item for one patient: read on the item's own security
-     * object, both globally and for this patient. The chooser page uses the same rule to decide
+     * Whether the user may read one chart item for one patient: read on each of the item's security
+     * objects, both globally and for this patient. The chooser page uses the same rule to decide
      * which rows it offers (and whether it may even look up the encounter), so it never shows an
      * item, or metadata about one, that this action would refuse.
      *
@@ -343,9 +397,35 @@ public class MsgAttachPDF2Action extends ActionSupport {
      */
     public static boolean canReadItem(SecurityInfoManager securityInfoManager, LoggedInInfo loggedInInfo,
                                       Item item, int demographicNo) {
-        return securityInfoManager.hasPrivilege(loggedInInfo, item.securityObject(), SecurityInfoManager.READ, null)
-                && securityInfoManager.hasPrivilege(loggedInInfo, item.securityObject(), SecurityInfoManager.READ,
-                        demographicNo);
+        return item.securityObjects().stream()
+                .allMatch(object -> canRead(securityInfoManager, loggedInInfo, object, demographicNo));
+    }
+
+    private static boolean canRead(SecurityInfoManager securityInfoManager, LoggedInInfo loggedInInfo,
+                                   String object, int demographicNo) {
+        return securityInfoManager.hasPrivilege(loggedInInfo, object, SecurityInfoManager.READ, null)
+                && securityInfoManager.hasPrivilege(loggedInInfo, object, SecurityInfoManager.READ, demographicNo);
+    }
+
+    /**
+     * Prints the current encounter (the item that makes its own PDF) for an authorized patient.
+     *
+     * @return the PDF, or {@code null} if it did not print
+     * @throws CdsLegacyProjectionException if the chart print cannot show this patient's record
+     */
+    private byte[] printOwnPdf(Attachment attachment, int demographicNo, LoggedInInfo loggedInInfo) {
+        try {
+            byte[] pdf = encounterPrinter.print(request, loggedInInfo, demographicNo);
+            return pdf == null || pdf.length == 0 ? null : pdf;
+        } catch (CdsLegacyProjectionException unsupported) {
+            throw unsupported;
+        } catch (IOException | RuntimeException e) {
+            // OpenPDF's DocumentException is a RuntimeException.
+            // No PHI: the item kind and the exception's class only, never its message or the patient.
+            logger.error("Could not print Messenger PDF attachment item {} ({})", attachment.item().key(),
+                    e.getClass().getName());
+            return null;
+        }
     }
 
     /**
