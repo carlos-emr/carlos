@@ -65,6 +65,26 @@ class WaitingListNoteLimitJspRegressionTest {
         assertThat(WLSetupDisplayWaitingList2Action.NOTE_ERRORS).isEqualTo("waitingListNoteErrors");
     }
 
+    @Test
+    void shouldShowTheRefusal_byTheRefusedRowsNoteBoxToo() throws IOException {
+        String page = Files.readString(projectRoot().resolve(
+                "src/main/webapp/WEB-INF/jsp/waitinglist/DisplayWaitingList.jsp"), StandardCharsets.UTF_8);
+        String row = page.substring(page.indexOf("<c:forEach var=\"waitingListBean\""));
+        // The row is the one the action validated in wlNoteSelected, for the patient posted with it.
+        assertThat(row).contains("<c:set var=\"noteRowSelector\" value=\"waitingListBean[${ctr.index}].note\"/>",
+                "${not empty waitingListNoteErrors and param.wlNoteSelected eq noteRowSelector"
+                        + " and param[param.demographicNumSelected] eq waitingListBean.demographicNo}");
+        // The note box points at the message, which is an encoded alert right below it.
+        String noteBox = row.substring(row.indexOf("<textarea cols=\"45\" name=\"waitingListBean[${ctr.index}].note\""));
+        assertThat(noteBox.substring(0, noteBox.indexOf("</textarea>"))).contains(
+                "<c:if test=\"${noteRefusedHere}\"> aria-invalid=\"true\" aria-describedby=\"waitingListNoteError_${ctr.index}\"</c:if>");
+        String message = noteBox.substring(noteBox.indexOf("</textarea>"));
+        message = message.substring(0, message.indexOf("</c:if>"));
+        assertThat(message).contains("<c:if test=\"${noteRefusedHere}\">",
+                "role=\"alert\" id=\"waitingListNoteError_${ctr.index}\" data-carlos-waiting-list-note-row-error=\"true\"",
+                "items=\"${waitingListNoteErrors}\"", "<carlos:encode value=\"${noteError}\"/>");
+    }
+
     private static Path projectRoot() {
         try {
             Path location = Path.of(WaitingListNoteLimitJspRegressionTest.class

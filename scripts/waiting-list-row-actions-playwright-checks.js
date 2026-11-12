@@ -111,7 +111,7 @@ async function workflow(s) {
     h.assert(await box.evaluate(el => el.validationMessage) === `Maximum ${LIMIT} characters.`, 'The note box does not say its limit');
     h.assert(all() === before, 'A stopped update changed the list');
   });
-  await s.step('a crafted over-long note past the browser is refused with 400, shown above the list, and changes no row', async () => {
+  await s.step('a crafted over-long note past the browser is refused with 400, shown above the list and by its note box, and changes no row', async () => {
     const before = all();
     const mark = failureMark(s.recorder);
     // As a hand-made request would: the page's own row selection, then a submit that skips its checks.
@@ -130,6 +130,13 @@ async function workflow(s) {
     h.assert(response.status() === 400, `A crafted over-long note was answered ${response.status()}, not 400`);
     h.assert((await f.manager.locator('[data-carlos-waiting-list-note-error]').innerText())
       .includes(`Waiting list note exceeds maximum length of ${LIMIT} characters.`), 'The page does not say why the note was refused');
+    // The same message sits by that row's note box, which points at it.
+    const rowMessage = f.patientRow(s.patient).locator('[data-carlos-waiting-list-note-row-error]');
+    h.assert((await rowMessage.innerText()).includes(`Waiting list note exceeds maximum length of ${LIMIT} characters.`),
+      'The refused row does not show why its note was refused');
+    h.assert(await f.patientRow(s.patient).locator('textarea').getAttribute('aria-describedby') === await rowMessage.getAttribute('id'),
+      'The refused note box does not point at its message');
+    h.assert(await f.manager.locator('[data-carlos-waiting-list-note-row-error]').count() === 1, 'A row other than the refused one shows the message');
     h.assert(all() === before, 'A refused note changed the list');
     // The refusal is this step's expected result, not a page defect. The browser logs the refused load after the
     // page has loaded, so give it a moment before claiming the 400 and its console line.
