@@ -98,7 +98,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * modern chart's own print ({@link MsgEncounterPdfComposer}), which makes the PDF itself, after the
  * same checks the chart print makes. A chart the print cannot show in full is refused with 409, and
  * nothing is staged. Attached chart notes are audited as a chart print sent through Messenger, just
- * before they are staged; a preview is not.</p>
+ * before they are staged; previewed ones as a Messenger preview, before the first byte is sent.</p>
  *
  * <p><b>Which message.</b> The chooser posts the key of the compose window that opened it
  * ({@code attachmentKey}), and the PDFs are staged under that key with the patient they were

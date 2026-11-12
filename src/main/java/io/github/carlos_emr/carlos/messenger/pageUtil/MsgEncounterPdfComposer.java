@@ -93,6 +93,11 @@ public class MsgEncounterPdfComposer {
     private final CdsLegacyProjectionService projections;
     private final ChartPrint chartPrint;
 
+    /**
+     * The composer the action uses: the projection service from Spring, and the chart's own print
+     * ({@link CaseManagementPrint}) with locked notes left out, printing only the notes and, when
+     * asked, the CPP.
+     */
     public MsgEncounterPdfComposer() {
         this(SpringUtils.getBean(CdsLegacyProjectionService.class),
                 (loggedInInfo, demographicNo, allNotes, cpp, request, out) -> {
