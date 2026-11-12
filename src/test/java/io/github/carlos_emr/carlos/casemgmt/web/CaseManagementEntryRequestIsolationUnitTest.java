@@ -643,6 +643,58 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         return edit(patient, explicitNew, encounterType, null);
     }
 
+    @Test
+    void shouldNotAuditANote_whenTheChartOpensOnANewUnsavedNote() throws Exception {
+        MockHttpServletRequest request = request("202");
+        request.setParameter("note_edit", "new");
+        try (var props = mockStatic(CarlosProperties.class);
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(action(request).edit()).isEqualTo("view");
+        }
+
+        // Nothing was read or changed: there is no note yet. The row used to be written as
+        // edit/CME note with the text "null" as its note id and the generated note text as data.
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog(
+                org.mockito.ArgumentMatchers.nullable(String.class), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.eq(io.github.carlos_emr.carlos.log.LogConst.CON_CME_NOTE),
+                org.mockito.ArgumentMatchers.nullable(String.class), org.mockito.ArgumentMatchers.nullable(String.class),
+                org.mockito.ArgumentMatchers.nullable(String.class), org.mockito.ArgumentMatchers.nullable(String.class)),
+                never());
+    }
+
+    @Test
+    void shouldAuditOpeningASavedNoteForEditingWithoutItsText_whenTheChartLoadsTheLastUnsignedNote() throws Exception {
+        MockHttpServletRequest request = request("101");
+        request.setRemoteAddr("192.0.2.7");
+        CaseManagementNote original = new CaseManagementNote();
+        original.setId(501L);
+        original.setUuid("0b4c6f6e-7f1d-4c58-9a0e-2f1f5f2a9d11");
+        original.setDemographic_no("101");
+        original.setProgram_no("7");
+        original.setNote("Existing unsigned clinical note");
+        original.setHistory("Existing clinical history");
+        when(manager.getLastSaved(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("101"),
+                org.mockito.ArgumentMatchers.eq("999998"))).thenReturn(original);
+        when(manager.isClientInProgramDomain("999998", "101")).thenReturn(true);
+        when(security.hasPrivilege(login, "_eChart", "r", "101")).thenReturn(true);
+        when(security.hasPrivilege(login, "_casemgmt.notes", "r", "101")).thenReturn(true);
+        when(manager.filterNotes(org.mockito.ArgumentMatchers.eq(login), org.mockito.ArgumentMatchers.eq("999998"),
+                org.mockito.ArgumentMatchers.eq(List.of(original)), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(List.of(original));
+
+        try (var props = mockStatic(CarlosProperties.class);
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(action(request).edit()).isEqualTo("view");
+        }
+
+        // The saved note that was loaded into the editor, its patient and the client address.
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog("999998",
+                io.github.carlos_emr.carlos.log.LogConst.EDIT, io.github.carlos_emr.carlos.log.LogConst.CON_CME_NOTE,
+                "501", "192.0.2.7", "101", "uuid=0b4c6f6e-7f1d-4c58-9a0e-2f1f5f2a9d11; signed=false; issues=0"));
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void shouldSelectTheCorrectUnsignedNoteWithoutRestoringUncapturedDrafts_whenTheEditorHasNoExplicitNote(
