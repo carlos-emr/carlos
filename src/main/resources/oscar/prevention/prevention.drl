@@ -274,7 +274,8 @@ end
 // names. Canadian Immunization Guide, Rotavirus vaccine: "The minimum interval between doses of RV vaccine is
 // 4 weeks" and "All doses of RV vaccine should be administered before 8 months of age" (#5048). This follows the
 // national guide; a clinic whose province ends the series earlier (24 weeks) uses its own rules file. A next date set
-// on the first dose takes precedence, as for flu: "Rota 2.1" reminds once that date has passed.
+// on the first dose takes precedence, as for flu: "Rota 2.1" reminds once that date has passed, but by the owner's
+// decision never before day 28, so a next date set earlier than the minimum interval waits for day 28.
 rule "Rota 2"
     when
         prev : Prevention()
@@ -312,6 +313,10 @@ rule "Rota 2.1"
         eval( (prev.isNextDateSet("Rota") && prev.isPassedNextDate("Rota"))
             || (prev.isNextDateSet("Rota-1") && prev.isPassedNextDate("Rota-1"))
             || (prev.isNextDateSet("Rota-5") && prev.isPassedNextDate("Rota-5")) )
+        // Never before the 4-week minimum interval, whatever the next date says.
+        eval( prev.getNumberOfPreventionType("Rota") == 0 || prev.getCalendarDaysSinceLast("Rota") >= 28 )
+        eval( prev.getNumberOfPreventionType("Rota-1") == 0 || prev.getCalendarDaysSinceLast("Rota-1") >= 28 )
+        eval( prev.getNumberOfPreventionType("Rota-5") == 0 || prev.getCalendarDaysSinceLast("Rota-5") >= 28 )
     then
         prev.log("Rota 2.1");
         prev.addWarning("Rota", "Needs Second Rota vaccine");
@@ -730,7 +735,7 @@ rule "Var 4"
 end
 
 // --------------------------------------------------------------------------
-// Tdap / Td: Tetanus-diphtheria(-pertussis) boosters (3 rules)
+// Tdap / Td: Tetanus-diphtheria(-pertussis) boosters (4 rules)
 // Canadian Immunization Guide, Tetanus toxoid: a DTaP-IPV or Tdap-IPV booster at 4-6 years, "10 years later, a
 //   booster dose of Tdap vaccine at 14 to 16 years of age", then "A booster dose of Td vaccine is recommended every
 //   10 years".
@@ -738,6 +743,9 @@ end
 //   Booster doses are DTaP-IPV and Tdap-IPV, and DTaP-IPV-Hib or the older TdP-IPV-Hib when given at 4 years
 //   (48 months) or later: the CIG does not need a separate 4-6-year booster after a fourth dose given after the
 //   fourth birthday. Infant doses of the -Hib products (2, 4, 6, 18 months) do not start the 10-year clock.
+// Tdap 2: age 14 to 16, no Tdap on file and no 4-6-year booster dose on file (infant doses of the -Hib products do
+//   not count): the teen dose is due, and childhood records are often missing (owner's decision, #5048). Exclusive
+//   with "Tdap 1", which needs a booster dose on file.
 // Td 1: no Td on file, and the most recent of the booster-age tetanus products is >=120mo old (#5048): Tdap,
 //   Td-IPV and Tdap-IPV, and TdP-IPV-Hib only when given at 4 years (48 months) or later, as in "Tdap 1". The
 //   older TdP-IPV-Hib is also an infant combination (2, 4, 18 months): its infant doses must not ask a child of
@@ -763,6 +771,20 @@ rule "Tdap 1"
         eval( prev.getAgeInMonthsLastPreventionTypeGiven("TdP-IPV-Hib") < 48 || prev.getHowManyMonthsSinceLast("TdP-IPV-Hib") >= 120 )
     then
         prev.log("Tdap 1");
+        prev.addWarning("Tdap", "Needs Tdap");
+end
+
+rule "Tdap 2"
+    when
+        prev : Prevention()
+        eval( prev.getAgeInYears() >= 14 && prev.getAgeInYears() <= 16 )
+        eval( prev.getNumberOfPreventionType("Tdap") == 0 )
+        // No booster dose on file; an absent type gives -1 for its age at the last dose.
+        eval( prev.getNumberOfPreventionType("DTaP-IPV") + prev.getNumberOfPreventionType("Tdap-IPV") == 0 )
+        eval( prev.getAgeInMonthsLastPreventionTypeGiven("DTaP-IPV-Hib") < 48 )
+        eval( prev.getAgeInMonthsLastPreventionTypeGiven("TdP-IPV-Hib") < 48 )
+    then
+        prev.log("Tdap 2");
         prev.addWarning("Tdap", "Needs Tdap");
 end
 

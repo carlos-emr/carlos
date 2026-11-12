@@ -289,8 +289,19 @@ class PneuCRotaPreventionRulesDroolsUnitTest {
         }
 
         @Test
-        void shouldRemind_whenASetNextDatePassesBeforeDayTwentyEight() {
-            assertThat(reminders(infantWithRota1DoseDaysAgo(3, 14, -2), NEEDS_SECOND_ROTA)).isEqualTo(1);
+        void shouldNotRemind_whenASetNextDatePassesBeforeDayTwentyEight() {
+            // Owner's decision: never before the 4-week minimum interval, whatever the next date says.
+            assertThat(reminders(infantWithRota1DoseDaysAgo(3, 14, -2), NEEDS_SECOND_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldNotRemind_whenANextDateAtDayTwentyHasPassedButTheDoseIsTwentySevenDaysOld() {
+            assertThat(reminders(infantWithRota1DoseDaysAgo(3, 27, -7), NEEDS_SECOND_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldRemindAtDayTwentyEight_whenTheNextDateWasDayTwenty() {
+            assertThat(reminders(infantWithRota1DoseDaysAgo(3, 28, -8), NEEDS_SECOND_ROTA)).isEqualTo(1);
         }
 
         @Test

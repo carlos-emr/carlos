@@ -48,7 +48,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * given at 4 years or later; infant doses do not count), and the first Td ("Td 1") ten years after the most recent
  * booster-age tetanus product (Tdap, Td-IPV, Tdap-IPV, or a TdP-IPV-Hib given at 4 years or later; its infant doses
  * do not count here either). When both apply, as for a teen whose school booster was a Tdap-IPV ten years ago, both
- * reminders show.</p>
+ * reminders show. By the owner's decision, a teen of 14 to 16 with no booster dose on file at all is also asked for
+ * the Tdap ("Tdap 2"), since childhood records are often missing.</p>
  *
  * @since 2026-10-18
  */
@@ -182,7 +183,8 @@ class TdPreventionRulesDroolsUnitTest {
 
     @Test
     void shouldNotStartTheTeenTdapClock_fromADtapIpvHibGivenAtFortySevenMonths() {
-        assertThat(fireRules(personWithDosesAtAgeInMonths(15, "DTaP-IPV-Hib", 2, 4, 6, 47)).getWarnings())
+        // At 17, past the 14-16 no-booster rule ("Tdap 2"), only the 10-year clock decides.
+        assertThat(fireRules(personWithDosesAtAgeInMonths(17, "DTaP-IPV-Hib", 2, 4, 6, 47)).getWarnings())
                 .doesNotContain(NEEDS_TDAP);
     }
 
@@ -204,7 +206,8 @@ class TdPreventionRulesDroolsUnitTest {
 
     @Test
     void shouldNotStartTheTeenTdapClock_fromInfantDtapIpvHibDoses() {
-        Prevention teen = personWith(15, "DTaP-IPV-Hib", 15, "DTaP-IPV-Hib", 14, "DTaP-IPV-Hib", 13);
+        // At 17, past the 14-16 no-booster rule ("Tdap 2"), only the 10-year clock decides.
+        Prevention teen = personWith(17, "DTaP-IPV-Hib", 17, "DTaP-IPV-Hib", 16, "DTaP-IPV-Hib", 15);
         assertThat(fireRules(teen).getWarnings()).doesNotContain(NEEDS_TDAP);
     }
 
@@ -238,6 +241,33 @@ class TdPreventionRulesDroolsUnitTest {
     void shouldAskForATd_whenATdpIpvHibBoosterGivenAtFiveIsElevenYearsOld() {
         assertThat(fireRules(personWithDosesAtAgeInMonths(16, "TdP-IPV-Hib", 2, 4, 18, 60)).getWarnings())
                 .contains(NEEDS_TD).doesNotContain(REPEAT_TD);
+    }
+
+    @Test
+    void shouldAskForTheTeenTdapOnce_whenAFifteenYearOldHasNoTetanusRecord() {
+        assertThat(fireRules(personWith(15)).getWarnings()).containsOnlyOnce(NEEDS_TDAP).doesNotContain(NEEDS_TD, REPEAT_TD);
+    }
+
+    @Test
+    void shouldNotAskForTheTeenTdap_whenAThirteenYearOldHasNoTetanusRecord() {
+        assertThat(fireRules(personWith(13)).getWarnings()).doesNotContain(NEEDS_TDAP, NEEDS_TD, REPEAT_TD);
+    }
+
+    @Test
+    void shouldNotAskForTheTeenTdap_whenASeventeenYearOldHasNoTetanusRecord() {
+        // The no-record reminder covers the guide's 14-16 window only.
+        assertThat(fireRules(personWith(17)).getWarnings()).doesNotContain(NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldAskForTheTeenTdapButNoTd_whenAFourteenYearOldHasOnlyInfantTdpIpvHibDoses() {
+        assertThat(fireRules(personWithDosesAtAgeInMonths(14, "TdP-IPV-Hib", 2, 4, 18)).getWarnings())
+                .containsOnlyOnce(NEEDS_TDAP).doesNotContain(NEEDS_TD, REPEAT_TD);
+    }
+
+    @Test
+    void shouldNotAskForTheTeenTdapYet_whenAFifteenYearOldsBoosterIsSevenYearsOld() {
+        assertThat(fireRules(personWith(15, "DTaP-IPV", 7)).getWarnings()).doesNotContain(NEEDS_TDAP);
     }
 
     @Test
