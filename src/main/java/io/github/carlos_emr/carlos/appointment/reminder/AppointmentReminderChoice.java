@@ -185,30 +185,25 @@ public final class AppointmentReminderChoice {
                                                 Locale locale) {
         if (appointment == null || appointment.getId() == null || appointment.getId() <= 0
                 || appointment.getDemographicNo() <= 0
-                || !mayReadStatus(SpringUtils.getBean(SecurityInfoManager.class), user, appointment.getDemographicNo(),
-                        channel)) {
+                || !mayReadStatus(SpringUtils.getBean(SecurityInfoManager.class), user, appointment.getDemographicNo())) {
             return null;
         }
         return SpringUtils.getBean(AppointmentReminderService.class).statusLine(appointment, channel, locale)
                 .orElse(null);
     }
 
-    static boolean mayReadStatus(SecurityInfoManager security, LoggedInInfo user, int demographicNo) {
-        return mayReadStatus(security, user, demographicNo, ReminderChannel.EMAIL);
-    }
-
     /**
-     * A per-patient check for the status line, as the channel's own pages make it: access to this patient's
-     * record, read on the record, and read on their email ({@code _email}) or their texts ({@code _sms}, as the
-     * patient's SMS History asks).
+     * A per-patient check for the status line: whoever may open this patient's appointment sees it, as the owner
+     * decided (#5887), front desk included. That is the Edit Appointment page's own right, {@code _appointment}
+     * write, asked for this patient, with the patient's locks: access to their record ({@code _eChart$N} and
+     * {@code _demographic$N}) and read on it. No right on the patient's email is needed: the line holds only a
+     * time or a fixed reason, never an address or message text.
      */
-    static boolean mayReadStatus(SecurityInfoManager security, LoggedInInfo user, int demographicNo,
-                                 ReminderChannel channel) {
+    static boolean mayReadStatus(SecurityInfoManager security, LoggedInInfo user, int demographicNo) {
         return user != null
                 && security.isAllowedAccessToPatientRecord(user, demographicNo)
                 && security.hasPrivilege(user, "_demographic", SecurityInfoManager.READ, demographicNo)
-                && security.hasPrivilege(user, channel == ReminderChannel.SMS ? "_sms" : "_email",
-                        SecurityInfoManager.READ, demographicNo);
+                && security.hasPrivilege(user, "_appointment", SecurityInfoManager.WRITE, demographicNo);
     }
 
     /** Whether Edit Appointment shows the Email Reminder box ticked for {@code appointmentNo}. */

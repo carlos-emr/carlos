@@ -877,6 +877,26 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             assertThat(line(NOW, 24, start, reminder)).contains(new ReminderStatusLine(KEYS + "doesNotFit", ""));
         }
 
+        /**
+         * The text line is shown to anyone who may open the appointment, so it carries a time or nothing: never the
+         * number, the text, its SMS row or an error. Every outcome is checked, with a text handed over.
+         */
+        @ParameterizedTest(name = "{0}")
+        @org.junit.jupiter.params.provider.EnumSource(AppointmentReminderStatus.class)
+        void shouldCarryOnlyATime_forEveryTextOutcome(AppointmentReminderStatus status) {
+            LocalDateTime start = NOW.plusHours(20);
+            AppointmentReminder reminder = textRequested();
+            reminder.startSending(at(start), at(NOW.minusMinutes(10)));
+            if (status != AppointmentReminderStatus.SENDING) {
+                reminder.finish(status, null, 55L, at(NOW.minusMinutes(10)));
+            }
+
+            assertThat(line(NOW, 24, start, reminder)).hasValueSatisfying(found -> {
+                assertThat(found.messageKey()).startsWith(KEYS).doesNotContain("55");
+                assertThat(found.argument()).isIn("", shown.format(NOW.minusMinutes(10)));
+            });
+        }
+
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"en", "fr", "es", "pl", "pt_BR"})
         void shouldHaveTheTextOnlyLines_inEveryBundle(String language) {

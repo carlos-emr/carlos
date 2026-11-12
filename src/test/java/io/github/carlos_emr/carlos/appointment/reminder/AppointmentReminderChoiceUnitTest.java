@@ -192,27 +192,44 @@ class AppointmentReminderChoiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldShowTheStatusLine_onlyToAUserWhoMayReadThisPatientsRecordAndEmail() {
+    void shouldShowTheStatusLine_toWhoeverMayOpenThisPatientsAppointment() {
         AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
         SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
         ReminderStatusLine line = new ReminderStatusLine("appointment.reminder.status.due", "");
         when(reminders.statusLine(any(Appointment.class), org.mockito.ArgumentMatchers.eq(ReminderChannel.EMAIL),
                 any(Locale.class))).thenReturn(Optional.of(line));
+        // A front-desk role: the appointment and the patient's record, but no right on their email.
         when(security.isAllowedAccessToPatientRecord(user, 42)).thenReturn(true);
         when(security.hasPrivilege(user, "_demographic", SecurityInfoManager.READ, 42)).thenReturn(true);
-        when(security.hasPrivilege(user, "_email", SecurityInfoManager.READ, 42)).thenReturn(true);
+        when(security.hasPrivilege(user, "_appointment", SecurityInfoManager.WRITE, 42)).thenReturn(true);
+        when(security.hasPrivilege(user, "_email", SecurityInfoManager.READ, 42)).thenReturn(false);
 
         assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), Locale.ENGLISH)).isEqualTo(line);
+    }
 
+    @Test
+    void shouldHideTheStatusLine_fromAUserWhoMayNotOpenThisPatientsAppointment() {
+        AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
+        SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
+        when(reminders.statusLine(any(Appointment.class), any(ReminderChannel.class), any(Locale.class)))
+                .thenReturn(Optional.of(new ReminderStatusLine("appointment.reminder.status.due", "")));
+        when(security.isAllowedAccessToPatientRecord(user, 42)).thenReturn(true);
+        when(security.hasPrivilege(user, "_demographic", SecurityInfoManager.READ, 42)).thenReturn(true);
+        // Email or text rights do not stand in for the appointment's.
+        when(security.hasPrivilege(user, "_email", SecurityInfoManager.READ, 42)).thenReturn(true);
+        when(security.hasPrivilege(user, "_sms", SecurityInfoManager.READ, 42)).thenReturn(true);
+
+        assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), Locale.ENGLISH))
+                .as("no _appointment w for this patient").isNull();
+        assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), ReminderChannel.SMS, Locale.ENGLISH))
+                .as("no _appointment w for this patient: no text line either").isNull();
+
+        when(security.hasPrivilege(user, "_appointment", SecurityInfoManager.WRITE, 42)).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(user, 42)).thenReturn(false);
-        assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), Locale.ENGLISH)).isNull();
+        assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), Locale.ENGLISH))
+                .as("the patient's record is locked to this user").isNull();
 
         when(security.isAllowedAccessToPatientRecord(user, 42)).thenReturn(true);
-
-        when(security.hasPrivilege(user, "_email", SecurityInfoManager.READ, 42)).thenReturn(false);
-        assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), Locale.ENGLISH)).isNull();
-
-        when(security.hasPrivilege(user, "_email", SecurityInfoManager.READ, 42)).thenReturn(true);
         when(security.hasPrivilege(user, "_demographic", SecurityInfoManager.READ, 42)).thenReturn(false);
         assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), Locale.ENGLISH)).isNull();
 
@@ -337,25 +354,22 @@ class AppointmentReminderChoiceUnitTest extends CarlosUnitTestBase {
         assertThat(AppointmentReminderChoice.isRequested(0, ReminderChannel.SMS)).isFalse();
     }
 
-    /** The text line names texts and the SMS Queue, so it asks what the patient's SMS History asks: _sms read. */
+    /** #884 (the owner's decision): the text line, too, shows to whoever may open the appointment, without _sms. */
     @Test
-    void shouldShowTheTextStatusLine_onlyToAUserWhoMayReadThisPatientsTexts() {
+    void shouldShowTheTextStatusLine_toWhoeverMayOpenThisPatientsAppointment() {
         AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
         SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
         ReminderStatusLine line = new ReminderStatusLine("appointment.reminder.sms.status.due", "");
         when(reminders.statusLine(any(Appointment.class), org.mockito.ArgumentMatchers.eq(ReminderChannel.SMS),
                 any(Locale.class))).thenReturn(Optional.of(line));
+        // A front-desk role: the appointment and the patient's record, but no right on their texts or email.
         when(security.isAllowedAccessToPatientRecord(user, 42)).thenReturn(true);
         when(security.hasPrivilege(user, "_demographic", SecurityInfoManager.READ, 42)).thenReturn(true);
-        when(security.hasPrivilege(user, "_sms", SecurityInfoManager.READ, 42)).thenReturn(true);
+        when(security.hasPrivilege(user, "_appointment", SecurityInfoManager.WRITE, 42)).thenReturn(true);
+        when(security.hasPrivilege(user, "_sms", SecurityInfoManager.READ, 42)).thenReturn(false);
         when(security.hasPrivilege(user, "_email", SecurityInfoManager.READ, 42)).thenReturn(false);
 
         assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), ReminderChannel.SMS, Locale.ENGLISH))
                 .isEqualTo(line);
-
-        when(security.hasPrivilege(user, "_sms", SecurityInfoManager.READ, 42)).thenReturn(false);
-        when(security.hasPrivilege(user, "_email", SecurityInfoManager.READ, 42)).thenReturn(true);
-        assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), ReminderChannel.SMS, Locale.ENGLISH))
-                .isNull();
     }
 }

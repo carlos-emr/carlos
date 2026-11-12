@@ -41,8 +41,9 @@ The `appointment_reminder` table and `sms_transaction.expires_at` come from the 
   made inside that window is reminded at the next run, as long as more than 2 hours remain.
 - **Quiet hours:** no text goes out between 21:00 and 08:00, server time. A reminder that falls in those hours is
   handed over at 08:00 if more than 2 hours remain before the start; otherwise no text goes.
-- **Once per start:** each appointment start gets one text. Moving the appointment by changing its date or time makes
-  it due again for the new start. Unticking the box stops a text not yet handed over.
+- **One text per appointment start:** moving an appointment by changing its date or time sends a reminder for the
+  new time, so the patient's latest text always has the right time (the owner's decision). Unticking the box stops
+  a text not yet handed over.
 - **A time limit:** each text must be sent by 2 hours before the start, or by 21:00 on the day it is handed over if
   that comes first. A text still waiting then (a retry, the rate limit, an outage, sending switched off) is failed as
   `QUEUE_EXPIRED`: it is never sent late, and never at night. A text already handed over is not withdrawn when the
@@ -84,8 +85,10 @@ recevoir de textos." (see **Replies**). It fits one SMS with that sentence too.
     clinic's name or phone made it longer than one SMS; too close to the appointment; or the time left falls in the
     quiet hours.
 
-  The line follows the text through the queue. It is shown to staff who may open the patient's record and read their
-  texts (`_sms` read), as the patient's SMS History asks.
+  The line follows the text through the queue. Anyone who may open this patient's appointment sees it, front desk
+  included: it needs the Edit Appointment page's own right (`_appointment` write) for this patient, with the
+  patient's record locks, and no right on their texts (`_sms`). It holds only a time or one of the reasons above,
+  never the number, the text or an error.
 - **Administration > SMS Queue** and the patient's **SMS History:** the text is an ordinary SMS row with purpose
   `APPOINTMENT_REMINDER`, the appointment number, and the staff member who ticked the box as requester. Failures and
   uncertain sends are handled there like any other text.
