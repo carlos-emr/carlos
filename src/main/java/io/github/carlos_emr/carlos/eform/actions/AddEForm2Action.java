@@ -511,7 +511,7 @@ public class AddEForm2Action extends ActionSupport {
                     return offerSavedRenderCapacity(loggedInInfo, (String) request.getAttribute("fdid"),
                             demographic_no, EFormRenderApprovalService.Operation.EDOC, true);
                 }
-                setPdfError(EFormRenderMessage.EDOC_FAILURE, e);
+                setPdfError(EFormRenderMessage.EDOC_FAILURE.text(request), e);
                 return "error";
             }
             followOnStep = FollowOnStep.FOLLOW_ON;
@@ -547,7 +547,7 @@ public class AddEForm2Action extends ActionSupport {
                     return offerSavedRenderCapacity(loggedInInfo, fdid, demographic_no,
                             EFormRenderApprovalService.Operation.DOWNLOAD, submitAndPdf);
                 }
-                setPdfError(EFormRenderMessage.DOWNLOAD_FAILURE, e);
+                setPdfError(EFormRenderMessage.DOWNLOAD_FAILURE.text(request), e);
                 return "error";
             }
 
@@ -675,7 +675,7 @@ public class AddEForm2Action extends ActionSupport {
             }
             pdfBase64 = documentAttachmentManager.convertPDFToBase64(eFormPdfPath);
         } catch (Exception e) {
-            setPdfWarning(EFormRenderMessage.PREVIEW_NOT_GENERATED, e);
+            setPdfWarning(EFormRenderMessage.PREVIEW_NOT_GENERATED.text(request), e);
         }
 
         request.setAttribute("eFormPDF", pdfBase64);
@@ -765,9 +765,9 @@ public class AddEForm2Action extends ActionSupport {
             // told a clinician who had clicked "Add to documents" that the eForm "could not be
             // downloaded" -- naming an action they never took and leaving them unsure whether the
             // document had been filed.
-            setPdfError(operation == EFormRenderApprovalService.Operation.EDOC
+            setPdfError((operation == EFormRenderApprovalService.Operation.EDOC
                     ? EFormRenderMessage.EDOC_FAILURE
-                    : EFormRenderMessage.DOWNLOAD_FAILURE, e);
+                    : EFormRenderMessage.DOWNLOAD_FAILURE).text(request), e);
             return "error";
         }
         // efmfid: the template this submission was made from (read the same way the save path reads it).
@@ -793,16 +793,16 @@ public class AddEForm2Action extends ActionSupport {
         return result;
     }
 
-    /** The eForm page shows the message in an alert, in the page's language (#6162). */
-    private void setPdfError(EFormRenderMessage message, Exception e) {
+    /** The eForm page shows the message in an alert; callers pass bundle text in the page's language (#6162). */
+    private void setPdfError(String message, Exception e) {
         logger.error("eForm PDF preparation failed ({})", e.getClass().getSimpleName());
         request.setAttribute(ERROR_ATTRIBUTE, "true");
-        request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, message.text(request));
+        request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, message);
     }
 
-    private void setPdfWarning(EFormRenderMessage message, Exception e) {
+    private void setPdfWarning(String message, Exception e) {
         logger.warn("eForm PDF preview unavailable ({})", e.getClass().getSimpleName());
-        request.setAttribute(WARNING_MESSAGE_ATTRIBUTE, message.text(request));
+        request.setAttribute(WARNING_MESSAGE_ATTRIBUTE, message);
     }
 
     private String getInvalidFilenameMessage() {
