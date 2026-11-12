@@ -307,6 +307,22 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should delete the prepared files when they cannot be staged because the session ended")
+    void shouldDiscardPreparedAttachments_whenStagingFails() throws Exception {
+        String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
+        List<EmailAttachment> eForm = file("A");
+        // The session ends while the attachments are being prepared, so staging them throws.
+        when(emailComposeManager.prepareEFormAttachments(any(), eq("20001"), any(), any())).thenAnswer(invocation -> {
+            session.invalidate();
+            return eForm;
+        });
+
+        assertThatThrownBy(() -> prepare(keyA)).isInstanceOf(IllegalStateException.class);
+
+        verify(emailComposeManager).discardPreparedAttachments(eForm);
+    }
+
+    @Test
     @DisplayName("should keep the prepared files when the window opens")
     void shouldKeepPreparedAttachments_whenComposeSucceeds() throws Exception {
         String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));

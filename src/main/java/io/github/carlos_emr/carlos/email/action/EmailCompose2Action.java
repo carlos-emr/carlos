@@ -347,8 +347,15 @@ public class EmailCompose2Action extends ActionSupport {
         // Stage this window's attachments under its own key, bound to this patient (#4425). The send
         // takes exactly this entry, so another window's compose or resend cannot change what this
         // window sends.
-        EmailAttachmentStaging.Staged stagedAttachments =
-                EmailAttachmentStaging.stage(session, demographicNo, emailAttachmentList);
+        EmailAttachmentStaging.Staged stagedAttachments;
+        try {
+            stagedAttachments = EmailAttachmentStaging.stage(session, demographicNo, emailAttachmentList);
+        } catch (RuntimeException e) {
+            // Nothing was staged (for example, the session ended meanwhile), so no window can send
+            // these files: delete them now rather than leave them to the purge job.
+            emailComposeManager.discardPreparedAttachments(emailAttachmentList);
+            throw e;
+        }
         request.setAttribute("emailAttachmentList", stagedAttachments.prepared().attachments());
         request.setAttribute(EmailAttachmentStaging.KEY_ATTRIBUTE, stagedAttachments.key());
 

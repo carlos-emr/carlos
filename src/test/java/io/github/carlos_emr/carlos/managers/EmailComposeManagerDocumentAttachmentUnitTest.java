@@ -205,6 +205,22 @@ class EmailComposeManagerDocumentAttachmentUnitTest {
         verify(nioFileManager, never()).deleteTempFile(anyString());
     }
 
+    @Test
+    @DisplayName("should delete the checked canonical file, not the attachment's path as it was stored")
+    void shouldDeleteCanonicalFile_whenStoredPathIsNotCanonical() throws Exception {
+        ByteArrayOutputStream pdf = new ByteArrayOutputStream();
+        pdf.writeBytes("%PDF-1.4 FAKE prepared form".getBytes(StandardCharsets.US_ASCII));
+        created = new NioFileManagerImpl().saveTempFile("FAKE-prepared-form", pdf, "pdf");
+        // The same file, reached through an extra "." directory.
+        String roundabout = created.getParent().resolve(".").resolve(created.getFileName()).toString();
+
+        emailComposeManager.discardPreparedAttachments(List.of(
+                new EmailAttachment("attachment_001.pdf", roundabout, DocumentType.FORM, 1, pdf.size())));
+
+        verify(nioFileManager).deleteTempFile(created.toFile().getCanonicalPath());
+        assertThat(created).doesNotExist();
+    }
+
     @ParameterizedTest(name = "{0}")
     @EnumSource(value = DocumentType.class, names = {"EFORM", "DOC", "LAB", "HRM", "FORM"})
     @DisplayName("should delete the files of a type already rendered when a later one of that type fails to render")

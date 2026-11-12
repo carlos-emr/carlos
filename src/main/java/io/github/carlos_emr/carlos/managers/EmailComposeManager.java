@@ -232,7 +232,8 @@ public class EmailComposeManager {
      * cannot be deleted is logged with its exception class only, never its path, and left to the
      * purge job.</p>
      *
-     * @param prepared the attachments prepared so far; {@code null} or empty does nothing
+     * @param prepared List&lt;EmailAttachment&gt; the attachments prepared so far; {@code null} or empty
+     *        does nothing
      */
     public void discardPreparedAttachments(List<EmailAttachment> prepared) {
         if (prepared == null) {
@@ -243,10 +244,15 @@ public class EmailComposeManager {
             if (filePath == null || filePath.isBlank()) {
                 continue;
             }
+            File owned;
             try {
-                if (PathValidationUtils.isInApplicationTempDirectory(new File(filePath))) {
-                    nioFileManager.deleteTempFile(filePath);
-                }
+                // The checked, canonical file is the one deleted, never the path as stored.
+                owned = PathValidationUtils.validateApplicationTempPath(new File(filePath));
+            } catch (SecurityException outsideTempTree) {
+                continue;
+            }
+            try {
+                nioFileManager.deleteTempFile(owned.getPath());
             } catch (RuntimeException e) {
                 logger.warn("A prepared email attachment could not be deleted; causeType={}", e.getClass().getName());
             }
