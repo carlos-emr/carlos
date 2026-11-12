@@ -746,6 +746,10 @@ end
 // Tdap 2: age 14 to 16, no Tdap on file and no 4-6-year booster dose on file (infant doses of the -Hib products do
 //   not count): the teen dose is due, and childhood records are often missing (owner's decision, #5048). Exclusive
 //   with "Tdap 1", which needs a booster dose on file.
+//   Neither rule counts the other childhood products in PreventionItems.xml (DTaP, DT-IPV, DTaP-Hib, DTaP-IPV-HB,
+//   DTaP-IPV-Hib-HB) as the 4-6-year booster: a teen whose school booster was recorded under one of them is asked
+//   for the Tdap at 14 to 16 ("Tdap 2"), but not ten years after that booster later on ("Tdap 1"). A Td or Td-IPV
+//   on file does not count either: it has no pertussis component, so the teen is still asked for the Tdap.
 // Td 1: no Td on file, and the most recent of the booster-age tetanus products is >=120mo old (#5048): Tdap,
 //   Td-IPV and Tdap-IPV, and TdP-IPV-Hib only when given at 4 years (48 months) or later, as in "Tdap 1". The
 //   older TdP-IPV-Hib is also an infant combination (2, 4, 18 months): its infant doses must not ask a child of

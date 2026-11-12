@@ -266,6 +266,18 @@ class TdPreventionRulesDroolsUnitTest {
     }
 
     @Test
+    void shouldAskForTheTeenTdap_whenTheSchoolBoosterWasRecordedAsDtIpv() {
+        // DT-IPV (and the other rarely used childhood products) is not counted as the 4-6-year booster.
+        assertThat(fireRules(personWith(15, "DT-IPV", 10)).getWarnings()).containsOnlyOnce(NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldAskForTheTeenTdap_whenOnlyATdIpvIsOnFile() {
+        // A Td-IPV has no pertussis component, so the teen dose is still due.
+        assertThat(fireRules(personWith(15, "Td-IPV", 2)).getWarnings()).containsOnlyOnce(NEEDS_TDAP).doesNotContain(NEEDS_TD);
+    }
+
+    @Test
     void shouldNotAskForTheTeenTdapYet_whenAFifteenYearOldsBoosterIsSevenYearsOld() {
         assertThat(fireRules(personWith(15, "DTaP-IPV", 7)).getWarnings()).doesNotContain(NEEDS_TDAP);
     }
