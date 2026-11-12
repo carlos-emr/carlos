@@ -177,7 +177,8 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         }
 
         private void siblings(ReminderCandidate... found) {
-            when(reminders.findSameVisit(ReminderChannel.EMAIL, PATIENT, start, 7L)).thenReturn(List.of(found));
+            when(reminders.findSameVisit(eq(ReminderChannel.EMAIL), eq(PATIENT), eq(start), eq(7L), any()))
+                    .thenReturn(List.of(found));
         }
 
         @Test
@@ -229,7 +230,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             Appointment appointment = appointment(start, PATIENT, "t");
             AppointmentReminder reminder = requested();
             stored(reminder, appointment, appointment);
-            when(reminders.findSameVisit(any(), anyInt(), any(), anyLong())).thenThrow(new IllegalStateException("FAKE"));
+            when(reminders.findSameVisit(any(), anyInt(), any(), anyLong(), any())).thenThrow(new IllegalStateException("FAKE"));
 
             try (LogCapture log = LogCapture.forLogger(AppointmentReminderService.class)) {
                 service.processDue(10);
@@ -245,6 +246,21 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
                                 .doesNotContain(String.valueOf(PATIENT)).doesNotContain(String.valueOf(APPOINTMENT))
                                 .doesNotContain("FAKE"));
             }
+        }
+
+        /** A transaction that gives no answer is not a checked visit either: fail closed, never send unchecked. */
+        @Test
+        void shouldTreatTheVisitAsUnchecked_whenTheTransactionGivesNoAnswer() {
+            TransactionOperations noAnswer = new TransactionOperations() {
+                @Override
+                public <T> T execute(org.springframework.transaction.support.TransactionCallback<T> action) {
+                    return null;
+                }
+            };
+            AppointmentReminderService silent = new AppointmentReminderService(reminders, appointments, List::of, noAnswer,
+                    new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2)), Clock.fixed(NOW.atZone(ZONE).toInstant(), ZONE));
+
+            assertThat(silent.sameVisit(ReminderChannel.EMAIL, 7L)).isEqualTo(AppointmentReminderService.SameVisit.UNCHECKED);
         }
 
         /**
@@ -291,6 +307,75 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
 
             assertThat(handed).isEmpty();
             assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.DUPLICATE);
+        }
+
+        /** The booking as it is now, after staff changed it: unticked, cancelled, or moved to another time. */
+        private ReminderCandidate changed(ReminderCandidate sibling, String change) {
+            switch (change) {
+                case "unticked" -> sibling.reminder().withdraw("999998", at(NOW.minusMinutes(30)));
+                case "cancelled" -> sibling.appointment().setStatus("C");
+                default -> {
+                    Appointment moved = appointment(start.plusHours(1), PATIENT, "t");
+                    moved.setId(sibling.appointment().getId());
+                    return new ReminderCandidate(sibling.reminder(), moved);
+                }
+            }
+            return sibling;
+        }
+
+        /**
+         * A booking whose reminder already went for this visit covers it whatever staff did to the booking after:
+         * unticked its box, cancelled it, or moved it. Otherwise ticking another booking sends a second email.
+         */
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"unticked", "cancelled", "moved"})
+        void shouldRecordTheReminderAsCovered_whenTheBookingThatWasRemindedChangedAfter(String change) {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            siblings(changed(sibling(12L, "t", AppointmentReminderStatus.SENT), change));
+
+            service.processDue(10);
+
+            assertThat(handed).isEmpty();
+            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.DUPLICATE);
+        }
+
+        /** A booking not yet reminded that left the visit will never send for it: this one must. */
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"unticked", "cancelled", "moved"})
+        void shouldSend_whenTheEarlierBookingLeftTheVisitBeforeItsReminder(String change) {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            siblings(changed(sibling(3L, "t", null), change));
+
+            service.processDue(10);
+
+            assertThat(handed).hasSize(1);
+        }
+
+        /** An earlier booking's retry that the cutoff rules out will never send: this one must. */
+        @Test
+        void shouldSend_whenTheEarlierBookingsRetryCannotRunBeforeTheCutoff() {
+            LocalDateTime soon = NOW.plusMinutes(140);
+            Appointment appointment = appointment(soon, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            Appointment other = appointment(soon, PATIENT, "t");
+            other.setId(APPOINTMENT + 1);
+            AppointmentReminder failed = AppointmentReminder.requested(APPOINTMENT + 1, ReminderChannel.EMAIL, "999998",
+                    at(NOW.minusDays(1)));
+            ReflectionTestUtils.setField(failed, "id", 3L);
+            // Failed 5 minutes ago: its retry would be at 10:25, after the 10:20 cutoff.
+            failed.startSending(at(soon), at(NOW.minusMinutes(5)));
+            failed.finish(AppointmentReminderStatus.FAILED, null, at(NOW.minusMinutes(5)));
+            when(reminders.findSameVisit(eq(ReminderChannel.EMAIL), eq(PATIENT), eq(soon), eq(7L), any()))
+                    .thenReturn(List.of(new ReminderCandidate(failed, other)));
+
+            service.processDue(10);
+
+            assertThat(handed).hasSize(1);
         }
 
         @Test

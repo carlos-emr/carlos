@@ -53,14 +53,19 @@ public interface AppointmentReminderDao extends AbstractDao<AppointmentReminder>
                                     int maxAttempts, int limit);
 
     /**
-     * The other requested reminders on {@code channel} for the same visit: the same patient's other bookings at
-     * {@code start} (as Group Appt books one per provider), with their appointments, whatever their status. Read
-     * without locks; empty without a patient or a start.
+     * The patient's other reminders on {@code channel} for the same visit, with their appointments as they are now:
+     * <ul>
+     *   <li>the requested reminders of the patient's other bookings at {@code start} (as Group Appt books one per
+     *       provider), whatever the appointment's status;</li>
+     *   <li>and any reminder already handed over for {@code start} (its last attempt was for that start and ended
+     *       in one of {@code handedOver}), whatever happened to its booking since: unticked, cancelled or moved.</li>
+     * </ul>
+     * Each reminder once, by id. Read without locks; empty without a patient or a start.
      *
      * @param excludeReminderId the reminder asking, left out
      */
     List<ReminderCandidate> findSameVisit(ReminderChannel channel, int demographicNo, LocalDateTime start,
-                                          long excludeReminderId);
+                                          long excludeReminderId, Collection<AppointmentReminderStatus> handedOver);
 
     /**
      * Rows on {@code channel} left {@link AppointmentReminderStatus#SENDING} by a run that stopped: their claim

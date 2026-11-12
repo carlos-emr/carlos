@@ -34,9 +34,10 @@ The clinic email footer must be configured, as for every patient email. The `app
   - **Group Appt** books the patient with several providers at the same time, so the box goes on one booking only:
     the one for the provider the form was opened for, or else the first booking with the patient. The patient
     gets one reminder. If the box is later ticked on another of those bookings, the patient still gets one: a
-    reminder whose patient has another reminded booking at the same time is not sent, and its line says so. While
-    another booking's reminder for that time is being sent, it waits for the next run; if the check itself fails,
-    nothing is sent and it is tried once more 30 minutes later.
+    reminder whose patient already has a reminder for that visit is not sent, and its line says so. A booking whose
+    reminder went for that time keeps covering the visit even if staff untick its box, cancel it or move it after.
+    While another booking's reminder for that time is being sent, it waits for the next run; if the check itself
+    fails, nothing is sent and it is tried once more 30 minutes later.
   - **Group Action, then Group Update**, books each appointment again under a new number. Its reminder, and the
     start already reminded for, go with it, so the same start is not reminded twice. The Edit form's box applies to
     the appointment Edit was opened for.
