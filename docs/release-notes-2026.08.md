@@ -179,6 +179,12 @@ version's values are archived. Flowsheets, graphs and decision support then show
 corrected values. Corrections received by a candidate build that skipped them are not
 re-filed.
 
+For these sources the report received last is the current one, because only CML reports
+carry revision evidence. If such a source re-sends an older version after a newer one, the
+older version's values are filed and the newer version's are archived. Only measurements
+filed for the same patient are archived, so another patient's report that shares the
+accession number is left alone.
+
 ### Consultations
 
 The team consultation list no longer comes up empty when one patient on the page is
@@ -193,8 +199,9 @@ counts the rows that are shown, and a list that cannot be loaded says so
 - Hospital reports (HRM) follow the patient's own access rules. A provider who is
   locked out of a patient, or lacks `_demographic` or `_hrm` read for that patient,
   cannot list, open, print, download or change that patient's hospital reports from
-  the chart, the HRM list, the inbox or as an attachment. Reports not yet matched to
-  a patient are unaffected.
+  the chart, the HRM list, the inbox or as an attachment, and the inbox sidebar neither
+  names that patient nor counts the report. Reports not yet matched to a patient are
+  unaffected.
 - Changing your own password from Preferences applies the clinic's password policy on
   the server as well as in the browser. A password that does not meet it, or a new PIN
   shorter than `password_pin_min_length`, is refused with the form's message and
@@ -220,7 +227,9 @@ counts the rows that are shown, and a list that cannot be loaded says so
   the appointment. Update, Update and Receipt, the status buttons, Cut, Delete, the
   group actions and the repeat-booking anchor are covered. A second click on a form
   whose first submission was saved ends as saved. A request that carries no
-  `appointmentVersion` keeps the previous last-writer-wins behavior.
+  `appointmentVersion` keeps the previous last-writer-wins behavior. Saving, cutting and
+  deleting from the popup also apply a patient-specific denial of the appointment's
+  patient (an `_appointment$N` restriction or a locked chart), as the REST API does.
 - **Ticklers.** Editing a tickler, and Complete, Delete and Activate on the tickler
   lists, refuse a task someone else changed after the page was shown, name the refused
   tasks and still apply the rest. A deleted task can no longer be turned into a
@@ -245,8 +254,11 @@ counts the rows that are shown, and a list that cannot be loaded says so
   for the choice.
 - Booking, editing, cancelling, changing the status of and deleting an appointment
   are recorded under the appointment and its patient with the user and client
-  address. The deletion entry is now action `delete`, content `appointment`; it was
-  action `Appointment.delete` with no content. Adjust saved audit queries.
+  address, including the Group Appt and Repeat actions. The deletion entry is now action
+  `delete`, content `appointment`; it was action `Appointment.delete` with no content.
+  An edit made on the Edit Appointment popup is recorded once, as action
+  `AppointmentManager.updateAppointment` (the entry an edit through the REST API also
+  writes), and names a changed status. Adjust saved audit queries.
 - Audit entries for allergies, prescriptions, drug reasons, reprints and chart notes
   no longer copy the allergen, drug, instructions, diagnostic code or note text into
   the audit log. They identify the record by id. Opening the chart on a new, unsaved
