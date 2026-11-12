@@ -1484,8 +1484,8 @@
             	<input type="checkbox" class="form-check-input" name="urgency" id="urgency" value="critical" <%=urgencyChecked%> >
                     </td>
                 </tr>
-                <% String emailReminder = pros.getProperty("emailApptReminder");
-                    if ((emailReminder != null) && emailReminder.equalsIgnoreCase("yes")) { %>
+                <%-- #5887: the same switch as the reminder job (yes, true or on). --%>
+                <% if (pros.isPropertyActive("emailApptReminder")) { %>
                 <%-- #5887: the box shows the stored choice, or the posted one when a draft is shown again.
                      emailPtShown tells the action the box was on this form, so a form without it never
                      withdraws a reminder. --%>

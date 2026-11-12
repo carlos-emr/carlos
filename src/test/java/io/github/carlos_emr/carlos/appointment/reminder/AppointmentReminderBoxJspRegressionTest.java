@@ -51,7 +51,7 @@ class AppointmentReminderBoxJspRegressionTest {
     @Test
     void shouldSendTheMarkerWithTheBox_onAdd() throws IOException {
         assertThat(page("addappointment.jsp")).containsSubsequence(
-                "pros.getProperty(\"emailApptReminder\")",
+                "pros.isPropertyActive(\"emailApptReminder\")",
                 "name=\"emailPt\" id=\"emailPt\" value=\"email reminder\"",
                 "AppointmentReminderChoice.isTicked(request)",
                 "<input type=\"hidden\" name=\"emailPtShown\" value=\"1\">",
@@ -61,7 +61,7 @@ class AppointmentReminderBoxJspRegressionTest {
     @Test
     void shouldShowTheStoredChoiceAndSendTheMarker_onEdit() throws IOException {
         assertThat(page("editappointment.jsp")).containsSubsequence(
-                "pros.getProperty(\"emailApptReminder\")",
+                "pros.isPropertyActive(\"emailApptReminder\")",
                 "AppointmentReminderChoice.isOnForm(request)",
                 "AppointmentReminderChoice.isRequested(apptFromRequest.getId())",
                 "name=\"emailPt\" id=\"emailPt\" value=\"email reminder\" <%= emailReminderTicked ? \"checked\" : \"\" %>>",

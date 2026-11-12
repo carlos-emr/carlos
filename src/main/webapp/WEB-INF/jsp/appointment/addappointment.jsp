@@ -1531,8 +1531,8 @@ Ontario, Canada
                                 </div>
                             </div>
                         </div>
-                        <% String emailReminder = pros.getProperty("emailApptReminder");
-                            if ((emailReminder != null) && emailReminder.equalsIgnoreCase("yes")) { %>
+                        <%-- #5887: the same switch as the reminder job (yes, true or on). --%>
+                        <% if (pros.isPropertyActive("emailApptReminder")) { %>
                         <div class="mb-2 row">
                             <label class="col-sm-4 col-form-label" for="emailPt"><fmt:message key="Appointment.formEmailReminder"/>:</label>
                             <div class="col-sm-8">
