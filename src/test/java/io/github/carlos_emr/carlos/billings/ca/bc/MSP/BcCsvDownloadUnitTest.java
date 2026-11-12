@@ -71,6 +71,35 @@ class BcCsvDownloadUnitTest extends CarlosWebTestBase {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"12.5", "+123", "00012A"})
+    void shouldDownloadRemittancePdf_whenOneStoredPaidAmountIsMalformed(String malformed) throws Exception {
+        // One such row used to throw from the template and answer HTTP 500 for the whole remittance.
+        var rows = java.util.List.of(
+                new io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows.RemittanceRow("00100", "FAKE", "Provider",
+                        "91234", "S01", "20261015", "20261016", "00001", "FAKE,BC", 9855, "0001234", null, null, null, null, null, null, "0000001"),
+                new io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows.RemittanceRow("00100", "FAKE", "Provider",
+                        "91234", "S01", "20261015", "20261016", "00001", "FAKE,BC", 9855, malformed, null, null, null, null, null, null, "0000002"));
+        try (var reads = mockConstruction(MSPReconcile.class, (reader, context) -> {
+            when(reader.getMSPRemittanceQuery(any(), any())).thenReturn(rows);
+            when(reader.getProvider(any(), anyInt())).thenReturn(new io.github.carlos_emr.carlos.entities.Provider());
+        })) {
+            var action = new CreateBillingReport2Action();
+            action.setDocFormat("pdf");
+            action.setRepType("REP_MSPREM");
+            action.setSelPayee("81234");
+            getMockRequest().setParameter("rano", "7");
+            assertThat(executeAction(action)).isEqualTo("none");
+            assertThat(getMockResponse().getStatus()).isEqualTo(200);
+            assertThat(getMockResponse().getContentType()).isEqualTo("application/pdf");
+            try (var pdf = org.apache.pdfbox.Loader.loadPDF(getMockResponse().getContentAsByteArray())) {
+                String text = new org.apache.pdfbox.text.PDFTextStripper().getText(pdf).replaceAll("\\s+", " ");
+                assertThat(text).contains("0000001", "0000002", "12.34", "Unparsed Teleplan amount: " + malformed,
+                        "Known amounts only. Unparsed amount fields excluded: 1");
+            }
+        }
+    }
+
     @BeforeEach
     void prepareSecurity() {
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
