@@ -364,10 +364,12 @@ public class AppointmentReminderService {
 
     /**
      * What a booking's reminder did for a start that keeps it in the same-visit check whatever happened to the
-     * booking after: sent, or may have been, or being sent now.
+     * booking after: sent, or may have been, or being sent now. Only the last start a reminder went for is kept, so
+     * a booking reminded again for a new time no longer covers the old one (a known limit, in the doc).
      */
-    private static final Set<AppointmentReminderStatus> HANDED_OVER = EnumSet.of(AppointmentReminderStatus.SENT,
-            AppointmentReminderStatus.UNCONFIRMED, AppointmentReminderStatus.SENDING);
+    public static final Set<AppointmentReminderStatus> HANDED_OVER = java.util.Collections.unmodifiableSet(
+            EnumSet.of(AppointmentReminderStatus.SENT, AppointmentReminderStatus.UNCONFIRMED,
+                    AppointmentReminderStatus.SENDING));
 
     /** Where a reminder stands against the patient's other bookings for the same visit. */
     enum SameVisit {
@@ -467,8 +469,8 @@ public class AppointmentReminderService {
 
     /**
      * Since when {@code appointment} has been at {@code start}: the update that brought it there, read from its
-     * archived versions (each change to an appointment archives the version it replaces), or its creation when it
-     * was always there. Null when the history does not say.
+     * archived versions (each change to an appointment's date or time archives the version it replaces), or its
+     * creation when it was always there. Null when the history does not say (no creation time).
      */
     LocalDateTime atStartSince(Appointment appointment, LocalDateTime start) {
         LocalDateTime since = toLocal(appointment.getUpdateDateTime());
@@ -480,8 +482,9 @@ public class AppointmentReminderService {
             }
             since = toLocal(version.getUpdateDateTime());
         }
-        LocalDateTime created = toLocal(appointment.getCreateDateTime());
-        return created != null ? created : since;
+        // Always here, as far as the history goes: since its creation. Without a creation time, unknown (null): the
+        // last save time would be wrong, since saving any change moves it.
+        return toLocal(appointment.getCreateDateTime());
     }
 
     private static LocalDateTime startOf(AppointmentArchive version) {

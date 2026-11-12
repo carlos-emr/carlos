@@ -37,7 +37,10 @@ The clinic email footer must be configured, as for every patient email. The `app
     reminder whose patient already has a reminder for that visit is not sent, and its line says so. A booking whose
     reminder went for that time keeps covering the visit even if staff untick its box, cancel it or move it after,
     for the bookings already at that time when it went; a booking moved or booked into that time later gets its own
-    reminder.
+    reminder. Since when a booking has been at its time comes from its archived versions: every path that changes an
+    appointment's date or time archives the version it replaces, except the old add-record card page
+    (`appointmentaddrecordcard.jsp`), which nothing posts to with an existing appointment. Without a creation time,
+    a booking counts as already there.
     While another booking's reminder for that time is being sent, it waits for the next run; if the check itself
     fails, nothing is sent and it is tried once more 30 minutes later.
   - **Group Action, then Group Update**, books each appointment again under a new number. Its reminder, and the
@@ -63,6 +66,18 @@ The subject is "Appointment reminder: {clinic}". The body:
 - **Never included:** the provider, the reason, notes or any clinical detail.
 - **Clinic with no phone on file:** "please contact the clinic" in place of "please call {phone}".
 
+## Known limits of one reminder per visit
+These need several bookings for the same patient at the same time, and a change in a particular order:
+- **After a Group Update.** Group Update books each appointment again under a new number, so a rebooked booking's
+  history starts at the rebook. If another booking's reminder already went for that time and that booking then left
+  it (unticked, cancelled or moved), the rebooked booking counts as arrived after it, and may get a second reminder.
+- **A booking moved into a time another booking still holds.** It is covered by that booking and recorded as
+  `DUPLICATE`, which is final for that time. If the covering booking then moves away before its reminder goes, the
+  covered one is not looked at again, and the patient gets no reminder for it; tick its box again to have it sent.
+- **A booking reminded again for a new time.** A reminder keeps only the last time it went for. If a booking was
+  reminded for 14:00, then moved to 15:00 and reminded again, it no longer covers 14:00: another booking ticked later
+  at 14:00 sends a second 14:00 reminder.
+
 ## Where staff see the outcome
 - **Edit Appointment:** a line under the box says when the reminder will go, that it went (and when), or why it was
   not sent:
@@ -71,7 +86,7 @@ The subject is "Appointment reminder: {clinic}". The body:
   - not set up;
   - no access;
   - too close to the appointment;
-  - another booking for this patient at the same time carries the reminder.
+  - the patient's reminder for this time comes from another booking.
 
   Anyone who may open this patient's appointment sees the line, front desk included: it needs the Edit
   Appointment page's own right (`_appointment` write) for this patient, with the patient's record locks, and no
