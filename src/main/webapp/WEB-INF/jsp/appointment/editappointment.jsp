@@ -1486,12 +1486,20 @@
                 </tr>
                 <% String emailReminder = pros.getProperty("emailApptReminder");
                     if ((emailReminder != null) && emailReminder.equalsIgnoreCase("yes")) { %>
+                <%-- #5887: the box shows the stored choice, or the posted one when a draft is shown again.
+                     emailPtShown tells the action the box was on this form, so a form without it never
+                     withdraws a reminder. --%>
+                <% boolean emailReminderTicked = io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice.isOnForm(request)
+                        ? io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice.isTicked(request)
+                        : apptFromRequest != null
+                          && io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice.isRequested(apptFromRequest.getId()); %>
                 <tr>
                     <td>
-                        <label><fmt:message key="Appointment.formEmailReminder"/>:</label>
+                        <label for="emailPt"><fmt:message key="Appointment.formEmailReminder"/>:</label>
                     </td>
                     <td>
-                <input type="checkbox" class="form-check-input" name="emailPt" value="email reminder">
+                <input type="checkbox" class="form-check-input" name="emailPt" id="emailPt" value="email reminder" <%= emailReminderTicked ? "checked" : "" %>>
+                <input type="hidden" name="emailPtShown" value="1">
                     </td>
                 </tr>
                 <% } else { %>

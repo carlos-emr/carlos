@@ -1,0 +1,119 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.commn.dao;
+
+import io.github.carlos_emr.carlos.appointment.reminder.ReminderCandidate;
+import io.github.carlos_emr.carlos.appointment.reminder.ReminderChannel;
+import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.commn.model.AppointmentReminder;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.TypedQuery;
+import org.hibernate.Timeouts;
+import org.hibernate.jpa.SpecHints;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Date;
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * JPA access to {@code appointment_reminder} (#5887).
+ *
+ * @since 2026-11-12
+ */
+@Repository
+public class AppointmentReminderDaoImpl extends AbstractDaoImpl<AppointmentReminder> implements AppointmentReminderDao {
+
+    static final int MAX_LIMIT = 500;
+
+    public AppointmentReminderDaoImpl() {
+        super(AppointmentReminder.class);
+    }
+
+    @Override
+    public Optional<AppointmentReminder> findByAppointment(int appointmentNo, ReminderChannel channel) {
+        TypedQuery<AppointmentReminder> query = entityManager.createQuery(
+                "SELECT r FROM AppointmentReminder r WHERE r.appointmentNo = :appointmentNo AND r.channel = :channel",
+                AppointmentReminder.class);
+        query.setParameter("appointmentNo", appointmentNo);
+        query.setParameter("channel", channel);
+        return query.getResultList().stream().findFirst();
+    }
+
+    @Override
+    public List<ReminderCandidate> findRequestedBetween(ReminderChannel channel, LocalDate firstDate, LocalDate lastDate,
+                                                        int limit) {
+        if (channel == null || firstDate == null || lastDate == null || lastDate.isBefore(firstDate)) {
+            return List.of();
+        }
+        // A theta join: the reminder holds the appointment number, not a mapped association, so neither the
+        // appointment mapping nor its archive copy changes. The exact start is checked by the caller.
+        TypedQuery<Object[]> query = entityManager.createQuery(
+                "SELECT r, a FROM AppointmentReminder r, Appointment a "
+                        + "WHERE a.id = r.appointmentNo AND r.channel = :channel AND r.requested = true "
+                        + "AND a.appointmentDate BETWEEN :firstDate AND :lastDate "
+                        + "ORDER BY a.appointmentDate, a.startTime, r.id",
+                Object[].class);
+        query.setParameter("channel", channel);
+        query.setParameter("firstDate", java.sql.Date.valueOf(firstDate));
+        query.setParameter("lastDate", java.sql.Date.valueOf(lastDate));
+        query.setMaxResults(safeLimit(limit));
+        List<ReminderCandidate> candidates = new ArrayList<>();
+        for (Object[] row : query.getResultList()) {
+            candidates.add(new ReminderCandidate((AppointmentReminder) row[0], (Appointment) row[1]));
+        }
+        return candidates;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public List<AppointmentReminder> claim(Collection<Long> ids, String claimToken, Date now, Date staleBefore) {
+        if (ids == null || ids.isEmpty() || claimToken == null || now == null || staleBefore == null) {
+            return List.of();
+        }
+        // Lock only the reminder rows, never the appointment, so a claim cannot hold up staff editing the
+        // schedule. SKIP LOCKED, as in the SMS queue (SmsTransactionDaoImpl): a row another run holds is left
+        // to it, and two runs or two servers never claim the same reminder.
+        TypedQuery<AppointmentReminder> query = entityManager.createQuery(
+                "SELECT r FROM AppointmentReminder r WHERE r.id IN (:ids) AND r.requested = true "
+                        + "AND (r.claimToken IS NULL OR r.claimedAt < :staleBefore) ORDER BY r.id",
+                AppointmentReminder.class);
+        query.setParameter("ids", ids);
+        query.setParameter("staleBefore", staleBefore);
+        query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        query.setHint(SpecHints.HINT_SPEC_LOCK_TIMEOUT, Timeouts.SKIP_LOCKED_MILLI);
+        List<AppointmentReminder> claimed = query.getResultList();
+        for (AppointmentReminder reminder : claimed) {
+            reminder.claim(claimToken, now);
+        }
+        return claimed;
+    }
+
+    private static int safeLimit(int limit) {
+        return limit <= 0 ? MAX_LIMIT : Math.min(limit, MAX_LIMIT);
+    }
+}

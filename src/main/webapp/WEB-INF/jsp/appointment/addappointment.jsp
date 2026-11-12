@@ -1534,10 +1534,13 @@ Ontario, Canada
                         <% String emailReminder = pros.getProperty("emailApptReminder");
                             if ((emailReminder != null) && emailReminder.equalsIgnoreCase("yes")) { %>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formEmailReminder"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="emailPt"><fmt:message key="Appointment.formEmailReminder"/>:</label>
                             <div class="col-sm-8">
                                 <div class="form-check mt-1">
-                                    <input type="checkbox" class="form-check-input" name="emailPt" value="email reminder">
+                                    <%-- #5887: emailPtShown tells the action the box was on this form. --%>
+                                    <input type="checkbox" class="form-check-input" name="emailPt" id="emailPt" value="email reminder"
+                                           <%= io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice.isTicked(request) ? "checked" : "" %>>
+                                    <input type="hidden" name="emailPtShown" value="1">
                                 </div>
                             </div>
                         </div>

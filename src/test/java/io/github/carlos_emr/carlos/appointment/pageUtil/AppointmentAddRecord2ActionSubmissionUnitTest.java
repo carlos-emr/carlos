@@ -13,7 +13,11 @@
 package io.github.carlos_emr.carlos.appointment.pageUtil;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
+import io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice;
+import io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderService;
+import io.github.carlos_emr.carlos.appointment.reminder.ReminderChannel;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
 import io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException;
@@ -47,6 +51,7 @@ import org.springframework.transaction.support.DefaultTransactionStatus;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -56,6 +61,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -139,6 +145,10 @@ class AppointmentAddRecord2ActionSubmissionUnitTest extends CarlosUnitTestBase {
     }
 
     private String submit(String token, String locationCode) throws Exception {
+        return submit(token, locationCode, form -> { });
+    }
+
+    private String submit(String token, String locationCode, Consumer<MockHttpServletRequest> extra) throws Exception {
         request = new MockHttpServletRequest();
         request.setSession(session);
         request.setMethod("POST");
@@ -153,6 +163,7 @@ class AppointmentAddRecord2ActionSubmissionUnitTest extends CarlosUnitTestBase {
         if (token != null) {
             request.setParameter(FormSubmissionGuard.PARAMETER, token);
         }
+        extra.accept(request);
         response = new MockHttpServletResponse();
         return new AppointmentAddRecord2Action().execute();
     }
@@ -215,6 +226,33 @@ class AppointmentAddRecord2ActionSubmissionUnitTest extends CarlosUnitTestBase {
         assertThat(transactions.rollbacks).isEqualTo(1);
         assertThat(transactions.commits).isEqualTo(1);
         verify(appointments, times(2)).persist(any(Appointment.class));
+    }
+
+    /** #5887: the Email Reminder box commits with the booking, ticked or not, when the form showed it. */
+    @Test
+    void shouldRecordTheReminderChoiceWithTheBooking_whenTheFormShowedTheBox() throws Exception {
+        AppointmentReminderService reminders = mock(AppointmentReminderService.class);
+        registerMock(AppointmentReminderService.class, reminders);
+
+        submit(null, null, form -> {
+            form.setParameter(AppointmentReminderChoice.SHOWN_PARAMETER, "1");
+            form.setParameter(AppointmentReminderChoice.PARAMETER, "email reminder");
+        });
+        submit(null, null, form -> form.setParameter(AppointmentReminderChoice.SHOWN_PARAMETER, "1"));
+
+        verify(reminders).recordRequest(eq(info), eq(501), anyInt(), eq(ReminderChannel.EMAIL), eq(true));
+        verify(reminders).recordRequest(eq(info), eq(502), anyInt(), eq(ReminderChannel.EMAIL), eq(false));
+        assertThat(transactions.commits).as("each choice commits with its booking").isEqualTo(2);
+    }
+
+    @Test
+    void shouldNotTouchReminders_whenTheFormHadNoBox() throws Exception {
+        AppointmentReminderService reminders = mock(AppointmentReminderService.class);
+        registerMock(AppointmentReminderService.class, reminders);
+
+        submit(null);
+
+        verifyNoInteractions(reminders);
     }
 
     @Test

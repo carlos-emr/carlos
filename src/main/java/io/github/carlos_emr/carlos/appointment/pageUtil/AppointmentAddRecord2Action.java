@@ -38,6 +38,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+import io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
 import io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException;
@@ -185,6 +186,8 @@ public final class AppointmentAddRecord2Action extends ActionSupport {
                 // Use the persisted ID directly; avoids a secondary lookup and prevents race conditions
                 if (a.getId() != null && a.getId() > 0) {
                     OtherIdManager.saveIdAppointment(a.getId(), "appt_mc_number", mcNumber);
+                    // The Email Reminder box commits with the booking (#5887).
+                    AppointmentReminderChoice.record(request, loggedInInfo, a);
                 }
             });
             apptId = a.getId() == null ? 0 : a.getId();

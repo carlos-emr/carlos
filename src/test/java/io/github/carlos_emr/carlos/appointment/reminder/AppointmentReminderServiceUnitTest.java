@@ -1,0 +1,399 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.appointment.reminder;
+
+import io.github.carlos_emr.carlos.commn.dao.AppointmentReminderDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.commn.model.AppointmentReminder;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionOperations;
+
+import java.time.Clock;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Date;
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Function;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+/**
+ * #5887: the reminder service records the Add/Edit choice and sends what is due, once per appointment start.
+ * The DAOs are mocked; the claim answers as the database would. FAKE patients only.
+ */
+@Tag("unit")
+@Tag("appointment")
+@DisplayName("Appointment reminder service")
+class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
+
+    private static final ZoneId ZONE = ZoneId.systemDefault();
+    private static final LocalDateTime NOW = LocalDateTime.of(2026, 11, 12, 10, 0);
+    private static final int APPOINTMENT = 101;
+    private static final int PATIENT = 42;
+
+    private final AppointmentReminderDao reminders = mock(AppointmentReminderDao.class);
+    private final OscarAppointmentDao appointments = mock(OscarAppointmentDao.class);
+    private final List<ClaimedReminder> handed = new ArrayList<>();
+    private Function<ClaimedReminder, ReminderOutcome> channelAnswer = claimed -> new ReminderOutcome(AppointmentReminderStatus.SENT, 900);
+    private AppointmentReminderService service;
+
+    @BeforeEach
+    void setUpService() {
+        AppointmentReminderChannel email = new AppointmentReminderChannel() {
+            @Override
+            public ReminderChannel channel() {
+                return ReminderChannel.EMAIL;
+            }
+
+            @Override
+            public ReminderOutcome send(ClaimedReminder reminder) {
+                handed.add(reminder);
+                return channelAnswer.apply(reminder);
+            }
+        };
+        service = new AppointmentReminderService(reminders, appointments, () -> List.of(email),
+                TransactionOperations.withoutTransaction(), new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2)),
+                Clock.fixed(NOW.atZone(ZONE).toInstant(), ZONE));
+    }
+
+    private static Date at(LocalDateTime time) {
+        return Date.from(time.atZone(ZONE).toInstant());
+    }
+
+    private static Appointment appointment(LocalDateTime start, int patient, String status) {
+        Appointment appointment = new Appointment();
+        appointment.setId(APPOINTMENT);
+        appointment.setAppointmentDate(at(start));
+        appointment.setStartTime(at(start));
+        appointment.setDemographicNo(patient);
+        appointment.setStatus(status);
+        return appointment;
+    }
+
+    private static AppointmentReminder requested() {
+        AppointmentReminder reminder = AppointmentReminder.requested(APPOINTMENT, ReminderChannel.EMAIL, "999998", at(NOW.minusDays(3)));
+        ReflectionTestUtils.setField(reminder, "id", 7L);
+        return reminder;
+    }
+
+    /** The DAOs as the database would answer: the candidate, the claim, and the row read back by id. */
+    private void stored(AppointmentReminder reminder, Appointment candidate, Appointment atClaim) {
+        when(reminders.findRequestedBetween(eq(ReminderChannel.EMAIL), any(), any(), anyInt()))
+                .thenReturn(List.of(new ReminderCandidate(reminder, candidate)));
+        when(reminders.claim(any(), anyString(), any(), any())).thenAnswer(call -> {
+            Collection<Long> ids = call.getArgument(0);
+            if (!ids.contains(reminder.getId())) {
+                return List.of();
+            }
+            reminder.claim(call.getArgument(1), call.getArgument(2));
+            return List.of(reminder);
+        });
+        when(appointments.find(Integer.valueOf(APPOINTMENT))).thenReturn(atClaim);
+        when(reminders.find(Long.valueOf(7L))).thenReturn(reminder);
+    }
+
+    @Nested
+    @DisplayName("Sending what is due")
+    class Sending {
+
+        @Test
+        void shouldSendOnceAndRecordTheEmailLog_whenTheAppointmentIsDue() {
+            LocalDateTime start = NOW.plusHours(20);
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+
+            ReminderRun run = service.processDue(10);
+
+            assertThat(run).isEqualTo(new ReminderRun(1, 1, 0));
+            assertThat(handed).containsExactly(new ClaimedReminder(7L, APPOINTMENT, PATIENT, start));
+            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.SENT);
+            assertThat(reminder.getLastEmailLogId()).isEqualTo(900);
+            assertThat(reminder.getSentFor()).isEqualTo(at(start));
+            assertThat(reminder.getAttempts()).isEqualTo(1);
+            assertThat(reminder.getClaimToken()).as("the claim is released").isNull();
+        }
+
+        @Test
+        void shouldNotSendAgain_forTheStartAlreadyReminded() {
+            LocalDateTime start = NOW.plusHours(20);
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            reminder.startSending(at(start), at(NOW.minusHours(1)));
+            reminder.finish(AppointmentReminderStatus.SENT, 899, at(NOW.minusHours(1)));
+            stored(reminder, appointment, appointment);
+
+            assertThat(service.processDue(10)).isEqualTo(ReminderRun.NONE);
+            assertThat(handed).isEmpty();
+            verify(reminders, never()).claim(any(), anyString(), any(), any());
+        }
+
+        @Test
+        void shouldRemindAgain_whenTheAppointmentMovedAfterItsReminder() {
+            LocalDateTime oldStart = NOW.plusHours(4);
+            LocalDateTime newStart = NOW.plusHours(22);
+            AppointmentReminder reminder = requested();
+            reminder.startSending(at(oldStart), at(NOW.minusHours(2)));
+            reminder.finish(AppointmentReminderStatus.SENT, 899, at(NOW.minusHours(2)));
+            Appointment moved = appointment(newStart, PATIENT, "t");
+            stored(reminder, moved, moved);
+
+            service.processDue(10);
+
+            assertThat(handed).extracting(ClaimedReminder::start).containsExactly(newStart);
+            assertThat(reminder.getSentFor()).isEqualTo(at(newStart));
+            assertThat(reminder.getAttempts()).as("attempts count per start").isEqualTo(1);
+        }
+
+        @ParameterizedTest(name = "status {0}")
+        @ValueSource(strings = {"C", "CS", "CV", "N", "NS"})
+        void shouldNotRemind_whenTheAppointmentIsCancelledOrANoShow(String status) {
+            Appointment appointment = appointment(NOW.plusHours(20), PATIENT, status);
+            stored(requested(), appointment, appointment);
+
+            service.processDue(10);
+
+            assertThat(handed).isEmpty();
+        }
+
+        @Test
+        void shouldNotRemind_whenTheAppointmentHasNoPatient() {
+            Appointment appointment = appointment(NOW.plusHours(20), 0, "t");
+            stored(requested(), appointment, appointment);
+
+            service.processDue(10);
+
+            assertThat(handed).isEmpty();
+        }
+
+        @ParameterizedTest(name = "{0} hours ahead")
+        @ValueSource(ints = {25, 2, 1, -1})
+        void shouldNotRemind_outsideTheWindow(int hoursAhead) {
+            Appointment appointment = appointment(NOW.plusHours(hoursAhead), PATIENT, "t");
+            stored(requested(), appointment, appointment);
+
+            service.processDue(10);
+
+            assertThat(handed).isEmpty();
+        }
+
+        @Test
+        void shouldReleaseTheClaimWithoutSending_whenTheAppointmentWasCancelledMeanwhile() {
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment(NOW.plusHours(20), PATIENT, "t"), appointment(NOW.plusHours(20), PATIENT, "C"));
+
+            service.processDue(10);
+
+            assertThat(handed).isEmpty();
+            assertThat(reminder.getClaimToken()).isNull();
+            assertThat(reminder.getSentFor()).as("nothing was attempted").isNull();
+        }
+
+        @Test
+        void shouldRecordUnconfirmedAndCarryOn_whenTheChannelThrows() {
+            channelAnswer = claimed -> {
+                throw new IllegalStateException("FAKE transport failure");
+            };
+            Appointment appointment = appointment(NOW.plusHours(20), PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+
+            ReminderRun run = service.processDue(10);
+
+            assertThat(run).isEqualTo(new ReminderRun(1, 0, 1));
+            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.UNCONFIRMED);
+        }
+
+        @Test
+        void shouldSendNothing_forABatchOfZero() {
+            assertThat(service.processDue(0)).isEqualTo(ReminderRun.NONE);
+            verify(reminders, never()).findRequestedBetween(any(), any(), any(), anyInt());
+        }
+    }
+
+    /** Provisional, as recommended to Ben (question 8): one retry, for a definite transport failure only. */
+    @Nested
+    @DisplayName("One retry after a definite failure")
+    class Retry {
+
+        private AppointmentReminder attempted(LocalDateTime start, AppointmentReminderStatus status, LocalDateTime when) {
+            AppointmentReminder reminder = requested();
+            reminder.startSending(at(start), at(when));
+            reminder.finish(status, null, at(when));
+            return reminder;
+        }
+
+        @Test
+        void shouldRetryOnce_halfAnHourAfterADefiniteFailure() {
+            LocalDateTime start = NOW.plusHours(20);
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = attempted(start, AppointmentReminderStatus.FAILED, NOW.minus(AppointmentReminderService.RETRY_AFTER));
+            stored(reminder, appointment, appointment);
+
+            service.processDue(10);
+
+            assertThat(handed).hasSize(1);
+            assertThat(reminder.getAttempts()).isEqualTo(2);
+            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.SENT);
+        }
+
+        @Test
+        void shouldNotRetry_beforeHalfAnHourHasPassed() {
+            LocalDateTime start = NOW.plusHours(20);
+            Appointment appointment = appointment(start, PATIENT, "t");
+            stored(attempted(start, AppointmentReminderStatus.FAILED, NOW.minusMinutes(29)), appointment, appointment);
+
+            service.processDue(10);
+
+            assertThat(handed).isEmpty();
+        }
+
+        @Test
+        void shouldNotRetryASecondTime_afterTwoFailures() {
+            LocalDateTime start = NOW.plusHours(20);
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = attempted(start, AppointmentReminderStatus.FAILED, NOW.minusHours(2));
+            reminder.startSending(at(start), at(NOW.minusHours(1)));
+            reminder.finish(AppointmentReminderStatus.FAILED, null, at(NOW.minusHours(1)));
+            stored(reminder, appointment, appointment);
+
+            service.processDue(10);
+
+            assertThat(handed).isEmpty();
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"UNCONFIRMED", "BLOCKED_CONSENT", "NO_ADDRESS", "INVALID_ADDRESS", "NO_SENDER",
+                "NO_FOOTER", "NOT_PERMITTED", "SENDING", "SENT"})
+        void shouldNeverRetry_aRefusalOrAnUnconfirmedSend(String status) {
+            LocalDateTime start = NOW.plusHours(20);
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            reminder.startSending(at(start), at(NOW.minusHours(3)));
+            if (!"SENDING".equals(status)) {
+                reminder.finish(AppointmentReminderStatus.valueOf(status), null, at(NOW.minusHours(3)));
+            }
+            stored(reminder, appointment, appointment);
+
+            service.processDue(10);
+
+            assertThat(handed).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("Recording the Add/Edit choice")
+    class Choice {
+
+        private final LoggedInInfo user = mock(LoggedInInfo.class);
+
+        @BeforeEach
+        void setUpUser() {
+            when(user.getLoggedInProviderNo()).thenReturn("999998");
+        }
+
+        @Test
+        void shouldStoreANewRequest_whenTheBoxIsTicked() {
+            when(reminders.findByAppointment(APPOINTMENT, ReminderChannel.EMAIL)).thenReturn(Optional.empty());
+
+            assertThat(service.recordRequest(user, APPOINTMENT, PATIENT, ReminderChannel.EMAIL, true)).isTrue();
+
+            verify(reminders).persist(any(AppointmentReminder.class));
+        }
+
+        @Test
+        void shouldStoreNothing_whenANewBookingLeavesTheBoxUnticked() {
+            when(reminders.findByAppointment(APPOINTMENT, ReminderChannel.EMAIL)).thenReturn(Optional.empty());
+
+            assertThat(service.recordRequest(user, APPOINTMENT, PATIENT, ReminderChannel.EMAIL, false)).isFalse();
+
+            verify(reminders, never()).persist(any());
+            verify(reminders, never()).merge(any());
+        }
+
+        @Test
+        void shouldWithdrawAndKeepTheRow_whenTheBoxIsUntickedOnEdit() {
+            AppointmentReminder reminder = requested();
+            when(reminders.findByAppointment(APPOINTMENT, ReminderChannel.EMAIL)).thenReturn(Optional.of(reminder));
+
+            assertThat(service.recordRequest(user, APPOINTMENT, PATIENT, ReminderChannel.EMAIL, false)).isTrue();
+
+            assertThat(reminder.isRequested()).isFalse();
+            assertThat(reminder.getUpdatedBy()).isEqualTo("999998");
+            verify(reminders).merge(reminder);
+            verify(reminders, never()).persist(any());
+        }
+
+        @Test
+        void shouldChangeNothing_whenTheChoiceIsUnchanged() {
+            when(reminders.findByAppointment(APPOINTMENT, ReminderChannel.EMAIL)).thenReturn(Optional.of(requested()));
+
+            assertThat(service.recordRequest(user, APPOINTMENT, PATIENT, ReminderChannel.EMAIL, true)).isFalse();
+
+            verify(reminders, never()).merge(any());
+        }
+
+        @Test
+        void shouldReadTheStoredChoice_forTheEditPage() {
+            AppointmentReminder withdrawn = requested();
+            withdrawn.withdraw("999998", at(NOW));
+            when(reminders.findByAppointment(APPOINTMENT, ReminderChannel.EMAIL)).thenReturn(Optional.of(requested()));
+            when(reminders.findByAppointment(102, ReminderChannel.EMAIL)).thenReturn(Optional.of(withdrawn));
+            when(reminders.findByAppointment(103, ReminderChannel.EMAIL)).thenReturn(Optional.empty());
+
+            assertThat(service.isRequested(APPOINTMENT, ReminderChannel.EMAIL)).isTrue();
+            assertThat(service.isRequested(102, ReminderChannel.EMAIL)).isFalse();
+            assertThat(service.isRequested(103, ReminderChannel.EMAIL)).isFalse();
+        }
+    }
+
+    @Test
+    void shouldTreatOnlyCancelledAndNoShowStatusesAsNotToRemind() {
+        assertThat(AppointmentReminderService.isCancelledOrNoShow("t")).isFalse();
+        assertThat(AppointmentReminderService.isCancelledOrNoShow("H")).isFalse();
+        assertThat(AppointmentReminderService.isCancelledOrNoShow(null)).isFalse();
+        assertThat(AppointmentReminderService.isCancelledOrNoShow("C")).isTrue();
+        assertThat(AppointmentReminderService.isCancelledOrNoShow("N")).isTrue();
+    }
+}
