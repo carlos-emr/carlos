@@ -222,3 +222,28 @@ does not replace the complete same-source native-lane union for broader release
 qualification. Native Node 22.22.1 passes all 7,911 cases without skips,
 cancellations or source mutation; Python 3.14 passes 405 CI and 30 coverage-tooling
 tests.
+
+PR #6167 merges `main` into `release/2026.08` and adds the corrections from the
+promotion review. Its Java source tree is `6af0b2847a86b47205fb075dd43cfeaa770fec97`. A fresh Ubuntu
+26.04/OpenJDK 25.0.5.0.3 full H2 run at `1f99f6215ab1dc449a4f9291c3abe2734a3b4fa4` executes
+36,757 cases in one Surefire run with zero failures/errors and 217 registered
+skips. This baseline has no retakes and no additional lane: execution data,
+coverage XML and the report inventory all come from that single run.
+
+The refresh binds 786 source floors and seven nonexecutable exclusions to that
+source and report. The new exclusion is the documentation-only
+`documentManager/htmlpdf/support/package-info.java`, changed in this comparison;
+`XhtmlDomUnitTest` exercises the rules it documents. Fifty-five sources are new
+to the comparison, 74 metrics rise, and 130 higher historical metrics and every
+required refusal line are retained. No waiver is added and no threshold is
+lowered. Freshness passes.
+
+Coverage acceptance does not, and this checkpoint does not claim it. Applied to
+this single H2 run, the floor checker refuses 207 checks: the 77 unreviewed zero
+floors, and 130 retained line, instruction or branch floors on 61 files, in a run
+that includes no native lane. The complete same-source native-lane union remains
+required for release qualification. Native Node 22.23.4 passes all 7,958 cases
+without skips, cancellations or source mutation; Python 3 passes the 30
+coverage-tooling tests, and 398 of the 405 CI tests: the other seven compare the
+shipped `carlos-ctl` pin (1.3.3, from `main`) with the published identity recorded
+for 1.3.2 and cannot pass until 1.3.3 is published and that record is updated.
