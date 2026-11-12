@@ -218,6 +218,7 @@ class GraphFailurePageUnitTest {
 
         assertThat(response.getStatus()).isEqualTo(503);
         assertThat(response.getContentAsString())
+                .contains("class=\"alert alert-warning\">The chart drawing service is not available")
                 .contains("The chart drawing service is not available right now. Try again in a moment, and contact"
                         + " your administrator if this keeps happening.")
                 .contains(">Retry</button>");
@@ -237,6 +238,7 @@ class GraphFailurePageUnitTest {
         assertThat(response.getStatus()).isEqualTo(500);
         assertThat(response.getHeader("Retry-After")).isNull();
         assertThat(response.getContentAsString())
+                .contains("class=\"alert alert-warning\">This graph could not be drawn")
                 .contains("This graph could not be drawn because of an unexpected problem. The problem has been logged;"
                         + " contact your administrator if it keeps happening.")
                 .contains(">Retry</button>");
