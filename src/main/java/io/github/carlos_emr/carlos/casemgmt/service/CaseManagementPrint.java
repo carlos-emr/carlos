@@ -119,9 +119,8 @@ public class CaseManagementPrint {
     private boolean leaveOutLockedNotes;
 
     /**
-     * Leaves locked notes out of the notes body as well, for a print that leaves the chart for someone
-     * else (a Messenger attachment, #5856). The CPP sections already leave them out. Off by default, so
-     * the chart's own Print is unchanged.
+     * Leaves locked notes out of the notes body. The Messenger attachment of a patient's chart notes uses
+     * this (#5856).
      */
     public void leaveOutLockedNotes() {
         this.leaveOutLockedNotes = true;

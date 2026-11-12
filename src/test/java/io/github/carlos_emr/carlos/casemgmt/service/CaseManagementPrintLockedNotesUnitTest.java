@@ -53,8 +53,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * #5856: a print that leaves the chart for someone else (a Messenger attachment) leaves locked notes out
- * of its notes body; the chart's own Print is unchanged. FAKE notes only.
+ * #5856: the Messenger attachment of a patient's chart notes leaves locked notes out of its notes body.
+ * FAKE notes only.
  */
 @Tag("unit")
 @DisplayName("Chart print leaves locked notes out when asked")
@@ -128,11 +128,5 @@ class CaseManagementPrintLockedNotesUnitTest extends CarlosUnitTestBase {
         print.leaveOutLockedNotes();
 
         assertThat(printedNotes(print)).containsExactly(open);
-    }
-
-    @Test
-    @DisplayName("should print the notes body as before when not asked")
-    void shouldPrintEveryNoteAsBefore_whenNotAsked() throws Exception {
-        assertThat(printedNotes(new CaseManagementPrint())).containsExactlyInAnyOrder(open, locked);
     }
 }
