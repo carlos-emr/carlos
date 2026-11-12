@@ -4,6 +4,8 @@ package io.github.carlos_emr.carlos.appointment.service;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.AppointmentUpdateException;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -21,6 +23,8 @@ import java.util.Objects;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /** Atomic recurring-booking operations using the existing series identity (no schema change). */
 @Service
@@ -115,13 +119,16 @@ public class RecurringAppointmentService {
         for (LocalDate date : dates) {
             if (!existingDates.contains(date)) missing.add(date);
         }
+        List<AuditRow> audit = new ArrayList<>();
         if (adding) {
             rejectBlockedDates(identity, missing);
             for (LocalDate date : missing) {
                 Appointment occurrence = copy(identity);
                 occurrence.setAppointmentDate(Date.valueOf(date));
                 appointments.persist(occurrence);
+                audit.add(new AuditRow(LogConst.ADD, occurrence, null));
             }
+            auditAfterCommit(user, audit);
             return missing.size();
         }
         if (existing.isEmpty()) {
@@ -132,16 +139,53 @@ public class RecurringAppointmentService {
         for (Appointment occurrence : existing) {
             archives.archiveAppointment(occurrence);
             if (operation.equals("Group Delete")) {
+                audit.add(new AuditRow(LogConst.DELETE, occurrence, null));
                 appointments.remove(occurrence.getId());
             } else {
-                if (operation.equals("Group Cancel")) occurrence.setStatus("C");
+                boolean cancel = operation.equals("Group Cancel");
+                if (cancel) occurrence.setStatus("C");
                 else applyDetails(occurrence, template, values.containsKey("style"), values.containsKey("billing"));
                 occurrence.setUpdateDateTime(updated);
                 occurrence.setLastUpdateUser(user.getLoggedInProviderNo());
                 appointments.merge(occurrence);
+                audit.add(new AuditRow(LogConst.UPDATE, occurrence, cancel ? "status=C" : null));
             }
         }
+        auditAfterCommit(user, audit);
         return existing.size();
+    }
+
+    /** One appointment of the series as its audit row will name it: by id and patient, never by its text. */
+    private record AuditRow(String action, Integer appointmentId, int demographicNo, String data) {
+        AuditRow(String action, Appointment appointment, String data) {
+            this(action, appointment.getId(), appointment.getDemographicNo(), data);
+        }
+    }
+
+    /**
+     * Audits each appointment the series action booked, changed, cancelled or removed, under the
+     * appointment and its patient, as the single-appointment popup does. The rows are written
+     * once the surrounding transaction has committed, so a series action that rolls back leaves
+     * none; without a transaction they are written at once.
+     */
+    private static void auditAfterCommit(LoggedInInfo user, List<AuditRow> rows) {
+        if (rows.isEmpty()) return;
+        Runnable write = () -> {
+            for (AuditRow row : rows) {
+                LogAction.addLog(user, row.action(), LogConst.CON_APPT, String.valueOf(row.appointmentId()),
+                        row.demographicNo() > 0 ? String.valueOf(row.demographicNo()) : null, row.data());
+            }
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    write.run();
+                }
+            });
+        } else {
+            write.run();
+        }
     }
 
     /** Preflights every new occurrence before writing any member of the series. */

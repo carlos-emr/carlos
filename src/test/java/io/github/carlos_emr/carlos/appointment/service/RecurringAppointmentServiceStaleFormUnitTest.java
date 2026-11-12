@@ -110,4 +110,56 @@ class RecurringAppointmentServiceStaleFormUnitTest extends CarlosUnitTestBase {
         assertThat(updated).isEqualTo(1);
         verify(appointments).merge(anchor);
     }
+
+    @Test
+    void shouldAuditEachAppointmentOfTheSeries_whenAGroupUpdateIsApplied() {
+        anchor.setDemographicNo(42);
+        // A Group Update writes the form's fields, the patient among them.
+        values.put("demographic_no", "42");
+
+        service.apply(user, values, 0);
+
+        // Under the appointment and its patient, like the single-appointment popup; never its text.
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog(user,
+                io.github.carlos_emr.carlos.log.LogConst.UPDATE, io.github.carlos_emr.carlos.log.LogConst.CON_APPT,
+                "61", "42", null));
+    }
+
+    @Test
+    void shouldNameTheCancellation_whenAGroupCancelIsApplied() {
+        anchor.setDemographicNo(42);
+        values.put("groupappt", "Group Cancel");
+
+        service.apply(user, values, 0);
+
+        assertThat(anchor.getStatus()).isEqualTo("C");
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog(user,
+                io.github.carlos_emr.carlos.log.LogConst.UPDATE, io.github.carlos_emr.carlos.log.LogConst.CON_APPT,
+                "61", "42", "status=C"));
+    }
+
+    @Test
+    void shouldAuditTheRemoval_whenAGroupDeleteIsApplied() {
+        anchor.setDemographicNo(42);
+        values.put("groupappt", "Group Delete");
+
+        service.apply(user, values, 0);
+
+        verify(appointments).remove(61);
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog(user,
+                io.github.carlos_emr.carlos.log.LogConst.DELETE, io.github.carlos_emr.carlos.log.LogConst.CON_APPT,
+                "61", "42", null));
+    }
+
+    @Test
+    void shouldNotAudit_whenAStaleFormIsRefused() {
+        anchor.setDemographicNo(42);
+        values.put(RecurringAppointmentService.APPOINTMENT_VERSION, "5000");
+
+        assertThatThrownBy(() -> service.apply(user, values, 0));
+
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog(any(LoggedInInfo.class), anyString(),
+                anyString(), anyString(), org.mockito.ArgumentMatchers.nullable(String.class),
+                org.mockito.ArgumentMatchers.nullable(String.class)), never());
+    }
 }
