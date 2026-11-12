@@ -143,8 +143,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                 response.resetBuffer();
                 int status = io.github.carlos_emr.carlos.eform.util.ChartRenderFailure.status(unavailable);
                 // An <img> gets the status only (its page shows the message); a graph opened as a
-                // window gets a short page saying so, with a Retry button (#5853).
-                GraphFailurePage.send(request, response, status, "Graph unavailable; "
+                // window gets a short page saying what went wrong (#5853).
+                GraphFailurePage.send(request, response, unavailable, "Graph unavailable; "
                         + (status == 503 ? "retry shortly." : "review the source history or contact your administrator."));
             }
             return NONE;
@@ -217,7 +217,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         for (RxPrescriptionData.Prescription prescription : prescriptions) {
             Date start = prescription.getRxDate() != null ? prescription.getRxDate() : prescription.getWrittenDate();
             if (start == null) {
-                throw new IllegalArgumentException("Prescription has no interval start date");
+                throw new GraphDataException(GraphDataException.Problem.PRESCRIPTION_START, null,
+                        "Prescription has no interval start date");
             }
             Date end = prescription.getEndDate() != null ? prescription.getEndDate() : new Date();
             values.add(Map.of("row", row, "name", name, "start", start.getTime(), "end", end.getTime()));
@@ -284,17 +285,38 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             if (StringUtils.isNotEmpty(measurement.getDataField())) {
                 String[] values = measurement.getDataField().split("/");
                 if (values.length != 2) {
-                    throw new IllegalArgumentException("Invalid blood pressure measurement");
+                    throw new GraphDataException(GraphDataException.Problem.BLOOD_PRESSURE_FORMAT,
+                            typeName(measurement), "Invalid blood pressure measurement");
                 }
-                Day day = new Day(measurement.getDateObservedAsDate().toInstant());
-                systolic.addOrUpdate(day, Double.parseDouble(values[0]));
-                diastolic.addOrUpdate(day, Double.parseDouble(values[1]));
+                Day day = observedDay(measurement);
+                try {
+                    systolic.addOrUpdate(day, Double.parseDouble(values[0]));
+                    diastolic.addOrUpdate(day, Double.parseDouble(values[1]));
+                } catch (NumberFormatException notANumber) {
+                    throw new GraphDataException(GraphDataException.Problem.BLOOD_PRESSURE_FORMAT,
+                            typeName(measurement), "Invalid blood pressure measurement", notANumber);
+                }
             }
         }
         SeriesCollection dataset = new SeriesCollection();
         dataset.addSeries(diastolic);
         dataset.addSeries(systolic);
         return dataset;
+    }
+
+    /** The name the graph window shows for a measurement's type: its display name, else its code. */
+    static String typeName(EctMeasurementsDataBean measurement) {
+        return StringUtils.defaultIfBlank(measurement.getTypeDisplayName(), measurement.getType());
+    }
+
+    /** The day a measurement was observed; a measurement without one cannot be placed on the graph. */
+    static Day observedDay(EctMeasurementsDataBean measurement) {
+        Date observed = measurement.getDateObservedAsDate();
+        if (observed == null) {
+            throw new GraphDataException(GraphDataException.Problem.NO_DATE, typeName(measurement),
+                    "Measurement has no observation date");
+        }
+        return new Day(observed.toInstant());
     }
 
     private static SeriesCollection numericMeasurementSeries(List<EctMeasurementsDataBean> measurements) {
@@ -306,7 +328,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         for (EctMeasurementsDataBean measurement : measurements) {
             String result = numericResult(measurement.getDataField());
             if (result != null) {
-                series.addOrUpdate(new Day(measurement.getDateObservedAsDate().toInstant()), plottedValue(measurement.getType(), result));
+                series.addOrUpdate(observedDay(measurement), plottedValue(measurement.getType(), result));
             }
         }
         dataset.addSeries(series);
@@ -483,8 +505,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         Series series = new Series(name);
         List<ReferenceRange> ranges = new ArrayList<>();
         for (Map<String, Serializable> value : values) {
-            addLabValue(series, value);
-            addLabReferenceRange(ranges, value);
+            addLabValue(series, value, name);
+            addLabReferenceRange(ranges, value, name);
         }
         SeriesCollection dataset = new SeriesCollection();
         dataset.addSeries(series);
@@ -494,30 +516,40 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                 .withReferenceRanges("Normal Reference Range", ranges);
     }
 
-    private static void addLabValue(Series series, Map<String, Serializable> value) throws ParseException {
+    private static void addLabValue(Series series, Map<String, Serializable> value, String testName)
+            throws ParseException {
         String result = numericResult((String) value.get("result"));
-        Day collectionDate = collectionDay(value);
+        Day collectionDate = collectionDay(value, testName);
         if (result != null && collectionDate != null) {
             series.addOrUpdate(collectionDate, Double.parseDouble(result));
         }
     }
 
-    private static void addLabReferenceRange(List<ReferenceRange> ranges, Map<String, Serializable> value) throws ParseException {
+    private static void addLabReferenceRange(List<ReferenceRange> ranges, Map<String, Serializable> value,
+                                             String testName) throws ParseException {
         String range = (String) value.get("range");
-        Day collectionDate = collectionDay(value);
+        Day collectionDate = collectionDay(value, testName);
         if (range == null || !range.contains("-") || collectionDate == null) {
             return;
         }
         String[] bounds = range.split("-");
         if (bounds.length != 2) {
-            throw new IllegalArgumentException("Invalid laboratory reference range");
+            throw new GraphDataException(GraphDataException.Problem.REFERENCE_RANGE, testName,
+                    "Invalid laboratory reference range");
         }
-        double low = Double.parseDouble(bounds[0].replace("%", "").trim());
-        double high = Double.parseDouble(bounds[1].replace("%", "").trim());
+        double low;
+        double high;
+        try {
+            low = Double.parseDouble(bounds[0].replace("%", "").trim());
+            high = Double.parseDouble(bounds[1].replace("%", "").trim());
+        } catch (NumberFormatException notANumber) {
+            throw new GraphDataException(GraphDataException.Problem.REFERENCE_RANGE, testName,
+                    "Invalid laboratory reference range", notANumber);
+        }
         ranges.add(new ReferenceRange(collectionDate.getStart(), low, high));
     }
 
-    private static Day collectionDay(Map<String, Serializable> value) throws ParseException {
+    private static Day collectionDay(Map<String, Serializable> value, String testName) throws ParseException {
         // CML and HL7 already supply a normalized Date; LOINC supplies its timestamp as text.
         // Prefer the typed date because the provider's display date may use a different format.
         Serializable normalized = value.get("collDateDate");
@@ -555,7 +587,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             return new Day(java.time.LocalDateTime.parse(collectionDate.replace(' ', 'T'), format)
                     .atZone(java.time.ZoneId.systemDefault()).toInstant());
         } catch (java.time.format.DateTimeParseException invalid) {
-            throw new ParseException("Unsupported observation date", 0);
+            throw new GraphDataException(GraphDataException.Problem.UNREADABLE_DATE, testName,
+                    "Unsupported observation date", invalid);
         }
     }
 

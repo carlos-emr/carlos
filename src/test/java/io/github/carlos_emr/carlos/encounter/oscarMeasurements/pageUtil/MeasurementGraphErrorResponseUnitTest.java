@@ -532,6 +532,93 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(422);
     }
 
+    // #5853: a graph window names what is wrong with the stored values, and the type, in plain words.
+
+    /** The graph opened as a window, as measurement history, the Health Tracker and flowsheets open it. */
+    private void openAsWindow() {
+        request.addHeader("Sec-Fetch-Dest", "document");
+    }
+
+    private void assertDataProblemPage(String sentence) throws Exception {
+        assertThat(response.getStatus()).isEqualTo(422);
+        assertThat(response.getContentAsString()).contains("id=\"graphUnavailable\">" + sentence + "</p>")
+                .doesNotContain("<button").doesNotContain("Synthetic patient");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"120", "120/high"})
+    void shouldNameTheBloodPressureFormat_whenAGraphWindowHasAMalformedBloodPressure(String stored) throws Exception {
+        openAsWindow();
+        request.setParameter("type", "BP");
+        executeChartFrom(type -> List.of(measurement("BP", "Blood pressure", "mmHg", stored)), new AtomicReference<>());
+
+        assertDataProblemPage("This graph cannot be drawn: some stored Blood pressure values are not in the form 120/80.");
+        assertThat(response.getContentAsString()).doesNotContain(stored + "<");
+    }
+
+    @Test
+    void shouldSayAValueHasNoDate_whenAGraphWindowHasAnUndatedMeasurement() throws Exception {
+        openAsWindow();
+        EctMeasurementsDataBean undated = new EctMeasurementsDataBean(42, "WT", "Weight", "kg", "101", "", "",
+                "63", "", "", "", "", "1", null, null);
+        executeChartFrom(type -> List.of(undated), new AtomicReference<>());
+
+        assertDataProblemPage("This graph cannot be drawn: a stored Weight value has no date.");
+    }
+
+    @Test
+    void shouldUseTheTypeCode_whenTheTypeHasNoDisplayName() {
+        EctMeasurementsDataBean unnamed = new EctMeasurementsDataBean(42, "WT", " ", "kg", "101", "", "",
+                "63", "", "", "", "", "1", null, null);
+
+        assertThat(MeasurementGraphAction22Action.typeName(unnamed)).isEqualTo("WT");
+    }
+
+    @Test
+    void shouldSayAPrescriptionHasNoStart_whenAMedicationGraphWindowHasOne() throws Exception {
+        openAsWindow();
+        request.setParameter("method", "rxincl");
+        request.setParameter("drug", "FAKE-DIN-1");
+        RxPrescriptionData.Prescription undated = prescription("FAKE Brand A", null, null, null);
+        try (var _ = mockConstruction(RxPrescriptionData.class, (data, context) ->
+                when(data.getPrescriptionScriptsByPatientRegionalIdentifier(101, "FAKE-DIN-1"))
+                        .thenReturn(new RxPrescriptionData.Prescription[]{undated}))) {
+            executeMeasurementChart("63", new AtomicReference<>());
+        }
+
+        assertDataProblemPage("The medication graph cannot be drawn: a prescription has no start date.");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"3.5-5.0-7.0", "low-5.0"})
+    void shouldNameTheTest_whenALabGraphWindowHasAnUnreadableReferenceRange(String range) throws Exception {
+        openAsWindow();
+        executeLabChart(labValue(range));
+
+        assertDataProblemPage("This graph cannot be drawn: a stored reference range for Synthetic potassium cannot be read.");
+    }
+
+    @Test
+    void shouldNameTheTest_whenALabGraphWindowHasAnUnreadableDate() throws Exception {
+        openAsWindow();
+        executeLabChart(Map.of("result", "4.2", "units", "mmol/L", "testName", "Synthetic potassium",
+                "collDate", "15-Jan-24"));
+
+        assertDataProblemPage("This graph cannot be drawn: a stored Synthetic potassium result has a date that cannot be read.");
+    }
+
+    private void executeLabChart(Map<String, Serializable> value) throws Exception {
+        request.setParameter("method", "actualLab");
+        request.setParameter("labType", "CML");
+        request.setParameter("identifier", "synthetic-code");
+        request.setParameter("testName", "Synthetic potassium");
+        try (var labs = mockStatic(CommonLabTestValues.class)) {
+            labs.when(() -> CommonLabTestValues.findValuesForTest("CML", 101, "Synthetic potassium", "synthetic-code"))
+                    .thenReturn(new ArrayList<>(List.of(value)));
+            executeMeasurementChart(null, new AtomicReference<>());
+        }
+    }
+
     private static Map<String, Serializable> labValue(String range) {
         return Map.of("result", "4.2", "units", "mmol/L", "testName", "Synthetic potassium", "range", range,
                 "collDate", "15-Jan-24", "collDateDate", new Date(1_705_276_800_000L));

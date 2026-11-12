@@ -6,9 +6,11 @@ Single-point and constant-value measurement charts now draw useful markers and a
 Point labels retain Java HALF_EVEN rounding and the server's locale/date conventions.
 Graph failures return explicit 422, 500 or 503 responses; embedded lab and medication
 graphs provide a visible retry control.
-Graphs opened in their own window (measurement history, Health Tracker, flowsheets) show
-the same message with a Retry button. A graph whose stored values cannot be drawn says so,
-without Retry.
+Graphs opened in their own window (measurement history, Health Tracker, flowsheets) say
+what went wrong: the drawing service is busy or not running, or an unexpected problem was
+logged (each with a Retry button); or which stored values cannot be drawn and why, naming
+the measurement type or lab test, such as a blood pressure not in the form 120/80 or a
+value with no date (without Retry).
 The medication-profile graph keeps its default height up to 20 drugs, then grows 30 px per
 drug; 11 to 19 drugs no longer draw a shorter chart than 10.
 Measurement, lab and medication graphs are drawn by the bundled render browser that eForm
