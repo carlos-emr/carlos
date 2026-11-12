@@ -284,6 +284,26 @@ public class LogAction {
 
 
     /**
+     * Adds the log entry in the calling thread but in a transaction of its own, so it neither joins
+     * nor depends on a transaction the caller has open: the entry is kept when the caller's
+     * transaction rolls back, and it is never written on a caller's read-only connection. Like
+     * {@link #addLogSynchronous(OscarLog)} this method does not throw; a failure is logged and does
+     * not affect the caller's transaction.
+     *
+     * @since 2026-11-12
+     */
+    public static void addLogSynchronousInNewTransaction(OscarLog oscarLog) {
+        try {
+            getOscarLogDao().persistInNewTransaction(oscarLog);
+        } catch (Exception e) {
+            logger.error("Error in logger.", e);
+            // Only the action, for the reasons given in addLogSynchronous(OscarLog).
+            logger.error("Audit entry not persisted: action={}", LogSafe.sanitize(oscarLog.getAction()));
+        }
+    }
+
+
+    /**
      * ported from the old caisi pmm_log
      */
     public static void log(String accessType, String entity, String entityId, HttpServletRequest request) {

@@ -21,8 +21,13 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest.util;
 
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -40,12 +45,16 @@ import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
+import org.springframework.core.annotation.OrderUtils;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -63,6 +72,11 @@ import static org.mockito.Mockito.when;
  * {@code service.method} name — never the joinpoint argument values, which can hold PHI or
  * OAuth-derived context. The intentional, access-controlled OscarLog audit record is still
  * written for each invocation.</p>
+ *
+ * <p>Also pins how that record is kept apart from the resource's transaction: it is written in a
+ * transaction of its own, the advice is ordered outside the transaction advisor that the production
+ * Spring files declare, and writing it never changes the outcome of the audited call.
+ * {@link WebServiceLoggingAdviceTransactionIntegrationTest} runs the resulting proxy.</p>
  */
 @Tag("unit")
 @Tag("fast")
@@ -143,7 +157,7 @@ class WebServiceLoggingAdviceUnitTest {
             advice.logAccess(joinpoint);
 
             ArgumentCaptor<OscarLog> captor = ArgumentCaptor.forClass(OscarLog.class);
-            logAction.verify(() -> LogAction.addLogSynchronous(captor.capture()));
+            logAction.verify(() -> LogAction.addLogSynchronousInNewTransaction(captor.capture()));
             assertThat(captor.getValue().getAction()).isEqualTo("REST WS: PharmacyService.getPharmacies");
         }
     }
@@ -164,7 +178,7 @@ class WebServiceLoggingAdviceUnitTest {
             assertThatThrownBy(() -> advice.logAccess(joinpoint)).isSameAs(boom);
 
             ArgumentCaptor<OscarLog> captor = ArgumentCaptor.forClass(OscarLog.class);
-            logAction.verify(() -> LogAction.addLogSynchronous(captor.capture()));
+            logAction.verify(() -> LogAction.addLogSynchronousInNewTransaction(captor.capture()));
             assertThat(captor.getValue().getAction()).isEqualTo("REST WS: FAILURE: PharmacyService.getPharmacies");
 
             // Failure detail is logged at DEBUG, never INFO, and carries no argument values.
@@ -201,7 +215,7 @@ class WebServiceLoggingAdviceUnitTest {
             assertThat(new WebServiceLoggingAdvice().logAccess(joinpoint)).isEqualTo("ok");
 
             ArgumentCaptor<OscarLog> captor = ArgumentCaptor.forClass(OscarLog.class);
-            logAction.verify(() -> LogAction.addLogSynchronous(captor.capture()));
+            logAction.verify(() -> LogAction.addLogSynchronousInNewTransaction(captor.capture()));
             return captor.getValue();
         }
     }
@@ -261,7 +275,7 @@ class WebServiceLoggingAdviceUnitTest {
             assertThatThrownBy(() -> new WebServiceLoggingAdvice().logAccess(joinpoint)).isSameAs(boom);
 
             ArgumentCaptor<OscarLog> captor = ArgumentCaptor.forClass(OscarLog.class);
-            logAction.verify(() -> LogAction.addLogSynchronous(captor.capture()));
+            logAction.verify(() -> LogAction.addLogSynchronousInNewTransaction(captor.capture()));
             assertThat(captor.getValue().getAction()).isEqualTo("REST WS: FAILURE: PharmacyService.getPharmacies");
             assertThat(captor.getValue().getProviderNo()).isEqualTo("999998");
         }
@@ -293,5 +307,81 @@ class WebServiceLoggingAdviceUnitTest {
         when(request.getAttribute(LOGGED_IN_INFO_KEY)).thenReturn(caller);
 
         assertThat(auditRecordForSuccessfulCall(request).getProviderNo()).isEqualTo("N/A");
+    }
+
+    @Test
+    @DisplayName("returns the result of a successful call although the audit record cannot be built")
+    void shouldReturnResult_whenSuccessAuditRecordCannotBeBuilt() throws Throwable {
+        ProceedingJoinPoint joinpoint = mockJoinPoint("getPharmacies");
+        when(joinpoint.proceed()).thenReturn("ok");
+        HttpServletRequest request = mock(HttpServletRequest.class);
+
+        try (MockedStatic<PhaseInterceptorChain> _ = stubCurrentRequest(request);
+             MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
+            // After stubCurrentRequest: the resource's transaction has committed by the time the
+            // audit record is built, so this must not surface as a failed call.
+            when(request.getParameterMap()).thenThrow(new IllegalStateException("synthetic request failure"));
+
+            assertThat(new WebServiceLoggingAdvice().logAccess(joinpoint)).isEqualTo("ok");
+
+            verify(joinpoint).proceed();
+            logAction.verifyNoInteractions();
+        }
+    }
+
+    @Test
+    @DisplayName("rethrows the failure of the call although the FAILURE audit record cannot be built")
+    void shouldRethrowOriginalFailure_whenFailureAuditRecordCannotBeBuilt() throws Throwable {
+        ProceedingJoinPoint joinpoint = mockJoinPoint("getPharmacies");
+        RuntimeException boom = new RuntimeException("boom");
+        when(joinpoint.proceed()).thenThrow(boom);
+        HttpServletRequest request = mock(HttpServletRequest.class);
+
+        try (MockedStatic<PhaseInterceptorChain> _ = stubCurrentRequest(request);
+             MockedStatic<LogAction> _ = mockStatic(LogAction.class)) {
+            when(request.getParameterMap()).thenThrow(new IllegalStateException("synthetic request failure"));
+
+            assertThatThrownBy(() -> new WebServiceLoggingAdvice().logAccess(joinpoint)).isSameAs(boom);
+        }
+    }
+
+    @Test
+    @DisplayName("is ordered by @Order, which is what Spring reads to place an aspect in the advice chain")
+    void shouldCarryItsOrder_forSpringAdviceChain() {
+        assertThat(OrderUtils.getOrder(WebServiceLoggingAdvice.class)).isEqualTo(WebServiceLoggingAdvice.ORDER);
+    }
+
+    /**
+     * A lower order is the outer advice. Every {@code <tx:annotation-driven>} in the production
+     * Spring files must state the transaction advisor's order, and state one that keeps that advisor
+     * inside the audit advice: Spring configures the advisor from whichever of them it parses first.
+     */
+    @Test
+    @DisplayName("is ordered outside the transaction advisor declared by the production Spring files")
+    void shouldPrecedeTransactionAdvisor_inEveryProductionSpringFile() throws Exception {
+        Map<String, String> declaredOrders = new LinkedHashMap<>();
+        try (DirectoryStream<Path> files = Files.newDirectoryStream(Path.of("src/main/resources"), "*.xml")) {
+            for (Path file : files) {
+                // Not every XML file there is a Spring file; parse only those that can hold one.
+                if (!Files.readString(file).contains("annotation-driven")) {
+                    continue;
+                }
+                var parser = XmlUtils.createSecureDocumentBuilderFactory();
+                parser.setNamespaceAware(true);
+                NodeList declarations = parser.newDocumentBuilder().parse(file.toFile())
+                        .getElementsByTagNameNS("http://www.springframework.org/schema/tx", "annotation-driven");
+                for (int i = 0; i < declarations.getLength(); i++) {
+                    declaredOrders.put(file.getFileName() + "#" + i, ((Element) declarations.item(i)).getAttribute("order"));
+                }
+            }
+        }
+
+        assertThat(declaredOrders).containsOnlyKeys("applicationContext.xml#0", "spring_jpa.xml#0");
+        assertThat(declaredOrders.values()).allSatisfy(order -> {
+            assertThat(order).as("explicit transaction advisor order").isNotEmpty();
+            assertThat(Integer.parseInt(order)).isGreaterThan(WebServiceLoggingAdvice.ORDER);
+        });
+        assertThat(declaredOrders.values()).as("one order in every file").containsOnly(
+                WebServiceLoggingAdviceTransactionIntegrationTest.productionTransactionAdvisorOrder());
     }
 }
