@@ -68,6 +68,8 @@ public class LogConst {
     public static final String CON_ECHART = "eChart";
     public static final String CON_DEMOGRAPHIC = "demographic";
     public static final String CON_DEMOGRAPHIC_RELATION = "demographic_relations";
+    // A listing of patients produced by the Demographic Report Tool (one row per run, not per patient).
+    public static final String CON_DEMOGRAPHIC_REPORT = "demographic_report";
     public static final String CON_ROLE = "role";
     public static final String CON_PRIVILEGE = "privilege";
     public static final String CON_FORM = "form";
