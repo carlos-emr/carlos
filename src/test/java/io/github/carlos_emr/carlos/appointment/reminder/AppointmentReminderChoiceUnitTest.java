@@ -137,10 +137,16 @@ class AppointmentReminderChoiceUnitTest extends CarlosUnitTestBase {
         SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
         ReminderStatusLine line = new ReminderStatusLine("appointment.reminder.status.due", "");
         when(reminders.statusLine(any(Appointment.class), any(Locale.class))).thenReturn(Optional.of(line));
+        when(security.isAllowedAccessToPatientRecord(user, 42)).thenReturn(true);
         when(security.hasPrivilege(user, "_demographic", SecurityInfoManager.READ, 42)).thenReturn(true);
         when(security.hasPrivilege(user, "_email", SecurityInfoManager.READ, 42)).thenReturn(true);
 
         assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), Locale.ENGLISH)).isEqualTo(line);
+
+        when(security.isAllowedAccessToPatientRecord(user, 42)).thenReturn(false);
+        assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), Locale.ENGLISH)).isNull();
+
+        when(security.isAllowedAccessToPatientRecord(user, 42)).thenReturn(true);
 
         when(security.hasPrivilege(user, "_email", SecurityInfoManager.READ, 42)).thenReturn(false);
         assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), Locale.ENGLISH)).isNull();
@@ -164,6 +170,7 @@ class AppointmentReminderChoiceUnitTest extends CarlosUnitTestBase {
         assertThat(AppointmentReminderChoice.statusLine(user, null, Locale.ENGLISH)).isNull();
 
         verify(security, never()).hasPrivilege(any(), anyString(), anyString(), anyInt());
+        verify(security, never()).isAllowedAccessToPatientRecord(any(), anyInt());
         verify(reminders, never()).statusLine(any(), any());
     }
 }

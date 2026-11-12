@@ -453,6 +453,22 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        void shouldLeaveASlowBatchsLaterSend_toItsRun() {
+            // Claimed with a batch 20 minutes ago, but its own send started a minute ago: not abandoned.
+            LocalDateTime start = NOW.plusHours(20);
+            AppointmentReminder slow = row(7L, start);
+            slow.claim("FAKE-slow-batch", at(NOW.minusMinutes(20)));
+            slow.startSending(at(start), at(NOW.minusMinutes(1)));
+
+            service.processDue(10);
+
+            assertThat(handed).isEmpty();
+            assertThat(slow.getLastStatus()).isEqualTo(AppointmentReminderStatus.SENDING);
+            assertThat(slow.getClaimToken()).isEqualTo("FAKE-slow-batch");
+            assertThat(slow.getClaimedAt()).as("renewed when its send started").isEqualTo(at(NOW.minusMinutes(1)));
+        }
+
+        @Test
         void shouldNotSend_whenTheBoxWasUntickedAfterTheClaim() {
             AppointmentReminder reminder = row(7L, NOW.plusHours(20));
             channelAnswer = claimed -> new ReminderOutcome(AppointmentReminderStatus.SENT, 900);

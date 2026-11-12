@@ -30,6 +30,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
@@ -53,7 +54,9 @@ import java.util.Objects;
  */
 @Entity
 @Table(name = "appointment_reminder", uniqueConstraints = @UniqueConstraint(
-        name = "appointment_reminder_appointment_channel_uidx", columnNames = {"appointment_no", "channel"}))
+        name = "appointment_reminder_appointment_channel_uidx", columnNames = {"appointment_no", "channel"}),
+        // The job's recovery of rows a stopped run left SENDING reads by these two, with FOR UPDATE.
+        indexes = @Index(name = "appointment_reminder_channel_status_idx", columnList = "channel, last_status"))
 public class AppointmentReminder extends AbstractModel<Long> {
 
     @Id
@@ -159,9 +162,14 @@ public class AppointmentReminder extends AbstractModel<Long> {
 
     /**
      * About to send for {@code start}. Recorded before the channel is called, so a crash after the send can
-     * leave this attempt unconfirmed but can never send the same start twice.
+     * leave this attempt unconfirmed but can never send the same start twice. The claim is renewed: its age
+     * then measures this send, not the batch it was claimed with, so a slow batch's later send is not taken
+     * for abandoned.
      */
     public void startSending(Date start, Date now) {
+        if (claimToken != null) {
+            claimedAt = now;
+        }
         // Attempts count per start: a moved appointment starts again from its first attempt. Compared by time,
         // because a value read back from the database is a java.sql.Timestamp, never equal() to a Date.
         if (sentFor == null || start == null || sentFor.getTime() != start.getTime()) {

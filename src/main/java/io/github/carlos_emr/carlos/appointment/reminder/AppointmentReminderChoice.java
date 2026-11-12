@@ -83,11 +83,12 @@ public final class AppointmentReminderChoice {
     }
 
     /**
-     * A per-patient check for the status line: read on this patient's record and on their email, as the email
-     * pages check it.
+     * A per-patient check for the status line, as the email pages make it: access to this patient's record,
+     * and read on the record and on their email.
      */
     static boolean mayReadStatus(SecurityInfoManager security, LoggedInInfo user, int demographicNo) {
         return user != null
+                && security.isAllowedAccessToPatientRecord(user, demographicNo)
                 && security.hasPrivilege(user, "_demographic", SecurityInfoManager.READ, demographicNo)
                 && security.hasPrivilege(user, "_email", SecurityInfoManager.READ, demographicNo);
     }

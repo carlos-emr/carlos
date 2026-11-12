@@ -148,6 +148,7 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
         Appointment due = appointment(DAY, LocalTime.of(8, 30));
         Appointment alreadySent = appointment(DAY, LocalTime.of(9, 0));
         Appointment moved = appointment(DAY, LocalTime.of(9, 15));
+        Appointment movedDay = appointment(DAY, LocalTime.of(9, 20));
         Appointment failedOnce = appointment(DAY, LocalTime.of(9, 30));
         Appointment failedTwice = appointment(DAY, LocalTime.of(9, 45));
         Appointment tooFar = appointment(DAY, LocalTime.of(15, 0));
@@ -159,6 +160,9 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
         attempted(reminder(alreadySent, ReminderChannel.EMAIL), DAY, LocalTime.of(9, 0), AppointmentReminderStatus.SENT, 1);
         AppointmentReminder movedReminder = reminder(moved, ReminderChannel.EMAIL);
         attempted(movedReminder, DAY, LocalTime.of(7, 0), AppointmentReminderStatus.SENT, 1);
+        // Moved to the same time on another day: the date half of the comparison.
+        AppointmentReminder movedDayReminder = reminder(movedDay, ReminderChannel.EMAIL);
+        attempted(movedDayReminder, DAY.minusDays(1), LocalTime.of(9, 20), AppointmentReminderStatus.SENT, 1);
         AppointmentReminder retry = reminder(failedOnce, ReminderChannel.EMAIL);
         attempted(retry, DAY, LocalTime.of(9, 30), AppointmentReminderStatus.FAILED, 1);
         attempted(reminder(failedTwice, ReminderChannel.EMAIL), DAY, LocalTime.of(9, 45), AppointmentReminderStatus.FAILED, 2);
@@ -174,9 +178,9 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
         // Not the start already reminded, nor the second failure, nor anything outside the window: those can
         // never crowd the due ones out of the limit.
         assertThat(candidates).extracting(ReminderCandidate::reminder)
-                .containsExactly(earliestReminder, dueReminder, movedReminder, retry);
+                .containsExactly(earliestReminder, dueReminder, movedReminder, movedDayReminder, retry);
         assertThat(candidates).extracting(candidate -> candidate.appointment().getId())
-                .containsExactly(earliestDue.getId(), due.getId(), moved.getId(), failedOnce.getId());
+                .containsExactly(earliestDue.getId(), due.getId(), moved.getId(), movedDay.getId(), failedOnce.getId());
         assertThat(reminders.findDue(ReminderChannel.EMAIL, earliest, latest, 2, 1))
                 .extracting(ReminderCandidate::reminder).containsExactly(earliestReminder);
         assertThat(reminders.findDue(ReminderChannel.EMAIL, latest, earliest, 2, 10)).isEmpty();
@@ -206,6 +210,13 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
         }
         entityManager.flush();
 
+        AppointmentReminder slowBatch = reminder(appointment(DAY, LocalTime.of(10, 15)), ReminderChannel.EMAIL);
+        slowBatch.claim("FAKE-slow-batch", stale);
+        slowBatch.startSending(at(DAY, LocalTime.of(10, 15)), now);
+        reminders.merge(slowBatch);
+        entityManager.flush();
+
+        // A slow batch's later send renews its claim, so it is not taken for abandoned.
         assertThat(reminders.findAbandonedSending(ReminderChannel.EMAIL, staleBefore))
                 .containsExactly(abandoned, unclaimed);
     }
