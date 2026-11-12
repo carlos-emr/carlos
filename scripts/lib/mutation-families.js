@@ -20,8 +20,9 @@
  *                       { overrides, query } that point a replay at `tag`: a new marker text, or
  *                       for a delete another owned appointment. It may open UI first when the
  *                       write needs fresh server state the page would also have (an eForm's
- *                       one-time submission id, a freshly staged Rx card when `write` says the
- *                       replay is the positive control that must write).
+ *                       one-time submission id, a freshly staged Rx card or a new chart note
+ *                       editor when `write` says the replay is the positive control that must
+ *                       write).
  *   cleanup()           removes every owned row and asserts it is gone; the check registers it
  *                       with s.cleanup() before the family writes anything
  *
@@ -428,6 +429,15 @@ function ticklerAdd(s) {
   };
 }
 
+/**
+ * Chart note Save (CaseManagementEntry method=save). The save posts the note form, but WHICH note
+ * it writes is the session's editor (the form bean the last `edit` stored), and the form must name
+ * that editor (noteId) or the action refuses it as a stale form. The UI's own save turns the new
+ * note into a saved one, so a replay that is meant to write first opens a new note editor in the
+ * same chart, as the New Note button does, and carries that editor's identity. A replay that is
+ * meant to be refused is sent as captured with only the note text set to the tag: the note-write
+ * privilege check runs before the editor is read.
+ */
 function chartNoteSave(s) {
   const prefix = `${s.marker}-NS-`;
   const like = q(`%${prefix}%`);
@@ -462,10 +472,36 @@ function chartNoteSave(s) {
           },
         });
     },
-    aim(captured, tag) {
+    async aim(captured, tag, { write } = {}) {
       const field = ['caseNote_note', 'noteTxt', 'value'].find(name => captured.body.has(name));
       h.assert(field, 'The captured note save carries no note text field');
-      return { overrides: { [field]: `${prefix}${tag} note text` } };
+      const overrides = { [field]: `${prefix}${tag} note text` };
+      // A refused replay goes as captured: the note-write privilege check answers before the
+      // session's editor is read (CaseManagementEntry2Action.noteSave, requireNoteWriteAccess).
+      if (!write) return { overrides };
+      // A replay that must write needs the editor the form names. The UI's own save made the saved
+      // note the session's editor, so the captured form (rendered while that note was new) is now
+      // a stale form, which the action answers 409 (fullFormNoteLock). The page gets a new editor
+      // from the New Note button, so the replay does too, and names the editor as that page does.
+      const chart = await s.chart();
+      await chart.locator('textarea[name="caseNote_note"]').first().waitFor({ state: 'visible', timeout: TIMEOUT });
+      await chart.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
+      const opened = await captureInContext(s.context, pathIs(this.route), () => chart.locator('#newNoteImg').first().click(), {
+        acceptRequest: (request) => {
+          const form = new URLSearchParams(request.postData() || '');
+          return form.get('method') === 'edit' && form.get('note_edit') === 'new';
+        },
+      });
+      h.assert(opened.status === 200, `Opening a new note editor for the write control answered HTTP ${opened.status}`);
+      for (const name of ['noteId', 'note_edit', 'newNoteIdx']) {
+        if (!captured.body.has(name)) continue;
+        h.assert(opened.body.has(name), `The new note editor's request carries no ${name} to point the replay at`);
+        // nosemgrep: javascript.express.security.audit.remote-property-injection.remote-property-injection -- name iterates a fixed list of form-field names; overrides is a local map read only by this check's replay
+        overrides[name] = opened.body.get(name);
+      }
+      h.assert(/^0\d*$/.test(String(overrides.noteId ?? captured.body.get('noteId') ?? '0')),
+        'The new note editor does not name an unsaved note, so the replay would edit a saved one');
+      return { overrides };
     },
   };
 }
