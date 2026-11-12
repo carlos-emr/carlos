@@ -38,6 +38,7 @@ FIRST_NO, LAST_NO = 90001, 90099  # demographic_no range owned by this file (dev
 COUNT = 22
 SEED = 6148
 PROGRAM = 10034  # the demo program every development.sql patient is admitted to
+UNKNOWN_CODE = "4"  # allergy severity / onset "Unknown", as the allergy form saves it
 PROVIDERS = [str(n) for n in range(7, 21)]  # development.sql's demo doctors
 NOTE_ROLE = "2"
 NOTE_LIMIT = 12
@@ -53,7 +54,7 @@ ONE_PER_CLASS = ("statin", "raas", "beta-blocker", "p2y12", "asa", "contraceptiv
 FOOTER = "Synthetic test patient (FAKE): built from Synthea sample data for development and AI testing (#6148)."
 
 RULES = {
-    "R1": "HbA1c below 4.0% replaced: 7.0-9.1% for a patient with diabetes, 5.4% otherwise",
+    "R1": "HbA1c below 4.0% (below 5.0% with diabetes) replaced: about 7-9% with diabetes, 5.4% otherwise",
     "R2": "Two medicines of one class taken at once: the one started last is kept, the other ends the day before",
     "R3": "P2Y12 inhibitor (clopidogrel, prasugrel, ticagrelor) ends 12 months after it started",
     "R4": "Antihistamine or short-term medicine still open since childhood dropped",
@@ -332,12 +333,14 @@ def measurements(rows, who, diabetic, index, log):
     for (ctype, when), (value, observed) in list(out.items()):
         if ctype == "SCR":
             out[("EGFR", when)] = (egfr(value, who["sex"], age_on(who["birth"], when)), observed)
-    # R1: an impossible HbA1c.
+    # R1: an impossible HbA1c, or one far too low for diabetes: the sample keeps some patients on insulin at a flat
+    # 3.1% or 4.0% at every visit.
     a1c = sorted((k for k in out if k[0] == "A1C"), key=lambda k: k[1])
     base = 7.0 + 0.3 * (index % 8)
+    limit = 5.0 if diabetic else 4.0
     for n, key in enumerate(a1c):
         value, observed = out[key]
-        if value < 4.0:
+        if value < limit:
             new = round(base + (0.0, -0.2, 0.1, -0.1, 0.2, 0.0)[n % 6], 1) if diabetic else 5.4
             out[key] = (new, observed)
             replaced.append((value, new))
@@ -523,13 +526,16 @@ def patient_sql(index, who, tp, log):
         if a["STOP"] or a["DESCRIPTION"] == "Allergic disposition (finding)":
             continue
         name = re.sub(r"\s*\((substance|organism|edible)\)", "", a["DESCRIPTION"]).replace("Eggs", "Egg")[:50]
-        severity = {"MILD": "1", "MODERATE": "2", "SEVERE": "3"}.get(a["SEVERITY1"], "0")
+        # CARLOS codes (the allergy form, AddReaction2.jsp): 1 mild, 2 moderate, 3 severe, 4 unknown; onset 4 unknown.
+        severity = {"MILD": "1", "MODERATE": "2", "SEVERE": "3"}.get(a["SEVERITY1"], UNKNOWN_CODE)
         reaction = clean_description(a["DESCRIPTION1"]) or None
         start = day(a["START"])
-        allergy_rows.append((who["no"], str(start), name, 0, reaction, 0, str(start), severity, "0", len(allergy_rows),
+        allergy_rows.append((who["no"], str(start), name, 0, reaction, 0, str(start), severity, UNKNOWN_CODE,
+                             len(allergy_rows),
                              f"{start} 09:00:00", who["provider"], 0 if a["CATEGORY"] == "medication" else 1))
     if not allergy_rows:
-        allergy_rows.append((who["no"], str(joined), "No Known Drug Allergies", 0, None, 0, str(joined), "0", "0", 0,
+        allergy_rows.append((who["no"], str(joined), "No Known Drug Allergies", 0, None, 0, str(joined), UNKNOWN_CODE,
+                             UNKNOWN_CODE, 0,
                              joined_at, who["provider"], 0))
     sql += insert("allergies", ("demographic_no", "entry_date", "DESCRIPTION", "TYPECODE", "reaction", "archived",
                                 "start_date", "severity_of_reaction", "onset_of_reaction", "position",

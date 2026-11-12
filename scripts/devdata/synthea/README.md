@@ -72,7 +72,7 @@ patient's block in the SQL file lists the rules that fired for it.
 
 | Rule | What | Why |
 |---|---|---|
-| R1 | An HbA1c below 4.0% becomes 7.0–9.1% for a patient with diabetes (a fixed value per patient, small visit-to-visit steps), 5.4% otherwise | The sample gives 3.1% at every visit to a patient on insulin |
+| R1 | An HbA1c below 4.0%, or below 5.0% for a patient with diabetes, becomes about 7–9% for a patient with diabetes (a fixed value per patient, small visit-to-visit steps), 5.4% otherwise | The sample gives 3.1% or 4.0% at every visit to some patients on insulin |
 | R2 | Two medicines of one class (statin, ACE inhibitor/ARB, beta-blocker, P2Y12 inhibitor, ASA, contraceptive, NSAID, antihistamine, SNRI) or two strengths of one generic taken at once: the one started last is kept, the other ends the day before | Two statins, or lisinopril 10 mg and 40 mg, both "current" |
 | R3 | A P2Y12 inhibitor (clopidogrel, prasugrel, ticagrelor) ends 12 months after it started | Prasugrel open for ten years after a heart attack |
 | R4 | An antihistamine or short-term medicine left open since childhood is dropped | Diphenhydramine "current" since age 5 |

@@ -72,6 +72,8 @@ def sample():
         rows["observations"] += [
             dict(DATE="2026-09-01T08:00:00Z", PATIENT=pid, ENCOUNTER=E1, CATEGORY="laboratory", CODE="4548-4",
                  DESCRIPTION="Hemoglobin A1c", VALUE="3.1", UNITS="%"),
+            dict(DATE="2026-10-01T08:00:00Z", PATIENT=pid, ENCOUNTER=E1, CATEGORY="laboratory", CODE="4548-4",
+                 DESCRIPTION="Hemoglobin A1c", VALUE="4.6", UNITS="%"),
             dict(DATE="2026-09-01T08:00:00Z", PATIENT=pid, ENCOUNTER=E1, CATEGORY="laboratory", CODE="38483-4",
                  DESCRIPTION="Creatinine in Blood", VALUE="1.8", UNITS="mg/dL"),
             dict(DATE="2026-09-01T08:00:00Z", PATIENT=pid, ENCOUNTER=E1, CATEGORY="laboratory", CODE="2160-0",
@@ -157,9 +159,12 @@ class GeneratorTest(unittest.TestCase):
         self.assertGreater(gen.FIRST_NO, 3000)  # development.sql uses 1-3000
 
     def test_shouldApplyTheCleanupRules_toKnownContradictions(self):
-        self.assertIn("R1: 1 HbA1c value(s) of 3.1% -> 7.0%", self.sql)
+        # R1: 3.1% is impossible; 4.6% is far too low for this patient with diabetes. Both are replaced.
+        self.assertIn("R1: 2 HbA1c value(s) of 3.1, 4.6% -> 6.8-7.0%", self.sql)
         self.assertIn("('A1C',90001,'7','7.0'", self.sql)
+        self.assertIn("('A1C',90001,'7','6.8'", self.sql)
         self.assertNotIn("('A1C',90001,'7','3.1'", self.sql)
+        self.assertNotIn("('A1C',90001,'7','4.6'", self.sql)
         self.assertRegex(self.sql, r"R2: simvastatin 20 mg ends 2019-12-31: atorvastatin 10 mg started 2020-01-01")
         self.assertIn("R3: clopidogrel 75 mg from 2018-01-01 ends 2019-01-01", self.sql)
         self.assertIn("R5: anemia moved to past history", self.sql)
@@ -178,6 +183,13 @@ class GeneratorTest(unittest.TestCase):
     def test_shouldWriteNoKnownDrugAllergies_whenTheSampleListsNone(self):
         self.assertIn("(90001,'2026-09-01','No Known Drug Allergies'", self.sql)
         self.assertIn("'Penicillin V',0,'Hives'", self.sql)
+
+    def test_shouldUseTheAllergyFormCodes_forSeverityAndOnset(self):
+        # The allergy page reads 1 mild, 2 moderate, 3 severe, 4 unknown; "0" shows as a black cell.
+        nkda = re.search(r"\(90001,'2026-09-01','No Known Drug Allergies',0,NULL,0,'2026-09-01','(\d)','(\d)',", self.sql)
+        self.assertIsNotNone(nkda)
+        self.assertEqual(nkda.groups(), ("4", "4"))
+        self.assertEqual(re.findall(r"'Penicillin V',0,'Hives',0,'[0-9-]+','(\d)','(\d)',", self.sql), [("2", "4")])
 
     def test_shouldQuoteSqlStrings_safely(self):
         self.assertEqual(gen.q("O'Brien\\x\nnext"), "'O''Brien\\\\x\\nnext'")
