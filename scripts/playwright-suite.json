@@ -10078,7 +10078,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "An idle demo provider (no patients or activity of any kind, else SKIP) given six active patients, one inactive patient, five appointments, three encounter notes and four prescriptions carrying the marker; all deleted in cleanup and checked gone. Counts are scoped to that provider.",
-      "notes": "Verifies inclusive calendar end dates, exclusion of next-day midnight, bounded percentage precision, roster size, age/sex shares, Rx counts, and form validation (issue #4176)."
+      "notes": "Verifies inclusive calendar end dates, exclusion of next-day midnight, bounded percentage precision, roster size, age/sex shares, Rx counts, and form validation (issue #4176). The idle-provider fixture asks the Ontario bill header table (billing_on_cheader1) for invoices only where the schema has that table, so the check's own SQL runs on a BC schema; it used to fail there before the report was opened. The report counts its Billing figure from that same table on every province (UsageReport.jsp, BillingONCHeader1DaoImpl.getNumberOfDemographicsWithInvoicesForProvider), and a BC schema does not have it: on BC the Run Report step is where this check judges whether the report can be produced at all."
     },
     {
       "name": "gap-records-document-annotate-save",
