@@ -1069,6 +1069,21 @@ public class EForm extends EFormBase {
         return html;
     }
 
+    /**
+     * Whether a blank submission leaves a control's authored content alone because it carries the
+     * instance-id marker. A new form has no id yet, so the page shows the marker as an empty value
+     * and the browser posts the control blank; that is not a default the user cleared. Writing the
+     * blank over the marker would leave the saved copy with nothing for {@link #setFdid(String)}
+     * to fill in when it is reopened.
+     *
+     * @param authored String the control's value or text in the template
+     * @param submitted String the value the browser posted for the control
+     * @return boolean true when the template content must be kept
+     */
+    private boolean keepsFdidMarker(String authored, String submitted) {
+        return submitted.isBlank() && authored != null && authored.contains(fdidMarker);
+    }
+
     private StringBuilder putValueUsingDocument(String fieldName, String type, String value) {
         Element field = getDocument().selectFirst("[name=\"" + TokenQueue.escapeCssIdentifier(fieldName) + "\"]");
         if (field == null) return new StringBuilder(getFormHtml());
@@ -1076,9 +1091,11 @@ public class EForm extends EFormBase {
             case "text":
             case HIDDEN_INPUT_TYPE:
             case "date":
+                if (keepsFdidMarker(field.attr(VALUE_ATTRIBUTE), value)) break;
                 field.attr(VALUE_ATTRIBUTE, value);
                 break;
             case "textarea":
+                if (keepsFdidMarker(field.wholeText(), value)) break;
                 field.text(value);
                 break;
             case "checkbox":

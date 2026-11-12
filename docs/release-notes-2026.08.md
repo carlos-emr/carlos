@@ -212,6 +212,10 @@ counts the rows that are shown, and a list that cannot be loaded says so
 - Saving an eForm with a drop-down left blank no longer selects every option that has
   no `value` attribute. A choice made from such a drop-down is restored when the form
   is reopened, printed or faxed, and a multiple-selection list keeps every chosen option.
+- A clinic-authored eForm that puts the instance marker `${fdid}` in the value of a named
+  field (a hidden input, a text or date box, or a text area) keeps the marker when a new
+  form is saved, so the reopened form shows its own id again. The candidate saved such a
+  field empty, because a new form posts it blank. A value typed into the field is still saved.
 - Printing, faxing or attaching a form, hospital report, message or letter no longer
   falls back to a plain-text copy because the page is deeply nested, has an element
   with very many attributes or contains a very large amount of escaped text. The print
