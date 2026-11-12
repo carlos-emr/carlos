@@ -18,12 +18,13 @@ import org.springframework.mock.web.MockHttpSession;
 
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.TicklerComment;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 /** The evidence the tickler forms carry of what they were rendered from. */
 @Tag("unit")
 @Tag("tickler")
 @DisplayName("Tickler edit version and rendered list status")
-class TicklerEditVersionUnitTest {
+class TicklerEditVersionUnitTest extends CarlosUnitTestBase {
 
     private Tickler tickler;
 

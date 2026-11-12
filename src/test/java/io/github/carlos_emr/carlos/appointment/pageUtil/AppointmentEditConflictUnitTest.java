@@ -23,12 +23,13 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 /** The stale-form comparison the group page runs under its own transaction, and the refusal it answers with. */
 @Tag("unit")
 @Tag("appointment")
 @DisplayName("AppointmentEditConflict")
-class AppointmentEditConflictUnitTest {
+class AppointmentEditConflictUnitTest extends CarlosUnitTestBase {
 
     private final OscarAppointmentDao appointments = mock(OscarAppointmentDao.class);
     private MockHttpServletRequest request;

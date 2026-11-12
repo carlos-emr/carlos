@@ -33,13 +33,14 @@ import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.managers.AppointmentUpdateException;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 /** The repeat page carries the Edit Appointment form's version; a stale form must not rewrite the series. */
 @Tag("unit")
 @Tag("appointment")
 @DisplayName("RecurringAppointmentService: stale edit form")
-class RecurringAppointmentServiceStaleFormUnitTest {
+class RecurringAppointmentServiceStaleFormUnitTest extends CarlosUnitTestBase {
 
     private final OscarAppointmentDao appointments = mock(OscarAppointmentDao.class);
     private final AppointmentArchiveDao archives = mock(AppointmentArchiveDao.class);
