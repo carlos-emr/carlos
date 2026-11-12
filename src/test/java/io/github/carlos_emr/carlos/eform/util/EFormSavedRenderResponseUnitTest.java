@@ -9,6 +9,8 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import static io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService.Operation.DOWNLOAD;
@@ -113,9 +115,9 @@ class EFormSavedRenderResponseUnitTest {
     }
 
     @Test
-    void shouldGiveTheAddToDocumentsMessage_inTheViewersLanguage() {
+    void shouldGiveTheAddToDocumentsMessageInFrench_whenTheBrowserPrefersFrench() {
         request.addHeader("Accept-Language", "fr-CA");
-        request.setPreferredLocales(java.util.List.of(java.util.Locale.CANADA_FRENCH));
+        request.setPreferredLocales(List.of(Locale.CANADA_FRENCH));
         EFormSavedRenderResponse.missing(request, service, user,
                 new EformContentUnavailableException("incomplete", 42, report), 42, "123", "7", EDOC, null, false);
         // eform.renderMissingContent.msgNotAddedToDocuments in oscarResources_fr.
